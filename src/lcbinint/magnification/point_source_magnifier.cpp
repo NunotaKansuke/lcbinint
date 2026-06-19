@@ -109,25 +109,72 @@ PointSourceResult PointSourceMagnifier::binary_mag0(
     double mass_ratio,
     SourcePosition source) const
 {
+    const auto images = binary_images(separation, mass_ratio, source);
+    double magnification = 0.0;
+    for (const auto& image : images) {
+        magnification += 1.0 / std::abs(image.jacobian_determinant);
+    }
+    return {magnification, static_cast<int>(images.size())};
+}
+
+std::vector<BinaryImage> PointSourceMagnifier::binary_images(
+    double separation,
+    double mass_ratio,
+    SourcePosition source) const
+{
+    const auto candidates = binary_image_candidates(separation, mass_ratio, source);
+    std::vector<BinaryImage> images;
+    images.reserve(candidates.size());
+    for (const auto& candidate : candidates) {
+        if (candidate.physical) {
+            images.push_back({candidate.position, candidate.jacobian_determinant});
+        }
+    }
+    return images;
+}
+
+std::vector<BinaryImageCandidate> PointSourceMagnifier::binary_image_candidates(
+    double separation,
+    double mass_ratio,
+    SourcePosition source) const
+{
     if (separation == 0.0 || mass_ratio <= 0.0) {
-        return {std::numeric_limits<double>::quiet_NaN(), 0};
+        return {};
     }
 
     const BinaryGeometry geometry = make_vbm_geometry(separation, mass_ratio, source);
     math::PolynomialRootSolver solver;
     const auto root_result = solver.solve(binary_polynomial_coefficients(geometry));
     if (root_result.status != math::RootSolverStatus::ok) {
-        return {std::numeric_limits<double>::quiet_NaN(), 0};
+        return {};
     }
 
     const auto candidates = sorted_candidates(geometry, root_result.roots);
-    const int count = physical_image_count(candidates);
-    double magnification = 0.0;
-    for (int i = 0; i < count; ++i) {
-        const double determinant = jacobian_determinant(geometry, candidates[static_cast<std::size_t>(i)].z);
-        magnification += 1.0 / std::abs(determinant);
+    const int physical_count = physical_image_count(candidates);
+    std::vector<BinaryImageCandidate> images;
+    images.reserve(candidates.size());
+    for (std::size_t i = 0; i < candidates.size(); ++i) {
+        const Complex z = candidates[i].z;
+        images.push_back({{z.real(), z.imag()},
+            jacobian_determinant(geometry, z),
+            candidates[i].residual,
+            static_cast<int>(i) < physical_count});
     }
-    return {magnification, count};
+    return images;
+}
+
+SourcePosition PointSourceMagnifier::binary_lens_equation(
+    double separation,
+    double mass_ratio,
+    SourcePosition image) const
+{
+    const BinaryGeometry geometry = make_vbm_geometry(separation, mass_ratio, {0.0, 0.0});
+    const Complex z(image.x, image.y);
+    const Complex zc = std::conj(z);
+    const Complex shifted_source =
+        z - geometry.m1 / (zc - geometry.separation) - geometry.m2 / zc;
+    const Complex source = shifted_source - geometry.separation * geometry.m1;
+    return {source.real(), source.imag()};
 }
 
 } // namespace lcbinint::magnification

@@ -13,14 +13,22 @@ typedef enum lcbi_status {
 } lcbi_status;
 
 typedef enum lcbi_finite_source_mode {
-    LCBI_POINT_SOURCE = 0,
-    LCBI_FINITE_INTEGRAL = 1,
-    LCBI_SINGLE_LENS_FINITE = 2,
-    LCBI_INVERSE_RAY_SLOW = 3,
-    LCBI_INVERSE_RAY_FAST = 4,
-    LCBI_INVERSE_RAY_POLAR = 5,
-    LCBI_INVERSE_RAY_POLAR_MEMORY = 6
+    LCBI_SOURCE_AUTO = 0,
+    LCBI_POINT_SOURCE = 1,
+    LCBI_SOURCE_LEGACY = 2
 } lcbi_finite_source_mode;
+
+typedef enum lcbi_inverse_ray_method {
+    LCBI_INVERSE_RAY_AUTO = 0,
+    LCBI_INVERSE_RAY_CARTESIAN = 1,
+    LCBI_INVERSE_RAY_POLAR = 2
+} lcbi_inverse_ray_method;
+
+typedef enum lcbi_orbital_motion_mode {
+    LCBI_ORBIT_STATIC = 0,
+    LCBI_ORBIT_CIRCULAR = 1,
+    LCBI_ORBIT_KEPLER = 2
+} lcbi_orbital_motion_mode;
 
 typedef struct lcbi_params {
     double t0;
@@ -53,18 +61,29 @@ typedef struct lcbi_params {
     double tfix;
     double limb_darkening_c;
     double limb_darkening_d;
+
+    lcbi_orbital_motion_mode orbital_motion_mode;
+    double g1;
+    double g2;
+    double g3;
+    double lom_szs;
+    double lom_ar;
 } lcbi_params;
 
 typedef struct lcbi_options {
     lcbi_finite_source_mode finite_source_mode;
+    lcbi_inverse_ray_method inverse_ray_method;
     int parallax_mode;
     int orbit_pair;
     int center_of_mass;
     int caustic_bins;
     int source_bins;
+    int legacy_finite_mode;
     double grid_ratio;
-    double finite_source_threshold;
-    double hexadecapole_threshold;
+    double legacy_kinji;
+    double legacy_hex;
+    double tolerance;
+    double relative_tolerance;
 } lcbi_options;
 
 typedef struct lcbi_result {

@@ -6,7 +6,8 @@ namespace lcbinint::model {
 
 bool LensParameters::is_valid() const
 {
-    return std::isfinite(tE) && tE != 0.0 && std::isfinite(q) && std::isfinite(sep);
+    return std::isfinite(tE) && tE != 0.0 && std::isfinite(q) && std::isfinite(sep) &&
+           orbital_motion_mode >= LCBI_ORBIT_STATIC && orbital_motion_mode <= LCBI_ORBIT_KEPLER;
 }
 
 LensParameters from_c_params(const lcbi_params &params)
@@ -39,6 +40,12 @@ LensParameters from_c_params(const lcbi_params &params)
     out.tfix = params.tfix;
     out.limb_darkening_c = params.limb_darkening_c;
     out.limb_darkening_d = params.limb_darkening_d;
+    out.orbital_motion_mode = params.orbital_motion_mode;
+    out.g1 = params.g1;
+    out.g2 = params.g2;
+    out.g3 = params.g3;
+    out.lom_szs = params.lom_szs;
+    out.lom_ar = params.lom_ar;
     return out;
 }
 
@@ -49,14 +56,18 @@ ComputationOptions from_c_options(const lcbi_options *options)
         return out;
     }
     out.finite_source_mode = options->finite_source_mode;
+    out.inverse_ray_method = options->inverse_ray_method;
     out.parallax_mode = options->parallax_mode;
     out.orbit_pair = options->orbit_pair;
     out.center_of_mass = options->center_of_mass;
     out.caustic_bins = options->caustic_bins;
     out.source_bins = options->source_bins;
+    out.legacy_finite_mode = options->legacy_finite_mode;
     out.grid_ratio = options->grid_ratio;
-    out.finite_source_threshold = options->finite_source_threshold;
-    out.hexadecapole_threshold = options->hexadecapole_threshold;
+    out.legacy_kinji = options->legacy_kinji;
+    out.legacy_hex = options->legacy_hex;
+    out.tolerance = options->tolerance;
+    out.relative_tolerance = options->relative_tolerance;
     return out;
 }
 
