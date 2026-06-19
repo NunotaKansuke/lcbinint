@@ -18,12 +18,24 @@ The implementation can use C++ internally.
 The corresponding Python API should look roughly like:
 
 ```python
-from lcbinint import LensModel, LensParams
+from lcbinint import LensModel, LensParams, Options
 
-params = LensParams(t0=0, tE=20, umin=0.1, q=0.2, sep=1.1, theta=0.0)
-model = LensModel(params)
-amp = model.magnification([2450000.1, 2450001.1])
+params = LensParams()
+params.t0 = 0
+params.tE = 20
+params.umin = 0.1
+params.q = 0.2
+params.sep = 1.1
+params.theta = 0.0
+options = Options()
+options.center_of_mass = 1
+model = LensModel(params, options)
+amp = model.magnifications([2450000.1, 2450001.1])
 ```
+
+Current binding note: `LensParams()` and `Options()` are default-constructed
+objects with mutable fields rather than keyword-style constructors. Keyword
+construction can be added after the stable parameter set is clear.
 
 Triple-lens support should not be a separate model class. It should be enabled
 by `q2 > 0` with `sep2` and `ang` set.

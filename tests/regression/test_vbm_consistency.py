@@ -28,6 +28,23 @@ def _lcbinint_binary_mag0(separation, mass_ratio, y1, y2):
     )
 
 
+def _lcbinint_lens_model_mag0(separation, mass_ratio, y1, y2):
+    lcbinint = pytest.importorskip("lcbinint")
+
+    params = lcbinint.LensParams()
+    params.t0 = 0.0
+    params.tE = 1.0
+    params.umin = y2
+    params.theta = 0.0
+    params.q = mass_ratio
+    params.sep = separation
+
+    options = lcbinint.Options()
+    options.center_of_mass = 1
+
+    return lcbinint.LensModel(params, options).magnification(y1)
+
+
 @pytest.mark.parametrize("separation,mass_ratio,y1,y2,expected", BINARY_POINT_CASES)
 def test_vbm_binary_reference_values_are_stable(
     separation, mass_ratio, y1, y2, expected
@@ -46,6 +63,19 @@ def test_lcbinint_binary_point_source_matches_vbm(
 
     reference = _vbm_binary_mag0(separation, mass_ratio, y1, y2)
     actual = _lcbinint_binary_mag0(separation, mass_ratio, y1, y2)
+
+    assert math.isfinite(actual)
+    assert math.isclose(actual, reference, rel_tol=1.0e-10, abs_tol=1.0e-11)
+
+
+@pytest.mark.parametrize("separation,mass_ratio,y1,y2,expected", BINARY_POINT_CASES)
+def test_lcbinint_lens_model_binary_point_source_matches_vbm(
+    separation, mass_ratio, y1, y2, expected
+):
+    del expected
+
+    reference = _vbm_binary_mag0(separation, mass_ratio, y1, y2)
+    actual = _lcbinint_lens_model_mag0(separation, mass_ratio, y1, y2)
 
     assert math.isfinite(actual)
     assert math.isclose(actual, reference, rel_tol=1.0e-10, abs_tol=1.0e-11)

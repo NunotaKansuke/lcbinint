@@ -3,6 +3,8 @@
 #include "lcbinint/model/lens_model.hpp"
 #include "lcbinint/model/lens_parameters.hpp"
 
+#include <cmath>
+
 namespace {
 
 void copy_result(const lcbinint::MagnificationResult &from, lcbi_result &to)
@@ -60,7 +62,10 @@ lcbi_status lcbi_magnification(
     const auto cpp_options = lcbinint::model::from_c_options(options);
     const lcbinint::model::LensModel model(cpp_params, cpp_options);
     copy_result(model.magnification(time), *result);
-    return LCBI_UNSUPPORTED;
+    if (!std::isfinite(result->magnification)) {
+        return LCBI_UNSUPPORTED;
+    }
+    return LCBI_OK;
 }
 
 lcbi_status lcbi_magnification_array(
