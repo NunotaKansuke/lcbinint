@@ -7,6 +7,7 @@
 #include <cmath>
 #include <limits>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 namespace lcbinint::magnification {
@@ -17,7 +18,8 @@ constexpr double kSqrtHalf = 0.70710678118654752440;
 constexpr double kPi = 3.14159265358979323846;
 constexpr int kMaxRefinementLevels = 3;
 constexpr int kHexadecapoleEvaluations = 13;
-constexpr int kLimbDarkeningTableSize = 4096;
+constexpr int kLimbDarkeningTableSize = 5000;
+constexpr int kLegacyIndexOffset = 2000000;
 
 struct QuadrupoleSafety {
     double error_estimate = 0.0;
@@ -574,6 +576,27 @@ struct PolarMapCacheView {
     double dr = 1.0;
 };
 
+struct LegacyImageAreaScratch {
+    std::vector<double> xmin;
+    std::vector<double> xmax;
+    std::vector<double> ax;
+    std::vector<double> y;
+    std::vector<double> dys;
+    std::unordered_map<int, std::vector<int>> row_indices;
+
+    void ensure(std::size_t index)
+    {
+        if (xmin.size() <= index) {
+            const std::size_t size = index + 1;
+            xmin.resize(size);
+            xmax.resize(size);
+            ax.resize(size);
+            y.resize(size);
+            dys.resize(size);
+        }
+    }
+};
+
 double wrap_angle(double angle)
 {
     while (angle < 0.0) {
@@ -657,7 +680,7 @@ double trace_polar_boundary_rows(
                     max_r = radius - direction;
                 }
                 const double brightness =
-                    uniform_source ? 1.0 : finite_magnifier->limb_darkening_table_brightness(
+                    uniform_source ? 1.0 : finite_magnifier->legacy_limb_darkening_table_brightness(
                                                dz2 / source_radius2);
                 count += brightness * radius;
             } else if (direction > 0.0) {
@@ -719,10 +742,20 @@ double inverse_ray_polar_boundary_binary(
     double source_radius,
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
-    const PolarMapCacheView* map_cache = nullptr)
+    const PolarMapCacheView* map_cache = nullptr,
+    const std::vector<SourcePosition>* seed_positions = nullptr)
 {
-    const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
-    if (images.empty()) {
+    std::vector<SourcePosition> image_positions;
+    if (seed_positions != nullptr) {
+        image_positions = *seed_positions;
+    } else {
+        const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
+        image_positions.reserve(images.size());
+        for (const auto& image : images) {
+            image_positions.push_back(image.position);
+        }
+    }
+    if (image_positions.empty()) {
         return std::nan("");
     }
 
@@ -735,16 +768,16 @@ double inverse_ray_polar_boundary_binary(
         return std::nan("");
     }
 
-    std::vector<double> image_area_counts(images.size(), 0.0);
-    std::vector<bool> skip(images.size(), false);
+    std::vector<double> image_area_counts(image_positions.size(), 0.0);
+    std::vector<bool> skip(image_positions.size(), false);
     double total_count = 0.0;
-    for (std::size_t i = 0; i < images.size(); ++i) {
+    for (std::size_t i = 0; i < image_positions.size(); ++i) {
         if (skip[i]) {
             continue;
         }
 
-        const double image_radius_value = std::hypot(images[i].position.x, images[i].position.y);
-        double image_phi = wrap_angle(std::atan2(images[i].position.y, images[i].position.x));
+        const double image_radius_value = std::hypot(image_positions[i].x, image_positions[i].y);
+        double image_phi = wrap_angle(std::atan2(image_positions[i].y, image_positions[i].x));
         const double grid_radius = std::floor(image_radius_value / dr) * dr + 0.5 * dr;
         image_phi = std::floor(image_phi / dphi) * dphi + 0.5 * dphi;
 
@@ -763,12 +796,12 @@ double inverse_ray_polar_boundary_binary(
         total_count += count;
         image_area_counts[i] = count;
 
-        for (std::size_t j = 0; j < images.size(); ++j) {
+        for (std::size_t j = 0; j < image_positions.size(); ++j) {
             if (j == i) {
                 continue;
             }
-            const double other_radius = std::hypot(images[j].position.x, images[j].position.y);
-            const double other_phi = wrap_angle(std::atan2(images[j].position.y, images[j].position.x));
+            const double other_radius = std::hypot(image_positions[j].x, image_positions[j].y);
+            const double other_phi = wrap_angle(std::atan2(image_positions[j].y, image_positions[j].x));
             const double other_grid_radius = std::floor(other_radius / dr) * dr;
             const double other_grid_phi = std::floor(other_phi / dphi) * dphi;
             for (const auto& row : scratch.rows) {
@@ -791,6 +824,470 @@ double inverse_ray_polar_boundary_binary(
 
     const double image_flux = total_count * dr * dphi;
     return image_flux / total_source_flux;
+}
+
+double legacy_limb_brightness(
+    double normalized_radius2,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier)
+{
+    if (settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0) {
+        return 1.0;
+    }
+    return finite_magnifier != nullptr ?
+        finite_magnifier->legacy_limb_darkening_table_brightness(normalized_radius2) :
+        source_surface_brightness(normalized_radius2, settings);
+}
+
+std::vector<SourcePosition> legacy_residual_selected_images(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source);
+
+std::vector<SourcePosition> critical_sources_at_phase(
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    double phase_angle)
+{
+    math::PolynomialRootSolver solver;
+    const auto root_result = solver.solve(critical_curve_polynomial_coefficients(
+        separation, mass_ratio, std::polar(1.0, phase_angle)));
+    if (root_result.status != math::RootSolverStatus::ok) {
+        return {};
+    }
+
+    std::vector<SourcePosition> sources;
+    sources.reserve(root_result.roots.size());
+    for (const auto& root : root_result.roots) {
+        sources.push_back(map_binary_lens_real(mapper, root.real(), root.imag()));
+    }
+    return sources;
+}
+
+double nearest_critical_source_distance2(
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double phase_angle,
+    SourcePosition* nearest_source)
+{
+    double best = std::numeric_limits<double>::infinity();
+    const auto critical_sources =
+        critical_sources_at_phase(mapper, separation, mass_ratio, phase_angle);
+    for (const auto& critical_source : critical_sources) {
+        const double distance2 = distance_squared(critical_source, source);
+        if (distance2 < best) {
+            best = distance2;
+            if (nearest_source != nullptr) {
+                *nearest_source = critical_source;
+            }
+        }
+    }
+    return best;
+}
+
+SourcePosition refine_nearest_critical_source(
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double center_phase,
+    double phase_step)
+{
+    double left = center_phase - phase_step;
+    double right = center_phase + phase_step;
+    constexpr double golden = 0.61803398874989484820;
+    double x1 = right - golden * (right - left);
+    double x2 = left + golden * (right - left);
+    SourcePosition nearest1;
+    SourcePosition nearest2;
+    double f1 = nearest_critical_source_distance2(
+        mapper, separation, mass_ratio, source, x1, &nearest1);
+    double f2 = nearest_critical_source_distance2(
+        mapper, separation, mass_ratio, source, x2, &nearest2);
+
+    for (int iter = 0; iter < 32; ++iter) {
+        if (f1 > f2) {
+            left = x1;
+            x1 = x2;
+            f1 = f2;
+            nearest1 = nearest2;
+            x2 = left + golden * (right - left);
+            f2 = nearest_critical_source_distance2(
+                mapper, separation, mass_ratio, source, x2, &nearest2);
+        } else {
+            right = x2;
+            x2 = x1;
+            f2 = f1;
+            nearest2 = nearest1;
+            x1 = right - golden * (right - left);
+            f1 = nearest_critical_source_distance2(
+                mapper, separation, mass_ratio, source, x1, &nearest1);
+        }
+    }
+
+    return f1 < f2 ? nearest1 : nearest2;
+}
+
+std::vector<SourcePosition> legacy_augmented_image_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius)
+{
+    std::vector<SourcePosition> seeds;
+    const auto point_images = point_magnifier.binary_images(separation, mass_ratio, source);
+    seeds.reserve(5);
+    for (const auto& image : point_images) {
+        seeds.push_back(image.position);
+    }
+    if (seeds.size() >= 5 || source_radius <= 0.0) {
+        return seeds;
+    }
+
+    const double source_radius2 = source_radius * source_radius;
+    const int samples = 1400;
+    const double phase_step = 2.0 * kPi / static_cast<double>(samples);
+    double best_distance2 = std::numeric_limits<double>::infinity();
+    double best_phase = 0.0;
+    constexpr int nskip = 40;
+    for (int kphi = 0; kphi < nskip && seeds.size() < 5; ++kphi) {
+        for (int jphi = 0; jphi < samples / nskip && seeds.size() < 5; ++jphi) {
+            const int sample = jphi * nskip + kphi;
+            const double phi = phase_step * static_cast<double>(sample);
+            const auto critical_sources =
+                critical_sources_at_phase(mapper, separation, mass_ratio, phi);
+            for (const auto& critical_source : critical_sources) {
+                const double distance2 = distance_squared(critical_source, source);
+                if (distance2 < best_distance2) {
+                    best_distance2 = distance2;
+                    best_phase = phi;
+                }
+                if (distance2 >= source_radius2 || distance2 <= 0.0) {
+                    continue;
+                }
+                const double distance = std::sqrt(distance2);
+                const double fraction = (source_radius - distance) / distance * 0.01;
+                const SourcePosition probe_source {
+                    critical_source.x + (critical_source.x - source.x) * fraction,
+                    critical_source.y + (critical_source.y - source.y) * fraction,
+                };
+                const auto probe_images = legacy_residual_selected_images(
+                    point_magnifier, separation, mass_ratio, probe_source);
+                if (probe_images.size() <= seeds.size()) {
+                    continue;
+                }
+                seeds.clear();
+                seeds.reserve(probe_images.size());
+                for (const auto& image : probe_images) {
+                    seeds.push_back(image);
+                }
+                if (seeds.size() >= 5) {
+                    break;
+                }
+            }
+            if (seeds.size() >= 5) {
+                break;
+            }
+        }
+    }
+    if (seeds.size() < 5 && best_distance2 < source_radius2 && best_distance2 > 0.0) {
+        const SourcePosition critical_source = refine_nearest_critical_source(
+            mapper, separation, mass_ratio, source, best_phase, phase_step);
+        const double distance = std::sqrt(distance_squared(critical_source, source));
+        if (distance < source_radius && distance > 0.0) {
+            const double fraction = (source_radius - distance) / distance * 0.01;
+            const SourcePosition probe_source {
+                critical_source.x + (critical_source.x - source.x) * fraction,
+                critical_source.y + (critical_source.y - source.y) * fraction,
+            };
+            const auto probe_images = legacy_residual_selected_images(
+                point_magnifier, separation, mass_ratio, probe_source);
+            if (probe_images.size() > seeds.size()) {
+                seeds = probe_images;
+            }
+        }
+    }
+    return seeds;
+}
+
+std::vector<SourcePosition> legacy_residual_selected_images(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source)
+{
+    std::vector<SourcePosition> images;
+    const auto candidates =
+        point_magnifier.binary_image_candidates(separation, mass_ratio, source);
+    images.reserve(candidates.size());
+    for (const auto& candidate : candidates) {
+        if (candidate.residual * candidate.residual < 1.0e-12) {
+            images.push_back(candidate.position);
+        }
+    }
+    return images;
+}
+
+double legacy_imagearea0_binary(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    SourcePosition seed,
+    double dy,
+    int& yi,
+    LegacyImageAreaScratch& scratch)
+{
+    double countx = 0.0;
+    double countall = 0.0;
+    double dz2 = 99999999.9;
+    const double incr = std::abs(dy);
+    const double inv_incr = 1.0 / incr;
+    double dx = incr;
+    SourcePosition image = seed;
+    double x0 = seed.x;
+    const double source_radius2 = source_radius * source_radius;
+    const double inv_source_radius2 = 1.0 / source_radius2;
+    int guard = 0;
+    const int max_steps = std::max(100000, settings.source_bins * settings.source_bins * 2000);
+
+    while (++guard < max_steps) {
+        const double dz2_last = dz2;
+        const double mapped_distance2 =
+            mapped_binary_lens_distance2(mapper, image.x, image.y, source);
+        dz2 = mapped_distance2;
+
+        scratch.ensure(static_cast<std::size_t>(yi));
+        if (mapped_distance2 <= source_radius2) {
+            if (dx == -incr && countx == 0.0) {
+                scratch.xmax[static_cast<std::size_t>(yi)] = image.x - dx;
+            }
+            const double normalized_radius2 = mapped_distance2 * inv_source_radius2;
+            countx += legacy_limb_brightness(normalized_radius2, settings, finite_magnifier);
+        } else {
+            if (dx == incr) {
+                if (dz2_last <= source_radius2) {
+                    scratch.xmax[static_cast<std::size_t>(yi)] = image.x;
+                }
+                dx = -incr;
+                image.x = x0;
+                scratch.xmin[static_cast<std::size_t>(yi)] = image.x + dx;
+            } else {
+                if (dz2_last <= source_radius2) {
+                    scratch.xmin[static_cast<std::size_t>(yi)] = image.x;
+                }
+                if (yi != 0 && countx == 0.0) {
+                    scratch.ensure(static_cast<std::size_t>(yi - 1));
+                    if (image.x >= scratch.xmin[static_cast<std::size_t>(yi - 1)] - dx) {
+                        image.x += dx;
+                        continue;
+                    }
+                }
+
+                countall += countx;
+                scratch.ax[static_cast<std::size_t>(yi)] = countx;
+                scratch.y[static_cast<std::size_t>(yi)] = image.y;
+                scratch.dys[static_cast<std::size_t>(yi)] = dy;
+                if (countx == 0.0) {
+                    scratch.dys[static_cast<std::size_t>(yi)] = -dy;
+                    break;
+                }
+
+                const int row_key = static_cast<int>(image.y * inv_incr + kLegacyIndexOffset);
+                auto& row_indices = scratch.row_indices[row_key];
+                for (const int index : row_indices) {
+                    const auto existing = static_cast<std::size_t>(index);
+                    if (scratch.xmin[static_cast<std::size_t>(yi)] + incr < scratch.xmax[existing] &&
+                        scratch.xmax[static_cast<std::size_t>(yi)] - incr > scratch.xmin[existing]) {
+                        return countall - countx;
+                    }
+                }
+                row_indices.push_back(yi);
+
+                ++yi;
+                scratch.ensure(static_cast<std::size_t>(yi));
+                dx = incr;
+                x0 = scratch.xmax[static_cast<std::size_t>(yi - 1)];
+                image.x = x0 - dx;
+                image.y += dy;
+                countx = 0.0;
+            }
+        }
+        image.x += dx;
+    }
+
+    return countall;
+}
+
+double legacy_imagearea4_binary(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    const std::vector<SourcePosition>* precomputed_seeds = nullptr)
+{
+    if ((settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0) &&
+        finite_magnifier != nullptr) {
+        finite_magnifier->ensure_limb_darkening_table();
+    }
+
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    const auto computed_images = precomputed_seeds == nullptr ?
+        legacy_augmented_image_seeds(point_magnifier, mapper, separation, mass_ratio, source, source_radius) :
+        std::vector<SourcePosition> {};
+    const auto& images = precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
+    if (images.empty() || source_radius <= 0.0) {
+        return std::nan("");
+    }
+    const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
+    const double incr = source_radius / nbin;
+    const double incr2_margin = 0.5 * incr * 1.01;
+
+    double area = 0.0;
+    std::vector<double> areaimage(images.size(), 0.0);
+    std::vector<int> overlap(images.size(), 0);
+
+    for (std::size_t image_index = 0; image_index < images.size(); ++image_index) {
+        if (overlap[image_index] == 1) {
+            continue;
+        }
+
+        LegacyImageAreaScratch scratch;
+        scratch.ensure(1);
+        double area0 = 0.0;
+        double areai = 0.0;
+        double dy = incr;
+        int yi = 0;
+
+        const SourcePosition seed = images[image_index];
+        scratch.xmin[0] = seed.x;
+        scratch.xmax[0] = seed.x;
+        areai = legacy_imagearea0_binary(
+            mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch);
+
+        dy = -incr;
+        scratch.ensure(static_cast<std::size_t>(yi));
+        const SourcePosition lower_seed {scratch.xmax[0], seed.y + dy};
+        scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[0];
+        scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmax[0];
+        scratch.y[static_cast<std::size_t>(yi)] = scratch.y[0];
+        scratch.dys[static_cast<std::size_t>(yi)] = dy;
+        ++yi;
+        areai += legacy_imagearea0_binary(
+            mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch);
+
+        int nyi = yi;
+        double areabound = 0.0;
+        for (int row = 0; row < nyi; ++row) {
+            scratch.ensure(static_cast<std::size_t>(row + 1));
+            const double dxmax =
+                scratch.xmax[static_cast<std::size_t>(row + 1)] -
+                scratch.xmax[static_cast<std::size_t>(row)];
+            const double dxmin =
+                scratch.xmin[static_cast<std::size_t>(row + 1)] -
+                scratch.xmin[static_cast<std::size_t>(row)];
+            if (scratch.ax[static_cast<std::size_t>(row + 1)] > 0.0) {
+                if (dxmax > 1.1 * incr) {
+                    const SourcePosition extra_seed {
+                        scratch.xmax[static_cast<std::size_t>(row + 1)],
+                        scratch.y[static_cast<std::size_t>(row)]};
+                    scratch.ensure(static_cast<std::size_t>(yi));
+                    scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row)];
+                    scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row + 1)];
+                    dy = -scratch.dys[static_cast<std::size_t>(row)];
+                    scratch.dys[static_cast<std::size_t>(yi)] = dy;
+                    ++yi;
+                    area0 = legacy_imagearea0_binary(
+                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy, yi, scratch);
+                    areai += area0;
+                    areabound += area0;
+                    if (area0 <= 0.0) {
+                        --yi;
+                    }
+                }
+                if (dxmin > 1.1 * incr) {
+                    const SourcePosition extra_seed {
+                        scratch.xmin[static_cast<std::size_t>(row + 1)] - incr,
+                        scratch.y[static_cast<std::size_t>(row + 1)]};
+                    scratch.ensure(static_cast<std::size_t>(yi));
+                    scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row)];
+                    scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row + 1)];
+                    dy = scratch.dys[static_cast<std::size_t>(row)];
+                    scratch.dys[static_cast<std::size_t>(yi)] = dy;
+                    ++yi;
+                    area0 = legacy_imagearea0_binary(
+                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy, yi, scratch);
+                    areai += area0;
+                    areabound += area0;
+                    if (area0 <= 0.0) {
+                        --yi;
+                    }
+                }
+                if (dxmin < -1.1 * incr) {
+                    const SourcePosition extra_seed {
+                        scratch.xmin[static_cast<std::size_t>(row)] - incr,
+                        scratch.y[static_cast<std::size_t>(row)]};
+                    scratch.ensure(static_cast<std::size_t>(yi));
+                    scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row + 1)];
+                    scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row)];
+                    dy = -scratch.dys[static_cast<std::size_t>(row)];
+                    scratch.dys[static_cast<std::size_t>(yi)] = dy;
+                    ++yi;
+                    area0 = legacy_imagearea0_binary(
+                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy, yi, scratch);
+                    areai += area0;
+                    areabound += area0;
+                    if (area0 <= 0.0) {
+                        --yi;
+                    }
+                }
+            }
+            if (row == nyi - 1 && areabound > 0.0 && yi > nyi) {
+                nyi = yi;
+            }
+        }
+
+        area += areai;
+        areaimage[image_index] = areai;
+
+        for (std::size_t other = 0; other < images.size(); ++other) {
+            if (other == image_index) {
+                continue;
+            }
+            const auto& position = images[other];
+            for (int row = 0; row < nyi; ++row) {
+                const auto row_index = static_cast<std::size_t>(row);
+                if (scratch.ax[row_index] <= 0.0) {
+                    continue;
+                }
+                if (position.y >= scratch.y[row_index] - incr2_margin &&
+                    position.y <= scratch.y[row_index] + incr2_margin &&
+                    position.x >= scratch.xmin[row_index] - incr2_margin &&
+                    position.x <= scratch.xmax[row_index] + incr2_margin) {
+                    if (other < image_index) {
+                        area -= areaimage[other];
+                    } else {
+                        overlap[other] = 1;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    const double scale =
+        source_flux(source_radius, settings) / (source_radius * source_radius) * nbin * nbin;
+    return area / scale;
 }
 
 double inverse_ray_binary(
@@ -873,12 +1370,26 @@ FiniteSourceResult fixed_inverse_ray_binary(
     FiniteSourceDecision decision)
 {
     const int bins = std::max(settings.source_bins, 1);
-    const double magnification =
-        decision.method == FiniteSourceMethod::inverse_ray_polar ?
-            inverse_ray_polar_boundary_binary(
-                point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier) :
-            inverse_ray_binary(
-                point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier, decision.method, bins);
+    double magnification = std::nan("");
+    if (decision.method == FiniteSourceMethod::inverse_ray_polar) {
+        if (settings.legacy_mode) {
+            const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+            const auto seeds = legacy_augmented_image_seeds(
+                point_magnifier, mapper, separation, mass_ratio, source, source_radius);
+            magnification = inverse_ray_polar_boundary_binary(
+                point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier, nullptr, &seeds);
+        } else {
+            magnification = inverse_ray_polar_boundary_binary(
+                point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier);
+        }
+    } else if (decision.method == FiniteSourceMethod::inverse_ray_cartesian && settings.legacy_mode &&
+               settings.legacy_finite_mode == 4) {
+        magnification = legacy_imagearea4_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier);
+    } else {
+        magnification = inverse_ray_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier, decision.method, bins);
+    }
     if (!std::isfinite(magnification)) {
         return {magnification, 0, decision, std::nan(""), 0, false};
     }
@@ -926,6 +1437,15 @@ double FiniteSourceMagnifier::limb_darkening_table_brightness(double normalized_
     const double left = limb_darkening_table_[static_cast<std::size_t>(lower)];
     const double right = limb_darkening_table_[static_cast<std::size_t>(lower + 1)];
     return left + fraction * (right - left);
+}
+
+double FiniteSourceMagnifier::legacy_limb_darkening_table_brightness(double normalized_radius2) const
+{
+    const double bounded = std::clamp(normalized_radius2, 0.0, 1.0);
+    const int index = std::min(
+        static_cast<int>(bounded * static_cast<double>(kLimbDarkeningTableSize)),
+        kLimbDarkeningTableSize);
+    return limb_darkening_table_[static_cast<std::size_t>(index)];
 }
 
 void FiniteSourceMagnifier::ensure_legacy_caustic_cache(double separation, double mass_ratio) const
@@ -1124,15 +1644,36 @@ FiniteSourceResult FiniteSourceMagnifier::legacy_polar_memory_binary_mag(
     double separation,
     double mass_ratio,
     SourcePosition source,
-    double source_radius) const
+    double source_radius,
+    double caustic_distance) const
 {
-    ensure_legacy_polar_map_cache(separation, mass_ratio, source_radius);
     const PointSourceMagnifier point_magnifier;
     FiniteSourceDecision decision {
         FiniteSourceMethod::inverse_ray_polar,
         estimate_polar_cost(settings_),
         "legacy smode=6 selected cached polar inverse-ray",
     };
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    const auto seeds = legacy_augmented_image_seeds(
+        point_magnifier, mapper, separation, mass_ratio, source, source_radius);
+    const auto point_images = point_magnifier.binary_images(separation, mass_ratio, source);
+    const double sampled_caustic_distance = legacy_binary_sampled_caustic_distance(
+        separation, mass_ratio, source, source_radius);
+    const double polar_fallback_distance =
+        std::max(settings_.legacy_hex, 1.0) * source_radius;
+    if (seeds.size() > point_images.size() ||
+        (std::isfinite(sampled_caustic_distance) && sampled_caustic_distance < polar_fallback_distance) ||
+        (std::isfinite(caustic_distance) && caustic_distance < polar_fallback_distance)) {
+        const double magnification = legacy_imagearea4_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, &seeds);
+        decision.method = FiniteSourceMethod::inverse_ray_cartesian;
+        decision.reason = "legacy smode=6 used cartesian fallback for caustic-crossing seed set";
+        if (!std::isfinite(magnification)) {
+            return {magnification, 0, decision, std::nan(""), 0, false};
+        }
+        return {magnification, 0, decision, 0.0, 0, true};
+    }
+    ensure_legacy_polar_map_cache(separation, mass_ratio, source_radius);
     const PolarMapCacheView cache_view {
         &polar_map_cache_,
         &polar_map_cache_radial_offsets_,
@@ -1141,7 +1682,7 @@ FiniteSourceResult FiniteSourceMagnifier::legacy_polar_memory_binary_mag(
         polar_map_cache_dr_,
     };
     const double magnification = inverse_ray_polar_boundary_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, &cache_view);
+        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, &cache_view, &seeds);
     if (!std::isfinite(magnification)) {
         return {magnification, 0, decision, std::nan(""), 0, false};
     }
@@ -1275,7 +1816,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         auto decision = choose_binary_method(source, source_radius, point_source_magnification);
         if (settings_.legacy_finite_mode == 6) {
             return cache_and_return(legacy_polar_memory_binary_mag(
-                separation, mass_ratio, source, source_radius));
+                separation, mass_ratio, source, source_radius, caustic_distance));
         }
         if (settings_.legacy_finite_mode == 5) {
             decision.method = FiniteSourceMethod::inverse_ray_polar;

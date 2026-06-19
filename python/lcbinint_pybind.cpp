@@ -3,6 +3,8 @@
 #include "lcbinint/math/polynomial_roots.hpp"
 #include "lcbinint/model/orbital_motion.hpp"
 
+#include <algorithm>
+#include <cmath>
 #include <complex>
 #include <stdexcept>
 #include <vector>
@@ -23,6 +25,21 @@ struct PyLightCurve {
     std::vector<double> source_x;
     std::vector<double> source_y;
     std::vector<int> image_counts;
+};
+
+struct PySourceBinCandidate {
+    int source_bins = 0;
+    double max_absolute_difference = 0.0;
+    double max_relative_difference = 0.0;
+    double rms_relative_difference = 0.0;
+    bool accepted = false;
+};
+
+struct PySourceBinEstimate {
+    int reference_source_bins = 0;
+    int recommended_source_bins = 0;
+    std::vector<double> sampled_times;
+    std::vector<PySourceBinCandidate> candidates;
 };
 
 class PyLensModel {
@@ -108,7 +125,118 @@ public:
         return curve;
     }
 
+    PySourceBinEstimate estimate_source_bins(
+        const std::vector<double>& times,
+        std::vector<int> candidate_bins,
+        int max_sample_points) const
+    {
+        if (max_sample_points <= 0) {
+            throw std::invalid_argument("max_sample_points must be positive");
+        }
+
+        PySourceBinEstimate estimate;
+        if (times.empty()) {
+            return estimate;
+        }
+
+        if (candidate_bins.empty()) {
+            candidate_bins = {20, 30, 40, 50, 60, 80};
+        }
+        std::sort(candidate_bins.begin(), candidate_bins.end());
+        candidate_bins.erase(std::remove_if(candidate_bins.begin(), candidate_bins.end(), [](int bins) {
+            return bins <= 0;
+        }), candidate_bins.end());
+        candidate_bins.erase(std::unique(candidate_bins.begin(), candidate_bins.end()), candidate_bins.end());
+        if (candidate_bins.empty()) {
+            throw std::invalid_argument("candidate_bins must contain at least one positive value");
+        }
+
+        const int sample_count = std::min<int>(static_cast<int>(times.size()), max_sample_points);
+        estimate.sampled_times.reserve(static_cast<std::size_t>(sample_count));
+        if (sample_count == static_cast<int>(times.size())) {
+            estimate.sampled_times = times;
+        } else if (sample_count == 1) {
+            estimate.sampled_times.push_back(times[times.size() / 2]);
+        } else {
+            for (int i = 0; i < sample_count; ++i) {
+                const double position =
+                    static_cast<double>(i) * static_cast<double>(times.size() - 1) /
+                    static_cast<double>(sample_count - 1);
+                const auto index = static_cast<std::size_t>(std::llround(position));
+                estimate.sampled_times.push_back(times[index]);
+            }
+        }
+
+        estimate.reference_source_bins = candidate_bins.back();
+        estimate.recommended_source_bins = estimate.reference_source_bins;
+
+        auto reference_options = options_;
+        reference_options.source_bins = estimate.reference_source_bins;
+        const auto reference = magnifications_with_options(estimate.sampled_times, reference_options);
+
+        const double tolerance = std::max(options_.tolerance, 0.0);
+        const double relative_tolerance = std::max(options_.relative_tolerance, 0.0);
+        estimate.candidates.reserve(candidate_bins.size());
+        bool found_recommendation = false;
+        for (const int bins : candidate_bins) {
+            auto test_options = options_;
+            test_options.source_bins = bins;
+            const auto values = bins == estimate.reference_source_bins ?
+                reference :
+                magnifications_with_options(estimate.sampled_times, test_options);
+
+            PySourceBinCandidate candidate;
+            candidate.source_bins = bins;
+            double squared_relative = 0.0;
+            bool accepted = true;
+            for (std::size_t i = 0; i < values.size(); ++i) {
+                const double difference = std::abs(values[i] - reference[i]);
+                const double relative_denominator = std::max(std::abs(reference[i]), 1.0e-300);
+                const double relative_difference = difference / relative_denominator;
+                candidate.max_absolute_difference =
+                    std::max(candidate.max_absolute_difference, difference);
+                candidate.max_relative_difference =
+                    std::max(candidate.max_relative_difference, relative_difference);
+                squared_relative += relative_difference * relative_difference;
+
+                const double allowed = tolerance + relative_tolerance * std::abs(reference[i]);
+                if (difference > allowed) {
+                    accepted = false;
+                }
+            }
+            candidate.rms_relative_difference =
+                values.empty() ? 0.0 : std::sqrt(squared_relative / static_cast<double>(values.size()));
+            candidate.accepted = accepted;
+            if (accepted && !found_recommendation) {
+                estimate.recommended_source_bins = bins;
+                found_recommendation = true;
+            }
+            estimate.candidates.push_back(candidate);
+        }
+
+        return estimate;
+    }
+
 private:
+    std::vector<double> magnifications_with_options(
+        const std::vector<double>& times,
+        const lcbi_options& options) const
+    {
+        std::vector<lcbi_result> results(times.size());
+        const lcbi_status status = lcbi_magnification_array(
+            times.data(), static_cast<int>(times.size()), &params_, &options, results.data());
+        if (status != LCBI_OK) {
+            throw std::runtime_error(lcbi_status_string(status));
+        }
+
+        std::vector<double> values;
+        values.reserve(times.size());
+        for (const auto& result : results) {
+            values.push_back(result.magnification);
+        }
+        return values;
+    }
+
     lcbi_params params_;
     lcbi_options options_;
 };
@@ -155,6 +283,19 @@ PYBIND11_MODULE(lcbinint, m)
         .def_readonly("source_x", &PyLightCurve::source_x)
         .def_readonly("source_y", &PyLightCurve::source_y)
         .def_readonly("image_counts", &PyLightCurve::image_counts);
+
+    py::class_<PySourceBinCandidate>(m, "SourceBinCandidate")
+        .def_readonly("source_bins", &PySourceBinCandidate::source_bins)
+        .def_readonly("max_absolute_difference", &PySourceBinCandidate::max_absolute_difference)
+        .def_readonly("max_relative_difference", &PySourceBinCandidate::max_relative_difference)
+        .def_readonly("rms_relative_difference", &PySourceBinCandidate::rms_relative_difference)
+        .def_readonly("accepted", &PySourceBinCandidate::accepted);
+
+    py::class_<PySourceBinEstimate>(m, "SourceBinEstimate")
+        .def_readonly("reference_source_bins", &PySourceBinEstimate::reference_source_bins)
+        .def_readonly("recommended_source_bins", &PySourceBinEstimate::recommended_source_bins)
+        .def_readonly("sampled_times", &PySourceBinEstimate::sampled_times)
+        .def_readonly("candidates", &PySourceBinEstimate::candidates);
 
     py::class_<lcbi_params>(m, "LensParams")
         .def(py::init([](double t0,
@@ -318,7 +459,12 @@ PYBIND11_MODULE(lcbinint, m)
         .def("magnifications", &PyLensModel::magnifications, py::arg("times"))
         .def("source_position", &PyLensModel::source_position, py::arg("time"))
         .def("source_positions", &PyLensModel::source_positions, py::arg("times"))
-        .def("light_curve", &PyLensModel::light_curve, py::arg("times"));
+        .def("light_curve", &PyLensModel::light_curve, py::arg("times"))
+        .def("estimate_source_bins",
+            &PyLensModel::estimate_source_bins,
+            py::arg("times"),
+            py::arg("candidate_bins") = std::vector<int> {20, 30, 40, 50, 60, 80},
+            py::arg("max_sample_points") = 64);
 
     m.def("polynomial_roots", [](const std::vector<std::complex<double>>& coefficients) {
         lcbinint::math::PolynomialRootSolver solver;

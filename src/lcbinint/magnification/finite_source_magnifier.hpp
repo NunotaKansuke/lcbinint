@@ -69,6 +69,7 @@ public:
         double point_source_magnification) const;
     void ensure_limb_darkening_table() const;
     double limb_darkening_table_brightness(double normalized_radius2) const;
+    double legacy_limb_darkening_table_brightness(double normalized_radius2) const;
 
 private:
     void ensure_legacy_caustic_cache(double separation, double mass_ratio) const;
@@ -89,7 +90,8 @@ private:
         double separation,
         double mass_ratio,
         SourcePosition source,
-        double source_radius) const;
+        double source_radius,
+        double caustic_distance) const;
 
     FiniteSourceSettings settings_;
     mutable bool caustic_cache_valid_ = false;
