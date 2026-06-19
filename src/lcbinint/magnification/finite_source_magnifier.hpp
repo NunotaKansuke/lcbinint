@@ -67,6 +67,8 @@ public:
         SourcePosition source,
         double source_radius,
         double point_source_magnification) const;
+    void ensure_limb_darkening_table() const;
+    double limb_darkening_table_brightness(double normalized_radius2) const;
 
 private:
     void ensure_legacy_caustic_cache(double separation, double mass_ratio) const;
@@ -124,6 +126,10 @@ private:
     mutable int polar_map_cache_radial_offset_min_index_ = 0;
     mutable std::vector<int> polar_map_cache_radial_offsets_;
     mutable std::vector<SourcePosition> polar_map_cache_;
+    mutable bool limb_darkening_table_valid_ = false;
+    mutable double limb_darkening_table_c_ = 0.0;
+    mutable double limb_darkening_table_d_ = 0.0;
+    mutable std::vector<double> limb_darkening_table_;
 };
 
 const char* finite_source_method_name(FiniteSourceMethod method);

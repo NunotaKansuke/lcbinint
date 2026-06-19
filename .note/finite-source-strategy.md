@@ -251,24 +251,24 @@ the Einstein radius and reuses those mapped source-plane positions during
 boundary tracing. The C++ cache uses a `3 * source_bins` radial band instead of
 the old hard `NBINRMAX=120` cap.
 
-Release timing with `source_bins=80`, `limb_darkening_c=0.5`, 400 varied-time
-points. The VBM LD timings in older notes were wrong because
+Release timing with `source_bins=80`, `limb_darkening_c=0.5`. The VBM LD
+timings in older notes were wrong because
 `BinaryMagDark(..., x)` takes `x` as the accuracy argument; the linear
 limb-darkening coefficient must be assigned through `vbb.a1`.
 
 ```text
-case       kind   VBM       mode4     mode5     mode6 first  mode6 reused
-low        noLD   0.0363    0.0521    0.0627    0.0511       0.0583
-close      noLD   0.0114    0.0630    0.0722    0.0542       0.0547
-wide       noLD   0.0091    0.1112    0.1052    0.1234       0.1332
-wide_hard  noLD   0.0013    0.4408    0.4889    0.6969       0.5847
+case       N     kind   VBM       mode4     mode5     mode6
+wide_hard  300   noLD   0.0696    0.2859    0.3627    0.5147
+wide_hard  300   LD     0.3368    0.2979    0.4892    0.6328
+wide_long  1000  noLD   0.0688    0.2728    0.3533    0.4203
+wide_long  1000  LD     0.3401    0.2864    0.4783    0.5380
 ```
 
 The mode6 cache helps only when the traced images use the cached radial band.
 For wide/hard cases with images spread far from the Einstein radius, mode6 is
-not a good choice and mode4 remains better. Reaching VBM-like speed for those
-cases likely requires a different finite-source algorithm/acceptance strategy,
-not further tuning of this inverse-ray table alone.
+not a good choice and mode4 remains better. The real-valued lens mapper and
+limb-darkening lookup table make mode4 faster than VBM for these LD light-curve
+benchmarks, although noLD VBM remains substantially faster.
 
 ## Limb-Darkening VBM Checks
 
