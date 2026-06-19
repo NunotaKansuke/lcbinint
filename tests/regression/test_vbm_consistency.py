@@ -187,6 +187,36 @@ def test_lcbinint_lens_model_binary_finite_source_polar_matches_vbm():
     assert math.isclose(actual, reference, rel_tol=1.0e-2, abs_tol=1.0e-2)
 
 
+def test_lcbinint_lens_model_legacy_polar_finite_source_matches_vbm():
+    separation = 1.4
+    mass_ratio = 0.4
+    y1 = 0.2
+    y2 = -0.15
+    rho = 0.025
+    reference = _vbm_binary_mag2(separation, mass_ratio, y1, y2, rho)
+
+    lcbinint = pytest.importorskip("lcbinint")
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        umin=y2,
+        theta=0.0,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+    )
+    options = lcbinint.Options(
+        center_of_mass=1,
+        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
+        legacy_finite_mode=5,
+        source_bins=80,
+    )
+    actual = lcbinint.LensModel(params, options).magnification(y1)
+
+    assert math.isfinite(actual)
+    assert math.isclose(actual, reference, rel_tol=5.0e-3, abs_tol=5.0e-3)
+
+
 @pytest.mark.parametrize("separation,mass_ratio,y1,y2,rho", BINARY_FINITE_CASES)
 def test_lcbinint_lens_model_linear_limb_darkening_matches_vbm(
     separation, mass_ratio, y1, y2, rho

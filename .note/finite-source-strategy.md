@@ -226,23 +226,24 @@ Varied-time Release benchmarks against the old executable show:
 
 ```text
 NBIN=80, 400 points:
-  low:   old smode=4 0.043 ms/pt, new legacy cart 0.135 ms/pt
-  close: old smode=4 0.016 ms/pt, new legacy cart 0.072 ms/pt
-  wide:  old smode=4 0.585 ms/pt, new legacy cart 0.719 ms/pt
+  low:   old smode=4 0.056 ms/pt, new legacy cart 0.148 ms/pt
+  close: old smode=4 0.012 ms/pt, new legacy cart 0.073 ms/pt
+  wide:  old smode=4 0.577 ms/pt, new legacy cart 0.528 ms/pt
+  wide:  old smode=5 0.282 ms/pt, new legacy polar 0.564 ms/pt
 
 NBIN=20, 400 points:
-  wide:  old smode=4 0.069 ms/pt, new legacy cart 0.126 ms/pt
-  wide:  old smode=5 0.076 ms/pt, new legacy polar 0.118 ms/pt
+  wide:  old smode=4 0.089 ms/pt, new legacy cart 0.116 ms/pt
+  wide:  old smode=5 0.075 ms/pt, new legacy polar 0.139 ms/pt
 ```
 
 The cartesian path is now close for the hard wide case, but low/close still pay
 more point-source and caustic-rejection overhead than the old C executable.
-The polar path is correct enough for the current VBM regression test and is now
-reasonable at low `NBIN`, but it is not an `imagearea5` port: it still uses a
-direct polar sampling grid, so hard wide finite-source cases at high `NBIN` are
-slower than old `smode=5`. Matching old polar speed at high resolution requires
-porting the boundary-scanning `imagearea0pole/imagearea5` algorithm or replacing
-it with an equivalent contour/boundary construction.
+The legacy polar path now follows the old `imagearea5` boundary-scanning shape
+instead of sampling the full polar grid. The inverse-ray loops also use a local
+binary lens mapper so each sample does not rebuild the lens geometry. Polar is
+still slower than old `smode=5` at high `NBIN`; matching it more closely would
+likely require the old `smode=6` dense polar memory table, but the sparse
+on-demand cache was tested and rejected because hash overhead made it slower.
 
 ## What Not To Do
 
