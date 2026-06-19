@@ -535,6 +535,14 @@ struct PolarBoundaryScratch {
     std::vector<std::vector<int>> row_indices_by_phi;
 };
 
+struct PolarMapCacheView {
+    const std::vector<SourcePosition>* mapped_sources = nullptr;
+    const std::vector<int>* radial_offsets = nullptr;
+    int radial_offset_min_index = 0;
+    int phi_bins = 0;
+    double dr = 1.0;
+};
+
 double wrap_angle(double angle)
 {
     while (angle < 0.0) {
@@ -552,6 +560,7 @@ double trace_polar_boundary_rows(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
+    const PolarMapCacheView* map_cache,
     double start_radius,
     double start_phi,
     double dphi,
@@ -582,8 +591,29 @@ double trace_polar_boundary_rows(
         double radius = radius_origin;
         double direction = dr;
         for (int step = 0; step < max_radial_steps; ++step) {
-            const SourcePosition image {radius * cos_phi, radius * sin_phi};
-            const auto mapped = map_binary_lens(mapper, image);
+            SourcePosition mapped;
+            const int radial_index = static_cast<int>(std::floor(radius / dr));
+            const bool use_cached_map =
+                map_cache != nullptr && map_cache->mapped_sources != nullptr &&
+                map_cache->radial_offsets != nullptr &&
+                map_cache->phi_bins == phi_bins && map_cache->dr == dr &&
+                radial_index >= map_cache->radial_offset_min_index &&
+                radial_index < map_cache->radial_offset_min_index +
+                    static_cast<int>(map_cache->radial_offsets->size()) &&
+                (*map_cache->radial_offsets)[static_cast<std::size_t>(
+                    radial_index - map_cache->radial_offset_min_index)] >= 0;
+            if (use_cached_map) {
+                const int row_offset = (*map_cache->radial_offsets)[static_cast<std::size_t>(
+                    radial_index - map_cache->radial_offset_min_index)];
+                const auto index =
+                    static_cast<std::size_t>(row_offset) *
+                        static_cast<std::size_t>(map_cache->phi_bins) +
+                    static_cast<std::size_t>(phi_index);
+                mapped = (*map_cache->mapped_sources)[index];
+            } else {
+                const SourcePosition image {radius * cos_phi, radius * sin_phi};
+                mapped = map_binary_lens(mapper, image);
+            }
             dz2_last = dz2;
             dz2 = distance_squared(mapped, source);
 
@@ -651,7 +681,8 @@ double inverse_ray_polar_boundary_binary(
     double mass_ratio,
     SourcePosition source,
     double source_radius,
-    const FiniteSourceSettings& settings)
+    const FiniteSourceSettings& settings,
+    const PolarMapCacheView* map_cache = nullptr)
 {
     const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
     if (images.empty()) {
@@ -683,12 +714,12 @@ double inverse_ray_polar_boundary_binary(
         PolarBoundaryScratch scratch;
         scratch.row_indices_by_phi.assign(static_cast<std::size_t>(phi_bins), {});
         double count = trace_polar_boundary_rows(
-            separation, mass_ratio, source, source_radius, settings,
+            separation, mass_ratio, source, source_radius, settings, map_cache,
             grid_radius, image_phi, dphi, scratch);
         if (!scratch.rows.empty()) {
             const double reverse_start_radius = scratch.rows.front().max_r;
             count += trace_polar_boundary_rows(
-                separation, mass_ratio, source, source_radius, settings,
+                separation, mass_ratio, source, source_radius, settings, map_cache,
                 reverse_start_radius, image_phi - dphi, -dphi, scratch);
         }
 
@@ -961,6 +992,86 @@ double FiniteSourceMagnifier::legacy_binary_sampled_caustic_distance(
     return std::sqrt(distance2);
 }
 
+void FiniteSourceMagnifier::ensure_legacy_polar_map_cache(
+    double separation,
+    double mass_ratio,
+    double source_radius) const
+{
+    const int source_bins = std::max(settings_.source_bins, 1);
+    const double dr = source_radius / static_cast<double>(source_bins);
+    const int phi_bins = std::max(16, static_cast<int>(2.0 * kPi / (dr * settings_.grid_ratio)));
+    const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
+    const int radial_count = std::max(3 * source_bins, 1);
+    const int radial_min_index = static_cast<int>(1.0 / dr) - radial_count / 2;
+    const bool cache_matches =
+        polar_map_cache_valid_ &&
+        polar_map_cache_separation_ == separation &&
+        polar_map_cache_mass_ratio_ == mass_ratio &&
+        polar_map_cache_source_radius_ == source_radius &&
+        polar_map_cache_source_bins_ == source_bins &&
+        polar_map_cache_grid_ratio_ == settings_.grid_ratio &&
+        polar_map_cache_phi_bins_ == phi_bins &&
+        polar_map_cache_radial_offset_min_index_ == radial_min_index &&
+        static_cast<int>(polar_map_cache_radial_offsets_.size()) == radial_count;
+    if (cache_matches) {
+        return;
+    }
+
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    polar_map_cache_radial_offset_min_index_ = radial_min_index;
+    polar_map_cache_radial_offsets_.resize(static_cast<std::size_t>(radial_count));
+    polar_map_cache_.resize(static_cast<std::size_t>(radial_count) * static_cast<std::size_t>(phi_bins));
+    for (int ir = 0; ir < radial_count; ++ir) {
+        polar_map_cache_radial_offsets_[static_cast<std::size_t>(ir)] = ir;
+        const double radius = (radial_min_index + ir) * dr + 0.5 * dr;
+        for (int iphi = 0; iphi < phi_bins; ++iphi) {
+            const double phi = (iphi + 0.5) * dphi;
+            const SourcePosition image {radius * std::cos(phi), radius * std::sin(phi)};
+            polar_map_cache_[static_cast<std::size_t>(ir) * static_cast<std::size_t>(phi_bins) +
+                             static_cast<std::size_t>(iphi)] =
+                map_binary_lens(mapper, image);
+        }
+    }
+
+    polar_map_cache_valid_ = true;
+    polar_map_cache_separation_ = separation;
+    polar_map_cache_mass_ratio_ = mass_ratio;
+    polar_map_cache_source_radius_ = source_radius;
+    polar_map_cache_source_bins_ = source_bins;
+    polar_map_cache_grid_ratio_ = settings_.grid_ratio;
+    polar_map_cache_dr_ = dr;
+    polar_map_cache_dphi_ = dphi;
+    polar_map_cache_phi_bins_ = phi_bins;
+}
+
+FiniteSourceResult FiniteSourceMagnifier::legacy_polar_memory_binary_mag(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius) const
+{
+    ensure_legacy_polar_map_cache(separation, mass_ratio, source_radius);
+    const PointSourceMagnifier point_magnifier;
+    FiniteSourceDecision decision {
+        FiniteSourceMethod::inverse_ray_polar,
+        estimate_polar_cost(settings_),
+        "legacy smode=6 selected cached polar inverse-ray",
+    };
+    const PolarMapCacheView cache_view {
+        &polar_map_cache_,
+        &polar_map_cache_radial_offsets_,
+        polar_map_cache_radial_offset_min_index_,
+        polar_map_cache_phi_bins_,
+        polar_map_cache_dr_,
+    };
+    const double magnification = inverse_ray_polar_boundary_binary(
+        point_magnifier, separation, mass_ratio, source, source_radius, settings_, &cache_view);
+    if (!std::isfinite(magnification)) {
+        return {magnification, 0, decision, std::nan(""), 0, false};
+    }
+    return {magnification, 0, decision, 0.0, 0, true};
+}
+
 FiniteSourceDecision FiniteSourceMagnifier::choose_binary_method(
     SourcePosition source,
     double source_radius,
@@ -1086,7 +1197,11 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         }
 
         auto decision = choose_binary_method(source, source_radius, point_source_magnification);
-        if (settings_.legacy_finite_mode == 5 || settings_.legacy_finite_mode == 6) {
+        if (settings_.legacy_finite_mode == 6) {
+            return cache_and_return(legacy_polar_memory_binary_mag(
+                separation, mass_ratio, source, source_radius));
+        }
+        if (settings_.legacy_finite_mode == 5) {
             decision.method = FiniteSourceMethod::inverse_ray_polar;
             decision.estimated_evaluations = estimate_polar_cost(settings_);
             decision.reason = "legacy smode selected polar inverse-ray";

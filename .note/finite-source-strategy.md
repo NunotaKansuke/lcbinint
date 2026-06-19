@@ -245,6 +245,33 @@ still slower than old `smode=5` at high `NBIN`; matching it more closely would
 likely require the old `smode=6` dense polar memory table, but the sparse
 on-demand cache was tested and rejected because hash overhead made it slower.
 
+`legacy_finite_mode=6` is now a dense polar-map cache, matching the intended
+old `smode=6` structure: it precomputes the lens equation on a polar grid near
+the Einstein radius and reuses those mapped source-plane positions during
+boundary tracing. The C++ cache uses a `3 * source_bins` radial band instead of
+the old hard `NBINRMAX=120` cap.
+
+Release timing with `source_bins=80`, `limb_darkening_c=0.5`, 400 varied-time
+points:
+
+```text
+case       kind   VBM       mode4     mode5     mode6 first  mode6 reused
+low        noLD   0.0363    0.0521    0.0627    0.0511       0.0583
+low        LD     0.0087    0.0510    0.0594    0.0547       0.0534
+close      noLD   0.0114    0.0630    0.0722    0.0542       0.0547
+close      LD     0.0110    0.0588    0.0670    0.0703       0.0592
+wide       noLD   0.0091    0.1112    0.1052    0.1234       0.1332
+wide       LD     0.0103    0.1250    0.1396    0.1367       0.1138
+wide_hard  noLD   0.0013    0.4408    0.4889    0.6969       0.5847
+wide_hard  LD     0.0183    0.4910    0.6292    0.7199       0.7443
+```
+
+The mode6 cache helps only when the traced images use the cached radial band.
+For wide/hard cases with images spread far from the Einstein radius, mode6 is
+not a good choice and mode4 remains better. Reaching VBM-like speed for those
+cases likely requires a different finite-source algorithm/acceptance strategy,
+not further tuning of this inverse-ray table alone.
+
 ## Limb-Darkening VBM Checks
 
 The current VBM regression coverage uses `VBBinaryLensing.BinaryMagDark`, which

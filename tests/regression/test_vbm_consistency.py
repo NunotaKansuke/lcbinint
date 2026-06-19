@@ -256,7 +256,7 @@ def test_lcbinint_lens_model_linear_limb_darkening_matches_vbm(
 
 
 @pytest.mark.parametrize("separation,mass_ratio,y1,y2,rho", BINARY_LIMB_DARKENING_CASES)
-@pytest.mark.parametrize("legacy_finite_mode", [4, 5])
+@pytest.mark.parametrize("legacy_finite_mode", [4, 5, 6])
 def test_lcbinint_lens_model_legacy_limb_darkening_matches_vbm(
     separation, mass_ratio, y1, y2, rho, legacy_finite_mode
 ):
