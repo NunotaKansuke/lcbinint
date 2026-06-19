@@ -232,16 +232,17 @@ NBIN=80, 400 points:
 
 NBIN=20, 400 points:
   wide:  old smode=4 0.069 ms/pt, new legacy cart 0.126 ms/pt
-  wide:  old smode=5 0.076 ms/pt, new legacy polar 0.283 ms/pt
+  wide:  old smode=5 0.076 ms/pt, new legacy polar 0.118 ms/pt
 ```
 
 The cartesian path is now close for the hard wide case, but low/close still pay
 more point-source and caustic-rejection overhead than the old C executable.
-The polar path is correct enough for the current VBM regression test, but it is
-not an `imagearea5` port: it still uses a direct polar sampling grid, so hard
-wide finite-source cases are slower than old `smode=5`. Matching old polar
-speed requires porting the boundary-scanning `imagearea0pole/imagearea5`
-algorithm or replacing it with an equivalent contour/boundary construction.
+The polar path is correct enough for the current VBM regression test and is now
+reasonable at low `NBIN`, but it is not an `imagearea5` port: it still uses a
+direct polar sampling grid, so hard wide finite-source cases at high `NBIN` are
+slower than old `smode=5`. Matching old polar speed at high resolution requires
+porting the boundary-scanning `imagearea0pole/imagearea5` algorithm or replacing
+it with an equivalent contour/boundary construction.
 
 ## What Not To Do
 
