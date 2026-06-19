@@ -39,7 +39,7 @@ int main()
     if (options.finite_source_mode != LCBI_POINT_SOURCE) {
         return 2;
     }
-    if (lcbi_magnification(0.0, &params, &options, &result) != LCBI_UNSUPPORTED) {
+    if (lcbi_magnification(0.0, &params, &options, &result) != LCBI_OK) {
         return 3;
     }
     if (std::abs(result.source_x) > 1e-12 || std::abs(result.source_y) > 1e-12) {
@@ -47,14 +47,23 @@ int main()
     }
     params.umin = 0.1;
     params.theta = 0.0;
-    if (lcbi_magnification(0.2, &params, &options, &result) != LCBI_UNSUPPORTED) {
+    params.q = 0.1;
+    params.sep = 1.0;
+    if (lcbi_magnification(0.2, &params, &options, &result) != LCBI_OK) {
         return 5;
     }
     if (std::abs(result.source_x - 0.2) > 1e-12 || std::abs(result.source_y - 0.1) > 1e-12) {
         return 6;
     }
-    if (std::strcmp(lcbi_status_string(LCBI_UNSUPPORTED), "unsupported") != 0) {
+    if (std::abs(result.magnification - 5.871444912771214) > 1e-10) {
         return 7;
+    }
+    params.sep = 1.5;
+    if (lcbi_magnification(0.2, &params, &options, &result) != LCBI_UNSUPPORTED) {
+        return 17;
+    }
+    if (std::strcmp(lcbi_status_string(LCBI_UNSUPPORTED), "unsupported") != 0) {
+        return 18;
     }
 
     lcbinint::math::PolynomialRootSolver solver;
