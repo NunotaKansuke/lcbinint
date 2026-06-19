@@ -17,6 +17,7 @@ constexpr double kSqrtHalf = 0.70710678118654752440;
 constexpr double kPi = 3.14159265358979323846;
 constexpr int kMaxRefinementLevels = 3;
 constexpr int kHexadecapoleEvaluations = 13;
+constexpr int kLimbDarkeningTableSize = 4096;
 
 struct QuadrupoleSafety {
     double error_estimate = 0.0;
@@ -48,14 +49,36 @@ BinaryLensMapper make_binary_lens_mapper(double separation, double mass_ratio)
     return {lens_separation, m1, m2};
 }
 
-SourcePosition map_binary_lens(const BinaryLensMapper& mapper, SourcePosition image)
+double mapped_binary_lens_distance2(
+    const BinaryLensMapper& mapper,
+    double x,
+    double y,
+    SourcePosition source)
 {
-    const Complex z(image.x, image.y);
-    const Complex zc = std::conj(z);
-    const Complex shifted_source =
-        z - mapper.m1 / (zc - mapper.separation) - mapper.m2 / zc;
-    const Complex source = shifted_source - mapper.separation * mapper.m1;
-    return {source.real(), source.imag()};
+    const double a = mapper.separation.real();
+    const double xa = x - a;
+    const double den1 = xa * xa + y * y;
+    const double den2 = x * x + y * y;
+    const double mapped_x = x - mapper.m1 * xa / den1 - mapper.m2 * x / den2 - a * mapper.m1;
+    const double mapped_y = y - mapper.m1 * y / den1 - mapper.m2 * y / den2;
+    const double dx = mapped_x - source.x;
+    const double dy = mapped_y - source.y;
+    return dx * dx + dy * dy;
+}
+
+SourcePosition map_binary_lens_real(
+    const BinaryLensMapper& mapper,
+    double x,
+    double y)
+{
+    const double a = mapper.separation.real();
+    const double xa = x - a;
+    const double den1 = xa * xa + y * y;
+    const double den2 = x * x + y * y;
+    return {
+        x - mapper.m1 * xa / den1 - mapper.m2 * x / den2 - a * mapper.m1,
+        y - mapper.m1 * y / den1 - mapper.m2 * y / den2,
+    };
 }
 
 double source_distance(SourcePosition source)
@@ -425,6 +448,7 @@ double inverse_ray_cartesian_binary(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
     int bins)
 {
     const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
@@ -440,23 +464,27 @@ double inverse_ray_cartesian_binary(
     }
     const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    if (!uniform_source && finite_magnifier != nullptr) {
+        finite_magnifier->ensure_limb_darkening_table();
+    }
 
     double image_flux = 0.0;
     for (const auto& image : images) {
         const double half_width = image_radius(source_radius, image.jacobian_determinant);
         const double step = 2.0 * half_width / static_cast<double>(grid_bins);
         const double cell_area = step * step;
+        const double x0 = image.position.x - half_width + 0.5 * step;
+        const double y0 = image.position.y - half_width + 0.5 * step;
         for (int ix = 0; ix < grid_bins; ++ix) {
-            const double x = image.position.x - half_width + (ix + 0.5) * step;
+            const double x = x0 + ix * step;
             for (int iy = 0; iy < grid_bins; ++iy) {
-                const double y = image.position.y - half_width + (iy + 0.5) * step;
-                const auto mapped = map_binary_lens(mapper, {x, y});
-                const double mapped_distance2 = distance_squared(mapped, source);
+                const double y = y0 + iy * step;
+                const double mapped_distance2 = mapped_binary_lens_distance2(mapper, x, y, source);
                 if (mapped_distance2 <= source_radius2) {
                     image_flux += uniform_source ?
                                       cell_area :
-                                      cell_area * source_surface_brightness(
-                                                      mapped_distance2 / source_radius2, settings);
+                                      cell_area * finite_magnifier->limb_darkening_table_brightness(
+                                                      mapped_distance2 / source_radius2);
                 }
             }
         }
@@ -471,6 +499,7 @@ double inverse_ray_polar_binary(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
     int bins)
 {
     const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
@@ -488,6 +517,9 @@ double inverse_ray_polar_binary(
     }
     const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    if (!uniform_source && finite_magnifier != nullptr) {
+        finite_magnifier->ensure_limb_darkening_table();
+    }
 
     std::vector<double> cos_phi(static_cast<std::size_t>(angular_bins));
     std::vector<double> sin_phi(static_cast<std::size_t>(angular_bins));
@@ -510,13 +542,12 @@ double inverse_ray_polar_binary(
             for (int iphi = 0; iphi < angular_bins; ++iphi) {
                 const double x = image.position.x + r * cos_phi[static_cast<std::size_t>(iphi)];
                 const double y = image.position.y + r * sin_phi[static_cast<std::size_t>(iphi)];
-                const auto mapped = map_binary_lens(mapper, {x, y});
-                const double mapped_distance2 = distance_squared(mapped, source);
+                const double mapped_distance2 = mapped_binary_lens_distance2(mapper, x, y, source);
                 if (mapped_distance2 <= source_radius2) {
                     image_flux += uniform_source ?
                                       cell_area :
-                                      cell_area * source_surface_brightness(
-                                                      mapped_distance2 / source_radius2, settings);
+                                      cell_area * finite_magnifier->limb_darkening_table_brightness(
+                                                      mapped_distance2 / source_radius2);
                 }
             }
         }
@@ -560,6 +591,7 @@ double trace_polar_boundary_rows(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
     const PolarMapCacheView* map_cache,
     double start_radius,
     double start_phi,
@@ -569,6 +601,9 @@ double trace_polar_boundary_rows(
     const double dr = source_radius / static_cast<double>(std::max(settings.source_bins, 1));
     const double source_radius2 = source_radius * source_radius;
     const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
+    if (!uniform_source && finite_magnifier != nullptr) {
+        finite_magnifier->ensure_limb_darkening_table();
+    }
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     const int phi_bins = static_cast<int>(scratch.row_indices_by_phi.size());
     const int max_rows = std::max(64, phi_bins * 2 + 16);
@@ -612,7 +647,7 @@ double trace_polar_boundary_rows(
                 mapped = (*map_cache->mapped_sources)[index];
             } else {
                 const SourcePosition image {radius * cos_phi, radius * sin_phi};
-                mapped = map_binary_lens(mapper, image);
+                mapped = map_binary_lens_real(mapper, image.x, image.y);
             }
             dz2_last = dz2;
             dz2 = distance_squared(mapped, source);
@@ -622,7 +657,8 @@ double trace_polar_boundary_rows(
                     max_r = radius - direction;
                 }
                 const double brightness =
-                    uniform_source ? 1.0 : source_surface_brightness(dz2 / source_radius2, settings);
+                    uniform_source ? 1.0 : finite_magnifier->limb_darkening_table_brightness(
+                                               dz2 / source_radius2);
                 count += brightness * radius;
             } else if (direction > 0.0) {
                 if (dz2_last <= source_radius2) {
@@ -682,6 +718,7 @@ double inverse_ray_polar_boundary_binary(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
     const PolarMapCacheView* map_cache = nullptr)
 {
     const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
@@ -714,12 +751,12 @@ double inverse_ray_polar_boundary_binary(
         PolarBoundaryScratch scratch;
         scratch.row_indices_by_phi.assign(static_cast<std::size_t>(phi_bins), {});
         double count = trace_polar_boundary_rows(
-            separation, mass_ratio, source, source_radius, settings, map_cache,
+            separation, mass_ratio, source, source_radius, settings, finite_magnifier, map_cache,
             grid_radius, image_phi, dphi, scratch);
         if (!scratch.rows.empty()) {
             const double reverse_start_radius = scratch.rows.front().max_r;
             count += trace_polar_boundary_rows(
-                separation, mass_ratio, source, source_radius, settings, map_cache,
+                separation, mass_ratio, source, source_radius, settings, finite_magnifier, map_cache,
                 reverse_start_radius, image_phi - dphi, -dphi, scratch);
         }
 
@@ -763,16 +800,17 @@ double inverse_ray_binary(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
     FiniteSourceMethod method,
     int bins)
 {
     if (method == FiniteSourceMethod::inverse_ray_polar) {
         return inverse_ray_polar_binary(
-            point_magnifier, separation, mass_ratio, source, source_radius, settings, bins);
+            point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier, bins);
     }
 
     return inverse_ray_cartesian_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings, bins);
+        point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier, bins);
 }
 
 FiniteSourceResult refined_inverse_ray_binary(
@@ -782,11 +820,12 @@ FiniteSourceResult refined_inverse_ray_binary(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
     FiniteSourceDecision decision)
 {
     int bins = std::max(settings.source_bins, 1);
     double coarse = inverse_ray_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings, decision.method, bins);
+        point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier, decision.method, bins);
     if (!std::isfinite(coarse)) {
         return {coarse, 0, decision, std::nan(""), 0, false};
     }
@@ -796,7 +835,7 @@ FiniteSourceResult refined_inverse_ray_binary(
     for (int level = 1; level <= kMaxRefinementLevels; ++level) {
         bins *= 2;
         const double fine = inverse_ray_binary(
-            point_magnifier, separation, mass_ratio, source, source_radius, settings, decision.method, bins);
+            point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier, decision.method, bins);
         if (!std::isfinite(fine)) {
             return {fine, 0, decision, std::nan(""), level, false};
         }
@@ -830,15 +869,16 @@ FiniteSourceResult fixed_inverse_ray_binary(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
     FiniteSourceDecision decision)
 {
     const int bins = std::max(settings.source_bins, 1);
     const double magnification =
         decision.method == FiniteSourceMethod::inverse_ray_polar ?
             inverse_ray_polar_boundary_binary(
-                point_magnifier, separation, mass_ratio, source, source_radius, settings) :
+                point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier) :
             inverse_ray_binary(
-                point_magnifier, separation, mass_ratio, source, source_radius, settings, decision.method, bins);
+                point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier, decision.method, bins);
     if (!std::isfinite(magnification)) {
         return {magnification, 0, decision, std::nan(""), 0, false};
     }
@@ -850,6 +890,42 @@ FiniteSourceResult fixed_inverse_ray_binary(
 FiniteSourceMagnifier::FiniteSourceMagnifier(FiniteSourceSettings settings)
     : settings_(settings)
 {
+}
+
+void FiniteSourceMagnifier::ensure_limb_darkening_table() const
+{
+    const bool cache_matches = limb_darkening_table_valid_ &&
+                               limb_darkening_table_c_ == settings_.limb_darkening_c &&
+                               limb_darkening_table_d_ == settings_.limb_darkening_d &&
+                               static_cast<int>(limb_darkening_table_.size()) == kLimbDarkeningTableSize + 1;
+    if (cache_matches) {
+        return;
+    }
+
+    limb_darkening_table_.resize(kLimbDarkeningTableSize + 1);
+    for (int i = 0; i <= kLimbDarkeningTableSize; ++i) {
+        const double normalized_radius2 =
+            static_cast<double>(i) / static_cast<double>(kLimbDarkeningTableSize);
+        limb_darkening_table_[static_cast<std::size_t>(i)] =
+            source_surface_brightness(normalized_radius2, settings_);
+    }
+    limb_darkening_table_valid_ = true;
+    limb_darkening_table_c_ = settings_.limb_darkening_c;
+    limb_darkening_table_d_ = settings_.limb_darkening_d;
+}
+
+double FiniteSourceMagnifier::limb_darkening_table_brightness(double normalized_radius2) const
+{
+    const double bounded = std::clamp(normalized_radius2, 0.0, 1.0);
+    const double index = bounded * static_cast<double>(kLimbDarkeningTableSize);
+    const int lower = static_cast<int>(index);
+    if (lower >= kLimbDarkeningTableSize) {
+        return limb_darkening_table_[static_cast<std::size_t>(kLimbDarkeningTableSize)];
+    }
+    const double fraction = index - static_cast<double>(lower);
+    const double left = limb_darkening_table_[static_cast<std::size_t>(lower)];
+    const double right = limb_darkening_table_[static_cast<std::size_t>(lower + 1)];
+    return left + fraction * (right - left);
 }
 
 void FiniteSourceMagnifier::ensure_legacy_caustic_cache(double separation, double mass_ratio) const
@@ -1029,7 +1105,7 @@ void FiniteSourceMagnifier::ensure_legacy_polar_map_cache(
             const SourcePosition image {radius * std::cos(phi), radius * std::sin(phi)};
             polar_map_cache_[static_cast<std::size_t>(ir) * static_cast<std::size_t>(phi_bins) +
                              static_cast<std::size_t>(iphi)] =
-                map_binary_lens(mapper, image);
+                map_binary_lens_real(mapper, image.x, image.y);
         }
     }
 
@@ -1065,7 +1141,7 @@ FiniteSourceResult FiniteSourceMagnifier::legacy_polar_memory_binary_mag(
         polar_map_cache_dr_,
     };
     const double magnification = inverse_ray_polar_boundary_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings_, &cache_view);
+        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, &cache_view);
     if (!std::isfinite(magnification)) {
         return {magnification, 0, decision, std::nan(""), 0, false};
     }
@@ -1213,7 +1289,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             decision.reason = "legacy smode fell back to automatic finite-source strategy";
         }
         return cache_and_return(fixed_inverse_ray_binary(
-            point_magnifier, separation, mass_ratio, source, source_radius, settings_, decision));
+            point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, decision));
     }
 
     const auto candidates = point_magnifier.binary_image_candidates(separation, mass_ratio, source);
@@ -1238,7 +1314,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     auto decision = choose_binary_method(source, source_radius, point_source_magnification);
     decision.reason += "; quadrupole safety test rejected point-source approximation";
     return cache_and_return(refined_inverse_ray_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings_, decision));
+        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, decision));
 }
 
 } // namespace lcbinint::magnification
