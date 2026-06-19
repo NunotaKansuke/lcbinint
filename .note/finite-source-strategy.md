@@ -252,18 +252,16 @@ boundary tracing. The C++ cache uses a `3 * source_bins` radial band instead of
 the old hard `NBINRMAX=120` cap.
 
 Release timing with `source_bins=80`, `limb_darkening_c=0.5`, 400 varied-time
-points:
+points. The VBM LD timings in older notes were wrong because
+`BinaryMagDark(..., x)` takes `x` as the accuracy argument; the linear
+limb-darkening coefficient must be assigned through `vbb.a1`.
 
 ```text
 case       kind   VBM       mode4     mode5     mode6 first  mode6 reused
 low        noLD   0.0363    0.0521    0.0627    0.0511       0.0583
-low        LD     0.0087    0.0510    0.0594    0.0547       0.0534
 close      noLD   0.0114    0.0630    0.0722    0.0542       0.0547
-close      LD     0.0110    0.0588    0.0670    0.0703       0.0592
 wide       noLD   0.0091    0.1112    0.1052    0.1234       0.1332
-wide       LD     0.0103    0.1250    0.1396    0.1367       0.1138
 wide_hard  noLD   0.0013    0.4408    0.4889    0.6969       0.5847
-wide_hard  LD     0.0183    0.4910    0.6292    0.7199       0.7443
 ```
 
 The mode6 cache helps only when the traced images use the cached radial band.
@@ -274,19 +272,20 @@ not further tuning of this inverse-ray table alone.
 
 ## Limb-Darkening VBM Checks
 
-The current VBM regression coverage uses `VBBinaryLensing.BinaryMagDark`, which
-supports the linear limb-darkening coefficient. Quadratic/root-square
-`limb_darkening_d` is implemented in the C++ inverse-ray weights but is not
-directly covered by a VBM API check yet.
+The current VBM regression coverage uses `VBBinaryLensing.BinaryMagDark` with
+`vbb.a1` set to the linear limb-darkening coefficient. The Python docstring is
+misleading: the sixth `BinaryMagDark` argument is the accuracy/tolerance, not
+the LD coefficient. Quadratic/root-square `limb_darkening_d` is implemented in
+the C++ inverse-ray weights but is not directly covered by a VBM API check yet.
 
-Release comparisons with `limb_darkening_c=0.5`, `source_bins=80`:
+Correct single-point comparisons with `limb_darkening_c=0.5`, `source_bins=80`:
 
 ```text
-case       VBM             AUTO rel diff   legacy4 rel diff   legacy5 rel diff
-low        1.88291819020   -3.45e-3       -2.80e-3           -2.80e-3
-close      1.50314739153   -5.07e-4       -8.02e-4           -8.02e-4
-wide       2.43689532682   -7.82e-4       -8.57e-4           -8.57e-4
-wide_hard  3.74265253719   -2.96e-3       -2.97e-3           -2.32e-3
+case       VBM LD          legacy4 LD      legacy4 rel diff
+low        1.87804606581   1.87765242512   -2.10e-4
+close      1.50232053773   1.50194208960   -2.52e-4
+wide       2.43499066558   2.43480674206   -7.55e-5
+wide_hard  3.73502370133   3.73153389879   -9.34e-4
 ```
 
 These are within the current finite-source tolerances. The remaining offsets
