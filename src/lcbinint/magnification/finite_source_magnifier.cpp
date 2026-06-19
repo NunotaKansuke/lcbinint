@@ -31,6 +31,33 @@ struct BinaryQuadrupoleGeometry {
     Complex source;
 };
 
+struct BinaryLensMapper {
+    Complex separation;
+    double m1 = 0.0;
+    double m2 = 0.0;
+};
+
+BinaryLensMapper make_binary_lens_mapper(double separation, double mass_ratio)
+{
+    const double s = std::abs(separation);
+    const double q_input = std::abs(mass_ratio);
+    const double q = q_input < 1.0 ? q_input : 1.0 / q_input;
+    const Complex lens_separation = q_input < 1.0 ? Complex(-s, 0.0) : Complex(s, 0.0);
+    const double m1 = 1.0 / (1.0 + q);
+    const double m2 = q * m1;
+    return {lens_separation, m1, m2};
+}
+
+SourcePosition map_binary_lens(const BinaryLensMapper& mapper, SourcePosition image)
+{
+    const Complex z(image.x, image.y);
+    const Complex zc = std::conj(z);
+    const Complex shifted_source =
+        z - mapper.m1 / (zc - mapper.separation) - mapper.m2 / zc;
+    const Complex source = shifted_source - mapper.separation * mapper.m1;
+    return {source.real(), source.imag()};
+}
+
 double source_distance(SourcePosition source)
 {
     return std::hypot(source.x, source.y);
@@ -412,6 +439,7 @@ double inverse_ray_cartesian_binary(
         return std::nan("");
     }
     const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
 
     double image_flux = 0.0;
     for (const auto& image : images) {
@@ -422,7 +450,7 @@ double inverse_ray_cartesian_binary(
             const double x = image.position.x - half_width + (ix + 0.5) * step;
             for (int iy = 0; iy < grid_bins; ++iy) {
                 const double y = image.position.y - half_width + (iy + 0.5) * step;
-                const auto mapped = point_magnifier.binary_lens_equation(separation, mass_ratio, {x, y});
+                const auto mapped = map_binary_lens(mapper, {x, y});
                 const double mapped_distance2 = distance_squared(mapped, source);
                 if (mapped_distance2 <= source_radius2) {
                     image_flux += uniform_source ?
@@ -459,6 +487,7 @@ double inverse_ray_polar_binary(
         return std::nan("");
     }
     const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
 
     std::vector<double> cos_phi(static_cast<std::size_t>(angular_bins));
     std::vector<double> sin_phi(static_cast<std::size_t>(angular_bins));
@@ -481,7 +510,7 @@ double inverse_ray_polar_binary(
             for (int iphi = 0; iphi < angular_bins; ++iphi) {
                 const double x = image.position.x + r * cos_phi[static_cast<std::size_t>(iphi)];
                 const double y = image.position.y + r * sin_phi[static_cast<std::size_t>(iphi)];
-                const auto mapped = point_magnifier.binary_lens_equation(separation, mass_ratio, {x, y});
+                const auto mapped = map_binary_lens(mapper, {x, y});
                 const double mapped_distance2 = distance_squared(mapped, source);
                 if (mapped_distance2 <= source_radius2) {
                     image_flux += uniform_source ?
@@ -492,6 +521,207 @@ double inverse_ray_polar_binary(
             }
         }
     }
+    return image_flux / total_source_flux;
+}
+
+struct PolarBoundaryRow {
+    double min_r = 0.0;
+    double max_r = 0.0;
+    double phi = 0.0;
+};
+
+struct PolarBoundaryScratch {
+    std::vector<PolarBoundaryRow> rows;
+    std::vector<std::vector<int>> row_indices_by_phi;
+};
+
+double wrap_angle(double angle)
+{
+    while (angle < 0.0) {
+        angle += 2.0 * kPi;
+    }
+    while (angle >= 2.0 * kPi) {
+        angle -= 2.0 * kPi;
+    }
+    return angle;
+}
+
+double trace_polar_boundary_rows(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    double start_radius,
+    double start_phi,
+    double dphi,
+    PolarBoundaryScratch& scratch)
+{
+    const double dr = source_radius / static_cast<double>(std::max(settings.source_bins, 1));
+    const double source_radius2 = source_radius * source_radius;
+    const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    const int phi_bins = static_cast<int>(scratch.row_indices_by_phi.size());
+    const int max_rows = std::max(64, phi_bins * 2 + 16);
+    const int max_radial_steps = std::max(64, settings.source_bins * 12);
+
+    double total_count = 0.0;
+    double radius_origin = start_radius;
+    double phi = wrap_angle(start_phi);
+    for (int row = 0; row < max_rows; ++row) {
+        const int phi_index = std::clamp(static_cast<int>(phi / std::abs(dphi)), 0, phi_bins - 1);
+        const double cos_phi = std::cos(phi);
+        const double sin_phi = std::sin(phi);
+
+        double count = 0.0;
+        double dz2 = std::numeric_limits<double>::infinity();
+        double dz2_last = dz2;
+        double max_r = radius_origin;
+        double min_r = radius_origin;
+
+        double radius = radius_origin;
+        double direction = dr;
+        for (int step = 0; step < max_radial_steps; ++step) {
+            const SourcePosition image {radius * cos_phi, radius * sin_phi};
+            const auto mapped = map_binary_lens(mapper, image);
+            dz2_last = dz2;
+            dz2 = distance_squared(mapped, source);
+
+            if (dz2 <= source_radius2) {
+                if (direction < 0.0 && count == 0.0) {
+                    max_r = radius - direction;
+                }
+                const double brightness =
+                    uniform_source ? 1.0 : source_surface_brightness(dz2 / source_radius2, settings);
+                count += brightness * radius;
+            } else if (direction > 0.0) {
+                if (dz2_last <= source_radius2) {
+                    max_r = radius;
+                } else if (total_count == 0.0 && row <= 1 && radius == radius_origin) {
+                    radius += direction;
+                    continue;
+                }
+                direction = -dr;
+                radius = radius_origin;
+                min_r = radius + direction;
+            } else {
+                if (dz2_last <= source_radius2) {
+                    min_r = radius;
+                }
+                if (!scratch.rows.empty() && count == 0.0 &&
+                    radius >= scratch.rows.back().min_r - direction) {
+                    radius += direction;
+                    continue;
+                }
+
+                if (count == 0.0) {
+                    if (!scratch.rows.empty()) {
+                        return total_count;
+                    }
+                } else {
+                    for (const int index : scratch.row_indices_by_phi[static_cast<std::size_t>(phi_index)]) {
+                        const auto& existing = scratch.rows[static_cast<std::size_t>(index)];
+                        if (min_r + dr < existing.max_r && max_r - dr > existing.min_r) {
+                            return total_count;
+                        }
+                    }
+                    total_count += count;
+                    scratch.row_indices_by_phi[static_cast<std::size_t>(phi_index)].push_back(
+                        static_cast<int>(scratch.rows.size()));
+                    scratch.rows.push_back({min_r, max_r, phi});
+                }
+
+                radius_origin = max_r - dr;
+                phi = wrap_angle(phi + dphi);
+                break;
+            }
+            radius += direction;
+        }
+
+        if (row > 0 && count == 0.0) {
+            break;
+        }
+    }
+    return total_count;
+}
+
+double inverse_ray_polar_boundary_binary(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings)
+{
+    const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
+    if (images.empty()) {
+        return std::nan("");
+    }
+
+    const int source_bins = std::max(settings.source_bins, 1);
+    const double dr = source_radius / static_cast<double>(source_bins);
+    const int phi_bins = std::max(16, static_cast<int>(2.0 * kPi / (dr * settings.grid_ratio)));
+    const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
+    const double total_source_flux = source_flux(source_radius, settings);
+    if (!std::isfinite(total_source_flux)) {
+        return std::nan("");
+    }
+
+    std::vector<double> image_area_counts(images.size(), 0.0);
+    std::vector<bool> skip(images.size(), false);
+    double total_count = 0.0;
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        if (skip[i]) {
+            continue;
+        }
+
+        const double image_radius_value = std::hypot(images[i].position.x, images[i].position.y);
+        double image_phi = wrap_angle(std::atan2(images[i].position.y, images[i].position.x));
+        const double grid_radius = std::floor(image_radius_value / dr) * dr + 0.5 * dr;
+        image_phi = std::floor(image_phi / dphi) * dphi + 0.5 * dphi;
+
+        PolarBoundaryScratch scratch;
+        scratch.row_indices_by_phi.assign(static_cast<std::size_t>(phi_bins), {});
+        double count = trace_polar_boundary_rows(
+            separation, mass_ratio, source, source_radius, settings,
+            grid_radius, image_phi, dphi, scratch);
+        if (!scratch.rows.empty()) {
+            const double reverse_start_radius = scratch.rows.front().max_r;
+            count += trace_polar_boundary_rows(
+                separation, mass_ratio, source, source_radius, settings,
+                reverse_start_radius, image_phi - dphi, -dphi, scratch);
+        }
+
+        total_count += count;
+        image_area_counts[i] = count;
+
+        for (std::size_t j = 0; j < images.size(); ++j) {
+            if (j == i) {
+                continue;
+            }
+            const double other_radius = std::hypot(images[j].position.x, images[j].position.y);
+            const double other_phi = wrap_angle(std::atan2(images[j].position.y, images[j].position.x));
+            const double other_grid_radius = std::floor(other_radius / dr) * dr;
+            const double other_grid_phi = std::floor(other_phi / dphi) * dphi;
+            for (const auto& row : scratch.rows) {
+                const double row_phi = wrap_angle(row.phi - 0.5 * std::abs(dphi));
+                const double delta_phi = std::abs(wrap_angle(other_grid_phi - row_phi));
+                const double wrapped_delta_phi = std::min(delta_phi, 2.0 * kPi - delta_phi);
+                if (wrapped_delta_phi <= 1.01 * std::abs(dphi) &&
+                    other_grid_radius >= row.min_r - 1.01 * dr &&
+                    other_grid_radius <= row.max_r + 1.01 * dr) {
+                    if (j < i) {
+                        total_count -= image_area_counts[j];
+                    } else {
+                        skip[j] = true;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    const double image_flux = total_count * dr * dphi;
     return image_flux / total_source_flux;
 }
 
@@ -572,8 +802,12 @@ FiniteSourceResult fixed_inverse_ray_binary(
     FiniteSourceDecision decision)
 {
     const int bins = std::max(settings.source_bins, 1);
-    const double magnification = inverse_ray_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings, decision.method, bins);
+    const double magnification =
+        decision.method == FiniteSourceMethod::inverse_ray_polar ?
+            inverse_ray_polar_boundary_binary(
+                point_magnifier, separation, mass_ratio, source, source_radius, settings) :
+            inverse_ray_binary(
+                point_magnifier, separation, mass_ratio, source, source_radius, settings, decision.method, bins);
     if (!std::isfinite(magnification)) {
         return {magnification, 0, decision, std::nan(""), 0, false};
     }
