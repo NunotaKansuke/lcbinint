@@ -40,8 +40,10 @@ def _vbm_binary_mag2(separation, mass_ratio, y1, y2, rho):
 def _vbm_binary_mag_dark(separation, mass_ratio, y1, y2, rho, limb_darkening_c):
     module = pytest.importorskip("VBBinaryLensing")
     vbbinary_lensing = module.VBBinaryLensing()
+    vbbinary_lensing.Tol = 1.0e-3
+    vbbinary_lensing.a1 = limb_darkening_c
     return vbbinary_lensing.BinaryMagDark(
-        separation, mass_ratio, y1, y2, rho, limb_darkening_c
+        separation, mass_ratio, y1, y2, rho, vbbinary_lensing.Tol
     )
 
 
