@@ -96,10 +96,21 @@ lcbi_status lcbi_magnification_array(
         return LCBI_INVALID_ARGUMENT;
     }
 
+    const auto cpp_params = lcbinint::model::from_c_params(*params);
+    if (!cpp_params.is_valid()) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+    const auto cpp_options = lcbinint::model::from_c_options(options);
+    const lcbinint::model::LensModel model(cpp_params, cpp_options);
     for (int i = 0; i < count; ++i) {
-        const lcbi_status status = lcbi_magnification(times[i], params, options, &results[i]);
-        if (status != LCBI_OK) {
-            return status;
+        const auto magnification_result = model.magnification(times[i]);
+        copy_result(magnification_result, results[i]);
+        if (magnification_result.status == lcbinint::EvaluationStatus::unsupported) {
+            return LCBI_UNSUPPORTED;
+        }
+        if (magnification_result.status == lcbinint::EvaluationStatus::numerical_error ||
+            !std::isfinite(results[i].magnification)) {
+            return LCBI_NUMERICAL_ERROR;
         }
     }
     return LCBI_OK;

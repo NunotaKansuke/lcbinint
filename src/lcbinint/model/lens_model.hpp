@@ -1,5 +1,6 @@
 #pragma once
 
+#include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/model/lens_parameters.hpp"
 #include "lcbinint/types.hpp"
 
@@ -14,6 +15,7 @@ public:
 private:
     LensParameters params_;
     ComputationOptions options_;
+    magnification::FiniteSourceMagnifier finite_magnifier_;
 };
 
 } // namespace lcbinint::model

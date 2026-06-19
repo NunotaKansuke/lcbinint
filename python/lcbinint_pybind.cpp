@@ -44,7 +44,19 @@ public:
 
     std::vector<double> magnifications(const std::vector<double>& times) const
     {
-        return light_curve(times).magnifications;
+        std::vector<lcbi_result> results(times.size());
+        const lcbi_status status = lcbi_magnification_array(
+            times.data(), static_cast<int>(times.size()), &params_, &options_, results.data());
+        if (status != LCBI_OK) {
+            throw std::runtime_error(lcbi_status_string(status));
+        }
+
+        std::vector<double> values;
+        values.reserve(times.size());
+        for (const auto& result : results) {
+            values.push_back(result.magnification);
+        }
+        return values;
     }
 
     std::pair<double, double> source_position(double time) const

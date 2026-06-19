@@ -213,6 +213,36 @@ heuristics such as point-source magnification and source distance to choose
 cartesian versus polar. The point-source fast-path acceptance no longer uses
 that heuristic, but the full strategy is still not publishable.
 
+## Legacy-Speed Notes
+
+The legacy mode should remain a fixed-resolution expert path. It now reuses a
+`LensModel` and `FiniteSourceMagnifier` across array evaluations, caches the
+legacy caustic curve per `(sep, q, caustic_bins)`, and performs a fast sampled
+caustic-distance rejection before the full segment-distance pass. It also avoids
+the `tol`/`reltol` refinement loop; `legacy_finite_mode=3..6` should use the
+requested `source_bins` once, matching the old `NBIN` semantics.
+
+Varied-time Release benchmarks against the old executable show:
+
+```text
+NBIN=80, 400 points:
+  low:   old smode=4 0.043 ms/pt, new legacy cart 0.135 ms/pt
+  close: old smode=4 0.016 ms/pt, new legacy cart 0.072 ms/pt
+  wide:  old smode=4 0.585 ms/pt, new legacy cart 0.719 ms/pt
+
+NBIN=20, 400 points:
+  wide:  old smode=4 0.069 ms/pt, new legacy cart 0.126 ms/pt
+  wide:  old smode=5 0.076 ms/pt, new legacy polar 0.283 ms/pt
+```
+
+The cartesian path is now close for the hard wide case, but low/close still pay
+more point-source and caustic-rejection overhead than the old C executable.
+The polar path is correct enough for the current VBM regression test, but it is
+not an `imagearea5` port: it still uses a direct polar sampling grid, so hard
+wide finite-source cases are slower than old `smode=5`. Matching old polar
+speed requires porting the boundary-scanning `imagearea0pole/imagearea5`
+algorithm or replacing it with an equivalent contour/boundary construction.
+
 ## What Not To Do
 
 - Do not make legacy finite-source mode numbers the default public API.
