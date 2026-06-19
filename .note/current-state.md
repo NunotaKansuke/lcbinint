@@ -356,6 +356,48 @@ Near-term plan:
 - Unit test verifies the C ABI routes through the C++ trajectory path and that
   the root solver handles degree 1, 2, 3, and 5 polynomials.
 
+## 2026-06-20 Polar / High-Magnification Update
+
+- Legacy `smode=6` no longer builds the cached polar image-plane map before it
+  knows whether it will fall back to the cartesian legacy area path. This avoids
+  doing polar setup work that is immediately discarded near caustics.
+- The augmented caustic seed list is reused when `smode=6` falls back to the
+  legacy cartesian area calculation, instead of recomputing the same caustic
+  seed search inside `imagearea4`.
+- The pure polar `smode=5` path is still not accurate enough for difficult
+  caustic/high-magnification curves. It remains exposed as a legacy expert
+  option, but precision regression coverage now focuses on `smode=4` and
+  `smode=6`.
+- Added a high-magnification light-curve regression against
+  `VBBinaryLensing.BinaryLightCurve(...)` using forced finite-source legacy
+  settings. Both `smode=4` and `smode=6` are checked.
+- Current quick benchmark with `source_bins=80`:
+  - caustic light curve, `s=1.4, q=0.4, u0=-0.15, rho=0.025`:
+    VBBL 0.044 ms/pt, `smode=4` 0.205 ms/pt, `smode=6` 0.179 ms/pt,
+    max relative error about `9.6e-4`.
+  - forced finite-source high-magnification curve,
+    `s=1.0, q=0.1, u0=0.01, rho=0.003`:
+    VBBL 0.126 ms/pt, `smode=4` 2.85 ms/pt, `smode=6` 2.74 ms/pt,
+    max relative error about `4.1e-4`.
+
+## 2026-06-20 Source-Bin Accuracy Diagnostic
+
+- Python `LensModel` now exposes
+  `estimate_source_bins(times, candidate_bins=[20,30,40,50,60,80], max_sample_points=64)`.
+- The diagnostic evaluates representative light-curve times at the largest
+  candidate bin count, treats that as the internal reference, and reports
+  max/rms relative differences for smaller candidates. It recommends the first
+  candidate satisfying `tolerance + relative_tolerance * abs(reference)` at all
+  sampled points.
+- This is a self-convergence diagnostic, not a rigorous integration error
+  bound. It is meant to catch obviously over-conservative `source_bins` choices
+  before running full light curves.
+- With `relative_tolerance=1e-3`, the current caustic benchmark recommends
+  `source_bins=50` against an 80-bin internal reference. The forced
+  high-magnification benchmark recommends `source_bins=40`. Direct VBBL sweeps
+  still suggest `50-60` is the safer default for the caustic example, while
+  `80` is usually overkill for the current mode-4/mode-6 implementation.
+
 ## Near-Term Plan
 
 1. Keep the public C ABI small and stable.

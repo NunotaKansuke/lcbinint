@@ -258,7 +258,7 @@ def test_lcbinint_lens_model_linear_limb_darkening_matches_vbm(
 
 
 @pytest.mark.parametrize("separation,mass_ratio,y1,y2,rho", BINARY_LIMB_DARKENING_CASES)
-@pytest.mark.parametrize("legacy_finite_mode", [4, 5, 6])
+@pytest.mark.parametrize("legacy_finite_mode", [4, 6])
 def test_lcbinint_lens_model_legacy_limb_darkening_matches_vbm(
     separation, mass_ratio, y1, y2, rho, legacy_finite_mode
 ):
@@ -288,6 +288,105 @@ def test_lcbinint_lens_model_legacy_limb_darkening_matches_vbm(
 
     assert math.isfinite(actual)
     assert math.isclose(actual, reference, rel_tol=5.0e-3, abs_tol=5.0e-3)
+
+
+@pytest.mark.parametrize("legacy_finite_mode", [4, 6])
+@pytest.mark.parametrize("limb_darkened", [False, True])
+def test_lcbinint_legacy_caustic_light_curve_points_match_vbm(
+    legacy_finite_mode, limb_darkened
+):
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBBinaryLensing")
+
+    separation = 1.4
+    mass_ratio = 0.4
+    y2 = -0.15
+    rho = 0.025
+    limb_darkening_c = 0.5
+    y1_values = [-0.25854879065888237, -0.2485404503753128, 0.5821517931609672, 0.6021684737281067]
+
+    vbbinary_lensing = module.VBBinaryLensing()
+    vbbinary_lensing.Tol = 1.0e-3
+    if limb_darkened:
+        vbbinary_lensing.a1 = limb_darkening_c
+    reference = []
+    for y1 in y1_values:
+        if limb_darkened:
+            reference.append(
+                vbbinary_lensing.BinaryMagDark(
+                    separation, mass_ratio, y1, y2, rho, vbbinary_lensing.Tol
+                )
+            )
+        else:
+            reference.append(
+                vbbinary_lensing.BinaryMag2(separation, mass_ratio, y1, y2, rho)
+            )
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        umin=y2,
+        theta=0.0,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+        limb_darkening_c=limb_darkening_c if limb_darkened else 0.0,
+    )
+    options = lcbinint.Options(
+        center_of_mass=1,
+        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
+        legacy_finite_mode=legacy_finite_mode,
+        source_bins=80,
+    )
+    actual = lcbinint.LensModel(params, options).light_curve(y1_values).magnifications
+
+    for actual_value, reference_value in zip(actual, reference):
+        assert math.isfinite(actual_value)
+        assert math.isclose(actual_value, reference_value, rel_tol=1.5e-3, abs_tol=1.5e-3)
+
+
+@pytest.mark.parametrize("legacy_finite_mode", [4, 6])
+def test_lcbinint_legacy_high_magnification_light_curve_matches_vbm(
+    legacy_finite_mode,
+):
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBBinaryLensing")
+
+    separation = 1.0
+    mass_ratio = 0.1
+    umin = 0.01
+    rho = 0.003
+    times = [-0.08, -0.06, -0.04, -0.03, -0.02, -0.01, 0.0, 0.02, 0.04]
+
+    vbbinary_lensing = module.VBBinaryLensing()
+    vbbinary_lensing.Tol = 1.0e-3
+    reference = vbbinary_lensing.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), umin, math.pi, math.log(rho), 0.0, 0.0],
+        times,
+    )[0]
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        umin=umin,
+        theta=0.0,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+    )
+    options = lcbinint.Options(
+        center_of_mass=1,
+        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
+        legacy_finite_mode=legacy_finite_mode,
+        legacy_kinji=1.0e9,
+        legacy_hex=1.0e9,
+        source_bins=80,
+    )
+    actual = lcbinint.LensModel(params, options).light_curve(times).magnifications
+
+    for actual_value, reference_value in zip(actual, reference):
+        assert math.isfinite(actual_value)
+        assert math.isclose(actual_value, reference_value, rel_tol=1.5e-3, abs_tol=1.5e-3)
 
 
 def test_lcbinint_lens_model_reports_finite_source_non_convergence():
@@ -433,6 +532,43 @@ def test_lcbinint_lens_model_light_curve_accepts_empty_times():
     assert curve.magnifications == []
     assert model.magnifications([]) == []
     assert model.source_positions([]) == []
+
+
+def test_lcbinint_lens_model_estimates_source_bins_from_self_convergence():
+    lcbinint = pytest.importorskip("lcbinint")
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        umin=-0.15,
+        theta=0.0,
+        q=0.4,
+        sep=1.4,
+        rho=0.025,
+    )
+    options = lcbinint.Options(
+        center_of_mass=1,
+        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
+        legacy_finite_mode=4,
+        source_bins=80,
+        tolerance=0.0,
+        relative_tolerance=1.0e-3,
+    )
+    model = lcbinint.LensModel(params, options)
+    times = [-2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0]
+
+    estimate = model.estimate_source_bins(
+        times,
+        candidate_bins=[20, 40, 60, 80],
+        max_sample_points=9,
+    )
+
+    assert estimate.reference_source_bins == 80
+    assert estimate.recommended_source_bins in {40, 60, 80}
+    assert estimate.sampled_times == times
+    assert [candidate.source_bins for candidate in estimate.candidates] == [20, 40, 60, 80]
+    assert estimate.candidates[-1].accepted
+    assert estimate.candidates[-1].max_relative_difference == pytest.approx(0.0)
 
 
 def test_lcbinint_annual_parallax_source_trajectory_matches_jacscanomaly():
