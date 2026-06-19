@@ -79,6 +79,15 @@ private:
         double mass_ratio,
         SourcePosition source,
         double search_radius) const;
+    void ensure_legacy_polar_map_cache(
+        double separation,
+        double mass_ratio,
+        double source_radius) const;
+    FiniteSourceResult legacy_polar_memory_binary_mag(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius) const;
 
     FiniteSourceSettings settings_;
     mutable bool caustic_cache_valid_ = false;
@@ -103,6 +112,18 @@ private:
     mutable double result_cache_source_radius_ = 0.0;
     mutable double result_cache_point_magnification_ = 0.0;
     mutable FiniteSourceResult result_cache_;
+    mutable bool polar_map_cache_valid_ = false;
+    mutable double polar_map_cache_separation_ = 0.0;
+    mutable double polar_map_cache_mass_ratio_ = 0.0;
+    mutable double polar_map_cache_source_radius_ = 0.0;
+    mutable int polar_map_cache_source_bins_ = 0;
+    mutable double polar_map_cache_grid_ratio_ = 0.0;
+    mutable double polar_map_cache_dr_ = 1.0;
+    mutable double polar_map_cache_dphi_ = 1.0;
+    mutable int polar_map_cache_phi_bins_ = 0;
+    mutable int polar_map_cache_radial_offset_min_index_ = 0;
+    mutable std::vector<int> polar_map_cache_radial_offsets_;
+    mutable std::vector<SourcePosition> polar_map_cache_;
 };
 
 const char* finite_source_method_name(FiniteSourceMethod method);
