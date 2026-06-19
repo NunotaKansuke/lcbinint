@@ -212,15 +212,17 @@ Implemented skeleton:
 - Binary point-source magnification now exists as
   `PointSourceMagnifier::binary_mag0(separation, q, source)` and is exposed in
   Python as `lcbinint.binary_mag0(separation, mass_ratio, y1, y2)`.
-- Python also exposes `LensParams`, `Options`, and `LensModel` with scalar and
-  vector magnification methods for supported binary point-source cases.
+- Python also exposes keyword-friendly `LensParams`, `Options`, and `LensModel`
+  bindings with scalar and vector magnification methods for supported binary
+  point-source cases.
 - `tests/regression/test_vbm_consistency.py` compares `binary_mag0()` against
   `VBBinaryLensing().BinaryMag0(...)`, and also checks the Python `LensModel`
   path for the same cases.
 - The high-level C ABI `lcbi_magnification()` now returns `LCBI_OK` for a
   restricted binary point-source subset: no triple lens, no finite source, no
-  parallax/xallarap/orbital motion, and no legacy wide-binary non-CM offset.
-  Unsupported cases still return `LCBI_UNSUPPORTED`.
+  parallax/xallarap/orbital motion. It preserves the legacy wide-binary
+  `sep > 1` center-of-caustic offset when `center_of_mass == 0`. Unsupported
+  cases still return `LCBI_UNSUPPORTED`.
 - Unit test verifies the C ABI routes through the C++ trajectory path and that
   the root solver handles degree 1, 2, 3, and 5 polynomials.
 

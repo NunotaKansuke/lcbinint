@@ -20,22 +20,14 @@ The corresponding Python API should look roughly like:
 ```python
 from lcbinint import LensModel, LensParams, Options
 
-params = LensParams()
-params.t0 = 0
-params.tE = 20
-params.umin = 0.1
-params.q = 0.2
-params.sep = 1.1
-params.theta = 0.0
-options = Options()
-options.center_of_mass = 1
+params = LensParams(t0=0, tE=20, umin=0.1, q=0.2, sep=1.1, theta=0.0)
+options = Options(center_of_mass=1)
 model = LensModel(params, options)
 amp = model.magnifications([2450000.1, 2450001.1])
 ```
 
-Current binding note: `LensParams()` and `Options()` are default-constructed
-objects with mutable fields rather than keyword-style constructors. Keyword
-construction can be added after the stable parameter set is clear.
+The parameter objects also keep mutable fields for interactive use and fitting
+code that wants to update values in place.
 
 Triple-lens support should not be a separate model class. It should be enabled
 by `q2 > 0` with `sep2` and `ang` set.
@@ -164,6 +156,17 @@ lcbinint.binary_mag0(separation, mass_ratio, y1, y2)
 This low-level API is matched against `VBBinaryLensing().BinaryMag0(...)`.
 Keep it as a direct numerical validation hook even after the higher-level
 `LensModel` API exists.
+
+The higher-level `LensModel` path preserves the legacy wide-binary coordinate
+choice for `sep > 1` when `Options(center_of_mass=0)`:
+
+```text
+xc0 = m2 * sep - m2 / sep
+source_cm.x = source.x - xc0
+```
+
+This keeps the useful center-of-caustic coordinate behavior from `finiteAt()`
+without changing the low-level `binary_mag0()` API, which remains VBM/CM-like.
 
 The root solver itself is compared directly against VBMicrolensing in
 `tests/regression/test_solver_vbm_consistency.py` through:

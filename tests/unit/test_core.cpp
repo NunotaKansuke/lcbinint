@@ -59,11 +59,19 @@ int main()
         return 7;
     }
     params.sep = 1.5;
-    if (lcbi_magnification(0.2, &params, &options, &result) != LCBI_UNSUPPORTED) {
+    params.q = 1.0;
+    if (lcbi_magnification(0.2, &params, &options, &result) != LCBI_OK) {
         return 17;
     }
-    if (std::strcmp(lcbi_status_string(LCBI_UNSUPPORTED), "unsupported") != 0) {
+    if (std::abs(result.magnification - 3.5659775904852786) > 1e-10) {
         return 18;
+    }
+    params.rho = 0.01;
+    if (lcbi_magnification(0.2, &params, &options, &result) != LCBI_UNSUPPORTED) {
+        return 19;
+    }
+    if (std::strcmp(lcbi_status_string(LCBI_UNSUPPORTED), "unsupported") != 0) {
+        return 20;
     }
 
     lcbinint::math::PolynomialRootSolver solver;

@@ -16,15 +16,21 @@ bool has_dynamic_effects(const LensParameters& params)
            params.piEE_xa != 0.0 || params.omega != 0.0 || params.v_sep != 0.0;
 }
 
-bool requires_legacy_wide_binary_offset(const LensParameters& params, const ComputationOptions& options)
+double legacy_wide_binary_offset(const LensParameters& params, const ComputationOptions& options)
 {
-    return options.center_of_mass == 0 && std::abs(params.sep) > 1.0;
+    const double separation = std::abs(params.sep);
+    if (options.center_of_mass != 0 || separation <= 1.0) {
+        return 0.0;
+    }
+    const double q = std::abs(params.q);
+    const double m2 = q / (1.0 + q);
+    return m2 * separation - m2 / separation;
 }
 
 bool supports_binary_point_source(const LensParameters& params, const ComputationOptions& options)
 {
     return options.is_point_source() && !params.is_triple() && !has_dynamic_effects(params) &&
-           !requires_legacy_wide_binary_offset(params, options);
+           params.rho == 0.0;
 }
 
 } // namespace
@@ -50,7 +56,10 @@ MagnificationResult LensModel::magnification(double time) const
 
     if (supports_binary_point_source(params_, options_)) {
         const magnification::PointSourceMagnifier magnifier;
-        const auto point_result = magnifier.binary_mag0(params_.sep, params_.q, source);
+        auto source_for_magnification = source;
+        source_for_magnification.x -= legacy_wide_binary_offset(params_, options_);
+        const auto point_result =
+            magnifier.binary_mag0(params_.sep, params_.q, source_for_magnification);
         result.magnification = point_result.magnification;
         result.point_source_magnification = point_result.magnification;
         result.image_count = point_result.image_count;
