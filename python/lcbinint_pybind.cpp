@@ -58,12 +58,59 @@ PYBIND11_MODULE(lcbinint, m)
         .value("NUMERICAL_ERROR", LCBI_NUMERICAL_ERROR)
         .value("UNSUPPORTED", LCBI_UNSUPPORTED);
 
+    py::enum_<lcbi_finite_source_mode>(m, "FiniteSourceMode")
+        .value("POINT_SOURCE", LCBI_POINT_SOURCE)
+        .value("FINITE_INTEGRAL", LCBI_FINITE_INTEGRAL)
+        .value("SINGLE_LENS_FINITE", LCBI_SINGLE_LENS_FINITE)
+        .value("INVERSE_RAY_SLOW", LCBI_INVERSE_RAY_SLOW)
+        .value("INVERSE_RAY_FAST", LCBI_INVERSE_RAY_FAST)
+        .value("INVERSE_RAY_POLAR", LCBI_INVERSE_RAY_POLAR)
+        .value("INVERSE_RAY_POLAR_MEMORY", LCBI_INVERSE_RAY_POLAR_MEMORY);
+
     m.def("status_string", [](lcbi_status status) {
         return lcbi_status_string(status);
     });
 
     py::class_<lcbi_params>(m, "LensParams")
-        .def(py::init([]() { return lcbi_default_params(); }))
+        .def(py::init([](double t0,
+                         double tE,
+                         double umin,
+                         double q,
+                         double sep,
+                         double theta,
+                         double rho,
+                         double omega,
+                         double v_sep,
+                         double q2,
+                         double sep2,
+                         double ang) {
+                 auto params = lcbi_default_params();
+                 params.t0 = t0;
+                 params.tE = tE;
+                 params.umin = umin;
+                 params.q = q;
+                 params.sep = sep;
+                 params.theta = theta;
+                 params.rho = rho;
+                 params.omega = omega;
+                 params.v_sep = v_sep;
+                 params.q2 = q2;
+                 params.sep2 = sep2;
+                 params.ang = ang;
+                 return params;
+             }),
+            py::arg("t0") = 0.0,
+            py::arg("tE") = 1.0,
+            py::arg("umin") = 0.0,
+            py::arg("q") = 1.0,
+            py::arg("sep") = 1.0,
+            py::arg("theta") = 0.0,
+            py::arg("rho") = 0.0,
+            py::arg("omega") = 0.0,
+            py::arg("v_sep") = 0.0,
+            py::arg("q2") = 0.0,
+            py::arg("sep2") = 0.0,
+            py::arg("ang") = 0.0)
         .def_readwrite("t0", &lcbi_params::t0)
         .def_readwrite("tE", &lcbi_params::tE)
         .def_readwrite("umin", &lcbi_params::umin)
@@ -78,7 +125,14 @@ PYBIND11_MODULE(lcbinint, m)
         .def_readwrite("ang", &lcbi_params::ang);
 
     py::class_<lcbi_options>(m, "Options")
-        .def(py::init([]() { return lcbi_default_options(); }))
+        .def(py::init([](lcbi_finite_source_mode finite_source_mode, int center_of_mass) {
+                 auto options = lcbi_default_options();
+                 options.finite_source_mode = finite_source_mode;
+                 options.center_of_mass = center_of_mass;
+                 return options;
+             }),
+            py::arg("finite_source_mode") = LCBI_POINT_SOURCE,
+            py::arg("center_of_mass") = 0)
         .def_readwrite("finite_source_mode", &lcbi_options::finite_source_mode)
         .def_readwrite("center_of_mass", &lcbi_options::center_of_mass);
 

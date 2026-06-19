@@ -31,16 +31,15 @@ def _lcbinint_binary_mag0(separation, mass_ratio, y1, y2):
 def _lcbinint_lens_model_mag0(separation, mass_ratio, y1, y2):
     lcbinint = pytest.importorskip("lcbinint")
 
-    params = lcbinint.LensParams()
-    params.t0 = 0.0
-    params.tE = 1.0
-    params.umin = y2
-    params.theta = 0.0
-    params.q = mass_ratio
-    params.sep = separation
-
-    options = lcbinint.Options()
-    options.center_of_mass = 1
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        umin=y2,
+        theta=0.0,
+        q=mass_ratio,
+        sep=separation,
+    )
+    options = lcbinint.Options(center_of_mass=1)
 
     return lcbinint.LensModel(params, options).magnification(y1)
 
@@ -76,6 +75,32 @@ def test_lcbinint_lens_model_binary_point_source_matches_vbm(
 
     reference = _vbm_binary_mag0(separation, mass_ratio, y1, y2)
     actual = _lcbinint_lens_model_mag0(separation, mass_ratio, y1, y2)
+
+    assert math.isfinite(actual)
+    assert math.isclose(actual, reference, rel_tol=1.0e-10, abs_tol=1.0e-11)
+
+
+def test_lcbinint_lens_model_wide_binary_legacy_offset_matches_vbm():
+    separation = 1.5
+    mass_ratio = 1.0
+    y1 = 0.2
+    y2 = 0.1
+    m2 = mass_ratio / (1.0 + mass_ratio)
+    legacy_offset = m2 * separation - m2 / separation
+
+    reference = _vbm_binary_mag0(separation, mass_ratio, y1 - legacy_offset, y2)
+
+    lcbinint = pytest.importorskip("lcbinint")
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        umin=y2,
+        theta=0.0,
+        q=mass_ratio,
+        sep=separation,
+    )
+    options = lcbinint.Options(center_of_mass=0)
+    actual = lcbinint.LensModel(params, options).magnification(y1)
 
     assert math.isfinite(actual)
     assert math.isclose(actual, reference, rel_tol=1.0e-10, abs_tol=1.0e-11)
