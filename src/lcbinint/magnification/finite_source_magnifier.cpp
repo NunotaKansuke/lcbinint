@@ -411,6 +411,7 @@ double inverse_ray_cartesian_binary(
     if (!std::isfinite(total_source_flux)) {
         return std::nan("");
     }
+    const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
 
     double image_flux = 0.0;
     for (const auto& image : images) {
@@ -424,8 +425,10 @@ double inverse_ray_cartesian_binary(
                 const auto mapped = point_magnifier.binary_lens_equation(separation, mass_ratio, {x, y});
                 const double mapped_distance2 = distance_squared(mapped, source);
                 if (mapped_distance2 <= source_radius2) {
-                    image_flux += cell_area *
-                                  source_surface_brightness(mapped_distance2 / source_radius2, settings);
+                    image_flux += uniform_source ?
+                                      cell_area :
+                                      cell_area * source_surface_brightness(
+                                                      mapped_distance2 / source_radius2, settings);
                 }
             }
         }
@@ -455,26 +458,36 @@ double inverse_ray_polar_binary(
     if (!std::isfinite(total_source_flux)) {
         return std::nan("");
     }
+    const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
+
+    std::vector<double> cos_phi(static_cast<std::size_t>(angular_bins));
+    std::vector<double> sin_phi(static_cast<std::size_t>(angular_bins));
+    const double dphi = 2.0 * kPi / static_cast<double>(angular_bins);
+    for (int iphi = 0; iphi < angular_bins; ++iphi) {
+        const double phi = (iphi + 0.5) * dphi;
+        cos_phi[static_cast<std::size_t>(iphi)] = std::cos(phi);
+        sin_phi[static_cast<std::size_t>(iphi)] = std::sin(phi);
+    }
 
     double image_flux = 0.0;
     for (const auto& image : images) {
         const double rmax = image_radius(source_radius, image.jacobian_determinant);
         const double dr = rmax / static_cast<double>(radial_bins);
-        const double dphi = 2.0 * kPi / static_cast<double>(angular_bins);
         for (int ir = 0; ir < radial_bins; ++ir) {
             const double r_inner = ir * dr;
             const double r_outer = (ir + 1) * dr;
             const double r = 0.5 * (r_inner + r_outer);
             const double cell_area = 0.5 * (r_outer * r_outer - r_inner * r_inner) * dphi;
             for (int iphi = 0; iphi < angular_bins; ++iphi) {
-                const double phi = (iphi + 0.5) * dphi;
-                const double x = image.position.x + r * std::cos(phi);
-                const double y = image.position.y + r * std::sin(phi);
+                const double x = image.position.x + r * cos_phi[static_cast<std::size_t>(iphi)];
+                const double y = image.position.y + r * sin_phi[static_cast<std::size_t>(iphi)];
                 const auto mapped = point_magnifier.binary_lens_equation(separation, mass_ratio, {x, y});
                 const double mapped_distance2 = distance_squared(mapped, source);
                 if (mapped_distance2 <= source_radius2) {
-                    image_flux += cell_area *
-                                  source_surface_brightness(mapped_distance2 / source_radius2, settings);
+                    image_flux += uniform_source ?
+                                      cell_area :
+                                      cell_area * source_surface_brightness(
+                                                      mapped_distance2 / source_radius2, settings);
                 }
             }
         }
