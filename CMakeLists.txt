@@ -15,6 +15,9 @@ if(NOT GSL_FOUND)
     if(DEFINED ENV{GSL_ROOT})
         list(APPEND LCBININT_GSL_HINTS "$ENV{GSL_ROOT}")
     endif()
+    list(APPEND LCBININT_GSL_HINTS
+        "/rogue1_8/nunota/local/gsl"
+        "$ENV{HOME}/local/gsl")
     find_path(GSL_INCLUDE_DIR gsl/gsl_poly.h
         HINTS
             ${LCBININT_GSL_HINTS}
@@ -51,11 +54,13 @@ endif()
 
 add_library(lcbinint_core
     src/lcbinint/lcbinint.cpp
+    src/lcbinint/magnification/finite_source_magnifier.cpp
     src/lcbinint/magnification/point_source_magnifier.cpp
     src/lcbinint/math/polynomial_roots.cpp
     src/lcbinint/model/lens_model.cpp
     src/lcbinint/model/lens_parameters.cpp
     src/lcbinint/model/lens_system.cpp
+    src/lcbinint/model/orbital_motion.cpp
     src/lcbinint/model/trajectory.cpp
     third_party/skowron_gould/SkowronGould.cpp)
 target_include_directories(lcbinint_core
@@ -64,6 +69,8 @@ target_include_directories(lcbinint_core
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
+target_compile_definitions(lcbinint_core PRIVATE
+    LCBININT_EARTH_EPHEMERIS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/data/earth_orbital_parallax_table.txt")
 target_link_libraries(lcbinint_core PUBLIC GSL::gsl GSL::gslcblas m)
 
 add_executable(test_core tests/unit/test_core.cpp)
@@ -83,3 +90,4 @@ endif()
 
 install(TARGETS lcbinint_core)
 install(DIRECTORY include/lcbinint DESTINATION include)
+install(FILES data/earth_orbital_parallax_table.txt DESTINATION share/lcbinint/data)

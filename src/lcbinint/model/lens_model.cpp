@@ -1,7 +1,9 @@
 #include "lcbinint/model/lens_model.hpp"
 
+#include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/model/lens_system.hpp"
+#include "lcbinint/model/orbital_motion.hpp"
 #include "lcbinint/model/trajectory.hpp"
 
 #include <cmath>
@@ -10,27 +12,61 @@
 namespace lcbinint::model {
 namespace {
 
-bool has_dynamic_effects(const LensParameters& params)
+bool has_unsupported_dynamic_effects(const LensParameters& params)
 {
-    return params.piEN != 0.0 || params.piEE != 0.0 || params.piEN_xa != 0.0 ||
-           params.piEE_xa != 0.0 || params.omega != 0.0 || params.v_sep != 0.0;
+    return params.piEN_xa != 0.0 || params.piEE_xa != 0.0 ||
+           params.omega != 0.0 || params.v_sep != 0.0;
 }
 
-double legacy_wide_binary_offset(const LensParameters& params, const ComputationOptions& options)
+double legacy_wide_binary_offset(
+    double separation,
+    const LensParameters& params,
+    const ComputationOptions& options)
 {
-    const double separation = std::abs(params.sep);
-    if (options.center_of_mass != 0 || separation <= 1.0) {
+    const double projected_separation = std::abs(separation);
+    if (options.center_of_mass != 0 || projected_separation <= 1.0) {
         return 0.0;
     }
     const double q = std::abs(params.q);
     const double m2 = q / (1.0 + q);
-    return m2 * separation - m2 / separation;
+    return m2 * projected_separation - m2 / projected_separation;
 }
 
 bool supports_binary_point_source(const LensParameters& params, const ComputationOptions& options)
 {
-    return options.is_point_source() && !params.is_triple() && !has_dynamic_effects(params) &&
-           params.rho == 0.0;
+    return !params.is_triple() && !has_unsupported_dynamic_effects(params) &&
+           (params.rho == 0.0 || options.forces_point_source());
+}
+
+magnification::FiniteSourceSettings finite_source_settings(
+    const LensParameters& params,
+    const ComputationOptions& options)
+{
+    magnification::FiniteSourceSettings settings;
+    settings.tolerance = options.tolerance;
+    settings.relative_tolerance = options.relative_tolerance;
+    settings.source_bins = options.source_bins;
+    settings.caustic_bins = options.caustic_bins;
+    settings.grid_ratio = options.grid_ratio;
+    settings.legacy_mode = options.finite_source_mode == LCBI_SOURCE_LEGACY;
+    settings.legacy_finite_mode = options.legacy_finite_mode;
+    settings.legacy_kinji = options.legacy_kinji;
+    settings.legacy_hex = options.legacy_hex;
+    settings.limb_darkening_c = params.limb_darkening_c;
+    settings.limb_darkening_d = params.limb_darkening_d;
+    switch (options.inverse_ray_method) {
+    case LCBI_INVERSE_RAY_CARTESIAN:
+        settings.inverse_ray_method = magnification::InverseRayMethod::cartesian;
+        break;
+    case LCBI_INVERSE_RAY_POLAR:
+        settings.inverse_ray_method = magnification::InverseRayMethod::polar;
+        break;
+    case LCBI_INVERSE_RAY_AUTO:
+    default:
+        settings.inverse_ray_method = magnification::InverseRayMethod::auto_select;
+        break;
+    }
+    return settings;
 }
 
 } // namespace
@@ -45,6 +81,7 @@ MagnificationResult LensModel::magnification(double time) const
     const auto source = Trajectory(params_).source_position(time);
     const auto system = LensSystem::from_parameters(params_);
     (void)system;
+    const auto orbit = orbital_state(params_, time);
 
     const double nan = std::numeric_limits<double>::quiet_NaN();
     MagnificationResult result;
@@ -54,15 +91,43 @@ MagnificationResult LensModel::magnification(double time) const
     result.source = source;
     result.image_count = 0;
 
-    if (supports_binary_point_source(params_, options_)) {
-        const magnification::PointSourceMagnifier magnifier;
-        auto source_for_magnification = source;
-        source_for_magnification.x -= legacy_wide_binary_offset(params_, options_);
+    if (!std::isfinite(orbit.separation) || !std::isfinite(orbit.angle)) {
+        result.status = EvaluationStatus::numerical_error;
+        return result;
+    }
+
+    if (!params_.is_triple() && !has_unsupported_dynamic_effects(params_)) {
+        const magnification::PointSourceMagnifier point_magnifier;
+        auto source_for_magnification =
+            rotate_source_to_orbital_frame(source, orbit.angle - params_.theta);
+        result.source = source_for_magnification;
+        source_for_magnification.x -= legacy_wide_binary_offset(orbit.separation, params_, options_);
         const auto point_result =
-            magnifier.binary_mag0(params_.sep, params_.q, source_for_magnification);
-        result.magnification = point_result.magnification;
+            point_magnifier.binary_mag0(orbit.separation, params_.q, source_for_magnification);
         result.point_source_magnification = point_result.magnification;
         result.image_count = point_result.image_count;
+
+        if (supports_binary_point_source(params_, options_)) {
+            result.magnification = point_result.magnification;
+            result.status = std::isfinite(result.magnification)
+                ? EvaluationStatus::ok
+                : EvaluationStatus::numerical_error;
+            return result;
+        }
+
+        const magnification::FiniteSourceMagnifier finite_magnifier(
+            finite_source_settings(params_, options_));
+        const auto finite_result = finite_magnifier.binary_mag(
+            orbit.separation,
+            params_.q,
+            source_for_magnification, std::abs(params_.rho), point_result.magnification);
+        result.magnification = finite_result.magnification;
+        result.finite_source_magnification = finite_result.magnification;
+        if (!finite_result.converged || !std::isfinite(result.magnification)) {
+            result.status = EvaluationStatus::numerical_error;
+            return result;
+        }
+        result.status = EvaluationStatus::ok;
     }
 
     return result;

@@ -32,23 +32,34 @@ struct LensParameters {
     double tfix = 0.0;
     double limb_darkening_c = 0.0;
     double limb_darkening_d = 0.0;
+    lcbi_orbital_motion_mode orbital_motion_mode = LCBI_ORBIT_STATIC;
+    double g1 = 0.0;
+    double g2 = 0.0;
+    double g3 = 0.0;
+    double lom_szs = 0.0;
+    double lom_ar = 1.0;
 
     bool is_triple() const { return q2 > 0.0; }
+    bool has_orbital_motion() const { return orbital_motion_mode != LCBI_ORBIT_STATIC; }
     bool is_valid() const;
 };
 
 struct ComputationOptions {
-    lcbi_finite_source_mode finite_source_mode = LCBI_POINT_SOURCE;
+    lcbi_finite_source_mode finite_source_mode = LCBI_SOURCE_AUTO;
+    lcbi_inverse_ray_method inverse_ray_method = LCBI_INVERSE_RAY_AUTO;
     int parallax_mode = 0;
     int orbit_pair = 23;
     int center_of_mass = 0;
     int caustic_bins = 1400;
     int source_bins = 20;
+    int legacy_finite_mode = 4;
     double grid_ratio = 4.0;
-    double finite_source_threshold = 9.0;
-    double hexadecapole_threshold = 2.0;
+    double legacy_kinji = 9.0;
+    double legacy_hex = 2.0;
+    double tolerance = 1.0e-3;
+    double relative_tolerance = 0.0;
 
-    bool is_point_source() const { return finite_source_mode == LCBI_POINT_SOURCE; }
+    bool forces_point_source() const { return finite_source_mode == LCBI_POINT_SOURCE; }
 };
 
 LensParameters from_c_params(const lcbi_params &params);

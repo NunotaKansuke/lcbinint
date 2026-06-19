@@ -25,19 +25,25 @@ lcbi_params lcbi_default_params(void)
     params.tE = 1.0;
     params.q = 1.0;
     params.sep = 1.0;
+    params.orbital_motion_mode = LCBI_ORBIT_STATIC;
+    params.lom_ar = 1.0;
     return params;
 }
 
 lcbi_options lcbi_default_options(void)
 {
     lcbi_options options = {};
-    options.finite_source_mode = LCBI_POINT_SOURCE;
+    options.finite_source_mode = LCBI_SOURCE_AUTO;
+    options.inverse_ray_method = LCBI_INVERSE_RAY_AUTO;
     options.orbit_pair = 23;
     options.caustic_bins = 1400;
     options.source_bins = 20;
+    options.legacy_finite_mode = 4;
     options.grid_ratio = 4.0;
-    options.finite_source_threshold = 9.0;
-    options.hexadecapole_threshold = 2.0;
+    options.legacy_kinji = 9.0;
+    options.legacy_hex = 2.0;
+    options.tolerance = 1.0e-3;
+    options.relative_tolerance = 0.0;
     return options;
 }
 
@@ -61,9 +67,14 @@ lcbi_status lcbi_magnification(
 
     const auto cpp_options = lcbinint::model::from_c_options(options);
     const lcbinint::model::LensModel model(cpp_params, cpp_options);
-    copy_result(model.magnification(time), *result);
-    if (!std::isfinite(result->magnification)) {
+    const auto magnification_result = model.magnification(time);
+    copy_result(magnification_result, *result);
+    if (magnification_result.status == lcbinint::EvaluationStatus::unsupported) {
         return LCBI_UNSUPPORTED;
+    }
+    if (magnification_result.status == lcbinint::EvaluationStatus::numerical_error ||
+        !std::isfinite(result->magnification)) {
+        return LCBI_NUMERICAL_ERROR;
     }
     return LCBI_OK;
 }
@@ -75,7 +86,13 @@ lcbi_status lcbi_magnification_array(
     const lcbi_options *options,
     lcbi_result *results)
 {
-    if (times == nullptr || params == nullptr || results == nullptr || count < 0) {
+    if (count < 0) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+    if (count == 0) {
+        return LCBI_OK;
+    }
+    if (times == nullptr || params == nullptr || results == nullptr) {
         return LCBI_INVALID_ARGUMENT;
     }
 
