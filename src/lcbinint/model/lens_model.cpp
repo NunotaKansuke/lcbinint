@@ -72,7 +72,7 @@ magnification::FiniteSourceSettings finite_source_settings(
 } // namespace
 
 LensModel::LensModel(LensParameters params, ComputationOptions options)
-    : params_(params), options_(options)
+    : params_(params), options_(options), finite_magnifier_(finite_source_settings(params_, options_))
 {
 }
 
@@ -115,9 +115,7 @@ MagnificationResult LensModel::magnification(double time) const
             return result;
         }
 
-        const magnification::FiniteSourceMagnifier finite_magnifier(
-            finite_source_settings(params_, options_));
-        const auto finite_result = finite_magnifier.binary_mag(
+        const auto finite_result = finite_magnifier_.binary_mag(
             orbit.separation,
             params_.q,
             source_for_magnification, std::abs(params_.rho), point_result.magnification);

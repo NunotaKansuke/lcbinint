@@ -3,6 +3,7 @@
 #include "lcbinint/types.hpp"
 
 #include <string>
+#include <vector>
 
 namespace lcbinint::magnification {
 
@@ -68,7 +69,40 @@ public:
         double point_source_magnification) const;
 
 private:
+    void ensure_legacy_caustic_cache(double separation, double mass_ratio) const;
+    double legacy_binary_caustic_distance(
+        double separation,
+        double mass_ratio,
+        SourcePosition source) const;
+    double legacy_binary_sampled_caustic_distance(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double search_radius) const;
+
     FiniteSourceSettings settings_;
+    mutable bool caustic_cache_valid_ = false;
+    mutable double caustic_cache_separation_ = 0.0;
+    mutable double caustic_cache_mass_ratio_ = 0.0;
+    mutable int caustic_cache_bins_ = 0;
+    mutable std::vector<std::vector<SourcePosition>> caustic_cache_branches_;
+    mutable std::vector<SourcePosition> caustic_cache_points_;
+    mutable double caustic_cache_min_x_ = 0.0;
+    mutable double caustic_cache_max_x_ = 0.0;
+    mutable double caustic_cache_min_y_ = 0.0;
+    mutable double caustic_cache_max_y_ = 0.0;
+    mutable double caustic_cache_grid_step_x_ = 1.0;
+    mutable double caustic_cache_grid_step_y_ = 1.0;
+    mutable int caustic_cache_grid_size_ = 128;
+    mutable std::vector<std::vector<int>> caustic_cache_grid_;
+    mutable bool result_cache_valid_ = false;
+    mutable double result_cache_separation_ = 0.0;
+    mutable double result_cache_mass_ratio_ = 0.0;
+    mutable double result_cache_source_x_ = 0.0;
+    mutable double result_cache_source_y_ = 0.0;
+    mutable double result_cache_source_radius_ = 0.0;
+    mutable double result_cache_point_magnification_ = 0.0;
+    mutable FiniteSourceResult result_cache_;
 };
 
 const char* finite_source_method_name(FiniteSourceMethod method);

@@ -549,11 +549,169 @@ FiniteSourceResult refined_inverse_ray_binary(
     return {coarse, 0, decision, error_estimate, kMaxRefinementLevels, false};
 }
 
+FiniteSourceResult fixed_inverse_ray_binary(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    FiniteSourceDecision decision)
+{
+    const int bins = std::max(settings.source_bins, 1);
+    const double magnification = inverse_ray_binary(
+        point_magnifier, separation, mass_ratio, source, source_radius, settings, decision.method, bins);
+    if (!std::isfinite(magnification)) {
+        return {magnification, 0, decision, std::nan(""), 0, false};
+    }
+    return {magnification, 0, decision, 0.0, 0, true};
+}
+
 } // namespace
 
 FiniteSourceMagnifier::FiniteSourceMagnifier(FiniteSourceSettings settings)
     : settings_(settings)
 {
+}
+
+void FiniteSourceMagnifier::ensure_legacy_caustic_cache(double separation, double mass_ratio) const
+{
+    const int bins = std::max(settings_.caustic_bins, 32);
+    const bool cache_matches = caustic_cache_valid_ &&
+                               caustic_cache_bins_ == bins &&
+                               caustic_cache_separation_ == separation &&
+                               caustic_cache_mass_ratio_ == mass_ratio;
+    if (!cache_matches) {
+        const PointSourceMagnifier point_magnifier;
+        caustic_cache_branches_.assign(4, {});
+        caustic_cache_points_.clear();
+        caustic_cache_points_.reserve(static_cast<std::size_t>(bins) * 4);
+        caustic_cache_min_x_ = std::numeric_limits<double>::infinity();
+        caustic_cache_max_x_ = -std::numeric_limits<double>::infinity();
+        caustic_cache_min_y_ = std::numeric_limits<double>::infinity();
+        caustic_cache_max_y_ = -std::numeric_limits<double>::infinity();
+        for (int i = 0; i < bins; ++i) {
+            const double phase_angle = 2.0 * kPi * static_cast<double>(i) /
+                                       static_cast<double>(bins);
+            auto points = caustic_points_at_phase(point_magnifier, separation, mass_ratio, phase_angle);
+            for (const auto& point : points) {
+                caustic_cache_points_.push_back(point);
+                caustic_cache_min_x_ = std::min(caustic_cache_min_x_, point.x);
+                caustic_cache_max_x_ = std::max(caustic_cache_max_x_, point.x);
+                caustic_cache_min_y_ = std::min(caustic_cache_min_y_, point.y);
+                caustic_cache_max_y_ = std::max(caustic_cache_max_y_, point.y);
+            }
+            append_tracked_caustic_points(caustic_cache_branches_, std::move(points));
+        }
+        const double width = std::max(caustic_cache_max_x_ - caustic_cache_min_x_, 1.0e-12);
+        const double height = std::max(caustic_cache_max_y_ - caustic_cache_min_y_, 1.0e-12);
+        caustic_cache_grid_step_x_ = width / static_cast<double>(caustic_cache_grid_size_);
+        caustic_cache_grid_step_y_ = height / static_cast<double>(caustic_cache_grid_size_);
+        caustic_cache_grid_.assign(
+            static_cast<std::size_t>(caustic_cache_grid_size_ * caustic_cache_grid_size_), {});
+        for (std::size_t i = 0; i < caustic_cache_points_.size(); ++i) {
+            const auto& point = caustic_cache_points_[i];
+            const int ix = std::clamp(static_cast<int>((point.x - caustic_cache_min_x_) /
+                                           caustic_cache_grid_step_x_),
+                0,
+                caustic_cache_grid_size_ - 1);
+            const int iy = std::clamp(static_cast<int>((point.y - caustic_cache_min_y_) /
+                                           caustic_cache_grid_step_y_),
+                0,
+                caustic_cache_grid_size_ - 1);
+            caustic_cache_grid_[static_cast<std::size_t>(iy * caustic_cache_grid_size_ + ix)]
+                .push_back(static_cast<int>(i));
+        }
+        caustic_cache_valid_ = true;
+        caustic_cache_separation_ = separation;
+        caustic_cache_mass_ratio_ = mass_ratio;
+        caustic_cache_bins_ = bins;
+    }
+}
+
+double FiniteSourceMagnifier::legacy_binary_caustic_distance(
+    double separation,
+    double mass_ratio,
+    SourcePosition source) const
+{
+    ensure_legacy_caustic_cache(separation, mass_ratio);
+
+    double distance = std::numeric_limits<double>::infinity();
+    for (const auto& branch : caustic_cache_branches_) {
+        if (branch.size() < 2) {
+            continue;
+        }
+        for (std::size_t i = 1; i < branch.size(); ++i) {
+            distance = std::min(distance, point_segment_distance(source, branch[i - 1], branch[i]));
+        }
+        distance = std::min(distance, point_segment_distance(source, branch.back(), branch.front()));
+    }
+    return distance;
+}
+
+double FiniteSourceMagnifier::legacy_binary_sampled_caustic_distance(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double search_radius) const
+{
+    ensure_legacy_caustic_cache(separation, mass_ratio);
+    double distance2 = std::numeric_limits<double>::infinity();
+
+    if (search_radius > 0.0 &&
+        (source.x < caustic_cache_min_x_ - search_radius ||
+            source.x > caustic_cache_max_x_ + search_radius ||
+            source.y < caustic_cache_min_y_ - search_radius ||
+            source.y > caustic_cache_max_y_ + search_radius)) {
+        return std::numeric_limits<double>::infinity();
+    }
+
+    if (search_radius > 0.0 && !caustic_cache_grid_.empty()) {
+        const int ix0 = std::clamp(static_cast<int>((source.x - search_radius - caustic_cache_min_x_) /
+                                       caustic_cache_grid_step_x_),
+            0,
+            caustic_cache_grid_size_ - 1);
+        const int ix1 = std::clamp(static_cast<int>((source.x + search_radius - caustic_cache_min_x_) /
+                                       caustic_cache_grid_step_x_),
+            0,
+            caustic_cache_grid_size_ - 1);
+        const int iy0 = std::clamp(static_cast<int>((source.y - search_radius - caustic_cache_min_y_) /
+                                       caustic_cache_grid_step_y_),
+            0,
+            caustic_cache_grid_size_ - 1);
+        const int iy1 = std::clamp(static_cast<int>((source.y + search_radius - caustic_cache_min_y_) /
+                                       caustic_cache_grid_step_y_),
+            0,
+            caustic_cache_grid_size_ - 1);
+        for (int iy = iy0; iy <= iy1; ++iy) {
+            for (int ix = ix0; ix <= ix1; ++ix) {
+                const auto& cell =
+                    caustic_cache_grid_[static_cast<std::size_t>(iy * caustic_cache_grid_size_ + ix)];
+                for (const int index : cell) {
+                    const auto& point = caustic_cache_points_[static_cast<std::size_t>(index)];
+                    const double dx = source.x - point.x;
+                    const double dy = source.y - point.y;
+                    const double candidate = dx * dx + dy * dy;
+                    if (candidate < distance2) {
+                        distance2 = candidate;
+                    }
+                }
+            }
+        }
+        if (distance2 == std::numeric_limits<double>::infinity()) {
+            return distance2;
+        }
+    } else {
+        for (const auto& point : caustic_cache_points_) {
+            const double dx = source.x - point.x;
+            const double dy = source.y - point.y;
+            const double candidate = dx * dx + dy * dy;
+            if (candidate < distance2) {
+                distance2 = candidate;
+            }
+        }
+    }
+    return std::sqrt(distance2);
 }
 
 FiniteSourceDecision FiniteSourceMagnifier::choose_binary_method(
@@ -605,11 +763,30 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     double source_radius,
     double point_source_magnification) const
 {
+    if (result_cache_valid_ && result_cache_separation_ == separation &&
+        result_cache_mass_ratio_ == mass_ratio && result_cache_source_x_ == source.x &&
+        result_cache_source_y_ == source.y && result_cache_source_radius_ == source_radius &&
+        result_cache_point_magnification_ == point_source_magnification) {
+        return result_cache_;
+    }
+
+    const auto cache_and_return = [&](FiniteSourceResult result) {
+        result_cache_valid_ = true;
+        result_cache_separation_ = separation;
+        result_cache_mass_ratio_ = mass_ratio;
+        result_cache_source_x_ = source.x;
+        result_cache_source_y_ = source.y;
+        result_cache_source_radius_ = source_radius;
+        result_cache_point_magnification_ = point_source_magnification;
+        result_cache_ = result;
+        return result;
+    };
+
     PointSourceMagnifier point_magnifier;
     if (source_radius <= 0.0) {
         auto decision = choose_binary_method(source, source_radius, point_source_magnification);
         const auto point = point_magnifier.binary_mag0(separation, mass_ratio, source);
-        return {point.magnification, point.image_count, decision, 0.0, 0, true};
+        return cache_and_return({point.magnification, point.image_count, decision, 0.0, 0, true});
     }
 
     if (settings_.legacy_mode) {
@@ -619,11 +796,22 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 0,
                 "legacy smode=0 point-source",
             };
-            return {point_source_magnification, 0, decision, 0.0, 0, true};
+            return cache_and_return({point_source_magnification, 0, decision, 0.0, 0, true});
         }
 
-        double caustic_distance = binary_caustic_distance(
-            point_magnifier, separation, mass_ratio, source, settings_.caustic_bins);
+        const double cached_point_threshold = 2.0 * settings_.legacy_kinji * source_radius;
+        double caustic_distance = legacy_binary_sampled_caustic_distance(
+            separation, mass_ratio, source, cached_point_threshold);
+        if (!std::isfinite(caustic_distance) || caustic_distance >= cached_point_threshold) {
+            FiniteSourceDecision decision {
+                FiniteSourceMethod::point_source,
+                settings_.caustic_bins * 4,
+                "legacy cached caustic distance accepted point-source approximation",
+            };
+            return cache_and_return({point_source_magnification, 0, decision, 0.0, 0, true});
+        }
+
+        caustic_distance = legacy_binary_caustic_distance(separation, mass_ratio, source);
         if (!std::isfinite(caustic_distance)) {
             caustic_distance = source_distance(source);
         }
@@ -634,7 +822,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 settings_.caustic_bins * 4,
                 "legacy KINJI accepted point-source approximation",
             };
-            return {point_source_magnification, 0, decision, 0.0, 0, true};
+            return cache_and_return({point_source_magnification, 0, decision, 0.0, 0, true});
         }
         if (caustic_distance > settings_.legacy_hex * source_radius) {
             FiniteSourceDecision decision {
@@ -642,12 +830,12 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 settings_.caustic_bins * 4 + kHexadecapoleEvaluations,
                 "legacy HEX accepted hexadecapole approximation",
             };
-            return {hexadecapole_binary(point_magnifier, separation, mass_ratio, source, source_radius, settings_),
+            return cache_and_return({hexadecapole_binary(point_magnifier, separation, mass_ratio, source, source_radius, settings_),
                 0,
                 decision,
                 0.0,
                 0,
-                true};
+                true});
         }
 
         auto decision = choose_binary_method(source, source_radius, point_source_magnification);
@@ -662,8 +850,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         } else {
             decision.reason = "legacy smode fell back to automatic finite-source strategy";
         }
-        return refined_inverse_ray_binary(
-            point_magnifier, separation, mass_ratio, source, source_radius, settings_, decision);
+        return cache_and_return(fixed_inverse_ray_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius, settings_, decision));
     }
 
     const auto candidates = point_magnifier.binary_image_candidates(separation, mass_ratio, source);
@@ -675,20 +863,20 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             static_cast<int>(candidates.size()),
             "quadrupole safety test accepted point-source approximation",
         };
-        return {point_source_magnification,
+        return cache_and_return({point_source_magnification,
             static_cast<int>(std::count_if(candidates.begin(), candidates.end(), [](const auto& image) {
                 return image.physical;
             })),
             decision,
             quadrupole_safety.error_estimate,
             0,
-            true};
+            true});
     }
 
     auto decision = choose_binary_method(source, source_radius, point_source_magnification);
     decision.reason += "; quadrupole safety test rejected point-source approximation";
-    return refined_inverse_ray_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings_, decision);
+    return cache_and_return(refined_inverse_ray_binary(
+        point_magnifier, separation, mass_ratio, source, source_radius, settings_, decision));
 }
 
 } // namespace lcbinint::magnification
