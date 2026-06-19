@@ -18,6 +18,12 @@ BINARY_FINITE_CASES = [
     pytest.param(1.5, 1.0, 0.4, -0.3, 0.02, id="wide_equal_mass_small_source"),
 ]
 
+BINARY_LIMB_DARKENING_CASES = [
+    pytest.param(1.0, 0.1, 0.4, 0.3, 0.02, id="low_q_small_source"),
+    pytest.param(0.7, 0.3, -0.6, 0.4, 0.03, id="close_binary_small_source"),
+    pytest.param(1.4, 0.4, 0.2, -0.15, 0.025, id="wide_hard_small_source"),
+]
+
 
 def _vbm_binary_mag0(separation, mass_ratio, y1, y2):
     module = pytest.importorskip("VBBinaryLensing")
@@ -247,6 +253,39 @@ def test_lcbinint_lens_model_linear_limb_darkening_matches_vbm(
 
     assert math.isfinite(actual)
     assert math.isclose(actual, reference, rel_tol=1.0e-2, abs_tol=1.0e-2)
+
+
+@pytest.mark.parametrize("separation,mass_ratio,y1,y2,rho", BINARY_LIMB_DARKENING_CASES)
+@pytest.mark.parametrize("legacy_finite_mode", [4, 5])
+def test_lcbinint_lens_model_legacy_limb_darkening_matches_vbm(
+    separation, mass_ratio, y1, y2, rho, legacy_finite_mode
+):
+    limb_darkening_c = 0.5
+    reference = _vbm_binary_mag_dark(
+        separation, mass_ratio, y1, y2, rho, limb_darkening_c
+    )
+
+    lcbinint = pytest.importorskip("lcbinint")
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        umin=y2,
+        theta=0.0,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+        limb_darkening_c=limb_darkening_c,
+    )
+    options = lcbinint.Options(
+        center_of_mass=1,
+        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
+        legacy_finite_mode=legacy_finite_mode,
+        source_bins=80,
+    )
+    actual = lcbinint.LensModel(params, options).magnification(y1)
+
+    assert math.isfinite(actual)
+    assert math.isclose(actual, reference, rel_tol=5.0e-3, abs_tol=5.0e-3)
 
 
 def test_lcbinint_lens_model_reports_finite_source_non_convergence():

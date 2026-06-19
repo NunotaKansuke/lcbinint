@@ -245,6 +245,27 @@ still slower than old `smode=5` at high `NBIN`; matching it more closely would
 likely require the old `smode=6` dense polar memory table, but the sparse
 on-demand cache was tested and rejected because hash overhead made it slower.
 
+## Limb-Darkening VBM Checks
+
+The current VBM regression coverage uses `VBBinaryLensing.BinaryMagDark`, which
+supports the linear limb-darkening coefficient. Quadratic/root-square
+`limb_darkening_d` is implemented in the C++ inverse-ray weights but is not
+directly covered by a VBM API check yet.
+
+Release comparisons with `limb_darkening_c=0.5`, `source_bins=80`:
+
+```text
+case       VBM             AUTO rel diff   legacy4 rel diff   legacy5 rel diff
+low        1.88291819020   -3.45e-3       -2.80e-3           -2.80e-3
+close      1.50314739153   -5.07e-4       -8.02e-4           -8.02e-4
+wide       2.43689532682   -7.82e-4       -8.57e-4           -8.57e-4
+wide_hard  3.74265253719   -2.96e-3       -2.97e-3           -2.32e-3
+```
+
+These are within the current finite-source tolerances. The remaining offsets
+are dominated by inverse-ray discretization and finite-source method selection,
+not by a limb-darkening normalization mismatch.
+
 ## What Not To Do
 
 - Do not make legacy finite-source mode numbers the default public API.
