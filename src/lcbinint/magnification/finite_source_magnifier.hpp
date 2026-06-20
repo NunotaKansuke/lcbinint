@@ -20,8 +20,8 @@ struct FiniteSourceSettings {
     int caustic_bins = 1400;
     double grid_ratio = 4.0;
     int finite_mode = 1;       // 1 = cartesian, 2 = polar+cache
-    double kinji_threshold = 9.0;
-    double hex_threshold = 2.0;
+    double kinji_threshold = 20.0;
+    double hex_threshold = 3.0;
     double limb_darkening_c = 0.0;
     double limb_darkening_d = 0.0;
 };

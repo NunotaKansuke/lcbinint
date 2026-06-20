@@ -38,8 +38,8 @@ lcbi_options lcbi_default_options(void)
     options.source_bins = 50;
     options.mode = 1;
     options.grid_ratio = 4.0;
-    options.point_source_threshold = 9.0;
-    options.hexadecapole_threshold = 2.0;
+    options.point_source_threshold = 20.0;
+    options.hexadecapole_threshold = 3.0;
     return options;
 }
 

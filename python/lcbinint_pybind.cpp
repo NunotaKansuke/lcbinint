@@ -419,8 +419,8 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("mode") = 1,
             py::arg("caustic_bins") = 1400,
             py::arg("grid_ratio") = 4.0,
-            py::arg("point_source_threshold") = 9.0,
-            py::arg("hexadecapole_threshold") = 2.0,
+            py::arg("point_source_threshold") = 20.0,
+            py::arg("hexadecapole_threshold") = 3.0,
             py::arg("vbbl_compatible") = 0)
         .def_readwrite("center_of_mass", &lcbi_options::center_of_mass)
         .def_readwrite("source_bins", &lcbi_options::source_bins)

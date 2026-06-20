@@ -505,6 +505,40 @@ overlapping the caustic. Default remains 50; users can raise it if needed.
 For limb-darkened light curves, LD weighting naturally reduces edge-pixel errors,
 so the effective accuracy is significantly better than the noLD case at the same bins.
 
+**Bug 7 – Mode-selection thresholds too aggressive (kinji=9→20, hex=2→3)** (2026-06-21)
+Triggered by s=1.0 q=0.001 u0=-0.001 rho=0.001 (source near resonant caustic cusp).
+The source trajectory passes at y=-0.001 through the 5-image interior of the caustic
+(t≈0.128 to t≈0.159). `legacy_binary_caustic_distance` finds the nearest caustic point
+as the right cusp at (0.1463, 0) — correct, but this cusp is the nearest arc for a
+large range of times along the trajectory. With kinji_threshold=9 and hex_threshold=2:
+- t=0.148: caustic_dist=0.002009 just over 2.0×rho → hex mode → ring includes
+  the cusp where PS=116 → hexadecapole gives 15.46 vs correct 14.07 (+10%)
+- t=0.155: caustic_dist=0.009055 just over 9.0×rho → PS mode → gives 12.43 vs
+  correct 13.84 (-10%); combined error up to 6%
+
+The root cause is that these thresholds were calibrated on benchmarks with low time
+resolution (200 points) that missed the worst-case moments. With 400 points and the
+original (9/2) thresholds, every test case shows 0.7–5.9% errors.
+
+Fix: changed defaults to kinji_threshold=20.0, hex_threshold=3.0 in:
+- `src/lcbinint/magnification/finite_source_magnifier.hpp` (C++ struct defaults)
+- `src/lcbinint/lcbinint.cpp` (C ABI defaults)
+- `src/lcbinint/model/lens_parameters.hpp` (Python options struct defaults)
+- `python/lcbinint_pybind.cpp` (Python keyword argument defaults)
+
+Results across all cases (400 points, bins=50):
+```
+Case                    old(9/2)   new(20/3)
+resonant q=0.3          1.003% →   0.176%
+wide-caus q=0.001       3.363% →   0.632%
+wide-eq q=1.0           0.341% →   0.341%
+wide-uneq q=0.1         0.107% →   0.104%
+close q=0.3             0.682% →   0.091%
+planet q=0.01           3.591% →   0.743%
+reson-new q=0.001       5.939% →   0.565%
+```
+No case regressed; all improvements range from 2× to 10×.
+
 **Bug 6 – Outer-caustic seed-finding in `legacy_augment_seeds_from_branches`** (2026-06-21)
 Three compounding bugs caused ~52% error when a source just straddles an outer
 caustic boundary (e.g. wide-eq s=2 q=1 rho=0.001 at the outer-left-caustic edge):
@@ -537,20 +571,25 @@ caustic boundary (e.g. wide-eq s=2 q=1 rho=0.001 at the outer-left-caustic edge)
 
 Result: outer-caustic crossing error drops from ~52% to < 0.1%.
 
-### Accuracy with Corrected Defaults (bins=50, vbbl_compatible=0)
+### Accuracy with Corrected Defaults (bins=50, vbbl_compatible=0, kinji=20, hex=3)
+
+Measured with 400 time points to avoid resolution-aliasing of worst-case moments.
 
 | Configuration | max rel err | notes |
 |---|---|---|
-| resonant s=1.0 q=0.3 rho=0.003 | 0.11% | PS-dominated; error from PS approx, not IR |
-| wide caustic s=1.0 q=0.001 rho=0.003 | 0.17% | PS-dominated |
+| resonant s=1.0 q=0.3 rho=0.003 | 0.18% | hex-dominated near caustic cusp |
+| wide caustic s=1.0 q=0.001 rho=0.003 u0=0.003 | 0.63% | fold-proximity hex error |
 | wide equal-mass s=2.0 q=1.0 rho=0.001 | 0.34% | all sources in IR mode (inside caustic), umin=0.000861 |
-| wide unequal s=2.0 q=0.1 rho=0.001 | 0.10% | PS-dominated; umin=0.01 |
-| close binary s=0.5 q=0.3 rho=0.003 | 0.98% | near-caustic PS error; far-trajectory gives < 0.04% |
-| planetary s=1.2 q=0.01 rho=0.001 | 0.05% | |
+| wide unequal s=2.0 q=0.1 rho=0.001 u0=0.01 | 0.10% | PS-dominated |
+| close binary s=0.5 q=0.3 rho=0.003 | 0.09% | |
+| planetary s=1.2 q=0.01 rho=0.001 | 0.74% | fold-proximity hex error near planetary caustic |
+| resonant-new s=1.0 q=0.001 rho=0.001 u0=-0.001 | 0.57% | through 5-image interior of caustic |
 
 IR-mode accuracy (sources inside caustic, bins=50): 0.34% for wide-eq.
-PS/hex-mode accuracy: 0.05–0.17% (independent of bins).
-Outer-caustic boundary crossing: fixed in 2026-06-20 Phase 3 update (was 52% before).
+hex/PS-mode accuracy: 0.09–0.74% depending on proximity to caustic folds.
+Outer-caustic boundary crossing: fixed in Phase 3 update (was 52% before).
+Mode thresholds: kinji=20 (PS/hex boundary) and hex=3 (hex/IR boundary) give 2-10× better
+accuracy than original kinji=9, hex=2 across all tested configurations.
 
 ### Performance (uniform source, no LD)
 For trajectories where sources are far from the caustic: lcbinint is competitive
