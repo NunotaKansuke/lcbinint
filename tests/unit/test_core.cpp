@@ -40,16 +40,10 @@ int main()
     if (params.orbital_motion_mode != LCBI_ORBIT_STATIC || std::abs(params.lom_ar - 1.0) > 1e-12) {
         return 37;
     }
-    if (options.finite_source_mode != LCBI_SOURCE_AUTO) {
+    if (options.caustic_bins != 1400 || options.mode != 1 ||
+        std::abs(options.point_source_threshold - 9.0) > 1e-12 ||
+        std::abs(options.hexadecapole_threshold - 2.0) > 1e-12) {
         return 2;
-    }
-    if (options.inverse_ray_method != LCBI_INVERSE_RAY_AUTO) {
-        return 28;
-    }
-    if (options.caustic_bins != 1400 || options.legacy_finite_mode != 4 ||
-        std::abs(options.legacy_kinji - 9.0) > 1e-12 ||
-        std::abs(options.legacy_hex - 2.0) > 1e-12) {
-        return 31;
     }
     if (lcbi_magnification(0.0, &params, &options, &result) != LCBI_OK) {
         return 3;
@@ -139,60 +133,17 @@ int main()
     }
 
     lcbinint::magnification::FiniteSourceSettings finite_settings;
-    finite_settings.tolerance = 1.0e-3;
     finite_settings.source_bins = 20;
-    finite_settings.grid_ratio = 4.0;
+    finite_settings.caustic_bins = 128;
     lcbinint::magnification::FiniteSourceMagnifier finite_magnifier(finite_settings);
-    auto finite_decision = finite_magnifier.choose_binary_method({0.01, 0.0}, 0.01, 20.0);
-    if (finite_decision.method != lcbinint::magnification::FiniteSourceMethod::inverse_ray_polar) {
+    auto finite_result = finite_magnifier.binary_mag(1.0, 0.1, {1.2, 1.1}, 0.001, 1.0);
+    if (finite_result.decision.method != lcbinint::magnification::FiniteSourceMethod::point_source) {
         return 21;
     }
-    if (finite_decision.estimated_evaluations <= 0) {
+    if (!finite_result.converged) {
         return 22;
     }
-    lcbinint::magnification::FiniteSourceMagnifier loose_finite_magnifier(finite_settings);
-    auto finite_result = loose_finite_magnifier.binary_mag(1.0, 0.1, {1.2, 1.1}, 0.001, 1.0);
-    if (finite_result.decision.method != lcbinint::magnification::FiniteSourceMethod::point_source) {
-        return 24;
-    }
-    if (!std::isfinite(finite_result.error_estimate) || finite_result.error_estimate > 1.0e-3) {
-        return 25;
-    }
-    if (!finite_result.converged) {
-        return 26;
-    }
-    lcbi_params strict_params = lcbi_default_params();
-    lcbi_options strict_options = lcbi_default_options();
-    strict_params.q = 0.1;
-    strict_params.sep = 1.0;
-    strict_params.umin = 0.0;
-    strict_params.theta = 0.0;
-    strict_params.rho = 0.02;
-    strict_options.center_of_mass = 1;
-    strict_options.tolerance = 1.0e-14;
-    strict_options.relative_tolerance = 0.0;
-    strict_options.source_bins = 4;
-    if (lcbi_magnification(0.45, &strict_params, &strict_options, &result) != LCBI_NUMERICAL_ERROR) {
-        return 27;
-    }
-    strict_options.inverse_ray_method = LCBI_INVERSE_RAY_POLAR;
-    if (lcbi_magnification(0.45, &strict_params, &strict_options, &result) != LCBI_NUMERICAL_ERROR) {
-        return 29;
-    }
-    strict_options.inverse_ray_method = LCBI_INVERSE_RAY_AUTO;
-    strict_options.relative_tolerance = 1.0;
-    if (lcbi_magnification(0.45, &strict_params, &strict_options, &result) != LCBI_OK) {
-        return 30;
-    }
-    lcbinint::magnification::FiniteSourceSettings legacy_settings;
-    legacy_settings.tolerance = 1.0e-3;
-    legacy_settings.source_bins = 20;
-    legacy_settings.caustic_bins = 128;
-    legacy_settings.legacy_mode = true;
-    legacy_settings.legacy_finite_mode = 4;
-    legacy_settings.legacy_kinji = 9.0;
-    legacy_settings.legacy_hex = 2.0;
-    lcbinint::magnification::FiniteSourceMagnifier legacy_finite_magnifier(legacy_settings);
+    lcbinint::magnification::FiniteSourceMagnifier legacy_finite_magnifier(finite_settings);
     auto legacy_hex_result = legacy_finite_magnifier.binary_mag(1.0, 0.1, {0.2, 0.2}, 0.02, 1.0);
     if (legacy_hex_result.decision.method != lcbinint::magnification::FiniteSourceMethod::hexadecapole) {
         return 32;
@@ -200,7 +151,7 @@ int main()
     if (!std::isfinite(legacy_hex_result.magnification) || !legacy_hex_result.converged) {
         return 33;
     }
-    auto limb_darkened_settings = legacy_settings;
+    auto limb_darkened_settings = finite_settings;
     limb_darkened_settings.limb_darkening_c = 0.5;
     limb_darkened_settings.limb_darkening_d = 0.2;
     lcbinint::magnification::FiniteSourceMagnifier limb_darkened_finite_magnifier(limb_darkened_settings);

@@ -2,6 +2,7 @@
 
 #include "lcbinint/types.hpp"
 
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -14,23 +15,13 @@ enum class FiniteSourceMethod {
     inverse_ray_polar,
 };
 
-enum class InverseRayMethod {
-    auto_select,
-    cartesian,
-    polar,
-};
-
 struct FiniteSourceSettings {
-    double tolerance = 1.0e-3;
-    double relative_tolerance = 0.0;
-    int source_bins = 20;
+    int source_bins = 50;
     int caustic_bins = 1400;
     double grid_ratio = 4.0;
-    InverseRayMethod inverse_ray_method = InverseRayMethod::auto_select;
-    bool legacy_mode = false;
-    int legacy_finite_mode = 4;
-    double legacy_kinji = 9.0;
-    double legacy_hex = 2.0;
+    int finite_mode = 1;       // 1 = cartesian, 2 = polar+cache
+    double kinji_threshold = 9.0;
+    double hex_threshold = 2.0;
     double limb_darkening_c = 0.0;
     double limb_darkening_d = 0.0;
 };
@@ -56,11 +47,6 @@ public:
 
     const FiniteSourceSettings& settings() const { return settings_; }
 
-    FiniteSourceDecision choose_binary_method(
-        SourcePosition source,
-        double source_radius,
-        double point_source_magnification) const;
-
     FiniteSourceResult binary_mag(
         double separation,
         double mass_ratio,
@@ -76,7 +62,8 @@ private:
     double legacy_binary_caustic_distance(
         double separation,
         double mass_ratio,
-        SourcePosition source) const;
+        SourcePosition source,
+        double hint_nearest_point_dist = std::numeric_limits<double>::infinity()) const;
     double legacy_binary_sampled_caustic_distance(
         double separation,
         double mass_ratio,
@@ -108,6 +95,9 @@ private:
     mutable double caustic_cache_grid_step_y_ = 1.0;
     mutable int caustic_cache_grid_size_ = 128;
     mutable std::vector<std::vector<int>> caustic_cache_grid_;
+    struct CausticSegRef { int branch; int pos; };
+    mutable std::vector<std::vector<CausticSegRef>> caustic_cache_branch_grid_;
+    mutable double caustic_cache_max_seg_len_ = 0.0;
     mutable bool result_cache_valid_ = false;
     mutable double result_cache_separation_ = 0.0;
     mutable double result_cache_mass_ratio_ = 0.0;

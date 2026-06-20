@@ -233,12 +233,8 @@ Implemented skeleton:
   `omega/v_sep` style orbital-motion fields remain unsupported in the main
   model path. It preserves the legacy wide-binary `sep > 1`
   center-of-caustic offset when `center_of_mass == 0`.
-- Public finite-source mode selection has been simplified. The legacy
-  `FINITE=1..6` mode numbers are not part of the new user-facing API. Users
-  should provide `tolerance` and `relative_tolerance`; the C++ core chooses
-  between a point-source fast path, cartesian inverse-ray, and polar inverse-ray
-  internally. Cost estimates are kept as diagnostics for refinement planning,
-  not as a reason to silently downgrade to a cheaper method.
+- Public finite-source mode selection has been simplified. See
+  "2026-06-20 API Simplification" below for the current user-facing API.
 
 ## Lens Orbital Motion
 
@@ -317,35 +313,13 @@ Near-term plan:
 - Triple-lens point-source and finite-source support are still pending.
 - Old `omega/v_sep` fields remain legacy/unsupported. New LOM work should use
   `OrbitalMotionMode` and `g1,g2,g3`.
-- Expert users can force the inverse-ray variant with
-  `Options(inverse_ray_method=InverseRayMethod.CARTESIAN/POLAR)`. The default
-  is still automatic selection.
-- Expert users can select `FiniteSourceMode.LEGACY` to preserve old-style
-  KINJI/HEX finite-source decisions. This path uses sampled binary-caustic
-  distance and exposes `legacy_finite_mode`, `legacy_kinji`, `legacy_hex`,
-  `caustic_bins`, `source_bins`, and `grid_ratio`.
-- `FiniteSourceMagnifier` now exists as the finite-source strategy boundary. It
-  implements method selection, cost estimates, a Bozza/microlux-style
-  quadrupole safety test, and initial binary inverse-ray area estimators for
-  cartesian and polar image-plane grids. Polar inverse-ray remains an internal
-  strategy candidate for high-magnification cases.
-- The finite-source fast path now uses a C++ port of `../microlux`
-  `Quadrupole_test()`: quadrupole correction, cusp correction, ghost-image
-  test, and planetary-caustic test. If it passes, the point-source
-  magnification is used.
-- The inverse-ray path has an internal coarse/fine refinement diagnostic:
-  evaluate at `source_bins`, then at doubled bins. Once two consecutive
-  differences are available, it estimates a conservative remaining tail from
-  the observed convergence ratio and compares that diagnostic against
-  `tolerance` or `relative_tolerance * abs(fine)`. This is still not a rigorous
-  error bound.
+- `FiniteSourceMagnifier` is the finite-source strategy layer. It selects
+  between a fast point-source path, hexadecapole, and boundary-tracing
+  inverse-ray based on sampled caustic distance (KINJI/HEX thresholds).
 - Binary finite-source limb darkening is wired through `LensParams` using
   `limb_darkening_c` and `limb_darkening_d`. Inverse-ray weights samples by
   `1-c(1-mu)-d(1-sqrt(mu))`; hexadecapole uses the legacy Gamma/Lambda
   correction.
-- Non-converged finite-source evaluations now propagate as
-  `LCBI_NUMERICAL_ERROR` through the C ABI. The Python `LensModel` wrapper
-  raises `RuntimeError("numerical error")`.
 - See `.note/finite-source-strategy.md` for the finite-source plan and the
   corrected interpretation of microJAX as guidance for accuracy-control logic,
   not as an implementation to port wholesale.
@@ -355,6 +329,55 @@ Near-term plan:
   validation suite.
 - Unit test verifies the C ABI routes through the C++ trajectory path and that
   the root solver handles degree 1, 2, 3, and 5 polynomials.
+
+## 2026-06-20 API Simplification
+
+The non-legacy (AUTO) inverse-ray path has been removed. The only
+finite-source implementation is the boundary-tracing inverse-ray using
+augmented caustic seeds, matching legacy smode=4/6 behavior.
+
+**New public Python API:**
+
+```python
+# cartesian (default, mode=1): boundary-tracing row-by-row, NBIN=50
+opts = lcbinint.Options(center_of_mass=1, source_bins=50)
+
+# polar+cache (mode=2): precomputed polar map, smode=6 behavior
+opts = lcbinint.Options(center_of_mass=1, mode=2, source_bins=50)
+
+# expert knobs (rarely needed)
+opts = lcbinint.Options(
+    source_bins=50,
+    mode=1,                       # 1=cartesian, 2=polar+cache
+    caustic_bins=1400,
+    grid_ratio=4.0,
+    point_source_threshold=9.0,   # KINJI: use pt-src if caustic > N*rho away
+    hexadecapole_threshold=2.0,   # HEX:  use hexadecapole if caustic > N*rho
+)
+```
+
+**Removed from API:**
+- `FiniteSourceMode` / `InverseRayMethod` Python enums (gone)
+- `tolerance`, `relative_tolerance` from `Options` (gone)
+- `legacy_finite_mode`, `legacy_kinji`, `legacy_hex` (renamed above)
+- `lcbi_finite_source_mode`, `lcbi_inverse_ray_method` C enums (gone)
+
+**Removed from C++ core:**
+- `refined_inverse_ray_binary` (the AUTO refinement loop)
+- `inverse_ray_cartesian_binary`, `inverse_ray_polar_binary` (simple grids)
+- `quadrupole_safety_test` and all related helpers (f0-f3, etc.)
+- `choose_binary_method` class method
+- `FiniteSourceSettings.tolerance`, `.relative_tolerance`, `.legacy_mode`, `.inverse_ray_method`
+
+The `fixed_inverse_ray_binary` function (boundary tracer caller) is now
+the sole inverse-ray dispatcher: always uses augmented seeds, routes to
+`legacy_imagearea4_binary` for mode=1 and `inverse_ray_polar_boundary_binary`
+for mode=2.
+
+**Benchmark (NBIN=50, mode=1 vs VBBL, s=1.4, q=0.4, u0=-0.15, rho=0.025):**
+- no LD: VBBL 0.079 ms/pt, lcbinint 0.350 ms/pt (4.4× slower)
+- LD: VBBL 0.502 ms/pt, lcbinint 0.426 ms/pt (lcbinint faster by 15%)
+- max relative error: no LD 1.27e-3, LD 9.14e-4
 
 ## 2026-06-20 Polar / High-Magnification Update
 
@@ -392,11 +415,11 @@ Near-term plan:
 - This is a self-convergence diagnostic, not a rigorous integration error
   bound. It is meant to catch obviously over-conservative `source_bins` choices
   before running full light curves.
-- With `relative_tolerance=1e-3`, the current caustic benchmark recommends
-  `source_bins=50` against an 80-bin internal reference. The forced
-  high-magnification benchmark recommends `source_bins=40`. Direct VBBL sweeps
-  still suggest `50-60` is the safer default for the caustic example, while
-  `80` is usually overkill for the current mode-4/mode-6 implementation.
+- The diagnostic compares self-convergence vs. the largest candidate bins.
+  The largest bins entry is always marked `accepted=True` with
+  `max_relative_difference==0.0`; all others report the raw diff.
+- VBBL sweeps show `source_bins=50` is the optimal default: same max accuracy
+  as bins=80 (`9.1e-4`) and beats VBBL for limb-darkened light curves.
 
 ## Near-Term Plan
 

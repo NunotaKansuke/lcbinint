@@ -105,12 +105,12 @@ Current limitations:
 - The caustic distance is numerical polyline distance, not a byte-for-byte port
   of the old routine.
 
-Important limitation:
+Previous limitation (now fixed):
 
-- The current inverse-ray estimator is still a rough first implementation. It
-  samples regions around point-source images at the source center. Near caustics
-  this can miss finite-source image area, so it is not yet a publishable
-  finite-source solver.
+- The old non-legacy inverse-ray path was a simple fixed-size grid around
+  point-source image positions and missed caustic-crossing image area.  It has
+  been replaced with the `legacy_augmented_image_seeds` + `legacy_imagearea4_binary`
+  boundary-tracer approach (see "Inverse-Ray Region Construction Fix" below).
 
 ## microJAX Reference Point
 
@@ -303,14 +303,36 @@ not by a limb-darkening normalization mismatch.
 - Do not treat current VBM finite-source tests as enough validation; they only
   cover benign cases.
 
+## Inverse-Ray Region Construction Fix (2026-06-20)
+
+The non-legacy `refined_inverse_ray_binary` path previously placed a simple
+fixed-size grid around each point-source image.  Near a caustic crossing the
+source disk straddles the critical curve and extra elongated image arcs form far
+from the point-source image positions — the old grid missed them entirely.
+
+**Fix**: `refined_inverse_ray_binary` now:
+1. Calls `legacy_augmented_image_seeds` once to scan the critical curve (1400
+   samples) and find any extra seeds for caustic-crossing image topology.
+2. Passes those seeds to `legacy_imagearea4_binary` (the row-by-row boundary
+   tracer already used by `smode=4`), doubling `source_bins` each refinement
+   level until the coarse/fine convergence criterion is met.
+3. Honours explicit `inverse_ray_method=POLAR` by routing through
+   `inverse_ray_polar_boundary_binary` instead — but the old heuristic that
+   switched to polar for `source_distance < 3*rho` is NOT applied here.  That
+   heuristic was designed for the simple-grid approach and is unnecessary for
+   the boundary tracer.
+
+Verification: VBM `BinaryMag2` comparison across `y2 = 0.01 … 0.20` with
+`s=1.2, q=0.3, rho=0.02` shows relative errors `< 6e-4` for all points
+(previously: `FAIL` or errors of order 15% for small `y2`).
+
 ## Next Work
 
-1. Keep the current finite-source branch compile-clean and tested.
-2. Add direct unit coverage for the coarse/fine tolerance helper and result
+1. Add direct unit coverage for the coarse/fine tolerance helper and result
    diagnostics.
-3. Compare the C++ quadrupole safety classification against VBM/microlux over a
+2. Compare the C++ quadrupole safety classification against VBM/microlux over a
    grid.
-4. Expose finite-source diagnostics in Python without complicating the default
+3. Expose finite-source diagnostics in Python without complicating the default
    scalar `magnification()` path.
-5. Only after that, improve the inverse-ray region construction itself and add
-   harder VBM comparisons near caustics.
+4. Add harder VBM comparisons near caustics (actual caustic-crossing light
+   curves).
