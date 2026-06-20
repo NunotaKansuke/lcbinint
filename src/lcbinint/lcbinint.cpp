@@ -33,17 +33,13 @@ lcbi_params lcbi_default_params(void)
 lcbi_options lcbi_default_options(void)
 {
     lcbi_options options = {};
-    options.finite_source_mode = LCBI_SOURCE_AUTO;
-    options.inverse_ray_method = LCBI_INVERSE_RAY_AUTO;
     options.orbit_pair = 23;
     options.caustic_bins = 1400;
-    options.source_bins = 20;
-    options.legacy_finite_mode = 4;
+    options.source_bins = 50;
+    options.mode = 1;
     options.grid_ratio = 4.0;
-    options.legacy_kinji = 9.0;
-    options.legacy_hex = 2.0;
-    options.tolerance = 1.0e-3;
-    options.relative_tolerance = 0.0;
+    options.point_source_threshold = 9.0;
+    options.hexadecapole_threshold = 2.0;
     return options;
 }
 

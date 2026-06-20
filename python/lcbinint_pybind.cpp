@@ -1,6 +1,8 @@
 #include "lcbinint/lcbinint.h"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
+#include "lcbinint/model/lens_model.hpp"
+#include "lcbinint/model/lens_parameters.hpp"
 #include "lcbinint/model/orbital_motion.hpp"
 
 #include <algorithm>
@@ -46,67 +48,54 @@ struct PySourceBinEstimate {
 class PyLensModel {
 public:
     PyLensModel(lcbi_params params, lcbi_options options)
-        : params_(params), options_(options)
+        : params_(params)
+        , options_(options)
+        , model_(lcbinint::model::from_c_params(params_),
+                 lcbinint::model::from_c_options(&options_))
     {
     }
 
     double magnification(double time) const
     {
-        lcbi_result result = {};
-        const lcbi_status status = lcbi_magnification(time, &params_, &options_, &result);
-        if (status != LCBI_OK) {
-            throw std::runtime_error(lcbi_status_string(status));
+        const auto result = model_.magnification(time);
+        if (result.status == lcbinint::EvaluationStatus::unsupported) {
+            throw std::runtime_error("unsupported");
+        }
+        if (result.status == lcbinint::EvaluationStatus::numerical_error ||
+            !std::isfinite(result.magnification)) {
+            throw std::runtime_error("numerical error");
         }
         return result.magnification;
     }
 
     std::vector<double> magnifications(const std::vector<double>& times) const
     {
-        std::vector<lcbi_result> results(times.size());
-        const lcbi_status status = lcbi_magnification_array(
-            times.data(), static_cast<int>(times.size()), &params_, &options_, results.data());
-        if (status != LCBI_OK) {
-            throw std::runtime_error(lcbi_status_string(status));
-        }
-
         std::vector<double> values;
         values.reserve(times.size());
-        for (const auto& result : results) {
-            values.push_back(result.magnification);
+        for (const double t : times) {
+            values.push_back(magnification(t));
         }
         return values;
     }
 
     std::pair<double, double> source_position(double time) const
     {
-        lcbi_result result = {};
-        const lcbi_status status = lcbi_magnification(time, &params_, &options_, &result);
-        if (status != LCBI_OK) {
-            throw std::runtime_error(lcbi_status_string(status));
-        }
-        return {result.source_x, result.source_y};
+        const auto result = model_.magnification(time);
+        return {result.source.x, result.source.y};
     }
 
     std::vector<std::pair<double, double>> source_positions(const std::vector<double>& times) const
     {
-        const auto curve = light_curve(times);
         std::vector<std::pair<double, double>> positions;
         positions.reserve(times.size());
-        for (std::size_t i = 0; i < times.size(); ++i) {
-            positions.push_back({curve.source_x[i], curve.source_y[i]});
+        for (const double t : times) {
+            positions.push_back(source_position(t));
         }
         return positions;
     }
 
     PyLightCurve light_curve(const std::vector<double>& times) const
     {
-        std::vector<lcbi_result> results(times.size());
-        const lcbi_status status = lcbi_magnification_array(
-            times.data(), static_cast<int>(times.size()), &params_, &options_, results.data());
-        if (status != LCBI_OK) {
-            throw std::runtime_error(lcbi_status_string(status));
-        }
-
         PyLightCurve curve;
         curve.times = times;
         curve.magnifications.reserve(times.size());
@@ -115,12 +104,20 @@ public:
         curve.source_x.reserve(times.size());
         curve.source_y.reserve(times.size());
         curve.image_counts.reserve(times.size());
-        for (const auto& result : results) {
+        for (const double t : times) {
+            const auto result = model_.magnification(t);
+            if (result.status == lcbinint::EvaluationStatus::unsupported) {
+                throw std::runtime_error("unsupported");
+            }
+            if (result.status == lcbinint::EvaluationStatus::numerical_error ||
+                !std::isfinite(result.magnification)) {
+                throw std::runtime_error("numerical error");
+            }
             curve.magnifications.push_back(result.magnification);
             curve.point_source_magnifications.push_back(result.point_source_magnification);
             curve.finite_source_magnifications.push_back(result.finite_source_magnification);
-            curve.source_x.push_back(result.source_x);
-            curve.source_y.push_back(result.source_y);
+            curve.source_x.push_back(result.source.x);
+            curve.source_y.push_back(result.source.y);
             curve.image_counts.push_back(result.image_count);
         }
         return curve;
@@ -233,6 +230,7 @@ private:
 
     lcbi_params params_;
     lcbi_options options_;
+    lcbinint::model::LensModel model_;
 };
 
 } // namespace
