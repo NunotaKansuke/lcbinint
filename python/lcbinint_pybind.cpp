@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <complex>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -174,8 +175,6 @@ public:
         reference_options.source_bins = estimate.reference_source_bins;
         const auto reference = magnifications_with_options(estimate.sampled_times, reference_options);
 
-        const double tolerance = std::max(options_.tolerance, 0.0);
-        const double relative_tolerance = std::max(options_.relative_tolerance, 0.0);
         estimate.candidates.reserve(candidate_bins.size());
         bool found_recommendation = false;
         for (const int bins : candidate_bins) {
@@ -188,7 +187,7 @@ public:
             PySourceBinCandidate candidate;
             candidate.source_bins = bins;
             double squared_relative = 0.0;
-            bool accepted = true;
+            bool accepted = bins == estimate.reference_source_bins;
             for (std::size_t i = 0; i < values.size(); ++i) {
                 const double difference = std::abs(values[i] - reference[i]);
                 const double relative_denominator = std::max(std::abs(reference[i]), 1.0e-300);
@@ -198,11 +197,6 @@ public:
                 candidate.max_relative_difference =
                     std::max(candidate.max_relative_difference, relative_difference);
                 squared_relative += relative_difference * relative_difference;
-
-                const double allowed = tolerance + relative_tolerance * std::abs(reference[i]);
-                if (difference > allowed) {
-                    accepted = false;
-                }
             }
             candidate.rms_relative_difference =
                 values.empty() ? 0.0 : std::sqrt(squared_relative / static_cast<double>(values.size()));
@@ -253,18 +247,6 @@ PYBIND11_MODULE(lcbinint, m)
         .value("NUMERICAL_ERROR", LCBI_NUMERICAL_ERROR)
         .value("UNSUPPORTED", LCBI_UNSUPPORTED);
 
-    py::enum_<lcbi_finite_source_mode>(m, "FiniteSourceMode")
-        .value("AUTO", LCBI_SOURCE_AUTO)
-        .value("POINT_SOURCE", LCBI_POINT_SOURCE)
-        .value("LEGACY", LCBI_SOURCE_LEGACY)
-        .export_values();
-
-    py::enum_<lcbi_inverse_ray_method>(m, "InverseRayMethod")
-        .value("AUTO", LCBI_INVERSE_RAY_AUTO)
-        .value("CARTESIAN", LCBI_INVERSE_RAY_CARTESIAN)
-        .value("POLAR", LCBI_INVERSE_RAY_POLAR)
-        .export_values();
-
     py::enum_<lcbi_orbital_motion_mode>(m, "OrbitalMotionMode")
         .value("STATIC", LCBI_ORBIT_STATIC)
         .value("CIRCULAR", LCBI_ORBIT_CIRCULAR)
@@ -297,6 +279,8 @@ PYBIND11_MODULE(lcbinint, m)
         .def_readonly("sampled_times", &PySourceBinEstimate::sampled_times)
         .def_readonly("candidates", &PySourceBinEstimate::candidates);
 
+    constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
+
     py::class_<lcbi_params>(m, "LensParams")
         .def(py::init([](double t0,
                          double tE,
@@ -322,14 +306,16 @@ PYBIND11_MODULE(lcbinint, m)
                          double g2,
                          double g3,
                          double lom_szs,
-                         double lom_ar) {
+                         double lom_ar,
+                         double u0,
+                         double alpha) {
                  auto params = lcbi_default_params();
                  params.t0 = t0;
                  params.tE = tE;
-                 params.umin = umin;
+                 params.umin = std::isnan(u0) ? umin : u0;
                  params.q = q;
                  params.sep = sep;
-                 params.theta = theta;
+                 params.theta = std::isnan(alpha) ? theta : alpha;
                  params.rho = rho;
                  params.omega = omega;
                  params.piEN = piEN;
@@ -375,7 +361,9 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("g2") = 0.0,
             py::arg("g3") = 0.0,
             py::arg("lom_szs") = 0.0,
-            py::arg("lom_ar") = 1.0)
+            py::arg("lom_ar") = 1.0,
+            py::arg("u0") = kNaN,    // VBBL alias for umin; takes priority when set
+            py::arg("alpha") = kNaN) // VBBL alias for theta; takes priority when set
         .def_readwrite("t0", &lcbi_params::t0)
         .def_readwrite("tE", &lcbi_params::tE)
         .def_readwrite("umin", &lcbi_params::umin)
@@ -400,56 +388,50 @@ PYBIND11_MODULE(lcbinint, m)
         .def_readwrite("g2", &lcbi_params::g2)
         .def_readwrite("g3", &lcbi_params::g3)
         .def_readwrite("lom_szs", &lcbi_params::lom_szs)
-        .def_readwrite("lom_ar", &lcbi_params::lom_ar);
+        .def_readwrite("lom_ar", &lcbi_params::lom_ar)
+        .def_property("u0",
+            [](const lcbi_params& p) { return p.umin; },
+            [](lcbi_params& p, double v) { p.umin = v; })
+        .def_property("alpha",
+            [](const lcbi_params& p) { return p.theta; },
+            [](lcbi_params& p, double v) { p.theta = v; });
 
     py::class_<lcbi_options>(m, "Options")
-        .def(py::init([](lcbi_finite_source_mode finite_source_mode,
-                         lcbi_inverse_ray_method inverse_ray_method,
-                         int center_of_mass,
-                         double tolerance,
-                         double relative_tolerance,
-                         int caustic_bins,
+        .def(py::init([](int center_of_mass,
                          int source_bins,
-                         int legacy_finite_mode,
+                         int mode,
+                         int caustic_bins,
                          double grid_ratio,
-                         double legacy_kinji,
-                         double legacy_hex) {
+                         double point_source_threshold,
+                         double hexadecapole_threshold,
+                         int vbbl_compatible) {
                  auto options = lcbi_default_options();
-                 options.finite_source_mode = finite_source_mode;
-                 options.inverse_ray_method = inverse_ray_method;
                  options.center_of_mass = center_of_mass;
-                 options.tolerance = tolerance;
-                 options.relative_tolerance = relative_tolerance;
-                 options.caustic_bins = caustic_bins;
                  options.source_bins = source_bins;
-                 options.legacy_finite_mode = legacy_finite_mode;
+                 options.mode = mode;
+                 options.caustic_bins = caustic_bins;
                  options.grid_ratio = grid_ratio;
-                 options.legacy_kinji = legacy_kinji;
-                 options.legacy_hex = legacy_hex;
+                 options.point_source_threshold = point_source_threshold;
+                 options.hexadecapole_threshold = hexadecapole_threshold;
+                 options.vbbl_compatible = vbbl_compatible;
                  return options;
              }),
-            py::arg("finite_source_mode") = LCBI_SOURCE_AUTO,
-            py::arg("inverse_ray_method") = LCBI_INVERSE_RAY_AUTO,
             py::arg("center_of_mass") = 0,
-            py::arg("tolerance") = 1.0e-3,
-            py::arg("relative_tolerance") = 0.0,
+            py::arg("source_bins") = 50,
+            py::arg("mode") = 1,
             py::arg("caustic_bins") = 1400,
-            py::arg("source_bins") = 20,
-            py::arg("legacy_finite_mode") = 4,
             py::arg("grid_ratio") = 4.0,
-            py::arg("legacy_kinji") = 9.0,
-            py::arg("legacy_hex") = 2.0)
-        .def_readwrite("finite_source_mode", &lcbi_options::finite_source_mode)
-        .def_readwrite("inverse_ray_method", &lcbi_options::inverse_ray_method)
+            py::arg("point_source_threshold") = 9.0,
+            py::arg("hexadecapole_threshold") = 2.0,
+            py::arg("vbbl_compatible") = 0)
         .def_readwrite("center_of_mass", &lcbi_options::center_of_mass)
-        .def_readwrite("tolerance", &lcbi_options::tolerance)
-        .def_readwrite("relative_tolerance", &lcbi_options::relative_tolerance)
-        .def_readwrite("caustic_bins", &lcbi_options::caustic_bins)
         .def_readwrite("source_bins", &lcbi_options::source_bins)
-        .def_readwrite("legacy_finite_mode", &lcbi_options::legacy_finite_mode)
+        .def_readwrite("mode", &lcbi_options::mode)
+        .def_readwrite("caustic_bins", &lcbi_options::caustic_bins)
         .def_readwrite("grid_ratio", &lcbi_options::grid_ratio)
-        .def_readwrite("legacy_kinji", &lcbi_options::legacy_kinji)
-        .def_readwrite("legacy_hex", &lcbi_options::legacy_hex);
+        .def_readwrite("point_source_threshold", &lcbi_options::point_source_threshold)
+        .def_readwrite("hexadecapole_threshold", &lcbi_options::hexadecapole_threshold)
+        .def_readwrite("vbbl_compatible", &lcbi_options::vbbl_compatible);
 
     py::class_<PyLensModel>(m, "LensModel")
         .def(py::init<lcbi_params, lcbi_options>(),

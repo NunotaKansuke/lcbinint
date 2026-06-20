@@ -55,19 +55,16 @@ ComputationOptions from_c_options(const lcbi_options *options)
     if (options == nullptr) {
         return out;
     }
-    out.finite_source_mode = options->finite_source_mode;
-    out.inverse_ray_method = options->inverse_ray_method;
     out.parallax_mode = options->parallax_mode;
     out.orbit_pair = options->orbit_pair;
     out.center_of_mass = options->center_of_mass;
     out.caustic_bins = options->caustic_bins;
     out.source_bins = options->source_bins;
-    out.legacy_finite_mode = options->legacy_finite_mode;
+    out.mode = options->mode;
+    out.vbbl_compatible = options->vbbl_compatible;
     out.grid_ratio = options->grid_ratio;
-    out.legacy_kinji = options->legacy_kinji;
-    out.legacy_hex = options->legacy_hex;
-    out.tolerance = options->tolerance;
-    out.relative_tolerance = options->relative_tolerance;
+    out.point_source_threshold = options->point_source_threshold;
+    out.hexadecapole_threshold = options->hexadecapole_threshold;
     return out;
 }
 
