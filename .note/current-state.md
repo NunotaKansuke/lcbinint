@@ -505,6 +505,38 @@ overlapping the caustic. Default remains 50; users can raise it if needed.
 For limb-darkened light curves, LD weighting naturally reduces edge-pixel errors,
 so the effective accuracy is significantly better than the noLD case at the same bins.
 
+**Bug 6 – Outer-caustic seed-finding in `legacy_augment_seeds_from_branches`** (2026-06-21)
+Three compounding bugs caused ~52% error when a source just straddles an outer
+caustic boundary (e.g. wide-eq s=2 q=1 rho=0.001 at the outer-left-caustic edge):
+
+- *False early exit*: `legacy_augmented_image_seeds` checked
+  `hint_caustic_dist >= source_radius` and returned without running the Phase 1
+  scan. The hint came from `legacy_binary_caustic_distance`, which can slightly
+  over-estimate distance via the branch-grid search; when the source disk just
+  touches the caustic, this over-estimation caused a false bail-out.
+  Fix: removed the hint-based early exit; Phase 1 always runs when seeds < 5.
+
+- *Wrap-around segment poisoning*: `legacy_augment_seeds_from_branches` checked
+  the forward segment for every branch point, including the wrap-around (last
+  point → first point). For s=2 q=1 this segment is a phantom artifact (length
+  0.866) from the branch-tracking swap; it passes through the source disk and
+  triggers a probe at (-0.05, -5e-5), giving 5 images from the wrong region.
+  Those wrong seeds replace the correct 3-image seeds, and the IR scan integrates
+  the wrong image area → magnification ≈ 0.25 instead of ≈ 22.
+  Fix: `if (next == 0) continue;` skips the wrap-around (mirrors the max_seg_len
+  exclusion already in place).
+
+- *Probe step too small*: the probe displacement was `(rho-d)*0.01/d`, which for
+  d ≈ rho gives a step of ~2e-6. The true caustic arc can differ from the segment
+  approximation by up to one inter-sample spacing (~0.005 for 1400 bins); a step
+  of 2e-6 lands on the wrong side of the true arc and the probe returns 3 images
+  instead of 5. Fix: step changed to `rho*0.05/d`, giving a fixed displacement of
+  5% of rho regardless of how close d is to rho. Added guard: if the probe falls
+  outside the source disk the result is discarded (avoids updating seeds with
+  images from a region that does not overlap the disk).
+
+Result: outer-caustic crossing error drops from ~52% to < 0.1%.
+
 ### Accuracy with Corrected Defaults (bins=50, vbbl_compatible=0)
 
 | Configuration | max rel err | notes |
