@@ -55,6 +55,7 @@ struct ComputationOptions {
     double grid_ratio = 4.0;
     double point_source_threshold = 20.0;
     double hexadecapole_threshold = 3.0;
+    double adaptive_hex_threshold = 0.001;
 };
 
 LensParameters from_c_params(const lcbi_params &params);
