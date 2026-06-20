@@ -1578,10 +1578,26 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     const double cached_point_threshold = 2.0 * settings_.kinji_threshold * source_radius;
     double caustic_distance = legacy_binary_sampled_caustic_distance(
         separation, mass_ratio, source, cached_point_threshold);
-    // Skip the segment-based distance check only when even the longest cached branch
+    // Fast PS exit when source is outside the caustic bounding box by at least
+    // cached_point_threshold (= 2·kinji·ρ > kinji·ρ).  In this case
+    // legacy_binary_sampled_caustic_distance returns ∞ via the bbox early-exit path,
+    // and the true caustic distance is guaranteed to exceed kinji_threshold·ρ.
+    // Without this check the code falls through to the expensive O(N) segment scan.
+    if (!std::isfinite(caustic_distance) &&
+        (source.x < caustic_cache_min_x_ - cached_point_threshold ||
+            source.x > caustic_cache_max_x_ + cached_point_threshold ||
+            source.y < caustic_cache_min_y_ - cached_point_threshold ||
+            source.y > caustic_cache_max_y_ + cached_point_threshold)) {
+        FiniteSourceDecision decision {
+            FiniteSourceMethod::point_source,
+            settings_.caustic_bins * 4,
+            "source outside caustic bounding box",
+        };
+        return cache_and_return({point_source_magnification, 0, decision, 0.0, 0, true});
+    }
+    // Skip the segment-based distance check when even the longest cached branch
     // segment cannot bring a caustic point at distance `caustic_distance` within
-    // `cached_point_threshold`.  If caustic_distance is infinite (no cached point in
-    // the grid search area), always proceed to the segment check.
+    // `cached_point_threshold`.
     if (std::isfinite(caustic_distance) &&
         caustic_distance >= cached_point_threshold + caustic_cache_max_seg_len_) {
         FiniteSourceDecision decision {
