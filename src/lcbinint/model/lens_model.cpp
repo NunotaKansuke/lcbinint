@@ -106,7 +106,7 @@ MagnificationResult LensModel::magnification(double time) const
 
         const auto finite_result = finite_magnifier_.binary_mag(
             orbit.separation,
-            params_.q,
+            effective_q,
             source_for_magnification, std::abs(params_.rho), point_result.magnification);
         result.magnification = finite_result.magnification;
         result.finite_source_magnification = finite_result.magnification;
