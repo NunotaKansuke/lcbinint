@@ -54,6 +54,12 @@ public:
         double source_radius,
         double point_source_magnification) const;
     void ensure_limb_darkening_table() const;
+    void legacy_augment_seeds_from_branches(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        std::vector<SourcePosition>& seeds) const;
     double limb_darkening_table_brightness(double normalized_radius2) const;
     double legacy_limb_darkening_table_brightness(double normalized_radius2) const;
 
