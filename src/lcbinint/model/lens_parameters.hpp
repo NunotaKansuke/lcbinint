@@ -53,8 +53,8 @@ struct ComputationOptions {
     int mode = 1;                        // 1 = cartesian, 2 = polar+cache
     int vbbl_compatible = 0;             // 0 = legacy, 1 = VBBL-compatible convention
     double grid_ratio = 4.0;
-    double point_source_threshold = 9.0;
-    double hexadecapole_threshold = 2.0;
+    double point_source_threshold = 20.0;
+    double hexadecapole_threshold = 3.0;
 };
 
 LensParameters from_c_params(const lcbi_params &params);

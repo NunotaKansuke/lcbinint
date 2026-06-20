@@ -1596,7 +1596,6 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     if (!std::isfinite(caustic_distance)) {
         caustic_distance = source_distance(source);
     }
-
     if (caustic_distance > settings_.kinji_threshold * source_radius) {
         FiniteSourceDecision decision {
             FiniteSourceMethod::point_source,
