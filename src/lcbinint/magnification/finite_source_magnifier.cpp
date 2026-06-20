@@ -706,11 +706,10 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
     if (seeds.size() >= 5 || source_radius <= 0.0) {
         return seeds;
     }
-    // If the nearest caustic point is outside the source disk, the disk cannot
-    // straddle the caustic and no extra seeds are possible.
-    if (std::isfinite(hint_caustic_dist) && hint_caustic_dist >= source_radius) {
-        return seeds;
-    }
+    // Do not skip the caustic scan based on hint_caustic_dist alone: the
+    // computed caustic distance can be slightly over-estimated (e.g. when a
+    // phantom wrap-around segment distorts the branch grid search), causing a
+    // false early exit when the source disk just straddles the caustic.
 
     const double source_radius2 = source_radius * source_radius;
     const int samples = 1400;
@@ -1669,6 +1668,11 @@ void FiniteSourceMagnifier::legacy_augment_seeds_from_branches(
                 const int n = static_cast<int>(branch.size());
                 if (n < 2) continue;
                 const int next = (ref.pos + 1) % n;
+                // Skip the wrap-around segment (last point back to first).  When
+                // branch-tracking swaps occur, this segment is a phantom artifact of
+                // length ~O(1) that does not correspond to any real caustic arc, yet
+                // it can pass through the source disk and produce spurious seed updates.
+                if (next == 0) continue;
                 const SourcePosition p0 = branch[static_cast<std::size_t>(ref.pos)];
                 const SourcePosition p1 = branch[static_cast<std::size_t>(next)];
                 if (point_segment_distance(source, p0, p1) >= source_radius) continue;
@@ -1685,11 +1689,23 @@ void FiniteSourceMagnifier::legacy_augment_seeds_from_branches(
                 const double distance = std::sqrt(distance_squared(nearest, source));
                 if (distance <= 0.0 || distance >= source_radius) continue;
 
-                const double fraction = (source_radius - distance) / distance * 0.01;
+                // Step 5% of source_radius past the nearest caustic segment point
+                // toward the interior of the caustic. This is large enough to cross
+                // the segment-to-true-caustic approximation error (one inter-sample
+                // spacing) without landing too close to a fold caustic where two
+                // merging images are nearly degenerate.
+                const double step = source_radius * 0.05 / distance;
                 const SourcePosition probe_source {
-                    nearest.x + (nearest.x - source.x) * fraction,
-                    nearest.y + (nearest.y - source.y) * fraction,
+                    nearest.x + (nearest.x - source.x) * step,
+                    nearest.y + (nearest.y - source.y) * step,
                 };
+                // Only use images from regions that actually overlap the source disk.
+                // A probe outside the source disk belongs to a caustic region that
+                // the disk does not straddle (e.g., a fold caustic tangent to the
+                // disk edge) and its images would be seeds for the wrong area.
+                if (distance_squared(probe_source, source) >= source_radius * source_radius) {
+                    continue;
+                }
                 const auto probe_images = legacy_residual_selected_images(
                     point_magnifier, separation, mass_ratio, probe_source);
                 if (probe_images.size() > seeds.size()) {

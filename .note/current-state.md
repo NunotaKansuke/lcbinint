@@ -509,14 +509,16 @@ so the effective accuracy is significantly better than the noLD case at the same
 
 | Configuration | max rel err | notes |
 |---|---|---|
-| resonant s=1.0 q=0.3 rho=0.003 | 0.022% | |
-| wide caustic s=1.0 q=0.001 rho=0.003 | 0.012% | |
-| wide equal-mass s=2.0 q=1.0 rho=0.001 | 0.120% | all sources in IR mode (inside caustic) |
-| wide unequal s=2.0 q=0.1 rho=0.001 | 0.003% | |
-| close binary s=0.5 q=0.3 rho=0.003 | 0.087% | |
-| planetary s=1.2 q=0.01 rho=0.001 | 0.041% | |
+| resonant s=1.0 q=0.3 rho=0.003 | 0.11% | PS-dominated; error from PS approx, not IR |
+| wide caustic s=1.0 q=0.001 rho=0.003 | 0.17% | PS-dominated |
+| wide equal-mass s=2.0 q=1.0 rho=0.001 | 0.34% | all sources in IR mode (inside caustic), umin=0.000861 |
+| wide unequal s=2.0 q=0.1 rho=0.001 | 0.10% | PS-dominated; umin=0.01 |
+| close binary s=0.5 q=0.3 rho=0.003 | 0.98% | near-caustic PS error; far-trajectory gives < 0.04% |
+| planetary s=1.2 q=0.01 rho=0.001 | 0.05% | |
 
-All < 0.15% with default options (bins=50, no LD).
+IR-mode accuracy (sources inside caustic, bins=50): 0.34% for wide-eq.
+PS/hex-mode accuracy: 0.05–0.17% (independent of bins).
+Outer-caustic boundary crossing: fixed in 2026-06-20 Phase 3 update (was 52% before).
 
 ### Performance (uniform source, no LD)
 For trajectories where sources are far from the caustic: lcbinint is competitive
