@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cmath>
 #include <limits>
+#include <numeric>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -194,7 +195,8 @@ void append_tracked_caustic_points(
     std::vector<std::vector<SourcePosition>>& branches,
     std::vector<SourcePosition> points)
 {
-    if (points.size() != branches.size()) {
+    const std::size_t n = branches.size();
+    if (points.size() != n) {
         return;
     }
 
@@ -202,29 +204,34 @@ void append_tracked_caustic_points(
         std::sort(points.begin(), points.end(), [](const auto& lhs, const auto& rhs) {
             return std::atan2(lhs.y, lhs.x) < std::atan2(rhs.y, rhs.x);
         });
-        for (std::size_t i = 0; i < points.size(); ++i) {
+        for (std::size_t i = 0; i < n; ++i) {
             branches[i].push_back(points[i]);
         }
         return;
     }
 
-    std::vector<bool> used(points.size(), false);
-    for (auto& branch : branches) {
-        const SourcePosition previous = branch.back();
-        std::size_t best_index = 0;
-        double best_distance2 = std::numeric_limits<double>::infinity();
-        for (std::size_t i = 0; i < points.size(); ++i) {
-            if (used[i]) {
-                continue;
-            }
-            const double candidate_distance2 = distance_squared(previous, points[i]);
-            if (candidate_distance2 < best_distance2) {
-                best_distance2 = candidate_distance2;
-                best_index = i;
-            }
+    // Find the permutation of `points` that minimises total squared step length.
+    // Greedy nearest-neighbour can swap inner/outer caustic branches when they
+    // come close; the global optimum never makes a swap unless the two assignments
+    // have identical total cost (branches genuinely coincide), avoiding spurious
+    // long segments in the branch grid.  For n=4 this is 4!=24 permutations.
+    std::vector<std::size_t> perm(n);
+    std::iota(perm.begin(), perm.end(), 0);
+    std::vector<std::size_t> best_perm = perm;
+    double best_cost = std::numeric_limits<double>::infinity();
+    do {
+        double cost = 0.0;
+        for (std::size_t i = 0; i < n; ++i) {
+            cost += distance_squared(branches[i].back(), points[perm[i]]);
         }
-        used[best_index] = true;
-        branch.push_back(points[best_index]);
+        if (cost < best_cost) {
+            best_cost = cost;
+            best_perm = perm;
+        }
+    } while (std::next_permutation(perm.begin(), perm.end()));
+
+    for (std::size_t i = 0; i < n; ++i) {
+        branches[i].push_back(points[best_perm[i]]);
     }
 }
 
@@ -584,7 +591,7 @@ double legacy_limb_brightness(
         return 1.0;
     }
     return finite_magnifier != nullptr ?
-        finite_magnifier->legacy_limb_darkening_table_brightness(normalized_radius2) :
+        finite_magnifier->limb_darkening_table_brightness(normalized_radius2) :
         source_surface_brightness(normalized_radius2, settings);
 }
 
@@ -687,7 +694,8 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
     double separation,
     double mass_ratio,
     SourcePosition source,
-    double source_radius)
+    double source_radius,
+    double hint_caustic_dist = std::numeric_limits<double>::infinity())
 {
     std::vector<SourcePosition> seeds;
     const auto point_images = point_magnifier.binary_images(separation, mass_ratio, source);
@@ -696,6 +704,11 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
         seeds.push_back(image.position);
     }
     if (seeds.size() >= 5 || source_radius <= 0.0) {
+        return seeds;
+    }
+    // If the nearest caustic point is outside the source disk, the disk cannot
+    // straddle the caustic and no extra seeds are possible.
+    if (std::isfinite(hint_caustic_dist) && hint_caustic_dist >= source_radius) {
         return seeds;
     }
 
@@ -1093,11 +1106,19 @@ FiniteSourceResult fixed_inverse_ray_binary(
     double source_radius,
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
-    FiniteSourceDecision decision)
+    FiniteSourceDecision decision,
+    double caustic_distance = std::numeric_limits<double>::infinity())
 {
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    const auto seeds = legacy_augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius);
+    auto seeds = legacy_augmented_image_seeds(
+        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+        caustic_distance);
+    // Phase 3: find caustic crossings that fall in the gap between the last
+    // phase sample and phi=2*pi (missed by uniform 1400-point sampling).
+    if (seeds.size() < 5 && finite_magnifier != nullptr) {
+        finite_magnifier->legacy_augment_seeds_from_branches(
+            separation, mass_ratio, source, source_radius, seeds);
+    }
     double magnification;
     if (decision.method == FiniteSourceMethod::inverse_ray_polar) {
         magnification = inverse_ray_polar_boundary_binary(
@@ -1217,6 +1238,13 @@ void FiniteSourceMagnifier::ensure_legacy_caustic_cache(double separation, doubl
         // Build branch-position grid for fast per-segment distance queries.
         caustic_cache_branch_grid_.assign(
             static_cast<std::size_t>(caustic_cache_grid_size_ * caustic_cache_grid_size_), {});
+        // max_seg_len is used as a safety margin when bounding the grid search
+        // radius in legacy_binary_caustic_distance.  The wrap-around segment
+        // (from j=n-1 back to j=0) can be spuriously long when branch tracking
+        // swaps inner/outer caustic components near a crossing phase.  Excluding
+        // it keeps max_seg_len tight.  Correctness is preserved because the
+        // wrap-around gap is still found via the "prev" check on the j=0 entry
+        // of each branch in legacy_binary_caustic_distance.
         double max_seg2 = 0.0;
         for (int b = 0; b < static_cast<int>(caustic_cache_branches_.size()); ++b) {
             const auto& br = caustic_cache_branches_[static_cast<std::size_t>(b)];
@@ -1224,9 +1252,13 @@ void FiniteSourceMagnifier::ensure_legacy_caustic_cache(double separation, doubl
             for (int j = 0; j < n; ++j) {
                 const auto& pt = br[static_cast<std::size_t>(j)];
                 const auto& next_pt = br[static_cast<std::size_t>((j + 1) % n)];
-                const double seg2 = distance_squared(pt, next_pt);
-                if (seg2 > max_seg2) {
-                    max_seg2 = seg2;
+                // Exclude wrap-around (j == n-1) from max_seg_len to avoid
+                // inflating the search radius with tracking-artifact segments.
+                if (j < n - 1) {
+                    const double seg2 = distance_squared(pt, next_pt);
+                    if (seg2 > max_seg2) {
+                        max_seg2 = seg2;
+                    }
                 }
                 const int ix = std::clamp(
                     static_cast<int>((pt.x - caustic_cache_min_x_) / caustic_cache_grid_step_x_),
@@ -1547,7 +1579,12 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     const double cached_point_threshold = 2.0 * settings_.kinji_threshold * source_radius;
     double caustic_distance = legacy_binary_sampled_caustic_distance(
         separation, mass_ratio, source, cached_point_threshold);
-    if (!std::isfinite(caustic_distance) || caustic_distance >= cached_point_threshold) {
+    // Skip the segment-based distance check only when even the longest cached branch
+    // segment cannot bring a caustic point at distance `caustic_distance` within
+    // `cached_point_threshold`.  If caustic_distance is infinite (no cached point in
+    // the grid search area), always proceed to the segment check.
+    if (std::isfinite(caustic_distance) &&
+        caustic_distance >= cached_point_threshold + caustic_cache_max_seg_len_) {
         FiniteSourceDecision decision {
             FiniteSourceMethod::point_source,
             settings_.caustic_bins * 4,
@@ -1593,7 +1630,74 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         "cartesian inverse-ray",
     };
     return cache_and_return(fixed_inverse_ray_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, decision));
+        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, decision,
+        caustic_distance));
+}
+
+void FiniteSourceMagnifier::legacy_augment_seeds_from_branches(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    std::vector<SourcePosition>& seeds) const
+{
+    ensure_legacy_caustic_cache(separation, mass_ratio);
+    if (seeds.size() >= 5 || caustic_cache_branch_grid_.empty()) return;
+
+    const PointSourceMagnifier point_magnifier;
+    const double seg_search = source_radius + caustic_cache_max_seg_len_;
+    const int gs = caustic_cache_grid_size_;
+    const int ix0 = std::clamp(
+        static_cast<int>((source.x - seg_search - caustic_cache_min_x_) / caustic_cache_grid_step_x_),
+        0, gs - 1);
+    const int ix1 = std::clamp(
+        static_cast<int>((source.x + seg_search - caustic_cache_min_x_) / caustic_cache_grid_step_x_),
+        0, gs - 1);
+    const int iy0 = std::clamp(
+        static_cast<int>((source.y - seg_search - caustic_cache_min_y_) / caustic_cache_grid_step_y_),
+        0, gs - 1);
+    const int iy1 = std::clamp(
+        static_cast<int>((source.y + seg_search - caustic_cache_min_y_) / caustic_cache_grid_step_y_),
+        0, gs - 1);
+
+    for (int iy = iy0; iy <= iy1 && seeds.size() < 5; ++iy) {
+        for (int ix = ix0; ix <= ix1 && seeds.size() < 5; ++ix) {
+            for (const auto& ref :
+                 caustic_cache_branch_grid_[static_cast<std::size_t>(iy * gs + ix)]) {
+                const auto& branch =
+                    caustic_cache_branches_[static_cast<std::size_t>(ref.branch)];
+                const int n = static_cast<int>(branch.size());
+                if (n < 2) continue;
+                const int next = (ref.pos + 1) % n;
+                const SourcePosition p0 = branch[static_cast<std::size_t>(ref.pos)];
+                const SourcePosition p1 = branch[static_cast<std::size_t>(next)];
+                if (point_segment_distance(source, p0, p1) >= source_radius) continue;
+
+                const double seg_dx = p1.x - p0.x;
+                const double seg_dy = p1.y - p0.y;
+                const double seg_len2 = seg_dx * seg_dx + seg_dy * seg_dy;
+                const double t = seg_len2 > 0.0 ?
+                    std::clamp(
+                        ((source.x - p0.x) * seg_dx + (source.y - p0.y) * seg_dy) / seg_len2,
+                        0.0, 1.0) :
+                    0.0;
+                const SourcePosition nearest {p0.x + t * seg_dx, p0.y + t * seg_dy};
+                const double distance = std::sqrt(distance_squared(nearest, source));
+                if (distance <= 0.0 || distance >= source_radius) continue;
+
+                const double fraction = (source_radius - distance) / distance * 0.01;
+                const SourcePosition probe_source {
+                    nearest.x + (nearest.x - source.x) * fraction,
+                    nearest.y + (nearest.y - source.y) * fraction,
+                };
+                const auto probe_images = legacy_residual_selected_images(
+                    point_magnifier, separation, mass_ratio, probe_source);
+                if (probe_images.size() > seeds.size()) {
+                    seeds = probe_images;
+                }
+            }
+        }
+    }
 }
 
 } // namespace lcbinint::magnification
