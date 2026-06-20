@@ -67,8 +67,9 @@ typedef struct lcbi_options {
     int mode;                        /* 1 = cartesian (default), 2 = polar+cache */
     int vbbl_compatible;             /* 0 = legacy (default), 1 = VBBL-compatible convention */
     double grid_ratio;
-    double point_source_threshold;   /* point source if caustic_dist > threshold * rho */
-    double hexadecapole_threshold;   /* hexadecapole if caustic_dist > threshold * rho */
+    double point_source_threshold;   /* bbox margin for fast PS exit (in units of rho) */
+    double hexadecapole_threshold;   /* legacy; unused when adaptive_hex_threshold > 0 */
+    double adaptive_hex_threshold;   /* VBM-style: |a4 correction|/mag > this => IR mode */
 } lcbi_options;
 
 typedef struct lcbi_result {

@@ -65,6 +65,7 @@ ComputationOptions from_c_options(const lcbi_options *options)
     out.grid_ratio = options->grid_ratio;
     out.point_source_threshold = options->point_source_threshold;
     out.hexadecapole_threshold = options->hexadecapole_threshold;
+    out.adaptive_hex_threshold = options->adaptive_hex_threshold;
     return out;
 }
 

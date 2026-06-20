@@ -48,6 +48,7 @@ magnification::FiniteSourceSettings finite_source_settings(
     settings.finite_mode = options.mode;
     settings.kinji_threshold = options.point_source_threshold;
     settings.hex_threshold = options.hexadecapole_threshold;
+    settings.adaptive_hex_threshold = options.adaptive_hex_threshold;
     settings.limb_darkening_c = params.limb_darkening_c;
     settings.limb_darkening_d = params.limb_darkening_d;
     return settings;

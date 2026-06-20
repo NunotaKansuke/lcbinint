@@ -402,6 +402,7 @@ PYBIND11_MODULE(lcbinint, m)
                          double grid_ratio,
                          double point_source_threshold,
                          double hexadecapole_threshold,
+                         double adaptive_hex_threshold,
                          int vbbl_compatible) {
                  auto options = lcbi_default_options();
                  options.center_of_mass = center_of_mass;
@@ -411,6 +412,7 @@ PYBIND11_MODULE(lcbinint, m)
                  options.grid_ratio = grid_ratio;
                  options.point_source_threshold = point_source_threshold;
                  options.hexadecapole_threshold = hexadecapole_threshold;
+                 options.adaptive_hex_threshold = adaptive_hex_threshold;
                  options.vbbl_compatible = vbbl_compatible;
                  return options;
              }),
@@ -421,6 +423,7 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("grid_ratio") = 4.0,
             py::arg("point_source_threshold") = 20.0,
             py::arg("hexadecapole_threshold") = 3.0,
+            py::arg("adaptive_hex_threshold") = 0.001,
             py::arg("vbbl_compatible") = 0)
         .def_readwrite("center_of_mass", &lcbi_options::center_of_mass)
         .def_readwrite("source_bins", &lcbi_options::source_bins)
@@ -429,6 +432,7 @@ PYBIND11_MODULE(lcbinint, m)
         .def_readwrite("grid_ratio", &lcbi_options::grid_ratio)
         .def_readwrite("point_source_threshold", &lcbi_options::point_source_threshold)
         .def_readwrite("hexadecapole_threshold", &lcbi_options::hexadecapole_threshold)
+        .def_readwrite("adaptive_hex_threshold", &lcbi_options::adaptive_hex_threshold)
         .def_readwrite("vbbl_compatible", &lcbi_options::vbbl_compatible);
 
     py::class_<PyLensModel>(m, "LensModel")

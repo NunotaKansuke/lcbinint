@@ -269,7 +269,12 @@ double image_radius(double source_radius, double determinant)
     return std::max(2.5 * source_radius / std::sqrt(abs_det), 2.0 * source_radius);
 }
 
-double hexadecapole_binary(
+struct HexResult {
+    double magnification;
+    double relative_error; // |a4 correction| / |magnification|, used for VBM-style mode switch
+};
+
+HexResult hexadecapole_binary(
     const PointSourceMagnifier& point_magnifier,
     double separation,
     double mass_ratio,
@@ -309,8 +314,11 @@ double hexadecapole_binary(
     const double a4rho4 = (a1_plus + a1_cross) / 2.0 - a2rho2;
     const double gamma = limb_darkening_gamma(settings);
     const double lambda = limb_darkening_lambda(settings);
-    return a0 + 0.5 * a2rho2 * (1.0 - 0.2 * gamma - lambda / 9.0) +
-           a4rho4 / 3.0 * (1.0 - 11.0 * gamma / 35.0 - 7.0 * lambda / 39.0);
+    const double quad_corr = 0.5 * a2rho2 * (1.0 - 0.2 * gamma - lambda / 9.0);
+    const double hex_corr = a4rho4 / 3.0 * (1.0 - 11.0 * gamma / 35.0 - 7.0 * lambda / 39.0);
+    const double magnification = a0 + quad_corr + hex_corr;
+    const double rel_err = std::abs(hex_corr) / std::max(std::abs(magnification), 1.0e-10);
+    return {magnification, rel_err};
 }
 
 struct PolarBoundaryRow {
@@ -1575,19 +1583,16 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         return cache_and_return({point_source_magnification, 0, decision, 0.0, 0, true});
     }
 
-    const double cached_point_threshold = 2.0 * settings_.kinji_threshold * source_radius;
-    double caustic_distance = legacy_binary_sampled_caustic_distance(
-        separation, mass_ratio, source, cached_point_threshold);
-    // Fast PS exit when source is outside the caustic bounding box by at least
-    // cached_point_threshold (= 2·kinji·ρ > kinji·ρ).  In this case
-    // legacy_binary_sampled_caustic_distance returns ∞ via the bbox early-exit path,
-    // and the true caustic distance is guaranteed to exceed kinji_threshold·ρ.
-    // Without this check the code falls through to the expensive O(N) segment scan.
-    if (!std::isfinite(caustic_distance) &&
-        (source.x < caustic_cache_min_x_ - cached_point_threshold ||
-            source.x > caustic_cache_max_x_ + cached_point_threshold ||
-            source.y < caustic_cache_min_y_ - cached_point_threshold ||
-            source.y > caustic_cache_max_y_ + cached_point_threshold)) {
+    // Fast PS exit for sources outside the caustic bounding box by kinji_threshold·ρ.
+    // The caustic cache is built (or validated) inside legacy_binary_sampled_caustic_distance,
+    // making the bbox members available immediately after the call.
+    const double bbox_margin = settings_.kinji_threshold * source_radius;
+    const double sampled_dist = legacy_binary_sampled_caustic_distance(
+        separation, mass_ratio, source, bbox_margin);
+    if (source.x < caustic_cache_min_x_ - bbox_margin ||
+        source.x > caustic_cache_max_x_ + bbox_margin ||
+        source.y < caustic_cache_min_y_ - bbox_margin ||
+        source.y > caustic_cache_max_y_ + bbox_margin) {
         FiniteSourceDecision decision {
             FiniteSourceMethod::point_source,
             settings_.caustic_bins * 4,
@@ -1595,48 +1600,42 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         };
         return cache_and_return({point_source_magnification, 0, decision, 0.0, 0, true});
     }
-    // Skip the segment-based distance check when even the longest cached branch
-    // segment cannot bring a caustic point at distance `caustic_distance` within
-    // `cached_point_threshold`.
-    if (std::isfinite(caustic_distance) &&
-        caustic_distance >= cached_point_threshold + caustic_cache_max_seg_len_) {
-        FiniteSourceDecision decision {
-            FiniteSourceMethod::point_source,
-            settings_.caustic_bins * 4,
-            "caustic distance accepted point-source approximation",
-        };
-        return cache_and_return({point_source_magnification, 0, decision, 0.0, 0, true});
-    }
 
-    caustic_distance = legacy_binary_caustic_distance(separation, mass_ratio, source, caustic_distance);
-    if (!std::isfinite(caustic_distance)) {
-        caustic_distance = source_distance(source);
-    }
-    if (caustic_distance > settings_.kinji_threshold * source_radius) {
-        FiniteSourceDecision decision {
-            FiniteSourceMethod::point_source,
-            settings_.caustic_bins * 4,
-            "caustic distance accepted point-source approximation",
-        };
-        return cache_and_return({point_source_magnification, 0, decision, 0.0, 0, true});
-    }
-    if (caustic_distance > settings_.hex_threshold * source_radius) {
-        FiniteSourceDecision decision {
-            FiniteSourceMethod::hexadecapole,
-            settings_.caustic_bins * 4 + kHexadecapoleEvaluations,
-            "caustic distance accepted hexadecapole approximation",
-        };
-        return cache_and_return({hexadecapole_binary(point_magnifier, separation, mass_ratio, source, source_radius, settings_),
-            0,
-            decision,
-            0.0,
-            0,
-            true});
+    // VBM-style adaptive mode selection.  When the source center is far enough
+    // from the caustic the hexadecapole approximation is tried first; its
+    // self-consistency error estimate (|a4 correction| / |magnification|) then
+    // determines whether hex is accurate enough or IR is needed.
+    //
+    // When the source is close to the caustic (sampled_dist < hex_threshold·ρ)
+    // the hex Taylor expansion can give a misleadingly small a4 term even when
+    // the result is wrong (e.g. a4≈0 when a1_plus and a1_cross both happen to
+    // be large and cancel through a2rho2).  Skip hex and go straight to IR.
+    // Use segment-based (refined) caustic distance for accurate near-caustic detection.
+    // The sampled distance uses only discrete caustic points and can badly overestimate
+    // the true distance (e.g. 7x rho) when the caustic is sparsely sampled; the segment
+    // distance queries the actual line segments between consecutive points and returns the
+    // correct distance.  We pass sampled_dist as a hint to skip the O(N) point scan.
+    const double refined_dist = legacy_binary_caustic_distance(
+        separation, mass_ratio, source, sampled_dist);
+    const double hex_dist_threshold = settings_.hex_threshold * source_radius;
+    const bool near_caustic = refined_dist < hex_dist_threshold;
+    if (!near_caustic) {
+        const auto hex = hexadecapole_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius, settings_);
+        if (hex.relative_error <= settings_.adaptive_hex_threshold) {
+            FiniteSourceDecision decision {
+                FiniteSourceMethod::hexadecapole,
+                kHexadecapoleEvaluations,
+                "hexadecapole self-consistency check passed",
+            };
+            return cache_and_return({hex.magnification, 0, decision, 0.0, 0, true});
+        }
     }
 
     if (settings_.finite_mode == 2) {
         return cache_and_return(legacy_polar_memory_binary_mag(
-            separation, mass_ratio, source, source_radius, caustic_distance));
+            separation, mass_ratio, source, source_radius,
+            std::numeric_limits<double>::infinity()));
     }
     FiniteSourceDecision decision {
         FiniteSourceMethod::inverse_ray_cartesian,
@@ -1644,8 +1643,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         "cartesian inverse-ray",
     };
     return cache_and_return(fixed_inverse_ray_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, decision,
-        caustic_distance));
+        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, decision));
 }
 
 void FiniteSourceMagnifier::legacy_augment_seeds_from_branches(

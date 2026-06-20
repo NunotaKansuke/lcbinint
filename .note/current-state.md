@@ -539,6 +539,47 @@ reson-new q=0.001       5.939% →   0.565%
 ```
 No case regressed; all improvements range from 2× to 10×.
 
+**Bug 8 – VBM-style adaptive hex: two-step caustic-distance required** (2026-06-21)
+Motivation: threshold-based mode selection (Bug 7) is a patch; VBM uses a hex
+self-consistency test (|a4 correction|/mag > tol → fall back to IR) that adapts
+automatically. Implemented `HexResult {magnification, relative_error}` and an
+`adaptive_hex_threshold = 0.001` parameter. Broke into two sub-bugs:
+
+*Sub-bug A* (wide-eq, caustic-straddling with small a4):
+For s=2.0 q=1.0 at t=-0.0702: source center OUTSIDE caustic (PS=16.67), disk
+straddles caustic (VBM FS=39.84). Hex gives 19.77 with relative_error < 0.001.
+Why: a1_plus=4.18 and a1_cross=8.18 nearly cancel through a2rho2=6.23, making
+a4rho4≈-0.05 (tiny) even though the field is highly non-uniform.
+The self-consistency check cannot detect this: all 13 ring points are in consistent
+3- or 5-image regions, so the Taylor residual is artificially small.
+
+*Sub-bug B* (wide-eq, sparse caustic cache):
+`legacy_binary_sampled_caustic_distance` returned 7.1×rho for the wide-eq case
+because the 1400-sample caustic grid doesn't place a sample near the fold at
+(x=-0.0702, y≈0.00008). The point-distance cache is too coarse; the segment-based
+`legacy_binary_caustic_distance` correctly finds the caustic at 0.78×rho by
+computing the distance to the SEGMENT connecting the two adjacent samples that
+bracket the fold.
+
+Fix: hybrid approach matching actual VBM behaviour.
+1. Build caustic cache via `legacy_binary_sampled_caustic_distance` (already done).
+2. Refine with `legacy_binary_caustic_distance` (segment-based, fast with hint).
+3. If `refined_dist < hex_threshold × rho` → near-caustic → skip hex → IR directly.
+4. Else → try hex self-consistency; if `rel_err < adaptive_hex_threshold` → hex.
+5. Else → IR.
+
+Updated accuracy (400 pts, bins=50, kinji=20, hex=3, adaptive_hex=0.001):
+```
+resonant s=1.0 q=0.3   rho=0.025  0.124%
+wide-caus s=1.0 q=0.001 rho=0.003  0.368%
+wide-eq s=2.0 q=1.0    rho=0.001  0.347%  (was 50% with VBM only; 0.341% with old)
+wide-uneq s=2.0 q=0.1  rho=0.001  0.034%
+close s=0.5 q=0.3      rho=0.003  0.114%
+reson-new s=1.0 q=0.001 rho=0.001  0.563%
+```
+All cases ≤ 0.57%.  Performance: PS ~5 μs/pt, hex ~5 μs/pt (tiny overhead vs 4 μs),
+near-caustic IR ~4 ms/pt (unchanged, dominated by image-area integration).
+
 **Bug 6 – Outer-caustic seed-finding in `legacy_augment_seeds_from_branches`** (2026-06-21)
 Three compounding bugs caused ~52% error when a source just straddles an outer
 caustic boundary (e.g. wide-eq s=2 q=1 rho=0.001 at the outer-left-caustic edge):
