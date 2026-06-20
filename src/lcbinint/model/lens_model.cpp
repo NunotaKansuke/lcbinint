@@ -32,10 +32,9 @@ double legacy_wide_binary_offset(
     return m2 * projected_separation - m2 / projected_separation;
 }
 
-bool supports_binary_point_source(const LensParameters& params, const ComputationOptions& options)
+bool supports_binary_point_source(const LensParameters& params, const ComputationOptions& /*options*/)
 {
-    return !params.is_triple() && !has_unsupported_dynamic_effects(params) &&
-           (params.rho == 0.0 || options.forces_point_source());
+    return !params.is_triple() && !has_unsupported_dynamic_effects(params) && params.rho == 0.0;
 }
 
 magnification::FiniteSourceSettings finite_source_settings(
@@ -43,29 +42,14 @@ magnification::FiniteSourceSettings finite_source_settings(
     const ComputationOptions& options)
 {
     magnification::FiniteSourceSettings settings;
-    settings.tolerance = options.tolerance;
-    settings.relative_tolerance = options.relative_tolerance;
     settings.source_bins = options.source_bins;
     settings.caustic_bins = options.caustic_bins;
     settings.grid_ratio = options.grid_ratio;
-    settings.legacy_mode = options.finite_source_mode == LCBI_SOURCE_LEGACY;
-    settings.legacy_finite_mode = options.legacy_finite_mode;
-    settings.legacy_kinji = options.legacy_kinji;
-    settings.legacy_hex = options.legacy_hex;
+    settings.finite_mode = options.mode;
+    settings.kinji_threshold = options.point_source_threshold;
+    settings.hex_threshold = options.hexadecapole_threshold;
     settings.limb_darkening_c = params.limb_darkening_c;
     settings.limb_darkening_d = params.limb_darkening_d;
-    switch (options.inverse_ray_method) {
-    case LCBI_INVERSE_RAY_CARTESIAN:
-        settings.inverse_ray_method = magnification::InverseRayMethod::cartesian;
-        break;
-    case LCBI_INVERSE_RAY_POLAR:
-        settings.inverse_ray_method = magnification::InverseRayMethod::polar;
-        break;
-    case LCBI_INVERSE_RAY_AUTO:
-    default:
-        settings.inverse_ray_method = magnification::InverseRayMethod::auto_select;
-        break;
-    }
     return settings;
 }
 
@@ -78,7 +62,7 @@ LensModel::LensModel(LensParameters params, ComputationOptions options)
 
 MagnificationResult LensModel::magnification(double time) const
 {
-    const auto source = Trajectory(params_).source_position(time);
+    const auto source = Trajectory(params_).source_position(time, options_.vbbl_compatible != 0);
     const auto system = LensSystem::from_parameters(params_);
     (void)system;
     const auto orbit = orbital_state(params_, time);
@@ -101,9 +85,14 @@ MagnificationResult LensModel::magnification(double time) const
         auto source_for_magnification =
             rotate_source_to_orbital_frame(source, orbit.angle - params_.theta);
         result.source = source_for_magnification;
-        source_for_magnification.x -= legacy_wide_binary_offset(orbit.separation, params_, options_);
+        if (options_.vbbl_compatible == 0) {
+            source_for_magnification.x -= legacy_wide_binary_offset(orbit.separation, params_, options_);
+        }
+        const double effective_q = (options_.vbbl_compatible != 0 && params_.q != 0.0)
+            ? 1.0 / params_.q
+            : params_.q;
         const auto point_result =
-            point_magnifier.binary_mag0(orbit.separation, params_.q, source_for_magnification);
+            point_magnifier.binary_mag0(orbit.separation, effective_q, source_for_magnification);
         result.point_source_magnification = point_result.magnification;
         result.image_count = point_result.image_count;
 

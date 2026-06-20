@@ -298,7 +298,7 @@ void apply_annual_parallax(const LensParameters& params, double time, double& ta
 
 } // namespace
 
-SourcePosition Trajectory::source_position(double time) const
+SourcePosition Trajectory::source_position(double time, bool vbbl_mode) const
 {
     double tn = (time - params_.t0) / params_.tE;
     double beta = params_.umin;
@@ -308,8 +308,15 @@ SourcePosition Trajectory::source_position(double time) const
     const double sintheta = std::sin(params_.theta);
 
     SourcePosition source;
-    source.x = beta * sintheta + tn * costheta;
-    source.y = beta * costheta - tn * sintheta;
+    if (vbbl_mode) {
+        // VBBL BinaryLightCurve convention: u1 = tau*cos(alpha) - u0*sin(alpha),
+        // u2 = tau*sin(alpha) + u0*cos(alpha), where alpha = theta, u0 = umin.
+        source.x = tn * costheta - beta * sintheta;
+        source.y = tn * sintheta + beta * costheta;
+    } else {
+        source.x = beta * sintheta + tn * costheta;
+        source.y = beta * costheta - tn * sintheta;
+    }
     return source;
 }
 

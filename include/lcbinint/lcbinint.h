@@ -12,18 +12,6 @@ typedef enum lcbi_status {
     LCBI_UNSUPPORTED = 3
 } lcbi_status;
 
-typedef enum lcbi_finite_source_mode {
-    LCBI_SOURCE_AUTO = 0,
-    LCBI_POINT_SOURCE = 1,
-    LCBI_SOURCE_LEGACY = 2
-} lcbi_finite_source_mode;
-
-typedef enum lcbi_inverse_ray_method {
-    LCBI_INVERSE_RAY_AUTO = 0,
-    LCBI_INVERSE_RAY_CARTESIAN = 1,
-    LCBI_INVERSE_RAY_POLAR = 2
-} lcbi_inverse_ray_method;
-
 typedef enum lcbi_orbital_motion_mode {
     LCBI_ORBIT_STATIC = 0,
     LCBI_ORBIT_CIRCULAR = 1,
@@ -71,19 +59,16 @@ typedef struct lcbi_params {
 } lcbi_params;
 
 typedef struct lcbi_options {
-    lcbi_finite_source_mode finite_source_mode;
-    lcbi_inverse_ray_method inverse_ray_method;
     int parallax_mode;
     int orbit_pair;
     int center_of_mass;
     int caustic_bins;
     int source_bins;
-    int legacy_finite_mode;
+    int mode;                        /* 1 = cartesian (default), 2 = polar+cache */
+    int vbbl_compatible;             /* 0 = legacy (default), 1 = VBBL-compatible convention */
     double grid_ratio;
-    double legacy_kinji;
-    double legacy_hex;
-    double tolerance;
-    double relative_tolerance;
+    double point_source_threshold;   /* point source if caustic_dist > threshold * rho */
+    double hexadecapole_threshold;   /* hexadecapole if caustic_dist > threshold * rho */
 } lcbi_options;
 
 typedef struct lcbi_result {

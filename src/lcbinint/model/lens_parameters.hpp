@@ -45,21 +45,16 @@ struct LensParameters {
 };
 
 struct ComputationOptions {
-    lcbi_finite_source_mode finite_source_mode = LCBI_SOURCE_AUTO;
-    lcbi_inverse_ray_method inverse_ray_method = LCBI_INVERSE_RAY_AUTO;
     int parallax_mode = 0;
     int orbit_pair = 23;
     int center_of_mass = 0;
     int caustic_bins = 1400;
-    int source_bins = 20;
-    int legacy_finite_mode = 4;
+    int source_bins = 50;
+    int mode = 1;                        // 1 = cartesian, 2 = polar+cache
+    int vbbl_compatible = 0;             // 0 = legacy, 1 = VBBL-compatible convention
     double grid_ratio = 4.0;
-    double legacy_kinji = 9.0;
-    double legacy_hex = 2.0;
-    double tolerance = 1.0e-3;
-    double relative_tolerance = 0.0;
-
-    bool forces_point_source() const { return finite_source_mode == LCBI_POINT_SOURCE; }
+    double point_source_threshold = 9.0;
+    double hexadecapole_threshold = 2.0;
 };
 
 LensParameters from_c_params(const lcbi_params &params);

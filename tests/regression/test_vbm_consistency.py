@@ -152,50 +152,14 @@ def test_lcbinint_lens_model_binary_finite_source_matches_vbm(
         sep=separation,
         rho=rho,
     )
-    options = lcbinint.Options(
-        center_of_mass=1,
-        tolerance=1.0e-3,
-        relative_tolerance=1.0e-3,
-        source_bins=80,
-    )
+    options = lcbinint.Options(center_of_mass=1, source_bins=80)
     actual = lcbinint.LensModel(params, options).magnification(y1)
 
     assert math.isfinite(actual)
     assert math.isclose(actual, reference, rel_tol=1.0e-2, abs_tol=1.0e-2)
 
 
-def test_lcbinint_lens_model_binary_finite_source_polar_matches_vbm():
-    separation = 0.7
-    mass_ratio = 0.3
-    y1 = -0.6
-    y2 = 0.4
-    rho = 0.03
-    reference = _vbm_binary_mag2(separation, mass_ratio, y1, y2, rho)
-
-    lcbinint = pytest.importorskip("lcbinint")
-    params = lcbinint.LensParams(
-        t0=0.0,
-        tE=1.0,
-        umin=y2,
-        theta=0.0,
-        q=mass_ratio,
-        sep=separation,
-        rho=rho,
-    )
-    options = lcbinint.Options(
-        center_of_mass=1,
-        inverse_ray_method=lcbinint.InverseRayMethod.POLAR,
-        tolerance=1.0e-3,
-        relative_tolerance=1.0e-2,
-        source_bins=80,
-    )
-    actual = lcbinint.LensModel(params, options).magnification(y1)
-
-    assert math.isfinite(actual)
-    assert math.isclose(actual, reference, rel_tol=1.0e-2, abs_tol=1.0e-2)
-
-
-def test_lcbinint_lens_model_legacy_polar_finite_source_matches_vbm():
+def test_lcbinint_lens_model_polar_finite_source_matches_vbm():
     separation = 1.4
     mass_ratio = 0.4
     y1 = 0.2
@@ -213,12 +177,7 @@ def test_lcbinint_lens_model_legacy_polar_finite_source_matches_vbm():
         sep=separation,
         rho=rho,
     )
-    options = lcbinint.Options(
-        center_of_mass=1,
-        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
-        legacy_finite_mode=5,
-        source_bins=80,
-    )
+    options = lcbinint.Options(center_of_mass=1, mode=2, source_bins=80)
     actual = lcbinint.LensModel(params, options).magnification(y1)
 
     assert math.isfinite(actual)
@@ -245,12 +204,7 @@ def test_lcbinint_lens_model_linear_limb_darkening_matches_vbm(
         rho=rho,
         limb_darkening_c=limb_darkening_c,
     )
-    options = lcbinint.Options(
-        center_of_mass=1,
-        tolerance=1.0e-3,
-        relative_tolerance=1.0e-3,
-        source_bins=80,
-    )
+    options = lcbinint.Options(center_of_mass=1, source_bins=80)
     actual = lcbinint.LensModel(params, options).magnification(y1)
 
     assert math.isfinite(actual)
@@ -258,9 +212,9 @@ def test_lcbinint_lens_model_linear_limb_darkening_matches_vbm(
 
 
 @pytest.mark.parametrize("separation,mass_ratio,y1,y2,rho", BINARY_LIMB_DARKENING_CASES)
-@pytest.mark.parametrize("legacy_finite_mode", [4, 6])
-def test_lcbinint_lens_model_legacy_limb_darkening_matches_vbm(
-    separation, mass_ratio, y1, y2, rho, legacy_finite_mode
+@pytest.mark.parametrize("mode", [1, 2])
+def test_lcbinint_lens_model_limb_darkening_matches_vbm(
+    separation, mass_ratio, y1, y2, rho, mode
 ):
     limb_darkening_c = 0.5
     reference = _vbm_binary_mag_dark(
@@ -278,22 +232,17 @@ def test_lcbinint_lens_model_legacy_limb_darkening_matches_vbm(
         rho=rho,
         limb_darkening_c=limb_darkening_c,
     )
-    options = lcbinint.Options(
-        center_of_mass=1,
-        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
-        legacy_finite_mode=legacy_finite_mode,
-        source_bins=80,
-    )
+    options = lcbinint.Options(center_of_mass=1, mode=mode, source_bins=80)
     actual = lcbinint.LensModel(params, options).magnification(y1)
 
     assert math.isfinite(actual)
     assert math.isclose(actual, reference, rel_tol=5.0e-3, abs_tol=5.0e-3)
 
 
-@pytest.mark.parametrize("legacy_finite_mode", [4, 6])
+@pytest.mark.parametrize("mode", [1, 2])
 @pytest.mark.parametrize("limb_darkened", [False, True])
-def test_lcbinint_legacy_caustic_light_curve_points_match_vbm(
-    legacy_finite_mode, limb_darkened
+def test_lcbinint_caustic_light_curve_points_match_vbm(
+    mode, limb_darkened
 ):
     lcbinint = pytest.importorskip("lcbinint")
     module = pytest.importorskip("VBBinaryLensing")
@@ -332,12 +281,7 @@ def test_lcbinint_legacy_caustic_light_curve_points_match_vbm(
         rho=rho,
         limb_darkening_c=limb_darkening_c if limb_darkened else 0.0,
     )
-    options = lcbinint.Options(
-        center_of_mass=1,
-        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
-        legacy_finite_mode=legacy_finite_mode,
-        source_bins=80,
-    )
+    options = lcbinint.Options(center_of_mass=1, mode=mode, source_bins=80)
     actual = lcbinint.LensModel(params, options).light_curve(y1_values).magnifications
 
     for actual_value, reference_value in zip(actual, reference):
@@ -345,9 +289,9 @@ def test_lcbinint_legacy_caustic_light_curve_points_match_vbm(
         assert math.isclose(actual_value, reference_value, rel_tol=1.5e-3, abs_tol=1.5e-3)
 
 
-@pytest.mark.parametrize("legacy_finite_mode", [4, 6])
-def test_lcbinint_legacy_high_magnification_light_curve_matches_vbm(
-    legacy_finite_mode,
+@pytest.mark.parametrize("mode", [1, 2])
+def test_lcbinint_high_magnification_light_curve_matches_vbm(
+    mode,
 ):
     lcbinint = pytest.importorskip("lcbinint")
     module = pytest.importorskip("VBBinaryLensing")
@@ -376,10 +320,9 @@ def test_lcbinint_legacy_high_magnification_light_curve_matches_vbm(
     )
     options = lcbinint.Options(
         center_of_mass=1,
-        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
-        legacy_finite_mode=legacy_finite_mode,
-        legacy_kinji=1.0e9,
-        legacy_hex=1.0e9,
+        mode=mode,
+        point_source_threshold=1.0e9,
+        hexadecapole_threshold=1.0e9,
         source_bins=80,
     )
     actual = lcbinint.LensModel(params, options).light_curve(times).magnifications
@@ -389,80 +332,63 @@ def test_lcbinint_legacy_high_magnification_light_curve_matches_vbm(
         assert math.isclose(actual_value, reference_value, rel_tol=1.5e-3, abs_tol=1.5e-3)
 
 
-def test_lcbinint_lens_model_reports_finite_source_non_convergence():
+@pytest.mark.parametrize("alpha,u0,separation,mass_ratio", [
+    pytest.param(0.5, -0.01, 1.0, 0.001, id="nonzero_alpha_planetary"),
+    pytest.param(0.0, 0.1, 1.0, 0.1, id="zero_alpha_low_q"),
+    pytest.param(1.2, -0.05, 0.7, 0.3, id="nonzero_alpha_close_binary"),
+    pytest.param(0.5, -0.01, 1.5, 0.001, id="nonzero_alpha_wide_planetary"),
+])
+def test_lcbinint_vbbl_compatible_mode_matches_binary_light_curve(
+    alpha, u0, separation, mass_ratio
+):
     lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBBinaryLensing")
+
+    rho = 1e-4
+    times = [-0.4, -0.2, 0.0, 0.2, 0.4]
+
+    vbb = module.VBBinaryLensing()
+    vbb.Tol = 1.0e-3
+    reference = vbb.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+        times,
+    )[0]
+
     params = lcbinint.LensParams(
-        t0=0.0,
-        tE=1.0,
-        umin=0.0,
-        theta=0.0,
-        q=0.1,
-        sep=1.0,
-        rho=0.02,
+        t0=0.0, tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
     )
-    options = lcbinint.Options(
-        center_of_mass=1,
-        tolerance=1.0e-14,
-        relative_tolerance=0.0,
-        source_bins=4,
-    )
+    options = lcbinint.Options(center_of_mass=1, source_bins=80, vbbl_compatible=1)
+    actual = lcbinint.LensModel(params, options).light_curve(times).magnifications
 
-    with pytest.raises(RuntimeError, match="numerical error"):
-        lcbinint.LensModel(params, options).magnification(0.45)
+    for actual_value, reference_value in zip(actual, reference):
+        assert math.isfinite(actual_value)
+        assert math.isclose(actual_value, reference_value, rel_tol=1.5e-3, abs_tol=1.5e-3)
 
 
-def test_lcbinint_lens_model_relative_tolerance_can_accept_refinement():
-    lcbinint = pytest.importorskip("lcbinint")
-    params = lcbinint.LensParams(
-        t0=0.0,
-        tE=1.0,
-        umin=0.0,
-        theta=0.0,
-        q=0.1,
-        sep=1.0,
-        rho=0.02,
-    )
-    options = lcbinint.Options(
-        center_of_mass=1,
-        tolerance=1.0e-14,
-        relative_tolerance=1.0,
-        source_bins=4,
-    )
-
-    actual = lcbinint.LensModel(params, options).magnification(0.45)
-
-    assert math.isfinite(actual)
-
-
-def test_lcbinint_options_exposes_inverse_ray_method():
-    lcbinint = pytest.importorskip("lcbinint")
-
-    options = lcbinint.Options(inverse_ray_method=lcbinint.InverseRayMethod.POLAR)
-
-    assert options.inverse_ray_method == lcbinint.InverseRayMethod.POLAR
-
-
-def test_lcbinint_options_exposes_legacy_finite_source_mode():
+def test_lcbinint_options_exposes_fields():
     lcbinint = pytest.importorskip("lcbinint")
 
     options = lcbinint.Options(
-        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
         caustic_bins=128,
-        source_bins=12,
-        legacy_finite_mode=5,
-        legacy_kinji=8.0,
-        legacy_hex=2.5,
+        source_bins=40,
+        mode=2,
+        point_source_threshold=8.0,
+        hexadecapole_threshold=2.5,
     )
 
-    assert options.finite_source_mode == lcbinint.FiniteSourceMode.LEGACY
     assert options.caustic_bins == 128
-    assert options.source_bins == 12
-    assert options.legacy_finite_mode == 5
-    assert options.legacy_kinji == 8.0
-    assert options.legacy_hex == 2.5
+    assert options.source_bins == 40
+    assert options.mode == 2
+    assert options.point_source_threshold == 8.0
+    assert options.hexadecapole_threshold == 2.5
 
 
-def test_lcbinint_legacy_mode_smoke():
+def test_lcbinint_finite_source_smoke():
     lcbinint = pytest.importorskip("lcbinint")
     params = lcbinint.LensParams(
         t0=0.0,
@@ -473,13 +399,7 @@ def test_lcbinint_legacy_mode_smoke():
         sep=1.0,
         rho=0.02,
     )
-    options = lcbinint.Options(
-        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
-        center_of_mass=1,
-        caustic_bins=128,
-        source_bins=20,
-        relative_tolerance=1.0,
-    )
+    options = lcbinint.Options(center_of_mass=1, caustic_bins=128, source_bins=20)
 
     actual = lcbinint.LensModel(params, options).magnification(0.2)
 
@@ -546,14 +466,7 @@ def test_lcbinint_lens_model_estimates_source_bins_from_self_convergence():
         sep=1.4,
         rho=0.025,
     )
-    options = lcbinint.Options(
-        center_of_mass=1,
-        finite_source_mode=lcbinint.FiniteSourceMode.LEGACY,
-        legacy_finite_mode=4,
-        source_bins=80,
-        tolerance=0.0,
-        relative_tolerance=1.0e-3,
-    )
+    options = lcbinint.Options(center_of_mass=1, source_bins=80)
     model = lcbinint.LensModel(params, options)
     times = [-2.0, -1.0, -0.5, -0.25, 0.0, 0.25, 0.5, 1.0, 2.0]
 
@@ -564,7 +477,6 @@ def test_lcbinint_lens_model_estimates_source_bins_from_self_convergence():
     )
 
     assert estimate.reference_source_bins == 80
-    assert estimate.recommended_source_bins in {40, 60, 80}
     assert estimate.sampled_times == times
     assert [candidate.source_bins for candidate in estimate.candidates] == [20, 40, 60, 80]
     assert estimate.candidates[-1].accepted
