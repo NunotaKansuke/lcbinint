@@ -756,6 +756,12 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
     // standard-image seed (high-J, non-fold image) is preserved.  Without this
     // the standard image is absent at low bins, where fold-image flood-fills do
     // not expand far enough to cover it.
+    //
+    // IMPORTANT: the duplicate check uses the Phase-0 seed count snapshot, not
+    // the live seeds vector.  This prevents F+ from blocking F- when both fold
+    // images land within rho of each other (which happens when the probe source
+    // is only slightly inside the caustic, so F+/F- separation << rho).
+    const std::size_t n_phase0_seeds = seeds.size();
     bool found_first_crossing = false;
     for (int kphi = 0; kphi < nskip && !found_first_crossing; ++kphi) {
         for (int jphi = 0; jphi < samples / nskip && !found_first_crossing; ++jphi) {
@@ -785,8 +791,8 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
                 }
                 for (const auto& img : probe_images) {
                     bool is_dup = false;
-                    for (const auto& s : seeds) {
-                        if (distance_squared(img, s) < source_radius2) {
+                    for (std::size_t si = 0; si < n_phase0_seeds; ++si) {
+                        if (distance_squared(img, seeds[si]) < source_radius2) {
                             is_dup = true;
                             break;
                         }
@@ -814,8 +820,8 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
             if (probe_images.size() > 3) {
                 for (const auto& img : probe_images) {
                     bool is_dup = false;
-                    for (const auto& s : seeds) {
-                        if (distance_squared(img, s) < source_radius2) {
+                    for (std::size_t si = 0; si < n_phase0_seeds; ++si) {
+                        if (distance_squared(img, seeds[si]) < source_radius2) {
                             is_dup = true;
                             break;
                         }
@@ -903,10 +909,12 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
                     const auto probe_images = legacy_residual_selected_images(
                         point_magnifier, separation, mass_ratio, probe_source);
                     if (probe_images.size() > 3) {
+                        // Snapshot before this crossing so F- is not blocked by F+.
+                        const std::size_t n_seeds_before = seeds.size();
                         for (const auto& img : probe_images) {
                             bool is_dup = false;
-                            for (const auto& s : seeds) {
-                                if (distance_squared(img, s) < source_radius2) {
+                            for (std::size_t si = 0; si < n_seeds_before; ++si) {
+                                if (distance_squared(img, seeds[si]) < source_radius2) {
                                     is_dup = true;
                                     break;
                                 }
@@ -1069,7 +1077,6 @@ double legacy_imagearea4_binary(
     const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
     const double incr = source_radius / nbin;
     const double incr2_margin = 0.5 * incr * 1.01;
-
     double area = 0.0;
     std::vector<double> areaimage(images.size(), 0.0);
     std::vector<int> overlap(images.size(), 0);
@@ -1632,8 +1639,11 @@ FiniteSourceResult FiniteSourceMagnifier::legacy_polar_memory_binary_mag(
         "polar cached inverse-ray",
     };
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    const auto seeds = legacy_augmented_image_seeds(
+    auto seeds = legacy_augmented_image_seeds(
         point_magnifier, mapper, separation, mass_ratio, source, source_radius);
+    if (seeds.size() < 5) {
+        legacy_augment_seeds_from_branches(separation, mass_ratio, source, source_radius, seeds);
+    }
     const auto point_images = point_magnifier.binary_images(separation, mass_ratio, source);
     const double sampled_caustic_distance = legacy_binary_sampled_caustic_distance(
         separation, mass_ratio, source, source_radius);
@@ -1772,8 +1782,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
 
     if (settings_.finite_mode == 2) {
         return cache_and_return(legacy_polar_memory_binary_mag(
-            separation, mass_ratio, source, source_radius,
-            std::numeric_limits<double>::infinity()));
+            separation, mass_ratio, source, source_radius, refined_dist));
     }
     FiniteSourceDecision decision {
         FiniteSourceMethod::inverse_ray_cartesian,
