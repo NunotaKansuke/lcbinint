@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
 #include <numeric>
 #include <string>
@@ -1295,7 +1297,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
 constexpr double kLocal7LambdaMin = 1.0e-5;
 constexpr double kLocal7SpineAreaJacMin = 100.0;
 constexpr double kLocal7SpineDetMax = 1.0e-2;
-constexpr double kLocal7SpineMaxStepCells = 256.0;
+constexpr double kLocal7SpineMaxStepCells = 4.0;
 constexpr double kLocal7SpineMinStepCells = 0.125;
 constexpr int kLocal7SpineMaxPoints = 200000;
 constexpr int kLocal7SpineMaxNormalSamples = 20000000;
@@ -1645,6 +1647,7 @@ double local7_spine_integrate_normals(
     double source_step,
     int* fallback_reason)
 {
+    const bool spine_debug = std::getenv("LCBININT_SPINE_DEBUG") != nullptr;
     const double radius2 = source_radius * source_radius;
     const double inv_radius2 = 1.0 / radius2;
     double area = 0.0;
@@ -1696,6 +1699,15 @@ double local7_spine_integrate_normals(
                 }
             }
         }
+    }
+    if (spine_debug && !spine.empty()) {
+        const double tw0 = 2.0 * spine[0].half_weight;
+        const double tw_mid = 2.0 * spine[spine.size()/2].half_weight;
+        const double ll0 = spine[0].frame.lambda_l;
+        const double ll_mid = spine[spine.size()/2].frame.lambda_l;
+        std::fprintf(stderr, "  normals: spine_pts=%zu normal_samples=%lld "
+            "tw[0]=%.3e tw[mid]=%.3e ll[0]=%.3e ll[mid]=%.3e source_step=%.3e\n",
+            spine.size(), normal_samples, tw0, tw_mid, ll0, ll_mid, source_step);
     }
     return area;
 }
@@ -1797,6 +1809,8 @@ FiniteSourceResult fixed_inverse_ray_spine_binary(
         "experimental image-spine guided scan",
     };
 
+    // Generate seeds once. All fallback paths reuse these to avoid a second
+    // call to legacy_augmented_image_seeds.
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     auto seeds = legacy_augmented_image_seeds(
         point_magnifier, mapper, separation, mass_ratio, source, source_radius);
@@ -1808,52 +1822,112 @@ FiniteSourceResult fixed_inverse_ray_spine_binary(
     const int n_ps = static_cast<int>(
         point_magnifier.binary_images(separation, mass_ratio, source).size());
     const int caustic_born = std::max(0, static_cast<int>(seeds.size()) - n_ps);
-
     const int bins = std::max(settings.source_bins, 1);
     const double source_step = source_radius / static_cast<double>(bins);
-    double area = 0.0;
-    std::vector<int> overlap(seeds.size(), 0);
 
-    const auto cartesian_fallback = [&](const char* reason) -> FiniteSourceResult {
-        FiniteSourceDecision fb_decision {
-            FiniteSourceMethod::inverse_ray_cartesian,
-            estimate_cartesian_cost(settings),
-            reason,
-        };
-        return fixed_inverse_ray_binary(
-            point_magnifier, separation, mass_ratio, source, source_radius,
-            settings, finite_magnifier, fb_decision);
-    };
+    if (const char* dbg = std::getenv("LCBININT_SPINE_DEBUG")) {
+        (void)dbg;
+        std::fprintf(stderr, "SPINE_DEBUG seeds=%zu n_ps=%d caustic_born=%d rho=%.4e bins=%d\n",
+            seeds.size(), n_ps, caustic_born, source_radius, bins);
+        for (std::size_t di = 0; di < seeds.size(); ++di) {
+            Local7Frame df;
+            bool dok = local7_make_frame(Complex(seeds[di].x, seeds[di].y), source, mapper, &df);
+            const double beta_abs = dok ? std::hypot(df.beta_r, df.beta_i) : 0.0;
+        const double var_ratio = (dok && std::abs(df.lambda_l) > 1e-30 && std::abs(df.lambda_s) > 0.0)
+            ? 2.0 * beta_abs * source_radius / (std::abs(df.lambda_s) * std::abs(df.lambda_l)) : 0.0;
+        std::fprintf(stderr, "  seed[%zu] (%.4f,%.4f) frame_ok=%d area_jac=%.2f det_j=%.4f beta=%.4f var_ratio=%.2f candidate=%d\n",
+                di, seeds[di].x, seeds[di].y, (int)dok,
+                dok ? df.area_jac : 0.0, dok ? df.det_j : 0.0,
+                beta_abs, var_ratio, dok && local7_is_spine_candidate(df));
+        }
+    }
+
+    // Pass 1: try spine for caustic-born fold pairs.
+    // Non-eligible seeds (PS images) are left untouched; spine-covered seeds
+    // are marked so they are excluded from the cartesian pass.
+    std::vector<bool> spine_covered(seeds.size(), false);
+    std::vector<int> elig_overlap(seeds.size(), 0);
+    double spine_area = 0.0;
+    bool any_spine_tried = false;
 
     for (std::size_t i = 0; i < seeds.size(); ++i) {
-        if (overlap[i] == 1) continue;
+        if (elig_overlap[i] == 1) continue;
+
         Local7Frame frame;
         if (!local7_make_frame(Complex(seeds[i].x, seeds[i].y), source, mapper, &frame) ||
             std::abs(frame.lambda_l) < kLocal7LambdaMin ||
             std::abs(frame.lambda_s) < kLocal7LambdaMin ||
             !std::isfinite(frame.area_jac)) {
-            return cartesian_fallback("spine frame construction failed; cartesian fallback");
+            continue; // not a usable frame; handle this seed via cartesian
         }
+
         const auto elig = local7_spine_eligibility(
-            seeds, overlap, i, frame, source, source_step, mapper, caustic_born);
-        if (!elig.ok) {
-            return cartesian_fallback("spine eligibility failed; cartesian fallback");
-        }
+            seeds, elig_overlap, i, frame, source, source_step, mapper, caustic_born);
+        if (!elig.ok) continue; // not eligible; handle this seed via cartesian
+
+        any_spine_tried = true;
         int fallback_reason = 0;
-        const double spine_area = local7_spine_area_binary(
+        const double area = local7_spine_area_binary(
             mapper, source, source_radius, settings, finite_magnifier, frame, &fallback_reason);
-        if (!std::isfinite(spine_area) || spine_area <= 0.0) {
-            return cartesian_fallback("spine integration failed; cartesian fallback");
+        if (!std::isfinite(area) || area <= 0.0) {
+            // Spine failed for an eligible pair. Fall back to full cartesian
+            // using the already-computed seeds (no second seed generation).
+            FiniteSourceDecision fb {
+                FiniteSourceMethod::inverse_ray_cartesian,
+                estimate_cartesian_cost(settings),
+                "spine integration failed; cartesian fallback",
+            };
+            const double mag = legacy_imagearea4_binary(
+                point_magnifier, separation, mass_ratio, source, source_radius,
+                settings, finite_magnifier, &seeds);
+            if (!std::isfinite(mag)) return {mag, 0, fb, std::nan(""), 0, false};
+            return {mag, 0, fb, 0.0, 0, true};
         }
-        area += spine_area;
-        overlap[elig.pair_index] = 1;
+
+        spine_area += area;
+        spine_covered[i] = true;
+        spine_covered[elig.pair_index] = true;
+        elig_overlap[i] = 1;
+        elig_overlap[elig.pair_index] = 1;
+        if (std::getenv("LCBININT_SPINE_DEBUG")) {
+            std::fprintf(stderr, "  spine pair (%zu,%zu) area=%.6f\n", i, elig.pair_index, area);
+        }
+    }
+
+    // Pass 2: cartesian for seeds not handled by spine.
+    std::vector<SourcePosition> cartesian_seeds;
+    cartesian_seeds.reserve(seeds.size());
+    for (std::size_t i = 0; i < seeds.size(); ++i) {
+        if (!spine_covered[i]) cartesian_seeds.push_back(seeds[i]);
     }
 
     const double total_source = source_flux(source_radius, settings);
     if (!std::isfinite(total_source) || total_source <= 0.0) {
         return {std::nan(""), 0, decision, std::nan(""), 0, false};
     }
-    return {area / total_source, 0, decision, 0.0, 0, true};
+    double total_mag = spine_area / total_source;
+
+    if (!cartesian_seeds.empty()) {
+        const double cart_mag = legacy_imagearea4_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius,
+            settings, finite_magnifier, &cartesian_seeds);
+        if (!std::isfinite(cart_mag)) {
+            return {cart_mag, 0, decision, std::nan(""), 0, false};
+        }
+        if (std::getenv("LCBININT_SPINE_DEBUG")) {
+            std::fprintf(stderr, "  spine_mag=%.4f cart_mag=%.4f total=%.4f (source_flux=%.6f)\n",
+                spine_area/total_source, cart_mag, spine_area/total_source+cart_mag, total_source);
+        }
+        total_mag += cart_mag;
+    }
+
+    if (!any_spine_tried) {
+        // No seed was eligible for spine; result is pure cartesian.
+        decision.method = FiniteSourceMethod::inverse_ray_cartesian;
+        decision.reason = "spine not eligible; cartesian";
+    }
+
+    return {total_mag, 0, decision, 0.0, 0, true};
 }
 
 } // namespace

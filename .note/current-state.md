@@ -744,6 +744,62 @@ Fix: added `legacy_augment_seeds_from_branches` call before the cartesian fallba
 
 All 53 regression tests pass after these fixes.
 
+## Spine Mode (mode=3)
+
+Mode 3 uses a "spine" algorithm to integrate the fold image pair directly in
+image space rather than shooting a cartesian grid.  Ported from the
+`idea-stable` branch in commit 804201d.
+
+### Algorithm summary
+
+For each source position, the fold-image arc is built as a spine of points in
+the e_l eigenvector direction (perpendicular to the critical curve, crossing
+F-→critical curve→F+).  At each spine point a normal scan (in the e_s
+direction, along the fold arc) integrates the brightness over the source disk.
+The tangent weight for each spine point is the actual image-space distance to
+its neighbours.
+
+### Key constant: `kLocal7SpineMaxStepCells`
+
+The spine step in image space is `source_step / |lambda_l|`, but is capped at
+`kLocal7SpineMaxStepCells × source_step` to prevent divergent steps near the
+critical curve.  This cap directly controls accuracy:
+
+| cap | bins=300 error | bins=100 error |
+|-----|---------------|----------------|
+| 256 | 7.6×10⁻³      | 2.3×10⁻²       |
+| 4   | 9.5×10⁻⁶      | 3.6×10⁻⁴       |
+
+**Fix (2026-06-22):** Reduced `kLocal7SpineMaxStepCells` from 256 to 4.
+Error at bins=300 drops from 0.76% to <0.001%, well within the 2×10⁻⁴ target.
+Spine point count grows from ~600 to ~31 000, but mode 3 is still ~1.3× faster
+than mode 1 for caustic-crossing cases because the spine avoids the full
+cartesian grid for the high-magnification fold region.
+
+### Automatic fallbacks
+
+- **Pair distance check** (`kLocal7SpinePairDistanceCells = 50 000`): if the
+  F-/F+ seed pair is more than 50 000 source_steps apart, the spine falls back
+  to cartesian.  At bins ≥ 600 for the test case (pair distance 0.0103), this
+  threshold is crossed and mode3 = mode1 exactly.
+- **Source-offset step check** (half_weight validity, `fallback_reason = 4`):
+  if the source-offset step between adjacent spine points exceeds
+  2 × MaxStepCells × source_step, the spine falls back.  For large var_ratio
+  (rho=0.025, var_ratio≈52), this check fires and cartesian is used — correct,
+  no catastrophic overcount.
+- **Non-caustic guard**: if no seeds satisfy the spine candidate criteria
+  (area_jac ≥ 100, |det_j| ≤ 0.01), the spine is never activated and mode3
+  falls back to pure cartesian, giving identical results to mode1.
+
+### Regression tests added
+
+- `test_lcbinint_spine_mode_wide_caustic_fold_pair`: s=1.4, q=0.4, rho=1e-4,
+  bins=300; requires |mode3−mode1|/mode1 < 2×10⁻⁴ (achieved: 9.5×10⁻⁶).
+- `test_lcbinint_spine_mode_non_caustic_guard`: s=0.6, q=1.0, rho=0.003,
+  bins=60; requires mode3 = mode1 exactly (no spine activation).
+
+All 52 regression tests pass.
+
 ## Open Questions
 
 - Should the root solver depend on GSL, or should we implement a clean-room
