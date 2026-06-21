@@ -1287,6 +1287,575 @@ FiniteSourceResult fixed_inverse_ray_binary(
     return {magnification, 0, decision, 0.0, 0, true};
 }
 
+// ---------- image-spine kernel (finite_mode = 3) ----------
+// Ported from lcbinint-idea-stable commit eb2c08e.
+// Timing instrumentation omitted; timing pointers in stable are replaced by
+// passing nullptr at all call sites.
+
+constexpr double kLocal7LambdaMin = 1.0e-5;
+constexpr double kLocal7SpineAreaJacMin = 100.0;
+constexpr double kLocal7SpineDetMax = 1.0e-2;
+constexpr double kLocal7SpineMaxStepCells = 256.0;
+constexpr double kLocal7SpineMinStepCells = 0.125;
+constexpr int kLocal7SpineMaxPoints = 200000;
+constexpr int kLocal7SpineMaxNormalSamples = 20000000;
+constexpr int kLocal7SpineOutsideStop = 3;
+constexpr double kLocal7SpineCurvatureMax = 0.55;
+constexpr double kLocal7SpineNormalSubstep = 1.0;
+constexpr double kLocal7SpineTargetTolCells = 2.0;
+constexpr double kLocal7SpineFrameDetMin = 1.0e-9;
+constexpr double kLocal7SpineFrameLambdaMin = 1.0e-9;
+constexpr double kLocal7SpineFrameAreaJacMax = 1.0e12;
+constexpr double kLocal7SpinePairDistanceCells = 50000.0;
+constexpr double kLocal7SpineMaxRelativeArea = 1.0e8;
+
+struct Local7Frame {
+    Complex za;
+    SourcePosition wa;
+    SourcePosition sa;
+    double gamma_r = 0.0;
+    double gamma_i = 0.0;
+    double beta_r = 0.0;
+    double beta_i = 0.0;
+    double kappa_r = 0.0;
+    double kappa_i = 0.0;
+    double lambda_l = 0.0;
+    double lambda_s = 0.0;
+    double det_j = 0.0;
+    double area_jac = 0.0;
+    double e_lx = 0.0;
+    double e_ly = 0.0;
+    double e_sx = 0.0;
+    double e_sy = 0.0;
+    bool ok = false;
+};
+
+bool local7_derivatives_binary(
+    Complex z,
+    const BinaryLensMapper& mapper,
+    double* gr,
+    double* gi,
+    double* br,
+    double* bi,
+    double* kr,
+    double* ki)
+{
+    *gr = *gi = *br = *bi = *kr = *ki = 0.0;
+    const Complex lenses[2] = {mapper.separation, Complex(0.0, 0.0)};
+    const double masses[2] = {mapper.m1, mapper.m2};
+    for (int i = 0; i < 2; ++i) {
+        const double dx = lenses[i].real() - z.real();
+        const double dy = z.imag() - lenses[i].imag();
+        const double r2 = dx * dx + dy * dy;
+        if (r2 <= 1.0e-30 || !std::isfinite(r2)) return false;
+        const double r4 = r2 * r2;
+        const double r6 = r4 * r2;
+        const double r8 = r4 * r4;
+        const double dx2 = dx * dx, dy2 = dy * dy;
+        const double dx3 = dx2 * dx, dy3 = dy2 * dy;
+        const double dx4 = dx2 * dx2, dy4 = dy2 * dy2;
+        const double mass = masses[i];
+        *gr += mass * (dx2 - dy2) / r4;
+        *gi += mass * (-2.0 * dx * dy) / r4;
+        *br += 2.0 * mass * dx * (dx2 - 3.0 * dy2) / r6;
+        *bi += 2.0 * mass * (dy3 - 3.0 * dx2 * dy) / r6;
+        *kr += 6.0 * mass * (dx4 - 6.0 * dx2 * dy2 + dy4) / r8;
+        *ki += 6.0 * mass * (-4.0 * dx3 * dy + 4.0 * dx * dy3) / r8;
+    }
+    return std::isfinite(*gr) && std::isfinite(*gi) && std::isfinite(*br) &&
+           std::isfinite(*bi) && std::isfinite(*kr) && std::isfinite(*ki);
+}
+
+bool local7_make_frame(
+    Complex za,
+    SourcePosition source,
+    const BinaryLensMapper& mapper,
+    Local7Frame* frame)
+{
+    double gr, gi, br, bi, kr, ki;
+    if (!local7_derivatives_binary(za, mapper, &gr, &gi, &br, &bi, &kr, &ki)) return false;
+    const double g = std::hypot(gr, gi);
+    const double lambda_s = 1.0 + g;
+    const double lambda_l = 1.0 - g;
+    const double det_j = lambda_l * lambda_s;
+    const double abs_det = std::abs(det_j);
+    if (abs_det <= 0.0 || !std::isfinite(abs_det)) return false;
+    const double phi = 0.5 * std::atan2(gi, gr);
+    const SourcePosition wa = map_binary_lens_real(mapper, za.real(), za.imag());
+    *frame = {};
+    frame->za = za;
+    frame->wa = wa;
+    frame->sa = {wa.x - source.x, wa.y - source.y};
+    frame->gamma_r = gr; frame->gamma_i = gi;
+    frame->beta_r = br;  frame->beta_i = bi;
+    frame->kappa_r = kr; frame->kappa_i = ki;
+    frame->lambda_l = lambda_l;
+    frame->lambda_s = lambda_s;
+    frame->det_j = det_j;
+    frame->area_jac = 1.0 / abs_det;
+    frame->e_lx = -std::sin(phi);
+    frame->e_ly =  std::cos(phi);
+    frame->e_sx =  std::cos(phi);
+    frame->e_sy =  std::sin(phi);
+    frame->ok = std::isfinite(frame->area_jac);
+    return frame->ok;
+}
+
+Complex local7_apply_inverse_linear(const Local7Frame& frame, double sx, double sy)
+{
+    const double dx = sx - frame.sa.x;
+    const double dy = sy - frame.sa.y;
+    const double xi  = dx * frame.e_lx + dy * frame.e_ly;
+    const double eta = dx * frame.e_sx + dy * frame.e_sy;
+    return {
+        (xi / frame.lambda_l) * frame.e_lx + (eta / frame.lambda_s) * frame.e_sx,
+        (xi / frame.lambda_l) * frame.e_ly + (eta / frame.lambda_s) * frame.e_sy,
+    };
+}
+
+Complex local7_apply_inverse_jacobian(const Local7Frame& frame, Complex residual)
+{
+    const double xi  = residual.real() * frame.e_lx + residual.imag() * frame.e_ly;
+    const double eta = residual.real() * frame.e_sx + residual.imag() * frame.e_sy;
+    return {
+        (xi / frame.lambda_l) * frame.e_lx + (eta / frame.lambda_s) * frame.e_sx,
+        (xi / frame.lambda_l) * frame.e_ly + (eta / frame.lambda_s) * frame.e_sy,
+    };
+}
+
+Complex local7_correct_quadratic(const Local7Frame& frame, Complex dz0)
+{
+    const Complex beta(frame.beta_r, frame.beta_i);
+    const Complex residual = 0.5 * beta * std::conj(dz0) * std::conj(dz0);
+    return dz0 - local7_apply_inverse_jacobian(frame, residual);
+}
+
+Complex local7_approx_image(const Local7Frame& frame, double sx, double sy)
+{
+    const Complex dz0 = local7_apply_inverse_linear(frame, sx, sy);
+    return frame.za + local7_correct_quadratic(frame, dz0);
+}
+
+struct Local7SpinePoint {
+    SourcePosition image;
+    SourcePosition source_offset;
+    Local7Frame frame;
+    double half_weight = 0.0;
+};
+
+struct Local7SpineEligibility {
+    bool ok = false;
+    std::size_t pair_index = 0;
+    int reason = 0;
+};
+
+bool local7_is_spine_candidate(const Local7Frame& frame)
+{
+    return frame.ok &&
+           std::isfinite(frame.area_jac) &&
+           frame.area_jac >= kLocal7SpineAreaJacMin &&
+           std::abs(frame.det_j) <= kLocal7SpineDetMax;
+}
+
+Local7SpineEligibility local7_spine_eligibility(
+    const std::vector<SourcePosition>& seeds,
+    const std::vector<int>& overlap,
+    std::size_t image_index,
+    const Local7Frame& frame,
+    SourcePosition source,
+    double source_step,
+    const BinaryLensMapper& mapper,
+    int caustic_born_branches)
+{
+    if (caustic_born_branches <= 0) return {false, 0, 30};
+    if (!local7_is_spine_candidate(frame)) return {false, 0, 31};
+
+    const auto nearest_partner = [&](std::size_t from_index, const Local7Frame& from_frame) {
+        double best_distance = std::numeric_limits<double>::infinity();
+        std::size_t best_index = seeds.size();
+        int candidate_count = 0;
+        for (std::size_t other = 0; other < seeds.size(); ++other) {
+            if (other == from_index || overlap[other] == 1) continue;
+            Local7Frame other_frame;
+            if (!local7_make_frame(Complex(seeds[other].x, seeds[other].y), source, mapper, &other_frame) ||
+                !local7_is_spine_candidate(other_frame) ||
+                std::signbit(other_frame.det_j) == std::signbit(from_frame.det_j)) {
+                continue;
+            }
+            const double image_distance =
+                std::hypot(seeds[other].x - seeds[from_index].x, seeds[other].y - seeds[from_index].y);
+            if (image_distance > kLocal7SpinePairDistanceCells * source_step) continue;
+            ++candidate_count;
+            if (image_distance < best_distance) {
+                best_distance = image_distance;
+                best_index = other;
+            }
+        }
+        return std::pair<std::size_t, int> {best_index, candidate_count};
+    };
+
+    const auto [partner_index, partner_count] = nearest_partner(image_index, frame);
+    if (partner_count < 1 || partner_index >= seeds.size()) return {false, 0, 33};
+    if (partner_count > 1) {
+        Local7Frame partner_frame;
+        if (!local7_make_frame(Complex(seeds[partner_index].x, seeds[partner_index].y), source, mapper, &partner_frame))
+            return {false, 0, 34};
+        const auto [mutual_index, mutual_count] = nearest_partner(partner_index, partner_frame);
+        if (mutual_count < 1 || mutual_index != image_index) return {false, 0, 35};
+    }
+    if (partner_index < image_index) return {false, 0, 36};
+    return {true, partner_index, 0};
+}
+
+double local7_spine_step(const Local7Frame& frame, double source_step, double source_radius)
+{
+    const double abs_lambda = std::max(std::abs(frame.lambda_l), kLocal7LambdaMin);
+    double step = source_step / abs_lambda;
+    const double beta_abs = std::hypot(frame.beta_r, frame.beta_i);
+    if (beta_abs > 0.0 && std::isfinite(beta_abs)) {
+        const double nonlinear_cap =
+            2.0 * source_radius / (abs_lambda + std::sqrt(abs_lambda * abs_lambda + 2.0 * beta_abs * source_radius));
+        if (std::isfinite(nonlinear_cap) && nonlinear_cap > 0.0) step = std::min(step, nonlinear_cap);
+    }
+    step = std::min(step, kLocal7SpineMaxStepCells * source_step);
+    step = std::max(step, kLocal7SpineMinStepCells * source_step);
+    return step;
+}
+
+bool local7_spine_frame_safe(const Local7Frame& frame)
+{
+    return frame.ok && std::isfinite(frame.area_jac) &&
+           std::abs(frame.lambda_l) >= kLocal7SpineFrameLambdaMin &&
+           std::abs(frame.lambda_s) >= kLocal7SpineFrameLambdaMin &&
+           std::abs(frame.det_j) >= kLocal7SpineFrameDetMin &&
+           frame.area_jac <= kLocal7SpineFrameAreaJacMax;
+}
+
+bool local7_spine_try_step(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    double source_step,
+    SourcePosition current,
+    SourcePosition current_source_offset,
+    const Local7Frame& current_frame,
+    double signed_step,
+    Local7SpinePoint* output,
+    int* fail_reason)
+{
+    double step = signed_step;
+    const double min_abs_step = kLocal7SpineMinStepCells * source_step;
+    int last_reason = 25;
+    for (int attempt = 0; attempt < 12; ++attempt) {
+        const SourcePosition candidate {
+            current.x + step * current_frame.e_lx,
+            current.y + step * current_frame.e_ly,
+        };
+        SourcePosition target_offset {
+            current_source_offset.x + current_frame.lambda_l * step * current_frame.e_lx,
+            current_source_offset.y + current_frame.lambda_l * step * current_frame.e_ly,
+        };
+        if (target_offset.x * target_offset.x + target_offset.y * target_offset.y >
+            source_radius * source_radius) {
+            last_reason = 20;
+            step *= 0.5;
+            if (std::abs(step) < min_abs_step) break;
+            continue;
+        }
+        SourcePosition corrected = candidate;
+        Local7Frame candidate_frame;
+        bool frame_ok = false;
+        double residual_norm = std::numeric_limits<double>::infinity();
+        for (int newton = 0; newton < 5; ++newton) {
+            const SourcePosition mapped = map_binary_lens_real(mapper, corrected.x, corrected.y);
+            frame_ok = local7_make_frame(Complex(corrected.x, corrected.y), source, mapper, &candidate_frame) &&
+                       local7_spine_frame_safe(candidate_frame);
+            if (!frame_ok) {
+                last_reason = newton == 0 ? 21 : 22;
+                break;
+            }
+            const Complex residual(
+                mapped.x - (source.x + target_offset.x),
+                mapped.y - (source.y + target_offset.y));
+            residual_norm = std::abs(residual);
+            if (residual_norm <= kLocal7SpineTargetTolCells * source_step) break;
+            const Complex dz = local7_apply_inverse_jacobian(candidate_frame, residual);
+            double damping = 1.0;
+            const double dz_abs = std::abs(dz);
+            const double max_dz = 4.0 * std::max(std::abs(step), source_step);
+            if (dz_abs > max_dz && dz_abs > 0.0) damping = max_dz / dz_abs;
+            corrected.x -= damping * dz.real();
+            corrected.y -= damping * dz.imag();
+        }
+        if (frame_ok) {
+            const double dot =
+                current_frame.e_lx * candidate_frame.e_lx + current_frame.e_ly * candidate_frame.e_ly;
+            if (residual_norm <= kLocal7SpineTargetTolCells * source_step &&
+                std::abs(dot) >= std::cos(kLocal7SpineCurvatureMax)) {
+                *output = {corrected, target_offset, candidate_frame, 0.0};
+                return true;
+            }
+            last_reason = residual_norm > kLocal7SpineTargetTolCells * source_step ? 23 : 24;
+        }
+        step *= 0.5;
+        if (std::abs(step) < min_abs_step) break;
+    }
+    if (fail_reason != nullptr) *fail_reason = last_reason;
+    return false;
+}
+
+bool local7_build_spine_direction(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    double source_step,
+    const Local7SpinePoint& seed,
+    double sign,
+    std::vector<Local7SpinePoint>* points,
+    int* fail_reason)
+{
+    SourcePosition current = seed.image;
+    SourcePosition current_source_offset = seed.source_offset;
+    Local7Frame frame = seed.frame;
+    int guard = 0;
+    while (++guard < kLocal7SpineMaxPoints) {
+        const double step = sign * local7_spine_step(frame, source_step, source_radius);
+        Local7SpinePoint next;
+        if (!local7_spine_try_step(
+                mapper, source, source_radius, source_step,
+                current, current_source_offset, frame, step, &next, fail_reason)) {
+            return true;
+        }
+        points->push_back(next);
+        current = next.image;
+        current_source_offset = next.source_offset;
+        frame = next.frame;
+        if (static_cast<int>(points->size()) > kLocal7SpineMaxPoints) return false;
+    }
+    return false;
+}
+
+double local7_spine_integrate_normals(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    const std::vector<Local7SpinePoint>& spine,
+    double source_step,
+    int* fallback_reason)
+{
+    const double radius2 = source_radius * source_radius;
+    const double inv_radius2 = 1.0 / radius2;
+    double area = 0.0;
+    long long normal_samples = 0;
+    for (std::size_t i = 0; i < spine.size(); ++i) {
+        const auto& point = spine[i];
+        const double tangent_weight = 2.0 * point.half_weight;
+        if (!std::isfinite(tangent_weight) || tangent_weight <= 0.0) {
+            *fallback_reason = 10;
+            return std::nan("");
+        }
+        const double normal_step = std::min(
+            std::max(source_step / std::max(std::abs(point.frame.lambda_s), kLocal7LambdaMin),
+                kLocal7SpineMinStepCells * source_step),
+            kLocal7SpineMaxStepCells * source_step) * kLocal7SpineNormalSubstep;
+        const double cell_area = tangent_weight * normal_step;
+        if (!std::isfinite(cell_area) || cell_area <= 0.0) {
+            *fallback_reason = 11;
+            return std::nan("");
+        }
+        for (int direction = -1; direction <= 1; direction += 2) {
+            int outside = 0;
+            for (int n = direction == -1 ? -1 : 0; ; n += direction) {
+                const double offset = static_cast<double>(n) * normal_step;
+                const SourcePosition image {
+                    point.image.x + offset * point.frame.e_sx,
+                    point.image.y + offset * point.frame.e_sy,
+                };
+                const SourcePosition mapped = map_binary_lens_real(mapper, image.x, image.y);
+                ++normal_samples;
+                if (normal_samples > kLocal7SpineMaxNormalSamples) {
+                    *fallback_reason = 12;
+                    return std::nan("");
+                }
+                const double dx = mapped.x - source.x;
+                const double dy = mapped.y - source.y;
+                const double q = (dx * dx + dy * dy) * inv_radius2;
+                if (q <= 1.0) {
+                    outside = 0;
+                    area += legacy_limb_brightness(q, settings, finite_magnifier) * cell_area;
+                } else {
+                    ++outside;
+                    if (outside >= kLocal7SpineOutsideStop) break;
+                }
+                if (std::abs(offset) >
+                    4.0 * source_radius / std::max(std::abs(point.frame.lambda_s), kLocal7LambdaMin)) {
+                    *fallback_reason = 13;
+                    return std::nan("");
+                }
+            }
+        }
+    }
+    return area;
+}
+
+double local7_spine_area_binary(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    const Local7Frame& seed_frame,
+    int* fallback_reason)
+{
+    *fallback_reason = 0;
+    if (!local7_spine_frame_safe(seed_frame) || !local7_is_spine_candidate(seed_frame)) {
+        *fallback_reason = 1;
+        return std::nan("");
+    }
+    const int bins = std::max(settings.source_bins, 1);
+    const double source_step = source_radius / static_cast<double>(bins);
+    std::vector<Local7SpinePoint> minus_points, plus_points;
+    minus_points.reserve(1024);
+    plus_points.reserve(1024);
+    const Local7SpinePoint seed {
+        {seed_frame.za.real(), seed_frame.za.imag()},
+        seed_frame.sa,
+        seed_frame,
+        0.0,
+    };
+    if (!local7_build_spine_direction(
+            mapper, source, source_radius, source_step, seed, -1.0, &minus_points, fallback_reason) ||
+        !local7_build_spine_direction(
+            mapper, source, source_radius, source_step, seed, 1.0, &plus_points, fallback_reason)) {
+        *fallback_reason = 2;
+        return std::nan("");
+    }
+    std::vector<Local7SpinePoint> spine;
+    spine.reserve(minus_points.size() + plus_points.size() + 1);
+    for (auto it = minus_points.rbegin(); it != minus_points.rend(); ++it) spine.push_back(*it);
+    spine.push_back(seed);
+    for (const auto& pt : plus_points) spine.push_back(pt);
+    if (spine.size() < 3) {
+        if (*fallback_reason == 0) *fallback_reason = 3;
+        return std::nan("");
+    }
+    for (std::size_t i = 0; i < spine.size(); ++i) {
+        double left_cross = 0.0, right_cross = 0.0;
+        double left_source = 0.0, right_source = 0.0;
+        if (i > 0) {
+            const double dx = spine[i].image.x - spine[i - 1].image.x;
+            const double dy = spine[i].image.y - spine[i - 1].image.y;
+            left_cross = std::abs(dx * spine[i].frame.e_sy - dy * spine[i].frame.e_sx);
+            left_source = std::hypot(
+                spine[i].source_offset.x - spine[i - 1].source_offset.x,
+                spine[i].source_offset.y - spine[i - 1].source_offset.y);
+        }
+        if (i + 1 < spine.size()) {
+            const double dx = spine[i + 1].image.x - spine[i].image.x;
+            const double dy = spine[i + 1].image.y - spine[i].image.y;
+            right_cross = std::abs(dx * spine[i].frame.e_sy - dy * spine[i].frame.e_sx);
+            right_source = std::hypot(
+                spine[i + 1].source_offset.x - spine[i].source_offset.x,
+                spine[i + 1].source_offset.y - spine[i].source_offset.y);
+        }
+        if (i == 0) { left_cross = right_cross; left_source = right_source; }
+        else if (i + 1 == spine.size()) { right_cross = left_cross; right_source = left_source; }
+        spine[i].half_weight = 0.25 * (left_cross + right_cross);
+        if (!std::isfinite(spine[i].half_weight) || spine[i].half_weight <= 0.0 ||
+            left_source > kLocal7SpineMaxStepCells * source_step * 2.0 ||
+            right_source > kLocal7SpineMaxStepCells * source_step * 2.0) {
+            *fallback_reason = 4;
+            return std::nan("");
+        }
+    }
+    const double area = local7_spine_integrate_normals(
+        mapper, source, source_radius, settings, finite_magnifier, spine, source_step, fallback_reason);
+    const double total_source = source_flux(source_radius, settings);
+    if (!std::isfinite(area) || area <= 0.0 ||
+        !std::isfinite(total_source) || total_source <= 0.0 ||
+        area / total_source > kLocal7SpineMaxRelativeArea) {
+        if (*fallback_reason == 0) *fallback_reason = 5;
+        return std::nan("");
+    }
+    return area;
+}
+
+FiniteSourceResult fixed_inverse_ray_spine_binary(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier)
+{
+    FiniteSourceDecision decision {
+        FiniteSourceMethod::inverse_ray_spine,
+        estimate_cartesian_cost(settings),
+        "experimental image-spine guided scan",
+    };
+
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    auto seeds = legacy_augmented_image_seeds(
+        point_magnifier, mapper, separation, mass_ratio, source, source_radius);
+    if (seeds.size() < 5 && finite_magnifier != nullptr) {
+        finite_magnifier->legacy_augment_seeds_from_branches(
+            separation, mass_ratio, source, source_radius, seeds);
+    }
+
+    const int n_ps = static_cast<int>(
+        point_magnifier.binary_images(separation, mass_ratio, source).size());
+    const int caustic_born = std::max(0, static_cast<int>(seeds.size()) - n_ps);
+
+    const int bins = std::max(settings.source_bins, 1);
+    const double source_step = source_radius / static_cast<double>(bins);
+    double area = 0.0;
+    std::vector<int> overlap(seeds.size(), 0);
+
+    const auto cartesian_fallback = [&](const char* reason) -> FiniteSourceResult {
+        FiniteSourceDecision fb_decision {
+            FiniteSourceMethod::inverse_ray_cartesian,
+            estimate_cartesian_cost(settings),
+            reason,
+        };
+        return fixed_inverse_ray_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius,
+            settings, finite_magnifier, fb_decision);
+    };
+
+    for (std::size_t i = 0; i < seeds.size(); ++i) {
+        if (overlap[i] == 1) continue;
+        Local7Frame frame;
+        if (!local7_make_frame(Complex(seeds[i].x, seeds[i].y), source, mapper, &frame) ||
+            std::abs(frame.lambda_l) < kLocal7LambdaMin ||
+            std::abs(frame.lambda_s) < kLocal7LambdaMin ||
+            !std::isfinite(frame.area_jac)) {
+            return cartesian_fallback("spine frame construction failed; cartesian fallback");
+        }
+        const auto elig = local7_spine_eligibility(
+            seeds, overlap, i, frame, source, source_step, mapper, caustic_born);
+        if (!elig.ok) {
+            return cartesian_fallback("spine eligibility failed; cartesian fallback");
+        }
+        int fallback_reason = 0;
+        const double spine_area = local7_spine_area_binary(
+            mapper, source, source_radius, settings, finite_magnifier, frame, &fallback_reason);
+        if (!std::isfinite(spine_area) || spine_area <= 0.0) {
+            return cartesian_fallback("spine integration failed; cartesian fallback");
+        }
+        area += spine_area;
+        overlap[elig.pair_index] = 1;
+    }
+
+    const double total_source = source_flux(source_radius, settings);
+    if (!std::isfinite(total_source) || total_source <= 0.0) {
+        return {std::nan(""), 0, decision, std::nan(""), 0, false};
+    }
+    return {area / total_source, 0, decision, 0.0, 0, true};
+}
+
 } // namespace
 
 FiniteSourceMagnifier::FiniteSourceMagnifier(FiniteSourceSettings settings)
@@ -1688,6 +2257,8 @@ const char* finite_source_method_name(FiniteSourceMethod method)
         return "inverse_ray_cartesian";
     case FiniteSourceMethod::inverse_ray_polar:
         return "inverse_ray_polar";
+    case FiniteSourceMethod::inverse_ray_spine:
+        return "inverse_ray_spine";
     default:
         return "unknown";
     }
@@ -1783,6 +2354,10 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     if (settings_.finite_mode == 2) {
         return cache_and_return(legacy_polar_memory_binary_mag(
             separation, mass_ratio, source, source_radius, refined_dist));
+    }
+    if (settings_.finite_mode == 3) {
+        return cache_and_return(fixed_inverse_ray_spine_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius, settings_, this));
     }
     FiniteSourceDecision decision {
         FiniteSourceMethod::inverse_ray_cartesian,
