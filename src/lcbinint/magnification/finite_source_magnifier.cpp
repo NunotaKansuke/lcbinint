@@ -30,9 +30,7 @@ constexpr double kLocal7MapErrMax = 2.0e-2;
 constexpr double kLocal7DetVarMax = 2.5e-1;
 constexpr double kLocal7AreaJacMax = 1.0e8;
 constexpr double kLocal7AuditTol = 3.0e-2;
-constexpr double kLocal7PatchScale = 4.0;
-constexpr int kLocal7EmptyRingsToStop = 1;
-constexpr int kLocal7RowSearchMargin = 2;
+constexpr double kLocal7BoundaryJump = 1.1;
 
 struct QuadrupoleSafety {
     double error_estimate = 0.0;
@@ -1730,6 +1728,128 @@ double legacy_imagearea4_binary(
     return area / scale;
 }
 
+SourcePosition local7_image_from_uv(const Local7Frame& frame, double step_l, double step_s, SourcePosition uv)
+{
+    const double dl = uv.x * step_l;
+    const double ds = uv.y * step_s;
+    return {
+        frame.za.real() + dl * frame.e_lx + ds * frame.e_sx,
+        frame.za.imag() + dl * frame.e_ly + ds * frame.e_sy,
+    };
+}
+
+SourcePosition local7_seed_to_uv(const Local7Frame& frame, double step_l, double step_s, SourcePosition seed)
+{
+    const double dx = seed.x - frame.za.real();
+    const double dy = seed.y - frame.za.imag();
+    return {
+        (dx * frame.e_lx + dy * frame.e_ly) / step_l,
+        (dx * frame.e_sx + dy * frame.e_sy) / step_s,
+    };
+}
+
+double local7_mapped_distance2(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    const Local7Frame& frame,
+    double step_l,
+    double step_s,
+    SourcePosition uv)
+{
+    const SourcePosition image = local7_image_from_uv(frame, step_l, step_s, uv);
+    return mapped_binary_lens_distance2(mapper, image.x, image.y, source);
+}
+
+double local7_imagearea0_binary(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    const Local7Frame& frame,
+    double step_l,
+    double step_s,
+    SourcePosition seed_uv,
+    double dv,
+    int& yi,
+    LegacyImageAreaScratch& scratch)
+{
+    double countx = 0.0;
+    double countall = 0.0;
+    double dz2 = 99999999.9;
+    double du = 1.0;
+    SourcePosition uv = seed_uv;
+    double u0 = seed_uv.x;
+    const double source_radius2 = source_radius * source_radius;
+    const double inv_source_radius2 = 1.0 / source_radius2;
+    int guard = 0;
+    const int max_steps = std::max(100000, settings.source_bins * settings.source_bins * 4000);
+
+    while (++guard < max_steps) {
+        const double dz2_last = dz2;
+        dz2 = local7_mapped_distance2(mapper, source, frame, step_l, step_s, uv);
+
+        scratch.ensure(static_cast<std::size_t>(yi));
+        if (dz2 <= source_radius2) {
+            if (du == -1.0 && countx == 0.0) {
+                scratch.xmax[static_cast<std::size_t>(yi)] = uv.x - du;
+            }
+            countx += legacy_limb_brightness(dz2 * inv_source_radius2, settings, finite_magnifier);
+        } else {
+            if (du == 1.0) {
+                if (dz2_last <= source_radius2) {
+                    scratch.xmax[static_cast<std::size_t>(yi)] = uv.x;
+                }
+                du = -1.0;
+                uv.x = u0;
+                scratch.xmin[static_cast<std::size_t>(yi)] = uv.x + du;
+            } else {
+                if (dz2_last <= source_radius2) {
+                    scratch.xmin[static_cast<std::size_t>(yi)] = uv.x;
+                }
+                if (yi != 0 && countx == 0.0) {
+                    scratch.ensure(static_cast<std::size_t>(yi - 1));
+                    if (uv.x >= scratch.xmin[static_cast<std::size_t>(yi - 1)] - du) {
+                        uv.x += du;
+                        continue;
+                    }
+                }
+
+                countall += countx;
+                scratch.ax[static_cast<std::size_t>(yi)] = countx;
+                scratch.y[static_cast<std::size_t>(yi)] = uv.y;
+                scratch.dys[static_cast<std::size_t>(yi)] = dv;
+                if (countx == 0.0) {
+                    scratch.dys[static_cast<std::size_t>(yi)] = -dv;
+                    break;
+                }
+
+                const int row_key = static_cast<int>(std::llround(uv.y)) + kLegacyIndexOffset;
+                auto& row_indices = scratch.row_indices[row_key];
+                for (const int index : row_indices) {
+                    const auto existing = static_cast<std::size_t>(index);
+                    if (scratch.xmin[static_cast<std::size_t>(yi)] + 1.0 < scratch.xmax[existing] &&
+                        scratch.xmax[static_cast<std::size_t>(yi)] - 1.0 > scratch.xmin[existing]) {
+                        return countall - countx;
+                    }
+                }
+                row_indices.push_back(yi);
+
+                ++yi;
+                scratch.ensure(static_cast<std::size_t>(yi));
+                du = 1.0;
+                u0 = scratch.xmax[static_cast<std::size_t>(yi - 1)];
+                uv.x = u0 - du;
+                uv.y += dv;
+                countx = 0.0;
+            }
+        }
+        uv.x += du;
+    }
+
+    return countall;
+}
+
 double inverse_ray_local_binary(
     const PointSourceMagnifier& point_magnifier,
     double separation,
@@ -1748,153 +1868,171 @@ double inverse_ray_local_binary(
     }
 
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
-    if (images.empty()) {
+    const auto seeds =
+        legacy_augmented_image_seeds(point_magnifier, mapper, separation, mass_ratio, source, source_radius);
+    if (seeds.empty()) {
         return std::nan("");
     }
 
     const int bins = std::max(settings.source_bins, 1);
     const double source_step = source_radius / static_cast<double>(bins);
-    const double source_radius2 = source_radius * source_radius;
-    const double inv_source_radius2 = 1.0 / source_radius2;
-    double image_flux = 0.0;
+    double area = 0.0;
+    std::vector<double> areaimage(seeds.size(), 0.0);
+    std::vector<int> overlap(seeds.size(), 0);
 
-    for (const auto& image : images) {
+    for (std::size_t image_index = 0; image_index < seeds.size(); ++image_index) {
+        if (overlap[image_index] == 1) {
+            continue;
+        }
+
         Local7Frame frame;
-        if (!local7_make_frame(Complex(image.position.x, image.position.y), source, mapper, &frame) ||
+        const SourcePosition seed = seeds[image_index];
+        if (!local7_make_frame(Complex(seed.x, seed.y), source, mapper, &frame) ||
             std::abs(frame.lambda_l) < kLocal7LambdaMin ||
             std::abs(frame.lambda_s) < kLocal7LambdaMin ||
             !std::isfinite(frame.area_jac)) {
             return std::nan("");
         }
 
-        const double image_cell_area = source_step * source_step * frame.area_jac;
+        const double step_l = std::copysign(source_step, frame.lambda_l);
+        const double step_s = source_step;
+        const double image_cell_area = std::abs(step_l * step_s);
         if (!std::isfinite(image_cell_area) || image_cell_area <= 0.0) {
             return std::nan("");
         }
 
-        const double step_lx = source_step / frame.lambda_l * frame.e_lx;
-        const double step_ly = source_step / frame.lambda_l * frame.e_ly;
-        const double step_sx = source_step / frame.lambda_s * frame.e_sx;
-        const double step_sy = source_step / frame.lambda_s * frame.e_sy;
+        LegacyImageAreaScratch scratch;
+        scratch.ensure(1);
+        double area0 = 0.0;
+        double areai = 0.0;
+        double dv = 1.0;
+        int yi = 0;
 
-        const int max_extent = std::max(1, static_cast<int>(std::ceil(kLocal7PatchScale * bins)));
-        struct LocalRowInterval {
-            int umin = 0;
-            int umax = -1;
-            int count = 0;
-        };
+        const SourcePosition seed_uv {0.0, 0.0};
+        scratch.xmin[0] = seed_uv.x;
+        scratch.xmax[0] = seed_uv.x;
+        areai = local7_imagearea0_binary(
+            mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s, seed_uv, dv, yi, scratch);
 
-        const auto hit_sample = [&](int iu, int iv, double* brightness) {
-            const double local_x = static_cast<double>(iu) + 0.5;
-            const double local_y = static_cast<double>(iv) + 0.5;
-            const double zx = frame.za.real() + local_x * step_lx + local_y * step_sx;
-            const double zy = frame.za.imag() + local_x * step_ly + local_y * step_sy;
-            const SourcePosition mapped = map_binary_lens_real(mapper, zx, zy);
-            const double dx = mapped.x - source.x;
-            const double dy = mapped.y - source.y;
-            const double mapped_radius2 = dx * dx + dy * dy;
-            if (mapped_radius2 > source_radius2) {
-                return false;
-            }
-            *brightness = legacy_limb_brightness(
-                mapped_radius2 * inv_source_radius2, settings, finite_magnifier);
-            return true;
-        };
+        dv = -1.0;
+        scratch.ensure(static_cast<std::size_t>(yi));
+        const SourcePosition lower_seed_uv {scratch.xmax[0], seed_uv.y + dv};
+        scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[0];
+        scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmax[0];
+        scratch.y[static_cast<std::size_t>(yi)] = scratch.y[0];
+        scratch.dys[static_cast<std::size_t>(yi)] = dv;
+        ++yi;
+        areai += local7_imagearea0_binary(
+            mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s, lower_seed_uv, dv, yi, scratch);
 
-        const auto scan_row = [&](int iv, const LocalRowInterval* previous) {
-            LocalRowInterval row;
-            int start_min = -1;
-            int start_max = 0;
-            if (previous != nullptr && previous->count > 0) {
-                start_min = previous->umin - kLocal7RowSearchMargin;
-                start_max = previous->umax + kLocal7RowSearchMargin;
-            }
-            start_min = std::max(start_min, -max_extent);
-            start_max = std::min(start_max, max_extent - 1);
-
-            for (int iu = start_min; iu <= start_max; ++iu) {
-                double brightness = 0.0;
-                if (!hit_sample(iu, iv, &brightness)) {
-                    continue;
-                }
-                image_flux += image_cell_area * brightness;
-                row.umin = row.count == 0 ? iu : std::min(row.umin, iu);
-                row.umax = row.count == 0 ? iu : std::max(row.umax, iu);
-                ++row.count;
-            }
-
-            if (row.count == 0 && previous != nullptr && previous->count > 0) {
-                const int center = (previous->umin + previous->umax) / 2;
-                const int rescue_min = std::max(center - std::max(kLocal7RowSearchMargin * 4, bins / 4), -max_extent);
-                const int rescue_max = std::min(center + std::max(kLocal7RowSearchMargin * 4, bins / 4), max_extent - 1);
-                for (int iu = rescue_min; iu <= rescue_max; ++iu) {
-                    double brightness = 0.0;
-                    if (!hit_sample(iu, iv, &brightness)) {
-                        continue;
+        int nyi = yi;
+        double areabound = 0.0;
+        for (int row = 0; row < nyi; ++row) {
+            scratch.ensure(static_cast<std::size_t>(row + 1));
+            const double dumax =
+                scratch.xmax[static_cast<std::size_t>(row + 1)] -
+                scratch.xmax[static_cast<std::size_t>(row)];
+            const double dumin =
+                scratch.xmin[static_cast<std::size_t>(row + 1)] -
+                scratch.xmin[static_cast<std::size_t>(row)];
+            if (scratch.ax[static_cast<std::size_t>(row + 1)] > 0.0) {
+                if (dumax > kLocal7BoundaryJump) {
+                    const SourcePosition extra_seed_uv {
+                        scratch.xmax[static_cast<std::size_t>(row + 1)],
+                        scratch.y[static_cast<std::size_t>(row)]};
+                    scratch.ensure(static_cast<std::size_t>(yi));
+                    scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row)];
+                    scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row + 1)];
+                    dv = -scratch.dys[static_cast<std::size_t>(row)];
+                    scratch.dys[static_cast<std::size_t>(yi)] = dv;
+                    ++yi;
+                    area0 = local7_imagearea0_binary(
+                        mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s,
+                        extra_seed_uv, dv, yi, scratch);
+                    areai += area0;
+                    areabound += area0;
+                    if (area0 <= 0.0) {
+                        --yi;
                     }
-                    image_flux += image_cell_area * brightness;
-                    row.umin = row.count == 0 ? iu : std::min(row.umin, iu);
-                    row.umax = row.count == 0 ? iu : std::max(row.umax, iu);
-                    ++row.count;
+                }
+                if (dumin > kLocal7BoundaryJump) {
+                    const SourcePosition extra_seed_uv {
+                        scratch.xmin[static_cast<std::size_t>(row + 1)] - 1.0,
+                        scratch.y[static_cast<std::size_t>(row + 1)]};
+                    scratch.ensure(static_cast<std::size_t>(yi));
+                    scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row)];
+                    scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row + 1)];
+                    dv = scratch.dys[static_cast<std::size_t>(row)];
+                    scratch.dys[static_cast<std::size_t>(yi)] = dv;
+                    ++yi;
+                    area0 = local7_imagearea0_binary(
+                        mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s,
+                        extra_seed_uv, dv, yi, scratch);
+                    areai += area0;
+                    areabound += area0;
+                    if (area0 <= 0.0) {
+                        --yi;
+                    }
+                }
+                if (dumin < -kLocal7BoundaryJump) {
+                    const SourcePosition extra_seed_uv {
+                        scratch.xmin[static_cast<std::size_t>(row)] - 1.0,
+                        scratch.y[static_cast<std::size_t>(row)]};
+                    scratch.ensure(static_cast<std::size_t>(yi));
+                    scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row + 1)];
+                    scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row)];
+                    dv = -scratch.dys[static_cast<std::size_t>(row)];
+                    scratch.dys[static_cast<std::size_t>(yi)] = dv;
+                    ++yi;
+                    area0 = local7_imagearea0_binary(
+                        mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s,
+                        extra_seed_uv, dv, yi, scratch);
+                    areai += area0;
+                    areabound += area0;
+                    if (area0 <= 0.0) {
+                        --yi;
+                    }
                 }
             }
-
-            if (row.count == 0) {
-                return row;
+            if (row == nyi - 1 && areabound > 0.0 && yi > nyi) {
+                nyi = yi;
             }
-
-            for (int iu = row.umin - 1; iu >= -max_extent; --iu) {
-                double brightness = 0.0;
-                if (!hit_sample(iu, iv, &brightness)) {
-                    break;
-                }
-                image_flux += image_cell_area * brightness;
-                row.umin = iu;
-                ++row.count;
-            }
-            for (int iu = row.umax + 1; iu < max_extent; ++iu) {
-                double brightness = 0.0;
-                if (!hit_sample(iu, iv, &brightness)) {
-                    break;
-                }
-                image_flux += image_cell_area * brightness;
-                row.umax = iu;
-                ++row.count;
-            }
-            return row;
-        };
-
-        LocalRowInterval row0 = scan_row(0, nullptr);
-        if (row0.count == 0) {
-            continue;
         }
 
-        auto scan_direction = [&](int direction) {
-            LocalRowInterval previous = row0;
-            int empty_rows = 0;
-            for (int iv = direction; std::abs(iv) < max_extent; iv += direction) {
-                LocalRowInterval row = scan_row(iv, &previous);
-                if (row.count == 0) {
-                    ++empty_rows;
-                    if (empty_rows >= kLocal7EmptyRingsToStop) {
-                        break;
-                    }
+        area += areai * image_cell_area;
+        areaimage[image_index] = areai * image_cell_area;
+
+        const double margin = 0.5 * 1.01;
+        for (std::size_t other = 0; other < seeds.size(); ++other) {
+            if (other == image_index) {
+                continue;
+            }
+            const SourcePosition other_uv = local7_seed_to_uv(frame, step_l, step_s, seeds[other]);
+            for (int row = 0; row < nyi; ++row) {
+                const auto row_index = static_cast<std::size_t>(row);
+                if (scratch.ax[row_index] <= 0.0) {
                     continue;
                 }
-                empty_rows = 0;
-                previous = row;
+                if (other_uv.y >= scratch.y[row_index] - margin &&
+                    other_uv.y <= scratch.y[row_index] + margin &&
+                    other_uv.x >= scratch.xmin[row_index] - margin &&
+                    other_uv.x <= scratch.xmax[row_index] + margin) {
+                    if (other < image_index) {
+                        area -= areaimage[other];
+                    } else {
+                        overlap[other] = 1;
+                    }
+                    break;
+                }
             }
-        };
-        scan_direction(1);
-        scan_direction(-1);
+        }
     }
 
     const double total_source_flux = source_flux(source_radius, settings);
     if (!std::isfinite(total_source_flux) || total_source_flux <= 0.0) {
         return std::nan("");
     }
-    const double magnification = image_flux / total_source_flux;
+    const double magnification = area / total_source_flux;
     return std::isfinite(magnification) ? magnification : std::nan("");
 }
 
@@ -2434,8 +2572,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         const double cached_point_threshold = 2.0 * settings_.legacy_kinji * source_radius;
         double caustic_distance = legacy_binary_sampled_caustic_distance(
             separation, mass_ratio, source, cached_point_threshold);
-        if ((!std::isfinite(caustic_distance) && settings_.legacy_finite_mode != 7) ||
-            (std::isfinite(caustic_distance) && caustic_distance >= cached_point_threshold)) {
+        if (!std::isfinite(caustic_distance) || caustic_distance >= cached_point_threshold) {
             FiniteSourceDecision decision {
                 FiniteSourceMethod::point_source,
                 settings_.caustic_bins * 4,
