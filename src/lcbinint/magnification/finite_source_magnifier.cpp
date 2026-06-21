@@ -286,6 +286,23 @@ double local7_det_taylor(const Local7Frame& frame, Complex dz)
     return 1.0 - std::norm(estimate);
 }
 
+bool local7_can_use_derivative_steps(const Local7Frame& frame, double source_radius)
+{
+    const double abs_lambda_l = std::abs(frame.lambda_l);
+    const double abs_lambda_s = std::abs(frame.lambda_s);
+    const double abs_det = std::abs(frame.det_j);
+    if (abs_lambda_l < 0.05 || abs_lambda_s < 0.05 || abs_det < 0.05 ||
+        frame.area_jac < 1.5 || frame.area_jac > 20.0) {
+        return false;
+    }
+
+    const double gamma_abs = std::hypot(frame.gamma_r, frame.gamma_i);
+    const double beta_abs = std::hypot(frame.beta_r, frame.beta_i);
+    const double dzmax = std::hypot(source_radius / abs_lambda_l, source_radius / abs_lambda_s);
+    const double det_variation = 2.0 * gamma_abs * beta_abs * dzmax / abs_det;
+    return std::isfinite(det_variation) && det_variation < 0.15;
+}
+
 bool local7_reanchor_tile(
     const Local7Frame& parent,
     const Local7Tile& tile,
@@ -1748,18 +1765,6 @@ SourcePosition local7_seed_to_uv(const Local7Frame& frame, double step_l, double
     };
 }
 
-double local7_mapped_distance2(
-    const BinaryLensMapper& mapper,
-    SourcePosition source,
-    const Local7Frame& frame,
-    double step_l,
-    double step_s,
-    SourcePosition uv)
-{
-    const SourcePosition image = local7_image_from_uv(frame, step_l, step_s, uv);
-    return mapped_binary_lens_distance2(mapper, image.x, image.y, source);
-}
-
 double local7_imagearea0_binary(
     const BinaryLensMapper& mapper,
     SourcePosition source,
@@ -1780,6 +1785,17 @@ double local7_imagearea0_binary(
     double du = 1.0;
     SourcePosition uv = seed_uv;
     double u0 = seed_uv.x;
+    const double step_ux = step_l * frame.e_lx;
+    const double step_uy = step_l * frame.e_ly;
+    const double step_vx = step_s * frame.e_sx;
+    const double step_vy = step_s * frame.e_sy;
+    const auto image_from_uv = [&]() {
+        return SourcePosition {
+            frame.za.real() + uv.x * step_ux + uv.y * step_vx,
+            frame.za.imag() + uv.x * step_uy + uv.y * step_vy,
+        };
+    };
+    SourcePosition image = image_from_uv();
     const double source_radius2 = source_radius * source_radius;
     const double inv_source_radius2 = 1.0 / source_radius2;
     int guard = 0;
@@ -1787,7 +1803,7 @@ double local7_imagearea0_binary(
 
     while (++guard < max_steps) {
         const double dz2_last = dz2;
-        dz2 = local7_mapped_distance2(mapper, source, frame, step_l, step_s, uv);
+        dz2 = mapped_binary_lens_distance2(mapper, image.x, image.y, source);
 
         scratch.ensure(static_cast<std::size_t>(yi));
         if (dz2 <= source_radius2) {
@@ -1802,6 +1818,7 @@ double local7_imagearea0_binary(
                 }
                 du = -1.0;
                 uv.x = u0;
+                image = image_from_uv();
                 scratch.xmin[static_cast<std::size_t>(yi)] = uv.x + du;
             } else {
                 if (dz2_last <= source_radius2) {
@@ -1811,6 +1828,8 @@ double local7_imagearea0_binary(
                     scratch.ensure(static_cast<std::size_t>(yi - 1));
                     if (uv.x >= scratch.xmin[static_cast<std::size_t>(yi - 1)] - du) {
                         uv.x += du;
+                        image.x += du * step_ux;
+                        image.y += du * step_uy;
                         continue;
                     }
                 }
@@ -1841,10 +1860,13 @@ double local7_imagearea0_binary(
                 u0 = scratch.xmax[static_cast<std::size_t>(yi - 1)];
                 uv.x = u0 - du;
                 uv.y += dv;
+                image = image_from_uv();
                 countx = 0.0;
             }
         }
         uv.x += du;
+        image.x += du * step_ux;
+        image.y += du * step_uy;
     }
 
     return countall;
@@ -1894,8 +1916,10 @@ double inverse_ray_local_binary(
             return std::nan("");
         }
 
-        const double step_l = std::copysign(source_step, frame.lambda_l);
-        const double step_s = source_step;
+        const bool use_derivative_steps = seeds.size() < 5 && local7_can_use_derivative_steps(frame, source_radius);
+        const double step_l = use_derivative_steps ? source_step / frame.lambda_l :
+                                                   std::copysign(source_step, frame.lambda_l);
+        const double step_s = use_derivative_steps ? source_step / frame.lambda_s : source_step;
         const double image_cell_area = std::abs(step_l * step_s);
         if (!std::isfinite(image_cell_area) || image_cell_area <= 0.0) {
             return std::nan("");
