@@ -1434,7 +1434,7 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
             }
         }
     }
-    if (seeds.size() < 5 && best_distance2 < source_radius2 && best_distance2 > 0.0) {
+    if (seeds.size() < 5 && std::isfinite(best_distance2)) {
         const SourcePosition critical_source = refine_nearest_critical_source(
             mapper, separation, mass_ratio, source, best_phase, phase_step);
         const double distance = std::sqrt(distance_squared(critical_source, source));
