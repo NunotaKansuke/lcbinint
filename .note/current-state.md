@@ -696,6 +696,54 @@ It is NOT universally faster. For limb-darkened light curves — especially
 with larger sources (rho ≥ 0.01) — lcbinint is consistently 1.3–2.8× faster
 with < 0.13% accuracy. This is the primary use-case advantage.
 
+## 2026-06-21 Seed Generation and Mode-2 Fallback Fixes
+
+**Bug 9 – Non-monotonic bins convergence for fold images near critical curve** (commit 30bfc5b)
+During the `legacy_imagearea4_binary` overlap check, a seed with `jac_sign != 0` (fold image)
+was being marked `overlap=1` when it fell inside the scan region of the *opposite*-parity fold
+image.  Fix: when `jac_sign != 0`, compute `jac_sign_other` at the candidate position; if it
+equals `-jac_sign` (opposite parity), skip the overlap check (`continue`).
+
+**Bug 10 – F- fold seed suppressed as duplicate of F+** (2026-06-21)
+Root cause: Phase 1 (and Phase 2) duplicate-detection checked new probe images against the
+*live* `seeds` vector, which already contained F+ after it was added in the same inner loop.
+When the probe source is only slightly inside the caustic, `|F+ − F-| << rho`, so F- was
+within `source_radius` of F+ and discarded as a duplicate.
+
+Effect: only the F+ fold image was added as a seed; F- was missing entirely.  For
+s=1.4 q=0.4 y2=-0.15 rho=0.025 (source straddling caustic), this caused ~35% underestimate.
+
+Fix: snapshot `n_phase0_seeds = seeds.size()` before Phase 1 starts; duplicate checks compare
+against `seeds[0..n_phase0_seeds-1]` only.  Phase 2 takes a per-crossing snapshot
+(`n_seeds_before`) for the same reason.  Both F+ and F- are now added:
+```
+seed[5] z=(-1.39032, 0.82575) J=+0.00520   ← F+
+seed[6] z=(-1.40566, 0.82506) J=-0.00519   ← F- (was suppressed before)
+```
+Error drops from 35% to 0.02% for the caustic test.
+
+**Bug 11 – Mode-2 polar ignores refined caustic distance (cusp sources)** (2026-06-21)
+`binary_mag` called `legacy_polar_memory_binary_mag` with `caustic_distance = infinity`.
+Inside that function the fallback condition `caustic_distance < polar_fallback_distance` was
+therefore always false.  `sampled_caustic_distance` uses search radius `source_radius`, so for
+sources near a cusp (outside the caustic arc but < `hex_threshold × rho` from it), scd=inf
+as well → no fallback → polar integration used → large error.
+
+Example: s=1.0 q=0.1 umin=0.01 rho=0.003 t=-0.08 (ref=22.70, polar gave 12.13, 46% error).
+
+Fix: pass `refined_dist` (already computed by `binary_mag`) instead of infinity.  Any
+source where `refined_dist < polar_fallback_distance` now correctly uses the cartesian fallback.
+
+**Bug 12 – Mode-2 cartesian fallback missing Phase 3 seeds** (2026-06-21)
+`legacy_polar_memory_binary_mag` called `legacy_augmented_image_seeds` (Phase 0+1+2) but not
+`legacy_augment_seeds_from_branches` (Phase 3), unlike `fixed_inverse_ray_binary`.  When Phase
+1/2 missed a crossing (e.g. gap near phi=2π), the missing fold seed caused underestimation.
+
+Fix: added `legacy_augment_seeds_from_branches` call before the cartesian fallback check in
+`legacy_polar_memory_binary_mag`.
+
+All 53 regression tests pass after these fixes.
+
 ## Open Questions
 
 - Should the root solver depend on GSL, or should we implement a clean-room
