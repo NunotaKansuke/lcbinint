@@ -1310,6 +1310,10 @@ constexpr double kLocal7SpineFrameLambdaMin = 1.0e-9;
 constexpr double kLocal7SpineFrameAreaJacMax = 1.0e12;
 constexpr double kLocal7SpinePairDistanceCells = 50000.0;
 constexpr double kLocal7SpineMaxRelativeArea = 1.0e8;
+// var_ratio = 2*beta*rho / (lambda_s * |lambda_l|) measures how much lambda_l
+// changes across the source disk.  When this exceeds ~2 the linear fold model
+// breaks down and the spine gives errors of several percent.  Skip to cartesian.
+constexpr double kLocal7SpineMaxVarRatio = 2.0;
 
 struct Local7Frame {
     Complex za;
@@ -1864,6 +1868,18 @@ FiniteSourceResult fixed_inverse_ray_spine_binary(
         const auto elig = local7_spine_eligibility(
             seeds, elig_overlap, i, frame, source, source_step, mapper, caustic_born);
         if (!elig.ok) continue; // not eligible; handle this seed via cartesian
+
+        // Skip when var_ratio is too large: the linear fold model breaks down
+        // and spine error exceeds a few percent.
+        {
+            const double beta_abs = std::hypot(frame.beta_r, frame.beta_i);
+            const double abs_ll = std::abs(frame.lambda_l);
+            const double abs_ls = std::abs(frame.lambda_s);
+            if (abs_ll > 0.0 && abs_ls > 0.0) {
+                const double var_ratio = 2.0 * beta_abs * source_radius / (abs_ls * abs_ll);
+                if (var_ratio > kLocal7SpineMaxVarRatio) continue;
+            }
+        }
 
         any_spine_tried = true;
         int fallback_reason = 0;

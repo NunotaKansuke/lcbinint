@@ -787,6 +787,13 @@ cartesian grid for the high-magnification fold region.
   2 × MaxStepCells × source_step, the spine falls back.  For large var_ratio
   (rho=0.025, var_ratio≈52), this check fires and cartesian is used — correct,
   no catastrophic overcount.
+- **var_ratio guard** (`kLocal7SpineMaxVarRatio = 2.0`, added 2026-06-22):
+  `var_ratio = 2 × beta × rho / (lambda_s × |lambda_l|)` measures how much
+  lambda_l varies across the source disk.  When var_ratio > 2 the linear fold
+  model breaks down and spine errors reach several percent.  The guard skips
+  the spine for those pairs (cartesian used instead).  This prevents failures
+  for large-rho cases like the example notebook case (s=1, q=0.001, rho=0.01,
+  var_ratio ≈ 4.7 at caustic entry).
 - **Non-caustic guard**: if no seeds satisfy the spine candidate criteria
   (area_jac ≥ 100, |det_j| ≤ 0.01), the spine is never activated and mode3
   falls back to pure cartesian, giving identical results to mode1.
@@ -799,6 +806,14 @@ cartesian grid for the high-magnification fold region.
   bins=60; requires mode3 = mode1 exactly (no spine activation).
 
 All 52 regression tests pass.
+
+### Example notebook
+
+`example/compare-vbbl/lcbinint_vbm_light_curve_comparison.ipynb` now compares
+VBBL, mode=1, and mode=3 side by side.  For the default case (s=1, q=0.001,
+rho=0.01) the source is large enough that the var_ratio guard blocks spine
+activation at caustic-crossing points, so mode3 = mode1 throughout.  The
+notebook confirms no regression and shows relative timing for all three methods.
 
 ## Open Questions
 
