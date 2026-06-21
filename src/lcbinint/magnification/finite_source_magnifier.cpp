@@ -54,6 +54,31 @@ double mapped_binary_lens_distance2(
     return dx * dx + dy * dy;
 }
 
+// Jacobian determinant J = 1 - |m1/(z-a)^2 + m2/z^2|^2 at image position (x,y).
+// J > 0: standard-parity image; J < 0: flipped-parity image.
+// Returns 0.0 when image is too close to a lens (degenerate).
+double binary_jacobian(const BinaryLensMapper& mapper, double x, double y)
+{
+    const double a = mapper.separation.real();
+    const double xa = x - a;
+    const double den1 = xa * xa + y * y;
+    const double den2 = x * x + y * y;
+    if (den1 < 1.0e-20 || den2 < 1.0e-20) return 0.0;
+    const double den1sq = den1 * den1;
+    const double den2sq = den2 * den2;
+    const double re_f = mapper.m1 * (xa * xa - y * y) / den1sq
+                      + mapper.m2 * (x * x - y * y) / den2sq;
+    const double im_f = -2.0 * y * (mapper.m1 * xa / den1sq + mapper.m2 * x / den2sq);
+    return 1.0 - re_f * re_f - im_f * im_f;
+}
+
+// Returns the sign of the binary lens Jacobian: +1, -1, or 0 (degenerate).
+int binary_jacobian_sign(const BinaryLensMapper& mapper, double x, double y)
+{
+    const double J = binary_jacobian(mapper, x, y);
+    return J > 0.0 ? 1 : J < 0.0 ? -1 : 0;
+}
+
 SourcePosition map_binary_lens_real(
     const BinaryLensMapper& mapper,
     double x,
@@ -726,9 +751,14 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
     double best_phase = 0.0;
     constexpr int nskip = 40;
 
-    // Phase 1: find the first set of extra seeds (existing interleaved scan).
-    for (int kphi = 0; kphi < nskip && seeds.size() < 5; ++kphi) {
-        for (int jphi = 0; jphi < samples / nskip && seeds.size() < 5; ++jphi) {
+    // Phase 1: find the first caustic crossing and add fold-image seeds.
+    // Merge into existing seeds rather than replacing them so that the Phase 0
+    // standard-image seed (high-J, non-fold image) is preserved.  Without this
+    // the standard image is absent at low bins, where fold-image flood-fills do
+    // not expand far enough to cover it.
+    bool found_first_crossing = false;
+    for (int kphi = 0; kphi < nskip && !found_first_crossing; ++kphi) {
+        for (int jphi = 0; jphi < samples / nskip && !found_first_crossing; ++jphi) {
             const int sample = jphi * nskip + kphi;
             const double phi = phase_step * static_cast<double>(sample);
             const auto critical_sources =
@@ -750,24 +780,26 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
                 };
                 const auto probe_images = legacy_residual_selected_images(
                     point_magnifier, separation, mass_ratio, probe_source);
-                if (probe_images.size() <= seeds.size()) {
+                if (probe_images.size() <= 3) {
                     continue;
                 }
-                seeds.clear();
-                seeds.reserve(probe_images.size());
-                for (const auto& image : probe_images) {
-                    seeds.push_back(image);
+                for (const auto& img : probe_images) {
+                    bool is_dup = false;
+                    for (const auto& s : seeds) {
+                        if (distance_squared(img, s) < source_radius2) {
+                            is_dup = true;
+                            break;
+                        }
+                    }
+                    if (!is_dup) {
+                        seeds.push_back(img);
+                        found_first_crossing = true;
+                    }
                 }
-                if (seeds.size() >= 5) {
-                    break;
-                }
-            }
-            if (seeds.size() >= 5) {
-                break;
             }
         }
     }
-    if (seeds.size() < 5 && best_distance2 < source_radius2 && best_distance2 > 0.0) {
+    if (!found_first_crossing && best_distance2 < source_radius2 && best_distance2 > 0.0) {
         const SourcePosition critical_source = refine_nearest_critical_source(
             mapper, separation, mass_ratio, source, best_phase, phase_step);
         const double distance = std::sqrt(distance_squared(critical_source, source));
@@ -779,52 +811,114 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
             };
             const auto probe_images = legacy_residual_selected_images(
                 point_magnifier, separation, mass_ratio, probe_source);
-            if (probe_images.size() > seeds.size()) {
-                seeds = probe_images;
+            if (probe_images.size() > 3) {
+                for (const auto& img : probe_images) {
+                    bool is_dup = false;
+                    for (const auto& s : seeds) {
+                        if (distance_squared(img, s) < source_radius2) {
+                            is_dup = true;
+                            break;
+                        }
+                    }
+                    if (!is_dup) {
+                        seeds.push_back(img);
+                    }
+                }
             }
         }
     }
 
-    // Phase 2: when the source disk straddles the caustic at multiple arcs
-    // (e.g. source center outside caustic but disk overlaps at two separate
-    // regions), Phase 1 only seeds the first crossing.  Scan all caustic
-    // samples again and accumulate seeds from any additional crossings found.
+    // Phase 2: detect additional arc crossings not covered by Phase 1 seeds.
+    // Scan in sequential phase order so that contiguous "inside" segments on
+    // each caustic branch are identified.  Seeds are added only when a branch
+    // transitions from outside to inside the source disk; this prevents the
+    // O(samples) seed explosion that occurs when the source disk engulfs a
+    // large arc of the caustic (each sample would otherwise add new fold seeds
+    // because fold-image positions vary rapidly along the arc).
+    //
+    // Branch continuity across samples is maintained by greedy nearest-neighbour
+    // matching of each sample's critical-curve roots to the previous sample's
+    // root positions.  The polynomial has at most 4 roots so the matching is O(1).
     if (seeds.size() >= 5) {
-        for (int kphi = 0; kphi < nskip; ++kphi) {
-            for (int jphi = 0; jphi < samples / nskip; ++jphi) {
-                const int sample = jphi * nskip + kphi;
-                const double phi = phase_step * static_cast<double>(sample);
-                const auto critical_sources =
-                    critical_sources_at_phase(mapper, separation, mass_ratio, phi);
-                for (const auto& critical_source : critical_sources) {
-                    const double distance2 = distance_squared(critical_source, source);
-                    if (distance2 >= source_radius2 || distance2 <= 0.0) {
+        constexpr int kMaxBranches = 4;
+        // prev_pos[i]: image-plane position of branch i at the previous sample.
+        // Initialised far away so that the first sample establishes branch order.
+        std::array<SourcePosition, kMaxBranches> prev_pos;
+        prev_pos.fill({1.0e30, 1.0e30});
+        std::array<bool, kMaxBranches> branch_inside;
+        branch_inside.fill(false);
+
+        for (int sample = 0; sample < samples; ++sample) {
+            const double phi = phase_step * static_cast<double>(sample);
+            const auto critical_sources =
+                critical_sources_at_phase(mapper, separation, mass_ratio, phi);
+            const int ncur = static_cast<int>(critical_sources.size());
+            if (ncur == 0) {
+                continue;
+            }
+
+            // Match current roots to branches by greedy nearest-neighbour in image space.
+            std::array<int, kMaxBranches> assignment;
+            assignment.fill(-1);
+            std::array<bool, kMaxBranches> used;
+            used.fill(false);
+            for (int bi = 0; bi < kMaxBranches; ++bi) {
+                double best_d2 = 1.0e60;
+                int best_j = -1;
+                for (int j = 0; j < ncur; ++j) {
+                    if (used[j]) {
                         continue;
                     }
-                    const double distance = std::sqrt(distance2);
+                    const double d2 = distance_squared(critical_sources[j], prev_pos[bi]);
+                    if (d2 < best_d2) {
+                        best_d2 = d2;
+                        best_j = j;
+                    }
+                }
+                if (best_j >= 0) {
+                    assignment[bi] = best_j;
+                    used[best_j] = true;
+                }
+            }
+
+            // Update branch states and fire on outside→inside transitions.
+            for (int bi = 0; bi < kMaxBranches; ++bi) {
+                const int j = assignment[bi];
+                if (j < 0) {
+                    branch_inside[bi] = false;
+                    continue;
+                }
+                const auto& cs = critical_sources[j];
+                const double d2 = distance_squared(cs, source);
+                const bool now_inside = (d2 < source_radius2 && d2 > 0.0);
+
+                if (now_inside && !branch_inside[bi]) {
+                    // This branch just entered the source disk: add fold seeds.
+                    const double distance = std::sqrt(d2);
                     const double fraction = (source_radius - distance) / distance * 0.01;
                     const SourcePosition probe_source {
-                        critical_source.x + (critical_source.x - source.x) * fraction,
-                        critical_source.y + (critical_source.y - source.y) * fraction,
+                        cs.x + (cs.x - source.x) * fraction,
+                        cs.y + (cs.y - source.y) * fraction,
                     };
                     const auto probe_images = legacy_residual_selected_images(
                         point_magnifier, separation, mass_ratio, probe_source);
-                    if (probe_images.size() <= 3) {
-                        continue;
-                    }
-                    for (const auto& img : probe_images) {
-                        bool is_dup = false;
-                        for (const auto& s : seeds) {
-                            if (distance_squared(img, s) < source_radius2) {
-                                is_dup = true;
-                                break;
+                    if (probe_images.size() > 3) {
+                        for (const auto& img : probe_images) {
+                            bool is_dup = false;
+                            for (const auto& s : seeds) {
+                                if (distance_squared(img, s) < source_radius2) {
+                                    is_dup = true;
+                                    break;
+                                }
                             }
-                        }
-                        if (!is_dup) {
-                            seeds.push_back(img);
+                            if (!is_dup) {
+                                seeds.push_back(img);
+                            }
                         }
                     }
                 }
+                branch_inside[bi] = now_inside;
+                prev_pos[bi] = cs;
             }
         }
     }
@@ -858,7 +952,8 @@ double legacy_imagearea0_binary(
     SourcePosition seed,
     double dy,
     int& yi,
-    LegacyImageAreaScratch& scratch)
+    LegacyImageAreaScratch& scratch,
+    int jacobian_sign = 0)
 {
     double countx = 0.0;
     double countall = 0.0;
@@ -877,10 +972,17 @@ double legacy_imagearea0_binary(
         const double dz2_last = dz2;
         const double mapped_distance2 =
             mapped_binary_lens_distance2(mapper, image.x, image.y, source);
-        dz2 = mapped_distance2;
+        // When a Jacobian-sign guard is active, treat pixels on the wrong side of the
+        // critical curve as outside even if the mapped source is inside the disk.  This
+        // prevents a fold-image flood-fill from bleeding across the critical curve into
+        // the adjacent fold image on the opposite parity, which would otherwise cause
+        // wildly wrong (sometimes negative) magnifications.
+        const bool jac_ok = jacobian_sign == 0 ||
+            binary_jacobian_sign(mapper, image.x, image.y) != -jacobian_sign;
+        dz2 = (jac_ok) ? mapped_distance2 : source_radius2 + 1.0;
 
         scratch.ensure(static_cast<std::size_t>(yi));
-        if (mapped_distance2 <= source_radius2) {
+        if (dz2 <= source_radius2) {
             if (dx == -incr && countx == 0.0) {
                 scratch.xmax[static_cast<std::size_t>(yi)] = image.x - dx;
             }
@@ -985,10 +1087,27 @@ double legacy_imagearea4_binary(
         int yi = 0;
 
         const SourcePosition seed = images[image_index];
+        // Guard fold-image flood-fills against crossing the critical curve.
+        // When the source disk straddles the caustic, both fold images (F+ and F-)
+        // map into the source disk; without this guard the x-scan bleeds across the
+        // critical curve from one fold image into the other, giving wrong (sometimes
+        // negative) magnifications.
+        //
+        // Fold images sit close to the critical curve and have |J| << 1.  Standard
+        // images (far from the critical curve) have |J| >> kFoldJacThreshold and are
+        // NOT restricted — their flood-fills stay naturally within their own image
+        // region because the mapped source exits the disk before crossing any critical
+        // curve.  Applying the guard to them would incorrectly limit their area.
+        constexpr double kFoldJacThreshold = 0.5;
+        const double J_seed = binary_jacobian(mapper, seed.x, seed.y);
+        const int jac_sign = (std::abs(J_seed) < kFoldJacThreshold)
+            ? (J_seed > 0.0 ? 1 : J_seed < 0.0 ? -1 : 0)
+            : 0;
         scratch.xmin[0] = seed.x;
         scratch.xmax[0] = seed.x;
         areai = legacy_imagearea0_binary(
-            mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch);
+            mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch,
+            jac_sign);
 
         dy = -incr;
         scratch.ensure(static_cast<std::size_t>(yi));
@@ -999,7 +1118,8 @@ double legacy_imagearea4_binary(
         scratch.dys[static_cast<std::size_t>(yi)] = dy;
         ++yi;
         areai += legacy_imagearea0_binary(
-            mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch);
+            mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch,
+            jac_sign);
 
         int nyi = yi;
         double areabound = 0.0;
@@ -1023,7 +1143,8 @@ double legacy_imagearea4_binary(
                     scratch.dys[static_cast<std::size_t>(yi)] = dy;
                     ++yi;
                     area0 = legacy_imagearea0_binary(
-                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy, yi, scratch);
+                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
+                        yi, scratch, jac_sign);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -1041,7 +1162,8 @@ double legacy_imagearea4_binary(
                     scratch.dys[static_cast<std::size_t>(yi)] = dy;
                     ++yi;
                     area0 = legacy_imagearea0_binary(
-                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy, yi, scratch);
+                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
+                        yi, scratch, jac_sign);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -1059,7 +1181,8 @@ double legacy_imagearea4_binary(
                     scratch.dys[static_cast<std::size_t>(yi)] = dy;
                     ++yi;
                     area0 = legacy_imagearea0_binary(
-                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy, yi, scratch);
+                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
+                        yi, scratch, jac_sign);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -1080,6 +1203,21 @@ double legacy_imagearea4_binary(
                 continue;
             }
             const auto& position = images[other];
+            // When the current seed has a Jacobian sign guard (fold image with
+            // |J| < threshold), its flood-fill is restricted to one side of the
+            // critical curve.  A seed on the OPPOSITE parity side has a
+            // disconnected pre-image and cannot genuinely overlap with this
+            // flood-fill; the xmax/xmin boundaries only extend to the critical
+            // curve, so a seed just past it may be geometrically within the
+            // scan-row bounding box while never being reached by the flood-fill.
+            // Skip the overlap check in that case to avoid a false positive.
+            if (jac_sign != 0) {
+                const int jac_sign_other =
+                    binary_jacobian_sign(mapper, position.x, position.y);
+                if (jac_sign_other == -jac_sign) {
+                    continue;
+                }
+            }
             for (int row = 0; row < nyi; ++row) {
                 const auto row_index = static_cast<std::size_t>(row);
                 if (scratch.ax[row_index] <= 0.0) {
