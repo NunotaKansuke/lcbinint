@@ -1,5 +1,6 @@
 #include "lcbinint/lcbinint.h"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
+#include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
 
 #include <cmath>
@@ -214,6 +215,28 @@ int main()
     }
     if (std::abs(limb_darkened_hex_result.magnification - legacy_hex_result.magnification) < 1.0e-12) {
         return 36;
+    }
+    auto forced_mode4_settings = legacy_settings;
+    forced_mode4_settings.source_bins = 24;
+    forced_mode4_settings.legacy_kinji = 1.0e9;
+    forced_mode4_settings.legacy_hex = 1.0e9;
+    forced_mode4_settings.legacy_finite_mode = 4;
+    lcbinint::magnification::PointSourceMagnifier forced_point_magnifier;
+    const double forced_point_magnification =
+        forced_point_magnifier.binary_mag0(1.0, 0.1, {0.2, 0.2}).magnification;
+    lcbinint::magnification::FiniteSourceMagnifier forced_mode4_magnifier(forced_mode4_settings);
+    const auto forced_mode4_result =
+        forced_mode4_magnifier.binary_mag(1.0, 0.1, {0.2, 0.2}, 0.02, forced_point_magnification);
+    if (!std::isfinite(forced_mode4_result.magnification) || !forced_mode4_result.converged) {
+        return 37;
+    }
+    auto local7_settings = forced_mode4_settings;
+    local7_settings.legacy_finite_mode = 7;
+    lcbinint::magnification::FiniteSourceMagnifier local7_magnifier(local7_settings);
+    const auto local7_result =
+        local7_magnifier.binary_mag(1.0, 0.1, {0.2, 0.2}, 0.02, forced_point_magnification);
+    if (!std::isfinite(local7_result.magnification) || !local7_result.converged) {
+        return 39;
     }
     return 0;
 }

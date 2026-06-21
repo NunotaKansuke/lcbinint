@@ -12,6 +12,7 @@ enum class FiniteSourceMethod {
     hexadecapole,
     inverse_ray_cartesian,
     inverse_ray_polar,
+    inverse_ray_local,
 };
 
 enum class InverseRayMethod {
@@ -67,6 +68,12 @@ public:
         SourcePosition source,
         double source_radius,
         double point_source_magnification) const;
+    FiniteSourceResult legacy_binary_finite_mag_direct(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        int legacy_finite_mode) const;
     void ensure_limb_darkening_table() const;
     double limb_darkening_table_brightness(double normalized_radius2) const;
     double legacy_limb_darkening_table_brightness(double normalized_radius2) const;

@@ -258,7 +258,7 @@ def test_lcbinint_lens_model_linear_limb_darkening_matches_vbm(
 
 
 @pytest.mark.parametrize("separation,mass_ratio,y1,y2,rho", BINARY_LIMB_DARKENING_CASES)
-@pytest.mark.parametrize("legacy_finite_mode", [4, 6])
+@pytest.mark.parametrize("legacy_finite_mode", [4, 6, 7])
 def test_lcbinint_lens_model_legacy_limb_darkening_matches_vbm(
     separation, mass_ratio, y1, y2, rho, legacy_finite_mode
 ):
@@ -288,6 +288,28 @@ def test_lcbinint_lens_model_legacy_limb_darkening_matches_vbm(
 
     assert math.isfinite(actual)
     assert math.isclose(actual, reference, rel_tol=5.0e-3, abs_tol=5.0e-3)
+
+
+@pytest.mark.parametrize(
+    "separation,mass_ratio,y1,y2,rho,source_bins",
+    [
+        (1.0, 0.1, 0.2, 0.2, 0.02, 80),
+        (1.0, 0.1, 0.0, 0.03, 0.02, 80),
+        (0.7, 0.3, -0.6, 0.4, 0.03, 80),
+    ],
+)
+def test_lcbinint_direct_mode7_local_inverse_ray_matches_vbm_smoke(
+    separation, mass_ratio, y1, y2, rho, source_bins
+):
+    reference = _vbm_binary_mag2(separation, mass_ratio, y1, y2, rho)
+
+    lcbinint = pytest.importorskip("lcbinint")
+    actual = lcbinint.legacy_binary_finite_mag_direct(
+        separation, mass_ratio, y1, y2, rho, 7, source_bins
+    )
+
+    assert math.isfinite(actual)
+    assert math.isclose(actual, reference, rel_tol=2.0e-3, abs_tol=2.0e-3)
 
 
 @pytest.mark.parametrize("legacy_finite_mode", [4, 6])

@@ -20,6 +20,19 @@ constexpr int kMaxRefinementLevels = 3;
 constexpr int kHexadecapoleEvaluations = 13;
 constexpr int kLimbDarkeningTableSize = 5000;
 constexpr int kLegacyIndexOffset = 2000000;
+constexpr int kLocal7TileN = 8;
+constexpr int kLocal7MinTileN = 2;
+constexpr int kLocal7MaxSplitLevel = 8;
+constexpr double kLocal7DetMin = 1.0e-5;
+constexpr double kLocal7LambdaMin = 1.0e-5;
+constexpr double kLocal7CenterTol = 1.0e-2;
+constexpr double kLocal7MapErrMax = 2.0e-2;
+constexpr double kLocal7DetVarMax = 2.5e-1;
+constexpr double kLocal7AreaJacMax = 1.0e8;
+constexpr double kLocal7AuditTol = 3.0e-2;
+constexpr double kLocal7PatchScale = 4.0;
+constexpr int kLocal7EmptyRingsToStop = 1;
+constexpr int kLocal7RowSearchMargin = 2;
 
 struct QuadrupoleSafety {
     double error_estimate = 0.0;
@@ -39,6 +52,56 @@ struct BinaryLensMapper {
     double m1 = 0.0;
     double m2 = 0.0;
 };
+
+struct Local7Frame {
+    Complex za;
+    SourcePosition wa;
+    SourcePosition sa;
+    double gamma_r = 0.0;
+    double gamma_i = 0.0;
+    double beta_r = 0.0;
+    double beta_i = 0.0;
+    double kappa_r = 0.0;
+    double kappa_i = 0.0;
+    double lambda_l = 0.0;
+    double lambda_s = 0.0;
+    double det_j = 0.0;
+    double area_jac = 0.0;
+    double e_lx = 0.0;
+    double e_ly = 0.0;
+    double e_sx = 0.0;
+    double e_sy = 0.0;
+    bool ok = false;
+};
+
+struct Local7Tile {
+    double cx = 0.0;
+    double cy = 0.0;
+    double hs = 0.0;
+    int ix0 = 0;
+    int ix1 = 0;
+    int iy0 = 0;
+    int iy1 = 0;
+    int level = 0;
+};
+
+struct Local7Stats {
+    bool fallback = false;
+    int nframes = 0;
+    int ntiles = 0;
+    int nsplit = 0;
+    int naudit = 0;
+    int fallback_reason = 0;
+    double max_maperr = 0.0;
+    double max_detvar = 0.0;
+    double max_center_resid = 0.0;
+    double max_audit_resid = 0.0;
+};
+
+double legacy_limb_brightness(
+    double normalized_radius2,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier);
 
 BinaryLensMapper make_binary_lens_mapper(double separation, double mass_ratio)
 {
@@ -81,6 +144,383 @@ SourcePosition map_binary_lens_real(
         x - mapper.m1 * xa / den1 - mapper.m2 * x / den2 - a * mapper.m1,
         y - mapper.m1 * y / den1 - mapper.m2 * y / den2,
     };
+}
+
+bool local7_derivatives_binary(
+    Complex z,
+    const BinaryLensMapper& mapper,
+    double* gr,
+    double* gi,
+    double* br,
+    double* bi,
+    double* kr,
+    double* ki)
+{
+    *gr = 0.0;
+    *gi = 0.0;
+    *br = 0.0;
+    *bi = 0.0;
+    *kr = 0.0;
+    *ki = 0.0;
+
+    const Complex lenses[2] = {mapper.separation, Complex(0.0, 0.0)};
+    const double masses[2] = {mapper.m1, mapper.m2};
+    for (int i = 0; i < 2; ++i) {
+        const double dx = lenses[i].real() - z.real();
+        const double dy = z.imag() - lenses[i].imag();
+        const double r2 = dx * dx + dy * dy;
+        if (r2 <= 1.0e-30 || !std::isfinite(r2)) {
+            return false;
+        }
+        const double r4 = r2 * r2;
+        const double r6 = r4 * r2;
+        const double r8 = r4 * r4;
+        const double dx2 = dx * dx;
+        const double dy2 = dy * dy;
+        const double dx3 = dx2 * dx;
+        const double dy3 = dy2 * dy;
+        const double dx4 = dx2 * dx2;
+        const double dy4 = dy2 * dy2;
+        const double mass = masses[i];
+
+        *gr += mass * (dx2 - dy2) / r4;
+        *gi += mass * (-2.0 * dx * dy) / r4;
+        *br += 2.0 * mass * dx * (dx2 - 3.0 * dy2) / r6;
+        *bi += 2.0 * mass * (dy3 - 3.0 * dx2 * dy) / r6;
+        *kr += 6.0 * mass * (dx4 - 6.0 * dx2 * dy2 + dy4) / r8;
+        *ki += 6.0 * mass * (-4.0 * dx3 * dy + 4.0 * dx * dy3) / r8;
+    }
+    return std::isfinite(*gr) && std::isfinite(*gi) && std::isfinite(*br) &&
+           std::isfinite(*bi) && std::isfinite(*kr) && std::isfinite(*ki);
+}
+
+bool local7_make_frame(
+    Complex za,
+    SourcePosition source,
+    const BinaryLensMapper& mapper,
+    Local7Frame* frame)
+{
+    double gr = 0.0;
+    double gi = 0.0;
+    double br = 0.0;
+    double bi = 0.0;
+    double kr = 0.0;
+    double ki = 0.0;
+    if (!local7_derivatives_binary(za, mapper, &gr, &gi, &br, &bi, &kr, &ki)) {
+        return false;
+    }
+
+    const double g = std::hypot(gr, gi);
+    const double lambda_s = 1.0 + g;
+    const double lambda_l = 1.0 - g;
+    const double det_j = lambda_l * lambda_s;
+    const double abs_det = std::abs(det_j);
+    if (abs_det <= 0.0 || !std::isfinite(abs_det)) {
+        return false;
+    }
+
+    const double phi = 0.5 * std::atan2(gi, gr);
+    const SourcePosition wa = map_binary_lens_real(mapper, za.real(), za.imag());
+    *frame = {};
+    frame->za = za;
+    frame->wa = wa;
+    frame->sa = {wa.x - source.x, wa.y - source.y};
+    frame->gamma_r = gr;
+    frame->gamma_i = gi;
+    frame->beta_r = br;
+    frame->beta_i = bi;
+    frame->kappa_r = kr;
+    frame->kappa_i = ki;
+    frame->lambda_l = lambda_l;
+    frame->lambda_s = lambda_s;
+    frame->det_j = det_j;
+    frame->area_jac = 1.0 / abs_det;
+    frame->e_lx = -std::sin(phi);
+    frame->e_ly = std::cos(phi);
+    frame->e_sx = std::cos(phi);
+    frame->e_sy = std::sin(phi);
+    frame->ok = std::isfinite(frame->area_jac);
+    return frame->ok;
+}
+
+Complex local7_apply_inverse_linear(const Local7Frame& frame, double sx, double sy)
+{
+    const double dx = sx - frame.sa.x;
+    const double dy = sy - frame.sa.y;
+    const double xi = dx * frame.e_lx + dy * frame.e_ly;
+    const double eta = dx * frame.e_sx + dy * frame.e_sy;
+    return {
+        (xi / frame.lambda_l) * frame.e_lx + (eta / frame.lambda_s) * frame.e_sx,
+        (xi / frame.lambda_l) * frame.e_ly + (eta / frame.lambda_s) * frame.e_sy,
+    };
+}
+
+Complex local7_apply_inverse_jacobian(const Local7Frame& frame, Complex residual)
+{
+    const double xi = residual.real() * frame.e_lx + residual.imag() * frame.e_ly;
+    const double eta = residual.real() * frame.e_sx + residual.imag() * frame.e_sy;
+    return {
+        (xi / frame.lambda_l) * frame.e_lx + (eta / frame.lambda_s) * frame.e_sx,
+        (xi / frame.lambda_l) * frame.e_ly + (eta / frame.lambda_s) * frame.e_sy,
+    };
+}
+
+Complex local7_correct_quadratic(const Local7Frame& frame, Complex dz0)
+{
+    const Complex beta(frame.beta_r, frame.beta_i);
+    const Complex residual = 0.5 * beta * std::conj(dz0) * std::conj(dz0);
+    return dz0 - local7_apply_inverse_jacobian(frame, residual);
+}
+
+Complex local7_approx_image(const Local7Frame& frame, double sx, double sy)
+{
+    const Complex dz0 = local7_apply_inverse_linear(frame, sx, sy);
+    return frame.za + local7_correct_quadratic(frame, dz0);
+}
+
+double local7_det_taylor(const Local7Frame& frame, Complex dz)
+{
+    const Complex gamma(frame.gamma_r, frame.gamma_i);
+    const Complex beta(frame.beta_r, frame.beta_i);
+    const Complex kappa(frame.kappa_r, frame.kappa_i);
+    const Complex cdz = std::conj(dz);
+    const Complex estimate = gamma + beta * cdz + 0.5 * kappa * cdz * cdz;
+    return 1.0 - std::norm(estimate);
+}
+
+bool local7_reanchor_tile(
+    const Local7Frame& parent,
+    const Local7Tile& tile,
+    SourcePosition source,
+    const BinaryLensMapper& mapper,
+    double source_radius,
+    Local7Frame* out,
+    Local7Stats* stats)
+{
+    Complex zc = local7_approx_image(parent, tile.cx, tile.cy);
+    SourcePosition mapped = map_binary_lens_real(mapper, zc.real(), zc.imag());
+    Complex residual(mapped.x - (source.x + tile.cx), mapped.y - (source.y + tile.cy));
+    double scaled_residual = std::abs(residual) / source_radius;
+    stats->max_center_resid = std::max(stats->max_center_resid, scaled_residual);
+
+    if (scaled_residual > kLocal7CenterTol) {
+        Local7Frame center_frame;
+        if (!local7_make_frame(zc, source, mapper, &center_frame) ||
+            std::abs(center_frame.lambda_l) < kLocal7LambdaMin ||
+            std::abs(center_frame.lambda_s) < kLocal7LambdaMin) {
+            return false;
+        }
+        zc -= local7_apply_inverse_jacobian(center_frame, residual);
+        mapped = map_binary_lens_real(mapper, zc.real(), zc.imag());
+        residual = Complex(mapped.x - (source.x + tile.cx), mapped.y - (source.y + tile.cy));
+        scaled_residual = std::abs(residual) / source_radius;
+        stats->max_center_resid = std::max(stats->max_center_resid, scaled_residual);
+        if (scaled_residual > kLocal7CenterTol) {
+            return false;
+        }
+    }
+
+    if (!local7_make_frame(zc, source, mapper, out)) {
+        return false;
+    }
+    ++stats->nframes;
+    return true;
+}
+
+bool local7_tile_trust(
+    const Local7Frame& frame,
+    const Local7Tile& tile,
+    double source_radius,
+    Local7Stats* stats)
+{
+    if (!frame.ok || std::abs(frame.lambda_l) < kLocal7LambdaMin ||
+        std::abs(frame.lambda_s) < kLocal7LambdaMin ||
+        std::abs(frame.det_j) < kLocal7DetMin || !std::isfinite(frame.area_jac) ||
+        frame.area_jac > kLocal7AreaJacMax) {
+        return false;
+    }
+
+    const double h = std::sqrt(2.0) * tile.hs;
+    const double dzmax = std::hypot(
+        h / std::abs(frame.lambda_l),
+        h / std::abs(frame.lambda_s));
+    const double gamma_abs = std::hypot(frame.gamma_r, frame.gamma_i);
+    const double beta_abs = std::hypot(frame.beta_r, frame.beta_i);
+    const double kappa_abs = std::hypot(frame.kappa_r, frame.kappa_i);
+    const double map_error = kappa_abs * dzmax * dzmax * dzmax / 6.0;
+    const double det_variation =
+        2.0 * gamma_abs * beta_abs * dzmax / std::abs(frame.det_j);
+    stats->max_maperr = std::max(stats->max_maperr, map_error / source_radius);
+    stats->max_detvar = std::max(stats->max_detvar, det_variation);
+
+    if (map_error / source_radius >= kLocal7MapErrMax || det_variation >= kLocal7DetVarMax) {
+        return false;
+    }
+    if (std::abs(frame.det_j) < 6.0 * gamma_abs * beta_abs * dzmax) {
+        return false;
+    }
+    return true;
+}
+
+bool local7_audit_tile(
+    const Local7Frame& frame,
+    const Local7Tile& tile,
+    SourcePosition source,
+    const BinaryLensMapper& mapper,
+    double source_radius,
+    Local7Stats* stats)
+{
+    const double candidates[5][2] = {
+        {tile.cx, tile.cy},
+        {tile.cx - tile.hs, tile.cy - tile.hs},
+        {tile.cx + tile.hs, tile.cy - tile.hs},
+        {tile.cx - tile.hs, tile.cy + tile.hs},
+        {tile.cx + tile.hs, tile.cy + tile.hs},
+    };
+    const int audit_count = std::abs(frame.det_j) < 1.0e-3 ? 5 : 1;
+    const double radius2 = source_radius * source_radius;
+    bool audited = false;
+    for (int i = 0; i < audit_count; ++i) {
+        const double sx = candidates[i][0];
+        const double sy = candidates[i][1];
+        if (sx * sx + sy * sy > radius2) {
+            continue;
+        }
+        audited = true;
+        ++stats->naudit;
+        const Complex approx = local7_approx_image(frame, sx, sy);
+        const SourcePosition mapped = map_binary_lens_real(mapper, approx.real(), approx.imag());
+        const double residual =
+            std::hypot(mapped.x - (source.x + sx), mapped.y - (source.y + sy)) / source_radius;
+        stats->max_audit_resid = std::max(stats->max_audit_resid, residual);
+        if (!std::isfinite(residual) || residual > kLocal7AuditTol) {
+            return false;
+        }
+    }
+    return audited;
+}
+
+double local7_integrate_tile_samples(
+    const Local7Frame& frame,
+    const Local7Tile& tile,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier)
+{
+    const int bins = std::max(settings.source_bins, 1);
+    const double step = source_radius / static_cast<double>(bins);
+    const double radius2 = source_radius * source_radius;
+    const double inv_radius2 = 1.0 / radius2;
+    double count = 0.0;
+    for (int ix = tile.ix0; ix <= tile.ix1; ++ix) {
+        const double sx = static_cast<double>(ix) * step;
+        for (int iy = tile.iy0; iy <= tile.iy1; ++iy) {
+            const double sy = static_cast<double>(iy) * step;
+            const double qld = (sx * sx + sy * sy) * inv_radius2;
+            if (qld > 1.0) {
+                continue;
+            }
+            const Complex dz0 = local7_apply_inverse_linear(frame, sx, sy);
+            const Complex dz = local7_correct_quadratic(frame, dz0);
+            const double det = local7_det_taylor(frame, dz);
+            if (!std::isfinite(det) || std::abs(det) < kLocal7DetMin) {
+                return std::nan("");
+            }
+            count += legacy_limb_brightness(qld, settings, finite_magnifier) / std::abs(det);
+        }
+    }
+    return count;
+}
+
+bool local7_tile_intersects_source_disk(const Local7Tile& tile, double source_radius)
+{
+    const double xmin = tile.cx - tile.hs;
+    const double xmax = tile.cx + tile.hs;
+    const double ymin = tile.cy - tile.hs;
+    const double ymax = tile.cy + tile.hs;
+    const double nearest_x = xmin > 0.0 ? xmin : (xmax < 0.0 ? xmax : 0.0);
+    const double nearest_y = ymin > 0.0 ? ymin : (ymax < 0.0 ? ymax : 0.0);
+    return nearest_x * nearest_x + nearest_y * nearest_y <= source_radius * source_radius;
+}
+
+double local7_integrate_tile_recursive(
+    const Local7Frame& parent,
+    const Local7Tile& tile,
+    SourcePosition source,
+    const BinaryLensMapper& mapper,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    Local7Stats* stats)
+{
+    if (stats->fallback) {
+        return 0.0;
+    }
+    if (!local7_tile_intersects_source_disk(tile, source_radius)) {
+        return 0.0;
+    }
+    ++stats->ntiles;
+
+    Local7Frame frame;
+    const bool reanchored =
+        local7_reanchor_tile(parent, tile, source, mapper, source_radius, &frame, stats);
+    const bool trusted = reanchored && local7_tile_trust(frame, tile, source_radius, stats) &&
+                         local7_audit_tile(frame, tile, source, mapper, source_radius, stats);
+    if (trusted) {
+        const double count =
+            local7_integrate_tile_samples(frame, tile, source_radius, settings, finite_magnifier);
+        if (std::isfinite(count)) {
+            return count;
+        }
+    }
+
+    const int side_x = tile.ix1 - tile.ix0 + 1;
+    const int side_y = tile.iy1 - tile.iy0 + 1;
+    const int side = std::max(side_x, side_y);
+    if (side <= kLocal7MinTileN || tile.level >= kLocal7MaxSplitLevel) {
+        stats->fallback = true;
+        stats->fallback_reason = trusted ? 7 : 6;
+        return 0.0;
+    }
+
+    ++stats->nsplit;
+    const int mid_x = (tile.ix0 + tile.ix1) / 2;
+    const int mid_y = (tile.iy0 + tile.iy1) / 2;
+    const int ranges[4][4] = {
+        {tile.ix0, mid_x, tile.iy0, mid_y},
+        {mid_x + 1, tile.ix1, tile.iy0, mid_y},
+        {tile.ix0, mid_x, mid_y + 1, tile.iy1},
+        {mid_x + 1, tile.ix1, mid_y + 1, tile.iy1},
+    };
+    const double step = source_radius / static_cast<double>(std::max(settings.source_bins, 1));
+    double count = 0.0;
+    for (const auto& range : ranges) {
+        if (range[0] > range[1] || range[2] > range[3]) {
+            continue;
+        }
+        Local7Tile child;
+        child.ix0 = range[0];
+        child.ix1 = range[1];
+        child.iy0 = range[2];
+        child.iy1 = range[3];
+        child.level = tile.level + 1;
+        child.cx = 0.5 * static_cast<double>(child.ix0 + child.ix1) * step;
+        child.cy = 0.5 * static_cast<double>(child.iy0 + child.iy1) * step;
+        child.hs = 0.5 * static_cast<double>(std::max(child.ix1 - child.ix0 + 1, child.iy1 - child.iy0 + 1)) * step;
+        count += local7_integrate_tile_recursive(
+            frame.ok ? frame : parent,
+            child,
+            source,
+            mapper,
+            source_radius,
+            settings,
+            finite_magnifier,
+            stats);
+        if (stats->fallback) {
+            return 0.0;
+        }
+    }
+    return count;
 }
 
 double source_distance(SourcePosition source)
@@ -1290,6 +1730,174 @@ double legacy_imagearea4_binary(
     return area / scale;
 }
 
+double inverse_ray_local_binary(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier)
+{
+    if (source_radius <= 0.0 || separation == 0.0 || mass_ratio <= 0.0) {
+        return std::nan("");
+    }
+    if ((settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0) &&
+        finite_magnifier != nullptr) {
+        finite_magnifier->ensure_limb_darkening_table();
+    }
+
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
+    if (images.empty()) {
+        return std::nan("");
+    }
+
+    const int bins = std::max(settings.source_bins, 1);
+    const double source_step = source_radius / static_cast<double>(bins);
+    const double source_radius2 = source_radius * source_radius;
+    const double inv_source_radius2 = 1.0 / source_radius2;
+    double image_flux = 0.0;
+
+    for (const auto& image : images) {
+        Local7Frame frame;
+        if (!local7_make_frame(Complex(image.position.x, image.position.y), source, mapper, &frame) ||
+            std::abs(frame.lambda_l) < kLocal7LambdaMin ||
+            std::abs(frame.lambda_s) < kLocal7LambdaMin ||
+            !std::isfinite(frame.area_jac)) {
+            return std::nan("");
+        }
+
+        const double image_cell_area = source_step * source_step * frame.area_jac;
+        if (!std::isfinite(image_cell_area) || image_cell_area <= 0.0) {
+            return std::nan("");
+        }
+
+        const double step_lx = source_step / frame.lambda_l * frame.e_lx;
+        const double step_ly = source_step / frame.lambda_l * frame.e_ly;
+        const double step_sx = source_step / frame.lambda_s * frame.e_sx;
+        const double step_sy = source_step / frame.lambda_s * frame.e_sy;
+
+        const int max_extent = std::max(1, static_cast<int>(std::ceil(kLocal7PatchScale * bins)));
+        struct LocalRowInterval {
+            int umin = 0;
+            int umax = -1;
+            int count = 0;
+        };
+
+        const auto hit_sample = [&](int iu, int iv, double* brightness) {
+            const double local_x = static_cast<double>(iu) + 0.5;
+            const double local_y = static_cast<double>(iv) + 0.5;
+            const double zx = frame.za.real() + local_x * step_lx + local_y * step_sx;
+            const double zy = frame.za.imag() + local_x * step_ly + local_y * step_sy;
+            const SourcePosition mapped = map_binary_lens_real(mapper, zx, zy);
+            const double dx = mapped.x - source.x;
+            const double dy = mapped.y - source.y;
+            const double mapped_radius2 = dx * dx + dy * dy;
+            if (mapped_radius2 > source_radius2) {
+                return false;
+            }
+            *brightness = legacy_limb_brightness(
+                mapped_radius2 * inv_source_radius2, settings, finite_magnifier);
+            return true;
+        };
+
+        const auto scan_row = [&](int iv, const LocalRowInterval* previous) {
+            LocalRowInterval row;
+            int start_min = -1;
+            int start_max = 0;
+            if (previous != nullptr && previous->count > 0) {
+                start_min = previous->umin - kLocal7RowSearchMargin;
+                start_max = previous->umax + kLocal7RowSearchMargin;
+            }
+            start_min = std::max(start_min, -max_extent);
+            start_max = std::min(start_max, max_extent - 1);
+
+            for (int iu = start_min; iu <= start_max; ++iu) {
+                double brightness = 0.0;
+                if (!hit_sample(iu, iv, &brightness)) {
+                    continue;
+                }
+                image_flux += image_cell_area * brightness;
+                row.umin = row.count == 0 ? iu : std::min(row.umin, iu);
+                row.umax = row.count == 0 ? iu : std::max(row.umax, iu);
+                ++row.count;
+            }
+
+            if (row.count == 0 && previous != nullptr && previous->count > 0) {
+                const int center = (previous->umin + previous->umax) / 2;
+                const int rescue_min = std::max(center - std::max(kLocal7RowSearchMargin * 4, bins / 4), -max_extent);
+                const int rescue_max = std::min(center + std::max(kLocal7RowSearchMargin * 4, bins / 4), max_extent - 1);
+                for (int iu = rescue_min; iu <= rescue_max; ++iu) {
+                    double brightness = 0.0;
+                    if (!hit_sample(iu, iv, &brightness)) {
+                        continue;
+                    }
+                    image_flux += image_cell_area * brightness;
+                    row.umin = row.count == 0 ? iu : std::min(row.umin, iu);
+                    row.umax = row.count == 0 ? iu : std::max(row.umax, iu);
+                    ++row.count;
+                }
+            }
+
+            if (row.count == 0) {
+                return row;
+            }
+
+            for (int iu = row.umin - 1; iu >= -max_extent; --iu) {
+                double brightness = 0.0;
+                if (!hit_sample(iu, iv, &brightness)) {
+                    break;
+                }
+                image_flux += image_cell_area * brightness;
+                row.umin = iu;
+                ++row.count;
+            }
+            for (int iu = row.umax + 1; iu < max_extent; ++iu) {
+                double brightness = 0.0;
+                if (!hit_sample(iu, iv, &brightness)) {
+                    break;
+                }
+                image_flux += image_cell_area * brightness;
+                row.umax = iu;
+                ++row.count;
+            }
+            return row;
+        };
+
+        LocalRowInterval row0 = scan_row(0, nullptr);
+        if (row0.count == 0) {
+            continue;
+        }
+
+        auto scan_direction = [&](int direction) {
+            LocalRowInterval previous = row0;
+            int empty_rows = 0;
+            for (int iv = direction; std::abs(iv) < max_extent; iv += direction) {
+                LocalRowInterval row = scan_row(iv, &previous);
+                if (row.count == 0) {
+                    ++empty_rows;
+                    if (empty_rows >= kLocal7EmptyRingsToStop) {
+                        break;
+                    }
+                    continue;
+                }
+                empty_rows = 0;
+                previous = row;
+            }
+        };
+        scan_direction(1);
+        scan_direction(-1);
+    }
+
+    const double total_source_flux = source_flux(source_radius, settings);
+    if (!std::isfinite(total_source_flux) || total_source_flux <= 0.0) {
+        return std::nan("");
+    }
+    const double magnification = image_flux / total_source_flux;
+    return std::isfinite(magnification) ? magnification : std::nan("");
+}
+
 double inverse_ray_binary(
     const PointSourceMagnifier& point_magnifier,
     double separation,
@@ -1385,6 +1993,10 @@ FiniteSourceResult fixed_inverse_ray_binary(
     } else if (decision.method == FiniteSourceMethod::inverse_ray_cartesian && settings.legacy_mode &&
                settings.legacy_finite_mode == 4) {
         magnification = legacy_imagearea4_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier);
+    } else if (decision.method == FiniteSourceMethod::inverse_ray_local && settings.legacy_mode &&
+               settings.legacy_finite_mode == 7) {
+        magnification = inverse_ray_local_binary(
             point_magnifier, separation, mass_ratio, source, source_radius, settings, finite_magnifier);
     } else {
         magnification = inverse_ray_binary(
@@ -1726,9 +2338,55 @@ const char* finite_source_method_name(FiniteSourceMethod method)
         return "inverse_ray_cartesian";
     case FiniteSourceMethod::inverse_ray_polar:
         return "inverse_ray_polar";
+    case FiniteSourceMethod::inverse_ray_local:
+        return "inverse_ray_local";
     default:
         return "unknown";
     }
+}
+
+FiniteSourceResult FiniteSourceMagnifier::legacy_binary_finite_mag_direct(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    int legacy_finite_mode) const
+{
+    PointSourceMagnifier point_magnifier;
+    FiniteSourceSettings direct_settings = settings_;
+    direct_settings.legacy_mode = true;
+    direct_settings.legacy_finite_mode = legacy_finite_mode;
+
+    FiniteSourceDecision decision;
+    switch (legacy_finite_mode) {
+    case 5:
+    case 6:
+        decision = {
+            FiniteSourceMethod::inverse_ray_polar,
+            estimate_polar_cost(direct_settings),
+            "direct legacy finite-source polar inverse-ray",
+        };
+        break;
+    case 7:
+        decision = {
+            FiniteSourceMethod::inverse_ray_local,
+            estimate_cartesian_cost(direct_settings),
+            "direct local-coordinate inverse-ray",
+        };
+        break;
+    case 3:
+    case 4:
+    default:
+        decision = {
+            FiniteSourceMethod::inverse_ray_cartesian,
+            estimate_cartesian_cost(direct_settings),
+            "direct legacy finite-source cartesian inverse-ray",
+        };
+        break;
+    }
+
+    return fixed_inverse_ray_binary(
+        point_magnifier, separation, mass_ratio, source, source_radius, direct_settings, this, decision);
 }
 
 FiniteSourceResult FiniteSourceMagnifier::binary_mag(
@@ -1773,11 +2431,11 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             };
             return cache_and_return({point_source_magnification, 0, decision, 0.0, 0, true});
         }
-
         const double cached_point_threshold = 2.0 * settings_.legacy_kinji * source_radius;
         double caustic_distance = legacy_binary_sampled_caustic_distance(
             separation, mass_ratio, source, cached_point_threshold);
-        if (!std::isfinite(caustic_distance) || caustic_distance >= cached_point_threshold) {
+        if ((!std::isfinite(caustic_distance) && settings_.legacy_finite_mode != 7) ||
+            (std::isfinite(caustic_distance) && caustic_distance >= cached_point_threshold)) {
             FiniteSourceDecision decision {
                 FiniteSourceMethod::point_source,
                 settings_.caustic_bins * 4,
@@ -1822,6 +2480,10 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             decision.method = FiniteSourceMethod::inverse_ray_polar;
             decision.estimated_evaluations = estimate_polar_cost(settings_);
             decision.reason = "legacy smode selected polar inverse-ray";
+        } else if (settings_.legacy_finite_mode == 7) {
+            decision.method = FiniteSourceMethod::inverse_ray_local;
+            decision.estimated_evaluations = estimate_cartesian_cost(settings_);
+            decision.reason = "legacy smode=7 selected local-coordinate inverse-ray";
         } else if (settings_.legacy_finite_mode == 3 || settings_.legacy_finite_mode == 4) {
             decision.method = FiniteSourceMethod::inverse_ray_cartesian;
             decision.estimated_evaluations = estimate_cartesian_cost(settings_);

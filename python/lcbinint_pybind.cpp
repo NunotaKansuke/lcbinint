@@ -1,4 +1,5 @@
 #include "lcbinint/lcbinint.h"
+#include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
 #include "lcbinint/model/orbital_motion.hpp"
@@ -485,6 +486,41 @@ PYBIND11_MODULE(lcbinint, m)
         return result.magnification;
     }, py::arg("separation"), py::arg("mass_ratio"), py::arg("y1"), py::arg("y2"),
         "Binary point-source magnification matching VBBinaryLensing BinaryMag0 coordinates.");
+
+    m.def("legacy_binary_finite_mag_direct",
+        [](double separation,
+            double mass_ratio,
+            double y1,
+            double y2,
+            double rho,
+            int legacy_finite_mode,
+            int source_bins,
+            double limb_darkening_c,
+            double limb_darkening_d) {
+            lcbinint::magnification::FiniteSourceSettings settings;
+            settings.legacy_mode = true;
+            settings.legacy_finite_mode = legacy_finite_mode;
+            settings.source_bins = source_bins;
+            settings.limb_darkening_c = limb_darkening_c;
+            settings.limb_darkening_d = limb_darkening_d;
+            lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+            const auto result = magnifier.legacy_binary_finite_mag_direct(
+                separation, mass_ratio, {y1, y2}, rho, legacy_finite_mode);
+            if (!result.converged || !std::isfinite(result.magnification)) {
+                throw std::runtime_error("numerical error");
+            }
+            return result.magnification;
+        },
+        py::arg("separation"),
+        py::arg("mass_ratio"),
+        py::arg("y1"),
+        py::arg("y2"),
+        py::arg("rho"),
+        py::arg("legacy_finite_mode"),
+        py::arg("source_bins") = 80,
+        py::arg("limb_darkening_c") = 0.0,
+        py::arg("limb_darkening_d") = 0.0,
+        "Direct one-point legacy finite-source calculation without point/hex shortcuts.");
 
     m.def("circular_orbital_motion", [](double time,
                                          double separation,
