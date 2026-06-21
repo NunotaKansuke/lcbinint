@@ -406,6 +406,40 @@ def test_lcbinint_finite_source_smoke():
     assert math.isfinite(actual)
 
 
+def test_lcbinint_spine_mode_wide_caustic_fold_pair():
+    """mode=3 spine on a caustic-born fold pair should match mode=1 within 2e-4."""
+    lcbinint = pytest.importorskip("lcbinint")
+    separation, mass_ratio = 1.4, 0.4
+    y1, y2 = -0.24854045037531268, -0.15
+    rho = 1e-4
+    source_bins = 300
+    params = lcbinint.LensParams(
+        t0=0.0, tE=1.0, umin=y2, theta=0.0, q=mass_ratio, sep=separation, rho=rho
+    )
+    mag1 = lcbinint.LensModel(params, lcbinint.Options(center_of_mass=1, mode=1, source_bins=source_bins)).magnification(y1)
+    mag3 = lcbinint.LensModel(params, lcbinint.Options(center_of_mass=1, mode=3, source_bins=source_bins)).magnification(y1)
+    assert math.isfinite(mag1)
+    assert math.isfinite(mag3)
+    assert math.isclose(mag3, mag1, rel_tol=2e-4, abs_tol=2e-4)
+
+
+def test_lcbinint_spine_mode_non_caustic_guard():
+    """mode=3 should fall back to cartesian for a non-caustic high-mag source."""
+    lcbinint = pytest.importorskip("lcbinint")
+    separation, mass_ratio = 0.6, 1.0
+    y1, y2 = -0.09201927708355606, 0.029966615534330332
+    rho = 0.003
+    source_bins = 60
+    params = lcbinint.LensParams(
+        t0=0.0, tE=1.0, umin=y2, theta=0.0, q=mass_ratio, sep=separation, rho=rho
+    )
+    mag1 = lcbinint.LensModel(params, lcbinint.Options(center_of_mass=1, mode=1, source_bins=source_bins)).magnification(y1)
+    mag3 = lcbinint.LensModel(params, lcbinint.Options(center_of_mass=1, mode=3, source_bins=source_bins)).magnification(y1)
+    assert math.isfinite(mag1)
+    assert math.isfinite(mag3)
+    assert math.isclose(mag3, mag1, rel_tol=1e-10, abs_tol=1e-10)
+
+
 def test_lcbinint_lens_params_exposes_limb_darkening_coefficients():
     lcbinint = pytest.importorskip("lcbinint")
 
