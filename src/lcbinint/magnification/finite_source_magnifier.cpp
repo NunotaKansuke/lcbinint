@@ -33,6 +33,21 @@ constexpr double kLocal7DetVarMax = 2.5e-1;
 constexpr double kLocal7AreaJacMax = 1.0e8;
 constexpr double kLocal7AuditTol = 3.0e-2;
 constexpr double kLocal7BoundaryJump = 1.1;
+constexpr double kLocal7SpineAreaJacMin = 100.0;
+constexpr double kLocal7SpineDetMax = 1.0e-2;
+constexpr double kLocal7SpineMaxStepCells = 256.0;
+constexpr double kLocal7SpineMinStepCells = 0.125;
+constexpr int kLocal7SpineMaxPoints = 200000;
+constexpr int kLocal7SpineMaxNormalSamples = 20000000;
+constexpr int kLocal7SpineOutsideStop = 3;
+constexpr double kLocal7SpineCurvatureMax = 0.55;
+constexpr double kLocal7SpineNormalSubstep = 1.0;
+constexpr double kLocal7SpineTargetTolCells = 2.0;
+constexpr double kLocal7SpineFrameDetMin = 1.0e-9;
+constexpr double kLocal7SpineFrameLambdaMin = 1.0e-9;
+constexpr double kLocal7SpineFrameAreaJacMax = 1.0e12;
+constexpr double kLocal7SpinePairDistanceCells = 50000.0;
+constexpr double kLocal7SpineMaxRelativeArea = 1.0e8;
 
 struct QuadrupoleSafety {
     double error_estimate = 0.0;
@@ -110,6 +125,13 @@ struct Local7TimingStats {
     long long exact_lens_evals = 0;
     long long derivative_step_samples = 0;
     long long exact_samples = 0;
+    long long spine_points = 0;
+    long long spine_normal_samples = 0;
+    long long spine_exact_lens_evals = 0;
+    int spine_branches = 0;
+    int spine_fallbacks = 0;
+    int spine_fallback_reason = 0;
+    double spine_ms = 0.0;
     int caustic_born_branches = 0;
     int safe_branches = 0;
     int fallback_calls = 0;
@@ -141,7 +163,6 @@ double legacy_limb_brightness(
     double normalized_radius2,
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier);
-
 BinaryLensMapper make_binary_lens_mapper(double separation, double mass_ratio)
 {
     const double s = std::abs(separation);
@@ -1806,6 +1827,450 @@ SourcePosition local7_seed_to_uv(const Local7Frame& frame, double step_l, double
     };
 }
 
+struct Local7SpinePoint {
+    SourcePosition image;
+    SourcePosition source_offset;
+    Local7Frame frame;
+    double half_weight = 0.0;
+};
+
+struct Local7SpineEligibility {
+    bool ok = false;
+    std::size_t pair_index = 0;
+    int reason = 0;
+};
+
+bool local7_is_spine_candidate(const Local7Frame& frame)
+{
+    return frame.ok &&
+           std::isfinite(frame.area_jac) &&
+           frame.area_jac >= kLocal7SpineAreaJacMin &&
+           std::abs(frame.det_j) <= kLocal7SpineDetMax;
+}
+
+Local7SpineEligibility local7_spine_eligibility(
+    const std::vector<SourcePosition>& seeds,
+    const std::vector<int>& overlap,
+    std::size_t image_index,
+    const Local7Frame& frame,
+    SourcePosition source,
+    double source_step,
+    const BinaryLensMapper& mapper,
+    int caustic_born_branches)
+{
+    if (caustic_born_branches <= 0) {
+        return {false, 0, 30};
+    }
+    if (!local7_is_spine_candidate(frame)) {
+        return {false, 0, 31};
+    }
+
+    const auto nearest_partner = [&](std::size_t from_index, const Local7Frame& from_frame) {
+        double best_distance = std::numeric_limits<double>::infinity();
+        std::size_t best_index = seeds.size();
+        int candidate_count = 0;
+        for (std::size_t other = 0; other < seeds.size(); ++other) {
+            if (other == from_index || overlap[other] == 1) {
+                continue;
+            }
+            Local7Frame other_frame;
+            if (!local7_make_frame(Complex(seeds[other].x, seeds[other].y), source, mapper, &other_frame) ||
+                !local7_is_spine_candidate(other_frame) ||
+                std::signbit(other_frame.det_j) == std::signbit(from_frame.det_j)) {
+                continue;
+            }
+            const double image_distance =
+                std::hypot(seeds[other].x - seeds[from_index].x, seeds[other].y - seeds[from_index].y);
+            if (image_distance > kLocal7SpinePairDistanceCells * source_step) {
+                continue;
+            }
+            ++candidate_count;
+            if (image_distance < best_distance) {
+                best_distance = image_distance;
+                best_index = other;
+            }
+        }
+        return std::pair<std::size_t, int> {best_index, candidate_count};
+    };
+
+    const auto [partner_index, partner_count] = nearest_partner(image_index, frame);
+    if (partner_count < 1 || partner_index >= seeds.size()) {
+        return {false, 0, 33};
+    }
+    if (partner_count > 1) {
+        Local7Frame partner_frame;
+        if (!local7_make_frame(Complex(seeds[partner_index].x, seeds[partner_index].y), source, mapper, &partner_frame)) {
+            return {false, 0, 34};
+        }
+        const auto [mutual_index, mutual_count] = nearest_partner(partner_index, partner_frame);
+        if (mutual_count < 1 || mutual_index != image_index) {
+            return {false, 0, 35};
+        }
+    }
+    if (partner_index < image_index) {
+        return {false, 0, 36};
+    }
+    return {true, partner_index, 0};
+}
+
+double local7_spine_step(
+    const Local7Frame& frame,
+    double source_step,
+    double source_radius)
+{
+    const double abs_lambda = std::max(std::abs(frame.lambda_l), kLocal7LambdaMin);
+    double step = source_step / abs_lambda;
+    const double beta_abs = std::hypot(frame.beta_r, frame.beta_i);
+    if (beta_abs > 0.0 && std::isfinite(beta_abs)) {
+        const double nonlinear_cap =
+            2.0 * source_radius / (abs_lambda + std::sqrt(abs_lambda * abs_lambda + 2.0 * beta_abs * source_radius));
+        if (std::isfinite(nonlinear_cap) && nonlinear_cap > 0.0) {
+            step = std::min(step, nonlinear_cap);
+        }
+    }
+    step = std::min(step, kLocal7SpineMaxStepCells * source_step);
+    step = std::max(step, kLocal7SpineMinStepCells * source_step);
+    return step;
+}
+
+bool local7_spine_frame_safe(const Local7Frame& frame)
+{
+    if (!frame.ok || !std::isfinite(frame.area_jac) ||
+        std::abs(frame.lambda_l) < kLocal7SpineFrameLambdaMin ||
+        std::abs(frame.lambda_s) < kLocal7SpineFrameLambdaMin ||
+        std::abs(frame.det_j) < kLocal7SpineFrameDetMin ||
+        frame.area_jac > kLocal7SpineFrameAreaJacMax) {
+        return false;
+    }
+    return true;
+}
+
+bool local7_spine_try_step(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    double source_step,
+    SourcePosition current,
+    SourcePosition current_source_offset,
+    const Local7Frame& current_frame,
+    double signed_step,
+    Local7SpinePoint* output,
+    Local7TimingStats* timing,
+    int* fail_reason)
+{
+    double step = signed_step;
+    const double min_abs_step = kLocal7SpineMinStepCells * source_step;
+    int last_reason = 25;
+    for (int attempt = 0; attempt < 12; ++attempt) {
+        const SourcePosition candidate {
+            current.x + step * current_frame.e_lx,
+            current.y + step * current_frame.e_ly,
+        };
+        SourcePosition target_offset {
+            current_source_offset.x + current_frame.lambda_l * step * current_frame.e_lx,
+            current_source_offset.y + current_frame.lambda_l * step * current_frame.e_ly,
+        };
+        if (target_offset.x * target_offset.x + target_offset.y * target_offset.y > source_radius * source_radius) {
+            last_reason = 20;
+            step *= 0.5;
+            if (std::abs(step) < min_abs_step) {
+                break;
+            }
+            continue;
+        }
+
+        SourcePosition corrected = candidate;
+        Local7Frame candidate_frame;
+        SourcePosition mapped {};
+        bool frame_ok = false;
+        double residual_norm = std::numeric_limits<double>::infinity();
+        for (int newton = 0; newton < 5; ++newton) {
+            mapped = map_binary_lens_real(mapper, corrected.x, corrected.y);
+            if (timing != nullptr) {
+                ++timing->exact_lens_evals;
+                ++timing->spine_exact_lens_evals;
+            }
+            frame_ok =
+                local7_make_frame(Complex(corrected.x, corrected.y), source, mapper, &candidate_frame) &&
+                local7_spine_frame_safe(candidate_frame);
+            if (!frame_ok) {
+                last_reason = newton == 0 ? 21 : 22;
+                break;
+            }
+            const Complex residual(
+                mapped.x - (source.x + target_offset.x),
+                mapped.y - (source.y + target_offset.y));
+            residual_norm = std::abs(residual);
+            if (residual_norm <= kLocal7SpineTargetTolCells * source_step) {
+                break;
+            }
+            const Complex dz = local7_apply_inverse_jacobian(candidate_frame, residual);
+            double damping = 1.0;
+            const double dz_abs = std::abs(dz);
+            const double max_dz = 4.0 * std::max(std::abs(step), source_step);
+            if (dz_abs > max_dz && dz_abs > 0.0) {
+                damping = max_dz / dz_abs;
+            }
+            corrected.x -= damping * dz.real();
+            corrected.y -= damping * dz.imag();
+        }
+        if (frame_ok) {
+            const double dot =
+                current_frame.e_lx * candidate_frame.e_lx + current_frame.e_ly * candidate_frame.e_ly;
+            if (residual_norm <= kLocal7SpineTargetTolCells * source_step &&
+                std::abs(dot) >= std::cos(kLocal7SpineCurvatureMax)) {
+                *output = {corrected, target_offset, candidate_frame, 0.0};
+                return true;
+            }
+            last_reason = residual_norm > kLocal7SpineTargetTolCells * source_step ? 23 : 24;
+        }
+        step *= 0.5;
+        if (std::abs(step) < min_abs_step) {
+            break;
+        }
+    }
+    if (fail_reason != nullptr) {
+        *fail_reason = last_reason;
+    }
+    return false;
+}
+
+bool local7_build_spine_direction(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    double source_step,
+    const Local7SpinePoint& seed,
+    double sign,
+    std::vector<Local7SpinePoint>* points,
+    Local7TimingStats* timing,
+    int* fail_reason)
+{
+    SourcePosition current = seed.image;
+    SourcePosition current_source_offset = seed.source_offset;
+    Local7Frame frame = seed.frame;
+    int guard = 0;
+    while (++guard < kLocal7SpineMaxPoints) {
+        const double step = sign * local7_spine_step(frame, source_step, source_radius);
+        Local7SpinePoint next;
+        if (!local7_spine_try_step(
+                mapper,
+                source,
+                source_radius,
+                source_step,
+                current,
+                current_source_offset,
+                frame,
+                step,
+                &next,
+                timing,
+                fail_reason)) {
+            return true;
+        }
+        points->push_back(next);
+        if (timing != nullptr) {
+            ++timing->spine_points;
+        }
+        current = next.image;
+        current_source_offset = next.source_offset;
+        frame = next.frame;
+        if (static_cast<int>(points->size()) > kLocal7SpineMaxPoints) {
+            return false;
+        }
+    }
+    return false;
+}
+
+double local7_spine_integrate_normals(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    const std::vector<Local7SpinePoint>& spine,
+    double source_step,
+    Local7TimingStats* timing,
+    int* fallback_reason)
+{
+    const double radius2 = source_radius * source_radius;
+    const double inv_radius2 = 1.0 / radius2;
+    double area = 0.0;
+    long long normal_samples = 0;
+    for (std::size_t i = 0; i < spine.size(); ++i) {
+        const auto& point = spine[i];
+        const double tangent_weight = 2.0 * point.half_weight;
+        if (!std::isfinite(tangent_weight) || tangent_weight <= 0.0) {
+            *fallback_reason = 10;
+            return std::nan("");
+        }
+        const double normal_step = std::min(
+            std::max(source_step / std::max(std::abs(point.frame.lambda_s), kLocal7LambdaMin),
+                kLocal7SpineMinStepCells * source_step),
+            kLocal7SpineMaxStepCells * source_step) * kLocal7SpineNormalSubstep;
+        const double cell_area = tangent_weight * normal_step;
+        if (!std::isfinite(cell_area) || cell_area <= 0.0) {
+            *fallback_reason = 11;
+            return std::nan("");
+        }
+
+        for (int direction = -1; direction <= 1; direction += 2) {
+            int outside = 0;
+            for (int n = direction == -1 ? -1 : 0; ; n += direction) {
+                const double offset = static_cast<double>(n) * normal_step;
+                const SourcePosition image {
+                    point.image.x + offset * point.frame.e_sx,
+                    point.image.y + offset * point.frame.e_sy,
+                };
+                const SourcePosition mapped = map_binary_lens_real(mapper, image.x, image.y);
+                if (timing != nullptr) {
+                    ++timing->exact_lens_evals;
+                    ++timing->spine_exact_lens_evals;
+                }
+                ++normal_samples;
+                if (normal_samples > kLocal7SpineMaxNormalSamples) {
+                    *fallback_reason = 12;
+                    return std::nan("");
+                }
+                const double dx = mapped.x - source.x;
+                const double dy = mapped.y - source.y;
+                const double q = (dx * dx + dy * dy) * inv_radius2;
+                if (q <= 1.0) {
+                    outside = 0;
+                    area += legacy_limb_brightness(q, settings, finite_magnifier) * cell_area;
+                    if (timing != nullptr) {
+                        ++timing->exact_samples;
+                    }
+                } else {
+                    ++outside;
+                    if (outside >= kLocal7SpineOutsideStop) {
+                        break;
+                    }
+                }
+                if (std::abs(offset) > 4.0 * source_radius / std::max(std::abs(point.frame.lambda_s), kLocal7LambdaMin)) {
+                    *fallback_reason = 13;
+                    return std::nan("");
+                }
+            }
+        }
+    }
+    if (timing != nullptr) {
+        timing->spine_normal_samples += normal_samples;
+    }
+    return area;
+}
+
+double local7_spine_area_binary(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    const Local7Frame& seed_frame,
+    Local7TimingStats* timing,
+    int* fallback_reason)
+{
+    *fallback_reason = 0;
+    if (!local7_spine_frame_safe(seed_frame) || !local7_is_spine_candidate(seed_frame)) {
+        *fallback_reason = 1;
+        return std::nan("");
+    }
+
+    const int bins = std::max(settings.source_bins, 1);
+    const double source_step = source_radius / static_cast<double>(bins);
+    std::vector<Local7SpinePoint> minus_points;
+    std::vector<Local7SpinePoint> plus_points;
+    minus_points.reserve(1024);
+    plus_points.reserve(1024);
+    const Local7SpinePoint seed {
+        {seed_frame.za.real(), seed_frame.za.imag()},
+        seed_frame.sa,
+        seed_frame,
+        0.0,
+    };
+    if (!local7_build_spine_direction(
+            mapper, source, source_radius, source_step, seed, -1.0, &minus_points, timing, fallback_reason) ||
+        !local7_build_spine_direction(
+            mapper, source, source_radius, source_step, seed, 1.0, &plus_points, timing, fallback_reason)) {
+        *fallback_reason = 2;
+        return std::nan("");
+    }
+
+    std::vector<Local7SpinePoint> spine;
+    spine.reserve(minus_points.size() + plus_points.size() + 1);
+    for (auto it = minus_points.rbegin(); it != minus_points.rend(); ++it) {
+        spine.push_back(*it);
+    }
+    spine.push_back(seed);
+    for (const auto& point : plus_points) {
+        spine.push_back(point);
+    }
+    if (spine.size() < 3) {
+        if (*fallback_reason == 0) {
+            *fallback_reason = 3;
+        }
+        return std::nan("");
+    }
+    if (timing != nullptr) {
+        ++timing->spine_points;
+    }
+
+    for (std::size_t i = 0; i < spine.size(); ++i) {
+        double left_cross = 0.0;
+        double right_cross = 0.0;
+        double left_source = 0.0;
+        double right_source = 0.0;
+        if (i > 0) {
+            const double dx = spine[i].image.x - spine[i - 1].image.x;
+            const double dy = spine[i].image.y - spine[i - 1].image.y;
+            left_cross = std::abs(dx * spine[i].frame.e_sy - dy * spine[i].frame.e_sx);
+            left_source = std::hypot(spine[i].source_offset.x - spine[i - 1].source_offset.x,
+                spine[i].source_offset.y - spine[i - 1].source_offset.y);
+        }
+        if (i + 1 < spine.size()) {
+            const double dx = spine[i + 1].image.x - spine[i].image.x;
+            const double dy = spine[i + 1].image.y - spine[i].image.y;
+            right_cross = std::abs(dx * spine[i].frame.e_sy - dy * spine[i].frame.e_sx);
+            right_source = std::hypot(spine[i + 1].source_offset.x - spine[i].source_offset.x,
+                spine[i + 1].source_offset.y - spine[i].source_offset.y);
+        }
+        if (i == 0) {
+            left_cross = right_cross;
+            left_source = right_source;
+        } else if (i + 1 == spine.size()) {
+            right_cross = left_cross;
+            right_source = left_source;
+        }
+        spine[i].half_weight = 0.25 * (left_cross + right_cross);
+        if (!std::isfinite(spine[i].half_weight) || spine[i].half_weight <= 0.0 ||
+            left_source > kLocal7SpineMaxStepCells * source_step * 2.0 ||
+            right_source > kLocal7SpineMaxStepCells * source_step * 2.0) {
+            *fallback_reason = 4;
+            return std::nan("");
+        }
+    }
+
+    const double area = local7_spine_integrate_normals(
+        mapper,
+        source,
+        source_radius,
+        settings,
+        finite_magnifier,
+        spine,
+        source_step,
+        timing,
+        fallback_reason);
+    const double total_source = source_flux(source_radius, settings);
+    if (!std::isfinite(area) || area <= 0.0 ||
+        !std::isfinite(total_source) || total_source <= 0.0 ||
+        area / total_source > kLocal7SpineMaxRelativeArea) {
+        if (*fallback_reason == 0) {
+            *fallback_reason = 5;
+        }
+        return std::nan("");
+    }
+    return area;
+}
+
 double local7_imagearea0_binary(
     const BinaryLensMapper& mapper,
     SourcePosition source,
@@ -1986,6 +2451,51 @@ double inverse_ray_local_binary(
         if (use_derivative_steps) {
             ++timing.safe_branches;
         }
+
+        const Local7SpineEligibility spine_eligibility =
+            use_derivative_steps ?
+                Local7SpineEligibility {} :
+                local7_spine_eligibility(
+                    seeds,
+                    overlap,
+                    image_index,
+                    frame,
+                    source,
+                    source_step,
+                    mapper,
+                    timing.caustic_born_branches);
+        if (!use_derivative_steps && !spine_eligibility.ok &&
+            timing.spine_branches == 0 && timing.spine_fallback_reason == 0) {
+            timing.spine_fallback_reason = spine_eligibility.reason;
+        }
+        if (spine_eligibility.ok) {
+            int spine_fallback_reason = 0;
+            double spine_area = std::nan("");
+            double pair_spine_area = 0.0;
+            {
+                Local7ScopedTimer timer(&timing.spine_ms);
+                spine_area = local7_spine_area_binary(
+                    mapper,
+                    source,
+                    source_radius,
+                    settings,
+                    finite_magnifier,
+                    frame,
+                    &timing,
+                    &spine_fallback_reason);
+            }
+            if (std::isfinite(spine_area) && spine_area > 0.0) {
+                ++timing.spine_branches;
+                timing.spine_fallback_reason = 0;
+                area += spine_area;
+                areaimage[image_index] = spine_area;
+                overlap[spine_eligibility.pair_index] = 1;
+                continue;
+            }
+            ++timing.spine_fallbacks;
+            timing.spine_fallback_reason = spine_fallback_reason;
+        }
+
         const double step_l = use_derivative_steps ? source_step / frame.lambda_l :
                                                    std::copysign(source_step, frame.lambda_l);
         const double step_s = use_derivative_steps ? source_step / frame.lambda_s : source_step;
@@ -2157,20 +2667,29 @@ double inverse_ray_local_binary(
     if (settings.verbosity >= 3) {
         std::fprintf(stderr,
             "#LOCAL7TIMING total_ms=%.6g seed_ms=%.6g frame_ms=%.6g safe_scan_ms=%.6g "
-            "exact_scan_ms=%.6g check_ms=%.6g exact_lens_evals=%lld derivative_samples=%lld "
-            "exact_samples=%lld caustic_born_branches=%d safe_branches=%d fallback_calls=%d "
+            "exact_scan_ms=%.6g spine_ms=%.6g check_ms=%.6g exact_lens_evals=%lld "
+            "derivative_samples=%lld exact_samples=%lld spine_points=%lld spine_normal_samples=%lld "
+            "spine_exact_lens_evals=%lld caustic_born_branches=%d safe_branches=%d "
+            "spine_branches=%d spine_fallbacks=%d spine_fallback_reason=%d fallback_calls=%d "
             "nseed=%zu bins=%d rho=%.9g count=%.12g\n",
             Local7TimingStats::elapsed_ms(timing.total_start),
             timing.seed_ms,
             timing.frame_ms,
             timing.safe_scan_ms,
             timing.exact_scan_ms,
+            timing.spine_ms,
             timing.check_ms,
             timing.exact_lens_evals,
             timing.derivative_step_samples,
             timing.exact_samples,
+            timing.spine_points,
+            timing.spine_normal_samples,
+            timing.spine_exact_lens_evals,
             timing.caustic_born_branches,
             timing.safe_branches,
+            timing.spine_branches,
+            timing.spine_fallbacks,
+            timing.spine_fallback_reason,
             timing.fallback_calls,
             seeds.size(),
             bins,

@@ -312,6 +312,51 @@ def test_lcbinint_direct_mode7_local_inverse_ray_matches_vbm_smoke(
     assert math.isclose(actual, reference, rel_tol=2.0e-3, abs_tol=2.0e-3)
 
 
+def test_lcbinint_direct_mode7_spine_caustic_pair_matches_mode4():
+    lcbinint = pytest.importorskip("lcbinint")
+
+    separation = 1.4
+    mass_ratio = 0.4
+    y1 = -0.24854045037531268
+    y2 = -0.15
+    rho = 1.0e-4
+    source_bins = 300
+    limb_darkening_c = 0.5
+
+    reference = lcbinint.legacy_binary_finite_mag_direct(
+        separation, mass_ratio, y1, y2, rho, 4, source_bins, limb_darkening_c
+    )
+    actual = lcbinint.legacy_binary_finite_mag_direct(
+        separation, mass_ratio, y1, y2, rho, 7, source_bins, limb_darkening_c
+    )
+
+    assert math.isfinite(actual)
+    assert math.isclose(actual, reference, rel_tol=2.0e-4, abs_tol=2.0e-4)
+
+
+@pytest.mark.parametrize(
+    "separation,mass_ratio,y1,y2,rho,source_bins,rel_tol",
+    [
+        pytest.param(0.6, 1.0, -0.09201927708355606, 0.029966615534330332, 0.003, 60, 5.0e-4,
+                     id="close_equal_mass_spine_fallback"),
+    ],
+)
+def test_lcbinint_direct_mode7_spine_broadening_matches_mode4(
+    separation, mass_ratio, y1, y2, rho, source_bins, rel_tol
+):
+    lcbinint = pytest.importorskip("lcbinint")
+
+    reference = lcbinint.legacy_binary_finite_mag_direct(
+        separation, mass_ratio, y1, y2, rho, 4, source_bins, 0.5
+    )
+    actual = lcbinint.legacy_binary_finite_mag_direct(
+        separation, mass_ratio, y1, y2, rho, 7, source_bins, 0.5
+    )
+
+    assert math.isfinite(actual)
+    assert math.isclose(actual, reference, rel_tol=rel_tol, abs_tol=rel_tol)
+
+
 @pytest.mark.parametrize("legacy_finite_mode", [4, 6])
 @pytest.mark.parametrize("limb_darkened", [False, True])
 def test_lcbinint_legacy_caustic_light_curve_points_match_vbm(
