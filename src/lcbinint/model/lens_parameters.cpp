@@ -68,6 +68,7 @@ ComputationOptions from_c_options(const lcbi_options *options)
     out.legacy_hex = options->legacy_hex;
     out.tolerance = options->tolerance;
     out.relative_tolerance = options->relative_tolerance;
+    out.verbosity = options->verbosity;
     return out;
 }
 

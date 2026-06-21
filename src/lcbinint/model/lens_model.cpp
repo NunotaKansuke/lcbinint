@@ -54,6 +54,7 @@ magnification::FiniteSourceSettings finite_source_settings(
     settings.legacy_hex = options.legacy_hex;
     settings.limb_darkening_c = params.limb_darkening_c;
     settings.limb_darkening_d = params.limb_darkening_d;
+    settings.verbosity = options.verbosity;
     switch (options.inverse_ray_method) {
     case LCBI_INVERSE_RAY_CARTESIAN:
         settings.inverse_ray_method = magnification::InverseRayMethod::cartesian;

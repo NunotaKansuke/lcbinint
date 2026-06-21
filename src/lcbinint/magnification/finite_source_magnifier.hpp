@@ -34,6 +34,7 @@ struct FiniteSourceSettings {
     double legacy_hex = 2.0;
     double limb_darkening_c = 0.0;
     double limb_darkening_d = 0.0;
+    int verbosity = 0;
 };
 
 struct FiniteSourceDecision {

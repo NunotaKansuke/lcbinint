@@ -414,7 +414,8 @@ PYBIND11_MODULE(lcbinint, m)
                          int legacy_finite_mode,
                          double grid_ratio,
                          double legacy_kinji,
-                         double legacy_hex) {
+                         double legacy_hex,
+                         int verbosity) {
                  auto options = lcbi_default_options();
                  options.finite_source_mode = finite_source_mode;
                  options.inverse_ray_method = inverse_ray_method;
@@ -427,6 +428,7 @@ PYBIND11_MODULE(lcbinint, m)
                  options.grid_ratio = grid_ratio;
                  options.legacy_kinji = legacy_kinji;
                  options.legacy_hex = legacy_hex;
+                 options.verbosity = verbosity;
                  return options;
              }),
             py::arg("finite_source_mode") = LCBI_SOURCE_AUTO,
@@ -439,7 +441,8 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("legacy_finite_mode") = 4,
             py::arg("grid_ratio") = 4.0,
             py::arg("legacy_kinji") = 9.0,
-            py::arg("legacy_hex") = 2.0)
+            py::arg("legacy_hex") = 2.0,
+            py::arg("verbosity") = 0)
         .def_readwrite("finite_source_mode", &lcbi_options::finite_source_mode)
         .def_readwrite("inverse_ray_method", &lcbi_options::inverse_ray_method)
         .def_readwrite("center_of_mass", &lcbi_options::center_of_mass)
@@ -450,7 +453,8 @@ PYBIND11_MODULE(lcbinint, m)
         .def_readwrite("legacy_finite_mode", &lcbi_options::legacy_finite_mode)
         .def_readwrite("grid_ratio", &lcbi_options::grid_ratio)
         .def_readwrite("legacy_kinji", &lcbi_options::legacy_kinji)
-        .def_readwrite("legacy_hex", &lcbi_options::legacy_hex);
+        .def_readwrite("legacy_hex", &lcbi_options::legacy_hex)
+        .def_readwrite("verbosity", &lcbi_options::verbosity);
 
     py::class_<PyLensModel>(m, "LensModel")
         .def(py::init<lcbi_params, lcbi_options>(),
@@ -496,13 +500,15 @@ PYBIND11_MODULE(lcbinint, m)
             int legacy_finite_mode,
             int source_bins,
             double limb_darkening_c,
-            double limb_darkening_d) {
+            double limb_darkening_d,
+            int verbosity) {
             lcbinint::magnification::FiniteSourceSettings settings;
             settings.legacy_mode = true;
             settings.legacy_finite_mode = legacy_finite_mode;
             settings.source_bins = source_bins;
             settings.limb_darkening_c = limb_darkening_c;
             settings.limb_darkening_d = limb_darkening_d;
+            settings.verbosity = verbosity;
             lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
             const auto result = magnifier.legacy_binary_finite_mag_direct(
                 separation, mass_ratio, {y1, y2}, rho, legacy_finite_mode);
@@ -520,6 +526,7 @@ PYBIND11_MODULE(lcbinint, m)
         py::arg("source_bins") = 80,
         py::arg("limb_darkening_c") = 0.0,
         py::arg("limb_darkening_d") = 0.0,
+        py::arg("verbosity") = 0,
         "Direct one-point legacy finite-source calculation without point/hex shortcuts.");
 
     m.def("circular_orbital_motion", [](double time,

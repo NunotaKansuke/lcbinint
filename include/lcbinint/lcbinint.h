@@ -84,6 +84,7 @@ typedef struct lcbi_options {
     double legacy_hex;
     double tolerance;
     double relative_tolerance;
+    int verbosity;
 } lcbi_options;
 
 typedef struct lcbi_result {

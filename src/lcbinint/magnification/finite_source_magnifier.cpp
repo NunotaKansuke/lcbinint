@@ -4,7 +4,9 @@
 #include "lcbinint/math/polynomial_roots.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <limits>
 #include <string>
 #include <unordered_map>
@@ -94,6 +96,45 @@ struct Local7Stats {
     double max_detvar = 0.0;
     double max_center_resid = 0.0;
     double max_audit_resid = 0.0;
+};
+
+struct Local7TimingStats {
+    using Clock = std::chrono::steady_clock;
+
+    Clock::time_point total_start = Clock::now();
+    double seed_ms = 0.0;
+    double frame_ms = 0.0;
+    double safe_scan_ms = 0.0;
+    double exact_scan_ms = 0.0;
+    double check_ms = 0.0;
+    long long exact_lens_evals = 0;
+    long long derivative_step_samples = 0;
+    long long exact_samples = 0;
+    int caustic_born_branches = 0;
+    int safe_branches = 0;
+    int fallback_calls = 0;
+
+    static double elapsed_ms(Clock::time_point start)
+    {
+        return std::chrono::duration<double, std::milli>(Clock::now() - start).count();
+    }
+};
+
+struct Local7ScopedTimer {
+    Local7TimingStats::Clock::time_point start;
+    double* accumulator = nullptr;
+
+    explicit Local7ScopedTimer(double* output)
+        : start(Local7TimingStats::Clock::now()), accumulator(output)
+    {
+    }
+
+    ~Local7ScopedTimer()
+    {
+        if (accumulator != nullptr) {
+            *accumulator += Local7TimingStats::elapsed_ms(start);
+        }
+    }
 };
 
 double legacy_limb_brightness(
@@ -1777,7 +1818,9 @@ double local7_imagearea0_binary(
     SourcePosition seed_uv,
     double dv,
     int& yi,
-    LegacyImageAreaScratch& scratch)
+    LegacyImageAreaScratch& scratch,
+    Local7TimingStats* timing,
+    bool derivative_steps)
 {
     double countx = 0.0;
     double countall = 0.0;
@@ -1804,6 +1847,9 @@ double local7_imagearea0_binary(
     while (++guard < max_steps) {
         const double dz2_last = dz2;
         dz2 = mapped_binary_lens_distance2(mapper, image.x, image.y, source);
+        if (timing != nullptr) {
+            ++timing->exact_lens_evals;
+        }
 
         scratch.ensure(static_cast<std::size_t>(yi));
         if (dz2 <= source_radius2) {
@@ -1811,6 +1857,13 @@ double local7_imagearea0_binary(
                 scratch.xmax[static_cast<std::size_t>(yi)] = uv.x - du;
             }
             countx += legacy_limb_brightness(dz2 * inv_source_radius2, settings, finite_magnifier);
+            if (timing != nullptr) {
+                if (derivative_steps) {
+                    ++timing->derivative_step_samples;
+                } else {
+                    ++timing->exact_samples;
+                }
+            }
         } else {
             if (du == 1.0) {
                 if (dz2_last <= source_radius2) {
@@ -1888,13 +1941,22 @@ double inverse_ray_local_binary(
         finite_magnifier != nullptr) {
         finite_magnifier->ensure_limb_darkening_table();
     }
+    Local7TimingStats timing;
 
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    const auto seeds =
-        legacy_augmented_image_seeds(point_magnifier, mapper, separation, mass_ratio, source, source_radius);
+    std::vector<SourcePosition> seeds;
+    std::size_t point_image_count = 0;
+    {
+        Local7ScopedTimer timer(&timing.seed_ms);
+        seeds = legacy_augmented_image_seeds(point_magnifier, mapper, separation, mass_ratio, source, source_radius);
+        point_image_count = point_magnifier.binary_images(separation, mass_ratio, source).size();
+    }
     if (seeds.empty()) {
         return std::nan("");
     }
+    timing.caustic_born_branches =
+        static_cast<int>(std::max<std::ptrdiff_t>(0, static_cast<std::ptrdiff_t>(seeds.size()) -
+                                                        static_cast<std::ptrdiff_t>(point_image_count)));
 
     const int bins = std::max(settings.source_bins, 1);
     const double source_step = source_radius / static_cast<double>(bins);
@@ -1907,16 +1969,23 @@ double inverse_ray_local_binary(
             continue;
         }
 
-        Local7Frame frame;
         const SourcePosition seed = seeds[image_index];
-        if (!local7_make_frame(Complex(seed.x, seed.y), source, mapper, &frame) ||
-            std::abs(frame.lambda_l) < kLocal7LambdaMin ||
-            std::abs(frame.lambda_s) < kLocal7LambdaMin ||
-            !std::isfinite(frame.area_jac)) {
-            return std::nan("");
+        Local7Frame frame;
+        {
+            Local7ScopedTimer timer(&timing.frame_ms);
+            if (!local7_make_frame(Complex(seed.x, seed.y), source, mapper, &frame) ||
+                std::abs(frame.lambda_l) < kLocal7LambdaMin ||
+                std::abs(frame.lambda_s) < kLocal7LambdaMin ||
+                !std::isfinite(frame.area_jac)) {
+                ++timing.fallback_calls;
+                return std::nan("");
+            }
         }
 
         const bool use_derivative_steps = seeds.size() < 5 && local7_can_use_derivative_steps(frame, source_radius);
+        if (use_derivative_steps) {
+            ++timing.safe_branches;
+        }
         const double step_l = use_derivative_steps ? source_step / frame.lambda_l :
                                                    std::copysign(source_step, frame.lambda_l);
         const double step_s = use_derivative_steps ? source_step / frame.lambda_s : source_step;
@@ -1935,8 +2004,12 @@ double inverse_ray_local_binary(
         const SourcePosition seed_uv {0.0, 0.0};
         scratch.xmin[0] = seed_uv.x;
         scratch.xmax[0] = seed_uv.x;
-        areai = local7_imagearea0_binary(
-            mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s, seed_uv, dv, yi, scratch);
+        {
+            Local7ScopedTimer timer(use_derivative_steps ? &timing.safe_scan_ms : &timing.exact_scan_ms);
+            areai = local7_imagearea0_binary(
+                mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s, seed_uv, dv, yi,
+                scratch, &timing, use_derivative_steps);
+        }
 
         dv = -1.0;
         scratch.ensure(static_cast<std::size_t>(yi));
@@ -1946,11 +2019,19 @@ double inverse_ray_local_binary(
         scratch.y[static_cast<std::size_t>(yi)] = scratch.y[0];
         scratch.dys[static_cast<std::size_t>(yi)] = dv;
         ++yi;
-        areai += local7_imagearea0_binary(
-            mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s, lower_seed_uv, dv, yi, scratch);
+        {
+            Local7ScopedTimer timer(use_derivative_steps ? &timing.safe_scan_ms : &timing.exact_scan_ms);
+            areai += local7_imagearea0_binary(
+                mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s, lower_seed_uv, dv, yi,
+                scratch, &timing, use_derivative_steps);
+        }
 
         int nyi = yi;
         double areabound = 0.0;
+        {
+        const auto check_start = Local7TimingStats::Clock::now();
+        const double safe_scan_before = timing.safe_scan_ms;
+        const double exact_scan_before = timing.exact_scan_ms;
         for (int row = 0; row < nyi; ++row) {
             scratch.ensure(static_cast<std::size_t>(row + 1));
             const double dumax =
@@ -1970,9 +2051,12 @@ double inverse_ray_local_binary(
                     dv = -scratch.dys[static_cast<std::size_t>(row)];
                     scratch.dys[static_cast<std::size_t>(yi)] = dv;
                     ++yi;
-                    area0 = local7_imagearea0_binary(
-                        mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s,
-                        extra_seed_uv, dv, yi, scratch);
+                    {
+                        Local7ScopedTimer timer(use_derivative_steps ? &timing.safe_scan_ms : &timing.exact_scan_ms);
+                        area0 = local7_imagearea0_binary(
+                            mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s,
+                            extra_seed_uv, dv, yi, scratch, &timing, use_derivative_steps);
+                    }
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -1989,9 +2073,12 @@ double inverse_ray_local_binary(
                     dv = scratch.dys[static_cast<std::size_t>(row)];
                     scratch.dys[static_cast<std::size_t>(yi)] = dv;
                     ++yi;
-                    area0 = local7_imagearea0_binary(
-                        mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s,
-                        extra_seed_uv, dv, yi, scratch);
+                    {
+                        Local7ScopedTimer timer(use_derivative_steps ? &timing.safe_scan_ms : &timing.exact_scan_ms);
+                        area0 = local7_imagearea0_binary(
+                            mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s,
+                            extra_seed_uv, dv, yi, scratch, &timing, use_derivative_steps);
+                    }
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -2008,9 +2095,12 @@ double inverse_ray_local_binary(
                     dv = -scratch.dys[static_cast<std::size_t>(row)];
                     scratch.dys[static_cast<std::size_t>(yi)] = dv;
                     ++yi;
-                    area0 = local7_imagearea0_binary(
-                        mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s,
-                        extra_seed_uv, dv, yi, scratch);
+                    {
+                        Local7ScopedTimer timer(use_derivative_steps ? &timing.safe_scan_ms : &timing.exact_scan_ms);
+                        area0 = local7_imagearea0_binary(
+                            mapper, source, source_radius, settings, finite_magnifier, frame, step_l, step_s,
+                            extra_seed_uv, dv, yi, scratch, &timing, use_derivative_steps);
+                    }
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -2022,10 +2112,16 @@ double inverse_ray_local_binary(
                 nyi = yi;
             }
         }
+        const double nested_scan_ms =
+            (timing.safe_scan_ms - safe_scan_before) + (timing.exact_scan_ms - exact_scan_before);
+        timing.check_ms += std::max(0.0, Local7TimingStats::elapsed_ms(check_start) - nested_scan_ms);
+        }
 
         area += areai * image_cell_area;
         areaimage[image_index] = areai * image_cell_area;
 
+        {
+        Local7ScopedTimer check_timer(&timing.check_ms);
         const double margin = 0.5 * 1.01;
         for (std::size_t other = 0; other < seeds.size(); ++other) {
             if (other == image_index) {
@@ -2050,6 +2146,7 @@ double inverse_ray_local_binary(
                 }
             }
         }
+        }
     }
 
     const double total_source_flux = source_flux(source_radius, settings);
@@ -2057,6 +2154,29 @@ double inverse_ray_local_binary(
         return std::nan("");
     }
     const double magnification = area / total_source_flux;
+    if (settings.verbosity >= 3) {
+        std::fprintf(stderr,
+            "#LOCAL7TIMING total_ms=%.6g seed_ms=%.6g frame_ms=%.6g safe_scan_ms=%.6g "
+            "exact_scan_ms=%.6g check_ms=%.6g exact_lens_evals=%lld derivative_samples=%lld "
+            "exact_samples=%lld caustic_born_branches=%d safe_branches=%d fallback_calls=%d "
+            "nseed=%zu bins=%d rho=%.9g count=%.12g\n",
+            Local7TimingStats::elapsed_ms(timing.total_start),
+            timing.seed_ms,
+            timing.frame_ms,
+            timing.safe_scan_ms,
+            timing.exact_scan_ms,
+            timing.check_ms,
+            timing.exact_lens_evals,
+            timing.derivative_step_samples,
+            timing.exact_samples,
+            timing.caustic_born_branches,
+            timing.safe_branches,
+            timing.fallback_calls,
+            seeds.size(),
+            bins,
+            source_radius,
+            magnification);
+    }
     return std::isfinite(magnification) ? magnification : std::nan("");
 }
 

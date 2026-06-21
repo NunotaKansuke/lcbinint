@@ -58,6 +58,7 @@ struct ComputationOptions {
     double legacy_hex = 2.0;
     double tolerance = 1.0e-3;
     double relative_tolerance = 0.0;
+    int verbosity = 0;
 
     bool forces_point_source() const { return finite_source_mode == LCBI_POINT_SOURCE; }
 };
