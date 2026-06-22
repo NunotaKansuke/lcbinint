@@ -1624,31 +1624,36 @@ FiniteSourceResult fixed_inverse_ray_binary(
                 if (!std::isfinite(refined_magnification)) {
                     return {refined_magnification, 0, decision, std::nan(""), refinement_level + 1, false};
                 }
-                const double adjacent_refinement_change =
-                    std::abs(refined_magnification - refinement_history.back());
-                const double previous_adjacent_refinement_change =
-                    refinement_history.size() >= 2
-                        ? std::abs(refinement_history.back() -
-                                   refinement_history[refinement_history.size() - 2])
-                        : std::numeric_limits<double>::infinity();
+                double min_history_change = std::numeric_limits<double>::infinity();
+                for (const double prev_mag : refinement_history) {
+                    min_history_change = std::min(
+                        min_history_change,
+                        std::abs(refined_magnification - prev_mag));
+                }
                 refinement_history.push_back(refined_magnification);
                 magnification = refined_magnification;
                 const double target = target_error(refined_magnification);
-                const bool refinement_is_monotonic =
-                    refinement_history.size() >= 3 &&
-                    adjacent_refinement_change <= previous_adjacent_refinement_change;
+                // Require at least two refinements (size >= 3 after push) before
+                // trusting self-consistency alone. At the first step (size == 2)
+                // only 50 bins and 100 bins have been computed; those two can agree
+                // on a wrong answer if seeding is unstable (e.g. the grazing-caustic
+                // probe seeds in commit 49b6fbe) or if the source is so small that
+                // both levels are below the resolution needed to detect the error.
+                // The min-over-all-history indicator with safety factor 0.5 tolerates
+                // non-monotone convergence (e.g. 100-bin outlier bracketed by 50 and
+                // 200 bins) while still catching slow-convergence false positives.
                 const bool self_consistent =
-                    (refinement_history.size() == 2 || refinement_is_monotonic) &&
-                    adjacent_refinement_change <= 0.5 * target;
+                    refinement_history.size() >= 3 &&
+                    min_history_change <= 0.5 * target;
                 if (self_consistent) {
                     error_estimate = std::max(
                         consistency_error(refined_magnification),
-                        adjacent_refinement_change);
+                        min_history_change);
                 } else {
                     error_estimate = std::max(
                         std::max(refined_diagnostics.estimated_error,
                                  consistency_error(refined_magnification)),
-                        adjacent_refinement_change);
+                        min_history_change);
                 }
                 required_bins = required_bins_from_high_magnification_floor(
                     refined_diagnostics, refined_magnification);
