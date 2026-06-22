@@ -503,6 +503,48 @@ def test_lcbinint_adaptive_source_bins_refines_cartesian_grid_from_diagnostics()
     assert adaptive_rel < 5.0e-5
 
 
+def test_lcbinint_cartesian_ir_seeds_grazing_caustic_limb_images():
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBBinaryLensing")
+
+    separation = 0.8
+    mass_ratio = 0.01
+    u0 = -0.01
+    alpha = 0.3
+    rho = 5.0e-3
+    time = 0.006015037593984918
+
+    vbb = module.VBBinaryLensing()
+    vbb.Tol = 1.0e-6
+    reference = vbb.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+        [time],
+    )[0][0]
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+    )
+    fixed = lcbinint.LensModel(
+        params,
+        lcbinint.Options(source_bins=50, vbbl_compatible=1, adaptive_source_bins=0),
+    ).magnification(time)
+    adaptive = lcbinint.LensModel(
+        params,
+        lcbinint.Options(source_bins=50, vbbl_compatible=1, reltol=1.0e-3, max_source_bins=400),
+    ).magnification(time)
+
+    assert math.isfinite(fixed)
+    assert math.isfinite(adaptive)
+    assert abs(fixed / reference - 1.0) < 3.0e-3
+    assert abs(adaptive / reference - 1.0) < 1.0e-3
+
+
 def test_lcbinint_cartesian_ir_does_not_clip_moderate_fold_image_area():
     lcbinint = pytest.importorskip("lcbinint")
     module = pytest.importorskip("VBBinaryLensing")

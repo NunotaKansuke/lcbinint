@@ -825,6 +825,33 @@ void append_caustic_probe_image_seeds(
                 probe_source, seeds);
         }
     }
+
+    if (seeds.size() <= 3) {
+        constexpr int angular_probes = 16;
+        const double radial_steps[] = {
+            0.02 * source_radius,
+            0.05 * source_radius,
+            0.10 * source_radius,
+            0.20 * source_radius,
+            0.35 * source_radius,
+        };
+        for (const double step : radial_steps) {
+            for (int i = 0; i < angular_probes; ++i) {
+                const double theta =
+                    2.0 * kPi * static_cast<double>(i) / static_cast<double>(angular_probes);
+                const SourcePosition probe_source {
+                    critical_source.x + step * std::cos(theta),
+                    critical_source.y + step * std::sin(theta),
+                };
+                append_valid_probe_image_seeds(
+                    point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                    probe_source, seeds);
+                if (seeds.size() > 3) {
+                    return;
+                }
+            }
+        }
+    }
 }
 
 void append_boundary_probe_image_seeds(
