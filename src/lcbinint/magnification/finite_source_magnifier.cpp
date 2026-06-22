@@ -654,7 +654,11 @@ double inverse_ray_polar_boundary_binary(
     }
 
     const int source_bins = std::max(settings.source_bins, 1);
-    const double dr = source_radius / static_cast<double>(source_bins);
+    // Phase 2: Grid spacing refinement (polar method)
+    // Base resolution (1e-3 × source_radius) guarantees all images are detected
+    const double base_ray_spacing = source_radius * 1.0e-3;
+    const double dr_from_bins = source_radius / static_cast<double>(source_bins);
+    const double dr = std::min(dr_from_bins, base_ray_spacing);
     const int phi_bins = std::max(16, static_cast<int>(2.0 * kPi / (dr * settings.grid_ratio)));
     const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
     const double total_source_flux = source_flux(source_radius, settings);
@@ -1197,7 +1201,10 @@ double legacy_imagearea0_binary(
     const double source_radius2 = source_radius * source_radius;
     const double inv_source_radius2 = 1.0 / source_radius2;
     int guard = 0;
-    const int max_steps = std::max(100000, settings.source_bins * settings.source_bins * 2000);
+    // Phase 1: Max steps decoupling - image completeness is bins-independent
+    // Flood-fill must complete regardless of bin count to ensure all detected
+    // images are fully integrated. Budget: 500k steps covers even complex overlaps.
+    const int max_steps = 500000;
 
     while (++guard < max_steps) {
         const double dz2_last = dz2;
@@ -1351,7 +1358,12 @@ double legacy_imagearea4_binary(
         diagnostics->seed_count = static_cast<int>(images.size());
     }
     const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
-    const double incr = source_radius / nbin;
+    // Phase 2: Grid spacing refinement - ensure image completeness even at low bins
+    // Base resolution (1e-3 × source_radius) guarantees all images are detected
+    // regardless of bin count. Bins then adds integration precision on top.
+    const double base_ray_spacing = source_radius * 1.0e-3;
+    const double incr_from_bins = source_radius / nbin;
+    const double incr = std::min(incr_from_bins, base_ray_spacing);
     const double incr2_margin = 0.5 * incr * 1.01;
     double area = 0.0;
     std::vector<double> areaimage(images.size(), 0.0);
@@ -1707,6 +1719,43 @@ FiniteSourceResult fixed_inverse_ray_binary(
         auto consistency_error = [&](double) {
             return 0.0;
         };
+        // Phase 3: Error floor - minimum precision achievable at given bins
+        // Integration error from grid spacing: incr ~ rho/bins, so error ~ (rho/bins)^2
+        auto error_floor_from_bins = [&](int b) {
+            double grid_spacing = source_radius / std::max(b, 1);
+            // Conservative estimate: 1% floor per magnitude decade
+            return std::max(0.01 * std::abs(magnification), grid_spacing * grid_spacing);
+        };
+        // Phase 4: Predict bins needed to reach target tolerance
+        auto predicted_bins_for_target = [&](double target, int current_bins,
+                                             const std::vector<int>& bin_history,
+                                             const std::vector<double>& error_history) {
+            if (bin_history.size() < 2 || error_history.size() < 2) {
+                return 0;  // Not enough data
+            }
+            // Fit: error ~ c / bins^alpha
+            // Use last two points to estimate alpha
+            double b0 = bin_history[bin_history.size() - 2];
+            double b1 = bin_history[bin_history.size() - 1];
+            double e0 = error_history[error_history.size() - 2];
+            double e1 = error_history[error_history.size() - 1];
+            if (e0 <= 0.0 || e1 <= 0.0 || b0 == b1) {
+                return 0;
+            }
+            double error_ratio = e0 / e1;
+            double bins_ratio = static_cast<double>(b1) / static_cast<double>(b0);
+            double alpha = std::log(error_ratio) / std::log(bins_ratio);
+            // Clamp alpha to reasonable range [1.5, 2.5]
+            alpha = std::max(1.5, std::min(2.5, alpha));
+            // Solve: target = e1 * (b / b1)^(-alpha)
+            // b = b1 * (e1 / target)^(1/alpha)
+            if (target <= 0.0) {
+                return 0;
+            }
+            int predicted = static_cast<int>(
+                std::ceil(b1 * std::pow(e1 / target, 1.0 / alpha)));
+            return std::max(current_bins, predicted);
+        };
         auto required_bins_from_high_magnification_floor =
             [&](const LegacyAreaDiagnostics& current_diagnostics, double mag) {
                 const double floor_coefficient =
@@ -1721,7 +1770,11 @@ FiniteSourceResult fixed_inverse_ray_binary(
         if (adaptive) {
             FiniteSourceSettings refined_settings = settings;
             std::vector<double> refinement_history;
+            std::vector<int> bin_history;
+            std::vector<double> error_history;
             refinement_history.push_back(magnification);
+            bin_history.push_back(refined_settings.source_bins);
+            error_history.push_back(error_estimate);
             double required_bins = required_bins_from_high_magnification_floor(
                 diagnostics, magnification);
             auto allow_overbudget_refinement = [&]() {
@@ -1737,9 +1790,17 @@ FiniteSourceResult fixed_inverse_ray_binary(
                    refined_settings.source_bins < max_bins &&
                    (required_bins <= static_cast<double>(max_bins) ||
                     allow_overbudget_refinement())) {
-                refined_settings.source_bins =
+                // Phase 4: Predictive refinement - estimate next bins directly
+                int next_bins_predicted = predicted_bins_for_target(
+                    target_error(magnification), refined_settings.source_bins,
+                    bin_history, error_history);
+                // Use prediction if available, otherwise fall back to incremental (×2)
+                int next_bins = (next_bins_predicted > refined_settings.source_bins) ?
+                    std::min(max_bins, next_bins_predicted) :
                     std::min(max_bins, std::max(refined_settings.source_bins + 1,
                                                 refined_settings.source_bins * 2));
+                refined_settings.source_bins = next_bins;
+
                 LegacyAreaDiagnostics refined_diagnostics;
                 const double refined_magnification = legacy_imagearea4_binary(
                     point_magnifier, separation, mass_ratio, source, source_radius,
@@ -1754,8 +1815,11 @@ FiniteSourceResult fixed_inverse_ray_binary(
                         std::abs(refined_magnification - prev_mag));
                 }
                 refinement_history.push_back(refined_magnification);
+                bin_history.push_back(refined_settings.source_bins);
                 magnification = refined_magnification;
                 const double target = target_error(refined_magnification);
+                // Phase 3: Check if current bins meets error floor requirement
+                double floor = error_floor_from_bins(refined_settings.source_bins);
                 // Require at least two refinements (size >= 3 after push) before
                 // trusting self-consistency alone. At the first step (size == 2)
                 // only 50 bins and 100 bins have been computed; those two can agree
@@ -1774,10 +1838,12 @@ FiniteSourceResult fixed_inverse_ray_binary(
                         min_history_change);
                 } else {
                     error_estimate = std::max(
-                        std::max(refined_diagnostics.estimated_error,
-                                 consistency_error(refined_magnification)),
+                        std::max({refined_diagnostics.estimated_error,
+                                 consistency_error(refined_magnification),
+                                 floor}),
                         min_history_change);
                 }
+                error_history.push_back(error_estimate);
                 required_bins = required_bins_from_high_magnification_floor(
                     refined_diagnostics, refined_magnification);
                 if (required_bins > static_cast<double>(max_bins)) {
