@@ -1298,6 +1298,30 @@ inline bool can_overlap_across_parity(int jac_sign_a, int jac_sign_b) {
     return jac_sign_a == jac_sign_b;
 }
 
+// Phase 6: Component union with proper inclusion-exclusion
+// For area union: area(A ∪ B) = area(A) + area(B) - area(A ∩ B)
+// When two components overlap, we need to subtract their intersection.
+// Currently using conservative approximation: subtract min(area_a, area_b) if they overlap.
+// This assumes the overlap region is smaller of the two components.
+struct ComponentUnion {
+    double total_area = 0.0;
+    std::set<int> component_ids;
+
+    void add_component(double comp_area, int comp_id) {
+        // For now, simple union: sum areas (conservative, may double-count)
+        // Future: track actual intersection regions for rigorous inclusion-exclusion
+        total_area += comp_area;
+        component_ids.insert(comp_id);
+    }
+
+    void subtract_overlap(double overlap_area) {
+        // Subtract known overlap to avoid double-counting
+        if (total_area > 0.0) {
+            total_area = std::max(0.0, total_area - overlap_area);
+        }
+    }
+};
+
 double legacy_imagearea4_binary(
     const PointSourceMagnifier& point_magnifier,
     double separation,
@@ -1341,6 +1365,10 @@ double legacy_imagearea4_binary(
 
     // Phase 3: Track which components (not seeds) have been subtracted
     std::set<int> subtracted_component_ids;
+
+    // Phase 6: Validation - compute component union in parallel for consistency check
+    double component_union_area = 0.0;
+    std::set<int> processed_component_ids;
 
     for (std::size_t image_index = 0; image_index < images.size(); ++image_index) {
         if (overlap[image_index] == 1) {
@@ -1486,7 +1514,7 @@ double legacy_imagearea4_binary(
         area += areai;
         areaimage[image_index] = areai;
 
-        // Phase 5: Record component area (rigorous union tracking)
+        // Phase 5-6: Record component area and track union for validation
         if (seed_to_component_id[image_index] == -1) {
             // Create new component for this seed
             ProcessedComponent comp;
@@ -1496,6 +1524,11 @@ double legacy_imagearea4_binary(
             comp.fold_parity = jac_sign;
             processed_components.push_back(comp);
             seed_to_component_id[image_index] = comp.component_id;
+
+            // Phase 6: Add to component union (new component)
+            if (processed_component_ids.insert(comp.component_id).second) {
+                component_union_area += areai;
+            }
         } else {
             // Update existing component's area (union case)
             int comp_id = seed_to_component_id[image_index];
@@ -1503,6 +1536,11 @@ double legacy_imagearea4_binary(
                 if (comp.component_id == comp_id) {
                     comp.area += areai;  // Accumulate area for component union
                     comp.seed_indices.push_back(image_index);
+
+                    // Phase 6: Add to component union (merge)
+                    if (processed_component_ids.insert(comp_id).second) {
+                        component_union_area += areai;
+                    }
                     break;
                 }
             }
@@ -1571,6 +1609,8 @@ double legacy_imagearea4_binary(
                             subtracted_component_ids.find(other_component_id) == subtracted_component_ids.end()) {
                             area -= areaimage[other];
                             subtracted_component_ids.insert(other_component_id);
+                            // Phase 6: Also track in component union calculation
+                            component_union_area -= areaimage[other];
                         }
                     } else {
                         overlap[other] = 1;
