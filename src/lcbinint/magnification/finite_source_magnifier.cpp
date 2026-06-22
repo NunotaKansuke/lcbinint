@@ -408,13 +408,15 @@ double high_magnification_floor_coefficient(
         (diagnostics.gap_repairs > 0 || diagnostics.max_jump_cells > 50.0)) {
         return 0.35;
     }
-    if (diagnostics.seed_count <= 5 &&
+    if (source_radius < 1.0e-2 &&
+        diagnostics.seed_count <= 5 &&
         std::abs(magnification) <= 10.0 &&
         diagnostics.gap_repairs > 0 &&
         diagnostics.max_jump_cells > 20.0) {
         return 0.06;
     }
-    if (diagnostics.seed_count <= 5 &&
+    if (source_radius < 1.0e-2 &&
+        diagnostics.seed_count <= 5 &&
         std::abs(magnification) <= 10.0 &&
         diagnostics.max_jump_cells > 1000.0) {
         return 0.07;
@@ -433,7 +435,8 @@ double high_magnification_floor_coefficient(
     if (source_radius < 1.0e-2 && std::abs(magnification) <= 1000.0) {
         return 0.10;
     }
-    if (diagnostics.seed_count <= 5 &&
+    if (source_radius < 1.0e-2 &&
+        diagnostics.seed_count <= 5 &&
         diagnostics.gap_repairs > 0 &&
         diagnostics.max_jump_cells > 20.0) {
         return 0.06;
@@ -455,25 +458,31 @@ double legacy_area_error_indicator(
         return 0.0;
     }
 
-    // The image-area scan is first-order at the mapped-source boundary.  Count
-    // uncertain boundary cells and weight known difficult features.  Constants
-    // are empirical and intentionally conservative; adaptive refinement only
-    // needs an indicator that is monotonic enough to decide whether to rerun.
-    const double gap_weight =
-        (source_radius < 1.0e-2 && diagnostics.seed_count >= 16) ? 0.02 : 0.05;
+    // The image-area scan is first-order at the mapped-source boundary.  The
+    // primary discretization error scales like boundary length times the cell
+    // spacing, which is approximated here by boundary_rows * cell_area.  Gap and
+    // overlap counts are topology warnings, not area errors, so keep their
+    // weights small and let high_magnification_floor_coefficient handle the
+    // known hard failure patterns.
+    const double gap_weight = source_radius >= 2.0e-2
+        ? 0.005
+        : ((source_radius < 1.0e-2 && diagnostics.seed_count >= 16) ? 0.015 : 0.03);
+    const double overlap_weight = source_radius >= 2.0e-2 ? 0.005 : 0.02;
+    const double boundary_weight = source_radius >= 2.0e-2 ? 0.012 : 0.03;
     double uncertain_cells =
-        0.0001 * static_cast<double>(diagnostics.boundary_rows) +
+        boundary_weight * static_cast<double>(diagnostics.boundary_rows) +
         gap_weight * static_cast<double>(diagnostics.gap_repairs) +
-        0.10 * static_cast<double>(diagnostics.overlaps) +
+        overlap_weight * static_cast<double>(diagnostics.overlaps) +
         0.02 * static_cast<double>(std::max(0, diagnostics.fold_seed_count)) +
-        0.02 * static_cast<double>(std::max(0, diagnostics.seed_count - 5));
+        0.002 * static_cast<double>(std::max(0, diagnostics.seed_count - 5));
     if (source_radius >= 1.0e-3 && diagnostics.seed_count >= 16 && diagnostics.overlaps >= 8) {
-        const double overlap_weight = source_radius < 1.0e-2 ? 0.005 : 2.0;
-        uncertain_cells += overlap_weight * static_cast<double>(diagnostics.seed_count) *
+        const double island_weight = source_radius < 1.0e-2 ? 0.001 : 0.0005;
+        uncertain_cells += island_weight * static_cast<double>(diagnostics.seed_count) *
                            static_cast<double>(diagnostics.overlaps);
     }
     if (source_radius >= 1.0e-3 && diagnostics.max_jump_cells > 10.0) {
-        uncertain_cells += 4.0 * std::log10(diagnostics.max_jump_cells / 10.0);
+        const double jump_weight = source_radius >= 2.0e-2 ? 0.2 : 4.0;
+        uncertain_cells += jump_weight * std::log10(diagnostics.max_jump_cells / 10.0);
     }
     const double cell_area = (source_radius / static_cast<double>(bins)) *
                              (source_radius / static_cast<double>(bins));
@@ -1588,25 +1597,31 @@ FiniteSourceResult fixed_inverse_ray_binary(
                 if (!std::isfinite(refined_magnification)) {
                     return {refined_magnification, 0, decision, std::nan(""), refinement_level + 1, false};
                 }
-                double refinement_consistency = std::numeric_limits<double>::infinity();
-                for (const double previous_magnification : refinement_history) {
-                    refinement_consistency = std::min(
-                        refinement_consistency,
-                        std::abs(refined_magnification - previous_magnification));
-                }
+                const double adjacent_refinement_change =
+                    std::abs(refined_magnification - refinement_history.back());
+                const double previous_adjacent_refinement_change =
+                    refinement_history.size() >= 2
+                        ? std::abs(refinement_history.back() -
+                                   refinement_history[refinement_history.size() - 2])
+                        : std::numeric_limits<double>::infinity();
                 refinement_history.push_back(refined_magnification);
                 magnification = refined_magnification;
                 const double target = target_error(refined_magnification);
-                if ((source_radius < 0.1 || refinement_history.size() >= 3) &&
-                    refinement_consistency <= target) {
+                const bool refinement_is_monotonic =
+                    refinement_history.size() >= 3 &&
+                    adjacent_refinement_change <= previous_adjacent_refinement_change;
+                const bool self_consistent =
+                    (refinement_history.size() == 2 || refinement_is_monotonic) &&
+                    adjacent_refinement_change <= 0.5 * target;
+                if (self_consistent) {
                     error_estimate = std::max(
                         consistency_error(refined_magnification),
-                        refinement_consistency);
+                        adjacent_refinement_change);
                 } else {
                     error_estimate = std::max(
                         std::max(refined_diagnostics.estimated_error,
                                  consistency_error(refined_magnification)),
-                        refinement_consistency);
+                        adjacent_refinement_change);
                 }
                 required_bins = required_bins_from_high_magnification_floor(
                     refined_diagnostics, refined_magnification);

@@ -907,6 +907,69 @@ A wider 48-random-case diagnostic (`random_times=51`, same seed and
 `source_bins=50, max_source_bins=400, reltol=1e-3`) also has
 `accepted_bad_total=0`, with median adaptive max relative error ~6.6e-5.
 
+### 2026-06-22 grid-spacing estimator update
+
+The first adaptive estimator was still too close to a VBBL-style "danger
+signal" model: many rows, jumps, gaps, or overlaps made the code refine even
+when fixed `source_bins=50` was already converged.  Single demonstration
+notebooks are not a useful performance target for this; the default policy
+should be judged by aggregate parameter sweeps split by LD/no-LD.  The
+estimator has therefore been recast around the actual cartesian image-area
+discretization scale:
+
+```text
+cell_area = (rho / source_bins)^2
+error ~ boundary_rows * cell_area / source_flux
+```
+
+`gap_repairs`, `overlaps`, `seed_count`, and `max_jump_cells` remain as topology
+warnings, but their weights are now small corrections to the boundary-cell
+estimate rather than dominant error terms.  The high-magnification/topology
+floors are retained only for small-source failure patterns and extreme sources
+where fixed-bin convergence is known to be unreliable.
+
+Important implementation details:
+
+- large-source (`rho >= 2e-2`) boundary and jump weights are reduced, because
+  large `boundary_rows` and `max_jump_cells` mostly reflect the size of the
+  image region rather than missing image area;
+- few-image gap/jump floors are gated to `rho < 1e-2` so they do not force
+  unnecessary large-source refinement;
+- adaptive self-consistency now uses adjacent refinement differences
+  `|A_N - A_{N/2}|` instead of the minimum over all previous grid levels.  A
+  one-step acceptance requires a safety factor (`<= target/2`); with three or
+  more levels the adjacent difference must also decrease monotonically.
+
+Current diagnostic status after this change:
+
+```text
+python tests/diagnostics/adaptive_source_bins_sweep.py \
+  --source-bins 50 --max-bins 400 --reltol 1e-3 \
+  --random 24 --random-times 51 --seed 20260622
+```
+
+passes with `accepted_bad_total=0`.  The remaining hard A~4500 cases are still
+reported as unconverged rather than silently accepted.
+
+The diagnostic script now prints aggregate speed ratios, because the important
+question is the global average behavior over lens/source parameters, not a
+single notebook case.  After rebuilding the editable Python extension, the
+current sweep gives:
+
+```text
+subset cases fixed/VBBL geo adaptive/VBBL geo adaptive/fixed geo
+all       32          3.98              5.71              1.44
+no LD     19          6.76              9.25              1.37
+LD        13          1.83              2.83              1.55
+```
+
+Interpretation: adaptive over-refinement is now a smaller part of the speed
+gap.  Even fixed 50-bin cartesian IR is still globally slower than VBBL,
+including LD cases, so the remaining speed work should focus on the
+`imagearea4` scan/seed/overlap implementation, cache reuse over light curves,
+or a contour-integral path.  The notebook should stay an illustrative plot, not
+the primary performance metric.
+
 ### Python API update
 
 Python `Options` now treats `tol`/`reltol` as the user-facing adaptive API:
