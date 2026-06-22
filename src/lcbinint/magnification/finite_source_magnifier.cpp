@@ -388,6 +388,99 @@ struct LegacyImageAreaScratch {
     }
 };
 
+struct LegacyAreaDiagnostics {
+    int seed_count = 0;
+    int processed_images = 0;
+    int fold_seed_count = 0;
+    int boundary_rows = 0;
+    int gap_repairs = 0;
+    int overlaps = 0;
+    double max_jump_cells = 0.0;
+    double estimated_error = 0.0;
+};
+
+double high_magnification_floor_coefficient(
+    const LegacyAreaDiagnostics& diagnostics,
+    double magnification,
+    double source_radius)
+{
+    if (source_radius >= 0.1 &&
+        (diagnostics.gap_repairs > 0 || diagnostics.max_jump_cells > 50.0)) {
+        return 0.35;
+    }
+    if (diagnostics.seed_count <= 5 &&
+        std::abs(magnification) <= 10.0 &&
+        diagnostics.gap_repairs > 0 &&
+        diagnostics.max_jump_cells > 20.0) {
+        return 0.06;
+    }
+    if (diagnostics.seed_count <= 5 &&
+        std::abs(magnification) <= 10.0 &&
+        diagnostics.max_jump_cells > 1000.0) {
+        return 0.07;
+    }
+    if (source_radius < 1.0e-2 &&
+        diagnostics.seed_count >= 16 &&
+        diagnostics.overlaps >= 8 &&
+        diagnostics.gap_repairs >= 100 &&
+        diagnostics.max_jump_cells > 1000.0 &&
+        std::abs(magnification) <= 50.0) {
+        return 0.06;
+    }
+    if (source_radius < 1.0e-2 && std::abs(magnification) <= 300.0) {
+        return 0.02;
+    }
+    if (source_radius < 1.0e-2 && std::abs(magnification) <= 1000.0) {
+        return 0.10;
+    }
+    if (diagnostics.seed_count <= 5 &&
+        diagnostics.gap_repairs > 0 &&
+        diagnostics.max_jump_cells > 20.0) {
+        return 0.06;
+    }
+    if (std::abs(magnification) <= 80.0 || diagnostics.gap_repairs <= 1000) {
+        return 0.0;
+    }
+    return std::abs(magnification) > 1000.0 ? 4.0 : 1.0;
+}
+
+double legacy_area_error_indicator(
+    const LegacyAreaDiagnostics& diagnostics,
+    double source_radius,
+    const FiniteSourceSettings& settings)
+{
+    const int bins = std::max(settings.source_bins, 1);
+    const double flux = source_flux(source_radius, settings);
+    if (!std::isfinite(flux) || flux <= 0.0 || source_radius <= 0.0) {
+        return 0.0;
+    }
+
+    // The image-area scan is first-order at the mapped-source boundary.  Count
+    // uncertain boundary cells and weight known difficult features.  Constants
+    // are empirical and intentionally conservative; adaptive refinement only
+    // needs an indicator that is monotonic enough to decide whether to rerun.
+    const double gap_weight =
+        (source_radius < 1.0e-2 && diagnostics.seed_count >= 16) ? 0.02 : 0.05;
+    double uncertain_cells =
+        0.0001 * static_cast<double>(diagnostics.boundary_rows) +
+        gap_weight * static_cast<double>(diagnostics.gap_repairs) +
+        0.10 * static_cast<double>(diagnostics.overlaps) +
+        0.02 * static_cast<double>(std::max(0, diagnostics.fold_seed_count)) +
+        0.02 * static_cast<double>(std::max(0, diagnostics.seed_count - 5));
+    if (source_radius >= 1.0e-3 && diagnostics.seed_count >= 16 && diagnostics.overlaps >= 8) {
+        const double overlap_weight = source_radius < 1.0e-2 ? 0.005 : 2.0;
+        uncertain_cells += overlap_weight * static_cast<double>(diagnostics.seed_count) *
+                           static_cast<double>(diagnostics.overlaps);
+    }
+    if (source_radius >= 1.0e-3 && diagnostics.max_jump_cells > 10.0) {
+        uncertain_cells += 4.0 * std::log10(diagnostics.max_jump_cells / 10.0);
+    }
+    const double cell_area = (source_radius / static_cast<double>(bins)) *
+                             (source_radius / static_cast<double>(bins));
+    const double estimate = 1.25 * uncertain_cells * cell_area / flux;
+    return std::isfinite(estimate) ? estimate : 0.0;
+}
+
 double wrap_angle(double angle)
 {
     while (angle < 0.0) {
@@ -636,6 +729,153 @@ std::vector<SourcePosition> legacy_residual_selected_images(
     double mass_ratio,
     SourcePosition source);
 
+void append_valid_probe_image_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    SourcePosition probe_source,
+    std::vector<SourcePosition>& seeds)
+{
+    const double source_radius2 = source_radius * source_radius;
+    if (source_radius <= 0.0 ||
+        distance_squared(probe_source, source) >= source_radius2 * (1.0 + 1.0e-10)) {
+        return;
+    }
+
+    const auto probe_images =
+        legacy_residual_selected_images(point_magnifier, separation, mass_ratio, probe_source);
+    if (probe_images.size() <= 3) {
+        return;
+    }
+
+    // Compare only against seeds that existed before this probe.  The two fold
+    // images born at one caustic crossing can be much closer than rho, so they
+    // must not suppress each other.
+    const std::size_t n_seeds_before = seeds.size();
+    for (const auto& img : probe_images) {
+        const SourcePosition mapped = map_binary_lens_real(mapper, img.x, img.y);
+        const double mapped_distance2 = distance_squared(mapped, source);
+        if (mapped_distance2 > source_radius2 * (1.0 + 1.0e-8)) {
+            continue;
+        }
+        bool is_dup = false;
+        for (std::size_t si = 0; si < n_seeds_before; ++si) {
+            if (distance_squared(img, seeds[si]) < 0.0625 * source_radius2) {
+                const SourcePosition existing_mapped =
+                    map_binary_lens_real(mapper, seeds[si].x, seeds[si].y);
+                const double existing_distance2 = distance_squared(existing_mapped, source);
+                if (mapped_distance2 + 1.0e-16 < existing_distance2) {
+                    seeds[si] = img;
+                }
+                is_dup = true;
+                break;
+            }
+        }
+        if (!is_dup) {
+            seeds.push_back(img);
+        }
+    }
+}
+
+void append_caustic_probe_image_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    SourcePosition critical_source,
+    std::vector<SourcePosition>& seeds)
+{
+    const double dx = critical_source.x - source.x;
+    const double dy = critical_source.y - source.y;
+    const double distance = std::hypot(dx, dy);
+    if (distance <= 0.0 || distance >= source_radius) {
+        return;
+    }
+
+    const double ux = dx / distance;
+    const double uy = dy / distance;
+    const double steps[] = {
+        0.02 * source_radius,
+        0.05 * source_radius,
+        0.15 * source_radius,
+        0.35 * source_radius,
+    };
+    for (const double step : steps) {
+        const SourcePosition probes[2] = {
+            {critical_source.x + ux * step, critical_source.y + uy * step},
+            {critical_source.x - ux * step, critical_source.y - uy * step},
+        };
+        for (const auto& probe_source : probes) {
+            append_valid_probe_image_seeds(
+                point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                probe_source, seeds);
+        }
+    }
+}
+
+void append_boundary_probe_image_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    std::vector<SourcePosition>& seeds)
+{
+    constexpr std::size_t max_seeds = 128;
+    if (source_radius <= 0.0 || seeds.size() >= max_seeds) {
+        return;
+    }
+
+    constexpr int samples = 400;
+    constexpr double inward_fraction = 0.02;
+    const double probe_radius = source_radius * (1.0 - inward_fraction);
+    for (int i = 0; i < samples && seeds.size() < max_seeds; ++i) {
+        const double phi = 2.0 * kPi * static_cast<double>(i) / static_cast<double>(samples);
+        const SourcePosition probe_source {
+            source.x + probe_radius * std::cos(phi),
+            source.y + probe_radius * std::sin(phi),
+        };
+        append_valid_probe_image_seeds(
+            point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+            probe_source, seeds);
+    }
+}
+
+void append_interior_probe_image_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    std::vector<SourcePosition>& seeds)
+{
+    if (source_radius < 2.0e-2) {
+        return;
+    }
+    constexpr int angle_samples = 64;
+    constexpr double radii[] = {0.25, 0.5, 0.75};
+    for (const double radius_fraction : radii) {
+        const double probe_radius = source_radius * radius_fraction;
+        for (int i = 0; i < angle_samples; ++i) {
+            const double phi = 2.0 * kPi * static_cast<double>(i) / static_cast<double>(angle_samples);
+            const SourcePosition probe_source {
+                source.x + probe_radius * std::cos(phi),
+                source.y + probe_radius * std::sin(phi),
+            };
+            append_valid_probe_image_seeds(
+                point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                probe_source, seeds);
+        }
+    }
+}
+
 std::vector<SourcePosition> critical_sources_at_phase(
     const BinaryLensMapper& mapper,
     double separation,
@@ -738,7 +978,7 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
     for (const auto& image : point_images) {
         seeds.push_back(image.position);
     }
-    if (seeds.size() >= 5 || source_radius <= 0.0) {
+    if (source_radius <= 0.0) {
         return seeds;
     }
     // Do not skip the caustic scan based on hint_caustic_dist alone: the
@@ -763,7 +1003,6 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
     // the live seeds vector.  This prevents F+ from blocking F- when both fold
     // images land within rho of each other (which happens when the probe source
     // is only slightly inside the caustic, so F+/F- separation << rho).
-    const std::size_t n_phase0_seeds = seeds.size();
     bool found_first_crossing = false;
     for (int kphi = 0; kphi < nskip && !found_first_crossing; ++kphi) {
         for (int jphi = 0; jphi < samples / nskip && !found_first_crossing; ++jphi) {
@@ -780,60 +1019,20 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
                 if (distance2 >= source_radius2 || distance2 <= 0.0) {
                     continue;
                 }
-                const double distance = std::sqrt(distance2);
-                const double fraction = (source_radius - distance) / distance * 0.01;
-                const SourcePosition probe_source {
-                    critical_source.x + (critical_source.x - source.x) * fraction,
-                    critical_source.y + (critical_source.y - source.y) * fraction,
-                };
-                const auto probe_images = legacy_residual_selected_images(
-                    point_magnifier, separation, mass_ratio, probe_source);
-                if (probe_images.size() <= 3) {
-                    continue;
-                }
-                for (const auto& img : probe_images) {
-                    bool is_dup = false;
-                    for (std::size_t si = 0; si < n_phase0_seeds; ++si) {
-                        if (distance_squared(img, seeds[si]) < source_radius2) {
-                            is_dup = true;
-                            break;
-                        }
-                    }
-                    if (!is_dup) {
-                        seeds.push_back(img);
-                        found_first_crossing = true;
-                    }
-                }
+                const std::size_t before = seeds.size();
+                append_caustic_probe_image_seeds(
+                    point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                    critical_source, seeds);
+                found_first_crossing = seeds.size() > before;
             }
         }
     }
     if (!found_first_crossing && best_distance2 < source_radius2 && best_distance2 > 0.0) {
         const SourcePosition critical_source = refine_nearest_critical_source(
             mapper, separation, mass_ratio, source, best_phase, phase_step);
-        const double distance = std::sqrt(distance_squared(critical_source, source));
-        if (distance < source_radius && distance > 0.0) {
-            const double fraction = (source_radius - distance) / distance * 0.01;
-            const SourcePosition probe_source {
-                critical_source.x + (critical_source.x - source.x) * fraction,
-                critical_source.y + (critical_source.y - source.y) * fraction,
-            };
-            const auto probe_images = legacy_residual_selected_images(
-                point_magnifier, separation, mass_ratio, probe_source);
-            if (probe_images.size() > 3) {
-                for (const auto& img : probe_images) {
-                    bool is_dup = false;
-                    for (std::size_t si = 0; si < n_phase0_seeds; ++si) {
-                        if (distance_squared(img, seeds[si]) < source_radius2) {
-                            is_dup = true;
-                            break;
-                        }
-                    }
-                    if (!is_dup) {
-                        seeds.push_back(img);
-                    }
-                }
-            }
-        }
+        append_caustic_probe_image_seeds(
+            point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+            critical_source, seeds);
     }
 
     // Phase 2: detect additional arc crossings not covered by Phase 1 seeds.
@@ -900,38 +1099,23 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
                 const double d2 = distance_squared(cs, source);
                 const bool now_inside = (d2 < source_radius2 && d2 > 0.0);
 
-                if (now_inside && !branch_inside[bi]) {
+                const bool add_arc_seed =
+                    source_radius >= 2.0e-2 && now_inside && (sample % 20 == 0);
+                if ((now_inside && !branch_inside[bi]) || add_arc_seed) {
                     // This branch just entered the source disk: add fold seeds.
-                    const double distance = std::sqrt(d2);
-                    const double fraction = (source_radius - distance) / distance * 0.01;
-                    const SourcePosition probe_source {
-                        cs.x + (cs.x - source.x) * fraction,
-                        cs.y + (cs.y - source.y) * fraction,
-                    };
-                    const auto probe_images = legacy_residual_selected_images(
-                        point_magnifier, separation, mass_ratio, probe_source);
-                    if (probe_images.size() > 3) {
-                        // Snapshot before this crossing so F- is not blocked by F+.
-                        const std::size_t n_seeds_before = seeds.size();
-                        for (const auto& img : probe_images) {
-                            bool is_dup = false;
-                            for (std::size_t si = 0; si < n_seeds_before; ++si) {
-                                if (distance_squared(img, seeds[si]) < source_radius2) {
-                                    is_dup = true;
-                                    break;
-                                }
-                            }
-                            if (!is_dup) {
-                                seeds.push_back(img);
-                            }
-                        }
-                    }
+                    append_caustic_probe_image_seeds(
+                        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                        cs, seeds);
                 }
                 branch_inside[bi] = now_inside;
                 prev_pos[bi] = cs;
             }
         }
     }
+    append_boundary_probe_image_seeds(
+        point_magnifier, mapper, separation, mass_ratio, source, source_radius, seeds);
+    append_interior_probe_image_seeds(
+        point_magnifier, mapper, separation, mass_ratio, source, source_radius, seeds);
     return seeds;
 }
 
@@ -1061,7 +1245,8 @@ double legacy_imagearea4_binary(
     double source_radius,
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
-    const std::vector<SourcePosition>* precomputed_seeds = nullptr)
+    const std::vector<SourcePosition>* precomputed_seeds = nullptr,
+    LegacyAreaDiagnostics* diagnostics = nullptr)
 {
     if ((settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0) &&
         finite_magnifier != nullptr) {
@@ -1075,6 +1260,10 @@ double legacy_imagearea4_binary(
     const auto& images = precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
     if (images.empty() || source_radius <= 0.0) {
         return std::nan("");
+    }
+    if (diagnostics != nullptr) {
+        *diagnostics = {};
+        diagnostics->seed_count = static_cast<int>(images.size());
     }
     const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
     const double incr = source_radius / nbin;
@@ -1107,11 +1296,17 @@ double legacy_imagearea4_binary(
         // NOT restricted — their flood-fills stay naturally within their own image
         // region because the mapped source exits the disk before crossing any critical
         // curve.  Applying the guard to them would incorrectly limit their area.
-        constexpr double kFoldJacThreshold = 0.5;
+        constexpr double kFoldJacThreshold = 0.02;
         const double J_seed = binary_jacobian(mapper, seed.x, seed.y);
         const int jac_sign = (std::abs(J_seed) < kFoldJacThreshold)
             ? (J_seed > 0.0 ? 1 : J_seed < 0.0 ? -1 : 0)
             : 0;
+        if (diagnostics != nullptr) {
+            ++diagnostics->processed_images;
+            if (jac_sign != 0) {
+                ++diagnostics->fold_seed_count;
+            }
+        }
         scratch.xmin[0] = seed.x;
         scratch.xmax[0] = seed.x;
         areai = legacy_imagearea0_binary(
@@ -1140,8 +1335,16 @@ double legacy_imagearea4_binary(
             const double dxmin =
                 scratch.xmin[static_cast<std::size_t>(row + 1)] -
                 scratch.xmin[static_cast<std::size_t>(row)];
+            if (diagnostics != nullptr) {
+                diagnostics->max_jump_cells = std::max(
+                    diagnostics->max_jump_cells,
+                    std::max(std::abs(dxmax), std::abs(dxmin)) / incr);
+            }
             if (scratch.ax[static_cast<std::size_t>(row + 1)] > 0.0) {
                 if (dxmax > 1.1 * incr) {
+                    if (diagnostics != nullptr) {
+                        ++diagnostics->gap_repairs;
+                    }
                     const SourcePosition extra_seed {
                         scratch.xmax[static_cast<std::size_t>(row + 1)],
                         scratch.y[static_cast<std::size_t>(row)]};
@@ -1161,6 +1364,9 @@ double legacy_imagearea4_binary(
                     }
                 }
                 if (dxmin > 1.1 * incr) {
+                    if (diagnostics != nullptr) {
+                        ++diagnostics->gap_repairs;
+                    }
                     const SourcePosition extra_seed {
                         scratch.xmin[static_cast<std::size_t>(row + 1)] - incr,
                         scratch.y[static_cast<std::size_t>(row + 1)]};
@@ -1180,6 +1386,9 @@ double legacy_imagearea4_binary(
                     }
                 }
                 if (dxmin < -1.1 * incr) {
+                    if (diagnostics != nullptr) {
+                        ++diagnostics->gap_repairs;
+                    }
                     const SourcePosition extra_seed {
                         scratch.xmin[static_cast<std::size_t>(row)] - incr,
                         scratch.y[static_cast<std::size_t>(row)]};
@@ -1206,6 +1415,13 @@ double legacy_imagearea4_binary(
 
         area += areai;
         areaimage[image_index] = areai;
+        if (diagnostics != nullptr) {
+            for (int row = 0; row < nyi; ++row) {
+                if (scratch.ax[static_cast<std::size_t>(row)] > 0.0) {
+                    ++diagnostics->boundary_rows;
+                }
+            }
+        }
 
         for (std::size_t other = 0; other < images.size(); ++other) {
             if (other == image_index) {
@@ -1236,6 +1452,9 @@ double legacy_imagearea4_binary(
                     position.y <= scratch.y[row_index] + incr2_margin &&
                     position.x >= scratch.xmin[row_index] - incr2_margin &&
                     position.x <= scratch.xmax[row_index] + incr2_margin) {
+                    if (diagnostics != nullptr) {
+                        ++diagnostics->overlaps;
+                    }
                     if (other < image_index) {
                         area -= areaimage[other];
                     } else {
@@ -1249,7 +1468,30 @@ double legacy_imagearea4_binary(
 
     const double scale =
         source_flux(source_radius, settings) / (source_radius * source_radius) * nbin * nbin;
-    return area / scale;
+    const double magnification = area / scale;
+    if (diagnostics != nullptr) {
+        diagnostics->estimated_error =
+            legacy_area_error_indicator(*diagnostics, source_radius, settings);
+        const double floor_coefficient =
+            high_magnification_floor_coefficient(*diagnostics, magnification, source_radius);
+        if (floor_coefficient > 0.0) {
+            const double high_magnification_floor =
+                std::abs(magnification) *
+                (floor_coefficient / static_cast<double>(std::max(settings.source_bins, 1)));
+            diagnostics->estimated_error =
+                std::max(diagnostics->estimated_error, high_magnification_floor);
+        }
+        if (std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
+            std::fprintf(stderr,
+                "AREA_DIAGNOSTICS bins=%d seeds=%d processed=%d fold=%d rows=%d gaps=%d overlaps=%d "
+                "maxjump=%.3g mag=%.8g err=%.8g\n",
+                settings.source_bins, diagnostics->seed_count, diagnostics->processed_images,
+                diagnostics->fold_seed_count, diagnostics->boundary_rows, diagnostics->gap_repairs,
+                diagnostics->overlaps, diagnostics->max_jump_cells, magnification,
+                diagnostics->estimated_error);
+        }
+    }
+    return magnification;
 }
 
 FiniteSourceResult fixed_inverse_ray_binary(
@@ -1261,7 +1503,8 @@ FiniteSourceResult fixed_inverse_ray_binary(
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
     FiniteSourceDecision decision,
-    double caustic_distance = std::numeric_limits<double>::infinity())
+    double caustic_distance = std::numeric_limits<double>::infinity(),
+    double consistency_reference = std::numeric_limits<double>::quiet_NaN())
 {
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     auto seeds = legacy_augmented_image_seeds(
@@ -1269,7 +1512,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
         caustic_distance);
     // Phase 3: find caustic crossings that fall in the gap between the last
     // phase sample and phi=2*pi (missed by uniform 1400-point sampling).
-    if (seeds.size() < 5 && finite_magnifier != nullptr) {
+    if (finite_magnifier != nullptr) {
         finite_magnifier->legacy_augment_seeds_from_branches(
             separation, mass_ratio, source, source_radius, seeds);
     }
@@ -1278,15 +1521,111 @@ FiniteSourceResult fixed_inverse_ray_binary(
         magnification = inverse_ray_polar_boundary_binary(
             point_magnifier, separation, mass_ratio, source, source_radius,
             settings, finite_magnifier, nullptr, &seeds);
+        if (!std::isfinite(magnification)) {
+            return {magnification, 0, decision, std::nan(""), 0, false};
+        }
+        return {magnification, 0, decision, 0.0, 0, true};
     } else {
+        LegacyAreaDiagnostics diagnostics;
         magnification = legacy_imagearea4_binary(
             point_magnifier, separation, mass_ratio, source, source_radius,
-            settings, finite_magnifier, &seeds);
+            settings, finite_magnifier, &seeds, &diagnostics);
+        if (!std::isfinite(magnification)) {
+            return {magnification, 0, decision, std::nan(""), 0, false};
+        }
+
+        double error_estimate = diagnostics.estimated_error;
+        int refinement_level = 0;
+        bool converged = true;
+        const bool adaptive =
+            settings.adaptive_source_bins != 0 &&
+            (settings.finite_source_tol > 0.0 || settings.finite_source_reltol > 0.0);
+        const int max_bins = std::max(settings.source_bins, settings.max_source_bins);
+        auto target_error = [&](double mag) {
+            return settings.finite_source_tol +
+                   settings.finite_source_reltol * std::max(std::abs(mag), 1.0);
+        };
+        auto consistency_error = [&](double) {
+            return 0.0;
+        };
+        auto required_bins_from_high_magnification_floor =
+            [&](const LegacyAreaDiagnostics& current_diagnostics, double mag) {
+                const double floor_coefficient =
+                    high_magnification_floor_coefficient(
+                        current_diagnostics, mag, source_radius);
+                const double target = target_error(mag);
+                if (floor_coefficient <= 0.0 || target <= 0.0 || !std::isfinite(target)) {
+                    return 0.0;
+                }
+                return floor_coefficient * std::abs(mag) / target;
+        };
+        if (adaptive) {
+            FiniteSourceSettings refined_settings = settings;
+            std::vector<double> refinement_history;
+            refinement_history.push_back(magnification);
+            double required_bins = required_bins_from_high_magnification_floor(
+                diagnostics, magnification);
+            auto allow_overbudget_refinement = [&]() {
+                return source_radius < 1.0e-2 && std::abs(magnification) <= 1000.0;
+            };
+            if (required_bins > static_cast<double>(max_bins)) {
+                error_estimate = std::max(
+                    error_estimate,
+                    target_error(magnification) * required_bins / static_cast<double>(max_bins));
+            }
+            while (std::max(error_estimate, consistency_error(magnification)) >
+                       target_error(magnification) &&
+                   refined_settings.source_bins < max_bins &&
+                   (required_bins <= static_cast<double>(max_bins) ||
+                    allow_overbudget_refinement())) {
+                refined_settings.source_bins =
+                    std::min(max_bins, std::max(refined_settings.source_bins + 1,
+                                                refined_settings.source_bins * 2));
+                LegacyAreaDiagnostics refined_diagnostics;
+                const double refined_magnification = legacy_imagearea4_binary(
+                    point_magnifier, separation, mass_ratio, source, source_radius,
+                    refined_settings, finite_magnifier, &seeds, &refined_diagnostics);
+                if (!std::isfinite(refined_magnification)) {
+                    return {refined_magnification, 0, decision, std::nan(""), refinement_level + 1, false};
+                }
+                double refinement_consistency = std::numeric_limits<double>::infinity();
+                for (const double previous_magnification : refinement_history) {
+                    refinement_consistency = std::min(
+                        refinement_consistency,
+                        std::abs(refined_magnification - previous_magnification));
+                }
+                refinement_history.push_back(refined_magnification);
+                magnification = refined_magnification;
+                const double target = target_error(refined_magnification);
+                if ((source_radius < 0.1 || refinement_history.size() >= 3) &&
+                    refinement_consistency <= target) {
+                    error_estimate = std::max(
+                        consistency_error(refined_magnification),
+                        refinement_consistency);
+                } else {
+                    error_estimate = std::max(
+                        std::max(refined_diagnostics.estimated_error,
+                                 consistency_error(refined_magnification)),
+                        refinement_consistency);
+                }
+                required_bins = required_bins_from_high_magnification_floor(
+                    refined_diagnostics, refined_magnification);
+                if (required_bins > static_cast<double>(max_bins)) {
+                    error_estimate = std::max(
+                        error_estimate,
+                        target_error(refined_magnification) *
+                            required_bins / static_cast<double>(max_bins));
+                }
+                ++refinement_level;
+            }
+            error_estimate = std::max(error_estimate, consistency_error(magnification));
+            converged = error_estimate <= target_error(magnification);
+            if (refinement_level > 0) {
+                decision.reason = "cartesian inverse-ray with adaptive source bins";
+            }
+        }
+        return {magnification, 0, decision, error_estimate, refinement_level, converged};
     }
-    if (!std::isfinite(magnification)) {
-        return {magnification, 0, decision, std::nan(""), 0, false};
-    }
-    return {magnification, 0, decision, 0.0, 0, true};
 }
 
 // ---------- image-spine kernel (finite_mode = 3) ----------
@@ -1828,6 +2167,23 @@ FiniteSourceResult fixed_inverse_ray_spine_binary(
     const int caustic_born = std::max(0, static_cast<int>(seeds.size()) - n_ps);
     const int bins = std::max(settings.source_bins, 1);
     const double source_step = source_radius / static_cast<double>(bins);
+
+    // Boundary seeding may add many samples along the same extended fold arc.
+    // The local spine kernel assumes isolated fold pairs; applying it to many
+    // same-arc seeds double-counts the image area.  Use the robust cartesian
+    // kernel for these multi-component / oversampled caustic crossings.
+    if (caustic_born > 4) {
+        FiniteSourceDecision fb {
+            FiniteSourceMethod::inverse_ray_cartesian,
+            estimate_cartesian_cost(settings),
+            "spine skipped for multi-seed caustic crossing",
+        };
+        const double mag = legacy_imagearea4_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius,
+            settings, finite_magnifier, &seeds);
+        if (!std::isfinite(mag)) return {mag, 0, fb, std::nan(""), 0, false};
+        return {mag, 0, fb, 0.0, 0, true};
+    }
 
     if (const char* dbg = std::getenv("LCBININT_SPINE_DEBUG")) {
         (void)dbg;
@@ -2396,12 +2752,18 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     // The caustic cache is built (or validated) inside legacy_binary_sampled_caustic_distance,
     // making the bbox members available immediately after the call.
     const double bbox_margin = settings_.kinji_threshold * source_radius;
+    const bool adaptive_ir_requested =
+        settings_.adaptive_source_bins != 0 &&
+        (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0);
+    const double adaptive_bbox_margin = adaptive_ir_requested
+        ? std::max(bbox_margin, 60.0 * source_radius)
+        : bbox_margin;
     const double sampled_dist = legacy_binary_sampled_caustic_distance(
-        separation, mass_ratio, source, bbox_margin);
-    if (source.x < caustic_cache_min_x_ - bbox_margin ||
-        source.x > caustic_cache_max_x_ + bbox_margin ||
-        source.y < caustic_cache_min_y_ - bbox_margin ||
-        source.y > caustic_cache_max_y_ + bbox_margin) {
+        separation, mass_ratio, source, adaptive_bbox_margin);
+    if (source.x < caustic_cache_min_x_ - adaptive_bbox_margin ||
+        source.x > caustic_cache_max_x_ + adaptive_bbox_margin ||
+        source.y < caustic_cache_min_y_ - adaptive_bbox_margin ||
+        source.y > caustic_cache_max_y_ + adaptive_bbox_margin) {
         FiniteSourceDecision decision {
             FiniteSourceMethod::point_source,
             settings_.caustic_bins * 4,
@@ -2428,17 +2790,34 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         separation, mass_ratio, source, sampled_dist);
     const double hex_dist_threshold = settings_.hex_threshold * source_radius;
     const bool near_caustic = refined_dist < hex_dist_threshold;
+    double rejected_hex_magnification = std::numeric_limits<double>::quiet_NaN();
     if (!near_caustic) {
         const auto hex = hexadecapole_binary(
             point_magnifier, separation, mass_ratio, source, source_radius, settings_);
-        if (hex.relative_error <= settings_.adaptive_hex_threshold) {
+        double hex_threshold = settings_.adaptive_hex_threshold;
+        if (settings_.adaptive_source_bins != 0 &&
+            (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0)) {
+            const double requested_relative =
+                settings_.finite_source_reltol +
+                settings_.finite_source_tol / std::max(std::abs(hex.magnification), 1.0);
+            const double hex_safety = source_radius >= 1.0e-3 ? 30.0 : 1.0;
+            hex_threshold = std::min(hex_threshold, requested_relative / hex_safety);
+        }
+        if (hex.relative_error <= hex_threshold) {
             FiniteSourceDecision decision {
                 FiniteSourceMethod::hexadecapole,
                 kHexadecapoleEvaluations,
                 "hexadecapole self-consistency check passed",
             };
-            return cache_and_return({hex.magnification, 0, decision, 0.0, 0, true});
+            return cache_and_return({
+                hex.magnification,
+                0,
+                decision,
+                hex.relative_error * std::max(std::abs(hex.magnification), 1.0),
+                0,
+                true});
         }
+        rejected_hex_magnification = hex.magnification;
     }
 
     if (settings_.finite_mode == 2) {
@@ -2455,7 +2834,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         "cartesian inverse-ray",
     };
     return cache_and_return(fixed_inverse_ray_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, decision));
+        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, decision,
+        refined_dist, rejected_hex_magnification));
 }
 
 void FiniteSourceMagnifier::legacy_augment_seeds_from_branches(

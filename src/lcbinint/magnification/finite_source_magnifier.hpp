@@ -20,12 +20,16 @@ struct FiniteSourceSettings {
     int source_bins = 50;
     int caustic_bins = 1400;
     double grid_ratio = 4.0;
-    int finite_mode = 1;       // 1 = cartesian, 2 = polar+cache, 3 = experimental spine
+    int finite_mode = 1;       // 1 = cartesian, 2 = polar+cache; 3 is internal experimental spine
     double kinji_threshold = 20.0;   // bbox margin for fast-PS exit (in units of rho)
     double hex_threshold = 3.0;      // unused when adaptive_hex_threshold > 0
     double adaptive_hex_threshold = 0.001;  // VBM-style: |a4 correction|/mag > this → IR
     double limb_darkening_c = 0.0;
     double limb_darkening_d = 0.0;
+    int adaptive_source_bins = 0;
+    int max_source_bins = 400;
+    double finite_source_tol = 0.0;
+    double finite_source_reltol = 0.0;
 };
 
 struct FiniteSourceDecision {

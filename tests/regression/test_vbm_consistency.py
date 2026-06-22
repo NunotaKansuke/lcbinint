@@ -370,6 +370,228 @@ def test_lcbinint_vbbl_compatible_mode_matches_binary_light_curve(
         assert math.isclose(actual_value, reference_value, rel_tol=1.5e-3, abs_tol=1.5e-3)
 
 
+@pytest.mark.parametrize("mode", [1, 2, 3])
+def test_lcbinint_vbbl_compatible_large_source_planetary_caustic_crossing(mode):
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBBinaryLensing")
+
+    separation = 1.0
+    mass_ratio = 0.001
+    u0 = -0.01
+    alpha = 0.5
+    rho = 0.01
+    times = [0.014035087719298178, 0.018045112781954864]
+
+    vbb = module.VBBinaryLensing()
+    vbb.Tol = 1.0e-3
+    reference = vbb.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+        times,
+    )[0]
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+    )
+    options = lcbinint.Options(
+        center_of_mass=1,
+        source_bins=200,
+        vbbl_compatible=1,
+        mode=mode,
+    )
+    actual = lcbinint.LensModel(params, options).light_curve(times).magnifications
+
+    for actual_value, reference_value in zip(actual, reference):
+        assert math.isfinite(actual_value)
+        assert math.isclose(actual_value, reference_value, rel_tol=2.5e-3, abs_tol=2.5e-3)
+
+
+def test_lcbinint_spine_mode_falls_back_for_oversampled_planetary_fold_arc():
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBBinaryLensing")
+
+    separation = 1.0
+    mass_ratio = 0.001
+    u0 = -0.01
+    alpha = 0.5
+    rho = 1.0e-4
+    times = [-0.03007518796992481, 0.04611528822055133]
+
+    vbb = module.VBBinaryLensing()
+    vbb.Tol = 1.0e-3
+    reference = vbb.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+        times,
+    )[0]
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+    )
+    options = lcbinint.Options(
+        center_of_mass=1,
+        source_bins=200,
+        vbbl_compatible=1,
+        mode=3,
+    )
+    actual = lcbinint.LensModel(params, options).light_curve(times).magnifications
+
+    for actual_value, reference_value in zip(actual, reference):
+        assert math.isfinite(actual_value)
+        assert math.isclose(actual_value, reference_value, rel_tol=5.0e-5, abs_tol=5.0e-5)
+
+
+def test_lcbinint_adaptive_source_bins_refines_cartesian_grid_from_diagnostics():
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBBinaryLensing")
+
+    separation = 1.0
+    mass_ratio = 0.001
+    u0 = -0.01
+    alpha = 0.5
+    rho = 1.0e-4
+    times = [-0.03007518796992481, 0.04611528822055133]
+
+    vbb = module.VBBinaryLensing()
+    vbb.Tol = 1.0e-3
+    reference = vbb.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+        times,
+    )[0]
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+    )
+    fixed_options = lcbinint.Options(
+        center_of_mass=1,
+        source_bins=50,
+        vbbl_compatible=1,
+    )
+    adaptive_options = lcbinint.Options(
+        center_of_mass=1,
+        source_bins=50,
+        adaptive_source_bins=1,
+        max_source_bins=200,
+        vbbl_compatible=1,
+        reltol=1.0e-4,
+    )
+
+    fixed = lcbinint.LensModel(params, fixed_options).light_curve(times).magnifications
+    adaptive = lcbinint.LensModel(params, adaptive_options).light_curve(times)
+    fixed_rel = max(abs(a / b - 1.0) for a, b in zip(fixed, reference))
+    adaptive_rel = max(abs(a / b - 1.0) for a, b in zip(adaptive.magnifications, reference))
+
+    assert max(adaptive.finite_source_refinement_levels) > 0
+    assert max(adaptive.finite_source_error_estimates) > 0.0
+    assert adaptive_rel < fixed_rel
+    assert adaptive_rel < 5.0e-5
+
+
+def test_lcbinint_cartesian_ir_does_not_clip_moderate_fold_image_area():
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBBinaryLensing")
+
+    separation = 1.160935533582098
+    mass_ratio = 0.003086323166308305
+    u0 = -0.001382074492745227
+    alpha = 0.7396109342207111
+    rho = 0.018442211657959038
+    time = 0.037042588756702244
+
+    vbb = module.VBBinaryLensing()
+    vbb.Tol = 1.0e-6
+    reference = vbb.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+        [time],
+    )[0][0]
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+    )
+    options = lcbinint.Options(
+        source_bins=50,
+        mode=1,
+        vbbl_compatible=1,
+    )
+    actual = lcbinint.LensModel(params, options).light_curve([time]).magnifications[0]
+
+    # Regression for the old |J| < 0.5 fold guard, which clipped a valid image
+    # component and converged to a biased value near 32.065 (rel. error ~1.8e-3).
+    assert math.isclose(actual, reference, rel_tol=1.0e-4, abs_tol=1.0e-4)
+
+
+@pytest.mark.parametrize(
+    ("rho", "time", "relative_tolerance"),
+    [
+        (3.0e-2, 0.05012531328320802, 1.0e-3),
+        (3.0e-1, 0.30275689223057634, 1.0e-3),
+    ],
+)
+def test_lcbinint_adaptive_large_source_seed_refinement_regressions(
+    rho,
+    time,
+    relative_tolerance,
+):
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBBinaryLensing")
+
+    separation = 1.0
+    mass_ratio = 0.001
+    u0 = -0.01
+    alpha = 0.5
+
+    vbb = module.VBBinaryLensing()
+    vbb.Tol = 1.0e-5
+    reference = vbb.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+        [time],
+    )[0][0]
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+    )
+    options = lcbinint.Options(
+        center_of_mass=1,
+        source_bins=50,
+        max_source_bins=400,
+        reltol=1.0e-3,
+        vbbl_compatible=1,
+    )
+    curve = lcbinint.LensModel(params, options).light_curve([time])
+    actual = curve.magnifications[0]
+
+    assert curve.all_converged
+    assert math.isclose(actual, reference, rel_tol=relative_tolerance, abs_tol=relative_tolerance)
+
+
 def test_lcbinint_options_exposes_fields():
     lcbinint = pytest.importorskip("lcbinint")
 
@@ -379,6 +601,10 @@ def test_lcbinint_options_exposes_fields():
         mode=2,
         point_source_threshold=8.0,
         hexadecapole_threshold=2.5,
+        adaptive_source_bins=1,
+        max_source_bins=160,
+        tol=1.0e-4,
+        reltol=2.0e-4,
     )
 
     assert options.caustic_bins == 128
@@ -386,6 +612,20 @@ def test_lcbinint_options_exposes_fields():
     assert options.mode == 2
     assert options.point_source_threshold == 8.0
     assert options.hexadecapole_threshold == 2.5
+    assert options.adaptive_source_bins == 1
+    assert options.max_source_bins == 160
+    assert options.finite_source_tol == 1.0e-4
+    assert options.finite_source_reltol == 2.0e-4
+    assert options.tol == 1.0e-4
+    assert options.reltol == 2.0e-4
+
+    auto_options = lcbinint.Options(reltol=1.0e-3)
+    assert auto_options.adaptive_source_bins == 1
+    assert auto_options.finite_source_reltol == 1.0e-3
+
+    fixed_options = lcbinint.Options(reltol=1.0e-3, adaptive_source_bins=0)
+    assert fixed_options.adaptive_source_bins == 0
+    assert fixed_options.finite_source_reltol == 1.0e-3
 
 
 def test_lcbinint_finite_source_smoke():

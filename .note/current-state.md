@@ -810,10 +810,163 @@ All 52 regression tests pass.
 ### Example notebook
 
 `example/compare-vbbl/lcbinint_vbm_light_curve_comparison.ipynb` now compares
-VBBL, mode=1, and mode=3 side by side.  For the default case (s=1, q=0.001,
-rho=0.01) the source is large enough that the var_ratio guard blocks spine
-activation at caustic-crossing points, so mode3 = mode1 throughout.  The
-notebook confirms no regression and shows relative timing for all three methods.
+VBBL and the public lcbinint finite-source path only.  Mode 3 remains in the
+code as an internal experimental spine kernel with regression coverage, but it
+is no longer presented as part of the public API or examples.
+
+## Adaptive Source-Bin Refinement (2026-06-22)
+
+Added an opt-in adaptive source-bin mode for the cartesian inverse-ray kernel:
+
+- `adaptive_source_bins=1` enables refinement.
+- `source_bins` is the first-pass grid.
+- `max_source_bins` caps refinement.
+- `finite_source_tol` / `finite_source_reltol` are VBM-style user-facing
+  targets.  Python also accepts aliases `tol` and `reltol`.
+
+The first pass runs at fixed `source_bins` and collects cheap diagnostics from
+the already-computed image-area scan: boundary rows, gap repairs, overlaps,
+fold seed count, and seed count.  These are converted into an empirical
+`finite_source_error_estimate` in magnification units.  If the estimate exceeds
+`tol + reltol * max(|mag|, 1)`, the scan is rerun with doubled `source_bins`
+until the target or `max_source_bins` is reached.
+
+This is not a rigorous VBBL-style contour-integral error bound; it is a
+grid-resolution indicator calibrated against VBBL and fixed-bin convergence.
+On the planetary test case (s=1, q=0.001, rho=1e-4), `source_bins=50` gives
+max relative error ~2.96e-4.  With `adaptive_source_bins=1, reltol=1e-4,
+max_source_bins=200`, only the problematic caustic-crossing point refines and
+the max relative error drops to ~2.85e-5.
+
+### Calibration update
+
+Added `tests/diagnostics/adaptive_source_bins_sweep.py` to compare fixed and
+adaptive grids against VBBL across representative planetary, close, resonant,
+wide/equal-mass, limb-darkened, and randomized high-magnification cases.
+
+Key changes from the first estimator:
+
+- Adaptive `tol`/`reltol` now also tightens the hexadecapole acceptance
+  threshold.  For `rho >= 1e-3`, the hex self-consistency error is divided by a
+  safety factor of 30 before accepting, because large-source tests showed hex
+  could underpredict the VBBL discrepancy by ~20-30x.
+- Adaptive mode uses a wider fast point-source bbox margin (`60*rho`) instead
+  of disabling the shortcut.  This keeps far-from-caustic points cheap while
+  avoiding the previous overly aggressive point-source exit near large finite
+  sources.
+- The cartesian IR error indicator includes a gated `max_jump_cells` term for
+  `rho >= 1e-3`, plus a multi-seed/overlap term for large source disks covering
+  caustic arcs.
+- The gap-repair term and overlap term are now source-size dependent.  For
+  small sources (`rho < 1e-2`), the estimator is intentionally less
+  conservative for the common A~10-300 cases where fixed-bin convergence and
+  VBBL comparisons show the raw 50-bin grid is already within `reltol=1e-3`.
+- Local high-magnification floors remain for known failure patterns:
+  very large sources, low-magnification few-image rows with large jumps, and
+  multi-seed/overlap rows with many gap repairs.  These floors trigger
+  refinement without making ordinary small-source caustic approaches
+  over-refine.
+- If the implied source-bin requirement exceeds `max_source_bins`, small-source
+  A<1000 cases are still refined up to the cap before being judged.  Extreme
+  A~4000 cases remain flagged `finite_source_converged=false` when the grid
+  topology is not reliable.
+- If hex is rejected and cartesian IR is used, the rejected hex magnification is
+  no longer treated as part of the IR grid-convergence error.  Hex rejection is
+  a mode-selection diagnostic; once the calculation has switched to inverse-ray,
+  convergence is judged from the image-area diagnostics and source-bin
+  self-consistency.
+
+Latest broad diagnostic (`source_bins=50, max_source_bins=400, reltol=1e-3`,
+24 randomized cases with 51 times each, seed 20260622) has
+`accepted_bad_total=0` and median adaptive max relative error ~1.0e-4.  The
+hard high-magnification cases are deliberately returned as unconverged rather
+than silently accepted.  This is the current default-policy candidate: guarantee
+by convergence flag, not by forcing cartesian IR to solve cases where its grid
+topology is not reliable.
+
+Follow-up: an apparent A~30 failure was not a resolution limit.  It was caused
+by the fold-image Jacobian-sign guard using too broad a threshold
+(`|J| < 0.5`), which clipped valid image area.  Tightening this to `|J| < 0.02`
+fixes the randomized case 016 test point:
+
+- VBBL reference: 32.1236247.
+- Previous cartesian IR converged to ~32.065 at all tested `source_bins`
+  (systematic relative error ~1.8e-3).
+- With the tighter guard, cartesian IR gives relative errors of order
+  1e-5-3e-5 for `source_bins=50..400`.
+
+The same 24-case diagnostic still has `accepted_bad_total=0`; the worst
+remaining cases are the genuinely extreme A~4500 peaks, which remain flagged
+as unconverged rather than accepted.
+
+After the guard fix, the medium-magnification error floor (`A > 20` plus large
+gap/jump diagnostics) was removed.  It had been compensating for the guard bug
+and was making too many A~30-100 cases report `finite_source_converged=false`.
+The 24-case diagnostic remains at `accepted_bad_total=0` after removing it.
+A wider 48-random-case diagnostic (`random_times=51`, same seed and
+`source_bins=50, max_source_bins=400, reltol=1e-3`) also has
+`accepted_bad_total=0`, with median adaptive max relative error ~6.6e-5.
+
+### Python API update
+
+Python `Options` now treats `tol`/`reltol` as the user-facing adaptive API:
+
+- `lcbinint.Options(reltol=1e-3)` automatically sets
+  `adaptive_source_bins=1`.
+- `lcbinint.Options(tol=...)` behaves the same way.
+- `lcbinint.Options(reltol=..., adaptive_source_bins=0)` keeps the fixed-grid
+  legacy behavior for expert/debug use.
+- `LightCurve` exposes `all_converged` and `unconverged_indices` in addition to
+  the per-point `finite_source_converged` flags.
+
+The VBBL comparison notebook now uses the high-level light-curve API with
+`Options(reltol=1e-3, source_bins=50, max_source_bins=400)`.  The example case
+uses a high-magnification finite-source trajectory:
+
+```text
+s=1, q=0.001, u0=-0.001, alpha=0, rho=3e-3
+```
+
+Current saved notebook result (`source_bins=50, max_source_bins=400,
+reltol=1e-3`):
+
+```text
+no LD: VBBL 0.0908 ms/pt, lcbinint 3.7934 ms/pt, max rel 6.546e-4, unconv 0
+LD:    VBBL 6.1567 ms/pt, lcbinint 4.3427 ms/pt, max rel 3.757e-4, unconv 0
+```
+
+The non-LD path is still much slower than VBBL because it uses the cartesian
+inverse-ray grid where VBBL can often use cheaper contour logic.  The
+limb-darkened path is faster than VBBL for this example because VBBL's LD
+integration cost grows substantially while lcbinint reuses the same image-area
+scan with different source weights.
+
+### Large-Source Seed Regression
+
+Fixed a root bug in `legacy_augmented_image_seeds`: the function returned early
+whenever the source center already had five point-source images.  For finite
+sources this is wrong, because a large source disk can still contain additional
+caustic/boundary image components that are not seeded by the center images.
+This caused isolated light-curve points to be wrong by several percent for
+large sources, e.g. `rho=0.03`, and by ~30% for `rho=0.3` at particular grid
+refinement levels.
+
+Current fixes:
+
+- always run finite-source caustic/boundary seed augmentation when
+  `source_radius > 0`, even if the source center has five images;
+- increase the boundary seed cap from 32 to 128;
+- use a tighter duplicate radius (`0.25*rho`) for probe image seeds so large
+  sources do not merge distinct image components too aggressively;
+- require adaptive refinement to agree with an earlier refinement before
+  accepting a result, which rejects transient bad grid levels such as
+  `source_bins=200` in the `rho=0.3` regression.
+
+Regression cases were added for `rho=0.03` and `rho=0.3`.  After the fix:
+
+- `rho=0.03`: max relative error is ~5.1e-4 over the 400-point example curve;
+- `rho=0.3`: max relative error is ~4.2e-4 over the same trajectory;
+- the 48-random-case diagnostic still has `accepted_bad_total=0`.
 
 ## Open Questions
 

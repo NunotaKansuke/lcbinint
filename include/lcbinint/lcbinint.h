@@ -64,12 +64,16 @@ typedef struct lcbi_options {
     int center_of_mass;
     int caustic_bins;
     int source_bins;
-    int mode;                        /* 1 = cartesian (default), 2 = polar+cache */
+    int mode;                        /* public: 1 = cartesian (default), 2 = polar+cache */
     int vbbl_compatible;             /* 0 = legacy (default), 1 = VBBL-compatible convention */
     double grid_ratio;
     double point_source_threshold;   /* bbox margin for fast PS exit (in units of rho) */
     double hexadecapole_threshold;   /* legacy; unused when adaptive_hex_threshold > 0 */
     double adaptive_hex_threshold;   /* VBM-style: |a4 correction|/mag > this => IR mode */
+    int adaptive_source_bins;        /* 0 = fixed source_bins, 1 = refine source_bins from grid diagnostics */
+    int max_source_bins;             /* maximum source_bins used by adaptive_source_bins */
+    double finite_source_tol;        /* absolute finite-source IR tolerance target; 0 disables */
+    double finite_source_reltol;     /* relative finite-source IR tolerance target; 0 disables */
 } lcbi_options;
 
 typedef struct lcbi_result {
@@ -79,6 +83,9 @@ typedef struct lcbi_result {
     double source_x;
     double source_y;
     int image_count;
+    double finite_source_error_estimate;
+    int finite_source_refinement_level;
+    int finite_source_converged;
 } lcbi_result;
 
 lcbi_params lcbi_default_params(void);
