@@ -2800,7 +2800,24 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             const double requested_relative =
                 settings_.finite_source_reltol +
                 settings_.finite_source_tol / std::max(std::abs(hex.magnification), 1.0);
-            const double hex_safety = source_radius >= 1.0e-3 ? 30.0 : 1.0;
+            // Graduate hex_safety by caustic distance.  The hex self-consistency
+            // check underestimates the actual error most severely when the source
+            // boundary is near a caustic fold (dist_ratio ~ hex_threshold).  For
+            // sources far from the caustic the Taylor expansion is reliable and
+            // needs little or no safety margin.
+            //
+            // Power-law: safety = 30 * (hex_threshold / dist_ratio)^3
+            // clamped to [1, 30].  This gives safety≈30 at dist_ratio=hex_threshold
+            // and safety≈1 at dist_ratio≈3*hex_threshold (~9 source radii away).
+            // For small sources (rho < 1e-3) hex is always reliable: safety=1.
+            double hex_safety = 1.0;
+            if (source_radius >= 1.0e-3 && std::isfinite(refined_dist) &&
+                source_radius > 0.0) {
+                const double dist_ratio = refined_dist / source_radius;
+                const double t =
+                    settings_.hex_threshold / std::max(dist_ratio, settings_.hex_threshold);
+                hex_safety = std::max(1.0, 30.0 * t * t * t);
+            }
             hex_threshold = std::min(hex_threshold, requested_relative / hex_safety);
         }
         if (hex.relative_error <= hex_threshold) {
