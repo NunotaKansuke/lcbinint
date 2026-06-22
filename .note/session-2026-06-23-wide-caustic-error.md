@@ -114,10 +114,41 @@ Two approaches can fix this:
 
 **Option C**: Use **hybrid method** that switches to polar for geometries showing non-monotonic convergence signs.
 
+## When Does This Problem Occur?
+
+**Required conditions (ALL must be true):**
+
+1. **Geometry**: Wide caustic (separation s < 1.5, typically s~0.95)
+   - Fold caustics with gentle slopes are most vulnerable
+   
+2. **Source size**: rho >= 0.01 (1% of Einstein radius or larger)
+   - Small sources (rho < 0.005) are unaffected
+   
+3. **Source near caustic**: Distance to caustic < 5×rho
+   - Sources far from caustics use hexadecapole, not IR
+   
+4. **Cartesian method active**: Using `inverse_ray_cartesian` (default)
+   - Not affecting `inverse_ray_polar` (rarely used by default)
+
+**Example trigger case:**
+```cpp
+Case(separation=0.95, mass_ratio=0.01, rho=0.01)
+// + source position straddling caustic
+// + 50-200 bin count range
+// = chaotic convergence at certain times
+```
+
+**Why these conditions matter:**
+
+- **Wide caustic** → low curvature → grid alignment matters more
+- **Large rho** → source disk crosses multiple caustic structures → grid aliasing amplified  
+- **Near caustic** → high magnification gradients → grid sampling misses critical regions
+- **Cartesian grid** → dy = rho/bins alignment-dependent → inevitable aliasing
+
 ## Path Forward
 
 1. Switch problematic geometries to use `inverse_ray_polar` method
 2. Add convergence detection logic to identify non-monotonic behavior
-3. Auto-switch to polar or increase resolution when aliasing is detected
+3. Auto-switch to polar when: rho >= 0.01 AND separation <= 1.0 AND near_caustic
 
 The current cartesian-only approach is insufficient for wide caustics with rho >= 0.01.
