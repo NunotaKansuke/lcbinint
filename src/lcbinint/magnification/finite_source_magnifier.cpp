@@ -1273,6 +1273,16 @@ double legacy_imagearea0_binary(
     return countall;
 }
 
+// Phase 1: Component-based union tracking (parallel to current implementation)
+// Used for future redesign, not yet integrated into main logic.
+// See .note/overlap-component-redesign.md for design rationale.
+struct ProcessedComponent {
+    int component_id;
+    std::vector<size_t> seed_indices;    // which seeds form this component
+    double area = 0.0;
+    int fold_parity = 0;                  // +1, -1, or 0 for jacobian sign
+};
+
 double legacy_imagearea4_binary(
     const PointSourceMagnifier& point_magnifier,
     double separation,
@@ -1308,6 +1318,11 @@ double legacy_imagearea4_binary(
     std::vector<double> areaimage(images.size(), 0.0);
     std::vector<int> overlap(images.size(), 0);
     std::vector<int> subtracted_previous_overlap(images.size(), 0);
+
+    // Phase 1: Component tracking parallel structure (not yet used in main logic)
+    std::vector<ProcessedComponent> processed_components;
+    std::vector<int> seed_to_component_id(images.size(), -1);  // -1 = not assigned
+    int next_component_id = 0;
 
     for (std::size_t image_index = 0; image_index < images.size(); ++image_index) {
         if (overlap[image_index] == 1) {
@@ -1452,6 +1467,20 @@ double legacy_imagearea4_binary(
 
         area += areai;
         areaimage[image_index] = areai;
+
+        // Phase 1: Parallel component tracking (to be used in Phase 2)
+        // For now, just record the seed's assignment and jacobian parity
+        if (seed_to_component_id[image_index] == -1) {
+            // Create new component for this seed
+            ProcessedComponent comp;
+            comp.component_id = next_component_id++;
+            comp.seed_indices.push_back(image_index);
+            comp.area = areai;
+            comp.fold_parity = jac_sign;
+            processed_components.push_back(comp);
+            seed_to_component_id[image_index] = comp.component_id;
+        }
+
         if (diagnostics != nullptr) {
             for (int row = 0; row < nyi; ++row) {
                 if (scratch.ax[static_cast<std::size_t>(row)] > 0.0) {
