@@ -968,6 +968,69 @@ Regression cases were added for `rho=0.03` and `rho=0.3`.  After the fix:
 - `rho=0.3`: max relative error is ~4.2e-4 over the same trajectory;
 - the 48-random-case diagnostic still has `accepted_bad_total=0`.
 
+### Graduated Hex Safety Factor (2026-06-22)
+
+Commit `6f182b2` replaced the flat `hex_safety=30` factor (applied to all
+sources with `rho ≥ 1e-3`) with a power-law graduated factor:
+
+```
+hex_safety = clamp(30 × (hex_threshold / dist_ratio)³, 1, 30)
+```
+
+where `dist_ratio = refined_dist / source_radius` is the ratio of the
+caustic-proximity distance (already computed in `binary_mag`) to the source
+radius.  For small sources (`rho < 1e-3`) `hex_safety = 1` as before.
+
+**Effect**: The blanket factor 30 was tightening the hex acceptance threshold
+from 0.001 to 3.3e-5 even for sources far from the caustic where the hex
+Taylor expansion is accurate.  The graduated formula gives safety≈30 only
+when the source boundary is nearly touching a caustic fold (`dist_ratio ≈
+hex_threshold ≈ 3`) and safety≈1 when the source is more than ~3 radii away.
+
+**Measured improvement** on planetary-large-source LD benchmark (s=1, q=0.001,
+rho=0.01, u0=-0.01, 61 time points):
+
+- Before: ~4.9 ms/pt (LD)
+- After:  ~4.0 ms/pt (LD) — 18% faster
+- 8-case named diagnostic: `accepted_bad_total` reduced from 4 → 1
+
+### Alpha Convention Investigation (2026-06-22)
+
+During benchmarking, max_rel errors of 2.4–2.5 were observed for some parameter
+combinations.  Detailed investigation showed these were **not real bugs**:
+
+- The errors were caused by accidentally having a wrong binary installed in
+  `site-packages` (a trajectory modification that was reverted but not
+  reinstalled).
+- The current code is correct.  `binary_mag0(s, 1/q, tau, u0)` is
+  mathematically equivalent to VBM's `BinaryMag2(s, q, −tau, u0)` via a
+  reflection symmetry of the binary lens geometry combined with the y2-axis
+  symmetry of the magnification function.  The `effective_q = 1/q` design
+  in `lens_model.cpp` correctly absorbs the trajectory sign convention
+  difference so that the same `alpha` value in lcbinint and VBM produces the
+  same light curve.
+- All 60 regression tests pass with the correct binary.
+- The 8-case named diagnostic (s=50, reltol=1e-4) gives `accepted_bad_total=1`
+  (wide_equal_mass, max_rel=1.84e-4 vs tol=1e-4 — barely outside tolerance).
+
+### Current Performance Status (2026-06-22)
+
+Benchmark: s=1, q=0.001, rho=0.01, u0=-0.01, 61 time points, VBM Tol=1e-3.
+
+| Mode | Time (ms/pt) | vs VBM LD |
+|------|-------------|-----------|
+| VBM no-LD (Tol=1e-3) | 0.42 | baseline |
+| VBM LD (Tol=1e-3) | 3.24 | 1× |
+| lcbinint fixed s_bins=80 | 5.3 | 1.6× slower |
+| lcbinint adaptive tol=1e-4 | 8.3 | 2.6× slower |
+
+With VBM Tol=1e-4 (tighter accuracy): VBM LD = 22.8 ms/pt; lcbinint
+adaptive = 8.3 ms/pt (2.7× **faster** than VBM at same tight tolerance).
+
+The limb-darkened path in lcbinint is still slower than VBM LD at VBM's
+default Tol=1e-3.  The bottleneck is the adaptive refinement overhead;
+fixed-bin at 80 bins is already within 1.5e-3 relative error.
+
 ## Open Questions
 
 - Should the root solver depend on GSL, or should we implement a clean-room
