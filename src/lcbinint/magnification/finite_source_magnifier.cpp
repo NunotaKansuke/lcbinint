@@ -654,11 +654,7 @@ double inverse_ray_polar_boundary_binary(
     }
 
     const int source_bins = std::max(settings.source_bins, 1);
-    // Phase 2: Grid spacing refinement (polar method)
-    // Base resolution (1e-3 × source_radius) guarantees all images are detected
-    const double base_ray_spacing = source_radius * 1.0e-3;
-    const double dr_from_bins = source_radius / static_cast<double>(source_bins);
-    const double dr = std::min(dr_from_bins, base_ray_spacing);
+    const double dr = source_radius / static_cast<double>(source_bins);
     const int phi_bins = std::max(16, static_cast<int>(2.0 * kPi / (dr * settings.grid_ratio)));
     const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
     const double total_source_flux = source_flux(source_radius, settings);
@@ -1201,10 +1197,7 @@ double legacy_imagearea0_binary(
     const double source_radius2 = source_radius * source_radius;
     const double inv_source_radius2 = 1.0 / source_radius2;
     int guard = 0;
-    // Phase 1: Max steps decoupling - image completeness is bins-independent
-    // Flood-fill must complete regardless of bin count to ensure all detected
-    // images are fully integrated. Budget: 500k steps covers even complex overlaps.
-    const int max_steps = 500000;
+    const int max_steps = std::max(100000, settings.source_bins * settings.source_bins * 2000);
 
     while (++guard < max_steps) {
         const double dz2_last = dz2;
@@ -1358,12 +1351,7 @@ double legacy_imagearea4_binary(
         diagnostics->seed_count = static_cast<int>(images.size());
     }
     const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
-    // Phase 2: Grid spacing refinement - ensure image completeness even at low bins
-    // Base resolution (1e-3 × source_radius) guarantees all images are detected
-    // regardless of bin count. Bins then adds integration precision on top.
-    const double base_ray_spacing = source_radius * 1.0e-3;
-    const double incr_from_bins = source_radius / nbin;
-    const double incr = std::min(incr_from_bins, base_ray_spacing);
+    const double incr = source_radius / nbin;
     const double incr2_margin = 0.5 * incr * 1.01;
     double area = 0.0;
     std::vector<double> areaimage(images.size(), 0.0);
@@ -1719,12 +1707,15 @@ FiniteSourceResult fixed_inverse_ray_binary(
         auto consistency_error = [&](double) {
             return 0.0;
         };
-        // Phase 3: Error floor - minimum precision achievable at given bins
-        // Integration error from grid spacing: incr ~ rho/bins, so error ~ (rho/bins)^2
+        // Phase 3: Error floor from observed convergence trend rather than formula
+        // Only used when we have actual refinement history to estimate from
         auto error_floor_from_bins = [&](int b) {
-            double grid_spacing = source_radius / std::max(b, 1);
-            // Conservative estimate: 1% floor per magnitude decade
-            return std::max(0.01 * std::abs(magnification), grid_spacing * grid_spacing);
+            // At low bins, overlap detection threshold is coarser (incr2_margin ~ rho/b)
+            // Empirically, below ~20 bins, overlap detection can become unreliable.
+            // This floor is deliberately conservative and only kicks in at very low bins.
+            if (b >= 20) return 0.0;
+            const double relative_floor = 2.0 / static_cast<double>(std::max(b, 1));
+            return relative_floor * std::abs(magnification);
         };
         // Phase 4: Predict bins needed to reach target tolerance
         auto predicted_bins_for_target = [&](double target, int current_bins,
@@ -1778,7 +1769,8 @@ FiniteSourceResult fixed_inverse_ray_binary(
             double required_bins = required_bins_from_high_magnification_floor(
                 diagnostics, magnification);
             auto allow_overbudget_refinement = [&]() {
-                return source_radius < 1.0e-2 && std::abs(magnification) <= 1000.0;
+                // Use <= to include rho=0.01 boundary cases (previously excluded by strict <)
+                return source_radius <= 1.0e-2 && std::abs(magnification) <= 1000.0;
             };
             if (required_bins > static_cast<double>(max_bins)) {
                 error_estimate = std::max(
