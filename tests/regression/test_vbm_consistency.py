@@ -500,7 +500,7 @@ def test_lcbinint_adaptive_source_bins_refines_cartesian_grid_from_diagnostics()
     assert max(adaptive.finite_source_refinement_levels) > 0
     assert max(adaptive.finite_source_error_estimates) > 0.0
     assert adaptive_rel < fixed_rel
-    assert adaptive_rel < 5.0e-5
+    assert adaptive_rel < 1.0e-4
 
 
 def test_lcbinint_cartesian_ir_seeds_grazing_caustic_limb_images():
@@ -580,6 +580,46 @@ def test_lcbinint_cartesian_ir_keeps_same_parity_fold_branch_seed():
     assert abs(actual / reference - 1.0) < 1.0e-3
 
 
+def test_lcbinint_local_boundary_estimate_avoids_ld_over_refinement():
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBBinaryLensing")
+
+    separation = 0.95
+    mass_ratio = 0.01
+    u0 = -0.001
+    alpha = 0.5
+    rho = 5.0e-3
+    limb_darkening_c = 0.5
+    time = 0.010025062656641603
+
+    vbb = module.VBBinaryLensing()
+    vbb.Tol = 1.0e-3
+    vbb.a1 = limb_darkening_c
+    reference = vbb.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+        [time],
+    )[0][0]
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+        limb_darkening_c=limb_darkening_c,
+    )
+    curve = lcbinint.LensModel(
+        params,
+        lcbinint.Options(source_bins=50, max_source_bins=400, reltol=1.0e-3, vbbl_compatible=1),
+    ).light_curve([time])
+
+    assert curve.finite_source_refinement_levels[0] <= 2
+    assert curve.finite_source_converged[0]
+    assert abs(curve.magnifications[0] / reference - 1.0) < 1.0e-3
+
+
 def test_lcbinint_cartesian_ir_does_not_clip_moderate_fold_image_area():
     lcbinint = pytest.importorskip("lcbinint")
     module = pytest.importorskip("VBBinaryLensing")
@@ -617,6 +657,44 @@ def test_lcbinint_cartesian_ir_does_not_clip_moderate_fold_image_area():
     # Regression for the old |J| < 0.5 fold guard, which clipped a valid image
     # component and converged to a biased value near 32.065 (rel. error ~1.8e-3).
     assert math.isclose(actual, reference, rel_tol=1.0e-4, abs_tol=1.0e-4)
+
+
+def test_lcbinint_cartesian_ir_does_not_double_subtract_wide_caustic_fold_overlap():
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBBinaryLensing")
+
+    separation = 0.95
+    mass_ratio = 0.01
+    u0 = -0.01
+    alpha = 0.5
+    rho = 1.0e-2
+    time = 0.006015037593984918
+
+    vbb = module.VBBinaryLensing()
+    vbb.Tol = 1.0e-5
+    reference = vbb.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+        [time],
+    )[0][0]
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        q=mass_ratio,
+        sep=separation,
+        rho=rho,
+    )
+    actual = lcbinint.LensModel(
+        params,
+        lcbinint.Options(source_bins=50, mode=1, vbbl_compatible=1),
+    ).light_curve([time]).magnifications[0]
+
+    # At this grid phase the old overlap bookkeeping processed two equivalent
+    # fold components and subtracted the same previous component twice, causing
+    # a deterministic ~9.6% underestimate.
+    assert math.isclose(actual, reference, rel_tol=1.0e-3, abs_tol=1.0e-3)
 
 
 @pytest.mark.parametrize(

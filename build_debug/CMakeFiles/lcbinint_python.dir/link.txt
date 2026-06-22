@@ -1,0 +1,1 @@
+/usr/bin/c++ -fPIC -O2 -g -shared  -o lcbinint.cpython-310-x86_64-linux-gnu.so CMakeFiles/lcbinint_python.dir/python/lcbinint_pybind.cpp.o  -Wl,-rpath,/rogue1_8/nunota/local/gsl/lib: liblcbinint_core.a /rogue1_8/nunota/local/gsl/lib/libgsl.so /lib64/libcblas.so -lm 
