@@ -1307,6 +1307,7 @@ double legacy_imagearea4_binary(
     double area = 0.0;
     std::vector<double> areaimage(images.size(), 0.0);
     std::vector<int> overlap(images.size(), 0);
+    std::vector<int> subtracted_previous_overlap(images.size(), 0);
 
     for (std::size_t image_index = 0; image_index < images.size(); ++image_index) {
         if (overlap[image_index] == 1) {
@@ -1508,7 +1509,10 @@ double legacy_imagearea4_binary(
                         ++diagnostics->overlaps;
                     }
                     if (other < image_index) {
-                        area -= areaimage[other];
+                        if (subtracted_previous_overlap[other] == 0) {
+                            area -= areaimage[other];
+                            subtracted_previous_overlap[other] = 1;
+                        }
                     } else {
                         overlap[other] = 1;
                     }
