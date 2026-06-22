@@ -96,6 +96,13 @@ def timed(func):
     return value, time.perf_counter() - start
 
 
+def geomean(values: list[float]) -> float:
+    positive = [value for value in values if value > 0.0 and math.isfinite(value)]
+    if not positive:
+        return float("nan")
+    return math.exp(statistics.fmean(math.log(value) for value in positive))
+
+
 def vbbl_curve(case: Case, times: np.ndarray) -> np.ndarray:
     vbb = VBBinaryLensing.VBBinaryLensing()
     vbb.Tol = 1.0e-3
@@ -233,6 +240,25 @@ def main() -> int:
             f"adaptive_max={row['adaptive_max_rel']:.3e} accepted_bad={row['accepted_bad_points']} "
             f"unconverged={row['unconverged_points']} "
             f"ms={row['adaptive_ms_per_point']:.4f}"
+        )
+    print("aggregate_speed")
+    print("subset cases fixed/vbb_median fixed/vbb_geo adaptive/vbb_median adaptive/vbb_geo adaptive/fixed_median adaptive/fixed_geo")
+    subsets = [
+        ("all", rows),
+        ("no_ld", [row for row in rows if row["limb_darkening_c"] == 0.0]),
+        ("ld", [row for row in rows if row["limb_darkening_c"] != 0.0]),
+    ]
+    for name, subset in subsets:
+        if not subset:
+            continue
+        fixed_vbb = [row["fixed_ms_per_point"] / row["vbb_ms_per_point"] for row in subset]
+        adaptive_vbb = [row["adaptive_ms_per_point"] / row["vbb_ms_per_point"] for row in subset]
+        adaptive_fixed = [row["adaptive_ms_per_point"] / row["fixed_ms_per_point"] for row in subset]
+        print(
+            f"{name} {len(subset)} "
+            f"{statistics.median(fixed_vbb):.3f} {geomean(fixed_vbb):.3f} "
+            f"{statistics.median(adaptive_vbb):.3f} {geomean(adaptive_vbb):.3f} "
+            f"{statistics.median(adaptive_fixed):.3f} {geomean(adaptive_fixed):.3f}"
         )
     if accepted_bad:
         print(f"accepted_bad_total={accepted_bad}")
