@@ -1478,6 +1478,22 @@ double legacy_imagearea4_binary(
                 if (jac_sign_other == -jac_sign) {
                     continue;
                 }
+                // Seeds extremely close to the critical curve often trace only
+                // the near-caustic subset of a same-parity fold branch.  Let a
+                // later, less singular seed on that branch run too; it will
+                // subtract this earlier partial component through the
+                // other<image_index path below.  Treating the critical seed's
+                // coarse bounding box as a complete future-overlap can otherwise
+                // drop the branch at specific grid phases.
+                constexpr double kCriticalSeedOverlapThreshold = 1.0e-3;
+                if (source_radius >= 4.0e-3 &&
+                    settings.source_bins >= 35 &&
+                    other > image_index &&
+                    std::abs(J_seed) < kCriticalSeedOverlapThreshold &&
+                    std::abs(binary_jacobian(mapper, position.x, position.y)) <
+                        kFoldJacThreshold) {
+                    continue;
+                }
             }
             for (int row = 0; row < nyi; ++row) {
                 const auto row_index = static_cast<std::size_t>(row);
