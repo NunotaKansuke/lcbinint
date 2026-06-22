@@ -25,10 +25,32 @@ struct PyLightCurve {
     std::vector<double> magnifications;
     std::vector<double> point_source_magnifications;
     std::vector<double> finite_source_magnifications;
+    std::vector<double> finite_source_error_estimates;
     std::vector<double> source_x;
     std::vector<double> source_y;
     std::vector<int> image_counts;
+    std::vector<int> finite_source_refinement_levels;
+    std::vector<bool> finite_source_converged;
 };
+
+bool all_converged(const PyLightCurve& curve)
+{
+    return std::all_of(
+        curve.finite_source_converged.begin(),
+        curve.finite_source_converged.end(),
+        [](bool value) { return value; });
+}
+
+std::vector<int> unconverged_indices(const PyLightCurve& curve)
+{
+    std::vector<int> indices;
+    for (std::size_t i = 0; i < curve.finite_source_converged.size(); ++i) {
+        if (!curve.finite_source_converged[i]) {
+            indices.push_back(static_cast<int>(i));
+        }
+    }
+    return indices;
+}
 
 struct PySourceBinCandidate {
     int source_bins = 0;
@@ -101,9 +123,12 @@ public:
         curve.magnifications.reserve(times.size());
         curve.point_source_magnifications.reserve(times.size());
         curve.finite_source_magnifications.reserve(times.size());
+        curve.finite_source_error_estimates.reserve(times.size());
         curve.source_x.reserve(times.size());
         curve.source_y.reserve(times.size());
         curve.image_counts.reserve(times.size());
+        curve.finite_source_refinement_levels.reserve(times.size());
+        curve.finite_source_converged.reserve(times.size());
         for (const double t : times) {
             const auto result = model_.magnification(t);
             if (result.status == lcbinint::EvaluationStatus::unsupported) {
@@ -116,9 +141,12 @@ public:
             curve.magnifications.push_back(result.magnification);
             curve.point_source_magnifications.push_back(result.point_source_magnification);
             curve.finite_source_magnifications.push_back(result.finite_source_magnification);
+            curve.finite_source_error_estimates.push_back(result.finite_source_error_estimate);
             curve.source_x.push_back(result.source.x);
             curve.source_y.push_back(result.source.y);
             curve.image_counts.push_back(result.image_count);
+            curve.finite_source_refinement_levels.push_back(result.finite_source_refinement_level);
+            curve.finite_source_converged.push_back(result.finite_source_converged);
         }
         return curve;
     }
@@ -260,9 +288,14 @@ PYBIND11_MODULE(lcbinint, m)
         .def_readonly("magnifications", &PyLightCurve::magnifications)
         .def_readonly("point_source_magnifications", &PyLightCurve::point_source_magnifications)
         .def_readonly("finite_source_magnifications", &PyLightCurve::finite_source_magnifications)
+        .def_readonly("finite_source_error_estimates", &PyLightCurve::finite_source_error_estimates)
         .def_readonly("source_x", &PyLightCurve::source_x)
         .def_readonly("source_y", &PyLightCurve::source_y)
-        .def_readonly("image_counts", &PyLightCurve::image_counts);
+        .def_readonly("image_counts", &PyLightCurve::image_counts)
+        .def_readonly("finite_source_refinement_levels", &PyLightCurve::finite_source_refinement_levels)
+        .def_readonly("finite_source_converged", &PyLightCurve::finite_source_converged)
+        .def_property_readonly("all_converged", &all_converged)
+        .def_property_readonly("unconverged_indices", &unconverged_indices);
 
     py::class_<PySourceBinCandidate>(m, "SourceBinCandidate")
         .def_readonly("source_bins", &PySourceBinCandidate::source_bins)
@@ -403,7 +436,13 @@ PYBIND11_MODULE(lcbinint, m)
                          double point_source_threshold,
                          double hexadecapole_threshold,
                          double adaptive_hex_threshold,
-                         int vbbl_compatible) {
+                         int vbbl_compatible,
+                         int adaptive_source_bins,
+                         int max_source_bins,
+                         double finite_source_tol,
+                         double finite_source_reltol,
+                         double tol,
+                         double reltol) {
                  auto options = lcbi_default_options();
                  options.center_of_mass = center_of_mass;
                  options.source_bins = source_bins;
@@ -414,6 +453,15 @@ PYBIND11_MODULE(lcbinint, m)
                  options.hexadecapole_threshold = hexadecapole_threshold;
                  options.adaptive_hex_threshold = adaptive_hex_threshold;
                  options.vbbl_compatible = vbbl_compatible;
+                 options.max_source_bins = max_source_bins;
+                 options.finite_source_tol = std::isnan(tol) ? finite_source_tol : tol;
+                 options.finite_source_reltol = std::isnan(reltol) ? finite_source_reltol : reltol;
+                 if (adaptive_source_bins < 0) {
+                     options.adaptive_source_bins =
+                         (options.finite_source_tol > 0.0 || options.finite_source_reltol > 0.0) ? 1 : 0;
+                 } else {
+                     options.adaptive_source_bins = adaptive_source_bins;
+                 }
                  return options;
              }),
             py::arg("center_of_mass") = 0,
@@ -424,7 +472,13 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("point_source_threshold") = 20.0,
             py::arg("hexadecapole_threshold") = 3.0,
             py::arg("adaptive_hex_threshold") = 0.001,
-            py::arg("vbbl_compatible") = 0)
+            py::arg("vbbl_compatible") = 0,
+            py::arg("adaptive_source_bins") = -1,
+            py::arg("max_source_bins") = 400,
+            py::arg("finite_source_tol") = 0.0,
+            py::arg("finite_source_reltol") = 0.0,
+            py::arg("tol") = kNaN,
+            py::arg("reltol") = kNaN)
         .def_readwrite("center_of_mass", &lcbi_options::center_of_mass)
         .def_readwrite("source_bins", &lcbi_options::source_bins)
         .def_readwrite("mode", &lcbi_options::mode)
@@ -433,7 +487,17 @@ PYBIND11_MODULE(lcbinint, m)
         .def_readwrite("point_source_threshold", &lcbi_options::point_source_threshold)
         .def_readwrite("hexadecapole_threshold", &lcbi_options::hexadecapole_threshold)
         .def_readwrite("adaptive_hex_threshold", &lcbi_options::adaptive_hex_threshold)
-        .def_readwrite("vbbl_compatible", &lcbi_options::vbbl_compatible);
+        .def_readwrite("vbbl_compatible", &lcbi_options::vbbl_compatible)
+        .def_readwrite("adaptive_source_bins", &lcbi_options::adaptive_source_bins)
+        .def_readwrite("max_source_bins", &lcbi_options::max_source_bins)
+        .def_readwrite("finite_source_tol", &lcbi_options::finite_source_tol)
+        .def_readwrite("finite_source_reltol", &lcbi_options::finite_source_reltol)
+        .def_property("tol",
+            [](const lcbi_options& o) { return o.finite_source_tol; },
+            [](lcbi_options& o, double v) { o.finite_source_tol = v; })
+        .def_property("reltol",
+            [](const lcbi_options& o) { return o.finite_source_reltol; },
+            [](lcbi_options& o, double v) { o.finite_source_reltol = v; });
 
     py::class_<PyLensModel>(m, "LensModel")
         .def(py::init<lcbi_params, lcbi_options>(),

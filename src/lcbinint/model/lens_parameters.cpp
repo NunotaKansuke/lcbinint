@@ -66,6 +66,10 @@ ComputationOptions from_c_options(const lcbi_options *options)
     out.point_source_threshold = options->point_source_threshold;
     out.hexadecapole_threshold = options->hexadecapole_threshold;
     out.adaptive_hex_threshold = options->adaptive_hex_threshold;
+    out.adaptive_source_bins = options->adaptive_source_bins;
+    out.max_source_bins = options->max_source_bins;
+    out.finite_source_tol = options->finite_source_tol;
+    out.finite_source_reltol = options->finite_source_reltol;
     return out;
 }
 

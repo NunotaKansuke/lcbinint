@@ -41,8 +41,11 @@ int main()
         return 37;
     }
     if (options.caustic_bins != 1400 || options.mode != 1 ||
-        std::abs(options.point_source_threshold - 9.0) > 1e-12 ||
-        std::abs(options.hexadecapole_threshold - 2.0) > 1e-12) {
+        std::abs(options.point_source_threshold - 20.0) > 1e-12 ||
+        std::abs(options.hexadecapole_threshold - 3.0) > 1e-12 ||
+        options.adaptive_source_bins != 0 || options.max_source_bins != 400 ||
+        std::abs(options.finite_source_tol) > 1e-12 ||
+        std::abs(options.finite_source_reltol) > 1e-12) {
         return 2;
     }
     if (lcbi_magnification(0.0, &params, &options, &result) != LCBI_OK) {
@@ -143,6 +146,8 @@ int main()
     if (!finite_result.converged) {
         return 22;
     }
+    finite_settings.adaptive_hex_threshold = 1.0;
+    finite_settings.hex_threshold = 0.0;
     lcbinint::magnification::FiniteSourceMagnifier legacy_finite_magnifier(finite_settings);
     auto legacy_hex_result = legacy_finite_magnifier.binary_mag(1.0, 0.1, {0.2, 0.2}, 0.02, 1.0);
     if (legacy_hex_result.decision.method != lcbinint::magnification::FiniteSourceMethod::hexadecapole) {

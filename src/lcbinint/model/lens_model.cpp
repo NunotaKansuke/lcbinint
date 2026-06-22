@@ -51,6 +51,10 @@ magnification::FiniteSourceSettings finite_source_settings(
     settings.adaptive_hex_threshold = options.adaptive_hex_threshold;
     settings.limb_darkening_c = params.limb_darkening_c;
     settings.limb_darkening_d = params.limb_darkening_d;
+    settings.adaptive_source_bins = options.adaptive_source_bins;
+    settings.max_source_bins = options.max_source_bins;
+    settings.finite_source_tol = options.finite_source_tol;
+    settings.finite_source_reltol = options.finite_source_reltol;
     return settings;
 }
 
@@ -111,7 +115,10 @@ MagnificationResult LensModel::magnification(double time) const
             source_for_magnification, std::abs(params_.rho), point_result.magnification);
         result.magnification = finite_result.magnification;
         result.finite_source_magnification = finite_result.magnification;
-        if (!finite_result.converged || !std::isfinite(result.magnification)) {
+        result.finite_source_error_estimate = finite_result.error_estimate;
+        result.finite_source_refinement_level = finite_result.refinement_level;
+        result.finite_source_converged = finite_result.converged;
+        if (!std::isfinite(result.magnification)) {
             result.status = EvaluationStatus::numerical_error;
             return result;
         }

@@ -87,6 +87,12 @@ if(LCBININT_BUILD_PYTHON)
     pybind11_add_module(lcbinint_python python/lcbinint_pybind.cpp)
     target_link_libraries(lcbinint_python PRIVATE lcbinint_core)
     set_target_properties(lcbinint_python PROPERTIES OUTPUT_NAME lcbinint)
+    get_filename_component(LCBININT_GSL_LIBRARY_DIR "${GSL_LIBRARY}" DIRECTORY)
+    if(LCBININT_GSL_LIBRARY_DIR)
+        set_target_properties(lcbinint_python PROPERTIES
+            BUILD_RPATH "${LCBININT_GSL_LIBRARY_DIR}"
+            INSTALL_RPATH "${LCBININT_GSL_LIBRARY_DIR}")
+    endif()
     install(TARGETS lcbinint_python LIBRARY DESTINATION .)
 else()
     message(STATUS "Python extension disabled")
