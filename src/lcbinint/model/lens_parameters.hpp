@@ -49,17 +49,17 @@ struct ComputationOptions {
     int orbit_pair = 23;
     int center_of_mass = 0;
     int caustic_bins = 1400;
-    int source_bins = 50;
+    int source_bins = 64;
     int mode = 1;                        // public: 1 = cartesian, 2 = polar+cache
     int vbbl_compatible = 0;             // 0 = legacy, 1 = VBBL-compatible convention
     double grid_ratio = 4.0;
     double point_source_threshold = 20.0;
     double hexadecapole_threshold = 3.0;
     double adaptive_hex_threshold = 0.001;
-    int adaptive_source_bins = 0;
+    int adaptive_source_bins = 1;
     int max_source_bins = 400;
     double finite_source_tol = 0.0;
-    double finite_source_reltol = 0.0;
+    double finite_source_reltol = 1.0e-3;
 };
 
 LensParameters from_c_params(const lcbi_params &params);
