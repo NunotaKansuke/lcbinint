@@ -58,7 +58,8 @@ public:
         double mass_ratio,
         SourcePosition source,
         double source_radius,
-        double point_source_magnification) const;
+        double point_source_magnification,
+        const std::vector<SourcePosition>* center_image_seeds = nullptr) const;
     void ensure_limb_darkening_table() const;
     void legacy_augment_seeds_from_branches(
         double separation,
