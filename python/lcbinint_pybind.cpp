@@ -465,7 +465,7 @@ PYBIND11_MODULE(lcbinint, m)
                  return options;
              }),
             py::arg("center_of_mass") = 0,
-            py::arg("source_bins") = 50,
+            py::arg("source_bins") = 64,
             py::arg("mode") = 1,
             py::arg("caustic_bins") = 1400,
             py::arg("grid_ratio") = 4.0,
@@ -476,7 +476,7 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("adaptive_source_bins") = -1,
             py::arg("max_source_bins") = 400,
             py::arg("finite_source_tol") = 0.0,
-            py::arg("finite_source_reltol") = 0.0,
+            py::arg("finite_source_reltol") = 1.0e-3,
             py::arg("tol") = kNaN,
             py::arg("reltol") = kNaN)
         .def_readwrite("center_of_mass", &lcbi_options::center_of_mass)

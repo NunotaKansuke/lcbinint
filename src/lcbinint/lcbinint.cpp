@@ -38,13 +38,15 @@ lcbi_options lcbi_default_options(void)
     lcbi_options options = {};
     options.orbit_pair = 23;
     options.caustic_bins = 1400;
-    options.source_bins = 50;
+    options.source_bins = 64;
     options.mode = 1;
     options.grid_ratio = 4.0;
     options.point_source_threshold = 20.0;
     options.hexadecapole_threshold = 3.0;
     options.adaptive_hex_threshold = 0.001;
+    options.adaptive_source_bins = 1;
     options.max_source_bins = 400;
+    options.finite_source_reltol = 1.0e-3;
     return options;
 }
 

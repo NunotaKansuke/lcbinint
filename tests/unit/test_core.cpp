@@ -43,9 +43,10 @@ int main()
     if (options.caustic_bins != 1400 || options.mode != 1 ||
         std::abs(options.point_source_threshold - 20.0) > 1e-12 ||
         std::abs(options.hexadecapole_threshold - 3.0) > 1e-12 ||
-        options.adaptive_source_bins != 0 || options.max_source_bins != 400 ||
+        options.source_bins != 64 ||
+        options.adaptive_source_bins != 1 || options.max_source_bins != 400 ||
         std::abs(options.finite_source_tol) > 1e-12 ||
-        std::abs(options.finite_source_reltol) > 1e-12) {
+        std::abs(options.finite_source_reltol - 1.0e-3) > 1e-12) {
         return 2;
     }
     if (lcbi_magnification(0.0, &params, &options, &result) != LCBI_OK) {

@@ -4,14 +4,18 @@
 #include "lcbinint/math/polynomial_roots.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <cstdint>
 #include <limits>
 #include <numeric>
+#include <queue>
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace lcbinint::magnification {
@@ -386,6 +390,80 @@ struct LegacyImageAreaScratch {
             y.resize(size);
             dys.resize(size);
         }
+    }
+};
+
+struct LocalRefinementSampleKey {
+    long long ix = 0;
+    long long iy = 0;
+
+    bool operator==(const LocalRefinementSampleKey& other) const
+    {
+        return ix == other.ix && iy == other.iy;
+    }
+};
+
+struct LocalRefinementSampleKeyHash {
+    std::size_t operator()(const LocalRefinementSampleKey& key) const noexcept
+    {
+        const auto mix = [](std::uint64_t value) {
+            value ^= value >> 30;
+            value *= 0xbf58476d1ce4e5b9ULL;
+            value ^= value >> 27;
+            value *= 0x94d049bb133111ebULL;
+            value ^= value >> 31;
+            return value;
+        };
+        const std::uint64_t x = mix(static_cast<std::uint64_t>(key.ix));
+        const std::uint64_t y = mix(static_cast<std::uint64_t>(key.iy));
+        return static_cast<std::size_t>(x ^ (y << 1));
+    }
+};
+
+struct LocalRefinementCell {
+    SourcePosition center;
+    double size = 0.0;
+    double area_fraction = 1.0;
+    double coarse_weight = 0.0;
+    double error_weight = 0.0;
+    int depth = 0;
+};
+
+struct LocalRefinementQueueItem {
+    LocalRefinementCell cell;
+
+    bool operator<(const LocalRefinementQueueItem& other) const
+    {
+        return cell.error_weight < other.cell.error_weight;
+    }
+};
+
+struct LocalRefinementTape {
+    std::size_t max_samples = 0;
+    std::vector<LocalRefinementCell> cells;
+    std::unordered_set<LocalRefinementSampleKey, LocalRefinementSampleKeyHash> sample_keys;
+
+    static LocalRefinementSampleKey key_for(SourcePosition image, double cell_step)
+    {
+        if (cell_step <= 0.0 || !std::isfinite(cell_step)) {
+            return {};
+        }
+        return {
+            static_cast<long long>(std::llround(image.x / cell_step)),
+            static_cast<long long>(std::llround(image.y / cell_step)),
+        };
+    }
+
+    void add(SourcePosition image, double cell_step, double coarse_weight)
+    {
+        if (max_samples == 0 || cells.size() >= max_samples) {
+            return;
+        }
+        const auto key = key_for(image, cell_step);
+        if (!sample_keys.insert(key).second) {
+            return;
+        }
+        cells.push_back({image, cell_step, 1.0, coarse_weight, 0.0, 0});
     }
 };
 
@@ -1184,7 +1262,8 @@ double legacy_imagearea0_binary(
     double dy,
     int& yi,
     LegacyImageAreaScratch& scratch,
-    int jacobian_sign = 0)
+    int jacobian_sign = 0,
+    LocalRefinementTape* local_tape = nullptr)
 {
     double countx = 0.0;
     double countall = 0.0;
@@ -1196,6 +1275,7 @@ double legacy_imagearea0_binary(
     double x0 = seed.x;
     const double source_radius2 = source_radius * source_radius;
     const double inv_source_radius2 = 1.0 / source_radius2;
+    const double boundary_band2 = std::max(4.0 * source_radius * incr, 4.0 * incr * incr);
     int guard = 0;
     const int max_steps = std::max(100000, settings.source_bins * settings.source_bins * 2000);
 
@@ -1218,8 +1298,19 @@ double legacy_imagearea0_binary(
                 scratch.xmax[static_cast<std::size_t>(yi)] = image.x - dx;
             }
             const double normalized_radius2 = mapped_distance2 * inv_source_radius2;
-            countx += legacy_limb_brightness(normalized_radius2, settings, finite_magnifier);
+            const double brightness =
+                legacy_limb_brightness(normalized_radius2, settings, finite_magnifier);
+            countx += brightness;
+            if (local_tape != nullptr &&
+                std::abs(mapped_distance2 - source_radius2) <= boundary_band2) {
+                local_tape->add(image, incr, brightness);
+            }
         } else {
+            if (local_tape != nullptr &&
+                jac_ok &&
+                std::abs(mapped_distance2 - source_radius2) <= boundary_band2) {
+                local_tape->add(image, incr, 0.0);
+            }
             if (dx == incr) {
                 if (dz2_last <= source_radius2) {
                     scratch.xmax[static_cast<std::size_t>(yi)] = image.x;
@@ -1331,7 +1422,8 @@ double legacy_imagearea4_binary(
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
     const std::vector<SourcePosition>* precomputed_seeds = nullptr,
-    LegacyAreaDiagnostics* diagnostics = nullptr)
+    LegacyAreaDiagnostics* diagnostics = nullptr,
+    LocalRefinementTape* local_tape = nullptr)
 {
     if ((settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0) &&
         finite_magnifier != nullptr) {
@@ -1409,7 +1501,7 @@ double legacy_imagearea4_binary(
         scratch.xmax[0] = seed.x;
         areai = legacy_imagearea0_binary(
             mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch,
-            jac_sign);
+            jac_sign, local_tape);
 
         dy = -incr;
         scratch.ensure(static_cast<std::size_t>(yi));
@@ -1421,7 +1513,7 @@ double legacy_imagearea4_binary(
         ++yi;
         areai += legacy_imagearea0_binary(
             mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch,
-            jac_sign);
+            jac_sign, local_tape);
 
         int nyi = yi;
         double areabound = 0.0;
@@ -1454,7 +1546,7 @@ double legacy_imagearea4_binary(
                     ++yi;
                     area0 = legacy_imagearea0_binary(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign);
+                        yi, scratch, jac_sign, local_tape);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -1476,7 +1568,7 @@ double legacy_imagearea4_binary(
                     ++yi;
                     area0 = legacy_imagearea0_binary(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign);
+                        yi, scratch, jac_sign, local_tape);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -1498,7 +1590,7 @@ double legacy_imagearea4_binary(
                     ++yi;
                     area0 = legacy_imagearea0_binary(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign);
+                        yi, scratch, jac_sign, local_tape);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -1675,185 +1767,201 @@ FiniteSourceResult fixed_inverse_ray_binary(
         finite_magnifier->legacy_augment_seeds_from_branches(
             separation, mass_ratio, source, source_radius, seeds);
     }
-    double magnification;
+    const double source_radius2 = source_radius * source_radius;
+    const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
+    const double cell_step = source_radius / nbin;
+    const double scale =
+        source_flux(source_radius, settings) / (source_radius * source_radius) * nbin * nbin;
+    const bool adaptive =
+        settings.adaptive_source_bins != 0 &&
+        (settings.finite_source_tol > 0.0 || settings.finite_source_reltol > 0.0);
+    LocalRefinementTape local_tape;
+    if (adaptive) {
+        local_tape.max_samples = static_cast<std::size_t>(
+            std::max(64, settings.max_source_bins));
+    }
+    auto target_error = [&](double mag) {
+        return settings.finite_source_tol +
+               settings.finite_source_reltol * std::max(std::abs(mag), 1.0);
+    };
+    const double local_error_safety =
+        (settings.source_bins < 32 ? 8.0 :
+         source_radius >= 8.0e-3 ? 2.5 :
+         source_radius >= 3.0e-3 ? 1.8 :
+         1.25);
+    auto guarded_target_error = [&](double mag) {
+        return target_error(mag) / local_error_safety;
+    };
+    auto cell_weight = [&](SourcePosition image) {
+        const double mapped_distance2 =
+            mapped_binary_lens_distance2(mapper, image.x, image.y, source);
+        if (mapped_distance2 > source_radius2) {
+            return 0.0;
+        }
+        return legacy_limb_brightness(
+            mapped_distance2 / source_radius2, settings, finite_magnifier);
+    };
+    auto estimate_local_cell_error = [&](const LocalRefinementCell& cell) {
+        const double half = 0.5 * cell.size;
+        const std::array<SourcePosition, 4> corners {{
+            {cell.center.x - half, cell.center.y - half},
+            {cell.center.x + half, cell.center.y - half},
+            {cell.center.x - half, cell.center.y + half},
+            {cell.center.x + half, cell.center.y + half},
+        }};
+        double corner_sum = 0.0;
+        double min_weight = std::numeric_limits<double>::infinity();
+        double max_weight = 0.0;
+        int nonzero_corners = 0;
+        for (const auto& corner : corners) {
+            const double weight = cell_weight(corner);
+            corner_sum += weight;
+            min_weight = std::min(min_weight, weight);
+            max_weight = std::max(max_weight, weight);
+            if (weight > 0.0) {
+                ++nonzero_corners;
+            }
+        }
+        const double corner_average = 0.25 * corner_sum;
+        const double center_error = std::abs(corner_average - cell.coarse_weight);
+        const double variation_error = 0.5 * (max_weight - min_weight);
+        const double boundary_error =
+            (nonzero_corners > 0 && nonzero_corners < 4) ? 0.25 * max_weight : 0.0;
+        return cell.area_fraction * std::max({center_error, variation_error, boundary_error});
+    };
+    auto split_cell = [&](const LocalRefinementCell& cell) {
+        std::array<LocalRefinementCell, 4> children;
+        const double child_size = 0.5 * cell.size;
+        const double offset = 0.25 * cell.size;
+        const std::array<SourcePosition, 4> centers {{
+            {cell.center.x - offset, cell.center.y - offset},
+            {cell.center.x + offset, cell.center.y - offset},
+            {cell.center.x - offset, cell.center.y + offset},
+            {cell.center.x + offset, cell.center.y + offset},
+        }};
+        for (std::size_t i = 0; i < children.size(); ++i) {
+            children[i].center = centers[i];
+            children[i].size = child_size;
+            children[i].area_fraction = 0.25 * cell.area_fraction;
+            children[i].coarse_weight = cell_weight(centers[i]);
+            children[i].depth = cell.depth + 1;
+            children[i].error_weight = estimate_local_cell_error(children[i]);
+        }
+        return children;
+    };
     if (decision.method == FiniteSourceMethod::inverse_ray_polar) {
-        magnification = inverse_ray_polar_boundary_binary(
+        const double magnification = inverse_ray_polar_boundary_binary(
             point_magnifier, separation, mass_ratio, source, source_radius,
             settings, finite_magnifier, nullptr, &seeds);
         if (!std::isfinite(magnification)) {
             return {magnification, 0, decision, std::nan(""), 0, false};
         }
         return {magnification, 0, decision, 0.0, 0, true};
-    } else {
-        LegacyAreaDiagnostics diagnostics;
-        magnification = legacy_imagearea4_binary(
-            point_magnifier, separation, mass_ratio, source, source_radius,
-            settings, finite_magnifier, &seeds, &diagnostics);
-        if (!std::isfinite(magnification)) {
-            return {magnification, 0, decision, std::nan(""), 0, false};
-        }
-
-        double error_estimate = diagnostics.estimated_error;
-        int refinement_level = 0;
-        bool converged = true;
-        const bool adaptive =
-            settings.adaptive_source_bins != 0 &&
-            (settings.finite_source_tol > 0.0 || settings.finite_source_reltol > 0.0);
-        const int max_bins = std::max(settings.source_bins, settings.max_source_bins);
-        auto target_error = [&](double mag) {
-            return settings.finite_source_tol +
-                   settings.finite_source_reltol * std::max(std::abs(mag), 1.0);
-        };
-        auto consistency_error = [&](double) {
-            return 0.0;
-        };
-        // Phase 3: Error floor from observed convergence trend rather than formula
-        // Only used when we have actual refinement history to estimate from
-        auto error_floor_from_bins = [&](int b) {
-            // At low bins, overlap detection threshold is coarser (incr2_margin ~ rho/b)
-            // Empirically, below ~20 bins, overlap detection can become unreliable.
-            // This floor is deliberately conservative and only kicks in at very low bins.
-            if (b >= 20) return 0.0;
-            const double relative_floor = 2.0 / static_cast<double>(std::max(b, 1));
-            return relative_floor * std::abs(magnification);
-        };
-        // Phase 4: Predict bins needed to reach target tolerance
-        auto predicted_bins_for_target = [&](double target, int current_bins,
-                                             const std::vector<int>& bin_history,
-                                             const std::vector<double>& error_history) {
-            if (bin_history.size() < 2 || error_history.size() < 2) {
-                return 0;  // Not enough data
-            }
-            // Fit: error ~ c / bins^alpha
-            // Use last two points to estimate alpha
-            double b0 = bin_history[bin_history.size() - 2];
-            double b1 = bin_history[bin_history.size() - 1];
-            double e0 = error_history[error_history.size() - 2];
-            double e1 = error_history[error_history.size() - 1];
-            if (e0 <= 0.0 || e1 <= 0.0 || b0 == b1) {
-                return 0;
-            }
-            double error_ratio = e0 / e1;
-            double bins_ratio = static_cast<double>(b1) / static_cast<double>(b0);
-            double alpha = std::log(error_ratio) / std::log(bins_ratio);
-            // Clamp alpha to reasonable range [1.5, 2.5]
-            alpha = std::max(1.5, std::min(2.5, alpha));
-            // Solve: target = e1 * (b / b1)^(-alpha)
-            // b = b1 * (e1 / target)^(1/alpha)
-            if (target <= 0.0) {
-                return 0;
-            }
-            int predicted = static_cast<int>(
-                std::ceil(b1 * std::pow(e1 / target, 1.0 / alpha)));
-            return std::max(current_bins, predicted);
-        };
-        auto required_bins_from_high_magnification_floor =
-            [&](const LegacyAreaDiagnostics& current_diagnostics, double mag) {
-                const double floor_coefficient =
-                    high_magnification_floor_coefficient(
-                        current_diagnostics, mag, source_radius);
-                const double target = target_error(mag);
-                if (floor_coefficient <= 0.0 || target <= 0.0 || !std::isfinite(target)) {
-                    return 0.0;
-                }
-                return floor_coefficient * std::abs(mag) / target;
-        };
-        if (adaptive) {
-            FiniteSourceSettings refined_settings = settings;
-            std::vector<double> refinement_history;
-            std::vector<int> bin_history;
-            std::vector<double> error_history;
-            refinement_history.push_back(magnification);
-            bin_history.push_back(refined_settings.source_bins);
-            error_history.push_back(error_estimate);
-            double required_bins = required_bins_from_high_magnification_floor(
-                diagnostics, magnification);
-            auto allow_overbudget_refinement = [&]() {
-                // Use <= to include rho=0.01 boundary cases (previously excluded by strict <)
-                return source_radius <= 1.0e-2 && std::abs(magnification) <= 1000.0;
-            };
-            if (required_bins > static_cast<double>(max_bins)) {
-                error_estimate = std::max(
-                    error_estimate,
-                    target_error(magnification) * required_bins / static_cast<double>(max_bins));
-            }
-            while (std::max(error_estimate, consistency_error(magnification)) >
-                       target_error(magnification) &&
-                   refined_settings.source_bins < max_bins &&
-                   (required_bins <= static_cast<double>(max_bins) ||
-                    allow_overbudget_refinement())) {
-                // Phase 4: Predictive refinement - estimate next bins directly
-                int next_bins_predicted = predicted_bins_for_target(
-                    target_error(magnification), refined_settings.source_bins,
-                    bin_history, error_history);
-                // Use prediction if available, otherwise fall back to incremental (×2)
-                int next_bins = (next_bins_predicted > refined_settings.source_bins) ?
-                    std::min(max_bins, next_bins_predicted) :
-                    std::min(max_bins, std::max(refined_settings.source_bins + 1,
-                                                refined_settings.source_bins * 2));
-                refined_settings.source_bins = next_bins;
-
-                LegacyAreaDiagnostics refined_diagnostics;
-                const double refined_magnification = legacy_imagearea4_binary(
-                    point_magnifier, separation, mass_ratio, source, source_radius,
-                    refined_settings, finite_magnifier, &seeds, &refined_diagnostics);
-                if (!std::isfinite(refined_magnification)) {
-                    return {refined_magnification, 0, decision, std::nan(""), refinement_level + 1, false};
-                }
-                double min_history_change = std::numeric_limits<double>::infinity();
-                for (const double prev_mag : refinement_history) {
-                    min_history_change = std::min(
-                        min_history_change,
-                        std::abs(refined_magnification - prev_mag));
-                }
-                refinement_history.push_back(refined_magnification);
-                bin_history.push_back(refined_settings.source_bins);
-                magnification = refined_magnification;
-                const double target = target_error(refined_magnification);
-                // Phase 3: Check if current bins meets error floor requirement
-                double floor = error_floor_from_bins(refined_settings.source_bins);
-                // Require at least two refinements (size >= 3 after push) before
-                // trusting self-consistency alone. At the first step (size == 2)
-                // only 50 bins and 100 bins have been computed; those two can agree
-                // on a wrong answer if seeding is unstable (e.g. the grazing-caustic
-                // probe seeds in commit 49b6fbe) or if the source is so small that
-                // both levels are below the resolution needed to detect the error.
-                // The min-over-all-history indicator with safety factor 0.5 tolerates
-                // non-monotone convergence (e.g. 100-bin outlier bracketed by 50 and
-                // 200 bins) while still catching slow-convergence false positives.
-                const bool self_consistent =
-                    refinement_history.size() >= 3 &&
-                    min_history_change <= 0.5 * target;
-                if (self_consistent) {
-                    error_estimate = std::max(
-                        consistency_error(refined_magnification),
-                        min_history_change);
-                } else {
-                    error_estimate = std::max(
-                        std::max({refined_diagnostics.estimated_error,
-                                 consistency_error(refined_magnification),
-                                 floor}),
-                        min_history_change);
-                }
-                error_history.push_back(error_estimate);
-                required_bins = required_bins_from_high_magnification_floor(
-                    refined_diagnostics, refined_magnification);
-                if (required_bins > static_cast<double>(max_bins)) {
-                    error_estimate = std::max(
-                        error_estimate,
-                        target_error(refined_magnification) *
-                            required_bins / static_cast<double>(max_bins));
-                }
-                ++refinement_level;
-            }
-            error_estimate = std::max(error_estimate, consistency_error(magnification));
-            converged = error_estimate <= target_error(magnification);
-            if (refinement_level > 0) {
-                decision.reason = "cartesian inverse-ray with adaptive source bins";
-            }
-        }
-        return {magnification, 0, decision, error_estimate, refinement_level, converged};
     }
+
+    LegacyAreaDiagnostics diagnostics;
+    double magnification = legacy_imagearea4_binary(
+        point_magnifier, separation, mass_ratio, source, source_radius,
+        settings, finite_magnifier, &seeds, &diagnostics,
+        adaptive ? &local_tape : nullptr);
+    if (!std::isfinite(magnification)) {
+        return {magnification, 0, decision, std::nan(""), 0, false};
+    }
+
+    double error_estimate = diagnostics.estimated_error;
+    int refinement_level = 0;
+    bool converged = true;
+
+    if (adaptive && !local_tape.cells.empty()) {
+        std::priority_queue<LocalRefinementQueueItem> active_cells;
+        double local_error_counts = 0.0;
+        for (auto cell : local_tape.cells) {
+            cell.error_weight = estimate_local_cell_error(cell);
+            local_error_counts += cell.error_weight;
+            active_cells.push({cell});
+        }
+        double local_correction_counts = 0.0;
+        const int max_bins = std::max(settings.source_bins, settings.max_source_bins);
+        int max_depth = 0;
+        for (int bins = std::max(settings.source_bins, 1);
+             bins < max_bins && max_depth < 8;
+             bins *= 2) {
+            ++max_depth;
+        }
+        const int max_splits = std::max(64, 4 * max_bins);
+        int splits = 0;
+        constexpr int kMaxBatchDepth = 1;
+        while (!active_cells.empty() &&
+               local_error_counts > guarded_target_error(magnification + local_correction_counts / scale) * scale &&
+               splits < max_splits) {
+            LocalRefinementCell parent = active_cells.top().cell;
+            active_cells.pop();
+            if (parent.error_weight <= 0.0 || parent.depth >= max_depth) {
+                break;
+            }
+
+            int batch_depth = 0;
+            bool defer_parent = false;
+            while (batch_depth < kMaxBatchDepth &&
+                   parent.depth < max_depth &&
+                   local_error_counts > guarded_target_error(magnification + local_correction_counts / scale) * scale &&
+                   splits < max_splits) {
+                defer_parent = false;
+                const auto children = split_cell(parent);
+                double child_contribution = 0.0;
+                double child_error = 0.0;
+                std::size_t worst_child_index = 0;
+                for (std::size_t child_index = 0; child_index < children.size(); ++child_index) {
+                    const auto& child = children[child_index];
+                    child_contribution += child.area_fraction * child.coarse_weight;
+                    child_error += child.error_weight;
+                    if (child.error_weight > children[worst_child_index].error_weight) {
+                        worst_child_index = child_index;
+                    }
+                }
+                const LocalRefinementCell worst_child = children[worst_child_index];
+                local_correction_counts +=
+                    child_contribution - parent.area_fraction * parent.coarse_weight;
+                local_error_counts += child_error - parent.error_weight;
+                refinement_level = std::max(refinement_level, parent.depth + 1);
+                ++splits;
+                ++batch_depth;
+
+                if (local_error_counts <=
+                    guarded_target_error(magnification + local_correction_counts / scale) * scale ||
+                    worst_child.error_weight <= 0.0 ||
+                    worst_child.depth >= max_depth) {
+                    for (const auto& child : children) {
+                        active_cells.push({child});
+                    }
+                    defer_parent = false;
+                    break;
+                }
+
+                for (std::size_t child_index = 0; child_index < children.size(); ++child_index) {
+                    if (child_index != worst_child_index) {
+                        active_cells.push({children[child_index]});
+                    }
+                }
+                parent = worst_child;
+                defer_parent = true;
+            }
+            if (defer_parent) {
+                active_cells.push({parent});
+            }
+        }
+        if (refinement_level > 0) {
+            magnification += local_correction_counts / scale;
+            decision.reason = "cartesian inverse-ray with local adaptive refinement";
+        }
+        error_estimate = local_error_safety * local_error_counts / scale;
+    }
+    constexpr double kConvergenceAcceptanceMargin = 0.999;
+    converged = error_estimate <= kConvergenceAcceptanceMargin * target_error(magnification);
+    if (adaptive && settings.source_bins < 32) {
+        converged = false;
+    }
+    return {magnification, 0, decision, error_estimate, refinement_level, converged};
 }
 
 // ---------- image-spine kernel (finite_mode = 3) ----------
