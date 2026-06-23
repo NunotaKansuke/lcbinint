@@ -817,6 +817,25 @@ std::vector<SourcePosition> legacy_residual_selected_images(
     double mass_ratio,
     SourcePosition source);
 
+bool append_valid_seed(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    SourcePosition image,
+    std::vector<SourcePosition>& seeds)
+{
+    if (source_radius <= 0.0) {
+        return false;
+    }
+    const double source_radius2 = source_radius * source_radius;
+    const SourcePosition mapped = map_binary_lens_real(mapper, image.x, image.y);
+    if (distance_squared(mapped, source) > source_radius2 * (1.0 + 1.0e-8)) {
+        return false;
+    }
+    seeds.push_back(image);
+    return true;
+}
+
 void append_valid_probe_image_seeds(
     const PointSourceMagnifier& point_magnifier,
     const BinaryLensMapper& mapper,
@@ -1085,13 +1104,21 @@ std::vector<SourcePosition> legacy_augmented_image_seeds(
     double mass_ratio,
     SourcePosition source,
     double source_radius,
-    double hint_caustic_dist = std::numeric_limits<double>::infinity())
+    double hint_caustic_dist = std::numeric_limits<double>::infinity(),
+    const std::vector<SourcePosition>* seed_hints = nullptr)
 {
     std::vector<SourcePosition> seeds;
-    const auto point_images = point_magnifier.binary_images(separation, mass_ratio, source);
-    seeds.reserve(5);
-    for (const auto& image : point_images) {
-        seeds.push_back(image.position);
+    seeds.reserve(seed_hints == nullptr ? 5 : std::max<std::size_t>(5, seed_hints->size()));
+    if (seed_hints != nullptr) {
+        for (const auto& seed : *seed_hints) {
+            append_valid_seed(mapper, source, source_radius, seed, seeds);
+        }
+    }
+    if (seeds.empty()) {
+        const auto point_images = point_magnifier.binary_images(separation, mass_ratio, source);
+        for (const auto& image : point_images) {
+            seeds.push_back(image.position);
+        }
     }
     if (source_radius <= 0.0) {
         return seeds;
@@ -1755,12 +1782,13 @@ FiniteSourceResult fixed_inverse_ray_binary(
     const FiniteSourceMagnifier* finite_magnifier,
     FiniteSourceDecision decision,
     double caustic_distance = std::numeric_limits<double>::infinity(),
-    double consistency_reference = std::numeric_limits<double>::quiet_NaN())
+    double consistency_reference = std::numeric_limits<double>::quiet_NaN(),
+    const std::vector<SourcePosition>* seed_hints = nullptr)
 {
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     auto seeds = legacy_augmented_image_seeds(
         point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-        caustic_distance);
+        caustic_distance, seed_hints);
     // Phase 3: find caustic crossings that fall in the gap between the last
     // phase sample and phi=2*pi (missed by uniform 1400-point sampling).
     if (finite_magnifier != nullptr) {
@@ -3051,7 +3079,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     double mass_ratio,
     SourcePosition source,
     double source_radius,
-    double point_source_magnification) const
+    double point_source_magnification,
+    const std::vector<SourcePosition>* center_image_seeds) const
 {
     if (result_cache_valid_ && result_cache_separation_ == separation &&
         result_cache_mass_ratio_ == mass_ratio && result_cache_source_x_ == source.x &&
@@ -3186,9 +3215,10 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         estimate_cartesian_cost(settings_),
         "cartesian inverse-ray",
     };
-    return cache_and_return(fixed_inverse_ray_binary(
+    auto result = fixed_inverse_ray_binary(
         point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, decision,
-        refined_dist, rejected_hex_magnification));
+        refined_dist, rejected_hex_magnification, center_image_seeds);
+    return cache_and_return(result);
 }
 
 void FiniteSourceMagnifier::legacy_augment_seeds_from_branches(

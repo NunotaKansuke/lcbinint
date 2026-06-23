@@ -8,6 +8,7 @@
 
 #include <cmath>
 #include <limits>
+#include <vector>
 
 namespace lcbinint::model {
 namespace {
@@ -68,9 +69,9 @@ LensModel::LensModel(LensParameters params, ComputationOptions options)
 MagnificationResult LensModel::magnification(double time) const
 {
     const auto source = Trajectory(params_).source_position(time, options_.vbbl_compatible != 0);
+    const auto orbit = orbital_state(params_, time);
     const auto system = LensSystem::from_parameters(params_);
     (void)system;
-    const auto orbit = orbital_state(params_, time);
 
     const double nan = std::numeric_limits<double>::quiet_NaN();
     MagnificationResult result;
@@ -96,13 +97,20 @@ MagnificationResult LensModel::magnification(double time) const
         const double effective_q = (options_.vbbl_compatible != 0 && params_.q != 0.0)
             ? 1.0 / params_.q
             : params_.q;
-        const auto point_result =
-            point_magnifier.binary_mag0(orbit.separation, effective_q, source_for_magnification);
-        result.point_source_magnification = point_result.magnification;
-        result.image_count = point_result.image_count;
+        const auto point_images =
+            point_magnifier.binary_images(orbit.separation, effective_q, source_for_magnification);
+        double point_source_magnification = 0.0;
+        std::vector<SourcePosition> center_image_seeds;
+        center_image_seeds.reserve(point_images.size());
+        for (const auto& image : point_images) {
+            point_source_magnification += 1.0 / std::abs(image.jacobian_determinant);
+            center_image_seeds.push_back(image.position);
+        }
+        result.point_source_magnification = point_source_magnification;
+        result.image_count = static_cast<int>(point_images.size());
 
         if (supports_binary_point_source(params_, options_)) {
-            result.magnification = point_result.magnification;
+            result.magnification = point_source_magnification;
             result.status = std::isfinite(result.magnification)
                 ? EvaluationStatus::ok
                 : EvaluationStatus::numerical_error;
@@ -112,7 +120,8 @@ MagnificationResult LensModel::magnification(double time) const
         const auto finite_result = finite_magnifier_.binary_mag(
             orbit.separation,
             effective_q,
-            source_for_magnification, std::abs(params_.rho), point_result.magnification);
+            source_for_magnification, std::abs(params_.rho), point_source_magnification,
+            &center_image_seeds);
         result.magnification = finite_result.magnification;
         result.finite_source_magnification = finite_result.magnification;
         result.finite_source_error_estimate = finite_result.error_estimate;
