@@ -3,6 +3,7 @@
 #include "lcbinint/types.hpp"
 
 #include <array>
+#include <cstddef>
 #include <vector>
 
 namespace lcbinint::magnification {
@@ -28,6 +29,12 @@ class PointSourceMagnifier {
 public:
     PointSourceResult binary_mag0(double separation, double mass_ratio, SourcePosition source) const;
     PointSourceResult binary_mag0_cached(double separation, double mass_ratio, SourcePosition source) const;
+    void binary_mag0_batch(
+        double separation,
+        double mass_ratio,
+        const SourcePosition* sources,
+        double* magnifications,
+        std::size_t count) const;
     std::vector<BinaryImage> binary_images(double separation, double mass_ratio, SourcePosition source) const;
     std::vector<BinaryImageCandidate> binary_image_candidates(
         double separation,

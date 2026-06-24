@@ -38,6 +38,15 @@ struct FastBinaryGeometry {
     FastComplex y;
 };
 
+struct FastBinaryConstants {
+    double a = 0.0;
+    double m1 = 0.0;
+    double m2 = 0.0;
+    double a2 = 0.0;
+    double a3 = 0.0;
+    double m2_2 = 0.0;
+};
+
 FastComplex operator+(FastComplex lhs, FastComplex rhs)
 {
     return {lhs.re + rhs.re, lhs.im + rhs.im};
@@ -98,6 +107,29 @@ FastBinaryGeometry make_fast_vbm_geometry(double separation, double mass_ratio, 
     const double m2 = q * m1;
     const double a2 = a * a;
     return {a, m1, m2, a2, a2 * a, m2 * m2, {source.x + a * m1, source.y}};
+}
+
+FastBinaryConstants make_fast_vbm_constants(double separation, double mass_ratio)
+{
+    const double s = std::abs(separation);
+    const double q_input = std::abs(mass_ratio);
+    const double q = q_input < 1.0 ? q_input : 1.0 / q_input;
+    const double a = q_input < 1.0 ? -s : s;
+    const double m1 = 1.0 / (1.0 + q);
+    const double m2 = q * m1;
+    const double a2 = a * a;
+    return {a, m1, m2, a2, a2 * a, m2 * m2};
+}
+
+FastBinaryGeometry make_fast_vbm_geometry(const FastBinaryConstants& constants, SourcePosition source)
+{
+    return {constants.a,
+        constants.m1,
+        constants.m2,
+        constants.a2,
+        constants.a3,
+        constants.m2_2,
+        {source.x + constants.a * constants.m1, source.y}};
 }
 
 BinaryGeometry make_vbm_geometry(double separation, double mass_ratio, SourcePosition source)
@@ -185,6 +217,67 @@ double jacobian_determinant(const FastBinaryGeometry& geometry, ::complex image)
     return 1.0 - (derivative_re * derivative_re + derivative_im * derivative_im);
 }
 
+PointSourceResult point_source_result_from_roots(
+    const FastBinaryGeometry& geometry,
+    const std::array<::complex, 5>& roots)
+{
+    std::array<StackCandidateImage, 5> candidates;
+    int worst1 = 0;
+    int worst2 = 0;
+    int worst3 = 0;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        candidates[i].residual = residual_squared(geometry, roots[i]);
+        const int index = static_cast<int>(i);
+        if (i == 0) {
+            worst1 = index;
+        } else if (i == 1) {
+            if (candidates[i].residual > candidates[static_cast<std::size_t>(worst1)].residual) {
+                worst2 = worst1;
+                worst1 = index;
+            } else {
+                worst2 = index;
+            }
+        } else if (i == 2) {
+            if (candidates[i].residual > candidates[static_cast<std::size_t>(worst1)].residual) {
+                worst3 = worst2;
+                worst2 = worst1;
+                worst1 = index;
+            } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst2)].residual) {
+                worst3 = worst2;
+                worst2 = index;
+            } else {
+                worst3 = index;
+            }
+        } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst1)].residual) {
+            worst3 = worst2;
+            worst2 = worst1;
+            worst1 = index;
+        } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst2)].residual) {
+            worst3 = worst2;
+            worst2 = index;
+        } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst3)].residual) {
+            worst3 = index;
+        }
+    }
+
+    constexpr double min_ratio2 = 1.0e-8;
+    constexpr double absolute_gap2 = 1.0e-24;
+    const bool three_images =
+        candidates[static_cast<std::size_t>(worst2)].residual * min_ratio2 >
+        candidates[static_cast<std::size_t>(worst3)].residual + absolute_gap2;
+    double magnification = 0.0;
+    int image_count = 0;
+    for (std::size_t i = 0; i < candidates.size(); ++i) {
+        if (three_images && (static_cast<int>(i) == worst1 || static_cast<int>(i) == worst2)) {
+            continue;
+        }
+        const double jacobian = jacobian_determinant(geometry, roots[i]);
+        magnification += 1.0 / std::abs(jacobian);
+        ++image_count;
+    }
+    return {magnification, image_count};
+}
+
 double distance2(SourcePosition lhs, SourcePosition rhs)
 {
     const double dx = lhs.x - rhs.x;
@@ -262,61 +355,35 @@ PointSourceResult PointSourceMagnifier::binary_mag0_impl(
         }
     }
 
-    std::array<StackCandidateImage, 5> candidates;
-    int worst1 = 0;
-    int worst2 = 0;
-    int worst3 = 0;
-    for (std::size_t i = 0; i < roots.size(); ++i) {
-        candidates[i].residual = residual_squared(geometry, roots[i]);
-        const int index = static_cast<int>(i);
-        if (i == 0) {
-            worst1 = index;
-        } else if (i == 1) {
-            if (candidates[i].residual > candidates[static_cast<std::size_t>(worst1)].residual) {
-                worst2 = worst1;
-                worst1 = index;
-            } else {
-                worst2 = index;
-            }
-        } else if (i == 2) {
-            if (candidates[i].residual > candidates[static_cast<std::size_t>(worst1)].residual) {
-                worst3 = worst2;
-                worst2 = worst1;
-                worst1 = index;
-            } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst2)].residual) {
-                worst3 = worst2;
-                worst2 = index;
-            } else {
-                worst3 = index;
-            }
-        } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst1)].residual) {
-            worst3 = worst2;
-            worst2 = worst1;
-            worst1 = index;
-        } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst2)].residual) {
-            worst3 = worst2;
-            worst2 = index;
-        } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst3)].residual) {
-            worst3 = index;
+    return point_source_result_from_roots(geometry, roots);
+}
+
+void PointSourceMagnifier::binary_mag0_batch(
+    double separation,
+    double mass_ratio,
+    const SourcePosition* sources,
+    double* magnifications,
+    std::size_t count) const
+{
+    if (sources == nullptr || magnifications == nullptr) {
+        return;
+    }
+    if (separation == 0.0 || mass_ratio <= 0.0) {
+        for (std::size_t i = 0; i < count; ++i) {
+            magnifications[i] = 0.0;
         }
+        return;
     }
 
-    constexpr double min_ratio2 = 1.0e-8;
-    constexpr double absolute_gap2 = 1.0e-24;
-    const bool three_images =
-        candidates[static_cast<std::size_t>(worst2)].residual * min_ratio2 >
-        candidates[static_cast<std::size_t>(worst3)].residual + absolute_gap2;
-    double magnification = 0.0;
-    int image_count = 0;
-    for (std::size_t i = 0; i < candidates.size(); ++i) {
-        if (three_images && (static_cast<int>(i) == worst1 || static_cast<int>(i) == worst2)) {
-            continue;
-        }
-        const double jacobian = jacobian_determinant(geometry, roots[i]);
-        magnification += 1.0 / std::abs(jacobian);
-        ++image_count;
+    const FastBinaryConstants constants = make_fast_vbm_constants(separation, mass_ratio);
+    std::array<::complex, 6> coefficients;
+    std::array<::complex, 5> roots;
+    for (std::size_t i = 0; i < count; ++i) {
+        const FastBinaryGeometry geometry = make_fast_vbm_geometry(constants, sources[i]);
+        binary_polynomial_coefficients(geometry, coefficients);
+        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+        magnifications[i] = point_source_result_from_roots(geometry, roots).magnification;
     }
-    return {magnification, image_count};
 }
 
 std::vector<BinaryImage> PointSourceMagnifier::binary_images(
