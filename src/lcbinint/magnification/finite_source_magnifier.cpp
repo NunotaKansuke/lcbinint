@@ -24,7 +24,7 @@ namespace {
 constexpr double kSqrtHalf = 0.70710678118654752440;
 constexpr double kPi = 3.14159265358979323846;
 constexpr int kHexadecapoleEvaluations = 13;
-constexpr int kLimbDarkeningTableSize = 5000;
+constexpr int kLimbDarkeningTableSize = 20000;
 constexpr int kLegacyIndexOffset = 2000000;
 
 struct BinaryLensMapper {
@@ -360,25 +360,32 @@ HexResult hexadecapole_binary(
     const double a0 = known_point_magnification != nullptr ?
         *known_point_magnification :
         point_magnifier.binary_mag0(separation, mass_ratio, source).magnification;
+    std::array<SourcePosition, 12> sample_sources;
+    std::array<double, 12> sample_magnifications;
+    int sample_index = 0;
+    for (int i = 0; i < 4; ++i) {
+        sample_sources[static_cast<std::size_t>(sample_index++)] =
+            {source.x + source_radius * coseta[i],
+                source.y + source_radius * sineta[i]};
+        sample_sources[static_cast<std::size_t>(sample_index++)] =
+            {source.x + 0.5 * source_radius * coseta[i],
+                source.y + 0.5 * source_radius * sineta[i]};
+        sample_sources[static_cast<std::size_t>(sample_index++)] =
+            {source.x + source_radius * coseta[i + 4],
+                source.y + source_radius * sineta[i + 4]};
+    }
+    point_magnifier.binary_mag0_batch(
+        separation, mass_ratio, sample_sources.data(), sample_magnifications.data(),
+        sample_sources.size());
+
     double a1_plus = 0.0;
     double a2_plus = 0.0;
     double a1_cross = 0.0;
+    sample_index = 0;
     for (int i = 0; i < 4; ++i) {
-        a1_plus += point_magnifier
-                       .binary_mag0(separation, mass_ratio,
-                           {source.x + source_radius * coseta[i],
-                               source.y + source_radius * sineta[i]})
-                       .magnification;
-        a2_plus += point_magnifier
-                       .binary_mag0(separation, mass_ratio,
-                           {source.x + 0.5 * source_radius * coseta[i],
-                               source.y + 0.5 * source_radius * sineta[i]})
-                       .magnification;
-        a1_cross += point_magnifier
-                        .binary_mag0(separation, mass_ratio,
-                            {source.x + source_radius * coseta[i + 4],
-                                source.y + source_radius * sineta[i + 4]})
-                        .magnification;
+        a1_plus += sample_magnifications[static_cast<std::size_t>(sample_index++)];
+        a2_plus += sample_magnifications[static_cast<std::size_t>(sample_index++)];
+        a1_cross += sample_magnifications[static_cast<std::size_t>(sample_index++)];
     }
     a1_plus = a1_plus / 4.0 - a0;
     a2_plus = a2_plus / 4.0 - a0;
@@ -2831,12 +2838,9 @@ double FiniteSourceMagnifier::limb_darkening_table_brightness(double normalized_
     if (normalized_radius2 >= 1.0) {
         return limb_darkening_table_[static_cast<std::size_t>(kLimbDarkeningTableSize)];
     }
-    const double index = normalized_radius2 * static_cast<double>(kLimbDarkeningTableSize);
-    const int lower = static_cast<int>(index);
-    const double fraction = index - static_cast<double>(lower);
-    const double left = limb_darkening_table_[static_cast<std::size_t>(lower)];
-    const double right = limb_darkening_table_[static_cast<std::size_t>(lower + 1)];
-    return left + fraction * (right - left);
+    const int index = static_cast<int>(
+        normalized_radius2 * static_cast<double>(kLimbDarkeningTableSize) + 0.5);
+    return limb_darkening_table_[static_cast<std::size_t>(index)];
 }
 
 void FiniteSourceMagnifier::ensure_binary_caustic_cache(double separation, double mass_ratio) const

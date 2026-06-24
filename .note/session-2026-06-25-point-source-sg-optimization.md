@@ -108,3 +108,42 @@ relative error vs VBM
 ```
 
 The example timing is noisy, especially for VBM LD, so the important signal is that the method mix and regression accuracy are unchanged while the pure point-source `LightCurve` path remains around `4.4e-4 ms/pt` in the local benchmark.
+
+## Follow-up: Hex Batch and LD Lookup
+
+Implemented after the root-ordering optimization:
+
+- Added `PointSourceMagnifier::binary_mag0_batch`.
+  - This is an internal C++ batch path for repeated point-source solves with fixed `(s, q)`.
+  - `hexadecapole_binary` now evaluates the 12 off-center hex sample points through this batch path.
+  - This is not the full VBM `NewImages` derivative pipeline yet; it is a safe first step that keeps the existing finite-difference hex formula unchanged.
+- Optimized limb-darkening table lookup.
+  - Table size increased from 5,000 to 20,000.
+  - Per-cell lookup changed from linear interpolation to nearest-table lookup.
+  - This removes the interpolation arithmetic in the inverse-ray inner loop while keeping the discretization error below the current integration noise.
+
+Validation:
+
+```text
+pytest targeted: 15 passed, 67 deselected
+ctest: 1/1 passed
+
+example/compare-vbm representative run with LD lookup optimization
+  lcbinint no LD: 0.8361 ms/pt  (timing-noisy run)
+  lcbinint LD   : 0.6400 ms/pt
+  VBM no LD     : 0.0456 ms/pt
+  VBM LD        : 0.9277 ms/pt
+
+relative error vs VBM
+  no LD max=4.990e-04 p99=2.528e-04 median=1.850e-06 rms=6.480e-05
+  LD    max=3.163e-04 p99=1.703e-04 median=9.867e-06 rms=4.138e-05
+
+method mix
+  no LD {'point_source': 104, 'hexadecapole': 233, 'inverse_ray_cartesian': 63} converged=355/400
+  LD    {'point_source': 104, 'hexadecapole': 234, 'inverse_ray_cartesian': 62} converged=355/400
+```
+
+Rejected / deferred:
+
+- 5,000-point nearest LD lookup was faster but moved one LD convergence-boundary point from converged to unconverged in the example. The 20,000-point table kept convergence stable.
+- Full derivative-based `NewImages` hex remains future work. The batch path does not remove the 12 extra point-source solves, so it is expected to be mostly neutral in `benchmark_point_hex`.
