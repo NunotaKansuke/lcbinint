@@ -73,3 +73,38 @@ point-only LightCurve path
 
 - If more point-source speed is needed, the next real target is a dedicated 5th-order binary-lens root pipeline equivalent to VBM's `NewImages`, not a blind `cmplx_roots_5` call.
 - Any such port should preserve current method-selection accuracy tests and should be measured through finite-source light curves, not only point-source loops.
+
+## Follow-up: VBM 5.5 Root Ordering
+
+After the first optimization commit, the SG root solver was compared directly against the VBM 5.5 source shipped in the local Python package.
+
+Adopted:
+
+- Select the smallest current starting root before each deflation step.
+- Polish only `degree - 1` roots after the deflated quadratic solve, matching VBM's current `cmplx_roots_gen`.
+
+Rejected after measurement:
+
+- Caching binary geometry (`a`, `m1`, `m2`, powers) inside `PointSourceMagnifier`.
+  - This adds branch/state overhead and made finite-source/LD timings worse in the current lcbinint design.
+- Rewriting residual/Jacobian divisions with reciprocal temporaries.
+  - It gave only a tiny speed change and moved one convergence-boundary case in the example, so it was not worth keeping.
+
+Validation after adopting the root ordering:
+
+```text
+pytest targeted: 15 passed, 67 deselected
+ctest: 1/1 passed
+
+example/compare-vbm representative run
+  lcbinint no LD: 0.5671 ms/pt
+  lcbinint LD   : 0.7694 ms/pt
+  VBM no LD     : 0.0442 ms/pt
+  VBM LD        : 0.9359 ms/pt
+
+relative error vs VBM
+  no LD max=4.990e-04 p99=2.528e-04 median=1.850e-06 rms=6.480e-05
+  LD    max=3.169e-04 p99=1.696e-04 median=9.867e-06 rms=4.139e-05
+```
+
+The example timing is noisy, especially for VBM LD, so the important signal is that the method mix and regression accuracy are unchanged while the pure point-source `LightCurve` path remains around `4.4e-4 ms/pt` in the local benchmark.
