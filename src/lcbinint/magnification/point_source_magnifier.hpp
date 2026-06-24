@@ -27,6 +27,7 @@ struct BinaryImageCandidate {
 class PointSourceMagnifier {
 public:
     PointSourceResult binary_mag0(double separation, double mass_ratio, SourcePosition source) const;
+    PointSourceResult binary_mag0_cached(double separation, double mass_ratio, SourcePosition source) const;
     std::vector<BinaryImage> binary_images(double separation, double mass_ratio, SourcePosition source) const;
     std::vector<BinaryImageCandidate> binary_image_candidates(
         double separation,
@@ -35,6 +36,12 @@ public:
     SourcePosition binary_lens_equation(double separation, double mass_ratio, SourcePosition image) const;
 
 private:
+    PointSourceResult binary_mag0_impl(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        bool use_root_cache) const;
+
     mutable bool root_cache_valid_ = false;
     mutable double root_cache_separation_ = 0.0;
     mutable double root_cache_mass_ratio_ = 0.0;
