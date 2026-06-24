@@ -101,8 +101,10 @@ void cmplx_roots_gen(complex *roots, complex *poly, int degree, bool polish_root
 
 	static complex poly2[MAXM];
 	static int i, j, n, iter;
-	bool success;
+	static bool success;
 	complex coef, prev;
+	static int ismallest;
+	static double abssmall;
 
 	if (!use_roots_as_starting_points) {
 		for (int jj = 0; jj < degree; jj++) {
@@ -119,6 +121,18 @@ void cmplx_roots_gen(complex *roots, complex *poly, int degree, bool polish_root
 	}
 
 	for (n = degree; n >= 3; n--) {
+		ismallest = n - 1;
+		abssmall = abs2(roots[ismallest]);
+		for (int ii = 0; ii < n - 1; ii++) {
+			if (abs2(roots[ii]) < abssmall) {
+				ismallest = ii;
+				abssmall = abs2(roots[ismallest]);
+			}
+		}
+		coef = roots[ismallest];
+		roots[ismallest] = roots[n - 1];
+		roots[n - 1] = coef;
+
 		cmplx_laguerre2newton(poly2, n, &roots[n - 1], iter, success, 2);
 		if (!success) {
 			roots[n - 1] = complex(0, 0);
@@ -145,7 +159,7 @@ void cmplx_roots_gen(complex *roots, complex *poly, int degree, bool polish_root
 	// for the deflated quadratic.
 	solve_quadratic_eq(roots[1], roots[0], poly2);
 	if (polish_roots_after) {
-		for (n = 0; n < degree; n++) {
+		for (n = 0; n < degree - 1; n++) {
 			cmplx_newton_spec(poly, degree, &roots[n], iter, success); // Polish roots with full polynomial
 		}
 	}
