@@ -147,13 +147,6 @@ void binary_polynomial_coefficients(const FastBinaryGeometry& geometry, std::arr
     coefficients[5] = fast_to_sg(yc * c12);
 }
 
-double distance2(SourcePosition lhs, SourcePosition rhs)
-{
-    const double dx = lhs.x - rhs.x;
-    const double dy = lhs.y - rhs.y;
-    return dx * dx + dy * dy;
-}
-
 double residual_squared(const FastBinaryGeometry& geometry, ::complex image)
 {
     const double z_re = image.re;
@@ -192,6 +185,13 @@ double jacobian_determinant(const FastBinaryGeometry& geometry, ::complex image)
     return 1.0 - (derivative_re * derivative_re + derivative_im * derivative_im);
 }
 
+double distance2(SourcePosition lhs, SourcePosition rhs)
+{
+    const double dx = lhs.x - rhs.x;
+    const double dy = lhs.y - rhs.y;
+    return dx * dx + dy * dy;
+}
+
 Complex lens_equation_residual(const BinaryGeometry& geometry, Complex image)
 {
     const Complex zc = std::conj(image);
@@ -213,6 +213,23 @@ PointSourceResult PointSourceMagnifier::binary_mag0(
     double mass_ratio,
     SourcePosition source) const
 {
+    return binary_mag0_impl(separation, mass_ratio, source, false);
+}
+
+PointSourceResult PointSourceMagnifier::binary_mag0_cached(
+    double separation,
+    double mass_ratio,
+    SourcePosition source) const
+{
+    return binary_mag0_impl(separation, mass_ratio, source, true);
+}
+
+PointSourceResult PointSourceMagnifier::binary_mag0_impl(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    bool use_root_cache) const
+{
     if (separation == 0.0 || mass_ratio <= 0.0) {
         return {};
     }
@@ -222,6 +239,7 @@ PointSourceResult PointSourceMagnifier::binary_mag0(
     std::array<::complex, 5> roots;
     binary_polynomial_coefficients(geometry, coefficients);
     const bool can_polish_from_cache =
+        use_root_cache &&
         root_cache_valid_ &&
         root_cache_separation_ == separation &&
         root_cache_mass_ratio_ == mass_ratio &&
@@ -234,12 +252,14 @@ PointSourceResult PointSourceMagnifier::binary_mag0(
     } else {
         cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
     }
-    root_cache_valid_ = true;
-    root_cache_separation_ = separation;
-    root_cache_mass_ratio_ = mass_ratio;
-    root_cache_source_ = source;
-    for (std::size_t i = 0; i < roots.size(); ++i) {
-        root_cache_roots_[i] = {roots[i].re, roots[i].im};
+    if (use_root_cache) {
+        root_cache_valid_ = true;
+        root_cache_separation_ = separation;
+        root_cache_mass_ratio_ = mass_ratio;
+        root_cache_source_ = source;
+        for (std::size_t i = 0; i < roots.size(); ++i) {
+            root_cache_roots_[i] = {roots[i].re, roots[i].im};
+        }
     }
 
     std::array<StackCandidateImage, 5> candidates;
@@ -328,26 +348,7 @@ std::vector<BinaryImageCandidate> PointSourceMagnifier::binary_image_candidates(
     std::array<::complex, 6> coefficients;
     std::array<::complex, 5> roots;
     binary_polynomial_coefficients(geometry, coefficients);
-    const bool can_polish_from_cache =
-        root_cache_valid_ &&
-        root_cache_separation_ == separation &&
-        root_cache_mass_ratio_ == mass_ratio &&
-        distance2(root_cache_source_, source) < 2.5e-3;
-    if (can_polish_from_cache) {
-        for (std::size_t i = 0; i < roots.size(); ++i) {
-            roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
-        }
-        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, true);
-    } else {
-        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
-    }
-    root_cache_valid_ = true;
-    root_cache_separation_ = separation;
-    root_cache_mass_ratio_ = mass_ratio;
-    root_cache_source_ = source;
-    for (std::size_t i = 0; i < roots.size(); ++i) {
-        root_cache_roots_[i] = {roots[i].re, roots[i].im};
-    }
+    cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
 
     std::vector<BinaryImageCandidate> images;
     images.reserve(roots.size());

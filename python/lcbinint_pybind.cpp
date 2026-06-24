@@ -649,7 +649,7 @@ std::vector<double> evaluate_binary_light_curve(
                     tau * sin_alpha + model_params.umin * cos_alpha,
                 };
                 values.push_back(
-                    point_magnifier.binary_mag0(model_params.sep, effective_q, source).magnification);
+                    point_magnifier.binary_mag0_cached(model_params.sep, effective_q, source).magnification);
             }
             return values;
         }
@@ -792,7 +792,7 @@ py::array_t<double> evaluate_binary_light_curve_numpy(
                     tau * sin_alpha + model_params.umin * cos_alpha,
                 };
                 values[i] = point_magnifier
-                    .binary_mag0(model_params.sep, effective_q, source)
+                    .binary_mag0_cached(model_params.sep, effective_q, source)
                     .magnification;
             }
             return output;
@@ -1654,7 +1654,7 @@ private:
 
         if (params.rho == 0.0) {
             const auto point =
-                point_magnifier.binary_mag0(orbit.separation, effective_q, source_for_magnification);
+                point_magnifier.binary_mag0_cached(orbit.separation, effective_q, source_for_magnification);
             result.point_source_magnification = point.magnification;
             result.finite_source_magnification = point.magnification;
             result.magnification = point.magnification;
@@ -1733,7 +1733,7 @@ private:
                     tau * cos_alpha - u0 * sin_alpha,
                     tau * sin_alpha + u0 * cos_alpha,
                 };
-                values[i] = point_magnifier.binary_mag0(s, effective_q, source).magnification;
+                values[i] = point_magnifier.binary_mag0_cached(s, effective_q, source).magnification;
             }
             return;
         }
