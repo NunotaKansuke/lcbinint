@@ -1,7 +1,7 @@
 """Test with very high bin counts."""
 import numpy as np
 import lcbinint
-from adaptive_source_bins_sweep import Case, lc_curve, vbbl_curve
+from adaptive_source_bins_sweep import Case, lc_curve, vbm_curve
 
 CASE = Case(
     name="wide caustic",
@@ -16,14 +16,14 @@ CASE = Case(
 )
 
 times = np.array([0.006])
-mag_vbbl = vbbl_curve(CASE, times)[0]
+mag_vbm = vbm_curve(CASE, times)[0]
 
-print(f"VBBL reference: {mag_vbbl:.6f}")
+print(f"VBM reference: {mag_vbm:.6f}")
 print()
 
 for bins in [50, 100, 150, 200, 250, 300, 350, 400]:
-    opts = lcbinint.Options(source_bins=bins, vbbl_compatible=1)
+    opts = lcbinint.Options(source_bins=bins)
     result = lc_curve(CASE, times, opts)
     mag = result.magnifications[0]
-    error = abs(mag - mag_vbbl) / mag_vbbl * 100
+    error = abs(mag - mag_vbm) / mag_vbm * 100
     print(f"bins={bins:3d}: mag={mag:.6f}, error={error:6.2f}%")

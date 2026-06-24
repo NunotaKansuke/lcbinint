@@ -49,9 +49,9 @@ struct ComputationOptions {
     int orbit_pair = 23;
     int center_of_mass = 0;
     int caustic_bins = 1400;
-    int source_bins = 64;
+    int source_bins = 50;
     int mode = 1;                        // public: 1 = cartesian, 2 = polar+cache
-    int vbbl_compatible = 0;             // 0 = legacy, 1 = VBBL-compatible convention
+    int vbm_compatible = 0;             // 0 = original lcbinint convention, 1 = VBM convention
     double grid_ratio = 4.0;
     double point_source_threshold = 20.0;
     double hexadecapole_threshold = 3.0;

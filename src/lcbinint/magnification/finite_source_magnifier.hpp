@@ -17,7 +17,7 @@ enum class FiniteSourceMethod {
 };
 
 struct FiniteSourceSettings {
-    int source_bins = 64;
+    int source_bins = 50;
     int caustic_bins = 1400;
     double grid_ratio = 4.0;
     int finite_mode = 1;       // 1 = cartesian, 2 = polar+cache; 3 is internal experimental spine
@@ -47,6 +47,11 @@ struct FiniteSourceResult {
     bool converged = true;
 };
 
+struct HexadecapoleDiagnosticResult {
+    double magnification = 0.0;
+    double relative_error = 0.0;
+};
+
 class FiniteSourceMagnifier {
 public:
     explicit FiniteSourceMagnifier(FiniteSourceSettings settings);
@@ -59,34 +64,34 @@ public:
         SourcePosition source,
         double source_radius,
         double point_source_magnification,
-        const std::vector<SourcePosition>* center_image_seeds = nullptr) const;
+        const std::vector<SourcePosition>* center_image_seeds = nullptr,
+        bool point_source_magnification_is_exact = false) const;
     void ensure_limb_darkening_table() const;
-    void legacy_augment_seeds_from_branches(
+    void augment_seeds_from_caustic_branches(
         double separation,
         double mass_ratio,
         SourcePosition source,
         double source_radius,
         std::vector<SourcePosition>& seeds) const;
     double limb_darkening_table_brightness(double normalized_radius2) const;
-    double legacy_limb_darkening_table_brightness(double normalized_radius2) const;
 
 private:
-    void ensure_legacy_caustic_cache(double separation, double mass_ratio) const;
-    double legacy_binary_caustic_distance(
+    void ensure_binary_caustic_cache(double separation, double mass_ratio) const;
+    double binary_caustic_distance(
         double separation,
         double mass_ratio,
         SourcePosition source,
         double hint_nearest_point_dist = std::numeric_limits<double>::infinity()) const;
-    double legacy_binary_sampled_caustic_distance(
+    double binary_sampled_caustic_distance(
         double separation,
         double mass_ratio,
         SourcePosition source,
         double search_radius) const;
-    void ensure_legacy_polar_map_cache(
+    void ensure_polar_map_cache(
         double separation,
         double mass_ratio,
         double source_radius) const;
-    FiniteSourceResult legacy_polar_memory_binary_mag(
+    FiniteSourceResult inverse_ray_polar_binary_mag(
         double separation,
         double mass_ratio,
         SourcePosition source,
@@ -138,5 +143,11 @@ private:
 };
 
 const char* finite_source_method_name(FiniteSourceMethod method);
+HexadecapoleDiagnosticResult diagnostic_hexadecapole_binary(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings);
 
 } // namespace lcbinint::magnification

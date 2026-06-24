@@ -1,7 +1,7 @@
 """Test if grid size affects the result at t=0.006."""
 import numpy as np
 import lcbinint
-from adaptive_source_bins_sweep import Case, lc_curve, vbbl_curve
+from adaptive_source_bins_sweep import Case, lc_curve, vbm_curve
 
 def test_grid(t_min, t_max, n_times, label):
     case = Case(
@@ -19,14 +19,14 @@ def test_grid(t_min, t_max, n_times, label):
     times = np.linspace(t_min, t_max, n_times)
     idx = np.argmin(np.abs(times - 0.006))
 
-    mag_vbbl = vbbl_curve(case, times)[idx]
+    mag_vbm = vbm_curve(case, times)[idx]
 
-    opts_200 = lcbinint.Options(source_bins=200, vbbl_compatible=1)
+    opts_200 = lcbinint.Options(source_bins=200)
     result = lc_curve(case, times, opts_200)
     mag_lc = result.magnifications[idx]
 
-    error = abs(mag_lc - mag_vbbl) / mag_vbbl * 100
-    print(f"{label:40s}: lc={mag_lc:.6f}, vbbl={mag_vbbl:.6f}, error={error:6.2f}%")
+    error = abs(mag_lc - mag_vbm) / mag_vbm * 100
+    print(f"{label:40s}: lc={mag_lc:.6f}, vbm={mag_vbm:.6f}, error={error:6.2f}%")
 
 print("Testing different grid sizes around t=0.006:")
 print()

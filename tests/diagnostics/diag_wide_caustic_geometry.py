@@ -1,7 +1,7 @@
 """Analyze caustic geometry at problematic time points."""
 import numpy as np
 import math
-from VBBinaryLensing import VBBinaryLensing
+from VBMicrolensing import VBMicrolensing
 from adaptive_source_bins_sweep import Case
 
 CASE = Case(
@@ -17,7 +17,7 @@ CASE = Case(
 )
 
 # Get image positions at different times
-vbb = VBBinaryLensing()
+vbb = VBMicrolensing()
 vbb.Tol = 1e-3
 vbb.RelTol = 0.0
 
@@ -29,7 +29,7 @@ def get_images_at_time(t):
     # Let me recalculate: at time t, we have motion along a line
     # For now just use the geometry to estimate images
 
-    # Better: use VBBL's internal calculation by examining the light curve
+    # Better: use vbm's internal calculation by examining the light curve
     params = [
         math.log(CASE.separation),
         math.log(CASE.mass_ratio),
@@ -40,7 +40,7 @@ def get_images_at_time(t):
         0.0,
     ]
 
-    # We can't directly get image positions from VBBL easily
+    # We can't directly get image positions from vbm easily
     # but we can use the magnifications to infer the image structure
     mag = vbb.BinaryLightCurve(params, [t])[0][0]
     return mag
@@ -67,9 +67,9 @@ for i, (t, mag) in enumerate(zip(t_region, mag_region)):
 
 print()
 print("Key observation:")
-print(f"  At peak (t≈{times[peak_idx]:.4f}): VBBL mag ≈ {mags[peak_idx]:.4f}")
-print(f"  At t=0.006: VBBL mag ≈ {mags[np.argmin(np.abs(times - 0.006))]:.4f}")
-print(f"  At t=0.010: VBBL mag ≈ {mags[np.argmin(np.abs(times - 0.010))]:.4f}")
+print(f"  At peak (t≈{times[peak_idx]:.4f}): vbm mag ≈ {mags[peak_idx]:.4f}")
+print(f"  At t=0.006: vbm mag ≈ {mags[np.argmin(np.abs(times - 0.006))]:.4f}")
+print(f"  At t=0.010: vbm mag ≈ {mags[np.argmin(np.abs(times - 0.010))]:.4f}")
 print()
 
 # The issue is likely that lcbinint is missing some images or has

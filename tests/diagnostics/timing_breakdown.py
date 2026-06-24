@@ -17,9 +17,9 @@ def timed_run(opts, n=5):
 
 opts_fixed = {}
 for bins in [50, 100, 200]:
-    opts_fixed[bins] = lcbinint.Options(source_bins=bins, vbbl_compatible=1)
+    opts_fixed[bins] = lcbinint.Options(source_bins=bins)
 opts_ad = lcbinint.Options(source_bins=50, adaptive_source_bins=1,
-                            max_source_bins=200, reltol=1e-4, vbbl_compatible=1)
+                            max_source_bins=200, reltol=1e-4)
 
 r50,  ms50  = timed_run(opts_fixed[50])
 r100, ms100 = timed_run(opts_fixed[100])

@@ -1,7 +1,7 @@
 """Detailed analysis of the peak error point (t=0.006)."""
 import numpy as np
 import lcbinint
-from adaptive_source_bins_sweep import Case, lc_curve, vbbl_curve
+from adaptive_source_bins_sweep import Case, lc_curve, vbm_curve
 
 CASE = Case(
     name="wide caustic finite source",
@@ -24,14 +24,14 @@ print()
 
 # Run with fixed bins at different levels
 for bins in [50, 100, 200]:
-    opts = lcbinint.Options(source_bins=bins, vbbl_compatible=1)
+    opts = lcbinint.Options(source_bins=bins)
     result = lc_curve(CASE, times, opts)
     mag = result.magnifications[idx_0_006]
     print(f"Fixed @{bins:3d} bins: {mag:.6f}")
 
 # Run adaptive
 opts_ad = lcbinint.Options(source_bins=50, adaptive_source_bins=1,
-                            max_source_bins=200, reltol=1e-4, vbbl_compatible=1)
+                            max_source_bins=200, reltol=1e-4)
 result_ad = lc_curve(CASE, times, opts_ad)
 mag_ad = result_ad.magnifications[idx_0_006]
 ref_lv = result_ad.finite_source_refinement_levels[idx_0_006]
@@ -39,22 +39,22 @@ ref_lv = result_ad.finite_source_refinement_levels[idx_0_006]
 print(f"Adaptive:    {mag_ad:.6f} (refinement_level={ref_lv})")
 print()
 
-# VBBL
-mag_vbbl = vbbl_curve(CASE, times)[idx_0_006]
-print(f"VBBL:        {mag_vbbl:.6f} (reference)")
+# vbm
+mag_vbm = vbm_curve(CASE, times)[idx_0_006]
+print(f"vbm:        {mag_vbm:.6f} (reference)")
 print()
 
 # Analyze error by bin count
 results = {}
 for bins in [50, 100, 200]:
-    opts = lcbinint.Options(source_bins=bins, vbbl_compatible=1)
+    opts = lcbinint.Options(source_bins=bins)
     result = lc_curve(CASE, times, opts)
     results[bins] = result.magnifications[idx_0_006]
 
 print("Analysis:")
-print(f"  50-bin  error: {abs(results[50] - mag_vbbl) / mag_vbbl * 100:.2f}%")
-print(f"  100-bin error: {abs(results[100] - mag_vbbl) / mag_vbbl * 100:.2f}%")
-print(f"  200-bin error: {abs(results[200] - mag_vbbl) / mag_vbbl * 100:.2f}%")
+print(f"  50-bin  error: {abs(results[50] - mag_vbm) / mag_vbm * 100:.2f}%")
+print(f"  100-bin error: {abs(results[100] - mag_vbm) / mag_vbm * 100:.2f}%")
+print(f"  200-bin error: {abs(results[200] - mag_vbm) / mag_vbm * 100:.2f}%")
 print()
 
 # The adaptive chose level 1 (100 bins) but error is still >10%

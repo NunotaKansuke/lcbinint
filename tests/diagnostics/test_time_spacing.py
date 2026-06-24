@@ -1,7 +1,7 @@
 """Test if time spacing affects the result."""
 import numpy as np
 import lcbinint
-from adaptive_source_bins_sweep import Case, lc_curve, vbbl_curve
+from adaptive_source_bins_sweep import Case, lc_curve, vbm_curve
 
 def test_grid(n_times, label):
     case = Case(
@@ -21,13 +21,13 @@ def test_grid(n_times, label):
     t_actual = times[idx]
     dt = (0.8 - (-0.8)) / (n_times - 1)
 
-    mag_vbbl = vbbl_curve(case, times)[idx]
+    mag_vbm = vbm_curve(case, times)[idx]
 
-    opts_200 = lcbinint.Options(source_bins=200, vbbl_compatible=1)
+    opts_200 = lcbinint.Options(source_bins=200)
     result = lc_curve(case, times, opts_200)
     mag_lc = result.magnifications[idx]
 
-    error = abs(mag_lc - mag_vbbl) / mag_vbbl * 100
+    error = abs(mag_lc - mag_vbm) / mag_vbm * 100
     print(f"{label:50s}: dt={dt:.5f}, lc={mag_lc:.6f}, error={error:6.2f}%")
 
 print("Testing time spacing effect (all over [-0.8, 0.8]):")

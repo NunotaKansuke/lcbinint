@@ -9,7 +9,7 @@ import time
 import numpy as np
 
 import lcbinint
-import VBBinaryLensing
+import VBMicrolensing
 
 
 @dataclasses.dataclass(frozen=True)
@@ -103,8 +103,8 @@ def geomean(values: list[float]) -> float:
     return math.exp(statistics.fmean(math.log(value) for value in positive))
 
 
-def vbbl_curve(case: Case, times: np.ndarray) -> np.ndarray:
-    vbb = VBBinaryLensing.VBBinaryLensing()
+def vbm_curve(case: Case, times: np.ndarray) -> np.ndarray:
+    vbb = VBMicrolensing.VBMicrolensing()
     vbb.Tol = 1.0e-3
     vbb.RelTol = 0.0
     if case.limb_darkening_c != 0.0:
@@ -122,27 +122,24 @@ def vbbl_curve(case: Case, times: np.ndarray) -> np.ndarray:
 
 
 def lc_curve(case: Case, times: np.ndarray, options: lcbinint.Options):
-    params = lcbinint.LensParams(
-        t0=0.0,
-        tE=1.0,
+    return lcbinint.light_curve_info(
+        times.tolist(),
         u0=case.u0,
         alpha=case.alpha,
+        s=case.separation,
         q=case.mass_ratio,
-        sep=case.separation,
         rho=case.rho,
-        limb_darkening_c=case.limb_darkening_c,
+        limb_darkening=lcbinint.LimbDarkening(c=case.limb_darkening_c),
+        options=options,
     )
-    return lcbinint.LensModel(params, options).light_curve(times.tolist())
 
 
 def summarize_case(case: Case, source_bins: int, reltol: float, max_bins: int):
     times = np.linspace(case.t_min, case.t_max, case.n_times)
-    reference, vbb_seconds = timed(lambda: vbbl_curve(case, times))
+    reference, vbb_seconds = timed(lambda: vbm_curve(case, times))
 
     fixed_options = lcbinint.Options(
-        source_bins=source_bins,
-        vbbl_compatible=1,
-    )
+        source_bins=source_bins,    )
     fixed, fixed_seconds = timed(lambda: lc_curve(case, times, fixed_options))
     fixed_mag = np.asarray(fixed.magnifications, dtype=float)
     fixed_est = np.asarray(fixed.finite_source_error_estimates, dtype=float)
@@ -152,9 +149,7 @@ def summarize_case(case: Case, source_bins: int, reltol: float, max_bins: int):
         source_bins=source_bins,
         adaptive_source_bins=1,
         max_source_bins=max_bins,
-        reltol=reltol,
-        vbbl_compatible=1,
-    )
+        reltol=reltol,    )
     adaptive, adaptive_seconds = timed(lambda: lc_curve(case, times, adaptive_options))
     adaptive_mag = np.asarray(adaptive.magnifications, dtype=float)
     adaptive_est = np.asarray(adaptive.finite_source_error_estimates, dtype=float)

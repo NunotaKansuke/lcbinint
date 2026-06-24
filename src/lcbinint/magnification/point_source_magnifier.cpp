@@ -1,8 +1,9 @@
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 
-#include "lcbinint/math/polynomial_roots.hpp"
+#include "SkowronGould.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <limits>
 #include <vector>
@@ -17,10 +18,87 @@ struct BinaryGeometry {
     Complex source;
 };
 
-struct CandidateImage {
-    Complex z;
+struct StackCandidateImage {
     double residual = 0.0;
+    double jacobian_determinant = 0.0;
 };
+
+struct FastComplex {
+    double re = 0.0;
+    double im = 0.0;
+};
+
+struct FastBinaryGeometry {
+    double a = 0.0;
+    double m1 = 0.0;
+    double m2 = 0.0;
+    double a2 = 0.0;
+    double a3 = 0.0;
+    double m2_2 = 0.0;
+    FastComplex y;
+};
+
+FastComplex operator+(FastComplex lhs, FastComplex rhs)
+{
+    return {lhs.re + rhs.re, lhs.im + rhs.im};
+}
+
+FastComplex operator-(FastComplex lhs, FastComplex rhs)
+{
+    return {lhs.re - rhs.re, lhs.im - rhs.im};
+}
+
+FastComplex operator*(FastComplex lhs, FastComplex rhs)
+{
+    return {lhs.re * rhs.re - lhs.im * rhs.im, lhs.re * rhs.im + lhs.im * rhs.re};
+}
+
+FastComplex operator*(double scale, FastComplex value)
+{
+    return {scale * value.re, scale * value.im};
+}
+
+FastComplex operator*(FastComplex value, double scale)
+{
+    return scale * value;
+}
+
+FastComplex operator-(double lhs, FastComplex rhs)
+{
+    return {lhs - rhs.re, -rhs.im};
+}
+
+FastComplex operator+(double lhs, FastComplex rhs)
+{
+    return {lhs + rhs.re, rhs.im};
+}
+
+FastComplex conj(FastComplex value)
+{
+    return {value.re, -value.im};
+}
+
+FastComplex sg_to_fast(::complex value)
+{
+    return {value.re, value.im};
+}
+
+::complex fast_to_sg(FastComplex value)
+{
+    return {value.re, value.im};
+}
+
+FastBinaryGeometry make_fast_vbm_geometry(double separation, double mass_ratio, SourcePosition source)
+{
+    const double s = std::abs(separation);
+    const double q_input = std::abs(mass_ratio);
+    const double q = q_input < 1.0 ? q_input : 1.0 / q_input;
+    const double a = q_input < 1.0 ? -s : s;
+    const double m1 = 1.0 / (1.0 + q);
+    const double m2 = q * m1;
+    const double a2 = a * a;
+    return {a, m1, m2, a2, a2 * a, m2 * m2, {source.x + a * m1, source.y}};
+}
 
 BinaryGeometry make_vbm_geometry(double separation, double mass_ratio, SourcePosition source)
 {
@@ -34,29 +112,84 @@ BinaryGeometry make_vbm_geometry(double separation, double mass_ratio, SourcePos
     return {a, m1, m2, Complex(source.x, source.y) + a * m1};
 }
 
-std::vector<Complex> binary_polynomial_coefficients(const BinaryGeometry& geometry)
+void binary_polynomial_coefficients(const FastBinaryGeometry& geometry, std::array<::complex, 6>& coefficients)
 {
-    const Complex a = geometry.separation;
-    const Complex m1 = geometry.m1;
-    const Complex m2 = geometry.m2;
-    const Complex y = geometry.source;
-    const Complex yc = std::conj(y);
-    const Complex a2 = a * a;
-    const Complex a3 = a2 * a;
-    const Complex m2_2 = m2 * m2;
+    const double a = geometry.a;
+    const double m2 = geometry.m2;
+    const FastComplex y = geometry.y;
+    const FastComplex yc = conj(y);
+    const double a2 = geometry.a2;
+    const double a3 = geometry.a3;
+    const double c9 = a2 * geometry.m2_2;
+    const double c10 = a * m2;
+    const FastComplex c12 = FastComplex {a, 0.0} - yc;
+    const FastComplex c13 = FastComplex {a, 0.0} + y;
+    const FastComplex c14 = c13 + y;
+    const FastComplex c15 = conj(c14);
+    const FastComplex c16 = a * y;
+    const FastComplex c17 = conj(c16);
+    const FastComplex c18 = conj(c12);
 
-    std::vector<Complex> coefficients(6);
-    coefficients[0] = a2 * m2_2 * y;
-    coefficients[1] = a * m2 * (a * (m1 + y * (2.0 * yc - a)) - 2.0 * y);
-    coefficients[2] =
-        y * (1.0 - a3 * yc) - a * (m1 + 2.0 * y * yc * (1.0 + m2)) +
-        a2 * (yc * (m1 - m2) + y * (1.0 + m2 + yc * yc));
-    coefficients[3] =
-        2.0 * y * yc + a3 * yc + a2 * (yc * (2.0 * y - yc) - m1) -
-        a * (y + 2.0 * yc * (yc * y - m2));
-    coefficients[4] = yc * (yc * (2.0 * a + y) - 1.0) - a * (yc * (2.0 * a + y) - m1);
-    coefficients[5] = yc * (a - yc);
-    return coefficients;
+    coefficients[0] = fast_to_sg(c9 * y);
+    coefficients[1] = fast_to_sg(FastComplex {-c9, 0.0} +
+                                 c10 * (FastComplex {a, 0.0} +
+                                        (2.0 * c17 - FastComplex {2.0 + a2, 0.0}) * y));
+    coefficients[2] = fast_to_sg(c10 * (FastComplex {1.0, 0.0} + c16 - 2.0 * yc * c13) -
+                                 (c17 - FastComplex {1.0, 0.0}) * (c16 * c12 - c18));
+    coefficients[3] = fast_to_sg(c10 * c15 +
+                                 (FastComplex {a3, 0.0} + 2.0 * (1.0 + a2) * y -
+                                     c17 * c14) *
+                                     yc -
+                                 a * c13);
+    coefficients[4] = fast_to_sg(FastComplex {-c10, 0.0} -
+                                 c12 * (yc * (c13 + FastComplex {a, 0.0}) -
+                                        FastComplex {1.0, 0.0}));
+    coefficients[5] = fast_to_sg(yc * c12);
+}
+
+double distance2(SourcePosition lhs, SourcePosition rhs)
+{
+    const double dx = lhs.x - rhs.x;
+    const double dy = lhs.y - rhs.y;
+    return dx * dx + dy * dy;
+}
+
+double residual_squared(const FastBinaryGeometry& geometry, ::complex image)
+{
+    const double z_re = image.re;
+    const double z_im = image.im;
+    const double u1 = z_re - geometry.a;
+    const double v1 = -z_im;
+    const double d1 = u1 * u1 + v1 * v1;
+    const double u2 = z_re;
+    const double v2 = -z_im;
+    const double d2 = u2 * u2 + v2 * v2;
+
+    const double r_re = geometry.y.re - z_re +
+        geometry.m1 * u1 / d1 + geometry.m2 * u2 / d2;
+    const double r_im = geometry.y.im - z_im -
+        geometry.m1 * v1 / d1 - geometry.m2 * v2 / d2;
+    return r_re * r_re + r_im * r_im;
+}
+
+double jacobian_determinant(const FastBinaryGeometry& geometry, ::complex image)
+{
+    const double u1 = image.re - geometry.a;
+    const double v1 = image.im;
+    const double d1 = u1 * u1 + v1 * v1;
+    const double d1_2 = d1 * d1;
+    const double u2 = image.re;
+    const double v2 = image.im;
+    const double d2 = u2 * u2 + v2 * v2;
+    const double d2_2 = d2 * d2;
+
+    const double derivative_re =
+        geometry.m1 * (u1 * u1 - v1 * v1) / d1_2 +
+        geometry.m2 * (u2 * u2 - v2 * v2) / d2_2;
+    const double derivative_im =
+        -2.0 * geometry.m1 * u1 * v1 / d1_2 -
+        2.0 * geometry.m2 * u2 * v2 / d2_2;
+    return 1.0 - (derivative_re * derivative_re + derivative_im * derivative_im);
 }
 
 Complex lens_equation_residual(const BinaryGeometry& geometry, Complex image)
@@ -73,35 +206,6 @@ double jacobian_determinant(const BinaryGeometry& geometry, Complex image)
     return 1.0 - std::norm(derivative);
 }
 
-std::vector<CandidateImage> sorted_candidates(
-    const BinaryGeometry& geometry,
-    const std::vector<Complex>& roots)
-{
-    std::vector<CandidateImage> candidates;
-    candidates.reserve(roots.size());
-    for (const auto& root : roots) {
-        candidates.push_back({root, std::abs(lens_equation_residual(geometry, root))});
-    }
-    std::sort(candidates.begin(), candidates.end(), [](const auto& lhs, const auto& rhs) {
-        return lhs.residual < rhs.residual;
-    });
-    return candidates;
-}
-
-int physical_image_count(const std::vector<CandidateImage>& candidates)
-{
-    if (candidates.size() < 5) {
-        return static_cast<int>(candidates.size());
-    }
-
-    constexpr double min_ratio = 1.0e-4;
-    constexpr double absolute_gap = 1.0e-12;
-    if (candidates[3].residual * min_ratio > candidates[2].residual + absolute_gap) {
-        return 3;
-    }
-    return 5;
-}
-
 } // namespace
 
 PointSourceResult PointSourceMagnifier::binary_mag0(
@@ -109,12 +213,90 @@ PointSourceResult PointSourceMagnifier::binary_mag0(
     double mass_ratio,
     SourcePosition source) const
 {
-    const auto images = binary_images(separation, mass_ratio, source);
-    double magnification = 0.0;
-    for (const auto& image : images) {
-        magnification += 1.0 / std::abs(image.jacobian_determinant);
+    if (separation == 0.0 || mass_ratio <= 0.0) {
+        return {};
     }
-    return {magnification, static_cast<int>(images.size())};
+
+    const FastBinaryGeometry geometry = make_fast_vbm_geometry(separation, mass_ratio, source);
+    std::array<::complex, 6> coefficients;
+    std::array<::complex, 5> roots;
+    binary_polynomial_coefficients(geometry, coefficients);
+    const bool can_polish_from_cache =
+        root_cache_valid_ &&
+        root_cache_separation_ == separation &&
+        root_cache_mass_ratio_ == mass_ratio &&
+        distance2(root_cache_source_, source) < 2.5e-3;
+    if (can_polish_from_cache) {
+        for (std::size_t i = 0; i < roots.size(); ++i) {
+            roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
+        }
+        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, true);
+    } else {
+        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+    }
+    root_cache_valid_ = true;
+    root_cache_separation_ = separation;
+    root_cache_mass_ratio_ = mass_ratio;
+    root_cache_source_ = source;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        root_cache_roots_[i] = {roots[i].re, roots[i].im};
+    }
+
+    std::array<StackCandidateImage, 5> candidates;
+    int worst1 = 0;
+    int worst2 = 0;
+    int worst3 = 0;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        candidates[i].residual = residual_squared(geometry, roots[i]);
+        const int index = static_cast<int>(i);
+        if (i == 0) {
+            worst1 = index;
+        } else if (i == 1) {
+            if (candidates[i].residual > candidates[static_cast<std::size_t>(worst1)].residual) {
+                worst2 = worst1;
+                worst1 = index;
+            } else {
+                worst2 = index;
+            }
+        } else if (i == 2) {
+            if (candidates[i].residual > candidates[static_cast<std::size_t>(worst1)].residual) {
+                worst3 = worst2;
+                worst2 = worst1;
+                worst1 = index;
+            } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst2)].residual) {
+                worst3 = worst2;
+                worst2 = index;
+            } else {
+                worst3 = index;
+            }
+        } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst1)].residual) {
+            worst3 = worst2;
+            worst2 = worst1;
+            worst1 = index;
+        } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst2)].residual) {
+            worst3 = worst2;
+            worst2 = index;
+        } else if (candidates[i].residual > candidates[static_cast<std::size_t>(worst3)].residual) {
+            worst3 = index;
+        }
+    }
+
+    constexpr double min_ratio2 = 1.0e-8;
+    constexpr double absolute_gap2 = 1.0e-24;
+    const bool three_images =
+        candidates[static_cast<std::size_t>(worst2)].residual * min_ratio2 >
+        candidates[static_cast<std::size_t>(worst3)].residual + absolute_gap2;
+    double magnification = 0.0;
+    int image_count = 0;
+    for (std::size_t i = 0; i < candidates.size(); ++i) {
+        if (three_images && (static_cast<int>(i) == worst1 || static_cast<int>(i) == worst2)) {
+            continue;
+        }
+        const double jacobian = jacobian_determinant(geometry, roots[i]);
+        magnification += 1.0 / std::abs(jacobian);
+        ++image_count;
+    }
+    return {magnification, image_count};
 }
 
 std::vector<BinaryImage> PointSourceMagnifier::binary_images(
@@ -142,23 +324,53 @@ std::vector<BinaryImageCandidate> PointSourceMagnifier::binary_image_candidates(
         return {};
     }
 
-    const BinaryGeometry geometry = make_vbm_geometry(separation, mass_ratio, source);
-    math::PolynomialRootSolver solver;
-    const auto root_result = solver.solve(binary_polynomial_coefficients(geometry));
-    if (root_result.status != math::RootSolverStatus::ok) {
-        return {};
+    const FastBinaryGeometry geometry = make_fast_vbm_geometry(separation, mass_ratio, source);
+    std::array<::complex, 6> coefficients;
+    std::array<::complex, 5> roots;
+    binary_polynomial_coefficients(geometry, coefficients);
+    const bool can_polish_from_cache =
+        root_cache_valid_ &&
+        root_cache_separation_ == separation &&
+        root_cache_mass_ratio_ == mass_ratio &&
+        distance2(root_cache_source_, source) < 2.5e-3;
+    if (can_polish_from_cache) {
+        for (std::size_t i = 0; i < roots.size(); ++i) {
+            roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
+        }
+        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, true);
+    } else {
+        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+    }
+    root_cache_valid_ = true;
+    root_cache_separation_ = separation;
+    root_cache_mass_ratio_ = mass_ratio;
+    root_cache_source_ = source;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        root_cache_roots_[i] = {roots[i].re, roots[i].im};
     }
 
-    const auto candidates = sorted_candidates(geometry, root_result.roots);
-    const int physical_count = physical_image_count(candidates);
     std::vector<BinaryImageCandidate> images;
-    images.reserve(candidates.size());
-    for (std::size_t i = 0; i < candidates.size(); ++i) {
-        const Complex z = candidates[i].z;
-        images.push_back({{z.real(), z.imag()},
-            jacobian_determinant(geometry, z),
-            candidates[i].residual,
-            static_cast<int>(i) < physical_count});
+    images.reserve(roots.size());
+    for (const auto& root : roots) {
+        images.push_back({{root.re, root.im},
+            jacobian_determinant(geometry, root),
+            std::sqrt(residual_squared(geometry, root)),
+            false});
+    }
+    std::sort(images.begin(), images.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.residual < rhs.residual;
+    });
+
+    int physical_count = static_cast<int>(images.size());
+    if (images.size() >= 5) {
+        constexpr double min_ratio = 1.0e-4;
+        constexpr double absolute_gap = 1.0e-12;
+        if (images[3].residual * min_ratio > images[2].residual + absolute_gap) {
+            physical_count = 3;
+        }
+    }
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        images[i].physical = static_cast<int>(i) < physical_count;
     }
     return images;
 }

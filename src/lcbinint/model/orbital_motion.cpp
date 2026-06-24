@@ -51,7 +51,11 @@ double solve_kepler_newton(double mean_anomaly, double eccentricity)
         const double f = eccentric_anomaly - eccentricity * std::sin(eccentric_anomaly) -
                          mean_anomaly;
         const double fp = 1.0 - eccentricity * std::cos(eccentric_anomaly);
-        eccentric_anomaly -= f / fp;
+        const double delta = f / fp;
+        eccentric_anomaly -= delta;
+        if (std::abs(delta) <= 1.0e-13) {
+            break;
+        }
     }
     return eccentric_anomaly;
 }

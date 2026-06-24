@@ -146,7 +146,7 @@ Replace before public release:
 
 | Legacy routine | Current role | Replacement direction |
 | --- | --- | --- |
-| `zroots2`, `zroots2l`, `zroots2q` + `laguer*` | complex polynomial roots for image positions and caustics | Replace with the Skowron & Gould complex polynomial solver used in microlensing codes such as VBBinaryLensing. The published SG code is Apache-2.0/LGPL; keep attribution and isolate it behind `PolynomialRootSolver`. |
+| `zroots2`, `zroots2l`, `zroots2q` + `laguer*` | complex polynomial roots for image positions and caustics | Replace with the Skowron & Gould complex polynomial solver used in microlensing codes such as VBMicrolensing. The published SG code is Apache-2.0/LGPL; keep attribution and isolate it behind `PolynomialRootSolver`. |
 | `zbrent4`, `zbrent5` | scalar root finding for orbital anomaly and ray boundary | GSL Brent root solver or small clean-room Brent implementation. |
 | `qromb`, `qromb1`, `qromb2`, `trapzd*`, `polint` | legacy finite-source integration | Do not port as a public path. Prefer inverse-ray plus quadrupole/point-source safety tests. If scalar integration is later needed, use GSL or clean-room code. |
 | `piksrt`, `indexx` | sorting | C standard `qsort` or local small sort. |
@@ -166,7 +166,7 @@ not depend on manually exporting `GSL_ROOT`.
 2. Add internal C++ value types and route the C ABI through `LensModel`.
 3. Add a Skowron-Gould-backed `PolynomialRootSolver`.
 4. Port point-source binary and triple calculations into the C++ structure.
-5. Add VBM/VBBinaryLensing consistency tests for the point-source path.
+5. Add VBM/VBMicrolensing consistency tests for the point-source path.
 6. Add regression tests comparing the extracted library against selected legacy
    executable outputs.
 7. Add Python bindings.
@@ -192,7 +192,7 @@ Finite-source milestone detail:
    raises `RuntimeError("numerical error")`.
 7. Add quadratic/square-root limb-darkening coverage for the local
    Gamma/Lambda implementation. The C++ path supports both `limb_darkening_c`
-   and `limb_darkening_d`; VBBinaryLensing's Python `BinaryMagDark` binding
+   and `limb_darkening_d`; VBMicrolensing's Python `BinaryMagDark` binding
    currently provides a simple linear-coefficient comparison point.
 
 ## Design Notes
@@ -208,7 +208,7 @@ Finite-source milestone detail:
 
 ## VBM Consistency Tests
 
-Use VBBinaryLensing/VBMicrolensing as an independent reference for the new
+Use VBMicrolensing/VBMicrolensing as an independent reference for the new
 Skowron-Gould-based path. The initial binary point-source tests live in
 `tests/regression/test_vbm_consistency.py`.
 
@@ -233,7 +233,7 @@ The initial binary point-source implementation is now available as:
 lcbinint.binary_mag0(separation, mass_ratio, y1, y2)
 ```
 
-This low-level API is matched against `VBBinaryLensing().BinaryMag0(...)`.
+This low-level API is matched against `VBMicrolensing().BinaryMag0(...)`.
 Keep it as a direct numerical validation hook even after the higher-level
 `LensModel` API exists.
 

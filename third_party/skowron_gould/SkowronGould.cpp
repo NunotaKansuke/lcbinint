@@ -99,7 +99,7 @@ void cmplx_roots_gen(complex *roots, complex *poly, int degree, bool polish_root
 	//very rough idea where some of the roots can be.
 	//
 
-	complex poly2[MAXM];
+	static complex poly2[MAXM];
 	static int i, j, n, iter;
 	bool success;
 	complex coef, prev;
@@ -120,8 +120,7 @@ void cmplx_roots_gen(complex *roots, complex *poly, int degree, bool polish_root
 
 	for (n = degree; n >= 3; n--) {
 		cmplx_laguerre2newton(poly2, n, &roots[n - 1], iter, success, 2);
-		if (!success) {
-			printf("Not a success!\n");
+		if (!success) {
 			roots[n - 1] = complex(0, 0);
 			cmplx_laguerre(poly2, n, &roots[n - 1], iter, success);
 		}
@@ -141,21 +140,13 @@ void cmplx_roots_gen(complex *roots, complex *poly, int degree, bool polish_root
 		//}
 	}
 
-	//Find the to last 2 roots
-	cmplx_laguerre2newton(poly2, 2, &roots[1], iter, success, 2);
-	if (!success) {
-		printf("Not a success!\n");
-		solve_quadratic_eq(roots[1], roots[0], poly2);
-	}
-	else {
-		roots[0] = -(roots[1] + poly2[1] / poly2[2]); // Viete's Formula for the last root
-	}
+	// Find the last 2 roots directly. This matches VBMicrolensing's
+	// Skowron-Gould translation and avoids an unnecessary iterative solve
+	// for the deflated quadratic.
+	solve_quadratic_eq(roots[1], roots[0], poly2);
 	if (polish_roots_after) {
 		for (n = 0; n < degree; n++) {
 			cmplx_newton_spec(poly, degree, &roots[n], iter, success); // Polish roots with full polynomial
-			if (!success) {
-				printf("not a success\n");
-			}
 		}
 	}
 

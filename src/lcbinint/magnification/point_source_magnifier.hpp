@@ -2,6 +2,7 @@
 
 #include "lcbinint/types.hpp"
 
+#include <array>
 #include <vector>
 
 namespace lcbinint::magnification {
@@ -32,6 +33,13 @@ public:
         double mass_ratio,
         SourcePosition source) const;
     SourcePosition binary_lens_equation(double separation, double mass_ratio, SourcePosition image) const;
+
+private:
+    mutable bool root_cache_valid_ = false;
+    mutable double root_cache_separation_ = 0.0;
+    mutable double root_cache_mass_ratio_ = 0.0;
+    mutable SourcePosition root_cache_source_ {};
+    mutable std::array<SourcePosition, 5> root_cache_roots_ {};
 };
 
 } // namespace lcbinint::magnification

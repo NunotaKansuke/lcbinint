@@ -24,6 +24,7 @@ struct MagnificationResult {
     double finite_source_error_estimate = 0.0;
     SourcePosition source;
     int image_count = 0;
+    int finite_source_method = 0;
     int finite_source_refinement_level = 0;
     bool finite_source_converged = true;
     EvaluationStatus status = EvaluationStatus::unsupported;

@@ -10,12 +10,12 @@ sys.modules["adaptive_source_bins_sweep"] = sweep
 spec.loader.exec_module(sweep)
 
 import lcbinint
-import VBBinaryLensing
+import VBMicrolensing
 
 case = sweep.Case("planetary_large_source", 1.0, 1e-3, -0.01, 0.0, 0.01, -0.5, 0.5)
 times = np.linspace(-0.5, 0.5, 61)
 
-vbb = VBBinaryLensing.VBBinaryLensing()
+vbb = VBMicrolensing.VBMicrolensing()
 vbb.Tol = 1e-3
 vbb.RelTol = 0.0
 ref = np.array(
@@ -31,9 +31,7 @@ def run(source_bins, max_bins, adaptive, reltol=1e-4):
         source_bins=source_bins,
         adaptive_source_bins=(1 if adaptive else 0),
         max_source_bins=max_bins,
-        reltol=(reltol if adaptive else 0.0),
-        vbbl_compatible=1,
-    )
+        reltol=(reltol if adaptive else 0.0),    )
     r = sweep.lc_curve(case, times, opts)
     return (
         np.array(r.magnifications),
