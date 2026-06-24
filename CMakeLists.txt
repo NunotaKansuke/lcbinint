@@ -81,6 +81,9 @@ add_executable(test_core tests/unit/test_core.cpp)
 target_link_libraries(test_core PRIVATE lcbinint_core)
 add_test(NAME unit_core COMMAND test_core)
 
+add_executable(benchmark_point_hex EXCLUDE_FROM_ALL tests/diagnostics/benchmark_point_hex.cpp)
+target_link_libraries(benchmark_point_hex PRIVATE lcbinint_core)
+
 if(LCBININT_BUILD_PYTHON)
     find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
     find_package(pybind11 CONFIG REQUIRED)

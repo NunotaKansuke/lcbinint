@@ -6,6 +6,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
@@ -290,15 +291,33 @@ void apply_annual_parallax(const LensParameters& params, double time, double& ta
     }
 
     const double reference_time = params.tfix != 0.0 ? params.tfix : params.t0;
-    const EarthOrbitalParallaxProjector projector(params.ra, params.dec, reference_time);
-    const auto offset = projector.offset(time, params.piEN, params.piEE);
+    struct ProjectorCache {
+        bool valid = false;
+        double ra = 0.0;
+        double dec = 0.0;
+        double reference_time = 0.0;
+        std::unique_ptr<EarthOrbitalParallaxProjector> projector;
+    };
+    thread_local ProjectorCache cache;
+    if (!cache.valid ||
+        cache.ra != params.ra ||
+        cache.dec != params.dec ||
+        cache.reference_time != reference_time) {
+        cache.ra = params.ra;
+        cache.dec = params.dec;
+        cache.reference_time = reference_time;
+        cache.projector =
+            std::make_unique<EarthOrbitalParallaxProjector>(params.ra, params.dec, reference_time);
+        cache.valid = true;
+    }
+    const auto offset = cache.projector->offset(time, params.piEN, params.piEE);
     tau += offset.north;
     beta += offset.east;
 }
 
 } // namespace
 
-SourcePosition Trajectory::source_position(double time, bool vbbl_mode) const
+SourcePosition Trajectory::source_position(double time, bool vbm_mode) const
 {
     double tn = (time - params_.t0) / params_.tE;
     double beta = params_.umin;
@@ -308,8 +327,8 @@ SourcePosition Trajectory::source_position(double time, bool vbbl_mode) const
     const double sintheta = std::sin(params_.theta);
 
     SourcePosition source;
-    if (vbbl_mode) {
-        // VBBL BinaryLightCurve convention: u1 = tau*cos(alpha) - u0*sin(alpha),
+    if (vbm_mode) {
+        // VBM BinaryLightCurve convention: u1 = tau*cos(alpha) - u0*sin(alpha),
         // u2 = tau*sin(alpha) + u0*cos(alpha), where alpha = theta, u0 = umin.
         source.x = tn * costheta - beta * sintheta;
         source.y = tn * sintheta + beta * costheta;

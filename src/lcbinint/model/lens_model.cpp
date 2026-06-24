@@ -2,7 +2,6 @@
 
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
-#include "lcbinint/model/lens_system.hpp"
 #include "lcbinint/model/orbital_motion.hpp"
 #include "lcbinint/model/trajectory.hpp"
 
@@ -19,7 +18,7 @@ bool has_unsupported_dynamic_effects(const LensParameters& params)
            params.omega != 0.0 || params.v_sep != 0.0;
 }
 
-double legacy_wide_binary_offset(
+double wide_binary_offset(
     double separation,
     const LensParameters& params,
     const ComputationOptions& options)
@@ -62,16 +61,34 @@ magnification::FiniteSourceSettings finite_source_settings(
 } // namespace
 
 LensModel::LensModel(LensParameters params, ComputationOptions options)
-    : params_(params), options_(options), finite_magnifier_(finite_source_settings(params_, options_))
+    : params_(params)
+    , options_(options)
+    , trajectory_(params_)
+    , cos_theta_(std::cos(params_.theta))
+    , sin_theta_(std::sin(params_.theta))
+    , finite_magnifier_(finite_source_settings(params_, options_))
 {
 }
 
 MagnificationResult LensModel::magnification(double time) const
 {
-    const auto source = Trajectory(params_).source_position(time, options_.vbbl_compatible != 0);
-    const auto orbit = orbital_state(params_, time);
-    const auto system = LensSystem::from_parameters(params_);
-    (void)system;
+    SourcePosition source;
+    if (params_.piEN == 0.0 && params_.piEE == 0.0) {
+        const double tn = (time - params_.t0) / params_.tE;
+        const double beta = params_.umin;
+        if (options_.vbm_compatible != 0) {
+            source.x = tn * cos_theta_ - beta * sin_theta_;
+            source.y = tn * sin_theta_ + beta * cos_theta_;
+        } else {
+            source.x = beta * sin_theta_ + tn * cos_theta_;
+            source.y = beta * cos_theta_ - tn * sin_theta_;
+        }
+    } else {
+        source = trajectory_.source_position(time, options_.vbm_compatible != 0);
+    }
+    const bool static_orbit = params_.orbital_motion_mode == LCBI_ORBIT_STATIC;
+    const auto orbit = static_orbit ? OrbitalState {params_.sep, params_.theta, 0.0}
+                                    : orbital_state(params_, time);
 
     const double nan = std::numeric_limits<double>::quiet_NaN();
     MagnificationResult result;
@@ -87,18 +104,49 @@ MagnificationResult LensModel::magnification(double time) const
     }
 
     if (!params_.is_triple() && !has_unsupported_dynamic_effects(params_)) {
-        const magnification::PointSourceMagnifier point_magnifier;
-        auto source_for_magnification =
-            rotate_source_to_orbital_frame(source, orbit.angle - params_.theta);
-        result.source = source_for_magnification;
-        if (options_.vbbl_compatible == 0) {
-            source_for_magnification.x -= legacy_wide_binary_offset(orbit.separation, params_, options_);
+        auto source_for_magnification = source;
+        if (!static_orbit) {
+            if (options_.vbm_compatible != 0) {
+                double tau = 0.0;
+                double beta = 0.0;
+                if (params_.piEN == 0.0 && params_.piEE == 0.0) {
+                    tau = (time - params_.t0) / params_.tE;
+                    beta = params_.umin;
+                } else {
+                    tau = source.x * cos_theta_ + source.y * sin_theta_;
+                    beta = -source.x * sin_theta_ + source.y * cos_theta_;
+                }
+                source_for_magnification = {
+                    tau * std::cos(orbit.angle) - beta * std::sin(orbit.angle),
+                    beta * std::cos(orbit.angle) + tau * std::sin(orbit.angle),
+                };
+            } else {
+                source_for_magnification =
+                    rotate_source_to_orbital_frame(source, orbit.angle - params_.theta);
+            }
         }
-        const double effective_q = (options_.vbbl_compatible != 0 && params_.q != 0.0)
+        result.source = source_for_magnification;
+        if (options_.vbm_compatible == 0) {
+            source_for_magnification.x -= wide_binary_offset(orbit.separation, params_, options_);
+        }
+        const double effective_q = (options_.vbm_compatible != 0 && params_.q != 0.0)
             ? 1.0 / params_.q
             : params_.q;
+
+        if (supports_binary_point_source(params_, options_)) {
+            const auto point =
+                point_magnifier_.binary_mag0(orbit.separation, effective_q, source_for_magnification);
+            result.point_source_magnification = point.magnification;
+            result.image_count = point.image_count;
+            result.magnification = point.magnification;
+            result.status = std::isfinite(result.magnification)
+                ? EvaluationStatus::ok
+                : EvaluationStatus::numerical_error;
+            return result;
+        }
+
         const auto point_images =
-            point_magnifier.binary_images(orbit.separation, effective_q, source_for_magnification);
+            point_magnifier_.binary_images(orbit.separation, effective_q, source_for_magnification);
         double point_source_magnification = 0.0;
         std::vector<SourcePosition> center_image_seeds;
         center_image_seeds.reserve(point_images.size());
@@ -109,22 +157,16 @@ MagnificationResult LensModel::magnification(double time) const
         result.point_source_magnification = point_source_magnification;
         result.image_count = static_cast<int>(point_images.size());
 
-        if (supports_binary_point_source(params_, options_)) {
-            result.magnification = point_source_magnification;
-            result.status = std::isfinite(result.magnification)
-                ? EvaluationStatus::ok
-                : EvaluationStatus::numerical_error;
-            return result;
-        }
-
         const auto finite_result = finite_magnifier_.binary_mag(
             orbit.separation,
             effective_q,
             source_for_magnification, std::abs(params_.rho), point_source_magnification,
-            &center_image_seeds);
+            &center_image_seeds,
+            true);
         result.magnification = finite_result.magnification;
         result.finite_source_magnification = finite_result.magnification;
         result.finite_source_error_estimate = finite_result.error_estimate;
+        result.finite_source_method = static_cast<int>(finite_result.decision.method);
         result.finite_source_refinement_level = finite_result.refinement_level;
         result.finite_source_converged = finite_result.converged;
         if (!std::isfinite(result.magnification)) {

@@ -61,7 +61,7 @@ ComputationOptions from_c_options(const lcbi_options *options)
     out.caustic_bins = options->caustic_bins;
     out.source_bins = options->source_bins;
     out.mode = options->mode;
-    out.vbbl_compatible = options->vbbl_compatible;
+    out.vbm_compatible = options->vbm_compatible;
     out.grid_ratio = options->grid_ratio;
     out.point_source_threshold = options->point_source_threshold;
     out.hexadecapole_threshold = options->hexadecapole_threshold;

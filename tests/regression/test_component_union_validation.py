@@ -10,7 +10,7 @@ import lcbinint
 
 # Add diagnostics to path to import helper functions
 sys.path.insert(0, str(__file__).replace('regression/test_component_union_validation.py', 'diagnostics'))
-from adaptive_source_bins_sweep import Case, lc_curve, vbbl_curve
+from adaptive_source_bins_sweep import Case, lc_curve, vbm_curve
 
 
 class TestComponentUnionEdgeCases:
@@ -29,16 +29,16 @@ class TestComponentUnionEdgeCases:
         # Use adaptive refinement with tight tolerance
         opts = lcbinint.Options(
             source_bins=50, adaptive_source_bins=1,
-            max_source_bins=200, reltol=1e-4, vbbl_compatible=1
+            max_source_bins=200, reltol=1e-4
         )
         result_lc = lc_curve(case, times, opts)
         mag_lc = np.array(result_lc.magnifications)
 
-        # Compare against VBBL
-        mag_vbbl = vbbl_curve(case, times)
+        # Compare against vbm
+        mag_vbm = vbm_curve(case, times)
 
         # Check error metrics
-        rel_errors = np.abs(mag_lc - mag_vbbl) / np.abs(mag_vbbl)
+        rel_errors = np.abs(mag_lc - mag_vbm) / np.abs(mag_vbm)
         max_rel_error = np.max(rel_errors)
         median_error = np.median(rel_errors)
 
@@ -59,11 +59,11 @@ class TestComponentUnionEdgeCases:
         # Test different bin counts to ensure monotonic improvement
         results = {}
         for bins in [50, 100, 150, 200]:
-            opts = lcbinint.Options(source_bins=bins, vbbl_compatible=1)
+            opts = lcbinint.Options(source_bins=bins)
             result = lc_curve(case, times, opts)
             mag = np.array(result.magnifications)
-            mag_vbbl = vbbl_curve(case, times)
-            rel_err = np.abs(mag - mag_vbbl) / np.abs(mag_vbbl)
+            mag_vbm = vbm_curve(case, times)
+            rel_err = np.abs(mag - mag_vbm) / np.abs(mag_vbm)
             results[bins] = np.max(rel_err)
 
         # Check monotonic improvement (or at least no regressions)
@@ -82,12 +82,12 @@ class TestComponentUnionEdgeCases:
         )
         times = np.linspace(case.t_min, case.t_max, case.n_times)
 
-        opts = lcbinint.Options(source_bins=50, vbbl_compatible=1)
+        opts = lcbinint.Options(source_bins=50)
         result = lc_curve(case, times, opts)
         mag_lc = np.array(result.magnifications)
-        mag_vbbl = vbbl_curve(case, times)
+        mag_vbm = vbm_curve(case, times)
 
-        rel_err = np.abs(mag_lc - mag_vbbl) / np.abs(mag_vbbl)
+        rel_err = np.abs(mag_lc - mag_vbm) / np.abs(mag_vbm)
         max_rel_error = np.max(rel_err)
 
         # Even ordinary cases should have < 1% error with bins=50
@@ -105,14 +105,14 @@ class TestComponentUnionEdgeCases:
 
         opts = lcbinint.Options(
             source_bins=50, adaptive_source_bins=1,
-            max_source_bins=200, reltol=1e-4, vbbl_compatible=1
+            max_source_bins=200, reltol=1e-4
         )
         result = lc_curve(case, times, opts)
         mag_lc = np.array(result.magnifications)
-        mag_vbbl = vbbl_curve(case, times)
+        mag_vbm = vbm_curve(case, times)
 
         # At high magnification, errors are more sensitive
-        rel_err = np.abs(mag_lc - mag_vbbl) / np.abs(mag_vbbl)
+        rel_err = np.abs(mag_lc - mag_vbm) / np.abs(mag_vbm)
         max_rel_error = np.max(rel_err)
 
         assert max_rel_error < 0.002, f"High-mag error {max_rel_error:.4%} exceeds 0.2%"
@@ -132,12 +132,12 @@ class TestRegressionOnPhaseChanges:
 
         for case in test_cases:
             times = np.linspace(case.t_min, case.t_max, case.n_times)
-            opts = lcbinint.Options(source_bins=50, vbbl_compatible=1)
+            opts = lcbinint.Options(source_bins=50)
             result = lc_curve(case, times, opts)
             mag_lc = np.array(result.magnifications)
-            mag_vbbl = vbbl_curve(case, times)
+            mag_vbm = vbm_curve(case, times)
 
-            rel_err = np.abs(mag_lc - mag_vbbl) / np.abs(mag_vbbl)
+            rel_err = np.abs(mag_lc - mag_vbm) / np.abs(mag_vbm)
             max_rel_error = np.max(rel_err)
 
             # Phase 1-6 should maintain < 1% error for basic accuracy

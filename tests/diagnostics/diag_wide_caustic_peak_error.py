@@ -2,7 +2,7 @@
 import numpy as np
 import time
 import lcbinint
-from adaptive_source_bins_sweep import Case, lc_curve, vbbl_curve
+from adaptive_source_bins_sweep import Case, lc_curve, vbm_curve
 
 # Wide caustic finite source case from user report
 CASE = Case(
@@ -21,26 +21,26 @@ times = np.linspace(CASE.t_min, CASE.t_max, CASE.n_times)
 
 # Run both implementations
 opts_lc = lcbinint.Options(source_bins=50, adaptive_source_bins=1,
-                            max_source_bins=200, reltol=1e-4, vbbl_compatible=1)
+                            max_source_bins=200, reltol=1e-4)
 t0 = time.perf_counter()
 result_lc = lc_curve(CASE, times, opts_lc)
 t_lc = time.perf_counter() - t0
 
 t0 = time.perf_counter()
-result_vbbl = vbbl_curve(CASE, times)
-t_vbbl = time.perf_counter() - t0
+result_vbm = vbm_curve(CASE, times)
+t_vbm = time.perf_counter() - t0
 
 mag_lc = np.array(result_lc.magnifications)
-mag_vbbl = result_vbbl
+mag_vbm = result_vbm
 
 # Find the peak region
-peak_idx = np.argmax(mag_vbbl)
-peak_mag = mag_vbbl[peak_idx]
+peak_idx = np.argmax(mag_vbm)
+peak_mag = mag_vbm[peak_idx]
 peak_time = times[peak_idx]
 
 print(f"Case: {CASE.name}")
 print(f"Peak at t={peak_time:.4f}, mag={peak_mag:.4f}")
-print(f"Timing: lcbinint={t_lc:.3f}s, VBBL={t_vbbl:.3f}s")
+print(f"Timing: lcbinint={t_lc:.3f}s, vbm={t_vbm:.3f}s")
 print()
 
 # Analyze error in peak region (±20 points around peak)
@@ -48,15 +48,15 @@ win = 20
 peak_region = slice(max(0, peak_idx - win), min(len(times), peak_idx + win + 1))
 t_peak = times[peak_region]
 mag_peak_lc = mag_lc[peak_region]
-mag_peak_vbbl = mag_vbbl[peak_region]
+mag_peak_vbm = mag_vbm[peak_region]
 
-rel_err = np.abs(mag_peak_lc - mag_peak_vbbl) / mag_peak_vbbl
+rel_err = np.abs(mag_peak_lc - mag_peak_vbm) / mag_peak_vbm
 max_err_idx = np.argmax(rel_err)
 
 print("Peak region analysis (±20 points):")
 print(f"  Time range: [{t_peak[0]:.4f}, {t_peak[-1]:.4f}]")
 print(f"  Max relative error: {rel_err[max_err_idx]:.4%} at t={t_peak[max_err_idx]:.4f}")
-print(f"    lcbinint={mag_peak_lc[max_err_idx]:.6f}, VBBL={mag_peak_vbbl[max_err_idx]:.6f}")
+print(f"    lcbinint={mag_peak_lc[max_err_idx]:.6f}, vbm={mag_peak_vbm[max_err_idx]:.6f}")
 print()
 
 # Refinement levels
@@ -67,8 +67,8 @@ print()
 
 # Check detailed error profile
 print("Error profile across full time range:")
-rel_err_all = np.abs(mag_lc - mag_vbbl) / mag_vbbl
+rel_err_all = np.abs(mag_lc - mag_vbm) / mag_vbm
 top_5_err_idx = np.argsort(-rel_err_all)[:5]
 for idx in top_5_err_idx:
-    print(f"  t={times[idx]:7.4f}: lc={mag_lc[idx]:.6f}, vbbl={mag_vbbl[idx]:.6f}, "
+    print(f"  t={times[idx]:7.4f}: lc={mag_lc[idx]:.6f}, vbm={mag_vbm[idx]:.6f}, "
           f"rel_err={rel_err_all[idx]:.4%}, ref_lv={ref_levels[idx]}")

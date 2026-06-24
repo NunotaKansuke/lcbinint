@@ -2,14 +2,14 @@ import math
 import numpy as np
 
 import lcbinint
-import VBBinaryLensing
+import VBMicrolensing
 
 from adaptive_source_bins_sweep import Case, lc_curve
 
 case = Case("resonant_low_q", 1.0, 0.1, 0.1, 0.0, 3e-3, -0.25, 0.25)
 times = np.linspace(-0.25, 0.25, 241)
 
-vbb = VBBinaryLensing.VBBinaryLensing()
+vbb = VBMicrolensing.VBMicrolensing()
 vbb.Tol = 1e-3
 vbb.RelTol = 0.0
 ref = np.array(vbb.BinaryLightCurve(
@@ -19,7 +19,7 @@ ref = np.array(vbb.BinaryLightCurve(
 
 
 def run_fixed(bins):
-    opts = lcbinint.Options(source_bins=bins, vbbl_compatible=1)
+    opts = lcbinint.Options(source_bins=bins)
     r = lc_curve(case, times, opts)
     return np.array(r.magnifications), np.array(r.finite_source_error_estimates)
 
@@ -30,8 +30,7 @@ mag200, est200 = run_fixed(200)
 
 opts_a = lcbinint.Options(
     source_bins=50, adaptive_source_bins=1, max_source_bins=200,
-    reltol=1e-4, vbbl_compatible=1,
-)
+    reltol=1e-4,)
 ra = lc_curve(case, times, opts_a)
 a_mag = np.array(ra.magnifications)
 a_conv = np.array(ra.finite_source_converged)

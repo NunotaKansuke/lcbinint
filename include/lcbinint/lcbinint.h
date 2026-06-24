@@ -65,10 +65,10 @@ typedef struct lcbi_options {
     int caustic_bins;
     int source_bins;
     int mode;                        /* public: 1 = cartesian (default), 2 = polar+cache */
-    int vbbl_compatible;             /* 0 = legacy (default), 1 = VBBL-compatible convention */
+    int vbm_compatible;             /* 0 = original lcbinint convention, 1 = VBM convention */
     double grid_ratio;
     double point_source_threshold;   /* bbox margin for fast PS exit (in units of rho) */
-    double hexadecapole_threshold;   /* legacy; unused when adaptive_hex_threshold > 0 */
+    double hexadecapole_threshold;   /* caustic-distance threshold; unused when adaptive_hex_threshold > 0 */
     double adaptive_hex_threshold;   /* VBM-style: |a4 correction|/mag > this => IR mode */
     int adaptive_source_bins;        /* 0 = fixed source_bins, 1 = refine source_bins from grid diagnostics */
     int max_source_bins;             /* maximum source_bins used by adaptive_source_bins */

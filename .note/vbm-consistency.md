@@ -26,8 +26,8 @@ vb = VBBinaryLensing()
 mag = vb.BinaryMag0(separation, mass_ratio, y1, y2)
 ```
 
-`../MulensModel/source/VBBL/README.md` and
-`../MulensModel/source/VBBL/VBBinaryLensingLibrary.h` state that VBBinaryLensing
+`../MulensModel/source/vbm/README.md` and
+`../MulensModel/source/vbm/VBBinaryLensingLibrary.h` state that VBBinaryLensing
 uses the Skowron & Gould complex-root algorithm.
 
 ## Test Shape Added

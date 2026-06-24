@@ -1,7 +1,7 @@
 """Test at consistent time points across different grid sizes."""
 import numpy as np
 import lcbinint
-from adaptive_source_bins_sweep import Case, lc_curve, vbbl_curve
+from adaptive_source_bins_sweep import Case, lc_curve, vbm_curve
 
 # First, find times that actually exist in the 400-point grid
 case_400 = Case(
@@ -23,7 +23,7 @@ test_times = [times_400[50], times_400[100], times_400[200], times_400[201], tim
 print("Testing at specific times with different grid sizes:")
 print()
 
-opts_200 = lcbinint.Options(source_bins=200, vbbl_compatible=1)
+opts_200 = lcbinint.Options(source_bins=200)
 
 for test_time in test_times[:3]:  # Just first 3 to keep it manageable
     print(f"\nAt t={test_time:.6f}:")
@@ -45,9 +45,9 @@ for test_time in test_times[:3]:  # Just first 3 to keep it manageable
         times = np.linspace(-0.8, 0.8, n_points)
         idx = np.argmin(np.abs(times - test_time))
 
-        mag_vbbl = vbbl_curve(case, times)[idx]
+        mag_vbm = vbm_curve(case, times)[idx]
         result = lc_curve(case, times, opts_200)
         mag_lc = result.magnifications[idx]
 
-        error = abs(mag_lc - mag_vbbl) / mag_vbbl * 100
-        print(f"  {n_points:4d} points: lc={mag_lc:.4f}, vbbl={mag_vbbl:.4f}, error={error:5.2f}%")
+        error = abs(mag_lc - mag_vbm) / mag_vbm * 100
+        print(f"  {n_points:4d} points: lc={mag_lc:.4f}, vbm={mag_vbm:.4f}, error={error:5.2f}%")

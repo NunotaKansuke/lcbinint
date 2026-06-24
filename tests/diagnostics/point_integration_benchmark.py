@@ -11,7 +11,7 @@ import time
 
 import numpy as np
 
-import VBBinaryLensing
+import VBMicrolensing
 
 
 def load_lcbinint_module():
@@ -68,8 +68,8 @@ def geomean(values: list[float]) -> float:
     return math.exp(statistics.fmean(math.log(value) for value in positive))
 
 
-def vbbl_binary_lightcurve(case: Case, times: np.ndarray, tol: float) -> np.ndarray:
-    vbb = VBBinaryLensing.VBBinaryLensing()
+def vbm_binary_lightcurve(case: Case, times: np.ndarray, tol: float) -> np.ndarray:
+    vbb = VBMicrolensing.VBMicrolensing()
     vbb.Tol = tol
     vbb.RelTol = 0.0
     if case.limb_darkening_c != 0.0:
@@ -86,8 +86,8 @@ def vbbl_binary_lightcurve(case: Case, times: np.ndarray, tol: float) -> np.ndar
     return np.asarray(vbb.BinaryLightCurve(params, times.tolist())[0], dtype=float)
 
 
-def vbbl_point(case: Case, time_value: float, tol: float) -> float:
-    return float(vbbl_binary_lightcurve(case, np.asarray([time_value]), tol)[0])
+def vbm_point(case: Case, time_value: float, tol: float) -> float:
+    return float(vbm_binary_lightcurve(case, np.asarray([time_value]), tol)[0])
 
 
 def lcbinint_point(
@@ -97,30 +97,27 @@ def lcbinint_point(
     max_source_bins: int,
     reltol: float,
 ):
-    params = lcbinint.LensParams(
-        t0=0.0,
-        tE=1.0,
-        u0=case.u0,
-        alpha=case.alpha,
-        q=case.mass_ratio,
-        sep=case.separation,
-        rho=case.rho,
-        limb_darkening_c=case.limb_darkening_c,
-    )
     options = lcbinint.Options(
         source_bins=source_bins,
         adaptive_source_bins=1,
         max_source_bins=max_source_bins,
-        reltol=reltol,
-        vbbl_compatible=1,
+        reltol=reltol,    )
+    return lcbinint.light_curve_info(
+        [time_value],
+        u0=case.u0,
+        alpha=case.alpha,
+        s=case.separation,
+        q=case.mass_ratio,
+        rho=case.rho,
+        limb_darkening=lcbinint.LimbDarkening(c=case.limb_darkening_c),
+        options=options,
     )
-    return lcbinint.LensModel(params, options).light_curve([time_value])
 
 
 def selected_points(case: Case, points_per_case: int, reference_tol: float) -> list[PointCase]:
     scan_count = max(121, points_per_case * 24)
     times = np.linspace(case.t_min, case.t_max, scan_count)
-    reference = vbbl_binary_lightcurve(case, times, reference_tol)
+    reference = vbm_binary_lightcurve(case, times, reference_tol)
     selected_indices = {int(np.argmax(reference)), scan_count // 2}
     if points_per_case > 2:
         quantile_positions = np.linspace(0, scan_count - 1, points_per_case)
@@ -170,7 +167,7 @@ def main() -> int:
     parser.add_argument("--random", type=int, default=16)
     parser.add_argument("--seed", type=int, default=20260623)
     parser.add_argument("--reference-tol", type=float, default=1.0e-5)
-    parser.add_argument("--vbbl-tol", type=float, default=1.0e-3)
+    parser.add_argument("--vbm-tol", type=float, default=1.0e-3)
     parser.add_argument("--top", type=int, default=12)
     args = parser.parse_args()
 
@@ -185,7 +182,7 @@ def main() -> int:
     for point_index, point in enumerate(points, start=1):
         case = point.case
         _, vbb_seconds = timed_best(
-            lambda: vbbl_point(case, point.time, args.vbbl_tol),
+            lambda: vbm_point(case, point.time, args.vbm_tol),
             args.repeat,
         )
         vbb_ms = 1000.0 * vbb_seconds
@@ -235,7 +232,7 @@ def main() -> int:
     print(
         "point integration benchmark "
         f"cases={len(cases)} points={len(points)} repeat={args.repeat} "
-        f"max_bins={args.max_bins} vbbl_tol={args.vbbl_tol:g} reference_tol={args.reference_tol:g}"
+        f"max_bins={args.max_bins} vbm_tol={args.vbm_tol:g} reference_tol={args.reference_tol:g}"
     )
 
     print("\nby source_bins")
@@ -284,7 +281,7 @@ def main() -> int:
                 f"{sum(row['accepted_bad'] for row in subset):4d}"
             )
 
-    print("\nwhere lcbinint is closest to VBBL speed")
+    print("\nwhere lcbinint is closest to vbm speed")
     print("ratio lc_ms vbb_ms relerr reltol bins case time rho ld mag level conv")
     for row in sorted(rows, key=lambda item: item["lc_ms"] / item["vbb_ms"])[:args.top]:
         print(
@@ -294,7 +291,7 @@ def main() -> int:
             f"{row['max_mag']:8.2f} {row['refinement_level']:2d} {int(row['converged'])}"
         )
 
-    print("\nwhere lcbinint is slowest vs VBBL")
+    print("\nwhere lcbinint is slowest vs vbm")
     print("ratio lc_ms vbb_ms relerr reltol bins case time rho ld mag level conv")
     for row in sorted(rows, key=lambda item: item["lc_ms"] / item["vbb_ms"], reverse=True)[:args.top]:
         print(

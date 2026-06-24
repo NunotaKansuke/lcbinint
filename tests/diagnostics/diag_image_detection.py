@@ -1,7 +1,7 @@
 """Debug image detection at the problematic point."""
 import numpy as np
 import math
-from VBBinaryLensing import VBBinaryLensing
+from VBMicrolensing import VBMicrolensing
 
 # Parameters for wide caustic case at t=0.006
 # separation=0.95, mass_ratio=0.01, u0=-0.01, alpha=0.5, rho=0.01
@@ -21,11 +21,11 @@ u_mag = np.sqrt(u0**2 + (t/tE)**2)
 # Source position: (u_mag * cos(alpha), u0 + u_mag * sin(alpha))
 # Actually, standard form: y = u0, x = u0*cot(alpha) + t/tE (along the trajectory)
 
-# But let's just use VBBL's coordinate system directly
-# In VBBL: the 5 parameters are [log(s), log(q), y, alpha, log(rho)]
+# But let's just use vbm's coordinate system directly
+# In vbm: the 5 parameters are [log(s), log(q), y, alpha, log(rho)]
 # The light curve is computed for specific (y, alpha) at each time
 
-vbb = VBBinaryLensing()
+vbb = VBMicrolensing()
 vbb.Tol = 1e-3
 vbb.RelTol = 0.0
 
@@ -53,7 +53,7 @@ params = [
 # Let me compute properly:
 u_t = np.sqrt(u0**2 + (t/tE)**2)  # impact parameter at time t
 
-# VBBL expects parameters in image plane coordinates
+# vbm expects parameters in image plane coordinates
 # y is the baseline perpendicular separation
 # alpha is the angle of lens orientation
 
@@ -62,12 +62,12 @@ print(f"Impact parameter u(t)={u_t:.6f}")
 print()
 
 # Get point-source magnification to understand the image structure
-# For VBBL, we need to use the full light curve evaluation
+# For vbm, we need to use the full light curve evaluation
 mag = vbb.BinaryLightCurve(params, [t])[0][0]
 print(f"Point-source magnification (ρ→0): {mag:.6f}")
 print()
 
-# For finite source with rho=0.01, VBBL gives
+# For finite source with rho=0.01, vbm gives
 mag_fs = vbb.BinaryLightCurve(params, [t])[0][0]
 print(f"Finite-source magnification (ρ=0.01): {mag_fs:.6f}")
 print()

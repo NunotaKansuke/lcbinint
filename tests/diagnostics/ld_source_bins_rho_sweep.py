@@ -9,7 +9,7 @@ import time
 import numpy as np
 
 import lcbinint
-import VBBinaryLensing
+import VBMicrolensing
 
 
 @dataclasses.dataclass(frozen=True)
@@ -97,14 +97,14 @@ def geomean(values: list[float]) -> float:
     return math.exp(statistics.fmean(math.log(value) for value in positive))
 
 
-def vbbl_curve(
+def vbm_curve(
     geometry: Geometry,
     rho: float,
     times: np.ndarray,
     limb_darkening_c: float,
     tol: float,
 ) -> np.ndarray:
-    vbb = VBBinaryLensing.VBBinaryLensing()
+    vbb = VBMicrolensing.VBMicrolensing()
     vbb.Tol = tol
     vbb.RelTol = 0.0
     vbb.a1 = limb_darkening_c
@@ -127,23 +127,19 @@ def lcbinint_curve(
     source_bins: int,
     limb_darkening_c: float,
 ) -> np.ndarray:
-    params = lcbinint.LensParams(
-        t0=0.0,
-        tE=1.0,
+    options = lcbinint.Options(
+        source_bins=source_bins,
+        adaptive_source_bins=0,    )
+    return np.asarray(lcbinint.light_curve(
+        times,
         u0=geometry.u0,
         alpha=geometry.alpha,
         q=geometry.mass_ratio,
-        sep=geometry.separation,
+        s=geometry.separation,
         rho=rho,
-        limb_darkening_c=limb_darkening_c,
-    )
-    options = lcbinint.Options(
-        source_bins=source_bins,
-        adaptive_source_bins=0,
-        vbbl_compatible=1,
-    )
-    curve = lcbinint.LensModel(params, options).light_curve(times.tolist())
-    return np.asarray(curve.magnifications, dtype=float)
+        limb_darkening=lcbinint.LimbDarkening(c=limb_darkening_c),
+        options=options,
+    ), dtype=float)
 
 
 def summarize(rows: list[dict], key: str) -> list[dict]:
@@ -175,7 +171,7 @@ def main() -> int:
     parser.add_argument("--source-bins", default="25,35,50,70,100,140,200")
     parser.add_argument("--times", type=int, default=121)
     parser.add_argument("--limb-darkening-c", type=float, default=0.5)
-    parser.add_argument("--vbbl-tol", type=float, default=1.0e-3)
+    parser.add_argument("--vbm-tol", type=float, default=1.0e-3)
     parser.add_argument("--random", type=int, default=0)
     parser.add_argument("--seed", type=int, default=20260622)
     parser.add_argument("--top", type=int, default=12)
@@ -192,8 +188,8 @@ def main() -> int:
         times = np.linspace(geometry.t_min, geometry.t_max, args.times)
         for rho in rhos:
             reference, vbb_seconds = timed(
-                lambda: vbbl_curve(
-                    geometry, rho, times, args.limb_darkening_c, args.vbbl_tol
+                lambda: vbm_curve(
+                    geometry, rho, times, args.limb_darkening_c, args.vbm_tol
                 )
             )
             vbb_ms = 1000.0 * vbb_seconds / len(times)
@@ -222,7 +218,7 @@ def main() -> int:
     print(f"lcbinint: {lcbinint.__file__}")
     print(
         "LD fixed-bin sweep "
-        f"c={args.limb_darkening_c:g} vbbl_tol={args.vbbl_tol:g} times={args.times}"
+        f"c={args.limb_darkening_c:g} vbm_tol={args.vbm_tol:g} times={args.times}"
     )
     print("\nby source_bins")
     print("bins cases lc/vbb_med lc/vbb_geo lc_ms_med vbb_ms_med maxrel_med maxrel_worst p99rel_med")

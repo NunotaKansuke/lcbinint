@@ -7,7 +7,7 @@ Date: 2026-06-23
 The finite-source inverse-ray default has been moved to the local adaptive
 Cartesian integrator:
 
-- `source_bins = 64`
+- `source_bins = 50`
 - `adaptive_source_bins = 1`
 - `finite_source_reltol = 1e-3`
 - `max_source_bins = 400`
@@ -75,7 +75,7 @@ source_bins  points  lc_ms_med  lc_ms_geo  lc/vbb_med  lc/vbb_geo  rel_p90   max
 For the selected default:
 
 ```text
-source_bins=64, reltol=1e-3, max_source_bins=400
+source_bins=50, reltol=1e-3, max_source_bins=400
 unconverged: 7 / 280 points
 accepted_bad: 0 / 280 points
 90th percentile relative error: 1.48e-05
@@ -84,7 +84,7 @@ max local refinement level: 3
 
 `source_bins=80` is slightly more robust, but it did not improve the median
 time in this single-point benchmark and costs more grid work in larger light
-curve runs.  `source_bins=64` is the current balance point.
+curve runs.  `source_bins=50` is the current balance point.
 
 ## Interpretation
 

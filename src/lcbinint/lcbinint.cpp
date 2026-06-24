@@ -38,7 +38,7 @@ lcbi_options lcbi_default_options(void)
     lcbi_options options = {};
     options.orbit_pair = 23;
     options.caustic_bins = 1400;
-    options.source_bins = 64;
+    options.source_bins = 50;
     options.mode = 1;
     options.grid_ratio = 4.0;
     options.point_source_threshold = 20.0;

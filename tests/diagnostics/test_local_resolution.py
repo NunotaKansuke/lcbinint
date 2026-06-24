@@ -1,7 +1,7 @@
 """Test t=0.006015 with different local resolutions."""
 import numpy as np
 import lcbinint
-from adaptive_source_bins_sweep import Case, lc_curve, vbbl_curve
+from adaptive_source_bins_sweep import Case, lc_curve, vbm_curve
 
 # The problematic time
 t_problem = 0.006015
@@ -24,13 +24,13 @@ for center_width in [0.01, 0.02, 0.05, 0.1, 0.2, 1.6]:
         times = np.linspace(t_problem - center_width/2, t_problem + center_width/2, n_points)
         idx = np.argmin(np.abs(times - t_problem))
 
-        mag_vbbl = vbbl_curve(case, times)[idx]
+        mag_vbm = vbm_curve(case, times)[idx]
 
-        opts_200 = lcbinint.Options(source_bins=200, vbbl_compatible=1)
+        opts_200 = lcbinint.Options(source_bins=200)
         result = lc_curve(case, times, opts_200)
         mag_lc = result.magnifications[idx]
 
-        error = abs(mag_lc - mag_vbbl) / mag_vbbl * 100
+        error = abs(mag_lc - mag_vbm) / mag_vbm * 100
 
         if error > 1.0:  # Only print large errors
             print(f"width={center_width:.3f}, n={n_points:3d}: error={error:6.2f}%")
@@ -53,11 +53,11 @@ for n_points in [100, 200, 300, 400, 500, 600]:
     times = np.linspace(-0.8, 0.8, n_points)
     idx = np.argmin(np.abs(times - t_problem))
 
-    mag_vbbl = vbbl_curve(case, times)[idx]
-    opts_200 = lcbinint.Options(source_bins=200, vbbl_compatible=1)
+    mag_vbm = vbm_curve(case, times)[idx]
+    opts_200 = lcbinint.Options(source_bins=200)
     result = lc_curve(case, times, opts_200)
     mag_lc = result.magnifications[idx]
 
-    error = abs(mag_lc - mag_vbbl) / mag_vbbl * 100
+    error = abs(mag_lc - mag_vbm) / mag_vbm * 100
     t_actual = times[idx]
     print(f"n={n_points:3d}, t_actual={t_actual:.6f}: error={error:6.2f}%")
