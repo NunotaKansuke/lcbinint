@@ -69,11 +69,11 @@ typedef struct lcbi_options {
     double grid_ratio;
     double point_source_threshold;   /* bbox margin for fast PS exit (in units of rho) */
     double hexadecapole_threshold;   /* caustic-distance threshold; unused when adaptive_hex_threshold > 0 */
-    double adaptive_hex_threshold;   /* VBM-style: |a4 correction|/mag > this => IR mode */
-    int adaptive_source_bins;        /* 0 = fixed source_bins, 1 = refine source_bins from grid diagnostics */
-    int max_source_bins;             /* maximum source_bins used by adaptive_source_bins */
-    double finite_source_tol;        /* absolute finite-source IR tolerance target; 0 disables */
-    double finite_source_reltol;     /* relative finite-source IR tolerance target; 0 disables */
+    double adaptive_hex_threshold;   /* VBM-style hex tolerance: |a4 correction|/mag > this => IR mode */
+    int adaptive_source_bins;        /* 0 = fixed source_bins (default), 1 = refine source_bins from grid diagnostics */
+    int max_source_bins;             /* maximum source_bins used when adaptive_source_bins is enabled */
+    double finite_source_tol;        /* absolute adaptive IR tolerance target; 0 disables */
+    double finite_source_reltol;     /* relative adaptive IR tolerance target; 0 disables */
 } lcbi_options;
 
 typedef struct lcbi_result {
