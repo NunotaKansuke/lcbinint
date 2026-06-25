@@ -3209,7 +3209,12 @@ HexadecapoleDiagnosticResult diagnostic_hexadecapole_binary(
     const PointSourceMagnifier point_magnifier;
     const auto result = hexadecapole_binary(
         point_magnifier, separation, mass_ratio, source, source_radius, settings);
-    return {result.magnification, result.relative_error};
+    const auto derivatives =
+        point_magnifier.binary_mag0_with_derivatives(separation, mass_ratio, source);
+    const double derivative_relative_error =
+        derivatives.derivative_error_indicator * source_radius * source_radius /
+        std::max(std::abs(result.magnification), 1.0e-10);
+    return {result.magnification, result.relative_error, derivative_relative_error};
 }
 
 FiniteSourceResult FiniteSourceMagnifier::binary_mag(
@@ -3296,6 +3301,50 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     const bool near_caustic = refined_dist < hex_dist_threshold;
     double rejected_hex_magnification = std::numeric_limits<double>::quiet_NaN();
     if (!near_caustic) {
+        auto caustic_distance_safety = [&]() {
+            double safety = 1.0;
+            if (source_radius >= 1.0e-3 && std::isfinite(refined_dist) &&
+                source_radius > 0.0) {
+                const double dist_ratio = refined_dist / source_radius;
+                const double t =
+                    settings_.hex_threshold / std::max(dist_ratio, settings_.hex_threshold);
+                safety = std::max(1.0, 30.0 * t * t * t);
+            }
+            return safety;
+        };
+        double requested_relative =
+            settings_.adaptive_hex_threshold > 0.0 ? settings_.adaptive_hex_threshold : 1.0e-3;
+        if (settings_.adaptive_source_bins != 0 &&
+            (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0)) {
+            requested_relative =
+                settings_.finite_source_reltol +
+                settings_.finite_source_tol / std::max(std::abs(point_source_magnification), 1.0);
+        }
+        if (settings_.hex_threshold > 0.0) {
+            const auto derivative_point =
+                point_magnifier.binary_mag0_with_derivatives(separation, mass_ratio, source);
+            const double derivative_relative_error =
+                derivative_point.derivative_error_indicator * source_radius * source_radius /
+                std::max(std::abs(derivative_point.magnification), 1.0e-10);
+            const double derivative_threshold =
+                requested_relative / caustic_distance_safety();
+            if (std::isfinite(derivative_relative_error) &&
+                derivative_relative_error <= derivative_threshold) {
+                FiniteSourceDecision decision {
+                    FiniteSourceMethod::point_source,
+                    1,
+                    "point-source derivative check passed",
+                };
+                return cache_and_return({
+                    derivative_point.magnification,
+                    derivative_point.image_count,
+                    decision,
+                    derivative_relative_error * std::max(std::abs(derivative_point.magnification), 1.0),
+                    0,
+                    true});
+            }
+        }
+
         const double* known_point = point_source_magnification_is_exact ?
             &point_source_magnification :
             nullptr;
@@ -3305,7 +3354,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         double hex_threshold = settings_.adaptive_hex_threshold;
         if (settings_.adaptive_source_bins != 0 &&
             (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0)) {
-            const double requested_relative =
+            requested_relative =
                 settings_.finite_source_reltol +
                 settings_.finite_source_tol / std::max(std::abs(hex.magnification), 1.0);
             // Graduate hex_safety by caustic distance.  The hex self-consistency
@@ -3318,14 +3367,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             // clamped to [1, 30].  This gives safety≈30 at dist_ratio=hex_threshold
             // and safety≈1 at dist_ratio≈3*hex_threshold (~9 source radii away).
             // For small sources (rho < 1e-3) hex is always reliable: safety=1.
-            double hex_safety = 1.0;
-            if (source_radius >= 1.0e-3 && std::isfinite(refined_dist) &&
-                source_radius > 0.0) {
-                const double dist_ratio = refined_dist / source_radius;
-                const double t =
-                    settings_.hex_threshold / std::max(dist_ratio, settings_.hex_threshold);
-                hex_safety = std::max(1.0, 30.0 * t * t * t);
-            }
+            const double hex_safety = caustic_distance_safety();
             hex_threshold = std::min(hex_threshold, requested_relative / hex_safety);
         }
         if (hex.relative_error <= hex_threshold) {

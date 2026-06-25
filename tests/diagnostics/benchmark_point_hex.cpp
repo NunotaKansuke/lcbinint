@@ -59,7 +59,7 @@ int main()
     const int repeats = 5;
     double sink = 0.0;
 
-    std::cout << "case point_warm_ns point_curve_ns point_cold_ns candidates_ns images_ns hex_ns hex_over_point point_mag hex_mag hex_relerr\n";
+    std::cout << "case point_warm_ns point_curve_ns point_cold_ns candidates_ns images_ns hex_ns hex_over_point point_mag hex_mag hex_relerr deriv_relerr\n";
     for (const auto& c : cases) {
         FiniteSourceSettings settings;
         settings.limb_darkening_c = c.limb_darkening_c;
@@ -138,7 +138,8 @@ int main()
                   << hex_ns / point_warm_ns << ' '
                   << point.magnification << ' '
                   << hex.magnification << ' '
-                  << hex.relative_error << '\n';
+                  << hex.relative_error << ' '
+                  << hex.derivative_relative_error << '\n';
     }
 
     if (!std::isfinite(sink)) {
