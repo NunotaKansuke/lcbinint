@@ -1,20 +1,19 @@
 # lcbinint
 
-`lcbinint` is a Python package and C++ core for microlensing magnification
-calculations derived from the original `lcbinint` code.
+`lcbinint` is a Python package with a C++ core for binary-lens microlensing
+magnification and light-curve calculations.
 
-This is an early developer release.  The goal is a publishable C++/Python
-implementation, not a wrapper around the legacy executable.
+This is an early developer release.  The Python API is intended to provide
+lightweight, reusable callables for repeated model evaluation.
 
-Current focus:
+Features:
 
-- binary-lens point-source magnification
-- binary-lens finite-source magnification with inverse-ray integration
+- point-source and finite-source binary-lens magnification
+- inverse-ray finite-source integration with Cartesian and polar grids
 - linear limb darkening
-- light-curve callables for repeated evaluation
-- annual parallax and lens orbital motion support
-- GSL-based replacements for Numerical Recipes routines
-- Skowron-Gould style polynomial root solving
+- reusable light-curve callables
+- annual parallax
+- circular and Keplerian lens orbital motion
 
 ## Developer Install
 
@@ -88,7 +87,7 @@ mag = lc(times, params)
 
 ## Diagnostics
 
-Useful local checks:
+Optional diagnostic checks:
 
 ```sh
 PYTHONPATH=build python tests/diagnostics/polar_cartesian_mode_sweep.py --random 10 --points-per-case 4
@@ -97,5 +96,4 @@ PYTHONPATH=build python tests/diagnostics/polar_cartesian_mode_sweep.py --random
 An executed VBM comparison notebook is included at
 `example/compare-vbm/lcbinint_vbm_light_curve_comparison.ipynb`.
 
-The repository is still moving quickly, so API details may change before a
-proper package release.
+API details may change before the first stable package release.
