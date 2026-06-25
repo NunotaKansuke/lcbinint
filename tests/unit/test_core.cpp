@@ -40,7 +40,7 @@ int main()
     if (params.orbital_motion_mode != LCBI_ORBIT_STATIC || std::abs(params.lom_ar - 1.0) > 1e-12) {
         return 37;
     }
-    if (options.caustic_bins != 1400 || options.mode != 1 ||
+    if (options.caustic_bins != 1400 || options.mode != 4 ||
         std::abs(options.point_source_threshold - 20.0) > 1e-12 ||
         std::abs(options.hexadecapole_threshold - 3.0) > 1e-12 ||
         options.source_bins != 50 ||

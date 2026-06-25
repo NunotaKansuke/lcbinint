@@ -103,6 +103,7 @@ lcbi_options public_default_options()
     auto options = lcbi_default_options();
     options.center_of_mass = 0;
     options.vbm_compatible = 1;
+    options.mode = 4;
     return options;
 }
 
@@ -152,6 +153,38 @@ std::string coordinate_system_name(const lcbi_options& options)
         return "lcbinint";
     }
     return "custom";
+}
+
+void apply_inverse_ray_grid(lcbi_options& options, const std::string& grid)
+{
+    if (grid == "auto" || grid.empty()) {
+        options.mode = 4;
+        return;
+    }
+    if (grid == "cartesian" || grid == "inverse_ray_cartesian") {
+        options.mode = 1;
+        return;
+    }
+    if (grid == "polar" || grid == "inverse_ray_polar") {
+        options.mode = 2;
+        return;
+    }
+    throw std::invalid_argument(
+        "inverse_ray_grid must be 'auto', 'cartesian', or 'polar'");
+}
+
+std::string inverse_ray_grid_name(const lcbi_options& options)
+{
+    if (options.mode == 4) {
+        return "auto";
+    }
+    if (options.mode == 1) {
+        return "cartesian";
+    }
+    if (options.mode == 2) {
+        return "polar";
+    }
+    return "internal";
 }
 
 lcbi_params make_binary_params(
@@ -2451,7 +2484,7 @@ PYBIND11_MODULE(lcbinint, m)
 
     py::class_<lcbi_options>(m, "Options")
         .def(py::init([](int source_bins,
-                         int mode,
+                         const std::string& inverse_ray_grid,
                          int caustic_bins,
                          double grid_ratio,
                          double point_source_threshold,
@@ -2467,8 +2500,8 @@ PYBIND11_MODULE(lcbinint, m)
                          double hex_tol) {
                  auto options = public_default_options();
                  apply_coordinate_system(options, coordinates);
+                 apply_inverse_ray_grid(options, inverse_ray_grid);
                  options.source_bins = source_bins;
-                 options.mode = mode;
                  options.caustic_bins = caustic_bins;
                  options.grid_ratio = grid_ratio;
                  options.point_source_threshold = point_source_threshold;
@@ -2484,9 +2517,9 @@ PYBIND11_MODULE(lcbinint, m)
                      options.adaptive_source_bins = adaptive_source_bins;
                  }
                  return options;
-             }),
+            }),
             py::arg("source_bins") = 50,
-            py::arg("mode") = 1,
+            py::arg("inverse_ray_grid") = "auto",
             py::arg("caustic_bins") = 1400,
             py::arg("grid_ratio") = 4.0,
             py::arg("point_source_threshold") = 20.0,
@@ -2501,7 +2534,12 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("coordinates") = "auto",
             py::arg("hex_tol") = kNaN)
         .def_readwrite("source_bins", &lcbi_options::source_bins)
-        .def_readwrite("mode", &lcbi_options::mode)
+        .def_property("inverse_ray_grid",
+            &inverse_ray_grid_name,
+            [](lcbi_options& o, const std::string& value) {
+                apply_inverse_ray_grid(o, value);
+            })
+        .def_property_readonly("_mode", [](const lcbi_options& o) { return o.mode; })
         .def_readwrite("caustic_bins", &lcbi_options::caustic_bins)
         .def_readwrite("grid_ratio", &lcbi_options::grid_ratio)
         .def_readwrite("point_source_threshold", &lcbi_options::point_source_threshold)

@@ -122,10 +122,10 @@ def vbm_curve(case: Case, times: np.ndarray, tol: float) -> np.ndarray:
     return np.asarray(vbb.BinaryLightCurve(params, times.tolist())[0], dtype=float)
 
 
-def lc_point(case: Case, time_value: float, mode: int, source_bins: int):
+def lc_point(case: Case, time_value: float, inverse_ray_grid: str, source_bins: int):
     options = lcbinint.Options(
         coordinates="vbm",
-        mode=mode,
+        inverse_ray_grid=inverse_ray_grid,
         source_bins=source_bins,
         adaptive_source_bins=0,
         point_source_threshold=1.0e9,
@@ -280,15 +280,15 @@ def main() -> int:
     for case_index, case in enumerate(cases, start=1):
         for time_value, reference in selected_times(case, args.points_per_case, args.reference_tol):
             cart, cart_seconds = timed_best(
-                lambda: lc_point(case, time_value, 1, args.source_bins),
+                lambda: lc_point(case, time_value, "cartesian", args.source_bins),
                 args.repeat,
             )
             polar, polar_seconds = timed_best(
-                lambda: lc_point(case, time_value, 2, args.source_bins),
+                lambda: lc_point(case, time_value, "polar", args.source_bins),
                 args.repeat,
             )
             auto, auto_seconds = timed_best(
-                lambda: lc_point(case, time_value, 4, args.source_bins),
+                lambda: lc_point(case, time_value, "auto", args.source_bins),
                 args.repeat,
             )
             cart_mag = float(cart.magnifications[0])

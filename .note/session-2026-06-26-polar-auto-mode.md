@@ -123,3 +123,139 @@ Before considering `mode=4` as a default, run a larger random sweep and inspect:
 - limb-darkened high-magnification cases
 - whether a threshold depending on `rho` or caustic distance improves the
   speed/accuracy tradeoff without adding heavy diagnostics
+
+## Follow-up: outlier investigation
+
+Two different outlier classes were checked after the first auto-mode commit.
+
+### Low-magnification polar outliers
+
+Cause: the polar grid used a constant angular spacing based only on `dr`:
+
+```text
+dphi ~ dr * grid_ratio
+```
+
+The actual tangential cell size is `r * dphi`, so low-magnification images far
+from the origin were undersampled in the angular direction.  The polar kernel now
+chooses `phi_bins` from the largest relevant seed radius so that the outermost
+image has tangential spacing no larger than `grid_ratio * dr`.
+
+Regression case:
+
+```text
+s=1.251936920212136
+q=0.010229080749960234
+u0=-0.045915477051696046
+alpha=1.008883116714675
+rho=0.03791189085132994
+t=0.2526222052684984
+linear LD c=0.5
+```
+
+With `mode=2`, `source_bins=50`, the relative error is now below `1e-3`.
+
+Tradeoff: polar became slower in low/moderate magnification bins because the
+angular grid is no longer under-resolved.  This is expected; mode 4 keeps using
+Cartesian below the high-magnification threshold.
+
+For auto mode only, the polar branch now relaxes `grid_ratio` to at least `12`.
+This keeps explicit `mode=2` controlled by the user-provided grid while making
+the high-magnification automatic path cheaper.  Spot checks:
+
+```text
+A~3900 tiny source: mode=2 grid_ratio=4  rel~2.5e-5, 230 ms
+A~3900 tiny source: mode=4 grid_ratio=12 rel~5.1e-4,  90 ms
+
+A~256 resonant:     mode=2 grid_ratio=4  rel~2.7e-5, 17.6 ms
+A~256 resonant:     mode=4 grid_ratio=12 rel~7.5e-5,  8.0 ms
+
+A~131 LD:           mode=2 grid_ratio=4  rel~1.5e-4, 10.4 ms
+A~131 LD:           mode=4 grid_ratio=12 rel~1.4e-4,  5.2 ms
+```
+
+Light sweep after this change:
+
+```text
+mag 100..300:   auto/cart median ~0.39, auto win 100%, auto bad 0
+mag 300..1000:  auto/cart median ~0.40, auto win 100%, auto bad 0
+mag >=1000:     auto/cart median ~0.41, auto win 100%, auto bad 0
+rho <3e-4:      auto/cart median ~0.92, Cartesian p90 rel ~1.7e-1, auto p90 rel ~6e-4
+```
+
+### Tiny-source high-magnification Cartesian outlier
+
+Representative case:
+
+```text
+s=1.0
+q=1e-3
+u0=-1e-4
+alpha=0.5
+rho=1e-4
+t=0.0006
+```
+
+At `source_bins=50`, forced Cartesian gives a relative error around `0.19`, while
+polar gives `~2.5e-5`.  The diagnostics show `O(100)` seeds and enormous
+gap-repair/jump counts; the failure is not a simple missing seed.  The Cartesian
+legacy scanline kernel adds areas seed-by-seed and then tries to remove overlaps,
+which is fragile for annular/near-critical high-magnification images around the
+lens.  A quick global cell-coverage patch was tested and rejected because it
+interacted badly with the seed-local scanline traversal and became too slow.
+
+Current robust behavior: `mode=4` routes this case to polar and matches VBM below
+`1e-3`.  A true forced-Cartesian fix should be a larger redesign: either a common
+Cartesian lattice with global flood-fill/interval union, or replacing this
+high-magnification topology with the polar kernel.  Do not patch this with
+source-radius-specific seed suppression; that only hides the seed explosion and
+does not fix the area-union problem.
+
+Additional regression tests:
+
+```text
+test_lcbinint_auto_inverse_ray_avoids_tiny_source_cartesian_aliasing
+test_lcbinint_polar_uses_radius_aware_angular_resolution_for_low_magnification
+```
+
+Verification:
+
+```text
+ctest --test-dir build --output-on-failure
+PYTHONPATH=build python -m pytest \
+  tests/regression/test_vbm_consistency.py \
+  tests/regression/test_adaptive_precision_redesign.py \
+  tests/regression/test_component_union_validation.py -q
+
+96 passed
+```
+
+## Public API direction
+
+The Python public API should not expose numeric finite-source modes.  This
+option does not choose between point-source/hexadecapole/inverse-ray/contour
+algorithms; it only chooses the grid used after the calculation falls through to
+inverse-ray integration.  Users choose it by name:
+
+```python
+lcbinint.Options(inverse_ray_grid="auto")       # default, recommended
+lcbinint.Options(inverse_ray_grid="cartesian")  # expert/debug
+lcbinint.Options(inverse_ray_grid="polar")      # expert/debug
+```
+
+`auto` is now the default for Python `Options()`, `LightCurve()` without explicit
+options, and the C default options.  The numeric mode remains only as an internal
+C/C++ representation:
+
+```text
+1 = cartesian
+2 = polar
+4 = auto
+```
+
+Python exposes `_mode` as a read-only diagnostic field but does not accept
+`Options(mode=...)` or the old `Options(finite_source_method=...)`.
+Experimental spine mode is not part of the public API.
+
+The string grid type is resolved once when `Options` is constructed, so it does
+not add any per-point overhead or touch the Cartesian overlap bookkeeping.
