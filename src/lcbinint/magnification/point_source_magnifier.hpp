@@ -39,6 +39,10 @@ public:
         double separation,
         double mass_ratio,
         SourcePosition source) const;
+    PointSourceDerivativeResult binary_mag0_with_derivatives_cached(
+        double separation,
+        double mass_ratio,
+        SourcePosition source) const;
     void binary_mag0_batch(
         double separation,
         double mass_ratio,

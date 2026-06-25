@@ -3224,7 +3224,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     double source_radius,
     double point_source_magnification,
     const std::vector<SourcePosition>* center_image_seeds,
-    bool point_source_magnification_is_exact) const
+    bool point_source_magnification_is_exact,
+    const PointSourceMagnifier* point_magnifier_hint) const
 {
     if (result_cache_valid_ && result_cache_separation_ == separation &&
         result_cache_mass_ratio_ == mass_ratio && result_cache_source_x_ == source.x &&
@@ -3245,7 +3246,9 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         return result;
     };
 
-    PointSourceMagnifier point_magnifier;
+    PointSourceMagnifier local_point_magnifier;
+    const PointSourceMagnifier& point_magnifier =
+        point_magnifier_hint != nullptr ? *point_magnifier_hint : local_point_magnifier;
     if (source_radius <= 0.0) {
         const auto point = point_magnifier.binary_mag0(separation, mass_ratio, source);
         FiniteSourceDecision decision {FiniteSourceMethod::point_source, 0, "zero source radius"};
@@ -3322,7 +3325,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         }
         if (settings_.hex_threshold > 0.0) {
             const auto derivative_point =
-                point_magnifier.binary_mag0_with_derivatives(separation, mass_ratio, source);
+                point_magnifier.binary_mag0_with_derivatives_cached(
+                    separation, mass_ratio, source);
             const double derivative_relative_error =
                 derivative_point.derivative_error_indicator * source_radius * source_radius /
                 std::max(std::abs(derivative_point.magnification), 1.0e-10);
