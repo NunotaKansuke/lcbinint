@@ -3,6 +3,7 @@ from __future__ import annotations
 import collections
 from dataclasses import dataclass
 from pathlib import Path
+import statistics
 import time
 
 import matplotlib.pyplot as plt
@@ -35,6 +36,7 @@ OPTIONS = lcbinint.Options(
     reltol=1.0e-3,
 )
 LIMB_DARKENING = lcbinint.LimbDarkening.linear(0.5)
+TIMING_REPEATS = 7
 
 
 def evaluate_lcbinint(limb_darkening: lcbinint.LimbDarkening):
@@ -53,18 +55,22 @@ def evaluate_lcbinint(limb_darkening: lcbinint.LimbDarkening):
         q=CASE.q,
         rho=CASE.rho,
     )
-    start = time.perf_counter()
-    values = lightcurve(
-        TIMES,
-        t0=CASE.t0,
-        tE=CASE.tE,
-        u0=CASE.u0,
-        alpha=CASE.alpha,
-        s=CASE.s,
-        q=CASE.q,
-        rho=CASE.rho,
-    )
-    elapsed = time.perf_counter() - start
+    elapsed_samples = []
+    values = None
+    for _ in range(TIMING_REPEATS):
+        start = time.perf_counter()
+        values = lightcurve(
+            TIMES,
+            t0=CASE.t0,
+            tE=CASE.tE,
+            u0=CASE.u0,
+            alpha=CASE.alpha,
+            s=CASE.s,
+            q=CASE.q,
+            rho=CASE.rho,
+        )
+        elapsed_samples.append(time.perf_counter() - start)
+    elapsed = statistics.median(elapsed_samples)
     info = lightcurve.info(
         TIMES,
         t0=CASE.t0,
@@ -75,7 +81,7 @@ def evaluate_lcbinint(limb_darkening: lcbinint.LimbDarkening):
         q=CASE.q,
         rho=CASE.rho,
     )
-    return lightcurve, np.asarray(values), elapsed, info
+    return lightcurve, np.asarray(values), elapsed, info, elapsed_samples
 
 
 def evaluate_vbm(limb_darkening_gamma: float):
@@ -98,11 +104,16 @@ def evaluate_vbm(limb_darkening_gamma: float):
         CASE.t0,
     ]
     vbm.BinaryLightCurve(params, TIMES.tolist())
-    start = time.perf_counter()
-    base = vbm.BinaryLightCurve(params, TIMES.tolist())
-    values = np.asarray(base[0])
-    elapsed = time.perf_counter() - start
-    return vbm, values, elapsed
+    elapsed_samples = []
+    values = None
+    times_list = TIMES.tolist()
+    for _ in range(TIMING_REPEATS):
+        start = time.perf_counter()
+        base = vbm.BinaryLightCurve(params, times_list)
+        values = np.asarray(base[0])
+        elapsed_samples.append(time.perf_counter() - start)
+    elapsed = statistics.median(elapsed_samples)
+    return vbm, values, elapsed, elapsed_samples
 
 
 def relative_error(reference, values):
@@ -120,20 +131,32 @@ def error_summary(reference, values):
 
 
 def main():
-    lightcurve, lc_no_ld, lc_no_ld_time, lc_no_ld_info = evaluate_lcbinint(
+    lightcurve, lc_no_ld, lc_no_ld_time, lc_no_ld_info, lc_no_ld_samples = evaluate_lcbinint(
         lcbinint.LimbDarkening.none()
     )
-    _, lc_ld, lc_ld_time, lc_ld_info = evaluate_lcbinint(LIMB_DARKENING)
+    _, lc_ld, lc_ld_time, lc_ld_info, lc_ld_samples = evaluate_lcbinint(LIMB_DARKENING)
 
-    _, vbm_no_ld, vbm_no_ld_time = evaluate_vbm(0.0)
-    _, vbm_ld, vbm_ld_time = evaluate_vbm(0.5)
+    _, vbm_no_ld, vbm_no_ld_time, vbm_no_ld_samples = evaluate_vbm(0.0)
+    _, vbm_ld, vbm_ld_time, vbm_ld_samples = evaluate_vbm(0.5)
 
-    print("ms/point")
+    def ms_per_point(elapsed):
+        return 1e3 * elapsed / TIMES.size
+
+    def spread(samples):
+        values = [ms_per_point(sample) for sample in samples]
+        return f"median={statistics.median(values):.4f} min={min(values):.4f} max={max(values):.4f}"
+
+    print(f"ms/point ({TIMING_REPEATS} repeats, median)")
     print(f"  lcbinint no LD: {1e3 * lc_no_ld_time / TIMES.size:.4f}")
     print(f"  lcbinint LD   : {1e3 * lc_ld_time / TIMES.size:.4f}")
     if np.isfinite(vbm_no_ld_time):
         print(f"  VBM no LD     : {1e3 * vbm_no_ld_time / TIMES.size:.4f}")
         print(f"  VBM LD        : {1e3 * vbm_ld_time / TIMES.size:.4f}")
+        print("timing spread")
+        print(f"  lcbinint no LD: {spread(lc_no_ld_samples)}")
+        print(f"  lcbinint LD   : {spread(lc_ld_samples)}")
+        print(f"  VBM no LD     : {spread(vbm_no_ld_samples)}")
+        print(f"  VBM LD        : {spread(vbm_ld_samples)}")
         print("relative error vs VBM")
         for label, ref, values in [
             ("no LD", vbm_no_ld, lc_no_ld),
