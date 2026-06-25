@@ -20,7 +20,6 @@ if(NOT GSL_FOUND)
         list(APPEND LCBININT_GSL_HINTS "$ENV{GSL_ROOT}")
     endif()
     list(APPEND LCBININT_GSL_HINTS
-        "/rogue1_8/nunota/local/gsl"
         "$ENV{HOME}/local/gsl")
     find_path(GSL_INCLUDE_DIR gsl/gsl_poly.h
         HINTS
