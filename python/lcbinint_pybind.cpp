@@ -283,6 +283,8 @@ bool same_finite_source_settings(
     return a.source_bins == b.source_bins &&
            a.caustic_bins == b.caustic_bins &&
            a.grid_ratio == b.grid_ratio &&
+           a.polar_source_bins == b.polar_source_bins &&
+           a.polar_grid_ratio == b.polar_grid_ratio &&
            a.finite_mode == b.finite_mode &&
            a.kinji_threshold == b.kinji_threshold &&
            a.hex_threshold == b.hex_threshold &&
@@ -303,6 +305,8 @@ lcbinint::magnification::FiniteSourceSettings make_finite_source_settings(
     settings.source_bins = model_options.source_bins;
     settings.caustic_bins = model_options.caustic_bins;
     settings.grid_ratio = model_options.grid_ratio;
+    settings.polar_source_bins = model_options.polar_source_bins;
+    settings.polar_grid_ratio = model_options.polar_grid_ratio;
     settings.finite_mode = model_options.mode;
     settings.kinji_threshold = model_options.point_source_threshold;
     settings.hex_threshold = model_options.hexadecapole_threshold;
@@ -324,6 +328,8 @@ lcbinint::magnification::FiniteSourceSettings make_finite_source_settings(
     settings.source_bins = model_options.source_bins;
     settings.caustic_bins = model_options.caustic_bins;
     settings.grid_ratio = model_options.grid_ratio;
+    settings.polar_source_bins = model_options.polar_source_bins;
+    settings.polar_grid_ratio = model_options.polar_grid_ratio;
     settings.finite_mode = model_options.mode;
     settings.kinji_threshold = model_options.point_source_threshold;
     settings.hex_threshold = model_options.hexadecapole_threshold;
@@ -2571,6 +2577,8 @@ PYBIND11_MODULE(lcbinint, m)
                          const std::string& inverse_ray_grid,
                          int caustic_bins,
                          double grid_ratio,
+                         int polar_source_bins,
+                         double polar_grid_ratio,
                          double point_source_threshold,
                          double hexadecapole_threshold,
                          double adaptive_hex_threshold,
@@ -2588,6 +2596,8 @@ PYBIND11_MODULE(lcbinint, m)
                  options.source_bins = source_bins;
                  options.caustic_bins = caustic_bins;
                  options.grid_ratio = grid_ratio;
+                 options.polar_source_bins = polar_source_bins;
+                 options.polar_grid_ratio = polar_grid_ratio;
                  options.point_source_threshold = point_source_threshold;
                  options.hexadecapole_threshold = hexadecapole_threshold;
                  options.adaptive_hex_threshold =
@@ -2606,6 +2616,8 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("inverse_ray_grid") = "auto",
             py::arg("caustic_bins") = 1400,
             py::arg("grid_ratio") = 4.0,
+            py::arg("polar_source_bins") = 0,
+            py::arg("polar_grid_ratio") = 0.0,
             py::arg("point_source_threshold") = 20.0,
             py::arg("hexadecapole_threshold") = 3.0,
             py::arg("adaptive_hex_threshold") = 0.001,
@@ -2626,6 +2638,8 @@ PYBIND11_MODULE(lcbinint, m)
         .def_property_readonly("_mode", [](const lcbi_options& o) { return o.mode; })
         .def_readwrite("caustic_bins", &lcbi_options::caustic_bins)
         .def_readwrite("grid_ratio", &lcbi_options::grid_ratio)
+        .def_readwrite("polar_source_bins", &lcbi_options::polar_source_bins)
+        .def_readwrite("polar_grid_ratio", &lcbi_options::polar_grid_ratio)
         .def_readwrite("point_source_threshold", &lcbi_options::point_source_threshold)
         .def_readwrite("hexadecapole_threshold", &lcbi_options::hexadecapole_threshold)
         .def_readwrite("adaptive_hex_threshold", &lcbi_options::adaptive_hex_threshold)

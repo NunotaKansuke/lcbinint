@@ -41,6 +41,8 @@ lcbi_options lcbi_default_options(void)
     options.source_bins = 50;
     options.mode = 4;
     options.grid_ratio = 4.0;
+    options.polar_source_bins = 0;
+    options.polar_grid_ratio = 0.0;
     options.point_source_threshold = 20.0;
     options.hexadecapole_threshold = 3.0;
     options.adaptive_hex_threshold = 0.001;

@@ -53,6 +53,8 @@ struct ComputationOptions {
     int mode = 4;                        // internal: 1 = cartesian, 2 = polar, 4 = auto
     int vbm_compatible = 0;             // 0 = original lcbinint convention, 1 = VBM convention
     double grid_ratio = 4.0;
+    int polar_source_bins = 0;
+    double polar_grid_ratio = 0.0;
     double point_source_threshold = 20.0;
     double hexadecapole_threshold = 3.0;
     double adaptive_hex_threshold = 0.001;

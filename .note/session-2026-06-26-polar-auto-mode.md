@@ -218,6 +218,66 @@ test_lcbinint_auto_inverse_ray_avoids_tiny_source_cartesian_aliasing
 test_lcbinint_polar_uses_radius_aware_angular_resolution_for_low_magnification
 ```
 
+## Follow-up: separate polar resolution knobs
+
+`source_bins=50` does not have exactly the same meaning in Cartesian and polar
+inverse-ray modes.
+
+Current interpretation:
+
+```text
+Cartesian: source_bins controls the Cartesian grid scale.
+Polar:     source_bins controls radial bins, while angular bins are derived from
+           dr and grid_ratio.
+```
+
+This made tuning ambiguous, so the public/internal option set now has:
+
+```text
+polar_source_bins = 0   # 0 means use source_bins
+polar_grid_ratio  = 0   # <=0 means use grid_ratio
+```
+
+The default therefore preserves the previous behavior.  Explicit polar tuning can
+now be done without changing the Cartesian grid resolution.
+
+Small spot sweep, forced polar, `source_bins=50`, VBM reference tolerance `1e-5`:
+
+```text
+combo            max_all   p90_med   ms_med
+default          1.8e-4    1.3e-4    0.0043
+polar_bins=40    2.2e-4    1.5e-4    0.0051
+polar_bins=50    1.8e-4    1.3e-4    0.0053
+polar_bins=50,
+  grid_ratio=5   2.6e-4    9.8e-5    0.0043
+polar_bins=64    2.6e-4    1.2e-4    0.0043
+```
+
+Medium diagnostic sweep:
+
+```text
+PYTHONPATH=build python tests/diagnostics/polar_cartesian_mode_sweep.py \
+  --random 20 --points-per-case 4 --repeat 1 --source-bins 50
+
+points=112, polar_source_bins=0, polar_grid_ratio=0
+mag >=1000:    auto/cart median 0.342, auto win 100%, auto_bad 0
+mag 100..300:  auto/cart median 0.375, auto win 100%, auto_bad 0
+all bins:      polar_bad 0, auto_bad 0
+```
+
+The same sweep with `polar_source_bins=40, polar_grid_ratio=4`:
+
+```text
+mag >=1000:    auto/cart median 0.275, auto win 100%, auto_bad 0
+mag 100..300:  auto/cart median 0.330, auto win 100%, auto_bad 0
+all bins:      polar_bad 0, auto_bad 1
+```
+
+Conclusion: `polar_source_bins=40` can be faster in the intended
+high-magnification auto branch, but it introduced one `>3e-3` auto outlier in
+this medium sweep.  Do not make it the default yet.  The current recommended
+default remains `source_bins=50` with `polar_source_bins=0`.
+
 Verification:
 
 ```text
