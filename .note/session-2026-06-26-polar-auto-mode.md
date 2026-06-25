@@ -231,11 +231,18 @@ Polar:     source_bins controls radial bins, while angular bins are derived from
            dr and grid_ratio.
 ```
 
-This made tuning ambiguous, so the public/internal option set now has:
+This made tuning ambiguous, so the option set now has:
 
 ```text
-polar_source_bins = 0   # 0 means use source_bins
-polar_grid_ratio  = 0   # <=0 means use grid_ratio
+Python API:
+  nbin = 50
+  polar_nbin = None        # None means use nbin
+  polar_grid_ratio = None  # None means use grid_ratio
+
+C/C++ internals:
+  source_bins = 50
+  polar_source_bins = 0    # 0 means use source_bins
+  polar_grid_ratio = 0     # <=0 means use grid_ratio
 ```
 
 The default therefore preserves the previous behavior.  Explicit polar tuning can
@@ -273,10 +280,10 @@ mag 100..300:  auto/cart median 0.330, auto win 100%, auto_bad 0
 all bins:      polar_bad 0, auto_bad 1
 ```
 
-Conclusion: `polar_source_bins=40` can be faster in the intended
+Conclusion: `polar_nbin=40` can be faster in the intended
 high-magnification auto branch, but it introduced one `>3e-3` auto outlier in
 this medium sweep.  Do not make it the default yet.  The current recommended
-default remains `source_bins=50` with `polar_source_bins=0`.
+default remains `nbin=50` with `polar_nbin=None`.
 
 Verification:
 

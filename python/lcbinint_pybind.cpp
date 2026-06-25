@@ -144,6 +144,38 @@ PyBinaryParams binary_params_from_dict(const py::dict& params)
     return out;
 }
 
+int optional_int_or(const py::object& value, int default_value)
+{
+    if (value.is_none()) {
+        return default_value;
+    }
+    return py::cast<int>(value);
+}
+
+double optional_double_or(const py::object& value, double default_value)
+{
+    if (value.is_none()) {
+        return default_value;
+    }
+    return py::cast<double>(value);
+}
+
+py::object optional_positive_int(int value)
+{
+    if (value <= 0) {
+        return py::none();
+    }
+    return py::int_(value);
+}
+
+py::object optional_positive_double(double value)
+{
+    if (value <= 0.0) {
+        return py::none();
+    }
+    return py::float_(value);
+}
+
 lcbi_options public_default_options()
 {
     auto options = lcbi_default_options();
@@ -2574,11 +2606,13 @@ PYBIND11_MODULE(lcbinint, m)
 
     py::class_<lcbi_options>(m, "Options")
         .def(py::init([](int source_bins,
+                         const py::object& nbin,
                          const std::string& inverse_ray_grid,
                          int caustic_bins,
                          double grid_ratio,
-                         int polar_source_bins,
-                         double polar_grid_ratio,
+                         const py::object& polar_nbin,
+                         const py::object& polar_source_bins,
+                         const py::object& polar_grid_ratio,
                          double point_source_threshold,
                          double hexadecapole_threshold,
                          double adaptive_hex_threshold,
@@ -2593,11 +2627,12 @@ PYBIND11_MODULE(lcbinint, m)
                  auto options = public_default_options();
                  apply_coordinate_system(options, coordinates);
                  apply_inverse_ray_grid(options, inverse_ray_grid);
-                 options.source_bins = source_bins;
+                 options.source_bins = optional_int_or(nbin, source_bins);
                  options.caustic_bins = caustic_bins;
                  options.grid_ratio = grid_ratio;
-                 options.polar_source_bins = polar_source_bins;
-                 options.polar_grid_ratio = polar_grid_ratio;
+                 options.polar_source_bins = optional_int_or(
+                     polar_nbin, optional_int_or(polar_source_bins, 0));
+                 options.polar_grid_ratio = optional_double_or(polar_grid_ratio, 0.0);
                  options.point_source_threshold = point_source_threshold;
                  options.hexadecapole_threshold = hexadecapole_threshold;
                  options.adaptive_hex_threshold =
@@ -2613,11 +2648,13 @@ PYBIND11_MODULE(lcbinint, m)
                  return options;
             }),
             py::arg("source_bins") = 50,
+            py::arg("nbin") = py::none(),
             py::arg("inverse_ray_grid") = "auto",
             py::arg("caustic_bins") = 1400,
             py::arg("grid_ratio") = 4.0,
-            py::arg("polar_source_bins") = 0,
-            py::arg("polar_grid_ratio") = 0.0,
+            py::arg("polar_nbin") = py::none(),
+            py::arg("polar_source_bins") = py::none(),
+            py::arg("polar_grid_ratio") = py::none(),
             py::arg("point_source_threshold") = 20.0,
             py::arg("hexadecapole_threshold") = 3.0,
             py::arg("adaptive_hex_threshold") = 0.001,
@@ -2630,6 +2667,9 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("coordinates") = "auto",
             py::arg("hex_tol") = kNaN)
         .def_readwrite("source_bins", &lcbi_options::source_bins)
+        .def_property("nbin",
+            [](const lcbi_options& o) { return o.source_bins; },
+            [](lcbi_options& o, int value) { o.source_bins = value; })
         .def_property("inverse_ray_grid",
             &inverse_ray_grid_name,
             [](lcbi_options& o, const std::string& value) {
@@ -2638,8 +2678,21 @@ PYBIND11_MODULE(lcbinint, m)
         .def_property_readonly("_mode", [](const lcbi_options& o) { return o.mode; })
         .def_readwrite("caustic_bins", &lcbi_options::caustic_bins)
         .def_readwrite("grid_ratio", &lcbi_options::grid_ratio)
-        .def_readwrite("polar_source_bins", &lcbi_options::polar_source_bins)
-        .def_readwrite("polar_grid_ratio", &lcbi_options::polar_grid_ratio)
+        .def_property("polar_nbin",
+            [](const lcbi_options& o) { return optional_positive_int(o.polar_source_bins); },
+            [](lcbi_options& o, const py::object& value) {
+                o.polar_source_bins = optional_int_or(value, 0);
+            })
+        .def_property("polar_source_bins",
+            [](const lcbi_options& o) { return optional_positive_int(o.polar_source_bins); },
+            [](lcbi_options& o, const py::object& value) {
+                o.polar_source_bins = optional_int_or(value, 0);
+            })
+        .def_property("polar_grid_ratio",
+            [](const lcbi_options& o) { return optional_positive_double(o.polar_grid_ratio); },
+            [](lcbi_options& o, const py::object& value) {
+                o.polar_grid_ratio = optional_double_or(value, 0.0);
+            })
         .def_readwrite("point_source_threshold", &lcbi_options::point_source_threshold)
         .def_readwrite("hexadecapole_threshold", &lcbi_options::hexadecapole_threshold)
         .def_readwrite("adaptive_hex_threshold", &lcbi_options::adaptive_hex_threshold)
