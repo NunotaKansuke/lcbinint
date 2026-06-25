@@ -762,7 +762,10 @@ py::array_t<double> evaluate_binary_light_curve_numpy(
     }
     const auto count = static_cast<py::ssize_t>(input.shape[0]);
     const auto* time_values = static_cast<const double*>(input.ptr);
-    auto output = py::array_t<double>(count);
+    std::vector<double> time_copy(time_values, time_values + count);
+    auto output = py::array_t<double>(
+        {count},
+        {static_cast<py::ssize_t>(sizeof(double))});
     auto* values = output.mutable_data();
 
     const auto model_params = lcbinint::model::from_c_params(params);
@@ -787,7 +790,7 @@ py::array_t<double> evaluate_binary_light_curve_numpy(
         const double effective_q = model_params.q != 0.0 ? 1.0 / model_params.q : model_params.q;
         if (model_params.rho == 0.0) {
             for (py::ssize_t i = 0; i < count; ++i) {
-                const double tau = (time_values[i] - model_params.t0) * inverse_tE;
+                const double tau = (time_copy[static_cast<std::size_t>(i)] - model_params.t0) * inverse_tE;
                 const lcbinint::SourcePosition source {
                     tau * cos_alpha - model_params.umin * sin_alpha,
                     tau * sin_alpha + model_params.umin * cos_alpha,
@@ -803,7 +806,7 @@ py::array_t<double> evaluate_binary_light_curve_numpy(
         auto& finite_magnifier = cached_finite_source_magnifier(settings);
 
         for (py::ssize_t i = 0; i < count; ++i) {
-            const double tau = (time_values[i] - model_params.t0) * inverse_tE;
+            const double tau = (time_copy[static_cast<std::size_t>(i)] - model_params.t0) * inverse_tE;
             const lcbinint::SourcePosition source {
                 tau * cos_alpha - model_params.umin * sin_alpha,
                 tau * sin_alpha + model_params.umin * cos_alpha,
@@ -822,7 +825,7 @@ py::array_t<double> evaluate_binary_light_curve_numpy(
 
     const lcbinint::model::LensModel model(model_params, model_options);
     for (py::ssize_t i = 0; i < count; ++i) {
-        const auto result = model.magnification(time_values[i]);
+        const auto result = model.magnification(time_copy[static_cast<std::size_t>(i)]);
         if (result.status == lcbinint::EvaluationStatus::unsupported) {
             throw std::runtime_error("unsupported");
         }
@@ -1272,11 +1275,14 @@ private:
         }
         const auto count = static_cast<py::ssize_t>(input.shape[0]);
         const auto* time_values = static_cast<const double*>(input.ptr);
-        auto output = py::array_t<double>(count);
+        std::vector<double> time_copy(time_values, time_values + count);
+        auto output = py::array_t<double>(
+            {count},
+            {static_cast<py::ssize_t>(sizeof(double))});
         auto* values = output.mutable_data();
 
         py::gil_scoped_release release;
-        direct_fill_values(time_values, count, values, t0, tE, u0, alpha, s, q, rho);
+        direct_fill_values(time_copy.data(), count, values, t0, tE, u0, alpha, s, q, rho);
         return output;
     }
 
@@ -1397,11 +1403,14 @@ private:
         }
         const auto count = static_cast<py::ssize_t>(input.shape[0]);
         const auto* time_values = static_cast<const double*>(input.ptr);
-        auto output = py::array_t<double>(count);
+        std::vector<double> time_copy(time_values, time_values + count);
+        auto output = py::array_t<double>(
+            {count},
+            {static_cast<py::ssize_t>(sizeof(double))});
         auto* values = output.mutable_data();
 
         py::gil_scoped_release release;
-        direct_dynamic_fill_values(time_values, count, values, c_params);
+        direct_dynamic_fill_values(time_copy.data(), count, values, c_params);
         return output;
     }
 
