@@ -295,6 +295,20 @@ PointSourceResult point_source_result_from_roots(
     return {magnification, image_count};
 }
 
+double max_physical_residual_squared(
+    const FastBinaryGeometry& geometry,
+    const std::array<::complex, 5>& roots)
+{
+    const auto selection = select_physical_roots(geometry, roots);
+    double max_residual = 0.0;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        if (selection.physical[i]) {
+            max_residual = std::max(max_residual, residual_squared(geometry, roots[i]));
+        }
+    }
+    return max_residual;
+}
+
 double derivative_error_indicator_from_roots(
     const FastBinaryGeometry& geometry,
     const std::array<::complex, 5>& roots,
@@ -341,13 +355,6 @@ double derivative_error_indicator_from_roots(
         }
     }
     return indicator;
-}
-
-double distance2(SourcePosition lhs, SourcePosition rhs)
-{
-    const double dx = lhs.x - rhs.x;
-    const double dy = lhs.y - rhs.y;
-    return dx * dx + dy * dy;
 }
 
 Complex lens_equation_residual(const BinaryGeometry& geometry, Complex image)
@@ -412,6 +419,45 @@ PointSourceDerivativeResult PointSourceMagnifier::binary_mag0_with_derivatives(
     return {magnification, image_count, derivative_indicator};
 }
 
+PointSourceDerivativeResult PointSourceMagnifier::binary_mag0_with_derivatives_cached(
+    double separation,
+    double mass_ratio,
+    SourcePosition source) const
+{
+    if (separation == 0.0 || mass_ratio <= 0.0) {
+        return {};
+    }
+    const bool cache_matches =
+        root_cache_valid_ &&
+        root_cache_separation_ == separation &&
+        root_cache_mass_ratio_ == mass_ratio &&
+        root_cache_source_.x == source.x &&
+        root_cache_source_.y == source.y;
+    if (!cache_matches) {
+        return binary_mag0_with_derivatives(separation, mass_ratio, source);
+    }
+
+    const FastBinaryGeometry geometry = make_fast_vbm_geometry(separation, mass_ratio, source);
+    std::array<::complex, 5> roots;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
+    }
+    const auto selection = select_physical_roots(geometry, roots);
+    double magnification = 0.0;
+    int image_count = 0;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        if (!selection.physical[i]) {
+            continue;
+        }
+        const double jacobian = jacobian_determinant(geometry, roots[i]);
+        magnification += 1.0 / std::abs(jacobian);
+        ++image_count;
+    }
+    const double derivative_indicator =
+        derivative_error_indicator_from_roots(geometry, roots, selection);
+    return {magnification, image_count, derivative_indicator};
+}
+
 PointSourceResult PointSourceMagnifier::binary_mag0_impl(
     double separation,
     double mass_ratio,
@@ -430,13 +476,15 @@ PointSourceResult PointSourceMagnifier::binary_mag0_impl(
         use_root_cache &&
         root_cache_valid_ &&
         root_cache_separation_ == separation &&
-        root_cache_mass_ratio_ == mass_ratio &&
-        distance2(root_cache_source_, source) < 2.5e-3;
+        root_cache_mass_ratio_ == mass_ratio;
     if (can_polish_from_cache) {
         for (std::size_t i = 0; i < roots.size(); ++i) {
             roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
         }
         cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, true);
+        if (max_physical_residual_squared(geometry, roots) > 1.0e-18) {
+            cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+        }
     } else {
         cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
     }

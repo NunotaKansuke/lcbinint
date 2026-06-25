@@ -662,10 +662,11 @@ std::vector<double> evaluate_binary_light_curve(
                 tau * cos_alpha - model_params.umin * sin_alpha,
                 tau * sin_alpha + model_params.umin * cos_alpha,
             };
-            const auto point = point_magnifier.binary_mag0(model_params.sep, effective_q, source);
+            const auto point =
+                point_magnifier.binary_mag0_cached(model_params.sep, effective_q, source);
             const auto finite = finite_magnifier.binary_mag(
                 model_params.sep, effective_q, source, std::abs(model_params.rho),
-                point.magnification, nullptr, true);
+                point.magnification, nullptr, true, &point_magnifier);
             if (!std::isfinite(finite.magnification)) {
                 throw std::runtime_error("numerical error");
             }
@@ -1745,9 +1746,10 @@ private:
                 tau * cos_alpha - u0 * sin_alpha,
                 tau * sin_alpha + u0 * cos_alpha,
             };
-            const auto point = point_magnifier.binary_mag0(s, effective_q, source);
+            const auto point = point_magnifier.binary_mag0_cached(s, effective_q, source);
             const auto finite = finite_magnifier.binary_mag(
-                s, effective_q, source, std::abs(rho), point.magnification, nullptr, true);
+                s, effective_q, source, std::abs(rho), point.magnification, nullptr, true,
+                &point_magnifier);
             if (!std::isfinite(finite.magnification)) {
                 throw std::runtime_error("numerical error");
             }

@@ -8,6 +8,8 @@
 
 namespace lcbinint::magnification {
 
+class PointSourceMagnifier;
+
 enum class FiniteSourceMethod {
     point_source,
     hexadecapole,
@@ -66,7 +68,8 @@ public:
         double source_radius,
         double point_source_magnification,
         const std::vector<SourcePosition>* center_image_seeds = nullptr,
-        bool point_source_magnification_is_exact = false) const;
+        bool point_source_magnification_is_exact = false,
+        const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
     void ensure_limb_darkening_table() const;
     void augment_seeds_from_caustic_branches(
         double separation,
