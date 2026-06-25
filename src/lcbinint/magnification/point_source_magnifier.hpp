@@ -13,6 +13,12 @@ struct PointSourceResult {
     int image_count = 0;
 };
 
+struct PointSourceDerivativeResult {
+    double magnification = 0.0;
+    int image_count = 0;
+    double derivative_error_indicator = 0.0;
+};
+
 struct BinaryImage {
     SourcePosition position;
     double jacobian_determinant = 0.0;
@@ -29,6 +35,10 @@ class PointSourceMagnifier {
 public:
     PointSourceResult binary_mag0(double separation, double mass_ratio, SourcePosition source) const;
     PointSourceResult binary_mag0_cached(double separation, double mass_ratio, SourcePosition source) const;
+    PointSourceDerivativeResult binary_mag0_with_derivatives(
+        double separation,
+        double mass_ratio,
+        SourcePosition source) const;
     void binary_mag0_batch(
         double separation,
         double mass_ratio,

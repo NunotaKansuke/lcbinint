@@ -23,6 +23,10 @@ struct StackCandidateImage {
     double jacobian_determinant = 0.0;
 };
 
+struct PhysicalRootSelection {
+    std::array<bool, 5> physical {};
+};
+
 struct FastComplex {
     double re = 0.0;
     double im = 0.0;
@@ -217,7 +221,7 @@ double jacobian_determinant(const FastBinaryGeometry& geometry, ::complex image)
     return 1.0 - (derivative_re * derivative_re + derivative_im * derivative_im);
 }
 
-PointSourceResult point_source_result_from_roots(
+PhysicalRootSelection select_physical_roots(
     const FastBinaryGeometry& geometry,
     const std::array<::complex, 5>& roots)
 {
@@ -265,10 +269,23 @@ PointSourceResult point_source_result_from_roots(
     const bool three_images =
         candidates[static_cast<std::size_t>(worst2)].residual * min_ratio2 >
         candidates[static_cast<std::size_t>(worst3)].residual + absolute_gap2;
+    PhysicalRootSelection selection;
+    for (std::size_t i = 0; i < selection.physical.size(); ++i) {
+        selection.physical[i] =
+            !(three_images && (static_cast<int>(i) == worst1 || static_cast<int>(i) == worst2));
+    }
+    return selection;
+}
+
+PointSourceResult point_source_result_from_roots(
+    const FastBinaryGeometry& geometry,
+    const std::array<::complex, 5>& roots)
+{
+    const auto selection = select_physical_roots(geometry, roots);
     double magnification = 0.0;
     int image_count = 0;
-    for (std::size_t i = 0; i < candidates.size(); ++i) {
-        if (three_images && (static_cast<int>(i) == worst1 || static_cast<int>(i) == worst2)) {
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        if (!selection.physical[i]) {
             continue;
         }
         const double jacobian = jacobian_determinant(geometry, roots[i]);
@@ -276,6 +293,54 @@ PointSourceResult point_source_result_from_roots(
         ++image_count;
     }
     return {magnification, image_count};
+}
+
+double derivative_error_indicator_from_roots(
+    const FastBinaryGeometry& geometry,
+    const std::array<::complex, 5>& roots,
+    const PhysicalRootSelection& selection)
+{
+    double indicator = 0.0;
+    const ::complex a(geometry.a, 0.0);
+    const ::complex m1(geometry.m1, 0.0);
+    const ::complex m2(geometry.m2, 0.0);
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        if (!selection.physical[i]) {
+            continue;
+        }
+        const ::complex z = roots[i];
+        const ::complex dza = z - a;
+        const ::complex za2 = dza * dza;
+        const ::complex zb2 = z * z;
+        const ::complex j1 = m1 / za2 + m2 / zb2;
+        const ::complex j1c = conj(j1);
+        const double det_j = (1.0 - j1 * j1c).re;
+        if (det_j == 0.0 || !std::isfinite(det_j)) {
+            return std::numeric_limits<double>::infinity();
+        }
+        ::complex j2 = -2.0 * (m1 / (za2 * dza) + m2 / (zb2 * z));
+        ::complex j3 = 6.0 * (m1 / (za2 * za2) + m2 / (zb2 * zb2));
+        const double det_j2 = det_j * det_j;
+        const ::complex j1c2 = j1c * j1c;
+        j3 = j3 * j1c2;
+        const double ob2 =
+            (j2.re * j2.re + j2.im * j2.im) * (6.0 - 6.0 * det_j + det_j2);
+        j2 = j2 * j2 * j1c2 * j1c;
+        const double denominator = std::abs(det_j * det_j2 * det_j2);
+        if (denominator == 0.0 || !std::isfinite(denominator)) {
+            return std::numeric_limits<double>::infinity();
+        }
+        const double cq =
+            0.5 * (std::abs(ob2 - 6.0 * j2.re - 2.0 * j3.re * det_j) +
+                      3.0 * std::abs(j2.im)) /
+            denominator;
+        if (std::isfinite(cq)) {
+            indicator += cq;
+        } else {
+            return std::numeric_limits<double>::infinity();
+        }
+    }
+    return indicator;
 }
 
 double distance2(SourcePosition lhs, SourcePosition rhs)
@@ -315,6 +380,36 @@ PointSourceResult PointSourceMagnifier::binary_mag0_cached(
     SourcePosition source) const
 {
     return binary_mag0_impl(separation, mass_ratio, source, true);
+}
+
+PointSourceDerivativeResult PointSourceMagnifier::binary_mag0_with_derivatives(
+    double separation,
+    double mass_ratio,
+    SourcePosition source) const
+{
+    if (separation == 0.0 || mass_ratio <= 0.0) {
+        return {};
+    }
+
+    const FastBinaryGeometry geometry = make_fast_vbm_geometry(separation, mass_ratio, source);
+    std::array<::complex, 6> coefficients;
+    std::array<::complex, 5> roots;
+    binary_polynomial_coefficients(geometry, coefficients);
+    cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+    const auto selection = select_physical_roots(geometry, roots);
+    double magnification = 0.0;
+    int image_count = 0;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        if (!selection.physical[i]) {
+            continue;
+        }
+        const double jacobian = jacobian_determinant(geometry, roots[i]);
+        magnification += 1.0 / std::abs(jacobian);
+        ++image_count;
+    }
+    const double derivative_indicator =
+        derivative_error_indicator_from_roots(geometry, roots, selection);
+    return {magnification, image_count, derivative_indicator};
 }
 
 PointSourceResult PointSourceMagnifier::binary_mag0_impl(

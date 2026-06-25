@@ -147,3 +147,45 @@ Rejected / deferred:
 
 - 5,000-point nearest LD lookup was faster but moved one LD convergence-boundary point from converged to unconverged in the example. The 20,000-point table kept convergence stable.
 - Full derivative-based `NewImages` hex remains future work. The batch path does not remove the 12 extra point-source solves, so it is expected to be mostly neutral in `benchmark_point_hex`.
+
+## Follow-up: Derivative-Based Point-Source Shortcut
+
+Implemented a first `NewImages`-style derivative path:
+
+- Added `PointSourceMagnifier::binary_mag0_with_derivatives`.
+  - It solves the center-source images once.
+  - It reuses the physical-root selection logic.
+  - It computes a VBM-like derivative smoothness indicator from `J1`, `J2`, and `J3`.
+- Exposed the derivative indicator through `diagnostic_hexadecapole_binary` for benchmarking.
+- Added a finite-source shortcut:
+  - If the source is not near a caustic and the derivative smoothness indicator is below the requested tolerance after the same caustic-distance safety factor, return point-source magnification directly.
+  - This is disabled when `hex_threshold == 0`, because tests and expert settings use that as a way to force the hex path.
+
+Important interpretation:
+
+- The derivative indicator is much more conservative than the finite-difference hex self-consistency error.
+- It is not yet a replacement for the 12-point finite-difference hex magnification.
+- It is useful for skipping hex when the point-source approximation is already safely within tolerance.
+
+Validation:
+
+```text
+ctest: 1/1 passed
+pytest targeted: 15 passed, 67 deselected
+
+example/compare-vbm median timing
+  lcbinint no LD: 0.5617 ms/pt
+  lcbinint LD   : 0.6799 ms/pt
+  VBM no LD     : 0.0666 ms/pt
+  VBM LD        : 1.3613 ms/pt
+
+relative error vs VBM
+  no LD max=4.990e-04 p99=3.295e-04 median=6.670e-16 rms=8.024e-05
+  LD    max=3.635e-04 p99=2.723e-04 median=6.670e-16 rms=6.284e-05
+
+method mix
+  no LD {'point_source': 297, 'hexadecapole': 40, 'inverse_ray_cartesian': 63}
+  LD    {'point_source': 297, 'hexadecapole': 41, 'inverse_ray_cartesian': 62}
+```
+
+The shortcut greatly reduces hex usage in this example (`~233 -> ~40`), but runtime improves only modestly because caustic-distance checks and the inverse-ray points dominate the remaining cost.

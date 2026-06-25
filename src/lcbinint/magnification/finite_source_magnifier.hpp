@@ -50,6 +50,7 @@ struct FiniteSourceResult {
 struct HexadecapoleDiagnosticResult {
     double magnification = 0.0;
     double relative_error = 0.0;
+    double derivative_relative_error = 0.0;
 };
 
 class FiniteSourceMagnifier {
