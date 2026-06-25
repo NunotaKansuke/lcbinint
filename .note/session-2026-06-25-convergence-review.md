@@ -2,16 +2,24 @@
 
 ## Context
 
-The default finite-source configuration is still:
+The default finite-source configuration was changed after this review to the
+fixed-bin policy:
 
 - `source_bins = 50`
-- `adaptive_source_bins = 1`
+- `adaptive_source_bins = 0`
 - `max_source_bins = 400`
-- `finite_source_reltol = 1e-3`
+- `finite_source_reltol = 0`
+- `adaptive_hex_threshold = 1e-3`
 
 The goal of this pass was to reduce false `finite_source_converged=false`
 flags without reintroducing false accepts.  Low-bin behavior is not used as the
 main tuning target; bins below 50 are known to be less stable.
+
+The public default is therefore a stable fixed `source_bins=50` inverse-ray
+grid.  `adaptive_source_bins=1` remains available for expert diagnostics, but
+`Options(reltol=...)` no longer enables it implicitly.  The default tolerance
+that remains active is the hexadecapole/point-source selection tolerance
+(`adaptive_hex_threshold`, exposed in Python as `hex_tol`).
 
 ## Current convergence logic
 
@@ -111,4 +119,3 @@ The next real improvement should target the local estimator:
 - use different safety factors for those two categories;
 - keep the stricter factor only for topology/boundary cells;
 - avoid changing the global convergence margin.
-

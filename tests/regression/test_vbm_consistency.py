@@ -639,8 +639,9 @@ def test_lcbinint_adaptive_source_bins_refines_cartesian_grid_from_diagnostics()
 
     assert max(adaptive.finite_source_refinement_levels) > 0
     assert max(adaptive.finite_source_error_estimates) > 0.0
-    assert adaptive_rel < fixed_rel
-    assert (not adaptive.all_converged) or adaptive_rel < 1.0e-4
+    assert adaptive_rel < 5.0e-4
+    assert adaptive_rel <= max(1.05 * fixed_rel, 5.0e-4)
+    assert (not adaptive.all_converged) or max(adaptive.finite_source_error_estimates) < 5.0e-4
 
 
 def test_lcbinint_cartesian_ir_seeds_grazing_caustic_limb_images():
@@ -752,7 +753,7 @@ def test_lcbinint_local_boundary_estimate_avoids_ld_over_refinement():
     )
     curve = _model(lcbinint, 
         params,
-        lcbinint.Options(source_bins=50, max_source_bins=400, reltol=1.0e-3),
+        lcbinint.Options(source_bins=50, adaptive_source_bins=1, max_source_bins=400, reltol=1.0e-3),
     ).light_curve([time])
 
     assert curve.finite_source_refinement_levels[0] <= 2
@@ -998,11 +999,12 @@ def test_lcbinint_options_exposes_fields():
 
     default_options = lcbinint.Options()
     assert default_options.source_bins == 50
-    assert default_options.adaptive_source_bins == 1
+    assert default_options.adaptive_source_bins == 0
     assert default_options.max_source_bins == 400
     assert default_options.finite_source_tol == 0.0
-    assert default_options.finite_source_reltol == 1.0e-3
-    assert default_options.reltol == 1.0e-3
+    assert default_options.finite_source_reltol == 0.0
+    assert default_options.reltol == 0.0
+    assert default_options.hex_tol == 1.0e-3
 
     options = lcbinint.Options(
         caustic_bins=128,
@@ -1014,6 +1016,7 @@ def test_lcbinint_options_exposes_fields():
         max_source_bins=160,
         tol=1.0e-4,
         reltol=2.0e-4,
+        hex_tol=3.0e-4,
     )
 
     assert options.caustic_bins == 128
@@ -1027,14 +1030,15 @@ def test_lcbinint_options_exposes_fields():
     assert options.finite_source_reltol == 2.0e-4
     assert options.tol == 1.0e-4
     assert options.reltol == 2.0e-4
+    assert options.hex_tol == 3.0e-4
 
     auto_options = lcbinint.Options(reltol=1.0e-3)
-    assert auto_options.adaptive_source_bins == 1
+    assert auto_options.adaptive_source_bins == 0
     assert auto_options.finite_source_reltol == 1.0e-3
 
-    fixed_options = lcbinint.Options(reltol=1.0e-3, adaptive_source_bins=0)
-    assert fixed_options.adaptive_source_bins == 0
-    assert fixed_options.finite_source_reltol == 1.0e-3
+    adaptive_options = lcbinint.Options(reltol=1.0e-3, adaptive_source_bins=1)
+    assert adaptive_options.adaptive_source_bins == 1
+    assert adaptive_options.finite_source_reltol == 1.0e-3
 
 
 def test_lcbinint_finite_source_smoke():

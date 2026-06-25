@@ -972,13 +972,15 @@ the primary performance metric.
 
 ### Python API update
 
-Python `Options` now treats `tol`/`reltol` as the user-facing adaptive API:
+Python `Options` now uses a fixed finite-source grid by default:
 
-- `lcbinint.Options(reltol=1e-3)` automatically sets
-  `adaptive_source_bins=1`.
-- `lcbinint.Options(tol=...)` behaves the same way.
-- `lcbinint.Options(reltol=..., adaptive_source_bins=0)` keeps the fixed-grid
-  legacy behavior for expert/debug use.
+- `lcbinint.Options()` means `source_bins=50`, `adaptive_source_bins=0`.
+- `lcbinint.Options(reltol=...)` stores the adaptive IR tolerance but does not
+  enable adaptive refinement by itself.
+- `lcbinint.Options(reltol=..., adaptive_source_bins=1)` enables the expert
+  adaptive refinement path.
+- `adaptive_hex_threshold` remains the active hexadecapole/point-source
+  selection tolerance and is also exposed as the clearer `hex_tol` alias.
 - `LightCurve` exposes `all_converged` and `unconverged_indices` in addition to
   the per-point `finite_source_converged` flags.
 

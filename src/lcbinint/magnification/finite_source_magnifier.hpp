@@ -28,10 +28,10 @@ struct FiniteSourceSettings {
     double adaptive_hex_threshold = 0.001;  // VBM-style: |a4 correction|/mag > this → IR
     double limb_darkening_c = 0.0;
     double limb_darkening_d = 0.0;
-    int adaptive_source_bins = 1;
+    int adaptive_source_bins = 0;
     int max_source_bins = 400;
     double finite_source_tol = 0.0;
-    double finite_source_reltol = 1.0e-3;
+    double finite_source_reltol = 0.0;
 };
 
 struct FiniteSourceDecision {

@@ -649,7 +649,7 @@ std::vector<double> evaluate_binary_light_curve(
                     tau * sin_alpha + model_params.umin * cos_alpha,
                 };
                 values.push_back(
-                    point_magnifier.binary_mag0_cached(model_params.sep, effective_q, source).magnification);
+                    point_magnifier.binary_mag0(model_params.sep, effective_q, source).magnification);
             }
             return values;
         }
@@ -793,7 +793,7 @@ py::array_t<double> evaluate_binary_light_curve_numpy(
                     tau * sin_alpha + model_params.umin * cos_alpha,
                 };
                 values[i] = point_magnifier
-                    .binary_mag0_cached(model_params.sep, effective_q, source)
+                    .binary_mag0(model_params.sep, effective_q, source)
                     .magnification;
             }
             return output;
@@ -1655,7 +1655,7 @@ private:
 
         if (params.rho == 0.0) {
             const auto point =
-                point_magnifier.binary_mag0_cached(orbit.separation, effective_q, source_for_magnification);
+                point_magnifier.binary_mag0(orbit.separation, effective_q, source_for_magnification);
             result.point_source_magnification = point.magnification;
             result.finite_source_magnification = point.magnification;
             result.magnification = point.magnification;
@@ -1734,7 +1734,7 @@ private:
                     tau * cos_alpha - u0 * sin_alpha,
                     tau * sin_alpha + u0 * cos_alpha,
                 };
-                values[i] = point_magnifier.binary_mag0_cached(s, effective_q, source).magnification;
+                values[i] = point_magnifier.binary_mag0(s, effective_q, source).magnification;
             }
             return;
         }
@@ -2454,7 +2454,8 @@ PYBIND11_MODULE(lcbinint, m)
                          double finite_source_reltol,
                          double tol,
                          double reltol,
-                         const std::string& coordinates) {
+                         const std::string& coordinates,
+                         double hex_tol) {
                  auto options = public_default_options();
                  apply_coordinate_system(options, coordinates);
                  options.source_bins = source_bins;
@@ -2463,13 +2464,13 @@ PYBIND11_MODULE(lcbinint, m)
                  options.grid_ratio = grid_ratio;
                  options.point_source_threshold = point_source_threshold;
                  options.hexadecapole_threshold = hexadecapole_threshold;
-                 options.adaptive_hex_threshold = adaptive_hex_threshold;
+                 options.adaptive_hex_threshold =
+                     std::isnan(hex_tol) ? adaptive_hex_threshold : hex_tol;
                  options.max_source_bins = max_source_bins;
                  options.finite_source_tol = std::isnan(tol) ? finite_source_tol : tol;
                  options.finite_source_reltol = std::isnan(reltol) ? finite_source_reltol : reltol;
                  if (adaptive_source_bins < 0) {
-                     options.adaptive_source_bins =
-                         (options.finite_source_tol > 0.0 || options.finite_source_reltol > 0.0) ? 1 : 0;
+                     options.adaptive_source_bins = 0;
                  } else {
                      options.adaptive_source_bins = adaptive_source_bins;
                  }
@@ -2485,10 +2486,11 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("adaptive_source_bins") = -1,
             py::arg("max_source_bins") = 400,
             py::arg("finite_source_tol") = 0.0,
-            py::arg("finite_source_reltol") = 1.0e-3,
+            py::arg("finite_source_reltol") = 0.0,
             py::arg("tol") = kNaN,
             py::arg("reltol") = kNaN,
-            py::arg("coordinates") = "auto")
+            py::arg("coordinates") = "auto",
+            py::arg("hex_tol") = kNaN)
         .def_readwrite("source_bins", &lcbi_options::source_bins)
         .def_readwrite("mode", &lcbi_options::mode)
         .def_readwrite("caustic_bins", &lcbi_options::caustic_bins)
@@ -2496,6 +2498,9 @@ PYBIND11_MODULE(lcbinint, m)
         .def_readwrite("point_source_threshold", &lcbi_options::point_source_threshold)
         .def_readwrite("hexadecapole_threshold", &lcbi_options::hexadecapole_threshold)
         .def_readwrite("adaptive_hex_threshold", &lcbi_options::adaptive_hex_threshold)
+        .def_property("hex_tol",
+            [](const lcbi_options& o) { return o.adaptive_hex_threshold; },
+            [](lcbi_options& o, double v) { o.adaptive_hex_threshold = v; })
         .def_readwrite("adaptive_source_bins", &lcbi_options::adaptive_source_bins)
         .def_readwrite("max_source_bins", &lcbi_options::max_source_bins)
         .def_readwrite("finite_source_tol", &lcbi_options::finite_source_tol)
