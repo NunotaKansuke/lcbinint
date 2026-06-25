@@ -67,6 +67,8 @@ typedef struct lcbi_options {
     int mode;                        /* internal finite-source method: 1 = cartesian, 2 = polar, 4 = auto (default) */
     int vbm_compatible;             /* 0 = original lcbinint convention, 1 = VBM convention */
     double grid_ratio;
+    int polar_source_bins;          /* 0 = use source_bins for polar inverse-ray */
+    double polar_grid_ratio;        /* <=0 = use grid_ratio for polar inverse-ray */
     double point_source_threshold;   /* bbox margin for fast PS exit (in units of rho) */
     double hexadecapole_threshold;   /* caustic-distance threshold; unused when adaptive_hex_threshold > 0 */
     double adaptive_hex_threshold;   /* VBM-style hex tolerance: |a4 correction|/mag > this => IR mode */

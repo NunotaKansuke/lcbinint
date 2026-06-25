@@ -63,6 +63,8 @@ ComputationOptions from_c_options(const lcbi_options *options)
     out.mode = options->mode;
     out.vbm_compatible = options->vbm_compatible;
     out.grid_ratio = options->grid_ratio;
+    out.polar_source_bins = options->polar_source_bins;
+    out.polar_grid_ratio = options->polar_grid_ratio;
     out.point_source_threshold = options->point_source_threshold;
     out.hexadecapole_threshold = options->hexadecapole_threshold;
     out.adaptive_hex_threshold = options->adaptive_hex_threshold;

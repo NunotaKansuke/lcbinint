@@ -22,6 +22,8 @@ struct FiniteSourceSettings {
     int source_bins = 50;
     int caustic_bins = 1400;
     double grid_ratio = 4.0;
+    int polar_source_bins = 0;
+    double polar_grid_ratio = 0.0;
     int finite_mode = 1;       // 1 = cartesian, 2 = polar, 3 = experimental spine, 4 = auto cartesian/polar
     double kinji_threshold = 20.0;   // bbox margin for fast-PS exit (in units of rho)
     double hex_threshold = 3.0;      // unused when adaptive_hex_threshold > 0

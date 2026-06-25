@@ -1143,11 +1143,15 @@ def test_lcbinint_options_exposes_fields():
     assert default_options.reltol == 0.0
     assert default_options.hex_tol == 1.0e-3
     assert default_options.inverse_ray_grid == "auto"
+    assert default_options.polar_source_bins == 0
+    assert default_options.polar_grid_ratio == 0.0
 
     options = lcbinint.Options(
         caustic_bins=128,
         source_bins=40,
         inverse_ray_grid="polar",
+        polar_source_bins=36,
+        polar_grid_ratio=5.0,
         point_source_threshold=8.0,
         hexadecapole_threshold=2.5,
         adaptive_source_bins=1,
@@ -1161,6 +1165,8 @@ def test_lcbinint_options_exposes_fields():
     assert options.source_bins == 40
     assert options.inverse_ray_grid == "polar"
     assert options._mode == 2
+    assert options.polar_source_bins == 36
+    assert options.polar_grid_ratio == 5.0
     assert options.point_source_threshold == 8.0
     assert options.hexadecapole_threshold == 2.5
     assert options.adaptive_source_bins == 1

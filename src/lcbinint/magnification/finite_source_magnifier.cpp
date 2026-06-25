@@ -152,10 +152,22 @@ int estimate_cartesian_cost(const FiniteSourceSettings& settings)
     return bins * bins * 16;
 }
 
+int active_polar_source_bins(const FiniteSourceSettings& settings)
+{
+    return std::max(settings.polar_source_bins > 0 ? settings.polar_source_bins : settings.source_bins, 1);
+}
+
+double active_polar_grid_ratio(const FiniteSourceSettings& settings)
+{
+    const double ratio = settings.polar_grid_ratio > 0.0 ? settings.polar_grid_ratio : settings.grid_ratio;
+    return std::max(ratio, 1.0e-12);
+}
+
 int estimate_polar_cost(const FiniteSourceSettings& settings)
 {
-    const int radial_bins = settings.source_bins > 0 ? settings.source_bins : 1;
-    const int angular_bins = static_cast<int>(std::ceil(2.0 * M_PI * radial_bins / settings.grid_ratio));
+    const int radial_bins = active_polar_source_bins(settings);
+    const int angular_bins = static_cast<int>(
+        std::ceil(2.0 * M_PI * radial_bins / active_polar_grid_ratio(settings)));
     return radial_bins * angular_bins * 8;
 }
 
@@ -672,7 +684,8 @@ double inverse_ray_polar_boundary_binary(
         return std::nan("");
     }
 
-    const int source_bins = std::max(settings.source_bins, 1);
+    const int source_bins = active_polar_source_bins(settings);
+    const double polar_grid_ratio = active_polar_grid_ratio(settings);
     const double dr = source_radius / static_cast<double>(source_bins);
     double max_image_radius = 1.0;
     for (const auto& image_position : image_positions) {
@@ -686,7 +699,7 @@ double inverse_ray_polar_boundary_binary(
     const int phi_bins = std::max(
         16,
         static_cast<int>(std::ceil(2.0 * kPi * max_image_radius /
-                                   (dr * settings.grid_ratio))));
+                                   (dr * polar_grid_ratio))));
     const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
     const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
     if (!uniform_source && finite_magnifier != nullptr) {
@@ -3075,9 +3088,10 @@ void FiniteSourceMagnifier::ensure_polar_map_cache(
     double mass_ratio,
     double source_radius) const
 {
-    const int source_bins = std::max(settings_.source_bins, 1);
+    const int source_bins = active_polar_source_bins(settings_);
+    const double polar_grid_ratio = active_polar_grid_ratio(settings_);
     const double dr = source_radius / static_cast<double>(source_bins);
-    const int phi_bins = std::max(16, static_cast<int>(2.0 * kPi / (dr * settings_.grid_ratio)));
+    const int phi_bins = std::max(16, static_cast<int>(2.0 * kPi / (dr * polar_grid_ratio)));
     const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
     const int radial_count = std::max(3 * source_bins, 1);
     const int radial_min_index = static_cast<int>(1.0 / dr) - radial_count / 2;
@@ -3087,7 +3101,7 @@ void FiniteSourceMagnifier::ensure_polar_map_cache(
         polar_map_cache_mass_ratio_ == mass_ratio &&
         polar_map_cache_source_radius_ == source_radius &&
         polar_map_cache_source_bins_ == source_bins &&
-        polar_map_cache_grid_ratio_ == settings_.grid_ratio &&
+        polar_map_cache_grid_ratio_ == polar_grid_ratio &&
         polar_map_cache_phi_bins_ == phi_bins &&
         polar_map_cache_radial_offset_min_index_ == radial_min_index &&
         static_cast<int>(polar_map_cache_radial_offsets_.size()) == radial_count;
@@ -3116,7 +3130,7 @@ void FiniteSourceMagnifier::ensure_polar_map_cache(
     polar_map_cache_mass_ratio_ = mass_ratio;
     polar_map_cache_source_radius_ = source_radius;
     polar_map_cache_source_bins_ = source_bins;
-    polar_map_cache_grid_ratio_ = settings_.grid_ratio;
+    polar_map_cache_grid_ratio_ = polar_grid_ratio;
     polar_map_cache_dr_ = dr;
     polar_map_cache_dphi_ = dphi;
     polar_map_cache_phi_bins_ = phi_bins;
@@ -3394,8 +3408,9 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             // Auto mode uses polar only for high magnification, where the polar
             // topology is valuable but the low-magnification radius-aware
             // angular resolution is unnecessarily expensive.  Keep the explicit
-            // mode=2 path exact to the user-provided grid_ratio.
-            inverse_ray_settings.grid_ratio = std::max(inverse_ray_settings.grid_ratio, 12.0);
+            // mode=2 path exact to the user-provided polar grid settings.
+            inverse_ray_settings.polar_grid_ratio =
+                std::max(active_polar_grid_ratio(inverse_ray_settings), 12.0);
         }
         FiniteSourceDecision decision {
             FiniteSourceMethod::inverse_ray_polar,

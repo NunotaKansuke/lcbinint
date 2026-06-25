@@ -45,6 +45,8 @@ magnification::FiniteSourceSettings finite_source_settings(
     settings.source_bins = options.source_bins;
     settings.caustic_bins = options.caustic_bins;
     settings.grid_ratio = options.grid_ratio;
+    settings.polar_source_bins = options.polar_source_bins;
+    settings.polar_grid_ratio = options.polar_grid_ratio;
     settings.finite_mode = options.mode;
     settings.kinji_threshold = options.point_source_threshold;
     settings.hex_threshold = options.hexadecapole_threshold;

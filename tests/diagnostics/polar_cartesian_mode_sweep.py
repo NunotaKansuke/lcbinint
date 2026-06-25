@@ -122,11 +122,20 @@ def vbm_curve(case: Case, times: np.ndarray, tol: float) -> np.ndarray:
     return np.asarray(vbb.BinaryLightCurve(params, times.tolist())[0], dtype=float)
 
 
-def lc_point(case: Case, time_value: float, inverse_ray_grid: str, source_bins: int):
+def lc_point(
+    case: Case,
+    time_value: float,
+    inverse_ray_grid: str,
+    source_bins: int,
+    polar_source_bins: int,
+    polar_grid_ratio: float,
+):
     options = lcbinint.Options(
         coordinates="vbm",
         inverse_ray_grid=inverse_ray_grid,
         source_bins=source_bins,
+        polar_source_bins=polar_source_bins,
+        polar_grid_ratio=polar_grid_ratio,
         adaptive_source_bins=0,
         point_source_threshold=1.0e9,
         hexadecapole_threshold=1.0e9,
@@ -267,6 +276,8 @@ def print_summary(rows: list[dict], key: str) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-bins", type=int, default=50)
+    parser.add_argument("--polar-source-bins", type=int, default=0)
+    parser.add_argument("--polar-grid-ratio", type=float, default=0.0)
     parser.add_argument("--points-per-case", type=int, default=5)
     parser.add_argument("--repeat", type=int, default=1)
     parser.add_argument("--random", type=int, default=40)
@@ -280,15 +291,24 @@ def main() -> int:
     for case_index, case in enumerate(cases, start=1):
         for time_value, reference in selected_times(case, args.points_per_case, args.reference_tol):
             cart, cart_seconds = timed_best(
-                lambda: lc_point(case, time_value, "cartesian", args.source_bins),
+                lambda: lc_point(
+                    case, time_value, "cartesian", args.source_bins,
+                    args.polar_source_bins, args.polar_grid_ratio,
+                ),
                 args.repeat,
             )
             polar, polar_seconds = timed_best(
-                lambda: lc_point(case, time_value, "polar", args.source_bins),
+                lambda: lc_point(
+                    case, time_value, "polar", args.source_bins,
+                    args.polar_source_bins, args.polar_grid_ratio,
+                ),
                 args.repeat,
             )
             auto, auto_seconds = timed_best(
-                lambda: lc_point(case, time_value, "auto", args.source_bins),
+                lambda: lc_point(
+                    case, time_value, "auto", args.source_bins,
+                    args.polar_source_bins, args.polar_grid_ratio,
+                ),
                 args.repeat,
             )
             cart_mag = float(cart.magnifications[0])
@@ -328,7 +348,8 @@ def main() -> int:
     print(f"lcbinint: {lcbinint.__file__}")
     print(
         f"polar/cartesian mode sweep cases={len(cases)} points={len(rows)} "
-        f"source_bins={args.source_bins} repeat={args.repeat}"
+        f"source_bins={args.source_bins} polar_source_bins={args.polar_source_bins} "
+        f"polar_grid_ratio={args.polar_grid_ratio:g} repeat={args.repeat}"
     )
     for key in ["rho_bin", "mag_bin", "q_bin", "s_bin", "ld_bin"]:
         print_summary(rows, key)
