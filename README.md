@@ -5,7 +5,7 @@ magnification and light-curve calculations.
 
 The original `lcbinint` code was developed by Takahiro Sumi.  This package is a
 modernized Python/C++ implementation. Its API design, validation strategy, and
-performance comparisons are strongly informed by
+performance-oriented development are strongly informed by
 [VBMicrolensing](https://github.com/valboz/VBMicrolensing/tree/main).
 
 This is an early developer release.  The Python API is intended to provide
