@@ -50,7 +50,7 @@ struct ComputationOptions {
     int center_of_mass = 0;
     int caustic_bins = 1400;
     int source_bins = 50;
-    int mode = 1;                        // public: 1 = cartesian, 2 = polar, 4 = auto
+    int mode = 4;                        // internal: 1 = cartesian, 2 = polar, 4 = auto
     int vbm_compatible = 0;             // 0 = original lcbinint convention, 1 = VBM convention
     double grid_ratio = 4.0;
     double point_source_threshold = 20.0;

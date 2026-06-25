@@ -674,7 +674,19 @@ double inverse_ray_polar_boundary_binary(
 
     const int source_bins = std::max(settings.source_bins, 1);
     const double dr = source_radius / static_cast<double>(source_bins);
-    const int phi_bins = std::max(16, static_cast<int>(2.0 * kPi / (dr * settings.grid_ratio)));
+    double max_image_radius = 1.0;
+    for (const auto& image_position : image_positions) {
+        max_image_radius = std::max(
+            max_image_radius,
+            std::hypot(image_position.x, image_position.y) + 4.0 * source_radius);
+    }
+    // Choose angular resolution from the tangential cell size at the outermost
+    // relevant image.  Using dphi ~ dr alone undersamples low-magnification
+    // images far from the origin.
+    const int phi_bins = std::max(
+        16,
+        static_cast<int>(std::ceil(2.0 * kPi * max_image_radius /
+                                   (dr * settings.grid_ratio))));
     const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
     const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
     if (!uniform_source && finite_magnifier != nullptr) {
@@ -1011,7 +1023,6 @@ void append_boundary_probe_image_seeds(
     if (source_radius <= 0.0 || seeds.size() >= max_seeds) {
         return;
     }
-
     constexpr int samples = 400;
     constexpr double inward_fraction = 0.02;
     const double probe_radius = source_radius * (1.0 - inward_fraction);
@@ -3378,13 +3389,21 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         settings_.finite_mode == 4 &&
         std::abs(point_source_magnification) >= kPolarAutoPointMagnificationThreshold;
     if (settings_.finite_mode == 2 || auto_polar) {
+        FiniteSourceSettings inverse_ray_settings = settings_;
+        if (auto_polar) {
+            // Auto mode uses polar only for high magnification, where the polar
+            // topology is valuable but the low-magnification radius-aware
+            // angular resolution is unnecessarily expensive.  Keep the explicit
+            // mode=2 path exact to the user-provided grid_ratio.
+            inverse_ray_settings.grid_ratio = std::max(inverse_ray_settings.grid_ratio, 12.0);
+        }
         FiniteSourceDecision decision {
             FiniteSourceMethod::inverse_ray_polar,
-            estimate_polar_cost(settings_),
+            estimate_polar_cost(inverse_ray_settings),
             auto_polar ? "auto polar inverse-ray for high magnification" : "polar inverse-ray",
         };
         return cache_and_return(fixed_inverse_ray_binary(
-            point_magnifier, separation, mass_ratio, source, source_radius, settings_, this,
+            point_magnifier, separation, mass_ratio, source, source_radius, inverse_ray_settings, this,
             decision, refined_dist, rejected_hex_magnification, center_image_seeds));
     }
     if (settings_.finite_mode == 3) {

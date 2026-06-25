@@ -77,7 +77,7 @@ def _lcbinint_function_api_mag0(separation, mass_ratio, y1, y2):
 def _copy_options(lcbinint, options, *, source_bins=None):
     return lcbinint.Options(
         source_bins=options.source_bins if source_bins is None else source_bins,
-        mode=options.mode,
+        inverse_ray_grid=options.inverse_ray_grid,
         caustic_bins=options.caustic_bins,
         grid_ratio=options.grid_ratio,
         point_source_threshold=options.point_source_threshold,
@@ -322,7 +322,7 @@ def test_lcbinint_function_api_polar_finite_source_matches_vbm():
         sep=separation,
         rho=rho,
     )
-    options = lcbinint.Options(coordinates="center_of_mass", mode=2, source_bins=80)
+    options = lcbinint.Options(coordinates="center_of_mass", inverse_ray_grid="polar", source_bins=80)
     actual = _model(lcbinint, params, options).magnification(y1)
 
     assert math.isfinite(actual)
@@ -354,7 +354,7 @@ def test_lcbinint_polar_high_magnification_curve_matches_vbm_without_cartesian_f
     func = lcbinint.LightCurve(
         options=lcbinint.Options(
             coordinates="vbm",
-            mode=2,
+            inverse_ray_grid="polar",
             source_bins=50,
             point_source_threshold=1.0e9,
             hexadecapole_threshold=1.0e9,
@@ -382,7 +382,7 @@ def test_lcbinint_auto_inverse_ray_uses_polar_only_for_high_magnification():
 
     options = lcbinint.Options(
         coordinates="vbm",
-        mode=4,
+        inverse_ray_grid="auto",
         source_bins=50,
         point_source_threshold=1.0e9,
         hexadecapole_threshold=1.0e9,
@@ -403,6 +403,95 @@ def test_lcbinint_auto_inverse_ray_uses_polar_only_for_high_magnification():
 
     assert high.finite_source_method_names == ["inverse_ray_polar"]
     assert low.finite_source_method_names == ["inverse_ray_cartesian"]
+
+
+def test_lcbinint_auto_inverse_ray_avoids_tiny_source_cartesian_aliasing():
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBMicrolensing")
+
+    separation = 1.0
+    mass_ratio = 1.0e-3
+    u0 = -1.0e-4
+    alpha = 0.5
+    rho = 1.0e-4
+    time = 0.0006
+
+    vbb = module.VBMicrolensing()
+    vbb.Tol = 1.0e-6
+    reference = vbb.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+        [time],
+    )[0][0]
+
+    func = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            coordinates="vbm",
+            inverse_ray_grid="auto",
+            source_bins=50,
+            adaptive_source_bins=0,
+            point_source_threshold=1.0e9,
+            hexadecapole_threshold=1.0e9,
+        )
+    )
+    actual = func.info(
+        [time],
+        t0=0.0,
+        tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        s=separation,
+        q=mass_ratio,
+        rho=rho,
+    )
+
+    assert actual.finite_source_method_names == ["inverse_ray_polar"]
+    assert abs(actual.magnifications[0] / reference - 1.0) < 1.0e-3
+
+
+def test_lcbinint_polar_uses_radius_aware_angular_resolution_for_low_magnification():
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBMicrolensing")
+
+    separation = 1.251936920212136
+    mass_ratio = 0.010229080749960234
+    u0 = -0.045915477051696046
+    alpha = 1.008883116714675
+    rho = 0.03791189085132994
+    limb_darkening_c = 0.5
+    time = 0.2526222052684984
+
+    vbb = module.VBMicrolensing()
+    vbb.Tol = 1.0e-6
+    vbb.a1 = limb_darkening_c
+    reference = vbb.BinaryLightCurve(
+        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+        [time],
+    )[0][0]
+
+    func = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            coordinates="vbm",
+            inverse_ray_grid="polar",
+            source_bins=50,
+            adaptive_source_bins=0,
+            point_source_threshold=1.0e9,
+            hexadecapole_threshold=1.0e9,
+        ),
+        limb_darkening=lcbinint.LimbDarkening.linear(limb_darkening_c),
+    )
+    actual = func.info(
+        [time],
+        t0=0.0,
+        tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        s=separation,
+        q=mass_ratio,
+        rho=rho,
+    )
+
+    assert actual.finite_source_method_names == ["inverse_ray_polar"]
+    assert abs(actual.magnifications[0] / reference - 1.0) < 1.0e-3
 
 
 @pytest.mark.parametrize("separation,mass_ratio,y1,y2,rho", BINARY_FINITE_CASES)
@@ -433,9 +522,9 @@ def test_lcbinint_function_api_linear_limb_darkening_matches_vbm(
 
 
 @pytest.mark.parametrize("separation,mass_ratio,y1,y2,rho", BINARY_LIMB_DARKENING_CASES)
-@pytest.mark.parametrize("mode", [1, 2])
+@pytest.mark.parametrize("inverse_ray_grid", ["cartesian", "polar"])
 def test_lcbinint_function_api_limb_darkening_matches_vbm(
-    separation, mass_ratio, y1, y2, rho, mode
+    separation, mass_ratio, y1, y2, rho, inverse_ray_grid
 ):
     limb_darkening_c = 0.5
     reference = _vbm_binary_mag_dark(
@@ -453,17 +542,21 @@ def test_lcbinint_function_api_limb_darkening_matches_vbm(
         rho=rho,
         limb_darkening_c=limb_darkening_c,
     )
-    options = lcbinint.Options(coordinates="center_of_mass", mode=mode, source_bins=80)
+    options = lcbinint.Options(
+        coordinates="center_of_mass",
+        inverse_ray_grid=inverse_ray_grid,
+        source_bins=80,
+    )
     actual = _model(lcbinint, params, options).magnification(y1)
 
     assert math.isfinite(actual)
     assert math.isclose(actual, reference, rel_tol=5.0e-3, abs_tol=5.0e-3)
 
 
-@pytest.mark.parametrize("mode", [1, 2])
+@pytest.mark.parametrize("inverse_ray_grid", ["cartesian", "polar"])
 @pytest.mark.parametrize("limb_darkened", [False, True])
 def test_lcbinint_caustic_light_curve_points_match_vbm(
-    mode, limb_darkened
+    inverse_ray_grid, limb_darkened
 ):
     lcbinint = pytest.importorskip("lcbinint")
     module = pytest.importorskip("VBMicrolensing")
@@ -502,7 +595,11 @@ def test_lcbinint_caustic_light_curve_points_match_vbm(
         rho=rho,
         limb_darkening_c=limb_darkening_c if limb_darkened else 0.0,
     )
-    options = lcbinint.Options(coordinates="center_of_mass", mode=mode, source_bins=80)
+    options = lcbinint.Options(
+        coordinates="center_of_mass",
+        inverse_ray_grid=inverse_ray_grid,
+        source_bins=80,
+    )
     actual = _model(lcbinint, params, options).light_curve(y1_values).magnifications
 
     for actual_value, reference_value in zip(actual, reference):
@@ -510,9 +607,9 @@ def test_lcbinint_caustic_light_curve_points_match_vbm(
         assert math.isclose(actual_value, reference_value, rel_tol=1.5e-3, abs_tol=1.5e-3)
 
 
-@pytest.mark.parametrize("mode", [1, 2])
+@pytest.mark.parametrize("inverse_ray_grid", ["cartesian", "polar"])
 def test_lcbinint_high_magnification_light_curve_matches_vbm(
-    mode,
+    inverse_ray_grid,
 ):
     lcbinint = pytest.importorskip("lcbinint")
     module = pytest.importorskip("VBMicrolensing")
@@ -541,7 +638,7 @@ def test_lcbinint_high_magnification_light_curve_matches_vbm(
     )
     options = lcbinint.Options(
         coordinates="center_of_mass",
-        mode=mode,
+        inverse_ray_grid=inverse_ray_grid,
         point_source_threshold=1.0e9,
         hexadecapole_threshold=1.0e9,
         source_bins=80,
@@ -591,8 +688,8 @@ def test_lcbinint_coordinates_mode_matches_binary_light_curve(
         assert math.isclose(actual_value, reference_value, rel_tol=1.5e-3, abs_tol=1.5e-3)
 
 
-@pytest.mark.parametrize("mode", [1, 2, 3])
-def test_lcbinint_coordinates_large_source_planetary_caustic_crossing(mode):
+@pytest.mark.parametrize("inverse_ray_grid", ["cartesian", "polar", "auto"])
+def test_lcbinint_coordinates_large_source_planetary_caustic_crossing(inverse_ray_grid):
     lcbinint = pytest.importorskip("lcbinint")
     module = pytest.importorskip("VBMicrolensing")
 
@@ -622,51 +719,13 @@ def test_lcbinint_coordinates_large_source_planetary_caustic_crossing(mode):
     options = lcbinint.Options(
         coordinates="vbm",
         source_bins=200,
-        mode=mode,
+        inverse_ray_grid=inverse_ray_grid,
     )
     actual = _model(lcbinint, params, options).light_curve(times).magnifications
 
     for actual_value, reference_value in zip(actual, reference):
         assert math.isfinite(actual_value)
         assert math.isclose(actual_value, reference_value, rel_tol=2.5e-3, abs_tol=2.5e-3)
-
-
-def test_lcbinint_spine_mode_falls_back_for_oversampled_planetary_fold_arc():
-    lcbinint = pytest.importorskip("lcbinint")
-    module = pytest.importorskip("VBMicrolensing")
-
-    separation = 1.0
-    mass_ratio = 0.001
-    u0 = -0.01
-    alpha = 0.5
-    rho = 1.0e-4
-    times = [-0.03007518796992481, 0.04611528822055133]
-
-    vbb = module.VBMicrolensing()
-    vbb.Tol = 1.0e-3
-    reference = vbb.BinaryLightCurve(
-        [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
-        times,
-    )[0]
-
-    params = lcbinint.LensParams(
-        t0=0.0,
-        tE=1.0,
-        u0=u0,
-        alpha=alpha,
-        q=mass_ratio,
-        sep=separation,
-        rho=rho,
-    )
-    options = lcbinint.Options(
-        coordinates="vbm",
-        source_bins=200,        mode=3,
-    )
-    actual = _model(lcbinint, params, options).light_curve(times).magnifications
-
-    for actual_value, reference_value in zip(actual, reference):
-        assert math.isfinite(actual_value)
-        assert math.isclose(actual_value, reference_value, rel_tol=5.0e-5, abs_tol=5.0e-5)
 
 
 def test_lcbinint_adaptive_source_bins_refines_cartesian_grid_from_diagnostics():
@@ -866,7 +925,7 @@ def test_lcbinint_cartesian_ir_does_not_clip_moderate_fold_image_area():
     )
     options = lcbinint.Options(
         source_bins=50,
-        mode=1,    )
+        inverse_ray_grid="cartesian",    )
     actual = _model(lcbinint, params, options).light_curve([time]).magnifications[0]
 
     # Regression for the old |J| < 0.5 fold guard, which clipped a valid image
@@ -903,7 +962,7 @@ def test_lcbinint_cartesian_ir_does_not_double_subtract_wide_caustic_fold_overla
     )
     actual = _model(lcbinint, 
         params,
-        lcbinint.Options(source_bins=50, mode=1),
+        lcbinint.Options(source_bins=50, inverse_ray_grid="cartesian"),
     ).light_curve([time]).magnifications[0]
 
     # At this grid phase the old overlap bookkeeping processed two equivalent
@@ -1060,7 +1119,9 @@ def test_lcbinint_adaptive_does_not_accept_known_local_error_underestimates(
         lcbinint.Options(
             source_bins=source_bins,
             max_source_bins=400,
-            reltol=reltol,        ),
+            reltol=reltol,
+            inverse_ray_grid="cartesian",
+        ),
     ).light_curve([time])
     actual = curve.magnifications[0]
     target = reltol * max(abs(actual), 1.0)
@@ -1081,11 +1142,12 @@ def test_lcbinint_options_exposes_fields():
     assert default_options.finite_source_reltol == 0.0
     assert default_options.reltol == 0.0
     assert default_options.hex_tol == 1.0e-3
+    assert default_options.inverse_ray_grid == "auto"
 
     options = lcbinint.Options(
         caustic_bins=128,
         source_bins=40,
-        mode=2,
+        inverse_ray_grid="polar",
         point_source_threshold=8.0,
         hexadecapole_threshold=2.5,
         adaptive_source_bins=1,
@@ -1097,7 +1159,8 @@ def test_lcbinint_options_exposes_fields():
 
     assert options.caustic_bins == 128
     assert options.source_bins == 40
-    assert options.mode == 2
+    assert options.inverse_ray_grid == "polar"
+    assert options._mode == 2
     assert options.point_source_threshold == 8.0
     assert options.hexadecapole_threshold == 2.5
     assert options.adaptive_source_bins == 1
@@ -1133,40 +1196,6 @@ def test_lcbinint_finite_source_smoke():
     actual = _model(lcbinint, params, options).magnification(0.2)
 
     assert math.isfinite(actual)
-
-
-def test_lcbinint_spine_mode_wide_caustic_fold_pair():
-    """mode=3 spine on a caustic-born fold pair should match mode=1 within 2e-4."""
-    lcbinint = pytest.importorskip("lcbinint")
-    separation, mass_ratio = 1.4, 0.4
-    y1, y2 = -0.24854045037531268, -0.15
-    rho = 1e-4
-    source_bins = 300
-    params = lcbinint.LensParams(
-        t0=0.0, tE=1.0, umin=y2, theta=0.0, q=mass_ratio, sep=separation, rho=rho
-    )
-    mag1 = _model(lcbinint, params, lcbinint.Options(coordinates="vbm", mode=1, source_bins=source_bins)).magnification(y1)
-    mag3 = _model(lcbinint, params, lcbinint.Options(coordinates="vbm", mode=3, source_bins=source_bins)).magnification(y1)
-    assert math.isfinite(mag1)
-    assert math.isfinite(mag3)
-    assert math.isclose(mag3, mag1, rel_tol=2e-4, abs_tol=2e-4)
-
-
-def test_lcbinint_spine_mode_non_caustic_guard():
-    """mode=3 should fall back to cartesian for a non-caustic high-mag source."""
-    lcbinint = pytest.importorskip("lcbinint")
-    separation, mass_ratio = 0.6, 1.0
-    y1, y2 = -0.09201927708355606, 0.029966615534330332
-    rho = 0.003
-    source_bins = 60
-    params = lcbinint.LensParams(
-        t0=0.0, tE=1.0, umin=y2, theta=0.0, q=mass_ratio, sep=separation, rho=rho
-    )
-    mag1 = _model(lcbinint, params, lcbinint.Options(coordinates="vbm", mode=1, source_bins=source_bins)).magnification(y1)
-    mag3 = _model(lcbinint, params, lcbinint.Options(coordinates="vbm", mode=3, source_bins=source_bins)).magnification(y1)
-    assert math.isfinite(mag1)
-    assert math.isfinite(mag3)
-    assert math.isclose(mag3, mag1, rel_tol=1e-10, abs_tol=1e-10)
 
 
 def test_lcbinint_lens_params_exposes_limb_darkening_coefficients():

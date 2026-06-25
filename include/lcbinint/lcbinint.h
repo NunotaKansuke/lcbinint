@@ -64,7 +64,7 @@ typedef struct lcbi_options {
     int center_of_mass;
     int caustic_bins;
     int source_bins;
-    int mode;                        /* public: 1 = cartesian (default), 2 = polar, 4 = auto */
+    int mode;                        /* internal finite-source method: 1 = cartesian, 2 = polar, 4 = auto (default) */
     int vbm_compatible;             /* 0 = original lcbinint convention, 1 = VBM convention */
     double grid_ratio;
     double point_source_threshold;   /* bbox margin for fast PS exit (in units of rho) */
