@@ -98,6 +98,52 @@ struct PyEventCoordinates {
     double tfix = 0.0;
 };
 
+struct PyBinaryParams {
+    double t0 = 0.0;
+    double tE = 1.0;
+    double u0 = 0.0;
+    double alpha = 0.0;
+    double s = 1.0;
+    double q = 1.0;
+    double rho = 0.0;
+    double piEN = 0.0;
+    double piEE = 0.0;
+    double g1 = 0.0;
+    double g2 = 0.0;
+    double g3 = 0.0;
+    double lom_szs = 0.0;
+    double lom_ar = 1.0;
+};
+
+double dict_get_double(const py::dict& params, const char* key, double default_value)
+{
+    const py::str py_key(key);
+    if (!params.contains(py_key)) {
+        return default_value;
+    }
+    return py::cast<double>(params[py_key]);
+}
+
+PyBinaryParams binary_params_from_dict(const py::dict& params)
+{
+    PyBinaryParams out;
+    out.t0 = dict_get_double(params, "t0", out.t0);
+    out.tE = dict_get_double(params, "tE", out.tE);
+    out.u0 = dict_get_double(params, "u0", out.u0);
+    out.alpha = dict_get_double(params, "alpha", out.alpha);
+    out.s = dict_get_double(params, "s", out.s);
+    out.q = dict_get_double(params, "q", out.q);
+    out.rho = dict_get_double(params, "rho", out.rho);
+    out.piEN = dict_get_double(params, "piEN", out.piEN);
+    out.piEE = dict_get_double(params, "piEE", out.piEE);
+    out.g1 = dict_get_double(params, "g1", out.g1);
+    out.g2 = dict_get_double(params, "g2", out.g2);
+    out.g3 = dict_get_double(params, "g3", out.g3);
+    out.lom_szs = dict_get_double(params, "lom_szs", out.lom_szs);
+    out.lom_ar = dict_get_double(params, "lom_ar", out.lom_ar);
+    return out;
+}
+
 lcbi_options public_default_options()
 {
     auto options = lcbi_default_options();
@@ -1998,6 +2044,20 @@ public:
     lcbi_orbital_motion_mode orbital_motion_mode() const { return base_.orbital_motion_mode(); }
     bool parallax() const { return parallax_; }
 
+    py::array_t<double> light_curve_from_dict(
+        py::array_t<double, py::array::c_style | py::array::forcecast> times,
+        const py::dict& params) const
+    {
+        const auto p = binary_params_from_dict(params);
+        return parallax_
+            ? base_.dynamic_light_curve(
+                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
+                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar)
+            : base_.light_curve(
+                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
+                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
+    }
+
     py::array_t<double> light_curve_static(
         py::array_t<double, py::array::c_style | py::array::forcecast> times,
         double t0,
@@ -2087,6 +2147,18 @@ public:
         return base_.dynamic_light_curve_list(
             times, t0, tE, u0, alpha, s, q, rho,
             piEN, piEE, g1, g2, g3, lom_szs, lom_ar);
+    }
+
+    PyLightCurve info_from_dict(const std::vector<double>& times, const py::dict& params) const
+    {
+        const auto p = binary_params_from_dict(params);
+        return parallax_
+            ? base_.dynamic_info(
+                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
+                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar)
+            : base_.info(
+                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
+                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
     }
 
     PyLightCurve info_static(
@@ -2211,6 +2283,18 @@ public:
     {
         return base_.critical_curves(
             s, q, n_points, time, t0, tE, u0, alpha, g1, g2, g3, lom_szs, lom_ar);
+    }
+
+    double magnification_from_dict(double time, const py::dict& params) const
+    {
+        const auto p = binary_params_from_dict(params);
+        return parallax_
+            ? base_.dynamic_magnification(
+                  time, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
+                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar)
+            : base_.magnification(
+                  time, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
+                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
     }
 
     double magnification(
@@ -2586,6 +2670,10 @@ PYBIND11_MODULE(lcbinint, m)
         .def_property_readonly("orbital_motion_mode", &PyLightCurveEvaluator::orbital_motion_mode)
         .def_property_readonly("parallax", &PyLightCurveEvaluator::parallax)
         .def("__call__",
+            &PyLightCurveEvaluator::light_curve_from_dict,
+            py::arg("times"),
+            py::arg("params"))
+        .def("__call__",
             &PyLightCurveEvaluator::light_curve_static,
             py::arg("times"),
             py::kw_only(),
@@ -2619,6 +2707,10 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("g3") = 0.0,
             py::arg("lom_szs") = 0.0,
             py::arg("lom_ar") = 1.0)
+        .def("light_curve",
+            &PyLightCurveEvaluator::light_curve_from_dict,
+            py::arg("times"),
+            py::arg("params"))
         .def("light_curve",
             &PyLightCurveEvaluator::light_curve_static,
             py::arg("times"),
@@ -2687,6 +2779,10 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("g3") = 0.0,
             py::arg("lom_szs") = 0.0,
             py::arg("lom_ar") = 1.0)
+        .def("info",
+            &PyLightCurveEvaluator::info_from_dict,
+            py::arg("times"),
+            py::arg("params"))
         .def("info",
             &PyLightCurveEvaluator::info_static,
             py::arg("times"),
@@ -2785,6 +2881,10 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("g3") = 0.0,
             py::arg("lom_szs") = 0.0,
             py::arg("lom_ar") = 1.0)
+        .def("magnification",
+            &PyLightCurveEvaluator::magnification_from_dict,
+            py::arg("time"),
+            py::arg("params"))
         .def("magnification",
             &PyLightCurveEvaluator::magnification_static,
             py::arg("time"),

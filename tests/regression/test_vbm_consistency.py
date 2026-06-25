@@ -1425,6 +1425,7 @@ def test_lcbinint_light_curve_func_matches_high_level_api():
         **kwargs,
     )
     actual = func(times, **kwargs)
+    actual_from_dict = func(times, kwargs)
 
     assert func.lens == "binary_lens"
     assert func.event.ra == pytest.approx(event.ra)
@@ -1432,12 +1433,17 @@ def test_lcbinint_light_curve_func_matches_high_level_api():
     assert func.limb_darkening.c == pytest.approx(0.5)
     assert not func.parallax
     assert actual.tolist() == pytest.approx(expected.tolist())
+    assert actual_from_dict.tolist() == pytest.approx(expected.tolist())
+    assert func.light_curve(times, kwargs).tolist() == pytest.approx(expected.tolist())
     assert func.light_curve(times, **kwargs).tolist() == pytest.approx(expected.tolist())
     assert func.list(times.tolist(), **kwargs) == pytest.approx(expected.tolist())
     assert func.magnification(times[2], **kwargs) == pytest.approx(expected[2])
+    assert func.magnification(times[2], kwargs) == pytest.approx(expected[2])
 
     info = func.info(times.tolist(), **kwargs)
+    info_from_dict = func.info(times.tolist(), kwargs)
     assert info.magnifications == pytest.approx(expected.tolist())
+    assert info_from_dict.magnifications == pytest.approx(expected.tolist())
     assert len(info.finite_source_method_names) == len(times)
 
 
@@ -1477,6 +1483,7 @@ def test_lcbinint_parallax_light_curve_func_matches_high_level_api():
         **kwargs,
     )
     actual = func(times, **kwargs)
+    actual_from_dict = func(times, kwargs)
 
     assert type(func).__name__ == "LightCurve"
     assert lcbinint.ParallaxLightCurve is lcbinint.LightCurve
@@ -1484,8 +1491,11 @@ def test_lcbinint_parallax_light_curve_func_matches_high_level_api():
     assert func.lens == "binary_lens"
     assert func.parallax
     assert actual.tolist() == pytest.approx(expected.tolist())
+    assert actual_from_dict.tolist() == pytest.approx(expected.tolist())
     assert func.info(times.tolist(), **kwargs).magnifications == pytest.approx(expected.tolist())
+    assert func.info(times.tolist(), kwargs).magnifications == pytest.approx(expected.tolist())
     assert func.magnification(times[1], **kwargs) == pytest.approx(expected[1])
+    assert func.magnification(times[1], kwargs) == pytest.approx(expected[1])
 
 
 def test_lcbinint_orbital_motion_light_curve_func_matches_high_level_api():
