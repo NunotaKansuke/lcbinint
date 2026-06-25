@@ -377,6 +377,34 @@ def test_lcbinint_polar_high_magnification_curve_matches_vbm_without_cartesian_f
     assert float(relative_error.max()) < 1.5e-3
 
 
+def test_lcbinint_auto_inverse_ray_uses_polar_only_for_high_magnification():
+    lcbinint = pytest.importorskip("lcbinint")
+
+    options = lcbinint.Options(
+        coordinates="vbm",
+        mode=4,
+        source_bins=50,
+        point_source_threshold=1.0e9,
+        hexadecapole_threshold=1.0e9,
+    )
+    func = lcbinint.LightCurve(options=options)
+    common = dict(
+        t0=0.0,
+        tE=1.0,
+        u0=-1.0e-3,
+        alpha=0.5,
+        s=0.95,
+        q=1.0e-2,
+        rho=5.0e-3,
+    )
+
+    high = func.info([0.0032], **common)
+    low = func.info([-0.2], **common)
+
+    assert high.finite_source_method_names == ["inverse_ray_polar"]
+    assert low.finite_source_method_names == ["inverse_ray_cartesian"]
+
+
 @pytest.mark.parametrize("separation,mass_ratio,y1,y2,rho", BINARY_FINITE_CASES)
 def test_lcbinint_function_api_linear_limb_darkening_matches_vbm(
     separation, mass_ratio, y1, y2, rho

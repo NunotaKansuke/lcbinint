@@ -3373,11 +3373,15 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         rejected_hex_magnification = hex.magnification;
     }
 
-    if (settings_.finite_mode == 2) {
+    constexpr double kPolarAutoPointMagnificationThreshold = 100.0;
+    const bool auto_polar =
+        settings_.finite_mode == 4 &&
+        std::abs(point_source_magnification) >= kPolarAutoPointMagnificationThreshold;
+    if (settings_.finite_mode == 2 || auto_polar) {
         FiniteSourceDecision decision {
             FiniteSourceMethod::inverse_ray_polar,
             estimate_polar_cost(settings_),
-            "polar inverse-ray",
+            auto_polar ? "auto polar inverse-ray for high magnification" : "polar inverse-ray",
         };
         return cache_and_return(fixed_inverse_ray_binary(
             point_magnifier, separation, mass_ratio, source, source_radius, settings_, this,
