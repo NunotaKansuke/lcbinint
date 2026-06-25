@@ -329,6 +329,54 @@ def test_lcbinint_function_api_polar_finite_source_matches_vbm():
     assert math.isclose(actual, reference, rel_tol=5.0e-3, abs_tol=5.0e-3)
 
 
+def test_lcbinint_polar_high_magnification_curve_matches_vbm_without_cartesian_fallback():
+    lcbinint = pytest.importorskip("lcbinint")
+    module = pytest.importorskip("VBMicrolensing")
+    np = pytest.importorskip("numpy")
+
+    separation = 0.95
+    mass_ratio = 1.0e-2
+    u0 = -1.0e-3
+    alpha = 0.5
+    rho = 5.0e-3
+    times = np.linspace(-0.04, 0.04, 41)
+
+    vbb = module.VBMicrolensing()
+    vbb.Tol = 1.0e-3
+    reference = np.asarray(
+        vbb.BinaryLightCurve(
+            [math.log(separation), math.log(mass_ratio), u0, alpha, math.log(rho), 0.0, 0.0],
+            times.tolist(),
+        )[0],
+        dtype=float,
+    )
+
+    func = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            coordinates="vbm",
+            mode=2,
+            source_bins=50,
+            point_source_threshold=1.0e9,
+            hexadecapole_threshold=1.0e9,
+        )
+    )
+    curve = func.info(
+        times.tolist(),
+        t0=0.0,
+        tE=1.0,
+        u0=u0,
+        alpha=alpha,
+        s=separation,
+        q=mass_ratio,
+        rho=rho,
+    )
+    actual = np.asarray(curve.magnifications, dtype=float)
+    relative_error = np.abs(actual / reference - 1.0)
+
+    assert set(curve.finite_source_method_names) == {"inverse_ray_polar"}
+    assert float(relative_error.max()) < 1.5e-3
+
+
 @pytest.mark.parametrize("separation,mass_ratio,y1,y2,rho", BINARY_FINITE_CASES)
 def test_lcbinint_function_api_linear_limb_darkening_matches_vbm(
     separation, mass_ratio, y1, y2, rho

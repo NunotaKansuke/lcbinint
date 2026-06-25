@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
+#include <deque>
 #include <limits>
 #include <numeric>
 #include <queue>
@@ -402,17 +403,6 @@ HexResult hexadecapole_binary(
     return {magnification, rel_err};
 }
 
-struct PolarBoundaryRow {
-    double min_r = 0.0;
-    double max_r = 0.0;
-    double phi = 0.0;
-};
-
-struct PolarBoundaryScratch {
-    std::vector<PolarBoundaryRow> rows;
-    std::vector<std::vector<int>> row_indices_by_phi;
-};
-
 struct PolarMapCacheView {
     const std::vector<SourcePosition>* mapped_sources = nullptr;
     const std::vector<int>* radial_offsets = nullptr;
@@ -420,6 +410,8 @@ struct PolarMapCacheView {
     int phi_bins = 0;
     double dr = 1.0;
 };
+
+using PolarVisitedCellIntervals = std::vector<std::vector<std::pair<int, int>>>;
 
 struct LegacyImageAreaScratch {
     std::vector<double> xmin;
@@ -644,131 +636,16 @@ double wrap_angle(double angle)
     return angle;
 }
 
-double trace_polar_boundary_rows(
-    double separation,
-    double mass_ratio,
+bool find_polar_inside_start(
+    const BinaryLensMapper& mapper,
     SourcePosition source,
     double source_radius,
-    const FiniteSourceSettings& settings,
-    const FiniteSourceMagnifier* finite_magnifier,
-    const PolarMapCacheView* map_cache,
-    double start_radius,
-    double start_phi,
+    SourcePosition image_seed,
+    double dr,
     double dphi,
-    PolarBoundaryScratch& scratch)
-{
-    const double dr = source_radius / static_cast<double>(std::max(settings.source_bins, 1));
-    const double source_radius2 = source_radius * source_radius;
-    const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
-    if (!uniform_source && finite_magnifier != nullptr) {
-        finite_magnifier->ensure_limb_darkening_table();
-    }
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    const int phi_bins = static_cast<int>(scratch.row_indices_by_phi.size());
-    const int max_rows = std::max(64, phi_bins * 2 + 16);
-    const int max_radial_steps = std::max(64, settings.source_bins * 12);
-
-    double total_count = 0.0;
-    double radius_origin = start_radius;
-    double phi = wrap_angle(start_phi);
-    for (int row = 0; row < max_rows; ++row) {
-        const int phi_index = std::clamp(static_cast<int>(phi / std::abs(dphi)), 0, phi_bins - 1);
-        const double cos_phi = std::cos(phi);
-        const double sin_phi = std::sin(phi);
-
-        double count = 0.0;
-        double dz2 = std::numeric_limits<double>::infinity();
-        double dz2_last = dz2;
-        double max_r = radius_origin;
-        double min_r = radius_origin;
-
-        double radius = radius_origin;
-        double direction = dr;
-        for (int step = 0; step < max_radial_steps; ++step) {
-            SourcePosition mapped;
-            const int radial_index = static_cast<int>(std::floor(radius / dr));
-            const bool use_cached_map =
-                map_cache != nullptr && map_cache->mapped_sources != nullptr &&
-                map_cache->radial_offsets != nullptr &&
-                map_cache->phi_bins == phi_bins && map_cache->dr == dr &&
-                radial_index >= map_cache->radial_offset_min_index &&
-                radial_index < map_cache->radial_offset_min_index +
-                    static_cast<int>(map_cache->radial_offsets->size()) &&
-                (*map_cache->radial_offsets)[static_cast<std::size_t>(
-                    radial_index - map_cache->radial_offset_min_index)] >= 0;
-            if (use_cached_map) {
-                const int row_offset = (*map_cache->radial_offsets)[static_cast<std::size_t>(
-                    radial_index - map_cache->radial_offset_min_index)];
-                const auto index =
-                    static_cast<std::size_t>(row_offset) *
-                        static_cast<std::size_t>(map_cache->phi_bins) +
-                    static_cast<std::size_t>(phi_index);
-                mapped = (*map_cache->mapped_sources)[index];
-            } else {
-                const SourcePosition image {radius * cos_phi, radius * sin_phi};
-                mapped = map_binary_lens_real(mapper, image.x, image.y);
-            }
-            dz2_last = dz2;
-            dz2 = distance_squared(mapped, source);
-
-            if (dz2 <= source_radius2) {
-                if (direction < 0.0 && count == 0.0) {
-                    max_r = radius - direction;
-                }
-                const double brightness =
-                    uniform_source ? 1.0 : finite_magnifier->limb_darkening_table_brightness(
-                                               dz2 / source_radius2);
-                count += brightness * radius;
-            } else if (direction > 0.0) {
-                if (dz2_last <= source_radius2) {
-                    max_r = radius;
-                } else if (total_count == 0.0 && row <= 1 && radius == radius_origin) {
-                    radius += direction;
-                    continue;
-                }
-                direction = -dr;
-                radius = radius_origin;
-                min_r = radius + direction;
-            } else {
-                if (dz2_last <= source_radius2) {
-                    min_r = radius;
-                }
-                if (!scratch.rows.empty() && count == 0.0 &&
-                    radius >= scratch.rows.back().min_r - direction) {
-                    radius += direction;
-                    continue;
-                }
-
-                if (count == 0.0) {
-                    if (!scratch.rows.empty()) {
-                        return total_count;
-                    }
-                } else {
-                    for (const int index : scratch.row_indices_by_phi[static_cast<std::size_t>(phi_index)]) {
-                        const auto& existing = scratch.rows[static_cast<std::size_t>(index)];
-                        if (min_r + dr < existing.max_r && max_r - dr > existing.min_r) {
-                            return total_count;
-                        }
-                    }
-                    total_count += count;
-                    scratch.row_indices_by_phi[static_cast<std::size_t>(phi_index)].push_back(
-                        static_cast<int>(scratch.rows.size()));
-                    scratch.rows.push_back({min_r, max_r, phi});
-                }
-
-                radius_origin = max_r - dr;
-                phi = wrap_angle(phi + dphi);
-                break;
-            }
-            radius += direction;
-        }
-
-        if (row > 0 && count == 0.0) {
-            break;
-        }
-    }
-    return total_count;
-}
+    int phi_bins,
+    double* start_radius,
+    double* start_phi);
 
 double inverse_ray_polar_boundary_binary(
     const PointSourceMagnifier& point_magnifier,
@@ -799,67 +676,172 @@ double inverse_ray_polar_boundary_binary(
     const double dr = source_radius / static_cast<double>(source_bins);
     const int phi_bins = std::max(16, static_cast<int>(2.0 * kPi / (dr * settings.grid_ratio)));
     const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
+    const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
+    if (!uniform_source && finite_magnifier != nullptr) {
+        finite_magnifier->ensure_limb_darkening_table();
+    }
     const double total_source_flux = source_flux(source_radius, settings);
     if (!std::isfinite(total_source_flux)) {
         return std::nan("");
     }
 
-    std::vector<double> image_area_counts(image_positions.size(), 0.0);
-    std::vector<bool> skip(image_positions.size(), false);
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    PolarVisitedCellIntervals visited(static_cast<std::size_t>(phi_bins));
+    std::deque<std::pair<int, int>> queue;
+    const double source_radius2 = source_radius * source_radius;
+    const double inv_source_radius2 = 1.0 / source_radius2;
+    auto wrap_phi_index = [&](int iphi) {
+        iphi %= phi_bins;
+        if (iphi < 0) {
+            iphi += phi_bins;
+        }
+        return iphi;
+    };
+    auto cell_visited = [&](int ir, int iphi) {
+        if (ir < 0) {
+            return true;
+        }
+        iphi = wrap_phi_index(iphi);
+        for (const auto& interval : visited[static_cast<std::size_t>(iphi)]) {
+            if (ir >= interval.first && ir <= interval.second) {
+                return true;
+            }
+        }
+        return false;
+    };
+    auto add_visited_run = [&](int iphi, int left, int right) {
+        iphi = wrap_phi_index(iphi);
+        if (right < left) {
+            return;
+        }
+        auto& intervals = visited[static_cast<std::size_t>(iphi)];
+        intervals.push_back({left, right});
+        std::sort(intervals.begin(), intervals.end());
+        std::size_t write = 0;
+        for (std::size_t read = 0; read < intervals.size(); ++read) {
+            if (write == 0 || intervals[read].first > intervals[write - 1].second + 1) {
+                intervals[write++] = intervals[read];
+            } else {
+                intervals[write - 1].second =
+                    std::max(intervals[write - 1].second, intervals[read].second);
+            }
+        }
+        intervals.resize(write);
+    };
+    auto enqueue = [&](int ir, int iphi) {
+        if (!cell_visited(ir, iphi)) {
+            queue.push_back({ir, wrap_phi_index(iphi)});
+        }
+    };
+    auto cell_inside = [&](int ir, int iphi, double* dz2_out = nullptr) {
+        if (ir < 0) {
+            return false;
+        }
+        iphi = wrap_phi_index(iphi);
+        const double radius = (static_cast<double>(ir) + 0.5) * dr;
+        const double phi = (static_cast<double>(iphi) + 0.5) * dphi;
+        const SourcePosition image {radius * std::cos(phi), radius * std::sin(phi)};
+        const SourcePosition mapped = map_binary_lens_real(mapper, image.x, image.y);
+        const double dz2 = distance_squared(mapped, source);
+        if (dz2_out != nullptr) {
+            *dz2_out = dz2;
+        }
+        return dz2 <= source_radius2;
+    };
+
+    for (const auto& image_position : image_positions) {
+        double grid_radius = 0.0;
+        double image_phi = 0.0;
+        if (!find_polar_inside_start(
+                mapper, source, source_radius, image_position, dr, dphi, phi_bins,
+                &grid_radius, &image_phi)) {
+            continue;
+        }
+        const int ir = std::max(0, static_cast<int>(std::floor(grid_radius / dr)));
+        const int iphi = std::clamp(static_cast<int>(image_phi / dphi), 0, phi_bins - 1);
+        enqueue(ir, iphi);
+    }
+
     double total_count = 0.0;
-    for (std::size_t i = 0; i < image_positions.size(); ++i) {
-        if (skip[i]) {
+    while (!queue.empty()) {
+        const auto [ir, iphi] = queue.front();
+        queue.pop_front();
+        if (cell_visited(ir, iphi) || !cell_inside(ir, iphi)) {
             continue;
         }
 
-        const double image_radius_value = std::hypot(image_positions[i].x, image_positions[i].y);
-        double image_phi = wrap_angle(std::atan2(image_positions[i].y, image_positions[i].x));
-        const double grid_radius = std::floor(image_radius_value / dr) * dr + 0.5 * dr;
-        image_phi = std::floor(image_phi / dphi) * dphi + 0.5 * dphi;
-
-        PolarBoundaryScratch scratch;
-        scratch.row_indices_by_phi.assign(static_cast<std::size_t>(phi_bins), {});
-        double count = trace_polar_boundary_rows(
-            separation, mass_ratio, source, source_radius, settings, finite_magnifier, map_cache,
-            grid_radius, image_phi, dphi, scratch);
-        if (!scratch.rows.empty()) {
-            const double reverse_start_radius = scratch.rows.front().max_r;
-            count += trace_polar_boundary_rows(
-                separation, mass_ratio, source, source_radius, settings, finite_magnifier, map_cache,
-                reverse_start_radius, image_phi - dphi, -dphi, scratch);
+        int left = ir;
+        while (left > 0 && !cell_visited(left - 1, iphi) && cell_inside(left - 1, iphi)) {
+            --left;
+        }
+        int right = ir;
+        while (!cell_visited(right + 1, iphi) && cell_inside(right + 1, iphi)) {
+            ++right;
         }
 
-        total_count += count;
-        image_area_counts[i] = count;
-
-        for (std::size_t j = 0; j < image_positions.size(); ++j) {
-            if (j == i) {
-                continue;
-            }
-            const double other_radius = std::hypot(image_positions[j].x, image_positions[j].y);
-            const double other_phi = wrap_angle(std::atan2(image_positions[j].y, image_positions[j].x));
-            const double other_grid_radius = std::floor(other_radius / dr) * dr;
-            const double other_grid_phi = std::floor(other_phi / dphi) * dphi;
-            for (const auto& row : scratch.rows) {
-                const double row_phi = wrap_angle(row.phi - 0.5 * std::abs(dphi));
-                const double delta_phi = std::abs(wrap_angle(other_grid_phi - row_phi));
-                const double wrapped_delta_phi = std::min(delta_phi, 2.0 * kPi - delta_phi);
-                if (wrapped_delta_phi <= 1.01 * std::abs(dphi) &&
-                    other_grid_radius >= row.min_r - 1.01 * dr &&
-                    other_grid_radius <= row.max_r + 1.01 * dr) {
-                    if (j < i) {
-                        total_count -= image_area_counts[j];
-                    } else {
-                        skip[j] = true;
-                    }
-                    break;
-                }
-            }
+        add_visited_run(iphi, left, right);
+        for (int current = left; current <= right; ++current) {
+            double dz2 = 0.0;
+            cell_inside(current, iphi, &dz2);
+            const double radius = (static_cast<double>(current) + 0.5) * dr;
+            const double brightness =
+                uniform_source ? 1.0 :
+                    (finite_magnifier != nullptr ?
+                        finite_magnifier->limb_darkening_table_brightness(dz2 * inv_source_radius2) :
+                        source_surface_brightness(dz2 * inv_source_radius2, settings));
+            total_count += brightness * radius;
+            enqueue(current, iphi - 1);
+            enqueue(current, iphi + 1);
         }
     }
 
     const double image_flux = total_count * dr * dphi;
     return image_flux / total_source_flux;
+}
+
+bool find_polar_inside_start(
+    const BinaryLensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    SourcePosition image_seed,
+    double dr,
+    double dphi,
+    int phi_bins,
+    double* start_radius,
+    double* start_phi)
+{
+    const double seed_radius = std::hypot(image_seed.x, image_seed.y);
+    const double seed_phi = wrap_angle(std::atan2(image_seed.y, image_seed.x));
+    const int seed_ir = static_cast<int>(std::floor(seed_radius / dr));
+    const int seed_iphi = std::clamp(static_cast<int>(seed_phi / dphi), 0, phi_bins - 1);
+    const double source_radius2 = source_radius * source_radius;
+    constexpr int max_shell = 10;
+    for (int shell = 0; shell <= max_shell; ++shell) {
+        for (int dir = -1; dir <= 1; dir += 2) {
+            for (int d_ir = -shell; d_ir <= shell; ++d_ir) {
+                const int d_iphi = (shell - std::abs(d_ir)) * dir;
+                const int ir = seed_ir + d_ir;
+                if (ir < 0) {
+                    continue;
+                }
+                int iphi = seed_iphi + d_iphi;
+                iphi %= phi_bins;
+                if (iphi < 0) {
+                    iphi += phi_bins;
+                }
+                const double radius = (static_cast<double>(ir) + 0.5) * dr;
+                const double phi = (static_cast<double>(iphi) + 0.5) * dphi;
+                const SourcePosition image {radius * std::cos(phi), radius * std::sin(phi)};
+                const SourcePosition mapped = map_binary_lens_real(mapper, image.x, image.y);
+                if (distance_squared(mapped, source) <= source_radius2) {
+                    *start_radius = radius;
+                    *start_phi = phi;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
 }
 
 double source_limb_brightness(
@@ -3392,8 +3374,14 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     }
 
     if (settings_.finite_mode == 2) {
-        return cache_and_return(inverse_ray_polar_binary_mag(
-            separation, mass_ratio, source, source_radius, refined_dist));
+        FiniteSourceDecision decision {
+            FiniteSourceMethod::inverse_ray_polar,
+            estimate_polar_cost(settings_),
+            "polar inverse-ray",
+        };
+        return cache_and_return(fixed_inverse_ray_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius, settings_, this,
+            decision, refined_dist, rejected_hex_magnification, center_image_seeds));
     }
     if (settings_.finite_mode == 3) {
         return cache_and_return(fixed_inverse_ray_spine_binary(
