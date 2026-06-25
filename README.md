@@ -78,7 +78,7 @@ params = {
 lc = lcbinint.LightCurve(
     options=lcbinint.Options(
         coordinates="vbm",
-        source_bins=50,
+        nbin=50,
     ),
     limb_darkening=lcbinint.LimbDarkening.linear(0.5),
 )
