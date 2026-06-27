@@ -4,6 +4,7 @@
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/model/orbital_motion.hpp"
 #include "lcbinint/model/trajectory.hpp"
+#include "lcbinint/model/triple_lens_geometry.hpp"
 
 #include <cmath>
 #include <limits>
@@ -102,6 +103,48 @@ MagnificationResult LensModel::magnification(double time) const
 
     if (!std::isfinite(orbit.separation) || !std::isfinite(orbit.angle)) {
         result.status = EvaluationStatus::numerical_error;
+        return result;
+    }
+
+    if (params_.is_triple()) {
+        if (has_unsupported_dynamic_effects(params_) || !static_orbit) {
+            result.status = EvaluationStatus::unsupported;
+            return result;
+        }
+        const auto geometry = make_triple_lens_geometry(
+            params_.sep,
+            params_.q,
+            params_.q2,
+            params_.sep2,
+            params_.ang);
+        const auto point = point_magnifier_.triple_mag0(geometry, source);
+        result.point_source_magnification = point.magnification;
+        result.image_count = point.image_count;
+        if (params_.rho == 0.0) {
+            result.magnification = point.magnification;
+            result.finite_source_magnification = point.magnification;
+            result.status = std::isfinite(result.magnification)
+                ? EvaluationStatus::ok
+                : EvaluationStatus::numerical_error;
+            return result;
+        }
+
+        const auto finite = finite_magnifier_.triple_mag(
+            geometry,
+            source,
+            std::abs(params_.rho),
+            point.magnification,
+            &point_magnifier_);
+        result.magnification = finite.magnification;
+        result.finite_source_magnification = finite.magnification;
+        result.finite_source_error_estimate = finite.error_estimate;
+        result.finite_source_method = static_cast<int>(finite.decision.method);
+        result.finite_source_refinement_level = finite.refinement_level;
+        result.finite_source_converged = finite.converged;
+        result.image_count = finite.image_count;
+        result.status = std::isfinite(result.magnification)
+            ? EvaluationStatus::ok
+            : EvaluationStatus::numerical_error;
         return result;
     }
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lcbinint/types.hpp"
+#include "lcbinint/model/triple_lens_geometry.hpp"
 
 #include <array>
 #include <cstddef>
@@ -31,6 +32,18 @@ struct BinaryImageCandidate {
     bool physical = false;
 };
 
+struct TripleImage {
+    SourcePosition position;
+    double jacobian_determinant = 0.0;
+};
+
+struct TripleImageCandidate {
+    SourcePosition position;
+    double jacobian_determinant = 0.0;
+    double residual = 0.0;
+    bool physical = false;
+};
+
 class PointSourceMagnifier {
 public:
     PointSourceResult binary_mag0(double separation, double mass_ratio, SourcePosition source) const;
@@ -55,6 +68,18 @@ public:
         double mass_ratio,
         SourcePosition source) const;
     SourcePosition binary_lens_equation(double separation, double mass_ratio, SourcePosition image) const;
+    PointSourceResult triple_mag0(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source) const;
+    std::vector<TripleImage> triple_images(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source) const;
+    std::vector<TripleImageCandidate> triple_image_candidates(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source) const;
+    SourcePosition triple_lens_equation(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition image) const;
 
 private:
     PointSourceResult binary_mag0_impl(

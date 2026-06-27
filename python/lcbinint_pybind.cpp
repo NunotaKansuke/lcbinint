@@ -105,6 +105,9 @@ struct PyBinaryParams {
     double alpha = 0.0;
     double s = 1.0;
     double q = 1.0;
+    double q2 = 0.0;
+    double sep2 = 0.0;
+    double ang = 0.0;
     double rho = 0.0;
     double piEN = 0.0;
     double piEE = 0.0;
@@ -133,6 +136,9 @@ PyBinaryParams binary_params_from_dict(const py::dict& params)
     out.alpha = dict_get_double(params, "alpha", out.alpha);
     out.s = dict_get_double(params, "s", out.s);
     out.q = dict_get_double(params, "q", out.q);
+    out.q2 = dict_get_double(params, "q2", out.q2);
+    out.sep2 = dict_get_double(params, "sep2", out.sep2);
+    out.ang = dict_get_double(params, "ang", out.ang);
     out.rho = dict_get_double(params, "rho", out.rho);
     out.piEN = dict_get_double(params, "piEN", out.piEN);
     out.piEE = dict_get_double(params, "piEE", out.piEE);
@@ -305,6 +311,30 @@ lcbi_params make_binary_params(
     params.orbital_motion_mode = orbital_motion_mode;
     params.lom_szs = lom_szs;
     params.lom_ar = lom_ar;
+    return params;
+}
+
+lcbi_params make_triple_params(
+    double t0,
+    double tE,
+    double u0,
+    double alpha,
+    double separation,
+    double mass_ratio,
+    double secondary_mass_ratio,
+    double secondary_separation,
+    double secondary_angle,
+    double source_radius,
+    const PyLimbDarkening& limb_darkening,
+    const PyEventCoordinates& event)
+{
+    auto params = make_binary_params(
+        t0, tE, u0, alpha, separation, mass_ratio, source_radius,
+        limb_darkening, event, 0.0, 0.0, 0.0, 0.0, 0.0,
+        LCBI_ORBIT_STATIC, 0.0, 1.0);
+    params.q2 = secondary_mass_ratio;
+    params.sep2 = secondary_separation;
+    params.ang = secondary_angle;
     return params;
 }
 
@@ -1074,7 +1104,10 @@ std::string normalize_lens_name(std::string lens)
     if (lens == "binary" || lens == "binary_lens") {
         return "binary_lens";
     }
-    throw std::invalid_argument("only lens='binary_lens' is implemented");
+    if (lens == "triple" || lens == "triple_lens") {
+        return "triple_lens";
+    }
+    throw std::invalid_argument("lens must be 'binary_lens' or 'triple_lens'");
 }
 
 class PyLightCurveFunc {
@@ -1092,7 +1125,7 @@ public:
         , orbital_motion_mode_(orbital_motion_mode)
         , model_options_(lcbinint::model::from_c_options(&options_))
         , finite_settings_(make_finite_source_settings(limb_darkening_, model_options_))
-        , direct_static_binary_(can_use_direct_static_binary(
+        , direct_static_binary_(lens_ == "binary_lens" && can_use_direct_static_binary(
               model_options_, orbital_motion_mode_, false))
     {
     }
@@ -2087,6 +2120,18 @@ public:
         const py::dict& params) const
     {
         const auto p = binary_params_from_dict(params);
+        if (lens() == "triple_lens") {
+            if (p.q2 <= 0.0) {
+                throw py::value_error("triple_lens requires q2 > 0");
+            }
+            if (parallax_) {
+                throw std::runtime_error("unsupported");
+            }
+            const auto c_params = make_triple_params(
+                p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
+                p.rho, base_.limb_darkening(), base_.event());
+            return evaluate_binary_light_curve_numpy(times, c_params, base_.options());
+        }
         return parallax_
             ? base_.dynamic_light_curve(
                   times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
@@ -2111,6 +2156,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         return parallax_
             ? base_.dynamic_light_curve(
                   times, t0, tE, u0, alpha, s, q, rho,
@@ -2135,6 +2181,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         require_parallax();
         return base_.dynamic_light_curve(
             times, t0, tE, u0, alpha, s, q, rho,
@@ -2156,6 +2203,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         return parallax_
             ? base_.dynamic_light_curve_list(
                   times, t0, tE, u0, alpha, s, q, rho,
@@ -2181,6 +2229,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         require_parallax();
         return base_.dynamic_light_curve_list(
             times, t0, tE, u0, alpha, s, q, rho,
@@ -2190,6 +2239,18 @@ public:
     PyLightCurve info_from_dict(const std::vector<double>& times, const py::dict& params) const
     {
         const auto p = binary_params_from_dict(params);
+        if (lens() == "triple_lens") {
+            if (p.q2 <= 0.0) {
+                throw py::value_error("triple_lens requires q2 > 0");
+            }
+            if (parallax_) {
+                throw std::runtime_error("unsupported");
+            }
+            const auto c_params = make_triple_params(
+                p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
+                p.rho, base_.limb_darkening(), base_.event());
+            return evaluate_binary_light_curve_info(times, c_params, base_.options());
+        }
         return parallax_
             ? base_.dynamic_info(
                   times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
@@ -2214,6 +2275,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         return parallax_
             ? base_.dynamic_info(
                   times, t0, tE, u0, alpha, s, q, rho,
@@ -2238,6 +2300,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         require_parallax();
         return base_.dynamic_info(
             times, t0, tE, u0, alpha, s, q, rho,
@@ -2258,6 +2321,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         return parallax_
             ? base_.dynamic_source_trajectory(
                   times, t0, tE, u0, alpha, s, q,
@@ -2281,6 +2345,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         require_parallax();
         return base_.dynamic_source_trajectory(
             times, t0, tE, u0, alpha, s, q, piEN, piEE, g1, g2, g3, lom_szs, lom_ar);
@@ -2301,6 +2366,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         return base_.caustics(s, q, n_points, time, t0, tE, u0, alpha, g1, g2, g3, lom_szs, lom_ar);
     }
 
@@ -2319,6 +2385,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         return base_.critical_curves(
             s, q, n_points, time, t0, tE, u0, alpha, g1, g2, g3, lom_szs, lom_ar);
     }
@@ -2326,6 +2393,18 @@ public:
     double magnification_from_dict(double time, const py::dict& params) const
     {
         const auto p = binary_params_from_dict(params);
+        if (lens() == "triple_lens") {
+            if (p.q2 <= 0.0) {
+                throw py::value_error("triple_lens requires q2 > 0");
+            }
+            if (parallax_) {
+                throw std::runtime_error("unsupported");
+            }
+            const auto c_params = make_triple_params(
+                p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
+                p.rho, base_.limb_darkening(), base_.event());
+            return evaluate_binary_magnification(time, c_params, base_.options());
+        }
         return parallax_
             ? base_.dynamic_magnification(
                   time, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
@@ -2352,6 +2431,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         require_parallax();
         return base_.dynamic_magnification(
             time, t0, tE, u0, alpha, s, q, rho,
@@ -2373,6 +2453,7 @@ public:
         double lom_szs,
         double lom_ar) const
     {
+        require_binary_positional_api();
         return parallax_
             ? base_.dynamic_magnification(
                   time, t0, tE, u0, alpha, s, q, rho,
@@ -2387,6 +2468,14 @@ private:
             throw std::invalid_argument(
                 "piEN/piEE require LightCurve(parallax=True); "
                 "the current trajectory model is static");
+        }
+    }
+
+    void require_binary_positional_api() const
+    {
+        if (lens() != "binary_lens") {
+            throw std::invalid_argument(
+                "triple_lens requires a parameter dictionary with q2, sep2, and ang");
         }
     }
 

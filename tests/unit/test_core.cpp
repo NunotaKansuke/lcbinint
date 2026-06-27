@@ -1,6 +1,8 @@
 #include "lcbinint/lcbinint.h"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
+#include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
+#include "lcbinint/model/triple_lens_geometry.hpp"
 
 #include <cmath>
 #include <complex>
@@ -24,6 +26,22 @@ bool all_roots_satisfy(
         }
     }
     return true;
+}
+
+struct TripleReferenceCase {
+    lcbinint::SourcePosition source;
+    double separation = 0.0;
+    double mass_ratio = 0.0;
+    double secondary_mass_ratio = 0.0;
+    double secondary_separation = 0.0;
+    double secondary_angle = 0.0;
+    double reference_magnification = 0.0;
+    double relative_tolerance = 0.0;
+};
+
+bool close_relative(double actual, double expected, double tolerance)
+{
+    return std::abs(actual - expected) <= tolerance * std::abs(expected);
 }
 
 } // namespace
@@ -171,6 +189,72 @@ int main()
     }
     if (std::abs(limb_darkened_hex_result.magnification - uniform_hex_result.magnification) < 1.0e-12) {
         return 36;
+    }
+    const auto triple_geometry =
+        lcbinint::model::make_triple_lens_geometry(1.0, 0.001, 0.0001, 0.5, 1.2);
+    if (std::abs(triple_geometry.masses[0] + triple_geometry.masses[1] +
+                 triple_geometry.masses[2] - 1.0) > 1.0e-12) {
+        return 38;
+    }
+    const auto triple_mapped =
+        lcbinint::model::triple_lens_equation(triple_geometry, {0.8, 0.3});
+    lcbinint::magnification::PointSourceMagnifier point_magnifier;
+    const auto triple_images = point_magnifier.triple_images(triple_geometry, triple_mapped);
+    if (triple_images.empty() || triple_images.size() > 10) {
+        return 39;
+    }
+    const auto triple_point = point_magnifier.triple_mag0(triple_geometry, triple_mapped);
+    if (!std::isfinite(triple_point.magnification) || triple_point.image_count <= 0) {
+        return 40;
+    }
+    params = lcbi_default_params();
+    options = lcbi_default_options();
+    options.vbm_compatible = 1;
+    params.umin = 0.01;
+    params.theta = 0.5;
+    params.sep = 1.0;
+    params.q = 1.0e-3;
+    params.q2 = 1.0e-4;
+    params.sep2 = 0.5;
+    params.ang = 1.2;
+    params.rho = 0.0;
+    if (lcbi_magnification(0.0, &params, &options, &result) != LCBI_OK ||
+        !std::isfinite(result.magnification) || result.image_count <= 0) {
+        return 41;
+    }
+    params.rho = 1.0e-3;
+    options.source_bins = 8;
+    if (lcbi_magnification(0.0, &params, &options, &result) != LCBI_OK ||
+        !std::isfinite(result.finite_source_magnification)) {
+        return 42;
+    }
+    const TripleReferenceCase triple_reference_cases[] = {
+        // Generated from /moao38_7/nunota/binfit/integral/lcbinint.c amp_point3.
+        {{-0.09263782795758546, -0.03908195790173323},
+            1.0, 1.0e-3, 1.0e-4, 0.5, 1.2, 10.529790084883288, 5.0e-4},
+        {{-0.00479425538604203, 0.008775825618903728},
+            1.0, 1.0e-3, 1.0e-4, 0.5, 1.2, 118.58394756835955, 5.0e-4},
+        {{0.17067435180044185, 0.10449139266017765},
+            1.0, 1.0e-3, 1.0e-4, 0.5, 1.2, 5.0081788428186362, 5.0e-4},
+        {{0.35, -0.22},
+            0.8, 0.03, 0.02, 0.35, -0.7, 2.3663298774361103, 1.0e-9},
+        {{-0.45, 0.18},
+            1.4, 0.2, 0.05, 0.7, 2.1, 2.5951753373288202, 1.0e-9},
+    };
+    for (const auto& reference_case : triple_reference_cases) {
+        const auto geometry = lcbinint::model::make_triple_lens_geometry(
+            reference_case.separation,
+            reference_case.mass_ratio,
+            reference_case.secondary_mass_ratio,
+            reference_case.secondary_separation,
+            reference_case.secondary_angle);
+        const auto point = point_magnifier.triple_mag0(geometry, reference_case.source);
+        if (!close_relative(
+                point.magnification,
+                reference_case.reference_magnification,
+                reference_case.relative_tolerance)) {
+            return 43;
+        }
     }
     return 0;
 }
