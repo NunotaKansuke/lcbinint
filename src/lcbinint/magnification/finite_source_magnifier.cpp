@@ -4410,6 +4410,39 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
     const double hex_dist_threshold = settings_.hex_threshold * source_radius;
     const bool near_caustic =
         std::isfinite(caustic_distance) && caustic_distance < hex_dist_threshold;
+    if (!near_caustic && settings_.hex_threshold > 0.0) {
+        const auto derivative_point =
+            point_magnifier.triple_mag0_with_derivatives(geometry, source);
+        const double derivative_relative_error =
+            derivative_point.derivative_error_indicator * source_radius * source_radius /
+            std::max(std::abs(derivative_point.magnification), 1.0e-10);
+        double derivative_threshold =
+            settings_.adaptive_hex_threshold > 0.0 ? settings_.adaptive_hex_threshold : 1.0e-3;
+        if (settings_.adaptive_source_bins != 0 &&
+            (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0)) {
+            derivative_threshold =
+                settings_.finite_source_reltol +
+                settings_.finite_source_tol /
+                    std::max(std::abs(derivative_point.magnification), 1.0e-10);
+        }
+        if (std::isfinite(derivative_relative_error) &&
+            derivative_relative_error <= derivative_threshold) {
+            FiniteSourceDecision decision {
+                FiniteSourceMethod::point_source,
+                1,
+                "triple point-source derivative check passed",
+            };
+            return {
+                derivative_point.magnification,
+                derivative_point.image_count,
+                decision,
+                derivative_relative_error *
+                    std::max(std::abs(derivative_point.magnification), 1.0),
+                0,
+                true,
+            };
+        }
+    }
     if (!near_caustic && settings_.adaptive_hex_threshold > 0.0) {
         const auto hex = hexadecapole_triple(
             point_magnifier,

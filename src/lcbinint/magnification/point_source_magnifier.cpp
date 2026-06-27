@@ -791,11 +791,83 @@ SourcePosition PointSourceMagnifier::binary_lens_equation(
     return {source.real(), source.imag()};
 }
 
+double triple_derivative_error_indicator(
+    const model::TripleLensGeometry& geometry,
+    const std::vector<TripleImageCandidate>& candidates)
+{
+    double indicator = 0.0;
+    for (const auto& candidate : candidates) {
+        if (!candidate.physical) {
+            continue;
+        }
+        const Complex z(candidate.position.x, candidate.position.y);
+        Complex j1(0.0, 0.0);
+        Complex j2(0.0, 0.0);
+        Complex j3(0.0, 0.0);
+        for (int k = 0; k < 3; ++k) {
+            const Complex zk(geometry.lens_positions[k].x, geometry.lens_positions[k].y);
+            const Complex dz = z - zk;
+            const Complex dz2 = dz * dz;
+            const Complex dz3 = dz2 * dz;
+            const Complex dz4 = dz3 * dz;
+            const double mk = geometry.masses[k];
+            j1 += mk / dz2;
+            j2 += Complex(-2.0 * mk, 0.0) / dz3;
+            j3 += Complex(6.0 * mk, 0.0) / dz4;
+        }
+        const Complex j1c = std::conj(j1);
+        const double det_j = 1.0 - std::real(j1 * j1c);
+        if (det_j == 0.0 || !std::isfinite(det_j)) {
+            return std::numeric_limits<double>::infinity();
+        }
+        const Complex j1c2 = j1c * j1c;
+        const Complex j3_mod = j3 * j1c2;
+        const double j2_abs2 = std::norm(j2);
+        const double det_j2 = det_j * det_j;
+        const double ob2 = j2_abs2 * (6.0 - 6.0 * det_j + det_j2);
+        const Complex j2_mod = j2 * j2 * j1c2 * j1c;
+        const double denominator = std::abs(det_j * det_j2 * det_j2);
+        if (denominator == 0.0 || !std::isfinite(denominator)) {
+            return std::numeric_limits<double>::infinity();
+        }
+        const double cq =
+            0.5 *
+            (std::abs(ob2 - 6.0 * std::real(j2_mod) - 2.0 * std::real(j3_mod) * det_j) +
+             3.0 * std::abs(std::imag(j2_mod))) /
+            denominator;
+        if (std::isfinite(cq)) {
+            indicator += cq;
+        } else {
+            return std::numeric_limits<double>::infinity();
+        }
+    }
+    return indicator;
+}
+
+bool triple_geometry_equals(
+    const model::TripleLensGeometry& a,
+    const model::TripleLensGeometry& b)
+{
+    for (int i = 0; i < 3; ++i) {
+        if (a.lens_positions[i].x != b.lens_positions[i].x ||
+            a.lens_positions[i].y != b.lens_positions[i].y ||
+            a.masses[i] != b.masses[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 PointSourceResult PointSourceMagnifier::triple_mag0(
     const model::TripleLensGeometry& geometry,
     SourcePosition source) const
 {
     const auto candidates = triple_image_candidates(geometry, source);
+    // Populate cache so triple_mag0_with_derivatives can reuse these candidates.
+    triple_candidate_cache_valid_ = true;
+    triple_candidate_cache_geometry_ = geometry;
+    triple_candidate_cache_source_ = source;
+    triple_candidate_cache_ = candidates;
     double magnification = 0.0;
     int image_count = 0;
     for (const auto& candidate : candidates) {
@@ -806,6 +878,37 @@ PointSourceResult PointSourceMagnifier::triple_mag0(
         ++image_count;
     }
     return {magnification, image_count};
+}
+
+PointSourceDerivativeResult PointSourceMagnifier::triple_mag0_with_derivatives(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source) const
+{
+    const bool cache_hit =
+        triple_candidate_cache_valid_ &&
+        triple_candidate_cache_source_.x == source.x &&
+        triple_candidate_cache_source_.y == source.y &&
+        triple_geometry_equals(triple_candidate_cache_geometry_, geometry);
+    const std::vector<TripleImageCandidate>* candidates_ptr = nullptr;
+    std::vector<TripleImageCandidate> fresh_candidates;
+    if (cache_hit) {
+        candidates_ptr = &triple_candidate_cache_;
+    } else {
+        fresh_candidates = triple_image_candidates(geometry, source);
+        candidates_ptr = &fresh_candidates;
+    }
+    const auto& candidates = *candidates_ptr;
+    double magnification = 0.0;
+    int image_count = 0;
+    for (const auto& candidate : candidates) {
+        if (!candidate.physical) {
+            continue;
+        }
+        magnification += 1.0 / std::abs(candidate.jacobian_determinant);
+        ++image_count;
+    }
+    const double indicator = triple_derivative_error_indicator(geometry, candidates);
+    return {magnification, image_count, indicator};
 }
 
 std::vector<TripleImage> PointSourceMagnifier::triple_images(
