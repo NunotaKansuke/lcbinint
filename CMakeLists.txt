@@ -64,6 +64,7 @@ add_library(lcbinint_core
     src/lcbinint/model/lens_parameters.cpp
     src/lcbinint/model/lens_system.cpp
     src/lcbinint/model/orbital_motion.cpp
+    src/lcbinint/model/triple_lens_geometry.cpp
     src/lcbinint/model/trajectory.cpp
     third_party/skowron_gould/SkowronGould.cpp)
 target_include_directories(lcbinint_core

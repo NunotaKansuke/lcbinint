@@ -1,6 +1,7 @@
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 
 #include "SkowronGould.h"
+#include "lcbinint/math/polynomial_roots.hpp"
 
 #include <algorithm>
 #include <array>
@@ -371,6 +372,196 @@ double jacobian_determinant(const BinaryGeometry& geometry, Complex image)
     return 1.0 - std::norm(derivative);
 }
 
+using Polynomial = std::vector<Complex>;
+
+Polynomial trim_polynomial(Polynomial polynomial)
+{
+    while (polynomial.size() > 1 && std::abs(polynomial.back()) == 0.0) {
+        polynomial.pop_back();
+    }
+    return polynomial;
+}
+
+Polynomial add_polynomial(const Polynomial& lhs, const Polynomial& rhs)
+{
+    Polynomial out(std::max(lhs.size(), rhs.size()), 0.0);
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        out[i] += lhs[i];
+    }
+    for (std::size_t i = 0; i < rhs.size(); ++i) {
+        out[i] += rhs[i];
+    }
+    return trim_polynomial(std::move(out));
+}
+
+Polynomial subtract_polynomial(const Polynomial& lhs, const Polynomial& rhs)
+{
+    Polynomial out(std::max(lhs.size(), rhs.size()), 0.0);
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        out[i] += lhs[i];
+    }
+    for (std::size_t i = 0; i < rhs.size(); ++i) {
+        out[i] -= rhs[i];
+    }
+    return trim_polynomial(std::move(out));
+}
+
+Polynomial multiply_polynomial(const Polynomial& lhs, const Polynomial& rhs)
+{
+    Polynomial out(lhs.size() + rhs.size() - 1, 0.0);
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        for (std::size_t j = 0; j < rhs.size(); ++j) {
+            out[i + j] += lhs[i] * rhs[j];
+        }
+    }
+    return trim_polynomial(std::move(out));
+}
+
+Polynomial scale_polynomial(const Polynomial& polynomial, Complex scale)
+{
+    Polynomial out = polynomial;
+    for (auto& coefficient : out) {
+        coefficient *= scale;
+    }
+    return trim_polynomial(std::move(out));
+}
+
+Polynomial product_without_lens(
+    const std::array<Complex, 3>& lens_positions,
+    std::size_t excluded)
+{
+    Polynomial out = {1.0};
+    for (std::size_t i = 0; i < lens_positions.size(); ++i) {
+        if (i == excluded) {
+            continue;
+        }
+        out = multiply_polynomial(out, {-lens_positions[i], 1.0});
+    }
+    return out;
+}
+
+Polynomial triple_polynomial_coefficients(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source)
+{
+    const Complex y(source.x, source.y);
+    const Complex yc = std::conj(y);
+    std::array<Complex, 3> lens_positions;
+    for (std::size_t i = 0; i < lens_positions.size(); ++i) {
+        lens_positions[i] = {
+            geometry.lens_positions[i].x,
+            geometry.lens_positions[i].y};
+    }
+
+    Polynomial p = {1.0};
+    for (const auto& lens : lens_positions) {
+        p = multiply_polynomial(p, {-lens, 1.0});
+    }
+
+    std::array<Polynomial, 3> conjugate_denominators;
+    for (std::size_t i = 0; i < conjugate_denominators.size(); ++i) {
+        conjugate_denominators[i] =
+            scale_polynomial(p, yc - std::conj(lens_positions[i]));
+        for (std::size_t j = 0; j < lens_positions.size(); ++j) {
+            conjugate_denominators[i] = add_polynomial(
+                conjugate_denominators[i],
+                scale_polynomial(
+                    product_without_lens(lens_positions, j),
+                    geometry.masses[j]));
+        }
+    }
+
+    Polynomial all_denominators = {1.0};
+    for (const auto& denominator : conjugate_denominators) {
+        all_denominators = multiply_polynomial(all_denominators, denominator);
+    }
+
+    const Polynomial z_minus_y = {-y, 1.0};
+    Polynomial coefficients = multiply_polynomial(z_minus_y, all_denominators);
+    Polynomial deflection_sum = {0.0};
+    for (std::size_t i = 0; i < conjugate_denominators.size(); ++i) {
+        Polynomial term = p;
+        for (std::size_t j = 0; j < conjugate_denominators.size(); ++j) {
+            if (j == i) {
+                continue;
+            }
+            term = multiply_polynomial(term, conjugate_denominators[j]);
+        }
+        deflection_sum = add_polynomial(
+            deflection_sum,
+            scale_polynomial(term, geometry.masses[i]));
+    }
+    coefficients = subtract_polynomial(coefficients, deflection_sum);
+    coefficients.resize(11, 0.0);
+    return coefficients;
+}
+
+static SourcePosition polish_triple_image_root(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    SourcePosition z)
+{
+    // 2D Newton on true lens equation f(x,y) = (x - sx - wx, y - sy - wy) = 0.
+    // J_f = [[1-dxx, dxy], [dxy, 1+dxx]] where dxx = sum m*(dy^2-dx^2)/d4, dxy = sum m*2*dx*dy/d4.
+    // 60 iterations covers the worst observed case (~36 for near-caustic spurious roots).
+    // The tolerance is 1e-11 rather than 1e-14 because strongly demagnified images (|J|>>1)
+    // cannot achieve source-plane residuals below |J|*eps_machine.
+    constexpr int kMaxIter = 60;
+    constexpr double kTol = 1.0e-11;
+    for (int iter = 0; iter < kMaxIter; ++iter) {
+        double sx = 0.0, sy = 0.0, dxx = 0.0, dxy = 0.0;
+        for (std::size_t i = 0; i < geometry.lens_positions.size(); ++i) {
+            const double dx = z.x - geometry.lens_positions[i].x;
+            const double dy = z.y - geometry.lens_positions[i].y;
+            const double d2 = dx * dx + dy * dy;
+            const double d4 = d2 * d2;
+            sx += geometry.masses[i] * dx / d2;
+            sy += geometry.masses[i] * dy / d2;
+            dxx += geometry.masses[i] * (dy * dy - dx * dx) / d4;
+            dxy += geometry.masses[i] * 2.0 * dx * dy / d4;
+        }
+        const double fx = z.x - sx - source.x;
+        const double fy = z.y - sy - source.y;
+        if (std::abs(fx) + std::abs(fy) < kTol) { break; }
+        const double j00 = 1.0 - dxx;
+        const double j01 = dxy;
+        const double j11 = 1.0 + dxx;
+        const double det = j00 * j11 - j01 * j01;
+        if (std::abs(det) < 1.0e-25) { break; }
+        z.x -= (j11 * fx - j01 * fy) / det;
+        z.y -= (j00 * fy - j01 * fx) / det;
+    }
+    return z;
+}
+
+double triple_residual(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    Complex image)
+{
+    const auto mapped = model::triple_lens_equation(
+        geometry,
+        {image.real(), image.imag()});
+    const double dx = mapped.x - source.x;
+    const double dy = mapped.y - source.y;
+    return std::sqrt(dx * dx + dy * dy);
+}
+
+double triple_jacobian_determinant(
+    const model::TripleLensGeometry& geometry,
+    Complex image)
+{
+    Complex derivative = 0.0;
+    for (std::size_t i = 0; i < geometry.lens_positions.size(); ++i) {
+        const Complex lens(
+            geometry.lens_positions[i].x,
+            geometry.lens_positions[i].y);
+        const Complex dz = image - lens;
+        derivative += geometry.masses[i] / (dz * dz);
+    }
+    return 1.0 - std::norm(derivative);
+}
+
 } // namespace
 
 PointSourceResult PointSourceMagnifier::binary_mag0(
@@ -598,6 +789,112 @@ SourcePosition PointSourceMagnifier::binary_lens_equation(
         z - geometry.m1 / (zc - geometry.separation) - geometry.m2 / zc;
     const Complex source = shifted_source - geometry.separation * geometry.m1;
     return {source.real(), source.imag()};
+}
+
+PointSourceResult PointSourceMagnifier::triple_mag0(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source) const
+{
+    const auto candidates = triple_image_candidates(geometry, source);
+    double magnification = 0.0;
+    int image_count = 0;
+    for (const auto& candidate : candidates) {
+        if (!candidate.physical) {
+            continue;
+        }
+        magnification += 1.0 / std::abs(candidate.jacobian_determinant);
+        ++image_count;
+    }
+    return {magnification, image_count};
+}
+
+std::vector<TripleImage> PointSourceMagnifier::triple_images(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source) const
+{
+    const auto candidates = triple_image_candidates(geometry, source);
+    std::vector<TripleImage> images;
+    images.reserve(candidates.size());
+    for (const auto& candidate : candidates) {
+        if (candidate.physical) {
+            images.push_back({candidate.position, candidate.jacobian_determinant});
+        }
+    }
+    return images;
+}
+
+std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source) const
+{
+    const auto coefficients = triple_polynomial_coefficients(geometry, source);
+    const auto roots = math::PolynomialRootSolver().solve(coefficients);
+    if (roots.status != math::RootSolverStatus::ok) {
+        return {};
+    }
+
+    // Polish each root on the true lens equation, then deduplicate.
+    // Multiple spurious starting points can converge to the same physical image;
+    // deduplication ensures each image is counted once.
+    constexpr double kDedupTol2 = 1.0e-16;  // squared distance threshold
+
+    std::vector<TripleImageCandidate> images;
+    images.reserve(roots.roots.size());
+    for (const auto& root : roots.roots) {
+        if (!std::isfinite(root.real()) || !std::isfinite(root.imag())) {
+            continue;
+        }
+        const SourcePosition z_polished = polish_triple_image_root(
+            geometry, source, SourcePosition{root.real(), root.imag()});
+        bool is_dup = false;
+        for (const auto& existing : images) {
+            const double ddx = z_polished.x - existing.position.x;
+            const double ddy = z_polished.y - existing.position.y;
+            if (ddx * ddx + ddy * ddy < kDedupTol2) {
+                is_dup = true;
+                break;
+            }
+        }
+        if (is_dup) { continue; }
+        const Complex z_cmplx {z_polished.x, z_polished.y};
+        const double residual = triple_residual(geometry, source, z_cmplx);
+        images.push_back({z_polished,
+            triple_jacobian_determinant(geometry, z_cmplx),
+            residual,
+            false});
+    }
+    std::sort(images.begin(), images.end(), [](const auto& lhs, const auto& rhs) {
+        return lhs.residual < rhs.residual;
+    });
+
+    constexpr double absolute_tolerance = 1.0e-7;
+    constexpr double relative_gap = 1.0e-4;
+    int physical_count = 0;
+    for (const auto& image : images) {
+        if (image.residual <= absolute_tolerance) {
+            ++physical_count;
+        }
+    }
+    if (physical_count == 0 && !images.empty()) {
+        physical_count = 1;
+    }
+    for (std::size_t i = 1; i < images.size(); ++i) {
+        if (images[i].residual * relative_gap > images[i - 1].residual + absolute_tolerance) {
+            physical_count = std::max(physical_count, static_cast<int>(i));
+            break;
+        }
+    }
+    for (std::size_t i = 0; i < images.size(); ++i) {
+        images[i].physical = static_cast<int>(i) < physical_count;
+    }
+    return images;
+}
+
+SourcePosition PointSourceMagnifier::triple_lens_equation(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition image) const
+{
+    return model::triple_lens_equation(geometry, image);
 }
 
 } // namespace lcbinint::magnification
