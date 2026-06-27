@@ -71,6 +71,9 @@ public:
     PointSourceResult triple_mag0(
         const model::TripleLensGeometry& geometry,
         SourcePosition source) const;
+    PointSourceDerivativeResult triple_mag0_with_derivatives(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source) const;
     std::vector<TripleImage> triple_images(
         const model::TripleLensGeometry& geometry,
         SourcePosition source) const;
@@ -93,6 +96,11 @@ private:
     mutable double root_cache_mass_ratio_ = 0.0;
     mutable SourcePosition root_cache_source_ {};
     mutable std::array<SourcePosition, 5> root_cache_roots_ {};
+
+    mutable bool triple_candidate_cache_valid_ = false;
+    mutable model::TripleLensGeometry triple_candidate_cache_geometry_ {};
+    mutable SourcePosition triple_candidate_cache_source_ {};
+    mutable std::vector<TripleImageCandidate> triple_candidate_cache_;
 };
 
 } // namespace lcbinint::magnification
