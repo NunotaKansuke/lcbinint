@@ -2307,6 +2307,16 @@ public:
             piEN, piEE, g1, g2, g3, lom_szs, lom_ar);
     }
 
+    PyGeometryCurve source_trajectory_from_dict(
+        const std::vector<double>& times,
+        const py::dict& params) const
+    {
+        const auto p = binary_params_from_dict(params);
+        return base_.dynamic_source_trajectory(
+            times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q,
+            p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
+    }
+
     PyGeometryCurve source_trajectory_static(
         const std::vector<double>& times,
         double t0,
@@ -2974,6 +2984,10 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("lom_szs") = 0.0,
             py::arg("lom_ar") = 1.0)
         .def("source_trajectory",
+            &PyLightCurveEvaluator::source_trajectory_from_dict,
+            py::arg("times"),
+            py::arg("params"))
+        .def("source_trajectory",
             &PyLightCurveEvaluator::source_trajectory_static,
             py::arg("times"),
             py::kw_only(),
@@ -3523,6 +3537,7 @@ the C++ side can keep per-curve state local to the loop.
     m.def("triple_inverse_ray",
         [](double s, double q, double q2, double sep2, double ang,
            double x, double y, double rho,
+           const std::string& frame,
            const PyLimbDarkening& ld, const lcbi_options& options) -> double {
             const auto model_options = lcbinint::model::from_c_options(&options);
             auto settings = make_finite_source_settings(ld, model_options);
@@ -3531,9 +3546,25 @@ the C++ side can keep per-curve state local to the loop.
             settings.adaptive_hex_threshold = 0.0;
             lcbinint::magnification::PointSourceMagnifier point_magnifier;
             lcbinint::magnification::FiniteSourceMagnifier finite_magnifier(settings);
-            const lcbinint::SourcePosition source {x, y};
             const auto geometry =
                 lcbinint::model::make_triple_lens_geometry(s, q, q2, sep2, ang);
+            lcbinint::SourcePosition source {x, y};
+            if (frame == "vbm") {
+                // VBM frame: origin at 2-body COM of lens1+lens2, x-axis along lens1→lens2
+                const auto& z1 = geometry.lens_positions[0];
+                const auto& z2 = geometry.lens_positions[1];
+                const double e1 = geometry.masses[0];
+                const double e2 = geometry.masses[1];
+                const double com12x = (e1 * z1.x + e2 * z2.x) / (e1 + e2);
+                const double com12y = (e1 * z1.y + e2 * z2.y) / (e1 + e2);
+                const double a12 = std::atan2(z2.y - z1.y, z2.x - z1.x);
+                const double ca = std::cos(a12);
+                const double sa = std::sin(a12);
+                source.x = com12x + x * ca - y * sa;
+                source.y = com12y + x * sa + y * ca;
+            } else if (frame != "lcbi" && frame != "lcbinint") {
+                throw py::value_error("frame must be 'vbm' or 'lcbi'");
+            }
             py::gil_scoped_release release;
             const auto point = point_magnifier.triple_mag0(geometry, source);
             const auto result = finite_magnifier.triple_mag(
@@ -3542,10 +3573,13 @@ the C++ side can keep per-curve state local to the loop.
         },
         py::arg("s"), py::arg("q"), py::arg("q2"), py::arg("sep2"), py::arg("ang"),
         py::arg("x"), py::arg("y"), py::arg("rho"),
+        py::arg("frame") = "vbm",
         py::arg("limb_darkening") = PyLimbDarkening {},
         py::arg("options") = public_default_options(),
         "Triple-lens finite-source magnification at source position (x, y) using inverse-ray shooting.\n\n"
-        "Source position in the 3-body center-of-mass frame.");
+        "frame='vbm' (default): (x,y) in VBM frame — origin at 2-body COM of lens1+lens2, "
+        "x-axis along lens1→lens2.\n"
+        "frame='lcbi': (x,y) in 3-body center-of-mass frame.");
 
     m.def("circular_orbital_motion", [](double time,
                                          double separation,
