@@ -119,6 +119,16 @@ struct PyBinaryParams {
     double u0_2 = 0.0;
     double t0_2 = 0.0;
     double flux_ratio = 0.0;
+    double xi_1 = 0.0;
+    double xi_2 = 0.0;
+    double omega_xa = 0.0;
+    double inc_xa = 0.0;
+    double phi_xa = 0.0;
+    double piEN_xa = 0.0;
+    double piEE_xa = 0.0;
+    double period_xa = 0.0;
+    double ecc_xa = 0.0;
+    double peri_xa = 0.0;
 };
 
 double dict_get_double(const py::dict& params, const char* key, double default_value)
@@ -153,6 +163,16 @@ PyBinaryParams binary_params_from_dict(const py::dict& params)
     out.u0_2 = dict_get_double(params, "u0_2", out.u0_2);
     out.t0_2 = dict_get_double(params, "t0_2", out.t0_2);
     out.flux_ratio = dict_get_double(params, "flux_ratio", out.flux_ratio);
+    out.xi_1 = dict_get_double(params, "xi_1", out.xi_1);
+    out.xi_2 = dict_get_double(params, "xi_2", out.xi_2);
+    out.omega_xa = dict_get_double(params, "omega_xa", out.omega_xa);
+    out.inc_xa = dict_get_double(params, "inc_xa", out.inc_xa);
+    out.phi_xa = dict_get_double(params, "phi_xa", out.phi_xa);
+    out.piEN_xa = dict_get_double(params, "piEN_xa", out.piEN_xa);
+    out.piEE_xa = dict_get_double(params, "piEE_xa", out.piEE_xa);
+    out.period_xa = dict_get_double(params, "period_xa", out.period_xa);
+    out.ecc_xa = dict_get_double(params, "ecc_xa", out.ecc_xa);
+    out.peri_xa = dict_get_double(params, "peri_xa", out.peri_xa);
     return out;
 }
 
@@ -195,6 +215,36 @@ lcbi_options public_default_options()
     options.vbm_compatible = 1;
     options.mode = 4;
     return options;
+}
+
+void apply_xallarap_param_type(lcbi_options& options, const std::string& xallarap_param_type)
+{
+    if (xallarap_param_type.empty() || xallarap_param_type == "none") {
+        options.xallarap_param_type = LCBI_XALLARAP_NONE;
+        return;
+    }
+    if (xallarap_param_type == "angular_velocity") {
+        options.xallarap_param_type = LCBI_XALLARAP_ANGULAR_VELOCITY;
+        return;
+    }
+    if (xallarap_param_type == "orbital_elements") {
+        options.xallarap_param_type = LCBI_XALLARAP_ORBITAL_ELEMENTS;
+        return;
+    }
+    throw std::invalid_argument(
+        "xallarap_param_type must be 'none', 'angular_velocity', or 'orbital_elements'");
+}
+
+std::string xallarap_param_type_name(const lcbi_options& options)
+{
+    switch (options.xallarap_param_type) {
+    case LCBI_XALLARAP_ANGULAR_VELOCITY:
+        return "angular_velocity";
+    case LCBI_XALLARAP_ORBITAL_ELEMENTS:
+        return "orbital_elements";
+    default:
+        return "none";
+    }
 }
 
 void apply_param_type(lcbi_options& options, const std::string& param_type)
@@ -300,7 +350,17 @@ lcbi_params make_binary_params(
     double g3,
     lcbi_orbital_motion_mode orbital_motion_mode,
     double lom_szs,
-    double lom_ar)
+    double lom_ar,
+    double xi_1 = 0.0,
+    double xi_2 = 0.0,
+    double omega_xa = 0.0,
+    double inc_xa = 0.0,
+    double phi_xa = 0.0,
+    double piEN_xa = 0.0,
+    double piEE_xa = 0.0,
+    double period_xa = 0.0,
+    double ecc_xa = 0.0,
+    double peri_xa = 0.0)
 {
     auto params = lcbi_default_params();
     params.t0 = t0;
@@ -323,6 +383,16 @@ lcbi_params make_binary_params(
     params.orbital_motion_mode = orbital_motion_mode;
     params.lom_szs = lom_szs;
     params.lom_ar = lom_ar;
+    params.xi_1 = xi_1;
+    params.xi_2 = xi_2;
+    params.omega_xa = omega_xa;
+    params.inc_xa = inc_xa;
+    params.phi_xa = phi_xa;
+    params.piEN_xa = piEN_xa;
+    params.piEE_xa = piEE_xa;
+    params.period_xa = period_xa;
+    params.ecc_xa = ecc_xa;
+    params.peri_xa = peri_xa;
     return params;
 }
 
@@ -882,6 +952,8 @@ std::vector<double> evaluate_binary_light_curve(
         model_params.piEE == 0.0 &&
         model_params.piEN_xa == 0.0 &&
         model_params.piEE_xa == 0.0 &&
+        model_params.xi_1 == 0.0 &&
+        model_params.xi_2 == 0.0 &&
         model_params.omega == 0.0 &&
         model_params.v_sep == 0.0 &&
         model_options.center_of_mass == 0 &&
@@ -963,6 +1035,8 @@ double evaluate_binary_magnification(
         model_params.piEE == 0.0 &&
         model_params.piEN_xa == 0.0 &&
         model_params.piEE_xa == 0.0 &&
+        model_params.xi_1 == 0.0 &&
+        model_params.xi_2 == 0.0 &&
         model_params.omega == 0.0 &&
         model_params.v_sep == 0.0 &&
         model_options.center_of_mass == 0 &&
@@ -1032,6 +1106,8 @@ py::array_t<double> evaluate_binary_light_curve_numpy(
         model_params.piEE == 0.0 &&
         model_params.piEN_xa == 0.0 &&
         model_params.piEE_xa == 0.0 &&
+        model_params.xi_1 == 0.0 &&
+        model_params.xi_2 == 0.0 &&
         model_params.omega == 0.0 &&
         model_params.v_sep == 0.0 &&
         model_options.center_of_mass == 0 &&
@@ -1121,6 +1197,8 @@ PyLightCurve evaluate_binary_light_curve_info(
         model_params.piEE == 0.0 &&
         model_params.piEN_xa == 0.0 &&
         model_params.piEE_xa == 0.0 &&
+        model_params.xi_1 == 0.0 &&
+        model_params.xi_2 == 0.0 &&
         model_params.omega == 0.0 &&
         model_params.v_sep == 0.0 &&
         model_options.center_of_mass == 0 &&
@@ -2268,25 +2346,8 @@ public:
             return output;
         }
 
-        if (lens() == "triple_lens") {
-            if (p.q2 <= 0.0) {
-                throw py::value_error("triple_lens requires q2 > 0");
-            }
-            if (parallax_) {
-                throw std::runtime_error("unsupported");
-            }
-            const auto c_params = make_triple_params(
-                p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
-                p.rho, base_.limb_darkening(), base_.event());
-            return evaluate_binary_light_curve_numpy(times, c_params, base_.options());
-        }
-        return parallax_
-            ? base_.dynamic_light_curve(
-                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar)
-            : base_.light_curve(
-                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
+        return evaluate_binary_light_curve_numpy(
+            times, make_c_params_for_single_source(p), base_.options());
     }
 
     py::array_t<double> light_curve_static(
@@ -2407,25 +2468,8 @@ public:
             return result;
         };
 
-        if (lens() == "triple_lens") {
-            if (p.q2 <= 0.0) {
-                throw py::value_error("triple_lens requires q2 > 0");
-            }
-            if (parallax_) {
-                throw std::runtime_error("unsupported");
-            }
-            const auto c_params = make_triple_params(
-                p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
-                p.rho, base_.limb_darkening(), base_.event());
-            return blend_info(evaluate_binary_light_curve_info(times, c_params, base_.options()));
-        }
-        return parallax_
-            ? blend_info(base_.dynamic_info(
-                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar))
-            : blend_info(base_.info(
-                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar));
+        return blend_info(evaluate_binary_light_curve_info(
+            times, make_c_params_for_single_source(p), base_.options()));
     }
 
     PyLightCurve info_static(
@@ -2667,52 +2711,40 @@ private:
         }
     }
 
+    lcbi_params make_c_params_for_single_source(const PyBinaryParams& p) const
+    {
+        if (lens() == "triple_lens") {
+            if (p.q2 <= 0.0) {
+                throw py::value_error("triple_lens requires q2 > 0");
+            }
+            if (parallax_) {
+                throw std::runtime_error("unsupported");
+            }
+            return make_triple_params(
+                p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
+                p.rho, base_.limb_darkening(), base_.event());
+        }
+        const double piEN = parallax_ ? p.piEN : 0.0;
+        const double piEE = parallax_ ? p.piEE : 0.0;
+        return make_binary_params(
+            p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
+            base_.limb_darkening(), base_.event(),
+            piEN, piEE, p.g1, p.g2, p.g3,
+            base_.orbital_motion_mode(), p.lom_szs, p.lom_ar,
+            p.xi_1, p.xi_2, p.omega_xa, p.inc_xa, p.phi_xa,
+            p.piEN_xa, p.piEE_xa, p.period_xa, p.ecc_xa, p.peri_xa);
+    }
+
     std::vector<double> single_source_list(
         const std::vector<double>& times,
         const PyBinaryParams& p) const
     {
-        if (lens() == "triple_lens") {
-            if (p.q2 <= 0.0) {
-                throw py::value_error("triple_lens requires q2 > 0");
-            }
-            if (parallax_) {
-                throw std::runtime_error("unsupported");
-            }
-            const auto c_params = make_triple_params(
-                p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
-                p.rho, base_.limb_darkening(), base_.event());
-            return evaluate_binary_light_curve(times, c_params, base_.options());
-        }
-        return parallax_
-            ? base_.dynamic_light_curve_list(
-                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar)
-            : base_.light_curve_list(
-                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
+        return evaluate_binary_light_curve(times, make_c_params_for_single_source(p), base_.options());
     }
 
     double single_source_magnification(double time, const PyBinaryParams& p) const
     {
-        if (lens() == "triple_lens") {
-            if (p.q2 <= 0.0) {
-                throw py::value_error("triple_lens requires q2 > 0");
-            }
-            if (parallax_) {
-                throw std::runtime_error("unsupported");
-            }
-            const auto c_params = make_triple_params(
-                p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
-                p.rho, base_.limb_darkening(), base_.event());
-            return evaluate_binary_magnification(time, c_params, base_.options());
-        }
-        return parallax_
-            ? base_.dynamic_magnification(
-                  time, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar)
-            : base_.magnification(
-                  time, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
+        return evaluate_binary_magnification(time, make_c_params_for_single_source(p), base_.options());
     }
 
     PyLightCurveFunc base_;
@@ -2950,13 +2982,17 @@ PYBIND11_MODULE(lcbinint, m)
                          double reltol,
                          const std::string& coordinates,
                          double hex_tol,
-                         const std::string& param_type) {
+                         const std::string& param_type,
+                         const std::string& xallarap_param_type) {
                  auto options = public_default_options();
                  // param_type takes precedence over coordinates when explicitly set
                  if (!param_type.empty() && param_type != "auto") {
                      apply_param_type(options, param_type);
                  } else {
                      apply_coordinate_system(options, coordinates);
+                 }
+                 if (!xallarap_param_type.empty() && xallarap_param_type != "none") {
+                     apply_xallarap_param_type(options, xallarap_param_type);
                  }
                  apply_inverse_ray_grid(options, inverse_ray_grid);
                  options.source_bins = optional_int_or(nbin, source_bins);
@@ -2998,7 +3034,8 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("reltol") = kNaN,
             py::arg("coordinates") = "auto",
             py::arg("hex_tol") = kNaN,
-            py::arg("param_type") = "auto")
+            py::arg("param_type") = "auto",
+            py::arg("xallarap_param_type") = "none")
         .def_readwrite("source_bins", &lcbi_options::source_bins)
         .def_property("nbin",
             [](const lcbi_options& o) { return o.source_bins; },
@@ -3047,7 +3084,12 @@ PYBIND11_MODULE(lcbinint, m)
             [](lcbi_options& o, const std::string& value) { apply_coordinate_system(o, value); })
         .def_property("param_type",
             &coordinate_system_name,
-            [](lcbi_options& o, const std::string& value) { apply_param_type(o, value); });
+            [](lcbi_options& o, const std::string& value) { apply_param_type(o, value); })
+        .def_property("xallarap_param_type",
+            &xallarap_param_type_name,
+            [](lcbi_options& o, const std::string& value) {
+                apply_xallarap_param_type(o, value);
+            });
 
     py::class_<PyLightCurveEvaluator>(m, "LightCurve")
         .def(py::init([](const std::string& lens,
