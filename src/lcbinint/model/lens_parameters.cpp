@@ -46,6 +46,11 @@ LensParameters from_c_params(const lcbi_params &params)
     out.g3 = params.g3;
     out.lom_szs = params.lom_szs;
     out.lom_ar = params.lom_ar;
+    out.xi_1 = params.xi_1;
+    out.xi_2 = params.xi_2;
+    out.omega_xa = params.omega_xa;
+    out.inc_xa = params.inc_xa;
+    out.phi_xa = params.phi_xa;
     return out;
 }
 
@@ -72,6 +77,7 @@ ComputationOptions from_c_options(const lcbi_options *options)
     out.max_source_bins = options->max_source_bins;
     out.finite_source_tol = options->finite_source_tol;
     out.finite_source_reltol = options->finite_source_reltol;
+    out.xallarap_param_type = options->xallarap_param_type;
     return out;
 }
 

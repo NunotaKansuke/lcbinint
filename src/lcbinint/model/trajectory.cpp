@@ -284,6 +284,80 @@ private:
     ProjectedEarthState reference_state_ = {};
 };
 
+void apply_xallarap_angular_velocity(
+    const LensParameters& params, double time, double& tau, double& beta)
+{
+    if (!params.has_xallarap_angular_velocity()) {
+        return;
+    }
+    const double phit = params.omega_xa * (time - params.t0);
+    const double phi = params.phi_xa;
+    const double s_inc = std::sin(params.inc_xa);
+    const double disp0 = s_inc * (-std::cos(phi) + std::cos(phi + phit) + phit * std::sin(phi));
+    const double disp1 = -phit * std::cos(phi) - std::sin(phi) + std::sin(phi + phit);
+    tau  += params.xi_1 * disp0 + params.xi_2 * disp1;
+    beta += params.xi_2 * disp0 - params.xi_1 * disp1;
+}
+
+double solve_kepler(double mean_anomaly, double eccentricity)
+{
+    double E = mean_anomaly + eccentricity * std::sin(mean_anomaly);
+    for (int i = 0; i < 10; ++i) {
+        const double f = E - eccentricity * std::sin(E) - mean_anomaly;
+        const double fp = 1.0 - eccentricity * std::cos(E);
+        const double delta = f / fp;
+        E -= delta;
+        if (std::abs(delta) < 1.0e-13) {
+            break;
+        }
+    }
+    return E;
+}
+
+// Returns the orbital position (x, y) in the orbital plane at time t,
+// normalized to semi-major axis = 1. The mean anomaly at t=t0 is peri_xa.
+std::array<double, 2> keplerian_position(
+    double time, double t0, double period, double ecc, double peri)
+{
+    const double mean_anom = 2.0 * kPi / period * (time - t0) + peri;
+    const double E = solve_kepler(mean_anom, ecc);
+    const double cos_E = std::cos(E);
+    const double sin_E = std::sin(E);
+    const double r = 1.0 - ecc * cos_E;
+    const double sqrt_1me2 = std::sqrt(std::max(0.0, 1.0 - ecc * ecc));
+    const double cos_f = (cos_E - ecc) / r;
+    const double sin_f = sqrt_1me2 * sin_E / r;
+    return {r * cos_f, r * sin_f};
+}
+
+void apply_xallarap_orbital_elements(
+    const LensParameters& params, double time, double& tau, double& beta)
+{
+    if (!params.has_xallarap_orbital_elements()) {
+        return;
+    }
+    if (params.period_xa <= 0.0) {
+        return;
+    }
+    const auto pos_t = keplerian_position(
+        time, params.t0, params.period_xa, params.ecc_xa, params.peri_xa);
+    const auto pos_0 = keplerian_position(
+        params.t0, params.t0, params.period_xa, params.ecc_xa, params.peri_xa);
+    const double dt_small = params.period_xa * 1.0e-7;
+    const auto pos_dt = keplerian_position(
+        params.t0 + dt_small, params.t0, params.period_xa, params.ecc_xa, params.peri_xa);
+    const double vel_x0 = (pos_dt[0] - pos_0[0]) / dt_small;
+    const double vel_y0 = (pos_dt[1] - pos_0[1]) / dt_small;
+    const double elapsed = time - params.t0;
+    const double dev_x = pos_t[0] - pos_0[0] - vel_x0 * elapsed;
+    const double dev_y = pos_t[1] - pos_0[1] - vel_y0 * elapsed;
+    const double s_inc = std::sin(params.inc_xa);
+    const double disp0 = s_inc * dev_x;
+    const double disp1 = dev_y;
+    tau  += params.piEN_xa * disp0 + params.piEE_xa * disp1;
+    beta += params.piEE_xa * disp0 - params.piEN_xa * disp1;
+}
+
 void apply_annual_parallax(const LensParameters& params, double time, double& tau, double& beta)
 {
     if (!has_annual_parallax(params)) {
@@ -317,11 +391,17 @@ void apply_annual_parallax(const LensParameters& params, double time, double& ta
 
 } // namespace
 
-SourcePosition Trajectory::source_position(double time, bool vbm_mode) const
+SourcePosition Trajectory::source_position(
+    double time, bool vbm_mode, lcbi_xallarap_param_type xallarap_type) const
 {
     double tn = (time - params_.t0) / params_.tE;
     double beta = params_.umin;
     apply_annual_parallax(params_, time, tn, beta);
+    if (xallarap_type == LCBI_XALLARAP_ANGULAR_VELOCITY) {
+        apply_xallarap_angular_velocity(params_, time, tn, beta);
+    } else if (xallarap_type == LCBI_XALLARAP_ORBITAL_ELEMENTS) {
+        apply_xallarap_orbital_elements(params_, time, tn, beta);
+    }
 
     const double costheta = std::cos(params_.theta);
     const double sintheta = std::sin(params_.theta);

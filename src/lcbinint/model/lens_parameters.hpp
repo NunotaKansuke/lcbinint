@@ -38,9 +38,16 @@ struct LensParameters {
     double g3 = 0.0;
     double lom_szs = 0.0;
     double lom_ar = 1.0;
+    double xi_1 = 0.0;
+    double xi_2 = 0.0;
+    double omega_xa = 0.0;
+    double inc_xa = 0.0;
+    double phi_xa = 0.0;
 
     bool is_triple() const { return q2 > 0.0; }
     bool has_orbital_motion() const { return orbital_motion_mode != LCBI_ORBIT_STATIC; }
+    bool has_xallarap_angular_velocity() const { return xi_1 != 0.0 || xi_2 != 0.0; }
+    bool has_xallarap_orbital_elements() const { return piEN_xa != 0.0 || piEE_xa != 0.0; }
     bool is_valid() const;
 };
 
@@ -52,6 +59,7 @@ struct ComputationOptions {
     int source_bins = 50;
     int mode = 4;                        // internal: 1 = cartesian, 2 = polar, 4 = auto
     int vbm_compatible = 0;             // 0 = original lcbinint convention, 1 = VBM convention
+    lcbi_xallarap_param_type xallarap_param_type = LCBI_XALLARAP_NONE;
     double grid_ratio = 4.0;
     int polar_source_bins = 0;
     double polar_grid_ratio = 0.0;

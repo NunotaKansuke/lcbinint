@@ -13,9 +13,16 @@
 namespace lcbinint::model {
 namespace {
 
-bool has_unsupported_dynamic_effects(const LensParameters& params)
+bool has_unsupported_dynamic_effects(
+    const LensParameters& params, const ComputationOptions& options)
 {
-    return params.piEN_xa != 0.0 || params.piEE_xa != 0.0 ||
+    const bool unhandled_piEN_xa =
+        (params.piEN_xa != 0.0 || params.piEE_xa != 0.0) &&
+        options.xallarap_param_type != LCBI_XALLARAP_ORBITAL_ELEMENTS;
+    const bool unhandled_xi =
+        (params.xi_1 != 0.0 || params.xi_2 != 0.0) &&
+        options.xallarap_param_type != LCBI_XALLARAP_ANGULAR_VELOCITY;
+    return unhandled_piEN_xa || unhandled_xi ||
            params.omega != 0.0 || params.v_sep != 0.0;
 }
 
@@ -33,9 +40,9 @@ double wide_binary_offset(
     return m2 * projected_separation - m2 / projected_separation;
 }
 
-bool supports_binary_point_source(const LensParameters& params, const ComputationOptions& /*options*/)
+bool supports_binary_point_source(const LensParameters& params, const ComputationOptions& options)
 {
-    return !params.is_triple() && !has_unsupported_dynamic_effects(params) && params.rho == 0.0;
+    return !params.is_triple() && !has_unsupported_dynamic_effects(params, options) && params.rho == 0.0;
 }
 
 magnification::FiniteSourceSettings finite_source_settings(
@@ -76,7 +83,11 @@ LensModel::LensModel(LensParameters params, ComputationOptions options)
 MagnificationResult LensModel::magnification(double time) const
 {
     SourcePosition source;
-    if (params_.piEN == 0.0 && params_.piEE == 0.0) {
+    const bool has_xallarap = options_.xallarap_param_type != LCBI_XALLARAP_NONE &&
+        (options_.xallarap_param_type == LCBI_XALLARAP_ANGULAR_VELOCITY
+            ? params_.has_xallarap_angular_velocity()
+            : params_.has_xallarap_orbital_elements());
+    if (params_.piEN == 0.0 && params_.piEE == 0.0 && !has_xallarap) {
         const double tn = (time - params_.t0) / params_.tE;
         const double beta = params_.umin;
         if (options_.vbm_compatible != 0) {
@@ -87,7 +98,8 @@ MagnificationResult LensModel::magnification(double time) const
             source.y = beta * cos_theta_ - tn * sin_theta_;
         }
     } else {
-        source = trajectory_.source_position(time, options_.vbm_compatible != 0);
+        source = trajectory_.source_position(
+            time, options_.vbm_compatible != 0, options_.xallarap_param_type);
     }
     const bool static_orbit = params_.orbital_motion_mode == LCBI_ORBIT_STATIC;
     const auto orbit = static_orbit ? OrbitalState {params_.sep, params_.theta, 0.0}
@@ -107,7 +119,7 @@ MagnificationResult LensModel::magnification(double time) const
     }
 
     if (params_.is_triple()) {
-        if (has_unsupported_dynamic_effects(params_) || !static_orbit) {
+        if (has_unsupported_dynamic_effects(params_, options_) || !static_orbit) {
             result.status = EvaluationStatus::unsupported;
             return result;
         }
@@ -147,7 +159,7 @@ MagnificationResult LensModel::magnification(double time) const
         return result;
     }
 
-    if (!params_.is_triple() && !has_unsupported_dynamic_effects(params_)) {
+    if (!params_.is_triple() && !has_unsupported_dynamic_effects(params_, options_)) {
         auto source_for_magnification = source;
         if (!static_orbit) {
             if (options_.vbm_compatible != 0) {

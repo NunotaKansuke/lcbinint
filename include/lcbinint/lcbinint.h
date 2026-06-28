@@ -56,7 +56,29 @@ typedef struct lcbi_params {
     double g3;
     double lom_szs;
     double lom_ar;
+
+    /* Xallarap (source orbital motion) parameters.
+       For xallarap_param_type == LCBI_XALLARAP_ANGULAR_VELOCITY:
+         xi_1, xi_2: xallarap amplitude components
+         omega_xa:   source orbital angular frequency (rad / time unit)
+         inc_xa:     orbital inclination
+         phi_xa:     orbital phase at t0
+       For xallarap_param_type == LCBI_XALLARAP_ORBITAL_ELEMENTS:
+         piEN_xa, piEE_xa: xallarap amplitude components
+         period_xa, ecc_xa, peri_xa: period, eccentricity, periapsis angle at t0
+         inc_xa: orbital inclination (shared with angular_velocity mode) */
+    double xi_1;
+    double xi_2;
+    double omega_xa;
+    double inc_xa;
+    double phi_xa;
 } lcbi_params;
+
+typedef enum lcbi_xallarap_param_type {
+    LCBI_XALLARAP_NONE              = 0,
+    LCBI_XALLARAP_ANGULAR_VELOCITY  = 1,
+    LCBI_XALLARAP_ORBITAL_ELEMENTS  = 2
+} lcbi_xallarap_param_type;
 
 typedef struct lcbi_options {
     int parallax_mode;
@@ -66,6 +88,7 @@ typedef struct lcbi_options {
     int source_bins;
     int mode;                        /* internal finite-source method: 1 = cartesian, 2 = polar, 4 = auto (default) */
     int vbm_compatible;             /* 0 = original lcbinint convention, 1 = VBM convention */
+    lcbi_xallarap_param_type xallarap_param_type;
     double grid_ratio;
     int polar_source_bins;          /* 0 = use source_bins for polar inverse-ray */
     double polar_grid_ratio;        /* <=0 = use grid_ratio for polar inverse-ray */
