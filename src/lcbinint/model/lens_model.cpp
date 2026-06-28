@@ -111,12 +111,11 @@ MagnificationResult LensModel::magnification(double time) const
             result.status = EvaluationStatus::unsupported;
             return result;
         }
-        const auto geometry = make_triple_lens_geometry(
-            params_.sep,
-            params_.q,
-            params_.q2,
-            params_.sep2,
-            params_.ang);
+        const auto geometry = options_.vbm_compatible != 0
+            ? make_triple_lens_geometry_vbm(
+                params_.sep, params_.q, params_.sep2, params_.ang, params_.q2)
+            : make_triple_lens_geometry(
+                params_.sep, params_.q, params_.q2, params_.sep2, params_.ang);
         const auto point = point_magnifier_.triple_mag0(geometry, source);
         result.point_source_magnification = point.magnification;
         result.image_count = point.image_count;

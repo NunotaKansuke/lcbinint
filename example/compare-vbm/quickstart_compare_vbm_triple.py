@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import cmath
 import collections
 import math
 from dataclasses import dataclass
@@ -49,7 +48,7 @@ CASE = Case()
 TIMES = np.linspace(CASE.t_min, CASE.t_max, CASE.n_times)
 
 OPTIONS = lcbinint.Options(
-    coordinates="vbm",
+    param_type="vbm",
     source_bins=50,
     max_source_bins=400,
     reltol=1.0e-3,
@@ -58,27 +57,11 @@ LIMB_DARKENING = lcbinint.LimbDarkening.linear(0.5)
 TIMING_REPEATS = 7
 
 
-def _lcbi_params(case: Case) -> dict:
-    return {
-        "t0": case.t0,
-        "tE": case.tE,
-        "u0": case.u0,
-        "alpha": case.alpha,
-        "s": case.s,
-        "q": case.q,
-        "q2": case.q2,
-        "sep2": case.sep2,
-        "ang": case.ang,
-        "rho": case.rho,
-    }
-
-
-def _vbm_setup(case: Case) -> tuple[list, list]:
+def _vbm_params(case: Case) -> dict:
+    """Convert lcbinint physical params to VBM TripleLightCurve geometry."""
     eps2 = case.q / (1 + case.q + case.q2)
     eps3 = case.q2 / (1 + case.q + case.q2)
-    eps1 = 1.0 - eps2 - eps3
-    eps4 = eps2 + eps3
-
+    eps1, eps4 = 1.0 - eps2 - eps3, eps2 + eps3
     z1 = complex(-eps4 * case.s, 0.0)
     z2 = complex(
         eps1 * case.s + eps3 / eps4 * case.sep2 * math.cos(case.ang),
@@ -88,30 +71,29 @@ def _vbm_setup(case: Case) -> tuple[list, list]:
         eps1 * case.s - eps2 / eps4 * case.sep2 * math.cos(case.ang),
         -eps2 / eps4 * case.sep2 * math.sin(case.ang),
     )
-    v12 = z2 - z1
-    v13 = z3 - z1
+    v12, v13 = z2 - z1, z3 - z1
     a12 = math.atan2(v12.imag, v12.real)
     psi = math.atan2(v13.imag, v13.real) - a12
-    com12 = (eps1 * z1 + eps2 * z2) / (eps1 + eps2)
+    return {
+        "s": abs(v12), "q": case.q, "q2": case.q2,
+        "sep2": abs(v13), "ang": psi,
+        "u0": -case.u0, "alpha": case.alpha - a12,
+        "rho": case.rho, "t0": 0.0, "tE": 1.0,
+    }
 
-    D = com12 * cmath.exp(-1j * case.alpha)
-    u0_vbm = -case.u0 + D.imag
-    alpha_vbm = case.alpha - a12
-    times_vbm = (-(TIMES - case.t0) / case.tE + D.real).tolist()
 
-    params = [
-        math.log(abs(v12)),
-        math.log(case.q),
-        u0_vbm,
-        alpha_vbm,
-        math.log(case.rho),
-        0.0,
-        0.0,
-        math.log(abs(v13)),
-        math.log(case.q2),
-        psi,
+def _vbm_array(p: dict) -> list:
+    return [
+        math.log(p["s"]), math.log(p["q"]), p["u0"], p["alpha"], math.log(p["rho"]),
+        0.0, 0.0,
+        math.log(p["sep2"]), math.log(p["q2"]), p["ang"],
     ]
-    return params, times_vbm
+
+
+VBM_PARAMS = _vbm_params(CASE)
+# VBM TripleLightCurve uses negated time parameterization relative to lcbinint;
+# passing -TIMES to both codes gives complete agreement (no extra frame correction needed).
+TIMES_VBM = (-TIMES).tolist()
 
 
 def evaluate_lcbinint(limb_darkening: lcbinint.LimbDarkening):
@@ -120,17 +102,17 @@ def evaluate_lcbinint(limb_darkening: lcbinint.LimbDarkening):
         options=OPTIONS,
         limb_darkening=limb_darkening,
     )
-    p = _lcbi_params(CASE)
-    lightcurve(TIMES, p)
+    lightcurve(TIMES_VBM, VBM_PARAMS)
     elapsed_samples = []
     values = None
     for _ in range(TIMING_REPEATS):
         start = time.perf_counter()
-        values = lightcurve(TIMES, p)
+        values = lightcurve(TIMES_VBM, VBM_PARAMS)
         elapsed_samples.append(time.perf_counter() - start)
     elapsed = statistics.median(elapsed_samples)
-    info = lightcurve.info(TIMES, p)
-    return lightcurve, np.asarray(values), elapsed, info, elapsed_samples
+    info = lightcurve.info(TIMES_VBM, VBM_PARAMS)
+    # Reverse so that values[i] corresponds to TIMES[i] (TIMES_VBM runs backwards).
+    return lightcurve, np.asarray(values)[::-1], elapsed, info, elapsed_samples
 
 
 def evaluate_vbm(limb_darkening_gamma: float):
@@ -143,14 +125,14 @@ def evaluate_vbm(limb_darkening_gamma: float):
     vbm.Tol = 1.0e-3
     vbm.a1 = limb_darkening_gamma
     vbm.a2 = 0.0
-    vbm_params, times_vbm = _vbm_setup(CASE)
-    vbm.TripleLightCurve(vbm_params, times_vbm)
+    vbm_arr = _vbm_array(VBM_PARAMS)
+    vbm.TripleLightCurve(vbm_arr, TIMES_VBM)
     elapsed_samples = []
     values = None
     for _ in range(TIMING_REPEATS):
         start = time.perf_counter()
-        result = vbm.TripleLightCurve(vbm_params, times_vbm)
-        values = np.asarray(result[0])
+        result = vbm.TripleLightCurve(vbm_arr, TIMES_VBM)
+        values = np.asarray(result[0])[::-1]
         elapsed_samples.append(time.perf_counter() - start)
     elapsed = statistics.median(elapsed_samples)
     return vbm, values, elapsed, elapsed_samples
@@ -206,9 +188,8 @@ def main():
         converged = sum(info.finite_source_converged)
         print(f"  {label:5s} {dict(counts)} converged={converged}/{TIMES.size}")
 
-    p = _lcbi_params(CASE)
-    trajectory = lightcurve.source_trajectory(TIMES, p)
-    caustics = lightcurve.caustics(p, n_points=900)
+    trajectory = lightcurve.source_trajectory(TIMES_VBM, VBM_PARAMS)
+    caustics = lightcurve.caustics(VBM_PARAMS, n_points=900)
 
     fig = plt.figure(figsize=(8.0, 7.0), constrained_layout=True)
     grid = fig.add_gridspec(3, 1, height_ratios=[2.0, 1.0, 1.4])
