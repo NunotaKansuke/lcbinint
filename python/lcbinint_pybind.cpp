@@ -116,6 +116,9 @@ struct PyBinaryParams {
     double g3 = 0.0;
     double lom_szs = 0.0;
     double lom_ar = 1.0;
+    double u0_2 = 0.0;
+    double t0_2 = 0.0;
+    double flux_ratio = 0.0;
 };
 
 double dict_get_double(const py::dict& params, const char* key, double default_value)
@@ -147,6 +150,9 @@ PyBinaryParams binary_params_from_dict(const py::dict& params)
     out.g3 = dict_get_double(params, "g3", out.g3);
     out.lom_szs = dict_get_double(params, "lom_szs", out.lom_szs);
     out.lom_ar = dict_get_double(params, "lom_ar", out.lom_ar);
+    out.u0_2 = dict_get_double(params, "u0_2", out.u0_2);
+    out.t0_2 = dict_get_double(params, "t0_2", out.t0_2);
+    out.flux_ratio = dict_get_double(params, "flux_ratio", out.flux_ratio);
     return out;
 }
 
@@ -1212,6 +1218,17 @@ std::string normalize_lens_name(std::string lens)
     throw std::invalid_argument("lens must be 'binary_lens' or 'triple_lens'");
 }
 
+std::string normalize_source_name(const std::string& source)
+{
+    if (source.empty() || source == "single") {
+        return "single";
+    }
+    if (source == "binary" || source == "binary_source") {
+        return "binary";
+    }
+    throw std::invalid_argument("source must be 'single' or 'binary'");
+}
+
 class PyLightCurveFunc {
 public:
     PyLightCurveFunc(
@@ -2200,17 +2217,20 @@ class PyLightCurveEvaluator {
 public:
     PyLightCurveEvaluator(
         std::string lens,
+        std::string source,
         PyEventCoordinates event,
         lcbi_options options,
         PyLimbDarkening limb_darkening,
         lcbi_orbital_motion_mode orbital_motion_mode,
         bool parallax)
         : base_(std::move(lens), event, options, limb_darkening, orbital_motion_mode)
+        , source_(normalize_source_name(source))
         , parallax_(parallax)
     {
     }
 
     const std::string& lens() const { return base_.lens(); }
+    const std::string& source() const { return source_; }
     const PyEventCoordinates& event() const { return base_.event(); }
     const lcbi_options& options() const { return base_.options(); }
     const PyLimbDarkening& limb_darkening() const { return base_.limb_darkening(); }
@@ -2222,6 +2242,32 @@ public:
         const py::dict& params) const
     {
         const auto p = binary_params_from_dict(params);
+
+        if (source_ == "binary") {
+            const py::buffer_info input = times.request();
+            if (input.ndim != 1) {
+                throw std::invalid_argument("times must be one-dimensional");
+            }
+            const auto count = static_cast<py::ssize_t>(input.shape[0]);
+            const std::vector<double> times_vec(
+                static_cast<const double*>(input.ptr),
+                static_cast<const double*>(input.ptr) + count);
+            auto v1 = single_source_list(times_vec, p);
+            auto p2 = p;
+            p2.u0 = p.u0_2;
+            p2.t0 = p.t0_2;
+            const auto v2 = single_source_list(times_vec, p2);
+            const double fr = p.flux_ratio;
+            const double inv = 1.0 / (1.0 + fr);
+            auto output = py::array_t<double>(
+                {count}, {static_cast<py::ssize_t>(sizeof(double))});
+            auto* out_data = output.mutable_data();
+            for (std::size_t i = 0; i < v1.size(); ++i) {
+                out_data[i] = (v1[i] + fr * v2[i]) * inv;
+            }
+            return output;
+        }
+
         if (lens() == "triple_lens") {
             if (p.q2 <= 0.0) {
                 throw py::value_error("triple_lens requires q2 > 0");
@@ -2341,6 +2387,26 @@ public:
     PyLightCurve info_from_dict(const std::vector<double>& times, const py::dict& params) const
     {
         const auto p = binary_params_from_dict(params);
+
+        auto blend_info = [&](PyLightCurve result) -> PyLightCurve {
+            if (source_ == "binary") {
+                auto p2 = p;
+                p2.u0 = p.u0_2;
+                p2.t0 = p.t0_2;
+                const auto v2 = single_source_list(times, p2);
+                const double fr = p.flux_ratio;
+                const double inv = 1.0 / (1.0 + fr);
+                for (std::size_t i = 0; i < result.magnifications.size(); ++i) {
+                    result.magnifications[i] = (result.magnifications[i] + fr * v2[i]) * inv;
+                }
+                for (std::size_t i = 0; i < result.finite_source_magnifications.size(); ++i) {
+                    result.finite_source_magnifications[i] =
+                        (result.finite_source_magnifications[i] + fr * v2[i]) * inv;
+                }
+            }
+            return result;
+        };
+
         if (lens() == "triple_lens") {
             if (p.q2 <= 0.0) {
                 throw py::value_error("triple_lens requires q2 > 0");
@@ -2351,15 +2417,15 @@ public:
             const auto c_params = make_triple_params(
                 p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
                 p.rho, base_.limb_darkening(), base_.event());
-            return evaluate_binary_light_curve_info(times, c_params, base_.options());
+            return blend_info(evaluate_binary_light_curve_info(times, c_params, base_.options()));
         }
         return parallax_
-            ? base_.dynamic_info(
+            ? blend_info(base_.dynamic_info(
                   times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar)
-            : base_.info(
+                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar))
+            : blend_info(base_.info(
                   times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
+                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar));
     }
 
     PyLightCurve info_static(
@@ -2524,25 +2590,16 @@ public:
     double magnification_from_dict(double time, const py::dict& params) const
     {
         const auto p = binary_params_from_dict(params);
-        if (lens() == "triple_lens") {
-            if (p.q2 <= 0.0) {
-                throw py::value_error("triple_lens requires q2 > 0");
-            }
-            if (parallax_) {
-                throw std::runtime_error("unsupported");
-            }
-            const auto c_params = make_triple_params(
-                p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
-                p.rho, base_.limb_darkening(), base_.event());
-            return evaluate_binary_magnification(time, c_params, base_.options());
+        const double mag1 = single_source_magnification(time, p);
+        if (source_ == "binary") {
+            auto p2 = p;
+            p2.u0 = p.u0_2;
+            p2.t0 = p.t0_2;
+            const double mag2 = single_source_magnification(time, p2);
+            const double fr = p.flux_ratio;
+            return (mag1 + fr * mag2) / (1.0 + fr);
         }
-        return parallax_
-            ? base_.dynamic_magnification(
-                  time, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar)
-            : base_.magnification(
-                  time, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
-                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
+        return mag1;
     }
 
     double magnification(
@@ -2610,7 +2667,56 @@ private:
         }
     }
 
+    std::vector<double> single_source_list(
+        const std::vector<double>& times,
+        const PyBinaryParams& p) const
+    {
+        if (lens() == "triple_lens") {
+            if (p.q2 <= 0.0) {
+                throw py::value_error("triple_lens requires q2 > 0");
+            }
+            if (parallax_) {
+                throw std::runtime_error("unsupported");
+            }
+            const auto c_params = make_triple_params(
+                p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
+                p.rho, base_.limb_darkening(), base_.event());
+            return evaluate_binary_light_curve(times, c_params, base_.options());
+        }
+        return parallax_
+            ? base_.dynamic_light_curve_list(
+                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
+                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar)
+            : base_.light_curve_list(
+                  times, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
+                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
+    }
+
+    double single_source_magnification(double time, const PyBinaryParams& p) const
+    {
+        if (lens() == "triple_lens") {
+            if (p.q2 <= 0.0) {
+                throw py::value_error("triple_lens requires q2 > 0");
+            }
+            if (parallax_) {
+                throw std::runtime_error("unsupported");
+            }
+            const auto c_params = make_triple_params(
+                p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.q2, p.sep2, p.ang,
+                p.rho, base_.limb_darkening(), base_.event());
+            return evaluate_binary_magnification(time, c_params, base_.options());
+        }
+        return parallax_
+            ? base_.dynamic_magnification(
+                  time, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
+                  p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar)
+            : base_.magnification(
+                  time, p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
+                  p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
+    }
+
     PyLightCurveFunc base_;
+    std::string source_;
     bool parallax_ = false;
 };
 
@@ -2945,22 +3051,25 @@ PYBIND11_MODULE(lcbinint, m)
 
     py::class_<PyLightCurveEvaluator>(m, "LightCurve")
         .def(py::init([](const std::string& lens,
+                         const std::string& source,
                          const PyEventCoordinates& event,
                          const lcbi_options& options,
                          const PyLimbDarkening& limb_darkening,
                          lcbi_orbital_motion_mode orbital_motion_mode,
                          bool parallax) {
                  return PyLightCurveEvaluator(
-                     lens, event, options, limb_darkening, orbital_motion_mode, parallax);
+                     lens, source, event, options, limb_darkening, orbital_motion_mode, parallax);
              }),
             py::kw_only(),
             py::arg("lens") = "binary_lens",
+            py::arg("source") = "single",
             py::arg("event") = PyEventCoordinates {},
             py::arg("options") = public_default_options(),
             py::arg("limb_darkening") = PyLimbDarkening {},
             py::arg("orbital_motion_mode") = LCBI_ORBIT_STATIC,
             py::arg("parallax") = false)
         .def_property_readonly("lens", &PyLightCurveEvaluator::lens)
+        .def_property_readonly("source", &PyLightCurveEvaluator::source)
         .def_property_readonly("event", &PyLightCurveEvaluator::event)
         .def_property_readonly("options", &PyLightCurveEvaluator::options)
         .def_property_readonly("limb_darkening", &PyLightCurveEvaluator::limb_darkening)
