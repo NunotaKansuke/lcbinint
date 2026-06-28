@@ -29,14 +29,19 @@ import lcbinint
 
 @dataclass(frozen=True)
 class Case:
+    # VBM TripleLightCurve parameterization:
+    #   s    = d12  (binary separation; 2-body COM of lens1+lens2 at origin)
+    #   sep2 = d13  (tertiary distance from primary)
+    #   ang  = psi  (tertiary angle from binary axis, measured at primary)
+    #   u0, alpha   (VBM source trajectory convention)
     s: float = 1.2
     q: float = 1.0e-2
     q2: float = 1.0e-3
-    sep2: float = 0.2
-    ang: float = 0.0
+    sep2: float = 1.0
+    ang: float = 0.5
     t0: float = 0.0
     tE: float = 1.0
-    u0: float = -0.05
+    u0: float = 0.05
     alpha: float = 0.0
     rho: float = 5.0e-3
     t_min: float = -0.8
@@ -47,6 +52,13 @@ class Case:
 CASE = Case()
 TIMES = np.linspace(CASE.t_min, CASE.t_max, CASE.n_times)
 
+PARAMS = {
+    "s": CASE.s, "q": CASE.q, "q2": CASE.q2,
+    "sep2": CASE.sep2, "ang": CASE.ang,
+    "u0": CASE.u0, "alpha": CASE.alpha,
+    "rho": CASE.rho, "t0": CASE.t0, "tE": CASE.tE,
+}
+
 OPTIONS = lcbinint.Options(
     param_type="vbm",
     source_bins=50,
@@ -56,44 +68,18 @@ OPTIONS = lcbinint.Options(
 LIMB_DARKENING = lcbinint.LimbDarkening.linear(0.5)
 TIMING_REPEATS = 7
 
-
-def _vbm_params(case: Case) -> dict:
-    """Convert lcbinint physical params to VBM TripleLightCurve geometry."""
-    eps2 = case.q / (1 + case.q + case.q2)
-    eps3 = case.q2 / (1 + case.q + case.q2)
-    eps1, eps4 = 1.0 - eps2 - eps3, eps2 + eps3
-    z1 = complex(-eps4 * case.s, 0.0)
-    z2 = complex(
-        eps1 * case.s + eps3 / eps4 * case.sep2 * math.cos(case.ang),
-        eps3 / eps4 * case.sep2 * math.sin(case.ang),
-    )
-    z3 = complex(
-        eps1 * case.s - eps2 / eps4 * case.sep2 * math.cos(case.ang),
-        -eps2 / eps4 * case.sep2 * math.sin(case.ang),
-    )
-    v12, v13 = z2 - z1, z3 - z1
-    a12 = math.atan2(v12.imag, v12.real)
-    psi = math.atan2(v13.imag, v13.real) - a12
-    return {
-        "s": abs(v12), "q": case.q, "q2": case.q2,
-        "sep2": abs(v13), "ang": psi,
-        "u0": -case.u0, "alpha": case.alpha - a12,
-        "rho": case.rho, "t0": 0.0, "tE": 1.0,
-    }
+# VBM TripleLightCurve uses negated time parameterization relative to lcbinint;
+# passing -TIMES to both codes evaluates at the same source positions.
+TIMES_VBM = (-TIMES).tolist()
 
 
 def _vbm_array(p: dict) -> list:
+    """Convert params dict to VBM's TripleLightCurve log-parameter array."""
     return [
         math.log(p["s"]), math.log(p["q"]), p["u0"], p["alpha"], math.log(p["rho"]),
-        0.0, 0.0,
+        math.log(p["tE"]), p["t0"],
         math.log(p["sep2"]), math.log(p["q2"]), p["ang"],
     ]
-
-
-VBM_PARAMS = _vbm_params(CASE)
-# VBM TripleLightCurve uses negated time parameterization relative to lcbinint;
-# passing -TIMES to both codes gives complete agreement (no extra frame correction needed).
-TIMES_VBM = (-TIMES).tolist()
 
 
 def evaluate_lcbinint(limb_darkening: lcbinint.LimbDarkening):
@@ -102,15 +88,15 @@ def evaluate_lcbinint(limb_darkening: lcbinint.LimbDarkening):
         options=OPTIONS,
         limb_darkening=limb_darkening,
     )
-    lightcurve(TIMES_VBM, VBM_PARAMS)
+    lightcurve(TIMES_VBM, PARAMS)
     elapsed_samples = []
     values = None
     for _ in range(TIMING_REPEATS):
         start = time.perf_counter()
-        values = lightcurve(TIMES_VBM, VBM_PARAMS)
+        values = lightcurve(TIMES_VBM, PARAMS)
         elapsed_samples.append(time.perf_counter() - start)
     elapsed = statistics.median(elapsed_samples)
-    info = lightcurve.info(TIMES_VBM, VBM_PARAMS)
+    info = lightcurve.info(TIMES_VBM, PARAMS)
     # Reverse so that values[i] corresponds to TIMES[i] (TIMES_VBM runs backwards).
     return lightcurve, np.asarray(values)[::-1], elapsed, info, elapsed_samples
 
@@ -125,7 +111,7 @@ def evaluate_vbm(limb_darkening_gamma: float):
     vbm.Tol = 1.0e-3
     vbm.a1 = limb_darkening_gamma
     vbm.a2 = 0.0
-    vbm_arr = _vbm_array(VBM_PARAMS)
+    vbm_arr = _vbm_array(PARAMS)
     vbm.TripleLightCurve(vbm_arr, TIMES_VBM)
     elapsed_samples = []
     values = None
@@ -188,8 +174,8 @@ def main():
         converged = sum(info.finite_source_converged)
         print(f"  {label:5s} {dict(counts)} converged={converged}/{TIMES.size}")
 
-    trajectory = lightcurve.source_trajectory(TIMES_VBM, VBM_PARAMS)
-    caustics = lightcurve.caustics(VBM_PARAMS, n_points=900)
+    trajectory = lightcurve.source_trajectory(TIMES_VBM, PARAMS)
+    caustics = lightcurve.caustics(PARAMS, n_points=900)
 
     fig = plt.figure(figsize=(8.0, 7.0), constrained_layout=True)
     grid = fig.add_gridspec(3, 1, height_ratios=[2.0, 1.0, 1.4])
