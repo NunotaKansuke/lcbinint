@@ -4443,6 +4443,46 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             };
         }
     }
+    constexpr double kPolarAutoPointMagnificationThreshold = 100.0;
+    const bool auto_polar =
+        settings_.finite_mode == 4 &&
+        !near_caustic &&
+        std::abs(point_source_magnification) >= kPolarAutoPointMagnificationThreshold;
+
+    // For explicit polar (finite_mode==2), fall back to Cartesian when the source
+    // is close to a caustic — matching binary's behavior.  auto_polar already
+    // excludes near-caustic cases via !near_caustic, so the check is only needed
+    // for the explicit-polar path.
+    const double polar_fallback_distance =
+        std::max(settings_.hex_threshold, 1.0) * source_radius;
+    const bool polar_needs_cartesian_fallback =
+        settings_.finite_mode == 2 &&
+        std::isfinite(caustic_distance) &&
+        caustic_distance < polar_fallback_distance;
+
+    // auto_polar (high-magnification mode=4) takes priority over hexadecapole: the
+    // triple-lens caustic topology makes polar more reliable than the hexadecapole
+    // self-consistency check for ps_mag >= 100.
+    if ((settings_.finite_mode == 2 || auto_polar) && !polar_needs_cartesian_fallback) {
+        FiniteSourceSettings polar_settings = settings_;
+        if (auto_polar) {
+            polar_settings.polar_grid_ratio =
+                std::max(active_polar_grid_ratio(polar_settings), 12.0);
+        }
+        const double polar_magnification = inverse_ray_polar_triple_mag(
+            point_magnifier, geometry, source, source_radius, polar_settings, this);
+        FiniteSourceDecision decision {
+            FiniteSourceMethod::inverse_ray_polar,
+            0,
+            auto_polar ? "auto polar triple inverse-ray for high magnification"
+                       : "triple polar inverse-ray",
+        };
+        if (!std::isfinite(polar_magnification)) {
+            return {polar_magnification, 0, decision, std::nan(""), 0, false};
+        }
+        return {polar_magnification, 0, decision, 0.0, 0, true};
+    }
+
     if (!near_caustic && settings_.adaptive_hex_threshold > 0.0) {
         const auto hex = hexadecapole_triple(
             point_magnifier,
@@ -4473,43 +4513,6 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
                 true,
             };
         }
-    }
-
-    constexpr double kPolarAutoPointMagnificationThreshold = 100.0;
-    const bool auto_polar =
-        settings_.finite_mode == 4 &&
-        !near_caustic &&
-        std::abs(point_source_magnification) >= kPolarAutoPointMagnificationThreshold;
-
-    // For explicit polar (finite_mode==2), fall back to Cartesian when the source
-    // is close to a caustic — matching binary's behavior.  auto_polar already
-    // excludes near-caustic cases via !near_caustic, so the check is only needed
-    // for the explicit-polar path.
-    const double polar_fallback_distance =
-        std::max(settings_.hex_threshold, 1.0) * source_radius;
-    const bool polar_needs_cartesian_fallback =
-        settings_.finite_mode == 2 &&
-        std::isfinite(caustic_distance) &&
-        caustic_distance < polar_fallback_distance;
-
-    if ((settings_.finite_mode == 2 || auto_polar) && !polar_needs_cartesian_fallback) {
-        FiniteSourceSettings polar_settings = settings_;
-        if (auto_polar) {
-            polar_settings.polar_grid_ratio =
-                std::max(active_polar_grid_ratio(polar_settings), 12.0);
-        }
-        const double polar_magnification = inverse_ray_polar_triple_mag(
-            point_magnifier, geometry, source, source_radius, polar_settings, this);
-        FiniteSourceDecision decision {
-            FiniteSourceMethod::inverse_ray_polar,
-            0,
-            auto_polar ? "auto polar triple inverse-ray for high magnification"
-                       : "triple polar inverse-ray",
-        };
-        if (!std::isfinite(polar_magnification)) {
-            return {polar_magnification, 0, decision, std::nan(""), 0, false};
-        }
-        return {polar_magnification, 0, decision, 0.0, 0, true};
     }
 
     {

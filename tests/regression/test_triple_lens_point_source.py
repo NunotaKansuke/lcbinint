@@ -84,9 +84,12 @@ def test_triple_lens_point_source_matches_legacy_amp_point3(
     tolerance,
 ):
     # References are hard-coded values generated from the legacy lcbinint.c
-    # amp_point3 path. With alpha=0, time=source_x and u0=source_y produce the
-    # requested source coordinate in the static VBM trajectory convention.
-    light_curve = lcbinint.LightCurve(lens="triple_lens")
+    # amp_point3 path.  The legacy code uses the original (non-VBM) geometry
+    # convention, so we match it here with param_type='lcbinint'.  With alpha=0
+    # both conventions give the same trajectory, so the test verifies geometry.
+    light_curve = lcbinint.LightCurve(
+        lens="triple_lens", options=lcbinint.Options(param_type="lcbinint")
+    )
     actual = light_curve.magnification(
         source_x,
         {
@@ -149,22 +152,24 @@ def test_triple_lens_finite_source_cartesian_inverse_ray():
 
 
 def test_triple_lens_finite_source_uses_hexadecapole_between_point_and_ir():
+    # Source at (-0.075, -0.025): derivative check fails but hexadecapole
+    # self-consistency passes, so the mid-tier method is chosen.
     light_curve = lcbinint.LightCurve(
         lens="triple_lens",
         options=lcbinint.Options(source_bins=10, caustic_bins=96),
     )
-    times = np.array([-0.2])
+    times = np.array([-0.075])
     params = {
         "t0": 0.0,
         "tE": 1.0,
-        "u0": 0.0,
+        "u0": -0.025,
         "alpha": 0.0,
         "s": 1.0,
         "q": 1.0e-3,
         "q2": 1.0e-4,
         "sep2": 0.5,
         "ang": 1.2,
-        "rho": 5.0e-3,
+        "rho": 3.0e-3,
     }
 
     info = light_curve.info(times, params)
