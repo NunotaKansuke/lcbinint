@@ -47,6 +47,8 @@ typedef struct lcbi_params {
     double dec;
     double earth_axis;
     double tfix;
+    double obs_lat;  /* observatory geodetic latitude in degrees (enables terrestrial parallax) */
+    double obs_lon;  /* observatory East longitude in degrees */
     double limb_darkening_c;
     double limb_darkening_d;
 

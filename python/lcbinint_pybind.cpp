@@ -96,6 +96,8 @@ struct PyEventCoordinates {
     double ra = 0.0;
     double dec = 0.0;
     double tfix = 0.0;
+    double obs_lat = 0.0;
+    double obs_lon = 0.0;
 };
 
 struct PyBinaryParams {
@@ -375,6 +377,8 @@ lcbi_params make_binary_params(
     params.ra = event.ra;
     params.dec = event.dec;
     params.tfix = event.tfix;
+    params.obs_lat = event.obs_lat;
+    params.obs_lon = event.obs_lon;
     params.piEN = piEN;
     params.piEE = piEE;
     params.g1 = g1;
@@ -2836,14 +2840,19 @@ PYBIND11_MODULE(lcbinint, m)
         .def("__repr__", [](const PyEventCoordinates& event) {
             return "EventCoordinates(ra=" + std::to_string(event.ra) +
                 ", dec=" + std::to_string(event.dec) +
-                ", tfix=" + std::to_string(event.tfix) + ")";
+                ", tfix=" + std::to_string(event.tfix) +
+                ", obs_lat=" + std::to_string(event.obs_lat) +
+                ", obs_lon=" + std::to_string(event.obs_lon) + ")";
         })
-        .def(py::init([](double ra, double dec, double tfix) {
-            return PyEventCoordinates {ra, dec, tfix};
-        }), py::arg("ra") = 0.0, py::arg("dec") = 0.0, py::arg("tfix") = 0.0)
+        .def(py::init([](double ra, double dec, double tfix, double obs_lat, double obs_lon) {
+            return PyEventCoordinates {ra, dec, tfix, obs_lat, obs_lon};
+        }), py::arg("ra") = 0.0, py::arg("dec") = 0.0, py::arg("tfix") = 0.0,
+            py::arg("obs_lat") = 0.0, py::arg("obs_lon") = 0.0)
         .def_readwrite("ra", &PyEventCoordinates::ra)
         .def_readwrite("dec", &PyEventCoordinates::dec)
-        .def_readwrite("tfix", &PyEventCoordinates::tfix);
+        .def_readwrite("tfix", &PyEventCoordinates::tfix)
+        .def_readwrite("obs_lat", &PyEventCoordinates::obs_lat)
+        .def_readwrite("obs_lon", &PyEventCoordinates::obs_lon);
 
     constexpr double kNaN = std::numeric_limits<double>::quiet_NaN();
 
@@ -2947,6 +2956,8 @@ PYBIND11_MODULE(lcbinint, m)
         .def_readwrite("ra", &lcbi_params::ra)
         .def_readwrite("dec", &lcbi_params::dec)
         .def_readwrite("tfix", &lcbi_params::tfix)
+        .def_readwrite("obs_lat", &lcbi_params::obs_lat)
+        .def_readwrite("obs_lon", &lcbi_params::obs_lon)
         .def_readwrite("limb_darkening_c", &lcbi_params::limb_darkening_c)
         .def_readwrite("limb_darkening_d", &lcbi_params::limb_darkening_d)
         .def_readwrite("orbital_motion_mode", &lcbi_params::orbital_motion_mode)
