@@ -38,6 +38,8 @@ LensParameters from_c_params(const lcbi_params &params)
     out.dec = params.dec;
     out.earth_axis = params.earth_axis;
     out.tfix = params.tfix;
+    out.obs_lat = params.obs_lat;
+    out.obs_lon = params.obs_lon;
     out.limb_darkening_c = params.limb_darkening_c;
     out.limb_darkening_d = params.limb_darkening_d;
     out.orbital_motion_mode = params.orbital_motion_mode;

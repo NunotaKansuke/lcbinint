@@ -30,6 +30,8 @@ struct LensParameters {
     double dec = 0.0;
     double earth_axis = 0.0;
     double tfix = 0.0;
+    double obs_lat = 0.0;
+    double obs_lon = 0.0;
     double limb_darkening_c = 0.0;
     double limb_darkening_d = 0.0;
     lcbi_orbital_motion_mode orbital_motion_mode = LCBI_ORBIT_STATIC;

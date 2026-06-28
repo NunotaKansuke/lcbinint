@@ -358,6 +358,48 @@ void apply_xallarap_orbital_elements(
     beta += params.piEE_xa * disp0 - params.piEN_xa * disp1;
 }
 
+void apply_terrestrial_parallax(const LensParameters& params, double time, double& tau, double& beta)
+{
+    if (!has_annual_parallax(params)) {
+        return;
+    }
+    if (params.obs_lat == 0.0 && params.obs_lon == 0.0) {
+        return;
+    }
+
+    // Earth's equatorial radius in AU
+    constexpr double kEarthRadiusAU = 4.2635212e-5;
+    // Earth's sidereal rotation rate (degrees / day)
+    constexpr double kSiderealDegPerDay = 360.98564736629;
+
+    const double lat = params.obs_lat * kDegreeToRadian;
+    const double lon = params.obs_lon * kDegreeToRadian;
+
+    // Convert time to JD (same logic as EarthOrbitalParallaxProjector)
+    const double jd = time + parallax_time_offset(time);
+
+    // Greenwich Mean Sidereal Time (GAST ≈ GMST, ignoring nutation < 1 arcsec)
+    const double gmst_rad = (280.46061837 + kSiderealDegPerDay * (jd - 2451545.0)) * kDegreeToRadian;
+    const double ha = gmst_rad + lon;  // hour angle of vernal equinox at telescope
+
+    // Telescope geocentric position in equatorial J2000 coordinates (in AU)
+    const double cos_lat = std::cos(lat);
+    const std::array<double, 3> r_tel = {
+        kEarthRadiusAU * cos_lat * std::cos(ha),
+        kEarthRadiusAU * cos_lat * std::sin(ha),
+        kEarthRadiusAU * std::sin(lat),
+    };
+
+    // Project onto sky plane (same sign convention as EarthOrbitalParallaxProjector::project)
+    const auto north = sky_north(params.ra, params.dec);
+    const auto east  = sky_east(params.ra, params.dec);
+    const double proj_N = -dot(r_tel, north);
+    const double proj_E = -dot(r_tel, east);
+
+    tau  += params.piEN * proj_N + params.piEE * proj_E;
+    beta += -params.piEE * proj_N + params.piEN * proj_E;
+}
+
 void apply_annual_parallax(const LensParameters& params, double time, double& tau, double& beta)
 {
     if (!has_annual_parallax(params)) {
@@ -397,6 +439,7 @@ SourcePosition Trajectory::source_position(
     double tn = (time - params_.t0) / params_.tE;
     double beta = params_.umin;
     apply_annual_parallax(params_, time, tn, beta);
+    apply_terrestrial_parallax(params_, time, tn, beta);
     if (xallarap_type == LCBI_XALLARAP_ANGULAR_VELOCITY) {
         apply_xallarap_angular_velocity(params_, time, tn, beta);
     } else if (xallarap_type == LCBI_XALLARAP_ORBITAL_ELEMENTS) {
