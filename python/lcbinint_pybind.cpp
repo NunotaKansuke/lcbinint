@@ -590,6 +590,102 @@ PyGeometryBranches py_pack_geometry_branches(
     return packed;
 }
 
+// Multiply two polynomials with coefficients in constant-first order.
+std::vector<lcbinint::Complex> py_poly_mul(
+    const std::vector<lcbinint::Complex>& a,
+    const std::vector<lcbinint::Complex>& b)
+{
+    std::vector<lcbinint::Complex> result(a.size() + b.size() - 1, 0.0);
+    for (std::size_t i = 0; i < a.size(); ++i)
+        for (std::size_t j = 0; j < b.size(); ++j)
+            result[i + j] += a[i] * b[j];
+    return result;
+}
+
+// Build the degree-6 critical curve polynomial for the triple lens.
+// The polynomial is in w = conj(z_image), constant-first coefficients.
+// Critical condition: sum_i m_i / (w - conj(z_i))^2 = e^{i*phi}
+// Rearranged: e^{i*phi} * P0*P1*P2 - m0*P1*P2 - m1*P0*P2 - m2*P0*P1 = 0
+// where Pi = (w - conj(z_i))^2.
+std::vector<lcbinint::Complex> py_triple_critical_polynomial(
+    const lcbinint::model::TripleLensGeometry& geometry,
+    lcbinint::Complex phase)
+{
+    std::array<lcbinint::Complex, 3> w;
+    for (int i = 0; i < 3; ++i) {
+        w[i] = std::conj(lcbinint::Complex(
+            geometry.lens_positions[i].x, geometry.lens_positions[i].y));
+    }
+
+    // Quadratic (w - wi)^2 = wi^2 - 2*wi*w + w^2  (constant-first)
+    auto quad = [](lcbinint::Complex wi) -> std::vector<lcbinint::Complex> {
+        return {wi * wi, -2.0 * wi, 1.0};
+    };
+
+    const auto P0  = quad(w[0]);
+    const auto P1  = quad(w[1]);
+    const auto P2  = quad(w[2]);
+    const auto P01 = py_poly_mul(P0, P1);
+    const auto P02 = py_poly_mul(P0, P2);
+    const auto P12 = py_poly_mul(P1, P2);
+    const auto P012 = py_poly_mul(P01, P2);
+
+    // phase * P012 - m0*P12 - m1*P02 - m2*P01
+    std::vector<lcbinint::Complex> poly(P012.size(), 0.0);
+    for (std::size_t i = 0; i < P012.size(); ++i) poly[i] = phase * P012[i];
+    for (std::size_t i = 0; i < P12.size(); ++i)  poly[i] -= geometry.masses[0] * P12[i];
+    for (std::size_t i = 0; i < P02.size(); ++i)  poly[i] -= geometry.masses[1] * P02[i];
+    for (std::size_t i = 0; i < P01.size(); ++i)  poly[i] -= geometry.masses[2] * P01[i];
+    return poly;
+}
+
+// Returns the 6 caustic points (source plane) for a given phase angle.
+std::vector<lcbinint::SourcePosition> py_triple_caustic_points_at_phase(
+    const lcbinint::model::TripleLensGeometry& geometry,
+    double phase_angle)
+{
+    const auto phase = std::polar(1.0, phase_angle);
+    const auto poly  = py_triple_critical_polynomial(geometry, phase);
+
+    lcbinint::math::PolynomialRootSolver solver;
+    const auto result = solver.solve(poly);
+    if (result.status != lcbinint::math::RootSolverStatus::ok) {
+        return {};
+    }
+
+    // w_root is conj(z_image); map to source plane via the triple lens equation:
+    // zeta = conj(w) - sum_i m_i / (w - conj(z_i))
+    std::array<lcbinint::Complex, 3> w_lenses;
+    for (int i = 0; i < 3; ++i) {
+        w_lenses[i] = std::conj(lcbinint::Complex(
+            geometry.lens_positions[i].x, geometry.lens_positions[i].y));
+    }
+
+    std::vector<lcbinint::SourcePosition> points;
+    points.reserve(result.roots.size());
+    for (const auto& w : result.roots) {
+        lcbinint::Complex source = std::conj(w);
+        for (int i = 0; i < 3; ++i) {
+            source -= geometry.masses[i] / (w - w_lenses[i]);
+        }
+        points.push_back({source.real(), source.imag()});
+    }
+    return points;
+}
+
+PyGeometryBranches py_triple_caustics(
+    const lcbinint::model::TripleLensGeometry& geometry,
+    int n_points)
+{
+    constexpr int kBranches = 6;
+    std::vector<std::vector<lcbinint::SourcePosition>> branches(kBranches);
+    for (int k = 0; k < n_points; ++k) {
+        const double phase_angle = 2.0 * M_PI * k / n_points;
+        py_append_tracked_points(branches, py_triple_caustic_points_at_phase(geometry, phase_angle));
+    }
+    return py_pack_geometry_branches(branches);
+}
+
 struct PyOrbitCache {
     lcbi_orbital_motion_mode mode = LCBI_ORBIT_STATIC;
     double reference_time = 0.0;
@@ -2317,6 +2413,21 @@ public:
             p.piEN, p.piEE, p.g1, p.g2, p.g3, p.lom_szs, p.lom_ar);
     }
 
+    PyGeometryBranches caustics_from_dict(
+        const py::dict& params,
+        int n_points) const
+    {
+        if (lens() == "triple_lens") {
+            const auto p = binary_params_from_dict(params);
+            const auto geometry = lcbinint::model::make_triple_lens_geometry(
+                p.s, p.q, p.q2, p.sep2, p.ang);
+            return py_triple_caustics(geometry, n_points);
+        }
+        const auto p = binary_params_from_dict(params);
+        return base_.caustics(p.s, p.q, n_points, std::numeric_limits<double>::quiet_NaN(),
+                              0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    }
+
     PyGeometryCurve source_trajectory_static(
         const std::vector<double>& times,
         double t0,
@@ -3019,6 +3130,12 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("g3") = 0.0,
             py::arg("lom_szs") = 0.0,
             py::arg("lom_ar") = 1.0)
+        .def("caustics",
+            &PyLightCurveEvaluator::caustics_from_dict,
+            py::arg("params"),
+            py::arg("n_points") = 1000,
+            "Compute caustics from a parameter dict. For triple_lens, pass "
+            "params containing s, q, q2, sep2, ang.")
         .def("caustics",
             &PyLightCurveEvaluator::caustics,
             py::kw_only(),
