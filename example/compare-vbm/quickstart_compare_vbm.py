@@ -44,7 +44,7 @@ CASE = Case()
 TIMES = np.linspace(CASE.t_min, CASE.t_max, CASE.n_times)
 
 OPTIONS = lcbinint.Options(
-    coordinates="vbm",
+    param_type="vbm",
     source_bins=50,
     max_source_bins=400,
     reltol=1.0e-3,

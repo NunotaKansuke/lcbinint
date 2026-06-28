@@ -191,35 +191,41 @@ lcbi_options public_default_options()
     return options;
 }
 
-void apply_coordinate_system(lcbi_options& options, const std::string& coordinates)
+void apply_param_type(lcbi_options& options, const std::string& param_type)
 {
-    if (coordinates == "auto" || coordinates.empty()) {
+    if (param_type == "auto" || param_type.empty()) {
         options.center_of_mass = 0;
         options.vbm_compatible = 1;
         return;
     }
-    if (coordinates == "vbm" || coordinates == "vbbl" || coordinates == "standard") {
+    if (param_type == "vbm" || param_type == "vbbl" || param_type == "standard") {
         options.center_of_mass = 0;
         options.vbm_compatible = 1;
         return;
     }
-    if (coordinates == "lcbinint" || coordinates == "original" || coordinates == "legacy") {
+    if (param_type == "lcbinint" || param_type == "original" || param_type == "legacy") {
         options.center_of_mass = 0;
         options.vbm_compatible = 0;
         return;
     }
-    if (coordinates == "center_of_mass") {
+    if (param_type == "center_of_mass") {
         options.center_of_mass = 1;
         options.vbm_compatible = 0;
         return;
     }
-    if (coordinates == "vbm_center_of_mass") {
+    if (param_type == "vbm_center_of_mass") {
         options.center_of_mass = 1;
         options.vbm_compatible = 1;
         return;
     }
     throw std::invalid_argument(
-        "coordinates must be 'vbm', 'lcbinint', 'original', or 'center_of_mass'");
+        "param_type must be 'vbm', 'lcbinint', 'original', or 'center_of_mass'");
+}
+
+// Backwards-compatible alias.
+void apply_coordinate_system(lcbi_options& options, const std::string& coordinates)
+{
+    apply_param_type(options, coordinates);
 }
 
 std::string coordinate_system_name(const lcbi_options& options)
@@ -2419,8 +2425,12 @@ public:
     {
         if (lens() == "triple_lens") {
             const auto p = binary_params_from_dict(params);
-            const auto geometry = lcbinint::model::make_triple_lens_geometry(
-                p.s, p.q, p.q2, p.sep2, p.ang);
+            const auto model_opts = lcbinint::model::from_c_options(&base_.options());
+            const auto geometry = model_opts.vbm_compatible != 0
+                ? lcbinint::model::make_triple_lens_geometry_vbm(
+                    p.s, p.q, p.sep2, p.ang, p.q2)
+                : lcbinint::model::make_triple_lens_geometry(
+                    p.s, p.q, p.q2, p.sep2, p.ang);
             return py_triple_caustics(geometry, n_points);
         }
         const auto p = binary_params_from_dict(params);
@@ -2833,9 +2843,15 @@ PYBIND11_MODULE(lcbinint, m)
                          double tol,
                          double reltol,
                          const std::string& coordinates,
-                         double hex_tol) {
+                         double hex_tol,
+                         const std::string& param_type) {
                  auto options = public_default_options();
-                 apply_coordinate_system(options, coordinates);
+                 // param_type takes precedence over coordinates when explicitly set
+                 if (!param_type.empty() && param_type != "auto") {
+                     apply_param_type(options, param_type);
+                 } else {
+                     apply_coordinate_system(options, coordinates);
+                 }
                  apply_inverse_ray_grid(options, inverse_ray_grid);
                  options.source_bins = optional_int_or(nbin, source_bins);
                  options.caustic_bins = caustic_bins;
@@ -2875,7 +2891,8 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("tol") = kNaN,
             py::arg("reltol") = kNaN,
             py::arg("coordinates") = "auto",
-            py::arg("hex_tol") = kNaN)
+            py::arg("hex_tol") = kNaN,
+            py::arg("param_type") = "auto")
         .def_readwrite("source_bins", &lcbi_options::source_bins)
         .def_property("nbin",
             [](const lcbi_options& o) { return o.source_bins; },
@@ -2921,7 +2938,10 @@ PYBIND11_MODULE(lcbinint, m)
             [](lcbi_options& o, double v) { o.finite_source_reltol = v; })
         .def_property("coordinates",
             &coordinate_system_name,
-            [](lcbi_options& o, const std::string& value) { apply_coordinate_system(o, value); });
+            [](lcbi_options& o, const std::string& value) { apply_coordinate_system(o, value); })
+        .def_property("param_type",
+            &coordinate_system_name,
+            [](lcbi_options& o, const std::string& value) { apply_param_type(o, value); });
 
     py::class_<PyLightCurveEvaluator>(m, "LightCurve")
         .def(py::init([](const std::string& lens,

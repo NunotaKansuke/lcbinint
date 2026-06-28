@@ -33,6 +33,22 @@ TripleLensGeometry make_triple_lens_geometry(
     return geometry;
 }
 
+TripleLensGeometry make_triple_lens_geometry_vbm(
+    double d12, double q, double d13, double psi, double q2)
+{
+    const double total = 1.0 + q + q2;
+    const double z1x = q * d12 / (1.0 + q);
+    const double z2x = -d12 / (1.0 + q);
+    const double z3x = z1x - d13 * std::cos(psi);
+    const double z3y = -d13 * std::sin(psi);
+    TripleLensGeometry geometry;
+    geometry.lens_positions[0] = {z1x, 0.0};
+    geometry.lens_positions[1] = {z2x, 0.0};
+    geometry.lens_positions[2] = {z3x, z3y};
+    geometry.masses = {1.0/total, q/total, q2/total};
+    return geometry;
+}
+
 SourcePosition triple_lens_equation(
     const TripleLensGeometry& geometry,
     SourcePosition image)
