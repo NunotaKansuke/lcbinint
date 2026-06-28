@@ -205,9 +205,10 @@ def main():
         converged = sum(info.finite_source_converged)
         print(f"  {label:5s} {dict(counts)} converged={converged}/{TIMES.size}")
 
-    # Source trajectory and lens positions for geometry panel
+    # Source trajectory, caustics, and lens positions for geometry panel
     p = _lcbi_params(CASE)
     trajectory = lightcurve.source_trajectory(TIMES, p)
+    caustics = lightcurve.caustics(p, n_points=1000)
 
     eps2 = CASE.q / (1 + CASE.q + CASE.q2)
     eps3 = CASE.q2 / (1 + CASE.q + CASE.q2)
@@ -261,6 +262,8 @@ def main():
     ax_res.set_ylabel("relative error vs VBM")
     ax_res.set_xlabel("time  $(t - t_0) / t_E$")
 
+    for xs, ys in zip(caustics.x, caustics.y):
+        ax_geo.plot(xs, ys, color="black", lw=0.8)
     ax_geo.plot(trajectory.x, trajectory.y, color="tab:blue", lw=1.5, label="source trajectory")
     ax_geo.scatter([trajectory.x[0]], [trajectory.y[0]], s=20, color="tab:blue", zorder=4)
     for (lx, ly), label in zip(lens_positions, lens_labels):
