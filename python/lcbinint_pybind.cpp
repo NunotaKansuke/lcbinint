@@ -3497,6 +3497,56 @@ the C++ side can keep per-curve state local to the loop.
     }, py::arg("separation"), py::arg("mass_ratio"), py::arg("y1"), py::arg("y2"),
         "Binary point-source magnification matching VBMicrolensing BinaryMag0 coordinates.");
 
+    m.def("binary_inverse_ray",
+        [](double s, double q, double x, double y, double rho,
+           const PyLimbDarkening& ld, const lcbi_options& options) -> double {
+            const auto model_options = lcbinint::model::from_c_options(&options);
+            auto settings = make_finite_source_settings(ld, model_options);
+            settings.kinji_threshold = 1e18;
+            settings.hex_threshold = 0.0;
+            settings.adaptive_hex_threshold = 0.0;
+            lcbinint::magnification::PointSourceMagnifier point_magnifier;
+            lcbinint::magnification::FiniteSourceMagnifier finite_magnifier(settings);
+            const lcbinint::SourcePosition source {x, y};
+            py::gil_scoped_release release;
+            const auto point = point_magnifier.binary_mag0(s, q, source);
+            const auto result = finite_magnifier.binary_mag(
+                s, q, source, std::abs(rho), point.magnification, nullptr, true);
+            return result.magnification;
+        },
+        py::arg("s"), py::arg("q"), py::arg("x"), py::arg("y"), py::arg("rho"),
+        py::arg("limb_darkening") = PyLimbDarkening {},
+        py::arg("options") = public_default_options(),
+        "Binary finite-source magnification at source position (x, y) using inverse-ray shooting.\n\n"
+        "Same (s, q, x, y, rho) coordinate convention as VBMicrolensing BinaryMag2.");
+
+    m.def("triple_inverse_ray",
+        [](double s, double q, double q2, double sep2, double ang,
+           double x, double y, double rho,
+           const PyLimbDarkening& ld, const lcbi_options& options) -> double {
+            const auto model_options = lcbinint::model::from_c_options(&options);
+            auto settings = make_finite_source_settings(ld, model_options);
+            settings.kinji_threshold = 1e18;
+            settings.hex_threshold = 0.0;
+            settings.adaptive_hex_threshold = 0.0;
+            lcbinint::magnification::PointSourceMagnifier point_magnifier;
+            lcbinint::magnification::FiniteSourceMagnifier finite_magnifier(settings);
+            const lcbinint::SourcePosition source {x, y};
+            const auto geometry =
+                lcbinint::model::make_triple_lens_geometry(s, q, q2, sep2, ang);
+            py::gil_scoped_release release;
+            const auto point = point_magnifier.triple_mag0(geometry, source);
+            const auto result = finite_magnifier.triple_mag(
+                geometry, source, std::abs(rho), point.magnification, &point_magnifier);
+            return result.magnification;
+        },
+        py::arg("s"), py::arg("q"), py::arg("q2"), py::arg("sep2"), py::arg("ang"),
+        py::arg("x"), py::arg("y"), py::arg("rho"),
+        py::arg("limb_darkening") = PyLimbDarkening {},
+        py::arg("options") = public_default_options(),
+        "Triple-lens finite-source magnification at source position (x, y) using inverse-ray shooting.\n\n"
+        "Source position in the 3-body center-of-mass frame.");
+
     m.def("circular_orbital_motion", [](double time,
                                          double separation,
                                          double angle,
