@@ -4,10 +4,24 @@ import collections
 from dataclasses import dataclass
 from pathlib import Path
 import statistics
+import sys
 import time
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+
+for build_dir in ("build_new", "build"):
+    build_path = next(
+        (root / build_dir
+         for root in (Path.cwd(), *Path.cwd().parents)
+         if (root / build_dir).is_dir()),
+        None,
+    )
+    if build_path is not None:
+        sys.path.insert(0, str(build_path))
+        break
 
 import lcbinint
 
@@ -211,7 +225,6 @@ def main():
     for xs, ys in zip(caustics.x, caustics.y):
         ax_geo.plot(xs, ys, color="black", lw=0.8)
     ax_geo.plot(trajectory.x, trajectory.y, color="tab:blue", lw=1.5)
-    ax_geo.scatter([trajectory.x[0]], [trajectory.y[0]], s=16, color="tab:blue")
     ax_geo.set_aspect("equal", adjustable="datalim")
     ax_geo.set_xlabel("source x")
     ax_geo.set_ylabel("source y")
