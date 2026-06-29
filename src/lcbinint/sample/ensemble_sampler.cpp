@@ -90,23 +90,50 @@ Chain EnsembleSampler::run_impl(bayes::Model& model,
     const int ndim = model.n_params();
     const int NW   = nwalkers_;
     const int half = NW / 2;
+    const int n_ds = static_cast<int>(model.event().size());
+    const int n_fl = n_ds * 2;
 
     // Evaluate log_prob for all initial positions
     std::vector<double> lp(NW);
     for (int w = 0; w < NW; ++w)
         lp[w] = model.log_prob(pos[w]);
 
-    // Pre-allocate step buffer
+    // Cache fluxes (Fs, Fb per dataset) per walker; updated only on acceptance.
+    // Layout: walker_fluxes_[w][2*k] = Fs_k, walker_fluxes_[w][2*k+1] = Fb_k
+    std::vector<std::vector<double>> walker_fluxes(NW, std::vector<double>(n_fl, 0.0));
+    for (int w = 0; w < NW; ++w) {
+        const auto sols = model.fluxes(pos[w]);
+        for (int k = 0; k < n_ds; ++k) {
+            walker_fluxes[w][2*k]   = sols[k].Fs;
+            walker_fluxes[w][2*k+1] = sols[k].Fb;
+        }
+    }
+
+    // Pre-allocate step buffers
     std::vector<double> step_pos(NW * ndim);
     std::vector<double> step_lp(NW);
+    std::vector<double> step_fl(NW * n_fl);
 
     Chain chain;
     chain.init(nsteps, NW, ndim);
     {
         std::vector<std::string> names;
-        for (const auto& def : model.param_defs())
-            if (!def.fixed) names.push_back(def.name);
+        std::vector<std::string> transforms;
+        for (const auto& def : model.param_defs()) {
+            if (def.fixed) continue;
+            names.push_back(def.name);
+            transforms.push_back(
+                def.transform == bayes::Transform::log ? "log" : "identity");
+        }
         chain.set_param_names(std::move(names));
+        chain.set_transforms(std::move(transforms));
+    }
+    {
+        std::vector<std::string> ds_names;
+        ds_names.reserve(n_ds);
+        for (int k = 0; k < n_ds; ++k)
+            ds_names.push_back(model.event().at(k).name());
+        chain.init_fluxes(n_ds, std::move(ds_names));
     }
 
     std::mt19937_64 rng(seed_);
@@ -132,6 +159,12 @@ Chain EnsembleSampler::run_impl(bayes::Model& model,
                 const double log_acc = log_factor + lp_prop - lp[k];
 
                 if (std::log(rand01()) <= log_acc) {
+                    // Update fluxes cache on acceptance (avoids re-computing for rejected)
+                    const auto sols = model.fluxes(prop_vec);
+                    for (int j = 0; j < n_ds; ++j) {
+                        walker_fluxes[k][2*j]   = sols[j].Fs;
+                        walker_fluxes[k][2*j+1] = sols[j].Fb;
+                    }
                     pos[k] = std::move(prop_vec);
                     lp[k]  = lp_prop;
                     ++accepted;
@@ -141,11 +174,14 @@ Chain EnsembleSampler::run_impl(bayes::Model& model,
 
         if (step >= burnin) {
             for (int w = 0; w < NW; ++w) {
-                const std::size_t base = static_cast<std::size_t>(w * ndim);
-                std::copy(pos[w].begin(), pos[w].end(), step_pos.begin() + base);
+                const std::size_t base_p = static_cast<std::size_t>(w * ndim);
+                std::copy(pos[w].begin(), pos[w].end(), step_pos.begin() + base_p);
                 step_lp[w] = lp[w];
+                const std::size_t base_f = static_cast<std::size_t>(w * n_fl);
+                std::copy(walker_fluxes[w].begin(), walker_fluxes[w].end(),
+                          step_fl.begin() + base_f);
             }
-            chain.push_step(step_pos, step_lp);
+            chain.push_step(step_pos, step_lp, step_fl);
         }
     }
 

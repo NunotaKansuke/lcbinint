@@ -134,5 +134,42 @@ struct DatasetCache {
 
 ## Remaining Modules
 
-- `optimize.DifferentialEvolution` / `LevenbergMarquardt` / `Result`
-- `sample.EnsembleSampler` / `Chain`
+All core modules are implemented. Completed as of 2026-06-30:
+
+### `lcbinint.optimize`
+
+- `optimize.DifferentialEvolution` — rand1bin/best1bin DE with prior bounds.
+- `optimize.LevenbergMarquardt` — LM with FD Jacobian, diagonal floor, NaN guard.
+- `optimize.Result` — `position`, `parameters`, `fluxes`, `chi2`, `log_likelihood`, `log_prob`, `success`, `message`, `n_eval`, `n_iter`.
+  - `fluxes`: list of `DatasetFlux` objects (`name`, `Fs`, `Fb`) — one per dataset.
+- `optimize.DatasetFlux` — `name`, `Fs`, `Fb`.
+
+### `lcbinint.bayes` (full)
+
+- `model.n_data` — total number of data points across all datasets.
+- `model.residuals(theta)` — flat weighted residuals `(flux - Fs*A - Fb) / sigma`.
+- `model.fluxes(theta)` — `{dataset_name: {'Fs': ..., 'Fb': ...}}` per dataset.
+
+### `lcbinint.sample`
+
+- `sample.Chain`:
+  - `flat_samples`: shape `(nsteps*nwalkers, ndim)` — transformed (optimizer) space.
+  - `samples`: shape `(nsteps*nwalkers, ndim)` — physical space (exp applied for log params).
+  - `flat_log_prob`: shape `(nsteps*nwalkers,)`.
+  - `flat_fluxes`: shape `(nsteps*nwalkers, n_datasets*2)` — `[Fs0, Fb0, Fs1, Fb1, ...]` per dataset.
+  - `transforms`: `['log', 'identity', ...]` per dimension.
+  - `dataset_names`: list of dataset names.
+  - `param_names`: list of parameter names.
+  - `summary()` → `{param_name: {'median', 'lo', 'hi', 'std'}}` (16th/84th percentile).
+  - `get_chain()`: shape `(nsteps, nwalkers, ndim)`.
+- `sample.Move` / `sample.StretchMove(a=2.0)` — pluggable move strategy.
+- `sample.EnsembleSampler(nwalkers=64, seed=0, move=StretchMove())`.
+  - GIL released during entire sampling loop.
+  - Walker flux cache: updated only on acceptance → no extra magnification calls for rejected walkers.
+
+### `lcbinint.lc` (full)
+
+- `lc.LimbDarkening(c=0, d=0)` — now properly exposed as Python class.
+  - `LimbDarkening.linear(u)` — linear profile, c=u, d=0.
+  - `LimbDarkening.square_root(c, d)` — square-root profile.
+  - `LightCurve(limb_darkening=LimbDarkening.linear(0.5))` works as expected.

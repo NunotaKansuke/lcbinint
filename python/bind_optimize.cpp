@@ -14,9 +14,20 @@ void register_optimize_submodule(py::module_& parent)
 {
     auto opt = parent.def_submodule("optimize", "Optimization algorithms");
 
+    py::class_<DatasetFlux>(opt, "DatasetFlux")
+        .def_readonly("name", &DatasetFlux::name)
+        .def_readonly("Fs",   &DatasetFlux::Fs)
+        .def_readonly("Fb",   &DatasetFlux::Fb)
+        .def("__repr__", [](const DatasetFlux& f) {
+            return "<optimize.DatasetFlux " + f.name
+                + " Fs=" + std::to_string(f.Fs)
+                + " Fb=" + std::to_string(f.Fb) + ">";
+        });
+
     py::class_<Result>(opt, "Result")
         .def_readonly("position",       &Result::position)
         .def_readonly("parameters",     &Result::parameters)
+        .def_readonly("fluxes",         &Result::fluxes)
         .def_readonly("chi2",           &Result::chi2)
         .def_readonly("log_likelihood", &Result::log_likelihood)
         .def_readonly("log_prob",       &Result::log_prob)
