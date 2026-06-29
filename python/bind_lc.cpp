@@ -144,7 +144,6 @@ void register_lc_submodule(py::module_& parent)
 
     // --- Options: lcbi_options exposed directly (for power users / bayes module) ---
     py::class_<lcbi_options>(lc, "Options")
-        .def(py::init([]() { return lcbi_default_options(); }))
         .def(py::init([](
                 std::string param_type,
                 int    source_bins,
@@ -299,16 +298,19 @@ void register_lc_submodule(py::module_& parent)
     // Accepts params as: lcbi_params object, dict, or **kwargs.
     using LC = lcbinint::lc::LightCurve;
 
+    // Default options with vbm_compatible=1 (same as lc.Options() default).
+    static const lcbi_options kDefaultOpts = []{ auto o = lcbi_default_options(); o.vbm_compatible = 1; return o; }();
+
     py::class_<LC, std::shared_ptr<LC>>(lc, "LightCurve")
         // Constructor 1: explicit lc.Options object (for bayes module / power users)
         .def(py::init([](const lcbi_options& opts, const PyLimbDarkening& ld) {
             return std::make_shared<LC>(opts, ld.c, ld.d);
         }),
-            py::arg("options")        = lcbi_default_options(),
+            py::arg("options")        = kDefaultOpts,
             py::arg("limb_darkening") = PyLimbDarkening{})
         // Constructor 2: kwargs directly (VBM style)
         .def(py::init([](py::kwargs kw) {
-            auto o = lcbi_default_options();
+            auto o = kDefaultOpts;   // default param_type='vbm', overrideable via kwarg
             PyLimbDarkening ld{};
             for (auto& item : kw) {
                 const std::string key = item.first.cast<std::string>();
@@ -373,9 +375,13 @@ void register_lc_submodule(py::module_& parent)
             py::arg("times"))
 
         .def("__repr__", [](const LC& lc) {
-            return "<lc.LightCurve source_bins="
-                + std::to_string(lc.options().source_bins)
-                + " vbm_compatible="
-                + (lc.options().vbm_compatible ? "True" : "False") + ">";
+            const auto& o = lc.options();
+            std::string pt;
+            if (o.vbm_compatible != 0 && o.center_of_mass == 0) pt = "vbm";
+            else if (o.vbm_compatible != 0)                      pt = "vbm_center_of_mass";
+            else if (o.center_of_mass != 0)                      pt = "center_of_mass";
+            else                                                  pt = "lcbinint";
+            return "<lc.LightCurve param_type='" + pt
+                + "' source_bins=" + std::to_string(o.source_bins) + ">";
         });
 }
