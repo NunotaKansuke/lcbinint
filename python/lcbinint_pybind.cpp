@@ -2304,10 +2304,12 @@ public:
         lcbi_options options,
         PyLimbDarkening limb_darkening,
         lcbi_orbital_motion_mode orbital_motion_mode,
-        bool parallax)
+        bool parallax,
+        bool terrestrial_parallax)
         : base_(std::move(lens), event, options, limb_darkening, orbital_motion_mode)
         , source_(normalize_source_name(source))
         , parallax_(parallax)
+        , terrestrial_parallax_(terrestrial_parallax)
     {
     }
 
@@ -2318,6 +2320,7 @@ public:
     const PyLimbDarkening& limb_darkening() const { return base_.limb_darkening(); }
     lcbi_orbital_motion_mode orbital_motion_mode() const { return base_.orbital_motion_mode(); }
     bool parallax() const { return parallax_; }
+    bool terrestrial_parallax() const { return terrestrial_parallax_; }
 
     py::array_t<double> light_curve_from_dict(
         py::array_t<double, py::array::c_style | py::array::forcecast> times,
@@ -2730,13 +2733,18 @@ private:
         }
         const double piEN = parallax_ ? p.piEN : 0.0;
         const double piEE = parallax_ ? p.piEE : 0.0;
-        return make_binary_params(
+        auto c_params = make_binary_params(
             p.t0, p.tE, p.u0, p.alpha, p.s, p.q, p.rho,
             base_.limb_darkening(), base_.event(),
             piEN, piEE, p.g1, p.g2, p.g3,
             base_.orbital_motion_mode(), p.lom_szs, p.lom_ar,
             p.xi_1, p.xi_2, p.omega_xa, p.inc_xa, p.phi_xa,
             p.piEN_xa, p.piEE_xa, p.period_xa, p.ecc_xa, p.peri_xa);
+        if (!terrestrial_parallax_) {
+            c_params.obs_lat = 0.0;
+            c_params.obs_lon = 0.0;
+        }
+        return c_params;
     }
 
     std::vector<double> single_source_list(
@@ -2754,6 +2762,7 @@ private:
     PyLightCurveFunc base_;
     std::string source_;
     bool parallax_ = false;
+    bool terrestrial_parallax_ = false;
 };
 
 } // namespace
@@ -3109,9 +3118,11 @@ PYBIND11_MODULE(lcbinint, m)
                          const lcbi_options& options,
                          const PyLimbDarkening& limb_darkening,
                          lcbi_orbital_motion_mode orbital_motion_mode,
-                         bool parallax) {
+                         bool parallax,
+                         bool terrestrial_parallax) {
                  return PyLightCurveEvaluator(
-                     lens, source, event, options, limb_darkening, orbital_motion_mode, parallax);
+                     lens, source, event, options, limb_darkening, orbital_motion_mode,
+                     parallax, terrestrial_parallax);
              }),
             py::kw_only(),
             py::arg("lens") = "binary_lens",
@@ -3120,7 +3131,8 @@ PYBIND11_MODULE(lcbinint, m)
             py::arg("options") = public_default_options(),
             py::arg("limb_darkening") = PyLimbDarkening {},
             py::arg("orbital_motion_mode") = LCBI_ORBIT_STATIC,
-            py::arg("parallax") = false)
+            py::arg("parallax") = false,
+            py::arg("terrestrial_parallax") = false)
         .def_property_readonly("lens", &PyLightCurveEvaluator::lens)
         .def_property_readonly("source", &PyLightCurveEvaluator::source)
         .def_property_readonly("event", &PyLightCurveEvaluator::event)
@@ -3128,6 +3140,7 @@ PYBIND11_MODULE(lcbinint, m)
         .def_property_readonly("limb_darkening", &PyLightCurveEvaluator::limb_darkening)
         .def_property_readonly("orbital_motion_mode", &PyLightCurveEvaluator::orbital_motion_mode)
         .def_property_readonly("parallax", &PyLightCurveEvaluator::parallax)
+        .def_property_readonly("terrestrial_parallax", &PyLightCurveEvaluator::terrestrial_parallax)
         .def("__call__",
             &PyLightCurveEvaluator::light_curve_from_dict,
             py::arg("times"),

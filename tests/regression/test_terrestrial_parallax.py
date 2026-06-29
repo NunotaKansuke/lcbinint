@@ -83,7 +83,7 @@ _PIEE = 0.3
 def make_lc(obs_lat=0.0, obs_lon=0.0):
     event = lcbinint.EventCoordinates(ra=_RA, dec=_DEC, tfix=_T0PAR,
                                       obs_lat=obs_lat, obs_lon=obs_lon)
-    return lcbinint.LightCurve(event=event, parallax=True)
+    return lcbinint.LightCurve(event=event, parallax=True, terrestrial_parallax=True)
 
 
 _PARAMS_BASE = {
@@ -99,8 +99,32 @@ _PARAMS_BASE = {
 }
 
 
+def test_terrestrial_requires_explicit_flag():
+    """obs_lat/obs_lon have no effect unless terrestrial_parallax=True."""
+    event = lcbinint.EventCoordinates(ra=_RA, dec=_DEC, tfix=_T0PAR,
+                                      obs_lat=20.0, obs_lon=-156.0)
+    lc_no_flag = lcbinint.LightCurve(event=event, parallax=True)
+    lc_with_flag = lcbinint.LightCurve(event=event, parallax=True, terrestrial_parallax=True)
+    lc_geo = lcbinint.LightCurve(
+        event=lcbinint.EventCoordinates(ra=_RA, dec=_DEC, tfix=_T0PAR),
+        parallax=True,
+    )
+
+    times = np.array([_T0PAR + 1.0])
+    info_no_flag = lc_no_flag.info(times, _PARAMS_BASE)
+    info_geo = lc_geo.info(times, _PARAMS_BASE)
+    info_with_flag = lc_with_flag.info(times, _PARAMS_BASE)
+
+    # Without terrestrial_parallax=True, obs_lat/lon are ignored → same as geocenter
+    np.testing.assert_array_equal(info_no_flag.source_x, info_geo.source_x)
+    np.testing.assert_array_equal(info_no_flag.source_y, info_geo.source_y)
+
+    # With terrestrial_parallax=True, source position differs from geocenter
+    assert info_with_flag.source_x[0] != info_geo.source_x[0]
+
+
 def test_terrestrial_zero_obs_same_as_geocentric():
-    """obs_lat=obs_lon=0 should give identical results to omitting them."""
+    """obs_lat=obs_lon=0 gives identical results to geocenter even with terrestrial_parallax=True."""
     lc_geo = make_lc(obs_lat=0.0, obs_lon=0.0)
     lc_zero = make_lc(obs_lat=0.0, obs_lon=0.0)
     times = np.array([_T0PAR, _T0PAR + 10.0, _T0PAR + 50.0])
