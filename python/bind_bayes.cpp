@@ -1,5 +1,5 @@
 #include "bind_bayes.hpp"
-#include "lcbinint/lcbinint.h"
+#include "lcbinint/lc/light_curve.hpp"
 #include "lcbinint/bayes/prior.hpp"
 #include "lcbinint/bayes/model.hpp"
 
@@ -33,7 +33,8 @@ void register_bayes_submodule(py::module_& parent)
     py::class_<Normal, Prior, std::shared_ptr<Normal>>(bayes, "Normal")
         .def(py::init<double, double>(), py::arg("mu"), py::arg("sigma"))
         .def("__repr__", [](const Normal& n) {
-            return "Normal(mu=..., sigma=...)";
+            auto b = n.bounds();
+            return "Normal(mu=" + std::to_string(b.lo) + ", sigma=...)";
         });
 
     py::class_<LogUniform, Prior, std::shared_ptr<LogUniform>>(bayes, "LogUniform")
@@ -44,20 +45,24 @@ void register_bayes_submodule(py::module_& parent)
         });
 
     // --- Model ---
-    // Takes lcbi_options directly — calls lcbi_magnification_array in the hot path
+    // Takes lc.LightCurve + obs.Event (or single LightCurveData for convenience).
+    // The LightCurve holds the computation options; the hot path calls
+    // lc_->magnification() directly in C++.
     py::class_<Model>(bayes, "Model")
-        .def(py::init<lcbi_options, std::shared_ptr<lcbinint::obs::Event>>(),
-            py::arg("options"), py::arg("event"))
-        .def(py::init<lcbi_options, std::shared_ptr<lcbinint::obs::LightCurveData>>(),
-            py::arg("options"), py::arg("data"))
+        .def(py::init<std::shared_ptr<lcbinint::lc::LightCurve>,
+                      std::shared_ptr<lcbinint::obs::Event>>(),
+            py::arg("light_curve"), py::arg("event"))
+        .def(py::init<std::shared_ptr<lcbinint::lc::LightCurve>,
+                      std::shared_ptr<lcbinint::obs::LightCurveData>>(),
+            py::arg("light_curve"), py::arg("data"))
         .def("param", [](Model& m, std::string name, std::shared_ptr<Prior> prior) {
             m.param(std::move(name), std::move(prior));
         }, py::arg("name"), py::arg("prior"))
-        .def("flux",           &Model::flux,          py::arg("mode") = "linear_blend")
-        .def("likelihood",     &Model::likelihood,    py::arg("mode") = "gaussian")
+        .def("flux",           &Model::flux,         py::arg("mode") = "linear_blend")
+        .def("likelihood",     &Model::likelihood,   py::arg("mode") = "gaussian")
         .def("n_params",       &Model::n_params)
-        .def("log_prior",      &Model::log_prior,     py::arg("theta"))
-        .def("log_likelihood", &Model::log_likelihood,py::arg("theta"))
-        .def("log_prob",       &Model::log_prob,      py::arg("theta"))
-        .def("chi2",           &Model::chi2,          py::arg("theta"));
+        .def("log_prior",      &Model::log_prior,    py::arg("theta"))
+        .def("log_likelihood", &Model::log_likelihood, py::arg("theta"))
+        .def("log_prob",       &Model::log_prob,     py::arg("theta"))
+        .def("chi2",           &Model::chi2,         py::arg("theta"));
 }
