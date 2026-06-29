@@ -15,9 +15,19 @@ struct ParameterDef {
     double                 fixed_value = 0.0;
 };
 
+// Per-dataset sums precomputed at construction + reusable evaluation buffers.
+struct DatasetCache {
+    double                    S_w   = 0.0;  // sum(w_i)
+    double                    S_wf  = 0.0;  // sum(w_i * f_i)
+    double                    S_wf2 = 0.0;  // sum(w_i * f_i^2)
+    std::vector<double>       mag_buf;      // magnification workspace (size = n_points)
+    std::vector<lcbi_result>  res_buf;      // lcbi_result workspace  (size = n_points)
+};
+
 // Central class for Bayesian inference.
 // Takes lcbi_options directly and calls lcbi_magnification_array in the hot path —
 // no Python-layer lc.LightCurve wrapper involved.
+// Weight sums are precomputed at construction; mag_buf is reused per evaluation.
 // Samplers and optimizers call only log_prob(theta) / chi2(theta).
 class Model {
 public:
@@ -40,12 +50,17 @@ public:
 
 private:
     lcbi_params theta_to_params(const std::vector<double>& theta) const;
+    double      compute_chi2(const lcbi_params& p) const;
+    void        build_cache();
 
-    lcbi_options              options_;
+    lcbi_options                options_;
     std::shared_ptr<obs::Event> event_;
-    std::vector<ParameterDef> params_;
-    std::string               flux_mode_{"linear_blend"};
-    std::string               likelihood_mode_{"gaussian"};
+    std::vector<ParameterDef>   params_;
+    std::string                 flux_mode_{"linear_blend"};
+    std::string                 likelihood_mode_{"gaussian"};
+
+    // cache_[k] corresponds to event_->at(k); mag_buf is a reusable workspace.
+    mutable std::vector<DatasetCache> cache_;
 };
 
 } // namespace lcbinint::bayes
