@@ -43,14 +43,25 @@ Chain EnsembleSampler::run(bayes::Model& model, const optimize::Result& start,
     std::mt19937_64 rng(seed_);
     std::normal_distribution<double> gauss(0.0, 1.0);
 
-    // Initialize in a tight gaussian ball (1e-3 of range per dimension)
+    // Initialize in a tight gaussian ball around start.position.
+    // sigma is 1% of the prior range per dimension, but additionally
+    // capped to half the distance to the nearest prior boundary so walkers
+    // don't pile up on a wall when the starting point is near a boundary.
     std::vector<std::vector<double>> pos(nwalkers_, std::vector<double>(ndim));
     for (int w = 0; w < nwalkers_; ++w) {
         for (int j = 0; j < ndim; ++j) {
-            const double sigma = 1e-3 * (bounds[j].hi - bounds[j].lo);
-            pos[w][j] = std::clamp(
-                start.position[j] + gauss(rng) * sigma,
-                bounds[j].lo, bounds[j].hi);
+            const double range   = bounds[j].hi - bounds[j].lo;
+            const double dist_lo = start.position[j] - bounds[j].lo;
+            const double dist_hi = bounds[j].hi - start.position[j];
+            const double sigma   = 1e-2 * range;
+            const double sigma_j = std::min(sigma, 0.5 * std::min(dist_lo, dist_hi) + 1e-12);
+            // re-sample if outside bounds (avoids pile-up at boundaries)
+            double v;
+            for (int attempt = 0; attempt < 64; ++attempt) {
+                v = start.position[j] + gauss(rng) * sigma_j;
+                if (v >= bounds[j].lo && v <= bounds[j].hi) break;
+            }
+            pos[w][j] = std::clamp(v, bounds[j].lo, bounds[j].hi);
         }
     }
     return run_impl(model, std::move(pos), nsteps, burnin);
