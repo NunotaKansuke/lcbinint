@@ -6,11 +6,14 @@
 
 namespace lcbinint::sample {
 
-EnsembleSampler::EnsembleSampler(int nwalkers, unsigned int seed, double a)
-    : nwalkers_(nwalkers), seed_(seed), a_(a)
+EnsembleSampler::EnsembleSampler(int nwalkers, unsigned int seed,
+                                   std::shared_ptr<Move> move)
+    : nwalkers_(nwalkers), seed_(seed), move_(std::move(move))
 {
     if (nwalkers_ < 4 || nwalkers_ % 2 != 0)
         throw std::invalid_argument("nwalkers must be even and >= 4");
+    if (!move_)
+        throw std::invalid_argument("move must not be null");
 }
 
 // ---------------------------------------------------------------------------
@@ -93,8 +96,7 @@ Chain EnsembleSampler::run_impl(bayes::Model& model,
     for (int w = 0; w < NW; ++w)
         lp[w] = model.log_prob(pos[w]);
 
-    // Pre-allocate reusable buffers
-    std::vector<double> prop(ndim);
+    // Pre-allocate step buffer
     std::vector<double> step_pos(NW * ndim);
     std::vector<double> step_lp(NW);
 
@@ -110,15 +112,6 @@ Chain EnsembleSampler::run_impl(bayes::Model& model,
     std::mt19937_64 rng(seed_);
     auto rand01 = [&]{ return std::uniform_real_distribution<double>(0.0, 1.0)(rng); };
 
-    // Stretch factor: z = ((a-1)*u + 1)^2 / a  maps u~U(0,1) → z ∈ [1/a, a]
-    // giving p(z) ∝ 1/sqrt(z)  (Goodman & Weare 2010)
-    const double inv_a = 1.0 / a_;
-    auto sample_z = [&]() -> double {
-        const double u = rand01();
-        const double w = (a_ - 1.0) * u + 1.0;
-        return w * w * inv_a;
-    };
-
     long long accepted = 0;
 
     for (int step = 0; step < nsteps + burnin; ++step) {
@@ -127,22 +120,19 @@ Chain EnsembleSampler::run_impl(bayes::Model& model,
             const int begin_this = half_idx == 0 ? 0    : half;
             const int begin_comp = half_idx == 0 ? half : 0;
 
+            // Build complementary sub-ensemble view (stable during this half update)
+            std::vector<std::vector<double>> complement(pos.begin() + begin_comp,
+                                                         pos.begin() + begin_comp + half);
+
             for (int k = begin_this; k < begin_this + half; ++k) {
-                // Pick j uniformly from complementary half
-                const int j = begin_comp +
-                    std::uniform_int_distribution<int>(0, half - 1)(rng);
+                auto [prop_vec, log_factor] =
+                    move_->propose(pos[k], complement, rng, ndim);
 
-                const double z = sample_z();
-
-                // Proposal: Y = X_j + z * (X_k - X_j)
-                for (int d = 0; d < ndim; ++d)
-                    prop[d] = pos[j][d] + z * (pos[k][d] - pos[j][d]);
-
-                const double lp_prop = model.log_prob(prop);
-                const double log_acc = (ndim - 1) * std::log(z) + lp_prop - lp[k];
+                const double lp_prop = model.log_prob(prop_vec);
+                const double log_acc = log_factor + lp_prop - lp[k];
 
                 if (std::log(rand01()) <= log_acc) {
-                    pos[k] = prop;
+                    pos[k] = std::move(prop_vec);
                     lp[k]  = lp_prop;
                     ++accepted;
                 }

@@ -74,6 +74,7 @@ add_library(lcbinint_core
     src/lcbinint/optimize/differential_evolution.cpp
     src/lcbinint/optimize/levenberg_marquardt.cpp
     src/lcbinint/sample/chain.cpp
+    src/lcbinint/sample/stretch_move.cpp
     src/lcbinint/sample/ensemble_sampler.cpp
     third_party/skowron_gould/SkowronGould.cpp)
 target_include_directories(lcbinint_core
