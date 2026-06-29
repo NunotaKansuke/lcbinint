@@ -49,14 +49,51 @@ PYTHONPATH=build_new python3 -c "import lcbinint; lcbinint.obs.LightCurveData(..
 
 ---
 
+## Phase 2: lc サブモジュール完成・旧 API 削除 (2026-06-30) ✅
+
+### 追加したファイル
+
+| ファイル | 内容 |
+|---|---|
+| `src/lcbinint/lc/parameters.{hpp,cpp}` | `lc::Parameters` — `lcbi_params` の名前付きラッパー |
+| `src/lcbinint/lc/light_curve.{hpp,cpp}` | `lc::LightCurve : IEvaluator` — `lcbi_magnification_array` を呼ぶだけのクリーンな実装 |
+| `python/bind_lc.{hpp,cpp}` | `lcbinint.lc` サブモジュール |
+
+### 削除したもの
+
+- `python/lcbinint_pybind.cpp` の全 3926 行 → 20 行の thin shell に置き換え
+  - 旧 `PyLightCurveEvaluator`、`PyBinaryParams`、`PyOptions`、`PyLimbDarkening`、`PyEventCoordinates`、文字列ディスパッチ、dict パース — 全廃
+
+### 新 API の概要
+
+```python
+import lcbinint.lc as lc
+import numpy as np
+
+opts   = lc.Options(source_bins=12, vbm_compatible=True)
+ld     = lc.LimbDarkening.linear(0.5)
+lc_obj = lc.LightCurve(options=opts, limb_darkening=ld)
+
+params = lc.Parameters(t0=9000.0, tE=20.0, u0=0.3, alpha=0.5, s=1.5, q=1e-3, rho=1e-2)
+times  = np.linspace(8990.0, 9010.0, 1000)
+A      = lc_obj(times, params)   # np.ndarray, shape=(1000,)
+```
+
+Triple lens: `params.q2`, `params.sep2`, `params.ang` を設定するだけ。
+Parallax: `params.piEN`, `params.piEE`, `params.ra`, `params.dec` を設定 + `Options(parallax_mode=1)`.
+Xallarap: `params.xi_1`, `params.xi_2`, ... + `Options(xallarap_param_type=lc.XallarapParamType.ANGULAR_VELOCITY)`.
+
+### 設計上のポイント
+
+- `lc::LightCurve` は `IEvaluator` を実装 → `bayes::Model` がそのまま使える
+- `lc::LightCurve` は `shared_ptr` で Python に露出 → `bayes::Model` に渡せる
+- 旧 API の複雑な文字列ディスパッチは不要 — `lcbi_magnification_array` がパラメータを見て全て処理する
+
+---
+
 ## 次のステップ
 
-### Phase 2: `lc::IEvaluator` の実装接続
-
-- 既存 `PyLightCurveEvaluator` に `IEvaluator` を継承させる (または adapter を作る)
-- `bayes::Model` のコンストラクタが Python 側から `LightCurve` オブジェクトを受け取れるようにする
-
-### Phase 3: パラメータ名→`lcbi_params` マッピング
+### Phase 3: パラメータ名→`lcbi_params` マッピング ← 次
 
 - `Model::theta_to_params()` の中身: `"t0"`, `"tE"`, `"u0"`, `"sep"`, `"q"`, ... → `lcbi_params` フィールドへのマッピングテーブル
 - サンプリング空間 (theta) と物理空間 (lcbi_params) の変換 (log変換など)

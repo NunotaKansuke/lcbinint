@@ -66,6 +66,8 @@ add_library(lcbinint_core
     src/lcbinint/model/orbital_motion.cpp
     src/lcbinint/model/triple_lens_geometry.cpp
     src/lcbinint/model/trajectory.cpp
+    src/lcbinint/lc/parameters.cpp
+    src/lcbinint/lc/light_curve.cpp
     src/lcbinint/obs/light_curve_data.cpp
     src/lcbinint/obs/event.cpp
     src/lcbinint/bayes/prior.cpp
@@ -96,6 +98,7 @@ if(LCBININT_BUILD_PYTHON)
     find_package(pybind11 CONFIG REQUIRED)
     pybind11_add_module(lcbinint_python
         python/lcbinint_pybind.cpp
+        python/bind_lc.cpp
         python/bind_obs.cpp
         python/bind_bayes.cpp
         python/bind_optimize.cpp
