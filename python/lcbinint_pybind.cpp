@@ -7,6 +7,11 @@
 #include "lcbinint/model/orbital_motion.hpp"
 #include "lcbinint/model/trajectory.hpp"
 
+#include "bind_obs.hpp"
+#include "bind_bayes.hpp"
+#include "bind_optimize.hpp"
+#include "bind_sample.hpp"
+
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -3923,4 +3928,10 @@ the C++ side can keep per-curve state local to the loop.
         py::arg("g2") = 0.0, py::arg("g3") = 0.0, py::arg("szs") = 0.0,
         py::arg("ar") = 1.0, py::arg("reference_time") = 0.0,
         "VBM-compatible Keplerian 3D orbital-motion state.");
+
+    // --- New architecture submodules ---
+    register_obs_submodule(m);
+    register_bayes_submodule(m);
+    register_optimize_submodule(m);
+    register_sample_submodule(m);
 }
