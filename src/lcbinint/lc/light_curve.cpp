@@ -30,11 +30,4 @@ std::vector<double> LightCurve::magnification(
     return mags;
 }
 
-std::vector<double> LightCurve::magnification(
-    const std::vector<double>& times,
-    const Parameters&          params) const
-{
-    return magnification(times, params.raw());
-}
-
 } // namespace lcbinint::lc

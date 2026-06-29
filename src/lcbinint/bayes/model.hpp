@@ -1,6 +1,6 @@
 #pragma once
 #include "prior.hpp"
-#include "../lc/evaluator.hpp"
+#include "lcbinint/lcbinint.h"
 #include "../obs/event.hpp"
 #include <memory>
 #include <string>
@@ -16,29 +16,21 @@ struct ParameterDef {
 };
 
 // Central class for Bayesian inference.
-// Owns parameter definitions, priors, flux model, and likelihood configuration.
-// Samplers and optimizers call log_prob(theta) / chi2(theta) and know nothing else.
+// Holds lcbi_options and calls lcbi_magnification_array directly in the hot path.
+// Samplers and optimizers only call log_prob(theta) / chi2(theta).
 class Model {
 public:
-    Model(
-        std::shared_ptr<lc::IEvaluator> evaluator,
-        std::shared_ptr<obs::Event>     event
-    );
-
-    // Single-dataset convenience constructor
-    Model(
-        std::shared_ptr<lc::IEvaluator>      evaluator,
-        std::shared_ptr<obs::LightCurveData> data
-    );
+    Model(lcbi_options options, std::shared_ptr<obs::Event> event);
+    Model(lcbi_options options, std::shared_ptr<obs::LightCurveData> data);
 
     void param(std::string name, std::shared_ptr<Prior> prior);
     void flux(std::string mode = "linear_blend");
     void likelihood(std::string mode = "gaussian");
 
-    int                            n_params()   const noexcept;
-    const std::vector<ParameterDef>& param_defs() const noexcept { return params_; }
+    int                              n_params()    const noexcept;
+    const std::vector<ParameterDef>& param_defs()  const noexcept { return params_; }
+    const lcbi_options&              options()      const noexcept { return options_; }
 
-    // Core evaluation — all run in C++
     double log_prior(      const std::vector<double>& theta) const;
     double log_likelihood( const std::vector<double>& theta) const;
     double log_prob(       const std::vector<double>& theta) const;
@@ -47,11 +39,11 @@ public:
 private:
     lcbi_params theta_to_params(const std::vector<double>& theta) const;
 
-    std::shared_ptr<lc::IEvaluator> evaluator_;
-    std::shared_ptr<obs::Event>     event_;
-    std::vector<ParameterDef>       params_;
-    std::string                     flux_mode_{"linear_blend"};
-    std::string                     likelihood_mode_{"gaussian"};
+    lcbi_options              options_;
+    std::shared_ptr<obs::Event> event_;
+    std::vector<ParameterDef> params_;
+    std::string               flux_mode_{"linear_blend"};
+    std::string               likelihood_mode_{"gaussian"};
 };
 
 } // namespace lcbinint::bayes

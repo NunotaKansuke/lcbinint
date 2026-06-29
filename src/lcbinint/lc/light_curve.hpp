@@ -1,14 +1,12 @@
 #pragma once
-#include "evaluator.hpp"
-#include "parameters.hpp"
 #include "lcbinint/lcbinint.h"
 #include <vector>
 
 namespace lcbinint::lc {
 
-// Concrete IEvaluator: calls lcbi_magnification_array with stored options.
-// LimbDarkening stored here overrides params.limb_darkening_c/d when non-zero.
-class LightCurve : public IEvaluator {
+// Standalone Python-facing evaluator.
+// Holds lcbi_options and optional limb-darkening; calls lcbi_magnification_array directly.
+class LightCurve {
 public:
     explicit LightCurve(
         lcbi_options opts = lcbi_default_options(),
@@ -19,11 +17,6 @@ public:
     std::vector<double> magnification(
         const std::vector<double>& times,
         const lcbi_params&         params
-    ) const override;
-
-    std::vector<double> magnification(
-        const std::vector<double>& times,
-        const Parameters&          params
     ) const;
 
     const lcbi_options& options() const noexcept { return opts_; }
