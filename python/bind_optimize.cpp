@@ -1,6 +1,7 @@
 #include "bind_optimize.hpp"
 #include "lcbinint/optimize/result.hpp"
 #include "lcbinint/optimize/differential_evolution.hpp"
+#include "lcbinint/optimize/levenberg_marquardt.hpp"
 #include "lcbinint/bayes/model.hpp"
 
 #include <pybind11/pybind11.h>
@@ -45,4 +46,30 @@ void register_optimize_submodule(py::module_& parent)
                 return de.minimize(model, target);
             },
             py::arg("model"), py::arg("target") = "chi2");
+
+    // GIL released during minimize() — Jacobian build and linear solve in C++.
+    py::class_<LevenbergMarquardt>(opt, "LevenbergMarquardt")
+        .def(py::init<int, double, double, double, double, double, double, double>(),
+            py::arg("max_iter")    = 200,
+            py::arg("ftol")        = 1e-8,
+            py::arg("xtol")        = 1e-8,
+            py::arg("gtol")        = 1e-8,
+            py::arg("fd_step")     = 1e-5,
+            py::arg("lambda_init") = 1e-3,
+            py::arg("lambda_up")   = 3.0,
+            py::arg("lambda_down") = 3.0)
+        // start can be optimize.Result or list/array of theta values.
+        // Python processing (cast) happens before GIL release.
+        .def("minimize",
+            [](LevenbergMarquardt& lm, lcbinint::bayes::Model& model,
+               py::object start) {
+                std::vector<double> theta;
+                if (py::isinstance<Result>(start))
+                    theta = start.cast<const Result&>().position;
+                else
+                    theta = start.cast<std::vector<double>>();
+                py::gil_scoped_release release;
+                return lm.minimize(model, theta);
+            },
+            py::arg("model"), py::arg("start"));
 }

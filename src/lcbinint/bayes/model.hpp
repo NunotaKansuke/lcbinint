@@ -57,17 +57,25 @@ public:
     // Bounds in optimizer/sampler (transformed) space.
     std::vector<OptimizerBounds> optimizer_bounds() const;
 
+    // Total number of data points across all datasets.
+    int n_data() const noexcept;
+
     // All public evaluation methods accept theta in transformed space.
     double log_prior(      const std::vector<double>& theta) const;
     double log_likelihood( const std::vector<double>& theta) const;
     double log_prob(       const std::vector<double>& theta) const;
     double chi2(           const std::vector<double>& theta) const;
 
+    // Flat weighted residual vector r_i = (flux_i - Fs*A_i - Fb) / sigma_i
+    // across all datasets (used by LevenbergMarquardt for Jacobian construction).
+    std::vector<double> residuals(const std::vector<double>& theta) const;
+
 private:
     // Convert transformed theta → lcbi_params (physical values).
-    lcbi_params theta_to_params(const std::vector<double>& theta) const;
-    double      compute_chi2(const lcbi_params& p) const;
-    void        build_cache();
+    lcbi_params         theta_to_params(const std::vector<double>& theta) const;
+    double              compute_chi2(const lcbi_params& p) const;
+    std::vector<double> compute_residuals(const lcbi_params& p) const;
+    void                build_cache();
 
     lcbi_options                options_;
     std::shared_ptr<obs::Event> event_;

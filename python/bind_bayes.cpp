@@ -71,8 +71,10 @@ void register_bayes_submodule(py::module_& parent)
                 out.append(py::make_tuple(b.lo, b.hi));
             return out;
         })
+        .def_property_readonly("n_data", &Model::n_data)
         .def("log_prior",      &Model::log_prior,      py::arg("theta"))
         .def("log_likelihood", &Model::log_likelihood,  py::arg("theta"))
         .def("log_prob",       &Model::log_prob,        py::arg("theta"))
-        .def("chi2",           &Model::chi2,            py::arg("theta"));
+        .def("chi2",           &Model::chi2,            py::arg("theta"))
+        .def("residuals",      &Model::residuals,       py::arg("theta"));
 }

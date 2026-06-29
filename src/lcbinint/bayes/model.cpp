@@ -142,6 +142,18 @@ lcbi_params Model::theta_to_params(const std::vector<double>& theta) const
 }
 
 // ---------------------------------------------------------------------------
+// n_data
+// ---------------------------------------------------------------------------
+
+int Model::n_data() const noexcept
+{
+    int n = 0;
+    for (std::size_t k = 0; k < event_->size(); ++k)
+        n += static_cast<int>(event_->at(k).size());
+    return n;
+}
+
+// ---------------------------------------------------------------------------
 // compute_chi2: hot path — magnification + linear flux solve per dataset
 // ---------------------------------------------------------------------------
 
@@ -204,6 +216,57 @@ double Model::log_prior(const std::vector<double>& theta) const
         if (!std::isfinite(lp)) return lp;
     }
     return lp;
+}
+
+// ---------------------------------------------------------------------------
+// compute_residuals: weighted residuals r_i = (flux_i - Fs*A_i - Fb) / sigma_i
+// ---------------------------------------------------------------------------
+
+std::vector<double> Model::compute_residuals(const lcbi_params& p) const
+{
+    std::vector<double> out;
+    out.reserve(static_cast<std::size_t>(n_data()));
+
+    for (std::size_t k = 0; k < event_->size(); ++k) {
+        const auto& ds = event_->at(k);
+        DatasetCache& c = cache_[k];
+        const std::size_t n = ds.size();
+
+        const lcbi_status status =
+            lcbi_magnification_array(ds.time().data(), static_cast<int>(n),
+                                     &p, &options_, c.res_buf.data());
+        if (status != LCBI_OK)
+            throw std::runtime_error(lcbi_status_string(status));
+        for (std::size_t i = 0; i < n; ++i)
+            c.mag_buf[i] = c.res_buf[i].magnification;
+
+        const double* __restrict__ A = c.mag_buf.data();
+        const double* __restrict__ f = ds.flux().data();
+        const double* __restrict__ w = ds.weight().data();
+
+        double S_wA = 0.0, S_wA2 = 0.0, S_wAf = 0.0;
+        for (std::size_t i = 0; i < n; ++i) {
+            const double wi = w[i], Ai = A[i];
+            S_wA  += wi * Ai;
+            S_wA2 += wi * Ai * Ai;
+            S_wAf += wi * Ai * f[i];
+        }
+        const double D  = S_wA2 * c.S_w - S_wA * S_wA;
+        const double Fs = (S_wAf * c.S_w  - S_wA  * c.S_wf) / D;
+        const double Fb = (S_wA2 * c.S_wf - S_wA  * S_wAf)  / D;
+
+        const double* __restrict__ sig = ds.flux_err().data();
+        for (std::size_t i = 0; i < n; ++i)
+            out.push_back((f[i] - Fs * A[i] - Fb) / sig[i]);
+    }
+    return out;
+}
+
+std::vector<double> Model::residuals(const std::vector<double>& theta) const
+{
+    if (static_cast<int>(theta.size()) != n_params())
+        throw std::invalid_argument("theta size mismatch");
+    return compute_residuals(theta_to_params(theta));
 }
 
 double Model::chi2(const std::vector<double>& theta) const
