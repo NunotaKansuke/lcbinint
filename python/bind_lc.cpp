@@ -222,10 +222,21 @@ void register_lc_submodule(py::module_& parent)
                 auto buf = times.request();
                 const double* ptr = static_cast<const double*>(buf.ptr);
                 std::vector<double> tv(ptr, ptr + buf.size);
-                py::gil_scoped_release release;
-                auto mags = lc.magnification(tv, params);
-                py::gil_scoped_acquire acquire;
-                return py::array_t<double>(mags.size(), mags.data());
+                std::vector<double> mags;
+                {
+                    py::gil_scoped_release release;
+                    mags = lc.magnification(tv, params);
+                }  // GIL re-acquired here before any Python API calls
+                // Transfer vector ownership to a capsule so numpy borrows its memory
+                auto* heap = new std::vector<double>(std::move(mags));
+                py::capsule cap(heap, [](void* p) {
+                    delete static_cast<std::vector<double>*>(p);
+                });
+                return py::array_t<double>(
+                    {static_cast<py::ssize_t>(heap->size())},
+                    {sizeof(double)},
+                    heap->data(),
+                    cap);
             },
             py::arg("times"), py::arg("params"))
         .def("magnification",
@@ -235,10 +246,20 @@ void register_lc_submodule(py::module_& parent)
                 auto buf = times.request();
                 const double* ptr = static_cast<const double*>(buf.ptr);
                 std::vector<double> tv(ptr, ptr + buf.size);
-                py::gil_scoped_release release;
-                auto mags = lc.magnification(tv, params);
-                py::gil_scoped_acquire acquire;
-                return py::array_t<double>(mags.size(), mags.data());
+                std::vector<double> mags;
+                {
+                    py::gil_scoped_release release;
+                    mags = lc.magnification(tv, params);
+                }
+                auto* heap = new std::vector<double>(std::move(mags));
+                py::capsule cap(heap, [](void* p) {
+                    delete static_cast<std::vector<double>*>(p);
+                });
+                return py::array_t<double>(
+                    {static_cast<py::ssize_t>(heap->size())},
+                    {sizeof(double)},
+                    heap->data(),
+                    cap);
             },
             py::arg("times"), py::arg("params"))
         .def("__repr__", [](const lcbinint::lc::LightCurve& lc) {
