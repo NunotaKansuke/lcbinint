@@ -66,6 +66,13 @@ add_library(lcbinint_core
     src/lcbinint/model/orbital_motion.cpp
     src/lcbinint/model/triple_lens_geometry.cpp
     src/lcbinint/model/trajectory.cpp
+    src/lcbinint/obs/light_curve_data.cpp
+    src/lcbinint/obs/event.cpp
+    src/lcbinint/bayes/prior.cpp
+    src/lcbinint/bayes/model.cpp
+    src/lcbinint/optimize/differential_evolution.cpp
+    src/lcbinint/sample/chain.cpp
+    src/lcbinint/sample/ensemble_sampler.cpp
     third_party/skowron_gould/SkowronGould.cpp)
 target_include_directories(lcbinint_core
     PUBLIC
@@ -87,7 +94,12 @@ target_link_libraries(benchmark_point_hex PRIVATE lcbinint_core)
 if(LCBININT_BUILD_PYTHON)
     find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
     find_package(pybind11 CONFIG REQUIRED)
-    pybind11_add_module(lcbinint_python python/lcbinint_pybind.cpp)
+    pybind11_add_module(lcbinint_python
+        python/lcbinint_pybind.cpp
+        python/bind_obs.cpp
+        python/bind_bayes.cpp
+        python/bind_optimize.cpp
+        python/bind_sample.cpp)
     target_link_libraries(lcbinint_python PRIVATE lcbinint_core)
     set_target_properties(lcbinint_python PROPERTIES OUTPUT_NAME lcbinint)
     get_filename_component(LCBININT_GSL_LIBRARY_DIR "${GSL_LIBRARY}" DIRECTORY)
