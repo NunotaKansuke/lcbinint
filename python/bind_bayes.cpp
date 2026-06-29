@@ -58,8 +58,21 @@ void register_bayes_submodule(py::module_& parent)
         .def("flux",           &Model::flux,          py::arg("mode") = "linear_blend")
         .def("likelihood",     &Model::likelihood,    py::arg("mode") = "gaussian")
         .def("n_params",       &Model::n_params)
-        .def("log_prior",      &Model::log_prior,     py::arg("theta"))
-        .def("log_likelihood", &Model::log_likelihood, py::arg("theta"))
-        .def("log_prob",       &Model::log_prob,      py::arg("theta"))
-        .def("chi2",           &Model::chi2,          py::arg("theta"));
+        .def_property_readonly("param_names", [](const Model& m) {
+            std::vector<std::string> names;
+            for (const auto& d : m.param_defs())
+                if (!d.fixed) names.push_back(d.name);
+            return names;
+        })
+        .def_property_readonly("optimizer_bounds", [](const Model& m) {
+            auto bs = m.optimizer_bounds();
+            py::list out;
+            for (const auto& b : bs)
+                out.append(py::make_tuple(b.lo, b.hi));
+            return out;
+        })
+        .def("log_prior",      &Model::log_prior,      py::arg("theta"))
+        .def("log_likelihood", &Model::log_likelihood,  py::arg("theta"))
+        .def("log_prob",       &Model::log_prob,        py::arg("theta"))
+        .def("chi2",           &Model::chi2,            py::arg("theta"));
 }
