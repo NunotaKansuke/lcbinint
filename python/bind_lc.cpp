@@ -1,6 +1,5 @@
 #include "bind_lc.hpp"
 #include "lcbinint/lcbinint.h"
-#include "lcbinint/lc/parameters.hpp"
 #include "lcbinint/lc/light_curve.hpp"
 
 #include <pybind11/numpy.h>
@@ -10,7 +9,6 @@
 #include <vector>
 
 namespace py = pybind11;
-using namespace lcbinint::lc;
 
 namespace {
 
@@ -40,24 +38,22 @@ void register_lc_submodule(py::module_& parent)
 
     // --- LimbDarkening ---
     py::class_<PyLimbDarkening>(lc, "LimbDarkening")
-        .def(py::init([](double c, double d) {
-            return PyLimbDarkening{c, d};
-        }), py::arg("c") = 0.0, py::arg("d") = 0.0)
+        .def(py::init([](double c, double d) { return PyLimbDarkening{c, d}; }),
+            py::arg("c") = 0.0, py::arg("d") = 0.0)
         .def_readwrite("c", &PyLimbDarkening::c)
         .def_readwrite("d", &PyLimbDarkening::d)
-        .def_static("linear", [](double c) {
-            return PyLimbDarkening{c, 0.0};
-        }, py::arg("c"), "Linear limb darkening: u = c")
-        .def_static("square_root", [](double c, double d) {
-            return PyLimbDarkening{c, d};
-        }, py::arg("c"), py::arg("d"), "Square-root limb darkening: u = c + d*sqrt(1-mu)")
+        .def_static("linear", [](double c) { return PyLimbDarkening{c, 0.0}; },
+            py::arg("c"))
+        .def_static("square_root", [](double c, double d) { return PyLimbDarkening{c, d}; },
+            py::arg("c"), py::arg("d"))
         .def("__repr__", [](const PyLimbDarkening& ld) {
             return "LimbDarkening(c=" + std::to_string(ld.c)
                 + ", d=" + std::to_string(ld.d) + ")";
         });
 
-    // --- Options ---
+    // --- Options: lcbi_options exposed directly ---
     py::class_<lcbi_options>(lc, "Options")
+        .def(py::init([]() { return lcbi_default_options(); }))
         .def(py::init([](
                 int    source_bins,
                 int    caustic_bins,
@@ -75,21 +71,21 @@ void register_lc_submodule(py::module_& parent)
                 lcbi_xallarap_param_type xallarap_param_type,
                 int    parallax_mode) {
             auto o = lcbi_default_options();
-            o.source_bins              = source_bins;
-            o.caustic_bins             = caustic_bins;
-            o.grid_ratio               = grid_ratio;
-            o.mode                     = mode;
-            o.vbm_compatible           = vbm_compatible ? 1 : 0;
-            o.adaptive_hex_threshold   = adaptive_hex_threshold;
-            o.adaptive_source_bins     = adaptive_source_bins ? 1 : 0;
-            o.max_source_bins          = max_source_bins;
-            o.finite_source_tol        = finite_source_tol;
-            o.finite_source_reltol     = finite_source_reltol;
-            o.point_source_threshold   = point_source_threshold;
-            o.polar_source_bins        = polar_source_bins;
-            o.polar_grid_ratio         = polar_grid_ratio;
-            o.xallarap_param_type      = xallarap_param_type;
-            o.parallax_mode            = parallax_mode;
+            o.source_bins            = source_bins;
+            o.caustic_bins           = caustic_bins;
+            o.grid_ratio             = grid_ratio;
+            o.mode                   = mode;
+            o.vbm_compatible         = vbm_compatible ? 1 : 0;
+            o.adaptive_hex_threshold = adaptive_hex_threshold;
+            o.adaptive_source_bins   = adaptive_source_bins ? 1 : 0;
+            o.max_source_bins        = max_source_bins;
+            o.finite_source_tol      = finite_source_tol;
+            o.finite_source_reltol   = finite_source_reltol;
+            o.point_source_threshold = point_source_threshold;
+            o.polar_source_bins      = polar_source_bins;
+            o.polar_grid_ratio       = polar_grid_ratio;
+            o.xallarap_param_type    = xallarap_param_type;
+            o.parallax_mode          = parallax_mode;
             return o;
         }),
             py::arg("source_bins")            = lcbi_default_options().source_bins,
@@ -131,8 +127,10 @@ void register_lc_submodule(py::module_& parent)
                 + " vbm_compatible=" + (o.vbm_compatible ? "True" : "False") + ">";
         });
 
-    // --- Parameters ---
-    py::class_<Parameters>(lc, "Parameters")
+    // --- Parameters: lcbi_params exposed directly (no wrapper class) ---
+    // Python-friendly aliases: u0=umin, alpha=theta, s=sep
+    py::class_<lcbi_params>(lc, "Parameters")
+        .def(py::init([]() { return lcbi_default_params(); }))
         .def(py::init([](
                 double t0, double tE, double u0, double alpha,
                 double s, double q, double rho,
@@ -140,105 +138,87 @@ void register_lc_submodule(py::module_& parent)
                 double q2, double sep2, double ang,
                 double g1, double g2, double g3,
                 double lom_szs, double lom_ar) {
-            Parameters p;
-            p.set_t0(t0);  p.set_tE(tE);  p.set_u0(u0);  p.set_alpha(alpha);
-            p.set_s(s);    p.set_q(q);    p.set_rho(rho);
-            p.set_piEN(piEN); p.set_piEE(piEE);
-            p.set_q2(q2);  p.set_sep2(sep2); p.set_ang(ang);
-            p.set_g1(g1);  p.set_g2(g2);  p.set_g3(g3);
-            p.set_lom_szs(lom_szs); p.set_lom_ar(lom_ar);
+            auto p = lcbi_default_params();
+            p.t0 = t0; p.tE = tE; p.umin = u0; p.theta = alpha;
+            p.sep = s; p.q = q; p.rho = rho;
+            p.piEN = piEN; p.piEE = piEE;
+            p.q2 = q2; p.sep2 = sep2; p.ang = ang;
+            p.g1 = g1; p.g2 = g2; p.g3 = g3;
+            p.lom_szs = lom_szs; p.lom_ar = lom_ar;
             return p;
         }),
-            py::arg("t0")    = 0.0, py::arg("tE")    = 1.0,
-            py::arg("u0")    = 0.0, py::arg("alpha")  = 0.0,
-            py::arg("s")     = 1.0, py::arg("q")      = 1.0,
+            py::arg("t0")    = 0.0,  py::arg("tE")    = 1.0,
+            py::arg("u0")    = 0.0,  py::arg("alpha")  = 0.0,
+            py::arg("s")     = 1.0,  py::arg("q")      = 1.0,
             py::arg("rho")   = 0.0,
-            py::arg("piEN")  = 0.0, py::arg("piEE")   = 0.0,
-            py::arg("q2")    = 0.0, py::arg("sep2")   = 0.0, py::arg("ang")  = 0.0,
-            py::arg("g1")    = 0.0, py::arg("g2")     = 0.0, py::arg("g3")   = 0.0,
+            py::arg("piEN")  = 0.0,  py::arg("piEE")   = 0.0,
+            py::arg("q2")    = 0.0,  py::arg("sep2")   = 0.0, py::arg("ang")    = 0.0,
+            py::arg("g1")    = 0.0,  py::arg("g2")     = 0.0, py::arg("g3")     = 0.0,
             py::arg("lom_szs") = 0.0, py::arg("lom_ar") = 1.0)
-        // Core
-        .def_property("t0",    &Parameters::t0,    &Parameters::set_t0)
-        .def_property("tE",    &Parameters::tE,    &Parameters::set_tE)
-        .def_property("u0",    &Parameters::u0,    &Parameters::set_u0)
-        .def_property("alpha", &Parameters::alpha, &Parameters::set_alpha)
-        .def_property("s",     &Parameters::s,     &Parameters::set_s)
-        .def_property("q",     &Parameters::q,     &Parameters::set_q)
-        .def_property("rho",   &Parameters::rho,   &Parameters::set_rho)
+        // Core (aliases to friendly names)
+        .def_property("t0",    [](const lcbi_params& p){ return p.t0; },    [](lcbi_params& p, double v){ p.t0 = v; })
+        .def_property("tE",    [](const lcbi_params& p){ return p.tE; },    [](lcbi_params& p, double v){ p.tE = v; })
+        .def_property("u0",    [](const lcbi_params& p){ return p.umin; },  [](lcbi_params& p, double v){ p.umin = v; })
+        .def_property("alpha", [](const lcbi_params& p){ return p.theta; }, [](lcbi_params& p, double v){ p.theta = v; })
+        .def_property("s",     [](const lcbi_params& p){ return p.sep; },   [](lcbi_params& p, double v){ p.sep = v; })
+        .def_readwrite("q",    &lcbi_params::q)
+        .def_readwrite("rho",  &lcbi_params::rho)
         // Triple
-        .def_property("q2",   &Parameters::q2,   &Parameters::set_q2)
-        .def_property("sep2", &Parameters::sep2, &Parameters::set_sep2)
-        .def_property("ang",  &Parameters::ang,  &Parameters::set_ang)
+        .def_readwrite("q2",   &lcbi_params::q2)
+        .def_readwrite("sep2", &lcbi_params::sep2)
+        .def_readwrite("ang",  &lcbi_params::ang)
         // Parallax
-        .def_property("piEN", &Parameters::piEN, &Parameters::set_piEN)
-        .def_property("piEE", &Parameters::piEE, &Parameters::set_piEE)
-        .def_property("ra",   &Parameters::ra,   &Parameters::set_ra)
-        .def_property("dec",  &Parameters::dec,  &Parameters::set_dec)
-        .def_property("tfix", &Parameters::tfix, &Parameters::set_tfix)
-        // Terrestrial parallax
-        .def_property("obs_lat", &Parameters::obs_lat, &Parameters::set_obs_lat)
-        .def_property("obs_lon", &Parameters::obs_lon, &Parameters::set_obs_lon)
+        .def_readwrite("piEN",    &lcbi_params::piEN)
+        .def_readwrite("piEE",    &lcbi_params::piEE)
+        .def_readwrite("ra",      &lcbi_params::ra)
+        .def_readwrite("dec",     &lcbi_params::dec)
+        .def_readwrite("tfix",    &lcbi_params::tfix)
+        .def_readwrite("obs_lat", &lcbi_params::obs_lat)
+        .def_readwrite("obs_lon", &lcbi_params::obs_lon)
         // Orbital motion
-        .def_property("orbital_motion_mode",
-            &Parameters::orbital_motion_mode, &Parameters::set_orbital_motion_mode)
-        .def_property("g1",      &Parameters::g1,      &Parameters::set_g1)
-        .def_property("g2",      &Parameters::g2,      &Parameters::set_g2)
-        .def_property("g3",      &Parameters::g3,      &Parameters::set_g3)
-        .def_property("lom_szs", &Parameters::lom_szs, &Parameters::set_lom_szs)
-        .def_property("lom_ar",  &Parameters::lom_ar,  &Parameters::set_lom_ar)
-        .def_property("v_sep",   &Parameters::v_sep,   &Parameters::set_v_sep)
+        .def_readwrite("orbital_motion_mode", &lcbi_params::orbital_motion_mode)
+        .def_readwrite("g1",      &lcbi_params::g1)
+        .def_readwrite("g2",      &lcbi_params::g2)
+        .def_readwrite("g3",      &lcbi_params::g3)
+        .def_readwrite("lom_szs", &lcbi_params::lom_szs)
+        .def_readwrite("lom_ar",  &lcbi_params::lom_ar)
+        .def_readwrite("v_sep",   &lcbi_params::v_sep)
         // Xallarap
-        .def_property("xi_1",     &Parameters::xi_1,     &Parameters::set_xi_1)
-        .def_property("xi_2",     &Parameters::xi_2,     &Parameters::set_xi_2)
-        .def_property("omega_xa", &Parameters::omega_xa, &Parameters::set_omega_xa)
-        .def_property("inc_xa",   &Parameters::inc_xa,   &Parameters::set_inc_xa)
-        .def_property("phi_xa",   &Parameters::phi_xa,   &Parameters::set_phi_xa)
-        .def_property("piEN_xa",  &Parameters::piEN_xa,  &Parameters::set_piEN_xa)
-        .def_property("piEE_xa",  &Parameters::piEE_xa,  &Parameters::set_piEE_xa)
-        .def_property("period_xa",&Parameters::period_xa,&Parameters::set_period_xa)
-        .def_property("ecc_xa",   &Parameters::ecc_xa,   &Parameters::set_ecc_xa)
-        .def_property("peri_xa",  &Parameters::peri_xa,  &Parameters::set_peri_xa)
-        // Limb darkening (per-params override)
-        .def_property("limb_darkening_c",
-            &Parameters::limb_darkening_c, &Parameters::set_limb_darkening_c)
-        .def_property("limb_darkening_d",
-            &Parameters::limb_darkening_d, &Parameters::set_limb_darkening_d)
-        .def("__repr__", [](const Parameters& p) {
-            return "<lc.Parameters t0=" + std::to_string(p.t0())
-                + " tE=" + std::to_string(p.tE())
-                + " u0=" + std::to_string(p.u0())
-                + " s=" + std::to_string(p.s())
-                + " q=" + std::to_string(p.q()) + ">";
+        .def_readwrite("xi_1",      &lcbi_params::xi_1)
+        .def_readwrite("xi_2",      &lcbi_params::xi_2)
+        .def_readwrite("omega_xa",  &lcbi_params::omega_xa)
+        .def_readwrite("inc_xa",    &lcbi_params::inc_xa)
+        .def_readwrite("phi_xa",    &lcbi_params::phi_xa)
+        .def_readwrite("piEN_xa",   &lcbi_params::piEN_xa)
+        .def_readwrite("piEE_xa",   &lcbi_params::piEE_xa)
+        .def_readwrite("period_xa", &lcbi_params::period_xa)
+        .def_readwrite("ecc_xa",    &lcbi_params::ecc_xa)
+        .def_readwrite("peri_xa",   &lcbi_params::peri_xa)
+        // Limb darkening
+        .def_readwrite("limb_darkening_c", &lcbi_params::limb_darkening_c)
+        .def_readwrite("limb_darkening_d", &lcbi_params::limb_darkening_d)
+        .def("__repr__", [](const lcbi_params& p) {
+            return "<lc.Parameters t0=" + std::to_string(p.t0)
+                + " tE=" + std::to_string(p.tE)
+                + " u0=" + std::to_string(p.umin)
+                + " s=" + std::to_string(p.sep)
+                + " q=" + std::to_string(p.q) + ">";
         });
 
     // --- LightCurve ---
-    py::class_<LightCurve, std::shared_ptr<LightCurve>>(lc, "LightCurve")
+    py::class_<lcbinint::lc::LightCurve, std::shared_ptr<lcbinint::lc::LightCurve>>(lc, "LightCurve")
         .def(py::init([](const lcbi_options& opts, const PyLimbDarkening& ld) {
-            return std::make_shared<LightCurve>(opts, ld.c, ld.d);
+            return std::make_shared<lcbinint::lc::LightCurve>(opts, ld.c, ld.d);
         }),
-            py::arg("options")         = lcbi_default_options(),
-            py::arg("limb_darkening")  = PyLimbDarkening{})
-        .def_property_readonly("options", &LightCurve::options)
-        .def_property_readonly("ld_c",    &LightCurve::ld_c)
-        .def_property_readonly("ld_d",    &LightCurve::ld_d)
+            py::arg("options")        = lcbi_default_options(),
+            py::arg("limb_darkening") = PyLimbDarkening{})
+        .def_property_readonly("options", &lcbinint::lc::LightCurve::options)
+        .def_property_readonly("ld_c",    &lcbinint::lc::LightCurve::ld_c)
+        .def_property_readonly("ld_d",    &lcbinint::lc::LightCurve::ld_d)
         .def("__call__",
-            [](const LightCurve& lc,
+            [](const lcbinint::lc::LightCurve& lc,
                py::array_t<double> times,
-               const Parameters& params) -> py::array_t<double> {
-                auto buf = times.request();
-                const double* ptr = static_cast<const double*>(buf.ptr);
-                std::vector<double> tv(ptr, ptr + buf.size);
-                py::gil_scoped_release release;
-                auto mags = lc.magnification(tv, params);
-                py::gil_scoped_acquire acquire;
-                return py::array_t<double>(mags.size(), mags.data());
-            },
-            py::arg("times"), py::arg("params"),
-            "Compute magnification array. Returns np.ndarray of shape (N,).")
-        .def("magnification",
-            [](const LightCurve& lc,
-               py::array_t<double> times,
-               const Parameters& params) -> py::array_t<double> {
+               const lcbi_params& params) -> py::array_t<double> {
                 auto buf = times.request();
                 const double* ptr = static_cast<const double*>(buf.ptr);
                 std::vector<double> tv(ptr, ptr + buf.size);
@@ -248,7 +228,20 @@ void register_lc_submodule(py::module_& parent)
                 return py::array_t<double>(mags.size(), mags.data());
             },
             py::arg("times"), py::arg("params"))
-        .def("__repr__", [](const LightCurve& lc) {
+        .def("magnification",
+            [](const lcbinint::lc::LightCurve& lc,
+               py::array_t<double> times,
+               const lcbi_params& params) -> py::array_t<double> {
+                auto buf = times.request();
+                const double* ptr = static_cast<const double*>(buf.ptr);
+                std::vector<double> tv(ptr, ptr + buf.size);
+                py::gil_scoped_release release;
+                auto mags = lc.magnification(tv, params);
+                py::gil_scoped_acquire acquire;
+                return py::array_t<double>(mags.size(), mags.data());
+            },
+            py::arg("times"), py::arg("params"))
+        .def("__repr__", [](const lcbinint::lc::LightCurve& lc) {
             return "<lc.LightCurve source_bins="
                 + std::to_string(lc.options().source_bins) + ">";
         });

@@ -66,7 +66,6 @@ add_library(lcbinint_core
     src/lcbinint/model/orbital_motion.cpp
     src/lcbinint/model/triple_lens_geometry.cpp
     src/lcbinint/model/trajectory.cpp
-    src/lcbinint/lc/parameters.cpp
     src/lcbinint/lc/light_curve.cpp
     src/lcbinint/obs/light_curve_data.cpp
     src/lcbinint/obs/event.cpp

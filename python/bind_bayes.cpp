@@ -1,4 +1,5 @@
 #include "bind_bayes.hpp"
+#include "lcbinint/lcbinint.h"
 #include "lcbinint/bayes/prior.hpp"
 #include "lcbinint/bayes/model.hpp"
 
@@ -15,7 +16,7 @@ void register_bayes_submodule(py::module_& parent)
     // --- Prior base class ---
     py::class_<Prior, std::shared_ptr<Prior>>(bayes, "Prior")
         .def("log_prob", &Prior::log_prob, py::arg("x"))
-        .def("bounds",   [](const Prior& p) {
+        .def("bounds", [](const Prior& p) {
             auto b = p.bounds();
             return py::make_tuple(b.lo, b.hi);
         })
@@ -32,8 +33,7 @@ void register_bayes_submodule(py::module_& parent)
     py::class_<Normal, Prior, std::shared_ptr<Normal>>(bayes, "Normal")
         .def(py::init<double, double>(), py::arg("mu"), py::arg("sigma"))
         .def("__repr__", [](const Normal& n) {
-            auto b = n.bounds();
-            return "Normal(mu=" + std::to_string((b.lo + b.hi) / 2) + ")";
+            return "Normal(mu=..., sigma=...)";
         });
 
     py::class_<LogUniform, Prior, std::shared_ptr<LogUniform>>(bayes, "LogUniform")
@@ -44,23 +44,20 @@ void register_bayes_submodule(py::module_& parent)
         });
 
     // --- Model ---
+    // Takes lcbi_options directly — calls lcbi_magnification_array in the hot path
     py::class_<Model>(bayes, "Model")
-        .def(py::init<
-                std::shared_ptr<lcbinint::lc::IEvaluator>,
-                std::shared_ptr<lcbinint::obs::Event>>(),
-            py::arg("light_curve"), py::arg("event"))
-        .def(py::init<
-                std::shared_ptr<lcbinint::lc::IEvaluator>,
-                std::shared_ptr<lcbinint::obs::LightCurveData>>(),
-            py::arg("light_curve"), py::arg("data"))
+        .def(py::init<lcbi_options, std::shared_ptr<lcbinint::obs::Event>>(),
+            py::arg("options"), py::arg("event"))
+        .def(py::init<lcbi_options, std::shared_ptr<lcbinint::obs::LightCurveData>>(),
+            py::arg("options"), py::arg("data"))
         .def("param", [](Model& m, std::string name, std::shared_ptr<Prior> prior) {
             m.param(std::move(name), std::move(prior));
         }, py::arg("name"), py::arg("prior"))
-        .def("flux",        &Model::flux,        py::arg("mode") = "linear_blend")
-        .def("likelihood",  &Model::likelihood,  py::arg("mode") = "gaussian")
-        .def("n_params",    &Model::n_params)
-        .def("log_prior",   &Model::log_prior,      py::arg("theta"))
-        .def("log_likelihood", &Model::log_likelihood, py::arg("theta"))
-        .def("log_prob",    &Model::log_prob,     py::arg("theta"))
-        .def("chi2",        &Model::chi2,         py::arg("theta"));
+        .def("flux",           &Model::flux,          py::arg("mode") = "linear_blend")
+        .def("likelihood",     &Model::likelihood,    py::arg("mode") = "gaussian")
+        .def("n_params",       &Model::n_params)
+        .def("log_prior",      &Model::log_prior,     py::arg("theta"))
+        .def("log_likelihood", &Model::log_likelihood,py::arg("theta"))
+        .def("log_prob",       &Model::log_prob,      py::arg("theta"))
+        .def("chi2",           &Model::chi2,          py::arg("theta"));
 }

@@ -49,6 +49,38 @@ PYTHONPATH=build_new python3 -c "import lcbinint; lcbinint.obs.LightCurveData(..
 
 ---
 
+## Phase 2b: IEvaluator 廃止・Parameters ラッパー廃止 (2026-06-30) ✅
+
+### 設計変更
+
+#### Parameters ラッパークラスを廃止
+- `lc::Parameters` という中間クラスを削除
+- `lcbi_params` 自体を `bind_lc.cpp` で `lc.Parameters` として直接バインド
+- setter/getter のオーバーヘッドなし。`def_readwrite` で構造体フィールドに直書き
+
+#### IEvaluator 抽象クラスを廃止
+- `lc/evaluator.hpp` と `IEvaluator` を削除
+- `lc::LightCurve` はスタンドアロンの Python 向けラッパーとして残す（継承なし）
+- `bayes::Model` は `lcbi_options` だけを受け取り、ホットパスで `lcbi_magnification_array` を直接呼ぶ
+
+#### bayes::Model の新コンストラクタ
+```cpp
+// Before
+Model(shared_ptr<IEvaluator>, shared_ptr<Event>)
+
+// After
+Model(lcbi_options, shared_ptr<Event>)
+Model(lcbi_options, shared_ptr<LightCurveData>)  // 単一データセット便利版
+```
+
+#### Python API
+```python
+model = lcbinint.bayes.Model(opts, event)   # opts は lc.Options (= lcbi_options)
+model = lcbinint.bayes.Model(opts, data)    # data は obs.LightCurveData
+```
+
+---
+
 ## Phase 2: lc サブモジュール完成・旧 API 削除 (2026-06-30) ✅
 
 ### 追加したファイル
