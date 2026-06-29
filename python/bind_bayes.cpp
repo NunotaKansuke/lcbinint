@@ -76,5 +76,19 @@ void register_bayes_submodule(py::module_& parent)
         .def("log_likelihood", &Model::log_likelihood,  py::arg("theta"))
         .def("log_prob",       &Model::log_prob,        py::arg("theta"))
         .def("chi2",           &Model::chi2,            py::arg("theta"))
-        .def("residuals",      &Model::residuals,       py::arg("theta"));
+        .def("residuals",      &Model::residuals,       py::arg("theta"))
+        .def("fluxes", [](const Model& m, const std::vector<double>& theta) {
+            const auto sols = m.fluxes(theta);
+            const auto& ev  = m.event();
+            py::dict d;
+            for (std::size_t k = 0; k < sols.size(); ++k) {
+                const std::string name = (k < ev.size())
+                    ? ev.at(k).name() : ("ds" + std::to_string(k));
+                d[py::str(name)] = py::dict(
+                    py::arg("Fs") = sols[k].Fs,
+                    py::arg("Fb") = sols[k].Fb);
+            }
+            return d;
+        }, py::arg("theta"),
+        "Return {dataset_name: {'Fs': ..., 'Fb': ...}} for each dataset.");
 }

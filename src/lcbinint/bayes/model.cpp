@@ -281,6 +281,41 @@ double Model::log_likelihood(const std::vector<double>& theta) const
     return -0.5 * chi2(theta);
 }
 
+std::vector<Model::FluxSolution>
+Model::fluxes(const std::vector<double>& theta) const
+{
+    if (static_cast<int>(theta.size()) != n_params())
+        throw std::invalid_argument("theta size mismatch");
+    const lcbi_params p = theta_to_params(theta);
+    std::vector<FluxSolution> out;
+    out.reserve(event_->size());
+    for (std::size_t k = 0; k < event_->size(); ++k) {
+        const auto& ds = event_->at(k);
+        DatasetCache& c = cache_[k];
+        const std::size_t n = ds.size();
+        const lcbi_status status =
+            lcbi_magnification_array(ds.time().data(), static_cast<int>(n),
+                                     &p, &options_, c.res_buf.data());
+        if (status != LCBI_OK)
+            throw std::runtime_error(lcbi_status_string(status));
+        for (std::size_t i = 0; i < n; ++i)
+            c.mag_buf[i] = c.res_buf[i].magnification;
+        const double* __restrict__ A = c.mag_buf.data();
+        const double* __restrict__ f = ds.flux().data();
+        const double* __restrict__ w = ds.weight().data();
+        double S_wA = 0.0, S_wA2 = 0.0, S_wAf = 0.0;
+        for (std::size_t i = 0; i < n; ++i) {
+            S_wA  += w[i] * A[i];
+            S_wA2 += w[i] * A[i] * A[i];
+            S_wAf += w[i] * A[i] * f[i];
+        }
+        const double D  = S_wA2 * c.S_w - S_wA * S_wA;
+        out.push_back({(S_wAf * c.S_w  - S_wA  * c.S_wf) / D,
+                       (S_wA2 * c.S_wf - S_wA  * S_wAf)  / D});
+    }
+    return out;
+}
+
 double Model::log_prob(const std::vector<double>& theta) const
 {
     const double lp = log_prior(theta);

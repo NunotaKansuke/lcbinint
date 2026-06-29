@@ -6,6 +6,7 @@
 #include "lcbinint/optimize/result.hpp"
 #include "lcbinint/bayes/model.hpp"
 
+#include <cmath>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -78,6 +79,94 @@ void register_sample_submodule(py::module_& parent)
             const Chain& c = self.cast<const Chain&>();
             return chain_view_1d(c, c.flat_log_prob(), self);
         })
+
+        // flat_fluxes: shape (nsteps*nwalkers, n_datasets*2) — [Fs0, Fb0, Fs1, Fb1, ...]
+        .def_property_readonly("flat_fluxes", [](py::object self) {
+            const Chain& c = self.cast<const Chain&>();
+            const auto& fl = c.flat_fluxes();
+            if (fl.empty() || c.n_fluxes() == 0) {
+                std::vector<py::ssize_t> shape = {0, 0};
+                return py::array_t<double>(shape);
+            }
+            return chain_view_2d(c, fl,
+                static_cast<py::ssize_t>(c.nsteps() * c.nwalkers()),
+                static_cast<py::ssize_t>(c.n_fluxes()), self);
+        })
+
+        .def_property_readonly("transforms",    &Chain::transforms)
+        .def_property_readonly("dataset_names", &Chain::dataset_names)
+
+        // samples: physical-space flat samples — applies exp() for log-transformed params
+        .def_property_readonly("samples", [](py::object self) {
+            const Chain& c = self.cast<const Chain&>();
+            const auto& ts = c.transforms();
+            const int ndim = c.ndim();
+            const int ntot = c.nsteps() * c.nwalkers();
+            const auto& raw = c.flat_samples();
+            py::array_t<double> out({py::ssize_t(ntot), py::ssize_t(ndim)});
+            auto buf = out.mutable_unchecked<2>();
+            for (int i = 0; i < ntot; ++i) {
+                for (int j = 0; j < ndim; ++j) {
+                    const double v = raw[static_cast<std::size_t>(i * ndim + j)];
+                    buf(i, j) = (!ts.empty() && ts[j] == "log") ? std::exp(v) : v;
+                }
+            }
+            return out;
+        })
+
+        // summary(): dict {param_name: {'median': ..., 'lo': ..., 'hi': ..., 'std': ...}}
+        // where lo/hi are 16th/84th percentile.
+        .def("summary", [](const Chain& c) {
+            const int ndim = c.ndim();
+            const int ntot = c.nsteps() * c.nwalkers();
+            const auto& ts   = c.transforms();
+            const auto& names = c.param_names();
+            const auto& raw  = c.flat_samples();
+
+            py::dict result;
+            std::vector<double> col(ntot);
+
+            for (int j = 0; j < ndim; ++j) {
+                for (int i = 0; i < ntot; ++i) {
+                    const double v = raw[static_cast<std::size_t>(i * ndim + j)];
+                    col[i] = (!ts.empty() && ts[j] == "log") ? std::exp(v) : v;
+                }
+                auto sorted = col;
+                std::sort(sorted.begin(), sorted.end());
+                const double med = sorted[ntot / 2];
+                const double lo  = sorted[ntot * 16 / 100];
+                const double hi  = sorted[ntot * 84 / 100];
+                double mean = 0.0;
+                for (double v : col) mean += v;
+                mean /= ntot;
+                double var = 0.0;
+                for (double v : col) var += (v - mean) * (v - mean);
+                var /= ntot;
+
+                const std::string& nm = (j < static_cast<int>(names.size())) ? names[j] : ("p" + std::to_string(j));
+                result[py::str(nm)] = py::dict(
+                    py::arg("median") = med,
+                    py::arg("lo")     = lo,
+                    py::arg("hi")     = hi,
+                    py::arg("std")    = std::sqrt(var));
+            }
+            return result;
+        })
+
+        // tau(c=5.0): integrated autocorrelation time per parameter
+        // Returns numpy array of length ndim; NaN where chain is too short.
+        .def("tau", [](py::object self, double window) {
+            py::gil_scoped_release release;
+            return self.cast<const Chain&>().tau(window);
+        }, py::arg("c") = 5.0,
+        "Integrated autocorrelation time per parameter (Sokal auto-window).\n"
+        "Returns array of length ndim. NaN where chain is too short to converge.")
+
+        // ess(): effective sample size = nsteps * nwalkers / tau
+        .def("ess", [](py::object self) {
+            py::gil_scoped_release release;
+            return self.cast<const Chain&>().ess();
+        }, "Effective sample size per parameter.")
 
         .def("__repr__", [](const Chain& c) {
             return "<sample.Chain nsteps=" + std::to_string(c.nsteps())

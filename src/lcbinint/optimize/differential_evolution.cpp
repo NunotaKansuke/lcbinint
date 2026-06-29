@@ -128,6 +128,14 @@ Result DifferentialEvolution::minimize(bayes::Model& model, std::string target)
         }
     }
 
+    // Flux parameters per dataset
+    const auto flux_sols = model.fluxes(best_theta);
+    for (std::size_t k = 0; k < flux_sols.size(); ++k) {
+        const std::string name = (k < model.event().size())
+            ? model.event().at(k).name() : ("ds" + std::to_string(k));
+        r.fluxes.push_back({name, flux_sols[k].Fs, flux_sols[k].Fb});
+    }
+
     return r;
 }
 

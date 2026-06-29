@@ -247,6 +247,13 @@ Result LevenbergMarquardt::minimize(bayes::Model& model,
                 (def.transform == bayes::Transform::log) ? std::exp(t) : t;
         }
     }
+
+    const auto flux_sols = model.fluxes(theta);
+    for (std::size_t k = 0; k < flux_sols.size(); ++k) {
+        const std::string name = (k < model.event().size())
+            ? model.event().at(k).name() : ("ds" + std::to_string(k));
+        res.fluxes.push_back({name, flux_sols[k].Fs, flux_sols[k].Fb});
+    }
     return res;
 }
 

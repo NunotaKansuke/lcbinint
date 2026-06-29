@@ -53,6 +53,7 @@ public:
     int                              n_params()   const noexcept;
     const std::vector<ParameterDef>& param_defs() const noexcept { return params_; }
     const lcbi_options&              options()    const noexcept { return options_; }
+    const obs::Event&                event()      const noexcept { return *event_; }
 
     // Bounds in optimizer/sampler (transformed) space.
     std::vector<OptimizerBounds> optimizer_bounds() const;
@@ -69,6 +70,10 @@ public:
     // Flat weighted residual vector r_i = (flux_i - Fs*A_i - Fb) / sigma_i
     // across all datasets (used by LevenbergMarquardt for Jacobian construction).
     std::vector<double> residuals(const std::vector<double>& theta) const;
+
+    // Linear flux parameters {Fs, Fb} per dataset, solved analytically.
+    struct FluxSolution { double Fs; double Fb; };
+    std::vector<FluxSolution> fluxes(const std::vector<double>& theta) const;
 
 private:
     // Convert transformed theta → lcbi_params (physical values).

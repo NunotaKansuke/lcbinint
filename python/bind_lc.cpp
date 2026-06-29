@@ -11,12 +11,12 @@
 
 namespace py = pybind11;
 
-namespace {
-
 struct PyLimbDarkening {
     double c = 0.0;
     double d = 0.0;
 };
+
+namespace {
 
 // Map param_type string → vbm_compatible + center_of_mass (same logic as old API).
 void apply_param_type(lcbi_options& o, const std::string& pt)
@@ -128,20 +128,6 @@ void register_lc_submodule(py::module_& parent)
         .value("ORBITAL_ELEMENTS", LCBI_XALLARAP_ORBITAL_ELEMENTS)
         .export_values();
 
-    // --- LimbDarkening ---
-    py::class_<PyLimbDarkening>(lc, "LimbDarkening")
-        .def(py::init([](double c, double d) { return PyLimbDarkening{c, d}; }),
-            py::arg("c") = 0.0, py::arg("d") = 0.0)
-        .def_readwrite("c", &PyLimbDarkening::c)
-        .def_readwrite("d", &PyLimbDarkening::d)
-        .def_static("linear",      [](double c) { return PyLimbDarkening{c, 0.0}; }, py::arg("c"))
-        .def_static("square_root", [](double c, double d) { return PyLimbDarkening{c, d}; },
-            py::arg("c"), py::arg("d"))
-        .def("__repr__", [](const PyLimbDarkening& ld) {
-            return "LimbDarkening(c=" + std::to_string(ld.c)
-                + ", d=" + std::to_string(ld.d) + ")";
-        });
-
     // --- Options: lcbi_options exposed directly (for power users / bayes module) ---
     py::class_<lcbi_options>(lc, "Options")
         .def(py::init([](
@@ -225,6 +211,24 @@ void register_lc_submodule(py::module_& parent)
             else                                                   pt = "lcbinint";
             return "<lc.Options param_type='" + pt
                 + "' source_bins=" + std::to_string(o.source_bins) + ">";
+        });
+
+    // --- LimbDarkening ---
+    // Limb darkening profile: I(μ) = 1 - c*(1-μ) - d*(1-√μ)
+    // c=0, d=0 → uniform disk (point source limit).
+    py::class_<PyLimbDarkening>(lc, "LimbDarkening")
+        .def(py::init<double, double>(), py::arg("c") = 0.0, py::arg("d") = 0.0)
+        .def_readwrite("c", &PyLimbDarkening::c)
+        .def_readwrite("d", &PyLimbDarkening::d)
+        .def_static("linear",      [](double u) { return PyLimbDarkening{u, 0.0}; },
+            py::arg("u"),
+            "Linear profile: I(μ) = 1 - u*(1-μ).  c=u, d=0.")
+        .def_static("square_root", [](double c, double d) { return PyLimbDarkening{c, d}; },
+            py::arg("c"), py::arg("d"),
+            "Square-root profile: I(μ) = 1 - c*(1-μ) - d*(1-√μ).")
+        .def("__repr__", [](const PyLimbDarkening& ld) {
+            return "<lc.LimbDarkening c=" + std::to_string(ld.c)
+                + " d=" + std::to_string(ld.d) + ">";
         });
 
     // --- Parameters: lcbi_params exposed directly (for power users / bayes module) ---
