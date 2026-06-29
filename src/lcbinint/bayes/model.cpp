@@ -4,19 +4,17 @@
 
 namespace lcbinint::bayes {
 
-Model::Model(std::shared_ptr<lc::LightCurve> lc, std::shared_ptr<obs::Event> event)
-    : lc_(std::move(lc)), event_(std::move(event))
+Model::Model(lcbi_options options, std::shared_ptr<obs::Event> event)
+    : options_(options), event_(std::move(event))
 {
-    if (!lc_)    throw std::invalid_argument("light_curve must not be null");
     if (!event_) throw std::invalid_argument("event must not be null");
 }
 
-Model::Model(std::shared_ptr<lc::LightCurve> lc, std::shared_ptr<obs::LightCurveData> data)
-    : lc_(std::move(lc))
+Model::Model(lcbi_options options, std::shared_ptr<obs::LightCurveData> data)
+    : options_(options)
     , event_(std::make_shared<obs::Event>())
 {
-    if (!lc_)   throw std::invalid_argument("light_curve must not be null");
-    if (!data)  throw std::invalid_argument("data must not be null");
+    if (!data) throw std::invalid_argument("data must not be null");
     event_->add(std::move(data));
 }
 
@@ -70,7 +68,7 @@ lcbi_params Model::theta_to_params(const std::vector<double>& theta) const
 
 double Model::log_likelihood(const std::vector<double>& theta) const
 {
-    // TODO: call lc_->magnification(), solve Fs/Fb, return Gaussian log-likelihood
+    // TODO: call lcbi_magnification_array, solve Fs/Fb, return Gaussian log-likelihood
     (void)theta;
     throw std::runtime_error("Model::log_likelihood: not yet implemented");
 }
@@ -84,7 +82,7 @@ double Model::log_prob(const std::vector<double>& theta) const
 
 double Model::chi2(const std::vector<double>& theta) const
 {
-    // TODO: call lc_->magnification(), solve linear flux, return chi2
+    // TODO: call lcbi_magnification_array, solve linear flux, return chi2
     (void)theta;
     throw std::runtime_error("Model::chi2: not yet implemented");
 }

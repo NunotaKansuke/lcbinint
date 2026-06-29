@@ -228,14 +228,19 @@ The central class is `bayes.Model`.
 
 ### Python API
 
+`bayes.Model` takes `lc.Options` directly, not `lc.LightCurve`.
+The Python-layer `lc.LightCurve` object is only for standalone magnification use.
+In the sampling/optimization hot path, `bayes.Model` calls `lcbi_magnification_array` directly
+in C++ using the stored `lcbi_options`, with no Python wrapper overhead.
+
 ```python
-from lcbinint.lc import LightCurve, Options
+from lcbinint.lc import Options
 from lcbinint.obs import Event
 from lcbinint.bayes import Model, Uniform, LogUniform
 
-lc = LightCurve(options=Options(...))
+opts = Options(param_type="vbm", source_bins=12)
 
-model = Model(light_curve=lc, event=event)
+model = Model(options=opts, event=event)
 
 model.param("t0", Uniform(2460000.0, 2460100.0))
 model.param("u0", Uniform(-1.0, 1.0))
@@ -252,10 +257,24 @@ model.likelihood("gaussian")
 A single `LightCurveData` may also be accepted as a convenience:
 
 ```python
-model = Model(light_curve=lc, data=data)
+model = Model(options=opts, data=data)
 ```
 
 Internally this can be treated as an event with one data object.
+
+### Relationship to `lc.LightCurve`
+
+`lc.Options` is the shared configuration object.
+`lc.LightCurve` wraps it for standalone use:
+
+```python
+lc = LightCurve(options=opts)   # standalone magnification
+A  = lc(times, t0=9000, ...)
+
+model = Model(options=opts, event=event)   # sampling/fitting
+```
+
+Both share the same `Options`; no redundant wrapping is needed.
 
 ## 5.2 Parameter Definitions
 
@@ -494,7 +513,9 @@ from lcbinint.bayes import Model, Uniform, LogUniform
 from lcbinint.optimize import DifferentialEvolution, LevenbergMarquardt
 from lcbinint.sample import EnsembleSampler
 
-lc = LightCurve(options=Options(...))
+# Options is the shared configuration.
+# LightCurve wraps it for standalone magnification use only.
+opts = Options(param_type="vbm", source_bins=12)
 
 ogle = LightCurveData(
     time_ogle,
@@ -523,7 +544,7 @@ event = Event(
 event.add(ogle)
 event.add(moa)
 
-model = Model(light_curve=lc, event=event)
+model = Model(options=opts, event=event)
 
 model.param("t0", Uniform(2460000.0, 2460100.0))
 model.param("u0", Uniform(-1.0, 1.0))
