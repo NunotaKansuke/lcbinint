@@ -1,5 +1,7 @@
 #include "bind_sample.hpp"
 #include "lcbinint/sample/chain.hpp"
+#include "lcbinint/sample/move.hpp"
+#include "lcbinint/sample/stretch_move.hpp"
 #include "lcbinint/sample/ensemble_sampler.hpp"
 #include "lcbinint/optimize/result.hpp"
 #include "lcbinint/bayes/model.hpp"
@@ -84,13 +86,23 @@ void register_sample_submodule(py::module_& parent)
                 + " acceptance=" + std::to_string(c.acceptance()).substr(0, 5) + ">";
         });
 
+    // --- Move hierarchy ---
+    py::class_<Move, std::shared_ptr<Move>>(spl, "Move");
+
+    py::class_<StretchMove, Move, std::shared_ptr<StretchMove>>(spl, "StretchMove")
+        .def(py::init<double>(), py::arg("a") = 2.0)
+        .def_property_readonly("a", &StretchMove::a)
+        .def("__repr__", [](const StretchMove& m) {
+            return "<sample.StretchMove a=" + std::to_string(m.a()) + ">";
+        });
+
     // --- EnsembleSampler ---
     // GIL released during run() — entire sampling loop runs in C++.
     py::class_<EnsembleSampler>(spl, "EnsembleSampler")
-        .def(py::init<int, unsigned int, double>(),
+        .def(py::init<int, unsigned int, std::shared_ptr<Move>>(),
             py::arg("nwalkers") = 64,
             py::arg("seed")     = 0u,
-            py::arg("a")        = 2.0)
+            py::arg("move")     = std::make_shared<StretchMove>(2.0))
 
         // run(model, nsteps, burnin) — start from prior bounds
         .def("run",
