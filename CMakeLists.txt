@@ -72,6 +72,7 @@ add_library(lcbinint_core
     src/lcbinint/bayes/prior.cpp
     src/lcbinint/bayes/model.cpp
     src/lcbinint/optimize/differential_evolution.cpp
+    src/lcbinint/optimize/levenberg_marquardt.cpp
     src/lcbinint/sample/chain.cpp
     src/lcbinint/sample/ensemble_sampler.cpp
     third_party/skowron_gould/SkowronGould.cpp)

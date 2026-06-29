@@ -101,13 +101,21 @@ void register_sample_submodule(py::module_& parent)
             },
             py::arg("model"), py::arg("nsteps") = 1000, py::arg("burnin") = 0)
 
-        // run(model, start=Result, nsteps, burnin) — start from optimizer result
+        // run(model, start=..., nsteps, burnin)
+        // start can be optimize.Result or list-of-lists (nwalkers × ndim).
+        // Python processing before GIL release to avoid pybind11 overload ambiguity.
         .def("run",
             [](EnsembleSampler& s, lcbinint::bayes::Model& model,
-               const lcbinint::optimize::Result& start,
-               int nsteps, int burnin) {
-                py::gil_scoped_release release;
-                return s.run(model, start, nsteps, burnin);
+               py::object start, int nsteps, int burnin) {
+                if (py::isinstance<lcbinint::optimize::Result>(start)) {
+                    const auto& r = start.cast<const lcbinint::optimize::Result&>();
+                    py::gil_scoped_release release;
+                    return s.run(model, r, nsteps, burnin);
+                } else {
+                    auto pos = start.cast<std::vector<std::vector<double>>>();
+                    py::gil_scoped_release release;
+                    return s.run(model, pos, nsteps, burnin);
+                }
             },
             py::arg("model"), py::arg("start"),
             py::arg("nsteps") = 1000, py::arg("burnin") = 0);
