@@ -27,6 +27,14 @@ public:
                    const std::vector<double>& log_probs,   // nwalkers
                    const std::vector<double>& fluxes);     // nwalkers * n_fluxes
 
+    // Bulk-fill from pre-existing flat history (used by collect()).
+    // init()/init_fluxes() must be called first to set dimensions.
+    // Copies nsteps_*nwalkers_*ndim_ doubles starting at pos_src, etc.
+    // fl_src may be nullptr if no flux storage was allocated.
+    void assign_flat(const double* pos_src,
+                     const double* lp_src,
+                     const double* fl_src);
+
     void set_acceptance(double f)                      noexcept { acceptance_ = f; }
     void set_param_names(std::vector<std::string> ns)           { param_names_ = std::move(ns); }
     void set_transforms(std::vector<std::string> ts)            { transforms_  = std::move(ts); }

@@ -48,6 +48,17 @@ void Chain::push_step(const std::vector<double>& positions,
     }
 }
 
+void Chain::assign_flat(const double* pos_src,
+                        const double* lp_src,
+                        const double* fl_src)
+{
+    std::copy(pos_src, pos_src + flat_samples_.size(),  flat_samples_.begin());
+    std::copy(lp_src,  lp_src  + flat_log_prob_.size(), flat_log_prob_.begin());
+    step_count_ = nsteps_;
+    if (fl_src && !flat_fluxes_.empty())
+        std::copy(fl_src, fl_src + flat_fluxes_.size(), flat_fluxes_.begin());
+}
+
 // ---------------------------------------------------------------------------
 // Autocorrelation time (Sokal auto-window, FFT-based)
 // ---------------------------------------------------------------------------
