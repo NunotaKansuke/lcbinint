@@ -3,8 +3,92 @@
 #include <cmath>
 #include <random>
 #include <stdexcept>
+#include <limits>
 
 namespace lcbinint::sample {
+
+namespace {
+
+// Full Hessian of log_prob at theta via central finite differences.
+// Diagonal:     H_jj  = (f(θ+εeⱼ) + f(θ-εeⱼ) - 2f₀) / ε²
+// Off-diagonal: H_ij  = (f++ - f+- - f-+ + f--) / 4εᵢεⱼ
+// Returns empty vector if any evaluation is non-finite.
+std::vector<double> finite_diff_hessian(
+    bayes::Model&                              model,
+    const std::vector<double>&                 theta,
+    double                                     lp0,
+    const std::vector<bayes::OptimizerBounds>& bounds)
+{
+    const int n = static_cast<int>(theta.size());
+    const double eps_frac = 1e-3;
+    std::vector<double> eps(n);
+    for (int j = 0; j < n; ++j)
+        eps[j] = eps_frac * (bounds[j].hi - bounds[j].lo);
+
+    std::vector<double> H(n * n, 0.0);
+
+    for (int j = 0; j < n; ++j) {
+        auto tp = theta; tp[j] += eps[j];
+        auto tm = theta; tm[j] -= eps[j];
+        const double fp = model.log_prob(tp), fm = model.log_prob(tm);
+        if (!std::isfinite(fp) || !std::isfinite(fm)) return {};
+        H[j*n+j] = (fp + fm - 2.0*lp0) / (eps[j]*eps[j]);
+    }
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = i+1; j < n; ++j) {
+            auto tpp = theta; tpp[i] += eps[i]; tpp[j] += eps[j];
+            auto tpm = theta; tpm[i] += eps[i]; tpm[j] -= eps[j];
+            auto tmp = theta; tmp[i] -= eps[i]; tmp[j] += eps[j];
+            auto tmm = theta; tmm[i] -= eps[i]; tmm[j] -= eps[j];
+            const double fpp = model.log_prob(tpp), fpm = model.log_prob(tpm);
+            const double fmp = model.log_prob(tmp), fmm = model.log_prob(tmm);
+            if (!std::isfinite(fpp) || !std::isfinite(fpm) ||
+                !std::isfinite(fmp) || !std::isfinite(fmm)) return {};
+            const double H_ij = (fpp - fpm - fmp + fmm) / (4.0 * eps[i] * eps[j]);
+            H[i*n+j] = H_ij;
+            H[j*n+i] = H_ij;
+        }
+    }
+    return H;
+}
+
+// Cholesky decomposition: A = L·Lᵀ (A must be positive definite).
+// Returns L (lower triangular, row-major), or empty if not positive definite.
+std::vector<double> cholesky(const std::vector<double>& A, int n)
+{
+    std::vector<double> L(n * n, 0.0);
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j <= i; ++j) {
+            double s = A[i*n+j];
+            for (int k = 0; k < j; ++k)
+                s -= L[i*n+k] * L[j*n+k];
+            if (i == j) {
+                if (s <= 0.0) return {};
+                L[i*n+j] = std::sqrt(s);
+            } else {
+                L[i*n+j] = s / L[j*n+j];
+            }
+        }
+    }
+    return L;
+}
+
+// Solve Lᵀ·w = z by backward substitution (L lower triangular).
+// w ~ N(0, (LLᵀ)⁻¹) when z ~ N(0, I).
+void solve_Lt(const std::vector<double>& L, int n,
+              const std::vector<double>& z, std::vector<double>& w)
+{
+    w.resize(n);
+    for (int i = n-1; i >= 0; --i) {
+        double s = z[i];
+        for (int k = i+1; k < n; ++k)
+            s -= L[k*n+i] * w[k];  // Lᵀ[i,k] = L[k,i]
+        w[i] = s / L[i*n+i];
+    }
+}
+
+} // namespace
 
 EnsembleSampler::EnsembleSampler(int nwalkers, unsigned int seed,
                                    std::shared_ptr<Move> move)
@@ -36,7 +120,7 @@ Chain EnsembleSampler::run(bayes::Model& model, int nsteps, int burnin)
 }
 
 Chain EnsembleSampler::run(bayes::Model& model, const optimize::Result& start,
-                            int nsteps, int burnin)
+                            int nsteps, int burnin, bool hessian_init)
 {
     const int ndim = model.n_params();
     if (static_cast<int>(start.position.size()) != ndim)
@@ -45,28 +129,55 @@ Chain EnsembleSampler::run(bayes::Model& model, const optimize::Result& start,
     const auto bounds = model.optimizer_bounds();
     std::mt19937_64 rng(seed_);
     std::normal_distribution<double> gauss(0.0, 1.0);
-
-    // Initialize in a tight gaussian ball around start.position.
-    // sigma is 1% of the prior range per dimension, but additionally
-    // capped to half the distance to the nearest prior boundary so walkers
-    // don't pile up on a wall when the starting point is near a boundary.
     std::vector<std::vector<double>> pos(nwalkers_, std::vector<double>(ndim));
-    for (int w = 0; w < nwalkers_; ++w) {
-        for (int j = 0; j < ndim; ++j) {
-            const double range   = bounds[j].hi - bounds[j].lo;
-            const double dist_lo = start.position[j] - bounds[j].lo;
-            const double dist_hi = bounds[j].hi - start.position[j];
-            const double sigma   = 1e-2 * range;
-            const double sigma_j = std::min(sigma, 0.5 * std::min(dist_lo, dist_hi) + 1e-12);
-            // re-sample if outside bounds (avoids pile-up at boundaries)
-            double v;
-            for (int attempt = 0; attempt < 64; ++attempt) {
-                v = start.position[j] + gauss(rng) * sigma_j;
-                if (v >= bounds[j].lo && v <= bounds[j].hi) break;
+
+    bool used_hessian = false;
+    if (hessian_init) {
+        const double lp0 = model.log_prob(start.position);
+        if (std::isfinite(lp0)) {
+            const auto H = finite_diff_hessian(model, start.position, lp0, bounds);
+            if (!H.empty()) {
+                // Form -H (should be positive definite at a true maximum of log_prob)
+                std::vector<double> neg_H(ndim * ndim);
+                for (int i = 0; i < ndim * ndim; ++i) neg_H[i] = -H[i];
+                const auto L = cholesky(neg_H, ndim);
+                if (!L.empty()) {
+                    // Sample w ~ N(0, (-H)⁻¹): solve Lᵀ·w = z, z ~ N(0,I)
+                    std::vector<double> z(ndim), w(ndim);
+                    for (int wk = 0; wk < nwalkers_; ++wk) {
+                        for (int j = 0; j < ndim; ++j) z[j] = gauss(rng);
+                        solve_Lt(L, ndim, z, w);
+                        for (int j = 0; j < ndim; ++j)
+                            pos[wk][j] = std::clamp(
+                                start.position[j] + w[j],
+                                bounds[j].lo, bounds[j].hi);
+                    }
+                    used_hessian = true;
+                }
             }
-            pos[w][j] = std::clamp(v, bounds[j].lo, bounds[j].hi);
         }
     }
+
+    if (!used_hessian) {
+        // Fallback: tight gaussian ball, sigma = 1% of prior range,
+        // capped to avoid pile-up at boundaries.
+        for (int w = 0; w < nwalkers_; ++w) {
+            for (int j = 0; j < ndim; ++j) {
+                const double range   = bounds[j].hi - bounds[j].lo;
+                const double dist_lo = start.position[j] - bounds[j].lo;
+                const double dist_hi = bounds[j].hi - start.position[j];
+                const double sigma_j = std::min(
+                    1e-2 * range, 0.5 * std::min(dist_lo, dist_hi) + 1e-12);
+                double v;
+                for (int attempt = 0; attempt < 64; ++attempt) {
+                    v = start.position[j] + gauss(rng) * sigma_j;
+                    if (v >= bounds[j].lo && v <= bounds[j].hi) break;
+                }
+                pos[w][j] = std::clamp(v, bounds[j].lo, bounds[j].hi);
+            }
+        }
+    }
+
     return run_impl(model, std::move(pos), nsteps, burnin);
 }
 

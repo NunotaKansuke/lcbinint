@@ -25,9 +25,12 @@ public:
     // Start from random positions sampled uniformly within prior bounds.
     Chain run(bayes::Model& model, int nsteps = 1000, int burnin = 0);
 
-    // Start walkers in a tight gaussian ball around a best-fit result.
+    // Start walkers around a best-fit result.
+    // hessian_init=false : tight gaussian ball (sigma = 1% of prior range)
+    // hessian_init=true  : Laplace approximation via finite-difference Hessian;
+    //                      falls back to gaussian ball if Hessian is not neg-definite
     Chain run(bayes::Model& model, const optimize::Result& start,
-              int nsteps = 1000, int burnin = 0);
+              int nsteps = 1000, int burnin = 0, bool hessian_init = false);
 
     // Start from explicit walker positions (shape: nwalkers × ndim).
     Chain run(bayes::Model& model,
