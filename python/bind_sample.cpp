@@ -202,16 +202,16 @@ void register_sample_submodule(py::module_& parent)
             },
             py::arg("model"), py::arg("nsteps") = 1000, py::arg("burnin") = 0)
 
-        // run(model, start=..., nsteps, burnin)
+        // run(model, start=..., nsteps, burnin, hessian_init=False)
         // start can be optimize.Result or list-of-lists (nwalkers × ndim).
-        // Python processing before GIL release to avoid pybind11 overload ambiguity.
+        // hessian_init only applies when start is optimize.Result.
         .def("run",
             [](EnsembleSampler& s, lcbinint::bayes::Model& model,
-               py::object start, int nsteps, int burnin) {
+               py::object start, int nsteps, int burnin, bool hessian_init) {
                 if (py::isinstance<lcbinint::optimize::Result>(start)) {
                     const auto& r = start.cast<const lcbinint::optimize::Result&>();
                     py::gil_scoped_release release;
-                    return s.run(model, r, nsteps, burnin);
+                    return s.run(model, r, nsteps, burnin, hessian_init);
                 } else {
                     auto pos = start.cast<std::vector<std::vector<double>>>();
                     py::gil_scoped_release release;
@@ -219,5 +219,6 @@ void register_sample_submodule(py::module_& parent)
                 }
             },
             py::arg("model"), py::arg("start"),
-            py::arg("nsteps") = 1000, py::arg("burnin") = 0);
+            py::arg("nsteps") = 1000, py::arg("burnin") = 0,
+            py::arg("hessian_init") = false);
 }
