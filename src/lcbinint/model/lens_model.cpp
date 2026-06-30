@@ -86,9 +86,7 @@ MagnificationResult LensModel::magnification(double time) const
 {
     SourcePosition source;
     const bool has_xallarap = options_.xallarap_param_type != LCBI_XALLARAP_NONE &&
-        (options_.xallarap_param_type == LCBI_XALLARAP_ANGULAR_VELOCITY
-            ? params_.has_xallarap_angular_velocity()
-            : params_.has_xallarap_orbital_elements());
+        params_.has_xallarap();
     if (params_.piEN == 0.0 && params_.piEE == 0.0 && !has_xallarap) {
         const double tn = (time - params_.t0) / params_.tE;
         const double beta = params_.umin;
