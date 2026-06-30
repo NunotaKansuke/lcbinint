@@ -155,18 +155,23 @@ lcbi_params Model::theta_to_params(const std::vector<double>& theta,
         else if (n == "g3")      p.g3      = val;
         else if (n == "lom_szs") p.lom_szs = val;
         else if (n == "lom_ar")  p.lom_ar  = val;
-        // --- xallarap (angular velocity mode) ---
+        // --- xallarap: amplitude/position (all modes use xi_1/xi_2) ---
         else if (n == "xi_1")     p.xi_1     = val;
         else if (n == "xi_2")     p.xi_2     = val;
-        else if (n == "omega_xa") p.omega_xa = val;
-        else if (n == "inc_xa")   p.inc_xa   = val;
-        else if (n == "phi_xa")   p.phi_xa   = val;
-        // --- xallarap (orbital elements mode) ---
-        else if (n == "piEN_xa")  p.piEN_xa  = val;
-        else if (n == "piEE_xa")  p.piEE_xa  = val;
+        // angular_velocity / circular_elements / orbital_elements orbit params
+        else if (n == "omega_xa")  p.omega_xa  = val;
+        else if (n == "inc_xa")    p.inc_xa    = val;
+        else if (n == "phi_xa")    p.phi_xa    = val;
         else if (n == "period_xa") p.period_xa = val;
-        else if (n == "ecc_xa")   p.ecc_xa   = val;
-        else if (n == "peri_xa")  p.peri_xa  = val;
+        else if (n == "ecc_xa")    p.ecc_xa    = val;
+        else if (n == "peri_xa")   p.peri_xa   = val;
+        // circular_velocity / kepler_velocity: w1/w2/w3 reuse omega/inc/phi fields
+        else if (n == "w1") p.omega_xa = val;
+        else if (n == "w2") p.inc_xa   = val;
+        else if (n == "w3") p.phi_xa   = val;
+        // kepler_velocity: xa_szs/xa_ar reuse piEN_xa/piEE_xa fields
+        else if (n == "xa_szs") p.piEN_xa = val;
+        else if (n == "xa_ar")  p.piEE_xa = val;
         // --- binary source ---
         // Coupled mode (xallarap + binary): q_mass sets source 2's xallarap
         // amplitude; t0_2/u0_2 are not free (both sources share CoM trajectory).
@@ -238,13 +243,10 @@ static void fill_magnification(
     const bool coupled = (opts.xallarap_param_type != LCBI_XALLARAP_NONE);
     lcbi_params p2 = *pp;
     if (coupled) {
-        if (opts.xallarap_param_type == LCBI_XALLARAP_ANGULAR_VELOCITY) {
-            p2.xi_1 = -pp->xi_1 / bs.q_mass;
-            p2.xi_2 = -pp->xi_2 / bs.q_mass;
-        } else {  // LCBI_XALLARAP_ORBITAL_ELEMENTS
-            p2.piEN_xa = -pp->piEN_xa / bs.q_mass;
-            p2.piEE_xa = -pp->piEE_xa / bs.q_mass;
-        }
+        // All xallarap modes use xi_1/xi_2 as amplitude/position.
+        // Source 2 orbits the CoM in the opposite direction, scaled by 1/q_mass.
+        p2.xi_1 = -pp->xi_1 / bs.q_mass;
+        p2.xi_2 = -pp->xi_2 / bs.q_mass;
         // t0/umin unchanged — source 2 is on the same CoM trajectory
     } else {
         // Independent binary source: source 2 has its own t0/u0.

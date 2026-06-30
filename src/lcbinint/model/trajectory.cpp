@@ -1,4 +1,5 @@
 #include "lcbinint/model/trajectory.hpp"
+#include "lcbinint/model/orbital_motion.hpp"
 
 #include <algorithm>
 #include <array>
@@ -356,8 +357,76 @@ void apply_xallarap_orbital_elements(
     const double s_inc = std::sin(params.inc_xa);
     const double disp0 = s_inc * dev_x;
     const double disp1 = dev_y;
-    tau  += params.piEN_xa * disp0 + params.piEE_xa * disp1;
-    beta += params.piEE_xa * disp0 - params.piEN_xa * disp1;
+    tau  += params.xi_1 * disp0 + params.xi_2 * disp1;
+    beta += params.xi_2 * disp0 - params.xi_1 * disp1;
+}
+
+// CIRCULAR_ELEMENTS: same as orbital_elements but ecc forced to 0.
+// Uses xi_1/xi_2 as amplitude, period_xa, inc_xa; ecc/peri irrelevant.
+void apply_xallarap_circular_elements(
+    const LensParameters& params, double time, double& tau, double& beta)
+{
+    if (params.xi_1 == 0.0 && params.xi_2 == 0.0) {
+        return;
+    }
+    if (params.period_xa <= 0.0) {
+        return;
+    }
+    const double tref = params.tfix != 0.0 ? params.tfix : params.t0;
+    const auto pos_t  = keplerian_position(time,             tref, params.period_xa, 0.0, 0.0);
+    const auto pos_0  = keplerian_position(tref,             tref, params.period_xa, 0.0, 0.0);
+    const double dt_small = params.period_xa * 1.0e-7;
+    const auto pos_dt = keplerian_position(tref + dt_small,  tref, params.period_xa, 0.0, 0.0);
+    const double vel_x0 = (pos_dt[0] - pos_0[0]) / dt_small;
+    const double vel_y0 = (pos_dt[1] - pos_0[1]) / dt_small;
+    const double elapsed = time - tref;
+    const double dev_x = pos_t[0] - pos_0[0] - vel_x0 * elapsed;
+    const double dev_y = pos_t[1] - pos_0[1] - vel_y0 * elapsed;
+    const double s_inc = std::sin(params.inc_xa);
+    const double disp0 = s_inc * dev_x;
+    const double disp1 = dev_y;
+    tau  += params.xi_1 * disp0 + params.xi_2 * disp1;
+    beta += params.xi_2 * disp0 - params.xi_1 * disp1;
+}
+
+// CIRCULAR_VEL: position+velocity at tref, circular orbit via lom math.
+// Fields: xi_1/xi_2 = position at tref; omega_xa=w1, inc_xa=w2, phi_xa=w3.
+// Convention: full xi(t) added to (tau, beta) — t0/u0 are CoM parameters.
+void apply_xallarap_circular_vel(
+    const LensParameters& params, double time, double& tau, double& beta)
+{
+    const double xi_sep = std::sqrt(params.xi_1 * params.xi_1 + params.xi_2 * params.xi_2);
+    if (xi_sep < 1.0e-14) {
+        return;
+    }
+    const double xi_angle = std::atan2(params.xi_2, params.xi_1);
+    const double tref = params.tfix != 0.0 ? params.tfix : params.t0;
+    const auto state = circular_orbital_motion_3d(
+        time, xi_sep, xi_angle, params.omega_xa, params.inc_xa, params.phi_xa, tref);
+    tau  += state.separation * std::cos(state.angle);
+    beta += state.separation * std::sin(state.angle);
+}
+
+// KEPLER_VEL: position+velocity at tref, Kepler orbit via lom math.
+// Fields: xi_1/xi_2 = position at tref; omega_xa=w1, inc_xa=w2, phi_xa=w3;
+//         piEN_xa=xa_szs (z/sep ratio), piEE_xa=xa_ar (a/sep ratio).
+// Convention: full xi(t) added to (tau, beta) — t0/u0 are CoM parameters.
+void apply_xallarap_kepler_vel(
+    const LensParameters& params, double time, double& tau, double& beta)
+{
+    const double xi_sep = std::sqrt(params.xi_1 * params.xi_1 + params.xi_2 * params.xi_2);
+    if (xi_sep < 1.0e-14) {
+        return;
+    }
+    const double xi_angle = std::atan2(params.xi_2, params.xi_1);
+    const double tref = params.tfix != 0.0 ? params.tfix : params.t0;
+    const auto state = kepler_orbital_motion_3d(
+        time, xi_sep, xi_angle,
+        params.omega_xa, params.inc_xa, params.phi_xa,
+        params.piEN_xa, params.piEE_xa,
+        tref);
+    tau  += state.separation * std::cos(state.angle);
+    beta += state.separation * std::sin(state.angle);
 }
 
 void apply_terrestrial_parallax(const LensParameters& params, double time, double& tau, double& beta)
@@ -446,6 +515,12 @@ SourcePosition Trajectory::source_position(
         apply_xallarap_angular_velocity(params_, time, tn, beta);
     } else if (xallarap_type == LCBI_XALLARAP_ORBITAL_ELEMENTS) {
         apply_xallarap_orbital_elements(params_, time, tn, beta);
+    } else if (xallarap_type == LCBI_XALLARAP_CIRCULAR_ELEMENTS) {
+        apply_xallarap_circular_elements(params_, time, tn, beta);
+    } else if (xallarap_type == LCBI_XALLARAP_CIRCULAR_VEL) {
+        apply_xallarap_circular_vel(params_, time, tn, beta);
+    } else if (xallarap_type == LCBI_XALLARAP_KEPLER_VEL) {
+        apply_xallarap_kepler_vel(params_, time, tn, beta);
     }
 
     const double costheta = std::cos(params_.theta);

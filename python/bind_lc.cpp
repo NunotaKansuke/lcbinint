@@ -128,9 +128,12 @@ void register_lc_submodule(py::module_& parent)
         .export_values();
 
     py::enum_<lcbi_xallarap_param_type>(lc, "XallarapParamType")
-        .value("NONE",             LCBI_XALLARAP_NONE)
-        .value("ANGULAR_VELOCITY", LCBI_XALLARAP_ANGULAR_VELOCITY)
-        .value("ORBITAL_ELEMENTS", LCBI_XALLARAP_ORBITAL_ELEMENTS)
+        .value("NONE",               LCBI_XALLARAP_NONE)
+        .value("ANGULAR_VELOCITY",   LCBI_XALLARAP_ANGULAR_VELOCITY)
+        .value("ORBITAL_ELEMENTS",   LCBI_XALLARAP_ORBITAL_ELEMENTS)
+        .value("CIRCULAR_ELEMENTS",  LCBI_XALLARAP_CIRCULAR_ELEMENTS)
+        .value("CIRCULAR_VEL",       LCBI_XALLARAP_CIRCULAR_VEL)
+        .value("KEPLER_VEL",         LCBI_XALLARAP_KEPLER_VEL)
         .export_values();
 
     // --- Options: lcbi_options exposed directly (for power users / bayes module) ---
@@ -333,10 +336,15 @@ void register_lc_submodule(py::module_& parent)
 
     // Parse xallarap mode string.
     auto parse_xallarap = [](const std::string& s) -> lcbi_xallarap_param_type {
-        if (s.empty() || s == "none")                 return LCBI_XALLARAP_NONE;
-        if (s == "angular_velocity")                  return LCBI_XALLARAP_ANGULAR_VELOCITY;
-        if (s == "orbital_elements" || s == "kepler") return LCBI_XALLARAP_ORBITAL_ELEMENTS;
-        throw std::invalid_argument("xallarap must be 'none', 'angular_velocity', or 'orbital_elements'");
+        if (s.empty() || s == "none")                        return LCBI_XALLARAP_NONE;
+        if (s == "angular_velocity")                         return LCBI_XALLARAP_ANGULAR_VELOCITY;
+        if (s == "orbital_elements" || s == "kepler")        return LCBI_XALLARAP_ORBITAL_ELEMENTS;
+        if (s == "circular_elements")                        return LCBI_XALLARAP_CIRCULAR_ELEMENTS;
+        if (s == "circular_velocity" || s == "circular_vel") return LCBI_XALLARAP_CIRCULAR_VEL;
+        if (s == "kepler_velocity"   || s == "kepler_vel")   return LCBI_XALLARAP_KEPLER_VEL;
+        throw std::invalid_argument(
+            "xallarap must be 'none', 'angular_velocity', 'orbital_elements', "
+            "'circular_elements', 'circular_velocity', or 'kepler_velocity'");
     };
 
     py::class_<Eff>(lc, "Effects",
@@ -390,9 +398,14 @@ unless terrestrial is explicitly set to True.)")
             [&](Eff& e, const std::string& s) { e.orbital_motion = parse_orbital(s); })
         .def_property("xallarap",
             [](const Eff& e) -> std::string {
-                if (e.xallarap == LCBI_XALLARAP_ANGULAR_VELOCITY) return "angular_velocity";
-                if (e.xallarap == LCBI_XALLARAP_ORBITAL_ELEMENTS) return "orbital_elements";
-                return "none";
+                switch (e.xallarap) {
+                case LCBI_XALLARAP_ANGULAR_VELOCITY:  return "angular_velocity";
+                case LCBI_XALLARAP_ORBITAL_ELEMENTS:  return "orbital_elements";
+                case LCBI_XALLARAP_CIRCULAR_ELEMENTS: return "circular_elements";
+                case LCBI_XALLARAP_CIRCULAR_VEL:      return "circular_velocity";
+                case LCBI_XALLARAP_KEPLER_VEL:        return "kepler_velocity";
+                default:                               return "none";
+                }
             },
             [&](Eff& e, const std::string& s) { e.xallarap = parse_xallarap(s); })
         .def_readwrite("parallax",    &Eff::parallax)
@@ -430,8 +443,16 @@ unless terrestrial is explicitly set to True.)")
             if (e.terrestrial) s += " terrestrial";
             if (e.orbital_motion != LCBI_ORBIT_STATIC)
                 s += e.orbital_motion == LCBI_ORBIT_CIRCULAR ? " orbital_motion=circular" : " orbital_motion=kepler";
-            if (e.xallarap != LCBI_XALLARAP_NONE)
-                s += e.xallarap == LCBI_XALLARAP_ANGULAR_VELOCITY ? " xallarap=angular_velocity" : " xallarap=orbital_elements";
+            if (e.xallarap != LCBI_XALLARAP_NONE) {
+                switch (e.xallarap) {
+                case LCBI_XALLARAP_ANGULAR_VELOCITY:  s += " xallarap=angular_velocity";  break;
+                case LCBI_XALLARAP_ORBITAL_ELEMENTS:  s += " xallarap=orbital_elements";  break;
+                case LCBI_XALLARAP_CIRCULAR_ELEMENTS: s += " xallarap=circular_elements"; break;
+                case LCBI_XALLARAP_CIRCULAR_VEL:      s += " xallarap=circular_velocity"; break;
+                case LCBI_XALLARAP_KEPLER_VEL:        s += " xallarap=kepler_velocity";   break;
+                default: break;
+                }
+            }
             if (e.source == SKind::binary) s += " source=binary";
             if (e.sky)  s += " sky=set";
             if (e.site) s += " site=set";

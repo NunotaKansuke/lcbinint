@@ -16,13 +16,15 @@ namespace {
 bool has_unsupported_dynamic_effects(
     const LensParameters& params, const ComputationOptions& options)
 {
-    const bool unhandled_piEN_xa =
-        (params.piEN_xa != 0.0 || params.piEE_xa != 0.0) &&
-        options.xallarap_param_type != LCBI_XALLARAP_ORBITAL_ELEMENTS;
+    // xi_1/xi_2: amplitude or position for any xallarap mode; only invalid when NONE
     const bool unhandled_xi =
         (params.xi_1 != 0.0 || params.xi_2 != 0.0) &&
-        options.xallarap_param_type != LCBI_XALLARAP_ANGULAR_VELOCITY;
-    return unhandled_piEN_xa || unhandled_xi ||
+        options.xallarap_param_type == LCBI_XALLARAP_NONE;
+    // piEN_xa/piEE_xa: only meaningful as xa_szs/xa_ar in KEPLER_VEL mode
+    const bool unhandled_piEN_xa =
+        (params.piEN_xa != 0.0 || params.piEE_xa != 0.0) &&
+        options.xallarap_param_type != LCBI_XALLARAP_KEPLER_VEL;
+    return unhandled_xi || unhandled_piEN_xa ||
            params.omega != 0.0 || params.v_sep != 0.0;
 }
 
