@@ -125,6 +125,7 @@ void register_sample_submodule(py::module_& parent)
             const auto& raw  = c.flat_samples();
 
             py::dict result;
+            if (ntot == 0) return result;
             std::vector<double> col(ntot);
 
             for (int j = 0; j < ndim; ++j) {
@@ -134,7 +135,10 @@ void register_sample_submodule(py::module_& parent)
                 }
                 auto sorted = col;
                 std::sort(sorted.begin(), sorted.end());
-                const double med = sorted[ntot / 2];
+                // Average two middle elements for even ntot (matches scipy.median).
+                const double med = (ntot % 2 == 1)
+                    ? sorted[ntot / 2]
+                    : 0.5 * (sorted[(ntot - 1) / 2] + sorted[ntot / 2]);
                 const double lo  = sorted[ntot * 16 / 100];
                 const double hi  = sorted[ntot * 84 / 100];
                 double mean = 0.0;
@@ -157,16 +161,18 @@ void register_sample_submodule(py::module_& parent)
         // tau(c=5.0): integrated autocorrelation time per parameter
         // Returns numpy array of length ndim; NaN where chain is too short.
         .def("tau", [](py::object self, double window) {
+            const Chain& c = self.cast<const Chain&>();
             py::gil_scoped_release release;
-            return self.cast<const Chain&>().tau(window);
+            return c.tau(window);
         }, py::arg("c") = 5.0,
         "Integrated autocorrelation time per parameter (Sokal auto-window).\n"
         "Returns array of length ndim. NaN where chain is too short to converge.")
 
         // ess(): effective sample size = nsteps * nwalkers / tau
         .def("ess", [](py::object self) {
+            const Chain& c = self.cast<const Chain&>();
             py::gil_scoped_release release;
-            return self.cast<const Chain&>().ess();
+            return c.ess();
         }, "Effective sample size per parameter.")
 
         .def("__repr__", [](const Chain& c) {

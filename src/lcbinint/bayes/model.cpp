@@ -271,7 +271,8 @@ double Model::compute_chi2(const lcbi_params& p, const BinarySourceExtras& bs) c
             S_wA2 += wi * Ai * Ai;
             S_wAf += wi * Ai * fi;
         }
-        const double D  = S_wA2 * c.S_w - S_wA * S_wA;
+        const double D = S_wA2 * c.S_w - S_wA * S_wA;
+        if (D <= 0.0) return std::numeric_limits<double>::infinity();
         const double Fs = (S_wAf * c.S_w  - S_wA  * c.S_wf) / D;
         const double Fb = (S_wA2 * c.S_wf - S_wA  * S_wAf)  / D;
         total += c.S_wf2 - Fs * S_wAf - Fb * c.S_wf;
