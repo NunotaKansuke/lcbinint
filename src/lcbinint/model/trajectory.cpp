@@ -285,22 +285,6 @@ private:
     ProjectedEarthState reference_state_ = {};
 };
 
-void apply_xallarap_angular_velocity(
-    const LensParameters& params, double time, double& tau, double& beta)
-{
-    if (!params.has_xallarap_angular_velocity()) {
-        return;
-    }
-    const double tref = params.tfix != 0.0 ? params.tfix : params.t0;
-    const double phit = params.omega_xa * (time - tref);
-    const double phi = params.phi_xa;
-    const double s_inc = std::sin(params.inc_xa);
-    const double disp0 = s_inc * (-std::cos(phi) + std::cos(phi + phit) + phit * std::sin(phi));
-    const double disp1 = -phit * std::cos(phi) - std::sin(phi) + std::sin(phi + phit);
-    tau  += params.xi_1 * disp0 + params.xi_2 * disp1;
-    beta += params.xi_2 * disp0 - params.xi_1 * disp1;
-}
-
 double solve_kepler(double mean_anomaly, double eccentricity)
 {
     double E = mean_anomaly + eccentricity * std::sin(mean_anomaly);
@@ -511,9 +495,7 @@ SourcePosition Trajectory::source_position(
     double beta = params_.umin;
     apply_annual_parallax(params_, time, tn, beta);
     apply_terrestrial_parallax(params_, time, tn, beta);
-    if (xallarap_type == LCBI_XALLARAP_ANGULAR_VELOCITY) {
-        apply_xallarap_angular_velocity(params_, time, tn, beta);
-    } else if (xallarap_type == LCBI_XALLARAP_ORBITAL_ELEMENTS) {
+    if (xallarap_type == LCBI_XALLARAP_ORBITAL_ELEMENTS) {
         apply_xallarap_orbital_elements(params_, time, tn, beta);
     } else if (xallarap_type == LCBI_XALLARAP_CIRCULAR_ELEMENTS) {
         apply_xallarap_circular_elements(params_, time, tn, beta);
