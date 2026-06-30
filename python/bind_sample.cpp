@@ -255,6 +255,34 @@ void register_sample_submodule(py::module_& parent)
                 + " accept=" + std::to_string(s.acceptance_fraction()).substr(0,5) + ">";
         });
 
+    // --- chain_from_arrays: build Chain from numpy arrays (used by load_chain) ---
+    spl.def("_chain_from_arrays",
+        [](py::array_t<double, py::array::c_style> samples,   // (nsteps*nwalkers, ndim)
+           py::array_t<double, py::array::c_style> log_prob,  // (nsteps*nwalkers,)
+           int nwalkers,
+           std::vector<std::string> param_names,
+           std::vector<std::string> transforms,
+           double acceptance) -> Chain
+        {
+            auto sb = samples.unchecked<2>();
+            auto lb = log_prob.unchecked<1>();
+            const int ntot   = static_cast<int>(sb.shape(0));
+            const int ndim   = static_cast<int>(sb.shape(1));
+            const int nsteps = nwalkers > 0 ? ntot / nwalkers : 0;
+            Chain chain;
+            chain.init(nsteps, nwalkers, ndim);
+            chain.set_param_names(std::move(param_names));
+            chain.set_transforms(std::move(transforms));
+            if (nsteps > 0)
+                chain.assign_flat(sb.data(0, 0), lb.data(0), nullptr);
+            chain.set_acceptance(acceptance);
+            return chain;
+        },
+        py::arg("samples"), py::arg("log_prob"), py::arg("nwalkers"),
+        py::arg("param_names") = std::vector<std::string>{},
+        py::arg("transforms")  = std::vector<std::string>{},
+        py::arg("acceptance")  = 0.0);
+
     // --- Move hierarchy ---
     py::class_<Move, std::shared_ptr<Move>>(spl, "Move");
 

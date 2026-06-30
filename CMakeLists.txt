@@ -105,7 +105,16 @@ if(LCBININT_BUILD_PYTHON)
         python/bind_optimize.cpp
         python/bind_sample.cpp)
     target_link_libraries(lcbinint_python PRIVATE lcbinint_core)
-    set_target_properties(lcbinint_python PROPERTIES OUTPUT_NAME lcbinint)
+    set_target_properties(lcbinint_python PROPERTIES OUTPUT_NAME _lcbinint)
+    # Copy Python package files to build dir so `import lcbinint` works from build/
+    add_custom_command(TARGET lcbinint_python POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/python/lcbinint
+            ${CMAKE_CURRENT_BINARY_DIR}/lcbinint
+        COMMAND ${CMAKE_COMMAND} -E copy
+            $<TARGET_FILE:lcbinint_python>
+            ${CMAKE_CURRENT_BINARY_DIR}/lcbinint/$<TARGET_FILE_NAME:lcbinint_python>
+        COMMENT "Copying lcbinint Python package to build dir")
     get_filename_component(LCBININT_GSL_LIBRARY_DIR "${GSL_LIBRARY}" DIRECTORY)
     if(LCBININT_GSL_LIBRARY_DIR)
         set_target_properties(lcbinint_python PROPERTIES

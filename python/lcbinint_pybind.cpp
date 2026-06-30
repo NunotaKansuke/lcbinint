@@ -8,7 +8,7 @@
 
 namespace py = pybind11;
 
-PYBIND11_MODULE(lcbinint, m)
+PYBIND11_MODULE(_lcbinint, m)
 {
     m.doc() = "Python bindings for the lcbinint C++ core";
 
