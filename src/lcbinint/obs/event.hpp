@@ -1,4 +1,5 @@
 #pragma once
+#include "coordinates.hpp"
 #include "light_curve_data.hpp"
 #include <memory>
 #include <string>
@@ -9,10 +10,8 @@ namespace lcbinint::obs {
 class Event {
 public:
     Event(
-        std::string name  = {},
-        double      ra    = 0.0,
-        double      dec   = 0.0,
-        double      t_ref = 0.0
+        std::string               name      = {},
+        std::shared_ptr<SkyCoord> sky_coord = nullptr
     );
 
     void add(std::shared_ptr<LightCurveData> data);
@@ -20,10 +19,11 @@ public:
     std::size_t           size()            const noexcept { return datasets_.size(); }
     const LightCurveData& at(std::size_t i) const { return *datasets_.at(i); }
 
-    const std::string& name()  const noexcept { return name_; }
-    double             ra()    const noexcept { return ra_; }
-    double             dec()   const noexcept { return dec_; }
-    double             t_ref() const noexcept { return t_ref_; }
+    const std::string&               name()      const noexcept { return name_; }
+    const std::shared_ptr<SkyCoord>& sky_coord() const noexcept { return sky_coord_; }
+    // Convenience: return 0 if no sky_coord
+    double ra()  const noexcept { return sky_coord_ ? sky_coord_->ra_deg()  : 0.0; }
+    double dec() const noexcept { return sky_coord_ ? sky_coord_->dec_deg() : 0.0; }
 
     // Iteration support (dereferences shared_ptr transparently)
     class const_iterator {
@@ -44,10 +44,8 @@ public:
     const_iterator end()   const { return const_iterator(datasets_.end()); }
 
 private:
-    std::string name_;
-    double ra_;
-    double dec_;
-    double t_ref_;
+    std::string               name_;
+    std::shared_ptr<SkyCoord> sky_coord_;
     std::vector<std::shared_ptr<LightCurveData>> datasets_;
 };
 

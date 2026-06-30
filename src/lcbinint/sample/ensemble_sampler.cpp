@@ -93,19 +93,17 @@ Chain EnsembleSampler::run_impl(bayes::Model& model,
     const int n_ds = static_cast<int>(model.event().size());
     const int n_fl = n_ds * 2;
 
-    // Evaluate log_prob for all initial positions
+    // Evaluate log_prob and fluxes for all initial positions in a single pass.
     std::vector<double> lp(NW);
-    for (int w = 0; w < NW; ++w)
-        lp[w] = model.log_prob(pos[w]);
-
-    // Cache fluxes (Fs, Fb per dataset) per walker; updated only on acceptance.
-    // Layout: walker_fluxes_[w][2*k] = Fs_k, walker_fluxes_[w][2*k+1] = Fb_k
     std::vector<std::vector<double>> walker_fluxes(NW, std::vector<double>(n_fl, 0.0));
-    for (int w = 0; w < NW; ++w) {
-        const auto sols = model.fluxes(pos[w]);
-        for (int k = 0; k < n_ds; ++k) {
-            walker_fluxes[w][2*k]   = sols[k].Fs;
-            walker_fluxes[w][2*k+1] = sols[k].Fb;
+    {
+        std::vector<bayes::Model::FluxSolution> fl_buf;
+        for (int w = 0; w < NW; ++w) {
+            lp[w] = model.log_prob_and_fluxes(pos[w], fl_buf);
+            for (int k = 0; k < n_ds && k < static_cast<int>(fl_buf.size()); ++k) {
+                walker_fluxes[w][2*k]   = fl_buf[k].Fs;
+                walker_fluxes[w][2*k+1] = fl_buf[k].Fb;
+            }
         }
     }
 
@@ -151,19 +149,19 @@ Chain EnsembleSampler::run_impl(bayes::Model& model,
             std::vector<std::vector<double>> complement(pos.begin() + begin_comp,
                                                          pos.begin() + begin_comp + half);
 
+            std::vector<bayes::Model::FluxSolution> prop_fl;
             for (int k = begin_this; k < begin_this + half; ++k) {
                 auto [prop_vec, log_factor] =
                     move_->propose(pos[k], complement, rng, ndim);
 
-                const double lp_prop = model.log_prob(prop_vec);
+                // Single magnification pass: log_prob + fluxes together.
+                const double lp_prop = model.log_prob_and_fluxes(prop_vec, prop_fl);
                 const double log_acc = log_factor + lp_prop - lp[k];
 
                 if (std::log(rand01()) <= log_acc) {
-                    // Update fluxes cache on acceptance (avoids re-computing for rejected)
-                    const auto sols = model.fluxes(prop_vec);
-                    for (int j = 0; j < n_ds; ++j) {
-                        walker_fluxes[k][2*j]   = sols[j].Fs;
-                        walker_fluxes[k][2*j+1] = sols[j].Fb;
+                    for (int j = 0; j < n_ds && j < static_cast<int>(prop_fl.size()); ++j) {
+                        walker_fluxes[k][2*j]   = prop_fl[j].Fs;
+                        walker_fluxes[k][2*j+1] = prop_fl[j].Fb;
                     }
                     pos[k] = std::move(prop_vec);
                     lp[k]  = lp_prop;
