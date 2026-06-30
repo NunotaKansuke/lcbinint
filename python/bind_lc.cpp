@@ -68,14 +68,26 @@ lcbi_params params_from_dict(const py::dict& d)
         else if (key == "g1")                      p.g1    = val;
         else if (key == "g2")                      p.g2    = val;
         else if (key == "g3")                      p.g3    = val;
+        else if (key == "lom_szs")                 p.lom_szs = val;
+        else if (key == "lom_ar")                  p.lom_ar  = val;
+        // xallarap amplitude/position (all modes)
         else if (key == "xi_1")                    p.xi_1  = val;
         else if (key == "xi_2")                    p.xi_2  = val;
-        else if (key == "omega_xa")                p.omega_xa = val;
-        else if (key == "inc_xa")                  p.inc_xa = val;
-        else if (key == "phi_xa")                  p.phi_xa = val;
+        // orbital_elements / circular_elements: period-based orbit params
+        else if (key == "period_xa")               p.period_xa = val;
+        else if (key == "ecc_xa")                  p.ecc_xa    = val;
+        else if (key == "peri_xa")                 p.peri_xa   = val;
+        else if (key == "inc_xa")                  p.inc_xa    = val;
+        // circular_velocity / kepler_velocity: w1/w2/w3 (mapped to omega/inc/phi fields)
+        else if (key == "w1")                      p.omega_xa = val;
+        else if (key == "w2")                      p.inc_xa   = val;
+        else if (key == "w3")                      p.phi_xa   = val;
+        // kepler_velocity: xa_szs/xa_ar (mapped to piEN_xa/piEE_xa fields)
+        else if (key == "xa_szs")                  p.piEN_xa = val;
+        else if (key == "xa_ar")                   p.piEE_xa = val;
         // Binary source params — handled by compute_dispatch, not lcbi_params.
         else if (key == "q_source" || key == "fluxratio" ||
-                 key == "t0_2"     || key == "u0_2") { /* skip */ }
+                 key == "t0_2"     || key == "u0_2" || key == "q_mass") { /* skip */ }
         else {
             throw py::key_error("lcbinint.lc: unknown parameter '" + key + "'");
         }
@@ -473,11 +485,12 @@ unless terrestrial is explicitly set to True.)")
         if (lc.source_kind() == SKind::single) {
             return compute(lc, times, base_params);
         }
-        // Binary source: extract q_source, t0_2, u0_2 from extra dict.
-        double q_source = 1.0, t0_2 = 0.0, u0_2 = 0.0;
+        // Binary source: extract q_source, q_mass, t0_2, u0_2 from extra dict.
+        double q_source = 1.0, q_mass = 0.0, t0_2 = base_params.t0, u0_2 = base_params.umin;
         for (auto& item : extra) {
             const std::string key = item.first.cast<std::string>();
             if      (key == "q_source" || key == "fluxratio") q_source = item.second.cast<double>();
+            else if (key == "q_mass")                          q_mass   = item.second.cast<double>();
             else if (key == "t0_2")                            t0_2     = item.second.cast<double>();
             else if (key == "u0_2")                            u0_2     = item.second.cast<double>();
         }
@@ -487,7 +500,15 @@ unless terrestrial is explicitly set to True.)")
         std::vector<double> mags;
         {
             py::gil_scoped_release release;
-            mags = lc.magnification_binary(tv, base_params, q_source, t0_2, u0_2);
+            if (q_mass > 0.0) {
+                // Coupled xallarap: source 2 has xi scaled by -1/q_mass, same t0/u0 (CoM)
+                lcbi_params p2 = base_params;
+                p2.xi_1 = -base_params.xi_1 / q_mass;
+                p2.xi_2 = -base_params.xi_2 / q_mass;
+                mags = lc.magnification_binary(tv, base_params, q_source, p2);
+            } else {
+                mags = lc.magnification_binary(tv, base_params, q_source, t0_2, u0_2);
+            }
         }
         return vec_to_numpy(std::move(mags));
     };

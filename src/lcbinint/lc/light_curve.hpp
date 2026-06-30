@@ -41,6 +41,15 @@ public:
         double                     u0_2
     ) const;
 
+    // Binary-source magnification: caller supplies full params for source 2.
+    // Used for coupled xallarap where source 2's xi_1/xi_2 differ from source 1's.
+    std::vector<double> magnification_binary(
+        const std::vector<double>& times,
+        const lcbi_params&         params1,
+        double                     q_source,
+        const lcbi_params&         params2
+    ) const;
+
     const lcbi_options& options()  const noexcept { return opts_; }
     double              ld_c()     const noexcept { return ld_c_; }
     double              ld_d()     const noexcept { return ld_d_; }

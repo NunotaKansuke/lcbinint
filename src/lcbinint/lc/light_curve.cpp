@@ -84,4 +84,28 @@ std::vector<double> LightCurve::magnification_binary(
     return mags;
 }
 
+std::vector<double> LightCurve::magnification_binary(
+    const std::vector<double>& times,
+    const lcbi_params&         params1,
+    double                     q_source,
+    const lcbi_params&         params2) const
+{
+    const lcbi_params p1 = apply_coords(params1);
+    const lcbi_params p2 = apply_coords(params2);
+
+    const int n = static_cast<int>(times.size());
+    std::vector<lcbi_result> r1(n), r2(n);
+
+    lcbi_status s = lcbi_magnification_array(times.data(), n, &p1, &opts_, r1.data());
+    if (s != LCBI_OK) throw std::runtime_error(lcbi_status_string(s));
+    s = lcbi_magnification_array(times.data(), n, &p2, &opts_, r2.data());
+    if (s != LCBI_OK) throw std::runtime_error(lcbi_status_string(s));
+
+    std::vector<double> mags(n);
+    const double denom = 1.0 + q_source;
+    for (int i = 0; i < n; ++i)
+        mags[i] = (r1[i].magnification + q_source * r2[i].magnification) / denom;
+    return mags;
+}
+
 } // namespace lcbinint::lc
