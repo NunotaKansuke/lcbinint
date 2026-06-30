@@ -178,7 +178,7 @@ SamplerState EnsembleSampler::make_state(bayes::Model& model,
     st.pos.resize(nwalkers_ * ndim);
     st.log_prob.resize(nwalkers_);
     st.fluxes.resize(nwalkers_ * n_fl, 0.0);
-    st.rng.seed(seed_);
+    // Caller is responsible for setting st.rng after make_state returns.
 
     std::vector<bayes::Model::FluxSolution> fl_buf;
     for (int w = 0; w < nwalkers_; ++w) {
@@ -206,7 +206,9 @@ SamplerState EnsembleSampler::init_state(bayes::Model& model)
     for (int w = 0; w < nwalkers_; ++w)
         for (int j = 0; j < ndim; ++j)
             pos[w][j] = bounds[j].lo + rand01() * (bounds[j].hi - bounds[j].lo);
-    return make_state(model, std::move(pos));
+    auto st = make_state(model, std::move(pos));
+    st.rng = std::move(rng);  // advance past position draws, not replayed in step()
+    return st;
 }
 
 SamplerState EnsembleSampler::init_state(bayes::Model& model,
@@ -231,7 +233,9 @@ SamplerState EnsembleSampler::init_state(
 {
     if (static_cast<int>(pos.size()) != nwalkers_)
         throw std::invalid_argument("pos must have nwalkers rows");
-    return make_state(model, pos);
+    auto st = make_state(model, pos);
+    st.rng.seed(seed_);
+    return st;
 }
 
 // ---------------------------------------------------------------------------
@@ -248,22 +252,20 @@ void EnsembleSampler::step(bayes::Model& model, SamplerState& state)
     auto rand01 = [&]{ return std::uniform_real_distribution<double>(0,1)(state.rng); };
 
     std::vector<bayes::Model::FluxSolution> prop_fl;
+    std::vector<std::vector<double>> complement(half, std::vector<double>(ndim));
+    std::vector<double> cur(ndim);
 
     for (int half_idx = 0; half_idx < 2; ++half_idx) {
         const int begin_this = half_idx == 0 ? 0    : half;
         const int begin_comp = half_idx == 0 ? half : 0;
 
-        // Build complementary ensemble as vector<vector<double>> for Move::propose
-        std::vector<std::vector<double>> complement(half,
-                                                     std::vector<double>(ndim));
         for (int i = 0; i < half; ++i)
             std::copy(state.pos_row(begin_comp + i),
                       state.pos_row(begin_comp + i) + ndim,
                       complement[i].begin());
 
         for (int k = begin_this; k < begin_this + half; ++k) {
-            std::vector<double> cur(state.pos_row(k),
-                                    state.pos_row(k) + ndim);
+            std::copy(state.pos_row(k), state.pos_row(k) + ndim, cur.begin());
             auto [prop_vec, log_factor] =
                 move_->propose(cur, complement, state.rng, ndim);
 

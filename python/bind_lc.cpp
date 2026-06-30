@@ -516,8 +516,14 @@ unless terrestrial is explicitly set to True.)")
                 else if (key == "xallarap")       eff.xallarap      = parse_xallarap(item.second.cast<std::string>());
                 else if (key == "parallax")       eff.parallax      = item.second.cast<bool>();
                 else if (key == "terrestrial")    eff.terrestrial   = item.second.cast<bool>();
-                else if (key == "sky")   eff.sky  = py::reinterpret_borrow<py::object>(item.second).cast<std::shared_ptr<SkyCoord>>();
-                else if (key == "site")  eff.site = py::reinterpret_borrow<py::object>(item.second).cast<std::shared_ptr<Site>>();
+                else if (key == "sky") {
+                    auto obj = py::reinterpret_borrow<py::object>(item.second);
+                    if (!obj.is_none()) eff.sky = obj.cast<std::shared_ptr<SkyCoord>>();
+                }
+                else if (key == "site") {
+                    auto obj = py::reinterpret_borrow<py::object>(item.second);
+                    if (!obj.is_none()) eff.site = obj.cast<std::shared_ptr<Site>>();
+                }
                 else if (key == "t_ref") {
                     auto obj = py::reinterpret_borrow<py::object>(item.second);
                     if (!obj.is_none()) eff.t_ref = obj.cast<double>();
