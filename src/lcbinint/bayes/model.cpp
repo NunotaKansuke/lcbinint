@@ -335,6 +335,7 @@ std::vector<double> Model::compute_residuals(const lcbi_params& p,
             S_wAf += wi * Ai * f[i];
         }
         const double D  = S_wA2 * c.S_w - S_wA * S_wA;
+        if (D <= 0.0) return {};
         const double Fs = (S_wAf * c.S_w  - S_wA  * c.S_wf) / D;
         const double Fb = (S_wA2 * c.S_wf - S_wA  * S_wAf)  / D;
 
@@ -396,6 +397,7 @@ Model::fluxes(const std::vector<double>& theta) const
             S_wAf += w[i] * A[i] * f[i];
         }
         const double D = S_wA2 * c.S_w - S_wA * S_wA;
+        if (D <= 0.0) return {};
         out.push_back({(S_wAf * c.S_w  - S_wA  * c.S_wf) / D,
                        (S_wA2 * c.S_wf - S_wA  * S_wAf)  / D});
     }
@@ -445,6 +447,7 @@ double Model::log_prob_and_fluxes(const std::vector<double>& theta,
             S_wAf += w[i] * A[i] * f[i];
         }
         const double D  = S_wA2 * c.S_w - S_wA * S_wA;
+        if (D <= 0.0) return -std::numeric_limits<double>::infinity();
         const double Fs = (S_wAf * c.S_w  - S_wA  * c.S_wf) / D;
         const double Fb = (S_wA2 * c.S_wf - S_wA  * S_wAf)  / D;
         chi2_total += c.S_wf2 - Fs * S_wAf - Fb * c.S_wf;
