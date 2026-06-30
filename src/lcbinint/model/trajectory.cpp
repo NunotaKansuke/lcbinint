@@ -290,7 +290,8 @@ void apply_xallarap_angular_velocity(
     if (!params.has_xallarap_angular_velocity()) {
         return;
     }
-    const double phit = params.omega_xa * (time - params.t0);
+    const double tref = params.tfix != 0.0 ? params.tfix : params.t0;
+    const double phit = params.omega_xa * (time - tref);
     const double phi = params.phi_xa;
     const double s_inc = std::sin(params.inc_xa);
     const double disp0 = s_inc * (-std::cos(phi) + std::cos(phi + phit) + phit * std::sin(phi));
@@ -339,16 +340,17 @@ void apply_xallarap_orbital_elements(
     if (params.period_xa <= 0.0) {
         return;
     }
+    const double tref = params.tfix != 0.0 ? params.tfix : params.t0;
     const auto pos_t = keplerian_position(
-        time, params.t0, params.period_xa, params.ecc_xa, params.peri_xa);
+        time, tref, params.period_xa, params.ecc_xa, params.peri_xa);
     const auto pos_0 = keplerian_position(
-        params.t0, params.t0, params.period_xa, params.ecc_xa, params.peri_xa);
+        tref, tref, params.period_xa, params.ecc_xa, params.peri_xa);
     const double dt_small = params.period_xa * 1.0e-7;
     const auto pos_dt = keplerian_position(
-        params.t0 + dt_small, params.t0, params.period_xa, params.ecc_xa, params.peri_xa);
+        tref + dt_small, tref, params.period_xa, params.ecc_xa, params.peri_xa);
     const double vel_x0 = (pos_dt[0] - pos_0[0]) / dt_small;
     const double vel_y0 = (pos_dt[1] - pos_0[1]) / dt_small;
-    const double elapsed = time - params.t0;
+    const double elapsed = time - tref;
     const double dev_x = pos_t[0] - pos_0[0] - vel_x0 * elapsed;
     const double dev_y = pos_t[1] - pos_0[1] - vel_y0 * elapsed;
     const double s_inc = std::sin(params.inc_xa);
