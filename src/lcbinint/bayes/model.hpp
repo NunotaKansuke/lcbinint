@@ -29,10 +29,13 @@ struct OptimizerBounds {
 };
 
 // Binary source parameters extracted alongside lcbi_params.
+// In coupled xallarap+binary mode, t0_2/u0_2 are unused (both sources share
+// the CoM trajectory); q_mass = m2/m1 sets source 2's xallarap amplitude.
 struct BinarySourceExtras {
     double q_source = 1.0;
-    double t0_2     = 0.0;
-    double u0_2     = 0.0;
+    double t0_2     = 0.0;  // independent binary source only
+    double u0_2     = 0.0;  // independent binary source only
+    double q_mass   = 1.0;  // coupled xallarap+binary only (m2/m1)
 };
 
 // Per-dataset sums precomputed at construction + reusable evaluation buffers.

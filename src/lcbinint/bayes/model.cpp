@@ -168,9 +168,13 @@ lcbi_params Model::theta_to_params(const std::vector<double>& theta,
         else if (n == "ecc_xa")   p.ecc_xa   = val;
         else if (n == "peri_xa")  p.peri_xa  = val;
         // --- binary source ---
+        // Coupled mode (xallarap + binary): q_mass sets source 2's xallarap
+        // amplitude; t0_2/u0_2 are not free (both sources share CoM trajectory).
+        // Independent mode: t0_2/u0_2 define source 2's separate trajectory.
         else if (n == "q_source" || n == "flux_ratio") bs.q_source = val;
-        else if (n == "t0_2")  bs.t0_2  = val;
-        else if (n == "u0_2")  bs.u0_2  = val;
+        else if (n == "q_mass") bs.q_mass = val;
+        else if (n == "t0_2")   bs.t0_2   = val;
+        else if (n == "u0_2")   bs.u0_2   = val;
         else throw std::invalid_argument("Model: unknown parameter '" + n + "'");
     }
     return p;
@@ -227,10 +231,27 @@ static void fill_magnification(
         return;
     }
 
-    // Binary source: second source has different t0/u0.
+    // Coupled xallarap + binary source: both sources orbit the common centre of
+    // mass. Source 1 uses the standard xallarap params (already in pp). Source 2
+    // has the same CoM trajectory but the opposite xallarap displacement scaled
+    // by 1/q_mass (q_mass = m2/m1, so the lighter source moves farther from CoM).
+    const bool coupled = (opts.xallarap_param_type != LCBI_XALLARAP_NONE);
     lcbi_params p2 = *pp;
-    p2.t0   = bs.t0_2;
-    p2.umin = bs.u0_2;
+    if (coupled) {
+        if (opts.xallarap_param_type == LCBI_XALLARAP_ANGULAR_VELOCITY) {
+            p2.xi_1 = -pp->xi_1 / bs.q_mass;
+            p2.xi_2 = -pp->xi_2 / bs.q_mass;
+        } else {  // LCBI_XALLARAP_ORBITAL_ELEMENTS
+            p2.piEN_xa = -pp->piEN_xa / bs.q_mass;
+            p2.piEE_xa = -pp->piEE_xa / bs.q_mass;
+        }
+        // t0/umin unchanged — source 2 is on the same CoM trajectory
+    } else {
+        // Independent binary source: source 2 has its own t0/u0.
+        p2.t0   = bs.t0_2;
+        p2.umin = bs.u0_2;
+    }
+
     status = lcbi_magnification_array(
         ds.time().data(), static_cast<int>(n), &p2, &opts, c.res_buf2.data());
     if (status != LCBI_OK)
