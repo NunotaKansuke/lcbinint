@@ -285,26 +285,29 @@ void EnsembleSampler::step(bayes::Model& model, SamplerState& state)
         }
     }
     ++state.n_step;
+
+    // Append current positions to accumulated history.
+    state.history.insert(state.history.end(), state.pos.begin(), state.pos.end());
+    state.hist_lp.insert(state.hist_lp.end(), state.log_prob.begin(), state.log_prob.end());
+    if (state.n_fluxes > 0)
+        state.hist_fl.insert(state.hist_fl.end(), state.fluxes.begin(), state.fluxes.end());
 }
 
 // ---------------------------------------------------------------------------
-// collect: build Chain from accumulated state (no stored history — caller
-// must have collected snapshots if they want per-step data; this just wraps
-// the current walker positions as a single "step" for convenience, or the
-// caller can build their own Chain from snapshots).
+// collect: build Chain from accumulated history in SamplerState.
+// discard: number of leading steps to skip (burn-in).
 // ---------------------------------------------------------------------------
 
 Chain EnsembleSampler::collect(bayes::Model& model,
                                 const SamplerState& state, int discard) const
 {
-    // collect() is a thin convenience: build a 1-step Chain from current positions.
-    // Full per-step chains are built by run_from_state when using batch mode.
-    // In step-by-step mode, users typically build their own Chain or use numpy.
-    (void)discard;
-    const int ndim = state.ndim;
-    const int n_ds = static_cast<int>(model.event().size());
+    const int hist_steps = static_cast<int>(state.hist_lp.size()) / state.nwalkers;
+    const int keep       = std::max(0, hist_steps - discard);
+    const int ndim       = state.ndim;
+    const int n_ds       = static_cast<int>(model.event().size());
+
     Chain chain;
-    chain.init(1, state.nwalkers, ndim);
+    chain.init(keep, state.nwalkers, ndim);
     {
         std::vector<std::string> names, transforms;
         for (const auto& def : model.param_defs()) {
@@ -322,7 +325,13 @@ Chain EnsembleSampler::collect(bayes::Model& model,
             ds_names.push_back(model.event().at(k).name());
         chain.init_fluxes(n_ds, std::move(ds_names));
     }
-    chain.push_step(state.pos, state.log_prob, state.fluxes);
+    if (keep > 0) {
+        const double* pos_src = state.history.data() + discard * state.nwalkers * ndim;
+        const double* lp_src  = state.hist_lp.data() + discard * state.nwalkers;
+        const double* fl_src  = state.hist_fl.empty() ? nullptr
+            : state.hist_fl.data() + discard * state.nwalkers * state.n_fluxes;
+        chain.assign_flat(pos_src, lp_src, fl_src);
+    }
     chain.set_acceptance(state.acceptance_fraction());
     return chain;
 }
@@ -334,39 +343,9 @@ Chain EnsembleSampler::collect(bayes::Model& model,
 Chain EnsembleSampler::run_from_state(bayes::Model& model, SamplerState state,
                                        int nsteps, int burnin)
 {
-    const int ndim = state.ndim;
-    const int n_ds = static_cast<int>(model.event().size());
-
-    // burnin
-    for (int i = 0; i < burnin; ++i)
+    for (int i = 0; i < burnin + nsteps; ++i)
         step(model, state);
-
-    Chain chain;
-    chain.init(nsteps, state.nwalkers, ndim);
-    {
-        std::vector<std::string> names, transforms;
-        for (const auto& def : model.param_defs()) {
-            if (def.fixed) continue;
-            names.push_back(def.name);
-            transforms.push_back(
-                def.transform == bayes::Transform::log ? "log" : "identity");
-        }
-        chain.set_param_names(std::move(names));
-        chain.set_transforms(std::move(transforms));
-    }
-    {
-        std::vector<std::string> ds_names;
-        for (int k = 0; k < n_ds; ++k)
-            ds_names.push_back(model.event().at(k).name());
-        chain.init_fluxes(n_ds, std::move(ds_names));
-    }
-
-    for (int i = 0; i < nsteps; ++i) {
-        step(model, state);
-        chain.push_step(state.pos, state.log_prob, state.fluxes);
-    }
-    chain.set_acceptance(state.acceptance_fraction());
-    return chain;
+    return collect(model, state, burnin);
 }
 
 // ---------------------------------------------------------------------------

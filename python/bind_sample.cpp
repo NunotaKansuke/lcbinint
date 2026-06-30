@@ -224,6 +224,30 @@ void register_sample_submodule(py::module_& parent)
                  static_cast<py::ssize_t>(sizeof(double))},
                 s.fluxes.data(), self);
         })
+        // get_chain(): zero-copy view of accumulated history — shape (n_step, nwalkers, ndim)
+        .def_property_readonly("get_chain", [](py::object self) {
+            const SS& s = self.cast<const SS&>();
+            const int hist = s.nwalkers > 0 && s.ndim > 0
+                ? static_cast<int>(s.history.size()) / (s.nwalkers * s.ndim) : 0;
+            return py::array_t<double>(
+                {static_cast<py::ssize_t>(hist),
+                 static_cast<py::ssize_t>(s.nwalkers),
+                 static_cast<py::ssize_t>(s.ndim)},
+                {static_cast<py::ssize_t>(s.nwalkers * s.ndim * sizeof(double)),
+                 static_cast<py::ssize_t>(s.ndim * sizeof(double)),
+                 static_cast<py::ssize_t>(sizeof(double))},
+                s.history.data(), self);
+        })
+        // flat_log_prob of history — shape (n_step * nwalkers,)
+        .def_property_readonly("get_log_prob", [](py::object self) {
+            const SS& s = self.cast<const SS&>();
+            return py::array_t<double>(
+                {static_cast<py::ssize_t>(s.hist_lp.size())},
+                {static_cast<py::ssize_t>(sizeof(double))},
+                s.hist_lp.data(), self);
+        })
+        // Free accumulated history (e.g. after flushing a chunk to disk).
+        .def("reset_history", &SS::reset_history)
         .def("__repr__", [](const SS& s) {
             return "<sample.SamplerState nwalkers=" + std::to_string(s.nwalkers)
                 + " ndim=" + std::to_string(s.ndim)
