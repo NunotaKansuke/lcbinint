@@ -1,6 +1,7 @@
 #include "bind_sample.hpp"
 #include "lcbinint/sample/chain.hpp"
 #include "lcbinint/sample/move.hpp"
+#include "lcbinint/sample/sampler_state.hpp"
 #include "lcbinint/sample/stretch_move.hpp"
 #include "lcbinint/sample/ensemble_sampler.hpp"
 #include "lcbinint/optimize/result.hpp"
@@ -175,6 +176,55 @@ void register_sample_submodule(py::module_& parent)
                 + " acceptance=" + std::to_string(c.acceptance()).substr(0, 5) + ">";
         });
 
+    // --- SamplerState ---
+    // Mutable state of the ensemble sampler.
+    // pos / log_prob / fluxes are zero-copy numpy views into C++ memory;
+    // they update in-place after each sampler.step() call.
+    using SS = lcbinint::sample::SamplerState;
+    py::class_<SS>(spl, "SamplerState")
+        .def_property_readonly("nwalkers", [](const SS& s){ return s.nwalkers; })
+        .def_property_readonly("ndim",     [](const SS& s){ return s.ndim; })
+        .def_property_readonly("n_step",   [](const SS& s){ return s.n_step; })
+        .def_property_readonly("acceptance_fraction", &SS::acceptance_fraction)
+        // pos: (nwalkers, ndim) zero-copy view
+        .def_property_readonly("pos", [](py::object self) {
+            const SS& s = self.cast<const SS&>();
+            return py::array_t<double>(
+                {static_cast<py::ssize_t>(s.nwalkers),
+                 static_cast<py::ssize_t>(s.ndim)},
+                {static_cast<py::ssize_t>(s.ndim * sizeof(double)),
+                 static_cast<py::ssize_t>(sizeof(double))},
+                s.pos.data(), self);
+        })
+        // log_prob: (nwalkers,) zero-copy view
+        .def_property_readonly("log_prob", [](py::object self) {
+            const SS& s = self.cast<const SS&>();
+            return py::array_t<double>(
+                {static_cast<py::ssize_t>(s.nwalkers)},
+                {static_cast<py::ssize_t>(sizeof(double))},
+                s.log_prob.data(), self);
+        })
+        // fluxes: (nwalkers, n_fluxes) zero-copy view — [Fs0,Fb0,Fs1,Fb1,...]
+        .def_property_readonly("fluxes", [](py::object self) {
+            const SS& s = self.cast<const SS&>();
+            if (s.n_fluxes == 0) {
+                std::vector<py::ssize_t> shape = {0, 0};
+                return py::array_t<double>(shape);
+            }
+            return py::array_t<double>(
+                {static_cast<py::ssize_t>(s.nwalkers),
+                 static_cast<py::ssize_t>(s.n_fluxes)},
+                {static_cast<py::ssize_t>(s.n_fluxes * sizeof(double)),
+                 static_cast<py::ssize_t>(sizeof(double))},
+                s.fluxes.data(), self);
+        })
+        .def("__repr__", [](const SS& s) {
+            return "<sample.SamplerState nwalkers=" + std::to_string(s.nwalkers)
+                + " ndim=" + std::to_string(s.ndim)
+                + " n_step=" + std::to_string(s.n_step)
+                + " accept=" + std::to_string(s.acceptance_fraction()).substr(0,5) + ">";
+        });
+
     // --- Move hierarchy ---
     py::class_<Move, std::shared_ptr<Move>>(spl, "Move");
 
@@ -186,14 +236,60 @@ void register_sample_submodule(py::module_& parent)
         });
 
     // --- EnsembleSampler ---
-    // GIL released during run() — entire sampling loop runs in C++.
     py::class_<EnsembleSampler>(spl, "EnsembleSampler")
         .def(py::init<int, unsigned int, std::shared_ptr<Move>>(),
             py::arg("nwalkers") = 64,
             py::arg("seed")     = 0u,
             py::arg("move")     = std::make_shared<StretchMove>(2.0))
 
-        // run(model, nsteps, burnin) — start from prior bounds
+        // ----- Step-by-step API -----
+
+        // init_state(model) — random init within prior bounds
+        .def("init_state",
+            [](EnsembleSampler& s, lcbinint::bayes::Model& model) {
+                py::gil_scoped_release release;
+                return s.init_state(model);
+            },
+            py::arg("model"))
+
+        // init_state(model, start, hessian_init=False)
+        // start: optimize.Result or list-of-lists
+        .def("init_state",
+            [](EnsembleSampler& s, lcbinint::bayes::Model& model,
+               py::object start, bool hessian_init) {
+                if (py::isinstance<lcbinint::optimize::Result>(start)) {
+                    const auto& r = start.cast<const lcbinint::optimize::Result&>();
+                    py::gil_scoped_release release;
+                    return s.init_state(model, r, hessian_init);
+                } else {
+                    auto pos = start.cast<std::vector<std::vector<double>>>();
+                    py::gil_scoped_release release;
+                    return s.init_state(model, pos);
+                }
+            },
+            py::arg("model"), py::arg("start"), py::arg("hessian_init") = false)
+
+        // step(model, state) — one ensemble step, in-place
+        // GIL must be re-acquired for the call but released during the C++ work.
+        .def("step",
+            [](EnsembleSampler& s, lcbinint::bayes::Model& model,
+               lcbinint::sample::SamplerState& state) {
+                py::gil_scoped_release release;
+                s.step(model, state);
+            },
+            py::arg("model"), py::arg("state"))
+
+        // collect(model, state) — snapshot current walker positions as a Chain
+        .def("collect",
+            [](const EnsembleSampler& s, lcbinint::bayes::Model& model,
+               const lcbinint::sample::SamplerState& state, int discard) {
+                return s.collect(model, state, discard);
+            },
+            py::arg("model"), py::arg("state"), py::arg("discard") = 0)
+
+        // ----- Batch run() convenience wrappers -----
+
+        // run(model, nsteps, burnin) — random init
         .def("run",
             [](EnsembleSampler& s, lcbinint::bayes::Model& model,
                int nsteps, int burnin) {
@@ -202,9 +298,7 @@ void register_sample_submodule(py::module_& parent)
             },
             py::arg("model"), py::arg("nsteps") = 1000, py::arg("burnin") = 0)
 
-        // run(model, start=..., nsteps, burnin, hessian_init=False)
-        // start can be optimize.Result or list-of-lists (nwalkers × ndim).
-        // hessian_init only applies when start is optimize.Result.
+        // run(model, start, nsteps, burnin, hessian_init)
         .def("run",
             [](EnsembleSampler& s, lcbinint::bayes::Model& model,
                py::object start, int nsteps, int burnin, bool hessian_init) {
