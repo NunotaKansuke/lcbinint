@@ -1,6 +1,8 @@
 #include "bind_lc.hpp"
 #include "lcbinint/lcbinint.h"
+#include "lcbinint/lc/effects.hpp"
 #include "lcbinint/lc/light_curve.hpp"
+#include "lcbinint/obs/coordinates.hpp"
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -71,6 +73,9 @@ lcbi_params params_from_dict(const py::dict& d)
         else if (key == "omega_xa")                p.omega_xa = val;
         else if (key == "inc_xa")                  p.inc_xa = val;
         else if (key == "phi_xa")                  p.phi_xa = val;
+        // Binary source params — handled by compute_dispatch, not lcbi_params.
+        else if (key == "q_source" || key == "fluxratio" ||
+                 key == "t0_2"     || key == "u0_2") { /* skip */ }
         else {
             throw py::key_error("lcbinint.lc: unknown parameter '" + key + "'");
         }
@@ -297,27 +302,198 @@ void register_lc_submodule(py::module_& parent)
                 + " q=" + std::to_string(p.q) + ">";
         });
 
+    // --- Effects ---
+    using LC       = lcbinint::lc::LightCurve;
+    using Eff      = lcbinint::lc::Effects;
+    using SKind    = lcbinint::lc::SourceKind;
+    using SkyCoord = lcbinint::obs::SkyCoord;
+    using Site     = lcbinint::obs::Site;
+
+    // Parse "binary"/"single" source string.
+    auto parse_source = [](const std::string& s) -> SKind {
+        if (s == "single" || s.empty()) return SKind::single;
+        if (s == "binary" || s == "binary_source") return SKind::binary;
+        throw std::invalid_argument("source must be 'single' or 'binary'");
+    };
+
+    // Parse "binary"/"triple" lens string (validated only; C library auto-detects from params).
+    auto parse_lens = [](const std::string& s) {
+        if (s == "binary" || s == "binary_lens") return;
+        if (s == "triple" || s == "triple_lens") return;
+        throw std::invalid_argument("lens must be 'binary' or 'triple'");
+    };
+
+    // Parse orbital motion mode string.
+    auto parse_orbital = [](const std::string& s) -> lcbi_orbital_motion_mode {
+        if (s == "static"  || s.empty()) return LCBI_ORBIT_STATIC;
+        if (s == "circular")             return LCBI_ORBIT_CIRCULAR;
+        if (s == "kepler")               return LCBI_ORBIT_KEPLER;
+        throw std::invalid_argument("orbital_motion must be 'static', 'circular', or 'kepler'");
+    };
+
+    // Parse xallarap mode string.
+    auto parse_xallarap = [](const std::string& s) -> lcbi_xallarap_param_type {
+        if (s.empty() || s == "none")                 return LCBI_XALLARAP_NONE;
+        if (s == "angular_velocity")                  return LCBI_XALLARAP_ANGULAR_VELOCITY;
+        if (s == "orbital_elements" || s == "kepler") return LCBI_XALLARAP_ORBITAL_ELEMENTS;
+        throw std::invalid_argument("xallarap must be 'none', 'angular_velocity', or 'orbital_elements'");
+    };
+
+    py::class_<Eff>(lc, "Effects",
+        R"(Physical higher-order effect settings for a LightCurve.
+
+Separates physics configuration (what effects are active) from numerical
+Options (source_bins, grid_ratio, etc.).
+
+terrestrial=False by default: site coordinates are stored but NOT applied
+unless terrestrial is explicitly set to True.)")
+        .def(py::init([&](
+                const std::string& lens,
+                const std::string& source,
+                const std::string& orbital_motion,
+                const std::string& xallarap,
+                bool               parallax,
+                bool               terrestrial,
+                py::object         sky,
+                py::object         site,
+                py::object         t_ref) {
+            parse_lens(lens);
+            Eff e;
+            e.source        = parse_source(source);
+            e.orbital_motion = parse_orbital(orbital_motion);
+            e.xallarap      = parse_xallarap(xallarap);
+            e.parallax      = parallax;
+            e.terrestrial   = terrestrial;
+            if (!sky.is_none())   e.sky  = sky.cast<std::shared_ptr<SkyCoord>>();
+            if (!site.is_none())  e.site = site.cast<std::shared_ptr<Site>>();
+            if (!t_ref.is_none()) e.t_ref = t_ref.cast<double>();
+            return e;
+        }),
+            py::arg("lens")           = "binary",
+            py::arg("source")         = "single",
+            py::arg("orbital_motion") = "static",
+            py::arg("xallarap")       = "none",
+            py::arg("parallax")       = false,
+            py::arg("terrestrial")    = false,
+            py::arg("sky")            = py::none(),
+            py::arg("site")           = py::none(),
+            py::arg("t_ref")          = py::none())
+        .def_property("source",
+            [](const Eff& e) { return e.source == SKind::binary ? "binary" : "single"; },
+            [&](Eff& e, const std::string& s) { e.source = parse_source(s); })
+        .def_property("orbital_motion",
+            [](const Eff& e) -> std::string {
+                if (e.orbital_motion == LCBI_ORBIT_CIRCULAR) return "circular";
+                if (e.orbital_motion == LCBI_ORBIT_KEPLER)   return "kepler";
+                return "static";
+            },
+            [&](Eff& e, const std::string& s) { e.orbital_motion = parse_orbital(s); })
+        .def_property("xallarap",
+            [](const Eff& e) -> std::string {
+                if (e.xallarap == LCBI_XALLARAP_ANGULAR_VELOCITY) return "angular_velocity";
+                if (e.xallarap == LCBI_XALLARAP_ORBITAL_ELEMENTS) return "orbital_elements";
+                return "none";
+            },
+            [&](Eff& e, const std::string& s) { e.xallarap = parse_xallarap(s); })
+        .def_readwrite("parallax",    &Eff::parallax)
+        .def_readwrite("terrestrial", &Eff::terrestrial)
+        .def_property("sky",
+            [](const Eff& e) -> py::object {
+                if (!e.sky) return py::none();
+                return py::cast(e.sky);
+            },
+            [](Eff& e, py::object obj) {
+                if (obj.is_none()) e.sky = nullptr;
+                else e.sky = obj.cast<std::shared_ptr<SkyCoord>>();
+            })
+        .def_property("site",
+            [](const Eff& e) -> py::object {
+                if (!e.site) return py::none();
+                return py::cast(e.site);
+            },
+            [](Eff& e, py::object obj) {
+                if (obj.is_none()) e.site = nullptr;
+                else e.site = obj.cast<std::shared_ptr<Site>>();
+            })
+        .def_property("t_ref",
+            [](const Eff& e) -> py::object {
+                if (!e.t_ref.has_value()) return py::none();
+                return py::float_(*e.t_ref);
+            },
+            [](Eff& e, py::object obj) {
+                if (obj.is_none()) e.t_ref = std::nullopt;
+                else e.t_ref = obj.cast<double>();
+            })
+        .def("__repr__", [](const Eff& e) {
+            std::string s = "<lc.Effects";
+            if (e.parallax)    s += " parallax";
+            if (e.terrestrial) s += " terrestrial";
+            if (e.orbital_motion != LCBI_ORBIT_STATIC)
+                s += e.orbital_motion == LCBI_ORBIT_CIRCULAR ? " orbital_motion=circular" : " orbital_motion=kepler";
+            if (e.xallarap != LCBI_XALLARAP_NONE)
+                s += e.xallarap == LCBI_XALLARAP_ANGULAR_VELOCITY ? " xallarap=angular_velocity" : " xallarap=orbital_elements";
+            if (e.source == SKind::binary) s += " source=binary";
+            if (e.sky)  s += " sky=set";
+            if (e.site) s += " site=set";
+            if (e.t_ref.has_value()) s += " t_ref=" + std::to_string(*e.t_ref);
+            s += ">";
+            return s;
+        });
+
     // --- LightCurve ---
     // Optimized for magnification-only use: construct once, call many times.
     // Accepts params as: lcbi_params object, dict, or **kwargs.
-    using LC = lcbinint::lc::LightCurve;
 
     // Default options with vbm_compatible=1 (same as lc.Options() default).
     static const lcbi_options kDefaultOpts = []{ auto o = lcbi_default_options(); o.vbm_compatible = 1; return o; }();
 
+    // Dispatch __call__ based on source kind.
+    // For binary source, dict/kwargs must contain q_source + t0_2 + u0_2.
+    auto compute_dispatch = [](const LC& lc,
+                                py::array_t<double> times,
+                                const lcbi_params& base_params,
+                                py::dict extra) -> py::array_t<double> {
+        if (lc.source_kind() == SKind::single) {
+            return compute(lc, times, base_params);
+        }
+        // Binary source: extract q_source, t0_2, u0_2 from extra dict.
+        double q_source = 1.0, t0_2 = 0.0, u0_2 = 0.0;
+        for (auto& item : extra) {
+            const std::string key = item.first.cast<std::string>();
+            if      (key == "q_source" || key == "fluxratio") q_source = item.second.cast<double>();
+            else if (key == "t0_2")                            t0_2     = item.second.cast<double>();
+            else if (key == "u0_2")                            u0_2     = item.second.cast<double>();
+        }
+        auto buf = times.request();
+        const double* ptr = static_cast<const double*>(buf.ptr);
+        std::vector<double> tv(ptr, ptr + buf.size);
+        std::vector<double> mags;
+        {
+            py::gil_scoped_release release;
+            mags = lc.magnification_binary(tv, base_params, q_source, t0_2, u0_2);
+        }
+        return vec_to_numpy(std::move(mags));
+    };
+
     py::class_<LC, std::shared_ptr<LC>>(lc, "LightCurve")
-        // Constructor 1: explicit lc.Options object (for bayes module / power users)
-        .def(py::init([](const lcbi_options& opts, const PyLimbDarkening& ld) {
-            return std::make_shared<LC>(opts, ld.c, ld.d);
+        // Constructor 1: explicit lc.Options + lc.Effects objects
+        .def(py::init([&](const lcbi_options& opts,
+                           const Eff&          effects,
+                           const PyLimbDarkening& ld) {
+            return std::make_shared<LC>(opts, ld.c, ld.d, effects);
         }),
             py::arg("options")        = kDefaultOpts,
+            py::arg("effects")        = Eff{},
             py::arg("limb_darkening") = PyLimbDarkening{})
-        // Constructor 2: kwargs directly (VBM style)
-        .def(py::init([](py::kwargs kw) {
-            auto o = kDefaultOpts;   // default param_type='vbm', overrideable via kwarg
+        // Constructor 2: kwargs directly (convenience, backward-compatible)
+        .def(py::init([&](py::kwargs kw) {
+            auto o = kDefaultOpts;
             PyLimbDarkening ld{};
+            Eff eff{};
+            std::string lens_str = "binary";
             for (auto& item : kw) {
                 const std::string key = item.first.cast<std::string>();
+                // --- Options (numerics) ---
                 if      (key == "source_bins")            o.source_bins            = item.second.cast<int>();
                 else if (key == "caustic_bins")           o.caustic_bins           = item.second.cast<int>();
                 else if (key == "param_type")             apply_param_type(o, item.second.cast<std::string>());
@@ -330,51 +506,100 @@ void register_lc_submodule(py::module_& parent)
                 else if (key == "point_source_threshold") o.point_source_threshold = item.second.cast<double>();
                 else if (key == "adaptive_source_bins")   o.adaptive_source_bins   = item.second.cast<bool>() ? 1 : 0;
                 else if (key == "max_source_bins")        o.max_source_bins        = item.second.cast<int>();
+                // --- LimbDarkening ---
                 else if (key == "ld_c" || key == "limb_darkening_c") ld.c = item.second.cast<double>();
                 else if (key == "ld_d" || key == "limb_darkening_d") ld.d = item.second.cast<double>();
+                // --- Effects (physics) ---
+                else if (key == "lens")           lens_str          = item.second.cast<std::string>();
+                else if (key == "source")         eff.source        = parse_source(item.second.cast<std::string>());
+                else if (key == "orbital_motion") eff.orbital_motion = parse_orbital(item.second.cast<std::string>());
+                else if (key == "xallarap")       eff.xallarap      = parse_xallarap(item.second.cast<std::string>());
+                else if (key == "parallax")       eff.parallax      = item.second.cast<bool>();
+                else if (key == "terrestrial")    eff.terrestrial   = item.second.cast<bool>();
+                else if (key == "sky")   eff.sky  = py::reinterpret_borrow<py::object>(item.second).cast<std::shared_ptr<SkyCoord>>();
+                else if (key == "site")  eff.site = py::reinterpret_borrow<py::object>(item.second).cast<std::shared_ptr<Site>>();
+                else if (key == "t_ref") {
+                    auto obj = py::reinterpret_borrow<py::object>(item.second);
+                    if (!obj.is_none()) eff.t_ref = obj.cast<double>();
+                }
                 else throw py::key_error("LightCurve: unknown option '" + key + "'");
             }
-            return std::make_shared<LC>(o, ld.c, ld.d);
+            parse_lens(lens_str);
+            return std::make_shared<LC>(o, ld.c, ld.d, eff);
         }))
         .def_property_readonly("options", &LC::options)
+        .def_property_readonly("effects", &LC::effects,
+            py::return_value_policy::reference_internal)
         .def_property_readonly("ld_c",    &LC::ld_c)
         .def_property_readonly("ld_d",    &LC::ld_d)
+        // Convenience shortcuts (delegate to Effects)
+        .def_property_readonly("source", [](const LC& lc) -> std::string {
+            return lc.source_kind() == SKind::binary ? "binary" : "single";
+        })
+        .def_property_readonly("orbital_motion", [](const LC& lc) -> std::string {
+            if (lc.orbital_motion() == LCBI_ORBIT_CIRCULAR) return "circular";
+            if (lc.orbital_motion() == LCBI_ORBIT_KEPLER)   return "kepler";
+            return "static";
+        })
+        .def_property_readonly("sky", [](const LC& lc) -> py::object {
+            if (!lc.sky_coord()) return py::none();
+            return py::cast(lc.sky_coord());
+        })
+        .def_property_readonly("site", [](const LC& lc) -> py::object {
+            if (!lc.site()) return py::none();
+            return py::cast(lc.site());
+        })
+        .def_property_readonly("t_ref", [](const LC& lc) -> py::object {
+            if (!lc.t_ref()) return py::none();
+            return py::float_(*lc.t_ref());
+        })
+        .def_property_readonly("terrestrial", [](const LC& lc) {
+            return lc.effects().terrestrial;
+        })
 
-        // __call__ overload 1: lcbi_params object (zero overhead fast path)
+        // __call__ overload 1: lcbi_params object
         .def("__call__",
-            [](const LC& lc, py::array_t<double> times, const lcbi_params& params) {
-                return compute(lc, times, params);
+            [&](const LC& lc, py::array_t<double> times, const lcbi_params& params) {
+                if (lc.source_kind() == SKind::single) return compute(lc, times, params);
+                throw std::runtime_error(
+                    "source='binary': pass params as dict/kwargs including q_source, t0_2, u0_2");
+                return py::array_t<double>{};  // unreachable
             },
             py::arg("times"), py::arg("params"))
 
-        // __call__ overload 2: dict  e.g. lc_obj(times, {"t0": 9000, "tE": 30, ...})
+        // __call__ overload 2: dict
         .def("__call__",
-            [](const LC& lc, py::array_t<double> times, py::dict d) {
-                return compute(lc, times, params_from_dict(d));
+            [&](const LC& lc, py::array_t<double> times, py::dict d) {
+                return compute_dispatch(lc, times, params_from_dict(d), d);
             },
             py::arg("times"), py::arg("params"))
 
-        // __call__ overload 3: **kwargs  e.g. lc_obj(times, t0=9000, tE=30, ...)
+        // __call__ overload 3: **kwargs
         .def("__call__",
-            [](const LC& lc, py::array_t<double> times, py::kwargs kw) {
-                return compute(lc, times, params_from_dict(kw));
+            [&](const LC& lc, py::array_t<double> times, py::kwargs kw) {
+                py::dict d(kw);
+                return compute_dispatch(lc, times, params_from_dict(d), d);
             },
             py::arg("times"))
 
-        // .magnification() as alias (same overloads)
+        // .magnification() alias
         .def("magnification",
-            [](const LC& lc, py::array_t<double> times, const lcbi_params& params) {
-                return compute(lc, times, params);
+            [&](const LC& lc, py::array_t<double> times, const lcbi_params& params) {
+                if (lc.source_kind() == SKind::single) return compute(lc, times, params);
+                throw std::runtime_error(
+                    "source='binary': pass params as dict/kwargs including q_source, t0_2, u0_2");
+                return py::array_t<double>{};
             },
             py::arg("times"), py::arg("params"))
         .def("magnification",
-            [](const LC& lc, py::array_t<double> times, py::dict d) {
-                return compute(lc, times, params_from_dict(d));
+            [&](const LC& lc, py::array_t<double> times, py::dict d) {
+                return compute_dispatch(lc, times, params_from_dict(d), d);
             },
             py::arg("times"), py::arg("params"))
         .def("magnification",
-            [](const LC& lc, py::array_t<double> times, py::kwargs kw) {
-                return compute(lc, times, params_from_dict(kw));
+            [&](const LC& lc, py::array_t<double> times, py::kwargs kw) {
+                py::dict d(kw);
+                return compute_dispatch(lc, times, params_from_dict(d), d);
             },
             py::arg("times"))
 
@@ -385,7 +610,8 @@ void register_lc_submodule(py::module_& parent)
             else if (o.vbm_compatible != 0)                      pt = "vbm_center_of_mass";
             else if (o.center_of_mass != 0)                      pt = "center_of_mass";
             else                                                  pt = "lcbinint";
+            const std::string src = lc.source_kind() == SKind::binary ? " source='binary'" : "";
             return "<lc.LightCurve param_type='" + pt
-                + "' source_bins=" + std::to_string(o.source_bins) + ">";
+                + "' source_bins=" + std::to_string(o.source_bins) + src + ">";
         });
 }

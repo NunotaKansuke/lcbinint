@@ -1,6 +1,7 @@
 #pragma once
 #include "prior.hpp"
 #include "lcbinint/lcbinint.h"
+#include "lcbinint/lc/light_curve.hpp"
 #include "lcbinint/obs/event.hpp"
 #include <memory>
 #include <string>
@@ -27,6 +28,13 @@ struct OptimizerBounds {
     double hi;
 };
 
+// Binary source parameters extracted alongside lcbi_params.
+struct BinarySourceExtras {
+    double q_source = 1.0;
+    double t0_2     = 0.0;
+    double u0_2     = 0.0;
+};
+
 // Per-dataset sums precomputed at construction + reusable evaluation buffers.
 struct DatasetCache {
     double                   S_w   = 0.0;
@@ -34,26 +42,28 @@ struct DatasetCache {
     double                   S_wf2 = 0.0;
     std::vector<double>      mag_buf;
     std::vector<lcbi_result> res_buf;
+    std::vector<lcbi_result> res_buf2;  // binary source: second source buffer
 };
 
 // Central class for Bayesian inference.
-// Takes lcbi_options directly; calls lcbi_magnification_array in the C++ hot path.
+// Delegates magnification computation to lc::LightCurve (which owns the options and mode flags).
 // Parameters are registered with priors; LogUniform priors automatically use log transform.
 // Optimizers and samplers work in transformed space (theta_internal); the model converts to
 // physical params via theta_to_params before magnification evaluation.
 class Model {
 public:
-    Model(lcbi_options options, std::shared_ptr<obs::Event> event);
-    Model(lcbi_options options, std::shared_ptr<obs::LightCurveData> data);
+    Model(std::shared_ptr<lc::LightCurve> light_curve, std::shared_ptr<obs::Event> event);
+    Model(std::shared_ptr<lc::LightCurve> light_curve, std::shared_ptr<obs::LightCurveData> data);
 
     void param(std::string name, std::shared_ptr<Prior> prior);
     void flux(std::string mode = "linear_blend");
     void likelihood(std::string mode = "gaussian");
 
-    int                              n_params()   const noexcept;
-    const std::vector<ParameterDef>& param_defs() const noexcept { return params_; }
-    const lcbi_options&              options()    const noexcept { return options_; }
-    const obs::Event&                event()      const noexcept { return *event_; }
+    int                              n_params()      const noexcept;
+    const std::vector<ParameterDef>& param_defs()    const noexcept { return params_; }
+    const lc::LightCurve&            light_curve()   const noexcept { return *light_curve_; }
+    const lcbi_options&              options()       const noexcept { return light_curve_->options(); }
+    const obs::Event&                event()         const noexcept { return *event_; }
 
     // Bounds in optimizer/sampler (transformed) space.
     std::vector<OptimizerBounds> optimizer_bounds() const;
@@ -75,15 +85,22 @@ public:
     struct FluxSolution { double Fs; double Fb; };
     std::vector<FluxSolution> fluxes(const std::vector<double>& theta) const;
 
+    // Compute log_prob and fluxes in a single magnification pass.
+    // Used by EnsembleSampler to avoid double-calling lcbi_magnification_array on accept.
+    double log_prob_and_fluxes(const std::vector<double>& theta,
+                               std::vector<FluxSolution>& out_fluxes) const;
+
 private:
-    // Convert transformed theta → lcbi_params (physical values).
-    lcbi_params         theta_to_params(const std::vector<double>& theta) const;
-    double              compute_chi2(const lcbi_params& p) const;
-    std::vector<double> compute_residuals(const lcbi_params& p) const;
+    // Convert transformed theta → lcbi_params + binary source extras.
+    // Applies sky coords from LightCurve/Event as defaults; free params override.
+    lcbi_params theta_to_params(const std::vector<double>& theta,
+                                BinarySourceExtras& bs_out) const;
+    double              compute_chi2(const lcbi_params& p, const BinarySourceExtras& bs) const;
+    std::vector<double> compute_residuals(const lcbi_params& p, const BinarySourceExtras& bs) const;
     void                build_cache();
 
-    lcbi_options                options_;
-    std::shared_ptr<obs::Event> event_;
+    std::shared_ptr<lc::LightCurve> light_curve_;
+    std::shared_ptr<obs::Event>     event_;
     std::vector<ParameterDef>   params_;
     std::string                 flux_mode_{"linear_blend"};
     std::string                 likelihood_mode_{"gaussian"};

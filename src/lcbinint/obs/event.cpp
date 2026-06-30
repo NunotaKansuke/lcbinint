@@ -3,8 +3,8 @@
 
 namespace lcbinint::obs {
 
-Event::Event(std::string name, double ra, double dec, double t_ref)
-    : name_(std::move(name)), ra_(ra), dec_(dec), t_ref_(t_ref)
+Event::Event(std::string name, std::shared_ptr<SkyCoord> sky_coord)
+    : name_(std::move(name)), sky_coord_(std::move(sky_coord))
 {}
 
 void Event::add(std::shared_ptr<LightCurveData> data)

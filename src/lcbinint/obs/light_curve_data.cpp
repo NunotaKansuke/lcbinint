@@ -4,18 +4,20 @@
 namespace lcbinint::obs {
 
 LightCurveData::LightCurveData(
-    std::vector<double> time,
-    std::vector<double> flux,
-    std::vector<double> flux_err,
-    std::string name,
-    std::string band,
-    std::string observatory)
+    std::vector<double>   time,
+    std::vector<double>   flux,
+    std::vector<double>   flux_err,
+    std::string           name,
+    std::string           band,
+    std::string           observatory,
+    std::shared_ptr<Site> site)
     : time_(std::move(time))
     , flux_(std::move(flux))
     , flux_err_(std::move(flux_err))
     , name_(std::move(name))
     , band_(std::move(band))
     , observatory_(std::move(observatory))
+    , site_(std::move(site))
 {
     if (flux_.size() != time_.size() || flux_err_.size() != time_.size())
         throw std::invalid_argument("time, flux, flux_err must have the same length");

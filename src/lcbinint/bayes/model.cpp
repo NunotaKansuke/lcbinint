@@ -8,24 +8,27 @@ namespace lcbinint::bayes {
 // Construction
 // ---------------------------------------------------------------------------
 
-Model::Model(lcbi_options options, std::shared_ptr<obs::Event> event)
-    : options_(options), event_(std::move(event))
+Model::Model(std::shared_ptr<lc::LightCurve> light_curve, std::shared_ptr<obs::Event> event)
+    : light_curve_(std::move(light_curve)), event_(std::move(event))
 {
-    if (!event_) throw std::invalid_argument("event must not be null");
+    if (!light_curve_) throw std::invalid_argument("light_curve must not be null");
+    if (!event_)       throw std::invalid_argument("event must not be null");
     build_cache();
 }
 
-Model::Model(lcbi_options options, std::shared_ptr<obs::LightCurveData> data)
-    : options_(options)
+Model::Model(std::shared_ptr<lc::LightCurve> light_curve, std::shared_ptr<obs::LightCurveData> data)
+    : light_curve_(std::move(light_curve))
     , event_(std::make_shared<obs::Event>())
 {
-    if (!data) throw std::invalid_argument("data must not be null");
+    if (!light_curve_) throw std::invalid_argument("light_curve must not be null");
+    if (!data)         throw std::invalid_argument("data must not be null");
     event_->add(std::move(data));
     build_cache();
 }
 
 void Model::build_cache()
 {
+    const bool is_binary = (light_curve_->source_kind() == lc::SourceKind::binary);
     const std::size_t n_ds = event_->size();
     cache_.resize(n_ds);
     for (std::size_t k = 0; k < n_ds; ++k) {
@@ -37,6 +40,7 @@ void Model::build_cache()
         DatasetCache& c = cache_[k];
         c.mag_buf.resize(n);
         c.res_buf.resize(n);
+        if (is_binary) c.res_buf2.resize(n);
 
         double S_w = 0.0, S_wf = 0.0, S_wf2 = 0.0;
         for (std::size_t i = 0; i < n; ++i) {
@@ -56,7 +60,6 @@ void Model::build_cache()
 void Model::param(std::string name, std::shared_ptr<Prior> prior)
 {
     if (!prior) throw std::invalid_argument("prior must not be null");
-    // Auto-assign log transform for LogUniform priors.
     Transform tr = Transform::identity;
     if (dynamic_cast<LogUniform*>(prior.get())) tr = Transform::log;
     params_.push_back({std::move(name), std::move(prior), tr});
@@ -105,12 +108,19 @@ std::vector<OptimizerBounds> Model::optimizer_bounds() const
 }
 
 // ---------------------------------------------------------------------------
-// theta_to_params: transformed space → lcbi_params (physical)
+// theta_to_params: transformed space → lcbi_params + binary source extras
 // ---------------------------------------------------------------------------
 
-lcbi_params Model::theta_to_params(const std::vector<double>& theta) const
+lcbi_params Model::theta_to_params(const std::vector<double>& theta,
+                                    BinarySourceExtras& bs) const
 {
-    lcbi_params p = lcbi_default_params();
+    lcbi_params p = light_curve_->apply_coords(lcbi_default_params());
+    if (!light_curve_->sky_coord() && event_->sky_coord()) {
+        p.ra  = event_->sky_coord()->ra_deg();
+        p.dec = event_->sky_coord()->dec_deg();
+    }
+    bs = {};  // reset binary source extras to defaults
+
     int idx = 0;
     for (const auto& def : params_) {
         double val;
@@ -122,20 +132,45 @@ lcbi_params Model::theta_to_params(const std::vector<double>& theta) const
             ++idx;
         }
         const std::string& n = def.name;
-        if      (n == "t0")                   p.t0   = val;
-        else if (n == "tE")                   p.tE   = val;
-        else if (n == "u0"   || n == "umin")  p.umin = val;
-        else if (n == "alpha"|| n == "theta") p.theta= val;
-        else if (n == "s"    || n == "sep")   p.sep  = val;
-        else if (n == "q")                    p.q    = val;
-        else if (n == "rho")                  p.rho  = val;
-        else if (n == "piEN")                 p.piEN = val;
-        else if (n == "piEE")                 p.piEE = val;
-        else if (n == "q2")                   p.q2   = val;
-        else if (n == "sep2")                 p.sep2 = val;
-        else if (n == "ang")                  p.ang  = val;
-        else if (n == "ra")                   p.ra   = val;
-        else if (n == "dec")                  p.dec  = val;
+        // --- standard microlensing ---
+        if      (n == "t0"    || n == "t_0")   p.t0    = val;
+        else if (n == "tE"    || n == "t_E")   p.tE    = val;
+        else if (n == "u0"    || n == "umin")  p.umin  = val;
+        else if (n == "alpha" || n == "theta") p.theta = val;
+        else if (n == "s"     || n == "sep")   p.sep   = val;
+        else if (n == "q")                     p.q     = val;
+        else if (n == "rho")                   p.rho   = val;
+        // --- parallax ---
+        else if (n == "piEN")  p.piEN = val;
+        else if (n == "piEE")  p.piEE = val;
+        else if (n == "ra")    p.ra   = val;
+        else if (n == "dec")   p.dec  = val;
+        // --- triple lens ---
+        else if (n == "q2")    p.q2   = val;
+        else if (n == "sep2")  p.sep2 = val;
+        else if (n == "ang")   p.ang  = val;
+        // --- orbital motion (circular / Kepler) ---
+        else if (n == "g1")      p.g1      = val;
+        else if (n == "g2")      p.g2      = val;
+        else if (n == "g3")      p.g3      = val;
+        else if (n == "lom_szs") p.lom_szs = val;
+        else if (n == "lom_ar")  p.lom_ar  = val;
+        // --- xallarap (angular velocity mode) ---
+        else if (n == "xi_1")     p.xi_1     = val;
+        else if (n == "xi_2")     p.xi_2     = val;
+        else if (n == "omega_xa") p.omega_xa = val;
+        else if (n == "inc_xa")   p.inc_xa   = val;
+        else if (n == "phi_xa")   p.phi_xa   = val;
+        // --- xallarap (orbital elements mode) ---
+        else if (n == "piEN_xa")  p.piEN_xa  = val;
+        else if (n == "piEE_xa")  p.piEE_xa  = val;
+        else if (n == "period_xa") p.period_xa = val;
+        else if (n == "ecc_xa")   p.ecc_xa   = val;
+        else if (n == "peri_xa")  p.peri_xa  = val;
+        // --- binary source ---
+        else if (n == "q_source" || n == "flux_ratio") bs.q_source = val;
+        else if (n == "t0_2")  bs.t0_2  = val;
+        else if (n == "u0_2")  bs.u0_2  = val;
         else throw std::invalid_argument("Model: unknown parameter '" + n + "'");
     }
     return p;
@@ -154,29 +189,80 @@ int Model::n_data() const noexcept
 }
 
 // ---------------------------------------------------------------------------
-// compute_chi2: hot path — magnification + linear flux solve per dataset
+// Magnification helper: fills c.mag_buf with effective magnification.
+// For single source: one lcbi_magnification_array call.
+// For binary source: two calls, combined as (A1 + q*A2)/(1+q).
+// Per-dataset site override is applied zero-copy (pointer swap).
 // ---------------------------------------------------------------------------
 
-double Model::compute_chi2(const lcbi_params& p) const
+static void fill_magnification(
+    const obs::LightCurveData& ds,
+    DatasetCache&              c,
+    const lcbi_params&         p,
+    const BinarySourceExtras&  bs,
+    const lcbi_options&        opts,
+    bool                       is_binary,
+    bool                       terrestrial,
+    lcbi_params&               p_scratch)
 {
+    const std::size_t n = ds.size();
+    const lcbi_params* pp = &p;
+    // Dataset-level site overrides LightCurve-level site (already baked into p),
+    // but only when terrestrial parallax is explicitly enabled.
+    if (terrestrial && ds.site()) {
+        p_scratch = p;
+        p_scratch.obs_lat = ds.site()->lat_deg();
+        p_scratch.obs_lon = ds.site()->lon_deg();
+        pp = &p_scratch;
+    }
+
+    lcbi_status status = lcbi_magnification_array(
+        ds.time().data(), static_cast<int>(n), pp, &opts, c.res_buf.data());
+    if (status != LCBI_OK)
+        throw std::runtime_error(lcbi_status_string(status));
+
+    if (!is_binary) {
+        for (std::size_t i = 0; i < n; ++i)
+            c.mag_buf[i] = c.res_buf[i].magnification;
+        return;
+    }
+
+    // Binary source: second source has different t0/u0.
+    lcbi_params p2 = *pp;
+    p2.t0   = bs.t0_2;
+    p2.umin = bs.u0_2;
+    status = lcbi_magnification_array(
+        ds.time().data(), static_cast<int>(n), &p2, &opts, c.res_buf2.data());
+    if (status != LCBI_OK)
+        throw std::runtime_error(lcbi_status_string(status));
+
+    const double denom = 1.0 + bs.q_source;
+    for (std::size_t i = 0; i < n; ++i)
+        c.mag_buf[i] = (c.res_buf[i].magnification
+                        + bs.q_source * c.res_buf2[i].magnification) / denom;
+}
+
+// ---------------------------------------------------------------------------
+// compute_chi2
+// ---------------------------------------------------------------------------
+
+double Model::compute_chi2(const lcbi_params& p, const BinarySourceExtras& bs) const
+{
+    const bool is_binary    = (light_curve_->source_kind() == lc::SourceKind::binary);
+    const bool terrestrial  = light_curve_->effects().terrestrial;
+    const lcbi_options& opts = light_curve_->options();
     double total = 0.0;
+    lcbi_params p_scratch;
+
     for (std::size_t k = 0; k < event_->size(); ++k) {
         const auto& ds = event_->at(k);
         DatasetCache& c = cache_[k];
-        const std::size_t n = ds.size();
-
-        const lcbi_status status =
-            lcbi_magnification_array(ds.time().data(), static_cast<int>(n),
-                                     &p, &options_, c.res_buf.data());
-        if (status != LCBI_OK)
-            throw std::runtime_error(lcbi_status_string(status));
-
-        for (std::size_t i = 0; i < n; ++i)
-            c.mag_buf[i] = c.res_buf[i].magnification;
+        fill_magnification(ds, c, p, bs, opts, is_binary, terrestrial, p_scratch);
 
         const double* __restrict__ A = c.mag_buf.data();
         const double* __restrict__ f = ds.flux().data();
         const double* __restrict__ w = ds.weight().data();
+        const std::size_t n = ds.size();
 
         double S_wA = 0.0, S_wA2 = 0.0, S_wAf = 0.0;
         for (std::size_t i = 0; i < n; ++i) {
@@ -207,8 +293,6 @@ double Model::log_prior(const std::vector<double>& theta) const
         if (def.fixed) continue;
         const double t = theta[idx++];
         if (def.transform == Transform::log) {
-            // p(ln x) = p_physical(exp(t)) * exp(t)  (Jacobian factor)
-            // log p(t) = log p_physical(exp(t)) + t
             lp += def.prior->log_prob(std::exp(t)) + t;
         } else {
             lp += def.prior->log_prob(t);
@@ -219,26 +303,24 @@ double Model::log_prior(const std::vector<double>& theta) const
 }
 
 // ---------------------------------------------------------------------------
-// compute_residuals: weighted residuals r_i = (flux_i - Fs*A_i - Fb) / sigma_i
+// compute_residuals
 // ---------------------------------------------------------------------------
 
-std::vector<double> Model::compute_residuals(const lcbi_params& p) const
+std::vector<double> Model::compute_residuals(const lcbi_params& p,
+                                              const BinarySourceExtras& bs) const
 {
+    const bool is_binary   = (light_curve_->source_kind() == lc::SourceKind::binary);
+    const bool terrestrial = light_curve_->effects().terrestrial;
+    const lcbi_options& opts = light_curve_->options();
     std::vector<double> out;
     out.reserve(static_cast<std::size_t>(n_data()));
+    lcbi_params p_scratch;
 
     for (std::size_t k = 0; k < event_->size(); ++k) {
         const auto& ds = event_->at(k);
         DatasetCache& c = cache_[k];
         const std::size_t n = ds.size();
-
-        const lcbi_status status =
-            lcbi_magnification_array(ds.time().data(), static_cast<int>(n),
-                                     &p, &options_, c.res_buf.data());
-        if (status != LCBI_OK)
-            throw std::runtime_error(lcbi_status_string(status));
-        for (std::size_t i = 0; i < n; ++i)
-            c.mag_buf[i] = c.res_buf[i].magnification;
+        fill_magnification(ds, c, p, bs, opts, is_binary, terrestrial, p_scratch);
 
         const double* __restrict__ A = c.mag_buf.data();
         const double* __restrict__ f = ds.flux().data();
@@ -266,14 +348,16 @@ std::vector<double> Model::residuals(const std::vector<double>& theta) const
 {
     if (static_cast<int>(theta.size()) != n_params())
         throw std::invalid_argument("theta size mismatch");
-    return compute_residuals(theta_to_params(theta));
+    BinarySourceExtras bs;
+    return compute_residuals(theta_to_params(theta, bs), bs);
 }
 
 double Model::chi2(const std::vector<double>& theta) const
 {
     if (static_cast<int>(theta.size()) != n_params())
         throw std::invalid_argument("theta size mismatch");
-    return compute_chi2(theta_to_params(theta));
+    BinarySourceExtras bs;
+    return compute_chi2(theta_to_params(theta, bs), bs);
 }
 
 double Model::log_likelihood(const std::vector<double>& theta) const
@@ -286,20 +370,21 @@ Model::fluxes(const std::vector<double>& theta) const
 {
     if (static_cast<int>(theta.size()) != n_params())
         throw std::invalid_argument("theta size mismatch");
-    const lcbi_params p = theta_to_params(theta);
+    BinarySourceExtras bs;
+    const lcbi_params p = theta_to_params(theta, bs);
+    const bool is_binary   = (light_curve_->source_kind() == lc::SourceKind::binary);
+    const bool terrestrial = light_curve_->effects().terrestrial;
+    const lcbi_options& opts = light_curve_->options();
+
     std::vector<FluxSolution> out;
     out.reserve(event_->size());
+    lcbi_params p_scratch;
     for (std::size_t k = 0; k < event_->size(); ++k) {
         const auto& ds = event_->at(k);
         DatasetCache& c = cache_[k];
         const std::size_t n = ds.size();
-        const lcbi_status status =
-            lcbi_magnification_array(ds.time().data(), static_cast<int>(n),
-                                     &p, &options_, c.res_buf.data());
-        if (status != LCBI_OK)
-            throw std::runtime_error(lcbi_status_string(status));
-        for (std::size_t i = 0; i < n; ++i)
-            c.mag_buf[i] = c.res_buf[i].magnification;
+        fill_magnification(ds, c, p, bs, opts, is_binary, terrestrial, p_scratch);
+
         const double* __restrict__ A = c.mag_buf.data();
         const double* __restrict__ f = ds.flux().data();
         const double* __restrict__ w = ds.weight().data();
@@ -309,7 +394,7 @@ Model::fluxes(const std::vector<double>& theta) const
             S_wA2 += w[i] * A[i] * A[i];
             S_wAf += w[i] * A[i] * f[i];
         }
-        const double D  = S_wA2 * c.S_w - S_wA * S_wA;
+        const double D = S_wA2 * c.S_w - S_wA * S_wA;
         out.push_back({(S_wAf * c.S_w  - S_wA  * c.S_wf) / D,
                        (S_wA2 * c.S_wf - S_wA  * S_wAf)  / D});
     }
@@ -321,6 +406,50 @@ double Model::log_prob(const std::vector<double>& theta) const
     const double lp = log_prior(theta);
     if (!std::isfinite(lp)) return lp;
     return lp + log_likelihood(theta);
+}
+
+double Model::log_prob_and_fluxes(const std::vector<double>& theta,
+                                   std::vector<FluxSolution>& out_fluxes) const
+{
+    if (static_cast<int>(theta.size()) != n_params())
+        throw std::invalid_argument("theta size mismatch");
+    const double lp = log_prior(theta);
+    if (!std::isfinite(lp)) {
+        out_fluxes.clear();
+        return lp;
+    }
+    BinarySourceExtras bs;
+    const lcbi_params p = theta_to_params(theta, bs);
+    const bool is_binary   = (light_curve_->source_kind() == lc::SourceKind::binary);
+    const bool terrestrial = light_curve_->effects().terrestrial;
+    const lcbi_options& opts = light_curve_->options();
+
+    double chi2_total = 0.0;
+    out_fluxes.clear();
+    out_fluxes.reserve(event_->size());
+    lcbi_params p_scratch;
+    for (std::size_t k = 0; k < event_->size(); ++k) {
+        const auto& ds = event_->at(k);
+        DatasetCache& c = cache_[k];
+        const std::size_t n = ds.size();
+        fill_magnification(ds, c, p, bs, opts, is_binary, terrestrial, p_scratch);
+
+        const double* __restrict__ A = c.mag_buf.data();
+        const double* __restrict__ f = ds.flux().data();
+        const double* __restrict__ w = ds.weight().data();
+        double S_wA = 0.0, S_wA2 = 0.0, S_wAf = 0.0;
+        for (std::size_t i = 0; i < n; ++i) {
+            S_wA  += w[i] * A[i];
+            S_wA2 += w[i] * A[i] * A[i];
+            S_wAf += w[i] * A[i] * f[i];
+        }
+        const double D  = S_wA2 * c.S_w - S_wA * S_wA;
+        const double Fs = (S_wAf * c.S_w  - S_wA  * c.S_wf) / D;
+        const double Fb = (S_wA2 * c.S_wf - S_wA  * S_wAf)  / D;
+        chi2_total += c.S_wf2 - Fs * S_wAf - Fb * c.S_wf;
+        out_fluxes.push_back({Fs, Fb});
+    }
+    return lp - 0.5 * chi2_total;
 }
 
 } // namespace lcbinint::bayes

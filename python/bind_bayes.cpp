@@ -2,6 +2,7 @@
 #include "lcbinint/lcbinint.h"
 #include "lcbinint/bayes/prior.hpp"
 #include "lcbinint/bayes/model.hpp"
+#include "lcbinint/lc/light_curve.hpp"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -45,13 +46,13 @@ void register_bayes_submodule(py::module_& parent)
         });
 
     // --- Model ---
-    // Takes lcbi_options directly — calls lcbi_magnification_array in the hot path.
-    // No lc.LightCurve wrapper needed; the Python-layer LightCurve is for standalone use.
+    // Takes lc.LightCurve — source kind, orbital motion mode, and options come from it.
+    using LC = lcbinint::lc::LightCurve;
     py::class_<Model>(bayes, "Model")
-        .def(py::init<lcbi_options, std::shared_ptr<lcbinint::obs::Event>>(),
-            py::arg("options"), py::arg("event"))
-        .def(py::init<lcbi_options, std::shared_ptr<lcbinint::obs::LightCurveData>>(),
-            py::arg("options"), py::arg("data"))
+        .def(py::init<std::shared_ptr<LC>, std::shared_ptr<lcbinint::obs::Event>>(),
+            py::arg("light_curve"), py::arg("event"))
+        .def(py::init<std::shared_ptr<LC>, std::shared_ptr<lcbinint::obs::LightCurveData>>(),
+            py::arg("light_curve"), py::arg("data"))
         .def("param", [](Model& m, std::string name, std::shared_ptr<Prior> prior) {
             m.param(std::move(name), std::move(prior));
         }, py::arg("name"), py::arg("prior"))
@@ -71,7 +72,16 @@ void register_bayes_submodule(py::module_& parent)
                 out.append(py::make_tuple(b.lo, b.hi));
             return out;
         })
-        .def_property_readonly("n_data", &Model::n_data)
+        .def_property_readonly("n_data",      &Model::n_data)
+        .def_property_readonly("options",     [](const Model& m) { return m.options(); })
+        .def_property_readonly("light_curve", [](const Model& m) -> const lcbinint::lc::LightCurve& {
+            return m.light_curve();
+        }, py::return_value_policy::reference_internal)
+        .def_property_readonly("t_ref", [](const Model& m) -> py::object {
+            auto tr = m.light_curve().t_ref();
+            if (!tr) return py::none();
+            return py::float_(*tr);
+        })
         .def("log_prior",      &Model::log_prior,      py::arg("theta"))
         .def("log_likelihood", &Model::log_likelihood,  py::arg("theta"))
         .def("log_prob",       &Model::log_prob,        py::arg("theta"))
