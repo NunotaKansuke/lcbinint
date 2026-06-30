@@ -158,18 +158,16 @@ lcbi_params Model::theta_to_params(const std::vector<double>& theta,
         // --- xallarap: amplitude/position (all modes use xi_1/xi_2) ---
         else if (n == "xi_1")     p.xi_1     = val;
         else if (n == "xi_2")     p.xi_2     = val;
-        // angular_velocity / circular_elements / orbital_elements orbit params
-        else if (n == "omega_xa")  p.omega_xa  = val;
-        else if (n == "inc_xa")    p.inc_xa    = val;
-        else if (n == "phi_xa")    p.phi_xa    = val;
+        // orbital_elements / circular_elements: period-based orbit params
         else if (n == "period_xa") p.period_xa = val;
         else if (n == "ecc_xa")    p.ecc_xa    = val;
         else if (n == "peri_xa")   p.peri_xa   = val;
-        // circular_velocity / kepler_velocity: w1/w2/w3 reuse omega/inc/phi fields
+        else if (n == "inc_xa")    p.inc_xa    = val;
+        // circular_velocity / kepler_velocity: w1/w2/w3 (mapped to omega/inc/phi fields)
         else if (n == "w1") p.omega_xa = val;
         else if (n == "w2") p.inc_xa   = val;
         else if (n == "w3") p.phi_xa   = val;
-        // kepler_velocity: xa_szs/xa_ar reuse piEN_xa/piEE_xa fields
+        // kepler_velocity: xa_szs/xa_ar (mapped to piEN_xa/piEE_xa fields)
         else if (n == "xa_szs") p.piEN_xa = val;
         else if (n == "xa_ar")  p.piEE_xa = val;
         // --- binary source ---

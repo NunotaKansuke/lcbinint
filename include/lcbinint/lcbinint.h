@@ -78,11 +78,11 @@ typedef struct lcbi_params {
 
 typedef enum lcbi_xallarap_param_type {
     LCBI_XALLARAP_NONE              = 0,
-    LCBI_XALLARAP_ANGULAR_VELOCITY  = 1,  /* circular: xi_1/2 amplitude, omega_xa, inc_xa, phi_xa */
-    LCBI_XALLARAP_ORBITAL_ELEMENTS  = 2,  /* Kepler:   piEN/EE_xa amplitude, period/ecc/peri/inc_xa */
-    LCBI_XALLARAP_CIRCULAR_ELEMENTS = 3,  /* circular: piEN/EE_xa amplitude, period_xa, inc_xa (ecc=0) */
-    LCBI_XALLARAP_CIRCULAR_VEL      = 4,  /* circular: xi_1/2 pos at tref, omega_xa=w1, inc_xa=w2, phi_xa=w3 */
-    LCBI_XALLARAP_KEPLER_VEL        = 5   /* Kepler:   xi_1/2 pos at tref, w1/2/3, piEN_xa=szs, piEE_xa=ar */
+    LCBI_XALLARAP_ANGULAR_VELOCITY  = 1,  /* deprecated — use circular_elements instead */
+    LCBI_XALLARAP_ORBITAL_ELEMENTS  = 2,  /* Kepler:   xi_1/xi_2 amplitude, period/ecc/peri/inc_xa */
+    LCBI_XALLARAP_CIRCULAR_ELEMENTS = 3,  /* circular: xi_1/xi_2 amplitude, period_xa, inc_xa (ecc=0) */
+    LCBI_XALLARAP_CIRCULAR_VEL      = 4,  /* circular: xi_1/xi_2 pos at tref; omega_xa=w1, inc_xa=w2, phi_xa=w3 */
+    LCBI_XALLARAP_KEPLER_VEL        = 5   /* Kepler:   xi_1/xi_2 pos at tref; w1/2/3, piEN_xa=szs, piEE_xa=ar */
 } lcbi_xallarap_param_type;
 
 typedef struct lcbi_options {
