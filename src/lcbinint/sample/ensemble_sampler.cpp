@@ -1,18 +1,18 @@
 #include "ensemble_sampler.hpp"
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <random>
 #include <stdexcept>
-#include <limits>
 
 namespace lcbinint::sample {
 
+// ---------------------------------------------------------------------------
+// Finite-difference Hessian helpers (same as before)
+// ---------------------------------------------------------------------------
+
 namespace {
 
-// Full Hessian of log_prob at theta via central finite differences.
-// Diagonal:     H_jj  = (f(θ+εeⱼ) + f(θ-εeⱼ) - 2f₀) / ε²
-// Off-diagonal: H_ij  = (f++ - f+- - f-+ + f--) / 4εᵢεⱼ
-// Returns empty vector if any evaluation is non-finite.
 std::vector<double> finite_diff_hessian(
     bayes::Model&                              model,
     const std::vector<double>&                 theta,
@@ -34,7 +34,6 @@ std::vector<double> finite_diff_hessian(
         if (!std::isfinite(fp) || !std::isfinite(fm)) return {};
         H[j*n+j] = (fp + fm - 2.0*lp0) / (eps[j]*eps[j]);
     }
-
     for (int i = 0; i < n; ++i) {
         for (int j = i+1; j < n; ++j) {
             auto tpp = theta; tpp[i] += eps[i]; tpp[j] += eps[j];
@@ -53,8 +52,6 @@ std::vector<double> finite_diff_hessian(
     return H;
 }
 
-// Cholesky decomposition: A = L·Lᵀ (A must be positive definite).
-// Returns L (lower triangular, row-major), or empty if not positive definite.
 std::vector<double> cholesky(const std::vector<double>& A, int n)
 {
     std::vector<double> L(n * n, 0.0);
@@ -74,8 +71,6 @@ std::vector<double> cholesky(const std::vector<double>& A, int n)
     return L;
 }
 
-// Solve Lᵀ·w = z by backward substitution (L lower triangular).
-// w ~ N(0, (LLᵀ)⁻¹) when z ~ N(0, I).
 void solve_Lt(const std::vector<double>& L, int n,
               const std::vector<double>& z, std::vector<double>& w)
 {
@@ -83,12 +78,16 @@ void solve_Lt(const std::vector<double>& L, int n,
     for (int i = n-1; i >= 0; --i) {
         double s = z[i];
         for (int k = i+1; k < n; ++k)
-            s -= L[k*n+i] * w[k];  // Lᵀ[i,k] = L[k,i]
+            s -= L[k*n+i] * w[k];
         w[i] = s / L[i*n+i];
     }
 }
 
 } // namespace
+
+// ---------------------------------------------------------------------------
+// Construction
+// ---------------------------------------------------------------------------
 
 EnsembleSampler::EnsembleSampler(int nwalkers, unsigned int seed,
                                    std::shared_ptr<Move> move)
@@ -101,133 +100,211 @@ EnsembleSampler::EnsembleSampler(int nwalkers, unsigned int seed,
 }
 
 // ---------------------------------------------------------------------------
-// Initialization helpers
+// Position initialisation helpers
 // ---------------------------------------------------------------------------
 
-Chain EnsembleSampler::run(bayes::Model& model, int nsteps, int burnin)
+std::vector<std::vector<double>> EnsembleSampler::init_pos_hessian(
+    bayes::Model& model, const optimize::Result& start,
+    const std::vector<bayes::OptimizerBounds>& bounds, std::mt19937_64& rng)
+{
+    const int ndim = static_cast<int>(start.position.size());
+    const double lp0 = model.log_prob(start.position);
+    if (std::isfinite(lp0)) {
+        const auto H = finite_diff_hessian(model, start.position, lp0, bounds);
+        if (!H.empty()) {
+            std::vector<double> neg_H(ndim * ndim);
+            for (int i = 0; i < ndim * ndim; ++i) neg_H[i] = -H[i];
+            const auto L = cholesky(neg_H, ndim);
+            if (!L.empty()) {
+                std::normal_distribution<double> gauss(0.0, 1.0);
+                std::vector<std::vector<double>> pos(nwalkers_,
+                                                      std::vector<double>(ndim));
+                std::vector<double> z(ndim), w(ndim);
+                for (int wk = 0; wk < nwalkers_; ++wk) {
+                    for (int j = 0; j < ndim; ++j) z[j] = gauss(rng);
+                    solve_Lt(L, ndim, z, w);
+                    for (int j = 0; j < ndim; ++j)
+                        pos[wk][j] = std::clamp(start.position[j] + w[j],
+                                                  bounds[j].lo, bounds[j].hi);
+                }
+                return pos;
+            }
+        }
+    }
+    // Fallback to ball
+    return init_pos_ball(start, bounds, rng);
+}
+
+std::vector<std::vector<double>> EnsembleSampler::init_pos_ball(
+    const optimize::Result& start,
+    const std::vector<bayes::OptimizerBounds>& bounds, std::mt19937_64& rng)
+{
+    const int ndim = static_cast<int>(start.position.size());
+    std::normal_distribution<double> gauss(0.0, 1.0);
+    std::vector<std::vector<double>> pos(nwalkers_, std::vector<double>(ndim));
+    for (int w = 0; w < nwalkers_; ++w) {
+        for (int j = 0; j < ndim; ++j) {
+            const double range   = bounds[j].hi - bounds[j].lo;
+            const double dist_lo = start.position[j] - bounds[j].lo;
+            const double dist_hi = bounds[j].hi - start.position[j];
+            const double sigma_j = std::min(
+                1e-2 * range, 0.5 * std::min(dist_lo, dist_hi) + 1e-12);
+            double v;
+            for (int attempt = 0; attempt < 64; ++attempt) {
+                v = start.position[j] + gauss(rng) * sigma_j;
+                if (v >= bounds[j].lo && v <= bounds[j].hi) break;
+            }
+            pos[w][j] = std::clamp(v, bounds[j].lo, bounds[j].hi);
+        }
+    }
+    return pos;
+}
+
+// ---------------------------------------------------------------------------
+// make_state: evaluate log_prob for all initial walker positions
+// ---------------------------------------------------------------------------
+
+SamplerState EnsembleSampler::make_state(bayes::Model& model,
+                                          std::vector<std::vector<double>> init_pos)
+{
+    const int ndim   = model.n_params();
+    const int n_ds   = static_cast<int>(model.event().size());
+    const int n_fl   = n_ds * 2;
+
+    SamplerState st;
+    st.nwalkers  = nwalkers_;
+    st.ndim      = ndim;
+    st.n_fluxes  = n_fl;
+    st.pos.resize(nwalkers_ * ndim);
+    st.log_prob.resize(nwalkers_);
+    st.fluxes.resize(nwalkers_ * n_fl, 0.0);
+    st.rng.seed(seed_);
+
+    std::vector<bayes::Model::FluxSolution> fl_buf;
+    for (int w = 0; w < nwalkers_; ++w) {
+        std::copy(init_pos[w].begin(), init_pos[w].end(), st.pos_row(w));
+        st.log_prob[w] = model.log_prob_and_fluxes(init_pos[w], fl_buf);
+        for (int k = 0; k < n_ds && k < static_cast<int>(fl_buf.size()); ++k) {
+            st.flux_row(w)[2*k]   = fl_buf[k].Fs;
+            st.flux_row(w)[2*k+1] = fl_buf[k].Fb;
+        }
+    }
+    return st;
+}
+
+// ---------------------------------------------------------------------------
+// init_state overloads
+// ---------------------------------------------------------------------------
+
+SamplerState EnsembleSampler::init_state(bayes::Model& model)
 {
     const int ndim = model.n_params();
     const auto bounds = model.optimizer_bounds();
     std::mt19937_64 rng(seed_);
-    auto rand01 = [&]{ return std::uniform_real_distribution<double>(0.0, 1.0)(rng); };
-
+    auto rand01 = [&]{ return std::uniform_real_distribution<double>(0,1)(rng); };
     std::vector<std::vector<double>> pos(nwalkers_, std::vector<double>(ndim));
     for (int w = 0; w < nwalkers_; ++w)
         for (int j = 0; j < ndim; ++j)
             pos[w][j] = bounds[j].lo + rand01() * (bounds[j].hi - bounds[j].lo);
-
-    return run_impl(model, std::move(pos), nsteps, burnin);
+    return make_state(model, std::move(pos));
 }
 
-Chain EnsembleSampler::run(bayes::Model& model, const optimize::Result& start,
-                            int nsteps, int burnin, bool hessian_init)
+SamplerState EnsembleSampler::init_state(bayes::Model& model,
+                                           const optimize::Result& start,
+                                           bool hessian_init)
 {
     const int ndim = model.n_params();
     if (static_cast<int>(start.position.size()) != ndim)
         throw std::invalid_argument("start.position size does not match n_params");
-
     const auto bounds = model.optimizer_bounds();
     std::mt19937_64 rng(seed_);
-    std::normal_distribution<double> gauss(0.0, 1.0);
-    std::vector<std::vector<double>> pos(nwalkers_, std::vector<double>(ndim));
-
-    bool used_hessian = false;
-    if (hessian_init) {
-        const double lp0 = model.log_prob(start.position);
-        if (std::isfinite(lp0)) {
-            const auto H = finite_diff_hessian(model, start.position, lp0, bounds);
-            if (!H.empty()) {
-                // Form -H (should be positive definite at a true maximum of log_prob)
-                std::vector<double> neg_H(ndim * ndim);
-                for (int i = 0; i < ndim * ndim; ++i) neg_H[i] = -H[i];
-                const auto L = cholesky(neg_H, ndim);
-                if (!L.empty()) {
-                    // Sample w ~ N(0, (-H)⁻¹): solve Lᵀ·w = z, z ~ N(0,I)
-                    std::vector<double> z(ndim), w(ndim);
-                    for (int wk = 0; wk < nwalkers_; ++wk) {
-                        for (int j = 0; j < ndim; ++j) z[j] = gauss(rng);
-                        solve_Lt(L, ndim, z, w);
-                        for (int j = 0; j < ndim; ++j)
-                            pos[wk][j] = std::clamp(
-                                start.position[j] + w[j],
-                                bounds[j].lo, bounds[j].hi);
-                    }
-                    used_hessian = true;
-                }
-            }
-        }
-    }
-
-    if (!used_hessian) {
-        // Fallback: tight gaussian ball, sigma = 1% of prior range,
-        // capped to avoid pile-up at boundaries.
-        for (int w = 0; w < nwalkers_; ++w) {
-            for (int j = 0; j < ndim; ++j) {
-                const double range   = bounds[j].hi - bounds[j].lo;
-                const double dist_lo = start.position[j] - bounds[j].lo;
-                const double dist_hi = bounds[j].hi - start.position[j];
-                const double sigma_j = std::min(
-                    1e-2 * range, 0.5 * std::min(dist_lo, dist_hi) + 1e-12);
-                double v;
-                for (int attempt = 0; attempt < 64; ++attempt) {
-                    v = start.position[j] + gauss(rng) * sigma_j;
-                    if (v >= bounds[j].lo && v <= bounds[j].hi) break;
-                }
-                pos[w][j] = std::clamp(v, bounds[j].lo, bounds[j].hi);
-            }
-        }
-    }
-
-    return run_impl(model, std::move(pos), nsteps, burnin);
+    auto pos = hessian_init
+        ? init_pos_hessian(model, start, bounds, rng)
+        : init_pos_ball(start, bounds, rng);
+    auto st = make_state(model, std::move(pos));
+    st.rng = std::move(rng);
+    return st;
 }
 
-Chain EnsembleSampler::run(bayes::Model& model,
-                            const std::vector<std::vector<double>>& start_pos,
-                            int nsteps, int burnin)
+SamplerState EnsembleSampler::init_state(
+    bayes::Model& model, const std::vector<std::vector<double>>& pos)
 {
-    if (static_cast<int>(start_pos.size()) != nwalkers_)
-        throw std::invalid_argument("start_pos must have nwalkers rows");
-    return run_impl(model, start_pos, nsteps, burnin);
+    if (static_cast<int>(pos.size()) != nwalkers_)
+        throw std::invalid_argument("pos must have nwalkers rows");
+    return make_state(model, pos);
 }
 
 // ---------------------------------------------------------------------------
-// Core: affine-invariant stretch-move ensemble sampler (emcee algorithm)
+// step: one full ensemble update (both halves), in-place
 // ---------------------------------------------------------------------------
 
-Chain EnsembleSampler::run_impl(bayes::Model& model,
-                                 std::vector<std::vector<double>> pos,
-                                 int nsteps, int burnin)
+void EnsembleSampler::step(bayes::Model& model, SamplerState& state)
 {
-    const int ndim = model.n_params();
-    const int NW   = nwalkers_;
+    const int NW   = state.nwalkers;
+    const int ndim = state.ndim;
     const int half = NW / 2;
     const int n_ds = static_cast<int>(model.event().size());
-    const int n_fl = n_ds * 2;
 
-    // Evaluate log_prob and fluxes for all initial positions in a single pass.
-    std::vector<double> lp(NW);
-    std::vector<std::vector<double>> walker_fluxes(NW, std::vector<double>(n_fl, 0.0));
-    {
-        std::vector<bayes::Model::FluxSolution> fl_buf;
-        for (int w = 0; w < NW; ++w) {
-            lp[w] = model.log_prob_and_fluxes(pos[w], fl_buf);
-            for (int k = 0; k < n_ds && k < static_cast<int>(fl_buf.size()); ++k) {
-                walker_fluxes[w][2*k]   = fl_buf[k].Fs;
-                walker_fluxes[w][2*k+1] = fl_buf[k].Fb;
+    auto rand01 = [&]{ return std::uniform_real_distribution<double>(0,1)(state.rng); };
+
+    std::vector<bayes::Model::FluxSolution> prop_fl;
+
+    for (int half_idx = 0; half_idx < 2; ++half_idx) {
+        const int begin_this = half_idx == 0 ? 0    : half;
+        const int begin_comp = half_idx == 0 ? half : 0;
+
+        // Build complementary ensemble as vector<vector<double>> for Move::propose
+        std::vector<std::vector<double>> complement(half,
+                                                     std::vector<double>(ndim));
+        for (int i = 0; i < half; ++i)
+            std::copy(state.pos_row(begin_comp + i),
+                      state.pos_row(begin_comp + i) + ndim,
+                      complement[i].begin());
+
+        for (int k = begin_this; k < begin_this + half; ++k) {
+            std::vector<double> cur(state.pos_row(k),
+                                    state.pos_row(k) + ndim);
+            auto [prop_vec, log_factor] =
+                move_->propose(cur, complement, state.rng, ndim);
+
+            const double lp_prop = model.log_prob_and_fluxes(prop_vec, prop_fl);
+            const double log_acc = log_factor + lp_prop - state.log_prob[k];
+
+            if (std::log(rand01()) <= log_acc) {
+                std::copy(prop_vec.begin(), prop_vec.end(), state.pos_row(k));
+                state.log_prob[k] = lp_prop;
+                for (int j = 0; j < n_ds && j < static_cast<int>(prop_fl.size()); ++j) {
+                    state.flux_row(k)[2*j]   = prop_fl[j].Fs;
+                    state.flux_row(k)[2*j+1] = prop_fl[j].Fb;
+                }
+                ++state.n_accepted;
             }
+            ++state.n_total;
         }
     }
+    ++state.n_step;
+}
 
-    // Pre-allocate step buffers
-    std::vector<double> step_pos(NW * ndim);
-    std::vector<double> step_lp(NW);
-    std::vector<double> step_fl(NW * n_fl);
+// ---------------------------------------------------------------------------
+// collect: build Chain from accumulated state (no stored history — caller
+// must have collected snapshots if they want per-step data; this just wraps
+// the current walker positions as a single "step" for convenience, or the
+// caller can build their own Chain from snapshots).
+// ---------------------------------------------------------------------------
 
+Chain EnsembleSampler::collect(bayes::Model& model,
+                                const SamplerState& state, int discard) const
+{
+    // collect() is a thin convenience: build a 1-step Chain from current positions.
+    // Full per-step chains are built by run_from_state when using batch mode.
+    // In step-by-step mode, users typically build their own Chain or use numpy.
+    (void)discard;
+    const int ndim = state.ndim;
+    const int n_ds = static_cast<int>(model.event().size());
     Chain chain;
-    chain.init(nsteps, NW, ndim);
+    chain.init(1, state.nwalkers, ndim);
     {
-        std::vector<std::string> names;
-        std::vector<std::string> transforms;
+        std::vector<std::string> names, transforms;
         for (const auto& def : model.param_defs()) {
             if (def.fixed) continue;
             names.push_back(def.name);
@@ -239,64 +316,78 @@ Chain EnsembleSampler::run_impl(bayes::Model& model,
     }
     {
         std::vector<std::string> ds_names;
-        ds_names.reserve(n_ds);
+        for (int k = 0; k < n_ds; ++k)
+            ds_names.push_back(model.event().at(k).name());
+        chain.init_fluxes(n_ds, std::move(ds_names));
+    }
+    chain.push_step(state.pos, state.log_prob, state.fluxes);
+    chain.set_acceptance(state.acceptance_fraction());
+    return chain;
+}
+
+// ---------------------------------------------------------------------------
+// run_from_state: batch loop — advance nsteps, collect into Chain
+// ---------------------------------------------------------------------------
+
+Chain EnsembleSampler::run_from_state(bayes::Model& model, SamplerState state,
+                                       int nsteps, int burnin)
+{
+    const int ndim = state.ndim;
+    const int n_ds = static_cast<int>(model.event().size());
+
+    // burnin
+    for (int i = 0; i < burnin; ++i)
+        step(model, state);
+
+    Chain chain;
+    chain.init(nsteps, state.nwalkers, ndim);
+    {
+        std::vector<std::string> names, transforms;
+        for (const auto& def : model.param_defs()) {
+            if (def.fixed) continue;
+            names.push_back(def.name);
+            transforms.push_back(
+                def.transform == bayes::Transform::log ? "log" : "identity");
+        }
+        chain.set_param_names(std::move(names));
+        chain.set_transforms(std::move(transforms));
+    }
+    {
+        std::vector<std::string> ds_names;
         for (int k = 0; k < n_ds; ++k)
             ds_names.push_back(model.event().at(k).name());
         chain.init_fluxes(n_ds, std::move(ds_names));
     }
 
-    std::mt19937_64 rng(seed_);
-    auto rand01 = [&]{ return std::uniform_real_distribution<double>(0.0, 1.0)(rng); };
-
-    long long accepted = 0;
-
-    for (int step = 0; step < nsteps + burnin; ++step) {
-        // Complement-based update: process each half using the other as complement
-        for (int half_idx = 0; half_idx < 2; ++half_idx) {
-            const int begin_this = half_idx == 0 ? 0    : half;
-            const int begin_comp = half_idx == 0 ? half : 0;
-
-            // Build complementary sub-ensemble view (stable during this half update)
-            std::vector<std::vector<double>> complement(pos.begin() + begin_comp,
-                                                         pos.begin() + begin_comp + half);
-
-            std::vector<bayes::Model::FluxSolution> prop_fl;
-            for (int k = begin_this; k < begin_this + half; ++k) {
-                auto [prop_vec, log_factor] =
-                    move_->propose(pos[k], complement, rng, ndim);
-
-                // Single magnification pass: log_prob + fluxes together.
-                const double lp_prop = model.log_prob_and_fluxes(prop_vec, prop_fl);
-                const double log_acc = log_factor + lp_prop - lp[k];
-
-                if (std::log(rand01()) <= log_acc) {
-                    for (int j = 0; j < n_ds && j < static_cast<int>(prop_fl.size()); ++j) {
-                        walker_fluxes[k][2*j]   = prop_fl[j].Fs;
-                        walker_fluxes[k][2*j+1] = prop_fl[j].Fb;
-                    }
-                    pos[k] = std::move(prop_vec);
-                    lp[k]  = lp_prop;
-                    ++accepted;
-                }
-            }
-        }
-
-        if (step >= burnin) {
-            for (int w = 0; w < NW; ++w) {
-                const std::size_t base_p = static_cast<std::size_t>(w * ndim);
-                std::copy(pos[w].begin(), pos[w].end(), step_pos.begin() + base_p);
-                step_lp[w] = lp[w];
-                const std::size_t base_f = static_cast<std::size_t>(w * n_fl);
-                std::copy(walker_fluxes[w].begin(), walker_fluxes[w].end(),
-                          step_fl.begin() + base_f);
-            }
-            chain.push_step(step_pos, step_lp, step_fl);
-        }
+    for (int i = 0; i < nsteps; ++i) {
+        step(model, state);
+        chain.push_step(state.pos, state.log_prob, state.fluxes);
     }
-
-    const long long total = static_cast<long long>(nsteps + burnin) * NW;
-    chain.set_acceptance(static_cast<double>(accepted) / static_cast<double>(total));
+    chain.set_acceptance(state.acceptance_fraction());
     return chain;
+}
+
+// ---------------------------------------------------------------------------
+// Batch run() convenience wrappers
+// ---------------------------------------------------------------------------
+
+Chain EnsembleSampler::run(bayes::Model& model, int nsteps, int burnin)
+{
+    return run_from_state(model, init_state(model), nsteps, burnin);
+}
+
+Chain EnsembleSampler::run(bayes::Model& model, const optimize::Result& start,
+                            int nsteps, int burnin, bool hessian_init)
+{
+    return run_from_state(model, init_state(model, start, hessian_init),
+                          nsteps, burnin);
+}
+
+Chain EnsembleSampler::run(bayes::Model& model,
+                            const std::vector<std::vector<double>>& start_pos,
+                            int nsteps, int burnin)
+{
+    return run_from_state(model, init_state(model, start_pos), nsteps, burnin);
 }
 
 } // namespace lcbinint::sample
