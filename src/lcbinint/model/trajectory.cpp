@@ -319,7 +319,7 @@ std::array<double, 2> keplerian_position(
 void apply_xallarap_orbital_elements(
     const LensParameters& params, double time, double& tau, double& beta)
 {
-    if (!params.has_xallarap_orbital_elements()) {
+    if (!params.has_xallarap()) {
         return;
     }
     if (params.period_xa <= 0.0) {
