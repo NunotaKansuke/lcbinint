@@ -3,6 +3,8 @@
 #include "lcbinint/lc/effects.hpp"
 #include "lcbinint/lc/light_curve.hpp"
 #include "lcbinint/obs/coordinates.hpp"
+#include "lcbinint/model/lens_parameters.hpp"
+#include "lcbinint/model/trajectory.hpp"
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -646,6 +648,39 @@ unless terrestrial is explicitly set to True.)")
                 return compute_dispatch(lc, times, params_from_dict(d), d);
             },
             py::arg("times"))
+
+        // source_trajectory(times, **params)
+        // Returns {"x": array, "y": array} in the lens-plane frame.
+        // All active effects (parallax, xallarap) are applied.
+        .def("source_trajectory",
+            [](const LC& lc, py::array_t<double> times, py::kwargs kw) -> py::dict {
+                const lcbi_params p = lc.apply_coords(params_from_dict(py::dict(kw)));
+                const lcbinint::model::LensParameters lp = lcbinint::model::from_c_params(p);
+                const lcbinint::model::Trajectory traj(lp);
+                const bool vbm = lc.options().vbm_compatible != 0;
+                const lcbi_xallarap_param_type xa = lc.options().xallarap_param_type;
+
+                auto buf = times.request();
+                const double* ptr = static_cast<const double*>(buf.ptr);
+                const int n = static_cast<int>(buf.size);
+
+                std::vector<double> xs(n), ys(n);
+                {
+                    py::gil_scoped_release release;
+                    for (int i = 0; i < n; ++i) {
+                        const auto pos = traj.source_position(ptr[i], vbm, xa);
+                        xs[i] = pos.x;
+                        ys[i] = pos.y;
+                    }
+                }
+                py::dict result;
+                result["x"] = vec_to_numpy(std::move(xs));
+                result["y"] = vec_to_numpy(std::move(ys));
+                return result;
+            }, py::arg("times"),
+            "Compute source trajectory in the lens-plane frame.\n"
+            "Applies all active effects (parallax, xallarap).\n"
+            "Returns dict with 'x' and 'y' numpy arrays (Einstein ring units).")
 
         .def("__repr__", [](const LC& lc) {
             const auto& o = lc.options();
