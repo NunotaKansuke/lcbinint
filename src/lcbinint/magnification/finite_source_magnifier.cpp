@@ -990,16 +990,19 @@ struct LocalRefinementTape {
         };
     }
 
-    void add(SourcePosition image, double cell_step, double coarse_weight)
+    // Returns the index of the recorded cell, or -1 when the sample was
+    // rejected (tape full or duplicate grid key).
+    int add(SourcePosition image, double cell_step, double coarse_weight)
     {
         if (max_samples == 0 || cells.size() >= max_samples) {
-            return;
+            return -1;
         }
         const auto key = key_for(image, cell_step);
         if (!sample_keys.insert(key).second) {
-            return;
+            return -1;
         }
         cells.push_back({image, cell_step, 1.0, coarse_weight, 0.0, 0});
+        return static_cast<int>(cells.size()) - 1;
     }
 };
 
@@ -1281,6 +1284,30 @@ double inverse_ray_polar_boundary_binary(
         enqueue(ir, iphi);
     }
 
+    // Second-order radial boundary correction: linearly interpolate the mapped
+    // distance between the last inside cell of a radial run and its outside
+    // neighbour to locate the source-edge crossing at fraction t of the cell.
+    // Midpoint counting covered the run out to the cell face, so the residual
+    // strip is (t - 0.5) cells with area ~ dr * edge_radius * dphi.  t is
+    // confined to [0, 1] by r_in <= rho < r_out, bounding the correction even
+    // near folds.  High-magnification arcs are radially thin, so the radial
+    // run ends dominate the boundary; the short azimuthal caps are left at
+    // midpoint accuracy.
+    const double edge_brightness = uniform_source ? 1.0 :
+        (finite_magnifier != nullptr ?
+            finite_magnifier->limb_darkening_table_brightness(1.0) :
+            source_surface_brightness(1.0, settings));
+    auto radial_edge_correction = [&](
+        double inside_dz2, double outside_dz2, double edge_radius) {
+        const double r_in = std::sqrt(inside_dz2);
+        const double r_out = std::sqrt(outside_dz2);
+        const double dr_mapped = r_out - r_in;
+        const double t = dr_mapped > 0.0
+            ? std::clamp((source_radius - r_in) / dr_mapped, 0.0, 1.0)
+            : 0.5;
+        return (t - 0.5) * edge_brightness * edge_radius;
+    };
+
     double total_count = 0.0;
     while (!queue.empty()) {
         const auto [ir, iphi] = queue.front();
@@ -1290,18 +1317,38 @@ double inverse_ray_polar_boundary_binary(
         }
 
         int left = ir;
-        while (left > 0 && !cell_visited(left - 1, iphi) && cell_inside(left - 1, iphi)) {
+        double left_outside_dz2 = -1.0;
+        while (left > 0 && !cell_visited(left - 1, iphi)) {
+            double neighbor_dz2 = 0.0;
+            if (!cell_inside(left - 1, iphi, &neighbor_dz2)) {
+                left_outside_dz2 = neighbor_dz2;
+                break;
+            }
             --left;
         }
         int right = ir;
-        while (!cell_visited(right + 1, iphi) && cell_inside(right + 1, iphi)) {
+        double right_outside_dz2 = -1.0;
+        while (!cell_visited(right + 1, iphi)) {
+            double neighbor_dz2 = 0.0;
+            if (!cell_inside(right + 1, iphi, &neighbor_dz2)) {
+                right_outside_dz2 = neighbor_dz2;
+                break;
+            }
             ++right;
         }
 
         add_visited_run(iphi, left, right);
+        double left_inside_dz2 = 0.0;
+        double right_inside_dz2 = 0.0;
         for (int current = left; current <= right; ++current) {
             double dz2 = 0.0;
             cell_inside(current, iphi, &dz2);
+            if (current == left) {
+                left_inside_dz2 = dz2;
+            }
+            if (current == right) {
+                right_inside_dz2 = dz2;
+            }
             const double radius = (static_cast<double>(current) + 0.5) * dr;
             const double brightness =
                 uniform_source ? 1.0 :
@@ -1311,6 +1358,14 @@ double inverse_ray_polar_boundary_binary(
             total_count += brightness * radius;
             enqueue(current, iphi - 1);
             enqueue(current, iphi + 1);
+        }
+        if (left_outside_dz2 >= 0.0) {
+            total_count += radial_edge_correction(
+                left_inside_dz2, left_outside_dz2, static_cast<double>(left) * dr);
+        }
+        if (right_outside_dz2 >= 0.0) {
+            total_count += radial_edge_correction(
+                right_inside_dz2, right_outside_dz2, static_cast<double>(right + 1) * dr);
         }
     }
 
@@ -1913,11 +1968,49 @@ double cartesian_image_area_impl(
     const double source_radius2 = source_radius * source_radius;
     const double inv_source_radius2 = 1.0 / source_radius2;
     const double boundary_band2 = std::max(4.0 * source_radius * incr, 4.0 * incr * incr);
+    // Surface brightness at the source edge, weighting the sub-cell boundary
+    // correction strips (which always sit adjacent to the limb).
+    double edge_brightness = 1.0;
+    if constexpr (UseLimbDarkening) {
+        edge_brightness = finite_magnifier != nullptr ?
+            finite_magnifier->limb_darkening_table_brightness(1.0) :
+            source_surface_brightness(1.0, settings);
+    }
+    int last_inside_tape_index = -1;
+    int last_outside_tape_index = -1;
+    // Second-order boundary correction state.  Each row is scanned rightward
+    // from x0 and then leftward from x0 - incr, so the sample spatially
+    // adjacent to a boundary crossing is usually the previous iteration
+    // (dz2_last).  The one exception is the pair (x0, x0 - incr) straddling
+    // the turnaround: the row-start sample is remembered separately so the
+    // crossing between it and the first leftward sample can still be
+    // corrected (thin rows start within one cell of their own edge often).
+    double dz2_row_start = -1.0;
+    int row_start_tape_index = -1;
+    bool at_run_start = true;
+    bool first_left_pending = false;
+    bool jac_ok_prev = true;
+    // Fraction of the crossing cell that lies inside the source, measured
+    // from the inside sample toward the outside one.  r_in <= rho < r_out
+    // confines t to [0, 1); the clamp guards floating-point edge cases only.
+    auto crossing_fraction = [source_radius](double inside_dz2, double outside_dz2) {
+        const double r_in = std::sqrt(inside_dz2);
+        const double r_out = std::sqrt(outside_dz2);
+        const double dr_mapped = r_out - r_in;
+        return dr_mapped > 0.0
+            ? std::clamp((source_radius - r_in) / dr_mapped, 0.0, 1.0)
+            : 0.5;
+    };
     int guard = 0;
     const int max_steps = std::max(100000, settings.source_bins * settings.source_bins * 2000);
 
     while (++guard < max_steps) {
         const double dz2_last = dz2;
+        const bool jac_ok_last = jac_ok_prev;
+        const bool is_run_start = at_run_start;
+        const bool is_first_left = first_left_pending;
+        at_run_start = false;
+        first_left_pending = false;
         double mapped_distance2 = 0.0;
         bool jac_ok = true;
         if (jacobian_sign == 0) {
@@ -1935,11 +2028,21 @@ double cartesian_image_area_impl(
             jac_ok = eval_sign != -jacobian_sign;
         }
         dz2 = (jac_ok) ? mapped_distance2 : source_radius2 + 1.0;
+        jac_ok_prev = jac_ok;
 
         scratch.ensure(static_cast<std::size_t>(yi));
         if (dz2 <= source_radius2) {
+            // Entering the disk while scanning left with nothing counted yet:
+            // the previous (adjacent) sample is the outside side of the row's
+            // right edge, so correct that crossing here.
+            double entry_correction = 0.0;
             if (dx == -incr && countx == 0.0) {
                 scratch.xmax[static_cast<std::size_t>(yi)] = image.x - dx;
+                if (jac_ok_last && dz2_last > source_radius2) {
+                    const double t = crossing_fraction(mapped_distance2, dz2_last);
+                    entry_correction = (t - 0.5) * edge_brightness;
+                    countx += entry_correction;
+                }
             }
             const double normalized_radius2 = mapped_distance2 * inv_source_radius2;
             double brightness = 1.0;
@@ -1949,16 +2052,64 @@ double cartesian_image_area_impl(
                     source_surface_brightness(normalized_radius2, settings);
             }
             countx += brightness;
+            last_inside_tape_index = -1;
             if (local_tape != nullptr &&
                 std::abs(mapped_distance2 - source_radius2) <= boundary_band2) {
-                local_tape->add(image, incr, brightness);
+                // Keep tape weights consistent with the corrected count: the
+                // recorded weight approximates the cell's true covered flux, so
+                // local refinement corrects relative to it instead of
+                // double-counting the edge strip.  A negative residual reduces
+                // this inside cell; a positive one belongs to the adjacent
+                // outside cell recorded on the previous step.
+                last_inside_tape_index = local_tape->add(
+                    image, incr, brightness + std::min(entry_correction, 0.0));
+                if (entry_correction > 0.0 && last_outside_tape_index >= 0) {
+                    local_tape->cells[static_cast<std::size_t>(last_outside_tape_index)]
+                        .coarse_weight += entry_correction;
+                }
+            }
+            last_outside_tape_index = -1;
+            if (is_run_start && dx == incr) {
+                dz2_row_start = mapped_distance2;
+                row_start_tape_index = last_inside_tape_index;
             }
         } else {
+            // Second-order boundary correction.  The scan only learns the edge
+            // position once a sample maps outside the disk; linearly
+            // interpolating the mapped radial distance between the adjacent
+            // inside sample and this outside sample locates the crossing at
+            // fraction t of the step.  Midpoint counting implicitly covered
+            // 0.5 cells past the inside sample, so the residual strip is
+            // (t - 0.5) cells.
+            double edge_correction = 0.0;
+            int inside_neighbor_tape_index = -1;
+            if (jac_ok && dz2_last <= source_radius2) {
+                const double t = crossing_fraction(dz2_last, mapped_distance2);
+                edge_correction = (t - 0.5) * edge_brightness;
+                countx += edge_correction;
+                inside_neighbor_tape_index = last_inside_tape_index;
+            } else if (jac_ok && is_first_left && dz2_row_start >= 0.0) {
+                // First sample left of the turnaround is outside while the
+                // row-start sample was inside: the crossing between them is
+                // not visible through dz2_last (which holds the right-edge
+                // exit sample), so use the remembered row-start distance.
+                const double t = crossing_fraction(dz2_row_start, mapped_distance2);
+                edge_correction = (t - 0.5) * edge_brightness;
+                countx += edge_correction;
+                inside_neighbor_tape_index = row_start_tape_index;
+            }
+            last_outside_tape_index = -1;
             if (local_tape != nullptr &&
                 jac_ok &&
                 std::abs(mapped_distance2 - source_radius2) <= boundary_band2) {
-                local_tape->add(image, incr, 0.0);
+                last_outside_tape_index = local_tape->add(
+                    image, incr, std::max(edge_correction, 0.0));
             }
+            if (edge_correction < 0.0 && inside_neighbor_tape_index >= 0) {
+                local_tape->cells[static_cast<std::size_t>(inside_neighbor_tape_index)]
+                    .coarse_weight += edge_correction;
+            }
+            last_inside_tape_index = -1;
             if (dx == incr) {
                 if (dz2_last <= source_radius2) {
                     scratch.xmax[static_cast<std::size_t>(yi)] = image.x;
@@ -1966,6 +2117,7 @@ double cartesian_image_area_impl(
                 dx = -incr;
                 image.x = x0;
                 scratch.xmin[static_cast<std::size_t>(yi)] = image.x + dx;
+                first_left_pending = true;
             } else {
                 if (dz2_last <= source_radius2) {
                     scratch.xmin[static_cast<std::size_t>(yi)] = image.x;
@@ -2005,6 +2157,9 @@ double cartesian_image_area_impl(
                 image.x = x0 - dx;
                 image.y += dy;
                 countx = 0.0;
+                at_run_start = true;
+                dz2_row_start = -1.0;
+                row_start_tape_index = -1;
             }
         }
         image.x += dx;
@@ -2166,6 +2321,23 @@ double inverse_ray_polar_triple_mag(
         enqueue(ir, iphi);
     }
 
+    // Second-order radial boundary correction; see
+    // inverse_ray_polar_boundary_binary for the derivation.
+    const double edge_brightness = uniform_source ? 1.0 :
+        (finite_magnifier != nullptr ?
+            finite_magnifier->limb_darkening_table_brightness(1.0) :
+            source_surface_brightness(1.0, settings));
+    auto radial_edge_correction = [&](
+        double inside_dz2, double outside_dz2, double edge_radius) {
+        const double r_in = std::sqrt(inside_dz2);
+        const double r_out = std::sqrt(outside_dz2);
+        const double dr_mapped = r_out - r_in;
+        const double t = dr_mapped > 0.0
+            ? std::clamp((source_radius - r_in) / dr_mapped, 0.0, 1.0)
+            : 0.5;
+        return (t - 0.5) * edge_brightness * edge_radius;
+    };
+
     double total_count = 0.0;
     while (!queue.empty()) {
         const auto [ir, iphi] = queue.front();
@@ -2174,17 +2346,37 @@ double inverse_ray_polar_triple_mag(
             continue;
         }
         int left = ir;
-        while (left > 0 && !cell_visited(left - 1, iphi) && cell_inside(left - 1, iphi)) {
+        double left_outside_dz2 = -1.0;
+        while (left > 0 && !cell_visited(left - 1, iphi)) {
+            double neighbor_dz2 = 0.0;
+            if (!cell_inside(left - 1, iphi, &neighbor_dz2)) {
+                left_outside_dz2 = neighbor_dz2;
+                break;
+            }
             --left;
         }
         int right = ir;
-        while (!cell_visited(right + 1, iphi) && cell_inside(right + 1, iphi)) {
+        double right_outside_dz2 = -1.0;
+        while (!cell_visited(right + 1, iphi)) {
+            double neighbor_dz2 = 0.0;
+            if (!cell_inside(right + 1, iphi, &neighbor_dz2)) {
+                right_outside_dz2 = neighbor_dz2;
+                break;
+            }
             ++right;
         }
         add_visited_run(iphi, left, right);
+        double left_inside_dz2 = 0.0;
+        double right_inside_dz2 = 0.0;
         for (int current = left; current <= right; ++current) {
             double dz2 = 0.0;
             cell_inside(current, iphi, &dz2);
+            if (current == left) {
+                left_inside_dz2 = dz2;
+            }
+            if (current == right) {
+                right_inside_dz2 = dz2;
+            }
             const double radius = (static_cast<double>(current) + 0.5) * dr;
             const double brightness =
                 uniform_source ? 1.0 :
@@ -2195,6 +2387,14 @@ double inverse_ray_polar_triple_mag(
             total_count += brightness * radius;
             enqueue(current, iphi - 1);
             enqueue(current, iphi + 1);
+        }
+        if (left_outside_dz2 >= 0.0) {
+            total_count += radial_edge_correction(
+                left_inside_dz2, left_outside_dz2, static_cast<double>(left) * dr);
+        }
+        if (right_outside_dz2 >= 0.0) {
+            total_count += radial_edge_correction(
+                right_inside_dz2, right_outside_dz2, static_cast<double>(right + 1) * dr);
         }
     }
 
