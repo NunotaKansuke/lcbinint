@@ -2,6 +2,7 @@
 
 #include "SkowronGould.h"
 
+#include <array>
 #include <cmath>
 
 namespace lcbinint::math {
@@ -50,8 +51,10 @@ PolynomialRootResult PolynomialRootSolver::solve(
         return {RootSolverStatus::unsupported_degree, {}};
     }
 
-    std::vector<complex> sg_coefficients(static_cast<std::size_t>(degree) + 1);
-    std::vector<complex> sg_roots(static_cast<std::size_t>(degree));
+    // Degrees are bounded by MAXM; fixed-size buffers keep the hot root-solve
+    // paths free of heap allocations.
+    std::array<complex, MAXM + 1> sg_coefficients;
+    std::array<complex, MAXM> sg_roots;
     for (int i = 0; i <= degree; ++i) {
         sg_coefficients[static_cast<std::size_t>(i)] =
             to_sg_complex(coefficients[static_cast<std::size_t>(i)]);
@@ -66,8 +69,8 @@ PolynomialRootResult PolynomialRootSolver::solve(
 
     std::vector<Complex> roots;
     roots.reserve(static_cast<std::size_t>(degree));
-    for (const auto& root : sg_roots) {
-        roots.push_back(from_sg_complex(root));
+    for (int i = 0; i < degree; ++i) {
+        roots.push_back(from_sg_complex(sg_roots[static_cast<std::size_t>(i)]));
     }
 
     return {RootSolverStatus::ok, roots};

@@ -440,59 +440,131 @@ Polynomial product_without_lens(
     return out;
 }
 
-Polynomial triple_polynomial_coefficients(
-    const model::TripleLensGeometry& geometry,
-    SourcePosition source)
+// The lens-equation polynomial depends on the source only through y and
+// conj(y): each conjugate denominator is p(z)*yc + B_i(z) with geometry-only
+// p, B_i, so the full degree-10 polynomial is
+//   (z - y) * sum_k yc^k D_k(z)  -  sum_k yc^k E_k(z)
+// with seven geometry-only basis polynomials D_0..3, E_0..2.  Building the
+// basis costs the old full construction once per lens geometry; every
+// subsequent source position only evaluates the cubic in yc (~50 complex
+// multiplies instead of ~30 heap-allocating polynomial products).
+struct TriplePolynomialBasis {
+    bool valid = false;
+    model::TripleLensGeometry geometry {};
+    std::array<Polynomial, 4> d;
+    std::array<Polynomial, 3> e;
+};
+
+bool same_triple_basis_geometry(
+    const model::TripleLensGeometry& lhs,
+    const model::TripleLensGeometry& rhs)
 {
-    const Complex y(source.x, source.y);
-    const Complex yc = std::conj(y);
+    for (std::size_t i = 0; i < lhs.lens_positions.size(); ++i) {
+        if (lhs.lens_positions[i].x != rhs.lens_positions[i].x ||
+            lhs.lens_positions[i].y != rhs.lens_positions[i].y ||
+            lhs.masses[i] != rhs.masses[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+const TriplePolynomialBasis& triple_polynomial_basis(
+    const model::TripleLensGeometry& geometry)
+{
+    thread_local TriplePolynomialBasis cache;
+    if (cache.valid && same_triple_basis_geometry(cache.geometry, geometry)) {
+        return cache;
+    }
+
     std::array<Complex, 3> lens_positions;
     for (std::size_t i = 0; i < lens_positions.size(); ++i) {
         lens_positions[i] = {
             geometry.lens_positions[i].x,
             geometry.lens_positions[i].y};
     }
+    const std::array<double, 3>& m = geometry.masses;
 
     Polynomial p = {1.0};
     for (const auto& lens : lens_positions) {
         p = multiply_polynomial(p, {-lens, 1.0});
     }
+    Polynomial s = {0.0};
+    for (std::size_t j = 0; j < lens_positions.size(); ++j) {
+        s = add_polynomial(
+            s, scale_polynomial(product_without_lens(lens_positions, j), m[j]));
+    }
+    // conjugate_denominator_i(yc; z) = p(z) * yc + b[i](z)
+    std::array<Polynomial, 3> b;
+    for (std::size_t i = 0; i < b.size(); ++i) {
+        b[i] = subtract_polynomial(
+            s, scale_polynomial(p, std::conj(lens_positions[i])));
+    }
 
-    std::array<Polynomial, 3> conjugate_denominators;
-    for (std::size_t i = 0; i < conjugate_denominators.size(); ++i) {
-        conjugate_denominators[i] =
-            scale_polynomial(p, yc - std::conj(lens_positions[i]));
-        for (std::size_t j = 0; j < lens_positions.size(); ++j) {
-            conjugate_denominators[i] = add_polynomial(
-                conjugate_denominators[i],
-                scale_polynomial(
-                    product_without_lens(lens_positions, j),
-                    geometry.masses[j]));
+    const Polynomial p2 = multiply_polynomial(p, p);
+    const Polynomial p3 = multiply_polynomial(p2, p);
+    const Polynomial b01 = multiply_polynomial(b[0], b[1]);
+    const Polynomial b02 = multiply_polynomial(b[0], b[2]);
+    const Polynomial b12 = multiply_polynomial(b[1], b[2]);
+
+    cache.d[3] = p3;
+    cache.d[2] = multiply_polynomial(
+        p2, add_polynomial(add_polynomial(b[0], b[1]), b[2]));
+    cache.d[1] = multiply_polynomial(
+        p, add_polynomial(add_polynomial(b01, b02), b12));
+    cache.d[0] = multiply_polynomial(b01, b[2]);
+
+    cache.e[2] = scale_polynomial(p3, m[0] + m[1] + m[2]);
+    cache.e[1] = multiply_polynomial(
+        p2,
+        add_polynomial(
+            add_polynomial(
+                scale_polynomial(add_polynomial(b[1], b[2]), m[0]),
+                scale_polynomial(add_polynomial(b[0], b[2]), m[1])),
+            scale_polynomial(add_polynomial(b[0], b[1]), m[2])));
+    cache.e[0] = multiply_polynomial(
+        p,
+        add_polynomial(
+            add_polynomial(
+                scale_polynomial(b12, m[0]),
+                scale_polynomial(b02, m[1])),
+            scale_polynomial(b01, m[2])));
+
+    cache.geometry = geometry;
+    cache.valid = true;
+    return cache;
+}
+
+Polynomial triple_polynomial_coefficients(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source)
+{
+    const auto& basis = triple_polynomial_basis(geometry);
+    const Complex y(source.x, source.y);
+    const Complex yc = std::conj(y);
+    const Complex yc2 = yc * yc;
+    const Complex yc3 = yc2 * yc;
+
+    const auto coefficient_at = [](const Polynomial& polynomial, std::size_t j) {
+        return j < polynomial.size() ? polynomial[j] : Complex(0.0);
+    };
+    std::array<Complex, 10> g {};
+    std::array<Complex, 10> h {};
+    for (std::size_t j = 0; j < g.size(); ++j) {
+        g[j] = coefficient_at(basis.d[0], j) + yc * coefficient_at(basis.d[1], j) +
+               yc2 * coefficient_at(basis.d[2], j) + yc3 * coefficient_at(basis.d[3], j);
+        h[j] = coefficient_at(basis.e[0], j) + yc * coefficient_at(basis.e[1], j) +
+               yc2 * coefficient_at(basis.e[2], j);
+    }
+
+    Polynomial coefficients(11, 0.0);
+    for (std::size_t j = 0; j <= 10; ++j) {
+        Complex value = j >= 1 ? g[j - 1] : Complex(0.0);
+        if (j < g.size()) {
+            value -= y * g[j] + h[j];
         }
+        coefficients[j] = value;
     }
-
-    Polynomial all_denominators = {1.0};
-    for (const auto& denominator : conjugate_denominators) {
-        all_denominators = multiply_polynomial(all_denominators, denominator);
-    }
-
-    const Polynomial z_minus_y = {-y, 1.0};
-    Polynomial coefficients = multiply_polynomial(z_minus_y, all_denominators);
-    Polynomial deflection_sum = {0.0};
-    for (std::size_t i = 0; i < conjugate_denominators.size(); ++i) {
-        Polynomial term = p;
-        for (std::size_t j = 0; j < conjugate_denominators.size(); ++j) {
-            if (j == i) {
-                continue;
-            }
-            term = multiply_polynomial(term, conjugate_denominators[j]);
-        }
-        deflection_sum = add_polynomial(
-            deflection_sum,
-            scale_polynomial(term, geometry.masses[i]));
-    }
-    coefficients = subtract_polynomial(coefficients, deflection_sum);
-    coefficients.resize(11, 0.0);
     return coefficients;
 }
 
@@ -712,10 +784,22 @@ void PointSourceMagnifier::binary_mag0_batch(
     const FastBinaryConstants constants = make_fast_vbm_constants(separation, mass_ratio);
     std::array<::complex, 6> coefficients;
     std::array<::complex, 5> roots;
+    bool warm = false;
     for (std::size_t i = 0; i < count; ++i) {
         const FastBinaryGeometry geometry = make_fast_vbm_geometry(constants, sources[i]);
         binary_polynomial_coefficients(geometry, coefficients);
-        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+        // Batch sources are spatially contiguous (hexadecapole rings, ring
+        // quadrature), so the previous sample's roots are excellent starting
+        // points; fall back to a cold solve when polishing drifts.
+        if (warm) {
+            cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, true);
+            if (max_physical_residual_squared(geometry, roots) > 1.0e-18) {
+                cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+            }
+        } else {
+            cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+            warm = true;
+        }
         magnifications[i] = point_source_result_from_roots(geometry, roots).magnification;
     }
 }
@@ -931,40 +1015,87 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
     SourcePosition source) const
 {
     const auto coefficients = triple_polynomial_coefficients(geometry, source);
-    const auto roots = math::PolynomialRootSolver().solve(coefficients);
-    if (roots.status != math::RootSolverStatus::ok) {
-        return {};
-    }
+    constexpr int kTripleDegree = 10;
 
     // Polish each root on the true lens equation, then deduplicate.
     // Multiple spurious starting points can converge to the same physical image;
     // deduplication ensures each image is counted once.
     constexpr double kDedupTol2 = 1.0e-16;  // squared distance threshold
-
     std::vector<TripleImageCandidate> images;
-    images.reserve(roots.roots.size());
-    for (const auto& root : roots.roots) {
-        if (!std::isfinite(root.real()) || !std::isfinite(root.imag())) {
-            continue;
-        }
-        const SourcePosition z_polished = polish_triple_image_root(
-            geometry, source, SourcePosition{root.real(), root.imag()});
-        bool is_dup = false;
-        for (const auto& existing : images) {
-            const double ddx = z_polished.x - existing.position.x;
-            const double ddy = z_polished.y - existing.position.y;
-            if (ddx * ddx + ddy * ddy < kDedupTol2) {
-                is_dup = true;
-                break;
+    const auto collect_candidates = [&](const Complex* roots, std::size_t count) {
+        images.clear();
+        images.reserve(count);
+        for (std::size_t k = 0; k < count; ++k) {
+            const Complex root = roots[k];
+            if (!std::isfinite(root.real()) || !std::isfinite(root.imag())) {
+                continue;
             }
+            const SourcePosition z_polished = polish_triple_image_root(
+                geometry, source, SourcePosition{root.real(), root.imag()});
+            bool is_dup = false;
+            for (const auto& existing : images) {
+                const double ddx = z_polished.x - existing.position.x;
+                const double ddy = z_polished.y - existing.position.y;
+                if (ddx * ddx + ddy * ddy < kDedupTol2) {
+                    is_dup = true;
+                    break;
+                }
+            }
+            if (is_dup) { continue; }
+            const Complex z_cmplx {z_polished.x, z_polished.y};
+            const double residual = triple_residual(geometry, source, z_cmplx);
+            images.push_back({z_polished,
+                triple_jacobian_determinant(geometry, z_cmplx),
+                residual,
+                false});
         }
-        if (is_dup) { continue; }
-        const Complex z_cmplx {z_polished.x, z_polished.y};
-        const double residual = triple_residual(geometry, source, z_cmplx);
-        images.push_back({z_polished,
-            triple_jacobian_determinant(geometry, z_cmplx),
-            residual,
-            false});
+    };
+
+    if (static_cast<int>(coefficients.size()) == kTripleDegree + 1 &&
+        std::abs(coefficients[kTripleDegree]) > 0.0) {
+        // Full-degree fast path: solve directly with fixed-size buffers and
+        // warm-start from the previous solve of the same geometry (probe and
+        // light-curve sweeps move the source continuously, so the previous
+        // roots are excellent starting points).  If polished roots collapse
+        // onto each other under a warm start, one image may have been lost to
+        // duplicate convergence: redo the solve cold.
+        thread_local std::array<::complex, kTripleDegree> warm_roots;
+        thread_local model::TripleLensGeometry warm_geometry;
+        thread_local bool warm_valid = false;
+
+        std::array<::complex, kTripleDegree + 1> sg_coefficients;
+        for (int k = 0; k <= kTripleDegree; ++k) {
+            sg_coefficients[static_cast<std::size_t>(k)] = {
+                coefficients[static_cast<std::size_t>(k)].real(),
+                coefficients[static_cast<std::size_t>(k)].imag()};
+        }
+        std::array<Complex, kTripleDegree> roots;
+        const auto run_solve = [&](bool use_starting_points) {
+            cmplx_roots_gen(
+                warm_roots.data(), sg_coefficients.data(), kTripleDegree, true,
+                use_starting_points);
+            for (int k = 0; k < kTripleDegree; ++k) {
+                roots[static_cast<std::size_t>(k)] = {
+                    warm_roots[static_cast<std::size_t>(k)].re,
+                    warm_roots[static_cast<std::size_t>(k)].im};
+            }
+        };
+        const bool warm =
+            warm_valid && same_triple_basis_geometry(warm_geometry, geometry);
+        run_solve(warm);
+        collect_candidates(roots.data(), roots.size());
+        if (warm && images.size() < static_cast<std::size_t>(kTripleDegree)) {
+            run_solve(false);
+            collect_candidates(roots.data(), roots.size());
+        }
+        warm_geometry = geometry;
+        warm_valid = true;
+    } else {
+        const auto roots = math::PolynomialRootSolver().solve(coefficients);
+        if (roots.status != math::RootSolverStatus::ok) {
+            return {};
+        }
+        collect_candidates(roots.roots.data(), roots.roots.size());
     }
     std::sort(images.begin(), images.end(), [](const auto& lhs, const auto& rhs) {
         return lhs.residual < rhs.residual;
