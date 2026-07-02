@@ -18,9 +18,11 @@ public:
     virtual std::string name()            const = 0;
 };
 
-// Uniform distribution on [lo, hi]
+// Uniform distribution on [lo, hi].
+// No-arg constructor gives a flat (improper) prior: log_prob=0, bounds=±1e15.
 class Uniform : public Prior {
 public:
+    Uniform() : lo_(-1e15), hi_(1e15), log_norm_(0.0) {}
     Uniform(double lo, double hi);
     double      log_prob(double x) const override;
     PriorBounds bounds()           const override { return {lo_, hi_}; }
@@ -49,15 +51,6 @@ public:
     std::string name()             const override { return "LogUniform"; }
 private:
     double lo_, hi_, log_norm_;
-};
-
-// Flat (improper) prior: log_prob = 0 everywhere, no hard bounds.
-// Used when model.param(name) is called without an explicit prior.
-class Flat : public Prior {
-public:
-    double      log_prob(double)   const override { return 0.0; }
-    PriorBounds bounds()           const override { return {-1e15, 1e15}; }
-    std::string name()             const override { return "Flat"; }
 };
 
 } // namespace lcbinint::bayes
