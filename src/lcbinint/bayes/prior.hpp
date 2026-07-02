@@ -51,4 +51,13 @@ private:
     double lo_, hi_, log_norm_;
 };
 
+// Flat (improper) prior: log_prob = 0 everywhere, no hard bounds.
+// Used when model.param(name) is called without an explicit prior.
+class Flat : public Prior {
+public:
+    double      log_prob(double)   const override { return 0.0; }
+    PriorBounds bounds()           const override { return {-1e15, 1e15}; }
+    std::string name()             const override { return "Flat"; }
+};
+
 } // namespace lcbinint::bayes

@@ -45,10 +45,14 @@ void register_bayes_submodule(py::module_& parent)
             return "LogUniform(" + std::to_string(b.lo) + ", " + std::to_string(b.hi) + ")";
         });
 
-    // --- Model ---
+    py::class_<Flat, Prior, std::shared_ptr<Flat>>(bayes, "Flat")
+        .def(py::init<>())
+        .def("__repr__", [](const Flat&) { return "Flat()"; });
+
+    // --- Model (internal C++ base; Python subclass is bayes.Model) ---
     // Takes lc.LightCurve — source kind, orbital motion mode, and options come from it.
     using LC = lcbinint::lc::LightCurve;
-    py::class_<Model>(bayes, "Model")
+    py::class_<Model>(bayes, "_Model")
         .def(py::init<std::shared_ptr<LC>, std::shared_ptr<lcbinint::obs::Event>>(),
             py::arg("light_curve"), py::arg("event"))
         .def(py::init<std::shared_ptr<LC>, std::shared_ptr<lcbinint::obs::LightCurveData>>(),
