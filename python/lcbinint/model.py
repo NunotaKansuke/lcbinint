@@ -56,7 +56,7 @@ def _build_model_class(cpp_base):
             """
             from ._lcbinint import bayes as _b
             if prior is None:
-                prior = _b.Flat()
+                prior = _b.Uniform()
             super().param(name, prior)
             self._param_is_log[name] = isinstance(prior, _b.LogUniform)
             return self

@@ -25,9 +25,12 @@ void register_bayes_submodule(py::module_& parent)
 
     // --- Concrete priors ---
     py::class_<Uniform, Prior, std::shared_ptr<Uniform>>(bayes, "Uniform")
+        .def(py::init<>())
         .def(py::init<double, double>(), py::arg("lo"), py::arg("hi"))
         .def("__repr__", [](const Uniform& u) {
             auto b = u.bounds();
+            if (b.lo <= -1e14 && b.hi >= 1e14)
+                return std::string("Uniform()");
             return "Uniform(" + std::to_string(b.lo) + ", " + std::to_string(b.hi) + ")";
         });
 
@@ -44,10 +47,6 @@ void register_bayes_submodule(py::module_& parent)
             auto b = u.bounds();
             return "LogUniform(" + std::to_string(b.lo) + ", " + std::to_string(b.hi) + ")";
         });
-
-    py::class_<Flat, Prior, std::shared_ptr<Flat>>(bayes, "Flat")
-        .def(py::init<>())
-        .def("__repr__", [](const Flat&) { return "Flat()"; });
 
     // --- Model (internal C++ base; Python subclass is bayes.Model) ---
     // Takes lc.LightCurve — source kind, orbital motion mode, and options come from it.
