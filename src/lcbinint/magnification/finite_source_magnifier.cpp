@@ -26,7 +26,6 @@ constexpr double kSqrtHalf = 0.70710678118654752440;
 constexpr double kPi = 3.14159265358979323846;
 constexpr int kHexadecapoleEvaluations = 13;
 constexpr int kLimbDarkeningTableSize = 20000;
-constexpr int kLegacyIndexOffset = 2000000;
 
 struct BinaryLensMapper {
     Complex separation;
@@ -982,7 +981,6 @@ struct LegacyImageAreaScratch {
     std::vector<double> ax;
     std::vector<double> y;
     std::vector<double> dys;
-    std::unordered_map<int, std::vector<int>> row_indices;
 
     void ensure(std::size_t index)
     {
@@ -994,6 +992,50 @@ struct LegacyImageAreaScratch {
             y.resize(size);
             dys.resize(size);
         }
+    }
+};
+
+// Per-epoch registry of grid cells already counted by any flood-fill.  All
+// fills are anchored on the shared lattice x = ix*incr, y = iy*incr, so cell
+// identity is exact; counting only unclaimed cells makes the integrated area
+// independent of the seed set and seed order by construction and replaces
+// the former row-bbox overlap heuristics.  Rows hold few merged intervals,
+// so linear scans dominate hash-map cost only in degenerate cases.
+struct ClaimedCellRuns {
+    std::unordered_map<int, std::vector<std::pair<int, int>>> rows;
+
+    const std::pair<int, int>* find(int iy, int ix) const
+    {
+        const auto it = rows.find(iy);
+        if (it == rows.end()) {
+            return nullptr;
+        }
+        for (const auto& interval : it->second) {
+            if (ix >= interval.first && ix <= interval.second) {
+                return &interval;
+            }
+        }
+        return nullptr;
+    }
+
+    void claim(int iy, int lo, int hi)
+    {
+        if (hi < lo) {
+            return;
+        }
+        auto& intervals = rows[iy];
+        intervals.push_back({lo, hi});
+        std::sort(intervals.begin(), intervals.end());
+        std::size_t write = 0;
+        for (std::size_t read = 0; read < intervals.size(); ++read) {
+            if (write == 0 || intervals[read].first > intervals[write - 1].second + 1) {
+                intervals[write++] = intervals[read];
+            } else {
+                intervals[write - 1].second =
+                    std::max(intervals[write - 1].second, intervals[read].second);
+            }
+        }
+        intervals.resize(write);
     }
 };
 
@@ -1740,6 +1782,15 @@ struct CausticBranchScan {
     SourcePosition nearest_segment_end {};
     // Outside->inside transition points of each branch (entry side only).
     std::vector<SourcePosition> crossing_probes;
+    // Strided sample of all inside vertices.  Transition vertices sit near
+    // the disk edge by construction, where the +-step probing of
+    // append_caustic_probe_image_seeds often leaves the disk and yields
+    // nothing; vertices deeper inside the disk are the reliable first
+    // contact.
+    std::vector<SourcePosition> first_contact_probes;
+    // Sparse samples along engulfed arcs for large sources (arc seeds);
+    // only probed once a first crossing has established fold seeds.
+    std::vector<SourcePosition> arc_probes;
     bool any_vertex_inside = false;
 };
 
@@ -1800,9 +1851,15 @@ CausticBranchScan scan_caustic_branches(
             const bool inside = distance_squared(p1, source) < source_radius2;
             if (inside) {
                 scan.any_vertex_inside = true;
+                if (i % 5 == 0 && scan.first_contact_probes.size() < max_probes) {
+                    scan.first_contact_probes.push_back(p1);
+                }
             }
             if (inside && !prev_inside && scan.crossing_probes.size() < max_probes) {
                 scan.crossing_probes.push_back(p1);
+            } else if (inside && source_radius >= 2.0e-2 && i % 20 == 0 &&
+                       scan.arc_probes.size() < max_probes) {
+                scan.arc_probes.push_back(p1);
             }
             prev_inside = inside;
         }
@@ -1955,29 +2012,78 @@ std::vector<SourcePosition> augmented_image_seeds(
     }
 
     if (caustic_branches != nullptr) {
-        // Fast path for sources with no caustic contact: one pass over the
-        // cached caustic polylines shows that neither a sampled vertex nor a
-        // segment reaches the source disk, so there are no fold images and
-        // the phase scans and probe rings below (up to ~2800 quartic plus 400
-        // quintic root solves) would find nothing.  Configurations with any
-        // contact keep the original scan below unchanged: the flood-fill
-        // overlap bookkeeping is sensitive to the seed set, and the original
-        // scan is what the hard-case corpus was validated against.
+        // Cache-driven seeding: one pass over the cached caustic polylines
+        // replaces the per-epoch critical-curve phase scans (up to ~2800
+        // quartic root solves) with pure distance queries, and gates the
+        // probe rings on the actual caustic geometry.  With the claimed-cell
+        // registry making the flood-fill area independent of the seed set,
+        // the exact probe points no longer have to match the historical
+        // phase-scan ones.
         const auto scan = scan_caustic_branches(*caustic_branches, source, source_radius);
-        const bool caustic_contact =
-            !scan.crossing_probes.empty() ||
-            scan.any_vertex_inside ||
-            scan.min_distance < source_radius;
-        if (!caustic_contact) {
-            return seeds;
+        // First-crossing stage: probe inside vertices until one yields fold
+        // seeds.  first_contact_probes precede the transition vertices
+        // because the latter sit near the disk edge where probing is
+        // unreliable.
+        bool found_first_crossing = false;
+        for (const auto& probe : scan.first_contact_probes) {
+            const std::size_t before = seeds.size();
+            append_caustic_probe_image_seeds(
+                point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                probe, seeds);
+            if (seeds.size() > before) {
+                found_first_crossing = true;
+                break;
+            }
         }
+        std::size_t first_unprobed = 0;
+        for (; !found_first_crossing && first_unprobed < scan.crossing_probes.size();
+             ++first_unprobed) {
+            const std::size_t before = seeds.size();
+            append_caustic_probe_image_seeds(
+                point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                scan.crossing_probes[first_unprobed], seeds);
+            if (seeds.size() > before) {
+                ++first_unprobed;
+                break;
+            }
+        }
+        if (scan.crossing_probes.empty() && scan.min_distance < source_radius) {
+            // Grazing contact: no sampled vertex inside the disk but a
+            // segment passes through it.
+            append_caustic_probe_image_seeds(
+                point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                scan.nearest, seeds);
+        }
+        // Once fold seeds exist, cover the remaining crossings and (for large
+        // sources) the engulfed arcs.
+        if (seeds.size() >= 5) {
+            for (std::size_t i = first_unprobed; i < scan.crossing_probes.size(); ++i) {
+                append_caustic_probe_image_seeds(
+                    point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                    scan.crossing_probes[i], seeds);
+            }
+            for (const auto& probe : scan.arc_probes) {
+                append_caustic_probe_image_seeds(
+                    point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                    probe, seeds);
+            }
+        }
+        if (scan.min_distance < source_radius) {
+            append_boundary_probe_image_seeds(
+                point_magnifier, mapper, separation, mass_ratio, source, source_radius, seeds);
+        }
+        if (scan.any_vertex_inside) {
+            append_interior_probe_image_seeds(
+                point_magnifier, mapper, separation, mass_ratio, source, source_radius, seeds);
+        }
+        return seeds;
     }
 
-    // Per-epoch critical-curve phase scans.  Do not skip the caustic scan
-    // based on hint_caustic_dist alone: the computed caustic distance can be
-    // slightly over-estimated (e.g. when a phantom wrap-around segment
-    // distorts the branch grid search), causing a false early exit when the
-    // source disk just straddles the caustic.
+    // Fallback (no cached branches supplied): per-epoch critical-curve phase
+    // scans.  Do not skip the caustic scan based on hint_caustic_dist alone:
+    // the computed caustic distance can be slightly over-estimated (e.g. when
+    // a phantom wrap-around segment distorts the branch grid search), causing
+    // a false early exit when the source disk just straddles the caustic.
 
     const double source_radius2 = source_radius * source_radius;
     const int samples = 1400;
@@ -2142,7 +2248,8 @@ double cartesian_image_area_impl(
     int& yi,
     LegacyImageAreaScratch& scratch,
     int jacobian_sign = 0,
-    LocalRefinementTape* local_tape = nullptr)
+    LocalRefinementTape* local_tape = nullptr,
+    ClaimedCellRuns* claimed = nullptr)
 {
     double countx = 0.0;
     double countall = 0.0;
@@ -2152,6 +2259,43 @@ double cartesian_image_area_impl(
     double dx = incr;
     SourcePosition image = seed;
     double x0 = seed.x;
+    // Integer lattice coordinates of the current sample, maintained
+    // incrementally alongside image.x/image.y (per-cell llround calls were a
+    // measurable fraction of the scan cost).  Seeds are lattice-snapped by
+    // the caller, so the increments stay exact.
+    int cell_ix = static_cast<int>(std::llround(seed.x * inv_incr));
+    int cell_iy = static_cast<int>(std::llround(seed.y * inv_incr));
+    int row_start_ix = cell_ix;
+    int ix_step = 1;
+    const int iy_step = dy > 0.0 ? 1 : -1;
+    // Pending contiguous stretch of counted cells, flushed to the claimed
+    // registry whenever adjacency breaks.  Flushing continuously (rather
+    // than at function exit) also terminates self-wrapping fills: a fill
+    // that loops around a ring-shaped image runs into its own claims.
+    bool claim_active = false;
+    int claim_iy = 0;
+    int claim_lo = 0;
+    int claim_hi = 0;
+    const auto flush_claim = [&]() {
+        if (claim_active) {
+            claimed->claim(claim_iy, claim_lo, claim_hi);
+            claim_active = false;
+        }
+    };
+    const auto add_claim_cell = [&](int ix, int iy) {
+        if (claim_active && claim_iy == iy &&
+            (ix == claim_hi + 1 || ix == claim_lo - 1 ||
+             (ix >= claim_lo && ix <= claim_hi))) {
+            claim_lo = std::min(claim_lo, ix);
+            claim_hi = std::max(claim_hi, ix);
+            return;
+        }
+        flush_claim();
+        claim_active = true;
+        claim_iy = iy;
+        claim_lo = ix;
+        claim_hi = ix;
+    };
     const double source_radius2 = source_radius * source_radius;
     const double inv_source_radius2 = 1.0 / source_radius2;
     const double boundary_band2 = std::max(4.0 * source_radius * incr, 4.0 * incr * incr);
@@ -2177,6 +2321,14 @@ double cartesian_image_area_impl(
     bool at_run_start = true;
     bool first_left_pending = false;
     bool jac_ok_prev = true;
+    // Rightmost/leftmost counted sample of the current row.  When a run exits
+    // right after a claim jump, dz2_last belongs to the suppressed landing
+    // sample, so the shipped xmin/xmax bookkeeping would leave the row extent
+    // stale; anchoring on the last counted cell keeps the next row's start
+    // (x0 = xmax of this row) on the image instead of at the far side of a
+    // foreign claimed span.
+    double last_right_inside_x = std::numeric_limits<double>::quiet_NaN();
+    double last_left_inside_x = std::numeric_limits<double>::quiet_NaN();
     // Fraction of the crossing cell that lies inside the source, measured
     // from the inside sample toward the outside one.  r_in <= rho < r_out
     // confines t to [0, 1); the clamp guards floating-point edge cases only.
@@ -2198,6 +2350,25 @@ double cartesian_image_area_impl(
         const bool is_first_left = first_left_pending;
         at_run_start = false;
         first_left_pending = false;
+        if (claimed != nullptr) {
+            const auto* interval = claimed->find(cell_iy, cell_ix);
+            if (interval != nullptr) {
+                // The interval was counted (inside the disk) by an earlier
+                // fill; skip it and resume on the far side.  The seam is an
+                // interior junction, not a source boundary, so crossing
+                // corrections are suppressed on the landing sample.  Guarded
+                // fills jump too: the parity guard is evaluated per sample,
+                // so the landing cell decides whether the run continues.
+                flush_claim();
+                cell_ix = ix_step > 0 ? interval->second : interval->first;
+                image.x = static_cast<double>(cell_ix) * incr;
+                dz2 = source_radius2 + 1.0;
+                jac_ok_prev = false;
+                image.x += dx;
+                cell_ix += ix_step;
+                continue;
+            }
+        }
         double mapped_distance2 = 0.0;
         bool jac_ok = true;
         if (jacobian_sign == 0) {
@@ -2239,6 +2410,14 @@ double cartesian_image_area_impl(
                     source_surface_brightness(normalized_radius2, settings);
             }
             countx += brightness;
+            if (dx > 0.0) {
+                last_right_inside_x = image.x;
+            } else {
+                last_left_inside_x = image.x;
+            }
+            if (claimed != nullptr) {
+                add_claim_cell(cell_ix, cell_iy);
+            }
             last_inside_tape_index = -1;
             if (local_tape != nullptr &&
                 std::abs(mapped_distance2 - source_radius2) <= boundary_band2) {
@@ -2300,19 +2479,28 @@ double cartesian_image_area_impl(
             if (dx == incr) {
                 if (dz2_last <= source_radius2) {
                     scratch.xmax[static_cast<std::size_t>(yi)] = image.x;
+                } else if (!std::isnan(last_right_inside_x)) {
+                    scratch.xmax[static_cast<std::size_t>(yi)] =
+                        last_right_inside_x + incr;
                 }
                 dx = -incr;
+                ix_step = -1;
                 image.x = x0;
+                cell_ix = row_start_ix;
                 scratch.xmin[static_cast<std::size_t>(yi)] = image.x + dx;
                 first_left_pending = true;
             } else {
                 if (dz2_last <= source_radius2) {
                     scratch.xmin[static_cast<std::size_t>(yi)] = image.x;
+                } else if (!std::isnan(last_left_inside_x)) {
+                    scratch.xmin[static_cast<std::size_t>(yi)] =
+                        last_left_inside_x - incr;
                 }
                 if (yi != 0 && countx == 0.0) {
                     scratch.ensure(static_cast<std::size_t>(yi - 1));
                     if (image.x >= scratch.xmin[static_cast<std::size_t>(yi - 1)] - dx) {
                         image.x += dx;
+                        cell_ix += ix_step;
                         continue;
                     }
                 }
@@ -2326,32 +2514,29 @@ double cartesian_image_area_impl(
                     break;
                 }
 
-                const int row_key = static_cast<int>(image.y * inv_incr + kLegacyIndexOffset);
-                auto& row_indices = scratch.row_indices[row_key];
-                for (const int index : row_indices) {
-                    const auto existing = static_cast<std::size_t>(index);
-                    if (scratch.xmin[static_cast<std::size_t>(yi)] + incr < scratch.xmax[existing] &&
-                        scratch.xmax[static_cast<std::size_t>(yi)] - incr > scratch.xmin[existing]) {
-                        return countall - countx;
-                    }
-                }
-                row_indices.push_back(yi);
-
                 ++yi;
                 scratch.ensure(static_cast<std::size_t>(yi));
                 dx = incr;
+                ix_step = 1;
                 x0 = scratch.xmax[static_cast<std::size_t>(yi - 1)];
+                row_start_ix = static_cast<int>(std::llround(x0 * inv_incr));
                 image.x = x0 - dx;
+                cell_ix = row_start_ix - 1;
                 image.y += dy;
+                cell_iy += iy_step;
                 countx = 0.0;
                 at_run_start = true;
                 dz2_row_start = -1.0;
                 row_start_tape_index = -1;
+                last_right_inside_x = std::numeric_limits<double>::quiet_NaN();
+                last_left_inside_x = std::numeric_limits<double>::quiet_NaN();
             }
         }
         image.x += dx;
+        cell_ix += ix_step;
     }
 
+    flush_claim();
     return countall;
 }
 
@@ -2367,16 +2552,17 @@ double cartesian_image_area(
     int& yi,
     LegacyImageAreaScratch& scratch,
     int jacobian_sign = 0,
-    LocalRefinementTape* local_tape = nullptr)
+    LocalRefinementTape* local_tape = nullptr,
+    ClaimedCellRuns* claimed = nullptr)
 {
     if (settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0) {
         return cartesian_image_area_impl<false>(
             mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
-            scratch, jacobian_sign, local_tape);
+            scratch, jacobian_sign, local_tape, claimed);
     }
     return cartesian_image_area_impl<true>(
         mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
-        scratch, jacobian_sign, local_tape);
+        scratch, jacobian_sign, local_tape, claimed);
 }
 
 std::vector<SourcePosition> selected_triple_point_images(
@@ -2865,6 +3051,60 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
 }
 
 
+// Snap seeds onto the shared integration lattice (x = ix*incr, y = iy*incr)
+// so that every fill of one epoch samples identical cell positions and the
+// claimed-cell registry is exact.  A snapped seed must still map inside the
+// source disk; otherwise the 8 lattice neighbours are tried and the seed is
+// dropped if none qualifies (it marked a sub-cell image the lattice cannot
+// resolve).  Seeds landing on the same cell are deduplicated.
+template <typename LensMapper>
+std::vector<SourcePosition> lattice_snapped_seeds(
+    const LensMapper& mapper,
+    SourcePosition source,
+    double source_radius,
+    double incr,
+    const std::vector<SourcePosition>& seeds)
+{
+    const double source_radius2 = source_radius * source_radius;
+    std::vector<SourcePosition> snapped;
+    snapped.reserve(seeds.size());
+    std::unordered_set<long long> taken;
+    const auto try_cell = [&](long long ix, long long iy) {
+        const SourcePosition cell {
+            static_cast<double>(ix) * incr,
+            static_cast<double>(iy) * incr};
+        if (mapped_lens_distance2(mapper, cell.x, cell.y, source) >
+            source_radius2) {
+            return false;
+        }
+        const long long key = (ix << 32) ^ (iy & 0xffffffffLL);
+        if (taken.insert(key).second) {
+            snapped.push_back(cell);
+        }
+        return true;
+    };
+    for (const auto& seed : seeds) {
+        const long long ix = std::llround(seed.x / incr);
+        const long long iy = std::llround(seed.y / incr);
+        if (try_cell(ix, iy)) {
+            continue;
+        }
+        for (long long dyc = -1; dyc <= 1; ++dyc) {
+            bool placed = false;
+            for (long long dxc = -1; dxc <= 1; ++dxc) {
+                if ((dxc != 0 || dyc != 0) && try_cell(ix + dxc, iy + dyc)) {
+                    placed = true;
+                    break;
+                }
+            }
+            if (placed) {
+                break;
+            }
+        }
+    }
+    return snapped;
+}
+
 double inverse_ray_cartesian_binary_mag(
     const PointSourceMagnifier& point_magnifier,
     double separation,
@@ -2891,24 +3131,30 @@ double inverse_ray_cartesian_binary_mag(
                 ? &finite_magnifier->binary_caustic_branches(separation, mass_ratio)
                 : nullptr) :
         std::vector<SourcePosition> {};
-    const auto& images = precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
-    if (images.empty() || source_radius <= 0.0) {
+    const auto& raw_images = precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
+    if (raw_images.empty() || source_radius <= 0.0) {
+        return std::nan("");
+    }
+    const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
+    const double incr = source_radius / nbin;
+    const auto images =
+        lattice_snapped_seeds(mapper, source, source_radius, incr, raw_images);
+    if (images.empty()) {
         return std::nan("");
     }
     if (diagnostics != nullptr) {
         *diagnostics = {};
         diagnostics->seed_count = static_cast<int>(images.size());
     }
-    const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
-    const double incr = source_radius / nbin;
-    const double incr2_margin = 0.5 * incr * 1.01;
     double area = 0.0;
-    std::vector<double> areaimage(images.size(), 0.0);
-    std::vector<int> overlap(images.size(), 0);
-    std::unordered_set<std::size_t> subtracted_indices;
+    ClaimedCellRuns claimed;
 
     for (std::size_t image_index = 0; image_index < images.size(); ++image_index) {
-        if (overlap[image_index] == 1) {
+        // A seed on an already-counted cell lies inside a component another
+        // fill has traced; its fill could only wander already-claimed rows.
+        if (claimed.find(
+                static_cast<int>(std::llround(images[image_index].y / incr)),
+                static_cast<int>(std::llround(images[image_index].x / incr))) != nullptr) {
             continue;
         }
 
@@ -2946,7 +3192,7 @@ double inverse_ray_cartesian_binary_mag(
         scratch.xmax[0] = seed.x;
         areai = cartesian_image_area(
             mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch,
-            jac_sign, local_tape);
+            jac_sign, local_tape, &claimed);
 
         dy = -incr;
         scratch.ensure(static_cast<std::size_t>(yi));
@@ -2958,7 +3204,7 @@ double inverse_ray_cartesian_binary_mag(
         ++yi;
         areai += cartesian_image_area(
             mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch,
-            jac_sign, local_tape);
+            jac_sign, local_tape, &claimed);
 
         int nyi = yi;
         double areabound = 0.0;
@@ -2991,7 +3237,7 @@ double inverse_ray_cartesian_binary_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, local_tape);
+                        yi, scratch, jac_sign, local_tape, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3013,7 +3259,7 @@ double inverse_ray_cartesian_binary_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, local_tape);
+                        yi, scratch, jac_sign, local_tape, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3035,7 +3281,7 @@ double inverse_ray_cartesian_binary_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, local_tape);
+                        yi, scratch, jac_sign, local_tape, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3057,7 +3303,7 @@ double inverse_ray_cartesian_binary_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, local_tape);
+                        yi, scratch, jac_sign, local_tape, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3070,73 +3316,15 @@ double inverse_ray_cartesian_binary_mag(
             }
         }
 
+        // The claimed-cell registry guarantees each cell is counted at most
+        // once across fills, so no cross-seed overlap correction is needed:
+        // redundant fills simply contribute zero.
         area += areai;
-        areaimage[image_index] = areai;
 
         if (diagnostics != nullptr) {
             for (int row = 0; row < nyi; ++row) {
                 if (scratch.ax[static_cast<std::size_t>(row)] > 0.0) {
                     ++diagnostics->boundary_rows;
-                }
-            }
-        }
-
-        for (std::size_t other = 0; other < images.size(); ++other) {
-            if (other == image_index) {
-                continue;
-            }
-            const auto& position = images[other];
-            // When the current seed has a Jacobian sign guard (fold image with
-            // |J| < threshold), its flood-fill is restricted to one side of the
-            // critical curve.  A seed on the OPPOSITE parity side has a
-            // disconnected pre-image and cannot genuinely overlap with this
-            // flood-fill; the xmax/xmin boundaries only extend to the critical
-            // curve, so a seed just past it may be geometrically within the
-            // scan-row bounding box while never being reached by the flood-fill.
-            // Skip the overlap check in that case to avoid a false positive.
-            if (jac_sign != 0) {
-                const int jac_sign_other =
-                    binary_jacobian_sign(mapper, position.x, position.y);
-                if (jac_sign_other == -jac_sign) {
-                    continue;
-                }
-                // Seeds extremely close to the critical curve often trace only
-                // the near-caustic subset of a same-parity fold branch.  Let a
-                // later, less singular seed on that branch run too; it will
-                // subtract this earlier partial component through the
-                // other<image_index path below.  Treating the critical seed's
-                // coarse bounding box as a complete future-overlap can otherwise
-                // drop the branch at specific grid phases.
-                constexpr double kCriticalSeedOverlapThreshold = 1.0e-3;
-                if (source_radius >= 4.0e-3 &&
-                    settings.source_bins >= 35 &&
-                    other > image_index &&
-                    std::abs(J_seed) < kCriticalSeedOverlapThreshold &&
-                    std::abs(binary_jacobian(mapper, position.x, position.y)) <
-                        kFoldJacThreshold) {
-                    continue;
-                }
-            }
-            for (int row = 0; row < nyi; ++row) {
-                const auto row_index = static_cast<std::size_t>(row);
-                if (scratch.ax[row_index] <= 0.0) {
-                    continue;
-                }
-                if (position.y >= scratch.y[row_index] - incr2_margin &&
-                    position.y <= scratch.y[row_index] + incr2_margin &&
-                    position.x >= scratch.xmin[row_index] - incr2_margin &&
-                    position.x <= scratch.xmax[row_index] + incr2_margin) {
-                    if (diagnostics != nullptr) {
-                        ++diagnostics->overlaps;
-                    }
-                    if (other < image_index) {
-                        if (subtracted_indices.insert(other).second) {
-                            area -= areaimage[other];
-                        }
-                    } else {
-                        overlap[other] = 1;
-                    }
-                    break;
                 }
             }
         }
@@ -3186,13 +3374,20 @@ double inverse_ray_cartesian_triple_mag(
     }
 
     const TripleLensMapper mapper = make_triple_lens_mapper(geometry);
-    const auto images = augmented_triple_image_seeds(
+    const auto raw_images = augmented_triple_image_seeds(
         point_magnifier,
         geometry,
         source,
         source_radius,
         caustics);
-    if (images.empty() || source_radius <= 0.0) {
+    if (raw_images.empty() || source_radius <= 0.0) {
+        return std::nan("");
+    }
+    const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
+    const double incr = source_radius / nbin;
+    const auto images =
+        lattice_snapped_seeds(mapper, source, source_radius, incr, raw_images);
+    if (images.empty()) {
         return std::nan("");
     }
     if (diagnostics != nullptr) {
@@ -3200,16 +3395,15 @@ double inverse_ray_cartesian_triple_mag(
         diagnostics->seed_count = static_cast<int>(images.size());
     }
 
-    const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
-    const double incr = source_radius / nbin;
-    const double incr2_margin = 0.5 * incr * 1.01;
     double area = 0.0;
-    std::vector<double> areaimage(images.size(), 0.0);
-    std::vector<int> overlap(images.size(), 0);
-    std::unordered_set<std::size_t> subtracted_indices;
+    ClaimedCellRuns claimed;
 
     for (std::size_t image_index = 0; image_index < images.size(); ++image_index) {
-        if (overlap[image_index] == 1) {
+        // A seed on an already-counted cell lies inside a component another
+        // fill has traced; its fill could only wander already-claimed rows.
+        if (claimed.find(
+                static_cast<int>(std::llround(images[image_index].y / incr)),
+                static_cast<int>(std::llround(images[image_index].x / incr))) != nullptr) {
             continue;
         }
 
@@ -3237,7 +3431,7 @@ double inverse_ray_cartesian_triple_mag(
         scratch.xmax[0] = seed.x;
         areai = cartesian_image_area(
             mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch,
-            jac_sign, nullptr);
+            jac_sign, nullptr, &claimed);
 
         dy = -incr;
         scratch.ensure(static_cast<std::size_t>(yi));
@@ -3249,7 +3443,7 @@ double inverse_ray_cartesian_triple_mag(
         ++yi;
         areai += cartesian_image_area(
             mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch,
-            jac_sign, nullptr);
+            jac_sign, nullptr, &claimed);
 
         int nyi = yi;
         double areabound = 0.0;
@@ -3284,7 +3478,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, nullptr);
+                        dy, yi, scratch, jac_sign, nullptr, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3308,7 +3502,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, nullptr);
+                        dy, yi, scratch, jac_sign, nullptr, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3332,7 +3526,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, nullptr);
+                        dy, yi, scratch, jac_sign, nullptr, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3356,7 +3550,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, nullptr);
+                        dy, yi, scratch, jac_sign, nullptr, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3369,55 +3563,13 @@ double inverse_ray_cartesian_triple_mag(
             }
         }
 
+        // The claimed-cell registry guarantees each cell is counted at most
+        // once across fills; redundant fills contribute zero.
         area += areai;
-        areaimage[image_index] = areai;
         if (diagnostics != nullptr) {
             for (int row = 0; row < nyi; ++row) {
                 if (scratch.ax[static_cast<std::size_t>(row)] > 0.0) {
                     ++diagnostics->boundary_rows;
-                }
-            }
-        }
-
-        for (std::size_t other = 0; other < images.size(); ++other) {
-            if (other == image_index) {
-                continue;
-            }
-            const auto& position = images[other];
-            if (jac_sign != 0) {
-                const int other_sign = triple_jacobian_sign(mapper, position.x, position.y);
-                if (other_sign == -jac_sign) {
-                    continue;
-                }
-                constexpr double kCriticalSeedOverlapThreshold = 1.0e-3;
-                if (source_radius >= 4.0e-3 &&
-                    settings.source_bins >= 35 &&
-                    other > image_index &&
-                    std::abs(j_seed) < kCriticalSeedOverlapThreshold &&
-                    std::abs(triple_jacobian(mapper, position.x, position.y)) < kFoldJacThreshold) {
-                    continue;
-                }
-            }
-            for (int row = 0; row < nyi; ++row) {
-                const auto row_index = static_cast<std::size_t>(row);
-                if (scratch.ax[row_index] <= 0.0) {
-                    continue;
-                }
-                if (position.y >= scratch.y[row_index] - incr2_margin &&
-                    position.y <= scratch.y[row_index] + incr2_margin &&
-                    position.x >= scratch.xmin[row_index] - incr2_margin &&
-                    position.x <= scratch.xmax[row_index] + incr2_margin) {
-                    if (diagnostics != nullptr) {
-                        ++diagnostics->overlaps;
-                    }
-                    if (other < image_index) {
-                        if (subtracted_indices.insert(other).second) {
-                            area -= areaimage[other];
-                        }
-                    } else {
-                        overlap[other] = 1;
-                    }
-                    break;
                 }
             }
         }
