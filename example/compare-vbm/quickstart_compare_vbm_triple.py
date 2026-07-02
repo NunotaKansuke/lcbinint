@@ -1,4 +1,3 @@
-import collections
 import math
 from dataclasses import dataclass
 from pathlib import Path
@@ -55,8 +54,6 @@ PARAMS = {
 OPTIONS = lcbinint.Options(
     param_type="vbm",
     source_bins=50,
-    max_source_bins=400,
-    reltol=1.0e-3,
 )
 LIMB_DARKENING = lcbinint.LimbDarkening.linear(0.5)
 TIMING_REPEATS = 7
@@ -86,8 +83,7 @@ def evaluate_lcbinint(limb_darkening: lcbinint.LimbDarkening):
         values = lightcurve(times, PARAMS)
         elapsed_samples.append(time.perf_counter() - start)
     elapsed = statistics.median(elapsed_samples)
-    info = lightcurve.info(times, PARAMS)
-    return lightcurve, np.asarray(values), elapsed, info, elapsed_samples
+    return lightcurve, np.asarray(values), elapsed, elapsed_samples
 
 
 def evaluate_vbm(limb_darkening_gamma: float):
@@ -129,10 +125,10 @@ def error_summary(reference, values):
 
 
 def main():
-    lightcurve, lc_no_ld, lc_no_ld_time, lc_no_ld_info, lc_no_ld_samples = evaluate_lcbinint(
+    lightcurve, lc_no_ld, lc_no_ld_time, lc_no_ld_samples = evaluate_lcbinint(
         lcbinint.LimbDarkening.none()
     )
-    _, lc_ld, lc_ld_time, lc_ld_info, lc_ld_samples = evaluate_lcbinint(LIMB_DARKENING)
+    _, lc_ld, lc_ld_time, lc_ld_samples = evaluate_lcbinint(LIMB_DARKENING)
 
     _, vbm_no_ld, vbm_no_ld_time, vbm_no_ld_samples = evaluate_vbm(0.0)
     _, vbm_ld, vbm_ld_time, vbm_ld_samples = evaluate_vbm(0.5)
@@ -158,20 +154,10 @@ def main():
             f"median={error_summary(vbm_no_ld, lc_no_ld)['median']:.3e}, "
             f"rms={error_summary(vbm_no_ld, lc_no_ld)['rms']:.3e}"
         )
-    print("lcbinint method mix")
-    for label, info in [("no LD", lc_no_ld_info), ("LD", lc_ld_info)]:
-        counts = collections.Counter(info.finite_source_method_names)
-        converged = sum(info.finite_source_converged)
-        print(f"  {label:5s} {dict(counts)} converged={converged}/{TIMES.size}")
-
-    trajectory = lightcurve.source_trajectory(TIMES.tolist(), PARAMS)
-    caustics = lightcurve.caustics(PARAMS, n_points=900)
-
-    fig = plt.figure(figsize=(8.0, 7.0), constrained_layout=True)
-    grid = fig.add_gridspec(3, 1, height_ratios=[2.0, 1.0, 1.4])
+    fig = plt.figure(figsize=(8.0, 5.2), constrained_layout=True)
+    grid = fig.add_gridspec(2, 1, height_ratios=[2.0, 1.0])
     ax_mag = fig.add_subplot(grid[0])
     ax_res = fig.add_subplot(grid[1], sharex=ax_mag)
-    ax_geo = fig.add_subplot(grid[2])
 
     ax_mag.plot(TIMES, lc_no_ld, label="lcbinint no LD", lw=1.8)
     ax_mag.plot(TIMES, lc_ld, label="lcbinint LD", lw=1.8)
@@ -189,13 +175,6 @@ def main():
         ax_res.text(0.5, 0.5, "VBM is not installed", ha="center", va="center")
     ax_res.set_ylabel("relative error")
     ax_res.set_xlabel("time")
-
-    for xs, ys in zip(caustics.x, caustics.y):
-        ax_geo.plot(xs, ys, color="black", lw=0.8)
-    ax_geo.plot(trajectory.x, trajectory.y, color="tab:blue", lw=1.5)
-    ax_geo.set_aspect("equal", adjustable="datalim")
-    ax_geo.set_xlabel("source x")
-    ax_geo.set_ylabel("source y")
 
     output = Path(__file__).with_suffix(".png")
     fig.savefig(output, dpi=160)
