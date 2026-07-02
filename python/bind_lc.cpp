@@ -158,10 +158,6 @@ void register_lc_submodule(py::module_& parent)
                 double grid_ratio,
                 int    mode,
                 double adaptive_hex_threshold,
-                bool   adaptive_source_bins,
-                int    max_source_bins,
-                double finite_source_tol,
-                double finite_source_reltol,
                 double point_source_threshold,
                 int    polar_source_bins,
                 double polar_grid_ratio,
@@ -174,10 +170,6 @@ void register_lc_submodule(py::module_& parent)
             o.grid_ratio             = grid_ratio;
             o.mode                   = mode;
             o.adaptive_hex_threshold = adaptive_hex_threshold;
-            o.adaptive_source_bins   = adaptive_source_bins ? 1 : 0;
-            o.max_source_bins        = max_source_bins;
-            o.finite_source_tol      = finite_source_tol;
-            o.finite_source_reltol   = finite_source_reltol;
             o.point_source_threshold = point_source_threshold;
             o.polar_source_bins      = polar_source_bins;
             o.polar_grid_ratio       = polar_grid_ratio;
@@ -191,10 +183,6 @@ void register_lc_submodule(py::module_& parent)
             py::arg("grid_ratio")             = lcbi_default_options().grid_ratio,
             py::arg("mode")                   = lcbi_default_options().mode,
             py::arg("adaptive_hex_threshold") = lcbi_default_options().adaptive_hex_threshold,
-            py::arg("adaptive_source_bins")   = false,
-            py::arg("max_source_bins")        = lcbi_default_options().max_source_bins,
-            py::arg("finite_source_tol")      = lcbi_default_options().finite_source_tol,
-            py::arg("finite_source_reltol")   = lcbi_default_options().finite_source_reltol,
             py::arg("point_source_threshold") = lcbi_default_options().point_source_threshold,
             py::arg("polar_source_bins")      = 0,
             py::arg("polar_grid_ratio")       = 0.0,
@@ -213,12 +201,6 @@ void register_lc_submodule(py::module_& parent)
             },
             [](lcbi_options& o, const std::string& pt) { apply_param_type(o, pt); })
         .def_readwrite("adaptive_hex_threshold", &lcbi_options::adaptive_hex_threshold)
-        .def_property("adaptive_source_bins",
-            [](const lcbi_options& o) { return o.adaptive_source_bins != 0; },
-            [](lcbi_options& o, bool v) { o.adaptive_source_bins = v ? 1 : 0; })
-        .def_readwrite("max_source_bins",        &lcbi_options::max_source_bins)
-        .def_readwrite("finite_source_tol",      &lcbi_options::finite_source_tol)
-        .def_readwrite("finite_source_reltol",   &lcbi_options::finite_source_reltol)
         .def_readwrite("point_source_threshold", &lcbi_options::point_source_threshold)
         .def_readwrite("polar_source_bins",      &lcbi_options::polar_source_bins)
         .def_readwrite("polar_grid_ratio",       &lcbi_options::polar_grid_ratio)
@@ -241,6 +223,8 @@ void register_lc_submodule(py::module_& parent)
         .def(py::init<double, double>(), py::arg("c") = 0.0, py::arg("d") = 0.0)
         .def_readwrite("c", &PyLimbDarkening::c)
         .def_readwrite("d", &PyLimbDarkening::d)
+        .def_static("none", []() { return PyLimbDarkening{}; },
+            "Uniform source profile.")
         .def_static("linear",      [](double u) { return PyLimbDarkening{u, 0.0}; },
             py::arg("u"),
             "Linear profile: I(μ) = 1 - u*(1-μ).  c=u, d=0.")
@@ -332,13 +316,6 @@ void register_lc_submodule(py::module_& parent)
         throw std::invalid_argument("source must be 'single' or 'binary'");
     };
 
-    // Parse "binary"/"triple" lens string (validated only; C library auto-detects from params).
-    auto parse_lens = [](const std::string& s) {
-        if (s == "binary" || s == "binary_lens") return;
-        if (s == "triple" || s == "triple_lens") return;
-        throw std::invalid_argument("lens must be 'binary' or 'triple'");
-    };
-
     // Parse orbital motion mode string.
     auto parse_orbital = [](const std::string& s) -> lcbi_orbital_motion_mode {
         if (s == "static"  || s.empty()) return LCBI_ORBIT_STATIC;
@@ -368,7 +345,6 @@ Options (source_bins, grid_ratio, etc.).
 terrestrial=False by default: site coordinates are stored but NOT applied
 unless terrestrial is explicitly set to True.)")
         .def(py::init([&](
-                const std::string& lens,
                 const std::string& source,
                 const std::string& orbital_motion,
                 const std::string& xallarap,
@@ -377,19 +353,17 @@ unless terrestrial is explicitly set to True.)")
                 py::object         sky,
                 py::object         site,
                 py::object         t_ref) {
-            parse_lens(lens);
             Eff e;
-            e.source        = parse_source(source);
+            e.source         = parse_source(source);
             e.orbital_motion = parse_orbital(orbital_motion);
-            e.xallarap      = parse_xallarap(xallarap);
-            e.parallax      = parallax;
-            e.terrestrial   = terrestrial;
+            e.xallarap       = parse_xallarap(xallarap);
+            e.parallax       = parallax;
+            e.terrestrial    = terrestrial;
             if (!sky.is_none())   e.sky  = sky.cast<std::shared_ptr<SkyCoord>>();
             if (!site.is_none())  e.site = site.cast<std::shared_ptr<Site>>();
             if (!t_ref.is_none()) e.t_ref = t_ref.cast<double>();
             return e;
         }),
-            py::arg("lens")           = "binary",
             py::arg("source")         = "single",
             py::arg("orbital_motion") = "static",
             py::arg("xallarap")       = "none",
@@ -530,7 +504,6 @@ unless terrestrial is explicitly set to True.)")
             auto o = kDefaultOpts;
             PyLimbDarkening ld{};
             Eff eff{};
-            std::string lens_str = "binary";
             for (auto& item : kw) {
                 const std::string key = item.first.cast<std::string>();
                 // --- Options (numerics) ---
@@ -541,21 +514,24 @@ unless terrestrial is explicitly set to True.)")
                 else if (key == "parallax_mode")          o.parallax_mode          = item.second.cast<int>();
                 else if (key == "mode")                   o.mode                   = item.second.cast<int>();
                 else if (key == "grid_ratio")             o.grid_ratio             = item.second.cast<double>();
-                else if (key == "finite_source_tol")      o.finite_source_tol      = item.second.cast<double>();
-                else if (key == "finite_source_reltol")   o.finite_source_reltol   = item.second.cast<double>();
                 else if (key == "point_source_threshold") o.point_source_threshold = item.second.cast<double>();
-                else if (key == "adaptive_source_bins")   o.adaptive_source_bins   = item.second.cast<bool>() ? 1 : 0;
-                else if (key == "max_source_bins")        o.max_source_bins        = item.second.cast<int>();
+                else if (key == "options")                o = item.second.cast<lcbi_options>();
                 // --- LimbDarkening ---
                 else if (key == "ld_c" || key == "limb_darkening_c") ld.c = item.second.cast<double>();
                 else if (key == "ld_d" || key == "limb_darkening_d") ld.d = item.second.cast<double>();
+                else if (key == "limb_darkening") ld = item.second.cast<PyLimbDarkening>();
                 // --- Effects (physics) ---
-                else if (key == "lens")           lens_str          = item.second.cast<std::string>();
                 else if (key == "source")         eff.source        = parse_source(item.second.cast<std::string>());
                 else if (key == "orbital_motion") eff.orbital_motion = parse_orbital(item.second.cast<std::string>());
                 else if (key == "xallarap")       eff.xallarap      = parse_xallarap(item.second.cast<std::string>());
                 else if (key == "parallax")       eff.parallax      = item.second.cast<bool>();
                 else if (key == "terrestrial")    eff.terrestrial   = item.second.cast<bool>();
+                else if (key == "lens") {
+                    const std::string lens = item.second.cast<std::string>();
+                    if (lens != "binary_lens" && lens != "triple_lens") {
+                        throw py::key_error("LightCurve: unknown lens '" + lens + "'");
+                    }
+                }
                 else if (key == "sky") {
                     auto obj = py::reinterpret_borrow<py::object>(item.second);
                     if (!obj.is_none()) eff.sky = obj.cast<std::shared_ptr<SkyCoord>>();
@@ -570,7 +546,6 @@ unless terrestrial is explicitly set to True.)")
                 }
                 else throw py::key_error("LightCurve: unknown option '" + key + "'");
             }
-            parse_lens(lens_str);
             return std::make_shared<LC>(o, ld.c, ld.d, eff);
         }))
         .def_property_readonly("options", &LC::options)
