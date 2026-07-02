@@ -1,4 +1,7 @@
 #include "light_curve.hpp"
+#include "lcbinint/model/lens_parameters.hpp"
+#include "lcbinint/model/trajectory.hpp"
+
 #include <stdexcept>
 
 namespace lcbinint::lc {
@@ -44,6 +47,7 @@ std::vector<double> LightCurve::magnification(
     const lcbi_params&         params) const
 {
     const lcbi_params p = apply_coords(params);
+
     const int n = static_cast<int>(times.size());
     std::vector<lcbi_result> results(n);
     const lcbi_status status =
