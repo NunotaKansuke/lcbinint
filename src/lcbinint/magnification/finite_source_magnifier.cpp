@@ -525,6 +525,78 @@ SourcePlaneQuadratureResult triple_source_plane_quadrature(
     };
 }
 
+// Binary twin of triple_source_plane_quadrature: equal-area radial rings of
+// point-source magnifications.  Used for the grazing-caustic regime where the
+// caustic passes within a few source radii but never enters the disk: the
+// magnification is smooth (if steep) over the disk, so ring quadrature
+// converges, whereas image-plane inverse rays truncate the sub-cell-thick
+// image fingers of the near-caustic limb.
+SourcePlaneQuadratureResult binary_source_plane_quadrature(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    int radial_bins)
+{
+    const int bins = std::max(radial_bins, 1);
+    const double angular_scale = active_polar_grid_ratio(settings);
+    double weighted_magnification = 0.0;
+    double brightness_sum = 0.0;
+    int sample_count = 0;
+
+    std::vector<SourcePosition> ring_sources;
+    std::vector<double> ring_magnifications;
+    for (int ir = 0; ir < bins; ++ir) {
+        const double normalized_radius2 =
+            (static_cast<double>(ir) + 0.5) / static_cast<double>(bins);
+        const double normalized_radius = std::sqrt(normalized_radius2);
+        const double brightness = source_surface_brightness(normalized_radius2, settings);
+        if (!std::isfinite(brightness)) {
+            return {};
+        }
+        const int angular_bins = std::max(
+            8,
+            static_cast<int>(
+                std::ceil(2.0 * kPi * normalized_radius * bins / angular_scale)));
+        ring_sources.resize(static_cast<std::size_t>(angular_bins));
+        ring_magnifications.resize(static_cast<std::size_t>(angular_bins));
+        for (int ia = 0; ia < angular_bins; ++ia) {
+            const double angle = 2.0 * kPi *
+                (static_cast<double>(ia) + 0.5) / static_cast<double>(angular_bins);
+            ring_sources[static_cast<std::size_t>(ia)] = {
+                source.x + source_radius * normalized_radius * std::cos(angle),
+                source.y + source_radius * normalized_radius * std::sin(angle),
+            };
+        }
+        point_magnifier.binary_mag0_batch(
+            separation, mass_ratio, ring_sources.data(), ring_magnifications.data(),
+            ring_sources.size());
+        double ring_magnification = 0.0;
+        for (int ia = 0; ia < angular_bins; ++ia) {
+            const double magnification = ring_magnifications[static_cast<std::size_t>(ia)];
+            if (!std::isfinite(magnification)) {
+                return {};
+            }
+            ring_magnification += magnification;
+            ++sample_count;
+        }
+        weighted_magnification +=
+            brightness * ring_magnification / static_cast<double>(angular_bins);
+        brightness_sum += brightness;
+    }
+
+    if (brightness_sum <= 0.0 || !std::isfinite(brightness_sum)) {
+        return {};
+    }
+    return {
+        weighted_magnification / brightness_sum,
+        sample_count,
+        0,
+    };
+}
+
 std::vector<Complex> critical_curve_polynomial_coefficients(double separation, double mass_ratio, Complex phase)
 {
     const double s = std::abs(separation);
@@ -715,7 +787,8 @@ double refine_triple_caustic_distance(
 double triple_caustic_distance(
     const model::TripleLensGeometry& geometry,
     const TripleCausticBranches& caustics,
-    SourcePosition source)
+    SourcePosition source,
+    double refine_within = std::numeric_limits<double>::infinity())
 {
     double best = std::numeric_limits<double>::infinity();
     double best_phase = 0.0;
@@ -740,7 +813,10 @@ double triple_caustic_distance(
             best_phase = 0.0;
         }
     }
-    if (std::isfinite(best)) {
+    // The golden-section refinement costs ~26 degree-10 root solves; it only
+    // matters when the polyline distance sits near a decision threshold, so
+    // skip it for clearly-far sources.
+    if (std::isfinite(best) && best < refine_within) {
         best = std::min(best, refine_triple_caustic_distance(
             geometry,
             source,
@@ -897,14 +973,6 @@ HexResult hexadecapole_triple(
     const double rel_err = std::abs(hex_corr) / std::max(std::abs(magnification), 1.0e-10);
     return {magnification, rel_err};
 }
-
-struct PolarMapCacheView {
-    const std::vector<SourcePosition>* mapped_sources = nullptr;
-    const std::vector<int>* radial_offsets = nullptr;
-    int radial_offset_min_index = 0;
-    int phi_bins = 0;
-    double dr = 1.0;
-};
 
 using PolarVisitedCellIntervals = std::vector<std::vector<std::pair<int, int>>>;
 
@@ -1164,7 +1232,6 @@ double inverse_ray_polar_boundary_binary(
     double source_radius,
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
-    const PolarMapCacheView* map_cache = nullptr,
     const std::vector<SourcePosition>* seed_positions = nullptr)
 {
     std::vector<SourcePosition> image_positions;
@@ -1255,15 +1322,23 @@ double inverse_ray_polar_boundary_binary(
             queue.push_back({ir, wrap_phi_index(iphi)});
         }
     };
-    auto cell_inside = [&](int ir, int iphi, double* dz2_out = nullptr) {
+    // Cells in one radial run share the same phi column, so the column unit
+    // vector is computed once per run instead of per cell (sincos dominated
+    // the high-magnification profile otherwise).
+    double column_cos = 1.0;
+    double column_sin = 0.0;
+    auto set_column = [&](int iphi) {
+        const double phi = (static_cast<double>(iphi) + 0.5) * dphi;
+        column_cos = std::cos(phi);
+        column_sin = std::sin(phi);
+    };
+    auto cell_inside = [&](int ir, double* dz2_out = nullptr) {
         if (ir < 0) {
             return false;
         }
-        iphi = wrap_phi_index(iphi);
         const double radius = (static_cast<double>(ir) + 0.5) * dr;
-        const double phi = (static_cast<double>(iphi) + 0.5) * dphi;
-        const SourcePosition image {radius * std::cos(phi), radius * std::sin(phi)};
-        const SourcePosition mapped = map_binary_lens_real(mapper, image.x, image.y);
+        const SourcePosition mapped = map_binary_lens_real(
+            mapper, radius * column_cos, radius * column_sin);
         const double dz2 = distance_squared(mapped, source);
         if (dz2_out != nullptr) {
             *dz2_out = dz2;
@@ -1312,7 +1387,11 @@ double inverse_ray_polar_boundary_binary(
     while (!queue.empty()) {
         const auto [ir, iphi] = queue.front();
         queue.pop_front();
-        if (cell_visited(ir, iphi) || !cell_inside(ir, iphi)) {
+        if (cell_visited(ir, iphi)) {
+            continue;
+        }
+        set_column(iphi);
+        if (!cell_inside(ir)) {
             continue;
         }
 
@@ -1320,7 +1399,7 @@ double inverse_ray_polar_boundary_binary(
         double left_outside_dz2 = -1.0;
         while (left > 0 && !cell_visited(left - 1, iphi)) {
             double neighbor_dz2 = 0.0;
-            if (!cell_inside(left - 1, iphi, &neighbor_dz2)) {
+            if (!cell_inside(left - 1, &neighbor_dz2)) {
                 left_outside_dz2 = neighbor_dz2;
                 break;
             }
@@ -1330,7 +1409,7 @@ double inverse_ray_polar_boundary_binary(
         double right_outside_dz2 = -1.0;
         while (!cell_visited(right + 1, iphi)) {
             double neighbor_dz2 = 0.0;
-            if (!cell_inside(right + 1, iphi, &neighbor_dz2)) {
+            if (!cell_inside(right + 1, &neighbor_dz2)) {
                 right_outside_dz2 = neighbor_dz2;
                 break;
             }
@@ -1342,7 +1421,7 @@ double inverse_ray_polar_boundary_binary(
         double right_inside_dz2 = 0.0;
         for (int current = left; current <= right; ++current) {
             double dz2 = 0.0;
-            cell_inside(current, iphi, &dz2);
+            cell_inside(current, &dz2);
             if (current == left) {
                 left_inside_dz2 = dz2;
             }
@@ -1645,6 +1724,92 @@ void append_boundary_probe_image_seeds(
     }
 }
 
+SourcePosition closest_point_on_segment(
+    SourcePosition point,
+    SourcePosition start,
+    SourcePosition end);
+
+// Walks the cached caustic branch polylines once and gathers everything the
+// seeding phases need: the distance to the nearest caustic segment, the
+// outside->inside transition points of each branch relative to the source
+// disk, and whether any sampled vertex lies inside the disk.
+struct CausticBranchScan {
+    double min_distance = std::numeric_limits<double>::infinity();
+    SourcePosition nearest {};
+    SourcePosition nearest_segment_start {};
+    SourcePosition nearest_segment_end {};
+    // Outside->inside transition points of each branch (entry side only).
+    std::vector<SourcePosition> crossing_probes;
+    bool any_vertex_inside = false;
+};
+
+CausticBranchScan scan_caustic_branches(
+    const std::vector<std::vector<SourcePosition>>& branches,
+    SourcePosition source,
+    double source_radius)
+{
+    constexpr std::size_t max_probes = 64;
+    // A branch-tracking swap stitches two distant caustic points with a
+    // phantom chord.  Real segment lengths vary smoothly along a branch (they
+    // only shrink toward cusps), so a segment vastly longer than both of its
+    // neighbours does not correspond to any caustic arc; using it for
+    // distance or crossing queries fabricates near-caustic contact.
+    constexpr double kPhantomLengthRatio2 = 625.0;  // 25x either neighbour
+    CausticBranchScan scan;
+    const double source_radius2 = source_radius * source_radius;
+    std::vector<double> segment_length2;
+    for (const auto& branch : branches) {
+        if (branch.size() < 2) {
+            continue;
+        }
+        segment_length2.assign(branch.size(), 0.0);
+        for (std::size_t i = 1; i < branch.size(); ++i) {
+            segment_length2[i] = distance_squared(branch[i - 1], branch[i]);
+        }
+        auto is_phantom_segment = [&](std::size_t i) {
+            const double prev = i >= 2 ? segment_length2[i - 1] : 0.0;
+            const double next = i + 1 < branch.size() ? segment_length2[i + 1] : 0.0;
+            const double reference = std::max(prev, next);
+            return reference > 0.0 &&
+                   segment_length2[i] > kPhantomLengthRatio2 * reference;
+        };
+        bool prev_inside = distance_squared(branch.front(), source) < source_radius2;
+        if (prev_inside) {
+            scan.any_vertex_inside = true;
+            if (scan.crossing_probes.size() < max_probes) {
+                scan.crossing_probes.push_back(branch.front());
+            }
+        }
+        // The wrap-around segment (back to front) is skipped: when branch
+        // tracking swaps occur it is a phantom chord that does not correspond
+        // to any real caustic arc (same reasoning as
+        // augment_seeds_from_caustic_branches).
+        for (std::size_t i = 1; i < branch.size(); ++i) {
+            const SourcePosition p0 = branch[i - 1];
+            const SourcePosition p1 = branch[i];
+            if (!is_phantom_segment(i)) {
+                const SourcePosition candidate = closest_point_on_segment(source, p0, p1);
+                const double distance = std::sqrt(distance_squared(candidate, source));
+                if (distance < scan.min_distance) {
+                    scan.min_distance = distance;
+                    scan.nearest = candidate;
+                    scan.nearest_segment_start = p0;
+                    scan.nearest_segment_end = p1;
+                }
+            }
+            const bool inside = distance_squared(p1, source) < source_radius2;
+            if (inside) {
+                scan.any_vertex_inside = true;
+            }
+            if (inside && !prev_inside && scan.crossing_probes.size() < max_probes) {
+                scan.crossing_probes.push_back(p1);
+            }
+            prev_inside = inside;
+        }
+    }
+    return scan;
+}
+
 void append_interior_probe_image_seeds(
     const PointSourceMagnifier& point_magnifier,
     const BinaryLensMapper& mapper,
@@ -1769,7 +1934,8 @@ std::vector<SourcePosition> augmented_image_seeds(
     SourcePosition source,
     double source_radius,
     double hint_caustic_dist = std::numeric_limits<double>::infinity(),
-    const std::vector<SourcePosition>* seed_hints = nullptr)
+    const std::vector<SourcePosition>* seed_hints = nullptr,
+    const std::vector<std::vector<SourcePosition>>* caustic_branches = nullptr)
 {
     std::vector<SourcePosition> seeds;
     seeds.reserve(seed_hints == nullptr ? 5 : std::max<std::size_t>(5, seed_hints->size()));
@@ -1787,10 +1953,31 @@ std::vector<SourcePosition> augmented_image_seeds(
     if (source_radius <= 0.0) {
         return seeds;
     }
-    // Do not skip the caustic scan based on hint_caustic_dist alone: the
-    // computed caustic distance can be slightly over-estimated (e.g. when a
-    // phantom wrap-around segment distorts the branch grid search), causing a
-    // false early exit when the source disk just straddles the caustic.
+
+    if (caustic_branches != nullptr) {
+        // Fast path for sources with no caustic contact: one pass over the
+        // cached caustic polylines shows that neither a sampled vertex nor a
+        // segment reaches the source disk, so there are no fold images and
+        // the phase scans and probe rings below (up to ~2800 quartic plus 400
+        // quintic root solves) would find nothing.  Configurations with any
+        // contact keep the original scan below unchanged: the flood-fill
+        // overlap bookkeeping is sensitive to the seed set, and the original
+        // scan is what the hard-case corpus was validated against.
+        const auto scan = scan_caustic_branches(*caustic_branches, source, source_radius);
+        const bool caustic_contact =
+            !scan.crossing_probes.empty() ||
+            scan.any_vertex_inside ||
+            scan.min_distance < source_radius;
+        if (!caustic_contact) {
+            return seeds;
+        }
+    }
+
+    // Per-epoch critical-curve phase scans.  Do not skip the caustic scan
+    // based on hint_caustic_dist alone: the computed caustic distance can be
+    // slightly over-estimated (e.g. when a phantom wrap-around segment
+    // distorts the branch grid search), causing a false early exit when the
+    // source disk just straddles the caustic.
 
     const double source_radius2 = source_radius * source_radius;
     const int samples = 1400;
@@ -2292,15 +2479,22 @@ double inverse_ray_polar_triple_mag(
             queue.push_back({ir, wrap_phi_index(iphi)});
         }
     };
-    auto cell_inside = [&](int ir, int iphi, double* dz2_out = nullptr) {
+    // Cells in one radial run share the same phi column; compute the column
+    // unit vector once per run (see inverse_ray_polar_boundary_binary).
+    double column_cos = 1.0;
+    double column_sin = 0.0;
+    auto set_column = [&](int iphi) {
+        const double phi = (static_cast<double>(iphi) + 0.5) * dphi;
+        column_cos = std::cos(phi);
+        column_sin = std::sin(phi);
+    };
+    auto cell_inside = [&](int ir, double* dz2_out = nullptr) {
         if (ir < 0) {
             return false;
         }
-        iphi = wrap_phi_index(iphi);
         const double radius = (static_cast<double>(ir) + 0.5) * dr;
-        const double phi = (static_cast<double>(iphi) + 0.5) * dphi;
-        const SourcePosition image {radius * std::cos(phi), radius * std::sin(phi)};
-        const SourcePosition mapped = map_triple_lens_real(mapper, image.x, image.y);
+        const SourcePosition mapped = map_triple_lens_real(
+            mapper, radius * column_cos, radius * column_sin);
         const double dz2 = distance_squared(mapped, source);
         if (dz2_out != nullptr) {
             *dz2_out = dz2;
@@ -2342,14 +2536,18 @@ double inverse_ray_polar_triple_mag(
     while (!queue.empty()) {
         const auto [ir, iphi] = queue.front();
         queue.pop_front();
-        if (cell_visited(ir, iphi) || !cell_inside(ir, iphi)) {
+        if (cell_visited(ir, iphi)) {
+            continue;
+        }
+        set_column(iphi);
+        if (!cell_inside(ir)) {
             continue;
         }
         int left = ir;
         double left_outside_dz2 = -1.0;
         while (left > 0 && !cell_visited(left - 1, iphi)) {
             double neighbor_dz2 = 0.0;
-            if (!cell_inside(left - 1, iphi, &neighbor_dz2)) {
+            if (!cell_inside(left - 1, &neighbor_dz2)) {
                 left_outside_dz2 = neighbor_dz2;
                 break;
             }
@@ -2359,7 +2557,7 @@ double inverse_ray_polar_triple_mag(
         double right_outside_dz2 = -1.0;
         while (!cell_visited(right + 1, iphi)) {
             double neighbor_dz2 = 0.0;
-            if (!cell_inside(right + 1, iphi, &neighbor_dz2)) {
+            if (!cell_inside(right + 1, &neighbor_dz2)) {
                 right_outside_dz2 = neighbor_dz2;
                 break;
             }
@@ -2370,7 +2568,7 @@ double inverse_ray_polar_triple_mag(
         double right_inside_dz2 = 0.0;
         for (int current = left; current <= right; ++current) {
             double dz2 = 0.0;
-            cell_inside(current, iphi, &dz2);
+            cell_inside(current, &dz2);
             if (current == left) {
                 left_inside_dz2 = dz2;
             }
@@ -2685,8 +2883,13 @@ double inverse_ray_cartesian_binary_mag(
     }
 
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    const auto computed_images = precomputed_seeds == nullptr ?
-        augmented_image_seeds(point_magnifier, mapper, separation, mass_ratio, source, source_radius) :
+    auto computed_images = precomputed_seeds == nullptr ?
+        augmented_image_seeds(
+            point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+            std::numeric_limits<double>::infinity(), nullptr,
+            finite_magnifier != nullptr
+                ? &finite_magnifier->binary_caustic_branches(separation, mass_ratio)
+                : nullptr) :
         std::vector<SourcePosition> {};
     const auto& images = precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
     if (images.empty() || source_radius <= 0.0) {
@@ -3255,7 +3458,10 @@ FiniteSourceResult fixed_inverse_ray_binary(
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     auto seeds = augmented_image_seeds(
         point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-        caustic_distance, seed_hints);
+        caustic_distance, seed_hints,
+        finite_magnifier != nullptr
+            ? &finite_magnifier->binary_caustic_branches(separation, mass_ratio)
+            : nullptr);
     // Phase 3: find caustic crossings that fall in the gap between the last
     // phase sample and phi=2*pi (missed by uniform 1400-point sampling).
     if (finite_magnifier != nullptr) {
@@ -3348,7 +3554,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
     if (decision.method == FiniteSourceMethod::inverse_ray_polar) {
         const double magnification = inverse_ray_polar_boundary_binary(
             point_magnifier, separation, mass_ratio, source, source_radius,
-            settings, finite_magnifier, nullptr, &seeds);
+            settings, finite_magnifier, &seeds);
         if (!std::isfinite(magnification)) {
             return {magnification, 0, decision, std::nan(""), 0, false};
         }
@@ -4304,6 +4510,15 @@ void FiniteSourceMagnifier::ensure_binary_caustic_cache(double separation, doubl
     }
 }
 
+const std::vector<std::vector<SourcePosition>>&
+FiniteSourceMagnifier::binary_caustic_branches(
+    double separation,
+    double mass_ratio) const
+{
+    ensure_binary_caustic_cache(separation, mass_ratio);
+    return caustic_cache_branches_;
+}
+
 double FiniteSourceMagnifier::binary_caustic_distance(
     double separation,
     double mass_ratio,
@@ -4445,59 +4660,6 @@ double FiniteSourceMagnifier::binary_sampled_caustic_distance(
     return std::sqrt(distance2);
 }
 
-void FiniteSourceMagnifier::ensure_polar_map_cache(
-    double separation,
-    double mass_ratio,
-    double source_radius) const
-{
-    const int source_bins = active_polar_source_bins(settings_);
-    const double polar_grid_ratio = active_polar_grid_ratio(settings_);
-    const double dr = source_radius / static_cast<double>(source_bins);
-    const int phi_bins = std::max(16, static_cast<int>(2.0 * kPi / (dr * polar_grid_ratio)));
-    const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
-    const int radial_count = std::max(3 * source_bins, 1);
-    const int radial_min_index = static_cast<int>(1.0 / dr) - radial_count / 2;
-    const bool cache_matches =
-        polar_map_cache_valid_ &&
-        polar_map_cache_separation_ == separation &&
-        polar_map_cache_mass_ratio_ == mass_ratio &&
-        polar_map_cache_source_radius_ == source_radius &&
-        polar_map_cache_source_bins_ == source_bins &&
-        polar_map_cache_grid_ratio_ == polar_grid_ratio &&
-        polar_map_cache_phi_bins_ == phi_bins &&
-        polar_map_cache_radial_offset_min_index_ == radial_min_index &&
-        static_cast<int>(polar_map_cache_radial_offsets_.size()) == radial_count;
-    if (cache_matches) {
-        return;
-    }
-
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    polar_map_cache_radial_offset_min_index_ = radial_min_index;
-    polar_map_cache_radial_offsets_.resize(static_cast<std::size_t>(radial_count));
-    polar_map_cache_.resize(static_cast<std::size_t>(radial_count) * static_cast<std::size_t>(phi_bins));
-    for (int ir = 0; ir < radial_count; ++ir) {
-        polar_map_cache_radial_offsets_[static_cast<std::size_t>(ir)] = ir;
-        const double radius = (radial_min_index + ir) * dr + 0.5 * dr;
-        for (int iphi = 0; iphi < phi_bins; ++iphi) {
-            const double phi = (iphi + 0.5) * dphi;
-            const SourcePosition image {radius * std::cos(phi), radius * std::sin(phi)};
-            polar_map_cache_[static_cast<std::size_t>(ir) * static_cast<std::size_t>(phi_bins) +
-                             static_cast<std::size_t>(iphi)] =
-                map_binary_lens_real(mapper, image.x, image.y);
-        }
-    }
-
-    polar_map_cache_valid_ = true;
-    polar_map_cache_separation_ = separation;
-    polar_map_cache_mass_ratio_ = mass_ratio;
-    polar_map_cache_source_radius_ = source_radius;
-    polar_map_cache_source_bins_ = source_bins;
-    polar_map_cache_grid_ratio_ = polar_grid_ratio;
-    polar_map_cache_dr_ = dr;
-    polar_map_cache_dphi_ = dphi;
-    polar_map_cache_phi_bins_ = phi_bins;
-}
-
 FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
     double separation,
     double mass_ratio,
@@ -4513,7 +4675,9 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
     };
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     auto seeds = augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius);
+        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+        std::numeric_limits<double>::infinity(), nullptr,
+        &binary_caustic_branches(separation, mass_ratio));
     if (seeds.size() < 5) {
         augment_seeds_from_caustic_branches(separation, mass_ratio, source, source_radius, seeds);
     }
@@ -4534,16 +4698,8 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
         }
         return {magnification, 0, decision, 0.0, 0, true};
     }
-    ensure_polar_map_cache(separation, mass_ratio, source_radius);
-    const PolarMapCacheView cache_view {
-        &polar_map_cache_,
-        &polar_map_cache_radial_offsets_,
-        polar_map_cache_radial_offset_min_index_,
-        polar_map_cache_phi_bins_,
-        polar_map_cache_dr_,
-    };
     const double magnification = inverse_ray_polar_boundary_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, &cache_view, &seeds);
+        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, &seeds);
     if (!std::isfinite(magnification)) {
         return {magnification, 0, decision, std::nan(""), 0, false};
     }
@@ -4593,11 +4749,12 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
     const auto& caustics = cached_triple_caustic_branches(
         geometry,
         settings_.caustic_bins);
+    const double point_threshold = settings_.kinji_threshold * source_radius;
     const double caustic_distance = triple_caustic_distance(
         geometry,
         caustics,
-        source);
-    const double point_threshold = settings_.kinji_threshold * source_radius;
+        source,
+        1.5 * point_threshold);
     if (std::isfinite(caustic_distance) && caustic_distance > point_threshold) {
         FiniteSourceDecision decision {
             FiniteSourceMethod::point_source,
@@ -5004,6 +5161,90 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         rejected_hex_magnification = hex.magnification;
     }
 
+    // Grazing-caustic regime: the caustic passes within a few source radii
+    // but never enters the disk.  There are no fold images, yet the limb
+    // images facing the caustic stretch into fingers thinner than any
+    // realistic inverse-ray cell, which the flood-fill scans truncate — a
+    // deficit that does not converge away with source_bins.  The point-source
+    // magnification is smooth over the disk here (no caustic inside), so
+    // source-plane ring quadrature is both robust and accurate; use it
+    // instead of inverse rays.
+    // Grazing-caustic regime: the caustic passes within a couple of source
+    // radii of the centre but stays outside the disk.  There are no fold
+    // images, yet the limb images facing the caustic stretch into fingers
+    // thinner than any realistic inverse-ray cell, which the flood-fill scans
+    // truncate — a deficit that does not converge away with source_bins.  The
+    // point-source magnification is smooth over the disk here, so source-plane
+    // ring quadrature is both robust and accurate; use it instead of inverse
+    // rays.  The min_distance >= rho requirement keeps genuinely tangent
+    // configurations (where a crossing sliver may hide below the polyline
+    // resolution) on the inverse-ray path; those are flagged as unconverged
+    // below.
+    constexpr double kGrazeQuadratureDistanceFactor = 2.0;
+    bool tangent_band = false;
+    if (std::isfinite(refined_dist) &&
+        refined_dist < kGrazeQuadratureDistanceFactor * source_radius) {
+        const auto scan = scan_caustic_branches(
+            binary_caustic_branches(separation, mass_ratio), source, source_radius);
+        const bool caustic_enters_disk =
+            scan.any_vertex_inside || !scan.crossing_probes.empty();
+        tangent_band = !caustic_enters_disk &&
+            std::abs(scan.min_distance - source_radius) < 0.35 * source_radius;
+        if (!caustic_enters_disk && scan.min_distance >= source_radius &&
+            !tangent_band) {
+            const int fine_bins = std::max(settings_.source_bins, 32);
+            const int coarse_bins = std::max(1, fine_bins / 2);
+            const auto coarse = binary_source_plane_quadrature(
+                point_magnifier, separation, mass_ratio, source, source_radius,
+                settings_, coarse_bins);
+            const auto fine = binary_source_plane_quadrature(
+                point_magnifier, separation, mass_ratio, source, source_radius,
+                settings_, fine_bins);
+            if (std::isfinite(fine.magnification)) {
+                const double error_estimate = std::isfinite(coarse.magnification)
+                    ? std::abs(fine.magnification - coarse.magnification)
+                    : std::numeric_limits<double>::infinity();
+                bool converged = true;
+                if (settings_.finite_source_tol > 0.0) {
+                    converged = converged && error_estimate <= settings_.finite_source_tol;
+                }
+                if (settings_.finite_source_reltol > 0.0) {
+                    converged = converged &&
+                        error_estimate <= settings_.finite_source_reltol *
+                            std::max(std::abs(fine.magnification), 1.0e-12);
+                }
+                FiniteSourceDecision decision {
+                    FiniteSourceMethod::source_plane_quadrature,
+                    coarse.sample_count + fine.sample_count,
+                    "grazing-caustic source-plane quadrature",
+                };
+                return cache_and_return({
+                    fine.magnification,
+                    0,
+                    decision,
+                    error_estimate,
+                    0,
+                    converged});
+            }
+        }
+    }
+
+    // A caustic tangent to the source limb can hide a crossing sliver below
+    // both the grid and the caustic-polyline resolution; inverse rays then
+    // miss the corresponding image flux.  Report the risk instead of silently
+    // claiming convergence.
+    const auto apply_tangent_band_floor = [&](FiniteSourceResult result) {
+        if (tangent_band) {
+            const double error_floor =
+                5.0e-3 * std::max(std::abs(result.magnification), 1.0);
+            if (result.error_estimate < error_floor) {
+                result.error_estimate = error_floor;
+                result.converged = false;
+            }
+        }
+        return result;
+    };
+
     constexpr double kPolarAutoPointMagnificationThreshold = 100.0;
     const bool auto_polar =
         settings_.finite_mode == 4 &&
@@ -5023,9 +5264,9 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             estimate_polar_cost(inverse_ray_settings),
             auto_polar ? "auto polar inverse-ray for high magnification" : "polar inverse-ray",
         };
-        return cache_and_return(fixed_inverse_ray_binary(
+        return cache_and_return(apply_tangent_band_floor(fixed_inverse_ray_binary(
             point_magnifier, separation, mass_ratio, source, source_radius, inverse_ray_settings, this,
-            decision, refined_dist, rejected_hex_magnification, center_image_seeds));
+            decision, refined_dist, rejected_hex_magnification, center_image_seeds)));
     }
     if (settings_.finite_mode == 3) {
         return cache_and_return(fixed_inverse_ray_spine_binary(
@@ -5039,7 +5280,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     auto result = fixed_inverse_ray_binary(
         point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, decision,
         refined_dist, rejected_hex_magnification, center_image_seeds);
-    return cache_and_return(result);
+    return cache_and_return(apply_tangent_band_floor(std::move(result)));
 }
 
 void FiniteSourceMagnifier::augment_seeds_from_caustic_branches(

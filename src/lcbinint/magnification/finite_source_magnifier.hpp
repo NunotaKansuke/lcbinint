@@ -88,6 +88,12 @@ public:
         double source_radius,
         std::vector<SourcePosition>& seeds) const;
     double limb_darkening_table_brightness(double normalized_radius2) const;
+    // Phase-ordered caustic branch polylines for (separation, mass_ratio),
+    // built once per lens geometry.  Seed generation walks these instead of
+    // re-solving the critical-curve polynomial per source position.
+    const std::vector<std::vector<SourcePosition>>& binary_caustic_branches(
+        double separation,
+        double mass_ratio) const;
 
 private:
     void ensure_binary_caustic_cache(double separation, double mass_ratio) const;
@@ -101,10 +107,6 @@ private:
         double mass_ratio,
         SourcePosition source,
         double search_radius) const;
-    void ensure_polar_map_cache(
-        double separation,
-        double mass_ratio,
-        double source_radius) const;
     FiniteSourceResult inverse_ray_polar_binary_mag(
         double separation,
         double mass_ratio,
@@ -138,18 +140,6 @@ private:
     mutable double result_cache_source_radius_ = 0.0;
     mutable double result_cache_point_magnification_ = 0.0;
     mutable FiniteSourceResult result_cache_;
-    mutable bool polar_map_cache_valid_ = false;
-    mutable double polar_map_cache_separation_ = 0.0;
-    mutable double polar_map_cache_mass_ratio_ = 0.0;
-    mutable double polar_map_cache_source_radius_ = 0.0;
-    mutable int polar_map_cache_source_bins_ = 0;
-    mutable double polar_map_cache_grid_ratio_ = 0.0;
-    mutable double polar_map_cache_dr_ = 1.0;
-    mutable double polar_map_cache_dphi_ = 1.0;
-    mutable int polar_map_cache_phi_bins_ = 0;
-    mutable int polar_map_cache_radial_offset_min_index_ = 0;
-    mutable std::vector<int> polar_map_cache_radial_offsets_;
-    mutable std::vector<SourcePosition> polar_map_cache_;
     mutable bool limb_darkening_table_valid_ = false;
     mutable double limb_darkening_table_c_ = 0.0;
     mutable double limb_darkening_table_d_ = 0.0;
