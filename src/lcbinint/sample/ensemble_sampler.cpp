@@ -294,6 +294,54 @@ void EnsembleSampler::step(bayes::Model& model, SamplerState& state)
 }
 
 // ---------------------------------------------------------------------------
+// step (callback variant): stretch move with arbitrary log_prob function.
+// No flux tracking; caller manages GIL if log_prob_fn calls into Python.
+// ---------------------------------------------------------------------------
+
+void EnsembleSampler::step(std::function<double(const std::vector<double>&)> log_prob_fn,
+                             SamplerState& state)
+{
+    const int NW   = state.nwalkers;
+    const int ndim = state.ndim;
+    const int half = NW / 2;
+
+    auto rand01 = [&]{ return std::uniform_real_distribution<double>(0,1)(state.rng); };
+
+    std::vector<std::vector<double>> complement(half, std::vector<double>(ndim));
+    std::vector<double> cur(ndim);
+
+    for (int half_idx = 0; half_idx < 2; ++half_idx) {
+        const int begin_this = half_idx == 0 ? 0    : half;
+        const int begin_comp = half_idx == 0 ? half : 0;
+
+        for (int i = 0; i < half; ++i)
+            std::copy(state.pos_row(begin_comp + i),
+                      state.pos_row(begin_comp + i) + ndim,
+                      complement[i].begin());
+
+        for (int k = begin_this; k < begin_this + half; ++k) {
+            std::copy(state.pos_row(k), state.pos_row(k) + ndim, cur.begin());
+            auto [prop_vec, log_factor] =
+                move_->propose(cur, complement, state.rng, ndim);
+
+            const double lp_prop = log_prob_fn(prop_vec);
+            const double log_acc = log_factor + lp_prop - state.log_prob[k];
+
+            if (std::log(rand01()) <= log_acc) {
+                std::copy(prop_vec.begin(), prop_vec.end(), state.pos_row(k));
+                state.log_prob[k] = lp_prop;
+                ++state.n_accepted;
+            }
+            ++state.n_total;
+        }
+    }
+    ++state.n_step;
+
+    state.history.insert(state.history.end(), state.pos.begin(), state.pos.end());
+    state.hist_lp.insert(state.hist_lp.end(), state.log_prob.begin(), state.log_prob.end());
+}
+
+// ---------------------------------------------------------------------------
 // collect: build Chain from accumulated history in SamplerState.
 // discard: number of leading steps to skip (burn-in).
 // ---------------------------------------------------------------------------

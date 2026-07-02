@@ -5,6 +5,7 @@
 #include "stretch_move.hpp"
 #include "../bayes/model.hpp"
 #include "../optimize/result.hpp"
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -47,6 +48,11 @@ public:
 
     // Advance by one full ensemble step (updates state in-place).
     void step(bayes::Model& model, SamplerState& state);
+
+    // Variant for custom log_prob (e.g. Python reparameterization).
+    // No flux tracking; GIL management is the caller's responsibility.
+    void step(std::function<double(const std::vector<double>&)> log_prob_fn,
+              SamplerState& state);
 
     // Build a Chain from a SamplerState (copies all accumulated steps).
     // Typically called after the step loop; discard removes leading burnin rows.
