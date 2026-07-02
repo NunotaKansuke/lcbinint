@@ -283,6 +283,30 @@ void register_sample_submodule(py::module_& parent)
         py::arg("transforms")  = std::vector<std::string>{},
         py::arg("acceptance")  = 0.0);
 
+    // --- _make_state: build SamplerState from numpy arrays (Python init path) ---
+    spl.def("_make_state",
+        [](int nw, int ndim, unsigned int seed,
+           py::array_t<double, py::array::c_style> pos,  // (nw, ndim)
+           py::array_t<double, py::array::c_style> lp)   // (nw,)
+            -> lcbinint::sample::SamplerState
+        {
+            auto pb = pos.unchecked<2>();
+            auto lb = lp.unchecked<1>();
+            lcbinint::sample::SamplerState st;
+            st.nwalkers = nw; st.ndim = ndim; st.n_fluxes = 0;
+            st.pos.resize(nw * ndim);
+            st.log_prob.resize(nw);
+            for (int w = 0; w < nw; ++w) {
+                for (int j = 0; j < ndim; ++j)
+                    st.pos[w * ndim + j] = pb(w, j);
+                st.log_prob[w] = lb(w);
+            }
+            st.rng.seed(seed);
+            return st;
+        },
+        py::arg("nwalkers"), py::arg("ndim"), py::arg("seed"),
+        py::arg("pos"), py::arg("log_prob"));
+
     // --- Move hierarchy ---
     py::class_<Move, std::shared_ptr<Move>>(spl, "Move");
 
@@ -334,6 +358,20 @@ void register_sample_submodule(py::module_& parent)
                lcbinint::sample::SamplerState& state) {
                 py::gil_scoped_release release;
                 s.step(model, state);
+            },
+            py::arg("model"), py::arg("state"))
+
+        // step(py_model, state) — duck-typed overload for Reparameterization.
+        // Releases GIL for the stretch-move loop; re-acquires only for log_prob.
+        .def("step",
+            [](EnsembleSampler& s, py::object model,
+               lcbinint::sample::SamplerState& state) {
+                auto log_prob_fn = [&model](const std::vector<double>& t) -> double {
+                    py::gil_scoped_acquire g;
+                    return model.attr("log_prob")(t).cast<double>();
+                };
+                py::gil_scoped_release release;
+                s.step(log_prob_fn, state);
             },
             py::arg("model"), py::arg("state"))
 
