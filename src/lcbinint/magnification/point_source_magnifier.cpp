@@ -1118,6 +1118,23 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
             break;
         }
     }
+    // A triple lens produces 4, 6, 8 or 10 images, so an odd classification
+    // is inconsistent.  Resolve it toward the smaller residual jump: include
+    // the next candidate when its residual is close to the last accepted one,
+    // otherwise drop the worst accepted image.  Counts below 5 are left
+    // alone: they indicate a degenerate solve where forcing parity would do
+    // more harm than good.
+    if (physical_count % 2 == 1 && physical_count >= 5) {
+        const std::size_t last = static_cast<std::size_t>(physical_count) - 1;
+        const bool can_extend = static_cast<std::size_t>(physical_count) < images.size();
+        if (can_extend &&
+            images[static_cast<std::size_t>(physical_count)].residual <=
+                10.0 * (images[last].residual + absolute_tolerance)) {
+            ++physical_count;
+        } else {
+            --physical_count;
+        }
+    }
     for (std::size_t i = 0; i < images.size(); ++i) {
         images[i].physical = static_cast<int>(i) < physical_count;
     }

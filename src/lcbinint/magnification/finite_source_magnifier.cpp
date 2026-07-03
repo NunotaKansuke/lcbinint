@@ -524,6 +524,100 @@ SourcePlaneQuadratureResult triple_source_plane_quadrature(
     };
 }
 
+// Gauss-Legendre nodes/weights on [-1, 1], computed once per order via
+// Newton iteration on the Legendre recurrence and cached.
+const std::pair<std::vector<double>, std::vector<double>>& gauss_legendre_rule(int n)
+{
+    thread_local std::unordered_map<int, std::pair<std::vector<double>, std::vector<double>>>
+        cache;
+    auto it = cache.find(n);
+    if (it != cache.end()) {
+        return it->second;
+    }
+    std::vector<double> nodes(static_cast<std::size_t>(n));
+    std::vector<double> weights(static_cast<std::size_t>(n));
+    for (int i = 0; i < n; ++i) {
+        double x = std::cos(kPi * (static_cast<double>(i) + 0.75) /
+                            (static_cast<double>(n) + 0.5));
+        double dp = 0.0;
+        for (int iter = 0; iter < 100; ++iter) {
+            double p0 = 1.0;
+            double p1 = x;
+            for (int k = 2; k <= n; ++k) {
+                const double p2 =
+                    ((2.0 * k - 1.0) * x * p1 - (k - 1.0) * p0) / static_cast<double>(k);
+                p0 = p1;
+                p1 = p2;
+            }
+            dp = static_cast<double>(n) * (x * p1 - p0) / (x * x - 1.0);
+            const double dx = p1 / dp;
+            x -= dx;
+            if (std::abs(dx) < 1.0e-15) {
+                break;
+            }
+        }
+        nodes[static_cast<std::size_t>(i)] = x;
+        weights[static_cast<std::size_t>(i)] = 2.0 / ((1.0 - x * x) * dp * dp);
+    }
+    return cache.emplace(n, std::make_pair(std::move(nodes), std::move(weights)))
+        .first->second;
+}
+
+// Tensor Gauss-Legendre chord quadrature of the point-source magnification
+// over the disk.  Unlike the midpoint rings this resolves the integrable
+// spike of a small caustic sliver crossing the limb (the tangent-band
+// configuration): the nodes cluster toward the limb and the rule integrates
+// the steep smooth structure away from the sliver at spectral accuracy.
+double binary_source_plane_chord_quadrature(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    int order)
+{
+    const auto& rule = gauss_legendre_rule(order);
+    const auto& nodes = rule.first;
+    const auto& weights = rule.second;
+    std::vector<SourcePosition> row_sources(nodes.size());
+    std::vector<double> row_magnifications(nodes.size());
+    double weighted = 0.0;
+    double brightness_norm = 0.0;
+    for (std::size_t j = 0; j < nodes.size(); ++j) {
+        const double eta = nodes[j];
+        const double half_chord = std::sqrt(std::max(0.0, 1.0 - eta * eta));
+        if (half_chord <= 0.0) {
+            continue;
+        }
+        const double y = source.y + source_radius * eta;
+        for (std::size_t k = 0; k < nodes.size(); ++k) {
+            row_sources[k] = {source.x + source_radius * half_chord * nodes[k], y};
+        }
+        point_magnifier.binary_mag0_batch(
+            separation, mass_ratio, row_sources.data(), row_magnifications.data(),
+            row_sources.size());
+        double row_acc = 0.0;
+        double row_norm = 0.0;
+        for (std::size_t k = 0; k < nodes.size(); ++k) {
+            if (!std::isfinite(row_magnifications[k])) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
+            const double xi = half_chord * nodes[k];
+            const double normalized_radius2 = xi * xi + eta * eta;
+            const double brightness = source_surface_brightness(normalized_radius2, settings);
+            row_acc += weights[k] * brightness * row_magnifications[k];
+            row_norm += weights[k] * brightness;
+        }
+        weighted += weights[j] * half_chord * row_acc;
+        brightness_norm += weights[j] * half_chord * row_norm;
+    }
+    if (brightness_norm <= 0.0 || !std::isfinite(brightness_norm)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    return weighted / brightness_norm;
+}
+
 // Binary twin of triple_source_plane_quadrature: equal-area radial rings of
 // point-source magnifications.  Used for the grazing-caustic regime where the
 // caustic passes within a few source radii but never enters the disk: the
@@ -1149,14 +1243,6 @@ double high_magnification_floor_coefficient(
         diagnostics.max_jump_cells > 1000.0) {
         return 0.04;
     }
-    if (source_radius < 1.0e-2 &&
-        diagnostics.seed_count >= 16 &&
-        diagnostics.overlaps >= 8 &&
-        diagnostics.gap_repairs >= 100 &&
-        diagnostics.max_jump_cells > 1000.0 &&
-        std::abs(magnification) <= 50.0) {
-        return 0.035;
-    }
     if (source_radius < 1.0e-2 && std::abs(magnification) <= 300.0) {
         return 0.02;
     }
@@ -1186,28 +1272,21 @@ double cartesian_area_error_indicator(
         return 0.0;
     }
 
-    // The image-area scan is first-order at the mapped-source boundary.  The
-    // primary discretization error scales like boundary length times the cell
-    // spacing, which is approximated here by boundary_rows * cell_area.  Gap and
-    // overlap counts are topology warnings, not area errors, so keep their
-    // weights small and let high_magnification_floor_coefficient handle the
-    // known hard failure patterns.
+    // The scan boundary is second-order after the (t - 0.5) edge corrections,
+    // but the estimate keeps the conservative first-order boundary_rows model:
+    // near-fold cells still degrade toward first order.  Gap counts are
+    // topology warnings, not area errors, so their weight stays small.  With
+    // the claimed-cell registry cross-seed overlaps can no longer occur, so
+    // the old overlap terms are gone.
     const double gap_weight = source_radius >= 2.0e-2
         ? 0.005
         : ((source_radius < 1.0e-2 && diagnostics.seed_count >= 16) ? 0.015 : 0.03);
-    const double overlap_weight = source_radius >= 2.0e-2 ? 0.005 : 0.02;
     const double boundary_weight = source_radius >= 2.0e-2 ? 0.012 : 0.03;
     double uncertain_cells =
         boundary_weight * static_cast<double>(diagnostics.boundary_rows) +
         gap_weight * static_cast<double>(diagnostics.gap_repairs) +
-        overlap_weight * static_cast<double>(diagnostics.overlaps) +
         0.02 * static_cast<double>(std::max(0, diagnostics.fold_seed_count)) +
         0.002 * static_cast<double>(std::max(0, diagnostics.seed_count - 5));
-    if (source_radius >= 1.0e-3 && diagnostics.seed_count >= 16 && diagnostics.overlaps >= 8) {
-        const double island_weight = source_radius < 1.0e-2 ? 0.001 : 0.0005;
-        uncertain_cells += island_weight * static_cast<double>(diagnostics.seed_count) *
-                           static_cast<double>(diagnostics.overlaps);
-    }
     if (source_radius >= 1.0e-3 && diagnostics.max_jump_cells > 10.0) {
         const double jump_weight = source_radius >= 2.0e-2 ? 0.2 : 4.0;
         uncertain_cells += jump_weight * std::log10(diagnostics.max_jump_cells / 10.0);
@@ -1216,21 +1295,6 @@ double cartesian_area_error_indicator(
                              (source_radius / static_cast<double>(bins));
     const double estimate = 1.25 * uncertain_cells * cell_area / flux;
     return std::isfinite(estimate) ? estimate : 0.0;
-}
-
-bool needs_global_topology_retry(
-    const LegacyAreaDiagnostics& diagnostics,
-    double source_radius,
-    const FiniteSourceSettings& settings)
-{
-    if (settings.adaptive_source_bins == 0 || settings.source_bins >= 50 ||
-        settings.max_source_bins <= settings.source_bins || source_radius >= 1.0e-2) {
-        return false;
-    }
-    return diagnostics.seed_count >= 16 &&
-           diagnostics.overlaps >= 100 &&
-           diagnostics.gap_repairs >= 1000 &&
-           diagnostics.max_jump_cells >= 1000.0;
 }
 
 double wrap_angle(double angle)
@@ -3723,12 +3787,26 @@ FiniteSourceResult fixed_inverse_ray_binary(
     }
 
     int refinement_level = 0;
-    if (needs_global_topology_retry(diagnostics, source_radius, settings)) {
+    // Small-companion resolution guard: when the disk touches a caustic of a
+    // mass ratio q << 1, the associated image structures scale with q*theta_E
+    // and can fall below the cell size, where the scan under-resolves them
+    // (bins-dependent errors of order 1e-2 at the default 50 bins).  Escalate
+    // the resolution once so the cell is a fraction of q, and report the
+    // residual risk when max_source_bins cannot get there.
+    const double q_abs = std::abs(mass_ratio);
+    const double q_small = q_abs < 1.0 ? q_abs : (q_abs > 0.0 ? 1.0 / q_abs : 1.0);
+    const bool caustic_contact =
+        std::isfinite(caustic_distance) && caustic_distance < 2.0 * source_radius;
+    bool underresolved_companion =
+        caustic_contact && q_small < 4.0 * source_radius / nbin;
+    if (underresolved_companion) {
         FiniteSourceSettings retry_settings = settings;
         retry_settings.source_bins = std::min(
             settings.max_source_bins,
-            std::max(50, 2 * std::max(settings.source_bins, 1)));
-        if (retry_settings.source_bins > settings.source_bins) {
+            std::max(
+                2 * std::max(settings.source_bins, 1),
+                static_cast<int>(std::ceil(4.0 * source_radius / q_small))));
+        if (retry_settings.source_bins > active_source_bins) {
             LocalRefinementTape retry_tape;
             if (adaptive) {
                 retry_tape.max_samples = static_cast<std::size_t>(
@@ -3748,13 +3826,19 @@ FiniteSourceResult fixed_inverse_ray_binary(
                 scale = source_flux(source_radius, retry_settings) /
                         (source_radius * source_radius) * retry_nbin * retry_nbin;
                 refinement_level = 1;
-                decision.reason = "cartesian inverse-ray with topology retry";
+                decision.reason = "cartesian inverse-ray with companion-resolution retry";
             }
         }
+        underresolved_companion =
+            q_small < 4.0 * source_radius / static_cast<double>(active_source_bins);
     }
 
     double error_estimate = diagnostics.estimated_error;
     bool converged = true;
+    if (underresolved_companion) {
+        error_estimate = std::max(
+            error_estimate, 3.0e-3 * std::max(std::abs(magnification), 1.0));
+    }
 
     if (adaptive && !local_tape.cells.empty()) {
         std::priority_queue<LocalRefinementQueueItem> active_cells;
@@ -3848,6 +3932,9 @@ FiniteSourceResult fixed_inverse_ray_binary(
     constexpr double kConvergenceAcceptanceMargin = 0.999;
     converged = error_estimate <= kConvergenceAcceptanceMargin * target_error(magnification);
     if (adaptive && active_source_bins < 32) {
+        converged = false;
+    }
+    if (underresolved_companion) {
         converged = false;
     }
     return {magnification, 0, decision, error_estimate, refinement_level, converged};
@@ -5035,29 +5122,6 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             settings_,
             this,
             &diagnostics);
-        if (std::isfinite(cartesian_magnification) &&
-            needs_global_topology_retry(diagnostics, source_radius, settings_)) {
-            FiniteSourceSettings retry_settings = settings_;
-            retry_settings.source_bins = std::min(
-                settings_.max_source_bins,
-                std::max(50, 2 * std::max(settings_.source_bins, 1)));
-            if (retry_settings.source_bins > settings_.source_bins) {
-                LegacyAreaDiagnostics retry_diagnostics;
-                const double retry_magnification = inverse_ray_cartesian_triple_mag(
-                    point_magnifier,
-                    geometry,
-                    caustics,
-                    source,
-                    source_radius,
-                    retry_settings,
-                    this,
-                    &retry_diagnostics);
-                if (std::isfinite(retry_magnification) && retry_magnification > 0.0) {
-                    cartesian_magnification = retry_magnification;
-                    diagnostics = retry_diagnostics;
-                }
-            }
-        }
         if (std::isfinite(cartesian_magnification) && cartesian_magnification > 0.0) {
             FiniteSourceDecision decision {
                 FiniteSourceMethod::inverse_ray_cartesian,
@@ -5340,8 +5404,61 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             binary_caustic_branches(separation, mass_ratio), source, source_radius);
         const bool caustic_enters_disk =
             scan.any_vertex_inside || !scan.crossing_probes.empty();
-        tangent_band = !caustic_enters_disk &&
+        // Split the near-limb regimes by how deep the nearest polyline chord
+        // dips into the disk.  A shallow dip (or none) marks at most a tiny
+        // crossing sliver, which the chord quadrature integrates; a deep dip
+        // is a genuine crossing hidden by the polyline sag, which inverse
+        // rays with fold seeds handle better and which is flagged with the
+        // error floor below.
+        const bool chord_band = !caustic_enters_disk &&
+            scan.min_distance >= 0.95 * source_radius &&
+            scan.min_distance < 1.35 * source_radius;
+        tangent_band = !caustic_enters_disk && !chord_band &&
             std::abs(scan.min_distance - source_radius) < 0.35 * source_radius;
+        if (chord_band) {
+            // A tangent caustic can hide a crossing sliver at the limb below
+            // both the grid and the polyline resolution; inverse rays miss
+            // its flux and midpoint rings under-sample its spike.  Tensor
+            // Gauss-Legendre chord quadrature resolves it; two orders provide
+            // the error estimate, and disagreement falls back to inverse
+            // rays with the error floor below.
+            double coarse = binary_source_plane_chord_quadrature(
+                point_magnifier, separation, mass_ratio, source, source_radius,
+                settings_, 48);
+            double fine = binary_source_plane_chord_quadrature(
+                point_magnifier, separation, mass_ratio, source, source_radius,
+                settings_, 96);
+            int sample_count = 48 * 48 + 96 * 96;
+            if (std::isfinite(fine) && std::isfinite(coarse) &&
+                std::abs(fine - coarse) > 1.0e-3 * std::max(std::abs(fine), 1.0)) {
+                // The sliver spike converges slowly; one escalation usually
+                // brings the pairwise difference to a few 1e-4.
+                coarse = fine;
+                fine = binary_source_plane_chord_quadrature(
+                    point_magnifier, separation, mass_ratio, source, source_radius,
+                    settings_, 160);
+                sample_count += 160 * 160;
+            }
+            if (std::isfinite(fine) && std::isfinite(coarse)) {
+                const double error_estimate = std::abs(fine - coarse);
+                bool converged = true;
+                if (settings_.finite_source_tol > 0.0) {
+                    converged = converged &&
+                        error_estimate <= settings_.finite_source_tol;
+                }
+                if (settings_.finite_source_reltol > 0.0) {
+                    converged = converged &&
+                        error_estimate <= settings_.finite_source_reltol *
+                            std::max(std::abs(fine), 1.0e-12);
+                }
+                FiniteSourceDecision decision {
+                    FiniteSourceMethod::source_plane_quadrature,
+                    sample_count,
+                    "tangent-caustic chord quadrature",
+                };
+                return cache_and_return({fine, 0, decision, error_estimate, 0, converged});
+            }
+        }
         if (!caustic_enters_disk && scan.min_distance >= source_radius &&
             !tangent_band) {
             const int fine_bins = std::max(settings_.source_bins, 32);
@@ -5398,9 +5515,19 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     };
 
     constexpr double kPolarAutoPointMagnificationThreshold = 100.0;
+    // Small-companion structures (feature scale ~ q*theta_E) below a few
+    // grid cells are handled by the cartesian path, which can escalate its
+    // resolution; keep auto-polar out of that regime.
+    const double auto_q_abs = std::abs(mass_ratio);
+    const double auto_q_small =
+        auto_q_abs < 1.0 ? auto_q_abs : (auto_q_abs > 0.0 ? 1.0 / auto_q_abs : 1.0);
+    const bool companion_resolution_risk =
+        auto_q_small <
+        4.0 * source_radius / static_cast<double>(std::max(settings_.source_bins, 1));
     const bool auto_polar =
         settings_.finite_mode == 4 &&
-        std::abs(point_source_magnification) >= kPolarAutoPointMagnificationThreshold;
+        std::abs(point_source_magnification) >= kPolarAutoPointMagnificationThreshold &&
+        !companion_resolution_risk;
     if (settings_.finite_mode == 2 || auto_polar) {
         FiniteSourceSettings inverse_ray_settings = settings_;
         if (auto_polar) {
