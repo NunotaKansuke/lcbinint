@@ -2,15 +2,20 @@
 #include "lcbinint/lcbinint.h"
 #include "lcbinint/lc/effects.hpp"
 #include "lcbinint/lc/light_curve.hpp"
+#include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/obs/coordinates.hpp"
 #include "lcbinint/model/lens_parameters.hpp"
+#include "lcbinint/model/orbital_motion.hpp"
 #include "lcbinint/model/trajectory.hpp"
+#include "lcbinint/model/triple_lens_geometry.hpp"
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
+#include <cmath>
 #include <stdexcept>
+#include <optional>
 #include <vector>
 
 namespace py = pybind11;
@@ -18,6 +23,33 @@ namespace py = pybind11;
 struct PyLimbDarkening {
     double c = 0.0;
     double d = 0.0;
+};
+
+struct PyLightCurveInfo {
+    std::vector<double> magnifications;
+    std::vector<double> point_source_magnifications;
+    std::vector<double> finite_source_magnifications;
+    std::vector<double> source_x;
+    std::vector<double> source_y;
+    std::vector<int> image_counts;
+    std::vector<int> finite_source_methods;
+    std::vector<std::string> finite_source_method_names;
+    std::vector<double> finite_source_error_estimates;
+    std::vector<int> finite_source_refinement_levels;
+    std::vector<bool> finite_source_converged;
+    bool all_converged = true;
+    std::vector<int> unconverged_indices;
+};
+
+struct PySourceTrajectory {
+    std::vector<double> times;
+    std::vector<double> x;
+    std::vector<double> y;
+};
+
+struct PyGeometryBranches {
+    std::vector<std::vector<double>> x;
+    std::vector<std::vector<double>> y;
 };
 
 namespace {
@@ -39,15 +71,40 @@ void apply_param_type(lcbi_options& o, const std::string& pt)
     }
 }
 
+void apply_inverse_ray_grid(lcbi_options& o, const std::string& grid)
+{
+    if (grid == "cartesian") {
+        o.mode = 1;
+    } else if (grid == "polar") {
+        o.mode = 2;
+    } else if (grid == "auto") {
+        o.mode = 4;
+    } else {
+        throw std::invalid_argument("inverse_ray_grid must be 'cartesian', 'polar', or 'auto'");
+    }
+}
+
+std::string inverse_ray_grid_from_mode(int mode)
+{
+    if (mode == 1) return "cartesian";
+    if (mode == 2) return "polar";
+    if (mode == 4) return "auto";
+    return "mode_" + std::to_string(mode);
+}
+
 // Build lcbi_params from a Python dict (or py::kwargs).
 // Supports both canonical names (umin, theta, sep) and friendly aliases (u0, alpha, s).
 lcbi_params params_from_dict(const py::dict& d)
 {
     auto p = lcbi_default_params();
-    for (auto& item : d) {
-        const std::string key = item.first.cast<std::string>();
-        // Most params are double; handle int-typed ones below if needed
-        const double val = item.second.cast<double>();
+	    for (auto& item : d) {
+	        const std::string key = item.first.cast<std::string>();
+	        if (key == "orbital_motion_mode") {
+	            p.orbital_motion_mode = item.second.cast<lcbi_orbital_motion_mode>();
+	            continue;
+	        }
+	        // Most params are double; handle int-typed ones below if needed
+	        const double val = item.second.cast<double>();
         if      (key == "t0"   || key == "t_0")  p.t0    = val;
         else if (key == "tE"   || key == "t_E")  p.tE    = val;
         else if (key == "u0"   || key == "umin")  p.umin  = val;
@@ -128,7 +185,260 @@ py::array_t<double> compute(
     return vec_to_numpy(std::move(mags));
 }
 
-} // namespace
+std::string finite_source_method_name_from_int(int method)
+{
+    return lcbinint::magnification::finite_source_method_name(
+        static_cast<lcbinint::magnification::FiniteSourceMethod>(method));
+}
+
+PyLightCurveInfo compute_info(
+    const lcbinint::lc::LightCurve& lc,
+    py::array_t<double>             times,
+    const lcbi_params&              params)
+{
+    const lcbi_params p = lc.apply_coords(params);
+
+    auto buf = times.request();
+    const double* ptr = static_cast<const double*>(buf.ptr);
+    std::vector<double> tv(ptr, ptr + buf.size);
+    const int n = static_cast<int>(tv.size());
+    std::vector<lcbi_result> results(static_cast<std::size_t>(n));
+    {
+        py::gil_scoped_release release;
+        const lcbi_status status =
+            lcbi_magnification_array(tv.data(), n, &p, &lc.options(), results.data());
+        if (status != LCBI_OK) {
+            throw std::runtime_error(lcbi_status_string(status));
+        }
+    }
+
+    PyLightCurveInfo info;
+    info.magnifications.reserve(static_cast<std::size_t>(n));
+    info.point_source_magnifications.reserve(static_cast<std::size_t>(n));
+    info.finite_source_magnifications.reserve(static_cast<std::size_t>(n));
+    info.source_x.reserve(static_cast<std::size_t>(n));
+    info.source_y.reserve(static_cast<std::size_t>(n));
+    info.image_counts.reserve(static_cast<std::size_t>(n));
+    info.finite_source_methods.reserve(static_cast<std::size_t>(n));
+    info.finite_source_method_names.reserve(static_cast<std::size_t>(n));
+    info.finite_source_error_estimates.reserve(static_cast<std::size_t>(n));
+    info.finite_source_refinement_levels.reserve(static_cast<std::size_t>(n));
+    info.finite_source_converged.reserve(static_cast<std::size_t>(n));
+    for (int i = 0; i < n; ++i) {
+        const auto& result = results[static_cast<std::size_t>(i)];
+        info.magnifications.push_back(result.magnification);
+        info.point_source_magnifications.push_back(result.point_source_magnification);
+        info.finite_source_magnifications.push_back(result.finite_source_magnification);
+        info.source_x.push_back(result.source_x);
+        info.source_y.push_back(result.source_y);
+        info.image_counts.push_back(result.image_count);
+        info.finite_source_methods.push_back(result.finite_source_method);
+        info.finite_source_method_names.push_back(
+            finite_source_method_name_from_int(result.finite_source_method));
+        info.finite_source_error_estimates.push_back(result.finite_source_error_estimate);
+        info.finite_source_refinement_levels.push_back(result.finite_source_refinement_level);
+        const bool converged = result.finite_source_converged != 0;
+        info.finite_source_converged.push_back(converged);
+        if (!converged) {
+            info.all_converged = false;
+            info.unconverged_indices.push_back(i);
+        }
+	    }
+	    return info;
+	}
+
+lcbinint::magnification::FiniteSourceSettings finite_source_settings_from(
+    const lcbi_params& params,
+    const lcbi_options& options)
+{
+    lcbinint::magnification::FiniteSourceSettings settings;
+    settings.source_bins = options.source_bins;
+    settings.caustic_bins = options.caustic_bins;
+    settings.grid_ratio = options.grid_ratio;
+    settings.polar_source_bins = options.polar_source_bins;
+    settings.polar_grid_ratio = options.polar_grid_ratio;
+    settings.finite_mode = options.mode;
+    settings.kinji_threshold = options.point_source_threshold;
+    settings.hex_threshold = options.hexadecapole_threshold;
+    settings.adaptive_hex_threshold = options.adaptive_hex_threshold;
+    settings.limb_darkening_c = params.limb_darkening_c;
+    settings.limb_darkening_d = params.limb_darkening_d;
+    settings.adaptive_source_bins = options.adaptive_source_bins;
+    settings.max_source_bins = options.max_source_bins;
+    settings.finite_source_tol = options.finite_source_tol;
+    settings.finite_source_reltol = options.finite_source_reltol;
+    return settings;
+}
+
+PyGeometryBranches branches_to_python(
+    const std::vector<std::vector<lcbinint::SourcePosition>>& branches)
+{
+    PyGeometryBranches out;
+    out.x.reserve(branches.size());
+    out.y.reserve(branches.size());
+    for (const auto& branch : branches) {
+        std::vector<double> xs;
+        std::vector<double> ys;
+        xs.reserve(branch.size());
+        ys.reserve(branch.size());
+        for (const auto& point : branch) {
+            xs.push_back(point.x);
+            ys.push_back(point.y);
+        }
+        out.x.push_back(std::move(xs));
+        out.y.push_back(std::move(ys));
+    }
+    return out;
+}
+
+struct GeometryRequest {
+    std::optional<double> time;
+    int n_points = 0;
+    lcbi_params params;
+};
+
+GeometryRequest parse_geometry_request(
+    const lcbinint::lc::LightCurve& lc,
+    const py::args& args,
+    const py::kwargs& kw)
+{
+    if (args.size() > 2) {
+        throw py::type_error("expected at most time and params positional arguments");
+    }
+
+    std::optional<double> time;
+    py::dict params_dict;
+    if (kw) {
+        params_dict = py::dict(kw);
+    }
+
+    if (args.size() >= 1) {
+        py::object first = py::reinterpret_borrow<py::object>(args[0]);
+        if (py::isinstance<py::dict>(first)) {
+            params_dict = py::dict(first);
+        } else if (!first.is_none()) {
+            time = first.cast<double>();
+        }
+    }
+    if (args.size() == 2) {
+        py::object second = py::reinterpret_borrow<py::object>(args[1]);
+        if (!second.is_none()) {
+            params_dict = py::dict(second);
+        }
+    }
+
+    GeometryRequest request;
+    request.time = time;
+    if (params_dict.contains("n_points")) {
+        request.n_points = params_dict["n_points"].cast<int>();
+        params_dict.attr("pop")("n_points");
+    }
+    request.params = lc.apply_coords(params_from_dict(params_dict));
+    return request;
+}
+
+double effective_binary_separation(
+    const lcbinint::lc::LightCurve& lc,
+    const GeometryRequest& request)
+{
+    if (lc.orbital_motion() == LCBI_ORBIT_STATIC) {
+        return request.params.sep;
+    }
+    if (!request.time.has_value()) {
+        throw std::runtime_error("time is required when orbital motion is enabled");
+    }
+    const lcbinint::model::LensParameters lp =
+        lcbinint::model::from_c_params(request.params);
+    return lcbinint::model::orbital_state(lp, *request.time).separation;
+}
+
+double effective_binary_mass_ratio(
+    const lcbinint::lc::LightCurve& lc,
+    const lcbi_params& params)
+{
+    if (lc.options().vbm_compatible != 0 && params.q != 0.0) {
+        return 1.0 / params.q;
+    }
+    return params.q;
+}
+
+lcbinint::model::TripleLensGeometry effective_triple_geometry(
+    const lcbinint::lc::LightCurve& lc,
+    const lcbi_params& params)
+{
+    if (params.orbital_motion_mode != LCBI_ORBIT_STATIC) {
+        throw std::runtime_error("triple-lens caustics with orbital motion are not supported");
+    }
+    if (lc.options().vbm_compatible != 0) {
+        return lcbinint::model::make_triple_lens_geometry_vbm(
+            params.sep, params.q, params.sep2, params.ang, params.q2);
+    }
+    return lcbinint::model::make_triple_lens_geometry(
+        params.sep, params.q, params.q2, params.sep2, params.ang);
+}
+
+PyGeometryBranches geometry_branches(
+    const lcbinint::lc::LightCurve& lc,
+    const GeometryRequest& request,
+    bool critical_curves)
+{
+    auto settings = finite_source_settings_from(request.params, lc.options());
+    if (request.n_points > 0) {
+        settings.caustic_bins = request.n_points;
+    }
+    const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+    if (request.params.q2 > 0.0) {
+        const auto geometry = effective_triple_geometry(lc, request.params);
+        return branches_to_python(critical_curves
+            ? magnifier.triple_critical_curve_branches(geometry)
+            : magnifier.triple_caustic_branches(geometry));
+    }
+
+    const double separation = effective_binary_separation(lc, request);
+    const double mass_ratio = effective_binary_mass_ratio(lc, request.params);
+    return branches_to_python(critical_curves
+        ? magnifier.binary_critical_curve_branches(separation, mass_ratio)
+        : magnifier.binary_caustic_branches(separation, mass_ratio));
+}
+
+lcbinint::SourcePosition lens_frame_source_position(
+    const lcbinint::lc::LightCurve& lc,
+    const lcbi_params& params,
+    double time)
+{
+    const lcbinint::model::LensParameters lp = lcbinint::model::from_c_params(params);
+    const lcbinint::model::Trajectory traj(lp);
+    const bool vbm = lc.options().vbm_compatible != 0;
+    lcbinint::SourcePosition source =
+        traj.source_position(time, vbm, lc.options().xallarap_param_type);
+
+    if (params.orbital_motion_mode != LCBI_ORBIT_STATIC) {
+        const auto orbit = lcbinint::model::orbital_state(lp, time);
+        if (vbm) {
+            const double costheta = std::cos(params.theta);
+            const double sintheta = std::sin(params.theta);
+            double tau = 0.0;
+            double beta = 0.0;
+            if (params.piEN == 0.0 && params.piEE == 0.0) {
+                tau = (time - params.t0) / params.tE;
+                beta = params.umin;
+            } else {
+                tau = source.x * costheta + source.y * sintheta;
+                beta = -source.x * sintheta + source.y * costheta;
+            }
+            source = {
+                tau * std::cos(orbit.angle) - beta * std::sin(orbit.angle),
+                beta * std::cos(orbit.angle) + tau * std::sin(orbit.angle),
+            };
+        } else {
+            source = lcbinint::model::rotate_source_to_orbital_frame(
+                source, orbit.angle - params.theta);
+        }
+    }
+    return source;
+}
+
+	} // namespace
 
 void register_lc_submodule(py::module_& parent)
 {
@@ -150,62 +460,160 @@ void register_lc_submodule(py::module_& parent)
         .export_values();
 
     // --- Options: lcbi_options exposed directly (for power users / bayes module) ---
-    py::class_<lcbi_options>(lc, "Options")
-        .def(py::init([](
-                std::string param_type,
-                int    source_bins,
-                int    caustic_bins,
-                double grid_ratio,
-                int    mode,
-                double adaptive_hex_threshold,
-                double point_source_threshold,
-                int    polar_source_bins,
-                double polar_grid_ratio,
-                lcbi_xallarap_param_type xallarap_param_type,
-                int    parallax_mode) {
-            auto o = lcbi_default_options();
-            apply_param_type(o, param_type);
-            o.source_bins            = source_bins;
-            o.caustic_bins           = caustic_bins;
-            o.grid_ratio             = grid_ratio;
-            o.mode                   = mode;
-            o.adaptive_hex_threshold = adaptive_hex_threshold;
-            o.point_source_threshold = point_source_threshold;
-            o.polar_source_bins      = polar_source_bins;
-            o.polar_grid_ratio       = polar_grid_ratio;
-            o.xallarap_param_type    = xallarap_param_type;
-            o.parallax_mode          = parallax_mode;
-            return o;
-        }),
-            py::arg("param_type")             = "vbm",
-            py::arg("source_bins")            = lcbi_default_options().source_bins,
-            py::arg("caustic_bins")           = lcbi_default_options().caustic_bins,
-            py::arg("grid_ratio")             = lcbi_default_options().grid_ratio,
-            py::arg("mode")                   = lcbi_default_options().mode,
-            py::arg("adaptive_hex_threshold") = lcbi_default_options().adaptive_hex_threshold,
-            py::arg("point_source_threshold") = lcbi_default_options().point_source_threshold,
-            py::arg("polar_source_bins")      = 0,
-            py::arg("polar_grid_ratio")       = 0.0,
-            py::arg("xallarap_param_type")    = LCBI_XALLARAP_NONE,
-            py::arg("parallax_mode")          = 0)
-        .def_readwrite("source_bins",            &lcbi_options::source_bins)
-        .def_readwrite("caustic_bins",           &lcbi_options::caustic_bins)
-        .def_readwrite("grid_ratio",             &lcbi_options::grid_ratio)
-        .def_readwrite("mode",                   &lcbi_options::mode)
+	    py::class_<lcbi_options>(lc, "Options")
+	        .def(py::init([](
+	                std::string param_type,
+	                std::string coordinates,
+	                int    source_bins,
+	                int    nbin,
+	                int    caustic_bins,
+	                double grid_ratio,
+	                int    mode,
+	                py::object inverse_ray_grid,
+	                double adaptive_hex_threshold,
+	                double hex_tol,
+	                double point_source_threshold,
+	                double hexadecapole_threshold,
+	                int    polar_source_bins,
+	                py::object polar_nbin,
+	                double polar_grid_ratio,
+	                lcbi_xallarap_param_type xallarap_param_type,
+	                int    parallax_mode,
+	                int    adaptive_source_bins,
+	                int    max_source_bins,
+	                double finite_source_tol,
+	                double finite_source_reltol,
+	                double tol,
+	                double reltol) {
+	            auto o = lcbi_default_options();
+	            apply_param_type(o, coordinates.empty() ? param_type : coordinates);
+	            o.source_bins            = nbin > 0 ? nbin : source_bins;
+	            o.caustic_bins           = caustic_bins;
+	            o.grid_ratio             = grid_ratio;
+	            o.mode                   = mode;
+	            if (!inverse_ray_grid.is_none()) {
+	                if (py::isinstance<py::str>(inverse_ray_grid)) {
+	                    apply_inverse_ray_grid(o, inverse_ray_grid.cast<std::string>());
+	                } else {
+	                    o.mode = inverse_ray_grid.cast<int>();
+	                }
+	            }
+	            o.adaptive_hex_threshold = hex_tol >= 0.0 ? hex_tol : adaptive_hex_threshold;
+	            o.point_source_threshold = point_source_threshold;
+	            o.hexadecapole_threshold = hexadecapole_threshold;
+	            o.polar_source_bins      = polar_source_bins;
+	            if (!polar_nbin.is_none()) {
+	                o.polar_source_bins = polar_nbin.cast<int>();
+	            }
+	            o.polar_grid_ratio       = polar_grid_ratio;
+	            o.xallarap_param_type    = xallarap_param_type;
+	            o.parallax_mode          = parallax_mode;
+	            o.adaptive_source_bins   = adaptive_source_bins;
+	            o.max_source_bins        = max_source_bins;
+	            o.finite_source_tol      = finite_source_tol;
+	            o.finite_source_reltol   = finite_source_reltol;
+	            if (tol > 0.0) {
+	                o.finite_source_tol = tol;
+	            }
+	            if (reltol > 0.0) {
+	                o.finite_source_reltol = reltol;
+	            }
+	            return o;
+	        }),
+	            py::arg("param_type")             = "vbm",
+	            py::arg("coordinates")            = "",
+	            py::arg("source_bins")            = lcbi_default_options().source_bins,
+	            py::arg("nbin")                   = 0,
+	            py::arg("caustic_bins")           = lcbi_default_options().caustic_bins,
+	            py::arg("grid_ratio")             = lcbi_default_options().grid_ratio,
+	            py::arg("mode")                   = lcbi_default_options().mode,
+	            py::arg("inverse_ray_grid")       = py::none(),
+	            py::arg("adaptive_hex_threshold") = lcbi_default_options().adaptive_hex_threshold,
+	            py::arg("hex_tol")                = -1.0,
+	            py::arg("point_source_threshold") = lcbi_default_options().point_source_threshold,
+	            py::arg("hexadecapole_threshold") = lcbi_default_options().hexadecapole_threshold,
+	            py::arg("polar_source_bins")      = 0,
+	            py::arg("polar_nbin")             = py::none(),
+	            py::arg("polar_grid_ratio")       = 0.0,
+	            py::arg("xallarap_param_type")    = LCBI_XALLARAP_NONE,
+	            py::arg("parallax_mode")          = 0,
+	            py::arg("adaptive_source_bins")   = lcbi_default_options().adaptive_source_bins,
+	            py::arg("max_source_bins")        = lcbi_default_options().max_source_bins,
+	            py::arg("finite_source_tol")      = lcbi_default_options().finite_source_tol,
+	            py::arg("finite_source_reltol")   = lcbi_default_options().finite_source_reltol,
+	            py::arg("tol")                    = 0.0,
+	            py::arg("reltol")                 = 0.0)
+	        .def_readwrite("source_bins",            &lcbi_options::source_bins)
+	        .def_property("nbin",
+	            [](const lcbi_options& o) { return o.source_bins; },
+	            [](lcbi_options& o, int value) { o.source_bins = value; })
+	        .def_readwrite("caustic_bins",           &lcbi_options::caustic_bins)
+	        .def_readwrite("grid_ratio",             &lcbi_options::grid_ratio)
+	        .def_readwrite("mode",                   &lcbi_options::mode)
+	        .def_property("_mode",
+	            [](const lcbi_options& o) { return o.mode; },
+	            [](lcbi_options& o, int value) { o.mode = value; })
         .def_property("param_type",
             [](const lcbi_options& o) -> std::string {
                 if (o.vbm_compatible != 0 && o.center_of_mass == 0) return "vbm";
                 if (o.vbm_compatible != 0 && o.center_of_mass != 0) return "vbm_center_of_mass";
                 if (o.vbm_compatible == 0 && o.center_of_mass != 0) return "center_of_mass";
                 return "lcbinint";
-            },
-            [](lcbi_options& o, const std::string& pt) { apply_param_type(o, pt); })
-        .def_readwrite("adaptive_hex_threshold", &lcbi_options::adaptive_hex_threshold)
-        .def_readwrite("point_source_threshold", &lcbi_options::point_source_threshold)
-        .def_readwrite("polar_source_bins",      &lcbi_options::polar_source_bins)
-        .def_readwrite("polar_grid_ratio",       &lcbi_options::polar_grid_ratio)
-        .def_readwrite("parallax_mode",          &lcbi_options::parallax_mode)
-        .def_readwrite("xallarap_param_type",    &lcbi_options::xallarap_param_type)
+	            },
+	            [](lcbi_options& o, const std::string& pt) { apply_param_type(o, pt); })
+	        .def_property("coordinates",
+	            [](const lcbi_options& o) -> std::string {
+	                if (o.vbm_compatible != 0 && o.center_of_mass == 0) return "vbm";
+	                if (o.vbm_compatible != 0 && o.center_of_mass != 0) return "vbm_center_of_mass";
+	                if (o.vbm_compatible == 0 && o.center_of_mass != 0) return "center_of_mass";
+	                return "lcbinint";
+	            },
+	            [](lcbi_options& o, const std::string& pt) { apply_param_type(o, pt); })
+	        .def_property("inverse_ray_grid",
+	            [](const lcbi_options& o) { return inverse_ray_grid_from_mode(o.mode); },
+	            [](lcbi_options& o, const std::string& grid) { apply_inverse_ray_grid(o, grid); })
+	        .def_readwrite("adaptive_hex_threshold", &lcbi_options::adaptive_hex_threshold)
+	        .def_property("hex_tol",
+	            [](const lcbi_options& o) { return o.adaptive_hex_threshold; },
+	            [](lcbi_options& o, double value) { o.adaptive_hex_threshold = value; })
+	        .def_readwrite("point_source_threshold", &lcbi_options::point_source_threshold)
+	        .def_readwrite("hexadecapole_threshold", &lcbi_options::hexadecapole_threshold)
+	        .def_property("polar_source_bins",
+	            [](const lcbi_options& o) -> py::object {
+	                if (o.polar_source_bins <= 0) return py::none();
+	                return py::int_(o.polar_source_bins);
+	            },
+	            [](lcbi_options& o, py::object value) {
+	                o.polar_source_bins = value.is_none() ? 0 : value.cast<int>();
+	            })
+	        .def_property("polar_nbin",
+	            [](const lcbi_options& o) -> py::object {
+	                if (o.polar_source_bins <= 0) return py::none();
+	                return py::int_(o.polar_source_bins);
+	            },
+	            [](lcbi_options& o, py::object value) {
+	                o.polar_source_bins = value.is_none() ? 0 : value.cast<int>();
+	            })
+	        .def_property("polar_grid_ratio",
+	            [](const lcbi_options& o) -> py::object {
+	                if (o.polar_grid_ratio <= 0.0) return py::none();
+	                return py::float_(o.polar_grid_ratio);
+	            },
+	            [](lcbi_options& o, py::object value) {
+	                o.polar_grid_ratio = value.is_none() ? 0.0 : value.cast<double>();
+	            })
+	        .def_readwrite("parallax_mode",          &lcbi_options::parallax_mode)
+	        .def_readwrite("xallarap_param_type",    &lcbi_options::xallarap_param_type)
+	        .def_readwrite("adaptive_source_bins",   &lcbi_options::adaptive_source_bins)
+	        .def_readwrite("max_source_bins",        &lcbi_options::max_source_bins)
+	        .def_readwrite("finite_source_tol",      &lcbi_options::finite_source_tol)
+	        .def_readwrite("finite_source_reltol",   &lcbi_options::finite_source_reltol)
+	        .def_property("tol",
+	            [](const lcbi_options& o) { return o.finite_source_tol; },
+	            [](lcbi_options& o, double value) { o.finite_source_tol = value; })
+	        .def_property("reltol",
+	            [](const lcbi_options& o) { return o.finite_source_reltol; },
+	            [](lcbi_options& o, double value) { o.finite_source_reltol = value; })
         .def("__repr__", [](const lcbi_options& o) {
             std::string pt;
             if (o.vbm_compatible != 0 && o.center_of_mass == 0) pt = "vbm";
@@ -236,11 +644,49 @@ void register_lc_submodule(py::module_& parent)
                 + " d=" + std::to_string(ld.d) + ">";
         });
 
-    // --- Parameters: lcbi_params exposed directly (for power users / bayes module) ---
-    py::class_<lcbi_params>(lc, "Parameters")
-        .def(py::init([]() { return lcbi_default_params(); }))
-        .def(py::init([](
-                double t0, double tE, double u0, double alpha,
+	    py::class_<PyLightCurveInfo>(lc, "LightCurveInfo")
+	        .def_readonly("magnifications", &PyLightCurveInfo::magnifications)
+        .def_readonly("point_source_magnifications", &PyLightCurveInfo::point_source_magnifications)
+        .def_readonly("finite_source_magnifications", &PyLightCurveInfo::finite_source_magnifications)
+        .def_readonly("source_x", &PyLightCurveInfo::source_x)
+        .def_readonly("source_y", &PyLightCurveInfo::source_y)
+        .def_readonly("image_counts", &PyLightCurveInfo::image_counts)
+        .def_readonly("finite_source_methods", &PyLightCurveInfo::finite_source_methods)
+        .def_readonly("finite_source_method_names", &PyLightCurveInfo::finite_source_method_names)
+        .def_readonly("finite_source_error_estimates", &PyLightCurveInfo::finite_source_error_estimates)
+        .def_readonly("finite_source_refinement_levels", &PyLightCurveInfo::finite_source_refinement_levels)
+        .def_readonly("finite_source_converged", &PyLightCurveInfo::finite_source_converged)
+	        .def_readonly("all_converged", &PyLightCurveInfo::all_converged)
+	        .def_readonly("unconverged_indices", &PyLightCurveInfo::unconverged_indices);
+
+	    py::class_<PySourceTrajectory>(lc, "SourceTrajectory")
+	        .def_readonly("times", &PySourceTrajectory::times)
+	        .def_readonly("x", &PySourceTrajectory::x)
+	        .def_readonly("y", &PySourceTrajectory::y)
+	        .def("__getitem__", [](const PySourceTrajectory& t, const std::string& key) -> py::object {
+	            if (key == "times") return py::cast(t.times);
+	            if (key == "x") return py::cast(t.x);
+	            if (key == "y") return py::cast(t.y);
+	            throw py::key_error("SourceTrajectory: unknown key '" + key + "'");
+	        });
+
+	    py::class_<PyGeometryBranches>(lc, "GeometryBranches")
+	        .def_readonly("x", &PyGeometryBranches::x)
+	        .def_readonly("y", &PyGeometryBranches::y)
+	        .def("__getitem__", [](const PyGeometryBranches& b, const std::string& key) -> py::object {
+	            if (key == "x") return py::cast(b.x);
+	            if (key == "y") return py::cast(b.y);
+	            throw py::key_error("GeometryBranches: unknown key '" + key + "'");
+	        });
+
+	    // --- Parameters: lcbi_params exposed directly (for power users / bayes module) ---
+	    py::class_<lcbi_params>(lc, "Parameters")
+	        .def(py::init([]() { return lcbi_default_params(); }))
+	        .def(py::init([](py::kwargs kw) {
+	            return params_from_dict(py::dict(kw));
+	        }))
+	        .def(py::init([](
+	                double t0, double tE, double u0, double alpha,
                 double s, double q, double rho,
                 double piEN, double piEE,
                 double q2, double sep2, double ang,
@@ -265,9 +711,12 @@ void register_lc_submodule(py::module_& parent)
             py::arg("lom_szs") = 0.0, py::arg("lom_ar") = 1.0)
         .def_property("t0",    [](const lcbi_params& p){ return p.t0; },    [](lcbi_params& p, double v){ p.t0 = v; })
         .def_property("tE",    [](const lcbi_params& p){ return p.tE; },    [](lcbi_params& p, double v){ p.tE = v; })
-        .def_property("u0",    [](const lcbi_params& p){ return p.umin; },  [](lcbi_params& p, double v){ p.umin = v; })
-        .def_property("alpha", [](const lcbi_params& p){ return p.theta; }, [](lcbi_params& p, double v){ p.theta = v; })
-        .def_property("s",     [](const lcbi_params& p){ return p.sep; },   [](lcbi_params& p, double v){ p.sep = v; })
+	        .def_property("u0",    [](const lcbi_params& p){ return p.umin; },  [](lcbi_params& p, double v){ p.umin = v; })
+	        .def_property("alpha", [](const lcbi_params& p){ return p.theta; }, [](lcbi_params& p, double v){ p.theta = v; })
+	        .def_property("s",     [](const lcbi_params& p){ return p.sep; },   [](lcbi_params& p, double v){ p.sep = v; })
+	        .def_property("umin",  [](const lcbi_params& p){ return p.umin; },  [](lcbi_params& p, double v){ p.umin = v; })
+	        .def_property("theta", [](const lcbi_params& p){ return p.theta; }, [](lcbi_params& p, double v){ p.theta = v; })
+	        .def_property("sep",   [](const lcbi_params& p){ return p.sep; },   [](lcbi_params& p, double v){ p.sep = v; })
         .def_readwrite("q",    &lcbi_params::q)
         .def_readwrite("rho",  &lcbi_params::rho)
         .def_readwrite("q2",   &lcbi_params::q2)
@@ -507,15 +956,41 @@ unless terrestrial is explicitly set to True.)")
             for (auto& item : kw) {
                 const std::string key = item.first.cast<std::string>();
                 // --- Options (numerics) ---
-                if      (key == "source_bins")            o.source_bins            = item.second.cast<int>();
-                else if (key == "caustic_bins")           o.caustic_bins           = item.second.cast<int>();
-                else if (key == "param_type")             apply_param_type(o, item.second.cast<std::string>());
-                else if (key == "adaptive_hex_threshold") o.adaptive_hex_threshold = item.second.cast<double>();
-                else if (key == "parallax_mode")          o.parallax_mode          = item.second.cast<int>();
-                else if (key == "mode")                   o.mode                   = item.second.cast<int>();
-                else if (key == "grid_ratio")             o.grid_ratio             = item.second.cast<double>();
-                else if (key == "point_source_threshold") o.point_source_threshold = item.second.cast<double>();
-                else if (key == "options")                o = item.second.cast<lcbi_options>();
+	                if      (key == "source_bins")            o.source_bins            = item.second.cast<int>();
+	                else if (key == "nbin")                   o.source_bins            = item.second.cast<int>();
+	                else if (key == "caustic_bins")           o.caustic_bins           = item.second.cast<int>();
+	                else if (key == "param_type")             apply_param_type(o, item.second.cast<std::string>());
+	                else if (key == "coordinates")            apply_param_type(o, item.second.cast<std::string>());
+	                else if (key == "adaptive_hex_threshold") o.adaptive_hex_threshold = item.second.cast<double>();
+	                else if (key == "hex_tol")                o.adaptive_hex_threshold = item.second.cast<double>();
+	                else if (key == "parallax_mode")          o.parallax_mode          = item.second.cast<int>();
+	                else if (key == "mode")                   o.mode                   = item.second.cast<int>();
+	                else if (key == "_mode")                  o.mode                   = item.second.cast<int>();
+	                else if (key == "inverse_ray_grid") {
+	                    if (py::isinstance<py::str>(item.second)) {
+	                        apply_inverse_ray_grid(o, item.second.cast<std::string>());
+	                    } else {
+	                        o.mode = item.second.cast<int>();
+	                    }
+	                }
+	                else if (key == "grid_ratio")             o.grid_ratio             = item.second.cast<double>();
+	                else if (key == "point_source_threshold") o.point_source_threshold = item.second.cast<double>();
+	                else if (key == "hexadecapole_threshold") o.hexadecapole_threshold = item.second.cast<double>();
+	                else if (key == "polar_source_bins" || key == "polar_nbin") {
+	                    auto obj = py::reinterpret_borrow<py::object>(item.second);
+	                    o.polar_source_bins = obj.is_none() ? 0 : obj.cast<int>();
+	                }
+	                else if (key == "polar_grid_ratio") {
+	                    auto obj = py::reinterpret_borrow<py::object>(item.second);
+	                    o.polar_grid_ratio = obj.is_none() ? 0.0 : obj.cast<double>();
+	                }
+	                else if (key == "adaptive_source_bins")   o.adaptive_source_bins   = item.second.cast<int>();
+	                else if (key == "max_source_bins")        o.max_source_bins        = item.second.cast<int>();
+	                else if (key == "finite_source_tol")      o.finite_source_tol      = item.second.cast<double>();
+	                else if (key == "finite_source_reltol")   o.finite_source_reltol   = item.second.cast<double>();
+	                else if (key == "tol")                    o.finite_source_tol      = item.second.cast<double>();
+	                else if (key == "reltol")                 o.finite_source_reltol   = item.second.cast<double>();
+	                else if (key == "options")                o = item.second.cast<lcbi_options>();
                 // --- LimbDarkening ---
                 else if (key == "ld_c" || key == "limb_darkening_c") ld.c = item.second.cast<double>();
                 else if (key == "ld_d" || key == "limb_darkening_d") ld.d = item.second.cast<double>();
@@ -624,38 +1099,86 @@ unless terrestrial is explicitly set to True.)")
             },
             py::arg("times"))
 
-        // source_trajectory(times, **params)
-        // Returns {"x": array, "y": array} in the lens-plane frame.
-        // All active effects (parallax, xallarap) are applied.
-        .def("source_trajectory",
-            [](const LC& lc, py::array_t<double> times, py::kwargs kw) -> py::dict {
-                const lcbi_params p = lc.apply_coords(params_from_dict(py::dict(kw)));
-                const lcbinint::model::LensParameters lp = lcbinint::model::from_c_params(p);
-                const lcbinint::model::Trajectory traj(lp);
-                const bool vbm = lc.options().vbm_compatible != 0;
-                const lcbi_xallarap_param_type xa = lc.options().xallarap_param_type;
-
-                auto buf = times.request();
-                const double* ptr = static_cast<const double*>(buf.ptr);
-                const int n = static_cast<int>(buf.size);
-
-                std::vector<double> xs(n), ys(n);
-                {
-                    py::gil_scoped_release release;
-                    for (int i = 0; i < n; ++i) {
-                        const auto pos = traj.source_position(ptr[i], vbm, xa);
-                        xs[i] = pos.x;
-                        ys[i] = pos.y;
-                    }
+        // .info() returns diagnostics in addition to magnification.
+        .def("info",
+            [&](const LC& lc, py::array_t<double> times, const lcbi_params& params) {
+                if (lc.source_kind() == SKind::single) return compute_info(lc, times, params);
+                throw std::runtime_error(
+                    "source='binary': LightCurve.info currently supports single-source only");
+                return PyLightCurveInfo{};
+            },
+            py::arg("times"), py::arg("params"))
+        .def("info",
+            [&](const LC& lc, py::array_t<double> times, py::dict d) {
+                if (lc.source_kind() == SKind::single) {
+                    return compute_info(lc, times, params_from_dict(d));
                 }
-                py::dict result;
-                result["x"] = vec_to_numpy(std::move(xs));
-                result["y"] = vec_to_numpy(std::move(ys));
-                return result;
-            }, py::arg("times"),
-            "Compute source trajectory in the lens-plane frame.\n"
-            "Applies all active effects (parallax, xallarap).\n"
-            "Returns dict with 'x' and 'y' numpy arrays (Einstein ring units).")
+                throw std::runtime_error(
+                    "source='binary': LightCurve.info currently supports single-source only");
+                return PyLightCurveInfo{};
+            },
+            py::arg("times"), py::arg("params"))
+	        .def("info",
+	            [&](const LC& lc, py::array_t<double> times, py::kwargs kw) {
+	                if (lc.source_kind() == SKind::single) {
+	                    py::dict d(kw);
+	                    return compute_info(lc, times, params_from_dict(d));
+                }
+                throw std::runtime_error(
+                    "source='binary': LightCurve.info currently supports single-source only");
+                return PyLightCurveInfo{};
+	            },
+	            py::arg("times"))
+
+	        .def("separation",
+	            [](const LC& lc, py::args args, py::kwargs kw) {
+	                return effective_binary_separation(
+	                    lc, parse_geometry_request(lc, args, kw));
+	            },
+	            "Effective binary separation. time is required only when orbital motion is enabled.")
+
+	        .def("caustics",
+	            [](const LC& lc, py::args args, py::kwargs kw) {
+	                return geometry_branches(
+	                    lc, parse_geometry_request(lc, args, kw), false);
+	            },
+	            "Return caustic branch polylines. time is required only with orbital motion.")
+
+	        .def("critical_curves",
+	            [](const LC& lc, py::args args, py::kwargs kw) {
+	                return geometry_branches(
+	                    lc, parse_geometry_request(lc, args, kw), true);
+	            },
+	            "Return critical-curve branch polylines. time is required only with orbital motion.")
+
+	        // source_trajectory(times, **params)
+	        // Returns SourceTrajectory in the lens-plane frame.
+	        // All active effects (parallax, xallarap) are applied.
+	        .def("source_trajectory",
+	            [](const LC& lc, py::object times_obj, py::kwargs kw) -> PySourceTrajectory {
+	                const lcbi_params p = lc.apply_coords(params_from_dict(py::dict(kw)));
+	                py::array_t<double, py::array::forcecast> times(times_obj);
+	                auto buf = times.request();
+	                const double* ptr = static_cast<const double*>(buf.ptr);
+	                const int n = static_cast<int>(buf.size);
+
+	                PySourceTrajectory result;
+	                result.times.assign(ptr, ptr + n);
+	                result.x.resize(n);
+	                result.y.resize(n);
+	                {
+	                    py::gil_scoped_release release;
+	                    for (int i = 0; i < n; ++i) {
+	                        const auto pos = lens_frame_source_position(lc, p, ptr[i]);
+	                        result.x[i] = pos.x;
+	                        result.y[i] = pos.y;
+	                    }
+	                }
+	                return result;
+	            }, py::arg("times"),
+	            "Compute source trajectory in the lens-plane frame.\n"
+	            "Applies all active effects (parallax, xallarap).\n"
+	            "Returns SourceTrajectory with times, x, and y lists (Einstein ring units).")
 
         .def("__repr__", [](const LC& lc) {
             const auto& o = lc.options();

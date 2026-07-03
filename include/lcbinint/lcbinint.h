@@ -113,6 +113,7 @@ typedef struct lcbi_result {
     double source_x;
     double source_y;
     int image_count;
+    int finite_source_method;
     double finite_source_error_estimate;
     int finite_source_refinement_level;
     int finite_source_converged;

@@ -18,6 +18,12 @@ except ImportError:
     HAS_VBM = False
 
 
+def configure_vbm_triple_method(vbb):
+    """Use VBM's fast polynomial solver for multiple-lens roots when available."""
+    if hasattr(vbb, "SetMethod") and hasattr(vbb, "Multipoly"):
+        vbb.SetMethod(vbb.Multipoly)
+
+
 # ---------------------------------------------------------------------------
 # VBM geometry helpers (legacy_edges convention — identical to triple_reference_compare.py)
 # ---------------------------------------------------------------------------
@@ -66,6 +72,7 @@ def vbm_triple_finite(sx, sy, s, q, q2, sep2, ang, rho, tol=1e-5):
         geom[2], geom[3], geom[4], geom[5], geom[6], geom[7],
     ]
     vbb = VBMicrolensing.VBMicrolensing()
+    configure_vbm_triple_method(vbb)
     vbb.Tol = tol
     vbb.RelTol = 0.0
     result = vbb.TripleLightCurve(params, [-vbm_source.real])
@@ -74,12 +81,13 @@ def vbm_triple_finite(sx, sy, s, q, q2, sep2, ang, rho, tol=1e-5):
 
 def lcbi_finite(sx, sy, s, q, q2, sep2, ang, rho, source_bins=64, caustic_bins=1400,
                 inverse_ray_grid="auto"):
+    mode_by_grid = {"cartesian": 1, "polar": 2, "auto": 4}
     lc = lcbinint.LightCurve(
         lens="triple_lens",
         options=lcbinint.Options(
             source_bins=source_bins,
             caustic_bins=caustic_bins,
-            inverse_ray_grid=inverse_ray_grid,
+            mode=mode_by_grid[inverse_ray_grid],
         ),
     )
     params = {
@@ -179,11 +187,11 @@ def section_speed():
     print("=" * 75)
 
     lc_auto = lcbinint.LightCurve(lens="triple_lens",
-                                   options=lcbinint.Options(inverse_ray_grid="auto"))
+                                   options=lcbinint.Options(mode=4))
     lc_cart = lcbinint.LightCurve(lens="triple_lens",
-                                   options=lcbinint.Options(inverse_ray_grid="cartesian"))
+                                   options=lcbinint.Options(mode=1))
     lc_pol  = lcbinint.LightCurve(lens="triple_lens",
-                                   options=lcbinint.Options(inverse_ray_grid="polar"))
+                                   options=lcbinint.Options(mode=2))
     lc_bin  = lcbinint.LightCurve(lens="binary_lens")
 
     triple_cases = [

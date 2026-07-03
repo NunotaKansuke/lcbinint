@@ -94,6 +94,13 @@ public:
     const std::vector<std::vector<SourcePosition>>& binary_caustic_branches(
         double separation,
         double mass_ratio) const;
+    std::vector<std::vector<SourcePosition>> binary_critical_curve_branches(
+        double separation,
+        double mass_ratio) const;
+    std::vector<std::vector<SourcePosition>> triple_caustic_branches(
+        const model::TripleLensGeometry& geometry) const;
+    std::vector<std::vector<SourcePosition>> triple_critical_curve_branches(
+        const model::TripleLensGeometry& geometry) const;
 
 private:
     void ensure_binary_caustic_cache(double separation, double mass_ratio) const;

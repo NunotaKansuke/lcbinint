@@ -59,6 +59,12 @@ LIMB_DARKENING = lcbinint.LimbDarkening.linear(0.5)
 TIMING_REPEATS = 7
 
 
+def configure_vbm_triple_method(vbm):
+    """Use VBM's fast polynomial solver for multiple-lens roots when available."""
+    if hasattr(vbm, "SetMethod") and hasattr(vbm, "Multipoly"):
+        vbm.SetMethod(vbm.Multipoly)
+
+
 def _vbm_array(p: dict) -> list:
     """Convert params dict to VBM's TripleLightCurve log-parameter array."""
     return [
@@ -93,6 +99,7 @@ def evaluate_vbm(limb_darkening_gamma: float):
         return None, np.full_like(TIMES, np.nan), np.nan, []
 
     vbm = VBMicrolensing.VBMicrolensing()
+    configure_vbm_triple_method(vbm)
     vbm.Tol = 1.0e-3
     vbm.a1 = limb_darkening_gamma
     vbm.a2 = 0.0
@@ -140,20 +147,36 @@ def main():
         values = [ms_per_point(sample) for sample in samples]
         return f"median={statistics.median(values):.4f} min={min(values):.4f} max={max(values):.4f}"
 
-    print("limb-darkened finite-source light curve")
-    print(f"lcbinint: {ms_per_point(lc_no_ld_time):.4f} ms/point")
-    if np.isfinite(vbm_no_ld_time):
-        print(f"VBM     : {ms_per_point(vbm_no_ld_time):.4f} ms/point")
+    def print_comparison(label, lc_values, lc_time, lc_samples, vbm_values, vbm_time, vbm_samples):
+        print(label)
+        print(f"lcbinint: {ms_per_point(lc_time):.4f} ms/point")
+        if not np.isfinite(vbm_time):
+            print("VBM     : not installed")
+            return
+        print(f"VBM     : {ms_per_point(vbm_time):.4f} ms/point")
         print("timing spread")
-        print(f"  lcbinint: {spread(lc_no_ld_samples)}")
-        print(f"  VBM     : {spread(vbm_no_ld_samples)}")
+        print(f"  lcbinint: {spread(lc_samples)}")
+        print(f"  VBM     : {spread(vbm_samples)}")
+        summary = error_summary(vbm_values, lc_values)
         print(
             "relative error vs VBM: "
-            f"max={error_summary(vbm_no_ld, lc_no_ld)['max']:.3e}, "
-            f"p99={error_summary(vbm_no_ld, lc_no_ld)['p99']:.3e}, "
-            f"median={error_summary(vbm_no_ld, lc_no_ld)['median']:.3e}, "
-            f"rms={error_summary(vbm_no_ld, lc_no_ld)['rms']:.3e}"
+            f"max={summary['max']:.3e}, "
+            f"p99={summary['p99']:.3e}, "
+            f"median={summary['median']:.3e}, "
+            f"rms={summary['rms']:.3e}"
         )
+        print()
+
+    print_comparison(
+        "uniform finite-source light curve",
+        lc_no_ld, lc_no_ld_time, lc_no_ld_samples,
+        vbm_no_ld, vbm_no_ld_time, vbm_no_ld_samples,
+    )
+    print_comparison(
+        "linear limb-darkened finite-source light curve",
+        lc_ld, lc_ld_time, lc_ld_samples,
+        vbm_ld, vbm_ld_time, vbm_ld_samples,
+    )
     fig = plt.figure(figsize=(8.0, 5.2), constrained_layout=True)
     grid = fig.add_gridspec(2, 1, height_ratios=[2.0, 1.0])
     ax_mag = fig.add_subplot(grid[0])

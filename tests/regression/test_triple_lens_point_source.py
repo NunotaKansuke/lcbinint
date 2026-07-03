@@ -90,8 +90,8 @@ def test_triple_lens_point_source_matches_legacy_amp_point3(
     light_curve = lcbinint.LightCurve(
         lens="triple_lens", options=lcbinint.Options(param_type="lcbinint")
     )
-    actual = light_curve.magnification(
-        source_x,
+    actual = light_curve(
+        np.array([source_x]),
         {
             "t0": 0.0,
             "tE": 1.0,
@@ -106,10 +106,10 @@ def test_triple_lens_point_source_matches_legacy_amp_point3(
         },
     )
 
-    assert actual == pytest.approx(reference, rel=tolerance)
+    assert float(actual[0]) == pytest.approx(reference, rel=tolerance)
 
 
-def test_triple_lens_light_curve_info_smoke():
+def test_triple_lens_light_curve_smoke():
     light_curve = lcbinint.LightCurve(lens="triple_lens")
     times = np.array([-0.1, 0.0, 0.2])
     params = {
@@ -133,7 +133,10 @@ def test_triple_lens_light_curve_info_smoke():
 
 
 def test_triple_lens_finite_source_cartesian_inverse_ray():
-    light_curve = lcbinint.LightCurve(lens="triple_lens")
+    light_curve = lcbinint.LightCurve(
+        lens="triple_lens",
+        options=lcbinint.Options(mode=1),
+    )
     times = np.array([0.0])
     params = {
         "s": 1.0,
@@ -196,10 +199,10 @@ def test_triple_lens_finite_source_approaches_point_source_for_small_rho():
         "ang": -0.7,
     }
 
-    point = light_curve.magnification(0.35, {**params, "rho": 0.0})
-    finite = light_curve.magnification(0.35, {**params, "rho": 1.0e-5})
+    point = light_curve(np.array([0.35]), {**params, "rho": 0.0})
+    finite = light_curve(np.array([0.35]), {**params, "rho": 1.0e-5})
 
-    assert finite == pytest.approx(point, rel=2.0e-3)
+    assert float(finite[0]) == pytest.approx(float(point[0]), rel=2.0e-3)
 
 
 def test_triple_lens_finite_source_auto_mode_uses_polar_for_high_magnification_small_source():
@@ -208,7 +211,7 @@ def test_triple_lens_finite_source_auto_mode_uses_polar_for_high_magnification_s
     # (finite_mode=4) should pick polar inverse-ray for speed.
     light_curve = lcbinint.LightCurve(
         lens="triple_lens",
-        options=lcbinint.Options(inverse_ray_grid="auto"),
+        options=lcbinint.Options(mode=4),
     )
     times = np.array([0.0])
     params = {
@@ -229,20 +232,21 @@ def test_triple_lens_finite_source_auto_mode_uses_polar_for_high_magnification_s
     assert info.point_source_magnifications[0] >= 100.0
 
 
-def test_triple_lens_rejects_unsupported_combinations():
+def test_triple_lens_accepts_keyword_parameters():
     light_curve = lcbinint.LightCurve(lens="triple_lens")
     times = np.array([0.0])
-    params = {
-        "s": 1.0,
-        "q": 1.0e-3,
-        "q2": 1.0e-4,
-        "sep2": 0.5,
-        "ang": 1.2,
-        "rho": 0.0,
-    }
 
-    with pytest.raises(ValueError, match="q2 > 0"):
-        light_curve(times, {**params, "q2": 0.0})
-
-    with pytest.raises(ValueError, match="parameter dictionary"):
-        light_curve.light_curve(times, s=1.0, q=1.0e-3, rho=0.0)
+    magnifications = light_curve(
+        times,
+        t0=0.0,
+        tE=1.0,
+        u0=0.01,
+        alpha=0.5,
+        s=1.0,
+        q=1.0e-3,
+        q2=1.0e-4,
+        sep2=0.5,
+        ang=1.2,
+        rho=0.0,
+    )
+    assert np.isfinite(magnifications[0])

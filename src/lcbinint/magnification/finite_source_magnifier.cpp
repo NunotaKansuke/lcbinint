@@ -460,6 +460,26 @@ std::vector<SourcePosition> triple_caustic_points_at_phase(
     return points;
 }
 
+std::vector<SourcePosition> triple_critical_curve_points_at_phase(
+    const model::TripleLensGeometry& geometry,
+    double phase_angle)
+{
+    math::PolynomialRootSolver solver;
+    const auto roots = solver.solve(triple_critical_curve_polynomial_coefficients(
+        geometry,
+        std::polar(1.0, phase_angle)));
+    if (roots.status != math::RootSolverStatus::ok) {
+        return {};
+    }
+
+    std::vector<SourcePosition> points;
+    points.reserve(roots.roots.size());
+    for (const auto& root : roots.roots) {
+        points.push_back({root.real(), root.imag()});
+    }
+    return points;
+}
+
 struct SourcePlaneQuadratureResult {
     double magnification = std::numeric_limits<double>::quiet_NaN();
     int sample_count = 0;
@@ -727,6 +747,26 @@ std::vector<SourcePosition> caustic_points_at_phase(
     for (const auto& root : roots.roots) {
         points.push_back(point_magnifier.binary_lens_equation(
             separation, mass_ratio, {root.real(), root.imag()}));
+    }
+    return points;
+}
+
+std::vector<SourcePosition> critical_curve_points_at_phase(
+    double separation,
+    double mass_ratio,
+    double phase_angle)
+{
+    const Complex phase = std::polar(1.0, phase_angle);
+    math::PolynomialRootSolver solver;
+    const auto roots = solver.solve(critical_curve_polynomial_coefficients(separation, mass_ratio, phase));
+    if (roots.status != math::RootSolverStatus::ok) {
+        return {};
+    }
+
+    std::vector<SourcePosition> points;
+    points.reserve(roots.roots.size());
+    for (const auto& root : roots.roots) {
+        points.push_back({root.real(), root.imag()});
     }
     return points;
 }
@@ -4756,6 +4796,46 @@ FiniteSourceMagnifier::binary_caustic_branches(
 {
     ensure_binary_caustic_cache(separation, mass_ratio);
     return caustic_cache_branches_;
+}
+
+std::vector<std::vector<SourcePosition>>
+FiniteSourceMagnifier::binary_critical_curve_branches(
+    double separation,
+    double mass_ratio) const
+{
+    const int bins = std::max(settings_.caustic_bins, 32);
+    std::vector<std::vector<SourcePosition>> branches(4);
+    for (int i = 0; i < bins; ++i) {
+        const double phase_angle = 2.0 * kPi * static_cast<double>(i) /
+                                   static_cast<double>(bins);
+        append_tracked_caustic_points(
+            branches, critical_curve_points_at_phase(separation, mass_ratio, phase_angle));
+    }
+    return branches;
+}
+
+std::vector<std::vector<SourcePosition>>
+FiniteSourceMagnifier::triple_caustic_branches(
+    const model::TripleLensGeometry& geometry) const
+{
+    return build_triple_caustic_branches(
+        geometry,
+        std::max(settings_.caustic_bins, 32)).branches;
+}
+
+std::vector<std::vector<SourcePosition>>
+FiniteSourceMagnifier::triple_critical_curve_branches(
+    const model::TripleLensGeometry& geometry) const
+{
+    const int bins = std::max(settings_.caustic_bins, 32);
+    std::vector<std::vector<SourcePosition>> branches(6);
+    for (int i = 0; i < bins; ++i) {
+        const double phase_angle = 2.0 * kPi * static_cast<double>(i) /
+                                   static_cast<double>(bins);
+        append_tracked_caustic_points(
+            branches, triple_critical_curve_points_at_phase(geometry, phase_angle));
+    }
+    return branches;
 }
 
 double FiniteSourceMagnifier::binary_caustic_distance(

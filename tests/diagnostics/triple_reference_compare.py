@@ -17,6 +17,12 @@ import numpy as np
 DEFAULT_LEGACY_C = Path("/moao38_7/nunota/binfit/integral/lcbinint.c")
 
 
+def configure_vbm_triple_method(vbb):
+    """Use VBM's fast polynomial solver for multiple-lens roots when available."""
+    if hasattr(vbb, "SetMethod") and hasattr(vbb, "Multipoly"):
+        vbb.SetMethod(vbb.Multipoly)
+
+
 @dataclasses.dataclass(frozen=True)
 class Case:
     name: str
@@ -198,6 +204,7 @@ def vbm_value(case: Case, convention: str, tol: float, include_finite: bool) -> 
     except ImportError:
         return None
     vbb = VBMicrolensing.VBMicrolensing()
+    configure_vbm_triple_method(vbb)
     vbb.Tol = tol
     vbb.RelTol = 0.0
     geometry_params, vbm_source = vbm_geometry_params(case, convention)

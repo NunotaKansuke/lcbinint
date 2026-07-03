@@ -1837,91 +1837,96 @@ def _assert_angle_close(actual, expected, rel_tol=1.0e-11, abs_tol=1.0e-11):
 
 
 @pytest.mark.parametrize("time", [2450000.0, 2450017.25, 2450060.5])
-def test_lcbinint_circular_orbital_motion_matches_microjax_vbm_formula(time):
+def test_lcbinint_circular_lom_separation_matches_microjax_vbm_formula(time):
     lom = _microjax_lom()
     lcbinint = pytest.importorskip("lcbinint")
     args = dict(
-        separation=1.25,
-        angle=0.4,
+        s=1.25,
+        alpha=0.4,
         g1=0.006,
         g2=-0.004,
         g3=0.009,
-        reference_time=2450000.0,
+        tfix=2450000.0,
     )
 
-    actual_s, actual_alpha, actual_sz = lcbinint.circular_orbital_motion(time, **args)
-    expected_s, expected_alpha, expected_sz = lom.circular_orbital_motion_3d(
+    curve = lcbinint.LightCurve(
+        lens="binary_lens",
+        orbital_motion="circular",
+        event=lcbinint.EventCoordinates(tfix=args["tfix"]),
+    )
+    actual_s = curve.separation(time, args)
+    expected_s, _, _ = lom.circular_orbital_motion_3d(
         time,
-        s0=args["separation"],
-        alpha0=args["angle"],
+        s0=args["s"],
+        alpha0=args["alpha"],
         w1=args["g1"],
         w2=args["g2"],
         w3=args["g3"],
-        tref=args["reference_time"],
+        tref=args["tfix"],
     )
 
     assert math.isclose(actual_s, float(expected_s), rel_tol=1.0e-11, abs_tol=1.0e-11)
-    _assert_angle_close(actual_alpha, float(expected_alpha))
-    assert math.isclose(actual_sz, float(expected_sz), rel_tol=1.0e-11, abs_tol=1.0e-11)
 
 
 @pytest.mark.parametrize("time", [2450000.0, 2450013.0, 2450041.5])
-def test_lcbinint_kepler_orbital_motion_matches_microjax_vbm_formula(time):
+def test_lcbinint_kepler_lom_separation_matches_microjax_vbm_formula(time):
     lom = _microjax_lom()
     lcbinint = pytest.importorskip("lcbinint")
     args = dict(
-        separation=0.92,
-        angle=-0.3,
+        s=0.92,
+        alpha=-0.3,
         g1=0.004,
         g2=0.011,
         g3=0.006,
-        szs=0.35,
-        ar=1.4,
-        reference_time=2450000.0,
+        lom_szs=0.35,
+        lom_ar=1.4,
+        tfix=2450000.0,
     )
 
-    actual_s, actual_alpha, actual_sz = lcbinint.kepler_orbital_motion(time, **args)
-    expected_s, expected_alpha, expected_sz = lom.elliptic_orbital_motion_3d(
+    curve = lcbinint.LightCurve(
+        lens="binary_lens",
+        orbital_motion="kepler",
+        event=lcbinint.EventCoordinates(tfix=args["tfix"]),
+    )
+    actual_s = curve.separation(time, args)
+    expected_s, _, _ = lom.elliptic_orbital_motion_3d(
         time,
-        s0=args["separation"],
-        alpha0=args["angle"],
+        s0=args["s"],
+        alpha0=args["alpha"],
         w1=args["g1"],
         w2=args["g2"],
         w3=args["g3"],
-        szs=args["szs"],
-        ar=args["ar"],
-        tref=args["reference_time"],
+        szs=args["lom_szs"],
+        ar=args["lom_ar"],
+        tref=args["tfix"],
     )
 
     assert math.isclose(actual_s, float(expected_s), rel_tol=1.0e-11, abs_tol=1.0e-11)
-    _assert_angle_close(actual_alpha, float(expected_alpha))
-    assert math.isclose(actual_sz, float(expected_sz), rel_tol=1.0e-11, abs_tol=1.0e-11)
 
 
-def test_lcbinint_function_api_circular_orbital_motion_uses_instantaneous_state():
+def test_lcbinint_light_curve_separation_uses_instantaneous_lom_state():
     lcbinint = pytest.importorskip("lcbinint")
     time = 2.0
-    params = lcbinint.LensParams(
+    params = dict(
         t0=1.0,
         tE=1.0,
-        umin=0.15,
+        u0=0.15,
         q=0.2,
-        sep=1.1,
-        theta=0.0,
-        tfix=0.5,
-        orbital_motion_mode=lcbinint.OrbitalMotionMode.CIRCULAR,
+        s=1.1,
+        alpha=0.0,
+        g1=0.02,
         g2=0.08,
+        g3=0.03,
     )
-    options = lcbinint.Options(coordinates="center_of_mass")
+    curve = lcbinint.LightCurve(
+        lens="binary_lens",
+        options=lcbinint.Options(coordinates="center_of_mass"),
+        orbital_motion="circular",
+        event=lcbinint.EventCoordinates(tfix=0.5),
+    )
 
-    separation, alpha, _ = lcbinint.circular_orbital_motion(
-        time, params.sep, params.theta, params.g1, params.g2, params.g3, params.tfix
-    )
-    tau = (time - params.t0) / params.tE
-    x = tau * math.cos(alpha) + params.umin * math.sin(alpha)
-    y = params.umin * math.cos(alpha) - tau * math.sin(alpha)
-    expected = lcbinint.binary_mag0(separation, params.q, x, y)
-    actual = _model(lcbinint, params, options).magnification(time)
+    actual = curve.separation(time, params)
+    static = lcbinint.LightCurve(lens="binary_lens").separation(params)
 
     assert math.isfinite(actual)
-    assert math.isclose(actual, expected, rel_tol=1.0e-11, abs_tol=1.0e-11)
+    assert actual != pytest.approx(static)

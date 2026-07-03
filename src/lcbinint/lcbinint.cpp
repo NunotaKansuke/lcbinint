@@ -15,6 +15,7 @@ void copy_result(const lcbinint::MagnificationResult &from, lcbi_result &to)
     to.source_x = from.source.x;
     to.source_y = from.source.y;
     to.image_count = from.image_count;
+    to.finite_source_method = from.finite_source_method;
     to.finite_source_error_estimate = from.finite_source_error_estimate;
     to.finite_source_refinement_level = from.finite_source_refinement_level;
     to.finite_source_converged = from.finite_source_converged ? 1 : 0;
