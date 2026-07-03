@@ -12,6 +12,14 @@ namespace lcbinint::magnification {
 struct PointSourceResult {
     double magnification = 0.0;
     int image_count = 0;
+    int root_candidate_count = 0;
+    int root_duplicate_count = 0;
+    int root_polish_failure_count = 0;
+    int root_used_warm_start = 0;
+    int root_used_cold_retry = 0;
+    int root_used_high_precision = 0;
+    int root_needs_high_precision = 0;
+    double root_max_residual = 0.0;
 };
 
 struct PointSourceDerivativeResult {
@@ -101,6 +109,7 @@ private:
     mutable model::TripleLensGeometry triple_candidate_cache_geometry_ {};
     mutable SourcePosition triple_candidate_cache_source_ {};
     mutable std::vector<TripleImageCandidate> triple_candidate_cache_;
+    mutable PointSourceResult triple_candidate_cache_diagnostics_ {};
 };
 
 } // namespace lcbinint::magnification

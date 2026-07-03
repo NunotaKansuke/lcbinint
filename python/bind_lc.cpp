@@ -37,6 +37,14 @@ struct PyLightCurveInfo {
     std::vector<double> finite_source_error_estimates;
     std::vector<int> finite_source_refinement_levels;
     std::vector<bool> finite_source_converged;
+    std::vector<int> root_candidate_counts;
+    std::vector<int> root_duplicate_counts;
+    std::vector<int> root_polish_failure_counts;
+    std::vector<int> root_used_warm_start;
+    std::vector<int> root_used_cold_retry;
+    std::vector<int> root_used_high_precision;
+    std::vector<int> root_needs_high_precision;
+    std::vector<double> root_max_residuals;
     bool all_converged = true;
     std::vector<int> unconverged_indices;
 };
@@ -224,6 +232,14 @@ PyLightCurveInfo compute_info(
     info.finite_source_error_estimates.reserve(static_cast<std::size_t>(n));
     info.finite_source_refinement_levels.reserve(static_cast<std::size_t>(n));
     info.finite_source_converged.reserve(static_cast<std::size_t>(n));
+    info.root_candidate_counts.reserve(static_cast<std::size_t>(n));
+    info.root_duplicate_counts.reserve(static_cast<std::size_t>(n));
+    info.root_polish_failure_counts.reserve(static_cast<std::size_t>(n));
+    info.root_used_warm_start.reserve(static_cast<std::size_t>(n));
+    info.root_used_cold_retry.reserve(static_cast<std::size_t>(n));
+    info.root_used_high_precision.reserve(static_cast<std::size_t>(n));
+    info.root_needs_high_precision.reserve(static_cast<std::size_t>(n));
+    info.root_max_residuals.reserve(static_cast<std::size_t>(n));
     for (int i = 0; i < n; ++i) {
         const auto& result = results[static_cast<std::size_t>(i)];
         info.magnifications.push_back(result.magnification);
@@ -237,6 +253,14 @@ PyLightCurveInfo compute_info(
             finite_source_method_name_from_int(result.finite_source_method));
         info.finite_source_error_estimates.push_back(result.finite_source_error_estimate);
         info.finite_source_refinement_levels.push_back(result.finite_source_refinement_level);
+        info.root_candidate_counts.push_back(result.root_candidate_count);
+        info.root_duplicate_counts.push_back(result.root_duplicate_count);
+        info.root_polish_failure_counts.push_back(result.root_polish_failure_count);
+        info.root_used_warm_start.push_back(result.root_used_warm_start);
+        info.root_used_cold_retry.push_back(result.root_used_cold_retry);
+        info.root_used_high_precision.push_back(result.root_used_high_precision);
+        info.root_needs_high_precision.push_back(result.root_needs_high_precision);
+        info.root_max_residuals.push_back(result.root_max_residual);
         const bool converged = result.finite_source_converged != 0;
         info.finite_source_converged.push_back(converged);
         if (!converged) {
@@ -656,6 +680,14 @@ void register_lc_submodule(py::module_& parent)
         .def_readonly("finite_source_error_estimates", &PyLightCurveInfo::finite_source_error_estimates)
         .def_readonly("finite_source_refinement_levels", &PyLightCurveInfo::finite_source_refinement_levels)
         .def_readonly("finite_source_converged", &PyLightCurveInfo::finite_source_converged)
+        .def_readonly("root_candidate_counts", &PyLightCurveInfo::root_candidate_counts)
+        .def_readonly("root_duplicate_counts", &PyLightCurveInfo::root_duplicate_counts)
+        .def_readonly("root_polish_failure_counts", &PyLightCurveInfo::root_polish_failure_counts)
+        .def_readonly("root_used_warm_start", &PyLightCurveInfo::root_used_warm_start)
+        .def_readonly("root_used_cold_retry", &PyLightCurveInfo::root_used_cold_retry)
+        .def_readonly("root_used_high_precision", &PyLightCurveInfo::root_used_high_precision)
+        .def_readonly("root_needs_high_precision", &PyLightCurveInfo::root_needs_high_precision)
+        .def_readonly("root_max_residuals", &PyLightCurveInfo::root_max_residuals)
 	        .def_readonly("all_converged", &PyLightCurveInfo::all_converged)
 	        .def_readonly("unconverged_indices", &PyLightCurveInfo::unconverged_indices);
 

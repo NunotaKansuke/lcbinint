@@ -130,6 +130,13 @@ def test_triple_lens_light_curve_smoke():
     assert np.all(np.isfinite(info.magnifications))
     assert info.magnifications == pytest.approx(info.point_source_magnifications)
     assert min(info.image_counts) > 0
+    assert len(info.root_candidate_counts) == len(times)
+    assert min(info.root_candidate_counts) >= min(info.image_counts)
+    assert len(info.root_max_residuals) == len(times)
+    assert max(info.root_max_residuals) < 1.0e-7
+    assert set(info.root_needs_high_precision) <= {0, 1}
+    assert set(info.root_used_high_precision) <= {0, 1}
+    assert not any(info.root_used_high_precision)
 
 
 def test_triple_lens_finite_source_cartesian_inverse_ray():

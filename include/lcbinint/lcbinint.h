@@ -117,6 +117,14 @@ typedef struct lcbi_result {
     double finite_source_error_estimate;
     int finite_source_refinement_level;
     int finite_source_converged;
+    int root_candidate_count;
+    int root_duplicate_count;
+    int root_polish_failure_count;
+    int root_used_warm_start;
+    int root_used_cold_retry;
+    int root_used_high_precision;
+    int root_needs_high_precision;
+    double root_max_residual;
 } lcbi_result;
 
 lcbi_params lcbi_default_params(void);

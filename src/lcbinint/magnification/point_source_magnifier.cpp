@@ -606,6 +606,50 @@ static SourcePosition polish_triple_image_root(
     return z;
 }
 
+static SourcePosition polish_triple_image_root_high_precision(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    SourcePosition z)
+{
+    constexpr int kMaxIter = 80;
+    constexpr long double kTol = 1.0e-18L;
+    long double zx = static_cast<long double>(z.x);
+    long double zy = static_cast<long double>(z.y);
+    const long double source_x = static_cast<long double>(source.x);
+    const long double source_y = static_cast<long double>(source.y);
+    for (int iter = 0; iter < kMaxIter; ++iter) {
+        long double sx = 0.0L, sy = 0.0L, dxx = 0.0L, dxy = 0.0L;
+        for (std::size_t i = 0; i < geometry.lens_positions.size(); ++i) {
+            const long double lens_x = static_cast<long double>(geometry.lens_positions[i].x);
+            const long double lens_y = static_cast<long double>(geometry.lens_positions[i].y);
+            const long double mass = static_cast<long double>(geometry.masses[i]);
+            const long double dx = zx - lens_x;
+            const long double dy = zy - lens_y;
+            const long double d2 = dx * dx + dy * dy;
+            if (d2 == 0.0L) {
+                return z;
+            }
+            const long double d4 = d2 * d2;
+            sx += mass * dx / d2;
+            sy += mass * dy / d2;
+            dxx += mass * (dy * dy - dx * dx) / d4;
+            dxy += mass * 2.0L * dx * dy / d4;
+        }
+        const long double fx = zx - sx - source_x;
+        const long double fy = zy - sy - source_y;
+        if ((fx < 0.0L ? -fx : fx) + (fy < 0.0L ? -fy : fy) < kTol) { break; }
+        const long double j00 = 1.0L - dxx;
+        const long double j01 = dxy;
+        const long double j11 = 1.0L + dxx;
+        const long double det = j00 * j11 - j01 * j01;
+        const long double abs_det = det < 0.0L ? -det : det;
+        if (abs_det < 1.0e-35L) { break; }
+        zx -= (j11 * fx - j01 * fy) / det;
+        zy -= (j00 * fy - j01 * fx) / det;
+    }
+    return {static_cast<double>(zx), static_cast<double>(zy)};
+}
+
 double triple_residual(
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
@@ -942,6 +986,24 @@ bool triple_geometry_equals(
     return true;
 }
 
+PointSourceResult triple_diagnostics_from_candidates(
+    const std::vector<TripleImageCandidate>& candidates)
+{
+    PointSourceResult diagnostics;
+    diagnostics.root_candidate_count = static_cast<int>(candidates.size());
+    for (const auto& candidate : candidates) {
+        diagnostics.root_max_residual =
+            std::max(diagnostics.root_max_residual, candidate.residual);
+        if (candidate.residual > 1.0e-7) {
+            ++diagnostics.root_polish_failure_count;
+        }
+        if (candidate.physical) {
+            ++diagnostics.image_count;
+        }
+    }
+    return diagnostics;
+}
+
 PointSourceResult PointSourceMagnifier::triple_mag0(
     const model::TripleLensGeometry& geometry,
     SourcePosition source) const
@@ -961,7 +1023,10 @@ PointSourceResult PointSourceMagnifier::triple_mag0(
         magnification += 1.0 / std::abs(candidate.jacobian_determinant);
         ++image_count;
     }
-    return {magnification, image_count};
+    auto result = triple_candidate_cache_diagnostics_;
+    result.magnification = magnification;
+    result.image_count = image_count;
+    return result;
 }
 
 PointSourceDerivativeResult PointSourceMagnifier::triple_mag0_with_derivatives(
@@ -1016,22 +1081,33 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
 {
     const auto coefficients = triple_polynomial_coefficients(geometry, source);
     constexpr int kTripleDegree = 10;
+    PointSourceResult diagnostics;
 
     // Polish each root on the true lens equation, then deduplicate.
     // Multiple spurious starting points can converge to the same physical image;
     // deduplication ensures each image is counted once.
     constexpr double kDedupTol2 = 1.0e-16;  // squared distance threshold
     std::vector<TripleImageCandidate> images;
-    const auto collect_candidates = [&](const Complex* roots, std::size_t count) {
+    std::vector<Complex> solved_roots;
+    const auto collect_candidates = [&](const Complex* roots, std::size_t count, bool high_precision) {
         images.clear();
         images.reserve(count);
+        diagnostics.root_duplicate_count = 0;
+        diagnostics.root_polish_failure_count = 0;
+        diagnostics.root_max_residual = 0.0;
+        if (high_precision) {
+            diagnostics.root_used_high_precision = 1;
+        }
         for (std::size_t k = 0; k < count; ++k) {
             const Complex root = roots[k];
             if (!std::isfinite(root.real()) || !std::isfinite(root.imag())) {
+                ++diagnostics.root_polish_failure_count;
                 continue;
             }
-            const SourcePosition z_polished = polish_triple_image_root(
-                geometry, source, SourcePosition{root.real(), root.imag()});
+            const SourcePosition z0 {root.real(), root.imag()};
+            const SourcePosition z_polished = high_precision
+                ? polish_triple_image_root_high_precision(geometry, source, z0)
+                : polish_triple_image_root(geometry, source, z0);
             bool is_dup = false;
             for (const auto& existing : images) {
                 const double ddx = z_polished.x - existing.position.x;
@@ -1041,14 +1117,22 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
                     break;
                 }
             }
-            if (is_dup) { continue; }
+            if (is_dup) {
+                ++diagnostics.root_duplicate_count;
+                continue;
+            }
             const Complex z_cmplx {z_polished.x, z_polished.y};
             const double residual = triple_residual(geometry, source, z_cmplx);
+            diagnostics.root_max_residual = std::max(diagnostics.root_max_residual, residual);
+            if (!std::isfinite(residual) || residual > 1.0e-7) {
+                ++diagnostics.root_polish_failure_count;
+            }
             images.push_back({z_polished,
                 triple_jacobian_determinant(geometry, z_cmplx),
                 residual,
                 false});
         }
+        diagnostics.root_candidate_count = static_cast<int>(images.size());
     };
 
     if (static_cast<int>(coefficients.size()) == kTripleDegree + 1 &&
@@ -1074,28 +1158,35 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
             cmplx_roots_gen(
                 warm_roots.data(), sg_coefficients.data(), kTripleDegree, true,
                 use_starting_points);
+            solved_roots.clear();
+            solved_roots.reserve(static_cast<std::size_t>(kTripleDegree));
             for (int k = 0; k < kTripleDegree; ++k) {
                 roots[static_cast<std::size_t>(k)] = {
                     warm_roots[static_cast<std::size_t>(k)].re,
                     warm_roots[static_cast<std::size_t>(k)].im};
+                solved_roots.push_back(roots[static_cast<std::size_t>(k)]);
             }
         };
         const bool warm =
             warm_valid && same_triple_basis_geometry(warm_geometry, geometry);
+        diagnostics.root_used_warm_start = warm ? 1 : 0;
         run_solve(warm);
-        collect_candidates(roots.data(), roots.size());
+        collect_candidates(roots.data(), roots.size(), false);
         if (warm && images.size() < static_cast<std::size_t>(kTripleDegree)) {
             run_solve(false);
-            collect_candidates(roots.data(), roots.size());
+            diagnostics.root_used_cold_retry = 1;
+            collect_candidates(roots.data(), roots.size(), false);
         }
         warm_geometry = geometry;
         warm_valid = true;
     } else {
         const auto roots = math::PolynomialRootSolver().solve(coefficients);
         if (roots.status != math::RootSolverStatus::ok) {
+            triple_candidate_cache_diagnostics_ = diagnostics;
             return {};
         }
-        collect_candidates(roots.roots.data(), roots.roots.size());
+        solved_roots.assign(roots.roots.begin(), roots.roots.end());
+        collect_candidates(roots.roots.data(), roots.roots.size(), false);
     }
     std::sort(images.begin(), images.end(), [](const auto& lhs, const auto& rhs) {
         return lhs.residual < rhs.residual;
@@ -1135,9 +1226,57 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
             --physical_count;
         }
     }
+    const bool suspicious =
+        diagnostics.root_polish_failure_count > 0 ||
+        physical_count < 4 ||
+        physical_count > kTripleDegree ||
+        physical_count % 2 != 0;
+    if (suspicious && diagnostics.root_used_high_precision == 0) {
+        diagnostics.root_needs_high_precision = 1;
+        collect_candidates(solved_roots.data(), solved_roots.size(), true);
+        std::sort(images.begin(), images.end(), [](const auto& lhs, const auto& rhs) {
+            return lhs.residual < rhs.residual;
+        });
+        physical_count = 0;
+        for (const auto& image : images) {
+            if (image.residual <= absolute_tolerance) {
+                ++physical_count;
+            }
+        }
+        if (physical_count == 0 && !images.empty()) {
+            physical_count = 1;
+        }
+        for (std::size_t i = 1; i < images.size(); ++i) {
+            if (images[i].residual * relative_gap > images[i - 1].residual + absolute_tolerance) {
+                physical_count = std::max(physical_count, static_cast<int>(i));
+                break;
+            }
+        }
+        if (physical_count % 2 == 1 && physical_count >= 5) {
+            const std::size_t last = static_cast<std::size_t>(physical_count) - 1;
+            const bool can_extend = static_cast<std::size_t>(physical_count) < images.size();
+            if (can_extend &&
+                images[static_cast<std::size_t>(physical_count)].residual <=
+                    10.0 * (images[last].residual + absolute_tolerance)) {
+                ++physical_count;
+            } else {
+                --physical_count;
+            }
+        }
+    }
     for (std::size_t i = 0; i < images.size(); ++i) {
         images[i].physical = static_cast<int>(i) < physical_count;
     }
+    auto final_diagnostics = triple_diagnostics_from_candidates(images);
+    final_diagnostics.root_duplicate_count = diagnostics.root_duplicate_count;
+    final_diagnostics.root_polish_failure_count = diagnostics.root_polish_failure_count;
+    final_diagnostics.root_used_warm_start = diagnostics.root_used_warm_start;
+    final_diagnostics.root_used_cold_retry = diagnostics.root_used_cold_retry;
+    final_diagnostics.root_used_high_precision = diagnostics.root_used_high_precision;
+    final_diagnostics.root_needs_high_precision = diagnostics.root_needs_high_precision;
+    final_diagnostics.root_max_residual =
+        std::max(final_diagnostics.root_max_residual, diagnostics.root_max_residual);
+    triple_candidate_cache_diagnostics_ = final_diagnostics;
     return images;
 }
 

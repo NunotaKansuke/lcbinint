@@ -131,6 +131,14 @@ MagnificationResult LensModel::magnification(double time) const
         const auto point = point_magnifier_.triple_mag0(geometry, source);
         result.point_source_magnification = point.magnification;
         result.image_count = point.image_count;
+        result.root_candidate_count = point.root_candidate_count;
+        result.root_duplicate_count = point.root_duplicate_count;
+        result.root_polish_failure_count = point.root_polish_failure_count;
+        result.root_used_warm_start = point.root_used_warm_start;
+        result.root_used_cold_retry = point.root_used_cold_retry;
+        result.root_used_high_precision = point.root_used_high_precision;
+        result.root_needs_high_precision = point.root_needs_high_precision;
+        result.root_max_residual = point.root_max_residual;
         if (params_.rho == 0.0) {
             result.magnification = point.magnification;
             result.finite_source_magnification = point.magnification;
