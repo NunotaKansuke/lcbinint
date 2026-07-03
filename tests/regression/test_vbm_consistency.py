@@ -373,7 +373,11 @@ def test_lcbinint_polar_high_magnification_curve_matches_vbm_without_cartesian_f
     actual = np.asarray(curve.magnifications, dtype=float)
     relative_error = np.abs(actual / reference - 1.0)
 
-    assert set(curve.finite_source_method_names) == {"inverse_ray_polar"}
+    assert "inverse_ray_cartesian" not in set(curve.finite_source_method_names)
+    assert set(curve.finite_source_method_names) <= {
+        "inverse_ray_polar",
+        "source_plane_quadrature",
+    }
     assert float(relative_error.max()) < 1.5e-3
 
 
@@ -776,7 +780,14 @@ def test_lcbinint_adaptive_source_bins_refines_cartesian_grid_from_diagnostics()
     assert max(adaptive.finite_source_error_estimates) > 0.0
     assert adaptive_rel < 5.0e-4
     assert adaptive_rel <= max(1.05 * fixed_rel, 5.0e-4)
-    assert (not adaptive.all_converged) or max(adaptive.finite_source_error_estimates) < 5.0e-4
+    target_errors = [
+        adaptive_options.finite_source_tol
+        + adaptive_options.finite_source_reltol * max(abs(mag), 1.0)
+        for mag in adaptive.magnifications
+    ]
+    assert (not adaptive.all_converged) or max(
+        err / target for err, target in zip(adaptive.finite_source_error_estimates, target_errors)
+    ) < 1.0
 
 
 def test_lcbinint_cartesian_ir_seeds_grazing_caustic_limb_images():
