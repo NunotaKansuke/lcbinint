@@ -20,10 +20,12 @@ if not hasattr(LimbDarkening, "quadratic"):
 
 
 class EventCoordinates:
-    def __init__(self, ra=0.0, dec=0.0, tfix=0.0):
+    def __init__(self, ra=0.0, dec=0.0, tfix=0.0, obs_lat=0.0, obs_lon=0.0):
         self.ra = ra
         self.dec = dec
         self.tfix = tfix
+        self.obs_lat = obs_lat
+        self.obs_lon = obs_lon
 
 
 class _LightCurveInfoCompat:
@@ -62,10 +64,16 @@ class LightCurve:
         self.lens = kwargs.get("lens", "binary_lens")
         self.limb_darkening = kwargs.get("limb_darkening", LimbDarkening.none())
         self.parallax = bool(kwargs.get("parallax", False))
+        terrestrial_parallax = kwargs.pop("terrestrial_parallax", None)
+        if terrestrial_parallax is not None:
+            kwargs["terrestrial"] = bool(terrestrial_parallax)
         if orbital_motion_mode is not None:
             kwargs["orbital_motion"] = _orbital_motion_name(orbital_motion_mode)
         if event is not None:
             kwargs.setdefault("t_ref", event.tfix)
+            kwargs.setdefault("sky", obs.SkyCoord(event.ra, event.dec))
+            if getattr(event, "obs_lat", 0.0) != 0.0 or getattr(event, "obs_lon", 0.0) != 0.0:
+                kwargs.setdefault("site", obs.Site(event.obs_lat, event.obs_lon))
         self._native = _NativeLightCurve(*args, **kwargs)
 
     def _with_event(self, params):
@@ -154,6 +162,7 @@ def _split_light_curve_kwargs(kwargs):
     options = kwargs.pop("options", None) or Options()
     limb_darkening = kwargs.pop("limb_darkening", None) or LimbDarkening.none()
     event = kwargs.pop("event", None)
+    terrestrial_parallax = kwargs.pop("terrestrial_parallax", False)
     orbital_motion_mode = kwargs.get("orbital_motion_mode", OrbitalMotionMode.STATIC)
     if event is not None:
         kwargs.setdefault("ra", event.ra)
@@ -162,9 +171,13 @@ def _split_light_curve_kwargs(kwargs):
     effects = {
         "orbital_motion": _orbital_motion_name(orbital_motion_mode),
         "parallax": abs(kwargs.get("piEN", 0.0)) > 0.0 or abs(kwargs.get("piEE", 0.0)) > 0.0,
+        "terrestrial": bool(terrestrial_parallax),
     }
     if event is not None:
         effects["event"] = event
+        effects["sky"] = obs.SkyCoord(event.ra, event.dec)
+        if getattr(event, "obs_lat", 0.0) != 0.0 or getattr(event, "obs_lon", 0.0) != 0.0:
+            effects["site"] = obs.Site(event.obs_lat, event.obs_lon)
     return options, limb_darkening, effects, kwargs
 
 
