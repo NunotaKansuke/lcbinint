@@ -1,4 +1,5 @@
-build*/
+/build*/
+build_debug/
 *.egg-info/
 __pycache__/
 *.py[cod]
