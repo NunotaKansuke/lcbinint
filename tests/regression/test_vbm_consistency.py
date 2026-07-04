@@ -104,11 +104,9 @@ def _api_kwargs(lcbinint, params, options):
             c=params.limb_darkening_c,
             d=params.limb_darkening_d,
         ),
-        event=lcbinint.EventCoordinates(
-            ra=params.ra,
-            dec=params.dec,
-            tfix=params.tfix,
-        ),
+        ra=params.ra,
+        dec=params.dec,
+        tfix=params.tfix,
         options=options,
         piEN=params.piEN,
         piEE=params.piEE,
@@ -1335,7 +1333,8 @@ def test_lcbinint_parallax_callable_geometry_source_trajectory_is_available():
     lcbinint = pytest.importorskip("lcbinint")
 
     func = lcbinint.LightCurve(
-        event=lcbinint.EventCoordinates(ra=267.6, dec=-29.1, tfix=2459000.0),
+        sky=lcbinint.obs.SkyCoord(267.6, -29.1),
+        t_ref=2459000.0,
         parallax=True,
     )
 
@@ -1424,15 +1423,15 @@ def test_lcbinint_light_curve_func_matches_high_level_api():
 
     times = np.asarray([-0.1, -0.02, 0.0, 0.03, 0.1])
     options = lcbinint.Options(coordinates="vbm", source_bins=50, reltol=1.0e-3)
-    event = lcbinint.EventCoordinates(ra=267.6, dec=-29.1, tfix=2459000.0)
     limb_darkening = lcbinint.LimbDarkening.linear(0.5)
 
     func = lcbinint.LightCurve(
         lens="binary_lens",
-        event=event,
         options=options,
         limb_darkening=limb_darkening,
         orbital_motion_mode=lcbinint.OrbitalMotionMode.STATIC,
+        sky=lcbinint.obs.SkyCoord(267.6, -29.1),
+        t_ref=2459000.0,
     )
     kwargs = dict(
         t0=0.0,
@@ -1446,16 +1445,18 @@ def test_lcbinint_light_curve_func_matches_high_level_api():
 
     expected = lcbinint.light_curve(
         times,
-        event=event,
         options=options,
         limb_darkening=limb_darkening,
+        ra=267.6,
+        dec=-29.1,
+        tfix=2459000.0,
         **kwargs,
     )
     actual = func(times, **kwargs)
     actual_from_dict = func(times, kwargs)
 
     assert func.lens == "binary_lens"
-    assert func.event.ra == pytest.approx(event.ra)
+    assert func.sky.ra_deg == pytest.approx(267.6)
     assert func.options.source_bins == options.source_bins
     assert func.limb_darkening.c == pytest.approx(0.5)
     assert not func.parallax
@@ -1480,15 +1481,15 @@ def test_lcbinint_parallax_light_curve_func_matches_high_level_api():
 
     times = np.asarray([2458990.0, 2459000.0, 2459010.0])
     options = lcbinint.Options(coordinates="vbm", source_bins=50, reltol=1.0e-3)
-    event = lcbinint.EventCoordinates(ra=267.623337808, dec=-29.1164180355, tfix=2459000.0)
     limb_darkening = lcbinint.LimbDarkening.none()
 
     func = lcbinint.LightCurve(
         lens="binary_lens",
-        event=event,
         options=options,
         limb_darkening=limb_darkening,
         parallax=True,
+        sky=lcbinint.obs.SkyCoord(267.623337808, -29.1164180355),
+        t_ref=2459000.0,
     )
     kwargs = dict(
         t0=2459001.0,
@@ -1504,17 +1505,17 @@ def test_lcbinint_parallax_light_curve_func_matches_high_level_api():
 
     expected = lcbinint.light_curve(
         times,
-        event=event,
         options=options,
         limb_darkening=limb_darkening,
+        ra=267.623337808,
+        dec=-29.1164180355,
+        tfix=2459000.0,
         **kwargs,
     )
     actual = func(times, **kwargs)
     actual_from_dict = func(times, kwargs)
 
     assert type(func).__name__ == "LightCurve"
-    assert lcbinint.ParallaxLightCurve is lcbinint.LightCurve
-    assert lcbinint.ParallaxLightCurveFunc is lcbinint.LightCurve
     assert func.lens == "binary_lens"
     assert func.parallax
     assert actual.tolist() == pytest.approx(expected.tolist())
@@ -1531,15 +1532,15 @@ def test_lcbinint_orbital_motion_light_curve_func_matches_high_level_api():
 
     times = np.asarray([-0.2, -0.05, 0.0, 0.08, 0.2])
     options = lcbinint.Options(coordinates="vbm", source_bins=50, reltol=1.0e-3)
-    event = lcbinint.EventCoordinates(ra=267.6, dec=-29.1, tfix=0.0)
     limb_darkening = lcbinint.LimbDarkening.none()
 
     func = lcbinint.LightCurve(
         lens="binary_lens",
-        event=event,
         options=options,
         limb_darkening=limb_darkening,
         orbital_motion_mode=lcbinint.OrbitalMotionMode.CIRCULAR,
+        sky=lcbinint.obs.SkyCoord(267.6, -29.1),
+        t_ref=0.0,
     )
     kwargs = dict(
         t0=0.0,
@@ -1556,10 +1557,12 @@ def test_lcbinint_orbital_motion_light_curve_func_matches_high_level_api():
 
     expected = lcbinint.light_curve(
         times,
-        event=event,
         options=options,
         limb_darkening=limb_darkening,
         orbital_motion_mode=lcbinint.OrbitalMotionMode.CIRCULAR,
+        ra=267.6,
+        dec=-29.1,
+        tfix=0.0,
         **kwargs,
     )
     actual = func(times, **kwargs)
@@ -1612,7 +1615,7 @@ def test_lcbinint_circular_lom_light_curve_func_matches_vbm():
 
     func = lcbinint.LightCurve(
         lens="binary_lens",
-        event=lcbinint.EventCoordinates(tfix=0.0),
+        t_ref=0.0,
         options=lcbinint.Options(coordinates="vbm", source_bins=50),
         limb_darkening=lcbinint.LimbDarkening.none(),
         orbital_motion_mode=lcbinint.OrbitalMotionMode.CIRCULAR,
@@ -1682,7 +1685,7 @@ def test_lcbinint_kepler_lom_light_curve_func_matches_vbm_when_reference_is_t0()
 
     func = lcbinint.LightCurve(
         lens="binary_lens",
-        event=lcbinint.EventCoordinates(tfix=vbm_reference_time),
+        t_ref=vbm_reference_time,
         options=lcbinint.Options(coordinates="vbm", source_bins=50),
         limb_darkening=lcbinint.LimbDarkening.none(),
         orbital_motion_mode=lcbinint.OrbitalMotionMode.KEPLER,
@@ -1726,14 +1729,14 @@ def test_lcbinint_kepler_lom_reference_time_is_fixed_by_tfix():
     )
     moving_reference = lcbinint.LightCurve(
         lens="binary_lens",
-        event=lcbinint.EventCoordinates(tfix=0.0),
+        t_ref=0.0,
         options=lcbinint.Options(coordinates="vbm", source_bins=50),
         limb_darkening=lcbinint.LimbDarkening.none(),
         orbital_motion_mode=lcbinint.OrbitalMotionMode.KEPLER,
     )
     fixed_reference = lcbinint.LightCurve(
         lens="binary_lens",
-        event=lcbinint.EventCoordinates(tfix=7000.0),
+        t_ref=7000.0,
         options=lcbinint.Options(coordinates="vbm", source_bins=50),
         limb_darkening=lcbinint.LimbDarkening.none(),
         orbital_motion_mode=lcbinint.OrbitalMotionMode.KEPLER,
@@ -1745,18 +1748,20 @@ def test_lcbinint_kepler_lom_reference_time_is_fixed_by_tfix():
     assert np.max(np.abs(moving_reference_values - fixed_reference_values)) > 1.0e-2
 
 
-def test_lcbinint_limb_darkening_and_event_coordinate_helpers():
+def test_lcbinint_limb_darkening_and_obs_helpers():
     lcbinint = pytest.importorskip("lcbinint")
 
     none = lcbinint.LimbDarkening.none()
     linear = lcbinint.LimbDarkening.linear(0.4)
     quadratic = lcbinint.LimbDarkening.quadratic(0.4, 0.2)
-    event = lcbinint.EventCoordinates(ra=1.0, dec=2.0, tfix=3.0)
+    sky = lcbinint.obs.SkyCoord(1.0, 2.0)
+    site = lcbinint.obs.Site(3.0, 4.0)
 
     assert (none.c, none.d) == (0.0, 0.0)
     assert (linear.c, linear.d) == (0.4, 0.0)
     assert (quadratic.c, quadratic.d) == (0.4, 0.2)
-    assert (event.ra, event.dec, event.tfix) == (1.0, 2.0, 3.0)
+    assert (sky.ra_deg, sky.dec_deg) == (1.0, 2.0)
+    assert (site.lat_deg, site.lon_deg) == (3.0, 4.0)
 
 
 def test_lcbinint_function_api_estimates_source_bins_from_self_convergence():
@@ -1863,7 +1868,7 @@ def test_lcbinint_circular_lom_separation_matches_microjax_vbm_formula(time):
     curve = lcbinint.LightCurve(
         lens="binary_lens",
         orbital_motion="circular",
-        event=lcbinint.EventCoordinates(tfix=args["tfix"]),
+        t_ref=args["tfix"],
     )
     actual_s = curve.separation(time, args)
     expected_s, _, _ = lom.circular_orbital_motion_3d(
@@ -1897,7 +1902,7 @@ def test_lcbinint_kepler_lom_separation_matches_microjax_vbm_formula(time):
     curve = lcbinint.LightCurve(
         lens="binary_lens",
         orbital_motion="kepler",
-        event=lcbinint.EventCoordinates(tfix=args["tfix"]),
+        t_ref=args["tfix"],
     )
     actual_s = curve.separation(time, args)
     expected_s, _, _ = lom.elliptic_orbital_motion_3d(
@@ -1933,7 +1938,7 @@ def test_lcbinint_light_curve_separation_uses_instantaneous_lom_state():
         lens="binary_lens",
         options=lcbinint.Options(coordinates="center_of_mass"),
         orbital_motion="circular",
-        event=lcbinint.EventCoordinates(tfix=0.5),
+        t_ref=0.5,
     )
 
     actual = curve.separation(time, params)

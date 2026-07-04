@@ -32,7 +32,7 @@ def relative_error(reference, values):
 def lcbinint_kepler(tfix):
     curve = lcbinint.LightCurve(
         lens="binary_lens",
-        event=lcbinint.EventCoordinates(tfix=tfix),
+        t_ref=tfix,
         options=OPTIONS,
         limb_darkening=lcbinint.LimbDarkening.none(),
         orbital_motion_mode=lcbinint.OrbitalMotionMode.KEPLER,

@@ -19,15 +19,6 @@ if not hasattr(LimbDarkening, "quadratic"):
     LimbDarkening.quadratic = staticmethod(lambda c, d: LimbDarkening(c, d))
 
 
-class EventCoordinates:
-    def __init__(self, ra=0.0, dec=0.0, tfix=0.0, obs_lat=0.0, obs_lon=0.0):
-        self.ra = ra
-        self.dec = dec
-        self.tfix = tfix
-        self.obs_lat = obs_lat
-        self.obs_lon = obs_lon
-
-
 class _LightCurveInfoCompat:
     def __init__(self, times, info):
         self.times = list(times)
@@ -58,44 +49,23 @@ class _LightCurveInfoCompat:
 
 
 class LightCurve:
-    def __init__(self, *args, event=None, orbital_motion_mode=None, **kwargs):
-        self._event = event
-        self.event = event
+    def __init__(self, *args, orbital_motion_mode=None, **kwargs):
         self.lens = kwargs.get("lens", "binary_lens")
         self.limb_darkening = kwargs.get("limb_darkening", LimbDarkening.none())
         self.parallax = bool(kwargs.get("parallax", False))
-        terrestrial_parallax = kwargs.pop("terrestrial_parallax", None)
-        if terrestrial_parallax is not None:
-            kwargs["terrestrial"] = bool(terrestrial_parallax)
         if orbital_motion_mode is not None:
             kwargs["orbital_motion"] = _orbital_motion_name(orbital_motion_mode)
-        if event is not None:
-            kwargs.setdefault("t_ref", event.tfix)
-            kwargs.setdefault("sky", obs.SkyCoord(event.ra, event.dec))
-            if getattr(event, "obs_lat", 0.0) != 0.0 or getattr(event, "obs_lon", 0.0) != 0.0:
-                kwargs.setdefault("site", obs.Site(event.obs_lat, event.obs_lon))
         self._native = _NativeLightCurve(*args, **kwargs)
-
-    def _with_event(self, params):
-        if self._event is None:
-            return params
-        if isinstance(params, dict):
-            out = dict(params)
-            out.setdefault("ra", self._event.ra)
-            out.setdefault("dec", self._event.dec)
-            out.setdefault("tfix", self._event.tfix)
-            return out
-        return params
 
     def _merge_params(self, params=None, **kwargs):
         if params is None:
-            merged = dict(kwargs)
+            return dict(kwargs)
         elif isinstance(params, dict):
             merged = dict(params)
             merged.update(kwargs)
+            return merged
         else:
             return params
-        return self._with_event(merged)
 
     def __call__(self, times, params=None, **kwargs):
         return self._native(times, self._merge_params(params, **kwargs))
@@ -161,23 +131,24 @@ def _split_light_curve_kwargs(kwargs):
     kwargs = dict(kwargs)
     options = kwargs.pop("options", None) or Options()
     limb_darkening = kwargs.pop("limb_darkening", None) or LimbDarkening.none()
-    event = kwargs.pop("event", None)
-    terrestrial_parallax = kwargs.pop("terrestrial_parallax", False)
     orbital_motion_mode = kwargs.get("orbital_motion_mode", OrbitalMotionMode.STATIC)
-    if event is not None:
-        kwargs.setdefault("ra", event.ra)
-        kwargs.setdefault("dec", event.dec)
-        kwargs.setdefault("tfix", event.tfix)
+    sky = kwargs.pop("sky", None)
+    site = kwargs.pop("site", None)
+    t_ref = kwargs.pop("t_ref", kwargs.get("tfix", None))
+    terrestrial = kwargs.pop("terrestrial", False)
+    if sky is None and "ra" in kwargs and "dec" in kwargs:
+        sky = obs.SkyCoord(kwargs["ra"], kwargs["dec"])
     effects = {
         "orbital_motion": _orbital_motion_name(orbital_motion_mode),
         "parallax": abs(kwargs.get("piEN", 0.0)) > 0.0 or abs(kwargs.get("piEE", 0.0)) > 0.0,
-        "terrestrial": bool(terrestrial_parallax),
+        "terrestrial": bool(terrestrial),
     }
-    if event is not None:
-        effects["event"] = event
-        effects["sky"] = obs.SkyCoord(event.ra, event.dec)
-        if getattr(event, "obs_lat", 0.0) != 0.0 or getattr(event, "obs_lon", 0.0) != 0.0:
-            effects["site"] = obs.Site(event.obs_lat, event.obs_lon)
+    if sky is not None:
+        effects["sky"] = sky
+    if site is not None:
+        effects["site"] = site
+    if t_ref is not None:
+        effects["t_ref"] = t_ref
     return options, limb_darkening, effects, kwargs
 
 
@@ -222,10 +193,6 @@ def binary_mag0(separation, mass_ratio, y1, y2):
     )
 
 
-ParallaxLightCurve = LightCurve
-ParallaxLightCurveFunc = LightCurve
-
-
 # Build the Python-extended Model subclass and replace bayes.Model
 from .model import _build_model_class as _bmc
 bayes.Model = _bmc(bayes._Model)
@@ -236,7 +203,7 @@ __all__ = [
     "Options", "Parameters", "LensParams", "LimbDarkening", "LightCurve",
     "LightCurveInfo", "SourceTrajectory", "GeometryBranches", "Effects",
     "OrbitalMotionMode", "XallarapParamType",
-    "EventCoordinates", "light_curve_info", "binary_light_curve", "light_curve",
+    "light_curve_info", "binary_light_curve", "light_curve",
     "magnification", "binary_mag0",
     "SamplerOptions", "run_sampler", "load_chain", "Reparameterization",
 ]
