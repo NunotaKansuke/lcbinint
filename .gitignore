@@ -1,5 +1,6 @@
 /build*/
 build_debug/
+build_nolto/
 *.egg-info/
 __pycache__/
 *.py[cod]
