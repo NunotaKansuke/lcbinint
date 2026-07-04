@@ -15,9 +15,18 @@ void copy_result(const lcbinint::MagnificationResult &from, lcbi_result &to)
     to.source_x = from.source.x;
     to.source_y = from.source.y;
     to.image_count = from.image_count;
+    to.finite_source_method = from.finite_source_method;
     to.finite_source_error_estimate = from.finite_source_error_estimate;
     to.finite_source_refinement_level = from.finite_source_refinement_level;
     to.finite_source_converged = from.finite_source_converged ? 1 : 0;
+    to.root_candidate_count = from.root_candidate_count;
+    to.root_duplicate_count = from.root_duplicate_count;
+    to.root_polish_failure_count = from.root_polish_failure_count;
+    to.root_used_warm_start = from.root_used_warm_start;
+    to.root_used_cold_retry = from.root_used_cold_retry;
+    to.root_used_high_precision = from.root_used_high_precision;
+    to.root_needs_high_precision = from.root_needs_high_precision;
+    to.root_max_residual = from.root_max_residual;
 }
 
 } // namespace

@@ -1,7 +1,6 @@
 /build*/
 build_debug/
 build_nolto/
-.note/
 *.egg-info/
 __pycache__/
 *.py[cod]
@@ -10,3 +9,6 @@ __pycache__/
 .ruff_cache/
 .venv/
 venv/
+.note/
+.ipynb_checkpoints/
+*.png

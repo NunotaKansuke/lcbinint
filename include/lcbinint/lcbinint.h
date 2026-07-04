@@ -78,8 +78,11 @@ typedef struct lcbi_params {
 
 typedef enum lcbi_xallarap_param_type {
     LCBI_XALLARAP_NONE              = 0,
-    LCBI_XALLARAP_ANGULAR_VELOCITY  = 1,
-    LCBI_XALLARAP_ORBITAL_ELEMENTS  = 2
+    LCBI_XALLARAP_ANGULAR_VELOCITY  = 1,  /* deprecated — use circular_elements instead */
+    LCBI_XALLARAP_ORBITAL_ELEMENTS  = 2,  /* Kepler:   xi_1/xi_2 amplitude, period/ecc/peri/inc_xa */
+    LCBI_XALLARAP_CIRCULAR_ELEMENTS = 3,  /* circular: xi_1/xi_2 amplitude, period_xa, inc_xa (ecc=0) */
+    LCBI_XALLARAP_CIRCULAR_VEL      = 4,  /* circular: xi_1/xi_2 pos at tref; omega_xa=w1, inc_xa=w2, phi_xa=w3 */
+    LCBI_XALLARAP_KEPLER_VEL        = 5   /* Kepler:   xi_1/xi_2 pos at tref; w1/2/3, piEN_xa=szs, piEE_xa=ar */
 } lcbi_xallarap_param_type;
 
 typedef struct lcbi_options {
@@ -110,9 +113,18 @@ typedef struct lcbi_result {
     double source_x;
     double source_y;
     int image_count;
+    int finite_source_method;
     double finite_source_error_estimate;
     int finite_source_refinement_level;
     int finite_source_converged;
+    int root_candidate_count;
+    int root_duplicate_count;
+    int root_polish_failure_count;
+    int root_used_warm_start;
+    int root_used_cold_retry;
+    int root_used_high_precision;
+    int root_needs_high_precision;
+    double root_max_residual;
 } lcbi_result;
 
 lcbi_params lcbi_default_params(void);

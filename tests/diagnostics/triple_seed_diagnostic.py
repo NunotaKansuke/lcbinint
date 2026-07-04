@@ -25,6 +25,12 @@ from pathlib import Path
 import numpy as np
 
 
+def configure_vbm_triple_method(vbb):
+    """Use VBM's fast polynomial solver for multiple-lens roots when available."""
+    if hasattr(vbb, "SetMethod") and hasattr(vbb, "Multipoly"):
+        vbb.SetMethod(vbb.Multipoly)
+
+
 @dataclasses.dataclass(frozen=True)
 class Case:
     name: str
@@ -157,6 +163,7 @@ def vbm_finite_sweep(
         ]
         try:
             vbb = VBMicrolensing.VBMicrolensing()
+            configure_vbm_triple_method(vbb)
             vbb.Tol = tol
             vbb.RelTol = 0.0
             result = vbb.TripleLightCurve(params, [-vbm_source.real])

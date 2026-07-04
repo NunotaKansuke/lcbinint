@@ -16,13 +16,15 @@ namespace {
 bool has_unsupported_dynamic_effects(
     const LensParameters& params, const ComputationOptions& options)
 {
-    const bool unhandled_piEN_xa =
-        (params.piEN_xa != 0.0 || params.piEE_xa != 0.0) &&
-        options.xallarap_param_type != LCBI_XALLARAP_ORBITAL_ELEMENTS;
+    // xi_1/xi_2: amplitude or position for any xallarap mode; only invalid when NONE
     const bool unhandled_xi =
         (params.xi_1 != 0.0 || params.xi_2 != 0.0) &&
-        options.xallarap_param_type != LCBI_XALLARAP_ANGULAR_VELOCITY;
-    return unhandled_piEN_xa || unhandled_xi ||
+        options.xallarap_param_type == LCBI_XALLARAP_NONE;
+    // piEN_xa/piEE_xa: only meaningful as xa_szs/xa_ar in KEPLER_VEL mode
+    const bool unhandled_piEN_xa =
+        (params.piEN_xa != 0.0 || params.piEE_xa != 0.0) &&
+        options.xallarap_param_type != LCBI_XALLARAP_KEPLER_VEL;
+    return unhandled_xi || unhandled_piEN_xa ||
            params.omega != 0.0 || params.v_sep != 0.0;
 }
 
@@ -84,9 +86,7 @@ MagnificationResult LensModel::magnification(double time) const
 {
     SourcePosition source;
     const bool has_xallarap = options_.xallarap_param_type != LCBI_XALLARAP_NONE &&
-        (options_.xallarap_param_type == LCBI_XALLARAP_ANGULAR_VELOCITY
-            ? params_.has_xallarap_angular_velocity()
-            : params_.has_xallarap_orbital_elements());
+        params_.has_xallarap();
     if (params_.piEN == 0.0 && params_.piEE == 0.0 && !has_xallarap) {
         const double tn = (time - params_.t0) / params_.tE;
         const double beta = params_.umin;
@@ -131,6 +131,14 @@ MagnificationResult LensModel::magnification(double time) const
         const auto point = point_magnifier_.triple_mag0(geometry, source);
         result.point_source_magnification = point.magnification;
         result.image_count = point.image_count;
+        result.root_candidate_count = point.root_candidate_count;
+        result.root_duplicate_count = point.root_duplicate_count;
+        result.root_polish_failure_count = point.root_polish_failure_count;
+        result.root_used_warm_start = point.root_used_warm_start;
+        result.root_used_cold_retry = point.root_used_cold_retry;
+        result.root_used_high_precision = point.root_used_high_precision;
+        result.root_needs_high_precision = point.root_needs_high_precision;
+        result.root_max_residual = point.root_max_residual;
         if (params_.rho == 0.0) {
             result.magnification = point.magnification;
             result.finite_source_magnification = point.magnification;
