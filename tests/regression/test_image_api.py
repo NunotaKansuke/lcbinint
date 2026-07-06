@@ -52,6 +52,24 @@ def test_image_plane_geometry_helpers_return_branches():
     assert [len(branch) for branch in critical_curves.x] == [64, 64, 64, 64]
 
 
+def test_ray_shooting_images_return_finite_source_regions_with_seeds():
+    lcbinint = pytest.importorskip("lcbinint")
+
+    plane = lcbinint.ImagePlane(
+        q=1.0e-3, s=1.0, x=0.01, y=-0.02, rho=2.0e-3, n_points=64
+    )
+
+    seeds = plane.seeds()
+    regions = plane.ray_shooting_images(resolution=180)
+
+    assert len(regions) == len(seeds)
+    assert any(len(region.points) > 0 for region in regions)
+    for region, seed in zip(regions, seeds):
+        assert region.seed.tolist() == pytest.approx(seed.tolist())
+        assert region.points.shape[1] == 2
+        assert region.parity in (-1, 1)
+
+
 def test_image_plane_plot_smoke():
     pytest.importorskip("matplotlib")
     lcbinint = pytest.importorskip("lcbinint")
@@ -59,7 +77,10 @@ def test_image_plane_plot_smoke():
     import matplotlib
 
     matplotlib.use("Agg")
-    plane = lcbinint.image.binary(q=1.0e-3, s=1.0, x=0.01, y=-0.02, n_points=32)
-    ax = plane.plot(legend=False)
+    plane = lcbinint.image.binary(
+        q=1.0e-3, s=1.0, x=0.01, y=-0.02, rho=2.0e-3, n_points=32
+    )
+    ax = plane.plot(image_resolution=120)
 
     assert ax.get_aspect() == 1.0
+    assert ax.get_legend() is None
