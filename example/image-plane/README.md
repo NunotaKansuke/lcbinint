@@ -10,6 +10,12 @@ Run without creating output files:
 python example/image-plane/image_plane_geometry.py
 ```
 
+The same walkthrough is available as a notebook:
+
+```bash
+jupyter notebook example/image-plane/image_plane_geometry.ipynb
+```
+
 Optionally save the figure:
 
 ```bash
