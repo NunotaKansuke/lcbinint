@@ -8,6 +8,7 @@
 #include "lcbinint/bayes/model.hpp"
 
 #include <cmath>
+#include <stdexcept>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -38,6 +39,155 @@ py::array_t<double> chain_view_2d(const Chain& chain,
         {cols * static_cast<py::ssize_t>(sizeof(double)),
          static_cast<py::ssize_t>(sizeof(double))},
         data.data(), owner);
+}
+
+int selected_nsteps(const Chain& c, int discard, int thin)
+{
+    if (discard < 0)
+        throw std::invalid_argument("discard must be non-negative");
+    if (thin <= 0)
+        throw std::invalid_argument("thin must be positive");
+    if (discard >= c.nsteps())
+        return 0;
+    return (c.nsteps() - discard + thin - 1) / thin;
+}
+
+py::array_t<double> chain_samples_array(const Chain& c,
+                                        bool flat,
+                                        int discard,
+                                        int thin,
+                                        bool physical)
+{
+    const int nsel = selected_nsteps(c, discard, thin);
+    const int nw = c.nwalkers();
+    const int ndim = c.ndim();
+    const auto& raw = c.flat_samples();
+    const auto& ts = c.transforms();
+
+    if (flat) {
+        py::array_t<double> out({py::ssize_t(nsel * nw), py::ssize_t(ndim)});
+        auto buf = out.mutable_unchecked<2>();
+        int row = 0;
+        for (int step = discard; step < c.nsteps(); step += thin) {
+            for (int w = 0; w < nw; ++w, ++row) {
+                const std::size_t base =
+                    static_cast<std::size_t>((step * nw + w) * ndim);
+                for (int j = 0; j < ndim; ++j) {
+                    const double v = raw[base + static_cast<std::size_t>(j)];
+                    buf(row, j) = (physical && !ts.empty() && ts[j] == "log")
+                        ? std::exp(v) : v;
+                }
+            }
+        }
+        return out;
+    }
+
+    py::array_t<double> out(
+        {py::ssize_t(nsel), py::ssize_t(nw), py::ssize_t(ndim)});
+    auto buf = out.mutable_unchecked<3>();
+    int out_step = 0;
+    for (int step = discard; step < c.nsteps(); step += thin, ++out_step) {
+        for (int w = 0; w < nw; ++w) {
+            const std::size_t base =
+                static_cast<std::size_t>((step * nw + w) * ndim);
+            for (int j = 0; j < ndim; ++j) {
+                const double v = raw[base + static_cast<std::size_t>(j)];
+                buf(out_step, w, j) = (physical && !ts.empty() && ts[j] == "log")
+                    ? std::exp(v) : v;
+            }
+        }
+    }
+    return out;
+}
+
+py::array_t<double> chain_log_prob_array(const Chain& c,
+                                         bool flat,
+                                         int discard,
+                                         int thin)
+{
+    const int nsel = selected_nsteps(c, discard, thin);
+    const int nw = c.nwalkers();
+    const auto& lp = c.flat_log_prob();
+
+    if (flat) {
+        std::vector<py::ssize_t> shape = {py::ssize_t(nsel * nw)};
+        py::array_t<double> out(shape);
+        auto buf = out.mutable_unchecked<1>();
+        int row = 0;
+        for (int step = discard; step < c.nsteps(); step += thin) {
+            for (int w = 0; w < nw; ++w, ++row) {
+                buf(row) = lp[static_cast<std::size_t>(step * nw + w)];
+            }
+        }
+        return out;
+    }
+
+    py::array_t<double> out({py::ssize_t(nsel), py::ssize_t(nw)});
+    auto buf = out.mutable_unchecked<2>();
+    int out_step = 0;
+    for (int step = discard; step < c.nsteps(); step += thin, ++out_step) {
+        for (int w = 0; w < nw; ++w) {
+            buf(out_step, w) = lp[static_cast<std::size_t>(step * nw + w)];
+        }
+    }
+    return out;
+}
+
+py::dict chain_fluxes_dict(const Chain& c, bool flat, int discard, int thin)
+{
+    const int nsel = selected_nsteps(c, discard, thin);
+    const int nw = c.nwalkers();
+    const int n_datasets = c.n_fluxes() / 2;
+    const auto& names = c.dataset_names();
+    const auto& fl = c.flat_fluxes();
+    py::dict out;
+    if (fl.empty() || c.n_fluxes() == 0)
+        return out;
+
+    for (int d = 0; d < n_datasets; ++d) {
+        py::object fs_obj;
+        py::object fb_obj;
+        if (flat) {
+            std::vector<py::ssize_t> shape = {py::ssize_t(nsel * nw)};
+            py::array_t<double> fs(shape);
+            py::array_t<double> fb(shape);
+            auto fsb = fs.mutable_unchecked<1>();
+            auto fbb = fb.mutable_unchecked<1>();
+            int row = 0;
+            for (int step = discard; step < c.nsteps(); step += thin) {
+                for (int w = 0; w < nw; ++w, ++row) {
+                    const std::size_t base =
+                        static_cast<std::size_t>((step * nw + w) * c.n_fluxes() + 2 * d);
+                    fsb(row) = fl[base];
+                    fbb(row) = fl[base + 1];
+                }
+            }
+            fs_obj = std::move(fs);
+            fb_obj = std::move(fb);
+        } else {
+            py::array_t<double> fs({py::ssize_t(nsel), py::ssize_t(nw)});
+            py::array_t<double> fb({py::ssize_t(nsel), py::ssize_t(nw)});
+            auto fsb = fs.mutable_unchecked<2>();
+            auto fbb = fb.mutable_unchecked<2>();
+            int out_step = 0;
+            for (int step = discard; step < c.nsteps(); step += thin, ++out_step) {
+                for (int w = 0; w < nw; ++w) {
+                    const std::size_t base =
+                        static_cast<std::size_t>((step * nw + w) * c.n_fluxes() + 2 * d);
+                    fsb(out_step, w) = fl[base];
+                    fbb(out_step, w) = fl[base + 1];
+                }
+            }
+            fs_obj = std::move(fs);
+            fb_obj = std::move(fb);
+        }
+
+        const std::string name = d < static_cast<int>(names.size())
+            ? names[d] : ("ds" + std::to_string(d));
+        out[py::str(name)] = py::dict(py::arg("Fs") = fs_obj,
+                                      py::arg("Fb") = fb_obj);
+    }
+    return out;
 }
 
 } // namespace
@@ -94,26 +244,49 @@ void register_sample_submodule(py::module_& parent)
                 static_cast<py::ssize_t>(c.n_fluxes()), self);
         })
 
+        // fluxes: {dataset_name: {"Fs": array, "Fb": array}} for flat samples.
+        .def_property_readonly("fluxes", [](py::object self) {
+            const Chain& c = self.cast<const Chain&>();
+            return chain_fluxes_dict(c, true, 0, 1);
+        })
+
+        .def("get_fluxes", [](py::object self, bool flat, int discard, int thin) {
+            const Chain& c = self.cast<const Chain&>();
+            return chain_fluxes_dict(c, flat, discard, thin);
+        },
+        py::arg("flat") = true, py::arg("discard") = 0, py::arg("thin") = 1,
+        "Return best-fit fluxes as {dataset: {'Fs': array, 'Fb': array}}.\n"
+        "If flat=True, arrays have shape (nstep*nwalker,). If flat=False,\n"
+        "arrays have shape (nstep, nwalker). discard/thin are applied in step space.")
+
         .def_property_readonly("transforms",    &Chain::transforms)
         .def_property_readonly("dataset_names", &Chain::dataset_names)
 
         // samples: physical-space flat samples — applies exp() for log-transformed params
         .def_property_readonly("samples", [](py::object self) {
             const Chain& c = self.cast<const Chain&>();
-            const auto& ts = c.transforms();
-            const int ndim = c.ndim();
-            const int ntot = c.nsteps() * c.nwalkers();
-            const auto& raw = c.flat_samples();
-            py::array_t<double> out({py::ssize_t(ntot), py::ssize_t(ndim)});
-            auto buf = out.mutable_unchecked<2>();
-            for (int i = 0; i < ntot; ++i) {
-                for (int j = 0; j < ndim; ++j) {
-                    const double v = raw[static_cast<std::size_t>(i * ndim + j)];
-                    buf(i, j) = (!ts.empty() && ts[j] == "log") ? std::exp(v) : v;
-                }
-            }
-            return out;
+            return chain_samples_array(c, true, 0, 1, true);
         })
+
+        .def("get_samples", [](py::object self, bool flat, int discard,
+                               int thin, bool physical) {
+            const Chain& c = self.cast<const Chain&>();
+            return chain_samples_array(c, flat, discard, thin, physical);
+        },
+        py::arg("flat") = true, py::arg("discard") = 0,
+        py::arg("thin") = 1, py::arg("physical") = true,
+        "Return samples with optional step discard/thinning.\n"
+        "If flat=True, shape is (nstep*nwalker, ndim). If flat=False,\n"
+        "shape is (nstep, nwalker, ndim). physical=True converts log params back.")
+
+        .def("get_log_prob", [](py::object self, bool flat, int discard, int thin) {
+            const Chain& c = self.cast<const Chain&>();
+            return chain_log_prob_array(c, flat, discard, thin);
+        },
+        py::arg("flat") = true, py::arg("discard") = 0, py::arg("thin") = 1,
+        "Return log probability with optional step discard/thinning.\n"
+        "If flat=True, shape is (nstep*nwalker,). If flat=False,\n"
+        "shape is (nstep, nwalker).")
 
         // summary(): dict {param_name: {'median': ..., 'lo': ..., 'hi': ..., 'std': ...}}
         // where lo/hi are 16th/84th percentile.
@@ -190,6 +363,7 @@ void register_sample_submodule(py::module_& parent)
     py::class_<SS>(spl, "SamplerState")
         .def_property_readonly("nwalkers", [](const SS& s){ return s.nwalkers; })
         .def_property_readonly("ndim",     [](const SS& s){ return s.ndim; })
+        .def_property_readonly("n_fluxes", [](const SS& s){ return s.n_fluxes; })
         .def_property_readonly("n_step",   [](const SS& s){ return s.n_step; })
         .def_property_readonly("acceptance_fraction", &SS::acceptance_fraction)
         // pos: (nwalkers, ndim) zero-copy view
@@ -246,6 +420,20 @@ void register_sample_submodule(py::module_& parent)
                 {static_cast<py::ssize_t>(sizeof(double))},
                 s.hist_lp.data(), self);
         })
+        // get_fluxes history - shape (n_step, nwalkers, n_fluxes)
+        .def_property_readonly("get_fluxes", [](py::object self) {
+            const SS& s = self.cast<const SS&>();
+            const int hist = s.nwalkers > 0 && s.n_fluxes > 0
+                ? static_cast<int>(s.hist_fl.size()) / (s.nwalkers * s.n_fluxes) : 0;
+            return py::array_t<double>(
+                {static_cast<py::ssize_t>(hist),
+                 static_cast<py::ssize_t>(s.nwalkers),
+                 static_cast<py::ssize_t>(s.n_fluxes)},
+                {static_cast<py::ssize_t>(s.nwalkers * s.n_fluxes * sizeof(double)),
+                 static_cast<py::ssize_t>(s.n_fluxes * sizeof(double)),
+                 static_cast<py::ssize_t>(sizeof(double))},
+                s.hist_fl.data(), self);
+        })
         // Free accumulated history (e.g. after flushing a chunk to disk).
         .def("reset_history", &SS::reset_history)
         .def("__repr__", [](const SS& s) {
@@ -262,6 +450,8 @@ void register_sample_submodule(py::module_& parent)
            int nwalkers,
            std::vector<std::string> param_names,
            std::vector<std::string> transforms,
+           py::object fluxes,
+           std::vector<std::string> dataset_names,
            double acceptance) -> Chain
         {
             auto sb = samples.unchecked<2>();
@@ -273,14 +463,30 @@ void register_sample_submodule(py::module_& parent)
             chain.init(nsteps, nwalkers, ndim);
             chain.set_param_names(std::move(param_names));
             chain.set_transforms(std::move(transforms));
+            const double* fl_data = nullptr;
+            py::array_t<double, py::array::c_style> fl_arr;
+            if (!fluxes.is_none()) {
+                fl_arr = py::cast<py::array_t<double, py::array::c_style>>(fluxes);
+                if (fl_arr.ndim() != 2)
+                    throw std::invalid_argument("fluxes must have shape (ntot, n_datasets*2)");
+                if (static_cast<int>(fl_arr.shape(0)) != ntot)
+                    throw std::invalid_argument("fluxes row count must match samples");
+                if (fl_arr.shape(1) % 2 != 0)
+                    throw std::invalid_argument("fluxes column count must be n_datasets*2");
+                const int n_datasets = static_cast<int>(fl_arr.shape(1)) / 2;
+                chain.init_fluxes(n_datasets, std::move(dataset_names));
+                fl_data = fl_arr.data(0, 0);
+            }
             if (nsteps > 0)
-                chain.assign_flat(sb.data(0, 0), lb.data(0), nullptr);
+                chain.assign_flat(sb.data(0, 0), lb.data(0), fl_data);
             chain.set_acceptance(acceptance);
             return chain;
         },
         py::arg("samples"), py::arg("log_prob"), py::arg("nwalkers"),
         py::arg("param_names") = std::vector<std::string>{},
         py::arg("transforms")  = std::vector<std::string>{},
+        py::arg("fluxes") = py::none(),
+        py::arg("dataset_names") = std::vector<std::string>{},
         py::arg("acceptance")  = 0.0);
 
     // --- _make_state: build SamplerState from numpy arrays (Python init path) ---
@@ -361,7 +567,7 @@ void register_sample_submodule(py::module_& parent)
             },
             py::arg("model"), py::arg("state"))
 
-        // step(py_model, state) — duck-typed overload for Reparameterization.
+        // step(py_model, state) - duck-typed overload for Python callback models.
         // Releases GIL for the stretch-move loop; re-acquires only for log_prob.
         .def("step",
             [](EnsembleSampler& s, py::object model,

@@ -132,7 +132,7 @@ double lcbinint_legacy_amp_point3_xy(
 
 def lcbinint_value(lcbinint, case: Case, source_bins: int, caustic_bins: int) -> tuple[float, str]:
     options = lcbinint.Options(source_bins=source_bins, caustic_bins=caustic_bins)
-    curve = lcbinint.LightCurve(lens="triple_lens", options=options)
+    curve = lcbinint.LightCurve(lens="triple", options=options)
     params = {
         "t0": 0.0,
         "tE": 1.0,

@@ -70,7 +70,7 @@ def timed_best(func, repeat: int):
 
 def evaluate_case(lcbinint, case: Case, source_bins: int, caustic_bins: int, repeat: int):
     options = lcbinint.Options(source_bins=source_bins, caustic_bins=caustic_bins)
-    curve = lcbinint.LightCurve(lens="triple_lens", options=options)
+    curve = lcbinint.LightCurve(lens="triple", options=options)
     times = np.linspace(case.x_min, case.x_max, case.points)
     params = {
         "t0": 0.0,

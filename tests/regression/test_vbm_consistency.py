@@ -1426,7 +1426,7 @@ def test_lcbinint_light_curve_func_matches_high_level_api():
     limb_darkening = lcbinint.LimbDarkening.linear(0.5)
 
     func = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         options=options,
         limb_darkening=limb_darkening,
         orbital_motion_mode=lcbinint.OrbitalMotionMode.STATIC,
@@ -1455,7 +1455,7 @@ def test_lcbinint_light_curve_func_matches_high_level_api():
     actual = func(times, **kwargs)
     actual_from_dict = func(times, kwargs)
 
-    assert func.lens == "binary_lens"
+    assert func.lens == "binary"
     assert func.sky.ra_deg == pytest.approx(267.6)
     assert func.options.source_bins == options.source_bins
     assert func.limb_darkening.c == pytest.approx(0.5)
@@ -1484,7 +1484,7 @@ def test_lcbinint_parallax_light_curve_func_matches_high_level_api():
     limb_darkening = lcbinint.LimbDarkening.none()
 
     func = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         options=options,
         limb_darkening=limb_darkening,
         parallax=True,
@@ -1516,7 +1516,7 @@ def test_lcbinint_parallax_light_curve_func_matches_high_level_api():
     actual_from_dict = func(times, kwargs)
 
     assert type(func).__name__ == "LightCurve"
-    assert func.lens == "binary_lens"
+    assert func.lens == "binary"
     assert func.parallax
     assert actual.tolist() == pytest.approx(expected.tolist())
     assert actual_from_dict.tolist() == pytest.approx(expected.tolist())
@@ -1535,7 +1535,7 @@ def test_lcbinint_orbital_motion_light_curve_func_matches_high_level_api():
     limb_darkening = lcbinint.LimbDarkening.none()
 
     func = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         options=options,
         limb_darkening=limb_darkening,
         orbital_motion_mode=lcbinint.OrbitalMotionMode.CIRCULAR,
@@ -1614,7 +1614,7 @@ def test_lcbinint_circular_lom_light_curve_func_matches_vbm():
     )[0]
 
     func = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         t_ref=0.0,
         options=lcbinint.Options(coordinates="vbm", source_bins=50),
         limb_darkening=lcbinint.LimbDarkening.none(),
@@ -1684,7 +1684,7 @@ def test_lcbinint_kepler_lom_light_curve_func_matches_vbm_when_reference_is_t0()
     )[0]
 
     func = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         t_ref=vbm_reference_time,
         options=lcbinint.Options(coordinates="vbm", source_bins=50),
         limb_darkening=lcbinint.LimbDarkening.none(),
@@ -1728,14 +1728,14 @@ def test_lcbinint_kepler_lom_reference_time_is_fixed_by_tfix():
         lom_ar=1.4,
     )
     moving_reference = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         t_ref=0.0,
         options=lcbinint.Options(coordinates="vbm", source_bins=50),
         limb_darkening=lcbinint.LimbDarkening.none(),
         orbital_motion_mode=lcbinint.OrbitalMotionMode.KEPLER,
     )
     fixed_reference = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         t_ref=7000.0,
         options=lcbinint.Options(coordinates="vbm", source_bins=50),
         limb_darkening=lcbinint.LimbDarkening.none(),
@@ -1866,7 +1866,7 @@ def test_lcbinint_circular_lom_separation_matches_microjax_vbm_formula(time):
     )
 
     curve = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         orbital_motion="circular",
         t_ref=args["tfix"],
     )
@@ -1900,7 +1900,7 @@ def test_lcbinint_kepler_lom_separation_matches_microjax_vbm_formula(time):
     )
 
     curve = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         orbital_motion="kepler",
         t_ref=args["tfix"],
     )
@@ -1935,14 +1935,14 @@ def test_lcbinint_light_curve_separation_uses_instantaneous_lom_state():
         g3=0.03,
     )
     curve = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         options=lcbinint.Options(coordinates="center_of_mass"),
         orbital_motion="circular",
         t_ref=0.5,
     )
 
     actual = curve.separation(time, params)
-    static = lcbinint.LightCurve(lens="binary_lens").separation(params)
+    static = lcbinint.LightCurve(lens="binary").separation(params)
 
     assert math.isfinite(actual)
     assert actual != pytest.approx(static)

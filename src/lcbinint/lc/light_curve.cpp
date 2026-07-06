@@ -6,39 +6,39 @@
 
 namespace lcbinint::lc {
 
-LightCurve::LightCurve(lcbi_options opts, double ld_c, double ld_d, Effects effects)
-    : opts_(opts), ld_c_(ld_c), ld_d_(ld_d), effects_(std::move(effects))
+LightCurve::LightCurve(lcbi_options opts, double ld_c, double ld_d, ModelSpec spec)
+    : opts_(opts), ld_c_(ld_c), ld_d_(ld_d), spec_(std::move(spec))
 {
-    // Effects override lcbi_options for physics-mode fields.
-    if (effects_.parallax) opts_.parallax_mode = 1;
-    opts_.xallarap_param_type = effects_.xallarap;
+    // ModelSpec overrides lcbi_options for physics-mode fields.
+    if (spec_.parallax) opts_.parallax_mode = 1;
+    opts_.xallarap_param_type = spec_.xallarap;
 }
 
 lcbi_params LightCurve::apply_coords(const lcbi_params& params) const
 {
     const bool needs_tref = (opts_.parallax_mode != 0)
-                         || (effects_.orbital_motion != LCBI_ORBIT_STATIC);
-    if (needs_tref && !effects_.t_ref.has_value())
+                         || (spec_.orbital_motion != LCBI_ORBIT_STATIC);
+    if (needs_tref && !spec_.t_ref.has_value())
         throw std::runtime_error(
             "LightCurve: t_ref must be set when using parallax or orbital motion");
 
     lcbi_params p = params;
-    p.orbital_motion_mode = effects_.orbital_motion;
+    p.orbital_motion_mode = spec_.orbital_motion;
     if (ld_c_ != 0.0 || ld_d_ != 0.0) {
         p.limb_darkening_c = ld_c_;
         p.limb_darkening_d = ld_d_;
     }
-    if (effects_.sky) {
-        p.ra  = effects_.sky->ra_deg();
-        p.dec = effects_.sky->dec_deg();
+    if (spec_.sky) {
+        p.ra  = spec_.sky->ra_deg();
+        p.dec = spec_.sky->dec_deg();
     }
     // Site is only applied when terrestrial parallax is explicitly enabled.
-    if (effects_.terrestrial && effects_.site) {
-        p.obs_lat = effects_.site->lat_deg();
-        p.obs_lon = effects_.site->lon_deg();
+    if (spec_.terrestrial && spec_.site) {
+        p.obs_lat = spec_.site->lat_deg();
+        p.obs_lon = spec_.site->lon_deg();
     }
-    if (effects_.t_ref.has_value())
-        p.tfix = *effects_.t_ref;
+    if (spec_.t_ref.has_value())
+        p.tfix = *spec_.t_ref;
     return p;
 }
 

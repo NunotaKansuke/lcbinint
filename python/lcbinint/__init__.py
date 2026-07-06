@@ -1,6 +1,6 @@
 from ._lcbinint import *          # noqa: F401, F403
 from ._lcbinint import lc, obs, bayes, optimize, sample
-from .sampler import SamplerOptions, run_sampler, load_chain, Reparameterization
+from .sampler import SamplerOptions, run_sampler, load_chain
 import numpy as _np
 
 Options = lc.Options
@@ -11,7 +11,7 @@ _NativeLightCurve = lc.LightCurve
 LightCurveInfo = lc.LightCurveInfo
 SourceTrajectory = lc.SourceTrajectory
 GeometryBranches = lc.GeometryBranches
-Effects = lc.Effects
+ModelSpec = lc.ModelSpec
 OrbitalMotionMode = lc.OrbitalMotionMode
 XallarapParamType = lc.XallarapParamType
 
@@ -50,12 +50,12 @@ class _LightCurveInfoCompat:
 
 class LightCurve:
     def __init__(self, *args, orbital_motion_mode=None, **kwargs):
-        self.lens = kwargs.get("lens", "binary_lens")
         self.limb_darkening = kwargs.get("limb_darkening", LimbDarkening.none())
-        self.parallax = bool(kwargs.get("parallax", False))
         if orbital_motion_mode is not None:
             kwargs["orbital_motion"] = _orbital_motion_name(orbital_motion_mode)
         self._native = _NativeLightCurve(*args, **kwargs)
+        self.lens = self._native.lens
+        self.parallax = bool(self._native.spec.parallax)
 
     def _merge_params(self, params=None, **kwargs):
         if params is None:
@@ -138,27 +138,27 @@ def _split_light_curve_kwargs(kwargs):
     terrestrial = kwargs.pop("terrestrial", False)
     if sky is None and "ra" in kwargs and "dec" in kwargs:
         sky = obs.SkyCoord(kwargs["ra"], kwargs["dec"])
-    effects = {
+    spec = {
         "orbital_motion": _orbital_motion_name(orbital_motion_mode),
         "parallax": abs(kwargs.get("piEN", 0.0)) > 0.0 or abs(kwargs.get("piEE", 0.0)) > 0.0,
         "terrestrial": bool(terrestrial),
     }
     if sky is not None:
-        effects["sky"] = sky
+        spec["sky"] = sky
     if site is not None:
-        effects["site"] = site
+        spec["site"] = site
     if t_ref is not None:
-        effects["t_ref"] = t_ref
-    return options, limb_darkening, effects, kwargs
+        spec["t_ref"] = t_ref
+    return options, limb_darkening, spec, kwargs
 
 
 def light_curve_info(times, **kwargs):
-    options, limb_darkening, effects, params = _split_light_curve_kwargs(kwargs)
+    options, limb_darkening, spec, params = _split_light_curve_kwargs(kwargs)
     curve = LightCurve(
-        lens="binary_lens",
+        lens="binary",
         options=options,
         limb_darkening=limb_darkening,
-        **effects,
+        **spec,
     )
     return _LightCurveInfoCompat(times, curve.info(times, params))
 
@@ -201,9 +201,9 @@ del _bmc
 __all__ = [
     "lc", "obs", "bayes", "optimize", "sample",
     "Options", "Parameters", "LensParams", "LimbDarkening", "LightCurve",
-    "LightCurveInfo", "SourceTrajectory", "GeometryBranches", "Effects",
+    "LightCurveInfo", "SourceTrajectory", "GeometryBranches", "ModelSpec",
     "OrbitalMotionMode", "XallarapParamType",
     "light_curve_info", "binary_light_curve", "light_curve",
     "magnification", "binary_mag0",
-    "SamplerOptions", "run_sampler", "load_chain", "Reparameterization",
+    "SamplerOptions", "run_sampler", "load_chain",
 ]
