@@ -3,6 +3,7 @@
 #include "lcbinint/lc/model_spec.hpp"
 #include "lcbinint/lc/light_curve.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
+#include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/obs/coordinates.hpp"
 #include "lcbinint/model/lens_parameters.hpp"
 #include "lcbinint/model/orbital_motion.hpp"
@@ -58,6 +59,14 @@ struct PySourceTrajectory {
 struct PyGeometryBranches {
     std::vector<std::vector<double>> x;
     std::vector<std::vector<double>> y;
+};
+
+struct PyImagePoint {
+    double x = 0.0;
+    double y = 0.0;
+    double jacobian_determinant = 0.0;
+    double magnification = 0.0;
+    int parity = 0;
 };
 
 namespace {
@@ -311,6 +320,30 @@ PyGeometryBranches branches_to_python(
         }
         out.x.push_back(std::move(xs));
         out.y.push_back(std::move(ys));
+    }
+    return out;
+}
+
+std::vector<PyImagePoint> binary_images_to_python(
+    double separation,
+    double mass_ratio,
+    double source_x,
+    double source_y)
+{
+    const lcbinint::magnification::PointSourceMagnifier magnifier;
+    const auto images = magnifier.binary_images(
+        separation, mass_ratio, {source_x, source_y});
+    std::vector<PyImagePoint> out;
+    out.reserve(images.size());
+    for (const auto& image : images) {
+        const double j = image.jacobian_determinant;
+        PyImagePoint point;
+        point.x = image.position.x;
+        point.y = image.position.y;
+        point.jacobian_determinant = j;
+        point.magnification = 1.0 / std::abs(j);
+        point.parity = j >= 0.0 ? 1 : -1;
+        out.push_back(point);
     }
     return out;
 }
@@ -709,6 +742,27 @@ void register_lc_submodule(py::module_& parent)
 	            if (key == "x") return py::cast(b.x);
 	            if (key == "y") return py::cast(b.y);
 	            throw py::key_error("GeometryBranches: unknown key '" + key + "'");
+	        });
+
+	    py::class_<PyImagePoint>(lc, "ImagePoint")
+	        .def_readonly("x", &PyImagePoint::x)
+	        .def_readonly("y", &PyImagePoint::y)
+	        .def_readonly("jacobian_determinant", &PyImagePoint::jacobian_determinant)
+	        .def_readonly("magnification", &PyImagePoint::magnification)
+	        .def_readonly("parity", &PyImagePoint::parity)
+	        .def("__getitem__", [](const PyImagePoint& p, const std::string& key) -> py::object {
+	            if (key == "x") return py::float_(p.x);
+	            if (key == "y") return py::float_(p.y);
+	            if (key == "jacobian_determinant") return py::float_(p.jacobian_determinant);
+	            if (key == "magnification") return py::float_(p.magnification);
+	            if (key == "parity") return py::int_(p.parity);
+	            throw py::key_error("ImagePoint: unknown key '" + key + "'");
+	        })
+	        .def("__repr__", [](const PyImagePoint& p) {
+	            return "<lc.ImagePoint x=" + std::to_string(p.x)
+	                + " y=" + std::to_string(p.y)
+	                + " magnification=" + std::to_string(p.magnification)
+	                + " parity=" + std::to_string(p.parity) + ">";
 	        });
 
 	    // --- Parameters: lcbi_params exposed directly (for power users / bayes module) ---
@@ -1239,4 +1293,8 @@ unless terrestrial is explicitly set to True.)")
             return "<lc.LightCurve param_type='" + pt
                 + "' source_bins=" + std::to_string(o.source_bins) + lens + src + ">";
         });
+
+    lc.def("_binary_images", &binary_images_to_python,
+        py::arg("s"), py::arg("q"), py::arg("x"), py::arg("y"),
+        "Return point-source binary-lens image positions in the VBM-compatible lens frame.");
 }
