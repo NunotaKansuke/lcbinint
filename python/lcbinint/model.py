@@ -37,12 +37,30 @@ def _logmeanexp(values):
     return peak + math.log(float(np.mean(np.exp(values - peak))))
 
 
-def _draw_fluxes(fluxes, conditionals, rng):
+def _sobol_points(samples, dimensions, seed):
+    import warnings
+
+    from scipy.stats import qmc
+
+    engine = qmc.Sobol(d=dimensions, scramble=True, seed=seed)
+    if samples > 0 and samples & (samples - 1) == 0:
+        points = engine.random_base2(int(math.log2(samples)))
+    else:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            points = engine.random(samples)
+    eps = np.finfo(float).eps
+    return np.clip(points, eps, 1.0 - eps)
+
+
+def _draw_fluxes(fluxes, conditionals, uniforms):
+    from scipy.special import stdtrit
+
     draw = {name: dict(values) for name, values in fluxes.items()}
-    for name, params in conditionals.items():
+    for uniform, (name, params) in zip(uniforms, conditionals.items()):
         draw[name]["Fs"] = (
             float(params["mean"])
-            + float(params["scale"]) * rng.standard_t(float(params["df"]))
+            + float(params["scale"]) * stdtrit(float(params["df"]), uniform)
         )
     return draw
 
@@ -65,10 +83,12 @@ def _apply_sampled_theta_star(fn, vals, fluxes, conditionals, options):
         center, sigma = _theta_star_result(fn, fluxes)
         return _theta_star_log_density(vals["thetaS"], center, sigma)
 
-    rng = np.random.default_rng(options["seed"])
+    points = _sobol_points(
+        options["samples"], len(conditionals), options["seed"]
+    )
     log_weights = []
-    for _ in range(options["n_flux"]):
-        draw = _draw_fluxes(fluxes, conditionals, rng)
+    for point in points:
+        draw = _draw_fluxes(fluxes, conditionals, point)
         try:
             center, sigma = _theta_star_result(fn, draw)
             log_weights.append(
@@ -102,24 +122,40 @@ def _evaluate_extra_priors_many(priors, values):
 
 
 def _marginalize_theta_star(fn, vals, fluxes, conditionals, priors, options):
-    rng = np.random.default_rng(options["seed"])
-    n_flux = options["n_flux"] if conditionals else 1
-    n_theta = options["n_theta"]
+    from scipy.special import ndtri
+
     samples = []
     invalid_count = 0
 
-    for _ in range(n_flux):
-        draw = _draw_fluxes(fluxes, conditionals, rng) if conditionals else fluxes
+    if conditionals:
+        points = _sobol_points(
+            options["samples"], len(conditionals) + 1, options["seed"]
+        )
+        flux_draws = (
+            (_draw_fluxes(fluxes, conditionals, point[:-1]), point[-1])
+            for point in points
+        )
+    else:
+        flux_draws = ((fluxes, None),)
+
+    for draw, theta_uniform in flux_draws:
         try:
             center, sigma = _theta_star_result(fn, draw)
         except (ValueError, FloatingPointError, OverflowError):
-            invalid_count += n_theta
+            invalid_count += 1 if conditionals else options["samples"]
             continue
 
         if sigma == 0.0:
             theta_stars = [math.exp(center)]
+        elif conditionals:
+            theta_stars = [math.exp(center + sigma * ndtri(theta_uniform))]
         else:
-            theta_stars = np.exp(center + sigma * rng.standard_normal(n_theta))
+            theta_uniforms = _sobol_points(
+                options["samples"], 1, options["seed"]
+            )[:, 0]
+            theta_stars = np.exp(
+                center + sigma * ndtri(theta_uniforms)
+            )
 
         for theta_star in theta_stars:
             current = dict(vals)
@@ -361,6 +397,7 @@ class _SamplingAdapter:
             self._param_names.extend(block.param_names)
         self._bounds = self._build_bounds()
         self._transforms = self._build_transforms()
+        self._aux_cache = {}
 
     @property
     def param_names(self):
@@ -397,6 +434,7 @@ class _SamplingAdapter:
         base_prob, fluxes, conditionals = phys_model._log_prob_and_fluxes(phys_theta)
         if not math.isfinite(base_prob):
             return base_prob
+        self._aux_cache[tuple(theta)] = (fluxes, conditionals)
         lp += base_prob - phys_model.log_prior(phys_theta)
 
         if self._model._theta_star_fn is not None:
@@ -437,6 +475,47 @@ class _SamplingAdapter:
             if not math.isfinite(lp):
                 return lp
         return lp
+
+    def consume_current_aux(self, positions):
+        """Return cached likelihood auxiliaries for accepted walker positions."""
+        current = {}
+        flux_rows = []
+        scale_rows = []
+        dfs = None
+        dataset_names = None
+        for position in np.asarray(positions):
+            key = tuple(position.tolist())
+            try:
+                fluxes, conditionals = self._aux_cache[key]
+            except KeyError as exc:
+                raise RuntimeError(
+                    "accepted sampler state has no cached likelihood auxiliaries"
+                ) from exc
+            current[key] = (fluxes, conditionals)
+            if dataset_names is None:
+                dataset_names = list(fluxes)
+                dfs = np.asarray([
+                    float(conditionals[name]["df"])
+                    if name in conditionals else np.nan
+                    for name in dataset_names
+                ])
+            flux_rows.append([
+                value
+                for name in dataset_names
+                for value in (fluxes[name]["Fs"], fluxes[name]["Fb"])
+            ])
+            scale_rows.append([
+                float(conditionals[name]["scale"])
+                if name in conditionals else np.nan
+                for name in dataset_names
+            ])
+        self._aux_cache = current
+        return (
+            np.asarray(flux_rows, dtype=float),
+            np.asarray(scale_rows, dtype=float),
+            dfs,
+            dataset_names or [],
+        )
 
     def fluxes(self, theta):
         phys = self._theta_to_physical(theta)
@@ -742,20 +821,19 @@ def _build_model_class(cpp_base):
 
         # --- prior ---
 
-        def theta_star(self, fn=None, *, n_flux=100, n_theta=100, seed=0):
+        def theta_star(self, fn=None, *, samples=256, seed=0):
             """Set the log-space thetaS relation evaluated from fitted fluxes.
 
             The callable receives the complete flux dictionary and returns
             ``(log_center, log_sigma)``. A positive sigma adds a Gaussian term
             for explicitly sampled ``thetaS``. Without a registered ``thetaS``
             parameter, thetaS and marginalized fluxes are integrated using
-            fixed Monte Carlo draws.
+            ``samples`` scrambled Sobol draws (default 256).
             """
             if fn is None:
                 return lambda decorated: self.theta_star(
                     decorated,
-                    n_flux=n_flux,
-                    n_theta=n_theta,
+                    samples=samples,
                     seed=seed,
                 )
             if not callable(fn):
@@ -764,16 +842,13 @@ def _build_model_class(cpp_base):
                 )
             if self._theta_star_fn is not None:
                 raise RuntimeError("theta_star() is already configured")
-            if isinstance(n_flux, bool) or int(n_flux) != n_flux or n_flux <= 0:
-                raise ValueError("theta_star() n_flux must be a positive integer")
-            if isinstance(n_theta, bool) or int(n_theta) != n_theta or n_theta <= 0:
-                raise ValueError("theta_star() n_theta must be a positive integer")
+            if isinstance(samples, bool) or int(samples) != samples or samples <= 0:
+                raise ValueError("theta_star() samples must be a positive integer")
             if isinstance(seed, bool) or int(seed) != seed or seed < 0:
                 raise ValueError("theta_star() seed must be a non-negative integer")
             self._theta_star_fn = fn
             self._theta_star_options = {
-                "n_flux": int(n_flux),
-                "n_theta": int(n_theta),
+                "samples": int(samples),
                 "seed": int(seed),
             }
             return fn
@@ -836,7 +911,10 @@ def _build_model_class(cpp_base):
 
             For marginalized gapmoe dimensions this calls
             ``galaxy.sample_physical()``, so hidden physical variables are drawn
-            from their conditional posterior for each chain sample.
+            from their conditional posterior for each chain sample. If thetaS
+            was marginalized, its stored flux conditional is used to restore a
+            posterior draw without recomputing magnification. The returned dict
+            then also contains ``thetaS`` and ``Fs_<dataset>``.
             """
             if names is None:
                 param_type = getattr(galaxy, "param_type", None)
@@ -864,8 +942,70 @@ def _build_model_class(cpp_base):
                 vals_iter = [self._theta_to_vals(row.tolist()) for row in rows]
 
             rng = np.random.default_rng() if rng is None else rng
-            draws = []
-            for vals in vals_iter:
+            flux_dict = chain.get_fluxes(
+                flat=flat, discard=discard, thin=thin
+            )
+            flux_rows = []
+            for index in range(len(rows)):
+                flux_rows.append({
+                    name: {
+                        "Fs": float(np.asarray(values["Fs"]).reshape(-1)[index]),
+                        "Fb": float(np.asarray(values["Fb"]).reshape(-1)[index]),
+                    }
+                    for name, values in flux_dict.items()
+                })
+
+            scales = getattr(chain, "_flux_conditional_scales", None)
+            dfs = getattr(chain, "_flux_conditional_dfs", None)
+            if (
+                self._theta_star_fn is not None
+                and vals_iter
+                and "thetaS" not in vals_iter[0]
+                and self._lik_kwargs.get("flux") == "marginalize"
+                and scales is None
+            ):
+                raise RuntimeError(
+                    "this chain does not contain conditional flux statistics; "
+                    "rerun sampling before restoring marginalized thetaS"
+                )
+            if scales is not None:
+                scales = np.asarray(scales)[discard::thin]
+                if flat:
+                    scales = scales.reshape(-1, scales.shape[-1])
+                else:
+                    scales = scales.reshape(-1, scales.shape[-1])
+
+            physical_draws = []
+            latent_draws = []
+            for index, vals in enumerate(vals_iter):
+                vals = dict(vals)
+                fluxes = flux_rows[index] if flux_rows else {}
+                if self._theta_star_fn is not None and "thetaS" not in vals:
+                    conditionals = {}
+                    if scales is not None:
+                        for d, name in enumerate(chain.dataset_names):
+                            if np.isfinite(scales[index, d]):
+                                conditionals[name] = {
+                                    "mean": fluxes[name]["Fs"],
+                                    "scale": scales[index, d],
+                                    "df": np.asarray(dfs)[d],
+                                }
+                    candidates = self._latent_theta_star_candidates(
+                        vals, fluxes, conditionals
+                    )
+                    weights = _evaluate_extra_priors_many(
+                        self._extra_priors, [item[0] for item in candidates]
+                    )
+                    finite = np.isfinite(weights)
+                    if not np.any(finite):
+                        raise RuntimeError(
+                            "no finite conditional thetaS/flux draw for chain sample"
+                        )
+                    peak = np.max(weights[finite])
+                    probs = np.where(finite, np.exp(weights - peak), 0.0)
+                    probs /= probs.sum()
+                    vals, fluxes = candidates[int(rng.choice(len(candidates), p=probs))]
+
                 missing = [name for name in names if name not in vals]
                 if missing:
                     raise RuntimeError(
@@ -889,15 +1029,49 @@ def _build_model_class(cpp_base):
                         "galaxy must provide sample_physical() or "
                         "to_deterministic_physical()"
                     )
-                draws.append(dict(draw))
+                physical_draws.append(dict(draw))
+                latent_draws.append((vals, fluxes))
 
-            if not draws:
+            if not physical_draws:
                 return {}
-            keys = list(draws[0].keys())
-            return {
-                key: np.asarray([draw[key] for draw in draws], dtype=float).reshape(out_shape)
-                for key in keys
+            result = {
+                key: np.asarray(
+                    [draw[key] for draw in physical_draws], dtype=float
+                ).reshape(out_shape)
+                for key in physical_draws[0]
             }
+            if self._theta_star_fn is not None:
+                result["thetaS"] = np.asarray(
+                    [vals["thetaS"] for vals, _ in latent_draws]
+                ).reshape(out_shape)
+                for name in flux_dict:
+                    result[f"Fs_{name}"] = np.asarray(
+                        [fluxes[name]["Fs"] for _, fluxes in latent_draws]
+                    ).reshape(out_shape)
+            return result
+
+        def _latent_theta_star_candidates(self, vals, fluxes, conditionals):
+            from scipy.special import ndtri
+
+            options = self._theta_star_options
+            dimensions = len(conditionals) + 1
+            points = _sobol_points(options["samples"], dimensions, options["seed"])
+            candidates = []
+            for point in points:
+                draw = _draw_fluxes(fluxes, conditionals, point[:-1])
+                try:
+                    center, sigma = _theta_star_result(self._theta_star_fn, draw)
+                    theta_star = math.exp(
+                        center if sigma == 0.0 else center + sigma * ndtri(point[-1])
+                    )
+                except (ValueError, FloatingPointError, OverflowError):
+                    continue
+                current = dict(vals)
+                current["thetaS"] = theta_star
+                candidates.append((current, draw))
+            if not candidates:
+                raise RuntimeError("theta_star() produced no valid conditional draws")
+            return candidates
 
         # --- internal helpers ---
 

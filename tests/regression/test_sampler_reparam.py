@@ -271,6 +271,41 @@ def test_run_sampler_h5_roundtrip_preserves_fluxes(tmp_path):
     )
 
 
+def test_run_sampler_h5_roundtrip_preserves_flux_conditionals(tmp_path):
+    lcbinint = pytest.importorskip("lcbinint")
+    pytest.importorskip("h5py")
+    np = pytest.importorskip("numpy")
+
+    model, _ = _make_parallax_model(lcbinint, np)
+    model.likelihood("gaussian", flux="marginalize")
+
+    @model.theta_star(samples=8)
+    def _(fluxes):
+        return np.log(max(fluxes["tiny"]["Fs"], 1.0) * 1.0e-6), 0.1
+
+    path = tmp_path / "chain_conditionals.h5"
+    chain = lcbinint.run_sampler(
+        model,
+        nsteps=2,
+        options=lcbinint.SamplerOptions(
+            nwalkers=8,
+            seed=6,
+            log_path="",
+            log_every=1,
+            auto_stop=False,
+            h5_path=os.fspath(path),
+        ),
+    )
+    loaded = lcbinint.load_chain(os.fspath(path))
+
+    assert np.asarray(loaded._flux_conditional_scales) == pytest.approx(
+        np.asarray(chain._flux_conditional_scales)
+    )
+    assert np.asarray(loaded._flux_conditional_dfs) == pytest.approx(
+        np.asarray(chain._flux_conditional_dfs)
+    )
+
+
 def test_run_sampler_h5_roundtrip_preserves_fluxes_for_cpp_model(tmp_path):
     lcbinint = pytest.importorskip("lcbinint")
     pytest.importorskip("h5py")

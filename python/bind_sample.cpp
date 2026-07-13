@@ -197,7 +197,7 @@ void register_sample_submodule(py::module_& parent)
     auto spl = parent.def_submodule("sample", "Posterior sampling");
 
     // --- Chain ---
-    py::class_<Chain>(spl, "Chain")
+    py::class_<Chain>(spl, "Chain", py::dynamic_attr())
         .def_property_readonly("nsteps",   &Chain::nsteps)
         .def_property_readonly("nwalkers", &Chain::nwalkers)
         .def_property_readonly("ndim",     &Chain::ndim)

@@ -128,12 +128,15 @@ def test_latent_theta_star_vmaps_jax_galactic_prior():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
     pytest.importorskip("jax")
+    scipy = pytest.importorskip("scipy")
+    from scipy.special import ndtri
+    from scipy.stats import qmc
 
     model, theta, true = _make_model(lcbinint, np)
-    n_theta = 32
+    samples = 32
     seed = 13
 
-    @model.theta_star(n_theta=n_theta, seed=seed)
+    @model.theta_star(samples=samples, seed=seed)
     def _(fluxes):
         return math.log(0.7), 0.2
 
@@ -144,7 +147,7 @@ def test_latent_theta_star_vmaps_jax_galactic_prior():
 
     theta_stars = np.exp(
         math.log(0.7)
-        + 0.2 * np.random.default_rng(seed).standard_normal(n_theta)
+        + 0.2 * ndtri(qmc.Sobol(d=1, scramble=True, seed=seed).random_base2(5)[:, 0])
     )
     weights = -0.5 * (true["tE"] * theta_stars) ** 2
     peak = np.max(weights)
@@ -502,6 +505,41 @@ def test_get_galactic_physical_uses_reparam_transform():
     assert phys["ML"].shape == (16,)
     assert len(galaxy.calls) == 16
     assert all(len(theta) == 2 for theta, _ in galaxy.calls)
+
+
+def test_get_galactic_physical_restores_latent_theta_star_without_magnification_recompute():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, _, _ = _make_model(lcbinint, np)
+    model.likelihood("gaussian", flux="marginalize")
+
+    @model.theta_star(samples=16, seed=7)
+    def _(fluxes):
+        return math.log(max(fluxes["tiny"]["Fs"], 1.0) * 1.0e-6), 0.05
+
+    prior = FakeGalacticModel(("thetaS",))
+    model.galactic_prior(prior)
+    chain = lcbinint.run_sampler(
+        model,
+        nsteps=2,
+        burnin=1,
+        options=lcbinint.SamplerOptions(
+            nwalkers=8,
+            seed=47,
+            log_path="",
+            auto_stop=False,
+        ),
+    )
+    galaxy = FakeSamplingGalacticModel(("thetaS",))
+
+    model._lc = None
+    phys = model.get_galactic_physical(chain, galaxy, flat=False, rng=np.random.default_rng(3))
+
+    assert set(phys) == {"ML", "DS", "thetaS", "Fs_tiny"}
+    assert all(values.shape == (2, 8) for values in phys.values())
+    assert np.all(np.isfinite(phys["thetaS"]))
+    assert np.all(np.isfinite(phys["Fs_tiny"]))
 
 
 def test_galactic_prior_requires_names_when_prior_has_no_param_type():

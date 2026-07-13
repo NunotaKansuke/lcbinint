@@ -46,14 +46,18 @@ def _py_init_state_extended(model, nwalkers: int, seed: int, start, log_prob_fn)
     return _sample._make_state(nwalkers, ndim, int(seed), pos, lp)
 
 
-def _py_collect_extended(model, state):
+def _py_collect_extended(model, state, flux_history=None, scale_history=None, dfs=None):
     """Build a Chain from a SamplerState for a Python callback model."""
     chain_arr = state.get_chain
     lp_arr    = state.get_log_prob
-    flux_arr, dataset_names = _flux_array_from_samples(
-        model, chain_arr.reshape(-1, state.ndim)
-    )
-    return _sample._chain_from_arrays(
+    if flux_history is None:
+        flux_arr, dataset_names = _flux_array_from_samples(
+            model, chain_arr.reshape(-1, state.ndim)
+        )
+    else:
+        flux_arr = np.asarray(flux_history).reshape(len(lp_arr), -1)
+        dataset_names = list(getattr(model, "_aux_dataset_names", []))
+    chain = _sample._chain_from_arrays(
         chain_arr.reshape(-1, state.ndim),
         lp_arr,
         state.nwalkers,
@@ -63,6 +67,10 @@ def _py_collect_extended(model, state):
         dataset_names=dataset_names,
         acceptance=state.acceptance_fraction,
     )
+    if scale_history is not None:
+        chain._flux_conditional_scales = np.asarray(scale_history)
+        chain._flux_conditional_dfs = np.asarray(dfs)
+    return chain
 
 
 def _flux_array_from_samples(model, samples):
@@ -213,8 +221,16 @@ def run_sampler(
         state = _py_init_state_extended(
             step_model, options.nwalkers, options.seed, start, step_model.log_prob
         )
+        current_fluxes, current_scales, flux_dfs, flux_dataset_names = (
+            step_model.consume_current_aux(np.asarray(state.pos))
+        )
+        step_model._aux_dataset_names = flux_dataset_names
+        flux_history = []
+        scale_history = []
         def _collect():
-            return _py_collect_extended(step_model, state)
+            return _py_collect_extended(
+                step_model, state, flux_history, scale_history, flux_dfs
+            )
     elif start is not None:
         state = sampler.init_state(model, start, hessian_init)
         def _collect():
@@ -228,14 +244,15 @@ def run_sampler(
     nw          = state.nwalkers
     param_names = step_model.param_names
     transforms = getattr(step_model, "_sample_transforms", [])
-    flux_dataset_names = []
+    flux_dataset_names = locals().get("flux_dataset_names", [])
     n_fluxes = int(getattr(state, "n_fluxes", 0))
     if n_fluxes > 0:
         flux_dataset_names = list(_collect().dataset_names)
     else:
-        current_fluxes, flux_dataset_names = _flux_array_from_samples(
-            step_model, np.asarray(state.pos)
-        )
+        if not (has_reparam or has_py_extra):
+            current_fluxes, flux_dataset_names = _flux_array_from_samples(
+                step_model, np.asarray(state.pos)
+            )
         n_fluxes = 0 if current_fluxes is None else current_fluxes.shape[1]
 
     # ---- logging ----
@@ -287,6 +304,15 @@ def run_sampler(
                 dtype="f8",
                 chunks=(chunk_s, nw, n_fluxes),
             )
+        if has_reparam or has_py_extra:
+            h5file.create_dataset(
+                "flux_conditional_scales",
+                shape=(0, nw, len(flux_dataset_names)),
+                maxshape=(None, nw, len(flux_dataset_names)),
+                dtype="f8",
+                chunks=(chunk_s, nw, len(flux_dataset_names)),
+            )
+            h5file.attrs["flux_conditional_dfs"] = flux_dfs
         h5file.attrs["param_names"] = param_names
         h5file.attrs["transforms"]   = transforms
         h5file.attrs["dataset_names"] = flux_dataset_names
@@ -312,6 +338,11 @@ def run_sampler(
                 h5file["fluxes"][h5_saved:] = fl_arr[h5_saved:]
                 if names:
                     h5file.attrs["dataset_names"] = names
+        if "flux_conditional_scales" in h5file:
+            h5file["flux_conditional_scales"].resize(h5_saved + n_new, axis=0)
+            h5file["flux_conditional_scales"][h5_saved:] = np.asarray(
+                scale_history[h5_saved:]
+            )
         h5file.flush()
         h5_saved += n_new
 
@@ -324,6 +355,10 @@ def run_sampler(
 
     for i in range(1, burnin + 1):
         sampler.step(step_model, state)
+        if has_reparam or has_py_extra:
+            current_fluxes, current_scales, _, _ = step_model.consume_current_aux(
+                np.asarray(state.pos)
+            )
         if options.log_every and i % options.log_every == 0:
             _log(
                 f"  [burnin {i:>{len(str(burnin))}}/{burnin}]"
@@ -340,6 +375,12 @@ def run_sampler(
 
     while i < nsteps:
         sampler.step(step_model, state)
+        if has_reparam or has_py_extra:
+            current_fluxes, current_scales, _, _ = step_model.consume_current_aux(
+                np.asarray(state.pos)
+            )
+            flux_history.append(current_fluxes.copy())
+            scale_history.append(current_scales.copy())
         i += 1
 
         is_check = options.log_every and i % options.log_every == 0
@@ -417,9 +458,14 @@ def load_chain(h5_path: str):
         transforms  = list(f.attrs.get("transforms", []))
         dataset_names = list(f.attrs.get("dataset_names", []))
         fluxes = f["fluxes"][:].reshape(len(lp), -1) if "fluxes" in f else None
+        conditional_scales = (
+            f["flux_conditional_scales"][:]
+            if "flux_conditional_scales" in f else None
+        )
+        conditional_dfs = f.attrs.get("flux_conditional_dfs", None)
         acceptance  = float(f.attrs.get("acceptance", 0.0))
 
-    return _sample._chain_from_arrays(
+    chain = _sample._chain_from_arrays(
         flat, lp, nw,
         param_names=param_names,
         transforms=transforms,
@@ -427,3 +473,7 @@ def load_chain(h5_path: str):
         dataset_names=dataset_names,
         acceptance=acceptance,
     )
+    if conditional_scales is not None:
+        chain._flux_conditional_scales = conditional_scales
+        chain._flux_conditional_dfs = np.asarray(conditional_dfs)
+    return chain

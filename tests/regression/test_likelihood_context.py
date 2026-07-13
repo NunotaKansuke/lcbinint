@@ -204,7 +204,7 @@ def test_theta_star_without_parameter_is_marginalized():
 
     model, true = _make_model(lcbinint, np)
 
-    @model.theta_star(n_theta=32, seed=4)
+    @model.theta_star(samples=32, seed=4)
     def _(fluxes):
         return math.log(0.7), 0.2
 
@@ -225,12 +225,15 @@ def test_theta_star_without_parameter_is_marginalized():
 def test_theta_star_marginalization_applies_hard_prior_bounds():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
+    pytest.importorskip("scipy")
+    from scipy.special import ndtri
+    from scipy.stats import qmc
 
     model, true = _make_model(lcbinint, np)
-    n_theta = 64
+    samples = 64
     seed = 9
 
-    @model.theta_star(n_theta=n_theta, seed=seed)
+    @model.theta_star(samples=samples, seed=seed)
     def _(fluxes):
         return math.log(0.7), 0.2
 
@@ -248,8 +251,9 @@ def test_theta_star_marginalization_applies_hard_prior_bounds():
         true["piEN"],
         true["piEE"],
     ]
-    accepted = np.random.default_rng(seed).standard_normal(n_theta) < 0.0
-    expected_extra = math.log(np.count_nonzero(accepted) / n_theta)
+    uniforms = qmc.Sobol(d=1, scramble=True, seed=seed).random_base2(6)[:, 0]
+    accepted = ndtri(uniforms) < 0.0
+    expected_extra = math.log(np.count_nonzero(accepted) / samples)
     expected = model.log_prior(theta) + model.log_likelihood(theta) + expected_extra
 
     assert model.log_prob(theta) == pytest.approx(expected)

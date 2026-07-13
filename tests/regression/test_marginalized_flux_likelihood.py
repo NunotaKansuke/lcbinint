@@ -73,12 +73,15 @@ def test_gaussian_likelihood_can_marginalize_flux_parameters():
 def test_theta_star_marginalizes_conditional_student_t_flux():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
+    pytest.importorskip("scipy")
+    from scipy.special import stdtrit
+    from scipy.stats import qmc
 
     model, _, theta, _ = _make_model(lcbinint, np)
-    n_flux = 32
+    samples = 32
     seed = 17
 
-    @model.theta_star(n_flux=n_flux, n_theta=1, seed=seed)
+    @model.theta_star(samples=samples, seed=seed)
     def _(fluxes):
         return math.log(abs(fluxes["tiny"]["Fs"]) / 1000.0), 0.0
 
@@ -88,10 +91,10 @@ def test_theta_star_marginalizes_conditional_student_t_flux():
 
     base_prob, _, conditionals = model._log_prob_and_fluxes(theta)
     conditional = conditionals["tiny"]
-    rng = np.random.default_rng(seed)
+    uniforms = qmc.Sobol(d=2, scramble=True, seed=seed).random_base2(5)[:, 0]
     fs_draws = (
         conditional["mean"]
-        + conditional["scale"] * rng.standard_t(conditional["df"], n_flux)
+        + conditional["scale"] * stdtrit(conditional["df"], uniforms)
     )
     weights = -0.5 * ((np.abs(fs_draws) / 1000.0 - 0.9) / 0.1) ** 2
     peak = np.max(weights)
