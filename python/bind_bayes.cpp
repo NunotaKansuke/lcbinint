@@ -103,17 +103,25 @@ void register_bayes_submodule(py::module_& parent)
         .def("_log_prob_and_fluxes", [](const Model& m,
                                           const std::vector<double>& theta) {
             std::vector<Model::FluxSolution> sols;
-            const double log_prob = m.log_prob_and_fluxes(theta, sols);
+            std::vector<Model::FluxConditional> conditionals;
+            const double log_prob = m.log_prob_and_fluxes(theta, sols, &conditionals);
             const auto& ev = m.event();
             py::dict fluxes;
+            py::dict conditional;
             for (std::size_t k = 0; k < sols.size(); ++k) {
                 const std::string name = (k < ev.size() && !ev.at(k).name().empty())
                     ? ev.at(k).name() : ("ds" + std::to_string(k));
                 fluxes[py::str(name)] = py::dict(
                     py::arg("Fs") = sols[k].Fs,
                     py::arg("Fb") = sols[k].Fb);
+                if (k < conditionals.size() && conditionals[k].df > 0.0) {
+                    conditional[py::str(name)] = py::dict(
+                        py::arg("mean") = conditionals[k].Fs_mean,
+                        py::arg("scale") = conditionals[k].Fs_scale,
+                        py::arg("df") = conditionals[k].df);
+                }
             }
-            return py::make_tuple(log_prob, fluxes);
+            return py::make_tuple(log_prob, fluxes, conditional);
         }, py::arg("theta"),
         "Internal one-pass base posterior and conditional flux evaluation.")
         .def("chi2",           &Model::chi2,            py::arg("theta"))

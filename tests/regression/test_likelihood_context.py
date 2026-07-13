@@ -198,13 +198,13 @@ def test_theta_star_sampled_value_works_with_reparam_adapter():
     assert math.isfinite(model._sampling_adapter().log_prob(theta))
 
 
-def test_theta_star_configuration_errors_are_explicit():
+def test_theta_star_without_parameter_is_marginalized():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
 
     model, true = _make_model(lcbinint, np)
 
-    @model.theta_star
+    @model.theta_star(n_theta=32, seed=4)
     def _(fluxes):
         return math.log(0.7), 0.2
 
@@ -218,8 +218,58 @@ def test_theta_star_configuration_errors_are_explicit():
         true["piEN"],
         true["piEE"],
     ]
-    with pytest.raises(RuntimeError, match="register thetaS"):
-        model.log_prob(theta)
+    expected = model.log_prior(theta) + model.log_likelihood(theta)
+    assert model.log_prob(theta) == pytest.approx(expected)
+
+
+def test_theta_star_marginalization_applies_hard_prior_bounds():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, true = _make_model(lcbinint, np)
+    n_theta = 64
+    seed = 9
+
+    @model.theta_star(n_theta=n_theta, seed=seed)
+    def _(fluxes):
+        return math.log(0.7), 0.2
+
+    @model.prior
+    def _(thetaS, **_):
+        return 0.0 if thetaS < 0.7 else float("-inf")
+
+    theta = [
+        true["t0"],
+        math.log(true["tE"]),
+        true["u0"],
+        true["s"],
+        math.log(true["q"]),
+        true["alpha"],
+        true["piEN"],
+        true["piEE"],
+    ]
+    accepted = np.random.default_rng(seed).standard_normal(n_theta) < 0.0
+    expected_extra = math.log(np.count_nonzero(accepted) / n_theta)
+    expected = model.log_prior(theta) + model.log_likelihood(theta) + expected_extra
+
+    assert model.log_prob(theta) == pytest.approx(expected)
+
+
+def test_theta_star_deterministic_conflicts_with_registered_parameter():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    _, true = _make_model(lcbinint, np)
+    theta = [
+        true["t0"],
+        math.log(true["tE"]),
+        true["u0"],
+        true["s"],
+        math.log(true["q"]),
+        true["alpha"],
+        true["piEN"],
+        true["piEE"],
+    ]
 
     deterministic, _ = _make_model(lcbinint, np)
     deterministic.param("thetaS", lcbinint.bayes.LogUniform(0.01, 10.0))

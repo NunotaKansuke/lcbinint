@@ -60,6 +60,45 @@ def test_gaussian_likelihood_can_marginalize_flux_parameters():
 
     assert model.log_likelihood(theta) == pytest.approx(expected)
 
+    base_prob, one_pass_fluxes, conditionals = model._log_prob_and_fluxes(theta)
+    conditional = conditionals["tiny"]
+    expected_scale = math.sqrt(chi2 / (len(data.time) - 2) * s_w / det)
+    assert base_prob == pytest.approx(model.log_prob(theta))
+    assert one_pass_fluxes["tiny"] == pytest.approx(flux)
+    assert conditional["mean"] == pytest.approx(flux["Fs"])
+    assert conditional["scale"] == pytest.approx(expected_scale)
+    assert conditional["df"] == pytest.approx(len(data.time) - 2)
+
+
+def test_theta_star_marginalizes_conditional_student_t_flux():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, _, theta, _ = _make_model(lcbinint, np)
+    n_flux = 32
+    seed = 17
+
+    @model.theta_star(n_flux=n_flux, n_theta=1, seed=seed)
+    def _(fluxes):
+        return math.log(abs(fluxes["tiny"]["Fs"]) / 1000.0), 0.0
+
+    @model.prior
+    def _(thetaS, **_):
+        return -0.5 * ((thetaS - 0.9) / 0.1) ** 2
+
+    base_prob, _, conditionals = model._log_prob_and_fluxes(theta)
+    conditional = conditionals["tiny"]
+    rng = np.random.default_rng(seed)
+    fs_draws = (
+        conditional["mean"]
+        + conditional["scale"] * rng.standard_t(conditional["df"], n_flux)
+    )
+    weights = -0.5 * ((np.abs(fs_draws) / 1000.0 - 0.9) / 0.1) ** 2
+    peak = np.max(weights)
+    expected_extra = peak + math.log(np.mean(np.exp(weights - peak)))
+
+    assert model.log_prob(theta) == pytest.approx(base_prob + expected_extra)
+
 
 def test_marginalized_flux_sampler_records_conditional_best_fit_fluxes():
     lcbinint = pytest.importorskip("lcbinint")

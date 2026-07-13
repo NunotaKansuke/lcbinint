@@ -659,13 +659,15 @@ double Model::log_prob(const std::vector<double>& theta) const
 }
 
 double Model::log_prob_and_fluxes(const std::vector<double>& theta,
-                                   std::vector<FluxSolution>& out_fluxes) const
+                                   std::vector<FluxSolution>& out_fluxes,
+                                   std::vector<FluxConditional>* out_conditionals) const
 {
     if (static_cast<int>(theta.size()) != n_params())
         throw std::invalid_argument("theta size mismatch");
     const double lp = log_prior(theta);
     if (!std::isfinite(lp)) {
         out_fluxes.clear();
+        if (out_conditionals) out_conditionals->clear();
         return lp;
     }
     BinarySourceExtras bs;
@@ -674,6 +676,7 @@ double Model::log_prob_and_fluxes(const std::vector<double>& theta,
         theta, bs, flux_treatment_ == "sample" ? &sampled_fluxes : nullptr);
     if (!model::from_c_params(p).is_valid()) {
         out_fluxes.clear();
+        if (out_conditionals) out_conditionals->clear();
         return -std::numeric_limits<double>::infinity();
     }
     const bool is_binary   = (light_curve_->source_kind() == lc::SourceKind::binary);
@@ -688,6 +691,10 @@ double Model::log_prob_and_fluxes(const std::vector<double>& theta,
         - 0.5 * std::log(nu * M_PI);
     out_fluxes.clear();
     out_fluxes.reserve(event_->size());
+    if (out_conditionals) {
+        out_conditionals->clear();
+        out_conditionals->reserve(event_->size());
+    }
     lcbi_params p_scratch;
     for (std::size_t k = 0; k < event_->size(); ++k) {
         const auto& ds = event_->at(k);
@@ -710,6 +717,14 @@ double Model::log_prob_and_fluxes(const std::vector<double>& theta,
                 if (!std::isfinite(ll))
                     return -std::numeric_limits<double>::infinity();
                 log_likelihood_total += ll;
+                if (out_conditionals) {
+                    const double df = static_cast<double>(n - 2);
+                    const double variance = stats.chi2 / df * c.S_w / stats.det;
+                    if (!std::isfinite(variance) || variance < 0.0)
+                        return -std::numeric_limits<double>::infinity();
+                    out_conditionals->push_back(
+                        {flux.Fs, std::sqrt(variance), df});
+                }
             } else {
                 for (std::size_t i = 0; i < n; ++i) {
                     const double r = f[i] - flux.Fs * A[i] - flux.Fb;
@@ -727,6 +742,9 @@ double Model::log_prob_and_fluxes(const std::vector<double>& theta,
             }
         }
         out_fluxes.push_back(flux);
+        if (out_conditionals && flux_treatment_ != "marginalize") {
+            out_conditionals->push_back({flux.Fs, 0.0, 0.0});
+        }
     }
     return lp + (
         likelihood_mode_ == "gaussian" && flux_treatment_ != "marginalize"

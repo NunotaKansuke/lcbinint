@@ -87,12 +87,18 @@ public:
 
     // Flux parameters {Fs, Fb} per dataset, either solved analytically or sampled.
     struct FluxSolution { double Fs; double Fb; };
+    struct FluxConditional {
+        double Fs_mean;
+        double Fs_scale;
+        double df;
+    };
     std::vector<FluxSolution> fluxes(const std::vector<double>& theta) const;
 
     // Compute log_prob and fluxes in a single magnification pass.
     // Used by EnsembleSampler to avoid double-calling lcbi_magnification_array on accept.
     double log_prob_and_fluxes(const std::vector<double>& theta,
-                               std::vector<FluxSolution>& out_fluxes) const;
+                               std::vector<FluxSolution>& out_fluxes,
+                               std::vector<FluxConditional>* out_conditionals = nullptr) const;
 
 private:
     // Convert transformed theta → lcbi_params + binary source extras.

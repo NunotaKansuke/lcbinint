@@ -14,7 +14,7 @@ class LikelihoodContext:
         self.fluxes = fluxes
 
 
-def _apply_theta_star(fn, vals, fluxes):
+def _theta_star_result(fn, fluxes):
     result = fn(fluxes)
     if not isinstance(result, (tuple, list)) or len(result) != 2:
         raise TypeError(
@@ -25,26 +25,115 @@ def _apply_theta_star(fn, vals, fluxes):
         raise ValueError("theta_star() log_center must be finite")
     if not math.isfinite(sigma) or sigma < 0.0:
         raise ValueError("theta_star() log_sigma must be finite and >= 0")
+    return center, sigma
 
-    if sigma == 0.0:
-        if "thetaS" in vals:
-            raise RuntimeError(
-                "theta_star() returned log_sigma=0, so thetaS is deterministic; "
-                "do not register model.param('thetaS', ...)"
-            )
-        vals["thetaS"] = math.exp(center)
-        return 0.0
 
-    if "thetaS" not in vals:
-        raise RuntimeError(
-            "theta_star() returned log_sigma>0; register thetaS with "
-            "model.param('thetaS', prior)"
+def _logmeanexp(values):
+    values = np.asarray(values, dtype=float)
+    finite = np.isfinite(values)
+    if not np.any(finite):
+        return float("-inf")
+    peak = float(np.max(values[finite]))
+    return peak + math.log(float(np.mean(np.exp(values - peak))))
+
+
+def _draw_fluxes(fluxes, conditionals, rng):
+    draw = {name: dict(values) for name, values in fluxes.items()}
+    for name, params in conditionals.items():
+        draw[name]["Fs"] = (
+            float(params["mean"])
+            + float(params["scale"]) * rng.standard_t(float(params["df"]))
         )
-    theta_star = float(vals["thetaS"])
+    return draw
+
+
+def _theta_star_log_density(theta_star, center, sigma):
+    if sigma == 0.0:
+        raise RuntimeError(
+            "theta_star() returned log_sigma=0, so thetaS is deterministic; "
+            "do not register model.param('thetaS', ...)"
+        )
+    theta_star = float(theta_star)
     if not math.isfinite(theta_star) or theta_star <= 0.0:
         return float("-inf")
     z = (math.log(theta_star) - center) / sigma
     return -0.5 * z * z - math.log(sigma) - 0.5 * math.log(2.0 * math.pi)
+
+
+def _apply_sampled_theta_star(fn, vals, fluxes, conditionals, options):
+    if not conditionals:
+        center, sigma = _theta_star_result(fn, fluxes)
+        return _theta_star_log_density(vals["thetaS"], center, sigma)
+
+    rng = np.random.default_rng(options["seed"])
+    log_weights = []
+    for _ in range(options["n_flux"]):
+        draw = _draw_fluxes(fluxes, conditionals, rng)
+        try:
+            center, sigma = _theta_star_result(fn, draw)
+            log_weights.append(
+                _theta_star_log_density(vals["thetaS"], center, sigma)
+            )
+        except (ValueError, FloatingPointError, OverflowError):
+            log_weights.append(float("-inf"))
+    return _logmeanexp(log_weights)
+
+
+def _evaluate_extra_priors_many(priors, values):
+    current = [dict(vals) for vals in values]
+    totals = np.zeros(len(current), dtype=float)
+    for prior_index, fn in enumerate(priors):
+        batch = fn.batch_log_prob(current) if hasattr(fn, "batch_log_prob") else None
+        if batch is None:
+            batch = np.asarray(
+                [
+                    _call_extra_prior(fn, vals) if math.isfinite(totals[i])
+                    else float("-inf")
+                    for i, vals in enumerate(current)
+                ],
+                dtype=float,
+            )
+        totals += batch
+        if prior_index + 1 < len(priors) and hasattr(fn, "physical_values"):
+            for i, vals in enumerate(current):
+                if math.isfinite(totals[i]):
+                    vals.update(fn.physical_values(vals))
+    return totals
+
+
+def _marginalize_theta_star(fn, vals, fluxes, conditionals, priors, options):
+    rng = np.random.default_rng(options["seed"])
+    n_flux = options["n_flux"] if conditionals else 1
+    n_theta = options["n_theta"]
+    samples = []
+    invalid_count = 0
+
+    for _ in range(n_flux):
+        draw = _draw_fluxes(fluxes, conditionals, rng) if conditionals else fluxes
+        try:
+            center, sigma = _theta_star_result(fn, draw)
+        except (ValueError, FloatingPointError, OverflowError):
+            invalid_count += n_theta
+            continue
+
+        if sigma == 0.0:
+            theta_stars = [math.exp(center)]
+        else:
+            theta_stars = np.exp(center + sigma * rng.standard_normal(n_theta))
+
+        for theta_star in theta_stars:
+            current = dict(vals)
+            current["thetaS"] = float(theta_star)
+            samples.append(current)
+
+    if not samples:
+        return float("-inf")
+    log_weights = _evaluate_extra_priors_many(priors, samples)
+    if invalid_count:
+        log_weights = np.concatenate(
+            [log_weights, np.full(invalid_count, float("-inf"))]
+        )
+    return _logmeanexp(log_weights)
 
 
 class _GalacticModelTerm:
@@ -74,6 +163,8 @@ class _GalacticModelTerm:
         if not self.names:
             raise ValueError("galactic_prior() requires at least one parameter name")
         self.context = context
+        self._batch_fn = None
+        self._batch_disabled = False
 
     def __call__(self, **vals):
         missing = [name for name in self.names if name not in vals]
@@ -108,6 +199,49 @@ class _GalacticModelTerm:
             key: value
             for key, value in zip(keys, physical)
         }
+
+    def batch_log_prob(self, values):
+        """Evaluate a JAX-compatible Galactic model for many latent states."""
+        if self._batch_disabled:
+            return None
+        try:
+            import jax
+            import jax.numpy as jnp
+        except ImportError:
+            self._batch_disabled = True
+            return None
+
+        if self._batch_fn is None:
+            names = self.names
+            context_fn = self.context
+            galaxy = self.galaxy
+
+            def one(vals):
+                theta = jnp.stack([jnp.asarray(vals[name]) for name in names])
+                context = context_fn(vals) if callable(context_fn) else context_fn
+                if context is None:
+                    return galaxy.log_prob(theta)
+                return galaxy.log_prob(theta, context=context)
+
+            self._batch_fn = jax.jit(jax.vmap(one))
+
+        keys = tuple(values[0])
+        try:
+            batched = {
+                key: jnp.asarray([vals[key] for vals in values])
+                for key in keys
+            }
+            result = self._batch_fn(batched)
+            return np.asarray(result, dtype=float)
+        except (
+            TypeError,
+            ValueError,
+            jax.errors.ConcretizationTypeError,
+            jax.errors.TracerArrayConversionError,
+        ):
+            self._batch_disabled = True
+            self._batch_fn = None
+            return None
 
     def _context(self, vals):
         if callable(self.context):
@@ -260,22 +394,39 @@ class _SamplingAdapter:
 
         phys_model = self._ensure_physical_model()
         phys_theta = [phys[name] for name in self._phys_names]
-        base_prob, fluxes = phys_model._log_prob_and_fluxes(phys_theta)
+        base_prob, fluxes, conditionals = phys_model._log_prob_and_fluxes(phys_theta)
         if not math.isfinite(base_prob):
             return base_prob
         lp += base_prob - phys_model.log_prior(phys_theta)
 
         if self._model._theta_star_fn is not None:
-            lp += _apply_theta_star(self._model._theta_star_fn, vals, fluxes)
+            if "thetaS" in vals:
+                lp += _apply_sampled_theta_star(
+                    self._model._theta_star_fn,
+                    vals,
+                    fluxes,
+                    conditionals,
+                    self._model._theta_star_options,
+                )
+            else:
+                lp += _marginalize_theta_star(
+                    self._model._theta_star_fn,
+                    vals,
+                    fluxes,
+                    conditionals,
+                    self._model._extra_priors,
+                    self._model._theta_star_options,
+                )
             if not math.isfinite(lp):
                 return lp
 
-        for fn in self._model._extra_priors:
-            lp += _call_extra_prior(fn, vals)
-            if not math.isfinite(lp):
-                return lp
-            if hasattr(fn, "physical_values"):
-                vals.update(fn.physical_values(vals))
+        if self._model._theta_star_fn is None or "thetaS" in vals:
+            for fn in self._model._extra_priors:
+                lp += _call_extra_prior(fn, vals)
+                if not math.isfinite(lp):
+                    return lp
+                if hasattr(fn, "physical_values"):
+                    vals.update(fn.physical_values(vals))
 
         context = LikelihoodContext(fluxes=fluxes)
         for fn, wants_context in self._model._extra_liks:
@@ -489,6 +640,7 @@ def _build_model_class(cpp_base):
             self._extra_priors = []
             self._guards       = []
             self._theta_star_fn = None
+            self._theta_star_options = None
             self._param_is_log = {}
             self._param_priors = {}
             self._lik_mode     = None
@@ -590,20 +742,40 @@ def _build_model_class(cpp_base):
 
         # --- prior ---
 
-        def theta_star(self, fn):
+        def theta_star(self, fn=None, *, n_flux=100, n_theta=100, seed=0):
             """Set the log-space thetaS relation evaluated from fitted fluxes.
 
             The callable receives the complete flux dictionary and returns
             ``(log_center, log_sigma)``. A positive sigma adds a Gaussian term
-            for sampled ``thetaS``; zero sigma derives ``thetaS`` exactly.
+            for explicitly sampled ``thetaS``. Without a registered ``thetaS``
+            parameter, thetaS and marginalized fluxes are integrated using
+            fixed Monte Carlo draws.
             """
+            if fn is None:
+                return lambda decorated: self.theta_star(
+                    decorated,
+                    n_flux=n_flux,
+                    n_theta=n_theta,
+                    seed=seed,
+                )
             if not callable(fn):
                 raise TypeError(
                     f"theta_star() expects a callable, got {type(fn).__name__}"
                 )
             if self._theta_star_fn is not None:
                 raise RuntimeError("theta_star() is already configured")
+            if isinstance(n_flux, bool) or int(n_flux) != n_flux or n_flux <= 0:
+                raise ValueError("theta_star() n_flux must be a positive integer")
+            if isinstance(n_theta, bool) or int(n_theta) != n_theta or n_theta <= 0:
+                raise ValueError("theta_star() n_theta must be a positive integer")
+            if isinstance(seed, bool) or int(seed) != seed or seed < 0:
+                raise ValueError("theta_star() seed must be a non-negative integer")
             self._theta_star_fn = fn
+            self._theta_star_options = {
+                "n_flux": int(n_flux),
+                "n_theta": int(n_theta),
+                "seed": int(seed),
+            }
             return fn
 
         def guard(self, fn):
@@ -791,22 +963,39 @@ def _build_model_class(cpp_base):
             for fn in self._guards:
                 if not _call_guard(fn, vals):
                     return float("-inf")
-            base_prob, fluxes = super()._log_prob_and_fluxes(theta)
+            base_prob, fluxes, conditionals = super()._log_prob_and_fluxes(theta)
             if not math.isfinite(base_prob):
                 return base_prob
             lp += base_prob - super().log_prior(theta)
 
             if self._theta_star_fn is not None:
-                lp += _apply_theta_star(self._theta_star_fn, vals, fluxes)
+                if "thetaS" in vals:
+                    lp += _apply_sampled_theta_star(
+                        self._theta_star_fn,
+                        vals,
+                        fluxes,
+                        conditionals,
+                        self._theta_star_options,
+                    )
+                else:
+                    lp += _marginalize_theta_star(
+                        self._theta_star_fn,
+                        vals,
+                        fluxes,
+                        conditionals,
+                        self._extra_priors,
+                        self._theta_star_options,
+                    )
                 if not math.isfinite(lp):
                     return lp
 
-            for fn in self._extra_priors:
-                lp += _call_extra_prior(fn, vals)
-                if not math.isfinite(lp):
-                    return lp
-                if hasattr(fn, "physical_values"):
-                    vals.update(fn.physical_values(vals))
+            if self._theta_star_fn is None or "thetaS" in vals:
+                for fn in self._extra_priors:
+                    lp += _call_extra_prior(fn, vals)
+                    if not math.isfinite(lp):
+                        return lp
+                    if hasattr(fn, "physical_values"):
+                        vals.update(fn.physical_values(vals))
 
             context = LikelihoodContext(fluxes=fluxes)
             for fn, wants_context in self._extra_liks:

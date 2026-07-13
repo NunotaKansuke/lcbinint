@@ -46,6 +46,17 @@ class FakeSamplingGalacticModel:
         }
 
 
+class FakeJaxGalacticModel:
+    def __init__(self, names):
+        self.param_type = SimpleNamespace(names=tuple(names))
+
+    def log_prob(self, theta, context=None):
+        import jax.numpy as jnp
+
+        theta_s = jnp.asarray(context["thS"])
+        return -0.5 * (theta[0] * theta_s) ** 2
+
+
 def _make_model(lcbinint, np):
     true = {
         "t0": 8000.0,
@@ -111,6 +122,38 @@ def test_galactic_prior_uses_param_type_names_and_context_callable():
     theta_seen, context_seen = galaxy.calls[-1]
     assert theta_seen == pytest.approx((true["tE"], true["piEN"], true["piEE"]))
     assert context_seen == {"scale": true["u0"] + 2.0}
+
+
+def test_latent_theta_star_vmaps_jax_galactic_prior():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("jax")
+
+    model, theta, true = _make_model(lcbinint, np)
+    n_theta = 32
+    seed = 13
+
+    @model.theta_star(n_theta=n_theta, seed=seed)
+    def _(fluxes):
+        return math.log(0.7), 0.2
+
+    term = model.galactic_prior(
+        FakeJaxGalacticModel(("tE",)),
+        context=lambda params: {"thS": params["thetaS"]},
+    )
+
+    theta_stars = np.exp(
+        math.log(0.7)
+        + 0.2 * np.random.default_rng(seed).standard_normal(n_theta)
+    )
+    weights = -0.5 * (true["tE"] * theta_stars) ** 2
+    peak = np.max(weights)
+    expected_extra = peak + math.log(np.mean(np.exp(weights - peak)))
+    expected = model.log_prior(theta) + model.log_likelihood(theta) + expected_extra
+
+    assert model.log_prob(theta) == pytest.approx(expected, rel=1.0e-6)
+    assert term._batch_fn is not None
+    assert not term._batch_disabled
 
 
 def test_galactic_prior_can_use_distance_marginalized_no_parallax_names():
