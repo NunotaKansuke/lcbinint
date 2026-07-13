@@ -86,7 +86,7 @@ def evaluate_sweep(
     xs: np.ndarray,
 ) -> dict:
     options = lcbinint.Options(source_bins=source_bins, caustic_bins=caustic_bins)
-    curve = lcbinint.LightCurve(lens="triple_lens", options=options)
+    curve = lcbinint.LightCurve(lens="triple", options=options)
     params = {
         "t0": 0.0, "tE": 1.0,
         "u0": case.y, "alpha": 0.0,
@@ -214,7 +214,7 @@ def bins_convergence_at_point(
     prev_mag = None
     for bins in bins_list:
         options = lcbinint.Options(source_bins=bins, caustic_bins=caustic_bins)
-        curve = lcbinint.LightCurve(lens="triple_lens", options=options)
+        curve = lcbinint.LightCurve(lens="triple", options=options)
         info = curve.info([x], params)
         mag = float(info.magnifications[0])
         seeds = int(info.image_counts[0])

@@ -146,7 +146,9 @@ lon : float or str "±dd:mm:ss.ss"  [degrees East])")
                 std::string                 name,
                 std::string                 band,
                 std::string                 observatory,
-                std::shared_ptr<Site>       site) {
+                std::shared_ptr<Site>       site,
+                double                      k,
+                double                      emin) {
             auto t = time.unchecked<1>();
             auto f = flux.unchecked<1>();
             auto e = flux_err.unchecked<1>();
@@ -155,11 +157,11 @@ lon : float or str "±dd:mm:ss.ss"  [degrees East])")
                 std::vector<double>(f.data(0), f.data(0) + f.size()),
                 std::vector<double>(e.data(0), e.data(0) + e.size()),
                 std::move(name), std::move(band), std::move(observatory),
-                std::move(site));
+                std::move(site), k, emin);
         }),
             py::arg("time"), py::arg("flux"), py::arg("flux_err"),
             py::arg("name") = "", py::arg("band") = "", py::arg("observatory") = "",
-            py::arg("site") = py::none())
+            py::arg("site") = py::none(), py::arg("k") = 1.0, py::arg("emin") = 0.0)
         // Zero-copy numpy views — array borrows C++ memory; LightCurveData stays alive via base
         .def_property_readonly("time", [](py::object self) {
             return vec_view(self.cast<const LightCurveData&>().time(), self);
@@ -170,11 +172,16 @@ lon : float or str "±dd:mm:ss.ss"  [degrees East])")
         .def_property_readonly("flux_err", [](py::object self) {
             return vec_view(self.cast<const LightCurveData&>().flux_err(), self);
         })
+        .def_property_readonly("effective_flux_err", [](py::object self) {
+            return vec_view(self.cast<const LightCurveData&>().effective_flux_err(), self);
+        })
         .def_property_readonly("weight", [](py::object self) {
             return vec_view(self.cast<const LightCurveData&>().weight(), self);
         })
         .def("__len__",   &LightCurveData::size)
         .def_property_readonly("size",        &LightCurveData::size)
+        .def_property_readonly("k",           &LightCurveData::k)
+        .def_property_readonly("emin",        &LightCurveData::emin)
         .def_property_readonly("name",        &LightCurveData::name)
         .def_property_readonly("band",        &LightCurveData::band)
         .def_property_readonly("observatory", &LightCurveData::observatory)

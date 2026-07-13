@@ -60,7 +60,9 @@ void register_bayes_submodule(py::module_& parent)
             m.param(std::move(name), std::move(prior));
         }, py::arg("name"), py::arg("prior"))
         .def("flux",           &Model::flux,          py::arg("mode") = "linear_blend")
-        .def("likelihood",     &Model::likelihood,    py::arg("mode") = "gaussian")
+        .def("likelihood",     &Model::likelihood,
+            py::arg("mode") = "gaussian", py::arg("nu") = 4.0,
+            py::arg("flux") = "fit")
         .def("n_params",       &Model::n_params)
         .def_property_readonly("param_names", [](const Model& m) {
             std::vector<std::string> names;
@@ -76,6 +78,16 @@ void register_bayes_submodule(py::module_& parent)
             return out;
         })
         .def_property_readonly("n_data",      &Model::n_data)
+        .def_property_readonly("dataset_names", [](const Model& m) {
+            std::vector<std::string> names;
+            const auto& ev = m.event();
+            names.reserve(ev.size());
+            for (std::size_t k = 0; k < ev.size(); ++k) {
+                const auto& name = ev.at(k).name();
+                names.push_back(name.empty() ? ("ds" + std::to_string(k)) : name);
+            }
+            return names;
+        })
         .def_property_readonly("options",     [](const Model& m) { return m.options(); })
         .def_property_readonly("light_curve", [](const Model& m) -> const lcbinint::lc::LightCurve& {
             return m.light_curve();
@@ -88,6 +100,30 @@ void register_bayes_submodule(py::module_& parent)
         .def("log_prior",      &Model::log_prior,      py::arg("theta"))
         .def("log_likelihood", &Model::log_likelihood,  py::arg("theta"))
         .def("log_prob",       &Model::log_prob,        py::arg("theta"))
+        .def("_log_prob_and_fluxes", [](const Model& m,
+                                          const std::vector<double>& theta) {
+            std::vector<Model::FluxSolution> sols;
+            std::vector<Model::FluxConditional> conditionals;
+            const double log_prob = m.log_prob_and_fluxes(theta, sols, &conditionals);
+            const auto& ev = m.event();
+            py::dict fluxes;
+            py::dict conditional;
+            for (std::size_t k = 0; k < sols.size(); ++k) {
+                const std::string name = (k < ev.size() && !ev.at(k).name().empty())
+                    ? ev.at(k).name() : ("ds" + std::to_string(k));
+                fluxes[py::str(name)] = py::dict(
+                    py::arg("Fs") = sols[k].Fs,
+                    py::arg("Fb") = sols[k].Fb);
+                if (k < conditionals.size() && conditionals[k].df > 0.0) {
+                    conditional[py::str(name)] = py::dict(
+                        py::arg("mean") = conditionals[k].Fs_mean,
+                        py::arg("scale") = conditionals[k].Fs_scale,
+                        py::arg("df") = conditionals[k].df);
+                }
+            }
+            return py::make_tuple(log_prob, fluxes, conditional);
+        }, py::arg("theta"),
+        "Internal one-pass base posterior and conditional flux evaluation.")
         .def("chi2",           &Model::chi2,            py::arg("theta"))
         .def("residuals",      &Model::residuals,       py::arg("theta"))
         .def("fluxes", [](const Model& m, const std::vector<double>& theta) {

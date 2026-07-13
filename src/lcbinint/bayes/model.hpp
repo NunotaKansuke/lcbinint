@@ -60,7 +60,8 @@ public:
 
     void param(std::string name, std::shared_ptr<Prior> prior);
     void flux(std::string mode = "linear_blend");
-    void likelihood(std::string mode = "gaussian");
+    void likelihood(std::string mode = "gaussian", double nu = 4.0,
+                    std::string flux = "fit");
 
     int                              n_params()      const noexcept;
     const std::vector<ParameterDef>& param_defs()    const noexcept { return params_; }
@@ -84,29 +85,43 @@ public:
     // across all datasets (used by LevenbergMarquardt for Jacobian construction).
     std::vector<double> residuals(const std::vector<double>& theta) const;
 
-    // Linear flux parameters {Fs, Fb} per dataset, solved analytically.
+    // Flux parameters {Fs, Fb} per dataset, either solved analytically or sampled.
     struct FluxSolution { double Fs; double Fb; };
+    struct FluxConditional {
+        double Fs_mean;
+        double Fs_scale;
+        double df;
+    };
     std::vector<FluxSolution> fluxes(const std::vector<double>& theta) const;
 
     // Compute log_prob and fluxes in a single magnification pass.
     // Used by EnsembleSampler to avoid double-calling lcbi_magnification_array on accept.
     double log_prob_and_fluxes(const std::vector<double>& theta,
-                               std::vector<FluxSolution>& out_fluxes) const;
+                               std::vector<FluxSolution>& out_fluxes,
+                               std::vector<FluxConditional>* out_conditionals = nullptr) const;
 
 private:
     // Convert transformed theta → lcbi_params + binary source extras.
     // Applies sky coords from LightCurve/Event as defaults; free params override.
     lcbi_params theta_to_params(const std::vector<double>& theta,
-                                BinarySourceExtras& bs_out) const;
-    double              compute_chi2(const lcbi_params& p, const BinarySourceExtras& bs) const;
-    std::vector<double> compute_residuals(const lcbi_params& p, const BinarySourceExtras& bs) const;
+                                BinarySourceExtras& bs_out,
+                                std::vector<FluxSolution>* fluxes_out = nullptr) const;
+    double              compute_chi2(const lcbi_params& p, const BinarySourceExtras& bs,
+                                     const std::vector<FluxSolution>* sampled_fluxes = nullptr) const;
+    double              compute_log_likelihood(const lcbi_params& p,
+                                               const BinarySourceExtras& bs,
+                                               const std::vector<FluxSolution>* sampled_fluxes = nullptr) const;
+    std::vector<double> compute_residuals(const lcbi_params& p, const BinarySourceExtras& bs,
+                                          const std::vector<FluxSolution>* sampled_fluxes = nullptr) const;
     void                build_cache();
 
     std::shared_ptr<lc::LightCurve> light_curve_;
     std::shared_ptr<obs::Event>     event_;
     std::vector<ParameterDef>   params_;
     std::string                 flux_mode_{"linear_blend"};
+    std::string                 flux_treatment_{"fit"};
     std::string                 likelihood_mode_{"gaussian"};
+    double                      likelihood_nu_ = 4.0;
 
     mutable std::vector<DatasetCache> cache_;
 };

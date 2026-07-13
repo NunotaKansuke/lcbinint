@@ -1,6 +1,8 @@
 from ._lcbinint import *          # noqa: F401, F403
 from ._lcbinint import lc, obs, bayes, optimize, sample
-from .sampler import SamplerOptions, run_sampler, load_chain, Reparameterization
+from .sampler import SamplerOptions, run_sampler, load_chain
+from . import image
+from .image import ImagePlane
 import numpy as _np
 
 Options = lc.Options
@@ -11,19 +13,12 @@ _NativeLightCurve = lc.LightCurve
 LightCurveInfo = lc.LightCurveInfo
 SourceTrajectory = lc.SourceTrajectory
 GeometryBranches = lc.GeometryBranches
-Effects = lc.Effects
+ModelSpec = lc.ModelSpec
 OrbitalMotionMode = lc.OrbitalMotionMode
 XallarapParamType = lc.XallarapParamType
 
 if not hasattr(LimbDarkening, "quadratic"):
     LimbDarkening.quadratic = staticmethod(lambda c, d: LimbDarkening(c, d))
-
-
-class EventCoordinates:
-    def __init__(self, ra=0.0, dec=0.0, tfix=0.0):
-        self.ra = ra
-        self.dec = dec
-        self.tfix = tfix
 
 
 class _LightCurveInfoCompat:
@@ -56,38 +51,23 @@ class _LightCurveInfoCompat:
 
 
 class LightCurve:
-    def __init__(self, *args, event=None, orbital_motion_mode=None, **kwargs):
-        self._event = event
-        self.event = event
-        self.lens = kwargs.get("lens", "binary_lens")
+    def __init__(self, *args, orbital_motion_mode=None, **kwargs):
         self.limb_darkening = kwargs.get("limb_darkening", LimbDarkening.none())
-        self.parallax = bool(kwargs.get("parallax", False))
         if orbital_motion_mode is not None:
             kwargs["orbital_motion"] = _orbital_motion_name(orbital_motion_mode)
-        if event is not None:
-            kwargs.setdefault("t_ref", event.tfix)
         self._native = _NativeLightCurve(*args, **kwargs)
-
-    def _with_event(self, params):
-        if self._event is None:
-            return params
-        if isinstance(params, dict):
-            out = dict(params)
-            out.setdefault("ra", self._event.ra)
-            out.setdefault("dec", self._event.dec)
-            out.setdefault("tfix", self._event.tfix)
-            return out
-        return params
+        self.lens = self._native.lens
+        self.parallax = bool(self._native.spec.parallax)
 
     def _merge_params(self, params=None, **kwargs):
         if params is None:
-            merged = dict(kwargs)
+            return dict(kwargs)
         elif isinstance(params, dict):
             merged = dict(params)
             merged.update(kwargs)
+            return merged
         else:
             return params
-        return self._with_event(merged)
 
     def __call__(self, times, params=None, **kwargs):
         return self._native(times, self._merge_params(params, **kwargs))
@@ -153,28 +133,34 @@ def _split_light_curve_kwargs(kwargs):
     kwargs = dict(kwargs)
     options = kwargs.pop("options", None) or Options()
     limb_darkening = kwargs.pop("limb_darkening", None) or LimbDarkening.none()
-    event = kwargs.pop("event", None)
     orbital_motion_mode = kwargs.get("orbital_motion_mode", OrbitalMotionMode.STATIC)
-    if event is not None:
-        kwargs.setdefault("ra", event.ra)
-        kwargs.setdefault("dec", event.dec)
-        kwargs.setdefault("tfix", event.tfix)
-    effects = {
+    sky = kwargs.pop("sky", None)
+    site = kwargs.pop("site", None)
+    t_ref = kwargs.pop("t_ref", kwargs.get("tfix", None))
+    terrestrial = kwargs.pop("terrestrial", False)
+    if sky is None and "ra" in kwargs and "dec" in kwargs:
+        sky = obs.SkyCoord(kwargs["ra"], kwargs["dec"])
+    spec = {
         "orbital_motion": _orbital_motion_name(orbital_motion_mode),
         "parallax": abs(kwargs.get("piEN", 0.0)) > 0.0 or abs(kwargs.get("piEE", 0.0)) > 0.0,
+        "terrestrial": bool(terrestrial),
     }
-    if event is not None:
-        effects["event"] = event
-    return options, limb_darkening, effects, kwargs
+    if sky is not None:
+        spec["sky"] = sky
+    if site is not None:
+        spec["site"] = site
+    if t_ref is not None:
+        spec["t_ref"] = t_ref
+    return options, limb_darkening, spec, kwargs
 
 
 def light_curve_info(times, **kwargs):
-    options, limb_darkening, effects, params = _split_light_curve_kwargs(kwargs)
+    options, limb_darkening, spec, params = _split_light_curve_kwargs(kwargs)
     curve = LightCurve(
-        lens="binary_lens",
+        lens="binary",
         options=options,
         limb_darkening=limb_darkening,
-        **effects,
+        **spec,
     )
     return _LightCurveInfoCompat(times, curve.info(times, params))
 
@@ -209,10 +195,6 @@ def binary_mag0(separation, mass_ratio, y1, y2):
     )
 
 
-ParallaxLightCurve = LightCurve
-ParallaxLightCurveFunc = LightCurve
-
-
 # Build the Python-extended Model subclass and replace bayes.Model
 from .model import _build_model_class as _bmc
 bayes.Model = _bmc(bayes._Model)
@@ -221,9 +203,10 @@ del _bmc
 __all__ = [
     "lc", "obs", "bayes", "optimize", "sample",
     "Options", "Parameters", "LensParams", "LimbDarkening", "LightCurve",
-    "LightCurveInfo", "SourceTrajectory", "GeometryBranches", "Effects",
+    "LightCurveInfo", "SourceTrajectory", "GeometryBranches", "ModelSpec",
     "OrbitalMotionMode", "XallarapParamType",
-    "EventCoordinates", "light_curve_info", "binary_light_curve", "light_curve",
+    "light_curve_info", "binary_light_curve", "light_curve",
     "magnification", "binary_mag0",
-    "SamplerOptions", "run_sampler", "load_chain", "Reparameterization",
+    "SamplerOptions", "run_sampler", "load_chain",
+    "image", "ImagePlane",
 ]

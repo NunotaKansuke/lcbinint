@@ -88,7 +88,7 @@ def test_triple_lens_point_source_matches_legacy_amp_point3(
     # convention, so we match it here with param_type='lcbinint'.  With alpha=0
     # both conventions give the same trajectory, so the test verifies geometry.
     light_curve = lcbinint.LightCurve(
-        lens="triple_lens", options=lcbinint.Options(param_type="lcbinint")
+        lens="triple", options=lcbinint.Options(param_type="lcbinint")
     )
     actual = light_curve(
         np.array([source_x]),
@@ -110,7 +110,7 @@ def test_triple_lens_point_source_matches_legacy_amp_point3(
 
 
 def test_triple_lens_light_curve_smoke():
-    light_curve = lcbinint.LightCurve(lens="triple_lens")
+    light_curve = lcbinint.LightCurve(lens="triple")
     times = np.array([-0.1, 0.0, 0.2])
     params = {
         "t0": 0.0,
@@ -141,7 +141,7 @@ def test_triple_lens_light_curve_smoke():
 
 def test_triple_lens_finite_source_cartesian_inverse_ray():
     light_curve = lcbinint.LightCurve(
-        lens="triple_lens",
+        lens="triple",
         options=lcbinint.Options(mode=1),
     )
     times = np.array([0.0])
@@ -165,7 +165,7 @@ def test_triple_lens_finite_source_uses_hexadecapole_between_point_and_ir():
     # Source at (-0.075, -0.025): derivative check fails but hexadecapole
     # self-consistency passes, so the mid-tier method is chosen.
     light_curve = lcbinint.LightCurve(
-        lens="triple_lens",
+        lens="triple",
         options=lcbinint.Options(source_bins=10, caustic_bins=96),
     )
     times = np.array([-0.075])
@@ -191,7 +191,7 @@ def test_triple_lens_finite_source_uses_hexadecapole_between_point_and_ir():
 
 def test_triple_lens_finite_source_approaches_point_source_for_small_rho():
     light_curve = lcbinint.LightCurve(
-        lens="triple_lens",
+        lens="triple",
         options=lcbinint.Options(source_bins=12),
     )
     params = {
@@ -217,7 +217,7 @@ def test_triple_lens_finite_source_auto_mode_uses_polar_for_high_magnification_s
     # source is off-caustic relative to the source size, so the auto mode
     # (finite_mode=4) should pick polar inverse-ray for speed.
     light_curve = lcbinint.LightCurve(
-        lens="triple_lens",
+        lens="triple",
         options=lcbinint.Options(mode=4),
     )
     times = np.array([0.0])
@@ -240,7 +240,7 @@ def test_triple_lens_finite_source_auto_mode_uses_polar_for_high_magnification_s
 
 
 def test_triple_lens_accepts_keyword_parameters():
-    light_curve = lcbinint.LightCurve(lens="triple_lens")
+    light_curve = lcbinint.LightCurve(lens="triple")
     times = np.array([0.0])
 
     magnifications = light_curve(

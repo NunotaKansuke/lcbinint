@@ -55,14 +55,25 @@ def my_lik(tE, u0, **_):
     return my_student_t(tE, u0)
 ```
 
-### Case 5 — reparameterization (unchanged, separate class)
+### Case 5 — local sampling reparameterization
 
 ```python
-reparam = Reparameterization(lc, event)
-reparam.param("tEq", bayes.LogUniform(...))
-@reparam.transform
-def to_phys(tEq, ...): ...
-run_sampler(reparam, ...)
+model = bayes.Model(lc, event)
+model.param("tE", bayes.LogUniform(...))
+model.likelihood("gaussian")
+
+rp = model.reparam(["piEN", "piEE"])
+rp.param("piE", bayes.LogUniform(...))
+rp.param("phi_piE", bayes.Uniform(...))
+
+@rp.transform
+def to_phys(piE, phi_piE):
+    return {
+        "piEN": piE * math.cos(phi_piE),
+        "piEE": piE * math.sin(phi_piE),
+    }
+
+run_sampler(model, ...)
 ```
 
 ## Semantics
@@ -186,23 +197,21 @@ This avoids duck-typing issues and keeps the C++ model consistent.
 ### `run_sampler` dispatch
 
 ```python
-is_reparam   = isinstance(model, Reparameterization)
+has_reparam  = hasattr(model, 'has_reparams') and model.has_reparams()
 has_py_extra = hasattr(model, 'has_py_extras') and model.has_py_extras()
 
-if is_reparam or has_py_extra:
-    # Python log_prob callback path (GIL acquire per walker)
-    model._validate()   # only for Model subclass
-    state    = _py_init_state_extended(model, ...)
-    _collect = lambda: _py_collect_extended(model, state)
-    # sampler.step(model, state) → duck-typed overload calls model.log_prob
+if has_reparam or has_py_extra:
+    # Python log_prob callback path (GIL acquire per walker).
+    # The adapter is not a C++ bayes.Model, so pybind dispatch cannot
+    # accidentally take the C++ fast path.
+    step_model = model._sampling_adapter()
+    state      = _py_init_state_extended(step_model, ...)
+    _collect   = lambda: _py_collect_extended(step_model, state)
 else:
     # C++ fast path
     state    = sampler.init_state(model, ...)
     _collect = lambda: sampler.collect(model, state)
 ```
-
-For `has_py_extra`, `model.log_prob` passed to the C++ `step(std::function<>)` overload
-is `model.log_prob_python` (Python method).
 
 ### `__init__.py` patch
 

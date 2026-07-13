@@ -1,5 +1,5 @@
 #pragma once
-#include "effects.hpp"
+#include "model_spec.hpp"
 #include "lcbinint/lcbinint.h"
 #include <memory>
 #include <optional>
@@ -9,19 +9,19 @@
 namespace lcbinint::lc {
 
 // Standalone Python-facing evaluator.
-// Holds lcbi_options (numerics) + Effects (physics) + limb-darkening coefficients.
-// On construction, Effects fields override the relevant lcbi_options flags.
-// apply_coords() bakes Effects into a params copy for every magnification call.
+// Holds lcbi_options (numerics) + ModelSpec (physics) + limb-darkening coefficients.
+// On construction, ModelSpec fields override the relevant lcbi_options flags.
+// apply_coords() bakes ModelSpec into a params copy for every magnification call.
 class LightCurve {
 public:
     explicit LightCurve(
         lcbi_options opts    = lcbi_default_options(),
         double       ld_c   = 0.0,
         double       ld_d   = 0.0,
-        Effects      effects = {}
+        ModelSpec    spec = {}
     );
 
-    // Apply stored Effects + ld settings to a params copy.
+    // Apply stored ModelSpec + ld settings to a params copy.
     // Throws if parallax or orbital motion is active but t_ref is not set.
     lcbi_params apply_coords(const lcbi_params& params) const;
 
@@ -53,20 +53,21 @@ public:
     const lcbi_options& options()  const noexcept { return opts_; }
     double              ld_c()     const noexcept { return ld_c_; }
     double              ld_d()     const noexcept { return ld_d_; }
-    const Effects&      effects()  const noexcept { return effects_; }
+    const ModelSpec&    spec()     const noexcept { return spec_; }
 
-    // Convenience accessors (delegate to Effects).
-    SourceKind                            source_kind()    const noexcept { return effects_.source; }
-    lcbi_orbital_motion_mode              orbital_motion() const noexcept { return effects_.orbital_motion; }
-    const std::shared_ptr<obs::SkyCoord>& sky_coord()      const noexcept { return effects_.sky; }
-    const std::shared_ptr<obs::Site>&     site()           const noexcept { return effects_.site; }
-    std::optional<double>                 t_ref()          const noexcept { return effects_.t_ref; }
+    // Convenience accessors (delegate to ModelSpec).
+    LensKind                              lens_kind()      const noexcept { return spec_.lens; }
+    SourceKind                            source_kind()    const noexcept { return spec_.source; }
+    lcbi_orbital_motion_mode              orbital_motion() const noexcept { return spec_.orbital_motion; }
+    const std::shared_ptr<obs::SkyCoord>& sky_coord()      const noexcept { return spec_.sky; }
+    const std::shared_ptr<obs::Site>&     site()           const noexcept { return spec_.site; }
+    std::optional<double>                 t_ref()          const noexcept { return spec_.t_ref; }
 
 private:
     lcbi_options opts_;
     double       ld_c_;
     double       ld_d_;
-    Effects      effects_;
+    ModelSpec    spec_;
 };
 
 } // namespace lcbinint::lc
