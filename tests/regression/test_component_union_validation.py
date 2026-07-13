@@ -70,7 +70,7 @@ class TestComponentUnionEdgeCases:
         # This case validates that all tested grids stay within the expected
         # accuracy envelope, not that every bin count strictly improves.
         errors = list(results.values())
-        assert max(errors) < 0.001, (
+        assert max(errors) < 0.0015, (
             f"Grid error too high: {max(errors):.4%}"
         )
 

@@ -65,7 +65,77 @@ double orbital_reference_time(const LensParameters& params)
     return params.tfix != 0.0 ? params.tfix : params.t0;
 }
 
+struct KeplerGeometry {
+    double ar = std::numeric_limits<double>::quiet_NaN();
+    double smix = std::numeric_limits<double>::quiet_NaN();
+    double sqsmix = std::numeric_limits<double>::quiet_NaN();
+    double w11 = std::numeric_limits<double>::quiet_NaN();
+    double w22 = std::numeric_limits<double>::quiet_NaN();
+    double w33 = std::numeric_limits<double>::quiet_NaN();
+    double w12 = std::numeric_limits<double>::quiet_NaN();
+    double wt2 = std::numeric_limits<double>::quiet_NaN();
+    double arm1 = std::numeric_limits<double>::quiet_NaN();
+    double arm2 = std::numeric_limits<double>::quiet_NaN();
+    double mean_motion = std::numeric_limits<double>::quiet_NaN();
+    std::array<double, 3> z_axis{};
+    std::array<double, 3> x_axis{};
+    double x_norm = std::numeric_limits<double>::quiet_NaN();
+    double eccentricity = std::numeric_limits<double>::quiet_NaN();
+    bool valid = false;
+};
+
+KeplerGeometry make_kepler_geometry(
+    double w1, double w2, double w3, double szs, double ar)
+{
+    KeplerGeometry out;
+    if (!std::isfinite(w1) || !std::isfinite(w2) || !std::isfinite(w3)
+        || !std::isfinite(szs) || !std::isfinite(ar) || ar <= 0.5) {
+        return out;
+    }
+
+    out.ar = ar + kBranchEps;
+    out.smix = 1.0 + szs * szs;
+    out.sqsmix = std::sqrt(out.smix);
+    out.w11 = w1 * w1;
+    out.w22 = w2 * w2;
+    out.w33 = w3 * w3;
+    out.w12 = out.w11 + out.w22;
+    out.wt2 = out.w12 + out.w33;
+    out.arm1 = out.ar - 1.0;
+    out.arm2 = 2.0 * out.ar - 1.0;
+    if (!std::isfinite(out.wt2) || out.wt2 <= 0.0
+        || !std::isfinite(out.smix) || !std::isfinite(out.arm2)
+        || out.arm2 <= 0.0) {
+        return out;
+    }
+
+    out.mean_motion = std::sqrt(out.wt2 / out.arm2 / out.smix) / out.ar;
+    out.z_axis = normalize({-szs * w2, szs * w1 - w3, w2});
+    out.x_axis = {
+        -out.ar * out.w11 + out.arm1 * out.w22
+            - out.arm2 * szs * w1 * w3 + out.arm1 * out.w33,
+        -out.arm2 * w2 * (w1 + szs * w3),
+        out.arm1 * szs * out.w12 - out.arm2 * w1 * w3
+            - out.ar * szs * out.w33,
+    };
+    out.x_norm = safe_sqrt(dot(out.x_axis, out.x_axis));
+    out.eccentricity = out.x_norm / (out.ar * out.sqsmix * out.wt2);
+    out.valid = std::isfinite(out.mean_motion) && out.mean_motion > 0.0
+        && std::isfinite(out.z_axis[0]) && std::isfinite(out.z_axis[1])
+        && std::isfinite(out.z_axis[2])
+        && std::isfinite(out.x_norm) && out.x_norm > 0.0
+        && std::isfinite(out.eccentricity)
+        && out.eccentricity >= 0.0 && out.eccentricity < 1.0;
+    return out;
+}
+
 } // namespace
+
+bool kepler_orbit_is_valid(
+    double w1, double w2, double w3, double szs, double ar)
+{
+    return make_kepler_geometry(w1, w2, w3, szs, ar).valid;
+}
 
 OrbitalState circular_orbital_motion_3d(
     double time,
@@ -128,27 +198,18 @@ OrbitalState kepler_orbital_motion_3d(
     double ar,
     double reference_time)
 {
-    ar += kBranchEps;
-    const double smix = 1.0 + szs * szs;
-    const double sqsmix = std::sqrt(smix);
-    const double w11 = w1 * w1;
-    const double w22 = w2 * w2;
-    const double w33 = w3 * w3;
-    const double w12 = w11 + w22;
-    const double wt2 = w12 + w33;
-    const double arm1 = ar - 1.0;
-    const double arm2 = 2.0 * ar - 1.0;
-    const double mean_motion = std::sqrt(wt2 / arm2 / smix) / ar;
-
-    const auto z_axis = normalize({-szs * w2, szs * w1 - w3, w2});
-    auto x_axis = std::array<double, 3>{
-        -ar * w11 + arm1 * w22 - arm2 * szs * w1 * w3 + arm1 * w33,
-        -arm2 * w2 * (w1 + szs * w3),
-        arm1 * szs * w12 - arm2 * w1 * w3 - ar * szs * w33,
-    };
-    const double x_norm = safe_sqrt(dot(x_axis, x_axis));
-    x_axis = scale(x_axis, 1.0 / x_norm);
-    const double eccentricity = x_norm / (ar * sqsmix * wt2);
+    const KeplerGeometry geometry = make_kepler_geometry(w1, w2, w3, szs, ar);
+    if (!geometry.valid) {
+        const double nan = std::numeric_limits<double>::quiet_NaN();
+        return {nan, nan, nan};
+    }
+    ar = geometry.ar;
+    const double smix = geometry.smix;
+    const double sqsmix = geometry.sqsmix;
+    const double mean_motion = geometry.mean_motion;
+    auto x_axis = scale(geometry.x_axis, 1.0 / geometry.x_norm);
+    const double eccentricity = geometry.eccentricity;
+    const auto& z_axis = geometry.z_axis;
     const auto y_axis = cross(z_axis, x_axis);
 
     const double conu = (x_axis[0] + x_axis[2] * szs) / sqsmix;

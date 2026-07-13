@@ -1,4 +1,5 @@
 #include "lcbinint/model/lens_parameters.hpp"
+#include "lcbinint/model/orbital_motion.hpp"
 
 #include <cmath>
 
@@ -6,8 +7,13 @@ namespace lcbinint::model {
 
 bool LensParameters::is_valid() const
 {
-    return std::isfinite(tE) && tE != 0.0 && std::isfinite(q) && std::isfinite(sep) &&
-           orbital_motion_mode >= LCBI_ORBIT_STATIC && orbital_motion_mode <= LCBI_ORBIT_KEPLER;
+    if (!std::isfinite(tE) || tE == 0.0 || !std::isfinite(q) || !std::isfinite(sep)
+        || orbital_motion_mode < LCBI_ORBIT_STATIC
+        || orbital_motion_mode > LCBI_ORBIT_KEPLER) {
+        return false;
+    }
+    return orbital_motion_mode != LCBI_ORBIT_KEPLER
+        || kepler_orbit_is_valid(g1, g2, g3, lom_szs, lom_ar);
 }
 
 LensParameters from_c_params(const lcbi_params &params)

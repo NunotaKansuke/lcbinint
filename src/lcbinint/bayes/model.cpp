@@ -1,4 +1,5 @@
 #include "model.hpp"
+#include "lcbinint/model/lens_parameters.hpp"
 #include <cmath>
 #include <limits>
 #include <stdexcept>
@@ -309,6 +310,8 @@ lcbi_params Model::theta_to_params(const std::vector<double>& theta,
         else if (n == "q_mass") bs.q_mass = val;
         else if (n == "t0_2")   bs.t0_2   = val;
         else if (n == "u0_2")   bs.u0_2   = val;
+        // Auxiliary physical parameter used by Python-side source constraints.
+        else if (n == "thetaS") continue;
         else throw std::invalid_argument("Model: unknown parameter '" + n + "'");
     }
     if (flux_treatment_ == "sample") {
@@ -415,6 +418,9 @@ double Model::compute_chi2(const lcbi_params& p,
                            const BinarySourceExtras& bs,
                            const std::vector<FluxSolution>* sampled_fluxes) const
 {
+    if (!model::from_c_params(p).is_valid())
+        return std::numeric_limits<double>::infinity();
+
     const bool is_binary    = (light_curve_->source_kind() == lc::SourceKind::binary);
     const bool terrestrial  = light_curve_->spec().terrestrial;
     const lcbi_options& opts = light_curve_->options();
@@ -450,6 +456,9 @@ double Model::compute_log_likelihood(const lcbi_params& p,
 {
     if (likelihood_mode_ == "gaussian" && flux_treatment_ != "marginalize")
         return -0.5 * compute_chi2(p, bs, sampled_fluxes);
+
+    if (!model::from_c_params(p).is_valid())
+        return -std::numeric_limits<double>::infinity();
 
     const bool is_binary    = (light_curve_->source_kind() == lc::SourceKind::binary);
     const bool terrestrial  = light_curve_->spec().terrestrial;
@@ -530,6 +539,9 @@ std::vector<double> Model::compute_residuals(
     const BinarySourceExtras& bs,
     const std::vector<FluxSolution>* sampled_fluxes) const
 {
+    if (!model::from_c_params(p).is_valid())
+        return {};
+
     const bool is_binary   = (light_curve_->source_kind() == lc::SourceKind::binary);
     const bool terrestrial = light_curve_->spec().terrestrial;
     const lcbi_options& opts = light_curve_->options();
@@ -605,6 +617,8 @@ Model::fluxes(const std::vector<double>& theta) const
     std::vector<FluxSolution> sampled_fluxes;
     const lcbi_params p = theta_to_params(
         theta, bs, flux_treatment_ == "sample" ? &sampled_fluxes : nullptr);
+    if (!model::from_c_params(p).is_valid())
+        return {};
     if (flux_treatment_ == "sample")
         return sampled_fluxes;
     const bool is_binary   = (light_curve_->source_kind() == lc::SourceKind::binary);
@@ -658,6 +672,10 @@ double Model::log_prob_and_fluxes(const std::vector<double>& theta,
     std::vector<FluxSolution> sampled_fluxes;
     const lcbi_params p = theta_to_params(
         theta, bs, flux_treatment_ == "sample" ? &sampled_fluxes : nullptr);
+    if (!model::from_c_params(p).is_valid()) {
+        out_fluxes.clear();
+        return -std::numeric_limits<double>::infinity();
+    }
     const bool is_binary   = (light_curve_->source_kind() == lc::SourceKind::binary);
     const bool terrestrial = light_curve_->spec().terrestrial;
     const lcbi_options& opts = light_curve_->options();

@@ -1,7 +1,10 @@
 """Python-extended bayes.Model with decorators and sampling reparameterization."""
 from __future__ import annotations
 
+import inspect
 import math
+
+import numpy as np
 
 
 class LikelihoodContext:
@@ -9,6 +12,39 @@ class LikelihoodContext:
 
     def __init__(self, *, fluxes):
         self.fluxes = fluxes
+
+
+def _apply_theta_star(fn, vals, fluxes):
+    result = fn(fluxes)
+    if not isinstance(result, (tuple, list)) or len(result) != 2:
+        raise TypeError(
+            "theta_star() callable must return (log_center, log_sigma)"
+        )
+    center, sigma = (float(result[0]), float(result[1]))
+    if not math.isfinite(center):
+        raise ValueError("theta_star() log_center must be finite")
+    if not math.isfinite(sigma) or sigma < 0.0:
+        raise ValueError("theta_star() log_sigma must be finite and >= 0")
+
+    if sigma == 0.0:
+        if "thetaS" in vals:
+            raise RuntimeError(
+                "theta_star() returned log_sigma=0, so thetaS is deterministic; "
+                "do not register model.param('thetaS', ...)"
+            )
+        vals["thetaS"] = math.exp(center)
+        return 0.0
+
+    if "thetaS" not in vals:
+        raise RuntimeError(
+            "theta_star() returned log_sigma>0; register thetaS with "
+            "model.param('thetaS', prior)"
+        )
+    theta_star = float(vals["thetaS"])
+    if not math.isfinite(theta_star) or theta_star <= 0.0:
+        return float("-inf")
+    z = (math.log(theta_star) - center) / sigma
+    return -0.5 * z * z - math.log(sigma) - 0.5 * math.log(2.0 * math.pi)
 
 
 class _GalacticModelTerm:
@@ -53,10 +89,14 @@ class _GalacticModelTerm:
         return float(self.galaxy.log_prob(theta, context=context))
 
     def physical_values(self, vals):
-        if not hasattr(self.galaxy, "to_physical"):
-            return {}
         theta = [vals[name] for name in self.names]
         context = self._context(vals)
+        if hasattr(self.galaxy, "to_deterministic_physical"):
+            if context is None:
+                return dict(self.galaxy.to_deterministic_physical(theta))
+            return dict(self.galaxy.to_deterministic_physical(theta, context=context))
+        if not hasattr(self.galaxy, "to_physical"):
+            return {}
         if context is None:
             physical = self.galaxy.to_physical(theta)
         else:
@@ -73,6 +113,57 @@ class _GalacticModelTerm:
         if callable(self.context):
             return self.context(dict(vals))
         return self.context
+
+
+def _call_extra_prior(fn, vals):
+    missing = _missing_required_kwargs(fn, vals)
+    if missing:
+        raise RuntimeError(
+            "prior() requested unavailable parameter(s): "
+            + ", ".join(missing)
+            + ". Only parameters that are deterministic for the current "
+            "sampler step are passed to @model.prior. If these are "
+            "marginalized Galactic quantities such as DL or DS, use "
+            "model.get_galactic_physical(chain, galaxy, ...) after sampling, "
+            "or sample those quantities explicitly."
+        )
+    return fn(**vals)
+
+
+def _call_guard(fn, vals):
+    missing = _missing_required_kwargs(fn, vals)
+    if missing:
+        raise RuntimeError(
+            "guard() requested unavailable parameter(s): "
+            + ", ".join(missing)
+            + ". Guards run after reparameterization and may only use "
+            "parameters that are deterministic for the current sampler step."
+        )
+    result = fn(**vals)
+    if not isinstance(result, (bool, np.bool_)):
+        raise TypeError(
+            "guard() must return bool, got " + type(result).__name__
+        )
+    return bool(result)
+
+
+def _missing_required_kwargs(fn, vals):
+    try:
+        sig = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return []
+    missing = []
+    for name, param in sig.parameters.items():
+        if param.default is not inspect._empty:
+            continue
+        if param.kind in (
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.VAR_KEYWORD,
+        ):
+            continue
+        if name not in vals:
+            missing.append(name)
+    return missing
 
 
 class _ReparamBlock:
@@ -163,26 +254,32 @@ class _SamplingAdapter:
             return lp
 
         vals = dict(phys)
+        for fn in self._model._guards:
+            if not _call_guard(fn, vals):
+                return float("-inf")
+
+        phys_model = self._ensure_physical_model()
+        phys_theta = [phys[name] for name in self._phys_names]
+        base_prob, fluxes = phys_model._log_prob_and_fluxes(phys_theta)
+        if not math.isfinite(base_prob):
+            return base_prob
+        lp += base_prob - phys_model.log_prior(phys_theta)
+
+        if self._model._theta_star_fn is not None:
+            lp += _apply_theta_star(self._model._theta_star_fn, vals, fluxes)
+            if not math.isfinite(lp):
+                return lp
+
         for fn in self._model._extra_priors:
-            lp += fn(**vals)
+            lp += _call_extra_prior(fn, vals)
             if not math.isfinite(lp):
                 return lp
             if hasattr(fn, "physical_values"):
                 vals.update(fn.physical_values(vals))
 
-        phys_model = self._ensure_physical_model()
-        phys_theta = [phys[name] for name in self._phys_names]
-        lp += phys_model.log_likelihood(phys_theta)
-        if not math.isfinite(lp):
-            return lp
-
-        context = None
+        context = LikelihoodContext(fluxes=fluxes)
         for fn, wants_context in self._model._extra_liks:
             if wants_context:
-                if context is None:
-                    context = LikelihoodContext(
-                        fluxes=phys_model.fluxes(phys_theta)
-                    )
                 lp += fn(**vals, context=context)
             else:
                 lp += fn(**vals)
@@ -337,6 +434,8 @@ def _build_model_class(cpp_base):
 
         - ``model.likelihood("gaussian")``  — set base likelihood mode (C++ path)
         - ``@model.likelihood``             — add a Python log-likelihood term
+        - ``@model.guard``                  — reject unsafe parameter combinations
+        - ``@model.theta_star``             — constrain or derive thetaS from flux
         - ``@model.prior``                  — add a Python log-prior term
         - ``model.galactic_prior(...)``     — add an external Galactic model
         - ``model.param(name)``             — flat improper prior (no bounds required)
@@ -388,6 +487,8 @@ def _build_model_class(cpp_base):
             self._event_or_data = event_or_data
             self._extra_liks   = []
             self._extra_priors = []
+            self._guards       = []
+            self._theta_star_fn = None
             self._param_is_log = {}
             self._param_priors = {}
             self._lik_mode     = None
@@ -489,6 +590,36 @@ def _build_model_class(cpp_base):
 
         # --- prior ---
 
+        def theta_star(self, fn):
+            """Set the log-space thetaS relation evaluated from fitted fluxes.
+
+            The callable receives the complete flux dictionary and returns
+            ``(log_center, log_sigma)``. A positive sigma adds a Gaussian term
+            for sampled ``thetaS``; zero sigma derives ``thetaS`` exactly.
+            """
+            if not callable(fn):
+                raise TypeError(
+                    f"theta_star() expects a callable, got {type(fn).__name__}"
+                )
+            if self._theta_star_fn is not None:
+                raise RuntimeError("theta_star() is already configured")
+            self._theta_star_fn = fn
+            return fn
+
+        def guard(self, fn):
+            """Reject unsafe physical parameters before model evaluation.
+
+            The callable receives physical parameter values as keyword
+            arguments and must return bool. ``False`` makes the log posterior
+            ``-inf`` before Galactic priors or magnification are evaluated.
+            """
+            if not callable(fn):
+                raise TypeError(
+                    f"guard() expects a callable, got {type(fn).__name__}"
+                )
+            self._guards.append(fn)
+            return fn
+
         def prior(self, fn):
             """Add a Python log-prior term (decorator or direct call).
 
@@ -517,15 +648,102 @@ def _build_model_class(cpp_base):
             self._extra_priors.append(term)
             return term
 
+        def get_galactic_physical(
+            self,
+            chain,
+            galaxy,
+            *,
+            context=None,
+            names=None,
+            flat=True,
+            discard=0,
+            thin=1,
+            rng=None,
+        ):
+            """Return gapmoe physical samples for a chain.
+
+            For marginalized gapmoe dimensions this calls
+            ``galaxy.sample_physical()``, so hidden physical variables are drawn
+            from their conditional posterior for each chain sample.
+            """
+            if names is None:
+                param_type = getattr(galaxy, "param_type", None)
+                names = getattr(param_type, "names", None)
+            if names is None:
+                raise ValueError(
+                    "get_galactic_physical() requires names=... when "
+                    "galaxy.param_type.names is unavailable"
+                )
+            names = tuple(names)
+            raw = np.asarray(
+                chain.get_samples(
+                    flat=flat,
+                    discard=discard,
+                    thin=thin,
+                    physical=False,
+                )
+            )
+            out_shape = raw.shape[:-1]
+            rows = raw.reshape(-1, raw.shape[-1])
+            if self.has_reparams():
+                adapter = self._sampling_adapter()
+                vals_iter = [adapter._theta_to_physical(row.tolist()) for row in rows]
+            else:
+                vals_iter = [self._theta_to_vals(row.tolist()) for row in rows]
+
+            rng = np.random.default_rng() if rng is None else rng
+            draws = []
+            for vals in vals_iter:
+                missing = [name for name in names if name not in vals]
+                if missing:
+                    raise RuntimeError(
+                        "get_galactic_physical() missing model parameter(s): "
+                        + ", ".join(missing)
+                    )
+                theta = [vals[name] for name in names]
+                ctx = context(dict(vals)) if callable(context) else context
+                if hasattr(galaxy, "sample_physical"):
+                    if ctx is None:
+                        draw = galaxy.sample_physical(theta, rng=rng)
+                    else:
+                        draw = galaxy.sample_physical(theta, context=ctx, rng=rng)
+                elif hasattr(galaxy, "to_deterministic_physical"):
+                    if ctx is None:
+                        draw = galaxy.to_deterministic_physical(theta)
+                    else:
+                        draw = galaxy.to_deterministic_physical(theta, context=ctx)
+                else:
+                    raise TypeError(
+                        "galaxy must provide sample_physical() or "
+                        "to_deterministic_physical()"
+                    )
+                draws.append(dict(draw))
+
+            if not draws:
+                return {}
+            keys = list(draws[0].keys())
+            return {
+                key: np.asarray([draw[key] for draw in draws], dtype=float).reshape(out_shape)
+                for key in keys
+            }
+
         # --- internal helpers ---
 
         def has_py_extras(self) -> bool:
-            return bool(self._extra_liks or self._extra_priors)
+            return bool(
+                self._extra_liks or self._extra_priors or self._guards
+                or self._theta_star_fn is not None
+            )
 
         def has_reparams(self) -> bool:
             return bool(self._reparam_blocks)
 
         def validate(self):
+            if self._theta_star_fn is not None and self._lik_mode is None:
+                raise RuntimeError(
+                    "model.theta_star requires a base likelihood configured with "
+                    "model.likelihood(...)"
+                )
             if self._lik_mode is None and not self._extra_liks:
                 raise RuntimeError(
                     "bayes.Model: likelihood is not configured.\n"
@@ -570,20 +788,29 @@ def _build_model_class(cpp_base):
             if not math.isfinite(lp):
                 return lp
             vals = self._theta_to_vals(theta)
+            for fn in self._guards:
+                if not _call_guard(fn, vals):
+                    return float("-inf")
+            base_prob, fluxes = super()._log_prob_and_fluxes(theta)
+            if not math.isfinite(base_prob):
+                return base_prob
+            lp += base_prob - super().log_prior(theta)
+
+            if self._theta_star_fn is not None:
+                lp += _apply_theta_star(self._theta_star_fn, vals, fluxes)
+                if not math.isfinite(lp):
+                    return lp
+
             for fn in self._extra_priors:
-                lp += fn(**vals)
+                lp += _call_extra_prior(fn, vals)
                 if not math.isfinite(lp):
                     return lp
                 if hasattr(fn, "physical_values"):
                     vals.update(fn.physical_values(vals))
-            lp += super().log_likelihood(theta)
-            if not math.isfinite(lp):
-                return lp
-            context = None
+
+            context = LikelihoodContext(fluxes=fluxes)
             for fn, wants_context in self._extra_liks:
                 if wants_context:
-                    if context is None:
-                        context = LikelihoodContext(fluxes=super().fluxes(theta))
                     lp += fn(**vals, context=context)
                 else:
                     lp += fn(**vals)

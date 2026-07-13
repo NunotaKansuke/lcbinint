@@ -31,6 +31,13 @@ OrbitalState kepler_orbital_motion_3d(
     double ar,
     double reference_time);
 
+bool kepler_orbit_is_valid(
+    double w1,
+    double w2,
+    double w3,
+    double szs,
+    double ar);
+
 OrbitalState orbital_state(const LensParameters& params, double time);
 SourcePosition rotate_source_to_orbital_frame(SourcePosition source, double angle_delta);
 

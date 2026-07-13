@@ -104,3 +104,129 @@ def test_custom_likelihood_context_works_with_reparam_sampler():
     )
 
     assert chain.fluxes["tiny"]["Fs"].shape == (16,)
+
+
+def test_theta_star_adds_log_space_gaussian_from_fitted_flux():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, true = _make_model(lcbinint, np)
+    model.param("thetaS", lcbinint.bayes.LogUniform(0.01, 10.0))
+    seen = {}
+
+    @model.theta_star
+    def _(fluxes):
+        seen.update(fluxes)
+        return math.log(0.7), 0.2
+
+    theta = [
+        true["t0"],
+        math.log(true["tE"]),
+        true["u0"],
+        true["s"],
+        math.log(true["q"]),
+        true["alpha"],
+        true["piEN"],
+        true["piEE"],
+        math.log(0.7),
+    ]
+    expected_relation = -math.log(0.2) - 0.5 * math.log(2.0 * math.pi)
+    expected = model.log_prior(theta) + model.log_likelihood(theta) + expected_relation
+
+    assert model.log_prob(theta) == pytest.approx(expected)
+    assert seen["tiny"]["Fs"] == pytest.approx(1000.0)
+    assert seen["tiny"]["Fb"] == pytest.approx(25.0)
+
+
+def test_theta_star_zero_sigma_derives_value_before_physical_prior():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, true = _make_model(lcbinint, np)
+    seen = {}
+
+    @model.theta_star
+    def _(fluxes):
+        assert fluxes["tiny"]["Fs"] == pytest.approx(1000.0)
+        return math.log(0.7), 0.0
+
+    @model.prior
+    def _(thetaS, **_):
+        seen["thetaS"] = thetaS
+        return 0.0
+
+    theta = [
+        true["t0"],
+        math.log(true["tE"]),
+        true["u0"],
+        true["s"],
+        math.log(true["q"]),
+        true["alpha"],
+        true["piEN"],
+        true["piEE"],
+    ]
+
+    expected = model.log_prior(theta) + model.log_likelihood(theta)
+    assert model.log_prob(theta) == pytest.approx(expected)
+    assert seen["thetaS"] == pytest.approx(0.7)
+
+
+def test_theta_star_sampled_value_works_with_reparam_adapter():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, true = _make_model(lcbinint, np, reparam=True)
+    model.param("thetaS", lcbinint.bayes.LogUniform(0.01, 10.0))
+
+    @model.theta_star
+    def _(fluxes):
+        return math.log(0.7), 0.2
+
+    piE = math.hypot(true["piEN"], true["piEE"])
+    theta = [
+        true["t0"],
+        math.log(true["tE"]),
+        true["u0"],
+        true["s"],
+        math.log(true["q"]),
+        true["alpha"],
+        math.log(0.7),
+        math.log(piE),
+        math.atan2(true["piEE"], true["piEN"]),
+    ]
+
+    assert math.isfinite(model._sampling_adapter().log_prob(theta))
+
+
+def test_theta_star_configuration_errors_are_explicit():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, true = _make_model(lcbinint, np)
+
+    @model.theta_star
+    def _(fluxes):
+        return math.log(0.7), 0.2
+
+    theta = [
+        true["t0"],
+        math.log(true["tE"]),
+        true["u0"],
+        true["s"],
+        math.log(true["q"]),
+        true["alpha"],
+        true["piEN"],
+        true["piEE"],
+    ]
+    with pytest.raises(RuntimeError, match="register thetaS"):
+        model.log_prob(theta)
+
+    deterministic, _ = _make_model(lcbinint, np)
+    deterministic.param("thetaS", lcbinint.bayes.LogUniform(0.01, 10.0))
+
+    @deterministic.theta_star
+    def _(fluxes):
+        return math.log(0.7), 0.0
+
+    with pytest.raises(RuntimeError, match="thetaS is deterministic"):
+        deterministic.log_prob([*theta, math.log(0.7)])

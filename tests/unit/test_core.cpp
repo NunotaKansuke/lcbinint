@@ -3,6 +3,7 @@
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
 #include "lcbinint/model/triple_lens_geometry.hpp"
+#include "lcbinint/model/orbital_motion.hpp"
 
 #include <cmath>
 #include <complex>
@@ -108,6 +109,29 @@ int main()
     if (std::strcmp(lcbi_status_string(LCBI_UNSUPPORTED), "unsupported") != 0) {
         return 23;
     }
+    if (!lcbinint::model::kepler_orbit_is_valid(
+            0.004, 0.011, 0.006, 0.2, 1.4)) {
+        return 38;
+    }
+    if (lcbinint::model::kepler_orbit_is_valid(
+            0.004, 0.011, 0.006, 0.2, 0.5)) {
+        return 39;
+    }
+    if (lcbinint::model::kepler_orbit_is_valid(0.0, 0.0, 0.0, 0.2, 1.4)) {
+        return 40;
+    }
+
+    params.orbital_motion_mode = LCBI_ORBIT_KEPLER;
+    params.g1 = 0.004;
+    params.g2 = 0.011;
+    params.g3 = 0.006;
+    params.lom_szs = 0.2;
+    params.lom_ar = 0.5;
+    if (lcbi_magnification(0.2, &params, &options, &result) != LCBI_INVALID_ARGUMENT) {
+        return 41;
+    }
+    params.orbital_motion_mode = LCBI_ORBIT_STATIC;
+    params.lom_ar = 1.0;
 
     lcbinint::math::PolynomialRootSolver solver;
     auto linear = solver.solve({-2.0, 1.0});
