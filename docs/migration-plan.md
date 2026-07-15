@@ -118,8 +118,25 @@ The detailed finite-source plan and current limitations are tracked in
 `.note/finite-source-strategy.md`. In particular, microJAX should be treated as
 a useful reference for accuracy-control and method-selection logic, not as an
 implementation to port directly.
-`../microlux` is the most useful local reference for the Bozza-style
-quadrupole/ghost-image/planetary-caustic fast-path acceptance test.
+`../microlux` is the most useful local reference for the 2018 VBBinaryLensing
+quadrupole/cusp, ghost-image, and planetary-caustic fast-path safety tests.
+The binary point-source path now evaluates these indicators from the existing
+five polynomial roots.  Topology failures veto both point-source and
+hexadecapole fast paths; the caustic-distance guard remains as an independent
+safety layer.  The indicators and pass flags are exposed through
+`LightCurveInfo` for selection-map validation and coefficient tuning.
+The long safety sweep uses coefficients `(quadrupole+cusp, ghost, planetary) =
+(6, 3, 2)`; the stronger ghost margin makes the local topology test safe in the
+sample independently of the caustic-distance layer.
+
+The high-magnification audit found two distinct diagnostic hazards.  First,
+VBMicrolensing's finite-source result can disagree with a dense integral of its
+own point-source solutions in this regime, so it is not used as the sole
+oracle.  Second, forced cartesian mode could hit its per-image step guard and
+silently return partial area.  The guard now scales from the seed Jacobian and
+fails explicitly if exhausted, without adding a retry/fallback cycle.  The
+default automatic selector already chose the polar path directly for the
+audited case.
 
 ## Initial Extraction Target
 
@@ -194,6 +211,9 @@ Finite-source milestone detail:
    Gamma/Lambda implementation. The C++ path supports both `limb_darkening_c`
    and `limb_darkening_d`; VBMicrolensing's Python `BinaryMagDark` binding
    currently provides a simple linear-coefficient comparison point.
+8. Remove silent truncation from the cartesian image-area step guard and add an
+   efficient high-magnification work estimate. Done. The guard uses the seed
+   Jacobian and does not add a contour retry or other repeated calculation.
 
 ## Design Notes
 

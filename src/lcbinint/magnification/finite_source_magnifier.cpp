@@ -294,6 +294,84 @@ double source_distance(SourcePosition source)
     return std::hypot(source.x, source.y);
 }
 
+struct PointSourceSafetyEvaluation {
+    PointSourceSafetyDiagnostic diagnostic;
+    double absolute_tolerance = 0.0;
+    double planetary_distance2 = std::numeric_limits<double>::infinity();
+    bool quadrupole_cusp_safe = false;
+    bool ghost_safe = false;
+    bool planetary_safe = false;
+
+    bool point_source_safe() const
+    {
+        return quadrupole_cusp_safe && ghost_safe && planetary_safe;
+    }
+
+    bool topology_safe() const
+    {
+        return ghost_safe && planetary_safe;
+    }
+};
+
+PointSourceSafetyEvaluation evaluate_point_source_safety(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double point_source_magnification,
+    const FiniteSourceSettings& settings)
+{
+    PointSourceSafetyEvaluation evaluation;
+    evaluation.diagnostic = point_magnifier.binary_safety_diagnostic_cached(
+        separation, mass_ratio, source);
+
+    const double scale = std::max(std::abs(point_source_magnification), 1.0);
+    if (settings.finite_source_tol > 0.0 || settings.finite_source_reltol > 0.0) {
+        evaluation.absolute_tolerance =
+            settings.finite_source_tol + settings.finite_source_reltol * scale;
+    } else {
+        const double relative_tolerance =
+            settings.adaptive_hex_threshold > 0.0 ? settings.adaptive_hex_threshold : 1.0e-3;
+        evaluation.absolute_tolerance = relative_tolerance * scale;
+    }
+
+    constexpr double kQuadrupoleCuspSafety = 6.0;
+    constexpr double kGhostSafety = 3.0;
+    constexpr double kPlanetarySafety = 2.0;
+    constexpr double kMinimumSafetyRadius = 1.0e-3;
+    const double safety_radius = source_radius + kMinimumSafetyRadius;
+    const double local_indicator =
+        evaluation.diagnostic.quadrupole_indicator + evaluation.diagnostic.cusp_indicator;
+    evaluation.quadrupole_cusp_safe =
+        std::isfinite(local_indicator) &&
+        kQuadrupoleCuspSafety * local_indicator * safety_radius * safety_radius <
+            evaluation.absolute_tolerance;
+    evaluation.ghost_safe =
+        evaluation.diagnostic.ghost_count == 0 ||
+        (std::isfinite(evaluation.diagnostic.ghost_indicator) &&
+            kGhostSafety * safety_radius * evaluation.diagnostic.ghost_indicator < 1.0);
+
+    const double s = std::abs(separation);
+    const double q_input = std::abs(mass_ratio);
+    const double q = q_input < 1.0 ? q_input : (q_input > 0.0 ? 1.0 / q_input : 0.0);
+    evaluation.planetary_safe = q >= 0.01;
+    if (!evaluation.planetary_safe && s > 0.0) {
+        const double signed_separation = q_input < 1.0 ? -s : s;
+        const double primary_mass = 1.0 / (1.0 + q);
+        const double shifted_source_x = source.x + signed_separation * primary_mass;
+        const double planetary_caustic_x = 1.0 / signed_separation;
+        const double dx = shifted_source_x - planetary_caustic_x;
+        evaluation.planetary_distance2 = dx * dx + source.y * source.y;
+        const double caustic_half_extent = 3.0 * std::sqrt(q) / s;
+        evaluation.planetary_safe =
+            evaluation.planetary_distance2 >
+            kPlanetarySafety *
+                (source_radius * source_radius + caustic_half_extent * caustic_half_extent);
+    }
+    return evaluation;
+}
+
 int estimate_cartesian_cost(const FiniteSourceSettings& settings)
 {
     const int bins = settings.source_bins > 0 ? settings.source_bins : 1;
@@ -2444,8 +2522,29 @@ double cartesian_image_area_impl(
             ? std::clamp((source_radius - r_in) / dr_mapped, 0.0, 1.0)
             : 0.5;
     };
-    int guard = 0;
-    const int max_steps = std::max(100000, settings.source_bins * settings.source_bins * 2000);
+    std::int64_t guard = 0;
+    const auto seed_evaluation =
+        evaluate_lens_cell(mapper, seed.x, seed.y, source);
+    const double seed_magnification =
+        std::isfinite(seed_evaluation.jacobian) &&
+            std::abs(seed_evaluation.jacobian) > 1.0e-15
+        ? 1.0 / std::abs(seed_evaluation.jacobian)
+        : 1.0e15;
+    const double bins2 =
+        static_cast<double>(std::max(settings.source_bins, 1)) *
+        static_cast<double>(std::max(settings.source_bins, 1));
+    // A high-magnification image occupies O(A * bins^2) lattice cells.  The
+    // old fixed 2000*bins^2 guard silently truncated otherwise healthy image
+    // walks once A reached a few thousand.  Scale only the safety guard from
+    // the seed Jacobian; the walk still terminates naturally at the image
+    // boundary, so ordinary cases perform exactly the same amount of work.
+    const double estimated_step_limit = bins2 * std::max(
+        2000.0, 4.0 * kPi * seed_magnification);
+    const std::int64_t max_steps = std::max<std::int64_t>(
+        100000,
+        estimated_step_limit < static_cast<double>(std::numeric_limits<std::int64_t>::max())
+            ? static_cast<std::int64_t>(std::ceil(estimated_step_limit))
+            : std::numeric_limits<std::int64_t>::max());
 
     while (++guard < max_steps) {
         const double dz2_last = dz2;
@@ -2641,6 +2740,12 @@ double cartesian_image_area_impl(
     }
 
     flush_claim();
+    if (guard >= max_steps) {
+        // Never turn an exhausted image walk into a plausible partial area.
+        // The Jacobian-scaled guard above should make this exceptional; NaN
+        // keeps the numerical failure explicit if its estimate is insufficient.
+        return std::numeric_limits<double>::quiet_NaN();
+    }
     return countall;
 }
 
@@ -5300,7 +5405,22 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         return result_cache_;
     }
 
+    PointSourceSafetyEvaluation point_safety;
+    bool point_safety_available = false;
     const auto cache_and_return = [&](FiniteSourceResult result) {
+        if (point_safety_available) {
+            result.point_source_quadrupole_indicator =
+                point_safety.diagnostic.quadrupole_indicator;
+            result.point_source_cusp_indicator = point_safety.diagnostic.cusp_indicator;
+            result.point_source_ghost_indicator = point_safety.diagnostic.ghost_indicator;
+            result.point_source_planetary_distance2 = point_safety.planetary_distance2;
+            result.point_source_safety_tolerance = point_safety.absolute_tolerance;
+            result.point_source_ghost_count = point_safety.diagnostic.ghost_count;
+            result.point_source_safety_flags =
+                (point_safety.quadrupole_cusp_safe ? 1 : 0) |
+                (point_safety.ghost_safe ? 2 : 0) |
+                (point_safety.planetary_safe ? 4 : 0);
+        }
         result_cache_valid_ = true;
         result_cache_separation_ = separation;
         result_cache_mass_ratio_ = mass_ratio;
@@ -5326,6 +5446,16 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         return cache_and_return({point_source_magnification, 0, decision, 0.0, 0, true});
     }
 
+    point_safety = evaluate_point_source_safety(
+        point_magnifier,
+        separation,
+        mass_ratio,
+        source,
+        source_radius,
+        point_source_magnification,
+        settings_);
+    point_safety_available = true;
+
     // Fast PS exit for sources outside the caustic bounding box by kinji_threshold·ρ.
     // The caustic cache is built (or validated) inside binary_sampled_caustic_distance,
     // making the bbox members available immediately after the call.
@@ -5338,10 +5468,11 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         : bbox_margin;
     const double sampled_dist = binary_sampled_caustic_distance(
         separation, mass_ratio, source, adaptive_bbox_margin);
-    if (source.x < caustic_cache_min_x_ - adaptive_bbox_margin ||
+    if (point_safety.point_source_safe() &&
+        (source.x < caustic_cache_min_x_ - adaptive_bbox_margin ||
         source.x > caustic_cache_max_x_ + adaptive_bbox_margin ||
         source.y < caustic_cache_min_y_ - adaptive_bbox_margin ||
-        source.y > caustic_cache_max_y_ + adaptive_bbox_margin) {
+        source.y > caustic_cache_max_y_ + adaptive_bbox_margin)) {
         FiniteSourceDecision decision {
             FiniteSourceMethod::point_source,
             settings_.caustic_bins * 4,
@@ -5369,7 +5500,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     const double hex_dist_threshold = settings_.hex_threshold * source_radius;
     const bool near_caustic = refined_dist < hex_dist_threshold;
     double rejected_hex_magnification = std::numeric_limits<double>::quiet_NaN();
-    if (!near_caustic) {
+    if (!near_caustic && point_safety.topology_safe()) {
         auto caustic_distance_safety = [&]() {
             double safety = 1.0;
             if (source_radius >= 1.0e-3 && std::isfinite(refined_dist) &&
@@ -5389,27 +5520,25 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 settings_.finite_source_reltol +
                 settings_.finite_source_tol / std::max(std::abs(point_source_magnification), 1.0);
         }
-        if (settings_.hex_threshold > 0.0) {
-            const auto derivative_point =
-                point_magnifier.binary_mag0_with_derivatives_cached(
-                    separation, mass_ratio, source);
-            const double derivative_relative_error =
-                derivative_point.derivative_error_indicator * source_radius * source_radius /
-                std::max(std::abs(derivative_point.magnification), 1.0e-10);
-            const double derivative_threshold =
-                requested_relative / caustic_distance_safety();
-            if (std::isfinite(derivative_relative_error) &&
-                derivative_relative_error <= derivative_threshold) {
+        if (settings_.hex_threshold > 0.0 && point_safety.point_source_safe()) {
+            const double estimated_error =
+                (point_safety.diagnostic.quadrupole_indicator +
+                    point_safety.diagnostic.cusp_indicator) *
+                source_radius * source_radius;
+            const double derivative_threshold = requested_relative / caustic_distance_safety();
+            const double derivative_relative_error = estimated_error /
+                std::max(std::abs(point_source_magnification), 1.0e-10);
+            if (derivative_relative_error <= derivative_threshold) {
                 FiniteSourceDecision decision {
                     FiniteSourceMethod::point_source,
                     1,
-                    "point-source derivative check passed",
+                    "point-source safety checks passed",
                 };
                 return cache_and_return({
-                    derivative_point.magnification,
-                    derivative_point.image_count,
+                    point_source_magnification,
+                    point_safety.diagnostic.image_count,
                     decision,
-                    derivative_relative_error * std::max(std::abs(derivative_point.magnification), 1.0),
+                    estimated_error,
                     0,
                     true});
             }

@@ -27,6 +27,13 @@ void copy_result(const lcbinint::MagnificationResult &from, lcbi_result &to)
     to.root_used_high_precision = from.root_used_high_precision;
     to.root_needs_high_precision = from.root_needs_high_precision;
     to.root_max_residual = from.root_max_residual;
+    to.point_source_quadrupole_indicator = from.point_source_quadrupole_indicator;
+    to.point_source_cusp_indicator = from.point_source_cusp_indicator;
+    to.point_source_ghost_indicator = from.point_source_ghost_indicator;
+    to.point_source_planetary_distance2 = from.point_source_planetary_distance2;
+    to.point_source_safety_tolerance = from.point_source_safety_tolerance;
+    to.point_source_ghost_count = from.point_source_ghost_count;
+    to.point_source_safety_flags = from.point_source_safety_flags;
 }
 
 } // namespace

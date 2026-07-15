@@ -226,13 +226,23 @@ MagnificationResult LensModel::magnification(double time) const
             effective_q,
             source_for_magnification, std::abs(params_.rho), point_source_magnification,
             &center_image_seeds,
-            true);
+            true,
+            &point_magnifier_);
         result.magnification = finite_result.magnification;
         result.finite_source_magnification = finite_result.magnification;
         result.finite_source_error_estimate = finite_result.error_estimate;
         result.finite_source_method = static_cast<int>(finite_result.decision.method);
         result.finite_source_refinement_level = finite_result.refinement_level;
         result.finite_source_converged = finite_result.converged;
+        result.point_source_quadrupole_indicator =
+            finite_result.point_source_quadrupole_indicator;
+        result.point_source_cusp_indicator = finite_result.point_source_cusp_indicator;
+        result.point_source_ghost_indicator = finite_result.point_source_ghost_indicator;
+        result.point_source_planetary_distance2 =
+            finite_result.point_source_planetary_distance2;
+        result.point_source_safety_tolerance = finite_result.point_source_safety_tolerance;
+        result.point_source_ghost_count = finite_result.point_source_ghost_count;
+        result.point_source_safety_flags = finite_result.point_source_safety_flags;
         if (!std::isfinite(result.magnification)) {
             result.status = EvaluationStatus::numerical_error;
             return result;

@@ -46,6 +46,13 @@ struct PyLightCurveInfo {
     std::vector<int> root_used_high_precision;
     std::vector<int> root_needs_high_precision;
     std::vector<double> root_max_residuals;
+    std::vector<double> point_source_quadrupole_indicators;
+    std::vector<double> point_source_cusp_indicators;
+    std::vector<double> point_source_ghost_indicators;
+    std::vector<double> point_source_planetary_distances2;
+    std::vector<double> point_source_safety_tolerances;
+    std::vector<int> point_source_ghost_counts;
+    std::vector<int> point_source_safety_flags;
     bool all_converged = true;
     std::vector<int> unconverged_indices;
 };
@@ -249,6 +256,13 @@ PyLightCurveInfo compute_info(
     info.root_used_high_precision.reserve(static_cast<std::size_t>(n));
     info.root_needs_high_precision.reserve(static_cast<std::size_t>(n));
     info.root_max_residuals.reserve(static_cast<std::size_t>(n));
+    info.point_source_quadrupole_indicators.reserve(static_cast<std::size_t>(n));
+    info.point_source_cusp_indicators.reserve(static_cast<std::size_t>(n));
+    info.point_source_ghost_indicators.reserve(static_cast<std::size_t>(n));
+    info.point_source_planetary_distances2.reserve(static_cast<std::size_t>(n));
+    info.point_source_safety_tolerances.reserve(static_cast<std::size_t>(n));
+    info.point_source_ghost_counts.reserve(static_cast<std::size_t>(n));
+    info.point_source_safety_flags.reserve(static_cast<std::size_t>(n));
     for (int i = 0; i < n; ++i) {
         const auto& result = results[static_cast<std::size_t>(i)];
         info.magnifications.push_back(result.magnification);
@@ -270,6 +284,16 @@ PyLightCurveInfo compute_info(
         info.root_used_high_precision.push_back(result.root_used_high_precision);
         info.root_needs_high_precision.push_back(result.root_needs_high_precision);
         info.root_max_residuals.push_back(result.root_max_residual);
+        info.point_source_quadrupole_indicators.push_back(
+            result.point_source_quadrupole_indicator);
+        info.point_source_cusp_indicators.push_back(result.point_source_cusp_indicator);
+        info.point_source_ghost_indicators.push_back(result.point_source_ghost_indicator);
+        info.point_source_planetary_distances2.push_back(
+            result.point_source_planetary_distance2);
+        info.point_source_safety_tolerances.push_back(
+            result.point_source_safety_tolerance);
+        info.point_source_ghost_counts.push_back(result.point_source_ghost_count);
+        info.point_source_safety_flags.push_back(result.point_source_safety_flags);
         const bool converged = result.finite_source_converged != 0;
         info.finite_source_converged.push_back(converged);
         if (!converged) {
@@ -501,6 +525,21 @@ void register_lc_submodule(py::module_& parent)
 {
     auto lc = parent.def_submodule("lc", "Light-curve magnification evaluation");
 
+    py::class_<lcbinint::magnification::PointSourceSafetyDiagnostic>(
+        lc, "PointSourceSafetyDiagnostic")
+        .def_readonly("magnification",
+            &lcbinint::magnification::PointSourceSafetyDiagnostic::magnification)
+        .def_readonly("image_count",
+            &lcbinint::magnification::PointSourceSafetyDiagnostic::image_count)
+        .def_readonly("quadrupole_indicator",
+            &lcbinint::magnification::PointSourceSafetyDiagnostic::quadrupole_indicator)
+        .def_readonly("cusp_indicator",
+            &lcbinint::magnification::PointSourceSafetyDiagnostic::cusp_indicator)
+        .def_readonly("ghost_indicator",
+            &lcbinint::magnification::PointSourceSafetyDiagnostic::ghost_indicator)
+        .def_readonly("ghost_count",
+            &lcbinint::magnification::PointSourceSafetyDiagnostic::ghost_count);
+
     // --- Enums ---
     py::enum_<lcbi_orbital_motion_mode>(lc, "OrbitalMotionMode")
         .value("STATIC",   LCBI_ORBIT_STATIC)
@@ -721,6 +760,20 @@ void register_lc_submodule(py::module_& parent)
         .def_readonly("root_used_high_precision", &PyLightCurveInfo::root_used_high_precision)
         .def_readonly("root_needs_high_precision", &PyLightCurveInfo::root_needs_high_precision)
         .def_readonly("root_max_residuals", &PyLightCurveInfo::root_max_residuals)
+        .def_readonly("point_source_quadrupole_indicators",
+            &PyLightCurveInfo::point_source_quadrupole_indicators)
+        .def_readonly("point_source_cusp_indicators",
+            &PyLightCurveInfo::point_source_cusp_indicators)
+        .def_readonly("point_source_ghost_indicators",
+            &PyLightCurveInfo::point_source_ghost_indicators)
+        .def_readonly("point_source_planetary_distances2",
+            &PyLightCurveInfo::point_source_planetary_distances2)
+        .def_readonly("point_source_safety_tolerances",
+            &PyLightCurveInfo::point_source_safety_tolerances)
+        .def_readonly("point_source_ghost_counts",
+            &PyLightCurveInfo::point_source_ghost_counts)
+        .def_readonly("point_source_safety_flags",
+            &PyLightCurveInfo::point_source_safety_flags)
 	        .def_readonly("all_converged", &PyLightCurveInfo::all_converged)
 	        .def_readonly("unconverged_indices", &PyLightCurveInfo::unconverged_indices);
 
@@ -1297,4 +1350,12 @@ unless terrestrial is explicitly set to True.)")
     lc.def("_binary_images", &binary_images_to_python,
         py::arg("s"), py::arg("q"), py::arg("x"), py::arg("y"),
         "Return point-source binary-lens image positions in the VBM-compatible lens frame.");
+    lc.def("_binary_safety_diagnostic",
+        [](double separation, double mass_ratio, double source_x, double source_y) {
+            lcbinint::magnification::PointSourceMagnifier magnifier;
+            return magnifier.binary_safety_diagnostic_cached(
+                separation, mass_ratio, {source_x, source_y});
+        },
+        py::arg("s"), py::arg("q"), py::arg("x"), py::arg("y"),
+        "Return local point-source safety indicators for a binary lens.");
 }

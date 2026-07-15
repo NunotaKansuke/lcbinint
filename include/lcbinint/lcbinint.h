@@ -125,6 +125,13 @@ typedef struct lcbi_result {
     int root_used_high_precision;
     int root_needs_high_precision;
     double root_max_residual;
+    double point_source_quadrupole_indicator;
+    double point_source_cusp_indicator;
+    double point_source_ghost_indicator;
+    double point_source_planetary_distance2;
+    double point_source_safety_tolerance;
+    int point_source_ghost_count;
+    int point_source_safety_flags; /* bit 0: quadrupole+cusp, bit 1: ghost, bit 2: planetary */
 } lcbi_result;
 
 lcbi_params lcbi_default_params(void);

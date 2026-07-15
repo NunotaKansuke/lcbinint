@@ -28,6 +28,15 @@ struct PointSourceDerivativeResult {
     double derivative_error_indicator = 0.0;
 };
 
+struct PointSourceSafetyDiagnostic {
+    double magnification = 0.0;
+    int image_count = 0;
+    double quadrupole_indicator = 0.0;
+    double cusp_indicator = 0.0;
+    double ghost_indicator = 0.0;
+    int ghost_count = 0;
+};
+
 struct BinaryImage {
     SourcePosition position;
     double jacobian_determinant = 0.0;
@@ -61,6 +70,10 @@ public:
         double mass_ratio,
         SourcePosition source) const;
     PointSourceDerivativeResult binary_mag0_with_derivatives_cached(
+        double separation,
+        double mass_ratio,
+        SourcePosition source) const;
+    PointSourceSafetyDiagnostic binary_safety_diagnostic_cached(
         double separation,
         double mass_ratio,
         SourcePosition source) const;

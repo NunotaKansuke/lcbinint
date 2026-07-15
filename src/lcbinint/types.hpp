@@ -35,6 +35,13 @@ struct MagnificationResult {
     int root_used_high_precision = 0;
     int root_needs_high_precision = 0;
     double root_max_residual = 0.0;
+    double point_source_quadrupole_indicator = 0.0;
+    double point_source_cusp_indicator = 0.0;
+    double point_source_ghost_indicator = 0.0;
+    double point_source_planetary_distance2 = 0.0;
+    double point_source_safety_tolerance = 0.0;
+    int point_source_ghost_count = 0;
+    int point_source_safety_flags = 0;
     EvaluationStatus status = EvaluationStatus::unsupported;
 };
 

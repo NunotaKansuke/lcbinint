@@ -51,6 +51,13 @@ struct FiniteSourceResult {
     double error_estimate = 0.0;
     int refinement_level = 0;
     bool converged = true;
+    double point_source_quadrupole_indicator = 0.0;
+    double point_source_cusp_indicator = 0.0;
+    double point_source_ghost_indicator = 0.0;
+    double point_source_planetary_distance2 = std::numeric_limits<double>::infinity();
+    double point_source_safety_tolerance = 0.0;
+    int point_source_ghost_count = 0;
+    int point_source_safety_flags = 0;
 };
 
 struct HexadecapoleDiagnosticResult {

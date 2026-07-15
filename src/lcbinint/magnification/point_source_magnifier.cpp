@@ -358,6 +358,93 @@ double derivative_error_indicator_from_roots(
     return indicator;
 }
 
+PointSourceSafetyDiagnostic safety_diagnostic_from_roots(
+    const FastBinaryGeometry& geometry,
+    const std::array<::complex, 5>& roots)
+{
+    const auto selection = select_physical_roots(geometry, roots);
+    PointSourceSafetyDiagnostic result;
+    const ::complex a(geometry.a, 0.0);
+    const ::complex m1(geometry.m1, 0.0);
+    const ::complex m2(geometry.m2, 0.0);
+    const ::complex source_conjugate(geometry.y.re, -geometry.y.im);
+
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        const ::complex z = roots[i];
+        const ::complex dza = z - a;
+        const ::complex za2 = dza * dza;
+        const ::complex zb2 = z * z;
+        const ::complex f1 = m1 / za2 + m2 / zb2;
+        const ::complex f1c = conj(f1);
+        const double jacobian = (1.0 - f1 * f1c).re;
+        if (jacobian == 0.0 || !std::isfinite(jacobian)) {
+            if (selection.physical[i]) {
+                result.quadrupole_indicator = std::numeric_limits<double>::infinity();
+                result.cusp_indicator = std::numeric_limits<double>::infinity();
+            } else {
+                result.ghost_indicator = std::numeric_limits<double>::infinity();
+            }
+            continue;
+        }
+
+        if (selection.physical[i]) {
+            result.magnification += 1.0 / std::abs(jacobian);
+            ++result.image_count;
+
+            const ::complex f2 = -2.0 * (m1 / (za2 * dza) + m2 / (zb2 * z));
+            const ::complex f3 = 6.0 * (m1 / (za2 * za2) + m2 / (zb2 * zb2));
+            const double jacobian2 = jacobian * jacobian;
+            const ::complex f1c2 = f1c * f1c;
+            const ::complex f2_term = f2 * f2 * f1c2 * f1c;
+            const ::complex f3_term = f3 * f1c2;
+            const double real_term =
+                (f2.re * f2.re + f2.im * f2.im) *
+                    (6.0 - 6.0 * jacobian + jacobian2) -
+                6.0 * f2_term.re - 2.0 * f3_term.re * jacobian;
+            const double denominator =
+                std::abs(jacobian * jacobian2 * jacobian2);
+            if (denominator == 0.0 || !std::isfinite(denominator)) {
+                result.quadrupole_indicator = std::numeric_limits<double>::infinity();
+                result.cusp_indicator = std::numeric_limits<double>::infinity();
+                continue;
+            }
+            result.quadrupole_indicator += 0.5 * std::abs(real_term) / denominator;
+            result.cusp_indicator += 1.5 * std::abs(f2_term.im) / denominator;
+            continue;
+        }
+
+        ++result.ghost_count;
+        // Ghost-image safety test (MNRAS 479, 5157, eqs. 41--47).  The two rejected polynomial
+        // roots are the ghost images available for free from the point-source
+        // solve.  This estimates the inverse source-plane distance required
+        // to drive either ghost image onto the critical curve.
+        const ::complex f0 = -m1 / dza - m2 / z;
+        const ::complex zhat = source_conjugate - f0;
+        const ::complex zhat_a = zhat - a;
+        const ::complex f1_hat = m1 / (zhat_a * zhat_a) + m2 / (zhat * zhat);
+        const ::complex jhat = 1.0 - f1 * f1_hat;
+        const ::complex zc = conj(z);
+        const ::complex zc_a = zc - a;
+        const ::complex f2_zc =
+            -2.0 * (m1 / (zc_a * zc_a * zc_a) + m2 / (zc * zc * zc));
+        const ::complex numerator_base = jhat * f2_zc * f1;
+        const ::complex denominator = jacobian * jhat * jhat;
+        const double denominator_abs = abs(denominator);
+        if (denominator_abs == 0.0 || !std::isfinite(denominator_abs)) {
+            result.ghost_indicator = std::numeric_limits<double>::infinity();
+            continue;
+        }
+        const double indicator = abs(
+            (numerator_base - conj(numerator_base) * f1_hat) / denominator);
+        if (std::isfinite(indicator)) {
+            result.ghost_indicator = std::max(result.ghost_indicator, indicator);
+        } else {
+            result.ghost_indicator = std::numeric_limits<double>::infinity();
+        }
+    }
+    return result;
+}
+
 Complex lens_equation_residual(const BinaryGeometry& geometry, Complex image)
 {
     const Complex zc = std::conj(image);
@@ -765,6 +852,33 @@ PointSourceDerivativeResult PointSourceMagnifier::binary_mag0_with_derivatives_c
     return {magnification, image_count, derivative_indicator};
 }
 
+PointSourceSafetyDiagnostic PointSourceMagnifier::binary_safety_diagnostic_cached(
+    double separation,
+    double mass_ratio,
+    SourcePosition source) const
+{
+    if (separation == 0.0 || mass_ratio <= 0.0) {
+        return {};
+    }
+    const bool cache_matches =
+        root_cache_valid_ &&
+        root_cache_separation_ == separation &&
+        root_cache_mass_ratio_ == mass_ratio &&
+        root_cache_source_.x == source.x &&
+        root_cache_source_.y == source.y;
+    if (!cache_matches) {
+        (void)binary_mag0_impl(separation, mass_ratio, source, true);
+    }
+
+    const FastBinaryGeometry geometry = make_fast_vbm_geometry(
+        separation, mass_ratio, source);
+    std::array<::complex, 5> roots;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
+    }
+    return safety_diagnostic_from_roots(geometry, roots);
+}
+
 PointSourceResult PointSourceMagnifier::binary_mag0_impl(
     double separation,
     double mass_ratio,
@@ -878,6 +992,13 @@ std::vector<BinaryImageCandidate> PointSourceMagnifier::binary_image_candidates(
     std::array<::complex, 5> roots;
     binary_polynomial_coefficients(geometry, coefficients);
     cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+    root_cache_valid_ = true;
+    root_cache_separation_ = separation;
+    root_cache_mass_ratio_ = mass_ratio;
+    root_cache_source_ = source;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        root_cache_roots_[i] = {roots[i].re, roots[i].im};
+    }
 
     std::vector<BinaryImageCandidate> images;
     images.reserve(roots.size());
