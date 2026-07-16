@@ -62,6 +62,51 @@ def test_gaussian_likelihood_can_sample_flux_parameters():
     assert model.log_likelihood(theta) == pytest.approx(-0.5 * expected_chi2)
 
 
+def test_sampled_flux_works_with_unified_isochrone_theta_star_api():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+    from types import SimpleNamespace
+
+    model, _, theta, _ = _make_sampled_flux_model(lcbinint, np)
+    isochrone = object()
+    seen = {}
+
+    class Provider:
+        names = ("tE",)
+        integration_samples = 8
+
+        @staticmethod
+        def log_density(theta, context=None, magnitudes=None):
+            return 0.0
+
+        @staticmethod
+        def _isochrone_joint_terms(theta, *, magnitudes, context=None):
+            seen.update(magnitudes)
+            values = np.arange(8, dtype=float) + 1.0
+            return {
+                "log_terms": np.zeros(8),
+                "physical": {
+                    "ML": values,
+                    "DL": values,
+                    "DS": values + 1.0,
+                    "mu_N": values,
+                    "mu_E": values,
+                    "thetaS": np.full(8, 0.005),
+                },
+            }
+
+    Provider.galaxy = SimpleNamespace(isochrone=isochrone)
+
+    @model.theta_star(isochrone=isochrone)
+    def _(fluxes):
+        return {"Imag": fluxes["tiny"]["Fs"] / 1000.0}
+
+    model.galactic_prior(Provider())
+
+    assert math.isfinite(model.log_prob(theta))
+    assert seen == {"Imag": pytest.approx(1.234)}
+
+
 def test_sampler_records_sampled_flux_parameters():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")

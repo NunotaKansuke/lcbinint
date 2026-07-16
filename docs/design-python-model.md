@@ -136,26 +136,31 @@ Galactic context. A flux-dependent relation uses the same entry point and
 returns a positive log-space scatter, which lcbinint marginalizes internally.
 
 When gapmoe supplies the thetaS density jointly with isochrone photometry and
-source distance, use the theta-star relation only as an importance proposal:
+source distance, pass the same isochrone to `model.theta_star`. The decorated
+function returns apparent source magnitudes rather than a thetaS relation:
 
 ```python
 galactic_prior = galaxy.parameterize(
     gapmoe.ParamType(parallax=False, distance="marginalize"),
     integration_samples=512,
-    source_radius=True,
 )
 
-@model.theta_star(samples=256, mode="proposal")
-def theta_star_proposal(fluxes):
-    return proposal_log_center(fluxes), proposal_log_sigma(fluxes)
+@model.theta_star(isochrone=galaxy.isochrone)
+def source_magnitudes(fluxes):
+    return {
+        "Imag": flux_to_mag(fluxes["I"]["Fs"]),
+        "Vmag": flux_to_mag(fluxes["V"]["Fs"]),
+    }
 
-model.galactic_prior(galactic_prior, magnitudes=source_magnitudes)
+model.galactic_prior(galactic_prior)
 ```
 
-`mode="proposal"` subtracts the log-normal proposal density from every Sobol
-draw, so the isochrone term is the thetaS prior rather than being multiplied by
-an additional empirical thetaS prior. The proposal width must be positive and
-wide enough to cover the isochrone-supported thetaS range.
+gapmoe constructs the thetaS importance proposal automatically from the
+DS-marginalized isochrone population. Flux, thetaS, distance, distance ratio,
+and proper-motion direction use the same 512 QMC rows instead of a Cartesian
+thetaS-by-distance grid. For LOM, each thetaS row maps to one deterministic DS.
+The proposal density is removed internally, so the isochrone is the thetaS
+prior rather than an additional empirical relation.
 
 For no-parallax Flow analyses, `DL` and `DS` may be registered as ordinary
 sampled parameters; they are auxiliary to the magnification calculation and

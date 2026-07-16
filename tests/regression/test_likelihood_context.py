@@ -285,22 +285,16 @@ def test_theta_star_without_parameter_is_marginalized():
     assert model.log_prob(theta) == pytest.approx(expected)
 
 
-def test_theta_star_proposal_density_is_removed_from_integral():
+def test_theta_star_isochrone_requires_matching_galactic_prior():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
 
     model, true = _make_model(lcbinint, np)
-    center = math.log(0.7)
-    sigma = 0.2
+    isochrone = object()
 
-    @model.theta_star(samples=32, seed=5, mode="proposal")
+    @model.theta_star(isochrone=isochrone)
     def _(_fluxes):
-        return center, sigma
-
-    @model.prior
-    def _(thetaS, **_):
-        z = (math.log(thetaS) - center) / sigma
-        return -0.5 * z * z - math.log(sigma) - 0.5 * math.log(2.0 * math.pi)
+        return {"Imag": 18.0, "Vmag": 20.0}
 
     theta = [
         true["t0"],
@@ -313,26 +307,7 @@ def test_theta_star_proposal_density_is_removed_from_integral():
         true["piEE"],
     ]
 
-    assert model.log_prob(theta) == pytest.approx(
-        model.log_prior(theta) + model.log_likelihood(theta)
-    )
-
-
-def test_theta_star_proposal_requires_nonzero_width():
-    lcbinint = pytest.importorskip("lcbinint")
-    np = pytest.importorskip("numpy")
-
-    model, true = _make_model(lcbinint, np)
-
-    @model.theta_star(mode="proposal")
-    def _(_fluxes):
-        return math.log(0.7), 0.0
-
-    theta = [
-        true["t0"], math.log(true["tE"]), true["u0"], true["s"],
-        math.log(true["q"]), true["alpha"], true["piEN"], true["piEE"],
-    ]
-    with pytest.raises(ValueError, match="requires log_sigma > 0"):
+    with pytest.raises(RuntimeError, match="exactly one Galactic prior"):
         model.log_prob(theta)
 
 

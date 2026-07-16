@@ -119,13 +119,17 @@ def _theta_star_result(fn, fluxes):
     return center, sigma
 
 
-def _theta_star_proposal_log_density(log_theta_star, center, sigma):
-    if sigma <= 0.0:
-        raise ValueError(
-            "theta_star(mode='proposal') requires log_sigma > 0"
+def _isochrone_magnitudes_result(fn, fluxes):
+    result = fn(fluxes)
+    if not isinstance(result, dict) or not result:
+        raise TypeError(
+            "theta_star(isochrone=...) callable must return a non-empty "
+            "magnitudes dict"
         )
-    z = (log_theta_star - center) / sigma
-    return -0.5 * z * z - math.log(sigma) - 0.5 * math.log(2.0 * math.pi)
+    values = {name: float(value) for name, value in result.items()}
+    if not all(math.isfinite(value) for value in values.values()):
+        raise ValueError("theta_star() magnitudes must be finite")
+    return values
 
 
 def _logmeanexp(values):
@@ -238,7 +242,6 @@ def _marginalize_theta_star(
 
     samples = []
     likelihood_contexts = []
-    proposal_log_densities = []
     invalid_count = 0
 
     if conditionals:
@@ -260,10 +263,6 @@ def _marginalize_theta_star(
             continue
 
         if sigma == 0.0:
-            if options["mode"] == "proposal":
-                raise ValueError(
-                    "theta_star(mode='proposal') requires log_sigma > 0"
-                )
             theta_stars = [math.exp(center)]
         elif conditionals:
             theta_stars = [math.exp(center + sigma * ndtri(theta_uniform))]
@@ -279,13 +278,6 @@ def _marginalize_theta_star(
             current = dict(vals)
             current["thetaS"] = float(theta_star)
             samples.append(current)
-            proposal_log_densities.append(
-                _theta_star_proposal_log_density(
-                    math.log(theta_star), center, sigma
-                )
-                if options["mode"] == "proposal"
-                else 0.0
-            )
             likelihood_contexts.append(
                 LikelihoodContext(
                     fluxes=draw,
@@ -300,12 +292,138 @@ def _marginalize_theta_star(
     log_weights = _evaluate_extra_priors_many(
         priors, samples, likelihood_contexts
     )
-    log_weights -= np.asarray(proposal_log_densities)
     if invalid_count:
         log_weights = np.concatenate(
             [log_weights, np.full(invalid_count, float("-inf"))]
         )
     return _logmeanexp(log_weights)
+
+
+def _matching_isochrone_term(priors, isochrone):
+    matches = []
+    for term in priors:
+        if not isinstance(term, _GalacticModelTerm):
+            continue
+        provider_galaxy = getattr(term.galaxy, "galaxy", None)
+        if (
+            getattr(provider_galaxy, "isochrone", None) is isochrone
+            and hasattr(term.galaxy, "_isochrone_joint_terms")
+        ):
+            matches.append(term)
+    if len(matches) != 1:
+        raise RuntimeError(
+            "theta_star(isochrone=...) requires exactly one Galactic prior "
+            "parameterized from that isochrone"
+        )
+    return matches[0]
+
+
+def _isochrone_joint_candidates(
+    fn,
+    isochrone,
+    vals,
+    fluxes,
+    conditionals,
+    priors,
+    options,
+    flux_mode,
+):
+    term = _matching_isochrone_term(priors, isochrone)
+    if term.magnitudes is not None:
+        raise RuntimeError(
+            "theta_star(isochrone=...) supplies source magnitudes; remove "
+            "magnitudes= from model.galactic_prior()"
+        )
+    if term.context_uses_likelihood:
+        raise RuntimeError(
+            "theta_star(isochrone=...) requires Galactic context independent "
+            "of likelihood fluxes"
+        )
+    samples = int(getattr(term.galaxy, "integration_samples", 512))
+    if conditionals:
+        points = _sobol_points(samples, len(conditionals), options["seed"])
+        flux_draws = [
+            _draw_fluxes(fluxes, conditionals, point) for point in points
+        ]
+    else:
+        flux_draws = [fluxes] * samples
+
+    magnitudes = []
+    valid = np.ones(samples, dtype=bool)
+    first_valid = None
+    for index, draw in enumerate(flux_draws):
+        try:
+            current = _isochrone_magnitudes_result(fn, draw)
+            first_valid = current if first_valid is None else first_valid
+            magnitudes.append(current)
+        except (TypeError, ValueError, FloatingPointError, OverflowError):
+            valid[index] = False
+            magnitudes.append(None)
+    if first_valid is None:
+        return [], np.full(samples, float("-inf")), term
+    magnitudes = [first_valid if item is None else item for item in magnitudes]
+    keys = tuple(first_valid)
+    if any(tuple(item) != keys for item in magnitudes):
+        raise ValueError(
+            "theta_star() magnitudes must use the same bands for every draw"
+        )
+    stacked_magnitudes = (
+        first_valid
+        if not conditionals
+        else {
+            key: np.asarray([item[key] for item in magnitudes], dtype=float)
+            for key in keys
+        }
+    )
+    missing = [name for name in term.names if name not in vals]
+    if missing:
+        raise RuntimeError(
+            "galactic_prior() missing model parameter(s): " + ", ".join(missing)
+        )
+    theta = [vals[name] for name in term.names]
+    context = term._context(vals, None)
+    result = term.galaxy._isochrone_joint_terms(
+        theta,
+        magnitudes=stacked_magnitudes,
+        context=context,
+    )
+    provider_terms = np.asarray(result["log_terms"], dtype=float)
+    physical = {
+        key: np.asarray(value, dtype=float)
+        for key, value in result["physical"].items()
+    }
+    candidate_values = []
+    likelihood_contexts = []
+    for index, draw in enumerate(flux_draws):
+        current = dict(vals)
+        current.update({key: value[index] for key, value in physical.items()})
+        candidate_values.append(current)
+        likelihood_contexts.append(
+            LikelihoodContext(
+                fluxes=draw,
+                flux_mode="conditional_draw" if conditionals else flux_mode,
+            )
+        )
+    remaining_priors = [prior for prior in priors if prior is not term]
+    extra_terms = _evaluate_extra_priors_many(
+        remaining_priors,
+        candidate_values,
+        likelihood_contexts,
+    )
+    log_terms = provider_terms + extra_terms
+    log_terms = np.where(valid, log_terms, float("-inf"))
+    candidates = [
+        (candidate_values[index], flux_draws[index], {
+            key: value[index] for key, value in physical.items() if key != "thetaS"
+        })
+        for index in range(samples)
+    ]
+    return candidates, log_terms, term
+
+
+def _marginalize_isochrone_theta_star(*args, **kwargs):
+    _, log_terms, _ = _isochrone_joint_candidates(*args, **kwargs)
+    return _logmeanexp(log_terms)
 
 
 class _GalacticModelTerm:
@@ -689,8 +807,18 @@ class _SamplingAdapter:
         )
 
         if self._model._theta_star_fn is not None:
-            lp += _marginalize_theta_star(
+            marginalizer = (
+                _marginalize_isochrone_theta_star
+                if self._model._theta_star_isochrone is not None
+                else _marginalize_theta_star
+            )
+            args = [
                 self._model._theta_star_fn,
+            ]
+            if self._model._theta_star_isochrone is not None:
+                args.append(self._model._theta_star_isochrone)
+            lp += marginalizer(
+                *args,
                 vals,
                 fluxes,
                 conditionals,
@@ -965,6 +1093,7 @@ def _build_model_class(cpp_base):
             self._guards       = []
             self._theta_star_fn = None
             self._theta_star_options = None
+            self._theta_star_isochrone = None
             self._param_is_log = {}
             self._param_priors = {}
             self._lik_mode     = None
@@ -1076,7 +1205,7 @@ def _build_model_class(cpp_base):
 
         # --- prior ---
 
-        def theta_star(self, fn=None, *, samples=256, seed=0, mode="prior"):
+        def theta_star(self, fn=None, *, samples=256, seed=0, isochrone=None):
             """Set the log-space thetaS relation evaluated from fitted fluxes.
 
             The callable receives the complete flux dictionary and returns
@@ -1084,15 +1213,16 @@ def _build_model_class(cpp_base):
             is never a sampling parameter. A positive sigma is marginalized;
             zero fixes ``thetaS = exp(log_center)``. Marginalized fluxes and
             thetaS use ``samples`` scrambled Sobol draws (default 256).
-            ``mode='proposal'`` treats the returned log-normal only as an
-            importance proposal and removes its density from the integral.
+            With ``isochrone=...``, the callable instead returns apparent
+            magnitudes. lcbinint and the matching Galactic prior then perform
+            one paired QMC integral over flux, thetaS, and hidden physics.
             """
             if fn is None:
                 return lambda decorated: self.theta_star(
                     decorated,
                     samples=samples,
                     seed=seed,
-                    mode=mode,
+                    isochrone=isochrone,
                 )
             if not callable(fn):
                 raise TypeError(
@@ -1104,13 +1234,11 @@ def _build_model_class(cpp_base):
                 raise ValueError("theta_star() samples must be a positive integer")
             if isinstance(seed, bool) or int(seed) != seed or seed < 0:
                 raise ValueError("theta_star() seed must be a non-negative integer")
-            if mode not in {"prior", "proposal"}:
-                raise ValueError("theta_star() mode must be 'prior' or 'proposal'")
             self._theta_star_fn = fn
+            self._theta_star_isochrone = isochrone
             self._theta_star_options = {
                 "samples": int(samples),
                 "seed": int(seed),
-                "mode": mode,
             }
             return fn
 
@@ -1259,6 +1387,7 @@ def _build_model_class(cpp_base):
             for index, vals in enumerate(vals_iter):
                 vals = dict(vals)
                 fluxes = flux_rows[index] if flux_rows else {}
+                precomputed_draw = None
                 if self._theta_star_fn is not None and "thetaS" not in vals:
                     conditionals = {}
                     if scales is not None:
@@ -1269,23 +1398,33 @@ def _build_model_class(cpp_base):
                                     "scale": scales[index, d],
                                     "df": np.asarray(dfs)[d],
                                 }
-                    candidates = self._latent_theta_star_candidates(
-                        vals, fluxes, conditionals
-                    )
-                    candidate_contexts = [
-                        LikelihoodContext(
-                            fluxes=item[1],
-                            flux_mode="conditional_draw" if conditionals else self._lik_kwargs.get("flux"),
+                    if self._theta_star_isochrone is not None:
+                        candidates, weights, _ = _isochrone_joint_candidates(
+                            self._theta_star_fn,
+                            self._theta_star_isochrone,
+                            vals,
+                            fluxes,
+                            conditionals,
+                            self._extra_priors,
+                            self._theta_star_options,
+                            self._lik_kwargs["flux"],
                         )
-                        for item in candidates
-                    ]
-                    weights = _evaluate_extra_priors_many(
-                        self._extra_priors,
-                        [item[0] for item in candidates],
-                        candidate_contexts,
-                    )
-                    if self._theta_star_options["mode"] == "proposal":
-                        weights -= np.asarray([item[2] for item in candidates])
+                    else:
+                        candidates = self._latent_theta_star_candidates(
+                            vals, fluxes, conditionals
+                        )
+                        candidate_contexts = [
+                            LikelihoodContext(
+                                fluxes=item[1],
+                                flux_mode="conditional_draw" if conditionals else self._lik_kwargs.get("flux"),
+                            )
+                            for item in candidates
+                        ]
+                        weights = _evaluate_extra_priors_many(
+                            self._extra_priors,
+                            [item[0] for item in candidates],
+                            candidate_contexts,
+                        )
                     finite = np.isfinite(weights)
                     if not np.any(finite):
                         raise RuntimeError(
@@ -1294,9 +1433,10 @@ def _build_model_class(cpp_base):
                     peak = np.max(weights[finite])
                     probs = np.where(finite, np.exp(weights - peak), 0.0)
                     probs /= probs.sum()
-                    vals, fluxes, _ = candidates[
-                        int(rng.choice(len(candidates), p=probs))
-                    ]
+                    selected = candidates[int(rng.choice(len(candidates), p=probs))]
+                    vals, fluxes = selected[:2]
+                    if self._theta_star_isochrone is not None:
+                        precomputed_draw = selected[2]
 
                 missing = [name for name in names if name not in vals]
                 if missing:
@@ -1321,7 +1461,9 @@ def _build_model_class(cpp_base):
                     vals,
                     likelihood_context,
                 )
-                if hasattr(galaxy, "sample_physical"):
+                if precomputed_draw is not None:
+                    draw = precomputed_draw
+                elif hasattr(galaxy, "sample_physical"):
                     kwargs = {"rng": rng}
                     if ctx is not None:
                         kwargs["context"] = ctx
@@ -1371,10 +1513,6 @@ def _build_model_class(cpp_base):
                 draw = _draw_fluxes(fluxes, conditionals, point[:-1])
                 try:
                     center, sigma = _theta_star_result(self._theta_star_fn, draw)
-                    if options["mode"] == "proposal" and sigma <= 0.0:
-                        raise ValueError(
-                            "theta_star(mode='proposal') requires log_sigma > 0"
-                        )
                     theta_star = math.exp(
                         center if sigma == 0.0 else center + sigma * ndtri(point[-1])
                     )
@@ -1382,14 +1520,7 @@ def _build_model_class(cpp_base):
                     continue
                 current = dict(vals)
                 current["thetaS"] = theta_star
-                proposal_log_density = (
-                    _theta_star_proposal_log_density(
-                        math.log(theta_star), center, sigma
-                    )
-                    if options["mode"] == "proposal"
-                    else 0.0
-                )
-                candidates.append((current, draw, proposal_log_density))
+                candidates.append((current, draw, None))
             if not candidates:
                 raise RuntimeError("theta_star() produced no valid conditional draws")
             return candidates
@@ -1411,6 +1542,20 @@ def _build_model_class(cpp_base):
                     "model.theta_star requires a base likelihood configured with "
                     "model.likelihood(...)"
                 )
+            if self._theta_star_isochrone is not None:
+                term = _matching_isochrone_term(
+                    self._extra_priors, self._theta_star_isochrone
+                )
+                if term.magnitudes is not None:
+                    raise RuntimeError(
+                        "theta_star(isochrone=...) supplies magnitudes; remove "
+                        "magnitudes= from model.galactic_prior()"
+                    )
+                if term.context_uses_likelihood:
+                    raise RuntimeError(
+                        "theta_star(isochrone=...) requires Galactic context "
+                        "independent of likelihood fluxes"
+                    )
             if self._lik_mode is None and not self._extra_liks:
                 raise RuntimeError(
                     "bayes.Model: likelihood is not configured.\n"
@@ -1509,8 +1654,16 @@ def _build_model_class(cpp_base):
             )
 
             if self._theta_star_fn is not None:
-                lp += _marginalize_theta_star(
-                    self._theta_star_fn,
+                marginalizer = (
+                    _marginalize_isochrone_theta_star
+                    if self._theta_star_isochrone is not None
+                    else _marginalize_theta_star
+                )
+                args = [self._theta_star_fn]
+                if self._theta_star_isochrone is not None:
+                    args.append(self._theta_star_isochrone)
+                lp += marginalizer(
+                    *args,
                     vals,
                     fluxes,
                     conditionals,

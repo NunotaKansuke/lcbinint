@@ -188,10 +188,6 @@ def test_flux_theta_star_and_gapmoe_distance_marginalize_together():
     model.param("piEE", lcbinint.bayes.Uniform(-1.0, 1.0))
     theta = [*theta, math.log(0.005), 0.1, 0.05]
 
-    @model.theta_star(samples=4, seed=19, mode="proposal")
-    def _(fluxes):
-        return math.log(0.005 * abs(fluxes["tiny"]["Fs"]) / 900.0), 0.1
-
     @model.prior
     def ordinary_lc_prior(u0, **_):
         return -0.5 * (u0 / 0.5) ** 2
@@ -227,18 +223,20 @@ def test_flux_theta_star_and_gapmoe_distance_marginalize_together():
     )
     prior = galaxy.parameterize(
         gapmoe.ParamType(parallax=True, distance="marginalize"),
-        source_radius=True,
+        integration_samples=16,
     )
+
+    @model.theta_star(isochrone=isochrone, seed=19)
+    def _(fluxes):
+        scale = abs(fluxes["tiny"]["Fs"]) / 900.0
+        return {
+            "Imag": 18.0 - 2.5 * math.log10(scale),
+            "Vmag": 20.0 - 2.5 * math.log10(scale),
+        }
 
     model.galactic_prior(
         prior,
         context={"vEarth": (0.0, 0.0)},
-        magnitudes=lambda params, likelihood: {
-            "Imag": 18.0
-            - 2.5 * math.log10(abs(likelihood.fluxes["tiny"]["Fs"]) / 900.0),
-            "Vmag": 20.0
-            - 2.5 * math.log10(abs(likelihood.fluxes["tiny"]["Fs"]) / 900.0),
-        },
     )
 
     assert math.isfinite(model.log_prob(theta))
@@ -355,10 +353,6 @@ def test_kepler_lom_runs_with_flux_theta_star_marginalization():
         model.param(name, prior)
     model.likelihood("gaussian", flux="marginalize")
 
-    @model.theta_star(samples=4, seed=31, mode="proposal")
-    def _(fluxes):
-        return math.log(0.005 * abs(fluxes["tiny"]["Fs"]) / 900.0), 0.05
-
     reference_edges = np.linspace(-8.0, 20.0, 57)
     color_edges = np.linspace(-2.0, 8.0, 41)
     density = np.full((11, 56, 40), 1.0 / 280.0)
@@ -390,17 +384,20 @@ def test_kepler_lom_runs_with_flux_theta_star_marginalization():
     )
     prior = galaxy.parameterize(
         gapmoe.ParamType(parallax=True, orbital_motion="kepler"),
-        source_radius=True,
+        integration_samples=16,
     )
+
+    @model.theta_star(isochrone=isochrone, seed=31)
+    def _(fluxes):
+        scale = abs(fluxes["tiny"]["Fs"]) / 900.0
+        return {
+            "Imag": 18.0 - 2.5 * math.log10(scale),
+            "Vmag": 20.0 - 2.5 * math.log10(scale),
+        }
+
     model.galactic_prior(
         prior,
         context={"vEarth": (0.0, 0.0)},
-        magnitudes=lambda params, likelihood: {
-            "Imag": 18.0
-            - 2.5 * math.log10(abs(likelihood.fluxes["tiny"]["Fs"]) / 900.0),
-            "Vmag": 20.0
-            - 2.5 * math.log10(abs(likelihood.fluxes["tiny"]["Fs"]) / 900.0),
-        },
     )
     theta = [
         math.log(true[name]) if name in {"tE", "rho", "q"} else true[name]

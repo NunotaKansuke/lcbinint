@@ -824,6 +824,9 @@ def test_lcbinint_marginalizes_no_parallax_flow_with_source_magnitudes():
     theta.append(math.log(0.005))
     reference_edges = np.linspace(-8.0, 20.0, 57)
     color_edges = np.linspace(-2.0, 8.0, 41)
+    density = np.full((11, 56, 40), 1.0 / 280.0)
+    mean_log_radius = math.log(8.0)
+    variance_log_radius = 0.3**2
     isochrone = IsochroneModel(
         reference_band="Imag",
         color_bands=("Vmag", "Imag"),
@@ -831,7 +834,11 @@ def test_lcbinint_marginalizes_no_parallax_flow_with_source_magnitudes():
             coordinates=CmdCoordinates("Imag", "Vmag", "Imag"),
             reference_edges=reference_edges,
             color_edges=color_edges,
-            density_by_component=np.full((11, 56, 40), 1.0 / 280.0),
+            density_by_component=density,
+            log_radius_moment_by_component=density * mean_log_radius,
+            log_radius_square_moment_by_component=(
+                density * (mean_log_radius**2 + variance_log_radius)
+            ),
         ),
     )
     galaxy = (
@@ -850,21 +857,34 @@ def test_lcbinint_marginalizes_no_parallax_flow_with_source_magnitudes():
         seed=5,
     )
 
-    @model.theta_star
+    @model.theta_star(isochrone=isochrone, seed=5)
     def _(fluxes):
-        return math.log(0.005), 0.0
+        scale = abs(fluxes["tiny"]["Fs"]) / 1000.0
+        return {
+            "Imag": 18.0 - 2.5 * math.log10(scale),
+            "Vmag": 20.0 - 2.5 * math.log10(scale),
+        }
 
-    model.galactic_prior(
-        prior,
-        magnitudes=lambda params, likelihood: {
-            "Imag": 18.0
-            - 2.5 * math.log10(abs(likelihood.fluxes["tiny"]["Fs"]) / 1000.0),
-            "Vmag": 20.0
-            - 2.5 * math.log10(abs(likelihood.fluxes["tiny"]["Fs"]) / 1000.0),
-        },
-    )
+    model.galactic_prior(prior)
 
     assert math.isfinite(model.log_prob(theta))
+    chain = lcbinint.run_sampler(
+        model,
+        nsteps=1,
+        options=lcbinint.SamplerOptions(
+            nwalkers=20,
+            seed=41,
+            log_path="",
+            auto_stop=False,
+        ),
+    )
+    physical = model.get_galactic_physical(
+        chain,
+        prior,
+        rng=np.random.default_rng(42),
+    )
+    assert {"ML", "DL", "DS", "mu_N", "mu_E", "thetaS", "Fs_tiny"} <= set(physical)
+    assert np.all((physical["DL"] > 0.0) & (physical["DL"] < physical["DS"]))
 
 
 def test_guard_receives_reparameterized_physical_values():
