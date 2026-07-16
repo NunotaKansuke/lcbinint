@@ -95,11 +95,52 @@ log_prob(theta) = log_prior_cpp(theta)           # C++: param priors (always)
   from theta before being passed. Extra param names not in the function signature are
   absorbed by `**_`.
 
-## Flat prior
+## Explicit sampling priors
 
-`model.param(name)` with no prior argument registers a flat (improper) prior:
-`log_prior = 0` everywhere, no bounds. The user is responsible for ensuring the
-posterior is proper. `bayes.Uniform(lo, hi)` continues to require both bounds.
+Every sampled parameter requires an explicit prior. Calling
+`model.param("x")` without one raises an error; use, for example,
+`model.param("x", bayes.Uniform(-1, 1))`. External Python prior terms add to
+this sampling prior and do not replace its explicit support.
+
+## Supported inference patterns
+
+The stable combinations are intentionally limited:
+
+1. `flux="fit"`: linear best-fit fluxes with ordinary or Galactic priors.
+2. `flux="marginalize"`: analytic Gaussian flux marginalization with priors
+   that do not depend on flux.
+3. `flux="sample"`: explicit `Fs_*` and `Fb_*` sampling.
+4. Full marginalization: `flux="marginalize"`, `model.theta_star(...)`, and
+   an optional Galactic prior that marginalizes hidden physical distances
+   internally.
+
+Flux-dependent Galactic magnitudes in mode 4 are evaluated jointly over the
+conditional flux, thetaS, and Galactic distance draws. `thetaS` is defined
+exclusively by `model.theta_star(...)`; it is never a sampling parameter.
+Return `(log(thetaS), 0.0)` to fix it. lcbinint injects the resulting value
+into Galactic context as `thS` automatically.
+
+```python
+@model.theta_star
+def fixed_theta_star(_fluxes):
+    return math.log(0.005), 0.0
+
+model.galactic_prior(
+    galactic_prior,
+    context={"vEarth": (v_north, v_east)},
+)
+```
+
+Do not register `thetaS` with `model.param()` and do not put `thS` in the
+Galactic context. A flux-dependent relation uses the same entry point and
+returns a positive log-space scatter, which lcbinint marginalizes internally.
+
+For no-parallax Flow analyses, `DL` and `DS` may be registered as ordinary
+sampled parameters; they are auxiliary to the magnification calculation and
+are consumed by the external Galactic prior. If they are omitted, gapmoe may
+marginalize `DL`, `DS`, and proper-motion direction internally. Circular and
+Kepler LOM use the same `g1`, `g2`, `g3`, `lom_szs`, and `lom_ar` names in both
+packages, including full flux/thetaS marginalization.
 
 ## Architecture
 

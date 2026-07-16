@@ -3,15 +3,106 @@ from __future__ import annotations
 
 import inspect
 import math
+from collections.abc import Mapping
 
 import numpy as np
 
 
 class LikelihoodContext:
-    """Auxiliary values from the base likelihood evaluation."""
+    """Auxiliary values from the base likelihood evaluation.
 
-    def __init__(self, *, fluxes):
+    ``fluxes`` maps each dataset name to its current ``Fs`` and ``Fb``.
+    ``conditionals`` contains conditional flux-posterior parameters when flux
+    is marginalized.
+    """
+
+    def __init__(self, *, fluxes, conditionals=None, flux_mode=None):
         self.fluxes = fluxes
+        self.conditionals = conditionals or {}
+        self.flux_mode = flux_mode
+
+
+def _context_callable_uses_likelihood(fn):
+    """Return whether a context factory accepts ``(params, likelihood)``."""
+    try:
+        signature = inspect.signature(fn)
+    except (TypeError, ValueError):
+        return False
+    try:
+        signature.bind({}, object())
+    except TypeError:
+        try:
+            signature.bind({})
+        except TypeError as exc:
+            raise TypeError(
+                "galactic_prior() context callable must accept either "
+                "(params) or (params, likelihood)"
+            ) from exc
+        return False
+    return True
+
+
+def _make_galactic_context(factory, vals, likelihood_context=None):
+    if not callable(factory):
+        context = factory
+    elif not _context_callable_uses_likelihood(factory):
+        context = factory(dict(vals))
+    else:
+        if likelihood_context is None:
+            raise RuntimeError(
+                "galactic_prior() context requires likelihood auxiliaries, but "
+                "none are available"
+            )
+        if likelihood_context.flux_mode == "marginalize":
+            raise RuntimeError(
+                "galactic_prior() context cannot use likelihood fluxes with "
+                "flux='marginalize' yet; the Galactic term must be integrated "
+                "jointly over the conditional flux distribution. Use "
+                "flux='sample' or the best-fit flux mode for now."
+            )
+        context = factory(dict(vals), likelihood_context)
+
+    if "thetaS" not in vals:
+        return context
+    if context is None:
+        context = {}
+    if not isinstance(context, Mapping):
+        raise TypeError(
+            "galactic_prior() context must be a dict when model.theta_star() "
+            "is configured"
+        )
+    context = dict(context)
+    if "thS" in context:
+        raise ValueError(
+            "galactic_prior() context must not define 'thS'; configure "
+            "model.theta_star() and lcbinint will inject it automatically"
+        )
+    context["thS"] = vals["thetaS"]
+    return context
+
+
+def _make_galactic_magnitudes(factory, vals, likelihood_context=None):
+    if factory is None or not callable(factory):
+        return factory
+    if not _context_callable_uses_likelihood(factory):
+        return factory(dict(vals))
+    if likelihood_context is None:
+        raise RuntimeError(
+            "galactic_prior() magnitudes requires likelihood auxiliaries, "
+            "but none are available"
+        )
+    if likelihood_context.flux_mode == "marginalize":
+        raise RuntimeError(
+            "galactic_prior() magnitudes cannot use likelihood fluxes with "
+            "flux='marginalize' directly; source photometry must be integrated "
+            "jointly over the conditional flux distribution. Configure "
+            "model.theta_star() to perform that joint integration, or use "
+            "flux='sample' or the best-fit flux mode."
+        )
+    result = factory(dict(vals), likelihood_context)
+    if result is not None and not isinstance(result, dict):
+        raise TypeError("galactic_prior() magnitudes callable must return a dict")
+    return result
 
 
 def _theta_star_result(fn, fluxes):
@@ -65,66 +156,79 @@ def _draw_fluxes(fluxes, conditionals, uniforms):
     return draw
 
 
-def _theta_star_log_density(theta_star, center, sigma):
-    if sigma == 0.0:
-        raise RuntimeError(
-            "theta_star() returned log_sigma=0, so thetaS is deterministic; "
-            "do not register model.param('thetaS', ...)"
-        )
-    theta_star = float(theta_star)
-    if not math.isfinite(theta_star) or theta_star <= 0.0:
-        return float("-inf")
-    z = (math.log(theta_star) - center) / sigma
-    return -0.5 * z * z - math.log(sigma) - 0.5 * math.log(2.0 * math.pi)
-
-
-def _apply_sampled_theta_star(fn, vals, fluxes, conditionals, options):
-    if not conditionals:
-        center, sigma = _theta_star_result(fn, fluxes)
-        return _theta_star_log_density(vals["thetaS"], center, sigma)
-
-    points = _sobol_points(
-        options["samples"], len(conditionals), options["seed"]
-    )
-    log_weights = []
-    for point in points:
-        draw = _draw_fluxes(fluxes, conditionals, point)
-        try:
-            center, sigma = _theta_star_result(fn, draw)
-            log_weights.append(
-                _theta_star_log_density(vals["thetaS"], center, sigma)
-            )
-        except (ValueError, FloatingPointError, OverflowError):
-            log_weights.append(float("-inf"))
-    return _logmeanexp(log_weights)
-
-
-def _evaluate_extra_priors_many(priors, values):
+def _evaluate_extra_priors_many(priors, values, likelihood_contexts=None):
     current = [dict(vals) for vals in values]
+    if likelihood_contexts is None:
+        likelihood_contexts = [None] * len(current)
+    elif len(likelihood_contexts) != len(current):
+        raise ValueError("likelihood_contexts must match values")
+    ordered = _ordered_extra_priors(priors, current[0] if current else {})
     totals = np.zeros(len(current), dtype=float)
-    for prior_index, fn in enumerate(priors):
-        batch = fn.batch_log_prob(current) if hasattr(fn, "batch_log_prob") else None
-        if batch is None:
-            batch = np.asarray(
+    for prior_index, fn in enumerate(ordered):
+        active = np.flatnonzero(np.isfinite(totals))
+        if not len(active):
+            break
+        active_values = [current[index] for index in active]
+        active_contexts = [likelihood_contexts[index] for index in active]
+        if isinstance(fn, _GalacticModelTerm):
+            active_batch = fn.batch_log_prob(active_values, active_contexts)
+        else:
+            active_batch = (
+                fn.batch_log_prob(active_values)
+                if hasattr(fn, "batch_log_prob")
+                else None
+            )
+        if active_batch is None:
+            active_batch = np.asarray(
                 [
-                    _call_extra_prior(fn, vals) if math.isfinite(totals[i])
-                    else float("-inf")
-                    for i, vals in enumerate(current)
+                    _call_extra_prior(fn, vals, active_contexts[i])
+                    for i, vals in enumerate(active_values)
                 ],
                 dtype=float,
             )
+        batch = np.full(len(current), float("-inf"), dtype=float)
+        batch[active] = active_batch
         totals += batch
-        if prior_index + 1 < len(priors) and hasattr(fn, "physical_values"):
-            for i, vals in enumerate(current):
+        if prior_index + 1 < len(ordered) and hasattr(fn, "physical_values"):
+            for i in active:
+                vals = current[i]
                 if math.isfinite(totals[i]):
-                    vals.update(fn.physical_values(vals))
+                    if isinstance(fn, _GalacticModelTerm):
+                        derived = fn.physical_values(vals, likelihood_contexts[i])
+                    else:
+                        derived = fn.physical_values(vals)
+                    vals.update(derived)
     return totals
 
 
-def _marginalize_theta_star(fn, vals, fluxes, conditionals, priors, options):
+def _ordered_extra_priors(priors, vals):
+    """Evaluate cheap available priors before Galactic-derived priors."""
+    early = []
+    galactic = []
+    derived = []
+    for fn in priors:
+        if isinstance(fn, _GalacticModelTerm):
+            galactic.append(fn)
+        elif _missing_required_kwargs(fn, vals):
+            derived.append(fn)
+        else:
+            early.append(fn)
+    return early + galactic + derived
+
+
+def _marginalize_theta_star(
+    fn,
+    vals,
+    fluxes,
+    conditionals,
+    priors,
+    options,
+    flux_mode,
+):
     from scipy.special import ndtri
 
     samples = []
+    likelihood_contexts = []
     invalid_count = 0
 
     if conditionals:
@@ -161,10 +265,20 @@ def _marginalize_theta_star(fn, vals, fluxes, conditionals, priors, options):
             current = dict(vals)
             current["thetaS"] = float(theta_star)
             samples.append(current)
+            likelihood_contexts.append(
+                LikelihoodContext(
+                    fluxes=draw,
+                    flux_mode=(
+                        "conditional_draw" if conditionals else flux_mode
+                    ),
+                )
+            )
 
     if not samples:
         return float("-inf")
-    log_weights = _evaluate_extra_priors_many(priors, samples)
+    log_weights = _evaluate_extra_priors_many(
+        priors, samples, likelihood_contexts
+    )
     if invalid_count:
         log_weights = np.concatenate(
             [log_weights, np.full(invalid_count, float("-inf"))]
@@ -175,22 +289,31 @@ def _marginalize_theta_star(fn, vals, fluxes, conditionals, priors, options):
 class _GalacticModelTerm:
     """Adapter for external Galactic model objects.
 
-    The external object is expected to expose ``log_prob(theta, context=...)``.
+    The external object is expected to expose ``log_density(theta, ...)``.
     ``theta`` is assembled from lcbinint physical parameter values in ``names``
     order. Keeping this as a normal extra prior avoids making lcbinint depend on
     gapmoe directly.
     """
 
-    def __init__(self, galaxy, *, names=None, context=None):
-        if not hasattr(galaxy, "log_prob") or not callable(galaxy.log_prob):
-            raise TypeError("galactic_prior() expects an object with log_prob()")
+    def __init__(
+        self,
+        galaxy,
+        *,
+        names=None,
+        context=None,
+        magnitudes=None,
+    ):
+        if not hasattr(galaxy, "log_density") or not callable(galaxy.log_density):
+            raise TypeError("galactic_prior() expects an object with log_density()")
+        if names is None:
+            names = getattr(galaxy, "names", None)
         if names is None:
             param_type = getattr(galaxy, "param_type", None)
             names = getattr(param_type, "names", None)
         if names is None:
             raise ValueError(
                 "galactic_prior() requires names=... when "
-                "galaxy.param_type.names is unavailable"
+                "galaxy.names is unavailable"
             )
         if isinstance(names, str):
             raise TypeError("galactic_prior() names must be a sequence, not a string")
@@ -199,10 +322,30 @@ class _GalacticModelTerm:
         if not self.names:
             raise ValueError("galactic_prior() requires at least one parameter name")
         self.context = context
+        if isinstance(context, Mapping) and "thS" in context:
+            raise ValueError(
+                "galactic_prior() context must not define 'thS'; configure "
+                "model.theta_star() and lcbinint will inject it automatically"
+            )
+        self.magnitudes = magnitudes
+        self.context_uses_likelihood = bool(
+            callable(context) and _context_callable_uses_likelihood(context)
+        )
+        self.magnitudes_use_likelihood = bool(
+            callable(magnitudes)
+            and _context_callable_uses_likelihood(magnitudes)
+        )
+        self.uses_likelihood_context = bool(
+            self.context_uses_likelihood or self.magnitudes_use_likelihood
+        )
         self._batch_fn = None
+        self._batch_key = None
         self._batch_disabled = False
 
     def __call__(self, **vals):
+        return self.evaluate(vals)
+
+    def evaluate(self, vals, likelihood_context=None):
         missing = [name for name in self.names if name not in vals]
         if missing:
             raise RuntimeError(
@@ -210,14 +353,26 @@ class _GalacticModelTerm:
                 + ", ".join(missing)
             )
         theta = [vals[name] for name in self.names]
-        context = self._context(vals)
-        if context is None:
-            return float(self.galaxy.log_prob(theta))
-        return float(self.galaxy.log_prob(theta, context=context))
+        context = self._context(vals, likelihood_context)
+        magnitudes = self._magnitudes(vals, likelihood_context)
+        kwargs = {}
+        if context is not None:
+            kwargs["context"] = context
+        if magnitudes is not None:
+            kwargs["magnitudes"] = magnitudes
+        evaluator = self.galaxy.log_density
+        if magnitudes is not None:
+            evaluator = getattr(self.galaxy, "log_joint_density", None)
+            if evaluator is None:
+                raise TypeError(
+                    "galactic_prior() source magnitudes require "
+                    "galaxy.log_joint_density()"
+                )
+        return float(evaluator(theta, **kwargs))
 
-    def physical_values(self, vals):
+    def physical_values(self, vals, likelihood_context=None):
         theta = [vals[name] for name in self.names]
-        context = self._context(vals)
+        context = self._context(vals, likelihood_context)
         if hasattr(self.galaxy, "to_deterministic_physical"):
             if context is None:
                 return dict(self.galaxy.to_deterministic_physical(theta))
@@ -236,7 +391,28 @@ class _GalacticModelTerm:
             for key, value in zip(keys, physical)
         }
 
-    def batch_log_prob(self, values):
+    def precheck(self, vals):
+        validator = getattr(self.galaxy, "is_valid", None)
+        if validator is None or self.context_uses_likelihood:
+            return True
+        if any(name not in vals for name in self.names):
+            return True
+        try:
+            context = self._context(vals)
+        except (KeyError, RuntimeError, ValueError):
+            return True
+        theta = [vals[name] for name in self.names]
+        try:
+            if context is None:
+                return bool(validator(theta))
+            return bool(validator(theta, context=context))
+        except (KeyError, RuntimeError, ValueError):
+            # A latent thetaS is only available after the likelihood has
+            # produced fluxes. The complete Galactic evaluation will validate
+            # the physical mapping once thetaS has been injected.
+            return True
+
+    def batch_log_prob(self, values, likelihood_contexts=None):
         """Evaluate a JAX-compatible Galactic model for many latent states."""
         if self._batch_disabled:
             return None
@@ -247,27 +423,56 @@ class _GalacticModelTerm:
             self._batch_disabled = True
             return None
 
-        if self._batch_fn is None:
-            names = self.names
-            context_fn = self.context
-            galaxy = self.galaxy
-
-            def one(vals):
-                theta = jnp.stack([jnp.asarray(vals[name]) for name in names])
-                context = context_fn(vals) if callable(context_fn) else context_fn
-                if context is None:
-                    return galaxy.log_prob(theta)
-                return galaxy.log_prob(theta, context=context)
-
-            self._batch_fn = jax.jit(jax.vmap(one))
-
-        keys = tuple(values[0])
         try:
-            batched = {
-                key: jnp.asarray([vals[key] for vals in values])
-                for key in keys
-            }
-            result = self._batch_fn(batched)
+            if likelihood_contexts is None:
+                likelihood_contexts = [None] * len(values)
+            contexts = [
+                self._context(vals, likelihood_contexts[index])
+                for index, vals in enumerate(values)
+            ]
+            magnitudes = [
+                self._magnitudes(vals, likelihood_contexts[index])
+                for index, vals in enumerate(values)
+            ]
+            has_context = contexts[0] is not None
+            has_magnitudes = magnitudes[0] is not None
+            if any((item is not None) != has_context for item in contexts):
+                raise ValueError("Galactic contexts must be present for every batch item")
+            if any((item is not None) != has_magnitudes for item in magnitudes):
+                raise ValueError("Galactic magnitudes must be present for every batch item")
+
+            batch_key = (has_context, has_magnitudes)
+            if self._batch_fn is None or self._batch_key != batch_key:
+                galaxy = self.galaxy
+                if has_context and has_magnitudes:
+                    one = lambda theta, ctx, mags: galaxy.log_joint_density(
+                        theta, context=ctx, magnitudes=mags
+                    )
+                    self._batch_fn = jax.jit(jax.vmap(one))
+                elif has_context:
+                    one = lambda theta, ctx: galaxy.log_density(
+                        theta, context=ctx
+                    )
+                    self._batch_fn = jax.jit(jax.vmap(one))
+                elif has_magnitudes:
+                    one = lambda theta, mags: galaxy.log_joint_density(
+                        theta, magnitudes=mags
+                    )
+                    self._batch_fn = jax.jit(jax.vmap(one))
+                else:
+                    self._batch_fn = jax.jit(jax.vmap(galaxy.log_density))
+                self._batch_key = batch_key
+
+            theta = jnp.asarray([
+                [vals[name] for name in self.names]
+                for vals in values
+            ])
+            args = [theta]
+            if has_context:
+                args.append(_stack_pytrees(contexts, jax, jnp))
+            if has_magnitudes:
+                args.append(_stack_pytrees(magnitudes, jax, jnp))
+            result = self._batch_fn(*args)
             return np.asarray(result, dtype=float)
         except (
             TypeError,
@@ -277,15 +482,30 @@ class _GalacticModelTerm:
         ):
             self._batch_disabled = True
             self._batch_fn = None
+            self._batch_key = None
             return None
 
-    def _context(self, vals):
-        if callable(self.context):
-            return self.context(dict(vals))
-        return self.context
+    def _context(self, vals, likelihood_context=None):
+        return _make_galactic_context(self.context, vals, likelihood_context)
+
+    def _magnitudes(self, vals, likelihood_context=None):
+        return _make_galactic_magnitudes(
+            self.magnitudes,
+            vals,
+            likelihood_context,
+        )
 
 
-def _call_extra_prior(fn, vals):
+def _stack_pytrees(items, jax, jnp):
+    return jax.tree_util.tree_map(
+        lambda *values: jnp.asarray(values),
+        *items,
+    )
+
+
+def _call_extra_prior(fn, vals, likelihood_context=None):
+    if isinstance(fn, _GalacticModelTerm):
+        return fn.evaluate(vals, likelihood_context)
     missing = _missing_required_kwargs(fn, vals)
     if missing:
         raise RuntimeError(
@@ -419,6 +639,7 @@ class _SamplingAdapter:
         return self._ensure_physical_model().n_data
 
     def log_prob(self, theta):
+        self._model.validate()
         phys = self._theta_to_physical(theta)
         lp = self._log_prior(theta, phys)
         if not math.isfinite(lp):
@@ -428,6 +649,9 @@ class _SamplingAdapter:
         for fn in self._model._guards:
             if not _call_guard(fn, vals):
                 return float("-inf")
+        for fn in self._model._extra_priors:
+            if isinstance(fn, _GalacticModelTerm) and not fn.precheck(vals):
+                return float("-inf")
 
         phys_model = self._ensure_physical_model()
         phys_theta = [phys[name] for name in self._phys_names]
@@ -436,40 +660,40 @@ class _SamplingAdapter:
             return base_prob
         self._aux_cache[tuple(theta)] = (fluxes, conditionals)
         lp += base_prob - phys_model.log_prior(phys_theta)
+        likelihood_context = LikelihoodContext(
+            fluxes=fluxes,
+            conditionals=conditionals,
+            flux_mode=self._model._lik_kwargs.get("flux"),
+        )
 
         if self._model._theta_star_fn is not None:
-            if "thetaS" in vals:
-                lp += _apply_sampled_theta_star(
-                    self._model._theta_star_fn,
-                    vals,
-                    fluxes,
-                    conditionals,
-                    self._model._theta_star_options,
-                )
-            else:
-                lp += _marginalize_theta_star(
-                    self._model._theta_star_fn,
-                    vals,
-                    fluxes,
-                    conditionals,
-                    self._model._extra_priors,
-                    self._model._theta_star_options,
-                )
+            lp += _marginalize_theta_star(
+                self._model._theta_star_fn,
+                vals,
+                fluxes,
+                conditionals,
+                self._model._extra_priors,
+                self._model._theta_star_options,
+                self._model._lik_kwargs["flux"],
+            )
             if not math.isfinite(lp):
                 return lp
 
-        if self._model._theta_star_fn is None or "thetaS" in vals:
-            for fn in self._model._extra_priors:
-                lp += _call_extra_prior(fn, vals)
+        if self._model._theta_star_fn is None:
+            for fn in _ordered_extra_priors(self._model._extra_priors, vals):
+                lp += _call_extra_prior(fn, vals, likelihood_context)
                 if not math.isfinite(lp):
                     return lp
                 if hasattr(fn, "physical_values"):
-                    vals.update(fn.physical_values(vals))
+                    if isinstance(fn, _GalacticModelTerm):
+                        derived = fn.physical_values(vals, likelihood_context)
+                    else:
+                        derived = fn.physical_values(vals)
+                    vals.update(derived)
 
-        context = LikelihoodContext(fluxes=fluxes)
         for fn, wants_context in self._model._extra_liks:
             if wants_context:
-                lp += fn(**vals, context=context)
+                lp += fn(**vals, context=likelihood_context)
             else:
                 lp += fn(**vals)
             if not math.isfinite(lp):
@@ -668,7 +892,6 @@ def _build_model_class(cpp_base):
         - ``@model.theta_star``             — constrain or derive thetaS from flux
         - ``@model.prior``                  — add a Python log-prior term
         - ``model.galactic_prior(...)``     — add an external Galactic model
-        - ``model.param(name)``             — flat improper prior (no bounds required)
         - ``model.reparam([...])``          — replace sampled coordinates locally
 
         User functions receive physical parameter values as **kwargs; unused
@@ -726,19 +949,23 @@ def _build_model_class(cpp_base):
             self._lik_kwargs   = {}
             self._reparam_blocks = []
 
-        # --- param: supports no-prior (flat) ---
+        # --- sampled parameters ---
 
         def param(self, name: str, prior=None):
             """Register a sampling parameter.
 
-            If *prior* is omitted, a flat (improper) prior is used:
-            ``log_prob = 0`` everywhere, no hard bounds.
+            Every sampled parameter requires an explicit prior.
             """
-            from ._lcbinint import bayes as _b
-            if name == "flux_all" and prior is None:
-                raise ValueError("model.param('flux_all') requires an explicit prior")
+            if name == "thetaS":
+                raise ValueError(
+                    "thetaS is derived exclusively by model.theta_star(); "
+                    "return (log(value), 0.0) there to fix it"
+                )
             if prior is None:
-                prior = _b.Uniform()
+                raise ValueError(
+                    f"model.param({name!r}) requires an explicit prior"
+                )
+            from ._lcbinint import bayes as _b
             if name == "flux_all":
                 for dataset_name in self.dataset_names:
                     self.param(f"Fs_{dataset_name}", prior)
@@ -760,6 +987,11 @@ def _build_model_class(cpp_base):
             """
             if isinstance(targets, str):
                 targets = [targets]
+            if "thetaS" in targets:
+                raise ValueError(
+                    "thetaS cannot be a reparameterization target; define it "
+                    "with model.theta_star()"
+                )
             overlap = sorted(set(targets) & self._reparam_targets())
             if overlap:
                 raise ValueError(
@@ -807,6 +1039,7 @@ def _build_model_class(cpp_base):
                     raise TypeError(
                         "unknown likelihood option(s): " + ", ".join(unknown)
                     )
+                kwargs.setdefault("flux", "fit")
                 super().likelihood(arg, **kwargs)
                 self._lik_mode = arg
                 self._lik_kwargs = dict(kwargs)
@@ -825,10 +1058,10 @@ def _build_model_class(cpp_base):
             """Set the log-space thetaS relation evaluated from fitted fluxes.
 
             The callable receives the complete flux dictionary and returns
-            ``(log_center, log_sigma)``. A positive sigma adds a Gaussian term
-            for explicitly sampled ``thetaS``. Without a registered ``thetaS``
-            parameter, thetaS and marginalized fluxes are integrated using
-            ``samples`` scrambled Sobol draws (default 256).
+            ``(log_center, log_sigma)``. ``thetaS`` is always derived here and
+            is never a sampling parameter. A positive sigma is marginalized;
+            zero fixes ``thetaS = exp(log_center)``. Marginalized fluxes and
+            thetaS use ``samples`` scrambled Sobol draws (default 256).
             """
             if fn is None:
                 return lambda decorated: self.theta_star(
@@ -879,19 +1112,34 @@ def _build_model_class(cpp_base):
             self._extra_priors.append(fn)
             return fn  # enables @model.prior
 
-        def galactic_prior(self, galaxy, *, context=None, names=None):
+        def galactic_prior(
+            self,
+            galaxy,
+            *,
+            context=None,
+            magnitudes=None,
+            names=None,
+        ):
             """Add an external Galactic model as a prior term.
 
-            ``galaxy`` is typically a ``gapmoe.GalacticModel``. lcbinint does
-            not import gapmoe; it only requires a ``log_prob(theta, context=...)``
-            method. The parameter vector is assembled from model physical
-            values in ``names`` order. If ``names`` is omitted,
-            ``galaxy.param_type.names`` is used.
+            lcbinint does not import gapmoe. It accepts any independently
+            constructed object exposing ``names`` and ``log_density()``. The
+            parameter vector is assembled from model physical values in
+            ``names`` order.
 
             ``context`` may be a dict-like object or a callable receiving the
             current physical parameter dict and returning a context object.
+            A two-argument callable ``context(params, likelihood)`` also
+            receives a :class:`LikelihoodContext`. ``magnitudes`` may be a
+            fixed dict or a callable with the same one- or two-argument forms.
+            Source magnitudes always contribute their joint density.
             """
-            term = _GalacticModelTerm(galaxy, names=names, context=context)
+            term = _GalacticModelTerm(
+                galaxy,
+                names=names,
+                context=context,
+                magnitudes=magnitudes,
+            )
             self._extra_priors.append(term)
             return term
 
@@ -901,6 +1149,7 @@ def _build_model_class(cpp_base):
             galaxy,
             *,
             context=None,
+            magnitudes=None,
             names=None,
             flat=True,
             discard=0,
@@ -917,12 +1166,14 @@ def _build_model_class(cpp_base):
             then also contains ``thetaS`` and ``Fs_<dataset>``.
             """
             if names is None:
+                names = getattr(galaxy, "names", None)
+            if names is None:
                 param_type = getattr(galaxy, "param_type", None)
                 names = getattr(param_type, "names", None)
             if names is None:
                 raise ValueError(
                     "get_galactic_physical() requires names=... when "
-                    "galaxy.param_type.names is unavailable"
+                    "galaxy.names is unavailable"
                 )
             names = tuple(names)
             raw = np.asarray(
@@ -993,8 +1244,17 @@ def _build_model_class(cpp_base):
                     candidates = self._latent_theta_star_candidates(
                         vals, fluxes, conditionals
                     )
+                    candidate_contexts = [
+                        LikelihoodContext(
+                            fluxes=item[1],
+                            flux_mode="conditional_draw" if conditionals else self._lik_kwargs.get("flux"),
+                        )
+                        for item in candidates
+                    ]
                     weights = _evaluate_extra_priors_many(
-                        self._extra_priors, [item[0] for item in candidates]
+                        self._extra_priors,
+                        [item[0] for item in candidates],
+                        candidate_contexts,
                     )
                     finite = np.isfinite(weights)
                     if not np.any(finite):
@@ -1013,12 +1273,30 @@ def _build_model_class(cpp_base):
                         + ", ".join(missing)
                     )
                 theta = [vals[name] for name in names]
-                ctx = context(dict(vals)) if callable(context) else context
+                likelihood_context = LikelihoodContext(
+                    fluxes=fluxes,
+                    flux_mode=(
+                        "conditional_draw"
+                        if self._theta_star_fn is not None and "thetaS" not in vals_iter[index]
+                        else self._lik_kwargs.get("flux")
+                    ),
+                )
+                ctx = _make_galactic_context(
+                    context, vals, likelihood_context
+                )
+                source_magnitudes = _make_galactic_magnitudes(
+                    magnitudes,
+                    vals,
+                    likelihood_context,
+                )
                 if hasattr(galaxy, "sample_physical"):
-                    if ctx is None:
-                        draw = galaxy.sample_physical(theta, rng=rng)
-                    else:
-                        draw = galaxy.sample_physical(theta, context=ctx, rng=rng)
+                    kwargs = {"rng": rng}
+                    if ctx is not None:
+                        kwargs["context"] = ctx
+                    if source_magnitudes is not None:
+                        kwargs["magnitudes"] = source_magnitudes
+                        kwargs["joint"] = True
+                    draw = galaxy.sample_physical(theta, **kwargs)
                 elif hasattr(galaxy, "to_deterministic_physical"):
                     if ctx is None:
                         draw = galaxy.to_deterministic_physical(theta)
@@ -1098,6 +1376,42 @@ def _build_model_class(cpp_base):
                     "  or @model.likelihood               "
                     "— custom Python function"
                 )
+            if self._lik_mode is None:
+                return
+
+            flux_mode = self._lik_kwargs["flux"]
+            parameter_names = set(self.param_names)
+            flux_names = {
+                name
+                for dataset in self.dataset_names
+                for name in (f"Fs_{dataset}", f"Fb_{dataset}")
+            }
+            registered_flux = parameter_names & flux_names
+            if flux_mode == "sample":
+                missing = sorted(flux_names - registered_flux)
+                if missing:
+                    raise RuntimeError(
+                        "flux='sample' requires sampled parameter(s): "
+                        + ", ".join(missing)
+                    )
+            elif registered_flux:
+                raise RuntimeError(
+                    f"flux={flux_mode!r} cannot be combined with sampled flux "
+                    "parameter(s): " + ", ".join(sorted(registered_flux))
+                )
+
+            if flux_mode == "marginalize":
+                flux_aware_galaxy = any(
+                    isinstance(fn, _GalacticModelTerm)
+                    and fn.uses_likelihood_context
+                    for fn in self._extra_priors
+                )
+                if flux_aware_galaxy and self._theta_star_fn is None:
+                    raise RuntimeError(
+                        "flux='marginalize' with flux-dependent Galactic "
+                        "context or magnitudes requires marginalized thetaS: "
+                        "configure model.theta_star(...)"
+                    )
 
         def _theta_to_vals(self, theta) -> dict:
             return {
@@ -1130,6 +1444,7 @@ def _build_model_class(cpp_base):
 
         def log_prob_python(self, theta) -> float:
             """log_prob including all Python extras."""
+            self.validate()
             lp = super().log_prior(theta)
             if not math.isfinite(lp):
                 return lp
@@ -1137,44 +1452,47 @@ def _build_model_class(cpp_base):
             for fn in self._guards:
                 if not _call_guard(fn, vals):
                     return float("-inf")
+            for fn in self._extra_priors:
+                if isinstance(fn, _GalacticModelTerm) and not fn.precheck(vals):
+                    return float("-inf")
             base_prob, fluxes, conditionals = super()._log_prob_and_fluxes(theta)
             if not math.isfinite(base_prob):
                 return base_prob
             lp += base_prob - super().log_prior(theta)
+            likelihood_context = LikelihoodContext(
+                fluxes=fluxes,
+                conditionals=conditionals,
+                flux_mode=self._lik_kwargs.get("flux"),
+            )
 
             if self._theta_star_fn is not None:
-                if "thetaS" in vals:
-                    lp += _apply_sampled_theta_star(
-                        self._theta_star_fn,
-                        vals,
-                        fluxes,
-                        conditionals,
-                        self._theta_star_options,
-                    )
-                else:
-                    lp += _marginalize_theta_star(
-                        self._theta_star_fn,
-                        vals,
-                        fluxes,
-                        conditionals,
-                        self._extra_priors,
-                        self._theta_star_options,
-                    )
+                lp += _marginalize_theta_star(
+                    self._theta_star_fn,
+                    vals,
+                    fluxes,
+                    conditionals,
+                    self._extra_priors,
+                    self._theta_star_options,
+                    self._lik_kwargs["flux"],
+                )
                 if not math.isfinite(lp):
                     return lp
 
-            if self._theta_star_fn is None or "thetaS" in vals:
-                for fn in self._extra_priors:
-                    lp += _call_extra_prior(fn, vals)
+            if self._theta_star_fn is None:
+                for fn in _ordered_extra_priors(self._extra_priors, vals):
+                    lp += _call_extra_prior(fn, vals, likelihood_context)
                     if not math.isfinite(lp):
                         return lp
                     if hasattr(fn, "physical_values"):
-                        vals.update(fn.physical_values(vals))
+                        if isinstance(fn, _GalacticModelTerm):
+                            derived = fn.physical_values(vals, likelihood_context)
+                        else:
+                            derived = fn.physical_values(vals)
+                        vals.update(derived)
 
-            context = LikelihoodContext(fluxes=fluxes)
             for fn, wants_context in self._extra_liks:
                 if wants_context:
-                    lp += fn(**vals, context=context)
+                    lp += fn(**vals, context=likelihood_context)
                 else:
                     lp += fn(**vals)
                 if not math.isfinite(lp):

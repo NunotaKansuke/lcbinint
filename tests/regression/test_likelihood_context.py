@@ -3,7 +3,7 @@ import math
 import pytest
 
 
-def _make_model(lcbinint, np, reparam=False):
+def _make_model(lcbinint, np, reparam=False, flux_mode=None):
     true = {
         "t0": 8000.0,
         "tE": 20.0,
@@ -16,10 +16,10 @@ def _make_model(lcbinint, np, reparam=False):
     }
     times = np.array([7998.0, 7999.0, 8000.0, 8001.0, 8002.0])
     light_curve = lcbinint.lc.LightCurve()
-    flux = 1000.0 * light_curve(times, true) + 25.0
+    observed_flux = 1000.0 * light_curve(times, true) + 25.0
     data = lcbinint.obs.LightCurveData(
         times,
-        flux,
+        observed_flux,
         np.full(len(times), 20.0),
         name="tiny",
     )
@@ -45,7 +45,12 @@ def _make_model(lcbinint, np, reparam=False):
     else:
         model.param("piEN", lcbinint.bayes.Uniform(-1.0, 1.0))
         model.param("piEE", lcbinint.bayes.Uniform(-1.0, 1.0))
-    model.likelihood("gaussian")
+    if flux_mode == "sample":
+        model.param("Fs_tiny", lcbinint.bayes.Uniform(-1.0e5, 1.0e5))
+        model.param("Fb_tiny", lcbinint.bayes.Uniform(-1.0e5, 1.0e5))
+        model.likelihood("gaussian", flux="sample")
+    else:
+        model.likelihood("gaussian")
     return model, true
 
 
@@ -106,19 +111,29 @@ def test_custom_likelihood_context_works_with_reparam_sampler():
     assert chain.fluxes["tiny"]["Fs"].shape == (16,)
 
 
-def test_theta_star_adds_log_space_gaussian_from_fitted_flux():
+def test_galactic_context_receives_sampled_fluxes():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
 
-    model, true = _make_model(lcbinint, np)
-    model.param("thetaS", lcbinint.bayes.LogUniform(0.01, 10.0))
+    model, true = _make_model(lcbinint, np, flux_mode="sample")
     seen = {}
 
-    @model.theta_star
-    def _(fluxes):
-        seen.update(fluxes)
-        return math.log(0.7), 0.2
+    class Galaxy:
+        names = ("tE",)
 
+        @staticmethod
+        def log_density(theta, context=None):
+            seen.update(context)
+            return 0.0
+
+    model.galactic_prior(
+        Galaxy(),
+        context=lambda params, likelihood: {
+            "Fs": likelihood.fluxes["tiny"]["Fs"],
+            "Fb": likelihood.fluxes["tiny"]["Fb"],
+            "flux_mode": likelihood.flux_mode,
+        },
+    )
     theta = [
         true["t0"],
         math.log(true["tE"]),
@@ -128,14 +143,65 @@ def test_theta_star_adds_log_space_gaussian_from_fitted_flux():
         true["alpha"],
         true["piEN"],
         true["piEE"],
-        math.log(0.7),
+        950.0,
+        30.0,
     ]
-    expected_relation = -math.log(0.2) - 0.5 * math.log(2.0 * math.pi)
-    expected = model.log_prior(theta) + model.log_likelihood(theta) + expected_relation
 
+    assert math.isfinite(model.log_prob(theta))
+    assert seen == {"Fs": 950.0, "Fb": 30.0, "flux_mode": "sample"}
+
+
+def test_galactic_joint_photometry_receives_fitted_fluxes():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, true = _make_model(lcbinint, np)
+    seen = {}
+
+    class Galaxy:
+        names = ("tE",)
+
+        @staticmethod
+        def log_density(theta, context=None, magnitudes=None):
+            raise AssertionError("joint source photometry must use log_joint_density")
+
+        @staticmethod
+        def log_joint_density(theta, context=None, magnitudes=None):
+            seen.update(magnitudes)
+            return -0.5 * magnitudes["Imag"] ** 2
+
+    model.galactic_prior(
+        Galaxy(),
+        magnitudes=lambda params, likelihood: {
+            "Imag": likelihood.fluxes["tiny"]["Fs"] / 1000.0,
+        },
+    )
+    theta = [
+        true["t0"],
+        math.log(true["tE"]),
+        true["u0"],
+        true["s"],
+        math.log(true["q"]),
+        true["alpha"],
+        true["piEN"],
+        true["piEE"],
+    ]
+    fitted = model.fluxes(theta)["tiny"]["Fs"] / 1000.0
+
+    expected = model.log_prior(theta) + model.log_likelihood(theta) - 0.5 * fitted**2
     assert model.log_prob(theta) == pytest.approx(expected)
-    assert seen["tiny"]["Fs"] == pytest.approx(1000.0)
-    assert seen["tiny"]["Fb"] == pytest.approx(25.0)
+    assert seen == {"Imag": pytest.approx(fitted)}
+
+
+def test_theta_star_cannot_be_registered_as_a_sampled_parameter():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, _ = _make_model(lcbinint, np)
+    with pytest.raises(ValueError, match="derived exclusively"):
+        model.param("thetaS", lcbinint.bayes.LogUniform(0.01, 10.0))
+    with pytest.raises(ValueError, match="cannot be a reparameterization target"):
+        model.reparam(["thetaS"])
 
 
 def test_theta_star_zero_sigma_derives_value_before_physical_prior():
@@ -171,13 +237,11 @@ def test_theta_star_zero_sigma_derives_value_before_physical_prior():
     assert seen["thetaS"] == pytest.approx(0.7)
 
 
-def test_theta_star_sampled_value_works_with_reparam_adapter():
+def test_latent_theta_star_works_with_reparam_adapter():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
 
     model, true = _make_model(lcbinint, np, reparam=True)
-    model.param("thetaS", lcbinint.bayes.LogUniform(0.01, 10.0))
-
     @model.theta_star
     def _(fluxes):
         return math.log(0.7), 0.2
@@ -190,7 +254,6 @@ def test_theta_star_sampled_value_works_with_reparam_adapter():
         true["s"],
         math.log(true["q"]),
         true["alpha"],
-        math.log(0.7),
         math.log(piE),
         math.atan2(true["piEE"], true["piEN"]),
     ]
@@ -259,7 +322,7 @@ def test_theta_star_marginalization_applies_hard_prior_bounds():
     assert model.log_prob(theta) == pytest.approx(expected)
 
 
-def test_theta_star_deterministic_conflicts_with_registered_parameter():
+def test_theta_star_fixed_value_is_defined_by_zero_log_sigma():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
 
@@ -276,11 +339,8 @@ def test_theta_star_deterministic_conflicts_with_registered_parameter():
     ]
 
     deterministic, _ = _make_model(lcbinint, np)
-    deterministic.param("thetaS", lcbinint.bayes.LogUniform(0.01, 10.0))
-
     @deterministic.theta_star
     def _(fluxes):
         return math.log(0.7), 0.0
 
-    with pytest.raises(RuntimeError, match="thetaS is deterministic"):
-        deterministic.log_prob([*theta, math.log(0.7)])
+    assert math.isfinite(deterministic.log_prob(theta))

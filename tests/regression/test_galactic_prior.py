@@ -6,10 +6,10 @@ import pytest
 
 class FakeGalacticModel:
     def __init__(self, names):
-        self.param_type = SimpleNamespace(names=tuple(names))
+        self.names = tuple(names)
         self.calls = []
 
-    def log_prob(self, theta, context=None):
+    def log_density(self, theta, context=None):
         self.calls.append((tuple(theta), context))
         scale = 1.0 if context is None else context.get("scale", 1.0)
         return -0.5 * scale * sum(float(x) ** 2 for x in theta)
@@ -18,7 +18,7 @@ class FakeGalacticModel:
 class FakePhysicalGalacticModel(FakeGalacticModel):
     def __init__(self, names):
         super().__init__(names)
-        self.param_type.derived_names = ("e", "cos_i")
+        self.param_type = SimpleNamespace(derived_names=("e", "cos_i"))
 
     def to_physical(self, theta, context=None):
         return (1.5, 4.0, 8.0, 3.0, -2.0, 0.3, 0.25)
@@ -34,7 +34,7 @@ class FakeDeterministicGalacticModel(FakeGalacticModel):
 
 class FakeSamplingGalacticModel:
     def __init__(self, names):
-        self.param_type = SimpleNamespace(names=tuple(names))
+        self.names = tuple(names)
         self.calls = []
 
     def sample_physical(self, theta, context=None, rng=None):
@@ -48,9 +48,9 @@ class FakeSamplingGalacticModel:
 
 class FakeJaxGalacticModel:
     def __init__(self, names):
-        self.param_type = SimpleNamespace(names=tuple(names))
+        self.names = tuple(names)
 
-    def log_prob(self, theta, context=None):
+    def log_density(self, theta, context=None):
         import jax.numpy as jnp
 
         theta_s = jnp.asarray(context["thS"])
@@ -124,6 +124,32 @@ def test_galactic_prior_uses_param_type_names_and_context_callable():
     assert context_seen == {"scale": true["u0"] + 2.0}
 
 
+def test_galactic_prior_context_can_use_fitted_fluxes():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, theta, true = _make_model(lcbinint, np)
+    galaxy = FakeGalacticModel(("tE",))
+    seen = {}
+
+    def context(params, likelihood):
+        seen["params"] = params
+        seen["fluxes"] = likelihood.fluxes
+        seen["flux_mode"] = likelihood.flux_mode
+        return {"scale": likelihood.fluxes["tiny"]["Fs"] / 1000.0}
+
+    model.galactic_prior(galaxy, context=context)
+    flux = model.fluxes(theta)["tiny"]
+    expected_extra = -0.5 * (flux["Fs"] / 1000.0) * true["tE"] ** 2
+
+    assert model.log_prob(theta) == pytest.approx(
+        model.log_prior(theta) + model.log_likelihood(theta) + expected_extra
+    )
+    assert seen["params"]["u0"] == pytest.approx(true["u0"])
+    assert seen["fluxes"]["tiny"] == pytest.approx(flux)
+    assert seen["flux_mode"] == "fit"
+
+
 def test_latent_theta_star_vmaps_jax_galactic_prior():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
@@ -142,7 +168,6 @@ def test_latent_theta_star_vmaps_jax_galactic_prior():
 
     term = model.galactic_prior(
         FakeJaxGalacticModel(("tE",)),
-        context=lambda params: {"thS": params["thetaS"]},
     )
 
     theta_stars = np.exp(
@@ -168,11 +193,26 @@ def test_galactic_prior_can_use_distance_marginalized_no_parallax_names():
     theta = [*theta, math.log(0.005)]
     galaxy = FakeGalacticModel(("t0", "tE", "u0", "rho"))
 
-    model.galactic_prior(galaxy, context={"thS": 0.5})
+    @model.theta_star
+    def _(fluxes):
+        return math.log(0.5), 0.0
+
+    model.galactic_prior(galaxy)
     assert math.isfinite(model.log_prob(theta))
     theta_seen, context_seen = galaxy.calls[-1]
     assert theta_seen == pytest.approx((true["t0"], true["tE"], true["u0"], 0.005))
     assert context_seen == {"thS": 0.5}
+
+
+def test_galactic_prior_rejects_manually_supplied_theta_star_context():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, _, _ = _make_model(lcbinint, np)
+    galaxy = FakeGalacticModel(("tE",))
+
+    with pytest.raises(ValueError, match="must not define 'thS'"):
+        model.galactic_prior(galaxy, context={"thS": 0.5})
 
 
 def test_galactic_prior_accepts_explicit_names_without_param_type():
@@ -181,7 +221,7 @@ def test_galactic_prior_accepts_explicit_names_without_param_type():
 
     model, theta, true = _make_model(lcbinint, np)
     galaxy = SimpleNamespace(
-        log_prob=lambda values, context=None: -sum(values) + context["offset"]
+        log_density=lambda values, context=None: -sum(values) + context["offset"]
     )
 
     model.galactic_prior(
@@ -219,7 +259,7 @@ def test_custom_prior_can_use_galactic_physical_values():
         return -0.5 * ML
 
     expected = model.log_prior(theta) + model.log_likelihood(theta)
-    expected += galaxy.log_prob((20.0, 0.04, 0.03))
+    expected += galaxy.log_density((20.0, 0.04, 0.03))
     expected += -0.5 * 1.5
 
     assert model.log_prob(theta) == pytest.approx(expected)
@@ -232,6 +272,26 @@ def test_custom_prior_can_use_galactic_physical_values():
         "e": 0.3,
         "cos_i": 0.25,
     }
+
+
+def test_physical_prior_does_not_depend_on_registration_order():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, theta, _ = _make_model(lcbinint, np)
+    seen = {}
+
+    @model.prior
+    def physical_bound(ML, **_):
+        seen["ML"] = ML
+        return 0.0
+
+    model.galactic_prior(
+        FakeDeterministicGalacticModel(("tE", "piEN", "piEE"))
+    )
+
+    assert math.isfinite(model.log_prob(theta))
+    assert seen["ML"] == pytest.approx(1.5)
 
 
 def test_custom_prior_uses_only_galactic_deterministic_values_when_available():
@@ -547,7 +607,7 @@ def test_galactic_prior_requires_names_when_prior_has_no_param_type():
     np = pytest.importorskip("numpy")
 
     model, _, _ = _make_model(lcbinint, np)
-    galaxy = SimpleNamespace(log_prob=lambda values, context=None: 0.0)
+    galaxy = SimpleNamespace(log_density=lambda values, context=None: 0.0)
 
     with pytest.raises(ValueError, match="requires names"):
         model.galactic_prior(galaxy)
@@ -595,6 +655,216 @@ def test_guard_rejects_before_galactic_prior_and_likelihood():
     assert model.log_prob(theta) == float("-inf")
     assert galaxy.calls == []
     assert not called["likelihood"]
+
+
+def test_galactic_precheck_rejects_before_likelihood():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, theta, _ = _make_model(lcbinint, np)
+    called = {"density": False, "likelihood": False}
+
+    class InvalidGalaxy:
+        names = ("tE",)
+
+        @staticmethod
+        def is_valid(theta, context=None):
+            return False
+
+        @staticmethod
+        def log_density(theta, context=None):
+            called["density"] = True
+            raise AssertionError("invalid Galactic state reached density")
+
+    model.galactic_prior(InvalidGalaxy())
+
+    @model.likelihood
+    def _(**_):
+        called["likelihood"] = True
+        raise AssertionError("invalid Galactic state reached likelihood")
+
+    assert model.log_prob(theta) == float("-inf")
+    assert called == {"density": False, "likelihood": False}
+
+
+def test_lcbinint_accepts_independently_parameterized_gapmoe_flow():
+    lcbinint = pytest.importorskip("lcbinint")
+    gapmoe = pytest.importorskip("gapmoe")
+    np = pytest.importorskip("numpy")
+    from gapmoe.priors.high_level import IsochroneModel
+    from gapmoe.source_selection import CmdCoordinates, CmdPriorTable
+
+    model, theta, _ = _make_model(lcbinint, np)
+    model.param("rho", lcbinint.bayes.LogUniform(1.0e-4, 1.0e-1))
+    theta = [*theta, math.log(0.005)]
+
+    reference_edges = np.linspace(-8.0, 20.0, 57)
+    color_edges = np.linspace(-2.0, 8.0, 41)
+    density = np.full((11, 56, 40), 1.0 / 280.0)
+    isochrone = IsochroneModel(
+        reference_band="Imag",
+        color_bands=("Vmag", "Imag"),
+        table=CmdPriorTable(
+            coordinates=CmdCoordinates("Imag", "Vmag", "Imag"),
+            reference_edges=reference_edges,
+            color_edges=color_edges,
+            density_by_component=density,
+        ),
+    )
+    galaxy = (
+        gapmoe.Model()
+        .set(l=0.25, b=-3.75)
+        .set_flow(release="rate-included-v1")
+        .galactic_model(isochrone)
+    )
+    prior = galaxy.parameterize(
+        gapmoe.ParamType(parallax=True, distance="marginalize")
+    )
+
+    @model.theta_star
+    def _(fluxes):
+        return math.log(0.005), 0.0
+
+    model.galactic_prior(
+        prior,
+        context={"vEarth": (0.0, 0.0)},
+    )
+
+    assert math.isfinite(model.log_prob(theta))
+
+
+def test_lcbinint_samples_no_parallax_distances_with_flow_direction_integral():
+    lcbinint = pytest.importorskip("lcbinint")
+    gapmoe = pytest.importorskip("gapmoe")
+    np = pytest.importorskip("numpy")
+    from gapmoe.priors.high_level import IsochroneModel
+    from gapmoe.source_selection import CmdCoordinates, CmdPriorTable
+
+    true = {
+        "t0": 8000.0,
+        "tE": 50.0,
+        "u0": 0.1,
+        "s": 1.0,
+        "q": 0.1,
+        "alpha": 0.5,
+        "rho": 0.005,
+        "DL": 4.0,
+        "DS": 8.0,
+    }
+    times = np.linspace(7998.0, 8002.0, 7)
+    light_curve = lcbinint.lc.LightCurve()
+    flux = 900.0 * light_curve(
+        times,
+        {name: value for name, value in true.items() if name not in {"DL", "DS"}},
+    ) + 20.0
+    data = lcbinint.obs.LightCurveData(
+        times, flux, np.full(len(times), 20.0), name="tiny"
+    )
+    model = lcbinint.bayes.Model(light_curve=light_curve, data=data)
+    priors = {
+        "t0": lcbinint.bayes.Uniform(7990.0, 8010.0),
+        "tE": lcbinint.bayes.LogUniform(1.0, 100.0),
+        "u0": lcbinint.bayes.Uniform(0.0, 1.0),
+        "s": lcbinint.bayes.Uniform(0.5, 2.0),
+        "q": lcbinint.bayes.LogUniform(1.0e-3, 1.0),
+        "alpha": lcbinint.bayes.Uniform(0.0, math.pi),
+        "rho": lcbinint.bayes.LogUniform(1.0e-4, 0.1),
+        "DL": lcbinint.bayes.Uniform(0.1, 12.0),
+        "DS": lcbinint.bayes.Uniform(0.2, 15.0),
+    }
+    for name, prior in priors.items():
+        model.param(name, prior)
+    model.likelihood("gaussian")
+
+    reference_edges = np.linspace(-8.0, 20.0, 57)
+    color_edges = np.linspace(-2.0, 8.0, 41)
+    isochrone = IsochroneModel(
+        reference_band="Imag",
+        color_bands=("Vmag", "Imag"),
+        table=CmdPriorTable(
+            coordinates=CmdCoordinates("Imag", "Vmag", "Imag"),
+            reference_edges=reference_edges,
+            color_edges=color_edges,
+            density_by_component=np.full((11, 56, 40), 1.0 / 280.0),
+        ),
+    )
+    galaxy = (
+        gapmoe.Model()
+        .set(l=0.25, b=-3.75)
+        .set_flow(release="rate-included-v1")
+        .galactic_model(isochrone)
+    )
+    prior = galaxy.parameterize(
+        gapmoe.ParamType(parallax=False, distance="sample"),
+        direction_samples=16,
+    )
+    @model.theta_star
+    def _(fluxes):
+        return math.log(0.005), 0.0
+
+    model.galactic_prior(prior)
+    theta = [
+        true[name] if name not in {"tE", "q", "rho"} else math.log(true[name])
+        for name in priors
+    ]
+
+    assert math.isfinite(model.log_prob(theta))
+
+
+def test_lcbinint_marginalizes_no_parallax_flow_with_source_magnitudes():
+    lcbinint = pytest.importorskip("lcbinint")
+    gapmoe = pytest.importorskip("gapmoe")
+    np = pytest.importorskip("numpy")
+    from gapmoe.priors.high_level import IsochroneModel
+    from gapmoe.source_selection import CmdCoordinates, CmdPriorTable
+
+    model, theta, _ = _make_model(lcbinint, np)
+    theta[6:8] = [0.0, 0.0]
+    model.param("rho", lcbinint.bayes.LogUniform(1.0e-4, 0.1))
+    theta.append(math.log(0.005))
+    reference_edges = np.linspace(-8.0, 20.0, 57)
+    color_edges = np.linspace(-2.0, 8.0, 41)
+    isochrone = IsochroneModel(
+        reference_band="Imag",
+        color_bands=("Vmag", "Imag"),
+        table=CmdPriorTable(
+            coordinates=CmdCoordinates("Imag", "Vmag", "Imag"),
+            reference_edges=reference_edges,
+            color_edges=color_edges,
+            density_by_component=np.full((11, 56, 40), 1.0 / 280.0),
+        ),
+    )
+    galaxy = (
+        gapmoe.Model()
+        .set(
+            l=0.25,
+            b=-3.75,
+            extinction={"Imag": 1.2, "Vmag": 2.0},
+        )
+        .set_flow(release="rate-included-v1")
+        .galactic_model(isochrone)
+    )
+    prior = galaxy.parameterize(
+        gapmoe.ParamType(parallax=False),
+        integration_samples=32,
+        seed=5,
+    )
+
+    @model.theta_star
+    def _(fluxes):
+        return math.log(0.005), 0.0
+
+    model.galactic_prior(
+        prior,
+        magnitudes=lambda params, likelihood: {
+            "Imag": 18.0
+            - 2.5 * math.log10(abs(likelihood.fluxes["tiny"]["Fs"]) / 1000.0),
+            "Vmag": 20.0
+            - 2.5 * math.log10(abs(likelihood.fluxes["tiny"]["Fs"]) / 1000.0),
+        },
+    )
+
+    assert math.isfinite(model.log_prob(theta))
 
 
 def test_guard_receives_reparameterized_physical_values():

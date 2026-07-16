@@ -1,7 +1,7 @@
 from ._lcbinint import *          # noqa: F401, F403
 from ._lcbinint import lc, obs, bayes, optimize, sample
 from .sampler import SamplerOptions, run_sampler, load_chain
-from . import image
+from . import image, theta_star
 from .image import ImagePlane
 import numpy as _np
 
@@ -208,5 +208,5 @@ __all__ = [
     "light_curve_info", "binary_light_curve", "light_curve",
     "magnification", "binary_mag0",
     "SamplerOptions", "run_sampler", "load_chain",
-    "image", "ImagePlane",
+    "image", "theta_star", "ImagePlane",
 ]

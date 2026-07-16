@@ -310,8 +310,8 @@ lcbi_params Model::theta_to_params(const std::vector<double>& theta,
         else if (n == "q_mass") bs.q_mass = val;
         else if (n == "t0_2")   bs.t0_2   = val;
         else if (n == "u0_2")   bs.u0_2   = val;
-        // Auxiliary physical parameter used by Python-side source constraints.
-        else if (n == "thetaS") continue;
+        // Auxiliary physical parameters consumed by Python-side priors.
+        else if (n == "thetaS" || n == "DL" || n == "DS") continue;
         else throw std::invalid_argument("Model: unknown parameter '" + n + "'");
     }
     if (flux_treatment_ == "sample") {

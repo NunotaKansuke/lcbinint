@@ -196,3 +196,16 @@ def test_flux_all_registers_unbounded_flux_parameters_for_all_datasets():
     assert fluxes["B"]["Fs"] == pytest.approx(500.0)
     assert fluxes["B"]["Fb"] == pytest.approx(-5.0)
     assert model.log_likelihood(theta) == pytest.approx(0.0)
+
+
+def test_every_sampled_parameter_requires_an_explicit_prior():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, _, _, _ = _make_sampled_flux_model(lcbinint, np)
+
+    with pytest.raises(ValueError, match="derived exclusively"):
+        model.param("thetaS")
+
+    with pytest.raises(ValueError, match="derived exclusively"):
+        model.param("thetaS", lcbinint.bayes.LogUniform(0.01, 1.0))
