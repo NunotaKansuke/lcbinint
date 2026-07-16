@@ -1,0 +1,6 @@
+3a8a3f6235e0e9e016c6a64020492000b76ac6e0afb901cb7641e625d1c6e619  tests/diagnostics/results/finite-source-auto-20260716/calibrated-rules.json
+fc646bbaa4594370d1957e2129ee5e74f498466f1f77e9092eed9b6d2aa6c0be  tests/diagnostics/results/finite-source-auto-20260716/summary.json
+5b361c3220a154f3b56fc7fb74a9027280a136fd82c37370640649a08eccd2cf  tests/diagnostics/results/finite-source-auto-20260716/source-profile-results.csv.gz
+5fd770ff148273361fcebc5faa28c59bdd9caae4a57423e20ec5ce3fae0a6840  tests/diagnostics/results/finite-source-auto-20260716/raw/discovery.tar.gz
+58bf83aaeb5dec4db59cd36ecc27e23876ea3deb0594b8e5ce99c81bef791862  tests/diagnostics/results/finite-source-auto-20260716/raw/high-magnification.tar.gz
+922320217576a34a06bb4493028c191da54a99605cf64ebd056ffc97ed527a05  tests/diagnostics/results/finite-source-auto-20260716/raw/independent-validation.tar.gz

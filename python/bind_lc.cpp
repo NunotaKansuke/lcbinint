@@ -108,6 +108,24 @@ void apply_inverse_ray_grid(lcbi_options& o, const std::string& grid)
     }
 }
 
+void apply_nbin(lcbi_options& o, const py::object& value)
+{
+    if (py::isinstance<py::str>(value)) {
+        const auto mode = value.cast<std::string>();
+        if (mode != "auto") {
+            throw std::invalid_argument("nbin must be a positive integer or 'auto'");
+        }
+        o.automatic_source_bins = 1;
+        return;
+    }
+    const int bins = value.cast<int>();
+    if (bins <= 0) {
+        throw std::invalid_argument("nbin must be a positive integer or 'auto'");
+    }
+    o.source_bins = bins;
+    o.automatic_source_bins = 0;
+}
+
 std::string inverse_ray_grid_from_mode(int mode)
 {
     if (mode == 1) return "cartesian";
@@ -320,7 +338,7 @@ lcbinint::magnification::FiniteSourceSettings finite_source_settings_from(
     settings.adaptive_hex_threshold = options.adaptive_hex_threshold;
     settings.limb_darkening_c = params.limb_darkening_c;
     settings.limb_darkening_d = params.limb_darkening_d;
-    settings.adaptive_source_bins = options.adaptive_source_bins;
+    settings.automatic_source_bins = options.automatic_source_bins != 0;
     settings.max_source_bins = options.max_source_bins;
     settings.finite_source_tol = options.finite_source_tol;
     settings.finite_source_reltol = options.finite_source_reltol;
@@ -560,8 +578,8 @@ void register_lc_submodule(py::module_& parent)
 	        .def(py::init([](
 	                std::string param_type,
 	                std::string coordinates,
-	                int    source_bins,
-	                int    nbin,
+	                py::object source_bins,
+	                py::object nbin,
 	                int    caustic_bins,
 	                double grid_ratio,
 	                int    mode,
@@ -575,7 +593,6 @@ void register_lc_submodule(py::module_& parent)
 	                double polar_grid_ratio,
 	                lcbi_xallarap_param_type xallarap_param_type,
 	                int    parallax_mode,
-	                int    adaptive_source_bins,
 	                int    max_source_bins,
 	                double finite_source_tol,
 	                double finite_source_reltol,
@@ -583,7 +600,13 @@ void register_lc_submodule(py::module_& parent)
 	                double reltol) {
 	            auto o = lcbi_default_options();
 	            apply_param_type(o, coordinates.empty() ? param_type : coordinates);
-	            o.source_bins            = nbin > 0 ? nbin : source_bins;
+	            if (!nbin.is_none()) {
+	                apply_nbin(o, nbin);
+	            } else if (!source_bins.is_none()) {
+	                apply_nbin(o, source_bins);
+	            } else {
+	                o.automatic_source_bins = 1;
+	            }
 	            o.caustic_bins           = caustic_bins;
 	            o.grid_ratio             = grid_ratio;
 	            o.mode                   = mode;
@@ -604,7 +627,6 @@ void register_lc_submodule(py::module_& parent)
 	            o.polar_grid_ratio       = polar_grid_ratio;
 	            o.xallarap_param_type    = xallarap_param_type;
 	            o.parallax_mode          = parallax_mode;
-	            o.adaptive_source_bins   = adaptive_source_bins;
 	            o.max_source_bins        = max_source_bins;
 	            o.finite_source_tol      = finite_source_tol;
 	            o.finite_source_reltol   = finite_source_reltol;
@@ -618,8 +640,8 @@ void register_lc_submodule(py::module_& parent)
 	        }),
 	            py::arg("param_type")             = "vbm",
 	            py::arg("coordinates")            = "",
-	            py::arg("source_bins")            = lcbi_default_options().source_bins,
-	            py::arg("nbin")                   = 0,
+	            py::arg("source_bins")            = py::none(),
+	            py::arg("nbin")                   = py::none(),
 	            py::arg("caustic_bins")           = lcbi_default_options().caustic_bins,
 	            py::arg("grid_ratio")             = lcbi_default_options().grid_ratio,
 	            py::arg("mode")                   = lcbi_default_options().mode,
@@ -633,16 +655,20 @@ void register_lc_submodule(py::module_& parent)
 	            py::arg("polar_grid_ratio")       = 0.0,
 	            py::arg("xallarap_param_type")    = LCBI_XALLARAP_NONE,
 	            py::arg("parallax_mode")          = 0,
-	            py::arg("adaptive_source_bins")   = lcbi_default_options().adaptive_source_bins,
 	            py::arg("max_source_bins")        = lcbi_default_options().max_source_bins,
 	            py::arg("finite_source_tol")      = lcbi_default_options().finite_source_tol,
 	            py::arg("finite_source_reltol")   = lcbi_default_options().finite_source_reltol,
 	            py::arg("tol")                    = 0.0,
 	            py::arg("reltol")                 = 0.0)
-	        .def_readwrite("source_bins",            &lcbi_options::source_bins)
-	        .def_property("nbin",
+	        .def_property("source_bins",
 	            [](const lcbi_options& o) { return o.source_bins; },
-	            [](lcbi_options& o, int value) { o.source_bins = value; })
+	            [](lcbi_options& o, int value) { apply_nbin(o, py::int_(value)); })
+	        .def_property("nbin",
+	            [](const lcbi_options& o) -> py::object {
+	                if (o.automatic_source_bins != 0) return py::str("auto");
+	                return py::int_(o.source_bins);
+	            },
+	            [](lcbi_options& o, py::object value) { apply_nbin(o, value); })
 	        .def_readwrite("caustic_bins",           &lcbi_options::caustic_bins)
 	        .def_readwrite("grid_ratio",             &lcbi_options::grid_ratio)
 	        .def_readwrite("mode",                   &lcbi_options::mode)
@@ -700,7 +726,6 @@ void register_lc_submodule(py::module_& parent)
 	            })
 	        .def_readwrite("parallax_mode",          &lcbi_options::parallax_mode)
 	        .def_readwrite("xallarap_param_type",    &lcbi_options::xallarap_param_type)
-	        .def_readwrite("adaptive_source_bins",   &lcbi_options::adaptive_source_bins)
 	        .def_readwrite("max_source_bins",        &lcbi_options::max_source_bins)
 	        .def_readwrite("finite_source_tol",      &lcbi_options::finite_source_tol)
 	        .def_readwrite("finite_source_reltol",   &lcbi_options::finite_source_reltol)
@@ -716,8 +741,9 @@ void register_lc_submodule(py::module_& parent)
             else if (o.vbm_compatible != 0)                       pt = "vbm_center_of_mass";
             else if (o.center_of_mass != 0)                       pt = "center_of_mass";
             else                                                   pt = "lcbinint";
-            return "<lc.Options param_type='" + pt
-                + "' source_bins=" + std::to_string(o.source_bins) + ">";
+            const std::string bins = o.automatic_source_bins != 0
+                ? "'auto'" : std::to_string(o.source_bins);
+            return "<lc.Options param_type='" + pt + "' nbin=" + bins + ">";
         });
 
     // --- LimbDarkening ---
@@ -1110,8 +1136,8 @@ unless terrestrial is explicitly set to True.)")
             for (auto& item : kw) {
                 const std::string key = item.first.cast<std::string>();
                 // --- Options (numerics) ---
-	                if      (key == "source_bins")            o.source_bins            = item.second.cast<int>();
-	                else if (key == "nbin")                   o.source_bins            = item.second.cast<int>();
+	                if      (key == "source_bins")            apply_nbin(o, py::reinterpret_borrow<py::object>(item.second));
+	                else if (key == "nbin")                   apply_nbin(o, py::reinterpret_borrow<py::object>(item.second));
 	                else if (key == "caustic_bins")           o.caustic_bins           = item.second.cast<int>();
 	                else if (key == "param_type")             apply_param_type(o, item.second.cast<std::string>());
 	                else if (key == "coordinates")            apply_param_type(o, item.second.cast<std::string>());
@@ -1138,7 +1164,6 @@ unless terrestrial is explicitly set to True.)")
 	                    auto obj = py::reinterpret_borrow<py::object>(item.second);
 	                    o.polar_grid_ratio = obj.is_none() ? 0.0 : obj.cast<double>();
 	                }
-	                else if (key == "adaptive_source_bins")   o.adaptive_source_bins   = item.second.cast<int>();
 	                else if (key == "max_source_bins")        o.max_source_bins        = item.second.cast<int>();
 	                else if (key == "finite_source_tol")      o.finite_source_tol      = item.second.cast<double>();
 	                else if (key == "finite_source_reltol")   o.finite_source_reltol   = item.second.cast<double>();

@@ -32,11 +32,33 @@ struct FiniteSourceSettings {
     double adaptive_hex_threshold = 0.001;  // VBM-style: |a4 correction|/mag > this → IR
     double limb_darkening_c = 0.0;
     double limb_darkening_d = 0.0;
-    int adaptive_source_bins = 0;
+    bool automatic_source_bins = true;
     int max_source_bins = 400;
     double finite_source_tol = 0.0;
     double finite_source_reltol = 0.0;
 };
+
+struct BinaryResolutionSelection {
+    int source_bins = 50;
+    bool prefer_polar = false;
+};
+
+// Internal calibration helpers.  They operate per source position and do not
+// call or depend on any external finite-source implementation.
+BinaryResolutionSelection calibrated_binary_resolution(
+    double mass_ratio,
+    double source_radius,
+    double caustic_distance,
+    double point_source_magnification,
+    double limb_darkening_c,
+    double requested_relative_tolerance,
+    int maximum_bins);
+bool recommend_external_contour_engine(
+    double source_radius,
+    double caustic_distance,
+    double point_source_magnification,
+    double limb_darkening_c,
+    double limb_darkening_d);
 
 struct FiniteSourceDecision {
     FiniteSourceMethod method = FiniteSourceMethod::point_source;
@@ -58,6 +80,7 @@ struct FiniteSourceResult {
     double point_source_safety_tolerance = 0.0;
     int point_source_ghost_count = 0;
     int point_source_safety_flags = 0;
+    bool external_contour_recommended = false;
 };
 
 struct HexadecapoleDiagnosticResult {

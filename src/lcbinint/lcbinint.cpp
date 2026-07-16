@@ -62,7 +62,7 @@ lcbi_options lcbi_default_options(void)
     options.point_source_threshold = 20.0;
     options.hexadecapole_threshold = 3.0;
     options.adaptive_hex_threshold = 0.001;
-    options.adaptive_source_bins = 0;
+    options.automatic_source_bins = 1;
     options.max_source_bins = 400;
     options.finite_source_reltol = 0.0;
     options.xallarap_param_type = LCBI_XALLARAP_NONE;

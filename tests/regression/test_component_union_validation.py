@@ -26,9 +26,9 @@ class TestComponentUnionEdgeCases:
         )
         times = np.linspace(case.t_min, case.t_max, case.n_times)
 
-        # Use adaptive refinement with tight tolerance
+        # Use calibrated one-shot resolution with a tight tolerance
         opts = lcbinint.Options(
-            source_bins=50, adaptive_source_bins=1,
+            nbin="auto",
             max_source_bins=200, reltol=1e-4
         )
         result_lc = lc_curve(case, times, opts)
@@ -106,7 +106,7 @@ class TestComponentUnionEdgeCases:
         times = np.linspace(case.t_min, case.t_max, case.n_times)
 
         opts = lcbinint.Options(
-            source_bins=50, adaptive_source_bins=1,
+            nbin="auto",
             max_source_bins=200, reltol=1e-4
         )
         result = lc_curve(case, times, opts)

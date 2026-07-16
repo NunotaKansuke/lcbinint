@@ -63,7 +63,7 @@ magnification::FiniteSourceSettings finite_source_settings(
     settings.adaptive_hex_threshold = options.adaptive_hex_threshold;
     settings.limb_darkening_c = params.limb_darkening_c;
     settings.limb_darkening_d = params.limb_darkening_d;
-    settings.adaptive_source_bins = options.adaptive_source_bins;
+    settings.automatic_source_bins = options.automatic_source_bins != 0;
     settings.max_source_bins = options.max_source_bins;
     settings.finite_source_tol = options.finite_source_tol;
     settings.finite_source_reltol = options.finite_source_reltol;

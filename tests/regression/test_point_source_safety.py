@@ -32,8 +32,7 @@ def test_planetary_caustic_safety_vetoes_point_and_hex_fast_paths():
         options=lcbinint.Options(
             coordinates="center_of_mass",
             caustic_bins=400,
-            source_bins=30,
-            adaptive_source_bins=1,
+            nbin="auto",
             tol=1.0e-2,
             hex_tol=1.0e-2,
             inverse_ray_grid="cartesian",
@@ -68,8 +67,7 @@ def test_cusp_safety_can_fall_through_to_accurate_hexadecapole():
         options=lcbinint.Options(
             coordinates="center_of_mass",
             caustic_bins=400,
-            source_bins=30,
-            adaptive_source_bins=1,
+            nbin="auto",
             tol=1.0e-2,
             hex_tol=1.0e-2,
         )
@@ -112,8 +110,7 @@ def test_ghost_safety_margin_blocks_fold_outside_false_point_source():
         options=lcbinint.Options(
             coordinates="center_of_mass",
             caustic_bins=400,
-            source_bins=30,
-            adaptive_source_bins=1,
+            nbin="auto",
             tol=1.0e-2,
             hex_tol=1.0e-2,
             inverse_ray_grid="cartesian",
@@ -156,8 +153,7 @@ def test_ghost_safety_margin_is_independently_safe_on_broad_sweep_case():
         options=lcbinint.Options(
             coordinates="center_of_mass",
             caustic_bins=400,
-            source_bins=30,
-            adaptive_source_bins=1,
+            nbin="auto",
             tol=0.007556554954751993,
             hex_tol=0.007556554954751993,
             inverse_ray_grid="cartesian",
@@ -185,7 +181,6 @@ def test_forced_cartesian_high_magnification_does_not_truncate_image_area():
             coordinates="center_of_mass",
             caustic_bins=600,
             source_bins=40,
-            adaptive_source_bins=1,
             max_source_bins=40,
             tol=5.0e-4,
             hex_tol=5.0e-4,
@@ -209,3 +204,36 @@ def test_forced_cartesian_high_magnification_does_not_truncate_image_area():
     # pathological in this extreme-magnification case.
     assert info.finite_source_method_names == ["inverse_ray_cartesian"]
     assert info.magnifications[0] == pytest.approx(9.0e3, rel=6.0e-3)
+
+
+def test_forced_cartesian_fold_walk_uses_global_magnification_guard():
+    lcbinint = pytest.importorskip("lcbinint")
+    light_curve = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            coordinates="center_of_mass",
+            caustic_bins=1200,
+            source_bins=16,
+            max_source_bins=16,
+            point_source_threshold=0.0,
+            hexadecapole_threshold=0.0,
+            adaptive_hex_threshold=0.0,
+            inverse_ray_grid="cartesian",
+        )
+    )
+    info = light_curve.info(
+        [-1.6433642987581792e-4],
+        t0=0.0,
+        tE=1.0,
+        u0=-2.804330245953445e-4,
+        alpha=0.0,
+        rho=3.11831703999747e-4,
+        s=0.9665580853710293,
+        q=3.9768857748147137e-5,
+    )
+
+    # A seed near the end of this long fold image has local magnification only
+    # ~18, while the connected finite-source image has magnification ~3954.
+    # A seed-local walk guard used to stop normally progressing rows and turn
+    # every tested Cartesian resolution into a numerical error.
+    assert info.finite_source_method_names == ["inverse_ray_cartesian"]
+    assert info.magnifications[0] == pytest.approx(3954.0, rel=2.0e-3)

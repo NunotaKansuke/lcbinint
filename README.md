@@ -82,13 +82,19 @@ params = {
 lc = lcbinint.LightCurve(
     options=lcbinint.Options(
         coordinates="vbm",
-        nbin=50,
+        nbin="auto",  # default; pass a positive integer for a fixed grid
     ),
     limb_darkening=lcbinint.LimbDarkening.linear(0.5),
 )
 
 mag = lc(times, params)
 ```
+
+For binary finite-source inverse-ray calculations, `nbin="auto"` selects the
+Cartesian/polar grid and resolution once per source position from calibrated
+geometry diagnostics.  It does not run a trial integration or retry at a higher
+resolution.  The calibration experiment and frozen artifacts are documented in
+[`docs/finite-source-auto-calibration.md`](docs/finite-source-auto-calibration.md).
 
 ## Diagnostics
 

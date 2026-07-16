@@ -63,10 +63,34 @@ int main()
         std::abs(options.point_source_threshold - 20.0) > 1e-12 ||
         std::abs(options.hexadecapole_threshold - 3.0) > 1e-12 ||
         options.source_bins != 50 ||
-        options.adaptive_source_bins != 0 || options.max_source_bins != 400 ||
+        options.automatic_source_bins != 1 || options.max_source_bins != 400 ||
         std::abs(options.finite_source_tol) > 1e-12 ||
         std::abs(options.finite_source_reltol) > 1e-12) {
         return 2;
+    }
+    const auto high_resolution =
+        lcbinint::magnification::calibrated_binary_resolution(
+            1.0e-3, 1.0e-3, 2.0e-4, 1000.0, 0.0, 1.0e-3, 400);
+    if (!high_resolution.prefer_polar || high_resolution.source_bins != 64) {
+        return 44;
+    }
+    const auto tangent_resolution =
+        lcbinint::magnification::calibrated_binary_resolution(
+            0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 1.0e-3, 400);
+    if (tangent_resolution.prefer_polar || tangent_resolution.source_bins < 100) {
+        return 45;
+    }
+    if (!lcbinint::magnification::recommend_external_contour_engine(
+            1.0e-3, 2.0e-3, 10.0, 0.0, 0.0) ||
+        lcbinint::magnification::recommend_external_contour_engine(
+            1.0e-3, 1.0e-3, 10.0, 0.0, 0.0) ||
+        lcbinint::magnification::recommend_external_contour_engine(
+            1.0e-3, 2.0e-3, 1000.0, 0.0, 0.0) ||
+        !lcbinint::magnification::recommend_external_contour_engine(
+            1.0e-3, 2.0e-3, 4.0, 0.5, 0.0) ||
+        lcbinint::magnification::recommend_external_contour_engine(
+            1.0e-3, 2.0e-3, 6.0, 0.5, 0.0)) {
+        return 46;
     }
     if (lcbi_magnification(0.0, &params, &options, &result) != LCBI_OK) {
         return 3;

@@ -67,7 +67,7 @@ struct ComputationOptions {
     double point_source_threshold = 20.0;
     double hexadecapole_threshold = 3.0;
     double adaptive_hex_threshold = 0.001;
-    int adaptive_source_bins = 0;
+    int automatic_source_bins = 1;
     int max_source_bins = 400;
     double finite_source_tol = 0.0;
     double finite_source_reltol = 0.0;

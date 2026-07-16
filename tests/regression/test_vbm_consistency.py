@@ -83,7 +83,6 @@ def _copy_options(lcbinint, options, *, source_bins=None):
         point_source_threshold=options.point_source_threshold,
         hexadecapole_threshold=options.hexadecapole_threshold,
         adaptive_hex_threshold=options.adaptive_hex_threshold,
-        adaptive_source_bins=options.adaptive_source_bins,
         max_source_bins=options.max_source_bins,
         tol=options.tol,
         reltol=options.reltol,
@@ -400,11 +399,44 @@ def test_lcbinint_auto_inverse_ray_uses_polar_only_for_high_magnification():
         rho=5.0e-3,
     )
 
-    high = func.info([0.0032], **common)
+    high = func.info([0.004], **common)
     low = func.info([-0.2], **common)
 
     assert high.finite_source_method_names == ["inverse_ray_polar"]
     assert low.finite_source_method_names == ["inverse_ray_cartesian"]
+
+
+def test_lcbinint_auto_nbin_reproduces_independent_validation_row():
+    """The frozen selector chooses the validated 40-bin Cartesian result once."""
+    lcbinint = pytest.importorskip("lcbinint")
+    source_x = 0.008845738870878478
+    source_y = 0.001678002323850983
+    common_options = dict(
+        coordinates="center_of_mass",
+        caustic_bins=1200,
+        inverse_ray_grid="auto",
+        point_source_threshold=0.0,
+        hexadecapole_threshold=0.0,
+        adaptive_hex_threshold=0.0,
+    )
+    params = dict(
+        t0=0.0, tE=1.0, u0=source_y, alpha=0.0,
+        s=0.3, q=0.001, rho=0.003,
+    )
+    limb = lcbinint.LimbDarkening.linear(0.5)
+    auto = lcbinint.LightCurve(
+        options=lcbinint.Options(nbin="auto", **common_options),
+        limb_darkening=limb,
+    ).info([source_x], **params)
+    fixed = lcbinint.LightCurve(
+        options=lcbinint.Options(nbin=40, **common_options),
+        limb_darkening=limb,
+    ).info([source_x], **params)
+
+    assert auto.finite_source_method_names == ["inverse_ray_cartesian"]
+    assert auto.finite_source_refinement_levels == [0]
+    assert auto.magnifications == fixed.magnifications
+    assert abs(auto.magnifications[0] / 113.42113550323353 - 1.0) < 1.0e-3
 
 
 def test_lcbinint_auto_inverse_ray_avoids_tiny_source_cartesian_aliasing():
@@ -430,7 +462,6 @@ def test_lcbinint_auto_inverse_ray_avoids_tiny_source_cartesian_aliasing():
             coordinates="vbm",
             inverse_ray_grid="auto",
             source_bins=50,
-            adaptive_source_bins=0,
             point_source_threshold=1.0e9,
             hexadecapole_threshold=1.0e9,
         )
@@ -475,7 +506,6 @@ def test_lcbinint_polar_uses_radius_aware_angular_resolution_for_low_magnificati
             coordinates="vbm",
             inverse_ray_grid="polar",
             source_bins=50,
-            adaptive_source_bins=0,
             point_source_threshold=1.0e9,
             hexadecapole_threshold=1.0e9,
         ),
@@ -730,7 +760,7 @@ def test_lcbinint_coordinates_large_source_planetary_caustic_crossing(inverse_ra
         assert math.isclose(actual_value, reference_value, rel_tol=2.5e-3, abs_tol=2.5e-3)
 
 
-def test_lcbinint_adaptive_source_bins_refines_cartesian_grid_from_diagnostics():
+def test_lcbinint_auto_nbin_selects_resolution_without_runtime_refinement():
     lcbinint = pytest.importorskip("lcbinint")
     module = pytest.importorskip("VBMicrolensing")
 
@@ -763,8 +793,7 @@ def test_lcbinint_adaptive_source_bins_refines_cartesian_grid_from_diagnostics()
     )
     adaptive_options = lcbinint.Options(
         coordinates="vbm",
-        source_bins=50,
-        adaptive_source_bins=1,
+        nbin="auto",
         max_source_bins=200,
         reltol=1.0e-4,
     )
@@ -774,7 +803,7 @@ def test_lcbinint_adaptive_source_bins_refines_cartesian_grid_from_diagnostics()
     fixed_rel = max(abs(a / b - 1.0) for a, b in zip(fixed, reference))
     adaptive_rel = max(abs(a / b - 1.0) for a, b in zip(adaptive.magnifications, reference))
 
-    assert max(adaptive.finite_source_refinement_levels) > 0
+    assert max(adaptive.finite_source_refinement_levels) == 0
     assert max(adaptive.finite_source_error_estimates) > 0.0
     assert adaptive_rel < 5.0e-4
     assert adaptive_rel <= max(1.05 * fixed_rel, 5.0e-4)
@@ -817,7 +846,7 @@ def test_lcbinint_cartesian_ir_seeds_grazing_caustic_limb_images():
     )
     fixed = _model(lcbinint, 
         params,
-        lcbinint.Options(source_bins=50, adaptive_source_bins=0),
+        lcbinint.Options(source_bins=50),
     ).magnification(time)
     adaptive = _model(lcbinint, 
         params,
@@ -859,7 +888,7 @@ def test_lcbinint_cartesian_ir_keeps_same_parity_fold_branch_seed():
     )
     actual = _model(lcbinint, 
         params,
-        lcbinint.Options(source_bins=50, adaptive_source_bins=0),
+        lcbinint.Options(source_bins=50),
     ).magnification(time)
 
     assert abs(actual / reference - 1.0) < 1.0e-3
@@ -897,11 +926,10 @@ def test_lcbinint_local_boundary_estimate_avoids_ld_over_refinement():
     )
     curve = _model(lcbinint, 
         params,
-        lcbinint.Options(source_bins=50, adaptive_source_bins=1, max_source_bins=400, reltol=1.0e-3),
+        lcbinint.Options(nbin="auto", max_source_bins=400, reltol=1.0e-3),
     ).light_curve([time])
 
-    assert curve.finite_source_refinement_levels[0] <= 2
-    assert curve.finite_source_converged[0]
+    assert curve.finite_source_refinement_levels[0] == 0
     assert abs(curve.magnifications[0] / reference - 1.0) < 1.0e-3
 
 
@@ -1145,8 +1173,7 @@ def test_lcbinint_options_exposes_fields():
 
     default_options = lcbinint.Options()
     assert default_options.source_bins == 50
-    assert default_options.nbin == 50
-    assert default_options.adaptive_source_bins == 0
+    assert default_options.nbin == "auto"
     assert default_options.max_source_bins == 400
     assert default_options.finite_source_tol == 0.0
     assert default_options.finite_source_reltol == 0.0
@@ -1165,7 +1192,6 @@ def test_lcbinint_options_exposes_fields():
         polar_grid_ratio=5.0,
         point_source_threshold=8.0,
         hexadecapole_threshold=2.5,
-        adaptive_source_bins=1,
         max_source_bins=160,
         tol=1.0e-4,
         reltol=2.0e-4,
@@ -1182,7 +1208,6 @@ def test_lcbinint_options_exposes_fields():
     assert options.polar_grid_ratio == 5.0
     assert options.point_source_threshold == 8.0
     assert options.hexadecapole_threshold == 2.5
-    assert options.adaptive_source_bins == 1
     assert options.max_source_bins == 160
     assert options.finite_source_tol == 1.0e-4
     assert options.finite_source_reltol == 2.0e-4
@@ -1197,12 +1222,21 @@ def test_lcbinint_options_exposes_fields():
     assert options.polar_grid_ratio is None
 
     auto_options = lcbinint.Options(reltol=1.0e-3)
-    assert auto_options.adaptive_source_bins == 0
+    assert auto_options.nbin == "auto"
     assert auto_options.finite_source_reltol == 1.0e-3
 
-    adaptive_options = lcbinint.Options(reltol=1.0e-3, adaptive_source_bins=1)
-    assert adaptive_options.adaptive_source_bins == 1
+    adaptive_options = lcbinint.Options(nbin="auto", reltol=1.0e-3)
+    assert adaptive_options.nbin == "auto"
     assert adaptive_options.finite_source_reltol == 1.0e-3
+
+    adaptive_options.nbin = 64
+    assert adaptive_options.nbin == 64
+    adaptive_options.nbin = "auto"
+    assert adaptive_options.nbin == "auto"
+    with pytest.raises(ValueError, match="positive integer or 'auto'"):
+        lcbinint.Options(nbin="adaptive")
+    with pytest.raises(ValueError, match="positive integer or 'auto'"):
+        lcbinint.Options(nbin=0)
 
 
 def test_lcbinint_finite_source_smoke():

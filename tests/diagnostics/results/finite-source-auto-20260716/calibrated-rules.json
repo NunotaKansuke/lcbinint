@@ -1,0 +1,99 @@
+{
+  "schema_version": 1,
+  "calibration_tolerance": {
+    "absolute": 0.0001,
+    "relative": 0.001
+  },
+  "nbin_model": {
+    "fitted": true,
+    "rows": 4787,
+    "quantile": 0.98,
+    "feature_names": [
+      "log10_point_magnification",
+      "log10_rho",
+      "log10_q_small",
+      "log10_distance_over_rho",
+      "near_caustic_strength",
+      "companion_resolution_risk",
+      "limb_c"
+    ],
+    "feature_mean": [
+      1.1820756488388118,
+      -2.9036106609012546,
+      -2.6986179919546345,
+      0.03688102633633496,
+      0.8972087621766296,
+      1.1341442606439753,
+      0.24869438061416335
+    ],
+    "feature_std": [
+      1.0111131697060847,
+      1.1601305065348657,
+      1.8500204276846226,
+      0.7895410239966703,
+      0.7222204031861401,
+      1.42955624048966,
+      0.2499965906927929
+    ],
+    "coefficients": [
+      5.139848840914074,
+      -0.026354983398495537,
+      -0.008665567347890256,
+      0.028914523534964386,
+      0.09884746535594117,
+      0.0757379504124179,
+      0.03068462762322574,
+      -0.15822137689559143
+    ],
+    "optimizer_success": true,
+    "training_underprediction_fraction": 0.015667432630039693,
+    "median_predicted_over_required": 2.0,
+    "p90_predicted_over_required": 2.5,
+    "safety_factor": 1.1,
+    "buckets": [
+      16,
+      24,
+      32,
+      40,
+      50,
+      64,
+      80,
+      100,
+      128,
+      160,
+      200,
+      256,
+      320,
+      400
+    ],
+    "cartesian_tangent_floor": {
+      "lower": 0.9,
+      "upper": 1.1,
+      "bins": 100
+    },
+    "cartesian_companion_floor": {
+      "four_rho_over_q_threshold": 50.0,
+      "bins": 80
+    }
+  },
+  "grid_rule": {
+    "polar_if_point_magnification_at_least": 300.0,
+    "polar_near_caustic_if_point_magnification_at_least": 100.0,
+    "polar_near_caustic_distance_over_rho_below": 0.3,
+    "polar_bins": 64
+  },
+  "vbm_recommendation_rule": {
+    "scope": "one source position",
+    "uniform": {
+      "point_magnification_below": 1000.0,
+      "excluded_distance_band": [
+        0.9,
+        1.1
+      ]
+    },
+    "limb_darkened": {
+      "point_magnification_below": 5.0,
+      "distance_over_rho_above": 1.05
+    }
+  }
+}

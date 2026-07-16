@@ -1251,83 +1251,6 @@ struct ClaimedCellRuns {
     }
 };
 
-struct LocalRefinementSampleKey {
-    long long ix = 0;
-    long long iy = 0;
-
-    bool operator==(const LocalRefinementSampleKey& other) const
-    {
-        return ix == other.ix && iy == other.iy;
-    }
-};
-
-struct LocalRefinementSampleKeyHash {
-    std::size_t operator()(const LocalRefinementSampleKey& key) const noexcept
-    {
-        const auto mix = [](std::uint64_t value) {
-            value ^= value >> 30;
-            value *= 0xbf58476d1ce4e5b9ULL;
-            value ^= value >> 27;
-            value *= 0x94d049bb133111ebULL;
-            value ^= value >> 31;
-            return value;
-        };
-        const std::uint64_t x = mix(static_cast<std::uint64_t>(key.ix));
-        const std::uint64_t y = mix(static_cast<std::uint64_t>(key.iy));
-        return static_cast<std::size_t>(x ^ (y << 1));
-    }
-};
-
-struct LocalRefinementCell {
-    SourcePosition center;
-    double size = 0.0;
-    double area_fraction = 1.0;
-    double coarse_weight = 0.0;
-    double error_weight = 0.0;
-    int depth = 0;
-};
-
-struct LocalRefinementQueueItem {
-    LocalRefinementCell cell;
-
-    bool operator<(const LocalRefinementQueueItem& other) const
-    {
-        return cell.error_weight < other.cell.error_weight;
-    }
-};
-
-struct LocalRefinementTape {
-    std::size_t max_samples = 0;
-    std::vector<LocalRefinementCell> cells;
-    std::unordered_set<LocalRefinementSampleKey, LocalRefinementSampleKeyHash> sample_keys;
-
-    static LocalRefinementSampleKey key_for(SourcePosition image, double cell_step)
-    {
-        if (cell_step <= 0.0 || !std::isfinite(cell_step)) {
-            return {};
-        }
-        return {
-            static_cast<long long>(std::llround(image.x / cell_step)),
-            static_cast<long long>(std::llround(image.y / cell_step)),
-        };
-    }
-
-    // Returns the index of the recorded cell, or -1 when the sample was
-    // rejected (tape full or duplicate grid key).
-    int add(SourcePosition image, double cell_step, double coarse_weight)
-    {
-        if (max_samples == 0 || cells.size() >= max_samples) {
-            return -1;
-        }
-        const auto key = key_for(image, cell_step);
-        if (!sample_keys.insert(key).second) {
-            return -1;
-        }
-        cells.push_back({image, cell_step, 1.0, coarse_weight, 0.0, 0});
-        return static_cast<int>(cells.size()) - 1;
-    }
-};
-
 struct LegacyAreaDiagnostics {
     int seed_count = 0;
     int processed_images = 0;
@@ -2430,8 +2353,8 @@ double cartesian_image_area_impl(
     int& yi,
     LegacyImageAreaScratch& scratch,
     int jacobian_sign = 0,
-    LocalRefinementTape* local_tape = nullptr,
-    ClaimedCellRuns* claimed = nullptr)
+    ClaimedCellRuns* claimed = nullptr,
+    double magnification_hint = 0.0)
 {
     double countx = 0.0;
     double countall = 0.0;
@@ -2480,7 +2403,6 @@ double cartesian_image_area_impl(
     };
     const double source_radius2 = source_radius * source_radius;
     const double inv_source_radius2 = 1.0 / source_radius2;
-    const double boundary_band2 = std::max(4.0 * source_radius * incr, 4.0 * incr * incr);
     // Surface brightness at the source edge, weighting the sub-cell boundary
     // correction strips (which always sit adjacent to the limb).
     double edge_brightness = 1.0;
@@ -2489,8 +2411,6 @@ double cartesian_image_area_impl(
             finite_magnifier->limb_darkening_table_brightness(1.0) :
             source_surface_brightness(1.0, settings);
     }
-    int last_inside_tape_index = -1;
-    int last_outside_tape_index = -1;
     // Second-order boundary correction state.  Each row is scanned rightward
     // from x0 and then leftward from x0 - incr, so the sample spatially
     // adjacent to a boundary crossing is usually the previous iteration
@@ -2499,7 +2419,6 @@ double cartesian_image_area_impl(
     // crossing between it and the first leftward sample can still be
     // corrected (thin rows start within one cell of their own edge often).
     double dz2_row_start = -1.0;
-    int row_start_tape_index = -1;
     bool at_run_start = true;
     bool first_left_pending = false;
     bool jac_ok_prev = true;
@@ -2538,8 +2457,11 @@ double cartesian_image_area_impl(
     // walks once A reached a few thousand.  Scale only the safety guard from
     // the seed Jacobian; the walk still terminates naturally at the image
     // boundary, so ordinary cases perform exactly the same amount of work.
+    const double component_magnification_bound = std::max(
+        seed_magnification,
+        std::isfinite(magnification_hint) ? std::abs(magnification_hint) : 0.0);
     const double estimated_step_limit = bins2 * std::max(
-        2000.0, 4.0 * kPi * seed_magnification);
+        2000.0, 4.0 * kPi * component_magnification_bound);
     const std::int64_t max_steps = std::max<std::int64_t>(
         100000,
         estimated_step_limit < static_cast<double>(std::numeric_limits<std::int64_t>::max())
@@ -2621,26 +2543,8 @@ double cartesian_image_area_impl(
             if (claimed != nullptr) {
                 add_claim_cell(cell_ix, cell_iy);
             }
-            last_inside_tape_index = -1;
-            if (local_tape != nullptr &&
-                std::abs(mapped_distance2 - source_radius2) <= boundary_band2) {
-                // Keep tape weights consistent with the corrected count: the
-                // recorded weight approximates the cell's true covered flux, so
-                // local refinement corrects relative to it instead of
-                // double-counting the edge strip.  A negative residual reduces
-                // this inside cell; a positive one belongs to the adjacent
-                // outside cell recorded on the previous step.
-                last_inside_tape_index = local_tape->add(
-                    image, incr, brightness + std::min(entry_correction, 0.0));
-                if (entry_correction > 0.0 && last_outside_tape_index >= 0) {
-                    local_tape->cells[static_cast<std::size_t>(last_outside_tape_index)]
-                        .coarse_weight += entry_correction;
-                }
-            }
-            last_outside_tape_index = -1;
             if (is_run_start && dx == incr) {
                 dz2_row_start = mapped_distance2;
-                row_start_tape_index = last_inside_tape_index;
             }
         } else {
             // Second-order boundary correction.  The scan only learns the edge
@@ -2651,12 +2555,10 @@ double cartesian_image_area_impl(
             // 0.5 cells past the inside sample, so the residual strip is
             // (t - 0.5) cells.
             double edge_correction = 0.0;
-            int inside_neighbor_tape_index = -1;
             if (jac_ok && dz2_last <= source_radius2) {
                 const double t = crossing_fraction(dz2_last, mapped_distance2);
                 edge_correction = (t - 0.5) * edge_brightness;
                 countx += edge_correction;
-                inside_neighbor_tape_index = last_inside_tape_index;
             } else if (jac_ok && is_first_left && dz2_row_start >= 0.0) {
                 // First sample left of the turnaround is outside while the
                 // row-start sample was inside: the crossing between them is
@@ -2665,20 +2567,7 @@ double cartesian_image_area_impl(
                 const double t = crossing_fraction(dz2_row_start, mapped_distance2);
                 edge_correction = (t - 0.5) * edge_brightness;
                 countx += edge_correction;
-                inside_neighbor_tape_index = row_start_tape_index;
             }
-            last_outside_tape_index = -1;
-            if (local_tape != nullptr &&
-                jac_ok &&
-                std::abs(mapped_distance2 - source_radius2) <= boundary_band2) {
-                last_outside_tape_index = local_tape->add(
-                    image, incr, std::max(edge_correction, 0.0));
-            }
-            if (edge_correction < 0.0 && inside_neighbor_tape_index >= 0) {
-                local_tape->cells[static_cast<std::size_t>(inside_neighbor_tape_index)]
-                    .coarse_weight += edge_correction;
-            }
-            last_inside_tape_index = -1;
             if (dx == incr) {
                 if (dz2_last <= source_radius2) {
                     scratch.xmax[static_cast<std::size_t>(yi)] = image.x;
@@ -2730,7 +2619,6 @@ double cartesian_image_area_impl(
                 countx = 0.0;
                 at_run_start = true;
                 dz2_row_start = -1.0;
-                row_start_tape_index = -1;
                 last_right_inside_x = std::numeric_limits<double>::quiet_NaN();
                 last_left_inside_x = std::numeric_limits<double>::quiet_NaN();
             }
@@ -2741,6 +2629,21 @@ double cartesian_image_area_impl(
 
     flush_claim();
     if (guard >= max_steps) {
+        if (std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
+            std::fprintf(
+                stderr,
+                "CARTESIAN_WALK_EXHAUSTED bins=%d guard=%lld max_steps=%lld "
+                "seed=(%.17g,%.17g) seed_mag=%.17g mag_hint=%.17g yi=%d count=%.17g\n",
+                settings.source_bins,
+                static_cast<long long>(guard),
+                static_cast<long long>(max_steps),
+                seed.x,
+                seed.y,
+                seed_magnification,
+                magnification_hint,
+                yi,
+                countall);
+        }
         // Never turn an exhausted image walk into a plausible partial area.
         // The Jacobian-scaled guard above should make this exceptional; NaN
         // keeps the numerical failure explicit if its estimate is insufficient.
@@ -2761,17 +2664,17 @@ double cartesian_image_area(
     int& yi,
     LegacyImageAreaScratch& scratch,
     int jacobian_sign = 0,
-    LocalRefinementTape* local_tape = nullptr,
-    ClaimedCellRuns* claimed = nullptr)
+    ClaimedCellRuns* claimed = nullptr,
+    double magnification_hint = 0.0)
 {
     if (settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0) {
         return cartesian_image_area_impl<false>(
             mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
-            scratch, jacobian_sign, local_tape, claimed);
+            scratch, jacobian_sign, claimed, magnification_hint);
     }
     return cartesian_image_area_impl<true>(
         mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
-        scratch, jacobian_sign, local_tape, claimed);
+        scratch, jacobian_sign, claimed, magnification_hint);
 }
 
 std::vector<SourcePosition> selected_triple_point_images(
@@ -3323,8 +3226,7 @@ double inverse_ray_cartesian_binary_mag(
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
     const std::vector<SourcePosition>* precomputed_seeds = nullptr,
-    LegacyAreaDiagnostics* diagnostics = nullptr,
-    LocalRefinementTape* local_tape = nullptr)
+    LegacyAreaDiagnostics* diagnostics = nullptr)
 {
     if ((settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0) &&
         finite_magnifier != nullptr) {
@@ -3350,6 +3252,15 @@ double inverse_ray_cartesian_binary_mag(
         lattice_snapped_seeds(mapper, source, source_radius, incr, raw_images);
     if (images.empty()) {
         return std::nan("");
+    }
+    double walk_magnification_hint = std::abs(
+        point_magnifier.binary_mag0(separation, mass_ratio, source).magnification);
+    for (const auto& image : images) {
+        const double jacobian = binary_jacobian(mapper, image.x, image.y);
+        if (std::isfinite(jacobian) && std::abs(jacobian) > 1.0e-15) {
+            walk_magnification_hint = std::max(
+                walk_magnification_hint, 1.0 / std::abs(jacobian));
+        }
     }
     if (diagnostics != nullptr) {
         *diagnostics = {};
@@ -3401,7 +3312,7 @@ double inverse_ray_cartesian_binary_mag(
         scratch.xmax[0] = seed.x;
         areai = cartesian_image_area(
             mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch,
-            jac_sign, local_tape, &claimed);
+            jac_sign, &claimed, walk_magnification_hint);
 
         dy = -incr;
         scratch.ensure(static_cast<std::size_t>(yi));
@@ -3413,7 +3324,7 @@ double inverse_ray_cartesian_binary_mag(
         ++yi;
         areai += cartesian_image_area(
             mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch,
-            jac_sign, local_tape, &claimed);
+            jac_sign, &claimed, walk_magnification_hint);
 
         int nyi = yi;
         double areabound = 0.0;
@@ -3446,7 +3357,7 @@ double inverse_ray_cartesian_binary_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, local_tape, &claimed);
+                        yi, scratch, jac_sign, &claimed, walk_magnification_hint);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3468,7 +3379,7 @@ double inverse_ray_cartesian_binary_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, local_tape, &claimed);
+                        yi, scratch, jac_sign, &claimed, walk_magnification_hint);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3490,7 +3401,7 @@ double inverse_ray_cartesian_binary_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, local_tape, &claimed);
+                        yi, scratch, jac_sign, &claimed, walk_magnification_hint);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3512,7 +3423,7 @@ double inverse_ray_cartesian_binary_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, local_tape, &claimed);
+                        yi, scratch, jac_sign, &claimed, walk_magnification_hint);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3640,7 +3551,7 @@ double inverse_ray_cartesian_triple_mag(
         scratch.xmax[0] = seed.x;
         areai = cartesian_image_area(
             mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch,
-            jac_sign, nullptr, &claimed);
+            jac_sign, &claimed);
 
         dy = -incr;
         scratch.ensure(static_cast<std::size_t>(yi));
@@ -3652,7 +3563,7 @@ double inverse_ray_cartesian_triple_mag(
         ++yi;
         areai += cartesian_image_area(
             mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch,
-            jac_sign, nullptr, &claimed);
+            jac_sign, &claimed);
 
         int nyi = yi;
         double areabound = 0.0;
@@ -3687,7 +3598,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, nullptr, &claimed);
+                        dy, yi, scratch, jac_sign, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3711,7 +3622,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, nullptr, &claimed);
+                        dy, yi, scratch, jac_sign, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3735,7 +3646,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, nullptr, &claimed);
+                        dy, yi, scratch, jac_sign, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3759,7 +3670,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, nullptr, &claimed);
+                        dy, yi, scratch, jac_sign, &claimed);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3829,89 +3740,6 @@ FiniteSourceResult fixed_inverse_ray_binary(
         finite_magnifier->augment_seeds_from_caustic_branches(
             separation, mass_ratio, source, source_radius, seeds);
     }
-    const double source_radius2 = source_radius * source_radius;
-    int active_source_bins = std::max(settings.source_bins, 1);
-    const double nbin = static_cast<double>(active_source_bins);
-    const double cell_step = source_radius / nbin;
-    double scale =
-        source_flux(source_radius, settings) / (source_radius * source_radius) * nbin * nbin;
-    const bool adaptive =
-        settings.adaptive_source_bins != 0 &&
-        (settings.finite_source_tol > 0.0 || settings.finite_source_reltol > 0.0);
-    LocalRefinementTape local_tape;
-    if (adaptive) {
-        local_tape.max_samples = static_cast<std::size_t>(
-            std::max(64, settings.max_source_bins));
-    }
-    auto target_error = [&](double mag) {
-        return settings.finite_source_tol +
-               settings.finite_source_reltol * std::max(std::abs(mag), 1.0);
-    };
-    const double local_error_safety =
-        (settings.source_bins < 32 ? 8.0 :
-         source_radius >= 8.0e-3 ? 2.5 :
-         source_radius >= 3.0e-3 ? 1.8 :
-         1.25);
-    auto guarded_target_error = [&](double mag) {
-        return target_error(mag) / local_error_safety;
-    };
-    auto cell_weight = [&](SourcePosition image) {
-        const double mapped_distance2 =
-            mapped_binary_lens_distance2(mapper, image.x, image.y, source);
-        if (mapped_distance2 > source_radius2) {
-            return 0.0;
-        }
-        return source_limb_brightness(
-            mapped_distance2 / source_radius2, settings, finite_magnifier);
-    };
-    auto estimate_local_cell_error = [&](const LocalRefinementCell& cell) {
-        const double half = 0.5 * cell.size;
-        const std::array<SourcePosition, 4> corners {{
-            {cell.center.x - half, cell.center.y - half},
-            {cell.center.x + half, cell.center.y - half},
-            {cell.center.x - half, cell.center.y + half},
-            {cell.center.x + half, cell.center.y + half},
-        }};
-        double corner_sum = 0.0;
-        double min_weight = std::numeric_limits<double>::infinity();
-        double max_weight = 0.0;
-        int nonzero_corners = 0;
-        for (const auto& corner : corners) {
-            const double weight = cell_weight(corner);
-            corner_sum += weight;
-            min_weight = std::min(min_weight, weight);
-            max_weight = std::max(max_weight, weight);
-            if (weight > 0.0) {
-                ++nonzero_corners;
-            }
-        }
-        const double corner_average = 0.25 * corner_sum;
-        const double center_error = std::abs(corner_average - cell.coarse_weight);
-        const double variation_error = 0.5 * (max_weight - min_weight);
-        const double boundary_error =
-            (nonzero_corners > 0 && nonzero_corners < 4) ? 0.25 * max_weight : 0.0;
-        return cell.area_fraction * std::max({center_error, variation_error, boundary_error});
-    };
-    auto split_cell = [&](const LocalRefinementCell& cell) {
-        std::array<LocalRefinementCell, 4> children;
-        const double child_size = 0.5 * cell.size;
-        const double offset = 0.25 * cell.size;
-        const std::array<SourcePosition, 4> centers {{
-            {cell.center.x - offset, cell.center.y - offset},
-            {cell.center.x + offset, cell.center.y - offset},
-            {cell.center.x - offset, cell.center.y + offset},
-            {cell.center.x + offset, cell.center.y + offset},
-        }};
-        for (std::size_t i = 0; i < children.size(); ++i) {
-            children[i].center = centers[i];
-            children[i].size = child_size;
-            children[i].area_fraction = 0.25 * cell.area_fraction;
-            children[i].coarse_weight = cell_weight(centers[i]);
-            children[i].depth = cell.depth + 1;
-            children[i].error_weight = estimate_local_cell_error(children[i]);
-        }
-        return children;
-    };
     if (decision.method == FiniteSourceMethod::inverse_ray_polar) {
         const double magnification = inverse_ray_polar_boundary_binary(
             point_magnifier, separation, mass_ratio, source, source_radius,
@@ -3925,164 +3753,32 @@ FiniteSourceResult fixed_inverse_ray_binary(
     LegacyAreaDiagnostics diagnostics;
     double magnification = inverse_ray_cartesian_binary_mag(
         point_magnifier, separation, mass_ratio, source, source_radius,
-        settings, finite_magnifier, &seeds, &diagnostics,
-        adaptive ? &local_tape : nullptr);
+        settings, finite_magnifier, &seeds, &diagnostics);
     if (!std::isfinite(magnification)) {
         return {magnification, 0, decision, std::nan(""), 0, false};
     }
 
-    int refinement_level = 0;
-    // Small-companion resolution guard: when the disk touches a caustic of a
-    // mass ratio q << 1, the associated image structures scale with q*theta_E
-    // and can fall below the cell size, where the scan under-resolves them
-    // (bins-dependent errors of order 1e-2 at the default 50 bins).  Escalate
-    // the resolution once so the cell is a fraction of q, and report the
-    // residual risk when max_source_bins cannot get there.
+    // Fixed low nbin can still be diagnosed as insufficient, but never causes
+    // a second integration.  Automatic mode applies its companion floor before
+    // entering this function.
     const double q_abs = std::abs(mass_ratio);
     const double q_small = q_abs < 1.0 ? q_abs : (q_abs > 0.0 ? 1.0 / q_abs : 1.0);
     const bool caustic_contact =
         std::isfinite(caustic_distance) && caustic_distance < 2.0 * source_radius;
-    bool underresolved_companion =
-        caustic_contact && q_small < 4.0 * source_radius / nbin;
-    if (underresolved_companion) {
-        FiniteSourceSettings retry_settings = settings;
-        retry_settings.source_bins = std::min(
-            settings.max_source_bins,
-            std::max(
-                2 * std::max(settings.source_bins, 1),
-                static_cast<int>(std::ceil(4.0 * source_radius / q_small))));
-        if (retry_settings.source_bins > active_source_bins) {
-            LocalRefinementTape retry_tape;
-            if (adaptive) {
-                retry_tape.max_samples = static_cast<std::size_t>(
-                    std::max(64, retry_settings.max_source_bins));
-            }
-            LegacyAreaDiagnostics retry_diagnostics;
-            const double retry_magnification = inverse_ray_cartesian_binary_mag(
-                point_magnifier, separation, mass_ratio, source, source_radius,
-                retry_settings, finite_magnifier, &seeds, &retry_diagnostics,
-                adaptive ? &retry_tape : nullptr);
-            if (std::isfinite(retry_magnification)) {
-                magnification = retry_magnification;
-                diagnostics = retry_diagnostics;
-                local_tape = std::move(retry_tape);
-                active_source_bins = retry_settings.source_bins;
-                const double retry_nbin = static_cast<double>(active_source_bins);
-                scale = source_flux(source_radius, retry_settings) /
-                        (source_radius * source_radius) * retry_nbin * retry_nbin;
-                refinement_level = 1;
-                decision.reason = "cartesian inverse-ray with companion-resolution retry";
-            }
-        }
-        underresolved_companion =
-            q_small < 4.0 * source_radius / static_cast<double>(active_source_bins);
-    }
+    const bool underresolved_companion = caustic_contact &&
+        q_small < 4.0 * source_radius / static_cast<double>(std::max(settings.source_bins, 1));
 
     double error_estimate = diagnostics.estimated_error;
-    bool converged = true;
     if (underresolved_companion) {
         error_estimate = std::max(
             error_estimate, 3.0e-3 * std::max(std::abs(magnification), 1.0));
     }
-
-    if (adaptive && !local_tape.cells.empty()) {
-        std::priority_queue<LocalRefinementQueueItem> active_cells;
-        double local_error_counts = 0.0;
-        for (auto cell : local_tape.cells) {
-            cell.error_weight = estimate_local_cell_error(cell);
-            local_error_counts += cell.error_weight;
-            active_cells.push({cell});
-        }
-        double local_correction_counts = 0.0;
-        const int max_bins = std::max(active_source_bins, settings.max_source_bins);
-        int max_depth = 0;
-        for (int bins = std::max(active_source_bins, 1);
-             bins < max_bins && max_depth < 8;
-             bins *= 2) {
-            ++max_depth;
-        }
-        const int max_splits = std::max(64, 4 * max_bins);
-        int splits = 0;
-        constexpr int kMaxBatchDepth = 1;
-        while (!active_cells.empty() &&
-               local_error_counts > guarded_target_error(magnification + local_correction_counts / scale) * scale &&
-               splits < max_splits) {
-            LocalRefinementCell parent = active_cells.top().cell;
-            active_cells.pop();
-            if (parent.error_weight <= 0.0 || parent.depth >= max_depth) {
-                break;
-            }
-
-            int batch_depth = 0;
-            bool defer_parent = false;
-            while (batch_depth < kMaxBatchDepth &&
-                   parent.depth < max_depth &&
-                   local_error_counts > guarded_target_error(magnification + local_correction_counts / scale) * scale &&
-                   splits < max_splits) {
-                defer_parent = false;
-                const auto children = split_cell(parent);
-                double child_contribution = 0.0;
-                double child_error = 0.0;
-                std::size_t worst_child_index = 0;
-                for (std::size_t child_index = 0; child_index < children.size(); ++child_index) {
-                    const auto& child = children[child_index];
-                    child_contribution += child.area_fraction * child.coarse_weight;
-                    child_error += child.error_weight;
-                    if (child.error_weight > children[worst_child_index].error_weight) {
-                        worst_child_index = child_index;
-                    }
-                }
-                const LocalRefinementCell worst_child = children[worst_child_index];
-                local_correction_counts +=
-                    child_contribution - parent.area_fraction * parent.coarse_weight;
-                local_error_counts += child_error - parent.error_weight;
-                refinement_level = std::max(refinement_level, parent.depth + 1);
-                ++splits;
-                ++batch_depth;
-
-                if (local_error_counts <=
-                    guarded_target_error(magnification + local_correction_counts / scale) * scale ||
-                    worst_child.error_weight <= 0.0 ||
-                    worst_child.depth >= max_depth) {
-                    for (const auto& child : children) {
-                        active_cells.push({child});
-                    }
-                    defer_parent = false;
-                    break;
-                }
-
-                for (std::size_t child_index = 0; child_index < children.size(); ++child_index) {
-                    if (child_index != worst_child_index) {
-                        active_cells.push({children[child_index]});
-                    }
-                }
-                parent = worst_child;
-                defer_parent = true;
-            }
-            if (defer_parent) {
-                active_cells.push({parent});
-            }
-        }
-        if (refinement_level > 0) {
-            magnification += local_correction_counts / scale;
-            decision.reason = "cartesian inverse-ray with local adaptive refinement";
-        }
-        error_estimate = local_error_safety * local_error_counts / scale;
-        if (refinement_level == 0 &&
-            settings.limb_darkening_c == 0.0 &&
-            settings.limb_darkening_d == 0.0) {
-            error_estimate = std::max(error_estimate, diagnostics.estimated_error);
-        }
-    }
-    constexpr double kConvergenceAcceptanceMargin = 0.999;
-    converged = error_estimate <= kConvergenceAcceptanceMargin * target_error(magnification);
-    if (adaptive && active_source_bins < 32) {
-        converged = false;
-    }
-    if (underresolved_companion) {
-        converged = false;
-    }
-    return {magnification, 0, decision, error_estimate, refinement_level, converged};
+    const double target_error = settings.finite_source_tol +
+        (settings.finite_source_reltol > 0.0 ? settings.finite_source_reltol : 1.0e-3) *
+            std::max(std::abs(magnification), 1.0) +
+        (settings.finite_source_tol > 0.0 ? 0.0 : 1.0e-4);
+    const bool converged = !underresolved_companion && error_estimate <= target_error;
+    return {magnification, 0, decision, error_estimate, 0, converged};
 }
 
 // ---------- image-spine kernel (finite_mode = 3) ----------
@@ -4761,6 +4457,107 @@ FiniteSourceResult fixed_inverse_ray_spine_binary(
 
 } // namespace
 
+BinaryResolutionSelection calibrated_binary_resolution(
+    double mass_ratio,
+    double source_radius,
+    double caustic_distance,
+    double point_source_magnification,
+    double limb_darkening_c,
+    double requested_relative_tolerance,
+    int maximum_bins)
+{
+    constexpr std::array<double, 7> kMean {{
+        1.1820756488388118, -2.9036106609012546, -2.6986179919546345,
+        0.03688102633633496, 0.8972087621766296, 1.1341442606439753,
+        0.24869438061416335,
+    }};
+    constexpr std::array<double, 7> kStd {{
+        1.0111131697060847, 1.1601305065348657, 1.8500204276846226,
+        0.7895410239966703, 0.7222204031861401, 1.42955624048966,
+        0.2499965906927929,
+    }};
+    constexpr std::array<double, 8> kBeta {{
+        5.139848840914074, -0.026354983398495537, -0.008665567347890256,
+        0.028914523534964386, 0.09884746535594117, 0.0757379504124179,
+        0.03068462762322574, -0.15822137689559143,
+    }};
+    constexpr std::array<int, 14> kBuckets {{
+        16, 24, 32, 40, 50, 64, 80, 100, 128, 160, 200, 256, 320, 400,
+    }};
+
+    const int cap = std::max(maximum_bins, 1);
+    const double a_point = std::abs(point_source_magnification);
+    const double distance_ratio = source_radius > 0.0
+        ? caustic_distance / source_radius
+        : std::numeric_limits<double>::infinity();
+    if (!std::isfinite(a_point) || !std::isfinite(distance_ratio)) {
+        return {std::min(100, cap), true};
+    }
+    const bool prefer_polar =
+        a_point >= 300.0 || (a_point >= 100.0 && distance_ratio < 0.3);
+    if (prefer_polar) {
+        return {std::min(64, cap), true};
+    }
+
+    const double q_abs = std::abs(mass_ratio);
+    const double q_small = q_abs < 1.0
+        ? q_abs : (q_abs > 0.0 ? 1.0 / q_abs : 1.0e-12);
+    const std::array<double, 7> feature {{
+        std::log10(std::max(a_point, 1.0)),
+        std::log10(std::max(source_radius, 1.0e-12)),
+        std::log10(std::max(q_small, 1.0e-12)),
+        std::log10(std::max(distance_ratio, 1.0e-3)),
+        std::max(0.0, 2.0 - std::min(distance_ratio, 2.0)),
+        std::max(0.0, std::log10(std::max(4.0 * source_radius /
+            std::max(q_small, 1.0e-12), 1.0))),
+        limb_darkening_c,
+    }};
+    double log2_bins = kBeta[0];
+    for (std::size_t index = 0; index < feature.size(); ++index) {
+        log2_bins += kBeta[index + 1] * (feature[index] - kMean[index]) / kStd[index];
+    }
+    double predicted = 1.10 * std::exp2(log2_bins);
+    // The fit was calibrated at relative tolerance 1e-3.  A square-root
+    // scaling is deliberately one-shot and conservative for tighter requests.
+    if (requested_relative_tolerance > 0.0 && requested_relative_tolerance < 1.0e-3) {
+        predicted *= std::sqrt(1.0e-3 / requested_relative_tolerance);
+    }
+    int bins = kBuckets.back();
+    for (const int bucket : kBuckets) {
+        if (predicted <= bucket) {
+            bins = bucket;
+            break;
+        }
+    }
+    if (distance_ratio > 0.9 && distance_ratio < 1.1) {
+        bins = std::max(bins, 100);
+    }
+    if (4.0 * source_radius / std::max(q_small, 1.0e-12) > 50.0) {
+        bins = std::max(bins, 80);
+    }
+    return {std::min(bins, cap), false};
+}
+
+bool recommend_external_contour_engine(
+    double source_radius,
+    double caustic_distance,
+    double point_source_magnification,
+    double limb_darkening_c,
+    double limb_darkening_d)
+{
+    if (!(source_radius > 0.0) || !std::isfinite(caustic_distance) ||
+        !std::isfinite(point_source_magnification)) {
+        return false;
+    }
+    const double distance_ratio = caustic_distance / source_radius;
+    const double a_point = std::abs(point_source_magnification);
+    const bool uniform = limb_darkening_c == 0.0 && limb_darkening_d == 0.0;
+    if (uniform) {
+        return a_point < 1000.0 && !(distance_ratio > 0.9 && distance_ratio < 1.1);
+    }
+    return a_point < 5.0 && distance_ratio > 1.05;
+}
+
 FiniteSourceMagnifier::FiniteSourceMagnifier(FiniteSourceSettings settings)
     : settings_(settings)
 {
@@ -5199,8 +4996,7 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             std::max(std::abs(derivative_point.magnification), 1.0e-10);
         double derivative_threshold =
             settings_.adaptive_hex_threshold > 0.0 ? settings_.adaptive_hex_threshold : 1.0e-3;
-        if (settings_.adaptive_source_bins != 0 &&
-            (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0)) {
+        if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
             derivative_threshold =
                 settings_.finite_source_reltol +
                 settings_.finite_source_tol /
@@ -5273,8 +5069,7 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             settings_,
             &point_source_magnification);
         double hex_threshold = settings_.adaptive_hex_threshold;
-        if (settings_.adaptive_source_bins != 0 &&
-            (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0)) {
+        if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
             hex_threshold =
                 settings_.finite_source_reltol +
                 settings_.finite_source_tol / std::max(std::abs(hex.magnification), 1.0);
@@ -5407,6 +5202,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
 
     PointSourceSafetyEvaluation point_safety;
     bool point_safety_available = false;
+    bool external_contour_recommended = false;
     const auto cache_and_return = [&](FiniteSourceResult result) {
         if (point_safety_available) {
             result.point_source_quadrupole_indicator =
@@ -5421,6 +5217,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 (point_safety.ghost_safe ? 2 : 0) |
                 (point_safety.planetary_safe ? 4 : 0);
         }
+        result.external_contour_recommended = external_contour_recommended;
         result_cache_valid_ = true;
         result_cache_separation_ = separation;
         result_cache_mass_ratio_ = mass_ratio;
@@ -5460,9 +5257,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     // The caustic cache is built (or validated) inside binary_sampled_caustic_distance,
     // making the bbox members available immediately after the call.
     const double bbox_margin = settings_.kinji_threshold * source_radius;
-    const bool adaptive_ir_requested =
-        settings_.adaptive_source_bins != 0 &&
-        (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0);
+    constexpr bool adaptive_ir_requested = false;
     const double adaptive_bbox_margin = adaptive_ir_requested
         ? std::max(bbox_margin, 60.0 * source_radius)
         : bbox_margin;
@@ -5497,6 +5292,27 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     // correct distance.  We pass sampled_dist as a hint to skip the O(N) point scan.
     const double refined_dist = binary_caustic_distance(
         separation, mass_ratio, source, sampled_dist);
+    external_contour_recommended = recommend_external_contour_engine(
+        source_radius,
+        refined_dist,
+        point_source_magnification,
+        settings_.limb_darkening_c,
+        settings_.limb_darkening_d);
+    const auto calibrated_resolution = calibrated_binary_resolution(
+        mass_ratio,
+        source_radius,
+        refined_dist,
+        point_source_magnification,
+        settings_.limb_darkening_c,
+        settings_.finite_source_reltol,
+        settings_.max_source_bins);
+    FiniteSourceSettings runtime_settings = settings_;
+    if (settings_.automatic_source_bins) {
+        runtime_settings.source_bins = calibrated_resolution.source_bins;
+        if (runtime_settings.polar_source_bins <= 0) {
+            runtime_settings.polar_source_bins = calibrated_resolution.source_bins;
+        }
+    }
     const double hex_dist_threshold = settings_.hex_threshold * source_radius;
     const bool near_caustic = refined_dist < hex_dist_threshold;
     double rejected_hex_magnification = std::numeric_limits<double>::quiet_NaN();
@@ -5514,8 +5330,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         };
         double requested_relative =
             settings_.adaptive_hex_threshold > 0.0 ? settings_.adaptive_hex_threshold : 1.0e-3;
-        if (settings_.adaptive_source_bins != 0 &&
-            (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0)) {
+        if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
             requested_relative =
                 settings_.finite_source_reltol +
                 settings_.finite_source_tol / std::max(std::abs(point_source_magnification), 1.0);
@@ -5551,8 +5366,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             point_magnifier, separation, mass_ratio, source, source_radius, settings_,
             known_point);
         double hex_threshold = settings_.adaptive_hex_threshold;
-        if (settings_.adaptive_source_bins != 0 &&
-            (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0)) {
+        if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
             requested_relative =
                 settings_.finite_source_reltol +
                 settings_.finite_source_tol / std::max(std::abs(hex.magnification), 1.0);
@@ -5633,10 +5447,10 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             // rays with the error floor below.
             double coarse = binary_source_plane_chord_quadrature(
                 point_magnifier, separation, mass_ratio, source, source_radius,
-                settings_, 48);
+                runtime_settings, 48);
             double fine = binary_source_plane_chord_quadrature(
                 point_magnifier, separation, mass_ratio, source, source_radius,
-                settings_, 96);
+                runtime_settings, 96);
             int sample_count = 48 * 48 + 96 * 96;
             if (std::isfinite(fine) && std::isfinite(coarse) &&
                 std::abs(fine - coarse) > 1.0e-3 * std::max(std::abs(fine), 1.0)) {
@@ -5645,7 +5459,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 coarse = fine;
                 fine = binary_source_plane_chord_quadrature(
                     point_magnifier, separation, mass_ratio, source, source_radius,
-                    settings_, 160);
+                    runtime_settings, 160);
                 sample_count += 160 * 160;
             }
             if (std::isfinite(fine) && std::isfinite(coarse)) {
@@ -5670,14 +5484,14 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         }
         if (!caustic_enters_disk && scan.min_distance >= source_radius &&
             !tangent_band) {
-            const int fine_bins = std::max(settings_.source_bins, 32);
+            const int fine_bins = std::max(runtime_settings.source_bins, 32);
             const int coarse_bins = std::max(1, fine_bins / 2);
             const auto coarse = binary_source_plane_quadrature(
                 point_magnifier, separation, mass_ratio, source, source_radius,
-                settings_, coarse_bins);
+                runtime_settings, coarse_bins);
             const auto fine = binary_source_plane_quadrature(
                 point_magnifier, separation, mass_ratio, source, source_radius,
-                settings_, fine_bins);
+                runtime_settings, fine_bins);
             if (std::isfinite(fine.magnification)) {
                 const double error_estimate = std::isfinite(coarse.magnification)
                     ? std::abs(fine.magnification - coarse.magnification)
@@ -5723,22 +5537,11 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         return result;
     };
 
-    constexpr double kPolarAutoPointMagnificationThreshold = 100.0;
-    // Small-companion structures (feature scale ~ q*theta_E) below a few
-    // grid cells are handled by the cartesian path, which can escalate its
-    // resolution; keep auto-polar out of that regime.
-    const double auto_q_abs = std::abs(mass_ratio);
-    const double auto_q_small =
-        auto_q_abs < 1.0 ? auto_q_abs : (auto_q_abs > 0.0 ? 1.0 / auto_q_abs : 1.0);
-    const bool companion_resolution_risk =
-        auto_q_small <
-        4.0 * source_radius / static_cast<double>(std::max(settings_.source_bins, 1));
     const bool auto_polar =
         settings_.finite_mode == 4 &&
-        std::abs(point_source_magnification) >= kPolarAutoPointMagnificationThreshold &&
-        !companion_resolution_risk;
+        calibrated_resolution.prefer_polar;
     if (settings_.finite_mode == 2 || auto_polar) {
-        FiniteSourceSettings inverse_ray_settings = settings_;
+        FiniteSourceSettings inverse_ray_settings = runtime_settings;
         if (auto_polar) {
             // Auto mode uses polar only for high magnification, where the polar
             // topology is valuable but the low-magnification radius-aware
@@ -5758,15 +5561,15 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     }
     if (settings_.finite_mode == 3) {
         return cache_and_return(fixed_inverse_ray_spine_binary(
-            point_magnifier, separation, mass_ratio, source, source_radius, settings_, this));
+            point_magnifier, separation, mass_ratio, source, source_radius, runtime_settings, this));
     }
     FiniteSourceDecision decision {
         FiniteSourceMethod::inverse_ray_cartesian,
-        estimate_cartesian_cost(settings_),
+        estimate_cartesian_cost(runtime_settings),
         "cartesian inverse-ray",
     };
     auto result = fixed_inverse_ray_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius, settings_, this, decision,
+        point_magnifier, separation, mass_ratio, source, source_radius, runtime_settings, this, decision,
         refined_dist, rejected_hex_magnification, center_image_seeds);
     return cache_and_return(apply_tangent_band_floor(std::move(result)));
 }

@@ -78,8 +78,8 @@ class TestPhase2GridSpacingRefinement:
 class TestPhase3ErrorFloor:
     """Phase 3: Error floor prevents accepting insufficient bins."""
 
-    def test_error_floor_rejects_insufficient_bins(self):
-        """High-precision targets auto-refine even if low-bins converge self-consistently."""
+    def test_auto_nbin_is_one_shot_for_tight_tolerance(self):
+        """A tight target is handled by preselection, never runtime refinement."""
         case = Case(
             name="wide_caustic",
             separation=0.95, mass_ratio=0.01,
@@ -90,29 +90,22 @@ class TestPhase3ErrorFloor:
 
         # Tight tolerance: 0.01% (requires significant bins)
         opts_tight = lcbinint.Options(
-            source_bins=20,
-            adaptive_source_bins=1,
+            nbin="auto",
             max_source_bins=200,
             reltol=1e-4,  # 0.01% target
         )
         result_tight = lc_curve(case, times, opts_tight)
         refinement_levels = np.array(result_tight.finite_source_refinement_levels)
 
-        # Phase 3 check: tight tolerance should trigger refinement
-        # even if bins=20 alone might appear self-consistent
-        assert np.any(refinement_levels > 0), \
-            "Tight tolerance (1e-4) should trigger adaptive refinement from bins=20"
-
-        # At least some points should refine substantially
-        assert np.max(refinement_levels) >= 1, \
-            "Should refine at least to bins=40+ for 0.01% target"
+        assert np.all(np.isfinite(result_tight.magnifications))
+        assert np.all(refinement_levels == 0)
 
 
-class TestPhase4PredictiveRefinement:
-    """Phase 4: Predictive refinement reduces iteration count."""
+class TestOneShotAutoResolution:
+    """The calibrated selector does not perform iterative refinement."""
 
-    def test_fewer_refinement_iterations(self):
-        """Predictive refinement stays bounded and reports hard points honestly."""
+    def test_no_refinement_iterations(self):
+        """Automatic resolution stays one-shot and reports hard points honestly."""
         case = Case(
             name="wide_caustic",
             separation=0.95, mass_ratio=0.01,
@@ -123,8 +116,7 @@ class TestPhase4PredictiveRefinement:
 
         # Moderate tolerance
         opts = lcbinint.Options(
-            source_bins=30,
-            adaptive_source_bins=1,
+            nbin="auto",
             max_source_bins=200,
             reltol=1e-3,  # 0.1% target
         )
@@ -133,14 +125,10 @@ class TestPhase4PredictiveRefinement:
         refinement_levels = np.array(result.finite_source_refinement_levels)
         converged = np.array(result.finite_source_converged)
 
-        # Local refinement records sub-cell depth, not the old global bins-doubling
-        # iteration count. Depth 3 is valid for this wide-caustic stress case.
         max_iterations = np.max(refinement_levels)
-        assert max_iterations <= 3, \
-            f"Predictive refinement should stay bounded, got depth {max_iterations}"
+        assert max_iterations == 0
 
-        assert np.all(np.isfinite(mag)), "Adaptive refinement should return finite magnifications"
-        assert np.any(refinement_levels > 0), "Stress case should trigger local refinement"
+        assert np.all(np.isfinite(mag)), "Auto nbin should return finite magnifications"
         assert result.all_converged == bool(np.all(converged))
         assert len(result.unconverged_indices) == int(np.count_nonzero(~converged))
 
@@ -183,8 +171,7 @@ class TestRegressionNoPerformanceDegradation:
 
         # Adaptive with 1% target (looser tolerance for reliability)
         opts = lcbinint.Options(
-            source_bins=50,
-            adaptive_source_bins=1,
+            nbin="auto",
             max_source_bins=200,
             reltol=1e-2,  # 1% target
         )
@@ -231,8 +218,7 @@ class TestEdgeCases:
         times = np.linspace(case.t_min, case.t_max, case.n_times)
 
         opts = lcbinint.Options(
-            source_bins=20,
-            adaptive_source_bins=1,
+            nbin="auto",
             max_source_bins=200,
             reltol=1e-4
         )
