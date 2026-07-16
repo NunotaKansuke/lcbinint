@@ -188,7 +188,7 @@ def test_flux_theta_star_and_gapmoe_distance_marginalize_together():
     model.param("piEE", lcbinint.bayes.Uniform(-1.0, 1.0))
     theta = [*theta, math.log(0.005), 0.1, 0.05]
 
-    @model.theta_star(samples=4, seed=19)
+    @model.theta_star(samples=4, seed=19, mode="proposal")
     def _(fluxes):
         return math.log(0.005 * abs(fluxes["tiny"]["Fs"]) / 900.0), 0.1
 
@@ -199,6 +199,8 @@ def test_flux_theta_star_and_gapmoe_distance_marginalize_together():
     reference_edges = np.linspace(-8.0, 20.0, 57)
     color_edges = np.linspace(-2.0, 8.0, 41)
     density = np.full((11, 56, 40), 1.0 / 280.0)
+    mean_log_radius = math.log(8.0)
+    variance_log_radius = 0.3**2
     isochrone = IsochroneModel(
         reference_band="Imag",
         color_bands=("Vmag", "Imag"),
@@ -207,6 +209,10 @@ def test_flux_theta_star_and_gapmoe_distance_marginalize_together():
             reference_edges=reference_edges,
             color_edges=color_edges,
             density_by_component=density,
+            log_radius_moment_by_component=density * mean_log_radius,
+            log_radius_square_moment_by_component=(
+                density * (mean_log_radius**2 + variance_log_radius)
+            ),
         ),
     )
     galaxy = (
@@ -220,7 +226,8 @@ def test_flux_theta_star_and_gapmoe_distance_marginalize_together():
         .galactic_model(isochrone)
     )
     prior = galaxy.parameterize(
-        gapmoe.ParamType(parallax=True, distance="marginalize")
+        gapmoe.ParamType(parallax=True, distance="marginalize"),
+        source_radius=True,
     )
 
     model.galactic_prior(
@@ -348,12 +355,15 @@ def test_kepler_lom_runs_with_flux_theta_star_marginalization():
         model.param(name, prior)
     model.likelihood("gaussian", flux="marginalize")
 
-    @model.theta_star(samples=4, seed=31)
+    @model.theta_star(samples=4, seed=31, mode="proposal")
     def _(fluxes):
         return math.log(0.005 * abs(fluxes["tiny"]["Fs"]) / 900.0), 0.05
 
     reference_edges = np.linspace(-8.0, 20.0, 57)
     color_edges = np.linspace(-2.0, 8.0, 41)
+    density = np.full((11, 56, 40), 1.0 / 280.0)
+    mean_log_radius = math.log(8.0)
+    variance_log_radius = 0.3**2
     isochrone = IsochroneModel(
         reference_band="Imag",
         color_bands=("Vmag", "Imag"),
@@ -361,7 +371,11 @@ def test_kepler_lom_runs_with_flux_theta_star_marginalization():
             coordinates=CmdCoordinates("Imag", "Vmag", "Imag"),
             reference_edges=reference_edges,
             color_edges=color_edges,
-            density_by_component=np.full((11, 56, 40), 1.0 / 280.0),
+            density_by_component=density,
+            log_radius_moment_by_component=density * mean_log_radius,
+            log_radius_square_moment_by_component=(
+                density * (mean_log_radius**2 + variance_log_radius)
+            ),
         ),
     )
     galaxy = (
@@ -375,7 +389,8 @@ def test_kepler_lom_runs_with_flux_theta_star_marginalization():
         .galactic_model(isochrone)
     )
     prior = galaxy.parameterize(
-        gapmoe.ParamType(parallax=True, orbital_motion="kepler")
+        gapmoe.ParamType(parallax=True, orbital_motion="kepler"),
+        source_radius=True,
     )
     model.galactic_prior(
         prior,

@@ -119,6 +119,15 @@ def _theta_star_result(fn, fluxes):
     return center, sigma
 
 
+def _theta_star_proposal_log_density(log_theta_star, center, sigma):
+    if sigma <= 0.0:
+        raise ValueError(
+            "theta_star(mode='proposal') requires log_sigma > 0"
+        )
+    z = (log_theta_star - center) / sigma
+    return -0.5 * z * z - math.log(sigma) - 0.5 * math.log(2.0 * math.pi)
+
+
 def _logmeanexp(values):
     values = np.asarray(values, dtype=float)
     finite = np.isfinite(values)
@@ -229,6 +238,7 @@ def _marginalize_theta_star(
 
     samples = []
     likelihood_contexts = []
+    proposal_log_densities = []
     invalid_count = 0
 
     if conditionals:
@@ -250,6 +260,10 @@ def _marginalize_theta_star(
             continue
 
         if sigma == 0.0:
+            if options["mode"] == "proposal":
+                raise ValueError(
+                    "theta_star(mode='proposal') requires log_sigma > 0"
+                )
             theta_stars = [math.exp(center)]
         elif conditionals:
             theta_stars = [math.exp(center + sigma * ndtri(theta_uniform))]
@@ -265,6 +279,13 @@ def _marginalize_theta_star(
             current = dict(vals)
             current["thetaS"] = float(theta_star)
             samples.append(current)
+            proposal_log_densities.append(
+                _theta_star_proposal_log_density(
+                    math.log(theta_star), center, sigma
+                )
+                if options["mode"] == "proposal"
+                else 0.0
+            )
             likelihood_contexts.append(
                 LikelihoodContext(
                     fluxes=draw,
@@ -279,6 +300,7 @@ def _marginalize_theta_star(
     log_weights = _evaluate_extra_priors_many(
         priors, samples, likelihood_contexts
     )
+    log_weights -= np.asarray(proposal_log_densities)
     if invalid_count:
         log_weights = np.concatenate(
             [log_weights, np.full(invalid_count, float("-inf"))]
@@ -1054,7 +1076,7 @@ def _build_model_class(cpp_base):
 
         # --- prior ---
 
-        def theta_star(self, fn=None, *, samples=256, seed=0):
+        def theta_star(self, fn=None, *, samples=256, seed=0, mode="prior"):
             """Set the log-space thetaS relation evaluated from fitted fluxes.
 
             The callable receives the complete flux dictionary and returns
@@ -1062,12 +1084,15 @@ def _build_model_class(cpp_base):
             is never a sampling parameter. A positive sigma is marginalized;
             zero fixes ``thetaS = exp(log_center)``. Marginalized fluxes and
             thetaS use ``samples`` scrambled Sobol draws (default 256).
+            ``mode='proposal'`` treats the returned log-normal only as an
+            importance proposal and removes its density from the integral.
             """
             if fn is None:
                 return lambda decorated: self.theta_star(
                     decorated,
                     samples=samples,
                     seed=seed,
+                    mode=mode,
                 )
             if not callable(fn):
                 raise TypeError(
@@ -1079,10 +1104,13 @@ def _build_model_class(cpp_base):
                 raise ValueError("theta_star() samples must be a positive integer")
             if isinstance(seed, bool) or int(seed) != seed or seed < 0:
                 raise ValueError("theta_star() seed must be a non-negative integer")
+            if mode not in {"prior", "proposal"}:
+                raise ValueError("theta_star() mode must be 'prior' or 'proposal'")
             self._theta_star_fn = fn
             self._theta_star_options = {
                 "samples": int(samples),
                 "seed": int(seed),
+                "mode": mode,
             }
             return fn
 
@@ -1256,6 +1284,8 @@ def _build_model_class(cpp_base):
                         [item[0] for item in candidates],
                         candidate_contexts,
                     )
+                    if self._theta_star_options["mode"] == "proposal":
+                        weights -= np.asarray([item[2] for item in candidates])
                     finite = np.isfinite(weights)
                     if not np.any(finite):
                         raise RuntimeError(
@@ -1264,7 +1294,9 @@ def _build_model_class(cpp_base):
                     peak = np.max(weights[finite])
                     probs = np.where(finite, np.exp(weights - peak), 0.0)
                     probs /= probs.sum()
-                    vals, fluxes = candidates[int(rng.choice(len(candidates), p=probs))]
+                    vals, fluxes, _ = candidates[
+                        int(rng.choice(len(candidates), p=probs))
+                    ]
 
                 missing = [name for name in names if name not in vals]
                 if missing:
@@ -1339,6 +1371,10 @@ def _build_model_class(cpp_base):
                 draw = _draw_fluxes(fluxes, conditionals, point[:-1])
                 try:
                     center, sigma = _theta_star_result(self._theta_star_fn, draw)
+                    if options["mode"] == "proposal" and sigma <= 0.0:
+                        raise ValueError(
+                            "theta_star(mode='proposal') requires log_sigma > 0"
+                        )
                     theta_star = math.exp(
                         center if sigma == 0.0 else center + sigma * ndtri(point[-1])
                     )
@@ -1346,7 +1382,14 @@ def _build_model_class(cpp_base):
                     continue
                 current = dict(vals)
                 current["thetaS"] = theta_star
-                candidates.append((current, draw))
+                proposal_log_density = (
+                    _theta_star_proposal_log_density(
+                        math.log(theta_star), center, sigma
+                    )
+                    if options["mode"] == "proposal"
+                    else 0.0
+                )
+                candidates.append((current, draw, proposal_log_density))
             if not candidates:
                 raise RuntimeError("theta_star() produced no valid conditional draws")
             return candidates

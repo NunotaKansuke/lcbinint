@@ -135,6 +135,28 @@ Do not register `thetaS` with `model.param()` and do not put `thS` in the
 Galactic context. A flux-dependent relation uses the same entry point and
 returns a positive log-space scatter, which lcbinint marginalizes internally.
 
+When gapmoe supplies the thetaS density jointly with isochrone photometry and
+source distance, use the theta-star relation only as an importance proposal:
+
+```python
+galactic_prior = galaxy.parameterize(
+    gapmoe.ParamType(parallax=False, distance="marginalize"),
+    integration_samples=512,
+    source_radius=True,
+)
+
+@model.theta_star(samples=256, mode="proposal")
+def theta_star_proposal(fluxes):
+    return proposal_log_center(fluxes), proposal_log_sigma(fluxes)
+
+model.galactic_prior(galactic_prior, magnitudes=source_magnitudes)
+```
+
+`mode="proposal"` subtracts the log-normal proposal density from every Sobol
+draw, so the isochrone term is the thetaS prior rather than being multiplied by
+an additional empirical thetaS prior. The proposal width must be positive and
+wide enough to cover the isochrone-supported thetaS range.
+
 For no-parallax Flow analyses, `DL` and `DS` may be registered as ordinary
 sampled parameters; they are auxiliary to the magnification calculation and
 are consumed by the external Galactic prior. If they are omitted, gapmoe may

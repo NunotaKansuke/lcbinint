@@ -285,6 +285,57 @@ def test_theta_star_without_parameter_is_marginalized():
     assert model.log_prob(theta) == pytest.approx(expected)
 
 
+def test_theta_star_proposal_density_is_removed_from_integral():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, true = _make_model(lcbinint, np)
+    center = math.log(0.7)
+    sigma = 0.2
+
+    @model.theta_star(samples=32, seed=5, mode="proposal")
+    def _(_fluxes):
+        return center, sigma
+
+    @model.prior
+    def _(thetaS, **_):
+        z = (math.log(thetaS) - center) / sigma
+        return -0.5 * z * z - math.log(sigma) - 0.5 * math.log(2.0 * math.pi)
+
+    theta = [
+        true["t0"],
+        math.log(true["tE"]),
+        true["u0"],
+        true["s"],
+        math.log(true["q"]),
+        true["alpha"],
+        true["piEN"],
+        true["piEE"],
+    ]
+
+    assert model.log_prob(theta) == pytest.approx(
+        model.log_prior(theta) + model.log_likelihood(theta)
+    )
+
+
+def test_theta_star_proposal_requires_nonzero_width():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, true = _make_model(lcbinint, np)
+
+    @model.theta_star(mode="proposal")
+    def _(_fluxes):
+        return math.log(0.7), 0.0
+
+    theta = [
+        true["t0"], math.log(true["tE"]), true["u0"], true["s"],
+        math.log(true["q"]), true["alpha"], true["piEN"], true["piEE"],
+    ]
+    with pytest.raises(ValueError, match="requires log_sigma > 0"):
+        model.log_prob(theta)
+
+
 def test_theta_star_marginalization_applies_hard_prior_bounds():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
