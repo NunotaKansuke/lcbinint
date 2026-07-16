@@ -54,6 +54,13 @@ public:
     void step(std::function<double(const std::vector<double>&)> log_prob_fn,
               SamplerState& state);
 
+    // Batch callback variant. Proposals from each half-ensemble are evaluated
+    // together while preserving the scalar path's random-number ordering.
+    void step_batch(
+        std::function<std::vector<double>(
+            const std::vector<std::vector<double>>&)> log_prob_batch_fn,
+        SamplerState& state);
+
     // Build a Chain from a SamplerState (copies all accumulated steps).
     // Typically called after the step loop; discard removes leading burnin rows.
     Chain collect(bayes::Model& model, const SamplerState& state, int discard = 0) const;

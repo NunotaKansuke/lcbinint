@@ -341,6 +341,66 @@ void EnsembleSampler::step(std::function<double(const std::vector<double>&)> log
     state.hist_lp.insert(state.hist_lp.end(), state.log_prob.begin(), state.log_prob.end());
 }
 
+void EnsembleSampler::step_batch(
+    std::function<std::vector<double>(
+        const std::vector<std::vector<double>>&)> log_prob_batch_fn,
+    SamplerState& state)
+{
+    const int NW   = state.nwalkers;
+    const int ndim = state.ndim;
+    const int half = NW / 2;
+
+    auto rand01 = [&]{ return std::uniform_real_distribution<double>(0,1)(state.rng); };
+
+    std::vector<std::vector<double>> complement(half, std::vector<double>(ndim));
+    std::vector<std::vector<double>> proposals(half);
+    std::vector<double> log_factors(half);
+    std::vector<double> log_uniforms(half);
+    std::vector<double> cur(ndim);
+
+    for (int half_idx = 0; half_idx < 2; ++half_idx) {
+        const int begin_this = half_idx == 0 ? 0    : half;
+        const int begin_comp = half_idx == 0 ? half : 0;
+
+        for (int i = 0; i < half; ++i)
+            std::copy(state.pos_row(begin_comp + i),
+                      state.pos_row(begin_comp + i) + ndim,
+                      complement[i].begin());
+
+        for (int i = 0; i < half; ++i) {
+            const int k = begin_this + i;
+            std::copy(state.pos_row(k), state.pos_row(k) + ndim, cur.begin());
+            auto [proposal, log_factor] =
+                move_->propose(cur, complement, state.rng, ndim);
+            proposals[i] = std::move(proposal);
+            log_factors[i] = log_factor;
+            log_uniforms[i] = std::log(rand01());
+        }
+
+        const std::vector<double> proposed_log_prob =
+            log_prob_batch_fn(proposals);
+        if (static_cast<int>(proposed_log_prob.size()) != half)
+            throw std::runtime_error(
+                "batch log_prob must return one value per proposal");
+
+        for (int i = 0; i < half; ++i) {
+            const int k = begin_this + i;
+            const double log_acc =
+                log_factors[i] + proposed_log_prob[i] - state.log_prob[k];
+            if (log_uniforms[i] <= log_acc) {
+                std::copy(proposals[i].begin(), proposals[i].end(), state.pos_row(k));
+                state.log_prob[k] = proposed_log_prob[i];
+                ++state.n_accepted;
+            }
+            ++state.n_total;
+        }
+    }
+    ++state.n_step;
+
+    state.history.insert(state.history.end(), state.pos.begin(), state.pos.end());
+    state.hist_lp.insert(state.hist_lp.end(), state.log_prob.begin(), state.log_prob.end());
+}
+
 // ---------------------------------------------------------------------------
 // collect: build Chain from accumulated history in SamplerState.
 // discard: number of leading steps to skip (burn-in).

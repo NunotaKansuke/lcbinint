@@ -49,6 +49,8 @@ def _make_model(lcbinint, np, reparam=False, flux_mode=None):
         model.param("Fs_tiny", lcbinint.bayes.Uniform(-1.0e5, 1.0e5))
         model.param("Fb_tiny", lcbinint.bayes.Uniform(-1.0e5, 1.0e5))
         model.likelihood("gaussian", flux="sample")
+    elif flux_mode == "marginalize":
+        model.likelihood("gaussian", flux="marginalize")
     else:
         model.likelihood("gaussian")
     return model, true
@@ -151,7 +153,7 @@ def test_galactic_context_receives_sampled_fluxes():
     assert seen == {"Fs": 950.0, "Fb": 30.0, "flux_mode": "sample"}
 
 
-def test_galactic_joint_photometry_receives_fitted_fluxes():
+def test_galactic_conditional_photometry_receives_fitted_fluxes():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
 
@@ -163,10 +165,6 @@ def test_galactic_joint_photometry_receives_fitted_fluxes():
 
         @staticmethod
         def log_density(theta, context=None, magnitudes=None):
-            raise AssertionError("joint source photometry must use log_joint_density")
-
-        @staticmethod
-        def log_joint_density(theta, context=None, magnitudes=None):
             seen.update(magnitudes)
             return -0.5 * magnitudes["Imag"] ** 2
 
@@ -191,6 +189,63 @@ def test_galactic_joint_photometry_receives_fitted_fluxes():
     expected = model.log_prior(theta) + model.log_likelihood(theta) - 0.5 * fitted**2
     assert model.log_prob(theta) == pytest.approx(expected)
     assert seen == {"Imag": pytest.approx(fitted)}
+
+
+@pytest.mark.parametrize(
+    ("flux_mode", "expected_context_mode"),
+    [
+        ("fit", "fit"),
+        ("sample", "sample"),
+        ("marginalize", "conditional_draw"),
+    ],
+)
+def test_source_flux_conditions_galactic_density_in_every_flux_mode(
+    flux_mode,
+    expected_context_mode,
+):
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+    model, true = _make_model(lcbinint, np, flux_mode=flux_mode)
+    seen_modes = []
+
+    @model.theta_star(samples=8, seed=7)
+    def _(_fluxes):
+        return math.log(0.005), 0.0
+
+    class ConditionalGalaxy:
+        names = ("tE", "thetaS")
+
+        @staticmethod
+        def log_density(theta, context=None, magnitudes=None):
+            return -0.5 * (magnitudes["Imag"] - 1.0) ** 2
+
+        @staticmethod
+        def log_joint_density(*args, **kwargs):
+            raise AssertionError("lcbinint must not add the marginal CMD density")
+
+    model.galactic_prior(
+        ConditionalGalaxy(),
+        magnitudes=lambda params, likelihood: (
+            seen_modes.append(likelihood.flux_mode)
+            or {"Imag": likelihood.fluxes["tiny"]["Fs"] / 1000.0}
+        ),
+    )
+    theta = [
+        true["t0"],
+        math.log(true["tE"]),
+        true["u0"],
+        true["s"],
+        math.log(true["q"]),
+        true["alpha"],
+        true["piEN"],
+        true["piEE"],
+    ]
+    if flux_mode == "sample":
+        theta.extend((1000.0, 25.0))
+
+    assert math.isfinite(model.log_prob(theta))
+    assert seen_modes
+    assert set(seen_modes) == {expected_context_mode}
 
 
 def test_theta_star_cannot_be_registered_as_a_sampled_parameter():

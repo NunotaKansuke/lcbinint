@@ -99,7 +99,6 @@ def test_flux_aware_galactic_magnitudes_reject_marginalized_flux():
     galaxy = SimpleNamespace(
         names=("tE",),
         log_density=lambda values, **kwargs: 0.0,
-        log_joint_density=lambda values, **kwargs: 0.0,
     )
     model.galactic_prior(
         galaxy,
@@ -145,6 +144,32 @@ def test_theta_star_marginalizes_conditional_student_t_flux():
     assert model.log_prob(theta) == pytest.approx(base_prob + expected_extra)
 
 
+def test_theta_star_qmc_matches_analytic_lognormal_expectation():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("scipy")
+
+    model, _, theta, _ = _make_model(lcbinint, np)
+    center = math.log(0.005)
+    sigma = 0.3
+    power = 0.7
+
+    @model.theta_star(samples=4096, seed=31)
+    def _(_fluxes):
+        return center, sigma
+
+    @model.prior
+    def _(thetaS, **_):
+        return power * math.log(thetaS)
+
+    base_prob, _, _ = model._log_prob_and_fluxes(theta)
+    expected_extra = power * center + 0.5 * power**2 * sigma**2
+
+    assert model.log_prob(theta) - base_prob == pytest.approx(
+        expected_extra, abs=2.0e-4
+    )
+
+
 def test_marginalized_flux_sampler_records_conditional_best_fit_fluxes():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
@@ -179,7 +204,6 @@ def test_flux_theta_star_and_gapmoe_distance_marginalize_together():
     lcbinint = pytest.importorskip("lcbinint")
     gapmoe = pytest.importorskip("gapmoe")
     np = pytest.importorskip("numpy")
-    from gapmoe.priors.high_level import IsochroneModel
     from gapmoe.source_selection import CmdCoordinates, CmdPriorTable
 
     model, _, theta, _ = _make_model(lcbinint, np)
@@ -197,7 +221,7 @@ def test_flux_theta_star_and_gapmoe_distance_marginalize_together():
     density = np.full((11, 56, 40), 1.0 / 280.0)
     mean_log_radius = math.log(8.0)
     variance_log_radius = 0.3**2
-    isochrone = IsochroneModel(
+    isochrone = gapmoe.Isochrone(
         reference_band="Imag",
         color_bands=("Vmag", "Imag"),
         table=CmdPriorTable(
@@ -211,18 +235,13 @@ def test_flux_theta_star_and_gapmoe_distance_marginalize_together():
             ),
         ),
     )
-    galaxy = (
-        gapmoe.Model()
-        .set(
-            l=0.25,
-            b=-3.75,
-            extinction={"Imag": 1.2, "Vmag": 2.0},
-        )
-        .set_flow(release="rate-included-v1")
-        .galactic_model(isochrone)
-    )
-    prior = galaxy.parameterize(
+    prior = gapmoe.Model(
         gapmoe.ParamType(parallax=True, distance="marginalize"),
+        l=0.25,
+        b=-3.75,
+        extinction={"Imag": 1.2, "Vmag": 2.0},
+        source=isochrone,
+        backend=gapmoe.Flow("rate-included-v1"),
         integration_samples=16,
     )
 
@@ -259,10 +278,6 @@ def test_sampler_runs_full_flux_theta_star_galactic_marginalization(tmp_path):
 
         @staticmethod
         def log_density(theta, context=None, magnitudes=None):
-            return -0.5 * jnp.sum(jnp.asarray(theta) ** 2)
-
-        @staticmethod
-        def log_joint_density(theta, context=None, magnitudes=None):
             return (
                 -0.5 * (theta[0] / 100.0) ** 2
                 -0.5 * (theta[1] / 10.0) ** 2
@@ -302,7 +317,6 @@ def test_kepler_lom_runs_with_flux_theta_star_marginalization():
     lcbinint = pytest.importorskip("lcbinint")
     gapmoe = pytest.importorskip("gapmoe")
     np = pytest.importorskip("numpy")
-    from gapmoe.priors.high_level import IsochroneModel
     from gapmoe.source_selection import CmdCoordinates, CmdPriorTable
 
     true = {
@@ -358,7 +372,7 @@ def test_kepler_lom_runs_with_flux_theta_star_marginalization():
     density = np.full((11, 56, 40), 1.0 / 280.0)
     mean_log_radius = math.log(8.0)
     variance_log_radius = 0.3**2
-    isochrone = IsochroneModel(
+    isochrone = gapmoe.Isochrone(
         reference_band="Imag",
         color_bands=("Vmag", "Imag"),
         table=CmdPriorTable(
@@ -372,18 +386,13 @@ def test_kepler_lom_runs_with_flux_theta_star_marginalization():
             ),
         ),
     )
-    galaxy = (
-        gapmoe.Model()
-        .set(
-            l=0.25,
-            b=-3.75,
-            extinction={"Imag": 1.2, "Vmag": 2.0},
-        )
-        .set_flow(release="rate-included-v1")
-        .galactic_model(isochrone)
-    )
-    prior = galaxy.parameterize(
+    prior = gapmoe.Model(
         gapmoe.ParamType(parallax=True, orbital_motion="kepler"),
+        l=0.25,
+        b=-3.75,
+        extinction={"Imag": 1.2, "Vmag": 2.0},
+        source=isochrone,
+        backend=gapmoe.Flow("rate-included-v1"),
         integration_samples=16,
     )
 

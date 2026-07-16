@@ -169,7 +169,9 @@ def _draw_fluxes(fluxes, conditionals, uniforms):
     return draw
 
 
-def _evaluate_extra_priors_many(priors, values, likelihood_contexts=None):
+def _evaluate_extra_priors_many(
+    priors, values, likelihood_contexts=None, *, return_values=False
+):
     current = [dict(vals) for vals in values]
     if likelihood_contexts is None:
         likelihood_contexts = [None] * len(current)
@@ -211,7 +213,7 @@ def _evaluate_extra_priors_many(priors, values, likelihood_contexts=None):
                     else:
                         derived = fn.physical_values(vals)
                     vals.update(derived)
-    return totals
+    return (totals, current) if return_values else totals
 
 
 def _ordered_extra_priors(priors, vals):
@@ -229,12 +231,11 @@ def _ordered_extra_priors(priors, vals):
     return early + galactic + derived
 
 
-def _marginalize_theta_star(
+def _theta_star_candidates(
     fn,
     vals,
     fluxes,
     conditionals,
-    priors,
     options,
     flux_mode,
 ):
@@ -287,6 +288,26 @@ def _marginalize_theta_star(
                 )
             )
 
+    return samples, likelihood_contexts, invalid_count
+
+
+def _marginalize_theta_star(
+    fn,
+    vals,
+    fluxes,
+    conditionals,
+    priors,
+    options,
+    flux_mode,
+):
+    samples, likelihood_contexts, invalid_count = _theta_star_candidates(
+        fn,
+        vals,
+        fluxes,
+        conditionals,
+        options,
+        flux_mode,
+    )
     if not samples:
         return float("-inf")
     log_weights = _evaluate_extra_priors_many(
@@ -304,10 +325,9 @@ def _matching_isochrone_term(priors, isochrone):
     for term in priors:
         if not isinstance(term, _GalacticModelTerm):
             continue
-        provider_galaxy = getattr(term.galaxy, "galaxy", None)
         if (
-            getattr(provider_galaxy, "isochrone", None) is isochrone
-            and hasattr(term.galaxy, "_isochrone_joint_terms")
+            getattr(term.galaxy, "isochrone", None) is isochrone
+            and hasattr(term.galaxy, "_isochrone_conditional_terms")
         ):
             matches.append(term)
     if len(matches) != 1:
@@ -318,7 +338,7 @@ def _matching_isochrone_term(priors, isochrone):
     return matches[0]
 
 
-def _isochrone_joint_candidates(
+def _isochrone_conditional_candidates(
     fn,
     isochrone,
     vals,
@@ -382,7 +402,7 @@ def _isochrone_joint_candidates(
         )
     theta = [vals[name] for name in term.names]
     context = term._context(vals, None)
-    result = term.galaxy._isochrone_joint_terms(
+    result = term.galaxy._isochrone_conditional_terms(
         theta,
         magnitudes=stacked_magnitudes,
         context=context,
@@ -422,7 +442,7 @@ def _isochrone_joint_candidates(
 
 
 def _marginalize_isochrone_theta_star(*args, **kwargs):
-    _, log_terms, _ = _isochrone_joint_candidates(*args, **kwargs)
+    _, log_terms, _ = _isochrone_conditional_candidates(*args, **kwargs)
     return _logmeanexp(log_terms)
 
 
@@ -500,15 +520,7 @@ class _GalacticModelTerm:
             kwargs["context"] = context
         if magnitudes is not None:
             kwargs["magnitudes"] = magnitudes
-        evaluator = self.galaxy.log_density
-        if magnitudes is not None:
-            evaluator = getattr(self.galaxy, "log_joint_density", None)
-            if evaluator is None:
-                raise TypeError(
-                    "galactic_prior() source magnitudes require "
-                    "galaxy.log_joint_density()"
-                )
-        return float(evaluator(theta, **kwargs))
+        return float(self.galaxy.log_density(theta, **kwargs))
 
     def physical_values(self, vals, likelihood_context=None):
         theta = [vals[name] for name in self.names]
@@ -585,7 +597,7 @@ class _GalacticModelTerm:
             if self._batch_fn is None or self._batch_key != batch_key:
                 galaxy = self.galaxy
                 if has_context and has_magnitudes:
-                    one = lambda theta, ctx, mags: galaxy.log_joint_density(
+                    one = lambda theta, ctx, mags: galaxy.log_density(
                         theta, context=ctx, magnitudes=mags
                     )
                     self._batch_fn = jax.jit(jax.vmap(one))
@@ -595,7 +607,7 @@ class _GalacticModelTerm:
                     )
                     self._batch_fn = jax.jit(jax.vmap(one))
                 elif has_magnitudes:
-                    one = lambda theta, mags: galaxy.log_joint_density(
+                    one = lambda theta, mags: galaxy.log_density(
                         theta, magnitudes=mags
                     )
                     self._batch_fn = jax.jit(jax.vmap(one))
@@ -849,6 +861,134 @@ class _SamplingAdapter:
             if not math.isfinite(lp):
                 return lp
         return lp
+
+    def log_prob_batch(self, theta_batch):
+        """Evaluate an ensemble proposal batch with batched extra priors."""
+        rows = [list(theta) for theta in theta_batch]
+        if not rows:
+            return []
+
+        # Isochrone theta-star marginalization already batches its internal
+        # quadrature. Combining that axis with walkers needs a provider-level
+        # API, so retain the scalar behavior for this less common path.
+        if self._model._theta_star_isochrone is not None:
+            return [self.log_prob(theta) for theta in rows]
+
+        self._model.validate()
+        phys_model = self._ensure_physical_model()
+        results = np.full(len(rows), float("-inf"), dtype=float)
+        values = [None] * len(rows)
+        contexts = [None] * len(rows)
+        active = []
+
+        for index, theta in enumerate(rows):
+            phys = self._theta_to_physical(theta)
+            lp = self._log_prior(theta, phys)
+            if not math.isfinite(lp):
+                results[index] = lp
+                continue
+
+            vals = dict(phys)
+            if any(not _call_guard(fn, vals) for fn in self._model._guards):
+                continue
+            if any(
+                isinstance(fn, _GalacticModelTerm) and not fn.precheck(vals)
+                for fn in self._model._extra_priors
+            ):
+                continue
+
+            phys_theta = [phys[name] for name in self._phys_names]
+            base_prob, fluxes, conditionals = phys_model._log_prob_and_fluxes(
+                phys_theta
+            )
+            if not math.isfinite(base_prob):
+                results[index] = base_prob
+                continue
+
+            self._aux_cache[tuple(theta)] = (fluxes, conditionals)
+            results[index] = (
+                lp + base_prob - phys_model.log_prior(phys_theta)
+            )
+            values[index] = vals
+            contexts[index] = LikelihoodContext(
+                fluxes=fluxes,
+                conditionals=conditionals,
+                flux_mode=self._model._lik_kwargs.get("flux"),
+            )
+            active.append(index)
+
+        if not active:
+            return results.tolist()
+
+        if self._model._theta_star_fn is None:
+            prior_totals, prior_values = _evaluate_extra_priors_many(
+                self._model._extra_priors,
+                [values[index] for index in active],
+                [contexts[index] for index in active],
+                return_values=True,
+            )
+            for local, index in enumerate(active):
+                results[index] += prior_totals[local]
+                values[index] = prior_values[local]
+        else:
+            candidate_values = []
+            candidate_contexts = []
+            groups = []
+            for index in active:
+                samples, sample_contexts, invalid_count = _theta_star_candidates(
+                    self._model._theta_star_fn,
+                    values[index],
+                    contexts[index].fluxes,
+                    contexts[index].conditionals,
+                    self._model._theta_star_options,
+                    self._model._lik_kwargs["flux"],
+                )
+                begin = len(candidate_values)
+                candidate_values.extend(samples)
+                candidate_contexts.extend(sample_contexts)
+                groups.append((index, begin, len(candidate_values), invalid_count))
+
+            group_sizes = [end - begin for _, begin, end, _ in groups]
+            if all(size == 1 for size in group_sizes):
+                candidate_weights = _evaluate_extra_priors_many(
+                    self._model._extra_priors,
+                    candidate_values,
+                    candidate_contexts,
+                )
+            else:
+                # Keep nested flux/thetaS quadrature separate by walker. A
+                # flattened walker x quadrature x Galactic-QMC array can be
+                # much larger than either useful batching axis.
+                candidate_weights = np.empty(len(candidate_values), dtype=float)
+                for _, begin, end, _ in groups:
+                    candidate_weights[begin:end] = _evaluate_extra_priors_many(
+                        self._model._extra_priors,
+                        candidate_values[begin:end],
+                        candidate_contexts[begin:end],
+                    )
+            for index, begin, end, invalid_count in groups:
+                weights = candidate_weights[begin:end]
+                if invalid_count:
+                    weights = np.concatenate([
+                        weights,
+                        np.full(invalid_count, float("-inf")),
+                    ])
+                results[index] += _logmeanexp(weights)
+
+        for index in active:
+            if not math.isfinite(results[index]):
+                continue
+            vals = values[index]
+            likelihood_context = contexts[index]
+            for fn, wants_context in self._model._extra_liks:
+                if wants_context:
+                    results[index] += fn(**vals, context=likelihood_context)
+                else:
+                    results[index] += fn(**vals)
+                if not math.isfinite(results[index]):
+                    break
+
+        return results.tolist()
 
     def consume_current_aux(self, positions):
         """Return cached likelihood auxiliaries for accepted walker positions."""
@@ -1288,8 +1428,17 @@ def _build_model_class(cpp_base):
             A two-argument callable ``context(params, likelihood)`` also
             receives a :class:`LikelihoodContext`. ``magnitudes`` may be a
             fixed dict or a callable with the same one- or two-argument forms.
-            Source magnitudes always contribute their joint density.
+            Source magnitudes condition the Galactic density; their marginal
+            CMD density is not added as a prior on source flux.
             """
+            if any(
+                isinstance(item, _GalacticModelTerm)
+                for item in self._extra_priors
+            ):
+                raise RuntimeError(
+                    "galactic_prior() is already configured; add scientific "
+                    "constraints with @model.prior or provider.prior"
+                )
             term = _GalacticModelTerm(
                 galaxy,
                 names=names,
@@ -1399,7 +1548,7 @@ def _build_model_class(cpp_base):
                                     "df": np.asarray(dfs)[d],
                                 }
                     if self._theta_star_isochrone is not None:
-                        candidates, weights, _ = _isochrone_joint_candidates(
+                        candidates, weights, _ = _isochrone_conditional_candidates(
                             self._theta_star_fn,
                             self._theta_star_isochrone,
                             vals,
@@ -1469,7 +1618,6 @@ def _build_model_class(cpp_base):
                         kwargs["context"] = ctx
                     if source_magnitudes is not None:
                         kwargs["magnitudes"] = source_magnitudes
-                        kwargs["joint"] = True
                     draw = galaxy.sample_physical(theta, **kwargs)
                 elif hasattr(galaxy, "to_deterministic_physical"):
                     if ctx is None:

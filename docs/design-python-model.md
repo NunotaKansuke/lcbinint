@@ -135,13 +135,48 @@ Do not register `thetaS` with `model.param()` and do not put `thS` in the
 Galactic context. A flux-dependent relation uses the same entry point and
 returns a positive log-space scatter, which lcbinint marginalizes internally.
 
-When gapmoe supplies the thetaS density jointly with isochrone photometry and
-source distance, pass the same isochrone to `model.theta_star`. The decorated
-function returns apparent source magnitudes rather than a thetaS relation:
+For the lighter range-selection path, put the apparent magnitude and colour
+bounds in `gapmoe.Isochrone`. gapmoe folds those bounds into its source-distance
+prior before lcbinint sees the model:
 
 ```python
-galactic_prior = galaxy.parameterize(
+source = gapmoe.Isochrone(
+    reference_band="Imag",
+    color_bands=("Vmag", "Imag"),
+    magnitude_range=(15.0, 21.0),
+    color_range=(0.5, 3.0),
+)
+galaxy = gapmoe.Model(..., source=source)
+model.galactic_prior(galaxy)
+```
+
+This path does not define a pointwise CMD prior for fitted or marginalized
+source fluxes.
+
+An Fs-dependent mapping instead conditions the source-distance distribution
+separately for every flux state:
+
+```text
+p(DS | magnitude(Fs), colour(Fs))
+```
+
+lcbinint uses the same conditional Galactic density for `flux="fit"`,
+`flux="sample"`, and `flux="marginalize"`. In the marginalized mode, Fs,
+thetaS, and hidden Galactic variables share one QMC row. gapmoe divides out
+the marginal CMD density for each row, so no CMD prior or flux-coordinate
+Jacobian is added to Fs.
+
+When using the separate joint thetaS/isochrone path, the decorated function
+returns apparent source magnitudes:
+
+```python
+galaxy = gapmoe.Model(
     gapmoe.ParamType(parallax=False, distance="marginalize"),
+    l=l_deg,
+    b=b_deg,
+    extinction={"Imag": ai_rc, "Vmag": av_rc},
+    source=isochrone,
+    backend=gapmoe.Flow("rate-included-v1"),
     integration_samples=512,
 )
 
@@ -152,7 +187,7 @@ def source_magnitudes(fluxes):
         "Vmag": flux_to_mag(fluxes["V"]["Fs"]),
     }
 
-model.galactic_prior(galactic_prior)
+model.galactic_prior(galaxy)
 ```
 
 gapmoe constructs the thetaS importance proposal automatically from the

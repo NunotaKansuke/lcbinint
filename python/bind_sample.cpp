@@ -572,6 +572,17 @@ void register_sample_submodule(py::module_& parent)
         .def("step",
             [](EnsembleSampler& s, py::object model,
                lcbinint::sample::SamplerState& state) {
+                if (py::hasattr(model, "log_prob_batch")) {
+                    auto log_prob_batch_fn = [&model](
+                        const std::vector<std::vector<double>>& theta) {
+                        py::gil_scoped_acquire g;
+                        return model.attr("log_prob_batch")(theta)
+                            .cast<std::vector<double>>();
+                    };
+                    py::gil_scoped_release release;
+                    s.step_batch(log_prob_batch_fn, state);
+                    return;
+                }
                 auto log_prob_fn = [&model](const std::vector<double>& t) -> double {
                     py::gil_scoped_acquire g;
                     return model.attr("log_prob")(t).cast<double>();

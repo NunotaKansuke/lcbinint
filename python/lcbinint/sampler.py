@@ -42,7 +42,14 @@ def _py_init_state_extended(model, nwalkers: int, seed: int, start, log_prob_fn)
             v = center[j] + rng.standard_normal(nwalkers) * sigma
             pos[:, j] = np.clip(v, lo, hi)
 
-    lp = np.array([log_prob_fn(pos[w].tolist()) for w in range(nwalkers)])
+    if hasattr(model, "log_prob_batch"):
+        lp = np.asarray(model.log_prob_batch(pos.tolist()), dtype=float)
+        if lp.shape != (nwalkers,):
+            raise ValueError(
+                "log_prob_batch() must return one value per walker"
+            )
+    else:
+        lp = np.array([log_prob_fn(pos[w].tolist()) for w in range(nwalkers)])
     return _sample._make_state(nwalkers, ndim, int(seed), pos, lp)
 
 

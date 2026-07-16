@@ -65,8 +65,6 @@ def test_gaussian_likelihood_can_sample_flux_parameters():
 def test_sampled_flux_works_with_unified_isochrone_theta_star_api():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
-    from types import SimpleNamespace
-
     model, _, theta, _ = _make_sampled_flux_model(lcbinint, np)
     isochrone = object()
     seen = {}
@@ -80,7 +78,7 @@ def test_sampled_flux_works_with_unified_isochrone_theta_star_api():
             return 0.0
 
         @staticmethod
-        def _isochrone_joint_terms(theta, *, magnitudes, context=None):
+        def _isochrone_conditional_terms(theta, *, magnitudes, context=None):
             seen.update(magnitudes)
             values = np.arange(8, dtype=float) + 1.0
             return {
@@ -93,9 +91,9 @@ def test_sampled_flux_works_with_unified_isochrone_theta_star_api():
                     "mu_E": values,
                     "thetaS": np.full(8, 0.005),
                 },
-            }
+                }
 
-    Provider.galaxy = SimpleNamespace(isochrone=isochrone)
+    Provider.isochrone = isochrone
 
     @model.theta_star(isochrone=isochrone)
     def _(fluxes):
