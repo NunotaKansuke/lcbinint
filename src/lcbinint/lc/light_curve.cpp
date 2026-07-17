@@ -6,39 +6,39 @@
 
 namespace lcbinint::lc {
 
-LightCurve::LightCurve(lcbi_options opts, double ld_c, double ld_d, ModelSpec spec)
-    : opts_(opts), ld_c_(ld_c), ld_d_(ld_d), spec_(std::move(spec))
+LightCurve::LightCurve(lcbi_options opts, double ld_c, double ld_d, Model model)
+    : opts_(opts), ld_c_(ld_c), ld_d_(ld_d), model_(std::move(model))
 {
-    // ModelSpec overrides lcbi_options for physics-mode fields.
-    if (spec_.parallax) opts_.parallax_mode = 1;
-    opts_.xallarap_param_type = spec_.xallarap;
+    // Model overrides lcbi_options for physics-mode fields.
+    if (model_.parallax) opts_.parallax_mode = 1;
+    opts_.xallarap_param_type = model_.xallarap;
 }
 
 lcbi_params LightCurve::apply_coords(const lcbi_params& params) const
 {
     const bool needs_tref = (opts_.parallax_mode != 0)
-                         || (spec_.orbital_motion != LCBI_ORBIT_STATIC);
-    if (needs_tref && !spec_.t_ref.has_value())
+                         || (model_.orbital_motion != LCBI_ORBIT_STATIC);
+    if (needs_tref && !model_.t_ref.has_value())
         throw std::runtime_error(
             "LightCurve: t_ref must be set when using parallax or orbital motion");
 
     lcbi_params p = params;
-    p.orbital_motion_mode = spec_.orbital_motion;
+    p.orbital_motion_mode = model_.orbital_motion;
     if (ld_c_ != 0.0 || ld_d_ != 0.0) {
         p.limb_darkening_c = ld_c_;
         p.limb_darkening_d = ld_d_;
     }
-    if (spec_.sky) {
-        p.ra  = spec_.sky->ra_deg();
-        p.dec = spec_.sky->dec_deg();
+    if (model_.sky) {
+        p.ra  = model_.sky->ra_deg();
+        p.dec = model_.sky->dec_deg();
     }
     // Site is only applied when terrestrial parallax is explicitly enabled.
-    if (spec_.terrestrial && spec_.site) {
-        p.obs_lat = spec_.site->lat_deg();
-        p.obs_lon = spec_.site->lon_deg();
+    if (model_.terrestrial && model_.site) {
+        p.obs_lat = model_.site->lat_deg();
+        p.obs_lon = model_.site->lon_deg();
     }
-    if (spec_.t_ref.has_value())
-        p.tfix = *spec_.t_ref;
+    if (model_.t_ref.has_value())
+        p.tfix = *model_.t_ref;
     return p;
 }
 

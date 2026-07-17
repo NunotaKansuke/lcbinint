@@ -1,6 +1,6 @@
 #include "bind_lc.hpp"
 #include "lcbinint/lcbinint.h"
-#include "lcbinint/lc/model_spec.hpp"
+#include "lcbinint/lc/model.hpp"
 #include "lcbinint/lc/light_curve.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
@@ -920,9 +920,9 @@ void register_lc_submodule(py::module_& parent)
                 + " q=" + std::to_string(p.q) + ">";
         });
 
-    // --- ModelSpec ---
+    // --- Model ---
     using LC       = lcbinint::lc::LightCurve;
-    using Spec     = lcbinint::lc::ModelSpec;
+    using Model     = lcbinint::lc::Model;
     using LKind    = lcbinint::lc::LensKind;
     using SKind    = lcbinint::lc::SourceKind;
     using SkyCoord = lcbinint::obs::SkyCoord;
@@ -962,7 +962,7 @@ void register_lc_submodule(py::module_& parent)
             "'circular_velocity', or 'kepler_velocity'");
     };
 
-    py::class_<Spec>(lc, "ModelSpec",
+    py::class_<Model>(lc, "Model",
         R"(Physical model configuration for a LightCurve.
 
 Separates physics configuration from numerical
@@ -980,17 +980,17 @@ unless terrestrial is explicitly set to True.)")
                 py::object         site,
                 py::object         t_ref,
                 const std::string& lens) {
-            Spec spec;
-            spec.lens           = parse_lens(lens);
-            spec.source         = parse_source(source);
-            spec.orbital_motion = parse_orbital(orbital_motion);
-            spec.xallarap       = parse_xallarap(xallarap);
-            spec.parallax       = parallax;
-            spec.terrestrial    = terrestrial;
-            if (!sky.is_none())   spec.sky  = sky.cast<std::shared_ptr<SkyCoord>>();
-            if (!site.is_none())  spec.site = site.cast<std::shared_ptr<Site>>();
-            if (!t_ref.is_none()) spec.t_ref = t_ref.cast<double>();
-            return spec;
+            Model model;
+            model.lens           = parse_lens(lens);
+            model.source         = parse_source(source);
+            model.orbital_motion = parse_orbital(orbital_motion);
+            model.xallarap       = parse_xallarap(xallarap);
+            model.parallax       = parallax;
+            model.terrestrial    = terrestrial;
+            if (!sky.is_none())   model.sky  = sky.cast<std::shared_ptr<SkyCoord>>();
+            if (!site.is_none())  model.site = site.cast<std::shared_ptr<Site>>();
+            if (!t_ref.is_none()) model.t_ref = t_ref.cast<double>();
+            return model;
         }),
             py::arg("source")         = "single",
             py::arg("orbital_motion") = "static",
@@ -1002,21 +1002,21 @@ unless terrestrial is explicitly set to True.)")
             py::arg("t_ref")          = py::none(),
             py::arg("lens")           = "binary")
         .def_property("lens",
-            [](const Spec& spec) { return spec.lens == LKind::triple ? "triple" : "binary"; },
-            [&](Spec& spec, const std::string& s) { spec.lens = parse_lens(s); })
+            [](const Model& model) { return model.lens == LKind::triple ? "triple" : "binary"; },
+            [&](Model& model, const std::string& s) { model.lens = parse_lens(s); })
         .def_property("source",
-            [](const Spec& spec) { return spec.source == SKind::binary ? "binary" : "single"; },
-            [&](Spec& spec, const std::string& s) { spec.source = parse_source(s); })
+            [](const Model& model) { return model.source == SKind::binary ? "binary" : "single"; },
+            [&](Model& model, const std::string& s) { model.source = parse_source(s); })
         .def_property("orbital_motion",
-            [](const Spec& spec) -> std::string {
-                if (spec.orbital_motion == LCBI_ORBIT_CIRCULAR) return "circular";
-                if (spec.orbital_motion == LCBI_ORBIT_KEPLER)   return "kepler";
+            [](const Model& model) -> std::string {
+                if (model.orbital_motion == LCBI_ORBIT_CIRCULAR) return "circular";
+                if (model.orbital_motion == LCBI_ORBIT_KEPLER)   return "kepler";
                 return "static";
             },
-            [&](Spec& spec, const std::string& s) { spec.orbital_motion = parse_orbital(s); })
+            [&](Model& model, const std::string& s) { model.orbital_motion = parse_orbital(s); })
         .def_property("xallarap",
-            [](const Spec& spec) -> std::string {
-                switch (spec.xallarap) {
+            [](const Model& model) -> std::string {
+                switch (model.xallarap) {
                 case LCBI_XALLARAP_ORBITAL_ELEMENTS:  return "orbital_elements";
                 case LCBI_XALLARAP_CIRCULAR_ELEMENTS: return "circular_elements";
                 case LCBI_XALLARAP_CIRCULAR_VEL:      return "circular_velocity";
@@ -1024,45 +1024,45 @@ unless terrestrial is explicitly set to True.)")
                 default:                               return "none";
                 }
             },
-            [&](Spec& spec, const std::string& s) { spec.xallarap = parse_xallarap(s); })
-        .def_readwrite("parallax",    &Spec::parallax)
-        .def_readwrite("terrestrial", &Spec::terrestrial)
+            [&](Model& model, const std::string& s) { model.xallarap = parse_xallarap(s); })
+        .def_readwrite("parallax",    &Model::parallax)
+        .def_readwrite("terrestrial", &Model::terrestrial)
         .def_property("sky",
-            [](const Spec& spec) -> py::object {
-                if (!spec.sky) return py::none();
-                return py::cast(spec.sky);
+            [](const Model& model) -> py::object {
+                if (!model.sky) return py::none();
+                return py::cast(model.sky);
             },
-            [](Spec& spec, py::object obj) {
-                if (obj.is_none()) spec.sky = nullptr;
-                else spec.sky = obj.cast<std::shared_ptr<SkyCoord>>();
+            [](Model& model, py::object obj) {
+                if (obj.is_none()) model.sky = nullptr;
+                else model.sky = obj.cast<std::shared_ptr<SkyCoord>>();
             })
         .def_property("site",
-            [](const Spec& spec) -> py::object {
-                if (!spec.site) return py::none();
-                return py::cast(spec.site);
+            [](const Model& model) -> py::object {
+                if (!model.site) return py::none();
+                return py::cast(model.site);
             },
-            [](Spec& spec, py::object obj) {
-                if (obj.is_none()) spec.site = nullptr;
-                else spec.site = obj.cast<std::shared_ptr<Site>>();
+            [](Model& model, py::object obj) {
+                if (obj.is_none()) model.site = nullptr;
+                else model.site = obj.cast<std::shared_ptr<Site>>();
             })
         .def_property("t_ref",
-            [](const Spec& spec) -> py::object {
-                if (!spec.t_ref.has_value()) return py::none();
-                return py::float_(*spec.t_ref);
+            [](const Model& model) -> py::object {
+                if (!model.t_ref.has_value()) return py::none();
+                return py::float_(*model.t_ref);
             },
-            [](Spec& spec, py::object obj) {
-                if (obj.is_none()) spec.t_ref = std::nullopt;
-                else spec.t_ref = obj.cast<double>();
+            [](Model& model, py::object obj) {
+                if (obj.is_none()) model.t_ref = std::nullopt;
+                else model.t_ref = obj.cast<double>();
             })
-        .def("__repr__", [](const Spec& spec) {
-            std::string s = "<lc.ModelSpec";
-            if (spec.lens == LKind::triple) s += " lens=triple";
-            if (spec.parallax)    s += " parallax";
-            if (spec.terrestrial) s += " terrestrial";
-            if (spec.orbital_motion != LCBI_ORBIT_STATIC)
-                s += spec.orbital_motion == LCBI_ORBIT_CIRCULAR ? " orbital_motion=circular" : " orbital_motion=kepler";
-            if (spec.xallarap != LCBI_XALLARAP_NONE) {
-                switch (spec.xallarap) {
+        .def("__repr__", [](const Model& model) {
+            std::string s = "<lc.Model";
+            if (model.lens == LKind::triple) s += " lens=triple";
+            if (model.parallax)    s += " parallax";
+            if (model.terrestrial) s += " terrestrial";
+            if (model.orbital_motion != LCBI_ORBIT_STATIC)
+                s += model.orbital_motion == LCBI_ORBIT_CIRCULAR ? " orbital_motion=circular" : " orbital_motion=kepler";
+            if (model.xallarap != LCBI_XALLARAP_NONE) {
+                switch (model.xallarap) {
                 case LCBI_XALLARAP_ORBITAL_ELEMENTS:  s += " xallarap=orbital_elements";  break;
                 case LCBI_XALLARAP_CIRCULAR_ELEMENTS: s += " xallarap=circular_elements"; break;
                 case LCBI_XALLARAP_CIRCULAR_VEL:      s += " xallarap=circular_velocity"; break;
@@ -1070,10 +1070,10 @@ unless terrestrial is explicitly set to True.)")
                 default: break;
                 }
             }
-            if (spec.source == SKind::binary) s += " source=binary";
-            if (spec.sky)  s += " sky=set";
-            if (spec.site) s += " site=set";
-            if (spec.t_ref.has_value()) s += " t_ref=" + std::to_string(*spec.t_ref);
+            if (model.source == SKind::binary) s += " source=binary";
+            if (model.sky)  s += " sky=set";
+            if (model.site) s += " site=set";
+            if (model.t_ref.has_value()) s += " t_ref=" + std::to_string(*model.t_ref);
             s += ">";
             return s;
         });
@@ -1123,20 +1123,20 @@ unless terrestrial is explicitly set to True.)")
     };
 
     py::class_<LC, std::shared_ptr<LC>>(lc, "LightCurve")
-        // Constructor 1: explicit lc.Options + lc.ModelSpec objects
+        // Constructor 1: explicit lc.Options + lc.Model objects
         .def(py::init([&](const lcbi_options& opts,
-                           const Spec&         spec,
+                           const Model&         model,
                            const PyLimbDarkening& ld) {
-            return std::make_shared<LC>(opts, ld.c, ld.d, spec);
+            return std::make_shared<LC>(opts, ld.c, ld.d, model);
         }),
             py::arg("options")        = kDefaultOpts,
-            py::arg("spec")           = Spec{},
+            py::arg("model")          = Model{},
             py::arg("limb_darkening") = PyLimbDarkening{})
         // Constructor 2: kwargs directly (convenience, backward-compatible)
         .def(py::init([&](py::kwargs kw) {
             auto o = kDefaultOpts;
             PyLimbDarkening ld{};
-            Spec spec{};
+            Model model{};
             for (auto& item : kw) {
                 const std::string key = item.first.cast<std::string>();
                 // --- Options (numerics) ---
@@ -1178,37 +1178,37 @@ unless terrestrial is explicitly set to True.)")
                 else if (key == "ld_c" || key == "limb_darkening_c") ld.c = item.second.cast<double>();
                 else if (key == "ld_d" || key == "limb_darkening_d") ld.d = item.second.cast<double>();
                 else if (key == "limb_darkening") ld = item.second.cast<PyLimbDarkening>();
-                // --- ModelSpec (physics) ---
-                else if (key == "source")         spec.source        = parse_source(item.second.cast<std::string>());
-                else if (key == "orbital_motion") spec.orbital_motion = parse_orbital(item.second.cast<std::string>());
-                else if (key == "xallarap")       spec.xallarap      = parse_xallarap(item.second.cast<std::string>());
-                else if (key == "parallax")       spec.parallax      = item.second.cast<bool>();
-                else if (key == "terrestrial")    spec.terrestrial   = item.second.cast<bool>();
+                // --- Model (physics) ---
+                else if (key == "source")         model.source        = parse_source(item.second.cast<std::string>());
+                else if (key == "orbital_motion") model.orbital_motion = parse_orbital(item.second.cast<std::string>());
+                else if (key == "xallarap")       model.xallarap      = parse_xallarap(item.second.cast<std::string>());
+                else if (key == "parallax")       model.parallax      = item.second.cast<bool>();
+                else if (key == "terrestrial")    model.terrestrial   = item.second.cast<bool>();
                 else if (key == "lens") {
-                    spec.lens = parse_lens(item.second.cast<std::string>());
+                    model.lens = parse_lens(item.second.cast<std::string>());
                 }
                 else if (key == "sky") {
                     auto obj = py::reinterpret_borrow<py::object>(item.second);
-                    if (!obj.is_none()) spec.sky = obj.cast<std::shared_ptr<SkyCoord>>();
+                    if (!obj.is_none()) model.sky = obj.cast<std::shared_ptr<SkyCoord>>();
                 }
                 else if (key == "site") {
                     auto obj = py::reinterpret_borrow<py::object>(item.second);
-                    if (!obj.is_none()) spec.site = obj.cast<std::shared_ptr<Site>>();
+                    if (!obj.is_none()) model.site = obj.cast<std::shared_ptr<Site>>();
                 }
                 else if (key == "t_ref") {
                     auto obj = py::reinterpret_borrow<py::object>(item.second);
-                    if (!obj.is_none()) spec.t_ref = obj.cast<double>();
+                    if (!obj.is_none()) model.t_ref = obj.cast<double>();
                 }
                 else throw py::key_error("LightCurve: unknown option '" + key + "'");
             }
-            return std::make_shared<LC>(o, ld.c, ld.d, spec);
+            return std::make_shared<LC>(o, ld.c, ld.d, model);
         }))
         .def_property_readonly("options", &LC::options)
-        .def_property_readonly("spec", &LC::spec,
+        .def_property_readonly("model", &LC::model,
             py::return_value_policy::reference_internal)
         .def_property_readonly("ld_c",    &LC::ld_c)
         .def_property_readonly("ld_d",    &LC::ld_d)
-        // Convenience shortcuts (delegate to ModelSpec)
+        // Convenience shortcuts (delegate to Model)
         .def_property_readonly("lens", [](const LC& lc) -> std::string {
             return lc.lens_kind() == LKind::triple ? "triple" : "binary";
         })
@@ -1233,7 +1233,7 @@ unless terrestrial is explicitly set to True.)")
             return py::float_(*lc.t_ref());
         })
         .def_property_readonly("terrestrial", [](const LC& lc) {
-            return lc.spec().terrestrial;
+            return lc.model().terrestrial;
         })
 
         // __call__ overload 1: lcbi_params object
@@ -1336,7 +1336,7 @@ unless terrestrial is explicitly set to True.)")
 
 	        // source_trajectory(times, **params)
 	        // Returns SourceTrajectory in the lens-plane frame.
-	        // Active model-spec terms (parallax, xallarap) are applied.
+	        // Active model terms (parallax, xallarap) are applied.
 	        .def("source_trajectory",
 	            [](const LC& lc, py::object times_obj, py::kwargs kw) -> PySourceTrajectory {
 	                const lcbi_params p = lc.apply_coords(params_from_dict(py::dict(kw)));
@@ -1360,7 +1360,7 @@ unless terrestrial is explicitly set to True.)")
 	                return result;
 	            }, py::arg("times"),
 	            "Compute source trajectory in the lens-plane frame.\n"
-	            "Applies all active model-spec terms (parallax, xallarap).\n"
+	            "Applies all active model terms (parallax, xallarap).\n"
 	            "Returns SourceTrajectory with times, x, and y lists (Einstein ring units).")
 
         .def("__repr__", [](const LC& lc) {

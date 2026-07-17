@@ -9,13 +9,13 @@ namespace lcbinint::lc {
 enum class LensKind { binary, triple };
 enum class SourceKind { single, binary };
 
-// Light-curve model configuration, separate from numerical Options (lcbi_options).
+// Physical light-curve model, separate from numerical Options (lcbi_options).
 // Rules:
 //  - terrestrial must be explicitly true for site coords to be applied (even if site is set).
 //  - parallax / xallarap / orbital_motion override the corresponding lcbi_options fields.
 //  - sky/site at LightCurve level are defaults; per-dataset LightCurveData::site overrides
 //    obs_lat/obs_lon when terrestrial=true.
-struct ModelSpec {
+struct Model {
     LensKind                 lens           = LensKind::binary;
     SourceKind               source         = SourceKind::single;
     lcbi_orbital_motion_mode orbital_motion = LCBI_ORBIT_STATIC;

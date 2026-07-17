@@ -60,8 +60,8 @@ internal result without making VBMicrolensing a dependency of lcbinint.
 
 ## Annual and terrestrial parallax
 
-Parallax is active only when the `LightCurve` physical model sets
-`parallax=True`. Non-zero `piEN`/`piEE` parameters alone do not activate it.
+Parallax is active only when `Model(parallax=True, ...)` is attached to the
+`LightCurve`. Non-zero `piEN`/`piEE` parameters alone do not activate it.
 Annual parallax uses the bundled Earth ephemeris, sky coordinates, and the
 fixed reference epoch `t_ref`.
 

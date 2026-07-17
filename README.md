@@ -91,6 +91,22 @@ lc = lcbinint.LightCurve(
 mag = lc(times, params)
 ```
 
+Physical model choices are separate from numerical options:
+
+```python
+model = lcbinint.Model(
+    parallax=True,
+    terrestrial=True,
+    orbital_motion="kepler",
+    sky=lcbinint.obs.SkyCoord(270.0, -30.0),
+    site=lcbinint.obs.Site(-29.0, 70.7),
+    t_ref=2459000.0,
+)
+lc = lcbinint.LightCurve(model=model, options=lcbinint.Options(nbin="auto"))
+```
+
+`Model` selects physical terms; `Options` controls numerical evaluation.
+
 For binary finite-source inverse-ray calculations, `nbin="auto"` selects the
 Cartesian/polar grid and resolution once per source position from calibrated
 geometry diagnostics.  It does not run a trial integration or retry at a higher
@@ -102,8 +118,8 @@ numerical error diagnostics. lcbinint never imports or dispatches to an external
 solver. Numerical conventions and limits are summarized in
 [`docs/numerical-methods.md`](docs/numerical-methods.md).
 
-Annual parallax requires `parallax=True`, `t_ref`, and a sky position supplied
-on the callable or in the per-call parameters.
+Annual parallax requires `Model(parallax=True, ...)`, `t_ref`, and a sky
+position supplied on the model or in the per-call parameters.
 Terrestrial parallax additionally requires `terrestrial=True` and an explicit
 `lcbinint.obs.Site`; merely passing non-zero `piEN`/`piEE` does not activate
 parallax.

@@ -40,14 +40,14 @@ def main():
     static = lcbinint.LightCurve(options=options)
     summarize("static/geocentric", static)
 
-    ground = lcbinint.LightCurve(
-        options=options,
+    model = lcbinint.Model(
         parallax=True,
         terrestrial=True,
         sky=lcbinint.obs.SkyCoord(270.0, -30.0),
         site=lcbinint.obs.Site(-29.0, 70.7),
         t_ref=T_REF,
     )
+    ground = lcbinint.LightCurve(model=model, options=options)
     info = summarize("annual+terrestrial parallax", ground)
     trajectory = ground.source_trajectory(TIMES, PARAMS)
     print(

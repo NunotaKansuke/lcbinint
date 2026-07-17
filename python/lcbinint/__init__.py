@@ -13,7 +13,7 @@ _NativeLightCurve = _native.LightCurve
 LightCurveInfo = _native.LightCurveInfo
 SourceTrajectory = _native.SourceTrajectory
 GeometryBranches = _native.GeometryBranches
-ModelSpec = _native.ModelSpec
+Model = _native.Model
 OrbitalMotionMode = _native.OrbitalMotionMode
 XallarapParamType = _native.XallarapParamType
 _binary_images = _native._binary_images
@@ -59,7 +59,7 @@ class LightCurve:
             kwargs["orbital_motion"] = _orbital_motion_name(orbital_motion_mode)
         self._native = _NativeLightCurve(*args, **kwargs)
         self.lens = self._native.lens
-        self.parallax = bool(self._native.spec.parallax)
+        self.parallax = bool(self._native.model.parallax)
 
     def _merge_params(self, params=None, **kwargs):
         if params is None:
@@ -142,27 +142,27 @@ def _split_light_curve_kwargs(kwargs):
     terrestrial = kwargs.pop("terrestrial", False)
     if sky is None and "ra" in kwargs and "dec" in kwargs:
         sky = obs.SkyCoord(kwargs["ra"], kwargs["dec"])
-    spec = {
+    model = {
         "orbital_motion": _orbital_motion_name(orbital_motion_mode),
         "parallax": abs(kwargs.get("piEN", 0.0)) > 0.0 or abs(kwargs.get("piEE", 0.0)) > 0.0,
         "terrestrial": bool(terrestrial),
     }
     if sky is not None:
-        spec["sky"] = sky
+        model["sky"] = sky
     if site is not None:
-        spec["site"] = site
+        model["site"] = site
     if t_ref is not None:
-        spec["t_ref"] = t_ref
-    return options, limb_darkening, spec, kwargs
+        model["t_ref"] = t_ref
+    return options, limb_darkening, model, kwargs
 
 
 def light_curve_info(times, **kwargs):
-    options, limb_darkening, spec, params = _split_light_curve_kwargs(kwargs)
+    options, limb_darkening, model, params = _split_light_curve_kwargs(kwargs)
     curve = LightCurve(
         lens="binary",
         options=options,
         limb_darkening=limb_darkening,
-        **spec,
+        **model,
     )
     return _LightCurveInfoCompat(times, curve.info(times, params))
 
@@ -200,7 +200,7 @@ def binary_mag0(separation, mass_ratio, y1, y2):
 __all__ = [
     "obs",
     "Options", "Parameters", "LensParams", "LimbDarkening", "LightCurve",
-    "LightCurveInfo", "SourceTrajectory", "GeometryBranches", "ModelSpec",
+    "LightCurveInfo", "SourceTrajectory", "GeometryBranches", "Model",
     "OrbitalMotionMode", "XallarapParamType",
     "light_curve_info", "binary_light_curve", "light_curve",
     "magnification", "binary_mag0",
