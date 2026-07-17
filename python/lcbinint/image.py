@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from . import lc
+from . import _lcbinint as lc
 
 
 @dataclass(frozen=True)

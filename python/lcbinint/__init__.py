@@ -1,21 +1,23 @@
+from . import _lcbinint as _native
 from ._lcbinint import *          # noqa: F401, F403
-from ._lcbinint import lc, obs, bayes, optimize, sample
-from .sampler import SamplerOptions, run_sampler, load_chain
-from . import image, theta_star
+from ._lcbinint import obs
+from . import image
 from .image import ImagePlane
 import numpy as _np
 
-Options = lc.Options
-Parameters = lc.Parameters
-LensParams = lc.Parameters
-LimbDarkening = lc.LimbDarkening
-_NativeLightCurve = lc.LightCurve
-LightCurveInfo = lc.LightCurveInfo
-SourceTrajectory = lc.SourceTrajectory
-GeometryBranches = lc.GeometryBranches
-ModelSpec = lc.ModelSpec
-OrbitalMotionMode = lc.OrbitalMotionMode
-XallarapParamType = lc.XallarapParamType
+Options = _native.Options
+Parameters = _native.Parameters
+LensParams = _native.Parameters
+LimbDarkening = _native.LimbDarkening
+_NativeLightCurve = _native.LightCurve
+LightCurveInfo = _native.LightCurveInfo
+SourceTrajectory = _native.SourceTrajectory
+GeometryBranches = _native.GeometryBranches
+ModelSpec = _native.ModelSpec
+OrbitalMotionMode = _native.OrbitalMotionMode
+XallarapParamType = _native.XallarapParamType
+_binary_images = _native._binary_images
+_binary_safety_diagnostic = _native._binary_safety_diagnostic
 
 if not hasattr(LimbDarkening, "quadratic"):
     LimbDarkening.quadratic = staticmethod(lambda c, d: LimbDarkening(c, d))
@@ -195,18 +197,12 @@ def binary_mag0(separation, mass_ratio, y1, y2):
     )
 
 
-# Build the Python-extended Model subclass and replace bayes.Model
-from .model import _build_model_class as _bmc
-bayes.Model = _bmc(bayes._Model)
-del _bmc
-
 __all__ = [
-    "lc", "obs", "bayes", "optimize", "sample",
+    "obs",
     "Options", "Parameters", "LensParams", "LimbDarkening", "LightCurve",
     "LightCurveInfo", "SourceTrajectory", "GeometryBranches", "ModelSpec",
     "OrbitalMotionMode", "XallarapParamType",
     "light_curve_info", "binary_light_curve", "light_curve",
     "magnification", "binary_mag0",
-    "SamplerOptions", "run_sampler", "load_chain",
-    "image", "theta_star", "ImagePlane",
+    "image", "ImagePlane",
 ]

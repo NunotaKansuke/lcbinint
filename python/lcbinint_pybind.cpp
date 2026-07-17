@@ -1,8 +1,5 @@
 #include "bind_lc.hpp"
 #include "bind_obs.hpp"
-#include "bind_bayes.hpp"
-#include "bind_optimize.hpp"
-#include "bind_sample.hpp"
 
 #include <pybind11/pybind11.h>
 
@@ -14,7 +11,4 @@ PYBIND11_MODULE(_lcbinint, m)
 
     register_lc_submodule(m);
     register_obs_submodule(m);
-    register_bayes_submodule(m);
-    register_optimize_submodule(m);
-    register_sample_submodule(m);
 }

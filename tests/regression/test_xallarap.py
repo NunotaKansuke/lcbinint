@@ -20,7 +20,7 @@ import numpy as np
 
 
 def _lc():
-    return pytest.importorskip("lcbinint").lc
+    return pytest.importorskip("lcbinint")
 
 
 TIMES = np.array([-15.0, -5.0, 0.0, 5.0, 15.0])

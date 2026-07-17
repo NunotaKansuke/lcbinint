@@ -4,7 +4,7 @@ import pytest
 def test_binary_safety_diagnostic_reuses_point_source_solution():
     lcbinint = pytest.importorskip("lcbinint")
 
-    diagnostic = lcbinint.lc._binary_safety_diagnostic(1.35, 0.32, 0.9, 0.0)
+    diagnostic = lcbinint._binary_safety_diagnostic(1.35, 0.32, 0.9, 0.0)
 
     assert diagnostic.magnification == pytest.approx(
         lcbinint.binary_mag0(1.35, 0.32, 0.9, 0.0)
@@ -18,7 +18,7 @@ def test_binary_safety_diagnostic_reuses_point_source_solution():
 def test_binary_safety_diagnostic_has_no_ghosts_inside_caustic():
     lcbinint = pytest.importorskip("lcbinint")
 
-    diagnostic = lcbinint.lc._binary_safety_diagnostic(1.35, 0.32, 0.0, 0.0)
+    diagnostic = lcbinint._binary_safety_diagnostic(1.35, 0.32, 0.0, 0.0)
 
     assert diagnostic.image_count == 5
     assert diagnostic.ghost_count == 0
@@ -98,7 +98,7 @@ def test_ghost_safety_margin_blocks_fold_outside_false_point_source():
     rho = 1.0e-3
     x = 0.7821993300517519
     y = 0.1628548323146869
-    diagnostic = lcbinint.lc._binary_safety_diagnostic(s, q, x, y)
+    diagnostic = lcbinint._binary_safety_diagnostic(s, q, x, y)
     safety_radius = rho + 1.0e-3
 
     # A coefficient of one would accept this point, despite a finite-source
@@ -141,7 +141,7 @@ def test_ghost_safety_margin_is_independently_safe_on_broad_sweep_case():
     rho = 0.004349576458703525
     x = 0.12423799972033645
     y = 0.11965557805931838
-    diagnostic = lcbinint.lc._binary_safety_diagnostic(s, q, x, y)
+    diagnostic = lcbinint._binary_safety_diagnostic(s, q, x, y)
     safety_radius = rho + 1.0e-3
 
     # The broad coefficient sweep found that a factor of two still admits this

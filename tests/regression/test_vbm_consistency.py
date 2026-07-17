@@ -1782,45 +1782,6 @@ def test_lcbinint_kepler_lom_reference_time_is_fixed_by_tfix():
     assert np.max(np.abs(moving_reference_values - fixed_reference_values)) > 1.0e-2
 
 
-def test_kepler_lom_invalid_orbit_returns_negative_infinity_before_magnification():
-    lcbinint = pytest.importorskip("lcbinint")
-    np = pytest.importorskip("numpy")
-
-    times = np.array([9.5, 10.0, 10.5])
-    data = lcbinint.obs.LightCurveData(
-        times,
-        np.array([1000.0, 1100.0, 1000.0]),
-        np.full(3, 20.0),
-        name="tiny",
-    )
-    light_curve = lcbinint.lc.LightCurve(
-        lens="binary",
-        orbital_motion="kepler",
-        t_ref=10.0,
-    )
-    model = lcbinint.bayes.Model(light_curve=light_curve, data=data)
-    parameters = [
-        ("t0", 10.0),
-        ("tE", 20.0),
-        ("u0", 0.1),
-        ("s", 1.0),
-        ("q", 0.1),
-        ("alpha", 0.2),
-        ("g1", 0.004),
-        ("g2", 0.011),
-        ("g3", 0.006),
-        ("lom_szs", 0.2),
-        ("lom_ar", 0.5),
-    ]
-    for name, _ in parameters:
-        model.param(name, lcbinint.bayes.Uniform(-100.0, 100.0))
-    model.likelihood("gaussian")
-
-    theta = [value for _, value in parameters]
-    assert model.log_likelihood(theta) == float("-inf")
-    assert model.log_prob(theta) == float("-inf")
-
-
 def test_lcbinint_limb_darkening_and_obs_helpers():
     lcbinint = pytest.importorskip("lcbinint")
 

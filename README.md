@@ -108,9 +108,3 @@ An executed VBM comparison notebook is included at
 `example/compare-vbm/lcbinint_vbm_light_curve_comparison.ipynb`.
 
 API details may change before the first stable package release.
-
-## Inference API
-
-The sampler API, posterior definition, flux marginalization assumptions,
-Galactic-prior integration, and supported combinations are specified in
-[`docs/bayesian-inference.md`](docs/bayesian-inference.md).

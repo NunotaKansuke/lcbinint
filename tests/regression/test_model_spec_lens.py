@@ -45,4 +45,4 @@ def test_effects_alias_is_not_exported():
     lcbinint = pytest.importorskip("lcbinint")
 
     assert not hasattr(lcbinint, "Effects")
-    assert not hasattr(lcbinint.lc, "Effects")
+    assert not hasattr(lcbinint, "Effects")

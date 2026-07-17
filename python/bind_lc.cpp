@@ -190,7 +190,7 @@ lcbi_params params_from_dict(const py::dict& d)
         else if (key == "q_source" || key == "fluxratio" ||
                  key == "t0_2"     || key == "u0_2" || key == "q_mass") { /* skip */ }
         else {
-            throw py::key_error("lcbinint.lc: unknown parameter '" + key + "'");
+            throw py::key_error("lcbinint: unknown parameter '" + key + "'");
         }
     }
     return p;
@@ -541,7 +541,8 @@ lcbinint::SourcePosition lens_frame_source_position(
 
 void register_lc_submodule(py::module_& parent)
 {
-    auto lc = parent.def_submodule("lc", "Light-curve magnification evaluation");
+	// Keep the complete LightCurve API, but expose it directly as lcbinint.*.
+	py::module_ lc = parent;
 
     py::class_<lcbinint::magnification::PointSourceSafetyDiagnostic>(
         lc, "PointSourceSafetyDiagnostic")
@@ -573,7 +574,7 @@ void register_lc_submodule(py::module_& parent)
         .value("KEPLER_VEL",        LCBI_XALLARAP_KEPLER_VEL)
         .export_values();
 
-    // --- Options: lcbi_options exposed directly (for power users / bayes module) ---
+    // --- Options: lcbi_options exposed directly ---
 	    py::class_<lcbi_options>(lc, "Options")
 	        .def(py::init([](
 	                std::string param_type,
@@ -844,7 +845,7 @@ void register_lc_submodule(py::module_& parent)
 	                + " parity=" + std::to_string(p.parity) + ">";
 	        });
 
-	    // --- Parameters: lcbi_params exposed directly (for power users / bayes module) ---
+	    // --- Parameters: lcbi_params exposed directly ---
 	    py::class_<lcbi_params>(lc, "Parameters")
 	        .def(py::init([]() { return lcbi_default_params(); }))
 	        .def(py::init([](py::kwargs kw) {

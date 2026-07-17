@@ -69,13 +69,6 @@ add_library(lcbinint_core
     src/lcbinint/lc/light_curve.cpp
     src/lcbinint/obs/light_curve_data.cpp
     src/lcbinint/obs/event.cpp
-    src/lcbinint/bayes/prior.cpp
-    src/lcbinint/bayes/model.cpp
-    src/lcbinint/optimize/differential_evolution.cpp
-    src/lcbinint/optimize/levenberg_marquardt.cpp
-    src/lcbinint/sample/chain.cpp
-    src/lcbinint/sample/stretch_move.cpp
-    src/lcbinint/sample/ensemble_sampler.cpp
     third_party/skowron_gould/SkowronGould.cpp)
 target_include_directories(lcbinint_core
     PUBLIC
@@ -100,10 +93,7 @@ if(LCBININT_BUILD_PYTHON)
     pybind11_add_module(lcbinint_python
         python/lcbinint_pybind.cpp
         python/bind_lc.cpp
-        python/bind_obs.cpp
-        python/bind_bayes.cpp
-        python/bind_optimize.cpp
-        python/bind_sample.cpp)
+        python/bind_obs.cpp)
     target_link_libraries(lcbinint_python PRIVATE lcbinint_core)
     set_target_properties(lcbinint_python PROPERTIES OUTPUT_NAME _lcbinint)
     # Copy Python package files to build dir so `import lcbinint` works from build/

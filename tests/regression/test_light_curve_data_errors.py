@@ -41,33 +41,3 @@ def test_light_curve_data_rejects_invalid_error_model(kwargs, match):
             np.array([1.0]),
             **kwargs,
         )
-
-
-def test_model_residuals_use_effective_errors():
-    lcbinint = pytest.importorskip("lcbinint")
-    np = pytest.importorskip("numpy")
-
-    times = np.array([0.0, 1.0, 2.0])
-    flux = np.array([5.0, 8.0, 11.0])
-    flux_err = np.array([1.0, 1.0, 1.0])
-    data = lcbinint.obs.LightCurveData(times, flux, flux_err, k=2.0, emin=0.0)
-    light_curve = lcbinint.lc.LightCurve()
-
-    model = lcbinint.bayes.Model(light_curve=light_curve, data=data)
-    model.param("t0", lcbinint.bayes.Uniform(-1.0, 1.0))
-    model.param("tE", lcbinint.bayes.Uniform(1.0, 10.0))
-    model.param("u0", lcbinint.bayes.Uniform(0.0, 1.0))
-    model.likelihood()
-
-    theta = [0.0, 5.0, 0.2]
-    residuals_with_k = np.asarray(model.residuals(theta))
-
-    data_no_k = lcbinint.obs.LightCurveData(times, flux, flux_err)
-    model_no_k = lcbinint.bayes.Model(light_curve=light_curve, data=data_no_k)
-    model_no_k.param("t0", lcbinint.bayes.Uniform(-1.0, 1.0))
-    model_no_k.param("tE", lcbinint.bayes.Uniform(1.0, 10.0))
-    model_no_k.param("u0", lcbinint.bayes.Uniform(0.0, 1.0))
-    model_no_k.likelihood()
-    residuals_no_k = np.asarray(model_no_k.residuals(theta))
-
-    assert residuals_with_k.tolist() == pytest.approx((0.5 * residuals_no_k).tolist())
