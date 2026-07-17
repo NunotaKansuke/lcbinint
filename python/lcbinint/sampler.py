@@ -112,6 +112,42 @@ def _state_flux_array(model, state, chain_arr):
     return flat.reshape(len(chain_arr), state.nwalkers, -1), dataset_names
 
 
+def _stored_physical_accessor(chain, flat, discard, thin):
+    if discard < 0 or thin < 1:
+        raise ValueError("discard must be non-negative and thin must be positive")
+    result = {}
+    for name, values in chain._physical_samples.items():
+        selected = np.asarray(values)[discard::thin]
+        result[name] = selected.reshape(-1) if flat else selected
+    return result
+
+
+def _attach_physical_samples(chain, physical):
+    if physical:
+        chain._physical_samples = {
+            name: np.asarray(values) for name, values in physical.items()
+        }
+        chain._physical_accessor = _stored_physical_accessor
+    return chain
+
+
+def _current_step_chain(model, state, fluxes, dataset_names, scales, dfs):
+    chain = _sample._chain_from_arrays(
+        np.asarray(state.pos),
+        np.asarray(state.log_prob),
+        state.nwalkers,
+        param_names=model.param_names,
+        transforms=getattr(model, "_sample_transforms", []),
+        fluxes=fluxes,
+        dataset_names=dataset_names,
+        acceptance=state.acceptance_fraction,
+    )
+    if scales is not None:
+        chain._flux_conditional_scales = np.asarray(scales)[None, ...]
+        chain._flux_conditional_dfs = np.asarray(dfs)
+    return chain
+
+
 # ---------------------------------------------------------------------------
 # SamplerOptions
 # ---------------------------------------------------------------------------
@@ -225,10 +261,18 @@ def run_sampler(
             model._sampling_adapter()
             if hasattr(model, "_sampling_adapter") else model
         )
+        if hasattr(step_model, "set_aux_seed"):
+            step_model.set_aux_seed(options.seed)
         state = _py_init_state_extended(
             step_model, options.nwalkers, options.seed, start, step_model.log_prob
         )
-        current_fluxes, current_scales, flux_dfs, flux_dataset_names = (
+        (
+            current_fluxes,
+            current_scales,
+            flux_dfs,
+            flux_dataset_names,
+            current_physical,
+        ) = (
             step_model.consume_current_aux(np.asarray(state.pos))
         )
         step_model._aux_dataset_names = flux_dataset_names
@@ -261,6 +305,15 @@ def run_sampler(
                 step_model, np.asarray(state.pos)
             )
         n_fluxes = 0 if current_fluxes is None else current_fluxes.shape[1]
+    physical_enabled = bool(
+        callable(getattr(model, "_chain_to_physical", None))
+        and callable(getattr(model, "_has_physical_provider", None))
+        and model._has_physical_provider()
+    )
+    physical_history = {}
+    physical_rng = np.random.default_rng(
+        np.random.SeedSequence([options.seed, 0x6C6369])
+    )
 
     # ---- logging ----
     _log_buf = []
@@ -350,6 +403,19 @@ def run_sampler(
             h5file["flux_conditional_scales"][h5_saved:] = np.asarray(
                 scale_history[h5_saved:]
             )
+        if physical_history:
+            group = h5file.require_group("physical")
+            for name, history in physical_history.items():
+                if name not in group:
+                    group.create_dataset(
+                        name,
+                        shape=(0, nw),
+                        maxshape=(None, nw),
+                        dtype="f8",
+                        chunks=(chunk_s, nw),
+                    )
+                group[name].resize(h5_saved + n_new, axis=0)
+                group[name][h5_saved:] = np.asarray(history[h5_saved:])
         h5file.flush()
         h5_saved += n_new
 
@@ -363,9 +429,13 @@ def run_sampler(
     for i in range(1, burnin + 1):
         sampler.step(step_model, state)
         if has_reparam or has_py_extra:
-            current_fluxes, current_scales, _, _ = step_model.consume_current_aux(
-                np.asarray(state.pos)
-            )
+            (
+                current_fluxes,
+                current_scales,
+                _,
+                _,
+                current_physical,
+            ) = step_model.consume_current_aux(np.asarray(state.pos))
         if options.log_every and i % options.log_every == 0:
             _log(
                 f"  [burnin {i:>{len(str(burnin))}}/{burnin}]"
@@ -383,11 +453,37 @@ def run_sampler(
     while i < nsteps:
         sampler.step(step_model, state)
         if has_reparam or has_py_extra:
-            current_fluxes, current_scales, _, _ = step_model.consume_current_aux(
-                np.asarray(state.pos)
-            )
+            (
+                current_fluxes,
+                current_scales,
+                _,
+                _,
+                current_physical,
+            ) = step_model.consume_current_aux(np.asarray(state.pos))
             flux_history.append(current_fluxes.copy())
             scale_history.append(current_scales.copy())
+        if physical_enabled:
+            if current_physical is not None:
+                for name in current_physical[0]:
+                    physical_history.setdefault(name, []).append(
+                        np.asarray([row[name] for row in current_physical])
+                    )
+            else:
+                step_chain = _current_step_chain(
+                    step_model,
+                    state,
+                    current_fluxes,
+                    flux_dataset_names,
+                    current_scales if has_reparam or has_py_extra else None,
+                    flux_dfs if has_reparam or has_py_extra else None,
+                )
+                reconstructed = model._chain_to_physical(
+                    step_chain, False, 0, 1, physical_rng
+                )
+                for name, values in reconstructed.items():
+                    physical_history.setdefault(name, []).append(
+                        np.asarray(values)[0].copy()
+                    )
         i += 1
 
         is_check = options.log_every and i % options.log_every == 0
@@ -442,7 +538,10 @@ def run_sampler(
     )
     _flush_log()
 
-    return _collect()
+    physical = {
+        name: np.asarray(values) for name, values in physical_history.items()
+    }
+    return _attach_physical_samples(_collect(), physical)
 
 
 # ---------------------------------------------------------------------------
@@ -453,6 +552,7 @@ def load_chain(h5_path: str):
     """Load a Chain from an HDF5 file saved by run_sampler().
 
     Returns a sample.Chain with full tau() / ess() / summary() support.
+    Stored physical posterior values are restored without the original model.
     """
     if not _HAS_H5PY:
         raise ImportError("h5py is required: pip install h5py")
@@ -471,6 +571,10 @@ def load_chain(h5_path: str):
         )
         conditional_dfs = f.attrs.get("flux_conditional_dfs", None)
         acceptance  = float(f.attrs.get("acceptance", 0.0))
+        physical = (
+            {name: values[:] for name, values in f["physical"].items()}
+            if "physical" in f else {}
+        )
 
     chain = _sample._chain_from_arrays(
         flat, lp, nw,
@@ -483,4 +587,4 @@ def load_chain(h5_path: str):
     if conditional_scales is not None:
         chain._flux_conditional_scales = conditional_scales
         chain._flux_conditional_dfs = np.asarray(conditional_dfs)
-    return chain
+    return _attach_physical_samples(chain, physical)

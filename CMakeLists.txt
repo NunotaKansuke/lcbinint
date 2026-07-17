@@ -55,7 +55,7 @@ if(NOT GSL_FOUND)
     set_target_properties(GSL::gslcblas PROPERTIES IMPORTED_LOCATION "${GSLCBLAS_LIBRARY}")
 endif()
 
-add_library(lcbinint_core
+add_library(lcbinint_magnification
     src/lcbinint/lcbinint.cpp
     src/lcbinint/magnification/finite_source_magnifier.cpp
     src/lcbinint/magnification/point_source_magnifier.cpp
@@ -66,30 +66,62 @@ add_library(lcbinint_core
     src/lcbinint/model/orbital_motion.cpp
     src/lcbinint/model/triple_lens_geometry.cpp
     src/lcbinint/model/trajectory.cpp
+    third_party/skowron_gould/SkowronGould.cpp)
+target_include_directories(lcbinint_magnification
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
+target_compile_definitions(lcbinint_magnification PRIVATE
+    LCBININT_EARTH_EPHEMERIS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/data/earth_orbital_parallax_table.txt")
+target_link_libraries(lcbinint_magnification PUBLIC GSL::gsl GSL::gslcblas m)
+
+# Compatibility-facing light-curve and observation layer.  Keeping this out of
+# the numerical target lets consumers call the magnification C API without
+# pulling in LightCurve or inference code.
+add_library(lcbinint_lightcurve
     src/lcbinint/lc/light_curve.cpp
     src/lcbinint/obs/light_curve_data.cpp
-    src/lcbinint/obs/event.cpp
+    src/lcbinint/obs/event.cpp)
+target_include_directories(lcbinint_lightcurve PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(lcbinint_lightcurve PUBLIC lcbinint_magnification)
+
+# Legacy inference implementation.  This target is deliberately isolated so it
+# can be replaced by moasarc while the lcbinint Python and C++ APIs remain
+# source-compatible.
+add_library(lcbinint_inference
     src/lcbinint/bayes/prior.cpp
     src/lcbinint/bayes/model.cpp
     src/lcbinint/optimize/differential_evolution.cpp
     src/lcbinint/optimize/levenberg_marquardt.cpp
     src/lcbinint/sample/chain.cpp
     src/lcbinint/sample/stretch_move.cpp
-    src/lcbinint/sample/ensemble_sampler.cpp
-    third_party/skowron_gould/SkowronGould.cpp)
-target_include_directories(lcbinint_core
-    PUBLIC
-        "${CMAKE_CURRENT_SOURCE_DIR}/include"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
-target_compile_definitions(lcbinint_core PRIVATE
-    LCBININT_EARTH_EPHEMERIS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/data/earth_orbital_parallax_table.txt")
-target_link_libraries(lcbinint_core PUBLIC GSL::gsl GSL::gslcblas m)
+    src/lcbinint/sample/ensemble_sampler.cpp)
+target_include_directories(lcbinint_inference PUBLIC
+    "${CMAKE_CURRENT_SOURCE_DIR}/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(lcbinint_inference PUBLIC lcbinint_lightcurve GSL::gsl GSL::gslcblas m)
+
+# Preserve the historical target name for downstream builds.  It intentionally
+# owns no objects: consumers receive the three component targets transitively.
+add_library(lcbinint_core INTERFACE)
+target_link_libraries(lcbinint_core INTERFACE
+    lcbinint_magnification
+    lcbinint_lightcurve
+    lcbinint_inference)
 
 add_executable(test_core tests/unit/test_core.cpp)
 target_link_libraries(test_core PRIVATE lcbinint_core)
 add_test(NAME unit_core COMMAND test_core)
+
+# Guard the standalone numerical boundary: this must continue to link without
+# LightCurve, observations, Bayesian inference, optimizers, or samplers.
+add_executable(test_magnification_boundary tests/unit/test_magnification_boundary.cpp)
+target_link_libraries(test_magnification_boundary PRIVATE lcbinint_magnification)
+add_test(NAME magnification_boundary COMMAND test_magnification_boundary)
 
 add_executable(benchmark_point_hex EXCLUDE_FROM_ALL tests/diagnostics/benchmark_point_hex.cpp)
 target_link_libraries(benchmark_point_hex PRIVATE lcbinint_core)
@@ -126,6 +158,10 @@ else()
     message(STATUS "Python extension disabled")
 endif()
 
-install(TARGETS lcbinint_core)
+install(TARGETS
+    lcbinint_core
+    lcbinint_magnification
+    lcbinint_lightcurve
+    lcbinint_inference)
 install(DIRECTORY include/lcbinint DESTINATION include)
 install(FILES data/earth_orbital_parallax_table.txt DESTINATION share/lcbinint/data)

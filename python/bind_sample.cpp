@@ -288,6 +288,19 @@ void register_sample_submodule(py::module_& parent)
         "If flat=True, shape is (nstep*nwalker,). If flat=False,\n"
         "shape is (nstep, nwalker).")
 
+        .def("get_physical", [](py::object self, bool flat, int discard,
+                                 int thin) {
+            if (!py::hasattr(self, "_physical_accessor"))
+                throw std::runtime_error(
+                    "chain has no stored physical samples; run the sampler "
+                    "with model.galactic_prior(...)");
+            return self.attr("_physical_accessor")(self, flat, discard, thin);
+        },
+        py::arg("flat") = true, py::arg("discard") = 0,
+        py::arg("thin") = 1,
+        "Return physical posterior values from the registered provider.\n"
+        "Values are fixed during sampling and stored with the chain.")
+
         // summary(): dict {param_name: {'median': ..., 'lo': ..., 'hi': ..., 'std': ...}}
         // where lo/hi are 16th/84th percentile.
         .def("summary", [](const Chain& c) {

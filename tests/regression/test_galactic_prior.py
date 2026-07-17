@@ -37,12 +37,30 @@ class FakeSamplingGalacticModel:
         self.names = tuple(names)
         self.calls = []
 
+    def log_density(self, theta, context=None):
+        return 0.0
+
     def sample_physical(self, theta, context=None, rng=None):
         self.calls.append((tuple(theta), context))
         offset = 0.0 if context is None else context.get("offset", 0.0)
         return {
             "ML": sum(float(value) for value in theta) + offset,
             "DS": 8.0 + offset,
+        }
+
+
+class FakeSharedGalacticModel(FakeSamplingGalacticModel):
+    def log_density_and_physical(
+        self, theta, *, uniforms, context=None, magnitudes=None
+    ):
+        import jax.numpy as jnp
+
+        del magnitudes
+        offset = 0.0 if context is None else context.get("offset", 0.0)
+        total = jnp.sum(jnp.asarray(theta)) + offset
+        return jnp.asarray(0.0), {
+            "ML": total + uniforms[0],
+            "DS": jnp.asarray(8.0) + offset,
         }
 
 
@@ -363,7 +381,7 @@ def test_custom_prior_missing_marginalized_value_explains_post_sampling_path():
     def _(DS):
         return 0.0
 
-    with pytest.raises(RuntimeError, match="not deterministic|get_galactic_physical|DS"):
+    with pytest.raises(RuntimeError, match="not deterministic|get_physical|DS"):
         model.log_prob(theta)
 
 
@@ -536,11 +554,16 @@ def test_reparam_custom_prior_can_use_galactic_physical_values():
     assert seen == {"ML": 1.5, "e": 0.3, "cos_i": 0.25}
 
 
-def test_get_galactic_physical_samples_chain_values():
+def test_chain_get_physical_samples_registered_provider():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
 
     model, _, _ = _make_model(lcbinint, np)
+    galaxy = FakeSamplingGalacticModel(("tE", "piEN", "piEE"))
+    model.galactic_prior(
+        galaxy,
+        context=lambda params: {"offset": params["u0"]},
+    )
     chain = lcbinint.run_sampler(
         model,
         nsteps=2,
@@ -552,12 +575,7 @@ def test_get_galactic_physical_samples_chain_values():
             auto_stop=False,
         ),
     )
-    galaxy = FakeSamplingGalacticModel(("tE", "piEN", "piEE"))
-
-    phys = model.get_galactic_physical(
-        chain,
-        galaxy,
-        context=lambda params: {"offset": params["u0"]},
+    phys = chain.get_physical(
         flat=False,
     )
 
@@ -568,7 +586,41 @@ def test_get_galactic_physical_samples_chain_values():
     assert "offset" in galaxy.calls[0][1]
 
 
-def test_get_galactic_physical_uses_reparam_transform():
+def test_sampler_stores_shared_physical_auxiliary_without_resampling(tmp_path):
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("jax")
+
+    model, _, _ = _make_model(lcbinint, np)
+    galaxy = FakeSharedGalacticModel(("tE", "piEN", "piEE"))
+    model.galactic_prior(
+        galaxy,
+        context=lambda params: {"offset": params["u0"]},
+    )
+    path = tmp_path / "shared-physical.h5"
+    chain = lcbinint.run_sampler(
+        model,
+        nsteps=2,
+        burnin=0,
+        options=lcbinint.SamplerOptions(
+            nwalkers=8,
+            seed=42,
+            log_path="",
+            auto_stop=False,
+            h5_path=str(path),
+        ),
+    )
+
+    physical = chain.get_physical(flat=False)
+    assert physical["ML"].shape == (2, 8)
+    assert physical["DS"].shape == (2, 8)
+    assert galaxy.calls == []
+    loaded = lcbinint.load_chain(str(path)).get_physical(flat=False)
+    np.testing.assert_array_equal(loaded["ML"], physical["ML"])
+    np.testing.assert_array_equal(loaded["DS"], physical["DS"])
+
+
+def test_chain_get_physical_uses_reparam_transform():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
 
@@ -593,6 +645,8 @@ def test_get_galactic_physical_uses_reparam_transform():
             "piEE": piE * math.sin(phi_piE),
         }
 
+    galaxy = FakeSamplingGalacticModel(("piEN", "piEE"))
+    model.galactic_prior(galaxy)
     chain = lcbinint.run_sampler(
         model,
         nsteps=2,
@@ -604,16 +658,14 @@ def test_get_galactic_physical_uses_reparam_transform():
             auto_stop=False,
         ),
     )
-    galaxy = FakeSamplingGalacticModel(("piEN", "piEE"))
-
-    phys = model.get_galactic_physical(chain, galaxy)
+    phys = chain.get_physical()
 
     assert phys["ML"].shape == (16,)
     assert len(galaxy.calls) == 16
     assert all(len(theta) == 2 for theta, _ in galaxy.calls)
 
 
-def test_get_galactic_physical_restores_latent_theta_star_without_magnification_recompute():
+def test_chain_get_physical_restores_theta_star_without_magnification_recompute():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
 
@@ -624,8 +676,8 @@ def test_get_galactic_physical_restores_latent_theta_star_without_magnification_
     def _(fluxes):
         return math.log(max(fluxes["tiny"]["Fs"], 1.0) * 1.0e-6), 0.05
 
-    prior = FakeGalacticModel(("thetaS",))
-    model.galactic_prior(prior)
+    galaxy = FakeSamplingGalacticModel(("thetaS",))
+    model.galactic_prior(galaxy)
     chain = lcbinint.run_sampler(
         model,
         nsteps=2,
@@ -637,15 +689,94 @@ def test_get_galactic_physical_restores_latent_theta_star_without_magnification_
             auto_stop=False,
         ),
     )
-    galaxy = FakeSamplingGalacticModel(("thetaS",))
-
     model._lc = None
-    phys = model.get_galactic_physical(chain, galaxy, flat=False, rng=np.random.default_rng(3))
+    phys = chain.get_physical(flat=False)
 
     assert set(phys) == {"ML", "DS", "thetaS", "Fs_tiny"}
     assert all(values.shape == (2, 8) for values in phys.values())
     assert np.all(np.isfinite(phys["thetaS"]))
     assert np.all(np.isfinite(phys["Fs_tiny"]))
+
+
+def test_chain_get_physical_uses_registered_deterministic_transform():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, _, _ = _make_model(lcbinint, np)
+    galaxy = FakeDeterministicGalacticModel(("tE", "piEN", "piEE"))
+    model.galactic_prior(galaxy)
+    chain = lcbinint.run_sampler(
+        model,
+        nsteps=2,
+        options=lcbinint.SamplerOptions(
+            nwalkers=8,
+            seed=53,
+            log_path="",
+            auto_stop=False,
+        ),
+    )
+
+    physical = chain.get_physical()
+    repeated = chain.get_physical()
+
+    assert set(physical) == {"ML", "thetaE"}
+    assert physical["ML"].shape == (16,)
+    assert np.all(physical["ML"] == 1.5)
+    np.testing.assert_array_equal(repeated["ML"], physical["ML"])
+
+
+def test_chain_get_physical_requires_registered_model():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    model, _, _ = _make_model(lcbinint, np)
+    chain = lcbinint.run_sampler(
+        model,
+        nsteps=1,
+        options=lcbinint.SamplerOptions(
+            nwalkers=8,
+            seed=59,
+            log_path="",
+            auto_stop=False,
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="model.galactic_prior"):
+        chain.get_physical()
+
+
+def test_loaded_chain_can_reconnect_physical_provider(tmp_path):
+    lcbinint = pytest.importorskip("lcbinint")
+    h5py = pytest.importorskip("h5py")
+    np = pytest.importorskip("numpy")
+
+    model, _, _ = _make_model(lcbinint, np)
+    model.galactic_prior(
+        FakeDeterministicGalacticModel(("tE", "piEN", "piEE"))
+    )
+    path = tmp_path / "physical-chain.h5"
+    lcbinint.run_sampler(
+        model,
+        nsteps=1,
+        options=lcbinint.SamplerOptions(
+            nwalkers=8,
+            seed=61,
+            log_path="",
+            log_every=1,
+            auto_stop=False,
+            h5_path=str(path),
+        ),
+    )
+
+    connected = lcbinint.load_chain(path)
+    physical = connected.get_physical()
+
+    with h5py.File(path, "r") as handle:
+        assert set(handle["physical"]) == {"ML", "thetaE"}
+        assert handle["physical/ML"].shape == (1, 8)
+
+    assert physical["ML"].shape == (8,)
+    assert np.all(physical["thetaE"] == 0.75)
 
 
 def test_galactic_prior_requires_names_when_prior_has_no_param_type():
@@ -972,6 +1103,14 @@ def test_lcbinint_marginalizes_no_parallax_flow_with_source_magnitudes():
     model.galactic_prior(prior)
 
     assert math.isfinite(model.log_prob(theta))
+    adapter = model._sampling_adapter()
+    adapter.set_aux_seed(41)
+    assert math.isfinite(adapter.log_prob_batch([theta])[0])
+    *_, cached_physical = adapter.consume_current_aux(np.asarray([theta]))
+    assert cached_physical is not None
+    assert {"ML", "DL", "DS", "mu_N", "mu_E", "thetaS", "Fs_tiny"} <= set(
+        cached_physical[0]
+    )
     chain = lcbinint.run_sampler(
         model,
         nsteps=1,
@@ -982,11 +1121,7 @@ def test_lcbinint_marginalizes_no_parallax_flow_with_source_magnitudes():
             auto_stop=False,
         ),
     )
-    physical = model.get_galactic_physical(
-        chain,
-        prior,
-        rng=np.random.default_rng(42),
-    )
+    physical = chain.get_physical()
     assert {"ML", "DL", "DS", "mu_N", "mu_E", "thetaS", "Fs_tiny"} <= set(physical)
     assert np.all((physical["DL"] > 0.0) & (physical["DL"] < physical["DS"]))
 
@@ -1032,9 +1167,12 @@ def test_lcbinint_batches_fixed_range_source_group_qmc():
     rows = [theta, [*theta[:2], theta[2] + 0.01, *theta[3:]]]
 
     values = adapter.log_prob_batch(rows)
+    _, _, _, _, physical = adapter.consume_current_aux(np.asarray(rows))
 
     assert np.all(np.isfinite(values))
     assert term._batch_fn is not None
+    assert physical is not None
+    assert all(0.0 < draw["DL"] < draw["DS"] for draw in physical)
 
 
 def test_guard_receives_reparameterized_physical_values():

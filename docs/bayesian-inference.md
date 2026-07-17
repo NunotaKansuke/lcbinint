@@ -206,9 +206,29 @@ explicitly.
 
 ## Conditional physical reconstruction
 
-The MCMC chain contains only non-marginalized coordinates. After sampling,
-`model.get_galactic_physical(...)` reconstructs hidden quantities without
-recomputing magnification:
+The MCMC chain contains only non-marginalized coordinates. When the sampled
+model registered a Galactic provider, the returned chain contains hidden
+physical draws produced during posterior evaluation:
+
+```python
+physical = chain.get_physical(
+    flat=True,
+    discard=burnin,
+    thin=thin,
+)
+```
+
+The Galactic provider, parameter names, context, and source-magnitude mapping
+come from the model's existing `galactic_prior(...)` registration. During each
+production step, deterministic values or one conditional hidden-variable draw
+are stored with every walker. HDF5 stores the same arrays under `physical/`, so
+`load_chain(path).get_physical()` does not need the original model.
+
+Providers exposing `log_density_and_physical(...)` return the marginal log
+density and conditional draw together. lcbinint then selects the draw from the
+same quadrature/QMC weights used by the accepted posterior evaluation; neither
+the magnification nor the Galactic integral is repeated. Providers implementing
+only `sample_physical(...)` remain supported through post-step reconstruction.
 
 ```text
 p(F, thetaS, z | eta, y)
@@ -216,9 +236,11 @@ p(F, thetaS, z | eta, y)
   p(F | eta, y) p(thetaS | F) p_G(eta, thetaS, z).
 ```
 
-The implementation draws one stored QMC candidate with probability
-proportional to its finite importance weight. These are conditional posterior
-draws from the same finite-QMC approximation used in the chain likelihood.
+For Flow integration, the implementation draws one stored QMC candidate with
+probability proportional to its finite importance weight. For Histogram
+integration, it draws from the existing analytic distance-quadrature terms and
+uses the inverse CDF of the interpolated proper-motion direction histogram.
+Neither path performs an additional Galactic-density evaluation.
 
 ## Supported combinations
 

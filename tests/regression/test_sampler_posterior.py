@@ -37,7 +37,7 @@ class _GaussianPosterior:
         nwalkers = len(positions)
         fluxes = np.zeros((nwalkers, 2), dtype=float)
         scales = np.zeros((nwalkers, 1), dtype=float)
-        return fluxes, scales, np.zeros(1, dtype=float), ["dummy"]
+        return fluxes, scales, np.zeros(1, dtype=float), ["dummy"], None
 
 
 class _ScalarLogProb:

@@ -141,6 +141,17 @@ def _logmeanexp(values):
     return peak + math.log(float(np.mean(np.exp(values - peak))))
 
 
+def _draw_log_weighted_index(log_weights, rng):
+    values = np.asarray(log_weights, dtype=float)
+    finite = np.isfinite(values)
+    if not np.any(finite):
+        raise ValueError("conditional distribution has zero probability")
+    peak = np.max(values[finite])
+    probabilities = np.where(finite, np.exp(values - peak), 0.0)
+    probabilities /= probabilities.sum()
+    return int(rng.choice(len(values), p=probabilities))
+
+
 def _sobol_points(samples, dimensions, seed):
     import warnings
 
@@ -170,7 +181,13 @@ def _draw_fluxes(fluxes, conditionals, uniforms):
 
 
 def _evaluate_extra_priors_many(
-    priors, values, likelihood_contexts=None, *, return_values=False
+    priors,
+    values,
+    likelihood_contexts=None,
+    *,
+    return_values=False,
+    return_physical=False,
+    uniforms=None,
 ):
     current = [dict(vals) for vals in values]
     if likelihood_contexts is None:
@@ -179,6 +196,9 @@ def _evaluate_extra_priors_many(
         raise ValueError("likelihood_contexts must match values")
     ordered = _ordered_extra_priors(priors, current[0] if current else {})
     totals = np.zeros(len(current), dtype=float)
+    physical = [None] * len(current)
+    if uniforms is None:
+        uniforms = np.full((len(current), 2), 0.5, dtype=float)
     for prior_index, fn in enumerate(ordered):
         active = np.flatnonzero(np.isfinite(totals))
         if not len(active):
@@ -186,7 +206,18 @@ def _evaluate_extra_priors_many(
         active_values = [current[index] for index in active]
         active_contexts = [likelihood_contexts[index] for index in active]
         if isinstance(fn, _GalacticModelTerm):
-            active_batch = fn.batch_log_prob(active_values, active_contexts)
+            result = fn.batch_log_prob(
+                active_values,
+                active_contexts,
+                return_physical=return_physical,
+                uniforms=np.asarray(uniforms)[active],
+            )
+            if return_physical and result is not None:
+                active_batch, active_physical = result
+                for local, index in enumerate(active):
+                    physical[index] = active_physical[local]
+            else:
+                active_batch = result
         else:
             active_batch = (
                 fn.batch_log_prob(active_values)
@@ -213,7 +244,13 @@ def _evaluate_extra_priors_many(
                     else:
                         derived = fn.physical_values(vals)
                     vals.update(derived)
-    return (totals, current) if return_values else totals
+    if return_values and return_physical:
+        return totals, current, physical
+    if return_values:
+        return totals, current
+    if return_physical:
+        return totals, physical
+    return totals
 
 
 def _ordered_extra_priors(priors, vals):
@@ -564,7 +601,14 @@ class _GalacticModelTerm:
             # the physical mapping once thetaS has been injected.
             return True
 
-    def batch_log_prob(self, values, likelihood_contexts=None):
+    def batch_log_prob(
+        self,
+        values,
+        likelihood_contexts=None,
+        *,
+        return_physical=False,
+        uniforms=None,
+    ):
         """Evaluate a JAX-compatible Galactic model for many latent states."""
         if self._batch_disabled:
             return None
@@ -593,10 +637,36 @@ class _GalacticModelTerm:
             if any((item is not None) != has_magnitudes for item in magnitudes):
                 raise ValueError("Galactic magnitudes must be present for every batch item")
 
-            batch_key = (has_context, has_magnitudes)
+            shared = return_physical and callable(
+                getattr(self.galaxy, "log_density_and_physical", None)
+            )
+            batch_key = (has_context, has_magnitudes, shared)
             if self._batch_fn is None or self._batch_key != batch_key:
                 galaxy = self.galaxy
-                if has_context and has_magnitudes:
+                if shared and has_context and has_magnitudes:
+                    one = lambda theta, uniforms, ctx, mags: galaxy.log_density_and_physical(
+                        theta,
+                        uniforms=uniforms,
+                        context=ctx,
+                        magnitudes=mags,
+                    )
+                    self._batch_fn = jax.jit(jax.vmap(one))
+                elif shared and has_context:
+                    one = lambda theta, uniforms, ctx: galaxy.log_density_and_physical(
+                        theta, uniforms=uniforms, context=ctx
+                    )
+                    self._batch_fn = jax.jit(jax.vmap(one))
+                elif shared and has_magnitudes:
+                    one = lambda theta, uniforms, mags: galaxy.log_density_and_physical(
+                        theta, uniforms=uniforms, magnitudes=mags
+                    )
+                    self._batch_fn = jax.jit(jax.vmap(one))
+                elif shared:
+                    one = lambda theta, uniforms: galaxy.log_density_and_physical(
+                        theta, uniforms=uniforms
+                    )
+                    self._batch_fn = jax.jit(jax.vmap(one))
+                elif has_context and has_magnitudes:
                     one = lambda theta, ctx, mags: galaxy.log_density(
                         theta, context=ctx, magnitudes=mags
                     )
@@ -620,14 +690,45 @@ class _GalacticModelTerm:
                 for vals in values
             ])
             args = [theta]
+            if shared:
+                args.append(jnp.asarray(uniforms))
             if has_context:
                 args.append(_stack_pytrees(contexts, jax, jnp))
             if has_magnitudes:
                 args.append(_stack_pytrees(magnitudes, jax, jnp))
             result = self._batch_fn(*args)
-            return np.asarray(result, dtype=float)
+            if not shared:
+                log_prob = np.asarray(result, dtype=float)
+                return (
+                    (log_prob, [None] * len(values))
+                    if return_physical
+                    else log_prob
+                )
+            log_prob, physical = result
+            rows = [
+                {
+                    name: float(np.asarray(array)[index])
+                    for name, array in physical.items()
+                }
+                for index in range(len(values))
+            ]
+            return np.asarray(log_prob, dtype=float), rows
+        except TypeError:
+            if return_physical:
+                self._batch_fn = None
+                self._batch_key = None
+                log_prob = self.batch_log_prob(
+                    values,
+                    likelihood_contexts,
+                    return_physical=False,
+                )
+                if log_prob is not None:
+                    return log_prob, [None] * len(values)
+            self._batch_disabled = True
+            self._batch_fn = None
+            self._batch_key = None
+            return None
         except (
-            TypeError,
             ValueError,
             jax.errors.ConcretizationTypeError,
             jax.errors.TracerArrayConversionError,
@@ -666,7 +767,7 @@ def _call_extra_prior(fn, vals, likelihood_context=None):
             + ". Only parameters that are deterministic for the current "
             "sampler step are passed to @model.prior. If these are "
             "marginalized Galactic quantities such as DL or DS, use "
-            "model.get_galactic_physical(chain, galaxy, ...) after sampling, "
+            "chain.get_physical(...) after sampling, "
             "or sample those quantities explicitly."
         )
     return fn(**vals)
@@ -770,6 +871,12 @@ class _SamplingAdapter:
         self._bounds = self._build_bounds()
         self._transforms = self._build_transforms()
         self._aux_cache = {}
+        self._aux_rng = np.random.default_rng(0)
+
+    def set_aux_seed(self, seed):
+        self._aux_rng = np.random.default_rng(
+            np.random.SeedSequence([int(seed), 0x70687973])
+        )
 
     @property
     def param_names(self):
@@ -810,7 +917,7 @@ class _SamplingAdapter:
         base_prob, fluxes, conditionals = phys_model._log_prob_and_fluxes(phys_theta)
         if not math.isfinite(base_prob):
             return base_prob
-        self._aux_cache[tuple(theta)] = (fluxes, conditionals)
+        self._aux_cache[tuple(theta)] = (fluxes, conditionals, None)
         lp += base_prob - phys_model.log_prior(phys_theta)
         likelihood_context = LikelihoodContext(
             fluxes=fluxes,
@@ -819,25 +926,42 @@ class _SamplingAdapter:
         )
 
         if self._model._theta_star_fn is not None:
-            marginalizer = (
-                _marginalize_isochrone_theta_star
-                if self._model._theta_star_isochrone is not None
-                else _marginalize_theta_star
-            )
-            args = [
-                self._model._theta_star_fn,
-            ]
             if self._model._theta_star_isochrone is not None:
-                args.append(self._model._theta_star_isochrone)
-            lp += marginalizer(
-                *args,
-                vals,
-                fluxes,
-                conditionals,
-                self._model._extra_priors,
-                self._model._theta_star_options,
-                self._model._lik_kwargs["flux"],
-            )
+                candidates, log_weights, _ = _isochrone_conditional_candidates(
+                    self._model._theta_star_fn,
+                    self._model._theta_star_isochrone,
+                    vals,
+                    fluxes,
+                    conditionals,
+                    self._model._extra_priors,
+                    self._model._theta_star_options,
+                    self._model._lik_kwargs["flux"],
+                )
+                lp += _logmeanexp(log_weights)
+                if math.isfinite(lp):
+                    selected = candidates[
+                        _draw_log_weighted_index(log_weights, self._aux_rng)
+                    ]
+                    selected_values, selected_fluxes, physical = selected
+                    physical = dict(physical)
+                    physical["thetaS"] = float(selected_values["thetaS"])
+                    for name, flux in selected_fluxes.items():
+                        physical[f"Fs_{name}"] = float(flux["Fs"])
+                    self._aux_cache[tuple(theta)] = (
+                        fluxes,
+                        conditionals,
+                        physical,
+                    )
+            else:
+                lp += _marginalize_theta_star(
+                    self._model._theta_star_fn,
+                    vals,
+                    fluxes,
+                    conditionals,
+                    self._model._extra_priors,
+                    self._model._theta_star_options,
+                    self._model._lik_kwargs["flux"],
+                )
             if not math.isfinite(lp):
                 return lp
 
@@ -905,7 +1029,7 @@ class _SamplingAdapter:
                 results[index] = base_prob
                 continue
 
-            self._aux_cache[tuple(theta)] = (fluxes, conditionals)
+            self._aux_cache[tuple(theta)] = (fluxes, conditionals, None)
             results[index] = (
                 lp + base_prob - phys_model.log_prior(phys_theta)
             )
@@ -921,15 +1045,23 @@ class _SamplingAdapter:
             return results.tolist()
 
         if self._model._theta_star_fn is None:
-            prior_totals, prior_values = _evaluate_extra_priors_many(
+            prior_totals, prior_values, prior_physical = _evaluate_extra_priors_many(
                 self._model._extra_priors,
                 [values[index] for index in active],
                 [contexts[index] for index in active],
                 return_values=True,
+                return_physical=True,
+                uniforms=self._aux_rng.random((len(active), 2)),
             )
             for local, index in enumerate(active):
                 results[index] += prior_totals[local]
                 values[index] = prior_values[local]
+                fluxes, conditionals, _ = self._aux_cache[tuple(rows[index])]
+                self._aux_cache[tuple(rows[index])] = (
+                    fluxes,
+                    conditionals,
+                    prior_physical[local],
+                )
         else:
             candidate_values = []
             candidate_contexts = []
@@ -950,22 +1082,29 @@ class _SamplingAdapter:
 
             group_sizes = [end - begin for _, begin, end, _ in groups]
             if all(size == 1 for size in group_sizes):
-                candidate_weights = _evaluate_extra_priors_many(
+                candidate_weights, candidate_physical = _evaluate_extra_priors_many(
                     self._model._extra_priors,
                     candidate_values,
                     candidate_contexts,
+                    return_physical=True,
+                    uniforms=self._aux_rng.random((len(candidate_values), 2)),
                 )
             else:
                 # Keep nested flux/thetaS quadrature separate by walker. A
                 # flattened walker x quadrature x Galactic-QMC array can be
                 # much larger than either useful batching axis.
                 candidate_weights = np.empty(len(candidate_values), dtype=float)
+                candidate_physical = [None] * len(candidate_values)
                 for _, begin, end, _ in groups:
-                    candidate_weights[begin:end] = _evaluate_extra_priors_many(
+                    weights, physical = _evaluate_extra_priors_many(
                         self._model._extra_priors,
                         candidate_values[begin:end],
                         candidate_contexts[begin:end],
+                        return_physical=True,
+                        uniforms=self._aux_rng.random((end - begin, 2)),
                     )
+                    candidate_weights[begin:end] = weights
+                    candidate_physical[begin:end] = physical
             for index, begin, end, invalid_count in groups:
                 weights = candidate_weights[begin:end]
                 if invalid_count:
@@ -974,6 +1113,23 @@ class _SamplingAdapter:
                         np.full(invalid_count, float("-inf")),
                     ])
                 results[index] += _logmeanexp(weights)
+                finite = np.isfinite(weights[:end - begin])
+                if np.any(finite):
+                    local = _draw_log_weighted_index(
+                        weights[:end - begin], self._aux_rng
+                    )
+                    draw = candidate_physical[begin + local]
+                    if draw is not None:
+                        draw = dict(draw)
+                        draw["thetaS"] = float(candidate_values[begin + local]["thetaS"])
+                        for name, flux in candidate_contexts[begin + local].fluxes.items():
+                            draw[f"Fs_{name}"] = float(flux["Fs"])
+                    fluxes, conditionals, _ = self._aux_cache[tuple(rows[index])]
+                    self._aux_cache[tuple(rows[index])] = (
+                        fluxes,
+                        conditionals,
+                        draw,
+                    )
 
         for index in active:
             if not math.isfinite(results[index]):
@@ -995,17 +1151,19 @@ class _SamplingAdapter:
         current = {}
         flux_rows = []
         scale_rows = []
+        physical_rows = []
         dfs = None
         dataset_names = None
         for position in np.asarray(positions):
             key = tuple(position.tolist())
             try:
-                fluxes, conditionals = self._aux_cache[key]
+                fluxes, conditionals, physical = self._aux_cache[key]
             except KeyError as exc:
                 raise RuntimeError(
                     "accepted sampler state has no cached likelihood auxiliaries"
                 ) from exc
-            current[key] = (fluxes, conditionals)
+            current[key] = (fluxes, conditionals, physical)
+            physical_rows.append(physical)
             if dataset_names is None:
                 dataset_names = list(fluxes)
                 dfs = np.asarray([
@@ -1029,6 +1187,7 @@ class _SamplingAdapter:
             np.asarray(scale_rows, dtype=float),
             dfs,
             dataset_names or [],
+            physical_rows if all(row is not None for row in physical_rows) else None,
         )
 
     def fluxes(self, theta):
@@ -1448,39 +1607,37 @@ def _build_model_class(cpp_base):
             self._extra_priors.append(term)
             return term
 
-        def get_galactic_physical(
+        def _chain_to_physical(
             self,
             chain,
-            galaxy,
-            *,
-            context=None,
-            magnitudes=None,
-            names=None,
-            flat=True,
-            discard=0,
-            thin=1,
-            rng=None,
+            flat,
+            discard,
+            thin,
+            rng,
         ):
-            """Return gapmoe physical samples for a chain.
+            """Reconstruct physical samples for a connected Chain.
 
-            For marginalized gapmoe dimensions this calls
-            ``galaxy.sample_physical()``, so hidden physical variables are drawn
-            from their conditional posterior for each chain sample. If thetaS
-            was marginalized, its stored flux conditional is used to restore a
-            posterior draw without recomputing magnification. The returned dict
-            then also contains ``thetaS`` and ``Fs_<dataset>``.
+            Deterministic models are transformed directly. For marginalized
+            dimensions this calls the registered provider's
+            ``sample_physical()``, drawing hidden physical variables from their
+            conditional posterior for each chain sample. If thetaS was
+            marginalized, its stored flux conditional is used without
+            recomputing magnification. The returned dict then also contains
+            ``thetaS`` and ``Fs_<dataset>``.
             """
-            if names is None:
-                names = getattr(galaxy, "names", None)
-            if names is None:
-                param_type = getattr(galaxy, "param_type", None)
-                names = getattr(param_type, "names", None)
-            if names is None:
-                raise ValueError(
-                    "get_galactic_physical() requires names=... when "
-                    "galaxy.names is unavailable"
+            terms = [
+                term for term in self._extra_priors
+                if isinstance(term, _GalacticModelTerm)
+            ]
+            if len(terms) != 1:
+                raise RuntimeError(
+                    "chain.get_physical() requires exactly one registered "
+                    "Galactic model; call model.galactic_prior(...) before "
+                    "sampling"
                 )
-            names = tuple(names)
+            term = terms[0]
+            galaxy = term.galaxy
+            names = term.names
             raw = np.asarray(
                 chain.get_samples(
                     flat=flat,
@@ -1590,7 +1747,7 @@ def _build_model_class(cpp_base):
                 missing = [name for name in names if name not in vals]
                 if missing:
                     raise RuntimeError(
-                        "get_galactic_physical() missing model parameter(s): "
+                        "chain.get_physical() missing model parameter(s): "
                         + ", ".join(missing)
                     )
                 theta = [vals[name] for name in names]
@@ -1602,14 +1759,8 @@ def _build_model_class(cpp_base):
                         else self._lik_kwargs.get("flux")
                     ),
                 )
-                ctx = _make_galactic_context(
-                    context, vals, likelihood_context
-                )
-                source_magnitudes = _make_galactic_magnitudes(
-                    magnitudes,
-                    vals,
-                    likelihood_context,
-                )
+                ctx = term._context(vals, likelihood_context)
+                source_magnitudes = term._magnitudes(vals, likelihood_context)
                 if precomputed_draw is not None:
                     draw = precomputed_draw
                 elif hasattr(galaxy, "sample_physical"):
@@ -1649,6 +1800,17 @@ def _build_model_class(cpp_base):
                         [fluxes[name]["Fs"] for _, fluxes in latent_draws]
                     ).reshape(out_shape)
             return result
+
+        def _has_physical_provider(self):
+            return any(
+                isinstance(term, _GalacticModelTerm)
+                and (
+                    hasattr(term.galaxy, "sample_physical")
+                    or hasattr(term.galaxy, "to_deterministic_physical")
+                    or hasattr(term.galaxy, "log_density_and_physical")
+                )
+                for term in self._extra_priors
+            )
 
         def _latent_theta_star_candidates(self, vals, fluxes, conditionals):
             from scipy.special import ndtri
