@@ -10,7 +10,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-for build_dir in ("build_new", "build"):
+for build_dir in ("build",):
     build_path = next(
         (root / build_dir
          for root in (Path.cwd(), *Path.cwd().parents)
@@ -52,8 +52,8 @@ PARAMS = {
 }
 
 OPTIONS = lcbinint.Options(
-    param_type="vbm",
-    source_bins=50,
+    coordinates="vbm",
+    nbin="auto",
 )
 LIMB_DARKENING = lcbinint.LimbDarkening.linear(0.5)
 TIMING_REPEATS = 7
@@ -76,7 +76,7 @@ def _vbm_array(p: dict) -> list:
 
 def evaluate_lcbinint(limb_darkening: lcbinint.LimbDarkening):
     lightcurve = lcbinint.LightCurve(
-        lens="triple_lens",
+        lens="triple",
         options=OPTIONS,
         limb_darkening=limb_darkening,
     )

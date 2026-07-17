@@ -4,6 +4,7 @@
 #include "lcbinint/model/lens_parameters.hpp"
 
 #include <cmath>
+#include <limits>
 
 namespace {
 
@@ -44,6 +45,8 @@ lcbi_params lcbi_default_params(void)
     params.tE = 1.0;
     params.q = 1.0;
     params.sep = 1.0;
+    params.obs_lat = std::numeric_limits<double>::quiet_NaN();
+    params.obs_lon = std::numeric_limits<double>::quiet_NaN();
     params.orbital_motion_mode = LCBI_ORBIT_STATIC;
     params.lom_ar = 1.0;
     return params;

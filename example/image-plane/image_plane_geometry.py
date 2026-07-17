@@ -6,7 +6,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-for build_dir in ("build", "build_new"):
+for build_dir in ("build",):
     build_path = next(
         (root / build_dir
          for root in (Path.cwd(), *Path.cwd().parents)

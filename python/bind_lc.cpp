@@ -508,8 +508,11 @@ lcbinint::SourcePosition lens_frame_source_position(
     const lcbinint::model::LensParameters lp = lcbinint::model::from_c_params(params);
     const lcbinint::model::Trajectory traj(lp);
     const bool vbm = lc.options().vbm_compatible != 0;
+    const bool parallax_enabled = lc.options().parallax_mode != 0 &&
+        (params.piEN != 0.0 || params.piEE != 0.0);
     lcbinint::SourcePosition source =
-        traj.source_position(time, vbm, lc.options().xallarap_param_type);
+        traj.source_position(
+            time, vbm, lc.options().xallarap_param_type, parallax_enabled);
 
     if (params.orbital_motion_mode != LCBI_ORBIT_STATIC) {
         const auto orbit = lcbinint::model::orbital_state(lp, time);
@@ -518,7 +521,7 @@ lcbinint::SourcePosition lens_frame_source_position(
             const double sintheta = std::sin(params.theta);
             double tau = 0.0;
             double beta = 0.0;
-            if (params.piEN == 0.0 && params.piEE == 0.0) {
+            if (!parallax_enabled) {
                 tau = (time - params.t0) / params.tE;
                 beta = params.umin;
             } else {

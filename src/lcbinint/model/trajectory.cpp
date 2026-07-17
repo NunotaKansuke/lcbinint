@@ -418,7 +418,7 @@ void apply_terrestrial_parallax(const LensParameters& params, double time, doubl
     if (!has_annual_parallax(params)) {
         return;
     }
-    if (params.obs_lat == 0.0 && params.obs_lon == 0.0) {
+    if (!std::isfinite(params.obs_lat) || !std::isfinite(params.obs_lon)) {
         return;
     }
 
@@ -489,12 +489,15 @@ void apply_annual_parallax(const LensParameters& params, double time, double& ta
 } // namespace
 
 SourcePosition Trajectory::source_position(
-    double time, bool vbm_mode, lcbi_xallarap_param_type xallarap_type) const
+    double time, bool vbm_mode, lcbi_xallarap_param_type xallarap_type,
+    bool parallax_enabled) const
 {
     double tn = (time - params_.t0) / params_.tE;
     double beta = params_.umin;
-    apply_annual_parallax(params_, time, tn, beta);
-    apply_terrestrial_parallax(params_, time, tn, beta);
+    if (parallax_enabled) {
+        apply_annual_parallax(params_, time, tn, beta);
+        apply_terrestrial_parallax(params_, time, tn, beta);
+    }
     if (xallarap_type == LCBI_XALLARAP_ORBITAL_ELEMENTS) {
         apply_xallarap_orbital_elements(params_, time, tn, beta);
     } else if (xallarap_type == LCBI_XALLARAP_CIRCULAR_ELEMENTS) {

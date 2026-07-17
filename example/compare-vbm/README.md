@@ -10,8 +10,10 @@ This example shows the public `LightCurve` callable API:
 Run the script version:
 
 ```bash
-python example/compare-vbm/quickstart_compare_vbm.py
-python example/compare-vbm/quickstart_compare_vbm_triple.py
+PYTHONPATH=build python example/compare-vbm/quickstart_compare_vbm.py
+PYTHONPATH=build python example/compare-vbm/quickstart_compare_vbm_triple.py
 ```
 
-The notebook version contains the same workflow in a compact interactive form.
+The scripts print median timing distributions and accuracy summaries, then
+write comparison plots beside the scripts. The notebook versions contain the
+same binary- and triple-lens workflows in interactive form.

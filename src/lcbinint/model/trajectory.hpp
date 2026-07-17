@@ -10,7 +10,8 @@ public:
     explicit Trajectory(LensParameters params) : params_(params) {}
 
     SourcePosition source_position(double time, bool vbm_mode = false,
-        lcbi_xallarap_param_type xallarap_type = LCBI_XALLARAP_NONE) const;
+        lcbi_xallarap_param_type xallarap_type = LCBI_XALLARAP_NONE,
+        bool parallax_enabled = true) const;
 
 private:
     LensParameters params_;

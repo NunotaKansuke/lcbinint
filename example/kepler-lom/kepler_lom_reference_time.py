@@ -22,7 +22,7 @@ PARAMS = dict(
     lom_ar=1.4,
 )
 
-OPTIONS = lcbinint.Options(coordinates="vbm", source_bins=50)
+OPTIONS = lcbinint.Options(coordinates="vbm", nbin="auto")
 
 
 def relative_error(reference, values):
@@ -31,7 +31,7 @@ def relative_error(reference, values):
 
 def lcbinint_kepler(tfix):
     curve = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         t_ref=tfix,
         options=OPTIONS,
         limb_darkening=lcbinint.LimbDarkening.none(),

@@ -9,7 +9,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-for build_dir in ("build_new", "build"):
+for build_dir in ("build",):
     build_path = next(
         (root / build_dir
          for root in (Path.cwd(), *Path.cwd().parents)
@@ -41,8 +41,8 @@ CASE = Case()
 TIMES = np.linspace(CASE.t_min, CASE.t_max, CASE.n_times)
 
 OPTIONS = lcbinint.Options(
-    param_type="vbm",
-    source_bins=50,
+    coordinates="vbm",
+    nbin="auto",
 )
 LIMB_DARKENING = lcbinint.LimbDarkening.linear(0.5)
 TIMING_REPEATS = 7
@@ -50,7 +50,7 @@ TIMING_REPEATS = 7
 
 def evaluate_lcbinint(limb_darkening: lcbinint.LimbDarkening):
     lightcurve = lcbinint.LightCurve(
-        lens="binary_lens",
+        lens="binary",
         options=OPTIONS,
         limb_darkening=limb_darkening,
     )

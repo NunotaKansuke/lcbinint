@@ -3,10 +3,11 @@
 Terrestrial parallax adds the observatory's geocentric displacement (projected
 onto the sky plane) to the source trajectory, using the same piEN/piEE as
 annual parallax.  The tests verify:
-  1. site=(0, 0) gives the same result as not setting a site (geocentric).
-  2. The inter-observatory displacement between two telescopes at the same time
+  1. parallax terms are inactive unless the physical model enables parallax.
+  2. site=(0, 0) is treated as a real equatorial/Greenwich observatory.
+  3. The inter-observatory displacement between two telescopes at the same time
      matches the hand-computed value from the sky-projected baseline.
-  3. Diurnal variation: source position changes over a night as Earth rotates.
+  4. Diurnal variation: source position changes over a night as Earth rotates.
 """
 import math
 import numpy as np
@@ -123,14 +124,35 @@ def test_terrestrial_requires_explicit_flag():
     assert info_with_flag.source_x[0] != info_geo.source_x[0]
 
 
-def test_terrestrial_zero_obs_same_as_geocentric():
-    """site=(0, 0) gives identical results to geocenter even with terrestrial=True."""
+def test_parallax_requires_explicit_model_flag():
+    """piE parameters do not silently activate parallax physics."""
+    times = np.array([_T0PAR + 1.0, _T0PAR + 10.0])
+    inactive = lcbinint.LightCurve()
+    with_pie = inactive.info(times, _PARAMS_BASE)
+    without_pie = inactive.info(times, {**_PARAMS_BASE, "piEN": 0.0, "piEE": 0.0})
+
+    np.testing.assert_array_equal(with_pie.source_x, without_pie.source_x)
+    np.testing.assert_array_equal(with_pie.source_y, without_pie.source_y)
+
+
+def test_equator_greenwich_is_a_real_observatory():
+    """An explicitly supplied site=(0, 0) must not be used as a sentinel."""
     lc_geo = make_lc(site=None)
     lc_zero = make_lc(site=lcbinint.obs.Site(0.0, 0.0))
-    times = np.array([_T0PAR, _T0PAR + 10.0, _T0PAR + 50.0])
-    mag_geo = lc_geo(times, _PARAMS_BASE)
-    mag_zero = lc_zero(times, _PARAMS_BASE)
-    np.testing.assert_array_equal(mag_geo, mag_zero)
+    times = np.array([_T0PAR + 1.0])
+    info_geo = lc_geo.info(times, _PARAMS_BASE)
+    info_zero = lc_zero.info(times, _PARAMS_BASE)
+    expected_tau, expected_beta = _terrestrial_delta_u(
+        0.0, 0.0, times[0], _PIEN, _PIEE, _RA, _DEC
+    )
+
+    assert info_zero.source_x[0] - info_geo.source_x[0] == pytest.approx(
+        expected_tau, rel=1e-5, abs=1e-12
+    )
+    assert info_zero.source_y[0] - info_geo.source_y[0] == pytest.approx(
+        expected_beta, rel=1e-5, abs=1e-12
+    )
+    assert math.hypot(expected_tau, expected_beta) > 1e-7
 
 
 def test_terrestrial_inter_observatory_displacement():

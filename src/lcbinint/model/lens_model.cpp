@@ -85,9 +85,11 @@ LensModel::LensModel(LensParameters params, ComputationOptions options)
 MagnificationResult LensModel::magnification(double time) const
 {
     SourcePosition source;
+    const bool has_parallax = options_.parallax_mode != 0 &&
+        (params_.piEN != 0.0 || params_.piEE != 0.0);
     const bool has_xallarap = options_.xallarap_param_type != LCBI_XALLARAP_NONE &&
         params_.has_xallarap();
-    if (params_.piEN == 0.0 && params_.piEE == 0.0 && !has_xallarap) {
+    if (!has_parallax && !has_xallarap) {
         const double tn = (time - params_.t0) / params_.tE;
         const double beta = params_.umin;
         if (options_.vbm_compatible != 0) {
@@ -99,7 +101,8 @@ MagnificationResult LensModel::magnification(double time) const
         }
     } else {
         source = trajectory_.source_position(
-            time, options_.vbm_compatible != 0, options_.xallarap_param_type);
+            time, options_.vbm_compatible != 0, options_.xallarap_param_type,
+            has_parallax);
     }
     const bool static_orbit = params_.orbital_motion_mode == LCBI_ORBIT_STATIC;
     const auto orbit = static_orbit ? OrbitalState {params_.sep, params_.theta, 0.0}
@@ -173,7 +176,7 @@ MagnificationResult LensModel::magnification(double time) const
             if (options_.vbm_compatible != 0) {
                 double tau = 0.0;
                 double beta = 0.0;
-                if (params_.piEN == 0.0 && params_.piEE == 0.0) {
+                if (!has_parallax) {
                     tau = (time - params_.t0) / params_.tE;
                     beta = params_.umin;
                 } else {

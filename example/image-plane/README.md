@@ -7,7 +7,7 @@ positions.
 Run without creating output files:
 
 ```bash
-python example/image-plane/image_plane_geometry.py
+PYTHONPATH=build python example/image-plane/image_plane_geometry.py
 ```
 
 The same walkthrough is available as a notebook:
@@ -19,5 +19,5 @@ jupyter notebook example/image-plane/image_plane_geometry.ipynb
 Optionally save the figure:
 
 ```bash
-python example/image-plane/image_plane_geometry.py --output image_plane_geometry.png
+PYTHONPATH=build python example/image-plane/image_plane_geometry.py --output image_plane_geometry.png
 ```

@@ -17,8 +17,9 @@ Features:
 - inverse-ray finite-source integration with Cartesian and polar grids
 - linear limb darkening
 - reusable light-curve callables
-- annual parallax
+- annual and terrestrial parallax
 - circular and Keplerian lens orbital motion
+- calibrated one-shot finite-source resolution and Cartesian/polar selection
 
 ## Developer Install
 
@@ -96,6 +97,17 @@ geometry diagnostics.  It does not run a trial integration or retry at a higher
 resolution.  The calibration experiment and frozen artifacts are documented in
 [`docs/finite-source-auto-calibration.md`](docs/finite-source-auto-calibration.md).
 
+`LightCurve.info(...)` reports the selected method, convergence state, and
+numerical error diagnostics. lcbinint never imports or dispatches to an external
+solver. Numerical conventions and limits are summarized in
+[`docs/numerical-methods.md`](docs/numerical-methods.md).
+
+Annual parallax requires `parallax=True`, `t_ref`, and a sky position supplied
+on the callable or in the per-call parameters.
+Terrestrial parallax additionally requires `terrestrial=True` and an explicit
+`lcbinint.obs.Site`; merely passing non-zero `piEN`/`piEE` does not activate
+parallax.
+
 ## Diagnostics
 
 Optional diagnostic checks:
@@ -106,5 +118,12 @@ PYTHONPATH=build python tests/diagnostics/polar_cartesian_mode_sweep.py --random
 
 An executed VBM comparison notebook is included at
 `example/compare-vbm/lcbinint_vbm_light_curve_comparison.ipynb`.
+
+Runnable examples are grouped by purpose:
+
+- `example/light-curve/`: reusable callables, diagnostics, and parallax
+- `example/compare-vbm/`: binary/triple accuracy and timing comparisons
+- `example/image-plane/`: caustics, critical curves, and image positions
+- `example/kepler-lom/`: Kepler orbital-motion reference epochs
 
 API details may change before the first stable package release.

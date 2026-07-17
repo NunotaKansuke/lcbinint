@@ -10,8 +10,8 @@ position:
    be both accurate and faster?
 
 The two answers are deliberately independent.  Automatic `nbin` is an lcbinint
-runtime feature.  The VBM result is only an internal recommendation flag: it
-does not link, call, copy, or automatically dispatch to VBM.  This separation
+runtime feature.  The VBM result is an internal recommendation flag: it does
+not link, call, copy, or automatically dispatch to VBM.  This separation
 also prevents an external result from silently becoming the numerical oracle.
 
 The runtime rule is a one-shot preselection from quantities already computed at
@@ -122,7 +122,7 @@ violations across all 854 difficult rows.  This supports using polar resolution
 directly in the high-magnification regime rather than trusting a contour value
 there.
 
-## Internal VBM recommendation
+## External-contour recommendation
 
 The recommendation is intentionally conservative about correctness, not merely
 about speed.  It is evaluated per source position because magnification,
@@ -146,8 +146,8 @@ not be promoted to an oracle.
 Independent validation selected 1,289 uniform rows and 972 limb-darkened rows.
 There were zero inaccurate or failed recommended VBM results.  Where both
 engines were accurate, VBM was faster in 1,273/1,277 uniform rows and 885/972
-limb-darkened rows.  These figures justify a recommendation flag, but not an
-automatic public dispatcher.
+limb-darkened rows.  These figures justify an internal backend-routing hint,
+but not an automatic public dispatcher.
 
 ## Numerical defect found during calibration
 

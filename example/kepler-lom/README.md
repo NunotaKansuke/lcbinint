@@ -13,5 +13,5 @@ parameters such as `t0` vary.
 Run:
 
 ```bash
-python example/kepler-lom/kepler_lom_reference_time.py
+PYTHONPATH=build python example/kepler-lom/kepler_lom_reference_time.py
 ```
