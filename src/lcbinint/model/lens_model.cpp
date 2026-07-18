@@ -47,6 +47,46 @@ bool supports_binary_point_source(const LensParameters& params, const Computatio
     return !params.is_triple() && !has_unsupported_dynamic_effects(params, options) && params.rho == 0.0;
 }
 
+// Rotates `source` into the (possibly time-dependent) orbital frame and
+// applies the wide-binary center-of-mass offset. Shared by
+// finite_source_geometry() and magnification() so their reported source
+// positions cannot drift apart the way result.source once did (see B1).
+SourcePosition rotate_and_offset_source(
+    SourcePosition source,
+    double time,
+    const LensParameters& params,
+    const ComputationOptions& options,
+    double cos_theta,
+    double sin_theta,
+    const OrbitalState& orbit,
+    bool static_orbit,
+    bool has_parallax)
+{
+    if (!static_orbit) {
+        if (options.vbm_compatible != 0) {
+            double tau = 0.0;
+            double beta = 0.0;
+            if (!has_parallax) {
+                tau = (time - params.t0) / params.tE;
+                beta = params.umin;
+            } else {
+                tau = source.x * cos_theta + source.y * sin_theta;
+                beta = -source.x * sin_theta + source.y * cos_theta;
+            }
+            source = {
+                tau * std::cos(orbit.angle) - beta * std::sin(orbit.angle),
+                beta * std::cos(orbit.angle) + tau * std::sin(orbit.angle),
+            };
+        } else {
+            source = rotate_source_to_orbital_frame(source, orbit.angle - params.theta);
+        }
+    }
+    if (options.vbm_compatible == 0) {
+        source.x -= wide_binary_offset(orbit.separation, params, options);
+    }
+    return source;
+}
+
 magnification::FiniteSourceSettings finite_source_settings(
     const LensParameters& params,
     const ComputationOptions& options)
@@ -121,29 +161,8 @@ bool LensModel::finite_source_geometry(
     if (!std::isfinite(orbit.separation) || !std::isfinite(orbit.angle)) {
         return false;
     }
-    if (!static_orbit) {
-        if (options_.vbm_compatible != 0) {
-            double tau = 0.0;
-            double beta = 0.0;
-            if (!has_parallax) {
-                tau = (time - params_.t0) / params_.tE;
-                beta = params_.umin;
-            } else {
-                tau = source.x * cos_theta_ + source.y * sin_theta_;
-                beta = -source.x * sin_theta_ + source.y * cos_theta_;
-            }
-            source = {
-                tau * std::cos(orbit.angle) - beta * std::sin(orbit.angle),
-                beta * std::cos(orbit.angle) + tau * std::sin(orbit.angle),
-            };
-        } else {
-            source = rotate_source_to_orbital_frame(
-                source, orbit.angle - params_.theta);
-        }
-    }
-    if (options_.vbm_compatible == 0) {
-        source.x -= wide_binary_offset(orbit.separation, params_, options_);
-    }
+    source = rotate_and_offset_source(
+        source, time, params_, options_, cos_theta_, sin_theta_, orbit, static_orbit, has_parallax);
     double tolerance = options_.finite_source_tol;
     if (!(std::isfinite(tolerance) && tolerance > 0.0)) tolerance = 1.0e-5;
     output.separation = orbit.separation;
@@ -248,31 +267,9 @@ MagnificationResult LensModel::magnification(double time) const
     }
 
     if (!params_.is_triple() && !has_unsupported_dynamic_effects(params_, options_)) {
-        auto source_for_magnification = source;
-        if (!static_orbit) {
-            if (options_.vbm_compatible != 0) {
-                double tau = 0.0;
-                double beta = 0.0;
-                if (!has_parallax) {
-                    tau = (time - params_.t0) / params_.tE;
-                    beta = params_.umin;
-                } else {
-                    tau = source.x * cos_theta_ + source.y * sin_theta_;
-                    beta = -source.x * sin_theta_ + source.y * cos_theta_;
-                }
-                source_for_magnification = {
-                    tau * std::cos(orbit.angle) - beta * std::sin(orbit.angle),
-                    beta * std::cos(orbit.angle) + tau * std::sin(orbit.angle),
-                };
-            } else {
-                source_for_magnification =
-                    rotate_source_to_orbital_frame(source, orbit.angle - params_.theta);
-            }
-        }
+        auto source_for_magnification = rotate_and_offset_source(
+            source, time, params_, options_, cos_theta_, sin_theta_, orbit, static_orbit, has_parallax);
         result.source = source_for_magnification;
-        if (options_.vbm_compatible == 0) {
-            source_for_magnification.x -= wide_binary_offset(orbit.separation, params_, options_);
-        }
         const double effective_q = (options_.vbm_compatible != 0 && params_.q != 0.0)
             ? 1.0 / params_.q
             : params_.q;
