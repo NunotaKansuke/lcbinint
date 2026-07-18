@@ -275,6 +275,16 @@ TripleLensEvaluation evaluate_lens_cell(
     return evaluate_triple_lens_cell(mapper, x, y, source);
 }
 
+double lens_jacobian(const BinaryLensMapper& mapper, double x, double y)
+{
+    return binary_jacobian(mapper, x, y);
+}
+
+double lens_jacobian(const TripleLensMapper& mapper, double x, double y)
+{
+    return triple_jacobian(mapper, x, y);
+}
+
 SourcePosition map_binary_lens_real(
     const BinaryLensMapper& mapper,
     double x,
@@ -288,6 +298,16 @@ SourcePosition map_binary_lens_real(
         x - mapper.m1 * xa / den1 - mapper.m2 * x / den2 - a * mapper.m1,
         y - mapper.m1 * y / den1 - mapper.m2 * y / den2,
     };
+}
+
+SourcePosition map_lens_real(const BinaryLensMapper& mapper, double x, double y)
+{
+    return map_binary_lens_real(mapper, x, y);
+}
+
+SourcePosition map_lens_real(const TripleLensMapper& mapper, double x, double y)
+{
+    return map_triple_lens_real(mapper, x, y);
 }
 
 double source_distance(SourcePosition source)
@@ -1350,8 +1370,9 @@ double wrap_angle(double angle)
     return angle;
 }
 
+template <typename ImageMap>
 bool find_polar_inside_start(
-    const BinaryLensMapper& mapper,
+    const ImageMap& mapper,
     SourcePosition source,
     double source_radius,
     SourcePosition image_seed,
@@ -1361,37 +1382,15 @@ bool find_polar_inside_start(
     double* start_radius,
     double* start_phi);
 
-bool find_polar_inside_start_triple(
-    const TripleLensMapper& mapper,
-    SourcePosition source,
-    double source_radius,
-    SourcePosition image_seed,
-    double dr,
-    double dphi,
-    int phi_bins,
-    double* start_radius,
-    double* start_phi);
-
-double inverse_ray_polar_boundary_binary(
-    const PointSourceMagnifier& point_magnifier,
-    double separation,
-    double mass_ratio,
+template <typename ImageMap>
+double inverse_ray_polar_core(
+    const ImageMap& mapper,
+    const std::vector<SourcePosition>& image_positions,
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
-    const FiniteSourceMagnifier* finite_magnifier,
-    const std::vector<SourcePosition>* seed_positions = nullptr)
+    const FiniteSourceMagnifier* finite_magnifier)
 {
-    std::vector<SourcePosition> image_positions;
-    if (seed_positions != nullptr) {
-        image_positions = *seed_positions;
-    } else {
-        const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
-        image_positions.reserve(images.size());
-        for (const auto& image : images) {
-            image_positions.push_back(image.position);
-        }
-    }
     if (image_positions.empty()) {
         return std::nan("");
     }
@@ -1422,7 +1421,6 @@ double inverse_ray_polar_boundary_binary(
         return std::nan("");
     }
 
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     PolarVisitedCellIntervals visited(static_cast<std::size_t>(phi_bins));
     std::deque<std::pair<int, int>> queue;
     const double source_radius2 = source_radius * source_radius;
@@ -1485,7 +1483,7 @@ double inverse_ray_polar_boundary_binary(
             return false;
         }
         const double radius = (static_cast<double>(ir) + 0.5) * dr;
-        const SourcePosition mapped = map_binary_lens_real(
+        const SourcePosition mapped = map_lens_real(
             mapper, radius * column_cos, radius * column_sin);
         const double dz2 = distance_squared(mapped, source);
         if (dz2_out != nullptr) {
@@ -1600,53 +1598,34 @@ double inverse_ray_polar_boundary_binary(
     return image_flux / total_source_flux;
 }
 
-bool find_polar_inside_start(
-    const BinaryLensMapper& mapper,
+double inverse_ray_polar_boundary_binary(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
     SourcePosition source,
     double source_radius,
-    SourcePosition image_seed,
-    double dr,
-    double dphi,
-    int phi_bins,
-    double* start_radius,
-    double* start_phi)
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    const std::vector<SourcePosition>* seed_positions = nullptr)
 {
-    const double seed_radius = std::hypot(image_seed.x, image_seed.y);
-    const double seed_phi = wrap_angle(std::atan2(image_seed.y, image_seed.x));
-    const int seed_ir = static_cast<int>(std::floor(seed_radius / dr));
-    const int seed_iphi = std::clamp(static_cast<int>(seed_phi / dphi), 0, phi_bins - 1);
-    const double source_radius2 = source_radius * source_radius;
-    constexpr int max_shell = 10;
-    for (int shell = 0; shell <= max_shell; ++shell) {
-        for (int dir = -1; dir <= 1; dir += 2) {
-            for (int d_ir = -shell; d_ir <= shell; ++d_ir) {
-                const int d_iphi = (shell - std::abs(d_ir)) * dir;
-                const int ir = seed_ir + d_ir;
-                if (ir < 0) {
-                    continue;
-                }
-                int iphi = seed_iphi + d_iphi;
-                iphi %= phi_bins;
-                if (iphi < 0) {
-                    iphi += phi_bins;
-                }
-                const double radius = (static_cast<double>(ir) + 0.5) * dr;
-                const double phi = (static_cast<double>(iphi) + 0.5) * dphi;
-                const SourcePosition image {radius * std::cos(phi), radius * std::sin(phi)};
-                const SourcePosition mapped = map_binary_lens_real(mapper, image.x, image.y);
-                if (distance_squared(mapped, source) <= source_radius2) {
-                    *start_radius = radius;
-                    *start_phi = phi;
-                    return true;
-                }
-            }
+    std::vector<SourcePosition> image_positions;
+    if (seed_positions != nullptr) {
+        image_positions = *seed_positions;
+    } else {
+        const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
+        image_positions.reserve(images.size());
+        for (const auto& image : images) {
+            image_positions.push_back(image.position);
         }
     }
-    return false;
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    return inverse_ray_polar_core(
+        mapper, image_positions, source, source_radius, settings, finite_magnifier);
 }
 
-bool find_polar_inside_start_triple(
-    const TripleLensMapper& mapper,
+template <typename ImageMap>
+bool find_polar_inside_start(
+    const ImageMap& mapper,
     SourcePosition source,
     double source_radius,
     SourcePosition image_seed,
@@ -1678,7 +1657,7 @@ bool find_polar_inside_start_triple(
                 const double radius = (static_cast<double>(ir) + 0.5) * dr;
                 const double phi = (static_cast<double>(iphi) + 0.5) * dphi;
                 const SourcePosition image {radius * std::cos(phi), radius * std::sin(phi)};
-                const SourcePosition mapped = map_triple_lens_real(mapper, image.x, image.y);
+                const SourcePosition mapped = map_lens_real(mapper, image.x, image.y);
                 if (distance_squared(mapped, source) <= source_radius2) {
                     *start_radius = radius;
                     *start_phi = phi;
@@ -2342,9 +2321,9 @@ std::vector<SourcePosition> selected_point_images(
     return images;
 }
 
-template <bool UseLimbDarkening, typename LensMapper>
+template <bool UseLimbDarkening, typename ImageMap>
 double cartesian_image_area_impl(
-    const LensMapper& mapper,
+    const ImageMap& mapper,
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
@@ -2653,9 +2632,9 @@ double cartesian_image_area_impl(
     return countall;
 }
 
-template <typename LensMapper>
+template <typename ImageMap>
 double cartesian_image_area(
-    const LensMapper& mapper,
+    const ImageMap& mapper,
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
@@ -2703,200 +2682,9 @@ double inverse_ray_polar_triple_mag(
     const FiniteSourceMagnifier* finite_magnifier)
 {
     const auto image_positions = selected_triple_point_images(point_magnifier, geometry, source);
-    if (image_positions.empty()) {
-        return std::nan("");
-    }
-
-    const int source_bins = active_polar_source_bins(settings);
-    const double polar_grid_ratio = active_polar_grid_ratio(settings);
-    const double dr = source_radius / static_cast<double>(source_bins);
-    double max_image_radius = 1.0;
-    for (const auto& pos : image_positions) {
-        max_image_radius = std::max(
-            max_image_radius,
-            std::hypot(pos.x, pos.y) + 4.0 * source_radius);
-    }
-    const int phi_bins = std::max(
-        16,
-        static_cast<int>(std::ceil(2.0 * kPi * max_image_radius / (dr * polar_grid_ratio))));
-    const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
-    const bool uniform_source =
-        settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
-    if (!uniform_source && finite_magnifier != nullptr) {
-        finite_magnifier->ensure_limb_darkening_table();
-    }
-    const double total_source_flux = source_flux(source_radius, settings);
-    if (!std::isfinite(total_source_flux)) {
-        return std::nan("");
-    }
-
     const auto mapper = make_triple_lens_mapper(geometry);
-    PolarVisitedCellIntervals visited(static_cast<std::size_t>(phi_bins));
-    std::deque<std::pair<int, int>> queue;
-    const double source_radius2 = source_radius * source_radius;
-    const double inv_source_radius2 = 1.0 / source_radius2;
-    auto wrap_phi_index = [&](int iphi) {
-        iphi %= phi_bins;
-        if (iphi < 0) {
-            iphi += phi_bins;
-        }
-        return iphi;
-    };
-    auto cell_visited = [&](int ir, int iphi) {
-        if (ir < 0) {
-            return true;
-        }
-        iphi = wrap_phi_index(iphi);
-        for (const auto& interval : visited[static_cast<std::size_t>(iphi)]) {
-            if (ir >= interval.first && ir <= interval.second) {
-                return true;
-            }
-        }
-        return false;
-    };
-    auto add_visited_run = [&](int iphi, int left, int right) {
-        iphi = wrap_phi_index(iphi);
-        if (right < left) {
-            return;
-        }
-        auto& intervals = visited[static_cast<std::size_t>(iphi)];
-        intervals.push_back({left, right});
-        std::sort(intervals.begin(), intervals.end());
-        std::size_t write = 0;
-        for (std::size_t read = 0; read < intervals.size(); ++read) {
-            if (write == 0 || intervals[read].first > intervals[write - 1].second + 1) {
-                intervals[write++] = intervals[read];
-            } else {
-                intervals[write - 1].second =
-                    std::max(intervals[write - 1].second, intervals[read].second);
-            }
-        }
-        intervals.resize(write);
-    };
-    auto enqueue = [&](int ir, int iphi) {
-        if (!cell_visited(ir, iphi)) {
-            queue.push_back({ir, wrap_phi_index(iphi)});
-        }
-    };
-    // Cells in one radial run share the same phi column; compute the column
-    // unit vector once per run (see inverse_ray_polar_boundary_binary).
-    double column_cos = 1.0;
-    double column_sin = 0.0;
-    auto set_column = [&](int iphi) {
-        const double phi = (static_cast<double>(iphi) + 0.5) * dphi;
-        column_cos = std::cos(phi);
-        column_sin = std::sin(phi);
-    };
-    auto cell_inside = [&](int ir, double* dz2_out = nullptr) {
-        if (ir < 0) {
-            return false;
-        }
-        const double radius = (static_cast<double>(ir) + 0.5) * dr;
-        const SourcePosition mapped = map_triple_lens_real(
-            mapper, radius * column_cos, radius * column_sin);
-        const double dz2 = distance_squared(mapped, source);
-        if (dz2_out != nullptr) {
-            *dz2_out = dz2;
-        }
-        return dz2 <= source_radius2;
-    };
-
-    for (const auto& image_position : image_positions) {
-        double grid_radius = 0.0;
-        double image_phi = 0.0;
-        if (!find_polar_inside_start_triple(
-                mapper, source, source_radius, image_position, dr, dphi, phi_bins,
-                &grid_radius, &image_phi)) {
-            continue;
-        }
-        const int ir = std::max(0, static_cast<int>(std::floor(grid_radius / dr)));
-        const int iphi = std::clamp(static_cast<int>(image_phi / dphi), 0, phi_bins - 1);
-        enqueue(ir, iphi);
-    }
-
-    // Second-order radial boundary correction; see
-    // inverse_ray_polar_boundary_binary for the derivation.
-    const double edge_brightness = uniform_source ? 1.0 :
-        (finite_magnifier != nullptr ?
-            finite_magnifier->limb_darkening_table_brightness(1.0) :
-            source_surface_brightness(1.0, settings));
-    auto radial_edge_correction = [&](
-        double inside_dz2, double outside_dz2, double edge_radius) {
-        const double r_in = std::sqrt(inside_dz2);
-        const double r_out = std::sqrt(outside_dz2);
-        const double dr_mapped = r_out - r_in;
-        const double t = dr_mapped > 0.0
-            ? std::clamp((source_radius - r_in) / dr_mapped, 0.0, 1.0)
-            : 0.5;
-        return (t - 0.5) * edge_brightness * edge_radius;
-    };
-
-    double total_count = 0.0;
-    while (!queue.empty()) {
-        const auto [ir, iphi] = queue.front();
-        queue.pop_front();
-        if (cell_visited(ir, iphi)) {
-            continue;
-        }
-        set_column(iphi);
-        if (!cell_inside(ir)) {
-            continue;
-        }
-        int left = ir;
-        double left_outside_dz2 = -1.0;
-        while (left > 0 && !cell_visited(left - 1, iphi)) {
-            double neighbor_dz2 = 0.0;
-            if (!cell_inside(left - 1, &neighbor_dz2)) {
-                left_outside_dz2 = neighbor_dz2;
-                break;
-            }
-            --left;
-        }
-        int right = ir;
-        double right_outside_dz2 = -1.0;
-        while (!cell_visited(right + 1, iphi)) {
-            double neighbor_dz2 = 0.0;
-            if (!cell_inside(right + 1, &neighbor_dz2)) {
-                right_outside_dz2 = neighbor_dz2;
-                break;
-            }
-            ++right;
-        }
-        add_visited_run(iphi, left, right);
-        double left_inside_dz2 = 0.0;
-        double right_inside_dz2 = 0.0;
-        for (int current = left; current <= right; ++current) {
-            double dz2 = 0.0;
-            cell_inside(current, &dz2);
-            if (current == left) {
-                left_inside_dz2 = dz2;
-            }
-            if (current == right) {
-                right_inside_dz2 = dz2;
-            }
-            const double radius = (static_cast<double>(current) + 0.5) * dr;
-            const double brightness =
-                uniform_source ? 1.0 :
-                    (finite_magnifier != nullptr ?
-                        finite_magnifier->limb_darkening_table_brightness(
-                            dz2 * inv_source_radius2) :
-                        source_surface_brightness(dz2 * inv_source_radius2, settings));
-            total_count += brightness * radius;
-            enqueue(current, iphi - 1);
-            enqueue(current, iphi + 1);
-        }
-        if (left_outside_dz2 >= 0.0) {
-            total_count += radial_edge_correction(
-                left_inside_dz2, left_outside_dz2, static_cast<double>(left) * dr);
-        }
-        if (right_outside_dz2 >= 0.0) {
-            total_count += radial_edge_correction(
-                right_inside_dz2, right_outside_dz2, static_cast<double>(right + 1) * dr);
-        }
-    }
-
-    const double image_flux = total_count * dr * dphi;
-    return image_flux / total_source_flux;
+    return inverse_ray_polar_core(
+        mapper, image_positions, source, source_radius, settings, finite_magnifier);
 }
 
 void append_valid_triple_probe_image_seeds(
@@ -3170,9 +2958,9 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
 // source disk; otherwise the 8 lattice neighbours are tried and the seed is
 // dropped if none qualifies (it marked a sub-cell image the lattice cannot
 // resolve).  Seeds landing on the same cell are deduplicated.
-template <typename LensMapper>
+template <typename ImageMap>
 std::vector<SourcePosition> lattice_snapped_seeds(
-    const LensMapper& mapper,
+    const ImageMap& mapper,
     SourcePosition source,
     double source_radius,
     double incr,
