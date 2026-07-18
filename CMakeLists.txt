@@ -61,11 +61,24 @@ if(NOT GSL_FOUND)
     set_target_properties(GSL::gslcblas PROPERTIES IMPORTED_LOCATION "${GSLCBLAS_LIBRARY}")
 endif()
 
-add_library(lcbinint_core
-    src/lcbinint/lcbinint.cpp
+# Leaf layer: finite/point-source magnification kernels + root solvers.
+# No dependency on model/, lc/, or obs/ (see .note/session-2026-07-18-final-review.md, A5).
+add_library(lcbinint_magnification
     src/lcbinint/magnification/finite_source_magnifier.cpp
     src/lcbinint/magnification/point_source_magnifier.cpp
     src/lcbinint/math/polynomial_roots.cpp
+    third_party/skowron_gould/SkowronGould.cpp)
+target_include_directories(lcbinint_magnification
+    PUBLIC
+        "${CMAKE_CURRENT_SOURCE_DIR}/include"
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
+target_link_libraries(lcbinint_magnification PUBLIC GSL::gsl GSL::gslcblas m)
+
+# Lens/trajectory model + light-curve/likelihood API; depends on lcbinint_magnification.
+add_library(lcbinint_lightcurve
+    src/lcbinint/lcbinint.cpp
     src/lcbinint/model/lens_model.cpp
     src/lcbinint/model/lens_parameters.cpp
     src/lcbinint/model/lens_system.cpp
@@ -73,30 +86,27 @@ add_library(lcbinint_core
     src/lcbinint/model/triple_lens_geometry.cpp
     src/lcbinint/model/trajectory.cpp
     src/lcbinint/lc/light_curve.cpp
-    src/lcbinint/obs/coordinates.cpp
-    third_party/skowron_gould/SkowronGould.cpp)
-target_include_directories(lcbinint_core
+    src/lcbinint/obs/coordinates.cpp)
+target_include_directories(lcbinint_lightcurve
     PUBLIC
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
-        "${CMAKE_CURRENT_SOURCE_DIR}/src"
-    PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
-target_compile_definitions(lcbinint_core PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_compile_definitions(lcbinint_lightcurve PRIVATE
     LCBININT_EARTH_EPHEMERIS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/data/earth_orbital_parallax_table.txt")
-target_link_libraries(lcbinint_core PUBLIC GSL::gsl GSL::gslcblas m)
+target_link_libraries(lcbinint_lightcurve PUBLIC lcbinint_magnification)
 if(OpenMP_CXX_FOUND)
-    target_link_libraries(lcbinint_core PUBLIC OpenMP::OpenMP_CXX)
-    target_compile_definitions(lcbinint_core PUBLIC LCBININT_HAS_OPENMP=1)
+    target_link_libraries(lcbinint_lightcurve PUBLIC OpenMP::OpenMP_CXX)
+    target_compile_definitions(lcbinint_lightcurve PUBLIC LCBININT_HAS_OPENMP=1)
 endif()
 
 if(LCBININT_BUILD_TESTS)
     add_executable(test_core tests/unit/test_core.cpp)
-    target_link_libraries(test_core PRIVATE lcbinint_core)
+    target_link_libraries(test_core PRIVATE lcbinint_lightcurve)
     add_test(NAME unit_core COMMAND test_core)
 endif()
 
 add_executable(benchmark_point_hex EXCLUDE_FROM_ALL tests/diagnostics/benchmark_point_hex.cpp)
-target_link_libraries(benchmark_point_hex PRIVATE lcbinint_core)
+target_link_libraries(benchmark_point_hex PRIVATE lcbinint_lightcurve)
 
 if(LCBININT_BUILD_PYTHON)
     find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
@@ -116,7 +126,7 @@ if(LCBININT_BUILD_PYTHON)
         python/lcbinint_pybind.cpp
         python/bind_lc.cpp
         python/bind_obs.cpp)
-    target_link_libraries(lcbinint_python PRIVATE lcbinint_core)
+    target_link_libraries(lcbinint_python PRIVATE lcbinint_lightcurve)
     set_target_properties(lcbinint_python PROPERTIES OUTPUT_NAME _lcbinint)
     # Copy Python package files to build dir so `import lcbinint` works from build/
     add_custom_command(TARGET lcbinint_python POST_BUILD
@@ -138,6 +148,6 @@ else()
     message(STATUS "Python extension disabled")
 endif()
 
-install(TARGETS lcbinint_core)
+install(TARGETS lcbinint_magnification lcbinint_lightcurve)
 install(DIRECTORY include/lcbinint DESTINATION include)
 install(FILES data/earth_orbital_parallax_table.txt DESTINATION share/lcbinint/data)
