@@ -63,7 +63,7 @@ double parse_angle_deg(py::object obj)
 
 void register_obs_submodule(py::module_& parent)
 {
-    auto obs = parent.def_submodule("obs", "Observational data containers");
+    auto obs = parent.def_submodule("obs", "Site/coordinate geometry for parallax calculations");
 
     // --- SkyCoord ---
     py::class_<SkyCoord, std::shared_ptr<SkyCoord>>(obs, "SkyCoord")

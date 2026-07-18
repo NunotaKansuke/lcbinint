@@ -50,8 +50,8 @@ public:
     ) const;
 
     // Evaluate independent parameter rows into row-major [parameter, time]
-    // storage. The public scalar API remains unchanged; inference adapters use
-    // this path to remove per-walker Python dispatch.
+    // storage, avoiding per-row Python call overhead for large batches. The
+    // public scalar API (magnification()) remains unchanged.
     std::vector<double> magnification_batch(
         const std::vector<double>& times,
         const std::vector<lcbi_params>& parameters,
