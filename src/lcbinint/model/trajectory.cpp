@@ -316,6 +316,35 @@ std::array<double, 2> keplerian_position(
     return {r * cos_f, r * sin_f};
 }
 
+// Deviation of the Keplerian position at `time` from the linear trajectory
+// extrapolated from the velocity at `tref` (the same secular-trend removal
+// used by both xallarap *_ELEMENTS modes, which differ only in eccentricity).
+std::array<double, 2> keplerian_deviation_from_linear(
+    double time, double tref, double period, double ecc, double peri)
+{
+    const auto pos_t = keplerian_position(time, tref, period, ecc, peri);
+    const auto pos_0 = keplerian_position(tref, tref, period, ecc, peri);
+    const double dt_small = period * 1.0e-7;
+    const auto pos_dt = keplerian_position(tref + dt_small, tref, period, ecc, peri);
+    const double vel_x0 = (pos_dt[0] - pos_0[0]) / dt_small;
+    const double vel_y0 = (pos_dt[1] - pos_0[1]) / dt_small;
+    const double elapsed = time - tref;
+    return {
+        pos_t[0] - pos_0[0] - vel_x0 * elapsed,
+        pos_t[1] - pos_0[1] - vel_y0 * elapsed,
+    };
+}
+
+void apply_xallarap_deviation_to_tau_beta(
+    const LensParameters& params, double dev_x, double dev_y, double& tau, double& beta)
+{
+    const double s_inc = std::sin(params.inc_xa);
+    const double disp0 = s_inc * dev_x;
+    const double disp1 = dev_y;
+    tau  += params.xi_1 * disp0 + params.xi_2 * disp1;
+    beta += params.xi_2 * disp0 - params.xi_1 * disp1;
+}
+
 void apply_xallarap_orbital_elements(
     const LensParameters& params, double time, double& tau, double& beta)
 {
@@ -326,23 +355,9 @@ void apply_xallarap_orbital_elements(
         return;
     }
     const double tref = params.tfix != 0.0 ? params.tfix : params.t0;
-    const auto pos_t = keplerian_position(
+    const auto dev = keplerian_deviation_from_linear(
         time, tref, params.period_xa, params.ecc_xa, params.peri_xa);
-    const auto pos_0 = keplerian_position(
-        tref, tref, params.period_xa, params.ecc_xa, params.peri_xa);
-    const double dt_small = params.period_xa * 1.0e-7;
-    const auto pos_dt = keplerian_position(
-        tref + dt_small, tref, params.period_xa, params.ecc_xa, params.peri_xa);
-    const double vel_x0 = (pos_dt[0] - pos_0[0]) / dt_small;
-    const double vel_y0 = (pos_dt[1] - pos_0[1]) / dt_small;
-    const double elapsed = time - tref;
-    const double dev_x = pos_t[0] - pos_0[0] - vel_x0 * elapsed;
-    const double dev_y = pos_t[1] - pos_0[1] - vel_y0 * elapsed;
-    const double s_inc = std::sin(params.inc_xa);
-    const double disp0 = s_inc * dev_x;
-    const double disp1 = dev_y;
-    tau  += params.xi_1 * disp0 + params.xi_2 * disp1;
-    beta += params.xi_2 * disp0 - params.xi_1 * disp1;
+    apply_xallarap_deviation_to_tau_beta(params, dev[0], dev[1], tau, beta);
 }
 
 // CIRCULAR_ELEMENTS: same as orbital_elements but ecc forced to 0.
@@ -357,20 +372,8 @@ void apply_xallarap_circular_elements(
         return;
     }
     const double tref = params.tfix != 0.0 ? params.tfix : params.t0;
-    const auto pos_t  = keplerian_position(time,             tref, params.period_xa, 0.0, 0.0);
-    const auto pos_0  = keplerian_position(tref,             tref, params.period_xa, 0.0, 0.0);
-    const double dt_small = params.period_xa * 1.0e-7;
-    const auto pos_dt = keplerian_position(tref + dt_small,  tref, params.period_xa, 0.0, 0.0);
-    const double vel_x0 = (pos_dt[0] - pos_0[0]) / dt_small;
-    const double vel_y0 = (pos_dt[1] - pos_0[1]) / dt_small;
-    const double elapsed = time - tref;
-    const double dev_x = pos_t[0] - pos_0[0] - vel_x0 * elapsed;
-    const double dev_y = pos_t[1] - pos_0[1] - vel_y0 * elapsed;
-    const double s_inc = std::sin(params.inc_xa);
-    const double disp0 = s_inc * dev_x;
-    const double disp1 = dev_y;
-    tau  += params.xi_1 * disp0 + params.xi_2 * disp1;
-    beta += params.xi_2 * disp0 - params.xi_1 * disp1;
+    const auto dev = keplerian_deviation_from_linear(time, tref, params.period_xa, 0.0, 0.0);
+    apply_xallarap_deviation_to_tau_beta(params, dev[0], dev[1], tau, beta);
 }
 
 // CIRCULAR_VEL: position+velocity at tref, circular orbit via lom math.
@@ -413,9 +416,16 @@ void apply_xallarap_kepler_vel(
     beta += state.separation * std::sin(state.angle);
 }
 
-void apply_terrestrial_parallax(const LensParameters& params, double time, double& tau, double& beta)
+void apply_terrestrial_parallax(
+    const LensParameters& params, double time, const obs::Site* site, double& tau, double& beta)
 {
     if (!has_annual_parallax(params)) {
+        return;
+    }
+    // Mirrors apply_space_parallax's site->kind() guard: a ground-based
+    // obs_lat/obs_lon correction should not stack with an explicitly
+    // attached space site.
+    if (site != nullptr && site->kind() == obs::SiteKind::space) {
         return;
     }
     if (!std::isfinite(params.obs_lat) || !std::isfinite(params.obs_lon)) {
@@ -534,7 +544,7 @@ SourcePosition Trajectory::source_position(
     double beta = params_.umin;
     if (parallax_enabled) {
         apply_annual_parallax(params_, time, tn, beta);
-        apply_terrestrial_parallax(params_, time, tn, beta);
+        apply_terrestrial_parallax(params_, time, site, tn, beta);
         apply_space_parallax(params_, time, site, tn, beta);
     }
     if (xallarap_type == LCBI_XALLARAP_ORBITAL_ELEMENTS) {
