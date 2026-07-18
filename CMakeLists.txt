@@ -12,6 +12,12 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 include(CTest)
 
 option(LCBININT_BUILD_PYTHON "Build pybind11 Python extension" ON)
+option(LCBININT_ENABLE_OPENMP "Parallelize independent parameter rows" ON)
+option(LCBININT_BUILD_TESTS "Build lcbinint standalone tests" ${BUILD_TESTING})
+
+if(LCBININT_ENABLE_OPENMP)
+    find_package(OpenMP QUIET)
+endif()
 
 find_package(GSL QUIET)
 if(NOT GSL_FOUND)
@@ -67,8 +73,7 @@ add_library(lcbinint_core
     src/lcbinint/model/triple_lens_geometry.cpp
     src/lcbinint/model/trajectory.cpp
     src/lcbinint/lc/light_curve.cpp
-    src/lcbinint/obs/light_curve_data.cpp
-    src/lcbinint/obs/event.cpp
+    src/lcbinint/obs/coordinates.cpp
     third_party/skowron_gould/SkowronGould.cpp)
 target_include_directories(lcbinint_core
     PUBLIC
@@ -79,16 +84,33 @@ target_include_directories(lcbinint_core
 target_compile_definitions(lcbinint_core PRIVATE
     LCBININT_EARTH_EPHEMERIS_PATH="${CMAKE_CURRENT_SOURCE_DIR}/data/earth_orbital_parallax_table.txt")
 target_link_libraries(lcbinint_core PUBLIC GSL::gsl GSL::gslcblas m)
+if(OpenMP_CXX_FOUND)
+    target_link_libraries(lcbinint_core PUBLIC OpenMP::OpenMP_CXX)
+    target_compile_definitions(lcbinint_core PUBLIC LCBININT_HAS_OPENMP=1)
+endif()
 
-add_executable(test_core tests/unit/test_core.cpp)
-target_link_libraries(test_core PRIVATE lcbinint_core)
-add_test(NAME unit_core COMMAND test_core)
+if(LCBININT_BUILD_TESTS)
+    add_executable(test_core tests/unit/test_core.cpp)
+    target_link_libraries(test_core PRIVATE lcbinint_core)
+    add_test(NAME unit_core COMMAND test_core)
+endif()
 
 add_executable(benchmark_point_hex EXCLUDE_FROM_ALL tests/diagnostics/benchmark_point_hex.cpp)
 target_link_libraries(benchmark_point_hex PRIVATE lcbinint_core)
 
 if(LCBININT_BUILD_PYTHON)
     find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
+    execute_process(
+        COMMAND ${Python3_EXECUTABLE} -m pybind11 --cmakedir
+        RESULT_VARIABLE LCBININT_PYBIND11_RESULT
+        OUTPUT_VARIABLE LCBININT_PYBIND11_CMAKE_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET)
+    if(LCBININT_PYBIND11_RESULT EQUAL 0)
+        list(PREPEND CMAKE_PREFIX_PATH "${LCBININT_PYBIND11_CMAKE_DIR}")
+        set(pybind11_DIR "${LCBININT_PYBIND11_CMAKE_DIR}" CACHE PATH
+            "pybind11 CMake package directory" FORCE)
+    endif()
     find_package(pybind11 CONFIG REQUIRED)
     pybind11_add_module(lcbinint_python
         python/lcbinint_pybind.cpp

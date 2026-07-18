@@ -44,7 +44,7 @@ def main():
         parallax=True,
         terrestrial=True,
         sky=lcbinint.obs.SkyCoord(270.0, -30.0),
-        site=lcbinint.obs.Site(-29.0, 70.7),
+        site=lcbinint.obs.Site("ground", -29.0, 70.7),
         t_ref=T_REF,
     )
     ground = lcbinint.LightCurve(model=model, options=options)

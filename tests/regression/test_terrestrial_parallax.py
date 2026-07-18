@@ -106,7 +106,7 @@ _PARAMS_BASE = {
 
 def test_terrestrial_requires_explicit_flag():
     """site has no effect unless terrestrial=True."""
-    site = lcbinint.obs.Site(20.0, -156.0)
+    site = lcbinint.obs.Site("ground", 20.0, -156.0)
     lc_no_flag = make_lc(site=site, terrestrial=False)
     lc_with_flag = make_lc(site=site, terrestrial=True)
     lc_geo = make_lc(site=None, terrestrial=False)
@@ -124,6 +124,11 @@ def test_terrestrial_requires_explicit_flag():
     assert info_with_flag.source_x[0] != info_geo.source_x[0]
 
 
+def test_terrestrial_requires_ground_site():
+    with pytest.raises(ValueError, match="terrestrial=True requires"):
+        make_lc(site=None, terrestrial=True)
+
+
 def test_parallax_requires_explicit_model_flag():
     """piE parameters do not silently activate parallax physics."""
     times = np.array([_T0PAR + 1.0, _T0PAR + 10.0])
@@ -137,8 +142,8 @@ def test_parallax_requires_explicit_model_flag():
 
 def test_equator_greenwich_is_a_real_observatory():
     """An explicitly supplied site=(0, 0) must not be used as a sentinel."""
-    lc_geo = make_lc(site=None)
-    lc_zero = make_lc(site=lcbinint.obs.Site(0.0, 0.0))
+    lc_geo = make_lc(site=None, terrestrial=False)
+    lc_zero = make_lc(site=lcbinint.obs.Site("ground", 0.0, 0.0))
     times = np.array([_T0PAR + 1.0])
     info_geo = lc_geo.info(times, _PARAMS_BASE)
     info_zero = lc_zero.info(times, _PARAMS_BASE)
@@ -165,8 +170,8 @@ def test_terrestrial_inter_observatory_displacement():
     lat1, lon1 = 20.0, -156.0   # Mauna Kea (approx)
     lat2, lon2 = -32.0, 20.0    # Sutherland / SAAO (approx)
 
-    lc1 = make_lc(site=lcbinint.obs.Site(lat1, lon1))
-    lc2 = make_lc(site=lcbinint.obs.Site(lat2, lon2))
+    lc1 = make_lc(site=lcbinint.obs.Site("ground", lat1, lon1))
+    lc2 = make_lc(site=lcbinint.obs.Site("ground", lat2, lon2))
 
     times = np.array([_T0PAR + 1.0])
     info1 = lc1.info(times, _PARAMS_BASE)
@@ -206,8 +211,8 @@ def test_terrestrial_diurnal_variation():
     ground-telescope position at the same times.
     """
     lat, lon = 43.0, 172.5  # Mt John Observatory, New Zealand (approx)
-    lc_obs = make_lc(site=lcbinint.obs.Site(lat, lon))
-    lc_geo = make_lc(site=None)
+    lc_obs = make_lc(site=lcbinint.obs.Site("ground", lat, lon))
+    lc_geo = make_lc(site=None, terrestrial=False)
 
     # Sample over ~0.5 sidereal day
     jd0 = _T0PAR

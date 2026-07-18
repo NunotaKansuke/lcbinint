@@ -1,12 +1,24 @@
 #pragma once
 #include "model.hpp"
 #include "lcbinint/lcbinint.h"
+#include "lcbinint/model/lens_model.hpp"
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
 
 namespace lcbinint::lc {
+
+enum class LikelihoodDistribution { gaussian, student_t };
+enum class FluxMode { fit, sample, marginalize };
+
+struct LikelihoodBatchResult {
+    std::vector<double> log_likelihood;
+    std::vector<double> source_flux;
+    std::vector<double> blend_flux;
+    std::vector<double> conditional_scale;
+    std::vector<double> conditional_df;
+};
 
 // Standalone Python-facing evaluator.
 // Holds lcbi_options (numerics) + Model (physics) + limb-darkening coefficients.
@@ -18,17 +30,49 @@ public:
         lcbi_options opts    = lcbi_default_options(),
         double       ld_c   = 0.0,
         double       ld_d   = 0.0,
-        Model        model = {}
+        std::shared_ptr<Model> model = std::make_shared<Model>(),
+        std::shared_ptr<obs::Site> site = nullptr
     );
 
     // Apply stored Model + ld settings to a params copy.
     // Throws if parallax or orbital motion is active but t_ref is not set.
     lcbi_params apply_coords(const lcbi_params& params) const;
 
+    std::vector<MagnificationResult> evaluate(
+        const std::vector<double>& times,
+        const lcbi_params& params
+    ) const;
+
     // Single-source magnification.
     std::vector<double> magnification(
         const std::vector<double>& times,
         const lcbi_params&         params
+    ) const;
+
+    // Evaluate independent parameter rows into row-major [parameter, time]
+    // storage. The public scalar API remains unchanged; inference adapters use
+    // this path to remove per-walker Python dispatch.
+    std::vector<double> magnification_batch(
+        const std::vector<double>& times,
+        const std::vector<lcbi_params>& parameters,
+        const std::vector<lcbi_params>& secondary_parameters = {},
+        const std::vector<double>& source_ratios = {}
+    ) const;
+
+    // Specialized inference path: stream one magnification row at a time into
+    // flux solving and the likelihood, without materializing [parameter,time].
+    LikelihoodBatchResult light_curve_log_likelihood_batch(
+        const std::vector<double>& times,
+        const std::vector<double>& flux,
+        const std::vector<double>& error,
+        const std::vector<lcbi_params>& parameters,
+        LikelihoodDistribution distribution,
+        FluxMode flux_mode,
+        double nu,
+        const std::vector<double>& sampled_source = {},
+        const std::vector<double>& sampled_blend = {},
+        const std::vector<lcbi_params>& secondary_parameters = {},
+        const std::vector<double>& source_ratios = {}
     ) const;
 
     // Binary-source magnification: source 2 has different t0/u0, same tE/alpha.
@@ -51,23 +95,39 @@ public:
     ) const;
 
     const lcbi_options& options()  const noexcept { return opts_; }
+    // Numerical options augmented with the currently shared Model state.
+    // This is intentionally a value: a Model may be shared by several curves
+    // and edited after those curves have been constructed.
+    lcbi_options runtime_options() const noexcept;
     double              ld_c()     const noexcept { return ld_c_; }
     double              ld_d()     const noexcept { return ld_d_; }
-    const Model&        model()     const noexcept { return model_; }
+    const Model&        model()     const noexcept { return *model_; }
+    const std::shared_ptr<Model>& model_ptr() const noexcept { return model_; }
 
     // Convenience accessors (delegate to Model).
-    LensKind                              lens_kind()      const noexcept { return model_.lens; }
-    SourceKind                            source_kind()    const noexcept { return model_.source; }
-    lcbi_orbital_motion_mode              orbital_motion() const noexcept { return model_.orbital_motion; }
-    const std::shared_ptr<obs::SkyCoord>& sky_coord()      const noexcept { return model_.sky; }
-    const std::shared_ptr<obs::Site>&     site()           const noexcept { return model_.site; }
-    std::optional<double>                 t_ref()          const noexcept { return model_.t_ref; }
+    LensKind                              lens_kind()      const noexcept { return model_->lens; }
+    SourceKind                            source_kind()    const noexcept { return model_->source; }
+    lcbi_orbital_motion_mode              orbital_motion() const noexcept { return model_->orbital_motion; }
+    const std::shared_ptr<obs::SkyCoord>& sky_coord()      const noexcept { return model_->sky; }
+    const std::shared_ptr<obs::Site>&     site()           const noexcept { return site_; }
+    std::optional<double>                 t_ref()          const noexcept { return model_->t_ref; }
 
 private:
+    std::vector<MagnificationResult> evaluate_routed(
+        const std::vector<double>& times,
+        const model::LensParameters& params,
+        const model::ComputationOptions& options) const;
+    void fill_routed_magnification(
+        const std::vector<double>& times,
+        const model::LensParameters& params,
+        const model::ComputationOptions& options,
+        double* output) const;
+
     lcbi_options opts_;
     double       ld_c_;
     double       ld_d_;
-    Model        model_;
+    std::shared_ptr<Model> model_;
+    std::shared_ptr<obs::Site> site_;
 };
 
 } // namespace lcbinint::lc

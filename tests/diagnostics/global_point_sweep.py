@@ -73,15 +73,13 @@ def lcbinint_point(case: Case, time_value: float, source_bins: int, max_bins: in
         adaptive_source_bins=1,
         max_source_bins=max_bins,
         reltol=reltol,    )
-    return lcbinint.light_curve_info(
-        [time_value],
-        u0=case.u0,
-        alpha=case.alpha,
-        s=case.separation,
-        q=case.mass_ratio,
-        rho=case.rho,
-        limb_darkening=lcbinint.LimbDarkening(c=case.limb_darkening_c),
+    curve = lcbinint.LightCurve(
         options=options,
+        limb_darkening=lcbinint.LimbDarkening(c=case.limb_darkening_c),
+    )
+    return curve.info(
+        [time_value], u0=case.u0, alpha=case.alpha,
+        s=case.separation, q=case.mass_ratio, rho=case.rho,
     )
 
 

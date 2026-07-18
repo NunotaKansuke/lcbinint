@@ -1,7 +1,5 @@
 #include "bind_obs.hpp"
 #include "lcbinint/obs/coordinates.hpp"
-#include "lcbinint/obs/light_curve_data.hpp"
-#include "lcbinint/obs/event.hpp"
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -16,17 +14,6 @@ namespace py = pybind11;
 using namespace lcbinint::obs;
 
 namespace {
-
-// Zero-copy view of a C++ vector as a read-only numpy array.
-// `owner` (the Python LightCurveData object) is kept alive via the array's base.
-py::array_t<double> vec_view(const std::vector<double>& v, py::object owner)
-{
-    return py::array_t<double>(
-        {static_cast<py::ssize_t>(v.size())},
-        {sizeof(double)},
-        v.data(),
-        owner);
-}
 
 // Parse "hh:mm:ss.ss" or "hh mm ss.ss" → hours → degrees (*15).
 // Also accepts plain float (always interpreted as degrees).
@@ -120,14 +107,80 @@ dec : float (degrees) or str "±dd:mm:ss.ss")")
 
     // --- Site ---
     py::class_<Site, std::shared_ptr<Site>>(obs, "Site")
-        .def(py::init([](py::object lat, py::object lon) {
-            return std::make_shared<Site>(parse_angle_deg(lat), parse_angle_deg(lon));
+        .def(py::init([](py::args args) {
+            if (args.empty() || !py::isinstance<py::str>(args[0])) {
+                throw py::type_error("Site requires 'ground' or 'space' as its first argument");
+            }
+            const std::string kind = args[0].cast<std::string>();
+            if (kind == "ground") {
+                if (args.size() == 1) {
+                    return std::make_shared<Site>();
+                }
+                if (args.size() != 3) {
+                    throw py::type_error("Site('ground') accepts optional (lat, lon)");
+                }
+                return std::make_shared<Site>(
+                    parse_angle_deg(args[1]), parse_angle_deg(args[2]));
+            }
+            if (kind != "space") {
+                throw std::invalid_argument("site kind must be 'ground' or 'space'");
+            }
+            if (args.size() == 1) {
+                return std::make_shared<Site>(
+                    std::vector<double>{}, std::vector<std::array<double, 3>>{});
+            }
+            if (args.size() != 2) {
+                throw py::type_error("Site('space') accepts an optional table");
+            }
+            py::array_t<double, py::array::c_style | py::array::forcecast> values(args[1]);
+            const auto rows = values.unchecked<2>();
+            if (rows.shape(0) < 2 || rows.shape(1) != 4) {
+                throw std::invalid_argument(
+                    "space Site table must have shape (N, 4): JD, RA_deg, Dec_deg, distance_AU");
+            }
+            std::vector<double> times;
+            std::vector<std::array<double, 3>> positions;
+            times.reserve(static_cast<std::size_t>(rows.shape(0)));
+            positions.reserve(static_cast<std::size_t>(rows.shape(0)));
+            for (py::ssize_t i = 0; i < rows.shape(0); ++i) {
+                const double time = rows(i, 0);
+                const double ra = rows(i, 1) * M_PI / 180.0;
+                const double dec = rows(i, 2) * M_PI / 180.0;
+                const double distance = rows(i, 3);
+                if (!std::isfinite(time) || !std::isfinite(ra) || !std::isfinite(dec) ||
+                    !std::isfinite(distance) || (!times.empty() && time <= times.back())) {
+                    throw std::invalid_argument(
+                        "space Site table must contain finite, strictly increasing times");
+                }
+                // VBMicrolensing satellite tables express RA/Dec in its
+                // ecliptic-reference basis. Convert with VBM's J2000
+                // Eq2000/Quad2000/North2000 vectors.
+                constexpr double cos_obliquity = 0.9174820003578725;
+                constexpr double sin_obliquity = 0.3977772982704228;
+                const double cos_dec = std::cos(dec);
+                const double along_equator = distance * cos_dec * std::cos(ra);
+                const double along_quad = distance * cos_dec * std::sin(ra);
+                const double along_north = distance * std::sin(dec);
+                times.push_back(time);
+                positions.push_back({
+                    along_equator,
+                    along_quad * cos_obliquity + along_north * sin_obliquity,
+                    -along_quad * sin_obliquity + along_north * cos_obliquity,
+                });
+            }
+            return std::make_shared<Site>(std::move(times), std::move(positions));
         }),
-            py::arg("lat"), py::arg("lon"),
-            R"(Observatory/telescope position.
+            R"(Observation site.
 
-lat : float or str "±dd:mm:ss.ss"  [degrees, positive = North]
-lon : float or str "±dd:mm:ss.ss"  [degrees East])")
+Site('ground', lat, lon) creates a ground site in degrees (North/East).
+Site('space', table) creates a space site; table columns are [JD, RA_deg, Dec_deg, distance_AU].
+The space table follows VBMicrolensing's geocentric satellite convention.)")
+        .def_property_readonly("kind", [](const Site& s) {
+            return s.kind() == SiteKind::space ? "space" : "ground";
+        })
+        .def_property_readonly("has_position", [](const Site& s) {
+            return s.kind() == SiteKind::space ? s.has_space_ephemeris() : s.has_ground_position();
+        })
         .def_property_readonly("lat_deg", &Site::lat_deg)
         .def_property_readonly("lon_deg", &Site::lon_deg)
         .def("__repr__", [](const Site& s) {
@@ -137,99 +190,4 @@ lon : float or str "±dd:mm:ss.ss"  [degrees East])")
             return std::string(buf);
         });
 
-    // --- LightCurveData ---
-    py::class_<LightCurveData, std::shared_ptr<LightCurveData>>(obs, "LightCurveData")
-        .def(py::init([](
-                py::array_t<double>         time,
-                py::array_t<double>         flux,
-                py::array_t<double>         flux_err,
-                std::string                 name,
-                std::string                 band,
-                std::string                 observatory,
-                std::shared_ptr<Site>       site,
-                double                      k,
-                double                      emin) {
-            auto t = time.unchecked<1>();
-            auto f = flux.unchecked<1>();
-            auto e = flux_err.unchecked<1>();
-            return std::make_shared<LightCurveData>(
-                std::vector<double>(t.data(0), t.data(0) + t.size()),
-                std::vector<double>(f.data(0), f.data(0) + f.size()),
-                std::vector<double>(e.data(0), e.data(0) + e.size()),
-                std::move(name), std::move(band), std::move(observatory),
-                std::move(site), k, emin);
-        }),
-            py::arg("time"), py::arg("flux"), py::arg("flux_err"),
-            py::arg("name") = "", py::arg("band") = "", py::arg("observatory") = "",
-            py::arg("site") = py::none(), py::arg("k") = 1.0, py::arg("emin") = 0.0)
-        // Zero-copy numpy views — array borrows C++ memory; LightCurveData stays alive via base
-        .def_property_readonly("time", [](py::object self) {
-            return vec_view(self.cast<const LightCurveData&>().time(), self);
-        })
-        .def_property_readonly("flux", [](py::object self) {
-            return vec_view(self.cast<const LightCurveData&>().flux(), self);
-        })
-        .def_property_readonly("flux_err", [](py::object self) {
-            return vec_view(self.cast<const LightCurveData&>().flux_err(), self);
-        })
-        .def_property_readonly("effective_flux_err", [](py::object self) {
-            return vec_view(self.cast<const LightCurveData&>().effective_flux_err(), self);
-        })
-        .def_property_readonly("weight", [](py::object self) {
-            return vec_view(self.cast<const LightCurveData&>().weight(), self);
-        })
-        .def("__len__",   &LightCurveData::size)
-        .def_property_readonly("size",        &LightCurveData::size)
-        .def_property_readonly("k",           &LightCurveData::k)
-        .def_property_readonly("emin",        &LightCurveData::emin)
-        .def_property_readonly("name",        &LightCurveData::name)
-        .def_property_readonly("band",        &LightCurveData::band)
-        .def_property_readonly("observatory", &LightCurveData::observatory)
-        .def_property_readonly("site", [](const LightCurveData& d) -> py::object {
-            if (!d.site()) return py::none();
-            return py::cast(d.site());
-        })
-        .def("__repr__", [](const LightCurveData& d) {
-            return "<LightCurveData name='" + d.name()
-                + "' n=" + std::to_string(d.size()) + ">";
-        });
-
-    // --- Event ---
-    py::class_<Event, std::shared_ptr<Event>>(obs, "Event")
-        .def(py::init([](std::string name, py::object sky) {
-            std::shared_ptr<SkyCoord> sc;
-            if (!sky.is_none()) sc = sky.cast<std::shared_ptr<SkyCoord>>();
-            return std::make_shared<Event>(std::move(name), std::move(sc));
-        }),
-            py::arg("name") = "", py::arg("sky") = py::none())
-        .def("add", &Event::add, py::arg("data"))
-        .def("__len__", &Event::size)
-        .def("__getitem__", [](const Event& e, std::size_t i) -> const LightCurveData& {
-            if (i >= e.size())
-                throw py::index_error("Event index out of range");
-            return e.at(i);
-        }, py::return_value_policy::reference_internal)
-        .def("__iter__", [](const Event& e) {
-            return py::make_iterator<
-                py::return_value_policy::reference_internal>(e.begin(), e.end());
-        }, py::keep_alive<0, 1>())
-        .def_property_readonly("size",  &Event::size)
-        .def_property_readonly("name",  &Event::name)
-        .def_property_readonly("sky", [](const Event& e) -> py::object {
-            if (!e.sky_coord()) return py::none();
-            return py::cast(e.sky_coord());
-        })
-        // Convenience: plain ra/dec in degrees (None if not set)
-        .def_property_readonly("ra",  [](const Event& e) -> py::object {
-            if (!e.sky_coord()) return py::none();
-            return py::float_(e.ra());
-        })
-        .def_property_readonly("dec", [](const Event& e) -> py::object {
-            if (!e.sky_coord()) return py::none();
-            return py::float_(e.dec());
-        })
-        .def("__repr__", [](const Event& e) {
-            return "<Event name='" + e.name()
-                + "' datasets=" + std::to_string(e.size()) + ">";
-        });
 }

@@ -42,21 +42,19 @@ of relative `1e-3` plus absolute `1e-4`. Tighter requested tolerances use a
 conservative square-root resolution scaling but do not inherit that exact
 zero-violation claim.
 
-## External contour recommendation
+## Finite-source geometry for external hosts
 
-lcbinint never imports or dispatches to VBMicrolensing. Its finite-source core
-computes an internal per-position hint that an external contour engine is
-likely to be both accurate and faster:
-
-- uniform source: `A_point < 1000`, excluding the tangent band
-  `0.9 < d_caustic/rho < 1.1`;
-- limb-darkened source: `A_point < 5` and `d_caustic/rho > 1.05`.
-
-This is an internal backend-routing hint, not a public API or accuracy oracle. The
-independent calibration selected 2,261 rows with no inaccurate or failed VBM
-results; among rows where both engines were accurate, VBM was faster in
-2,158/2,249 cases. A future generic sampler/backend adapter can consume the
-internal result without making VBMicrolensing a dependency of lcbinint.
+lcbinint never imports or links to VBMicrolensing and has no concept of
+backend routing. For a host that implements its own finite-source engine and
+needs the same trajectory/orbital-motion transformations lcbinint uses
+internally, `lcbi_finite_source_geometry[_array]` returns the engine-neutral,
+root-solve-free geometry (separation, mass ratio, source position and radius,
+limb darkening, tolerances) for a given epoch, and `lcbi_result` carries the
+time-evolved `separation`/`mass_ratio` plus `caustic_distance` alongside every
+magnification. Both are cheap enough to call per epoch on a hot path, unlike
+`lcbi_magnification[_array]`. moasarc is one such host: it owns its own
+calibration rule and VBM-routing decision entirely on its side, using these
+primitives.
 
 ## Annual and terrestrial parallax
 
@@ -66,11 +64,20 @@ Annual parallax uses the bundled Earth ephemeris, sky coordinates, and the
 fixed reference epoch `t_ref`.
 
 Terrestrial parallax additionally requires `terrestrial=True` and an explicit
-`obs.Site`. Observatory longitude is east-positive. The geocentric telescope
+ground `obs.Site("ground", lat, lon)`; enabling it without a ground site is an error.
+Observatory longitude is east-positive. The geocentric telescope
 position is rotated using mean sidereal time and projected onto the same north
 and east sky basis as annual parallax. A real site at latitude/longitude
 `(0, 0)` is valid; absence of a site is represented separately and produces no
 terrestrial offset.
+
+Spacecraft parallax uses `obs.Site("space", table)`, where `table`
+has columns `(JD, RA_deg, Dec_deg, distance_AU)`. It follows the
+VBMicrolensing satellite-table convention: the geocentric spacecraft position
+is linearly interpolated and added directly to the Earth annual-parallax term,
+without subtracting its position or velocity at `t_ref`. A single event
+`Model` may have `terrestrial=True` and be shared by both ground and space
+curves; the terrestrial term is applied only to its ground curves.
 
 The current terrestrial calculation uses a spherical Earth at the equatorial
 radius and GMST without polar motion, elevation, or sub-arcsecond nutation.

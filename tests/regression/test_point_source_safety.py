@@ -1,13 +1,19 @@
 import pytest
 
 
+def _point_magnification(lcbinint, s, q, x, y):
+    curve = lcbinint.LightCurve(options=lcbinint.Options(coordinates="center_of_mass"))
+    return curve([0.0], t0=-x, tE=1.0, u0=y, alpha=0.0,
+                 s=s, q=q, rho=0.0)[0]
+
+
 def test_binary_safety_diagnostic_reuses_point_source_solution():
     lcbinint = pytest.importorskip("lcbinint")
 
     diagnostic = lcbinint._binary_safety_diagnostic(1.35, 0.32, 0.9, 0.0)
 
     assert diagnostic.magnification == pytest.approx(
-        lcbinint.binary_mag0(1.35, 0.32, 0.9, 0.0)
+        _point_magnification(lcbinint, 1.35, 0.32, 0.9, 0.0)
     )
     assert diagnostic.image_count == 3
     assert diagnostic.ghost_count == 2

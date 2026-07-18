@@ -32,6 +32,20 @@ def test_light_curve_rejects_unknown_lens():
         lcbinint.LightCurve(lens="quad")
 
 
+def test_light_curve_lens_matches_q2_parameters():
+    lcbinint = pytest.importorskip("lcbinint")
+    params = dict(t0=0.0, tE=1.0, u0=0.2, s=1.0, q=0.1, rho=0.0)
+
+    with pytest.raises(RuntimeError, match="requires a positive q2"):
+        lcbinint.LightCurve(lens="triple")([0.0], params)
+    with pytest.raises(RuntimeError, match="cannot be used with a positive q2"):
+        lcbinint.LightCurve(lens="binary")([0.0], {**params, "q2": 0.01, "sep2": 0.8})
+
+    result = lcbinint.LightCurve(lens="triple")(
+        [0.0], {**params, "q2": 0.01, "sep2": 0.8})
+    assert result.shape == (1,)
+
+
 def test_legacy_lens_aliases_are_rejected():
     lcbinint = pytest.importorskip("lcbinint")
 

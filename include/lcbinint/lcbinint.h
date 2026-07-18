@@ -132,7 +132,28 @@ typedef struct lcbi_result {
     double point_source_safety_tolerance;
     int point_source_ghost_count;
     int point_source_safety_flags; /* bit 0: quadrupole+cusp, bit 1: ghost, bit 2: planetary */
+    double separation;       /* orbital-motion-corrected projected separation at this epoch */
+    double mass_ratio;       /* effective mass ratio at this epoch */
+    double caustic_distance; /* source-to-caustic distance; +inf outside the finite-source path */
 } lcbi_result;
+
+/* Engine-neutral, trajectory-resolved finite-source geometry for one epoch.
+   Root-solve-free: cheap enough to call once per epoch on a hot path, unlike
+   lcbi_magnification[_array]. Intended for an external caller that implements
+   its own finite-source engine (e.g. contour integration) and needs the same
+   trajectory/orbital-motion transformations lcbinint itself uses. */
+typedef struct lcbi_geometry {
+    double separation;
+    double mass_ratio;
+    double source_x;
+    double source_y;
+    double source_radius;
+    double limb_darkening_c;
+    double limb_darkening_d;
+    double absolute_tolerance;
+    double relative_tolerance;
+    int valid;
+} lcbi_geometry;
 
 lcbi_params lcbi_default_params(void);
 lcbi_options lcbi_default_options(void);
@@ -150,6 +171,21 @@ lcbi_status lcbi_magnification_array(
     const lcbi_params *params,
     const lcbi_options *options,
     lcbi_result *results
+);
+
+lcbi_status lcbi_finite_source_geometry(
+    double time,
+    const lcbi_params *params,
+    const lcbi_options *options,
+    lcbi_geometry *geometry
+);
+
+lcbi_status lcbi_finite_source_geometry_array(
+    const double *times,
+    int count,
+    const lcbi_params *params,
+    const lcbi_options *options,
+    lcbi_geometry *geometries
 );
 
 const char *lcbi_status_string(lcbi_status status);

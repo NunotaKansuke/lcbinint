@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lcbinint/model/lens_parameters.hpp"
+#include "lcbinint/obs/coordinates.hpp"
 #include "lcbinint/types.hpp"
 
 namespace lcbinint::model {
@@ -11,7 +12,8 @@ public:
 
     SourcePosition source_position(double time, bool vbm_mode = false,
         lcbi_xallarap_param_type xallarap_type = LCBI_XALLARAP_NONE,
-        bool parallax_enabled = true) const;
+        bool parallax_enabled = true,
+        const obs::Site* site = nullptr) const;
 
 private:
     LensParameters params_;

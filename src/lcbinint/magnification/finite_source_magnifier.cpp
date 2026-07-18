@@ -20,6 +20,7 @@
 #include <vector>
 
 namespace lcbinint::magnification {
+
 namespace {
 
 constexpr double kSqrtHalf = 0.70710678118654752440;
@@ -4538,26 +4539,6 @@ BinaryResolutionSelection calibrated_binary_resolution(
     return {std::min(bins, cap), false};
 }
 
-bool recommend_external_contour_engine(
-    double source_radius,
-    double caustic_distance,
-    double point_source_magnification,
-    double limb_darkening_c,
-    double limb_darkening_d)
-{
-    if (!(source_radius > 0.0) || !std::isfinite(caustic_distance) ||
-        !std::isfinite(point_source_magnification)) {
-        return false;
-    }
-    const double distance_ratio = caustic_distance / source_radius;
-    const double a_point = std::abs(point_source_magnification);
-    const bool uniform = limb_darkening_c == 0.0 && limb_darkening_d == 0.0;
-    if (uniform) {
-        return a_point < 1000.0 && !(distance_ratio > 0.9 && distance_ratio < 1.1);
-    }
-    return a_point < 5.0 && distance_ratio > 1.05;
-}
-
 FiniteSourceMagnifier::FiniteSourceMagnifier(FiniteSourceSettings settings)
     : settings_(settings)
 {
@@ -5202,7 +5183,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
 
     PointSourceSafetyEvaluation point_safety;
     bool point_safety_available = false;
-    bool external_contour_recommended = false;
+    double caustic_distance_out = std::numeric_limits<double>::infinity();
     const auto cache_and_return = [&](FiniteSourceResult result) {
         if (point_safety_available) {
             result.point_source_quadrupole_indicator =
@@ -5217,7 +5198,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 (point_safety.ghost_safe ? 2 : 0) |
                 (point_safety.planetary_safe ? 4 : 0);
         }
-        result.external_contour_recommended = external_contour_recommended;
+        result.caustic_distance = caustic_distance_out;
         result_cache_valid_ = true;
         result_cache_separation_ = separation;
         result_cache_mass_ratio_ = mass_ratio;
@@ -5292,12 +5273,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     // correct distance.  We pass sampled_dist as a hint to skip the O(N) point scan.
     const double refined_dist = binary_caustic_distance(
         separation, mass_ratio, source, sampled_dist);
-    external_contour_recommended = recommend_external_contour_engine(
-        source_radius,
-        refined_dist,
-        point_source_magnification,
-        settings_.limb_darkening_c,
-        settings_.limb_darkening_d);
+    caustic_distance_out = refined_dist;
     const auto calibrated_resolution = calibrated_binary_resolution(
         mass_ratio,
         source_radius,

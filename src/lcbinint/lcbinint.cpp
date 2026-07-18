@@ -1,5 +1,6 @@
 #include "lcbinint/lcbinint.h"
 
+#include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/model/lens_model.hpp"
 #include "lcbinint/model/lens_parameters.hpp"
 
@@ -35,6 +36,23 @@ void copy_result(const lcbinint::MagnificationResult &from, lcbi_result &to)
     to.point_source_safety_tolerance = from.point_source_safety_tolerance;
     to.point_source_ghost_count = from.point_source_ghost_count;
     to.point_source_safety_flags = from.point_source_safety_flags;
+    to.separation = from.separation;
+    to.mass_ratio = from.mass_ratio;
+    to.caustic_distance = from.caustic_distance;
+}
+
+void copy_geometry(const lcbinint::magnification::FiniteSourceGeometry &from, lcbi_geometry &to, bool valid)
+{
+    to.separation = from.separation;
+    to.mass_ratio = from.mass_ratio;
+    to.source_x = from.source.x;
+    to.source_y = from.source.y;
+    to.source_radius = from.source_radius;
+    to.limb_darkening_c = from.limb_darkening_c;
+    to.limb_darkening_d = from.limb_darkening_d;
+    to.absolute_tolerance = from.absolute_tolerance;
+    to.relative_tolerance = from.relative_tolerance;
+    to.valid = valid ? 1 : 0;
 }
 
 } // namespace
@@ -139,6 +157,64 @@ lcbi_status lcbi_magnification_array(
         }
     }
     return LCBI_OK;
+}
+
+lcbi_status lcbi_finite_source_geometry(
+    double time,
+    const lcbi_params *params,
+    const lcbi_options *options,
+    lcbi_geometry *geometry)
+{
+    if (params == nullptr || geometry == nullptr) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+
+    const auto cpp_params = lcbinint::model::from_c_params(*params);
+    if (!cpp_params.is_valid()) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+
+    const auto cpp_options = lcbinint::model::from_c_options(options);
+    const lcbinint::model::LensModel model(cpp_params, cpp_options);
+    lcbinint::magnification::FiniteSourceGeometry cpp_geometry;
+    const bool valid = model.finite_source_geometry(time, cpp_geometry);
+    copy_geometry(cpp_geometry, *geometry, valid);
+    return valid ? LCBI_OK : LCBI_UNSUPPORTED;
+}
+
+lcbi_status lcbi_finite_source_geometry_array(
+    const double *times,
+    int count,
+    const lcbi_params *params,
+    const lcbi_options *options,
+    lcbi_geometry *geometries)
+{
+    if (count < 0) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+    if (count == 0) {
+        return LCBI_OK;
+    }
+    if (times == nullptr || params == nullptr || geometries == nullptr) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+
+    const auto cpp_params = lcbinint::model::from_c_params(*params);
+    if (!cpp_params.is_valid()) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+    const auto cpp_options = lcbinint::model::from_c_options(options);
+    const lcbinint::model::LensModel model(cpp_params, cpp_options);
+    lcbi_status status = LCBI_OK;
+    for (int i = 0; i < count; ++i) {
+        lcbinint::magnification::FiniteSourceGeometry cpp_geometry;
+        const bool valid = model.finite_source_geometry(times[i], cpp_geometry);
+        copy_geometry(cpp_geometry, geometries[i], valid);
+        if (!valid) {
+            status = LCBI_UNSUPPORTED;
+        }
+    }
+    return status;
 }
 
 const char *lcbi_status_string(lcbi_status status)

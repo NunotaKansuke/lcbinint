@@ -122,15 +122,19 @@ def vbm_curve(case: Case, times: np.ndarray) -> np.ndarray:
 
 
 def lc_curve(case: Case, times: np.ndarray, options: lcbinint.Options):
-    return lcbinint.light_curve_info(
+    curve = lcbinint.LightCurve(
+        options=options,
+        limb_darkening=lcbinint.LimbDarkening(c=case.limb_darkening_c),
+    )
+    return curve.info(
         times.tolist(),
+        t0=0.0,
+        tE=1.0,
         u0=case.u0,
         alpha=case.alpha,
         s=case.separation,
         q=case.mass_ratio,
         rho=case.rho,
-        limb_darkening=lcbinint.LimbDarkening(c=case.limb_darkening_c),
-        options=options,
     )
 
 

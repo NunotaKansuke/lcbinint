@@ -11,10 +11,8 @@ enum class SourceKind { single, binary };
 
 // Physical light-curve model, separate from numerical Options (lcbi_options).
 // Rules:
-//  - terrestrial must be explicitly true for site coords to be applied (even if site is set).
 //  - parallax / xallarap / orbital_motion override the corresponding lcbi_options fields.
-//  - sky/site at LightCurve level are defaults; per-dataset LightCurveData::site overrides
-//    obs_lat/obs_lon when terrestrial=true.
+//  - sky is event-level; each LightCurve carries its own observing site.
 struct Model {
     LensKind                 lens           = LensKind::binary;
     SourceKind               source         = SourceKind::single;
@@ -23,7 +21,6 @@ struct Model {
     bool                     parallax       = false;
     bool                     terrestrial    = false;
     std::shared_ptr<obs::SkyCoord> sky      = nullptr;
-    std::shared_ptr<obs::Site>     site     = nullptr;
     std::optional<double>          t_ref    = std::nullopt;
 };
 

@@ -72,14 +72,91 @@ magnification::FiniteSourceSettings finite_source_settings(
 
 } // namespace
 
-LensModel::LensModel(LensParameters params, ComputationOptions options)
+LensModel::LensModel(
+    LensParameters params,
+    ComputationOptions options,
+    std::shared_ptr<const obs::Site> site)
     : params_(params)
     , options_(options)
     , trajectory_(params_)
+    , site_(std::move(site))
     , cos_theta_(std::cos(params_.theta))
     , sin_theta_(std::sin(params_.theta))
     , finite_magnifier_(finite_source_settings(params_, options_))
 {
+}
+
+bool LensModel::finite_source_geometry(
+    double time,
+    magnification::FiniteSourceGeometry& output) const
+{
+    if (params_.is_triple() || has_unsupported_dynamic_effects(params_, options_)) {
+        return false;
+    }
+
+    SourcePosition source;
+    const bool has_parallax = options_.parallax_mode != 0 &&
+        (params_.piEN != 0.0 || params_.piEE != 0.0);
+    const bool has_xallarap = options_.xallarap_param_type != LCBI_XALLARAP_NONE &&
+        params_.has_xallarap();
+    if (!has_parallax && !has_xallarap) {
+        const double tn = (time - params_.t0) / params_.tE;
+        const double beta = params_.umin;
+        if (options_.vbm_compatible != 0) {
+            source.x = tn * cos_theta_ - beta * sin_theta_;
+            source.y = tn * sin_theta_ + beta * cos_theta_;
+        } else {
+            source.x = beta * sin_theta_ + tn * cos_theta_;
+            source.y = beta * cos_theta_ - tn * sin_theta_;
+        }
+    } else {
+        source = trajectory_.source_position(
+            time, options_.vbm_compatible != 0, options_.xallarap_param_type,
+            has_parallax, site_.get());
+    }
+
+    const bool static_orbit = params_.orbital_motion_mode == LCBI_ORBIT_STATIC;
+    const auto orbit = static_orbit ? OrbitalState {params_.sep, params_.theta, 0.0}
+                                    : orbital_state(params_, time);
+    if (!std::isfinite(orbit.separation) || !std::isfinite(orbit.angle)) {
+        return false;
+    }
+    if (!static_orbit) {
+        if (options_.vbm_compatible != 0) {
+            double tau = 0.0;
+            double beta = 0.0;
+            if (!has_parallax) {
+                tau = (time - params_.t0) / params_.tE;
+                beta = params_.umin;
+            } else {
+                tau = source.x * cos_theta_ + source.y * sin_theta_;
+                beta = -source.x * sin_theta_ + source.y * cos_theta_;
+            }
+            source = {
+                tau * std::cos(orbit.angle) - beta * std::sin(orbit.angle),
+                beta * std::cos(orbit.angle) + tau * std::sin(orbit.angle),
+            };
+        } else {
+            source = rotate_source_to_orbital_frame(
+                source, orbit.angle - params_.theta);
+        }
+    }
+    if (options_.vbm_compatible == 0) {
+        source.x -= wide_binary_offset(orbit.separation, params_, options_);
+    }
+    double tolerance = options_.finite_source_tol;
+    if (!(std::isfinite(tolerance) && tolerance > 0.0)) tolerance = 1.0e-5;
+    output.separation = orbit.separation;
+    output.mass_ratio = (options_.vbm_compatible != 0 && params_.q != 0.0)
+        ? 1.0 / params_.q : params_.q;
+    output.source = source;
+    output.source_radius = std::abs(params_.rho);
+    output.limb_darkening_c = params_.limb_darkening_c;
+    output.limb_darkening_d = params_.limb_darkening_d;
+    output.absolute_tolerance = tolerance;
+    output.relative_tolerance = options_.finite_source_reltol;
+    return std::isfinite(output.separation) && std::isfinite(output.mass_ratio) &&
+        std::isfinite(source.x) && std::isfinite(source.y);
 }
 
 MagnificationResult LensModel::magnification(double time) const
@@ -102,7 +179,7 @@ MagnificationResult LensModel::magnification(double time) const
     } else {
         source = trajectory_.source_position(
             time, options_.vbm_compatible != 0, options_.xallarap_param_type,
-            has_parallax);
+            has_parallax, site_.get());
     }
     const bool static_orbit = params_.orbital_motion_mode == LCBI_ORBIT_STATIC;
     const auto orbit = static_orbit ? OrbitalState {params_.sep, params_.theta, 0.0}
@@ -199,6 +276,8 @@ MagnificationResult LensModel::magnification(double time) const
         const double effective_q = (options_.vbm_compatible != 0 && params_.q != 0.0)
             ? 1.0 / params_.q
             : params_.q;
+        result.separation = orbit.separation;
+        result.mass_ratio = effective_q;
 
         if (supports_binary_point_source(params_, options_)) {
             const auto point =
@@ -246,6 +325,7 @@ MagnificationResult LensModel::magnification(double time) const
         result.point_source_safety_tolerance = finite_result.point_source_safety_tolerance;
         result.point_source_ghost_count = finite_result.point_source_ghost_count;
         result.point_source_safety_flags = finite_result.point_source_safety_flags;
+        result.caustic_distance = finite_result.caustic_distance;
         if (!std::isfinite(result.magnification)) {
             result.status = EvaluationStatus::numerical_error;
             return result;

@@ -8,6 +8,7 @@
 #include <cmath>
 #include <complex>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 namespace {
@@ -82,18 +83,6 @@ int main()
             0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 1.0e-3, 400);
     if (tangent_resolution.prefer_polar || tangent_resolution.source_bins < 100) {
         return 45;
-    }
-    if (!lcbinint::magnification::recommend_external_contour_engine(
-            1.0e-3, 2.0e-3, 10.0, 0.0, 0.0) ||
-        lcbinint::magnification::recommend_external_contour_engine(
-            1.0e-3, 1.0e-3, 10.0, 0.0, 0.0) ||
-        lcbinint::magnification::recommend_external_contour_engine(
-            1.0e-3, 2.0e-3, 1000.0, 0.0, 0.0) ||
-        !lcbinint::magnification::recommend_external_contour_engine(
-            1.0e-3, 2.0e-3, 4.0, 0.5, 0.0) ||
-        lcbinint::magnification::recommend_external_contour_engine(
-            1.0e-3, 2.0e-3, 6.0, 0.5, 0.0)) {
-        return 46;
     }
     if (lcbi_magnification(0.0, &params, &options, &result) != LCBI_OK) {
         return 3;
@@ -307,5 +296,84 @@ int main()
             return 43;
         }
     }
+
+    // lcbi_finite_source_geometry[_array]: a cheap, root-solve-free primitive
+    // that must agree with the separation/mass_ratio/caustic_distance fields
+    // lcbi_magnification[_array] already populates.
+    lcbi_params geometry_params = lcbi_default_params();
+    geometry_params.sep = 1.25;
+    geometry_params.q = 2.0e-3;
+    geometry_params.rho = 1.0e-3;
+    geometry_params.umin = 0.05;
+    lcbi_options geometry_options = lcbi_default_options();
+
+    lcbi_result geometry_result = {};
+    if (lcbi_magnification(0.0, &geometry_params, &geometry_options, &geometry_result) != LCBI_OK) {
+        return 50;
+    }
+    if (std::abs(geometry_result.separation - geometry_params.sep) > 1e-12 ||
+        std::abs(geometry_result.mass_ratio - geometry_params.q) > 1e-12 ||
+        !std::isfinite(geometry_result.caustic_distance)) {
+        return 51;
+    }
+
+    lcbi_geometry geometry = {};
+    if (lcbi_finite_source_geometry(0.0, &geometry_params, &geometry_options, &geometry) != LCBI_OK ||
+        !geometry.valid) {
+        return 52;
+    }
+    // geometry.source_{x,y} reflect the wide-binary-offset-shifted position
+    // used internally for finite-source integration, which is intentionally
+    // not the same frame as lcbi_result::source_{x,y} (captured before that
+    // shift) -- only finiteness is checked here, not numeric equality.
+    if (std::abs(geometry.separation - geometry_params.sep) > 1e-12 ||
+        std::abs(geometry.mass_ratio - geometry_params.q) > 1e-12 ||
+        !std::isfinite(geometry.source_x) || !std::isfinite(geometry.source_y) ||
+        std::abs(geometry.source_radius - geometry_params.rho) > 1e-12) {
+        return 53;
+    }
+
+    const double geometry_times[3] = {-0.5, 0.0, 0.5};
+    lcbi_geometry geometry_array[3] = {};
+    if (lcbi_finite_source_geometry_array(
+            geometry_times, 3, &geometry_params, &geometry_options, geometry_array) != LCBI_OK) {
+        return 54;
+    }
+    for (int i = 0; i < 3; ++i) {
+        if (!geometry_array[i].valid ||
+            std::abs(geometry_array[i].separation - geometry_params.sep) > 1e-12) {
+            return 55;
+        }
+    }
+
+    // Orbital motion: separation/mass_ratio must be time-evolved consistently
+    // between lcbi_magnification and lcbi_finite_source_geometry.
+    lcbi_params orbit_params = geometry_params;
+    orbit_params.orbital_motion_mode = LCBI_ORBIT_CIRCULAR;
+    orbit_params.g1 = 0.3;
+    orbit_params.g2 = 0.1;
+    orbit_params.g3 = 0.05;
+
+    lcbi_result orbit_result_early = {};
+    lcbi_result orbit_result_late = {};
+    if (lcbi_magnification(-2.0, &orbit_params, &geometry_options, &orbit_result_early) != LCBI_OK ||
+        lcbi_magnification(2.0, &orbit_params, &geometry_options, &orbit_result_late) != LCBI_OK) {
+        return 56;
+    }
+    if (std::abs(orbit_result_early.separation - orbit_result_late.separation) < 1e-6) {
+        return 57;
+    }
+
+    lcbi_geometry orbit_geometry_early = {};
+    lcbi_geometry orbit_geometry_late = {};
+    if (lcbi_finite_source_geometry(-2.0, &orbit_params, &geometry_options, &orbit_geometry_early) != LCBI_OK ||
+        lcbi_finite_source_geometry(2.0, &orbit_params, &geometry_options, &orbit_geometry_late) != LCBI_OK) {
+        return 58;
+    }
+    if (std::abs(orbit_geometry_early.separation - orbit_result_early.separation) > 1e-9 ||
+        std::abs(orbit_geometry_late.separation - orbit_result_late.separation) > 1e-9) {
+        return 59;
+    }
+
     return 0;
 }

@@ -27,6 +27,7 @@ struct PyLimbDarkening {
 };
 
 struct PyLightCurveInfo {
+    std::vector<double> times;
     std::vector<double> magnifications;
     std::vector<double> point_source_magnifications;
     std::vector<double> finite_source_magnifications;
@@ -53,6 +54,9 @@ struct PyLightCurveInfo {
     std::vector<double> point_source_safety_tolerances;
     std::vector<int> point_source_ghost_counts;
     std::vector<int> point_source_safety_flags;
+    std::vector<double> separations;
+    std::vector<double> mass_ratios;
+    std::vector<double> caustic_distances;
     bool all_converged = true;
     std::vector<int> unconverged_indices;
 };
@@ -171,6 +175,7 @@ lcbi_params params_from_dict(const py::dict& d)
         else if (key == "g3")                      p.g3    = val;
         else if (key == "lom_szs")                 p.lom_szs = val;
         else if (key == "lom_ar")                  p.lom_ar  = val;
+        else if (key == "v_sep")                   p.v_sep = val;
         // xallarap amplitude/position (all modes)
         else if (key == "xi_1")                    p.xi_1  = val;
         else if (key == "xi_2")                    p.xi_2  = val;
@@ -180,9 +185,9 @@ lcbi_params params_from_dict(const py::dict& d)
         else if (key == "peri_xa")                 p.peri_xa   = val;
         else if (key == "inc_xa")                  p.inc_xa    = val;
         // circular_velocity / kepler_velocity: w1/w2/w3 (mapped to omega/inc/phi fields)
-        else if (key == "w1")                      p.omega_xa = val;
-        else if (key == "w2")                      p.inc_xa   = val;
-        else if (key == "w3")                      p.phi_xa   = val;
+        else if (key == "w1" || key == "omega_xa") p.omega_xa = val;
+        else if (key == "w2" || key == "inc_xa")   p.inc_xa   = val;
+        else if (key == "w3" || key == "phi_xa")   p.phi_xa   = val;
         // kepler_velocity: xa_szs/xa_ar (mapped to piEN_xa/piEE_xa fields)
         else if (key == "xa_szs")                  p.piEN_xa = val;
         else if (key == "xa_ar")                   p.piEE_xa = val;
@@ -210,6 +215,20 @@ py::array_t<double> vec_to_numpy(std::vector<double> mags)
         cap);
 }
 
+py::array_t<double> matrix_to_numpy(
+    std::vector<double> values, py::ssize_t rows, py::ssize_t columns)
+{
+    auto* heap = new std::vector<double>(std::move(values));
+    py::capsule cap(heap, [](void* p) {
+        delete static_cast<std::vector<double>*>(p);
+    });
+    return py::array_t<double>(
+        {rows, columns},
+        {static_cast<py::ssize_t>(sizeof(double) * columns),
+         static_cast<py::ssize_t>(sizeof(double))},
+        heap->data(), cap);
+}
+
 // Core dispatch: build times vector, release GIL, compute, return numpy array.
 py::array_t<double> compute(
     const lcbinint::lc::LightCurve& lc,
@@ -227,6 +246,196 @@ py::array_t<double> compute(
     return vec_to_numpy(std::move(mags));
 }
 
+lcbi_params inference_params_from_object(const py::handle& item)
+{
+    const auto object = py::reinterpret_borrow<py::object>(item);
+    if (!py::isinstance<py::dict>(object)) {
+        return object.cast<lcbi_params>();
+    }
+    const py::dict input = object.cast<py::dict>();
+    py::dict filtered;
+    for (const auto& entry : input) {
+        const std::string key = entry.first.cast<std::string>();
+        if (key.rfind("Fs_", 0) == 0 || key.rfind("Fb_", 0) == 0) continue;
+        filtered[entry.first] = entry.second;
+    }
+    return params_from_dict(filtered);
+}
+
+struct InferenceParameterRow {
+    lcbi_params primary;
+    lcbi_params secondary;
+    double source_ratio = 1.0;
+};
+
+InferenceParameterRow inference_parameter_row(
+    const py::handle& item, bool binary_source)
+{
+    InferenceParameterRow row;
+    row.primary = inference_params_from_object(item);
+    row.secondary = row.primary;
+    if (!binary_source) return row;
+    const auto object = py::reinterpret_borrow<py::object>(item);
+    if (!py::isinstance<py::dict>(object)) {
+        throw std::invalid_argument(
+            "binary-source batch rows must be parameter dictionaries");
+    }
+    const py::dict values = object.cast<py::dict>();
+    double q_mass = 0.0;
+    double t0_2 = row.primary.t0;
+    double u0_2 = row.primary.umin;
+    for (const auto& entry : values) {
+        const std::string key = entry.first.cast<std::string>();
+        if (key == "q_source" || key == "fluxratio") {
+            row.source_ratio = entry.second.cast<double>();
+        } else if (key == "q_mass") {
+            q_mass = entry.second.cast<double>();
+        } else if (key == "t0_2") {
+            t0_2 = entry.second.cast<double>();
+        } else if (key == "u0_2") {
+            u0_2 = entry.second.cast<double>();
+        }
+    }
+    if (q_mass > 0.0) {
+        row.secondary.xi_1 = -row.primary.xi_1 / q_mass;
+        row.secondary.xi_2 = -row.primary.xi_2 / q_mass;
+    } else {
+        row.secondary.t0 = t0_2;
+        row.secondary.umin = u0_2;
+    }
+    return row;
+}
+
+py::array_t<double> compute_batch(
+    const lcbinint::lc::LightCurve& lc,
+    py::array_t<double> times,
+    const py::sequence& parameter_rows)
+{
+    auto buf = times.request();
+    if (buf.ndim != 1) throw std::invalid_argument("times must be one-dimensional");
+    const double* ptr = static_cast<const double*>(buf.ptr);
+    std::vector<double> tv(ptr, ptr + buf.size);
+    const bool binary_source =
+        lc.source_kind() == lcbinint::lc::SourceKind::binary;
+    std::vector<lcbi_params> parameters;
+    std::vector<lcbi_params> secondary_parameters;
+    std::vector<double> source_ratios;
+    const auto count = static_cast<std::size_t>(py::len(parameter_rows));
+    parameters.reserve(count);
+    if (binary_source) {
+        secondary_parameters.reserve(count);
+        source_ratios.reserve(count);
+    }
+    for (const auto& item : parameter_rows) {
+        const auto row = inference_parameter_row(item, binary_source);
+        parameters.push_back(row.primary);
+        if (binary_source) {
+            secondary_parameters.push_back(row.secondary);
+            source_ratios.push_back(row.source_ratio);
+        }
+    }
+    std::vector<double> values;
+    {
+        py::gil_scoped_release release;
+        values = lc.magnification_batch(
+            tv, parameters, secondary_parameters, source_ratios);
+    }
+    return matrix_to_numpy(
+        std::move(values), static_cast<py::ssize_t>(parameters.size()),
+        static_cast<py::ssize_t>(tv.size()));
+}
+
+py::dict compute_light_curve_log_likelihood_batch(
+    const lcbinint::lc::LightCurve& lc,
+    py::array_t<double, py::array::c_style | py::array::forcecast> times,
+    py::array_t<double, py::array::c_style | py::array::forcecast> flux,
+    py::array_t<double, py::array::c_style | py::array::forcecast> error,
+    const py::sequence& parameter_rows,
+    const std::string& distribution_name,
+    const std::string& flux_mode_name,
+    double nu,
+    py::object sampled_source_object,
+    py::object sampled_blend_object)
+{
+    using Distribution = lcbinint::lc::LikelihoodDistribution;
+    using FluxMode = lcbinint::lc::FluxMode;
+    const bool binary_source =
+        lc.source_kind() == lcbinint::lc::SourceKind::binary;
+    const Distribution distribution = distribution_name == "gaussian"
+        ? Distribution::gaussian
+        : distribution_name == "student_t" ? Distribution::student_t
+        : throw std::invalid_argument(
+            "distribution must be 'gaussian' or 'student_t'");
+    const FluxMode flux_mode = flux_mode_name == "fit" ? FluxMode::fit
+        : flux_mode_name == "sample" ? FluxMode::sample
+        : flux_mode_name == "marginalize" ? FluxMode::marginalize
+        : throw std::invalid_argument(
+            "flux_mode must be 'fit', 'sample', or 'marginalize'");
+
+    const auto times_buffer = times.request();
+    const auto flux_buffer = flux.request();
+    const auto error_buffer = error.request();
+    if (times_buffer.ndim != 1 || flux_buffer.ndim != 1 ||
+        error_buffer.ndim != 1) {
+        throw std::invalid_argument("times, flux, and error must be one-dimensional");
+    }
+    const auto* times_ptr = static_cast<const double*>(times_buffer.ptr);
+    const auto* flux_ptr = static_cast<const double*>(flux_buffer.ptr);
+    const auto* error_ptr = static_cast<const double*>(error_buffer.ptr);
+    std::vector<double> times_vector(times_ptr, times_ptr + times_buffer.size);
+    std::vector<double> flux_vector(flux_ptr, flux_ptr + flux_buffer.size);
+    std::vector<double> error_vector(error_ptr, error_ptr + error_buffer.size);
+    std::vector<lcbi_params> parameters;
+    std::vector<lcbi_params> secondary_parameters;
+    std::vector<double> source_ratios;
+    parameters.reserve(static_cast<std::size_t>(py::len(parameter_rows)));
+    if (binary_source) {
+        secondary_parameters.reserve(
+            static_cast<std::size_t>(py::len(parameter_rows)));
+        source_ratios.reserve(
+            static_cast<std::size_t>(py::len(parameter_rows)));
+    }
+    for (const auto& item : parameter_rows) {
+        const auto row = inference_parameter_row(item, binary_source);
+        parameters.push_back(row.primary);
+        if (binary_source) {
+            secondary_parameters.push_back(row.secondary);
+            source_ratios.push_back(row.source_ratio);
+        }
+    }
+
+    auto optional_vector = [](py::object value) {
+        std::vector<double> output;
+        if (value.is_none()) return output;
+        py::array_t<double, py::array::c_style | py::array::forcecast> array(value);
+        const auto buffer = array.request();
+        if (buffer.ndim != 1) {
+            throw std::invalid_argument("sampled flux arrays must be one-dimensional");
+        }
+        const auto* ptr = static_cast<const double*>(buffer.ptr);
+        output.assign(ptr, ptr + buffer.size);
+        return output;
+    };
+    std::vector<double> sampled_source = optional_vector(sampled_source_object);
+    std::vector<double> sampled_blend = optional_vector(sampled_blend_object);
+    lcbinint::lc::LikelihoodBatchResult result;
+    {
+        py::gil_scoped_release release;
+        result = lc.light_curve_log_likelihood_batch(
+            times_vector, flux_vector, error_vector, parameters,
+            distribution, flux_mode, nu, sampled_source, sampled_blend,
+            secondary_parameters, source_ratios);
+    }
+    py::dict output;
+    output["log_likelihood"] = vec_to_numpy(std::move(result.log_likelihood));
+    output["source_flux"] = vec_to_numpy(std::move(result.source_flux));
+    output["blend_flux"] = vec_to_numpy(std::move(result.blend_flux));
+    output["conditional_scale"] =
+        vec_to_numpy(std::move(result.conditional_scale));
+    output["conditional_df"] = vec_to_numpy(std::move(result.conditional_df));
+    return output;
+}
+
 std::string finite_source_method_name_from_int(int method)
 {
     return lcbinint::magnification::finite_source_method_name(
@@ -238,23 +447,18 @@ PyLightCurveInfo compute_info(
     py::array_t<double>             times,
     const lcbi_params&              params)
 {
-    const lcbi_params p = lc.apply_coords(params);
-
     auto buf = times.request();
     const double* ptr = static_cast<const double*>(buf.ptr);
     std::vector<double> tv(ptr, ptr + buf.size);
     const int n = static_cast<int>(tv.size());
-    std::vector<lcbi_result> results(static_cast<std::size_t>(n));
+    std::vector<lcbinint::MagnificationResult> results;
     {
         py::gil_scoped_release release;
-        const lcbi_status status =
-            lcbi_magnification_array(tv.data(), n, &p, &lc.options(), results.data());
-        if (status != LCBI_OK) {
-            throw std::runtime_error(lcbi_status_string(status));
-        }
+        results = lc.evaluate(tv, params);
     }
 
     PyLightCurveInfo info;
+    info.times = std::move(tv);
     info.magnifications.reserve(static_cast<std::size_t>(n));
     info.point_source_magnifications.reserve(static_cast<std::size_t>(n));
     info.finite_source_magnifications.reserve(static_cast<std::size_t>(n));
@@ -281,13 +485,16 @@ PyLightCurveInfo compute_info(
     info.point_source_safety_tolerances.reserve(static_cast<std::size_t>(n));
     info.point_source_ghost_counts.reserve(static_cast<std::size_t>(n));
     info.point_source_safety_flags.reserve(static_cast<std::size_t>(n));
+    info.separations.reserve(static_cast<std::size_t>(n));
+    info.mass_ratios.reserve(static_cast<std::size_t>(n));
+    info.caustic_distances.reserve(static_cast<std::size_t>(n));
     for (int i = 0; i < n; ++i) {
         const auto& result = results[static_cast<std::size_t>(i)];
         info.magnifications.push_back(result.magnification);
         info.point_source_magnifications.push_back(result.point_source_magnification);
         info.finite_source_magnifications.push_back(result.finite_source_magnification);
-        info.source_x.push_back(result.source_x);
-        info.source_y.push_back(result.source_y);
+        info.source_x.push_back(result.source.x);
+        info.source_y.push_back(result.source.y);
         info.image_counts.push_back(result.image_count);
         info.finite_source_methods.push_back(result.finite_source_method);
         info.finite_source_method_names.push_back(
@@ -312,7 +519,10 @@ PyLightCurveInfo compute_info(
             result.point_source_safety_tolerance);
         info.point_source_ghost_counts.push_back(result.point_source_ghost_count);
         info.point_source_safety_flags.push_back(result.point_source_safety_flags);
-        const bool converged = result.finite_source_converged != 0;
+        info.separations.push_back(result.separation);
+        info.mass_ratios.push_back(result.mass_ratio);
+        info.caustic_distances.push_back(result.caustic_distance);
+        const bool converged = result.finite_source_converged;
         info.finite_source_converged.push_back(converged);
         if (!converged) {
             info.all_converged = false;
@@ -505,14 +715,16 @@ lcbinint::SourcePosition lens_frame_source_position(
     const lcbi_params& params,
     double time)
 {
-    const lcbinint::model::LensParameters lp = lcbinint::model::from_c_params(params);
+    const lcbi_params resolved_params = lc.apply_coords(params);
+    const lcbinint::model::LensParameters lp = lcbinint::model::from_c_params(resolved_params);
     const lcbinint::model::Trajectory traj(lp);
     const bool vbm = lc.options().vbm_compatible != 0;
-    const bool parallax_enabled = lc.options().parallax_mode != 0 &&
-        (params.piEN != 0.0 || params.piEE != 0.0);
+    const bool parallax_enabled = lc.model().parallax &&
+        (resolved_params.piEN != 0.0 || resolved_params.piEE != 0.0);
     lcbinint::SourcePosition source =
         traj.source_position(
-            time, vbm, lc.options().xallarap_param_type, parallax_enabled);
+            time, vbm, lc.model().xallarap, parallax_enabled,
+            lc.site() ? lc.site().get() : nullptr);
 
     if (params.orbital_motion_mode != LCBI_ORBIT_STATIC) {
         const auto orbit = lcbinint::model::orbital_state(lp, time);
@@ -771,6 +983,7 @@ void register_lc_submodule(py::module_& parent)
         });
 
 	    py::class_<PyLightCurveInfo>(lc, "LightCurveInfo")
+	        .def_readonly("times", &PyLightCurveInfo::times)
 	        .def_readonly("magnifications", &PyLightCurveInfo::magnifications)
         .def_readonly("point_source_magnifications", &PyLightCurveInfo::point_source_magnifications)
         .def_readonly("finite_source_magnifications", &PyLightCurveInfo::finite_source_magnifications)
@@ -804,6 +1017,9 @@ void register_lc_submodule(py::module_& parent)
             &PyLightCurveInfo::point_source_ghost_counts)
         .def_readonly("point_source_safety_flags",
             &PyLightCurveInfo::point_source_safety_flags)
+        .def_readonly("separations", &PyLightCurveInfo::separations)
+        .def_readonly("mass_ratios", &PyLightCurveInfo::mass_ratios)
+        .def_readonly("caustic_distances", &PyLightCurveInfo::caustic_distances)
 	        .def_readonly("all_converged", &PyLightCurveInfo::all_converged)
 	        .def_readonly("unconverged_indices", &PyLightCurveInfo::unconverged_indices);
 
@@ -962,14 +1178,14 @@ void register_lc_submodule(py::module_& parent)
             "'circular_velocity', or 'kepler_velocity'");
     };
 
-    py::class_<Model>(lc, "Model",
+    py::class_<Model, std::shared_ptr<Model>>(lc, "Model",
         R"(Physical model configuration for a LightCurve.
 
 Separates physics configuration from numerical
 Options (source_bins, grid_ratio, etc.).
 
-terrestrial=False by default: site coordinates are stored but NOT applied
-unless terrestrial is explicitly set to True.)")
+terrestrial=False by default. When it is enabled on a shared Model, only
+LightCurves with a ground Site apply the terrestrial correction.)")
         .def(py::init([&](
                 const std::string& source,
                 const std::string& orbital_motion,
@@ -977,7 +1193,6 @@ unless terrestrial is explicitly set to True.)")
                 bool               parallax,
                 bool               terrestrial,
                 py::object         sky,
-                py::object         site,
                 py::object         t_ref,
                 const std::string& lens) {
             Model model;
@@ -988,7 +1203,6 @@ unless terrestrial is explicitly set to True.)")
             model.parallax       = parallax;
             model.terrestrial    = terrestrial;
             if (!sky.is_none())   model.sky  = sky.cast<std::shared_ptr<SkyCoord>>();
-            if (!site.is_none())  model.site = site.cast<std::shared_ptr<Site>>();
             if (!t_ref.is_none()) model.t_ref = t_ref.cast<double>();
             return model;
         }),
@@ -998,7 +1212,6 @@ unless terrestrial is explicitly set to True.)")
             py::arg("parallax")       = false,
             py::arg("terrestrial")    = false,
             py::arg("sky")            = py::none(),
-            py::arg("site")           = py::none(),
             py::arg("t_ref")          = py::none(),
             py::arg("lens")           = "binary")
         .def_property("lens",
@@ -1036,15 +1249,6 @@ unless terrestrial is explicitly set to True.)")
                 if (obj.is_none()) model.sky = nullptr;
                 else model.sky = obj.cast<std::shared_ptr<SkyCoord>>();
             })
-        .def_property("site",
-            [](const Model& model) -> py::object {
-                if (!model.site) return py::none();
-                return py::cast(model.site);
-            },
-            [](Model& model, py::object obj) {
-                if (obj.is_none()) model.site = nullptr;
-                else model.site = obj.cast<std::shared_ptr<Site>>();
-            })
         .def_property("t_ref",
             [](const Model& model) -> py::object {
                 if (!model.t_ref.has_value()) return py::none();
@@ -1072,7 +1276,6 @@ unless terrestrial is explicitly set to True.)")
             }
             if (model.source == SKind::binary) s += " source=binary";
             if (model.sky)  s += " sky=set";
-            if (model.site) s += " site=set";
             if (model.t_ref.has_value()) s += " t_ref=" + std::to_string(*model.t_ref);
             s += ">";
             return s;
@@ -1125,18 +1328,26 @@ unless terrestrial is explicitly set to True.)")
     py::class_<LC, std::shared_ptr<LC>>(lc, "LightCurve")
         // Constructor 1: explicit lc.Options + lc.Model objects
         .def(py::init([&](const lcbi_options& opts,
-                           const Model&         model,
-                           const PyLimbDarkening& ld) {
-            return std::make_shared<LC>(opts, ld.c, ld.d, model);
+                           py::object model,
+                           const PyLimbDarkening& ld,
+                           py::object site) {
+            auto model_ptr = model.is_none()
+                ? std::make_shared<Model>()
+                : model.cast<std::shared_ptr<Model>>();
+            std::shared_ptr<Site> site_ptr;
+            if (!site.is_none()) site_ptr = site.cast<std::shared_ptr<Site>>();
+            return std::make_shared<LC>(
+                opts, ld.c, ld.d, std::move(model_ptr), std::move(site_ptr));
         }),
             py::arg("options")        = kDefaultOpts,
-            py::arg("model")          = Model{},
-            py::arg("limb_darkening") = PyLimbDarkening{})
+            py::arg("model")          = py::none(),
+            py::arg("limb_darkening") = PyLimbDarkening{}, py::arg("site") = py::none())
         // Constructor 2: kwargs directly (convenience, backward-compatible)
         .def(py::init([&](py::kwargs kw) {
             auto o = kDefaultOpts;
             PyLimbDarkening ld{};
-            Model model{};
+            auto model = std::make_shared<Model>();
+            std::shared_ptr<Site> site;
             for (auto& item : kw) {
                 const std::string key = item.first.cast<std::string>();
                 // --- Options (numerics) ---
@@ -1179,33 +1390,33 @@ unless terrestrial is explicitly set to True.)")
                 else if (key == "ld_d" || key == "limb_darkening_d") ld.d = item.second.cast<double>();
                 else if (key == "limb_darkening") ld = item.second.cast<PyLimbDarkening>();
                 // --- Model (physics) ---
-                else if (key == "source")         model.source        = parse_source(item.second.cast<std::string>());
-                else if (key == "orbital_motion") model.orbital_motion = parse_orbital(item.second.cast<std::string>());
-                else if (key == "xallarap")       model.xallarap      = parse_xallarap(item.second.cast<std::string>());
-                else if (key == "parallax")       model.parallax      = item.second.cast<bool>();
-                else if (key == "terrestrial")    model.terrestrial   = item.second.cast<bool>();
+                else if (key == "source")         model->source        = parse_source(item.second.cast<std::string>());
+                else if (key == "orbital_motion") model->orbital_motion = parse_orbital(item.second.cast<std::string>());
+                else if (key == "xallarap")       model->xallarap      = parse_xallarap(item.second.cast<std::string>());
+                else if (key == "parallax")       model->parallax      = item.second.cast<bool>();
+                else if (key == "terrestrial")    model->terrestrial   = item.second.cast<bool>();
                 else if (key == "lens") {
-                    model.lens = parse_lens(item.second.cast<std::string>());
+                    model->lens = parse_lens(item.second.cast<std::string>());
                 }
                 else if (key == "sky") {
                     auto obj = py::reinterpret_borrow<py::object>(item.second);
-                    if (!obj.is_none()) model.sky = obj.cast<std::shared_ptr<SkyCoord>>();
+                    if (!obj.is_none()) model->sky = obj.cast<std::shared_ptr<SkyCoord>>();
                 }
                 else if (key == "site") {
                     auto obj = py::reinterpret_borrow<py::object>(item.second);
-                    if (!obj.is_none()) model.site = obj.cast<std::shared_ptr<Site>>();
+                    if (!obj.is_none()) site = obj.cast<std::shared_ptr<Site>>();
                 }
                 else if (key == "t_ref") {
                     auto obj = py::reinterpret_borrow<py::object>(item.second);
-                    if (!obj.is_none()) model.t_ref = obj.cast<double>();
+                    if (!obj.is_none()) model->t_ref = obj.cast<double>();
                 }
                 else throw py::key_error("LightCurve: unknown option '" + key + "'");
             }
-            return std::make_shared<LC>(o, ld.c, ld.d, model);
+            return std::make_shared<LC>(
+                o, ld.c, ld.d, model, site);
         }))
         .def_property_readonly("options", &LC::options)
-        .def_property_readonly("model", &LC::model,
-            py::return_value_policy::reference_internal)
+        .def_property_readonly("model", &LC::model_ptr)
         .def_property_readonly("ld_c",    &LC::ld_c)
         .def_property_readonly("ld_d",    &LC::ld_d)
         // Convenience shortcuts (delegate to Model)
@@ -1281,6 +1492,19 @@ unless terrestrial is explicitly set to True.)")
                 return compute_dispatch(lc, times, params_from_dict(d), d);
             },
             py::arg("times"))
+
+        // Internal inference fast path. Existing scalar call/magnification
+        // overloads are unchanged.
+        .def("magnification_batch", &compute_batch,
+            py::arg("times"), py::arg("parameter_rows"))
+
+        .def("light_curve_log_likelihood_batch",
+            &compute_light_curve_log_likelihood_batch,
+            py::arg("times"), py::arg("flux"), py::arg("flux_err"),
+            py::arg("parameter_rows"), py::arg("distribution") = "gaussian",
+            py::arg("flux_mode") = "fit", py::arg("nu") = 4.0,
+            py::arg("source_flux") = py::none(),
+            py::arg("blend_flux") = py::none())
 
         // .info() returns diagnostics in addition to magnification.
         .def("info",
@@ -1379,6 +1603,58 @@ unless terrestrial is explicitly set to True.)")
     lc.def("_binary_images", &binary_images_to_python,
         py::arg("s"), py::arg("q"), py::arg("x"), py::arg("y"),
         "Return point-source binary-lens image positions in the VBM-compatible lens frame.");
+
+    lc.def("binary_ray_shooting",
+        [](double x, double y, double s, double q, double rho,
+           const PyLimbDarkening& limb_darkening, lcbi_options options) {
+            if (!(std::isfinite(x) && std::isfinite(y) && std::isfinite(s) &&
+                  std::isfinite(q) && std::isfinite(rho)) ||
+                q <= 0.0 || rho <= 0.0) {
+                throw std::invalid_argument(
+                    "binary_ray_shooting requires finite x, y, s, q and positive rho");
+            }
+
+            // This is the direct analogue of VBM's BinaryMag2(s, q, y1, y2,
+            // rho): source coordinates are center-of-mass coordinates and the
+            // finite-source calculation is forced to an inverse-ray method.
+            options.vbm_compatible = 0;
+            options.center_of_mass = 1;
+            options.parallax_mode = 0;
+            options.xallarap_param_type = LCBI_XALLARAP_NONE;
+            if (options.mode == 4) options.mode = 1;
+
+            auto params = lcbi_default_params();
+            params.t0 = -x;
+            params.tE = 1.0;
+            params.umin = y;
+            params.theta = 0.0;
+            params.sep = s;
+            params.q = q;
+            params.rho = rho;
+            params.limb_darkening_c = limb_darkening.c;
+            params.limb_darkening_d = limb_darkening.d;
+
+            const auto model_params = lcbinint::model::from_c_params(params);
+            lcbinint::model::LensModel lens_model(
+                model_params, lcbinint::model::from_c_options(&options));
+            const auto result = lens_model.magnification(0.0);
+            if (result.status != lcbinint::EvaluationStatus::ok ||
+                !std::isfinite(result.magnification)) {
+                throw std::runtime_error("binary_ray_shooting failed numerically");
+            }
+            return result.magnification;
+        },
+        py::arg("x"), py::arg("y"), py::kw_only(),
+        py::arg("s"), py::arg("q"), py::arg("rho"),
+        py::arg("limb_darkening") = PyLimbDarkening{},
+        py::arg("options") = kDefaultOpts,
+        R"(Evaluate a finite binary-lens source at direct lens-plane coordinates.
+
+This is the low-level counterpart of VBMicrolensing's BinaryMag2: ``x`` and
+``y`` are center-of-mass source coordinates, and ``rho`` must be positive.
+The calculation uses inverse-ray integration; pass ``Options`` to choose the
+Cartesian or polar grid and its resolution.)");
+
     lc.def("_binary_safety_diagnostic",
         [](double separation, double mass_ratio, double source_x, double source_y) {
             lcbinint::magnification::PointSourceMagnifier magnifier;

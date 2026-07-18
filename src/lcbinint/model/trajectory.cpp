@@ -455,6 +455,44 @@ void apply_terrestrial_parallax(const LensParameters& params, double time, doubl
     beta += -params.piEE * proj_N + params.piEN * proj_E;
 }
 
+void apply_space_parallax(
+    const LensParameters& params,
+    double time,
+    const obs::Site* site,
+    double& tau,
+    double& beta)
+{
+    if (!has_annual_parallax(params) || site == nullptr || site->kind() != obs::SiteKind::space) {
+        return;
+    }
+    std::array<double, 3> position;
+    const double ephemeris_time = time + parallax_time_offset(time);
+    if (!site->space_position(ephemeris_time, position)) {
+        return;
+    }
+    // Reproduce VBM's parallaxsystem=1 sky basis. The satellite position is
+    // then added directly to the Earth annual term, without reference-frame
+    // position/velocity subtraction.
+    constexpr double cos_obliquity = 0.9174820003578725;
+    constexpr double sin_obliquity = 0.3977772982704228;
+    const double ra = params.ra * kDegreeToRadian;
+    const double dec = params.dec * kDegreeToRadian;
+    const double cos_dec = std::cos(dec);
+    const std::array<double, 3> object = {
+        std::cos(ra) * cos_dec,
+        std::sin(ra) * cos_dec * cos_obliquity + std::sin(dec) * sin_obliquity,
+        -std::sin(ra) * cos_dec * sin_obliquity + std::sin(dec) * cos_obliquity,
+    };
+    const std::array<double, 3> north_2000 = {0.0, sin_obliquity, cos_obliquity};
+    auto radial = add(scale(north_2000, -1.0), scale(object, dot(north_2000, object)));
+    radial = normalize(radial);
+    const auto tangential = cross(radial, object);
+    const double radial_projection = dot(position, radial);
+    const double tangential_projection = dot(position, tangential);
+    tau  += params.piEN * radial_projection + params.piEE * tangential_projection;
+    beta += params.piEN * tangential_projection - params.piEE * radial_projection;
+}
+
 void apply_annual_parallax(const LensParameters& params, double time, double& tau, double& beta)
 {
     if (!has_annual_parallax(params)) {
@@ -490,13 +528,14 @@ void apply_annual_parallax(const LensParameters& params, double time, double& ta
 
 SourcePosition Trajectory::source_position(
     double time, bool vbm_mode, lcbi_xallarap_param_type xallarap_type,
-    bool parallax_enabled) const
+    bool parallax_enabled, const obs::Site* site) const
 {
     double tn = (time - params_.t0) / params_.tE;
     double beta = params_.umin;
     if (parallax_enabled) {
         apply_annual_parallax(params_, time, tn, beta);
         apply_terrestrial_parallax(params_, time, tn, beta);
+        apply_space_parallax(params_, time, site, tn, beta);
     }
     if (xallarap_type == LCBI_XALLARAP_ORBITAL_ELEMENTS) {
         apply_xallarap_orbital_elements(params_, time, tn, beta);

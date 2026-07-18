@@ -99,13 +99,37 @@ model = lcbinint.Model(
     terrestrial=True,
     orbital_motion="kepler",
     sky=lcbinint.obs.SkyCoord(270.0, -30.0),
-    site=lcbinint.obs.Site(-29.0, 70.7),
     t_ref=2459000.0,
 )
-lc = lcbinint.LightCurve(model=model, options=lcbinint.Options(nbin="auto"))
+lc = lcbinint.LightCurve(
+    model=model,
+    site=lcbinint.obs.Site("ground", -29.0, 70.7),
+    options=lcbinint.Options(nbin="auto"),
+)
+```
+
+For joint ground/space fits, pass that same `model` to each curve and give
+each curve its own site. `terrestrial=True` affects only the ground curve:
+
+```python
+ground = lcbinint.LightCurve(model=model, site=lcbinint.obs.Site("ground", -29.0, 70.7))
+space = lcbinint.LightCurve(model=model, site=lcbinint.obs.Site("space", satellite_table))
 ```
 
 `Model` selects physical terms; `Options` controls numerical evaluation.
+
+For a direct finite-source binary-lens evaluation in lens-plane coordinates,
+use the low-level API:
+
+```python
+amplification = lcbinint.binary_ray_shooting(
+    x, y, s=1.2, q=0.05, rho=0.01,
+    options=lcbinint.Options(inverse_ray_grid="polar"),
+)
+```
+
+It corresponds to VBMicrolensing's `BinaryMag2`: `x` and `y` are
+center-of-mass source coordinates and `rho` must be positive.
 
 For binary finite-source inverse-ray calculations, `nbin="auto"` selects the
 Cartesian/polar grid and resolution once per source position from calibrated
@@ -118,11 +142,31 @@ numerical error diagnostics. lcbinint never imports or dispatches to an external
 solver. Numerical conventions and limits are summarized in
 [`docs/numerical-methods.md`](docs/numerical-methods.md).
 
+Inference engines can evaluate independent parameter rows without changing
+the scalar API:
+
+```python
+rows = [params_a, params_b, params_c]  # dict or lcbinint.Parameters
+magnifications = lc.magnification_batch(times, rows)
+# shape: (len(rows), len(times))
+```
+
+For single- and binary-source models this is one GIL-free native call and
+writes directly to a row-major output matrix.
+
+The moasarc adapter also uses lcbinint's internal fused likelihood entry point.
+It streams one reusable epoch row through magnification, source/blend flux
+solving, and Gaussian or Student-t likelihood evaluation, avoiding the full
+walker-by-epoch matrix while leaving the scalar LightCurve API unchanged.
+The fused path supports binary sources as well as Gaussian/Student-t and
+fit/sample/marginalized flux modes.
+
 Annual parallax requires `Model(parallax=True, ...)`, `t_ref`, and a sky
 position supplied on the model or in the per-call parameters.
 Terrestrial parallax additionally requires `terrestrial=True` and an explicit
-`lcbinint.obs.Site`; merely passing non-zero `piEN`/`piEE` does not activate
-parallax.
+ground `lcbinint.obs.Site("ground", lat, lon)`; merely passing non-zero `piEN`/`piEE`
+does not activate parallax. For a space observatory, pass `Site("space", table)`, with table columns
+`(JD, RA_deg, Dec_deg, distance_AU)`.
 
 ## Diagnostics
 

@@ -130,15 +130,13 @@ def lcbinint_curve(
     options = lcbinint.Options(
         source_bins=source_bins,
         adaptive_source_bins=0,    )
-    return np.asarray(lcbinint.light_curve(
-        times,
-        u0=geometry.u0,
-        alpha=geometry.alpha,
-        q=geometry.mass_ratio,
-        s=geometry.separation,
-        rho=rho,
-        limb_darkening=lcbinint.LimbDarkening(c=limb_darkening_c),
+    curve = lcbinint.LightCurve(
         options=options,
+        limb_darkening=lcbinint.LimbDarkening(c=limb_darkening_c),
+    )
+    return np.asarray(curve(
+        times, u0=geometry.u0, alpha=geometry.alpha,
+        q=geometry.mass_ratio, s=geometry.separation, rho=rho,
     ), dtype=float)
 
 

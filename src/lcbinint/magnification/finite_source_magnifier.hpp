@@ -3,6 +3,7 @@
 #include "lcbinint/model/triple_lens_geometry.hpp"
 #include "lcbinint/types.hpp"
 
+#include <cstddef>
 #include <limits>
 #include <string>
 #include <vector>
@@ -18,6 +19,21 @@ enum class FiniteSourceMethod {
     inverse_ray_polar,
     inverse_ray_spine,
     source_plane_quadrature,
+};
+
+// Canonical, engine-neutral finite-source geometry for one source position:
+// the trajectory-resolved binary-lens configuration, with no root-solving
+// and no knowledge of any integration strategy. Useful to any external
+// caller that wants to implement its own finite-source integration.
+struct FiniteSourceGeometry {
+    double separation = 0.0;
+    double mass_ratio = 0.0;
+    SourcePosition source;
+    double source_radius = 0.0;
+    double limb_darkening_c = 0.0;
+    double limb_darkening_d = 0.0;
+    double absolute_tolerance = 0.0;
+    double relative_tolerance = 0.0;
 };
 
 struct FiniteSourceSettings {
@@ -53,12 +69,6 @@ BinaryResolutionSelection calibrated_binary_resolution(
     double limb_darkening_c,
     double requested_relative_tolerance,
     int maximum_bins);
-bool recommend_external_contour_engine(
-    double source_radius,
-    double caustic_distance,
-    double point_source_magnification,
-    double limb_darkening_c,
-    double limb_darkening_d);
 
 struct FiniteSourceDecision {
     FiniteSourceMethod method = FiniteSourceMethod::point_source;
@@ -80,7 +90,7 @@ struct FiniteSourceResult {
     double point_source_safety_tolerance = 0.0;
     int point_source_ghost_count = 0;
     int point_source_safety_flags = 0;
-    bool external_contour_recommended = false;
+    double caustic_distance = std::numeric_limits<double>::infinity();
 };
 
 struct HexadecapoleDiagnosticResult {

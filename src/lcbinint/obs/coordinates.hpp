@@ -1,5 +1,8 @@
 #pragma once
 
+#include <array>
+#include <vector>
+
 namespace lcbinint::obs {
 
 // Sky position of a microlensing event, stored internally in degrees.
@@ -17,19 +20,36 @@ private:
     double dec_deg_;
 };
 
-// Observatory/telescope position, stored internally in degrees.
-// Used for terrestrial parallax (sets lcbi_params::obs_lat, ::obs_lon).
+enum class SiteKind { ground, space };
+
+// Observatory/telescope descriptor. Ground sites optionally carry geodetic
+// coordinates; space sites optionally carry a VBM-style geocentric ephemeris
+// table (JD, RA_deg, Dec_deg, distance_AU) converted to ICRF Cartesian AU.
 class Site {
 public:
+    Site() = default;
     Site(double lat_deg, double lon_deg)
-        : lat_deg_(lat_deg), lon_deg_(lon_deg) {}
+        : kind_(SiteKind::ground), has_ground_position_(true),
+          lat_deg_(lat_deg), lon_deg_(lon_deg) {}
 
+    explicit Site(std::vector<double> times, std::vector<std::array<double, 3>> positions)
+        : kind_(SiteKind::space), times_(std::move(times)), positions_(std::move(positions)) {}
+
+    SiteKind kind() const noexcept { return kind_; }
+    bool has_ground_position() const noexcept { return has_ground_position_; }
+    bool has_space_ephemeris() const noexcept { return positions_.size() >= 2; }
     double lat_deg() const noexcept { return lat_deg_; }
     double lon_deg() const noexcept { return lon_deg_; }
+    const std::vector<double>& times() const noexcept { return times_; }
+    bool space_position(double time, std::array<double, 3>& position) const noexcept;
 
 private:
-    double lat_deg_;
-    double lon_deg_;
+    SiteKind kind_ = SiteKind::ground;
+    bool has_ground_position_ = false;
+    double lat_deg_ = 0.0;
+    double lon_deg_ = 0.0;
+    std::vector<double> times_;
+    std::vector<std::array<double, 3>> positions_;
 };
 
 } // namespace lcbinint::obs

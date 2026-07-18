@@ -1,22 +1,29 @@
-# Calibration of automatic finite-source resolution and backend recommendations
+# Calibration of automatic finite-source resolution and VBM-routing rule
 
 ## Scope and design constraint
 
-This calibration answers two separate questions for a binary lens at one source
-position:
+This calibration originally answered two separate questions for a binary lens
+at one source position:
 
 1. Which image-plane grid and source resolution (`nbin`) should lcbinint use?
 2. Under which measured conditions is an external contour integrator likely to
    be both accurate and faster?
 
-The two answers are deliberately independent.  Automatic `nbin` is an lcbinint
-runtime feature.  The VBM result is an internal recommendation flag: it does
-not link, call, copy, or automatically dispatch to VBM.  This separation
-also prevents an external result from silently becoming the numerical oracle.
+The two answers were deliberately independent, and remain so: automatic
+`nbin` is an lcbinint runtime feature and is documented in full below. The
+VBM-routing rule that answered question 2 has since moved out of lcbinint
+entirely — lcbinint has no concept of VBM or backend routing today, and
+exposes only engine-neutral geometry/diagnostic primitives
+(`lcbi_finite_source_geometry[_array]`, and the `separation`/`mass_ratio`/
+`caustic_distance` fields on `lcbi_result`) for an external host to implement
+its own routing on top of. moasarc is the current owner of the routing rule
+derived in this document; see its own router documentation for the ported
+rule and its runtime dispatch. The calibration methodology and results below
+are kept as the historical record of how that rule was derived.
 
-The runtime rule is a one-shot preselection from quantities already computed at
-the source position.  It performs no trial integration, convergence retry, or
-fallback, so its overhead is a few scalar operations.
+The runtime `nbin` rule is a one-shot preselection from quantities already
+computed at the source position.  It performs no trial integration,
+convergence retry, or fallback, so its overhead is a few scalar operations.
 
 ## Parameter-space experiment
 
@@ -122,16 +129,28 @@ violations across all 854 difficult rows.  This supports using polar resolution
 directly in the high-magnification regime rather than trusting a contour value
 there.
 
-## External-contour recommendation
+## VBM-routing rule (moved to moasarc)
+
+This section is retained as the historical record of the rule's derivation.
+The rule itself, and the runtime code that applies it, now live entirely in
+moasarc — lcbinint exposes only the neutral geometry primitives it needs
+(see "Scope and design constraint" above) and contains no VBM-routing logic
+of its own.
 
 The recommendation is intentionally conservative about correctness, not merely
 about speed.  It is evaluated per source position because magnification,
 caustic distance, limb contact, and runtime change along a light curve.
 
-For a uniform source, recommend VBM contour integration only when
+For a uniform source, the production recommendation is
 
 `A_point < 1000` and the source is outside the tangent band
-`0.9 < d_caustic/rho < 1.1`.
+`0.95 < d_caustic/rho < 1.05`.
+
+The initial frozen calibration used `0.9..1.1`. A speed-focused replay of both
+stored datasets narrowed the band to `0.95..1.05`: discovery selected 2,609
+uniform rows (2,589 also accurate in lcbinint; VBM faster in 2,580), and
+independent validation selected 1,314 (1,301 also accurate in lcbinint; VBM
+faster in 1,297), with zero inaccurate or failed selected VBM results in both.
 
 For a limb-darkened source, recommend VBM dark integration only when
 
@@ -143,11 +162,11 @@ caustic.  High magnification is excluded because the targeted tests show that
 lcbinint's polar integration remains stable there while a contour result must
 not be promoted to an oracle.
 
-Independent validation selected 1,289 uniform rows and 972 limb-darkened rows.
+Independent validation selected 1,314 uniform rows and 972 limb-darkened rows.
 There were zero inaccurate or failed recommended VBM results.  Where both
-engines were accurate, VBM was faster in 1,273/1,277 uniform rows and 885/972
-limb-darkened rows.  These figures justify an internal backend-routing hint,
-but not an automatic public dispatcher.
+engines were accurate, VBM was faster in 1,297/1,301 uniform rows and 885/972
+limb-darkened rows. These figures support moasarc's router; lcbinint itself
+remains independent of any VBM or contour implementation.
 
 ## Numerical defect found during calibration
 

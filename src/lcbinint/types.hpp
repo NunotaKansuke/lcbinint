@@ -1,6 +1,7 @@
 #pragma once
 
 #include <complex>
+#include <limits>
 
 namespace lcbinint {
 
@@ -42,6 +43,9 @@ struct MagnificationResult {
     double point_source_safety_tolerance = 0.0;
     int point_source_ghost_count = 0;
     int point_source_safety_flags = 0;
+    double separation = 0.0;
+    double mass_ratio = 0.0;
+    double caustic_distance = std::numeric_limits<double>::infinity();
     EvaluationStatus status = EvaluationStatus::unsupported;
 };
 

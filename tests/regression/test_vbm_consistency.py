@@ -49,13 +49,13 @@ def _vbm_binary_mag_dark(separation, mass_ratio, y1, y2, rho, limb_darkening_c):
 
 def _lcbinint_binary_mag0(separation, mass_ratio, y1, y2):
     lcbinint = pytest.importorskip("lcbinint")
-
-    if hasattr(lcbinint, "binary_mag0"):
-        return lcbinint.binary_mag0(separation, mass_ratio, y1, y2)
-
-    raise NotImplementedError(
-        "lcbinint binary point-source Python API is not implemented yet"
+    curve = lcbinint.LightCurve(
+        lens="binary", options=lcbinint.Options(coordinates="center_of_mass")
     )
+    return curve.magnification(
+        y1, t0=0.0, tE=1.0, u0=y2, alpha=0.0,
+        s=separation, q=mass_ratio, rho=0.0,
+    ).item()
 
 
 def _lcbinint_function_api_mag0(separation, mass_ratio, y1, y2):
@@ -125,21 +125,26 @@ class _ApiModel:
         self._options = options
 
     def magnification(self, time):
-        return self._lcbinint.magnification(
-            time,
-            **_api_kwargs(self._lcbinint, self._params, self._options),
-        )
+        return self._curve().magnification(time, self._params).item()
 
     def magnifications(self, times):
-        return list(self._lcbinint.binary_light_curve(
-            times,
-            **_api_kwargs(self._lcbinint, self._params, self._options),
-        ))
+        return self._curve()(times, self._params).tolist()
 
     def light_curve(self, times):
-        return self._lcbinint.light_curve_info(
-            times,
-            **_api_kwargs(self._lcbinint, self._params, self._options),
+        return self._curve().info(times, self._params)
+
+    def _curve(self):
+        params = self._params
+        return self._lcbinint.LightCurve(
+            lens="binary",
+            options=self._options,
+            limb_darkening=self._lcbinint.LimbDarkening(
+                c=params.limb_darkening_c, d=params.limb_darkening_d,
+            ),
+            parallax=bool(params.piEN or params.piEE),
+            orbital_motion_mode=params.orbital_motion_mode,
+            sky=self._lcbinint.obs.SkyCoord(params.ra, params.dec),
+            t_ref=params.tfix,
         )
 
     def source_position(self, time):
@@ -1390,220 +1395,27 @@ def test_lcbinint_parallax_callable_geometry_source_trajectory_is_available():
     assert all(math.isfinite(value) for value in trajectory.y)
 
 
-def test_lcbinint_high_level_binary_light_curve_matches_function_api():
-    lcbinint = pytest.importorskip("lcbinint")
-    np = pytest.importorskip("numpy")
-
-    times = [-0.1, -0.02, 0.0, 0.03, 0.1]
-    options = lcbinint.Options(coordinates="vbm", source_bins=50)
-    limb_darkening = lcbinint.LimbDarkening.linear(0.5)
-    params = lcbinint.LensParams(
-        t0=0.0,
-        tE=1.0,
-        u0=-0.01,
-        alpha=0.5,
-        sep=1.0,
-        q=1.0e-3,
-        rho=1.0e-4,
-        limb_darkening_c=0.5,
-    )
-
-    expected = _model(lcbinint, params, options).light_curve(times).magnifications
-    actual = lcbinint.binary_light_curve(
-        times,
-        t0=0.0,
-        tE=1.0,
-        u0=-0.01,
-        alpha=0.5,
-        s=1.0,
-        q=1.0e-3,
-        rho=1.0e-4,
-        limb_darkening=limb_darkening,
-        options=options,
-    )
-
-    assert actual == pytest.approx(expected)
-    actual_array = lcbinint.light_curve(
-        np.asarray(times),
-        t0=0.0,
-        tE=1.0,
-        u0=-0.01,
-        alpha=0.5,
-        s=1.0,
-        q=1.0e-3,
-        rho=1.0e-4,
-        limb_darkening=limb_darkening,
-        options=options,
-    )
-    assert actual_array.tolist() == pytest.approx(expected)
-    assert lcbinint.Options().coordinates == "vbm"
-    assert lcbinint.binary_magnification(
-        times[2],
-        t0=0.0,
-        tE=1.0,
-        u0=-0.01,
-        alpha=0.5,
-        s=1.0,
-        q=1.0e-3,
-        rho=1.0e-4,
-        limb_darkening=limb_darkening,
-        options=options,
-    ) == pytest.approx(expected[2])
-
-
-def test_lcbinint_light_curve_func_matches_high_level_api():
+def test_light_curve_is_the_only_high_level_evaluation_api():
     lcbinint = pytest.importorskip("lcbinint")
     np = pytest.importorskip("numpy")
 
     times = np.asarray([-0.1, -0.02, 0.0, 0.03, 0.1])
-    options = lcbinint.Options(coordinates="vbm", source_bins=50, reltol=1.0e-3)
-    limb_darkening = lcbinint.LimbDarkening.linear(0.5)
-
-    func = lcbinint.LightCurve(
+    curve = lcbinint.LightCurve(
         lens="binary",
-        options=options,
-        limb_darkening=limb_darkening,
-        orbital_motion_mode=lcbinint.OrbitalMotionMode.STATIC,
+        options=lcbinint.Options(coordinates="vbm", source_bins=50),
+        limb_darkening=lcbinint.LimbDarkening.linear(0.5),
         sky=lcbinint.obs.SkyCoord(267.6, -29.1),
         t_ref=2459000.0,
     )
-    kwargs = dict(
-        t0=0.0,
-        tE=1.0,
-        u0=-0.01,
-        alpha=0.5,
-        s=1.0,
-        q=1.0e-3,
-        rho=1.0e-3,
-    )
+    params = dict(t0=0.0, tE=1.0, u0=-0.01, alpha=0.5,
+                  s=1.0, q=1.0e-3, rho=1.0e-3)
 
-    expected = lcbinint.light_curve(
-        times,
-        options=options,
-        limb_darkening=limb_darkening,
-        ra=267.6,
-        dec=-29.1,
-        tfix=2459000.0,
-        **kwargs,
-    )
-    actual = func(times, **kwargs)
-    actual_from_dict = func(times, kwargs)
-
-    assert func.lens == "binary"
-    assert func.sky.ra_deg == pytest.approx(267.6)
-    assert func.options.source_bins == options.source_bins
-    assert func.limb_darkening.c == pytest.approx(0.5)
-    assert not func.parallax
-    assert actual.tolist() == pytest.approx(expected.tolist())
-    assert actual_from_dict.tolist() == pytest.approx(expected.tolist())
-    assert func.light_curve(times, kwargs).tolist() == pytest.approx(expected.tolist())
-    assert func.light_curve(times, **kwargs).tolist() == pytest.approx(expected.tolist())
-    assert func.list(times.tolist(), **kwargs) == pytest.approx(expected.tolist())
-    assert func.magnification(times[2], **kwargs) == pytest.approx(expected[2])
-    assert func.magnification(times[2], kwargs) == pytest.approx(expected[2])
-
-    info = func.info(times.tolist(), **kwargs)
-    info_from_dict = func.info(times.tolist(), kwargs)
-    assert info.magnifications == pytest.approx(expected.tolist())
-    assert info_from_dict.magnifications == pytest.approx(expected.tolist())
-    assert len(info.finite_source_method_names) == len(times)
-
-
-def test_lcbinint_parallax_light_curve_func_matches_high_level_api():
-    lcbinint = pytest.importorskip("lcbinint")
-    np = pytest.importorskip("numpy")
-
-    times = np.asarray([2458990.0, 2459000.0, 2459010.0])
-    options = lcbinint.Options(coordinates="vbm", source_bins=50, reltol=1.0e-3)
-    limb_darkening = lcbinint.LimbDarkening.none()
-
-    func = lcbinint.LightCurve(
-        lens="binary",
-        options=options,
-        limb_darkening=limb_darkening,
-        parallax=True,
-        sky=lcbinint.obs.SkyCoord(267.623337808, -29.1164180355),
-        t_ref=2459000.0,
-    )
-    kwargs = dict(
-        t0=2459001.0,
-        tE=80.0,
-        u0=0.12,
-        alpha=0.4,
-        s=1.1,
-        q=1.0e-3,
-        rho=1.0e-3,
-        piEN=0.02,
-        piEE=0.03,
-    )
-
-    expected = lcbinint.light_curve(
-        times,
-        options=options,
-        limb_darkening=limb_darkening,
-        ra=267.623337808,
-        dec=-29.1164180355,
-        tfix=2459000.0,
-        **kwargs,
-    )
-    actual = func(times, **kwargs)
-    actual_from_dict = func(times, kwargs)
-
-    assert type(func).__name__ == "LightCurve"
-    assert func.lens == "binary"
-    assert func.parallax
-    assert actual.tolist() == pytest.approx(expected.tolist())
-    assert actual_from_dict.tolist() == pytest.approx(expected.tolist())
-    assert func.info(times.tolist(), **kwargs).magnifications == pytest.approx(expected.tolist())
-    assert func.info(times.tolist(), kwargs).magnifications == pytest.approx(expected.tolist())
-    assert func.magnification(times[1], **kwargs) == pytest.approx(expected[1])
-    assert func.magnification(times[1], kwargs) == pytest.approx(expected[1])
-
-
-def test_lcbinint_orbital_motion_light_curve_func_matches_high_level_api():
-    lcbinint = pytest.importorskip("lcbinint")
-    np = pytest.importorskip("numpy")
-
-    times = np.asarray([-0.2, -0.05, 0.0, 0.08, 0.2])
-    options = lcbinint.Options(coordinates="vbm", source_bins=50, reltol=1.0e-3)
-    limb_darkening = lcbinint.LimbDarkening.none()
-
-    func = lcbinint.LightCurve(
-        lens="binary",
-        options=options,
-        limb_darkening=limb_darkening,
-        orbital_motion_mode=lcbinint.OrbitalMotionMode.CIRCULAR,
-        sky=lcbinint.obs.SkyCoord(267.6, -29.1),
-        t_ref=0.0,
-    )
-    kwargs = dict(
-        t0=0.0,
-        tE=1.0,
-        u0=0.12,
-        alpha=0.4,
-        s=1.1,
-        q=1.0e-3,
-        rho=0.0,
-        g1=0.01,
-        g2=0.02,
-        g3=0.03,
-    )
-
-    expected = lcbinint.light_curve(
-        times,
-        options=options,
-        limb_darkening=limb_darkening,
-        orbital_motion_mode=lcbinint.OrbitalMotionMode.CIRCULAR,
-        ra=267.6,
-        dec=-29.1,
-        tfix=0.0,
-        **kwargs,
-    )
-    actual = func(times, **kwargs)
-
-    assert actual.tolist() == pytest.approx(expected.tolist())
-    assert func.info(times.tolist(), **kwargs).magnifications == pytest.approx(expected.tolist())
-    assert func.magnification(times[2], **kwargs) == pytest.approx(expected[2])
+    actual = curve(times, **params)
+    assert curve(times, params).tolist() == pytest.approx(actual.tolist())
+    assert curve.magnification(times[2], **params) == pytest.approx(actual[2])
+    assert curve.info(times, **params).magnifications == pytest.approx(actual.tolist())
+    for removed in ("light_curve", "binary_light_curve", "magnification", "binary_magnification"):
+        assert not hasattr(lcbinint, removed)
 
 
 def test_lcbinint_circular_lom_light_curve_func_matches_vbm():
@@ -1789,7 +1601,7 @@ def test_lcbinint_limb_darkening_and_obs_helpers():
     linear = lcbinint.LimbDarkening.linear(0.4)
     quadratic = lcbinint.LimbDarkening.quadratic(0.4, 0.2)
     sky = lcbinint.obs.SkyCoord(1.0, 2.0)
-    site = lcbinint.obs.Site(3.0, 4.0)
+    site = lcbinint.obs.Site("ground", 3.0, 4.0)
 
     assert (none.c, none.d) == (0.0, 0.0)
     assert (linear.c, linear.d) == (0.4, 0.0)
