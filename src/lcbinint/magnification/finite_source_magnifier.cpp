@@ -3511,6 +3511,15 @@ double inverse_ray_cartesian_triple_mag(
     if (images.empty()) {
         return std::nan("");
     }
+    double walk_magnification_hint = std::abs(
+        point_magnifier.triple_mag0(geometry, source).magnification);
+    for (const auto& image : images) {
+        const double jacobian = triple_jacobian(mapper, image.x, image.y);
+        if (std::isfinite(jacobian) && std::abs(jacobian) > 1.0e-15) {
+            walk_magnification_hint = std::max(
+                walk_magnification_hint, 1.0 / std::abs(jacobian));
+        }
+    }
     if (diagnostics != nullptr) {
         *diagnostics = {};
         diagnostics->seed_count = static_cast<int>(images.size());
@@ -3552,7 +3561,7 @@ double inverse_ray_cartesian_triple_mag(
         scratch.xmax[0] = seed.x;
         areai = cartesian_image_area(
             mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch,
-            jac_sign, &claimed);
+            jac_sign, &claimed, walk_magnification_hint);
 
         dy = -incr;
         scratch.ensure(static_cast<std::size_t>(yi));
@@ -3564,7 +3573,7 @@ double inverse_ray_cartesian_triple_mag(
         ++yi;
         areai += cartesian_image_area(
             mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch,
-            jac_sign, &claimed);
+            jac_sign, &claimed, walk_magnification_hint);
 
         int nyi = yi;
         double areabound = 0.0;
@@ -3599,7 +3608,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, &claimed);
+                        dy, yi, scratch, jac_sign, &claimed, walk_magnification_hint);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3623,7 +3632,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, &claimed);
+                        dy, yi, scratch, jac_sign, &claimed, walk_magnification_hint);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3647,7 +3656,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, &claimed);
+                        dy, yi, scratch, jac_sign, &claimed, walk_magnification_hint);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
@@ -3671,7 +3680,7 @@ double inverse_ray_cartesian_triple_mag(
                     ++yi;
                     area0 = cartesian_image_area(
                         mapper, source, source_radius, settings, finite_magnifier, extra_seed,
-                        dy, yi, scratch, jac_sign, &claimed);
+                        dy, yi, scratch, jac_sign, &claimed, walk_magnification_hint);
                     areai += area0;
                     areabound += area0;
                     if (area0 <= 0.0) {
