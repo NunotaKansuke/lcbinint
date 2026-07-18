@@ -2458,6 +2458,12 @@ double cartesian_image_area_impl(
         if (claimed != nullptr) {
             const auto* interval = claimed->find(cell_iy, cell_ix);
             if (interval != nullptr) {
+                // Copy the bounds out before flush_claim(): if the pending
+                // claim lands in the same row (claim_iy == cell_iy), its
+                // push_back into that row's interval vector can reallocate
+                // the very vector `interval` points into, dangling it.
+                const int interval_lo = interval->first;
+                const int interval_hi = interval->second;
                 // The interval was counted (inside the disk) by an earlier
                 // fill; skip it and resume on the far side.  The seam is an
                 // interior junction, not a source boundary, so crossing
@@ -2465,7 +2471,7 @@ double cartesian_image_area_impl(
                 // fills jump too: the parity guard is evaluated per sample,
                 // so the landing cell decides whether the run continues.
                 flush_claim();
-                cell_ix = ix_step > 0 ? interval->second : interval->first;
+                cell_ix = ix_step > 0 ? interval_hi : interval_lo;
                 image.x = static_cast<double>(cell_ix) * incr;
                 dz2 = source_radius2 + 1.0;
                 jac_ok_prev = false;
