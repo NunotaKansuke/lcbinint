@@ -70,6 +70,17 @@ BinaryResolutionSelection calibrated_binary_resolution(
     double requested_relative_tolerance,
     int maximum_bins);
 
+// Conservative triple-lens auto resolution selector.  It uses a fixed,
+// bounded resolution; "auto" never performs probes or hidden refinement.
+BinaryResolutionSelection calibrated_triple_resolution(
+    const model::TripleLensGeometry& geometry,
+    double source_radius,
+    double caustic_distance,
+    double point_source_magnification,
+    double limb_darkening_c,
+    double requested_relative_tolerance,
+    int maximum_bins);
+
 struct FiniteSourceDecision {
     FiniteSourceMethod method = FiniteSourceMethod::point_source;
     int estimated_evaluations = 0;
@@ -143,17 +154,20 @@ public:
         const model::TripleLensGeometry& geometry) const;
 
 private:
-    void ensure_binary_caustic_cache(double separation, double mass_ratio) const;
+    void ensure_binary_caustic_cache(
+        double separation, double mass_ratio, double separation_tolerance = 0.0) const;
     double binary_caustic_distance(
         double separation,
         double mass_ratio,
         SourcePosition source,
-        double hint_nearest_point_dist = std::numeric_limits<double>::infinity()) const;
+        double hint_nearest_point_dist = std::numeric_limits<double>::infinity(),
+        double separation_tolerance = 0.0) const;
     double binary_sampled_caustic_distance(
         double separation,
         double mass_ratio,
         SourcePosition source,
-        double search_radius) const;
+        double search_radius,
+        double separation_tolerance = 0.0) const;
     FiniteSourceResult inverse_ray_polar_binary_mag(
         double separation,
         double mass_ratio,

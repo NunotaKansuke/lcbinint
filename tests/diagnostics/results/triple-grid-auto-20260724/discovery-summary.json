@@ -1,0 +1,20 @@
+{
+  "metadata": {
+    "cases": 256,
+    "rows": 9216,
+    "trusted": 8901,
+    "untrusted": 315
+  },
+  "grid_rule": {
+    "uniform_point_mag_cutoff": 30,
+    "limb_point_mag_cutoff": 30,
+    "distance_over_rho_min": 5,
+    "polar_bins": 64,
+    "elapsed_ns": 148660158664,
+    "violations": 0,
+    "polar_rows": 0,
+    "rows": 8623,
+    "all_cartesian_elapsed_ns": 148660158664,
+    "oracle_elapsed_ns": 139653574878
+  }
+}

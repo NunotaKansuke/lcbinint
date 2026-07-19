@@ -85,6 +85,7 @@ def lcbi_finite(sx, sy, s, q, q2, sep2, ang, rho, source_bins=64, caustic_bins=1
     lc = lcbinint.LightCurve(
         lens="triple",
         options=lcbinint.Options(
+            param_type="lcbinint",
             source_bins=source_bins,
             caustic_bins=caustic_bins,
             mode=mode_by_grid[inverse_ray_grid],
@@ -187,11 +188,11 @@ def section_speed():
     print("=" * 75)
 
     lc_auto = lcbinint.LightCurve(lens="triple",
-                                   options=lcbinint.Options(mode=4))
+                                   options=lcbinint.Options(param_type="lcbinint", mode=4))
     lc_cart = lcbinint.LightCurve(lens="triple",
-                                   options=lcbinint.Options(mode=1))
+                                   options=lcbinint.Options(param_type="lcbinint", mode=1))
     lc_pol  = lcbinint.LightCurve(lens="triple",
-                                   options=lcbinint.Options(mode=2))
+                                   options=lcbinint.Options(param_type="lcbinint", mode=2))
     lc_bin  = lcbinint.LightCurve(lens="binary")
 
     triple_cases = [

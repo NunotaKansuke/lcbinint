@@ -161,6 +161,39 @@ def test_triple_lens_finite_source_cartesian_inverse_ray():
     assert info.finite_source_magnifications == pytest.approx(info.magnifications)
 
 
+def test_triple_lens_auto_nbin_uses_calibrated_cartesian_resolution():
+    """Triple ``nbin='auto'`` selects the validated fixed-grid bucket."""
+    params = {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.0,
+        "alpha": 0.0,
+        "s": 1.0,
+        "q": 1.0e-3,
+        "q2": 1.0e-4,
+        "sep2": 0.5,
+        "ang": 1.2,
+        "rho": 1.0e-3,
+    }
+    common_options = dict(
+        mode=1,
+        point_source_threshold=20.0,
+        hexadecapole_threshold=0.0,
+        adaptive_hex_threshold=0.0,
+        max_source_bins=400,
+    )
+    automatic = lcbinint.LightCurve(
+        lens="triple", options=lcbinint.Options(nbin="auto", **common_options)
+    ).info(np.array([0.0]), params)
+    # The triple distance proxy is not used for runtime extrapolation.
+    fixed = lcbinint.LightCurve(
+        lens="triple", options=lcbinint.Options(nbin=256, **common_options)
+    ).info(np.array([0.0]), params)
+
+    assert automatic.finite_source_method_names == ["inverse_ray_cartesian"]
+    assert automatic.magnifications == pytest.approx(fixed.magnifications, rel=0.0, abs=0.0)
+
+
 def test_triple_lens_finite_source_uses_hexadecapole_between_point_and_ir():
     # Source at (-0.075, -0.025): derivative check fails but hexadecapole
     # self-consistency passes, so the mid-tier method is chosen.
@@ -189,6 +222,62 @@ def test_triple_lens_finite_source_uses_hexadecapole_between_point_and_ir():
     assert info.finite_source_error_estimates[0] < 1.0e-3
 
 
+def test_triple_lens_auto_blocks_fast_paths_inside_five_source_radii():
+    """A calibrated near-caustic case must reach Cartesian integration.
+
+    This was a false point-source result with a 4.87-rho caustic distance;
+    its point result missed the 512-bin Cartesian reference by 1.3e-3.
+    """
+    light_curve = lcbinint.LightCurve(
+        lens="triple",
+        options=lcbinint.Options(param_type="lcbinint", caustic_bins=1400),
+    )
+    params = {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": -0.03650441437746342,
+        "alpha": 0.0,
+        "s": 4.0,
+        "q": 1.0e-3,
+        "q2": 1.0e-6,
+        "sep2": 0.08,
+        "ang": 2.6179938779914944,
+        "rho": 1.0e-3,
+    }
+
+    info = light_curve.info(np.array([3.808742130329254]), params)
+
+    assert info.finite_source_method_names == ["inverse_ray_cartesian"]
+    assert info.magnifications[0] == pytest.approx(1.030906607613782, rel=1.0e-3)
+
+
+def test_triple_lens_auto_uses_topology_safe_grazing_quadrature():
+    """Both image-plane grids miss this outside-limb image finger."""
+    light_curve = lcbinint.LightCurve(
+        lens="triple",
+        options=lcbinint.Options(param_type="lcbinint", caustic_bins=1400),
+    )
+    params = {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 1.828067703049959,
+        "alpha": 0.0,
+        "s": 0.3,
+        "q": 0.1,
+        "q2": 1.0e-5,
+        "sep2": 1.0,
+        "ang": 0.0,
+        "rho": 1.0e-4,
+    }
+
+    info = light_curve.info(np.array([-2.482023432364708]), params)
+
+    assert info.finite_source_method_names == ["source_plane_quadrature"]
+    assert info.finite_source_converged == [True]
+    assert info.finite_source_refinement_levels == [1]
+    assert info.magnifications[0] == pytest.approx(5.622472944839292, rel=1.0e-3)
+
+
 def test_triple_lens_finite_source_approaches_point_source_for_small_rho():
     light_curve = lcbinint.LightCurve(
         lens="triple",
@@ -212,10 +301,7 @@ def test_triple_lens_finite_source_approaches_point_source_for_small_rho():
     assert float(finite[0]) == pytest.approx(float(point[0]), rel=2.0e-3)
 
 
-def test_triple_lens_finite_source_auto_mode_uses_polar_for_high_magnification_small_source():
-    # High point-source magnification + small source (rho=0.0005) means the
-    # source is off-caustic relative to the source size, so the auto mode
-    # (finite_mode=4) should pick polar inverse-ray for speed.
+def test_triple_lens_finite_source_auto_uses_seed_complete_polar():
     light_curve = lcbinint.LightCurve(
         lens="triple",
         options=lcbinint.Options(mode=4),
@@ -237,6 +323,42 @@ def test_triple_lens_finite_source_auto_mode_uses_polar_for_high_magnification_s
     assert info.finite_source_method_names == ["inverse_ray_polar"]
     assert np.isfinite(info.magnifications[0])
     assert info.point_source_magnifications[0] >= 100.0
+
+
+def test_triple_lens_polar_seeds_finite_source_only_fold_component():
+    """Centre-image-only polar converged low by 1.2e-3 on this frozen row."""
+    light_curve = lcbinint.LightCurve(
+        lens="triple",
+        options=lcbinint.Options(
+            param_type="lcbinint",
+            caustic_bins=1200,
+            inverse_ray_grid="polar",
+            nbin="auto",
+            max_source_bins=512,
+            polar_grid_ratio=12.0,
+            point_source_threshold=1.0e9,
+            hexadecapole_threshold=0.0,
+            adaptive_hex_threshold=0.0,
+        ),
+        limb_darkening=lcbinint.LimbDarkening.linear(0.5),
+    )
+    params = {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.025585304221408988,
+        "alpha": 0.0,
+        "s": 1.0,
+        "q": 0.1,
+        "q2": 1.0e-5,
+        "sep2": 1.0,
+        "ang": 1.5707963267948966,
+        "rho": 1.0e-4,
+    }
+
+    info = light_curve.info(np.array([-0.046038516588439035]), params)
+
+    assert info.finite_source_method_names == ["inverse_ray_polar"]
+    assert info.magnifications[0] == pytest.approx(152.7134857937064, rel=1.0e-3)
 
 
 def test_triple_lens_accepts_keyword_parameters():

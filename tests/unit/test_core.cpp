@@ -84,6 +84,22 @@ int main()
     if (tangent_resolution.prefer_polar || tangent_resolution.source_bins < 100) {
         return 45;
     }
+    const auto triple_calibration_geometry =
+        lcbinint::model::make_triple_lens_geometry(1.0, 1.0e-3, 1.0e-4, 0.5, 1.2);
+    const auto triple_near_resolution =
+        lcbinint::magnification::calibrated_triple_resolution(
+            triple_calibration_geometry, 1.0e-3, 2.0e-4, 10.0, 0.0, 1.0e-3, 400);
+    if (triple_near_resolution.prefer_polar ||
+        triple_near_resolution.source_bins <= 0 || triple_near_resolution.source_bins > 400) {
+        return 48;
+    }
+    const auto triple_high_resolution =
+        lcbinint::magnification::calibrated_triple_resolution(
+            triple_calibration_geometry, 1.0e-3, 2.0e-4, 1000.0, 0.0, 1.0e-3, 80);
+    if (triple_high_resolution.prefer_polar ||
+        triple_high_resolution.source_bins <= 0 || triple_high_resolution.source_bins > 80) {
+        return 49;
+    }
     if (lcbi_magnification(0.0, &params, &options, &result) != LCBI_OK) {
         return 3;
     }

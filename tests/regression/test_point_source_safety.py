@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 
@@ -178,6 +180,37 @@ def test_ghost_safety_margin_is_independently_safe_on_broad_sweep_case():
 
     assert info.point_source_safety_flags[0] & 2 == 0
     assert info.finite_source_method_names[0] != "point_source"
+
+
+def test_refined_distance_releases_remote_planetary_topology_proxy():
+    """Disconnected caustic proxies must not force remote Roman epochs to IR."""
+    t0 = 206.741143614
+    rho = math.exp(-7.08071184808)
+    lcbinint = pytest.importorskip("lcbinint")
+    light_curve = lcbinint.LightCurve(
+        options=lcbinint.Options(coordinates="vbm")
+    )
+    info = light_curve.info(
+        [t0 - 5.0, t0 - 3.0],
+        t0=t0,
+        tE=60.0,
+        u0=0.025,
+        alpha=1.22173047640,
+        s=math.exp(0.05666264897),
+        q=0.001,
+        rho=rho,
+        limb_darkening_c=0.407200474,
+    )
+
+    # The raw planetary proxy fails at both positions, but the measured
+    # caustic distances are 69 and 34 source radii.  The tolerance-aware local
+    # check chooses point and hex respectively instead of inverse rays.
+    assert all(flags & 4 == 0 for flags in info.point_source_safety_flags)
+    assert min(distance / rho for distance in info.caustic_distances) > 20.0
+    assert info.finite_source_method_names == ["point_source", "hexadecapole"]
+    assert info.magnifications == pytest.approx(
+        [11.39063613233733, 17.449601693756392], rel=1.0e-3
+    )
 
 
 def test_forced_cartesian_high_magnification_does_not_truncate_image_area():

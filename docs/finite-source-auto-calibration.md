@@ -25,6 +25,57 @@ The runtime `nbin` rule is a one-shot preselection from quantities already
 computed at the source position.  It performs no trial integration,
 convergence retry, or fallback, so its overhead is a few scalar operations.
 
+## Triple-lens calibration
+
+The binary calibration below must not be applied to a triple lens.  Triple
+polar originally used only the physical images of the source centre as flood-
+fill seeds.  A finite source can contain a small fold-image component absent
+at its centre, so 15 of 78 trusted high-magnification rows converged to an
+incomplete area.  Polar now shares Cartesian's centre, nearby-caustic, and
+64-position source-boundary seed augmentation.  Replaying the original 78
+trusted rows produced zero violations; an independent 30-row holdout produced
+22 converged Cartesian 256/384/512 references and zero violations, while eight
+references timed out and were not counted.  Triple auto therefore selects
+polar for point magnification at least 100 and refined caustic distance at
+least `3 rho`, with a minimum angular grid-ratio of 12.  The inner three-source-
+radius band remains on the topology-aware Cartesian/source-plane path.
+
+Triple `nbin='auto'` consequently uses a fixed 256-bin Cartesian resolution,
+capped by `max_source_bins`; it does not use the binary quantile model below.
+The full triple calibration record and reproduction commands are in
+[`triple-grid-auto-20260724`](../tests/diagnostics/results/triple-grid-auto-20260724/README.md).
+
+Triple fast paths were calibrated independently.  Within the existing
+20-source-radius point-source domain, auto does not take the derivative-based
+point-source shortcut.  Hexadecapole is permitted only at least
+`max(hexadecapole_threshold, 5) * rho` from a caustic and only after its normal
+self-consistency check; nearer rows use Cartesian inverse ray.  Forced
+256/512-bin Cartesian replay found zero fast-path tolerance violations in 510
+discovery and 225 independent holdout rows.  A separate 20--60-radius replay
+also found zero point-source violations in 225 discovery and 132 holdout rows.
+
+Below two source radii, triple auto additionally scans the cached caustic
+branches and combines that result with refined distance.  A caustic entering
+the source disk forces Cartesian inverse ray.  An outside-limb grazing source
+with point magnification below 100 uses independent radial/chord source-plane
+rules: a 64-order pair needs a calibrated 40x safety margin, otherwise it
+escalates through 160/256 and, when needed, 400/512.  No topology scan is added
+at distances of two source radii or more.  Independent source-plane references
+gave zero tolerance violations in 994 trusted discovery rows and 527 trusted
+holdout rows.  Rows still unresolved at the 512-order ceiling return the best
+finite source-plane value with `finite_source_converged=false`; they are not
+silently promoted to converged Cartesian results.
+
+Binary topology proxies are likewise no longer allowed to expand an expensive
+region across disconnected caustics.  Once the refined segment distance is at
+least `20 rho`, it supersedes the local ghost and planetary proxies; point
+source still has to pass its tolerance-aware derivative check, otherwise hex
+still has to pass its self-consistency check.  The threshold had zero point-
+source tolerance violations in 968 discovery and 726 independent holdout rows.
+On the Roman planetary fixture this reduced Cartesian routing from 1,372 to
+393 epochs while retaining zero `1e-3` discrepancies against a `Tol=1e-5` VBM
+curve reference.
+
 ## Parameter-space experiment
 
 The discovery sweep contains 256 binary-lens configurations and 6,144
