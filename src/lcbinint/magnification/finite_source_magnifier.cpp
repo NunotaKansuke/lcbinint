@@ -315,6 +315,23 @@ double source_distance(SourcePosition source)
     return std::hypot(source.x, source.y);
 }
 
+double binary_topology_boundary_margin(double separation, double mass_ratio)
+{
+    const double s = std::abs(separation);
+    const double q_input = std::abs(mass_ratio);
+    const double q = q_input <= 1.0 ? q_input : 1.0 / q_input;
+    if (!(s > 0.0) || !(q > 0.0) || !std::isfinite(s) || !std::isfinite(q)) {
+        return 0.0;
+    }
+    const double q13 = std::cbrt(q);
+    const double normalization = std::sqrt(1.0 + q);
+    const double close_boundary =
+        std::pow(1.0 - q13 + q13 * q13, 0.75) / normalization;
+    const double wide_boundary =
+        std::pow(1.0 + q13, 1.5) / normalization;
+    return std::min(std::abs(s - close_boundary), std::abs(s - wide_boundary));
+}
+
 struct PointSourceSafetyEvaluation {
     PointSourceSafetyDiagnostic diagnostic;
     double absolute_tolerance = 0.0;
@@ -726,6 +743,56 @@ double binary_source_plane_chord_quadrature(
             const double normalized_radius2 = xi * xi + eta * eta;
             const double brightness = source_surface_brightness(normalized_radius2, settings);
             row_acc += weights[k] * brightness * row_magnifications[k];
+            row_norm += weights[k] * brightness;
+        }
+        weighted += weights[j] * half_chord * row_acc;
+        brightness_norm += weights[j] * half_chord * row_norm;
+    }
+    if (brightness_norm <= 0.0 || !std::isfinite(brightness_norm)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    return weighted / brightness_norm;
+}
+
+// Triple-lens counterpart of the tangent-caustic chord rule.  This is kept
+// separate from the binary batch implementation because triple point-source
+// solves use a different polynomial/cache, while the quadrature and
+// normalization are identical.
+double triple_source_plane_chord_quadrature(
+    const PointSourceMagnifier& point_magnifier,
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    int order)
+{
+    const auto& rule = gauss_legendre_rule(order);
+    const auto& nodes = rule.first;
+    const auto& weights = rule.second;
+    double weighted = 0.0;
+    double brightness_norm = 0.0;
+    for (std::size_t j = 0; j < nodes.size(); ++j) {
+        const double eta = nodes[j];
+        const double half_chord = std::sqrt(std::max(0.0, 1.0 - eta * eta));
+        if (half_chord <= 0.0) {
+            continue;
+        }
+        double row_acc = 0.0;
+        double row_norm = 0.0;
+        for (std::size_t k = 0; k < nodes.size(); ++k) {
+            const double xi = half_chord * nodes[k];
+            const SourcePosition sample {
+                source.x + source_radius * xi,
+                source.y + source_radius * eta,
+            };
+            const double magnification = point_magnifier.triple_mag0(
+                geometry, sample).magnification;
+            if (!std::isfinite(magnification)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
+            const double normalized_radius2 = xi * xi + eta * eta;
+            const double brightness = source_surface_brightness(normalized_radius2, settings);
+            row_acc += weights[k] * brightness * magnification;
             row_norm += weights[k] * brightness;
         }
         weighted += weights[j] * half_chord * row_acc;
@@ -2679,6 +2746,13 @@ std::vector<SourcePosition> selected_triple_point_images(
     return images;
 }
 
+std::vector<SourcePosition> augmented_triple_image_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    double source_radius,
+    const TripleCausticBranches& caustics);
+
 double inverse_ray_polar_triple_mag(
     const PointSourceMagnifier& point_magnifier,
     const model::TripleLensGeometry& geometry,
@@ -2687,7 +2761,16 @@ double inverse_ray_polar_triple_mag(
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier)
 {
-    const auto image_positions = selected_triple_point_images(point_magnifier, geometry, source);
+    // Centre images alone are not sufficient for a triple lens.  A tiny fold
+    // component can intersect the finite source without producing a physical
+    // image at its centre, and the polar flood fill then converges cleanly to
+    // an incomplete area at every resolution.  Reuse the same caustic and
+    // boundary probe seeds as the Cartesian integrator so every finite-source
+    // image component has an interior starting cell.
+    const auto& caustics = cached_triple_caustic_branches(
+        geometry, settings.caustic_bins);
+    const auto image_positions = augmented_triple_image_seeds(
+        point_magnifier, geometry, source, source_radius, caustics);
     const auto mapper = make_triple_lens_mapper(geometry);
     return inverse_ray_polar_core(
         mapper, image_positions, source, source_radius, settings, finite_magnifier);
@@ -4144,6 +4227,24 @@ BinaryResolutionSelection calibrated_binary_resolution(
     return {std::min(bins, cap), false};
 }
 
+BinaryResolutionSelection calibrated_triple_resolution(
+    const model::TripleLensGeometry& geometry,
+    double source_radius,
+    double caustic_distance,
+    double point_source_magnification,
+    double limb_darkening_c,
+    double requested_relative_tolerance,
+    int maximum_bins)
+{
+    // The calibrated distance proxy used by the exploratory regression is not
+    // bit-identical to triple_caustic_distance().  Direct holdout execution
+    // exposed bucket mismatches, so auto uses the largest converged fixed-grid
+    // bucket rather than extrapolating that proxy.  This is one branch and no
+    // refinement/probe is performed at runtime.
+    return {std::min(256, std::max(maximum_bins, 1)), false};
+
+}
+
 FiniteSourceMagnifier::FiniteSourceMagnifier(FiniteSourceSettings settings)
     : settings_(settings)
 {
@@ -4184,13 +4285,19 @@ double FiniteSourceMagnifier::limb_darkening_table_brightness(double normalized_
     return limb_darkening_table_[static_cast<std::size_t>(index)];
 }
 
-void FiniteSourceMagnifier::ensure_binary_caustic_cache(double separation, double mass_ratio) const
+void FiniteSourceMagnifier::ensure_binary_caustic_cache(
+    double separation,
+    double mass_ratio,
+    double separation_tolerance) const
 {
     const int bins = std::max(settings_.caustic_bins, 32);
     const bool cache_matches = caustic_cache_valid_ &&
                                caustic_cache_bins_ == bins &&
-                               caustic_cache_separation_ == separation &&
-                               caustic_cache_mass_ratio_ == mass_ratio;
+                               caustic_cache_mass_ratio_ == mass_ratio &&
+                               std::signbit(caustic_cache_separation_) ==
+                                   std::signbit(separation) &&
+                               std::abs(caustic_cache_separation_ - separation) <=
+                                   std::max(separation_tolerance, 0.0);
     if (!cache_matches) {
         const PointSourceMagnifier point_magnifier;
         caustic_cache_branches_.assign(4, {});
@@ -4330,9 +4437,10 @@ double FiniteSourceMagnifier::binary_caustic_distance(
     double separation,
     double mass_ratio,
     SourcePosition source,
-    double hint_nearest_point_dist) const
+    double hint_nearest_point_dist,
+    double separation_tolerance) const
 {
-    ensure_binary_caustic_cache(separation, mass_ratio);
+    ensure_binary_caustic_cache(separation, mass_ratio, separation_tolerance);
 
     // Obtain nearest caustic POINT distance as an upper bound on segment distance.
     // The caller often already has this from binary_sampled_caustic_distance;
@@ -4406,9 +4514,10 @@ double FiniteSourceMagnifier::binary_sampled_caustic_distance(
     double separation,
     double mass_ratio,
     SourcePosition source,
-    double search_radius) const
+    double search_radius,
+    double separation_tolerance) const
 {
-    ensure_binary_caustic_cache(separation, mass_ratio);
+    ensure_binary_caustic_cache(separation, mass_ratio, separation_tolerance);
     double distance2 = std::numeric_limits<double>::infinity();
 
     if (search_radius > 0.0 &&
@@ -4571,51 +4680,45 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
         return {point_source_magnification, 0, decision, 0.0, 0, true};
     }
 
-    const double hex_dist_threshold = settings_.hex_threshold * source_radius;
+    // Triple calibration: hex self-consistency underestimates error within
+    // five source radii of a caustic.  The binary threshold is not reusable
+    // here because triple topology adds unresolved local caustic structure.
+    const double hex_dist_threshold = std::max(settings_.hex_threshold, 5.0) * source_radius;
     const bool near_caustic =
         std::isfinite(caustic_distance) && caustic_distance < hex_dist_threshold;
-    if (!near_caustic && settings_.hex_threshold > 0.0) {
-        const auto derivative_point =
-            point_magnifier.triple_mag0_with_derivatives(geometry, source);
-        const double derivative_relative_error =
-            derivative_point.derivative_error_indicator * source_radius * source_radius /
-            std::max(std::abs(derivative_point.magnification), 1.0e-10);
-        double derivative_threshold =
-            settings_.adaptive_hex_threshold > 0.0 ? settings_.adaptive_hex_threshold : 1.0e-3;
-        if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
-            derivative_threshold =
-                settings_.finite_source_reltol +
-                settings_.finite_source_tol /
-                    std::max(std::abs(derivative_point.magnification), 1.0e-10);
-        }
-        if (std::isfinite(derivative_relative_error) &&
-            derivative_relative_error <= derivative_threshold) {
-            FiniteSourceDecision decision {
-                FiniteSourceMethod::point_source,
-                1,
-                "triple point-source derivative check passed",
-            };
-            return {
-                derivative_point.magnification,
-                derivative_point.image_count,
-                decision,
-                derivative_relative_error *
-                    std::max(std::abs(derivative_point.magnification), 1.0),
-                0,
-                true,
-            };
+    FiniteSourceSettings runtime_settings = settings_;
+    if (settings_.automatic_source_bins) {
+        const auto calibrated_resolution = calibrated_triple_resolution(
+            geometry,
+            source_radius,
+            caustic_distance,
+            point_source_magnification,
+            settings_.limb_darkening_c,
+            settings_.finite_source_reltol,
+            settings_.max_source_bins);
+        runtime_settings.source_bins = calibrated_resolution.source_bins;
+        if (runtime_settings.polar_source_bins <= 0) {
+            runtime_settings.polar_source_bins = calibrated_resolution.source_bins;
         }
     }
-    constexpr double kPolarAutoPointMagnificationThreshold = 100.0;
+    // Seed-complete polar integration is both accurate and substantially
+    // cheaper than Cartesian for the calibrated high-magnification population.
+    // Keep the inner three-rho band on the topology-aware Cartesian/source-
+    // plane path; outside it the augmented centre/caustic/boundary seed set
+    // removes the former missing-fold-component failures.  This is independent
+    // of the five-rho hex guard: polar has a complete image-component search,
+    // while hex is still a local Taylor approximation.
+    constexpr double kTriplePolarPointMagnificationThreshold = 100.0;
+    constexpr double kTriplePolarCausticDistanceFactor = 3.0;
     const bool auto_polar =
         settings_.finite_mode == 4 &&
-        !near_caustic &&
-        std::abs(point_source_magnification) >= kPolarAutoPointMagnificationThreshold;
+        std::isfinite(caustic_distance) &&
+        caustic_distance >= kTriplePolarCausticDistanceFactor * source_radius &&
+        std::abs(point_source_magnification) >=
+            kTriplePolarPointMagnificationThreshold;
 
-    // For explicit polar (finite_mode==2), fall back to Cartesian when the source
-    // is close to a caustic — matching binary's behavior.  auto_polar already
-    // excludes near-caustic cases via !near_caustic, so the check is only needed
-    // for the explicit-polar path.
+    // For explicit polar (finite_mode==2), retain the close-caustic Cartesian
+    // fallback.  Auto polar is already excluded inside three source radii.
     const double polar_fallback_distance =
         std::max(settings_.hex_threshold, 1.0) * source_radius;
     const bool polar_needs_cartesian_fallback =
@@ -4623,11 +4726,10 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
         std::isfinite(caustic_distance) &&
         caustic_distance < polar_fallback_distance;
 
-    // auto_polar (high-magnification mode=4) takes priority over hexadecapole: the
-    // triple-lens caustic topology makes polar more reliable than the hexadecapole
-    // self-consistency check for ps_mag >= 100.
+    // Explicit polar and calibrated high-magnification auto polar take
+    // precedence over the hexadecapole approximation.
     if ((settings_.finite_mode == 2 || auto_polar) && !polar_needs_cartesian_fallback) {
-        FiniteSourceSettings polar_settings = settings_;
+        FiniteSourceSettings polar_settings = runtime_settings;
         if (auto_polar) {
             polar_settings.polar_grid_ratio =
                 std::max(active_polar_grid_ratio(polar_settings), 12.0);
@@ -4636,7 +4738,7 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             point_magnifier, geometry, source, source_radius, polar_settings, this);
         FiniteSourceDecision decision {
             FiniteSourceMethod::inverse_ray_polar,
-            0,
+            estimate_polar_cost(polar_settings),
             auto_polar ? "auto polar triple inverse-ray for high magnification"
                        : "triple polar inverse-ray",
         };
@@ -4652,7 +4754,7 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             geometry,
             source,
             source_radius,
-            settings_,
+            runtime_settings,
             &point_source_magnification);
         double hex_threshold = settings_.adaptive_hex_threshold;
         if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
@@ -4677,6 +4779,128 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
         }
     }
 
+    // Distance alone cannot distinguish a genuine crossing from a grazing or
+    // tangent source limb.  Pay for the branch walk only in the narrow
+    // topology-sensitive band; ordinary point/hex rows incur no extra scan.
+    constexpr double kTripleTopologyScanDistanceFactor = 2.0;
+    bool tangent_band = false;
+    if (settings_.finite_mode == 4 && std::isfinite(caustic_distance) &&
+        caustic_distance < kTripleTopologyScanDistanceFactor * source_radius) {
+        const auto scan = scan_caustic_branches(caustics.branches, source, source_radius);
+        const bool caustic_enters_disk =
+            caustic_distance < source_radius ||
+            scan.any_vertex_inside || !scan.crossing_probes.empty();
+        const bool chord_band = !caustic_enters_disk &&
+            scan.min_distance >= 0.95 * source_radius &&
+            scan.min_distance < 1.35 * source_radius;
+        tangent_band = !caustic_enters_disk && !chord_band &&
+            std::abs(scan.min_distance - source_radius) < 0.35 * source_radius;
+        // Near a triple cusp, a large centre magnification produces angular
+        // structure that low-order source-plane rules can alias while two
+        // successive orders still agree.  Cartesian/polar tails agree in this
+        // regime, so keep quadrature for the measured smooth (A_point < 100)
+        // grazing population only.
+        const bool quadrature_topology_safe =
+            std::abs(point_source_magnification) < 100.0;
+
+        auto target_error = [&](double magnification) {
+            const double relative = settings_.finite_source_reltol > 0.0
+                ? settings_.finite_source_reltol : 1.0e-3;
+            return settings_.finite_source_tol +
+                relative * std::max(std::abs(magnification), 1.0) +
+                (settings_.finite_source_tol > 0.0 ? 0.0 : 1.0e-4);
+        };
+
+        if (quadrature_topology_safe && !caustic_enters_disk &&
+            scan.min_distance >= source_radius) {
+            // Two structurally different low-order rules prevent the false
+            // convergence seen when successive radial rings alias the same
+            // narrow triple-caustic feature.  Most smooth grazing rows stop
+            // here; only disagreement pays for high-order chord escalation.
+            const auto ring = triple_source_plane_quadrature(
+                point_magnifier, geometry, source, source_radius,
+                runtime_settings, 64);
+            double chord = triple_source_plane_chord_quadrature(
+                point_magnifier, geometry, source, source_radius,
+                runtime_settings, 64);
+            int sample_count = ring.sample_count + 64 * 64;
+            // Discovery calibration found the two low-order rules can share a
+            // small correlated bias.  A 40x acceptance margin was the widest
+            // boundary with zero violations against independent 160/256
+            // chord tails; larger disagreements take the escalated path.
+            constexpr double kTripleLowOrderTopologySafety = 40.0;
+            if (std::isfinite(ring.magnification) && std::isfinite(chord) &&
+                kTripleLowOrderTopologySafety *
+                    std::abs(ring.magnification - chord) <= target_error(chord)) {
+                return {
+                    chord, ring.image_count,
+                    {FiniteSourceMethod::source_plane_quadrature, sample_count,
+                     "triple grazing topology cross-check passed"},
+                    std::abs(ring.magnification - chord), 0, true,
+                };
+            }
+
+            double coarse = triple_source_plane_chord_quadrature(
+                point_magnifier, geometry, source, source_radius,
+                runtime_settings, 160);
+            double fine = triple_source_plane_chord_quadrature(
+                point_magnifier, geometry, source, source_radius,
+                runtime_settings, 256);
+            sample_count += 160 * 160 + 256 * 256;
+            int refinement_level = 1;
+            if (std::isfinite(fine) && std::isfinite(coarse) &&
+                std::abs(fine - coarse) > target_error(fine)) {
+                coarse = fine;
+                fine = triple_source_plane_chord_quadrature(
+                    point_magnifier, geometry, source, source_radius,
+                    runtime_settings, 400);
+                sample_count += 400 * 400;
+                refinement_level = 2;
+            }
+            if (refinement_level == 2 &&
+                std::isfinite(fine) && std::isfinite(coarse)) {
+                coarse = fine;
+                fine = triple_source_plane_chord_quadrature(
+                    point_magnifier, geometry, source, source_radius,
+                    runtime_settings, 512);
+                sample_count += 512 * 512;
+                refinement_level = 3;
+            }
+            if (std::isfinite(fine) && std::isfinite(coarse)) {
+                const double error_estimate = std::abs(fine - coarse);
+                if (error_estimate <= target_error(fine)) {
+                    return {
+                        fine, ring.image_count,
+                        {FiniteSourceMethod::source_plane_quadrature, sample_count,
+                         "triple grazing topology escalated chord quadrature"},
+                        error_estimate, refinement_level, true,
+                    };
+                }
+                // At the bounded 512-order ceiling this is still the best
+                // available grazing estimate.  Returning Cartesian here
+                // reintroduces the known missing-finger bias; preserve the
+                // value and report non-convergence explicitly instead.
+                return {
+                    fine, ring.image_count,
+                    {FiniteSourceMethod::source_plane_quadrature, sample_count,
+                     "triple grazing topology reached quadrature ceiling"},
+                    error_estimate, refinement_level, false,
+                };
+            }
+            tangent_band = true;
+        }
+    }
+
+    const auto apply_triple_tangent_floor = [&](FiniteSourceResult result) {
+        if (tangent_band) {
+            const double error_floor =
+                5.0e-3 * std::max(std::abs(result.magnification), 1.0);
+            result.error_estimate = std::max(result.error_estimate, error_floor);
+            result.converged = false;
+        }
+        return result;
+    };
+
     {
         LegacyAreaDiagnostics diagnostics;
         double cartesian_magnification = inverse_ray_cartesian_triple_mag(
@@ -4685,34 +4909,34 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             caustics,
             source,
             source_radius,
-            settings_,
+            runtime_settings,
             this,
             &diagnostics);
         if (std::isfinite(cartesian_magnification) && cartesian_magnification > 0.0) {
             FiniteSourceDecision decision {
                 FiniteSourceMethod::inverse_ray_cartesian,
-                estimate_cartesian_cost(settings_),
+                estimate_cartesian_cost(runtime_settings),
                 polar_needs_cartesian_fallback
                     ? "triple polar used cartesian fallback for caustic-crossing"
                     : "triple finite-source cartesian image-plane inverse ray",
             };
-            return {
+            return apply_triple_tangent_floor({
                 cartesian_magnification,
                 diagnostics.seed_count,
                 decision,
                 diagnostics.estimated_error,
                 0,
                 true,
-            };
+            });
         }
     }
 
-    const int coarse_bins = std::max(1, settings_.source_bins / 2);
-    const int fine_bins = std::max(settings_.source_bins, 1);
+    const int coarse_bins = std::max(1, runtime_settings.source_bins / 2);
+    const int fine_bins = std::max(runtime_settings.source_bins, 1);
     const auto coarse = triple_source_plane_quadrature(
-        point_magnifier, geometry, source, source_radius, settings_, coarse_bins);
+        point_magnifier, geometry, source, source_radius, runtime_settings, coarse_bins);
     const auto fine = triple_source_plane_quadrature(
-        point_magnifier, geometry, source, source_radius, settings_, fine_bins);
+        point_magnifier, geometry, source, source_radius, runtime_settings, fine_bins);
     if (!std::isfinite(fine.magnification)) {
         return {
             std::numeric_limits<double>::quiet_NaN(),
@@ -4741,14 +4965,14 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
         coarse.sample_count + fine.sample_count,
         "triple finite-source source-plane quadrature",
     };
-    return {
+    return apply_triple_tangent_floor({
         fine.magnification,
         fine.image_count,
         decision,
         error_estimate,
         1,
         converged,
-    };
+    });
 }
 
 HexadecapoleDiagnosticResult diagnostic_hexadecapole_binary(
@@ -4839,6 +5063,45 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         settings_);
     point_safety_available = true;
 
+    // A dynamic binary changes separation at every epoch, which invalidates
+    // the exact caustic cache.  Do not build a 1400-phase caustic merely to
+    // rediscover that an obviously smooth point is safe.  This preflight uses
+    // only the already-computed local derivative/ghost/planetary diagnostics
+    // and the maximum (near-caustic) factor of the later distance-dependent
+    // point safety rule.  Anything that does not pass this stricter test falls
+    // through unchanged to measured caustic geometry.
+    if (settings_.hex_threshold > 0.0 && point_safety.point_source_safe()) {
+        double requested_relative = settings_.adaptive_hex_threshold > 0.0
+            ? settings_.adaptive_hex_threshold : 1.0e-3;
+        if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
+            requested_relative =
+                settings_.finite_source_reltol +
+                settings_.finite_source_tol /
+                    std::max(std::abs(point_source_magnification), 1.0);
+        }
+        const double estimated_error =
+            (point_safety.diagnostic.quadrupole_indicator +
+                point_safety.diagnostic.cusp_indicator) *
+            source_radius * source_radius;
+        constexpr double kPreflightPointSafety = 30.0;
+        const double derivative_relative_error = estimated_error /
+            std::max(std::abs(point_source_magnification), 1.0e-10);
+        if (kPreflightPointSafety * derivative_relative_error <= requested_relative) {
+            FiniteSourceDecision decision {
+                FiniteSourceMethod::point_source,
+                1,
+                "strict local point-source preflight passed",
+            };
+            return cache_and_return({
+                point_source_magnification,
+                point_safety.diagnostic.image_count,
+                decision,
+                estimated_error,
+                0,
+                true});
+        }
+    }
+
     // Fast PS exit for sources outside the caustic bounding box by kinji_threshold·ρ.
     // The caustic cache is built (or validated) inside binary_sampled_caustic_distance,
     // making the bbox members available immediately after the call.
@@ -4847,9 +5110,16 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     const double adaptive_bbox_margin = adaptive_ir_requested
         ? std::max(bbox_margin, 60.0 * source_radius)
         : bbox_margin;
-    const double sampled_dist = binary_sampled_caustic_distance(
-        separation, mass_ratio, source, adaptive_bbox_margin);
+    const double topology_margin = binary_topology_boundary_margin(
+        separation, mass_ratio);
+    const double caustic_reuse_tolerance = std::min(
+        0.25 * source_radius, 0.02 * topology_margin);
+    double sampled_dist = binary_sampled_caustic_distance(
+        separation, mass_ratio, source, adaptive_bbox_margin,
+        caustic_reuse_tolerance);
+    bool reused_caustic_geometry = caustic_cache_separation_ != separation;
     if (point_safety.point_source_safe() &&
+        !reused_caustic_geometry &&
         (source.x < caustic_cache_min_x_ - adaptive_bbox_margin ||
         source.x > caustic_cache_max_x_ + adaptive_bbox_margin ||
         source.y < caustic_cache_min_y_ - adaptive_bbox_margin ||
@@ -4876,9 +5146,44 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     // the true distance (e.g. 7x rho) when the caustic is sparsely sampled; the segment
     // distance queries the actual line segments between consecutive points and returns the
     // correct distance.  We pass sampled_dist as a hint to skip the O(N) point scan.
-    const double refined_dist = binary_caustic_distance(
-        separation, mass_ratio, source, sampled_dist);
+    double refined_dist = binary_caustic_distance(
+        separation, mass_ratio, source, sampled_dist,
+        caustic_reuse_tolerance);
+    // Approximate anchor geometry is only a far-field routing accelerator.
+    // Rebuild at the exact epoch near the caustic and around the measured
+    // 20-rho topology-release boundary.  This also guarantees that any later
+    // inverse-ray seed request, which asks for exact branches, cannot inherit
+    // an approximate caustic.
+    if (reused_caustic_geometry && std::isfinite(refined_dist)) {
+        const double distance_ratio = refined_dist / source_radius;
+        if (distance_ratio < 6.0 ||
+            std::abs(distance_ratio - 20.0) < 2.0) {
+            sampled_dist = binary_sampled_caustic_distance(
+                separation, mass_ratio, source, adaptive_bbox_margin, 0.0);
+            refined_dist = binary_caustic_distance(
+                separation, mass_ratio, source, sampled_dist, 0.0);
+            reused_caustic_geometry = false;
+        }
+    }
     caustic_distance_out = refined_dist;
+
+    // The ghost and planetary checks are inexpensive local-topology proxies.
+    // They are deliberately conservative close to a caustic, but disconnected
+    // binary caustics can make them veto a broad region even when the source is
+    // far from every actual caustic segment.  Once the refined segment distance
+    // reaches the same calibrated 20-rho point-source boundary used by the
+    // triple-lens selector, the measured geometry supersedes those proxies.
+    // Point-source acceptance still has to pass the tolerance-aware derivative
+    // check below; otherwise the independently checked hexadecapole route is
+    // tried before inverse rays.
+    constexpr double kMeasuredTopologyReleaseDistance = 20.0;
+    const bool measured_topology_safe =
+        std::isfinite(refined_dist) &&
+        refined_dist >= kMeasuredTopologyReleaseDistance * source_radius;
+    const bool effective_topology_safe =
+        point_safety.topology_safe() || measured_topology_safe;
+    const bool effective_point_source_safe =
+        point_safety.quadrupole_cusp_safe && effective_topology_safe;
     const auto calibrated_resolution = calibrated_binary_resolution(
         mass_ratio,
         source_radius,
@@ -4897,7 +5202,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     const double hex_dist_threshold = settings_.hex_threshold * source_radius;
     const bool near_caustic = refined_dist < hex_dist_threshold;
     double rejected_hex_magnification = std::numeric_limits<double>::quiet_NaN();
-    if (!near_caustic && point_safety.topology_safe()) {
+    if (!near_caustic && effective_topology_safe) {
         auto caustic_distance_safety = [&]() {
             double safety = 1.0;
             if (source_radius >= 1.0e-3 && std::isfinite(refined_dist) &&
@@ -4916,7 +5221,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 settings_.finite_source_reltol +
                 settings_.finite_source_tol / std::max(std::abs(point_source_magnification), 1.0);
         }
-        if (settings_.hex_threshold > 0.0 && point_safety.point_source_safe()) {
+        if (settings_.hex_threshold > 0.0 && effective_point_source_safe) {
             const double estimated_error =
                 (point_safety.diagnostic.quadrupole_indicator +
                     point_safety.diagnostic.cusp_indicator) *
