@@ -5246,7 +5246,15 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     // Point-source acceptance still has to pass the tolerance-aware derivative
     // check below; otherwise the independently checked hexadecapole route is
     // tried before inverse rays.
-    constexpr double kMeasuredTopologyReleaseDistance = 20.0;
+    // The local ghost/planetary topology proxies are intentionally
+    // conservative, but keeping their veto all the way to the point-source
+    // boundary sends a broad, demonstrably smooth 10--20 rho annulus to
+    // inverse rays without even trying the independently error-checked
+    // hexadecapole approximation.  Once the nearest caustic segment has been
+    // measured at ten source radii, that geometry is a stronger topology
+    // discriminator than the local proxy.  Hexadecapole still has to pass its
+    // own tolerance-aware self-consistency check before it is accepted.
+    constexpr double kMeasuredTopologyReleaseDistance = 10.0;
     const bool measured_topology_safe =
         std::isfinite(refined_dist) &&
         refined_dist >= kMeasuredTopologyReleaseDistance * source_radius;

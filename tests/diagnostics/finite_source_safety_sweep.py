@@ -141,8 +141,7 @@ def make_solvers(case: LensCase):
     options = lcbinint.Options(
         coordinates="center_of_mass",
         caustic_bins=600,
-        source_bins=40,
-        adaptive_source_bins=1,
+        nbin="auto",
         max_source_bins=240,
         tol=case.tolerance,
         hex_tol=case.tolerance,

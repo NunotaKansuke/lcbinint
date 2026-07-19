@@ -497,6 +497,39 @@ def test_lcbinint_auto_nbin_accepts_second_order_smooth_resonant_boundary():
     ) < 1.0e-3
 
 
+def test_measured_far_caustic_releases_local_topology_veto_to_hexadecapole():
+    """A smooth high-mag point must not be sent straight to inverse rays.
+
+    This geometry is taken from a Roman parallax+Kepler trajectory.  The
+    local ghost/planetary proxy is conservative here, but the nearest measured
+    caustic segment is more than fifteen source radii away.  The independently
+    checked hexadecapole result agrees with VBM while avoiding the expensive
+    inverse-ray path.
+    """
+    lcbinint = pytest.importorskip("lcbinint")
+
+    source_x = 0.0009490340842049525
+    source_y = 0.02998953302951774
+    rho = 0.0018
+    curve = lcbinint.LightCurve(
+        coordinates="vbm",
+        limb_darkening=lcbinint.LimbDarkening.linear(0.407200474),
+    ).info(
+        [source_x],
+        t0=0.0,
+        tE=1.0,
+        u0=source_y,
+        alpha=0.0,
+        s=1.300000973571089,
+        q=1.0e-3,
+        rho=rho,
+    )
+
+    assert curve.caustic_distances[0] / rho > 15.0
+    assert curve.finite_source_method_names == ["hexadecapole"]
+    assert abs(curve.magnifications[0] / 33.368159744967215 - 1.0) < 1.0e-5
+
+
 def test_lcbinint_auto_inverse_ray_avoids_tiny_source_cartesian_aliasing():
     lcbinint = pytest.importorskip("lcbinint")
     module = pytest.importorskip("VBMicrolensing")
