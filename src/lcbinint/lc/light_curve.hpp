@@ -43,6 +43,14 @@ public:
         const lcbi_params& params
     ) const;
 
+    // Root-solve-free, trajectory-resolved geometry for external finite-source
+    // engines. Unlike the C API this preserves this LightCurve's sky/site and
+    // physical model configuration.
+    std::vector<magnification::FiniteSourceGeometry> finite_source_geometry(
+        const std::vector<double>& times,
+        const lcbi_params& params
+    ) const;
+
     // Single-source magnification.
     std::vector<double> magnification(
         const std::vector<double>& times,

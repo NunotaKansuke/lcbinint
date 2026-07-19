@@ -186,6 +186,23 @@ std::vector<MagnificationResult> LightCurve::evaluate(
         times, cpp_params, model::from_c_options(&runtime_opts));
 }
 
+std::vector<magnification::FiniteSourceGeometry> LightCurve::finite_source_geometry(
+    const std::vector<double>& times, const lcbi_params& params) const
+{
+    const lcbi_params p = apply_coords(params);
+    const auto cpp_params = model::from_c_params(p);
+    if (!cpp_params.is_valid()) throw std::runtime_error("invalid argument");
+    const auto runtime_opts = runtime_options();
+    model::LensModel lens_model(
+        cpp_params, model::from_c_options(&runtime_opts), site_);
+    std::vector<magnification::FiniteSourceGeometry> output(times.size());
+    for (std::size_t i = 0; i < times.size(); ++i) {
+        if (!lens_model.finite_source_geometry(times[i], output[i]))
+            throw std::runtime_error("finite-source geometry unavailable");
+    }
+    return output;
+}
+
 std::vector<double> LightCurve::magnification(
     const std::vector<double>& times,
     const lcbi_params&         params) const

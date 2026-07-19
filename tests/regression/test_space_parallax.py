@@ -127,3 +127,34 @@ def test_light_curves_share_one_model_but_each_keeps_its_site():
     model.parallax = False
     assert not ground.parallax
     assert not space.parallax
+
+
+def test_finite_source_geometry_preserves_curve_sky_site_and_kepler_model():
+    lcbinint = pytest.importorskip("lcbinint")
+    times = np.array([8999.2, 9000.0, 9000.8])
+    table = np.array([
+        [2458999.0, 20.0, -10.0, 0.010],
+        [2459000.0, 21.0, -10.5, 0.011],
+        [2459001.0, 22.0, -11.0, 0.012],
+    ])
+    curve = lcbinint.LightCurve(
+        coordinates="vbm", parallax=True, orbital_motion="kepler",
+        sky=lcbinint.obs.SkyCoord(270.0, -30.0),
+        site=lcbinint.obs.Site("space", table), t_ref=9000.0,
+        limb_darkening=lcbinint.LimbDarkening(0.4, 0.0),
+    )
+    parameters = dict(
+        t0=9000.0, tE=20.0, u0=0.1, alpha=0.2, s=1.3, q=0.002,
+        rho=0.001, piEN=0.1, piEE=-0.05, g1=1e-3, g2=2e-3,
+        g3=-5e-4, lom_szs=0.3, lom_ar=0.95,
+    )
+    trajectory = curve.source_trajectory(times, parameters)
+    geometry = curve.finite_source_geometry(times, parameters)
+
+    # VBM coordinates store reciprocal q and the opposite lens-plane axis.
+    np.testing.assert_allclose(geometry.source_x, trajectory.x, rtol=0, atol=0)
+    np.testing.assert_allclose(geometry.source_y, trajectory.y, rtol=0, atol=0)
+    assert np.all(np.asarray(geometry.mass_ratio) > 1.0)
+    assert np.all(np.asarray(geometry.source_radius) == parameters["rho"])
+    assert np.all(np.asarray(geometry.limb_darkening_c) == 0.4)
+    assert np.ptp(np.asarray(geometry.separation)) > 0.0

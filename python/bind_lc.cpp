@@ -67,6 +67,18 @@ struct PySourceTrajectory {
     std::vector<double> y;
 };
 
+struct PyFiniteSourceGeometry {
+    std::vector<double> separation;
+    std::vector<double> mass_ratio;
+    std::vector<double> source_x;
+    std::vector<double> source_y;
+    std::vector<double> source_radius;
+    std::vector<double> limb_darkening_c;
+    std::vector<double> limb_darkening_d;
+    std::vector<double> absolute_tolerance;
+    std::vector<double> relative_tolerance;
+};
+
 struct PyGeometryBranches {
     std::vector<std::vector<double>> x;
     std::vector<std::vector<double>> y;
@@ -1034,6 +1046,17 @@ void register_lc_submodule(py::module_& parent)
 	            throw py::key_error("SourceTrajectory: unknown key '" + key + "'");
 	        });
 
+    py::class_<PyFiniteSourceGeometry>(lc, "FiniteSourceGeometry")
+        .def_readonly("separation", &PyFiniteSourceGeometry::separation)
+        .def_readonly("mass_ratio", &PyFiniteSourceGeometry::mass_ratio)
+        .def_readonly("source_x", &PyFiniteSourceGeometry::source_x)
+        .def_readonly("source_y", &PyFiniteSourceGeometry::source_y)
+        .def_readonly("source_radius", &PyFiniteSourceGeometry::source_radius)
+        .def_readonly("limb_darkening_c", &PyFiniteSourceGeometry::limb_darkening_c)
+        .def_readonly("limb_darkening_d", &PyFiniteSourceGeometry::limb_darkening_d)
+        .def_readonly("absolute_tolerance", &PyFiniteSourceGeometry::absolute_tolerance)
+        .def_readonly("relative_tolerance", &PyFiniteSourceGeometry::relative_tolerance);
+
 	    py::class_<PyGeometryBranches>(lc, "GeometryBranches")
 	        .def_readonly("x", &PyGeometryBranches::x)
 	        .def_readonly("y", &PyGeometryBranches::y)
@@ -1586,6 +1609,35 @@ LightCurves with a ground Site apply the terrestrial correction.)")
 	            "Compute source trajectory in the lens-plane frame.\n"
 	            "Applies all active model terms (parallax, xallarap).\n"
 	            "Returns SourceTrajectory with times, x, and y lists (Einstein ring units).")
+
+            .def("finite_source_geometry",
+                [](const LC& curve, py::object times_obj, py::kwargs kw) {
+                    py::array_t<double, py::array::forcecast> times(times_obj);
+                    auto buffer = times.request();
+                    const auto* pointer = static_cast<const double*>(buffer.ptr);
+                    std::vector<double> values(pointer, pointer + buffer.size);
+                    const lcbi_params parameters = params_from_dict(py::dict(kw));
+                    std::vector<lcbinint::magnification::FiniteSourceGeometry> geometry;
+                    {
+                        py::gil_scoped_release release;
+                        geometry = curve.finite_source_geometry(
+                            values, parameters);
+                    }
+                    PyFiniteSourceGeometry result;
+                    for (const auto& item : geometry) {
+                        result.separation.push_back(item.separation);
+                        result.mass_ratio.push_back(item.mass_ratio);
+                        result.source_x.push_back(item.source.x);
+                        result.source_y.push_back(item.source.y);
+                        result.source_radius.push_back(item.source_radius);
+                        result.limb_darkening_c.push_back(item.limb_darkening_c);
+                        result.limb_darkening_d.push_back(item.limb_darkening_d);
+                        result.absolute_tolerance.push_back(item.absolute_tolerance);
+                        result.relative_tolerance.push_back(item.relative_tolerance);
+                    }
+                    return result;
+                }, py::arg("times"),
+                "Return root-solve-free finite-source geometry using this curve's sky/site/model.")
 
         .def("__repr__", [](const LC& lc) {
             const auto& o = lc.options();

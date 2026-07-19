@@ -78,11 +78,24 @@ int main()
     if (!high_resolution.prefer_polar || high_resolution.source_bins != 64) {
         return 44;
     }
+    const auto tight_high_resolution =
+        lcbinint::magnification::calibrated_binary_resolution(
+            1.0e-3, 1.0e-3, 2.0e-4, 1000.0, 0.0, 1.0e-5, 400);
+    if (!tight_high_resolution.prefer_polar || tight_high_resolution.source_bins != 400) {
+        return 50;
+    }
     const auto tangent_resolution =
         lcbinint::magnification::calibrated_binary_resolution(
             0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 1.0e-3, 400);
     if (tangent_resolution.prefer_polar || tangent_resolution.source_bins < 100) {
         return 45;
+    }
+    const auto tight_tangent_resolution =
+        lcbinint::magnification::calibrated_binary_resolution(
+            0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 1.0e-5, 400);
+    if (tight_tangent_resolution.prefer_polar ||
+        tight_tangent_resolution.source_bins != 400) {
+        return 51;
     }
     const auto triple_calibration_geometry =
         lcbinint::model::make_triple_lens_geometry(1.0, 1.0e-3, 1.0e-4, 0.5, 1.2);
@@ -99,6 +112,13 @@ int main()
     if (triple_high_resolution.prefer_polar ||
         triple_high_resolution.source_bins <= 0 || triple_high_resolution.source_bins > 80) {
         return 49;
+    }
+    const auto triple_tight_resolution =
+        lcbinint::magnification::calibrated_triple_resolution(
+            triple_calibration_geometry, 1.0e-3, 2.0e-4, 10.0, 0.0, 1.0e-5, 400);
+    if (triple_tight_resolution.prefer_polar ||
+        triple_tight_resolution.source_bins != 400) {
+        return 52;
     }
     if (lcbi_magnification(0.0, &params, &options, &result) != LCBI_OK) {
         return 3;

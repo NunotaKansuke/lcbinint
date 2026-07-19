@@ -118,6 +118,12 @@ class LightCurve:
     def source_trajectory(self, times, params=None, **kwargs):
         return self._native.source_trajectory(times, **self._merge_params(params, **kwargs))
 
+    def finite_source_geometry(self, times, params=None, **kwargs):
+        """Return trajectory-resolved geometry without solving lens roots."""
+        return self._native.finite_source_geometry(
+            times, **self._merge_params(params, **kwargs)
+        )
+
     def separation(self, time=None, params=None, **kwargs):
         if params is None and isinstance(time, (dict, Parameters)):
             params = time

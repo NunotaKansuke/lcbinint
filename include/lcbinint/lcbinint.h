@@ -102,8 +102,8 @@ typedef struct lcbi_options {
     double adaptive_hex_threshold;   /* VBM-style hex tolerance: |a4 correction|/mag > this => IR mode */
     int automatic_source_bins;       /* 0 = fixed source_bins, 1 = calibrated one-shot auto nbin (default) */
     int max_source_bins;             /* maximum nbin selected by automatic mode */
-    double finite_source_tol;        /* absolute adaptive IR tolerance target; 0 disables */
-    double finite_source_reltol;     /* relative adaptive IR tolerance target; 0 disables */
+    double finite_source_tol;        /* absolute term in tol + reltol*max(|A|,1); 0 means no abs term */
+    double finite_source_reltol;     /* relative term; both terms 0 selects the calibrated default */
 } lcbi_options;
 
 typedef struct lcbi_result {

@@ -1263,6 +1263,137 @@ def test_lcbinint_adaptive_does_not_accept_known_local_error_underestimates(
     assert (not curve.finite_source_converged[0]) or abs_error <= 1.05 * target
 
 
+def test_absolute_only_tolerance_does_not_inherit_default_relative_budget():
+    """tol alone is absolute-only, including the final Cartesian fallback."""
+    lcbinint = pytest.importorskip("lcbinint")
+
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        u0=-0.1557048648048206,
+        alpha=0.660230880975817,
+        q=0.8995994635360866,
+        sep=0.5230965983889266,
+        rho=0.005574278492276441,
+    )
+    curve = _model(
+        lcbinint,
+        params,
+        lcbinint.Options(
+            nbin="auto",
+            max_source_bins=400,
+            tol=1.0e-5,
+            reltol=0.0,
+            inverse_ray_grid="cartesian",
+        ),
+    ).light_curve([-0.11634042842617024])
+
+    assert curve.finite_source_method_names == ["inverse_ray_cartesian"]
+    assert curve.finite_source_refinement_levels == [0]
+    assert curve.finite_source_error_estimates[0] > 1.0e-5
+    assert curve.finite_source_converged == [False]
+    assert not curve.all_converged
+
+
+def test_tightening_absolute_tolerance_is_monotonic_and_order_independent():
+    lcbinint = pytest.importorskip("lcbinint")
+    params = dict(
+        t0=0.0,
+        tE=1.0,
+        u0=-0.1557048648048206,
+        alpha=0.660230880975817,
+        q=0.8995994635360866,
+        s=0.5230965983889266,
+        rho=0.005574278492276441,
+    )
+    time = -0.11634042842617024
+
+    def evaluate(tol, times):
+        return lcbinint.LightCurve(options=lcbinint.Options(
+            nbin=80,
+            tol=tol,
+            reltol=0.0,
+            inverse_ray_grid="cartesian",
+        )).info(times, **params)
+
+    loose = evaluate(1.0e-2, [time])
+    tight = evaluate(1.0e-5, [time])
+    assert loose.magnifications == tight.magnifications
+    assert loose.finite_source_error_estimates == tight.finite_source_error_estimates
+    assert loose.finite_source_converged == [True]
+    assert tight.finite_source_converged == [False]
+
+    times = [time, -0.11]
+    forward = evaluate(1.0e-5, times)
+    reverse = evaluate(1.0e-5, list(reversed(times)))
+    assert forward.magnifications == list(reversed(reverse.magnifications))
+    assert forward.finite_source_error_estimates == list(
+        reversed(reverse.finite_source_error_estimates)
+    )
+    assert forward.finite_source_converged == list(
+        reversed(reverse.finite_source_converged)
+    )
+
+
+def test_explicit_polar_tolerance_has_measured_convergence_state():
+    """An explicit tolerance cannot be certified by a synthetic zero error."""
+    lcbinint = pytest.importorskip("lcbinint")
+
+    options = lcbinint.Options(
+        coordinates="vbm",
+        inverse_ray_grid="polar",
+        nbin=50,
+        tol=1.0e-5,
+        reltol=0.0,
+        point_source_threshold=1.0e9,
+        hexadecapole_threshold=1.0e9,
+    )
+    curve = lcbinint.LightCurve(options=options).info(
+        [0.004],
+        t0=0.0,
+        tE=1.0,
+        u0=-1.0e-3,
+        alpha=0.5,
+        s=0.95,
+        q=1.0e-2,
+        rho=5.0e-3,
+    )
+
+    assert curve.finite_source_method_names == ["inverse_ray_polar"]
+    assert curve.finite_source_error_estimates[0] > 0.0
+    assert (
+        not curve.finite_source_converged[0]
+        or curve.finite_source_error_estimates[0] <= 1.0e-5
+    )
+
+
+def test_explicit_cartesian_tolerance_cross_checks_optimistic_area_estimate():
+    """A coarse/fine check catches a known low-amplitude lattice alias."""
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = lcbinint.LightCurve(options=lcbinint.Options(
+        coordinates="center_of_mass",
+        caustic_bins=600,
+        nbin=240,
+        tol=1.0e-5,
+        reltol=0.0,
+        hex_tol=1.0e-5,
+        inverse_ray_grid="cartesian",
+    )).info(
+        [-9.872063992894269],
+        t0=0.0,
+        tE=1.0,
+        u0=0.008912280938420293,
+        alpha=0.0,
+        s=0.1,
+        q=1.0e-6,
+        rho=0.01,
+    )
+
+    assert curve.finite_source_method_names == ["inverse_ray_cartesian"]
+    assert curve.finite_source_error_estimates[0] > 1.0e-5
+    assert curve.finite_source_converged == [False]
+
+
 def test_lcbinint_options_exposes_fields():
     lcbinint = pytest.importorskip("lcbinint")
 

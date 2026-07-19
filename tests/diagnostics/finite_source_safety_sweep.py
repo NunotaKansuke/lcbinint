@@ -63,13 +63,18 @@ def _log_uniform(rng: np.random.Generator, low: float, high: float) -> float:
     return float(10.0 ** rng.uniform(math.log10(low), math.log10(high)))
 
 
-def lens_cases(count: int, rng: np.random.Generator) -> list[LensCase]:
+def lens_cases(
+    count: int,
+    rng: np.random.Generator,
+    tolerances: list[float],
+) -> list[LensCase]:
     # Boundary and topology anchors are deliberately paired rather than taking
     # the full Cartesian product; random log-space cases fill the interior.
     separations = [0.1, 0.3, 0.67, 1.0, 1.5, 3.0, 4.0]
     mass_ratios = [1.0e-6, 1.0e-4, 1.0e-2, 0.1, 1.0]
     source_radii = [1.0e-4, 1.0e-3, 1.0e-2, 0.1]
-    tolerances = [1.0e-4, 1.0e-3, 1.0e-2]
+    if not tolerances or any(tolerance <= 0.0 for tolerance in tolerances):
+        raise ValueError("tolerances must contain positive values")
     anchors = [
         LensCase(
             separations[i % len(separations)],
@@ -85,7 +90,7 @@ def lens_cases(count: int, rng: np.random.Generator) -> list[LensCase]:
                 _log_uniform(rng, 0.1, 4.0),
                 _log_uniform(rng, 1.0e-6, 1.0),
                 _log_uniform(rng, 1.0e-4, 0.1),
-                _log_uniform(rng, 1.0e-4, 1.0e-2),
+                float(tolerances[int(rng.integers(len(tolerances)))]),
             )
         )
     return anchors
@@ -274,7 +279,7 @@ def run(args: argparse.Namespace) -> dict:
     failures: list[dict] = []
     evaluation_errors: list[dict] = []
 
-    cases = lens_cases(args.lens_cases, rng)
+    cases = lens_cases(args.lens_cases, rng, args.tolerances)
     for case_index, case in enumerate(cases, start=1):
         light_curve, reference_solver, reference_tolerance = make_solvers(case)
         for source_x, source_y in source_samples(case, args.points_per_case, rng):
@@ -315,6 +320,10 @@ def run(args: argparse.Namespace) -> dict:
     top_all_errors = sorted(
         results, key=lambda item: item.error / item.tolerance, reverse=True
     )[:20]
+    converged_failures = [
+        item for item in results
+        if item.converged and item.error > item.tolerance
+    ]
     method_stats = {}
     for method in sorted(methods):
         selected = [item for item in results if item.method == method]
@@ -327,6 +336,9 @@ def run(args: argparse.Namespace) -> dict:
             # ordinary reference regime.
             "reference_disagreements": sum(
                 item.error > item.tolerance for item in selected
+            ),
+            "converged_reference_disagreements": sum(
+                item.converged and item.error > item.tolerance for item in selected
             ),
             "over_half_tolerance": sum(
                 item.error > 0.5 * item.tolerance for item in selected
@@ -356,6 +368,9 @@ def run(args: argparse.Namespace) -> dict:
         "safety_flag_counts": {str(key): value for key, value in sorted(safety_flags.items())},
         "all_method_reference_disagreements": sum(
             item.error > item.tolerance for item in results
+        ),
+        "converged_reference_disagreements": sum(
+            item.converged and item.error > item.tolerance for item in results
         ),
         "all_method_over_half_tolerance": sum(
             item.error > 0.5 * item.tolerance for item in results
@@ -395,6 +410,7 @@ def run(args: argparse.Namespace) -> dict:
         "unconverged_fast_path_samples": sum(not item.converged for item in fast),
         "evaluation_errors": evaluation_errors,
         "failures": failures,
+        "converged_failures": [asdict(item) for item in converged_failures],
         "top_fast_errors": [asdict(item) for item in top_fast_errors],
         "top_all_reference_differences": [asdict(item) for item in top_all_errors],
         "coefficient_grid": coefficient_grid(results),
@@ -407,6 +423,13 @@ def main() -> int:
     parser.add_argument("--lens-cases", type=int, default=96)
     parser.add_argument("--points-per-case", type=int, default=12)
     parser.add_argument("--seed", type=int, default=731)
+    parser.add_argument(
+        "--tolerances",
+        type=float,
+        nargs="+",
+        default=[1.0e-4, 1.0e-3, 1.0e-2],
+        help="absolute tolerances sampled by the stratified lens cases",
+    )
     parser.add_argument("--progress", type=int, default=12)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
