@@ -412,7 +412,7 @@ def test_lcbinint_auto_inverse_ray_uses_polar_only_for_high_magnification():
 
 
 def test_lcbinint_auto_nbin_reproduces_independent_validation_row():
-    """The frozen selector chooses the validated 40-bin Cartesian result once."""
+    """Auto corrects a preselection that disagrees with the area-error budget."""
     lcbinint = pytest.importorskip("lcbinint")
     source_x = 0.008845738870878478
     source_y = 0.001678002323850983
@@ -439,9 +439,62 @@ def test_lcbinint_auto_nbin_reproduces_independent_validation_row():
     ).info([source_x], **params)
 
     assert auto.finite_source_method_names == ["inverse_ray_cartesian"]
-    assert auto.finite_source_refinement_levels == [0]
-    assert auto.magnifications == fixed.magnifications
+    assert auto.finite_source_refinement_levels == [1]
+    assert auto.finite_source_converged == [True]
+    assert fixed.finite_source_refinement_levels == [0]
+    assert fixed.finite_source_converged == [False]
+    assert auto.magnifications != fixed.magnifications
     assert abs(auto.magnifications[0] / 113.42113550323353 - 1.0) < 1.0e-3
+
+
+def test_lcbinint_auto_nbin_accepts_second_order_smooth_resonant_boundary():
+    lcbinint = pytest.importorskip("lcbinint")
+    np = pytest.importorskip("numpy")
+
+    times = np.linspace(-0.15, 0.07, 40)
+    params = lcbinint.LensParams(
+        t0=0.0,
+        tE=1.0,
+        u0=0.03,
+        alpha=0.0,
+        sep=1.05,
+        q=1.0e-3,
+        rho=1.8e-3,
+    )
+    limb = lcbinint.LimbDarkening.linear(0.407200474)
+
+    def evaluate(nbin, max_source_bins=400):
+        return lcbinint.LightCurve(
+            options=lcbinint.Options(
+                coordinates="vbm",
+                nbin=nbin,
+                max_source_bins=max_source_bins,
+            ),
+            limb_darkening=limb,
+        ).info(times, params)
+
+    auto = evaluate("auto")
+    capped = evaluate("auto", max_source_bins=40)
+    fixed = evaluate(40)
+    reference = evaluate(200)
+
+    assert auto.all_converged
+    assert max(auto.finite_source_refinement_levels) == 0
+    assert any(
+        method == "inverse_ray_cartesian" and level == 0
+        for method, level in zip(
+            auto.finite_source_method_names,
+            auto.finite_source_refinement_levels,
+        )
+    )
+    assert capped.all_converged
+    assert max(capped.finite_source_refinement_levels) == 0
+    assert fixed.all_converged
+    assert max(fixed.finite_source_refinement_levels) == 0
+    assert max(
+        abs(actual / expected - 1.0)
+        for actual, expected in zip(auto.magnifications, reference.magnifications)
+    ) < 1.0e-3
 
 
 def test_lcbinint_auto_inverse_ray_avoids_tiny_source_cartesian_aliasing():
@@ -765,7 +818,7 @@ def test_lcbinint_coordinates_large_source_planetary_caustic_crossing(inverse_ra
         assert math.isclose(actual_value, reference_value, rel_tol=2.5e-3, abs_tol=2.5e-3)
 
 
-def test_lcbinint_auto_nbin_selects_resolution_without_runtime_refinement():
+def test_lcbinint_auto_nbin_selects_resolution_and_meets_runtime_budget():
     lcbinint = pytest.importorskip("lcbinint")
     module = pytest.importorskip("VBMicrolensing")
 
@@ -808,7 +861,7 @@ def test_lcbinint_auto_nbin_selects_resolution_without_runtime_refinement():
     fixed_rel = max(abs(a / b - 1.0) for a, b in zip(fixed, reference))
     adaptive_rel = max(abs(a / b - 1.0) for a, b in zip(adaptive.magnifications, reference))
 
-    assert max(adaptive.finite_source_refinement_levels) == 0
+    assert max(adaptive.finite_source_refinement_levels) <= 1
     assert max(adaptive.finite_source_error_estimates) > 0.0
     assert adaptive_rel < 5.0e-4
     assert adaptive_rel <= max(1.05 * fixed_rel, 5.0e-4)
@@ -817,9 +870,12 @@ def test_lcbinint_auto_nbin_selects_resolution_without_runtime_refinement():
         + adaptive_options.finite_source_reltol * max(abs(mag), 1.0)
         for mag in adaptive.magnifications
     ]
-    assert (not adaptive.all_converged) or max(
-        err / target for err, target in zip(adaptive.finite_source_error_estimates, target_errors)
-    ) < 1.0
+    for converged, error, target in zip(
+        adaptive.finite_source_converged,
+        adaptive.finite_source_error_estimates,
+        target_errors,
+    ):
+        assert (not converged) or error <= target
 
 
 def test_lcbinint_cartesian_ir_seeds_grazing_caustic_limb_images():
@@ -934,7 +990,8 @@ def test_lcbinint_local_boundary_estimate_avoids_ld_over_refinement():
         lcbinint.Options(nbin="auto", max_source_bins=400, reltol=1.0e-3),
     ).light_curve([time])
 
-    assert curve.finite_source_refinement_levels[0] == 0
+    assert curve.finite_source_refinement_levels[0] <= 1
+    assert curve.finite_source_converged[0]
     assert abs(curve.magnifications[0] / reference - 1.0) < 1.0e-3
 
 

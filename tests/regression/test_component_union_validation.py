@@ -26,7 +26,7 @@ class TestComponentUnionEdgeCases:
         )
         times = np.linspace(case.t_min, case.t_max, case.n_times)
 
-        # Use calibrated one-shot resolution with a tight tolerance
+        # Use calibrated resolution with error-guided retry and a tight tolerance
         opts = lcbinint.Options(
             nbin="auto",
             max_source_bins=200, reltol=1e-4

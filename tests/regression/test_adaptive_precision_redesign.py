@@ -78,8 +78,8 @@ class TestPhase2GridSpacingRefinement:
 class TestPhase3ErrorFloor:
     """Phase 3: Error floor prevents accepting insufficient bins."""
 
-    def test_auto_nbin_is_one_shot_for_tight_tolerance(self):
-        """A tight target is handled by preselection, never runtime refinement."""
+    def test_auto_nbin_retries_for_tight_tolerance(self):
+        """A tight target may refine only rows whose measured budget is missed."""
         case = Case(
             name="wide_caustic",
             separation=0.95, mass_ratio=0.01,
@@ -98,14 +98,18 @@ class TestPhase3ErrorFloor:
         refinement_levels = np.array(result_tight.finite_source_refinement_levels)
 
         assert np.all(np.isfinite(result_tight.magnifications))
-        assert np.all(refinement_levels == 0)
+        assert np.any(refinement_levels > 0)
+        assert np.max(refinement_levels) <= 2
+        converged = np.array(result_tight.finite_source_converged)
+        assert result_tight.all_converged == bool(np.all(converged))
+        assert len(result_tight.unconverged_indices) == int(np.count_nonzero(~converged))
 
 
-class TestOneShotAutoResolution:
-    """The calibrated selector does not perform iterative refinement."""
+class TestFeedbackCorrectedAutoResolution:
+    """The calibrated selector uses bounded feedback from its error estimate."""
 
-    def test_no_refinement_iterations(self):
-        """Automatic resolution stays one-shot and reports hard points honestly."""
+    def test_refinement_iterations_are_bounded(self):
+        """Automatic resolution retries missed rows and reports the final state."""
         case = Case(
             name="wide_caustic",
             separation=0.95, mass_ratio=0.01,
@@ -126,9 +130,10 @@ class TestOneShotAutoResolution:
         converged = np.array(result.finite_source_converged)
 
         max_iterations = np.max(refinement_levels)
-        assert max_iterations == 0
+        assert 0 < max_iterations <= 2
 
         assert np.all(np.isfinite(mag)), "Auto nbin should return finite magnifications"
+        assert result.all_converged
         assert result.all_converged == bool(np.all(converged))
         assert len(result.unconverged_indices) == int(np.count_nonzero(~converged))
 

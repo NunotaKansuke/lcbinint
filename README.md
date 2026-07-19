@@ -19,7 +19,7 @@ Features:
 - reusable light-curve callables
 - annual and terrestrial parallax
 - circular and Keplerian lens orbital motion
-- calibrated one-shot finite-source resolution and Cartesian/polar selection
+- calibrated finite-source resolution with error-guided Cartesian correction
 
 ## Developer Install
 
@@ -132,9 +132,11 @@ It corresponds to VBMicrolensing's `BinaryMag2`: `x` and `y` are
 center-of-mass source coordinates and `rho` must be positive.
 
 For binary finite-source inverse-ray calculations, `nbin="auto"` selects the
-Cartesian/polar grid and resolution once per source position from calibrated
-geometry diagnostics.  It does not run a trial integration or retry at a higher
-resolution.  The calibration experiment and frozen artifacts are documented in
+Cartesian/polar grid and an initial resolution per source position from
+calibrated geometry diagnostics. If the Cartesian area-error estimate misses
+the requested budget, only that position advances to the smallest suitable
+grid bucket, up to `max_source_bins`. Fixed integer `nbin` never retries. The
+calibration experiment and frozen artifacts are documented in
 [`docs/finite-source-auto-calibration.md`](docs/finite-source-auto-calibration.md).
 
 `LightCurve.info(...)` reports the selected method, convergence state, and

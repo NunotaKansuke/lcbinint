@@ -31,9 +31,20 @@ caustic distance, companion-resolution risk, and linear limb darkening.
 
 The prediction is rounded upward to a supported bucket and capped by
 `max_source_bins`. High-magnification positions may select the polar grid;
-ordinary positions use the Cartesian model. This is deliberately a one-shot
-choice: no trial integration or silent retry is performed. A result that does
-not meet its requested budget is returned with `finite_source_converged=False`.
+ordinary positions use the Cartesian model. Cartesian integration checks its
+independent area-error estimate after the predicted grid is evaluated. If that
+estimate exceeds the same tolerance budget used by `finite_source_converged`,
+automatic mode increases to the smallest supported bucket implied by the
+measured shortfall and retries, up to `max_source_bins`. Fixed integer `nbin`
+never retries. A result that still cannot meet its budget at the cap is returned
+with `finite_source_converged=False`.
+
+The Cartesian area estimator follows the corrected scan's actual order. A
+no-fold boundary with only small row-to-row jumps receives the extra cell-width
+factor of a second-order edge rule. Fold seeds and large jumps retain the
+first-order topology-warning scale, and the independent small-companion and
+tangent-caustic guards remain active. Thus a large but smooth image boundary
+does not trigger a retry merely because it crosses many grid rows.
 
 The exact fitted coefficients and validation metrics are frozen under
 `tests/diagnostics/results/finite-source-auto-20260716/`. Independent validation

@@ -1401,12 +1401,15 @@ double cartesian_area_error_indicator(
         return 0.0;
     }
 
-    // The scan boundary is second-order after the (t - 0.5) edge corrections,
-    // but the estimate keeps the conservative first-order boundary_rows model:
-    // near-fold cells still degrade toward first order.  Gap counts are
-    // topology warnings, not area errors, so their weight stays small.  With
-    // the claimed-cell registry cross-seed overlaps can no longer occur, so
-    // the old overlap terms are gone.
+    // The (t - 0.5) edge correction makes an ordinary smooth image boundary
+    // second order.  Fold components and large row-to-row jumps can degrade
+    // back toward first order, so retain the original scale for those topology
+    // warnings.  A small-jump, no-fold scan gets the extra cell-width factor
+    // expected from the corrected boundary rule.  Gap repairs participate in
+    // the same scaling there: without a large jump they are scan-continuation
+    // events, not evidence of missing image area.  With the claimed-cell
+    // registry cross-seed overlaps can no longer occur, so the old overlap
+    // terms are gone.
     const double gap_weight = source_radius >= 2.0e-2
         ? 0.005
         : ((source_radius < 1.0e-2 && diagnostics.seed_count >= 16) ? 0.015 : 0.03);
@@ -1419,6 +1422,13 @@ double cartesian_area_error_indicator(
     if (source_radius >= 1.0e-3 && diagnostics.max_jump_cells > 10.0) {
         const double jump_weight = source_radius >= 2.0e-2 ? 0.2 : 4.0;
         uncertain_cells += jump_weight * std::log10(diagnostics.max_jump_cells / 10.0);
+    }
+    const bool smooth_corrected_boundary =
+        diagnostics.fold_seed_count == 0 && diagnostics.max_jump_cells <= 20.0;
+    if (smooth_corrected_boundary) {
+        constexpr double kSmoothBoundarySafetyCells = 8.0;
+        uncertain_cells *= std::min(
+            1.0, kSmoothBoundarySafetyCells / static_cast<double>(bins));
     }
     const double cell_area = (source_radius / static_cast<double>(bins)) *
                              (source_radius / static_cast<double>(bins));
@@ -3439,35 +3449,95 @@ FiniteSourceResult fixed_inverse_ray_binary(
         return {magnification, 0, decision, 0.0, 0, true};
     }
 
+    FiniteSourceSettings active_settings = settings;
     LegacyAreaDiagnostics diagnostics;
     double magnification = inverse_ray_cartesian_binary_mag(
         point_magnifier, separation, mass_ratio, source, source_radius,
-        settings, finite_magnifier, &seeds, &diagnostics);
+        active_settings, finite_magnifier, &seeds, &diagnostics);
     if (!std::isfinite(magnification)) {
         return {magnification, 0, decision, std::nan(""), 0, false};
     }
 
-    // Fixed low nbin can still be diagnosed as insufficient, but never causes
-    // a second integration.  Automatic mode applies its companion floor before
-    // entering this function.
+    // Fixed low nbin is diagnostic-only.  Automatic mode starts from its
+    // calibrated one-shot prediction, but that prediction and the independent
+    // Cartesian area-error indicator need not agree for every lens topology.
+    // When they do not, use the measured shortfall to choose the next supported
+    // grid bucket.  This avoids a broad conservative floor while ensuring that
+    // "auto" actually tries to satisfy the same budget reported by converged.
     const double q_abs = std::abs(mass_ratio);
     const double q_small = q_abs < 1.0 ? q_abs : (q_abs > 0.0 ? 1.0 / q_abs : 1.0);
     const bool caustic_contact =
         std::isfinite(caustic_distance) && caustic_distance < 2.0 * source_radius;
-    const bool underresolved_companion = caustic_contact &&
-        q_small < 4.0 * source_radius / static_cast<double>(std::max(settings.source_bins, 1));
+    auto target_error_for = [&](double value) {
+        return settings.finite_source_tol +
+            (settings.finite_source_reltol > 0.0 ? settings.finite_source_reltol : 1.0e-3) *
+                std::max(std::abs(value), 1.0) +
+            (settings.finite_source_tol > 0.0 ? 0.0 : 1.0e-4);
+    };
+    auto diagnose = [&](double value, const LegacyAreaDiagnostics& current_diagnostics) {
+        const bool underresolved = caustic_contact &&
+            q_small < 4.0 * source_radius /
+                static_cast<double>(std::max(active_settings.source_bins, 1));
+        double error = current_diagnostics.estimated_error;
+        if (underresolved) {
+            error = std::max(error, 3.0e-3 * std::max(std::abs(value), 1.0));
+        }
+        return std::pair<double, bool> {
+            error,
+            !underresolved && error <= target_error_for(value),
+        };
+    };
 
-    double error_estimate = diagnostics.estimated_error;
-    if (underresolved_companion) {
-        error_estimate = std::max(
-            error_estimate, 3.0e-3 * std::max(std::abs(magnification), 1.0));
+    auto [error_estimate, converged] = diagnose(magnification, diagnostics);
+    int refinement_level = 0;
+    constexpr std::array<int, 14> kAutoRetryBuckets {{
+        16, 24, 32, 40, 50, 64, 80, 100, 128, 160, 200, 256, 320, 400,
+    }};
+    const int maximum_bins = std::max(settings.max_source_bins, 1);
+    while (settings.automatic_source_bins && !converged &&
+           active_settings.source_bins < maximum_bins) {
+        const double target = target_error_for(magnification);
+        const double shortfall = target > 0.0 && std::isfinite(error_estimate)
+            ? std::max(error_estimate / target, 1.0)
+            : 2.0;
+        // The boundary-area indicator is approximately first order in the
+        // cell width.  A small guard prevents repeated borderline retries;
+        // the next supported bucket still keeps the increase discrete.
+        const int requested_bins = std::max(
+            active_settings.source_bins + 1,
+            static_cast<int>(std::ceil(
+                1.05 * static_cast<double>(active_settings.source_bins) * shortfall)));
+        int retry_bins = maximum_bins;
+        for (const int bucket : kAutoRetryBuckets) {
+            if (bucket >= requested_bins) {
+                retry_bins = std::min(bucket, maximum_bins);
+                break;
+            }
+        }
+        if (retry_bins <= active_settings.source_bins) {
+            break;
+        }
+
+        active_settings.source_bins = retry_bins;
+        if (active_settings.polar_source_bins <= 0) {
+            active_settings.polar_source_bins = retry_bins;
+        }
+        LegacyAreaDiagnostics retry_diagnostics;
+        const double retry_magnification = inverse_ray_cartesian_binary_mag(
+            point_magnifier, separation, mass_ratio, source, source_radius,
+            active_settings, finite_magnifier, &seeds, &retry_diagnostics);
+        if (!std::isfinite(retry_magnification)) {
+            break;
+        }
+        magnification = retry_magnification;
+        diagnostics = retry_diagnostics;
+        ++refinement_level;
+        std::tie(error_estimate, converged) = diagnose(magnification, diagnostics);
     }
-    const double target_error = settings.finite_source_tol +
-        (settings.finite_source_reltol > 0.0 ? settings.finite_source_reltol : 1.0e-3) *
-            std::max(std::abs(magnification), 1.0) +
-        (settings.finite_source_tol > 0.0 ? 0.0 : 1.0e-4);
-    const bool converged = !underresolved_companion && error_estimate <= target_error;
-    return {magnification, 0, decision, error_estimate, 0, converged};
+    if (refinement_level > 0) {
+        decision.reason = "cartesian inverse-ray with auto grid retry";
+    }
+    return {magnification, 0, decision, error_estimate, refinement_level, converged};
 }
 
 // ---------- image-spine kernel (finite_mode = 3) ----------

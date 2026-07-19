@@ -21,9 +21,18 @@ derived in this document; see its own router documentation for the ported
 rule and its runtime dispatch. The calibration methodology and results below
 are kept as the historical record of how that rule was derived.
 
-The runtime `nbin` rule is a one-shot preselection from quantities already
-computed at the source position.  It performs no trial integration,
-convergence retry, or fallback, so its overhead is a few scalar operations.
+The binary runtime `nbin` rule starts with a calibrated preselection from
+quantities already computed at the source position. Cartesian integration then
+compares its independent area-error estimate with the requested tolerance. A
+mismatch increases only that evaluation to the smallest supported bucket
+implied by the measured shortfall, up to `max_source_bins`; fixed integer
+`nbin` never retries.
+
+The post-check is order-aware: the edge-corrected Cartesian scan uses a
+second-order boundary estimate when there are no fold seeds and row-to-row
+jumps remain small. Fold or large-jump topology warnings retain their original
+first-order scale. This prevents smooth high-area images from turning the
+feedback step into a blanket resolution increase.
 
 ## Triple-lens calibration
 
