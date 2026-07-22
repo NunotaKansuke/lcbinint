@@ -1,4 +1,4 @@
-[Back to documentation](readme.md)
+[Previous: Light curve functions](LightCurves.md) · [Documentation home](readme.md) · [Next: Limb darkening](LimbDarkening.md)
 
 # Critical curves and caustics
 
@@ -26,9 +26,9 @@ params = {"s": s, "q": q}
 curve = lcbinint.LightCurve(options=lcbinint.Options(caustic_bins=200))
 caustics = curve.caustics(params)
 
-fig = plt.figure(figsize=(5, 5))
+fig = plt.figure(figsize=(4, 4))
 for x, y in zip(caustics.x, caustics.y):
-    plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color="tab:red")
+    plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
 plt.axis("equal")
 plt.show()
 ```
@@ -40,7 +40,7 @@ Calculate and plot the critical curves in a new block:
 ```python
 critical_curves = curve.critical_curves(params)
 
-fig = plt.figure(figsize=(5, 5))
+fig = plt.figure(figsize=(4, 4))
 for x, y in zip(critical_curves.x, critical_curves.y):
     plt.plot(-np.asarray(x), -np.asarray(y), color="tab:blue")
 plt.axis("equal")
@@ -51,3 +51,5 @@ plt.show()
 
 The arbitrary four-lens geometry example is not included because the current
 `lcbinint` model selector supports binary and triple lenses only.
+
+[Previous: Light curve functions](LightCurves.md) · [Documentation home](readme.md) · [Next: Limb darkening](LimbDarkening.md)

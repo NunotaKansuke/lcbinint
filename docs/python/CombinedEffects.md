@@ -1,4 +1,4 @@
-[Back to documentation](readme.md)
+[Previous: Binary sources](BinarySources.md) · [Documentation home](readme.md)
 
 # Combining physical effects
 
@@ -98,7 +98,7 @@ combined_mag = combined(t, params)
 Plot the cumulative effect on the light curve:
 
 ```python
-plt.figure(figsize=(8, 5))
+plt.figure(figsize=(6.4, 4))
 plt.plot(t, static_mag, label="static 2L1S")
 plt.plot(t, parallax_mag, label="+ parallax")
 plt.plot(t, orbit_mag, label="+ lens orbit")
@@ -120,11 +120,11 @@ display_y = -np.asarray(trajectory.y)
 indices = [75, 150, 225]
 colors = ["tab:blue", "tab:purple", "tab:red"]
 
-plt.figure(figsize=(6, 6))
+plt.figure(figsize=(4.8, 4.8))
 for index, color in zip(indices, colors):
     caustics = combined.caustics(float(t[index]), params)
     for x, y in zip(caustics.x, caustics.y):
-        plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color=color)
+        plt.plot(-np.asarray(x), -np.asarray(y), color=color, lw=1.1)
     plt.scatter([display_x[index]], [display_y[index]], color=color)
 plt.plot(display_x, display_y, color="0.25")
 plt.xlabel("y1")
@@ -138,3 +138,5 @@ plt.show()
 `LightCurve.info(t, params)` remains available for the combined model, so
 finite-source convergence should be checked in exactly the same way as for a
 static event.
+
+[Previous: Binary sources](BinarySources.md) · [Documentation home](readme.md)

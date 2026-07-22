@@ -1,4 +1,4 @@
-[Back to documentation](readme.md)
+[Previous: Binary lenses](BinaryLenses.md) · [Documentation home](readme.md) · [Next: Critical curves and caustics](CriticalCurvesAndCaustics.md)
 
 # Light Curve Functions
 
@@ -35,7 +35,7 @@ trajectory = curve.source_trajectory(t, params)
 Plot only the light curve:
 
 ```python
-plt.figure()
+plt.figure(figsize=(4.8, 3.2))
 plt.plot(t, magnifications)
 plt.xlabel("Time")
 plt.ylabel("Magnification")
@@ -49,9 +49,9 @@ Calculate and plot the caustics and source trajectory separately:
 ```python
 caustics = curve.caustics(params)
 
-plt.figure(figsize=(5, 5))
+plt.figure(figsize=(4, 4))
 for x, y in zip(caustics.x, caustics.y):
-    plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color="tab:red")
+    plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
 plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue")
 plt.xlabel("X")
 plt.ylabel("Y")
@@ -93,7 +93,7 @@ trajectory = curve.source_trajectory(t, params)
 Plot only the light curve:
 
 ```python
-plt.figure()
+plt.figure(figsize=(4.8, 3.2))
 plt.plot(t, magnifications)
 plt.xlabel("Time")
 plt.ylabel("Magnification")
@@ -107,9 +107,9 @@ Calculate and plot the caustics and source trajectory separately:
 ```python
 caustics = curve.caustics(params)
 
-plt.figure(figsize=(5, 5))
+plt.figure(figsize=(4, 4))
 for x, y in zip(caustics.x, caustics.y):
-    plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color="tab:red")
+    plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
 plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue")
 plt.xlabel("X")
 plt.ylabel("Y")
@@ -119,4 +119,4 @@ plt.show()
 
 ![Triple-lens caustics and source trajectory](figures/TripleLens_lightcurve_caustics.png)
 
-[Go to Parallax](Parallax.md)
+[Previous: Binary lenses](BinaryLenses.md) · [Documentation home](readme.md) · [Next: Critical curves and caustics](CriticalCurvesAndCaustics.md)

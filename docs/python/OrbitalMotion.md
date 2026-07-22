@@ -1,4 +1,4 @@
-[Back to Parallax](Parallax.md)
+[Previous: Parallax](Parallax.md) · [Documentation home](readme.md) · [Next: Binary sources](BinarySources.md)
 
 # Orbital motion
 
@@ -58,7 +58,7 @@ trajectory_orbital = orbital_curve.source_trajectory(t, params)
 Plot the three light curves:
 
 ```python
-plt.figure()
+plt.figure(figsize=(4.8, 3.2))
 plt.plot(t, magnifications, "g")
 plt.plot(t, magnifications_parallax, "m")
 plt.plot(t, magnifications_orbital, "y")
@@ -75,11 +75,11 @@ Plot caustics at the same three array indices used in the example:
 caustic_indices = [100, 150, 200]
 colors = [(0, 0, 1, 1), (0.4, 0, 0.6, 1), (0.6, 0, 0.4, 1)]
 
-plt.figure(figsize=(5, 5))
+plt.figure(figsize=(4, 4))
 for index, color in zip(caustic_indices, colors):
     caustics = orbital_curve.caustics(float(t[index]), params)
     for x, y in zip(caustics.x, caustics.y):
-        plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color=color)
+        plt.plot(-np.asarray(x), -np.asarray(y), color=color, lw=1.1)
 
 source_x = -np.asarray(trajectory_orbital.x)
 source_y = -np.asarray(trajectory_orbital.y)
@@ -95,4 +95,4 @@ plt.show()
 The current `lcbinint` triple-lens model does not expose triple-lens orbital
 caustics, so that example is not substituted with a static geometry.
 
-[Go to Binary Sources](BinarySources.md)
+[Previous: Parallax](Parallax.md) · [Documentation home](readme.md) · [Next: Binary sources](BinarySources.md)

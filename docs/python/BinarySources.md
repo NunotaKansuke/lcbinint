@@ -1,4 +1,4 @@
-[Back to Orbital Motion](OrbitalMotion.md)
+[Previous: Orbital motion](OrbitalMotion.md) · [Documentation home](readme.md) · [Next: Combining physical effects](CombinedEffects.md)
 
 # Binary sources
 
@@ -65,7 +65,7 @@ magnifications_xallarap = xallarap_curve(t, params)
 Plot the two light curves in their own block:
 
 ```python
-plt.figure()
+plt.figure(figsize=(4.8, 3.2))
 plt.plot(t, magnifications_static)
 plt.plot(t, magnifications_xallarap, "y")
 plt.xlabel("Time")
@@ -148,7 +148,7 @@ The figure makes the extra binary-source and xallarap terms visible instead of
 leaving the combined calculation as a single printed array:
 
 ```python
-plt.figure()
+plt.figure(figsize=(4.8, 3.2))
 plt.plot(t, magnifications_single_source, "y", label="single source + lens orbit")
 plt.plot(t, magnifications_binary_source, "g", label="binary source + xallarap")
 plt.xlabel("Time")
@@ -159,4 +159,4 @@ plt.show()
 
 ![Binary-source binary-lens light curve](figures/BinarySourceBinaryLens_lightcurve.png)
 
-[Back to documentation](readme.md)
+[Previous: Orbital motion](OrbitalMotion.md) · [Documentation home](readme.md) · [Next: Combining physical effects](CombinedEffects.md)

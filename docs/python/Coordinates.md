@@ -1,4 +1,4 @@
-[Back to documentation](readme.md)
+[Previous: Accuracy control](AccuracyControl.md) · [Documentation home](readme.md) · [Next: Parallax](Parallax.md)
 
 # Coordinates and conventions
 
@@ -39,8 +39,9 @@ caustics = curve.caustics(params)
 display_x = -np.asarray(trajectory.x)
 display_y = -np.asarray(trajectory.y)
 
+plt.figure(figsize=(4, 4))
 for x, y in zip(caustics.x, caustics.y):
-    plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color="tab:red")
+    plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
 plt.plot(display_x, display_y, color="tab:blue")
 plt.scatter(
     [display_x[0], display_x[-1]], [display_y[0], display_y[-1]],
@@ -83,4 +84,4 @@ Right ascension and declination define the J2000 target direction. `piEN` and
 latitude and longitude are degrees, with east-positive longitude. Space-site
 tables use `(JD, RA_deg, Dec_deg, distance_AU)`.
 
-[Go to Combining physical effects](CombinedEffects.md)
+[Previous: Accuracy control](AccuracyControl.md) · [Documentation home](readme.md) · [Next: Parallax](Parallax.md)

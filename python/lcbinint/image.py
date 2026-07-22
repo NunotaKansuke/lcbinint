@@ -168,7 +168,7 @@ class ImagePlane:
         if ax is None:
             import matplotlib.pyplot as plt
 
-            _, ax = plt.subplots(figsize=(6.0, 6.0))
+            _, ax = plt.subplots(figsize=(4.8, 4.8))
 
         if critical_curves:
             self._plot_branches(
@@ -176,8 +176,8 @@ class ImagePlane:
                 label="critical curve"
             )
         if caustics:
-            self._scatter_branches(
-                ax, self.caustics(), color="tab:red", s=4,
+            self._plot_branches(
+                ax, self.caustics(), color="tab:red", lw=1.1,
                 label="caustic"
             )
         if source:
@@ -261,13 +261,6 @@ class ImagePlane:
         label = kwargs.pop("label", None)
         for i, (xs, ys) in enumerate(zip(branches.x, branches.y)):
             ax.plot(xs, ys, label=label if i == 0 else None, **kwargs)
-
-    @staticmethod
-    def _scatter_branches(ax, branches, **kwargs):
-        label = kwargs.pop("label", None)
-        for i, (xs, ys) in enumerate(zip(branches.x, branches.y)):
-            ax.scatter(xs, ys, label=label if i == 0 else None, **kwargs)
-
 
 def binary(q, s, x, y, *, rho=0.0, n_points=512, coordinates="vbm"):
     """Create an ``ImagePlane`` for a binary lens."""

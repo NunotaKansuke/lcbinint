@@ -1,4 +1,4 @@
-[Back to Light Curve Functions](LightCurves.md)
+[Previous: Coordinates and conventions](Coordinates.md) · [Documentation home](readme.md) · [Next: Orbital motion](OrbitalMotion.md)
 
 # Parallax
 
@@ -50,7 +50,7 @@ trajectory_parallax = parallax_curve.source_trajectory(t, params)
 Plot the static and parallax light curves:
 
 ```python
-plt.figure()
+plt.figure(figsize=(4.8, 3.2))
 plt.plot(t, magnifications, "g")
 plt.plot(t, magnifications_parallax, "m")
 plt.xlabel("Time")
@@ -64,11 +64,10 @@ Plot the caustics and trajectories in a separate block:
 
 ```python
 caustics = static_curve.caustics(params)
-caustic_x = np.concatenate([np.asarray(x) for x in caustics.x])
-caustic_y = np.concatenate([np.asarray(y) for y in caustics.y])
 
-plt.figure(figsize=(5, 5))
-plt.scatter(-caustic_x, -caustic_y, s=3, color="tab:red")
+plt.figure(figsize=(4, 4))
+for x, y in zip(caustics.x, caustics.y):
+    plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
 plt.plot(
     -np.asarray(trajectory.x), -np.asarray(trajectory.y),
     color="tab:blue", linestyle="--",
@@ -123,7 +122,7 @@ spacecraft contribution in a difference panel:
 
 ```python
 fig, (curve_ax, difference_ax) = plt.subplots(
-    2, 1, sharex=True, figsize=(7, 6),
+    2, 1, sharex=True, figsize=(5.6, 4.8),
     gridspec_kw={"height_ratios": [3, 1]},
 )
 curve_ax.plot(t, magnifications_ground, label="ground: Chile")
@@ -168,7 +167,7 @@ panel:
 
 ```python
 fig, (curve_ax, difference_ax) = plt.subplots(
-    2, 1, sharex=True, figsize=(7, 6),
+    2, 1, sharex=True, figsize=(5.6, 4.8),
     gridspec_kw={"height_ratios": [3, 1]},
 )
 curve_ax.plot(t, magnifications_africa, label="Africa: 29 S, 20 E")
@@ -184,4 +183,4 @@ plt.show()
 
 ![Terrestrial parallax comparison](figures/TerrestrialParallax_comparison.png)
 
-[Go to Orbital Motion](OrbitalMotion.md)
+[Previous: Coordinates and conventions](Coordinates.md) · [Documentation home](readme.md) · [Next: Orbital motion](OrbitalMotion.md)

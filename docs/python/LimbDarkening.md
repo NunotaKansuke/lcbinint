@@ -1,4 +1,4 @@
-[Back to documentation](readme.md)
+[Previous: Critical curves and caustics](CriticalCurvesAndCaustics.md) · [Documentation home](readme.md) · [Next: Accuracy control](AccuracyControl.md)
 
 # Limb darkening
 
@@ -78,3 +78,5 @@ Quadratic, logarithmic, user-defined, and simultaneous multi-band profiles are
 not native profiles in the current `lcbinint` Python API. The historical
 `LimbDarkening.quadratic(c, d)` compatibility alias maps to the same two
 coefficients as `square_root(c, d)`; use the explicit name in new code.
+
+[Previous: Critical curves and caustics](CriticalCurvesAndCaustics.md) · [Documentation home](readme.md) · [Next: Accuracy control](AccuracyControl.md)

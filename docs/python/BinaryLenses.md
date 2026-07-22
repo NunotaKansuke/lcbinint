@@ -1,4 +1,4 @@
-[Back to documentation](readme.md)
+[Documentation home](readme.md) · [Next: Light curve functions](LightCurves.md)
 
 # Binary lenses
 
@@ -53,10 +53,10 @@ caustics = image_plane.caustics()
 critical_curves = image_plane.critical_curves()
 image_regions = image_plane.ray_shooting_images(resolution=300)
 
-fig, (source_ax, image_ax) = plt.subplots(1, 2, figsize=(10, 4.5))
+fig, (source_ax, image_ax) = plt.subplots(1, 2, figsize=(8, 3.6))
 
 for x, y in zip(caustics.x, caustics.y):
-    source_ax.scatter(x, y, s=3, color="tab:red")
+    source_ax.plot(x, y, color="tab:red", lw=1.1)
 source_ax.scatter([y1], [y2], marker="*", color="tab:blue")
 source_ax.add_patch(Circle((y1, y2), rho, fill=False, color="tab:blue"))
 source_ax.set(title="Source plane", xlabel="x", ylabel="y", aspect="equal")
@@ -78,4 +78,4 @@ The current `lcbinint` finite-source result exposes magnification diagnostics bu
 finite-source astrometric centroid, so the astrometry example is not replaced
 with a point-source approximation.
 
-[Go to Critical curves and caustics](CriticalCurvesAndCaustics.md)
+[Documentation home](readme.md) · [Next: Light curve functions](LightCurves.md)
