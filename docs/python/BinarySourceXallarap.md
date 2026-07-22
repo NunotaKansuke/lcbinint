@@ -26,7 +26,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import lcbinint
 
-times = np.linspace(7470.0, 7530.0, 300)
+times = np.linspace(7470.0, 7530.0, 1200)
 parameters = {
     "s": 0.9, "q": 0.1, "alpha": 0.7, "tE": 30.0,
     "t0": 7500.0, "u0": 0.10,

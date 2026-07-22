@@ -392,7 +392,7 @@ def binary_source_xallarap_elements_lightcurve():
         rho1=0.004, rho2=0.002, flux_ratio=0.4, source_mass_ratio=0.7,
         xi_1=0.02, xi_2=-0.01,
     )
-    times = np.linspace(7470.0, 7530.0, 300)
+    times = np.linspace(7470.0, 7530.0, 1200)
     circular = lcbinint.LightCurve(
         source="binary", xallarap="circular_elements", t_ref=7500.0,
     )
@@ -468,22 +468,23 @@ def xallarap_single_source():
         period_xa=90.0, inc_xa=0.6,
     )
     elements = lcbinint.LightCurve(xallarap="circular_elements", t_ref=7500.0)
+    elements_times = np.linspace(7470.0, 7530.0, 1200)
     elements_static_params = dict(elements_params)
     for key in ("xi_1", "xi_2", "period_xa", "inc_xa"):
         elements_static_params.pop(key)
     plt.figure(figsize=(4.2, 2.7))
-    plt.plot(times, static(times, elements_static_params), color="0.55", ls="--", label="rectilinear")
-    plt.plot(times, elements(times, elements_params), color="#0173B2", label="xallarap")
+    plt.plot(elements_times, static(elements_times, elements_static_params), color="0.55", ls="--", label="rectilinear")
+    plt.plot(elements_times, elements(elements_times, elements_params), color="#0173B2", label="xallarap")
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     plt.legend(loc="upper left", fontsize=8)
     save("Xallarap_elements_lightcurve.png")
-    trajectory = elements.source_trajectory(times, elements_params)
+    trajectory = elements.source_trajectory(elements_times, elements_params)
     caustics = static.caustics(elements_static_params)
     plt.figure(figsize=(3.4, 3.2))
     for x, y in zip(caustics.x, caustics.y):
         plt.plot(x, y, color="#6C6C6C", lw=1.1)
-    static_trajectory = static.source_trajectory(times, elements_static_params)
+    static_trajectory = static.source_trajectory(elements_times, elements_static_params)
     plt.plot(static_trajectory.x, static_trajectory.y, color="0.55", ls="--", label="rectilinear")
     plt.plot(trajectory.x, trajectory.y, color="#0173B2", label="xallarap")
     plt.xlabel("Trajectory coordinate 1")
