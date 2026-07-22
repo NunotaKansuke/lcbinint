@@ -12,7 +12,9 @@ params.update(
 )
 ```
 
-![Circular xallarap light-curve comparison beside source trajectory and caustics](../assets/tutorials/04-xallarap.png)
+![Circular xallarap light-curve comparison](../assets/tutorials/04-xallarap-light-curve.png)
+
+![Circular xallarap source trajectory and caustics](../assets/tutorials/04-xallarap-geometry.png)
 
 ```sh
 PYTHONPATH=build python example/tutorials/xallarap.py
@@ -22,4 +24,6 @@ The other supported parameterizations are `orbital_elements`,
 `circular_velocity`, and `kepler_velocity`. Use exactly the parameter set for
 the selected mode; see the [Python API reference](../python-api.md).
 
-[Back to tutorial gallery](../effects-and-examples.md)
+---
+
+**Course navigation:** [← Previous: Lens orbital motion](03-orbital-motion.md) · [Tutorial home](../README.md) · [Next: Binary source →](05-binary-source.md)

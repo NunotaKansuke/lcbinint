@@ -12,14 +12,11 @@ params = dict(
     xi_1=0.25, xi_2=-0.1, period_xa=35.0, inc_xa=1.1,
     q_source=0.5, q_mass=2.0,
 )
-single = lcbinint.LightCurve(
-    model=lcbinint.Model(xallarap="circular_elements"),
-    options=lcbinint.Options(caustic_bins=600),
-)
-binary = lcbinint.LightCurve(
-    model=lcbinint.Model(source="binary", xallarap="circular_elements"),
-    options=lcbinint.Options(caustic_bins=600),
-)
+options = lcbinint.Options(coordinates="vbm", nbin="auto", caustic_bins=600)
+single_model = lcbinint.Model(lens="binary", source="single", xallarap="circular_elements")
+single = lcbinint.LightCurve(options=options, model=single_model)
+binary_model = lcbinint.Model(lens="binary", source="binary", xallarap="circular_elements")
+binary = lcbinint.LightCurve(options=options, model=binary_model)
 render_tutorial(
     "05-binary-source", "binary source", binary, times, params,
     comparisons=(("primary source only", single),),

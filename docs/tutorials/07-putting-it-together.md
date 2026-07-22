@@ -74,3 +74,7 @@ epoch met the requested numerical budget. Use
 
 You can now return to the [documentation home](../README.md) whenever you need
 to branch into a reference or validation topic.
+
+---
+
+**Course navigation:** [← Previous: Triple lens](06-triple-lens.md) · [Tutorial home](../README.md)

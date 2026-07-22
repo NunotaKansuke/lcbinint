@@ -1,10 +1,11 @@
 # Tutorial gallery
 
-This is the visual, effect-by-effect entry point for `lcbinint`. Each tutorial
-is a small notebook-style page: a focused model choice, a runnable Python
-script, and a generated figure with the light curve beside the corresponding
-source trajectory and caustics. Start with the baseline and add only the
-physical effects your event requires.
+This is the visual, effect-by-effect entry point for reproducing
+VBMicrolensing-style examples with `lcbinint`. Each tutorial is a small
+notebook-style page: a focused model choice, a runnable Python script, and
+separate generated figures for the light curve and the corresponding source
+trajectory/caustics. Start with the baseline and add only the physical effects
+your event requires.
 
 ## Reading order
 

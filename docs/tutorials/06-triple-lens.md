@@ -10,7 +10,9 @@ triple = lcbinint.LightCurve(lens="triple")
 params.update(q2=1e-4, sep2=0.5, ang=1.2)
 ```
 
-![Triple-lens light curve beside source trajectory and triple caustics](../assets/tutorials/06-triple-lens.png)
+![Triple-lens light curve](../assets/tutorials/06-triple-lens-light-curve.png)
+
+![Triple-lens source trajectory and caustics](../assets/tutorials/06-triple-lens-geometry.png)
 
 ```sh
 PYTHONPATH=build python example/tutorials/triple_lens.py
@@ -21,4 +23,6 @@ the additional companion. The tutorial uses `rho=0.001` to exercise the
 finite-source path. Use `LightCurve.info()` to inspect the selected method and
 convergence status when setting an explicit accuracy budget.
 
-[Back to tutorial gallery](../effects-and-examples.md)
+---
+
+**Course navigation:** [← Previous: Binary source](05-binary-source.md) · [Tutorial home](../README.md) · [Next: Putting it together →](07-putting-it-together.md)

@@ -1,9 +1,15 @@
 # lcbinint documentation
 
-Welcome. The recommended path is a short visual course: begin with a binary
-lens, then add one physical effect at a time. Every numbered tutorial contains
-copyable code, an executable script, and a generated light-curve / source
-trajectory / caustic figure.
+Welcome. This course reproduces the progression of the VBMicrolensing Python
+examples using `lcbinint`: begin with its binary-lens event and add one
+physical effect at a time. Every numbered tutorial contains executable source
+and generated light-curve / source-trajectory / caustic figures.
+
+The physical values follow the corresponding VBMicrolensing examples whenever
+that effect is available there. The important API translation is that VBM
+commonly passes `log(s)`, `log(q)`, `log(rho)`, and `log(tE)` in a positional
+array, while lcbinint uses the direct, named values `s`, `q`, `rho`, and `tE`
+in a dictionary.
 
 ## Start here: the tutorial course
 

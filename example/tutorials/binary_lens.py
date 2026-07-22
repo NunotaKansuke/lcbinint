@@ -6,7 +6,9 @@ import lcbinint
 from common import render_tutorial
 
 
-times = np.linspace(-1.0, 1.0, 301)
-params = dict(t0=0.0, tE=1.0, u0=0.02, alpha=0.5, s=0.95, q=0.01, rho=0.005)
-curve = lcbinint.LightCurve(options=lcbinint.Options(caustic_bins=600))
+times = np.linspace(7470.0, 7530.0, 300)
+params = dict(t0=7500.0, tE=30.0, u0=0.0, alpha=1.0, s=0.9, q=0.1, rho=0.01)
+options = lcbinint.Options(coordinates="vbm", nbin="auto", caustic_bins=600)
+model = lcbinint.Model(lens="binary", source="single")
+curve = lcbinint.LightCurve(options=options, model=model)
 render_tutorial("01-binary-lens", "binary lens", curve, times, params)
