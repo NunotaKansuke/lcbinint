@@ -1,5 +1,15 @@
 # Numerical methods and runtime decisions
 
+## Literature basis
+
+The finite-source decision pipeline is an independent `lcbinint` implementation,
+but its terminology and physical safeguards are grounded in the microlensing
+literature. In particular, the quadrupole/cusp/ghost-image point-source tests
+are informed by the decision tree described by [Bozza et al. (2018)](#references).
+The automatic grid-size calibration, tolerance budget, and retry policy below
+are specific to `lcbinint` and are validated by this repository's regression
+and calibration data.
+
 ## Finite-source fast paths
 
 Binary and triple finite-source evaluations first test whether the point-source
@@ -15,12 +25,23 @@ A = A0 + 1/2 A2 rho^2 (1 - Gamma/5 - Lambda/9)
        + 1/3 A4 rho^4 (1 - 11 Gamma/35 - 7 Lambda/39).
 ```
 
+This is the quadrupole/hexadecapole finite-source expansion described by
+[Gould (2008)](#references). The source-boundary sampling strategy and the
+need to exclude caustic and cusp neighborhoods are also discussed there.
+
 The absolute fourth-order contribution divided by `|A|` is the local
 self-consistency indicator. A caustic-distance guard and the independent
 quadrupole/cusp/ghost topology checks prevent a small fourth-order term from
 being trusted when cancellation or a topology change makes the expansion
 unsafe. Rejected positions continue to source-plane quadrature or inverse-ray
 integration.
+
+The ghost-image guard is especially important near an exterior fold approach:
+the physical image count has not yet changed, while the non-physical pair of
+polynomial roots signals the impending topology change. This use of the ghost
+pair, together with the quadrupole and cusp checks, follows the safety logic in
+[Bozza et al. (2018)](#references) (Section 5). Contour-integration error
+control and adaptive sampling background are given by [Bozza (2010)](#references).
 
 ## Automatic `nbin`
 
@@ -134,3 +155,19 @@ The current terrestrial calculation uses a spherical Earth at the equatorial
 radius and GMST without polar motion, elevation, or sub-arcsecond nutation.
 Those approximations are much smaller than the present microlensing use case,
 but should be revisited before claiming precision astrometry at that scale.
+
+## References
+
+1. V. Bozza, E. Bachelet, F. Bartolić, T. M. Heintz, A. R. Hoag, and M.
+   Hundertmark, “VBBinaryLensing: a public package for microlensing light-curve
+   computation,” *Monthly Notices of the Royal Astronomical Society* **479**,
+   5157–5167 (2018), [doi:10.1093/mnras/sty1791](https://doi.org/10.1093/mnras/sty1791),
+   [ADS](https://ui.adsabs.harvard.edu/abs/2018MNRAS.479.5157B/abstract).
+2. V. Bozza, “Microlensing with an advanced contour integration algorithm:
+   Green's theorem to third order, error control, optimal sampling and limb
+   darkening,” *Monthly Notices of the Royal Astronomical Society* **408**,
+   2188–2200 (2010), [doi:10.1111/j.1365-2966.2010.17265.x](https://doi.org/10.1111/j.1365-2966.2010.17265.x).
+3. A. Gould, “Hexadecapole Approximation in Planetary Microlensing,” *The
+   Astrophysical Journal* **681**, 1593–1598 (2008),
+   [doi:10.1086/588601](https://doi.org/10.1086/588601),
+   [arXiv:0801.2578](https://arxiv.org/abs/0801.2578).
