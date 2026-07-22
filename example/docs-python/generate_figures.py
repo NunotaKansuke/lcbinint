@@ -286,7 +286,10 @@ def orbital_motion():
     source_y = -np.asarray(trajectory.y)
     plt.plot(source_x, source_y, "y")
     for index, color in zip(indices, colors):
-        plt.plot([source_x[index]], [source_y[index]], color=color, marker="o")
+        plt.plot(
+            [source_x[index]], [source_y[index]], color=color,
+            marker="o", markersize=2.5,
+        )
     plt.axis("equal")
     save("BinaryLens_lightcurve_orbital_caustics.png")
 
@@ -297,7 +300,7 @@ def keplerian_orbital_motion():
         s=0.97, q=10.0 ** -1.5, rho=0.0,
         g1=0.004, g2=0.011, g3=0.006, lom_szs=0.2, lom_ar=1.4,
     )
-    times = np.linspace(2.0, 69.0, 200)
+    times = np.linspace(2.0, 20.0, 200)
     options = lcbinint.Options(coordinates="vbm", nbin="auto")
     static = lcbinint.LightCurve(options=options)
     kepler = lcbinint.LightCurve(

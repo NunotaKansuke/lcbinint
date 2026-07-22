@@ -85,7 +85,10 @@ source_x = -np.asarray(trajectory_orbital.x)
 source_y = -np.asarray(trajectory_orbital.y)
 plt.plot(source_x, source_y, "y")
 for index, color in zip(caustic_indices, colors):
-    plt.plot([source_x[index]], [source_y[index]], color=color, marker="o")
+    plt.plot(
+        [source_x[index]], [source_y[index]], color=color,
+        marker="o", markersize=2.5,
+    )
 plt.axis("equal")
 plt.show()
 ```
@@ -106,7 +109,7 @@ kepler_params = {
     "g1": 0.004, "g2": 0.011, "g3": 0.006,
     "lom_szs": 0.2, "lom_ar": 1.4,
 }
-kepler_t = np.linspace(2.0, 69.0, 200)
+kepler_t = np.linspace(2.0, 20.0, 200)
 kepler_options = lcbinint.Options(coordinates="vbm", nbin="auto")
 
 static_kepler = lcbinint.LightCurve(options=kepler_options)
