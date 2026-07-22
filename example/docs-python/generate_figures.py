@@ -472,8 +472,8 @@ def binary_source_xallarap_elements_lightcurve():
 
 def binary_source_xallarap_offset_lightcurve():
     params = dict(
-        s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=7500.0, u0=0.35,
-        t0_2=7501.2, u0_2=0.32, rho1=0.004, rho2=0.002,
+        s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=7499.82, u0=0.347,
+        t0_2=7500.257142857, u0_2=0.354285714, rho1=0.004, rho2=0.002,
         flux_ratio=0.4, source_mass_ratio=0.7,
         w1=0.001, w2=0.12, w3=0.02,
     )

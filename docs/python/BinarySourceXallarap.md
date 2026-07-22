@@ -91,38 +91,43 @@ plt.show()
 
 `source_orbit_coordinates="trajectory_offset"` accepts the two tangent tracks
 at `t_ref`: `t0`, `u0`, `t0_2`, and `u0_2`. Use the same binary-source inputs
-above, replacing the xallarap state with:
+above. The values below represent the same CoM state and source-1 offset as
+the direct example at `t_ref`.
 
 ```python
-parameters.update({
-    "t0_2": 7501.2, "u0_2": 0.32,
+offset_parameters = dict(parameters)
+offset_parameters.pop("xi_1")
+offset_parameters.pop("xi_2")
+offset_parameters.update({
+    "t0": 7499.82, "u0": 0.347,
+    "t0_2": 7500.257142857, "u0_2": 0.354285714,
 })
 binary_curve = lcbinint.LightCurve(
     source="binary", xallarap="circular_velocity",
     source_orbit_coordinates="trajectory_offset", t_ref=7500.0,
 )
-binary_magnification = binary_curve(times, parameters)
+binary_magnification = binary_curve(times, offset_parameters)
 ```
 
 The component curves use the CoM-converted states. The full copy/paste version
 is shown by the calculation that generated the plot:
 
 ```python
-q_s = parameters["source_mass_ratio"]
-relative_tau = (parameters["t0"] - parameters["t0_2"]) / parameters["tE"]
-relative_beta = parameters["u0_2"] - parameters["u0"]
+q_s = offset_parameters["source_mass_ratio"]
+relative_tau = (offset_parameters["t0"] - offset_parameters["t0_2"]) / offset_parameters["tE"]
+relative_beta = offset_parameters["u0_2"] - offset_parameters["u0"]
 source1_params = {
-    "s": parameters["s"], "q": parameters["q"], "alpha": parameters["alpha"],
-    "tE": parameters["tE"],
-    "t0": (parameters["t0"] + q_s * parameters["t0_2"]) / (1.0 + q_s),
-    "u0": (parameters["u0"] + q_s * parameters["u0_2"]) / (1.0 + q_s),
-    "rho": parameters["rho1"],
+    "s": offset_parameters["s"], "q": offset_parameters["q"], "alpha": offset_parameters["alpha"],
+    "tE": offset_parameters["tE"],
+    "t0": (offset_parameters["t0"] + q_s * offset_parameters["t0_2"]) / (1.0 + q_s),
+    "u0": (offset_parameters["u0"] + q_s * offset_parameters["u0_2"]) / (1.0 + q_s),
+    "rho": offset_parameters["rho1"],
     "xi_1": -q_s * relative_tau / (1.0 + q_s),
     "xi_2": -q_s * relative_beta / (1.0 + q_s),
-    "w1": parameters["w1"], "w2": parameters["w2"], "w3": parameters["w3"],
+    "w1": offset_parameters["w1"], "w2": offset_parameters["w2"], "w3": offset_parameters["w3"],
 }
 source2_params = dict(
-    source1_params, rho=parameters["rho2"],
+    source1_params, rho=offset_parameters["rho2"],
     xi_1=-source1_params["xi_1"] / q_s,
     xi_2=-source1_params["xi_2"] / q_s,
 )
