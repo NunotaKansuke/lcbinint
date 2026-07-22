@@ -128,7 +128,7 @@ method_names = list(dict.fromkeys(info.finite_source_method_names))
 method_index = {name: index for index, name in enumerate(method_names)}
 selected = [method_index[name] for name in info.finite_source_method_names]
 
-fig, (mag_ax, method_ax) = plt.subplots(2, 1, sharex=True, figsize=(4.4, 3.5))
+fig, (mag_ax, method_ax) = plt.subplots(2, 1, sharex=True, figsize=(4.8, 3.8))
 mag_ax.plot(t, info.magnifications)
 mag_ax.set_ylabel("Magnification")
 method_ax.scatter(t, selected, s=10)

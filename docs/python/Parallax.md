@@ -50,7 +50,7 @@ trajectory_parallax = parallax_curve.source_trajectory(t, params)
 Plot the static and parallax light curves:
 
 ```python
-plt.figure(figsize=(3.6, 2.4))
+plt.figure(figsize=(4.0, 2.7))
 plt.plot(t, magnifications, "g")
 plt.plot(t, magnifications_parallax, "m")
 plt.xlabel("Time")
@@ -65,7 +65,7 @@ Plot the caustics and trajectories in a separate block:
 ```python
 caustics = static_curve.caustics(params)
 
-plt.figure(figsize=(3.2, 3.2))
+plt.figure(figsize=(3.5, 3.5))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
 plt.plot(
@@ -122,7 +122,7 @@ spacecraft contribution in a difference panel:
 
 ```python
 fig, (curve_ax, difference_ax) = plt.subplots(
-    2, 1, sharex=True, figsize=(4.4, 3.6),
+    2, 1, sharex=True, figsize=(4.8, 3.9),
     gridspec_kw={"height_ratios": [3, 1]},
 )
 curve_ax.plot(t, magnifications_ground, label="ground: Chile")
@@ -167,7 +167,7 @@ panel:
 
 ```python
 fig, (curve_ax, difference_ax) = plt.subplots(
-    2, 1, sharex=True, figsize=(4.4, 3.6),
+    2, 1, sharex=True, figsize=(4.8, 3.9),
     gridspec_kw={"height_ratios": [3, 1]},
 )
 curve_ax.plot(t, magnifications_africa, label="Africa: 29 S, 20 E")

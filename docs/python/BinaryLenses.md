@@ -53,7 +53,7 @@ caustics = image_plane.caustics()
 critical_curves = image_plane.critical_curves()
 image_regions = image_plane.ray_shooting_images(resolution=300)
 
-fig, (source_ax, image_ax) = plt.subplots(1, 2, figsize=(6.4, 3.0))
+fig, (source_ax, image_ax) = plt.subplots(1, 2, figsize=(7.0, 3.3))
 
 for x, y in zip(caustics.x, caustics.y):
     source_ax.plot(x, y, color="tab:red", lw=1.1)

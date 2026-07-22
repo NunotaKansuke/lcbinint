@@ -65,7 +65,7 @@ magnifications_xallarap = xallarap_curve(t, params)
 Plot the two light curves in their own block:
 
 ```python
-plt.figure(figsize=(3.6, 2.4))
+plt.figure(figsize=(4.0, 2.7))
 plt.plot(t, magnifications_static)
 plt.plot(t, magnifications_xallarap, "y")
 plt.xlabel("Time")
