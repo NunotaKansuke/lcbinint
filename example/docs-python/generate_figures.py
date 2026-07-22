@@ -412,6 +412,7 @@ def accuracy_method_selection():
     magnifications = np.asarray(info.magnifications)
     methods = np.asarray(info.finite_source_method_names)
     names = list(dict.fromkeys(methods.tolist()))
+    method_colors = ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#56B4E9"]
 
     fig, (light_ax, method_ax) = plt.subplots(
         2, 1, figsize=(4.8, 3.8), sharex=True,
@@ -421,12 +422,42 @@ def accuracy_method_selection():
     light_ax.set_ylabel("Magnification")
     for level, name in enumerate(names, start=1):
         selected = methods == name
-        method_ax.scatter(times[selected], np.full(selected.sum(), level), s=9)
+        method_ax.scatter(
+            times[selected], np.full(selected.sum(), level), s=9,
+            color=method_colors[level - 1],
+        )
     method_ax.set_yticks(range(1, len(names) + 1))
     method_ax.set(xlabel="Time", ylabel="Method")
     fig.tight_layout()
     plt.savefig(OUTPUT / "Accuracy_method_selection.png", dpi=220)
     plt.close()
+
+    trajectory = curve.source_trajectory(times, params)
+    caustics = curve.caustics(params)
+    plt.figure(figsize=(2.8, 2.8))
+    for x, y in zip(caustics.x, caustics.y):
+        plt.plot(-np.asarray(x), -np.asarray(y), color="#D55E00", lw=1.1)
+
+    display_x = -np.asarray(trajectory.x)
+    display_y = -np.asarray(trajectory.y)
+    for color_index, name in enumerate(names):
+        indices = np.flatnonzero(methods == name)
+        breaks = np.where(np.diff(indices) != 1)[0] + 1
+        for run in np.split(indices, breaks):
+            if len(run) > 1:
+                plt.plot(
+                    display_x[run], display_y[run],
+                    color=method_colors[color_index], lw=1.2,
+                )
+            elif len(run) == 1:
+                plt.plot(
+                    display_x[run], display_y[run], color=method_colors[color_index],
+                    marker="o", markersize=2.5,
+                )
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.axis("equal")
+    save("Accuracy_method_geometry.png")
 
 
 def coordinates():

@@ -127,11 +127,18 @@ info = curve.info(t, params)
 method_names = list(dict.fromkeys(info.finite_source_method_names))
 method_index = {name: index for index, name in enumerate(method_names, start=1)}
 selected = [method_index[name] for name in info.finite_source_method_names]
+# Fixed, colorblind-friendly palette; reserve vermilion for caustics below.
+method_colors = ["#0173B2", "#DE8F05", "#029E73", "#CC78BC", "#56B4E9"]
 
 fig, (mag_ax, method_ax) = plt.subplots(2, 1, sharex=True, figsize=(4.8, 3.8))
 mag_ax.plot(t, info.magnifications)
 mag_ax.set_ylabel("Magnification")
-method_ax.scatter(t, selected, s=10)
+for color_index, name in enumerate(method_names):
+    mask = np.asarray(info.finite_source_method_names) == name
+    method_ax.scatter(
+        t[mask], np.asarray(selected)[mask], s=10,
+        color=method_colors[color_index],
+    )
 method_ax.set_yticks(range(1, len(method_names) + 1))
 method_ax.set(xlabel="Time", ylabel="Method")
 fig.tight_layout()
@@ -139,6 +146,43 @@ plt.show()
 ```
 
 ![Automatic method selection](figures/Accuracy_method_selection.png)
+
+Use the same colors to show where each method is selected along the source
+trajectory. Each uninterrupted run is drawn as one line segment; caustics are
+red.
+
+```python
+methods = np.asarray(info.finite_source_method_names)
+trajectory = curve.source_trajectory(t, params)
+caustics = curve.caustics(params)
+
+plt.figure(figsize=(2.8, 2.8))
+for x, y in zip(caustics.x, caustics.y):
+    plt.plot(-np.asarray(x), -np.asarray(y), color="#D55E00", lw=1.1)
+
+display_x = -np.asarray(trajectory.x)
+display_y = -np.asarray(trajectory.y)
+for color_index, name in enumerate(method_names):
+    indices = np.flatnonzero(methods == name)
+    breaks = np.where(np.diff(indices) != 1)[0] + 1
+    for run in np.split(indices, breaks):
+        if len(run) > 1:
+            plt.plot(
+                display_x[run], display_y[run],
+                color=method_colors[color_index], lw=1.2,
+            )
+        elif len(run) == 1:
+            plt.plot(
+                display_x[run], display_y[run], color=method_colors[color_index],
+                marker="o", markersize=2.5,
+            )
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.axis("equal")
+plt.show()
+```
+
+![Method selection along the source trajectory](figures/Accuracy_method_geometry.png)
 
 The method numbers in the lower panel are:
 
