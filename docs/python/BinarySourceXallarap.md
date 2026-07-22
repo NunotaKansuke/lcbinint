@@ -2,19 +2,15 @@
 
 # Binary source + xallarap
 
-This page combines `source="binary"` with xallarap. `flux_ratio` weights the
-two light curves; `source_mass_ratio = M2 / M1` fixes the second orbital state
-from the first one: `r2 = -r1 / source_mass_ratio`.
+For a binary source, choose how the two source trajectories are specified.
+Every form uses `rho1`, `rho2`, `flux_ratio`, and `source_mass_ratio`; the
+last parameter determines the orbital state of source 2 from source 1.
 
-All integrated models require `rho1`, `rho2`, `flux_ratio`, and
-`source_mass_ratio`.
-
-| Xallarap mode | Additional inputs |
-| --- | --- |
-| `"circular_elements"` | `xi_1`, `xi_2`, `period_xa`, `inc_xa` |
-| `"orbital_elements"` | `xi_1`, `xi_2`, `period_xa`, `ecc_xa`, `peri_xa`, `inc_xa` |
-| `"circular_velocity"` | `xi_1`, `xi_2`, `w1`, `w2`, `w3` |
-| `"kepler_velocity"` | `xi_1`, `xi_2`, `w1`, `w2`, `w3`, `xa_szs`, `xa_ar` |
+| Form | `LightCurve` configuration | Trajectory inputs |
+| --- | --- | --- |
+| Circular elements | `xallarap="circular_elements"` | CoM track `t0`, `u0`; source-1 elements `xi_1`, `xi_2`, `period_xa`, `inc_xa` |
+| Direct xallarap coordinates | `xallarap="circular_velocity"`, `source_orbit_coordinates="xallarap"` | CoM track `t0`, `u0`; source-1 state `xi_1`, `xi_2`, `w1`, `w2`, `w3` |
+| Trajectory-offset coordinates | `xallarap="circular_velocity"`, `source_orbit_coordinates="trajectory_offset"` | Two tangent tracks `t0`, `u0`, `t0_2`, `u0_2`; orbit state `w1`, `w2`, `w3` |
 
 ## Circular elements
 
