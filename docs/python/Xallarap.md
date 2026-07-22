@@ -2,76 +2,15 @@
 
 # Xallarap
 
-Xallarap adds orbital motion to a single source. Configure the orbit on
-`LightCurve` and pass the orbit state with the ordinary lens parameters.
-
-| Mode | Orbit parameters |
-| --- | --- |
-| `"circular_elements"` | `xi_1`, `xi_2`, `period_xa`, `inc_xa` |
-| `"orbital_elements"` | `xi_1`, `xi_2`, `period_xa`, `ecc_xa`, `peri_xa`, `inc_xa` |
-| `"circular_velocity"` | `xi_1`, `xi_2`, `w1`, `w2`, `w3` |
-| `"kepler_velocity"` | `xi_1`, `xi_2`, `w1`, `w2`, `w3`, `xa_szs`, `xa_ar` |
-
-## Circular elements
-
-This elements-mode example is source 1 of the
-[binary-source + circular-elements](BinarySourceXallarap.md#circular-elements)
-example below.
-
-```python
-times = np.linspace(7470.0, 7530.0, 300)
-parameters = {
-    "s": 0.9, "q": 0.1, "alpha": 0.7, "tE": 30.0,
-    "t0": 7500.0, "u0": 0.35, "rho": 0.004,
-    "xi_1": 0.006, "xi_2": -0.003,
-    "period_xa": 300.0, "inc_xa": 0.3,
-}
-static_curve = lcbinint.LightCurve()
-curve = lcbinint.LightCurve(xallarap="circular_elements", t_ref=7500.0)
-rectilinear_parameters = dict(parameters)
-for key in ("xi_1", "xi_2", "period_xa", "inc_xa"):
-    rectilinear_parameters.pop(key)
-static_magnification = static_curve(times, rectilinear_parameters)
-magnification = curve(times, parameters)
-```
-
-```python
-plt.figure(figsize=(4.2, 2.7))
-plt.plot(times, static_magnification, color="0.55", ls="--", label="rectilinear")
-plt.plot(times, magnification, color="#0173B2", label="xallarap")
-plt.xlabel("Time")
-plt.ylabel("Magnification")
-plt.legend(loc="upper left", fontsize=8)
-plt.show()
-```
-
-![Elements xallarap light curve](figures/Xallarap_elements_lightcurve.png)
-
-```python
-trajectory = curve.source_trajectory(times, parameters)
-static_trajectory = static_curve.source_trajectory(times, rectilinear_parameters)
-caustics = static_curve.caustics(rectilinear_parameters)
-
-plt.figure(figsize=(3.4, 3.2))
-for x, y in zip(caustics.x, caustics.y):
-    plt.plot(x, y, color="#6C6C6C", lw=1.1)
-plt.plot(static_trajectory.x, static_trajectory.y, color="0.55", ls="--", label="rectilinear")
-plt.plot(trajectory.x, trajectory.y, color="#0173B2", label="xallarap")
-plt.xlabel("Trajectory coordinate 1")
-plt.ylabel("Trajectory coordinate 2")
-plt.axis("equal")
-plt.legend(fontsize=7)
-plt.show()
-```
-
-![Elements xallarap trajectory and caustics](figures/Xallarap_elements_geometry.png)
+Xallarap adds orbital motion to a single source. This page gives one complete
+example for each circular parameterization. Their parameters are the source-1
+parameters used by the corresponding examples in
+[Binary source + xallarap](BinarySourceXallarap.md).
 
 ## Circular velocity
 
-This example is the source-1 trajectory from the
-[binary-source + xallarap](BinarySourceXallarap.md) example, evaluated as a
-single source. The gray curve is the rectilinear case with the same lens and
-event parameters.
+`circular_velocity` uses the sky-plane position `xi_1`, `xi_2` at `t_ref` and
+the velocity-state parameters `w1`, `w2`, `w3`.
 
 ```python
 import numpy as np
@@ -111,17 +50,12 @@ plt.show()
 trajectory = curve.source_trajectory(times, parameters)
 static_trajectory = static_curve.source_trajectory(times, rectilinear_parameters)
 caustics = curve.caustics(parameters)
-peak = np.argmax(magnification)
 
 plt.figure(figsize=(3.4, 3.2))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(x, y, color="#6C6C6C", lw=1.1)
 plt.plot(static_trajectory.x, static_trajectory.y, color="0.55", ls="--", label="rectilinear")
 plt.plot(trajectory.x, trajectory.y, color="#0173B2", label="xallarap")
-plt.scatter(
-    trajectory.x[peak], trajectory.y[peak], s=12, color="#0173B2",
-    edgecolor="white", linewidth=0.45, zorder=3, label="xallarap peak",
-)
 plt.xlabel("Trajectory coordinate 1")
 plt.ylabel("Trajectory coordinate 2")
 plt.axis("equal")
@@ -131,11 +65,78 @@ plt.show()
 
 ![Velocity xallarap trajectory and caustics](figures/Xallarap_velocity_geometry.png)
 
-The marker identifies the maximum of the blue light curve. Xallarap changes
-the source trajectory only; with fixed `s` and `q`, its caustic is the same
-static binary-lens caustic.
+### Kepler velocity
 
-For the element parameterizations, replace `xallarap="circular_velocity"`
-with the corresponding mode and supply the parameters listed in the table.
+`kepler_velocity` uses the same position--velocity inputs and adds
+`xa_szs` and `xa_ar`. The result is evaluated in the same way.
+
+```python
+kepler_parameters = dict(parameters, xa_szs=0.2, xa_ar=1.4)
+kepler_curve = lcbinint.LightCurve(xallarap="kepler_velocity", t_ref=7500.0)
+kepler_magnification = kepler_curve(times, kepler_parameters)
+```
+
+## Circular elements
+
+`circular_elements` uses `xi_1`, `xi_2`, `period_xa`, and `inc_xa`.
+
+```python
+parameters = {
+    "s": 0.9, "q": 0.1, "alpha": 0.7, "tE": 30.0,
+    "t0": 7500.0, "u0": 0.35, "rho": 0.004,
+    "xi_1": 0.006, "xi_2": -0.003,
+    "period_xa": 300.0, "inc_xa": 0.3,
+}
+static_curve = lcbinint.LightCurve()
+curve = lcbinint.LightCurve(xallarap="circular_elements", t_ref=7500.0)
+rectilinear_parameters = dict(parameters)
+for key in ("xi_1", "xi_2", "period_xa", "inc_xa"):
+    rectilinear_parameters.pop(key)
+
+static_magnification = static_curve(times, rectilinear_parameters)
+magnification = curve(times, parameters)
+```
+
+```python
+plt.figure(figsize=(4.2, 2.7))
+plt.plot(times, static_magnification, color="0.55", ls="--", label="rectilinear")
+plt.plot(times, magnification, color="#0173B2", label="xallarap")
+plt.xlabel("Time")
+plt.ylabel("Magnification")
+plt.legend(loc="upper left", fontsize=8)
+plt.show()
+```
+
+![Elements xallarap light curve](figures/Xallarap_elements_lightcurve.png)
+
+```python
+trajectory = curve.source_trajectory(times, parameters)
+static_trajectory = static_curve.source_trajectory(times, rectilinear_parameters)
+caustics = curve.caustics(parameters)
+
+plt.figure(figsize=(3.4, 3.2))
+for x, y in zip(caustics.x, caustics.y):
+    plt.plot(x, y, color="#6C6C6C", lw=1.1)
+plt.plot(static_trajectory.x, static_trajectory.y, color="0.55", ls="--", label="rectilinear")
+plt.plot(trajectory.x, trajectory.y, color="#0173B2", label="xallarap")
+plt.xlabel("Trajectory coordinate 1")
+plt.ylabel("Trajectory coordinate 2")
+plt.axis("equal")
+plt.legend(fontsize=7)
+plt.show()
+```
+
+![Elements xallarap trajectory and caustics](figures/Xallarap_elements_geometry.png)
+
+### Keplerian elements
+
+The API name for the eccentric-elements form is `orbital_elements`. Add
+`ecc_xa` and `peri_xa` to the circular-elements state, then evaluate it.
+
+```python
+kepler_parameters = dict(parameters, ecc_xa=0.2, peri_xa=0.4)
+kepler_curve = lcbinint.LightCurve(xallarap="orbital_elements", t_ref=7500.0)
+kepler_magnification = kepler_curve(times, kepler_parameters)
+```
 
 [Previous: Binary sources](BinarySources.md) · [Documentation home](readme.md) · [Next: Binary source + xallarap](BinarySourceXallarap.md)
