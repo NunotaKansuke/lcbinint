@@ -2,6 +2,8 @@
 
 # Critical curves and caustics
 
+> VBMicrolensing correspondence: [CriticalCurvesAndCaustics.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/CriticalCurvesAndCaustics.md). The binary example retains `s=0.6` and `q=0.1`.
+
 The two geometries are deliberately calculated and plotted in different code
 blocks.
 
@@ -23,7 +25,7 @@ caustics = curve.caustics(params)
 
 fig = plt.figure(figsize=(5, 5))
 for x, y in zip(caustics.x, caustics.y):
-    plt.plot(-np.asarray(x), -np.asarray(y), "k")
+    plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color="k")
 plt.axis("equal")
 plt.show()
 ```
@@ -45,4 +47,4 @@ plt.show()
 ![Binary-lens critical curves](figures/Criticalcurves_binary.png)
 
 The arbitrary four-lens geometry example is not included because the current
-LCBinInt model selector supports binary and triple lenses only.
+`lcbinint` model selector supports binary and triple lenses only.

@@ -2,6 +2,8 @@
 
 # Parallax
 
+> VBMicrolensing correspondence: [Parallax.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/Parallax.md). Target coordinates, parallax components, and example epochs are kept aligned.
+
 ## Target coordinates
 
 ```python
@@ -65,7 +67,7 @@ caustics = static_curve.caustics(params)
 
 plt.figure(figsize=(5, 5))
 for x, y in zip(caustics.x, caustics.y):
-    plt.plot(-np.asarray(x), -np.asarray(y))
+    plt.scatter(-np.asarray(x), -np.asarray(y), s=3)
 plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y), "g")
 plt.plot(-np.asarray(trajectory_parallax.x), -np.asarray(trajectory_parallax.y), "m")
 plt.axis("equal")

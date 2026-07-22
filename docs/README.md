@@ -11,6 +11,8 @@ copy/paste-ready calculations rather than an API inventory:
 - [Binary sources](python/BinarySources.md)
 - [Limb darkening](python/LimbDarkening.md)
 - [Accuracy control](python/AccuracyControl.md)
+- [Coordinates](python/Coordinates.md)
+- [Combining physical effects](python/CombinedEffects.md)
 
 The remaining pages document numerical behavior and the evidence behind the
 automatic finite-source choices:

@@ -10,6 +10,7 @@ import matplotlib
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
+from matplotlib.patches import Circle
 import numpy as np
 
 import lcbinint
@@ -30,6 +31,11 @@ def plot_branches(branches, *args, **kwargs):
         plt.plot(-np.asarray(x), -np.asarray(y), *args, **kwargs)
 
 
+def scatter_caustics(branches, *, size=3, **kwargs):
+    for x, y in zip(branches.x, branches.y):
+        plt.scatter(-np.asarray(x), -np.asarray(y), s=size, **kwargs)
+
+
 def standard_binary():
     params = dict(s=0.9, q=0.1, u0=0.0, alpha=1.0, rho=0.01, tE=30.0, t0=7500)
     times = np.linspace(7470, 7530, 300)
@@ -44,12 +50,39 @@ def standard_binary():
     save("BinaryLens_lightcurve.png")
 
     plt.figure(figsize=(5, 5))
-    plot_branches(curve.caustics(params))
+    scatter_caustics(curve.caustics(params))
     plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y))
     plt.xlabel("X")
     plt.ylabel("Y")
     plt.axis("equal")
     save("BinaryLens_lightcurve_caustics.png")
+
+
+def binary_lens_images():
+    q, s, y1, y2, rho = 0.1, 0.8, 0.01, 0.01, 0.01
+    image_plane = lcbinint.image.ImagePlane(
+        q=q, s=s, x=y1, y=y2, rho=rho, coordinates="lcbinint"
+    )
+    caustics = image_plane.caustics()
+    critical_curves = image_plane.critical_curves()
+    image_regions = image_plane.ray_shooting_images(resolution=300)
+
+    fig, (source_ax, image_ax) = plt.subplots(1, 2, figsize=(10, 4.5))
+    for x, y in zip(caustics.x, caustics.y):
+        source_ax.scatter(x, y, s=3, color="tab:red")
+    source_ax.scatter([y1], [y2], marker="*", color="tab:blue")
+    source_ax.add_patch(Circle((y1, y2), rho, fill=False, color="tab:blue"))
+    source_ax.set(title="Source plane", xlabel="x", ylabel="y", aspect="equal")
+
+    for x, y in zip(critical_curves.x, critical_curves.y):
+        image_ax.plot(x, y, color="0.45")
+    for region in image_regions:
+        if len(region.points):
+            image_ax.scatter(region.points[:, 0], region.points[:, 1], s=2)
+    image_ax.set(title="Image plane", xlabel="x", ylabel="y", aspect="equal")
+    fig.tight_layout()
+    plt.savefig(OUTPUT / "BinaryLens_images.png", dpi=150)
+    plt.close()
 
 
 def standard_triple():
@@ -71,7 +104,7 @@ def standard_triple():
     save("TripleLens_lightcurve.png")
 
     plt.figure(figsize=(5, 5))
-    plot_branches(curve.caustics(params), "r")
+    scatter_caustics(curve.caustics(params), color="r")
     plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y))
     plt.xlabel("X")
     plt.ylabel("Y")
@@ -84,7 +117,7 @@ def critical_curves_and_caustics():
     curve = lcbinint.LightCurve(options=lcbinint.Options(caustic_bins=200))
 
     plt.figure(figsize=(5, 5))
-    plot_branches(curve.caustics(params), "k")
+    scatter_caustics(curve.caustics(params), color="k")
     plt.axis("equal")
     save("Caustics_binary.png")
 
@@ -123,7 +156,7 @@ def parallax():
     save("BinaryLens_lightcurve_parallax.png")
 
     plt.figure(figsize=(5, 5))
-    plot_branches(static.caustics(params))
+    scatter_caustics(static.caustics(params))
     plt.plot(-np.asarray(static_trajectory.x), -np.asarray(static_trajectory.y), "g")
     plt.plot(-np.asarray(moved_trajectory.x), -np.asarray(moved_trajectory.y), "m")
     plt.axis("equal")
@@ -162,7 +195,7 @@ def orbital_motion():
     colors = [(0, 0, 1, 1), (0.4, 0, 0.6, 1), (0.6, 0, 0.4, 1)]
     plt.figure(figsize=(5, 5))
     for index, color in zip(indices, colors):
-        plot_branches(orbital.caustics(float(times[index]), params), color=color)
+        scatter_caustics(orbital.caustics(float(times[index]), params), color=color)
     source_x = -np.asarray(trajectory.x)
     source_y = -np.asarray(trajectory.y)
     plt.plot(source_x, source_y, "y")
@@ -198,13 +231,192 @@ def binary_source():
     save("BinarySource_lightcurve_xallarap_2.png")
 
 
+def binary_source_binary_lens():
+    params = dict(
+        s=0.9, q=0.1, u0=0.0, alpha=1.0, rho=0.01, tE=30.0, t0=7500,
+        piEN=0.3, piEE=-0.2, g1=0.011, g2=-0.005, g3=0.005,
+        u0_2=0.2, t0_2=7500, q_source=1.0,
+        w1=0.01, w2=0.02, w3=-0.015,
+    )
+    times = np.linspace(7470, 7530, 300)
+    sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
+    options = lcbinint.Options(tol=1e-3, reltol=1e-3)
+    single_source = lcbinint.LightCurve(
+        model=lcbinint.Model(
+            parallax=True, orbital_motion="circular", sky=sky, t_ref=7500
+        ),
+        options=options,
+    )
+    binary_source_curve = lcbinint.LightCurve(
+        model=lcbinint.Model(
+            lens="binary", source="binary", parallax=True,
+            orbital_motion="circular", xallarap="circular_velocity",
+            sky=sky, t_ref=7500,
+        ),
+        options=options,
+    )
+    plt.figure(figsize=(6, 4))
+    plt.plot(times, single_source(times, params), label="single source + lens orbit")
+    plt.plot(
+        times, binary_source_curve(times, params),
+        label="binary source + xallarap",
+    )
+    plt.xlabel("Time")
+    plt.ylabel("Magnification")
+    plt.legend()
+    save("BinarySourceBinaryLens_lightcurve.png")
+
+
+def limb_darkening():
+    s, q, y2, rho = 0.8, 0.1, 0.01, 0.01
+    x = np.linspace(-0.04, 0.04, 161)
+    uniform = np.array([
+        lcbinint.binary_ray_shooting(xi, y2, s=s, q=q, rho=rho) for xi in x
+    ])
+    linear = np.array([
+        lcbinint.binary_ray_shooting(
+            xi, y2, s=s, q=q, rho=rho,
+            limb_darkening=lcbinint.LimbDarkening.linear(0.51),
+        )
+        for xi in x
+    ])
+    square_root = np.array([
+        lcbinint.binary_ray_shooting(
+            xi, y2, s=s, q=q, rho=rho,
+            limb_darkening=lcbinint.LimbDarkening.square_root(0.51, 0.3),
+        )
+        for xi in x
+    ])
+    plt.figure(figsize=(6, 4))
+    plt.plot(x, uniform, label="uniform")
+    plt.plot(x, linear, label="linear: 0.51")
+    plt.plot(x, square_root, label="square root: 0.51, 0.3")
+    plt.xlabel("Source x")
+    plt.ylabel("Magnification")
+    plt.legend()
+    save("LimbDarkening_comparison.png")
+
+
+def accuracy_method_selection():
+    params = dict(s=0.9, q=0.1, u0=0.0, alpha=1.0, rho=0.01, tE=30.0, t0=7500)
+    times = np.linspace(7470, 7530, 300)
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            nbin="auto", inverse_ray_grid="auto", tol=1e-4, reltol=1e-3
+        )
+    )
+    info = curve.info(times, params)
+    magnifications = np.asarray(info.magnifications)
+    methods = np.asarray(info.finite_source_method_names)
+    names = list(dict.fromkeys(methods.tolist()))
+
+    fig, (light_ax, method_ax) = plt.subplots(
+        2, 1, figsize=(7, 5.5), sharex=True,
+        gridspec_kw={"height_ratios": [3, 1]},
+    )
+    light_ax.plot(times, magnifications)
+    light_ax.set_ylabel("Magnification")
+    for level, name in enumerate(names):
+        selected = methods == name
+        method_ax.scatter(times[selected], np.full(selected.sum(), level), s=9)
+    method_ax.set_yticks(range(len(names)), names)
+    method_ax.set(xlabel="Time", ylabel="Method")
+    fig.tight_layout()
+    plt.savefig(OUTPUT / "Accuracy_method_selection.png", dpi=150)
+    plt.close()
+
+
+def coordinates():
+    params = dict(s=0.9, q=0.1, u0=0.0, alpha=1.0, rho=0.01, tE=30.0, t0=7500)
+    times = np.linspace(7470, 7530, 300)
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(coordinates="vbm", caustic_bins=600)
+    )
+    trajectory = curve.source_trajectory(times, params)
+    plt.figure(figsize=(5, 5))
+    scatter_caustics(curve.caustics(params), color="tab:red")
+    display_x = -np.asarray(trajectory.x)
+    display_y = -np.asarray(trajectory.y)
+    plt.plot(display_x, display_y, color="0.25")
+    plt.scatter(display_x[[0, -1]], display_y[[0, -1]], color="tab:blue")
+    plt.xlabel("y1")
+    plt.ylabel("y2")
+    plt.axis("equal")
+    save("Coordinates_binary.png")
+
+
+def combined_effects():
+    params = dict(
+        s=0.9, q=0.1, u0=0.0, alpha=1.0, rho=0.01, tE=30.0, t0=7500,
+        piEN=0.3, piEE=-0.2, g1=0.011, g2=-0.005, g3=0.005,
+        u0_2=0.2, t0_2=7500, q_source=1.0,
+        w1=0.01, w2=0.02, w3=-0.015,
+    )
+    times = np.linspace(7470, 7530, 300)
+    sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
+    options = lcbinint.Options(
+        coordinates="vbm", nbin="auto", tol=1e-4, reltol=1e-3
+    )
+    static = lcbinint.LightCurve(options=options)
+    parallax_curve = lcbinint.LightCurve(
+        model=lcbinint.Model(parallax=True, sky=sky, t_ref=7500),
+        options=options,
+    )
+    parallax_orbit = lcbinint.LightCurve(
+        model=lcbinint.Model(
+            parallax=True, orbital_motion="circular", sky=sky, t_ref=7500
+        ),
+        options=options,
+    )
+    combined = lcbinint.LightCurve(
+        model=lcbinint.Model(
+            lens="binary", source="binary", parallax=True,
+            orbital_motion="circular", xallarap="circular_velocity",
+            sky=sky, t_ref=7500,
+        ),
+        options=options,
+    )
+    plt.figure(figsize=(8, 5))
+    plt.plot(times, static(times, params), label="static 2L1S")
+    plt.plot(times, parallax_curve(times, params), label="+ parallax")
+    plt.plot(times, parallax_orbit(times, params), label="+ lens orbit")
+    plt.plot(times, combined(times, params), label="+ binary source + xallarap")
+    plt.xlabel("Time")
+    plt.ylabel("Magnification")
+    plt.legend()
+    save("CombinedEffects_lightcurve.png")
+
+    trajectory = combined.source_trajectory(times, params)
+    display_x = -np.asarray(trajectory.x)
+    display_y = -np.asarray(trajectory.y)
+    indices = [75, 150, 225]
+    colors = ["tab:blue", "tab:purple", "tab:red"]
+    plt.figure(figsize=(6, 6))
+    for index, color in zip(indices, colors):
+        scatter_caustics(
+            combined.caustics(float(times[index]), params), color=color
+        )
+        plt.scatter([display_x[index]], [display_y[index]], color=color)
+    plt.plot(display_x, display_y, color="0.25")
+    plt.xlabel("y1")
+    plt.ylabel("y2")
+    plt.axis("equal")
+    save("CombinedEffects_geometry.png")
+
+
 def main():
     standard_binary()
+    binary_lens_images()
     standard_triple()
     critical_curves_and_caustics()
     parallax()
     orbital_motion()
     binary_source()
+    binary_source_binary_lens()
+    limb_darkening()
+    accuracy_method_selection()
+    coordinates()
+    combined_effects()
 
 
 if __name__ == "__main__":

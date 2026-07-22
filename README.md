@@ -1,4 +1,4 @@
-# lcbinint
+# `lcbinint`
 
 `lcbinint` is a Python package with a C++ core for binary-lens microlensing
 magnification and light-curve calculations.
@@ -147,7 +147,7 @@ calibration experiment and frozen artifacts are documented in
 [`docs/finite-source-auto-calibration.md`](docs/finite-source-auto-calibration.md).
 
 `LightCurve.info(...)` reports the selected method, convergence state, and
-numerical error diagnostics. lcbinint never imports or dispatches to an external
+numerical error diagnostics. `lcbinint` never imports or dispatches to an external
 solver. Numerical conventions and limits are summarized in
 [`docs/numerical-methods.md`](docs/numerical-methods.md).
 
@@ -163,7 +163,7 @@ magnifications = lc.magnification_batch(times, rows)
 For single- and binary-source models this is one GIL-free native call and
 writes directly to a row-major output matrix.
 
-The moasarc adapter also uses lcbinint's internal fused likelihood entry point.
+The moasarc adapter also uses `lcbinint`'s internal fused likelihood entry point.
 It streams one reusable epoch row through magnification, source/blend flux
 solving, and Gaussian or Student-t likelihood evaluation, avoiding the full
 walker-by-epoch matrix while leaving the scalar LightCurve API unchanged.

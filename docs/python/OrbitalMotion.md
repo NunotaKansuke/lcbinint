@@ -2,6 +2,8 @@
 
 # Orbital motion
 
+> VBMicrolensing correspondence: [OrbitalMotion.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/OrbitalMotion.md). The circular-orbit example uses the same `gamma1`, `gamma2`, and `gamma3` values.
+
 ## Circular orbital motion
 
 ```python
@@ -77,7 +79,7 @@ plt.figure(figsize=(5, 5))
 for index, color in zip(caustic_indices, colors):
     caustics = orbital_curve.caustics(float(t[index]), params)
     for x, y in zip(caustics.x, caustics.y):
-        plt.plot(-np.asarray(x), -np.asarray(y), color=color)
+        plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color=color)
 
 source_x = -np.asarray(trajectory_orbital.x)
 source_y = -np.asarray(trajectory_orbital.y)
@@ -90,7 +92,7 @@ plt.show()
 
 ![Orbital caustics and trajectory](figures/BinaryLens_lightcurve_orbital_caustics.png)
 
-The current LCBinInt triple-lens model does not expose triple-lens orbital
+The current `lcbinint` triple-lens model does not expose triple-lens orbital
 caustics, so that example is not substituted with a static geometry.
 
 [Go to Binary Sources](BinarySources.md)

@@ -2,6 +2,8 @@
 
 # Light Curve Functions
 
+> VBMicrolensing correspondence: [LightCurves.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/LightCurves.md). The binary- and triple-lens values and example order are preserved.
+
 ## Binary Lens light curve
 
 The values below are used unchanged throughout the calculation.
@@ -49,7 +51,7 @@ caustics = curve.caustics(params)
 
 plt.figure(figsize=(5, 5))
 for x, y in zip(caustics.x, caustics.y):
-    plt.plot(-np.asarray(x), -np.asarray(y))
+    plt.scatter(-np.asarray(x), -np.asarray(y), s=3)
 plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y))
 plt.xlabel("X")
 plt.ylabel("Y")
@@ -107,7 +109,7 @@ caustics = curve.caustics(params)
 
 plt.figure(figsize=(5, 5))
 for x, y in zip(caustics.x, caustics.y):
-    plt.plot(-np.asarray(x), -np.asarray(y), "r")
+    plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color="r")
 plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y))
 plt.xlabel("X")
 plt.ylabel("Y")

@@ -1,6 +1,8 @@
-# <span style="color:red">LCBinInt</span>
+# <span style="color:red">`lcbinint`</span>
 
 # Documentation
+
+> Corresponding VBMicrolensing page: [Python documentation home](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/readme.md). This guide keeps the same worked-example progression and translates each calculation to the `lcbinint` API.
 
 This guide describes the supported Python workflows through examples that can
 be copied directly into a program. Calculation and visualization are kept in
@@ -51,9 +53,11 @@ plt.show()
 - [Critical curves and caustics](CriticalCurvesAndCaustics.md)
 - [Limb darkening](LimbDarkening.md)
 - [Accuracy control](AccuracyControl.md)
+- [Coordinates](Coordinates.md)
 - [Parallax](Parallax.md)
 - [Orbital motion](OrbitalMotion.md)
 - [Binary sources](BinarySources.md)
+- [Combining physical effects](CombinedEffects.md)
 
-LCBinInt currently supports binary and triple lenses. Single-lens-only and
+`lcbinint` currently supports binary and triple lenses. Single-lens-only and
 arbitrary four-or-more-lens examples are not represented by a different model.

@@ -2,7 +2,9 @@
 
 # Binary sources
 
-LCBinInt exposes binary sources together with a binary lens. The single-lens
+> VBMicrolensing correspondence: [BinarySources.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/BinarySources.md). Flux ratios, epochs, source radii, parallax, and xallarap velocity components retain the published example values.
+
+`lcbinint` exposes binary sources together with a binary lens. The single-lens
 binary-source-only functions are therefore not replaced by a different model.
 
 ## Xallarap
@@ -108,8 +110,34 @@ model = lcbinint.Model(
     sky=sky,
     t_ref=t0,
 )
-binary_source_curve = lcbinint.LightCurve(model=model)
+binary_source_curve = lcbinint.LightCurve(model=model, options=options)
 magnifications_binary_source = binary_source_curve(t, params)
+
+single_source_curve = lcbinint.LightCurve(
+    model=lcbinint.Model(
+        parallax=True,
+        orbital_motion="circular",
+        sky=sky,
+        t_ref=t0,
+    ),
+    options=options,
+)
+magnifications_single_source = single_source_curve(t, params)
 ```
+
+The figure makes the extra binary-source and xallarap terms visible instead of
+leaving the combined calculation as a single printed array:
+
+```python
+plt.figure()
+plt.plot(t, magnifications_single_source, label="single source + lens orbit")
+plt.plot(t, magnifications_binary_source, label="binary source + xallarap")
+plt.xlabel("Time")
+plt.ylabel("Magnification")
+plt.legend()
+plt.show()
+```
+
+![Binary-source binary-lens light curve](figures/BinarySourceBinaryLens_lightcurve.png)
 
 [Back to documentation](readme.md)
