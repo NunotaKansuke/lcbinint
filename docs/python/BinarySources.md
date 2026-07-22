@@ -165,6 +165,26 @@ orbital_elements_magnification = orbital_elements(
 )
 ```
 
+Plot both element-based modes:
+
+```python
+plt.figure(figsize=(4.2, 2.7))
+plt.plot(
+    times, circular_elements_magnification,
+    color="#0173B2", label="circular elements",
+)
+plt.plot(
+    times, orbital_elements_magnification,
+    color="#029E73", label="orbital elements",
+)
+plt.xlabel("Time")
+plt.ylabel("Magnification")
+plt.legend(loc="upper left", fontsize=8)
+plt.show()
+```
+
+![Element-based binary-source xallarap light curves](figures/BinarySource_xallarap_elements_lightcurve.png)
+
 ### Position--velocity modes
 
 `xallarap="circular_velocity"` and `xallarap="kepler_velocity"` propagate
@@ -220,17 +240,25 @@ kepler_velocity_magnification = kepler_velocity(
 )
 ```
 
-Plot the circular-velocity binary-source light curve:
+Plot both velocity-based modes:
 
 ```python
-plt.figure(figsize=(3.8, 2.55))
-plt.plot(times, circular_velocity_magnification, color="#0173B2")
+plt.figure(figsize=(4.2, 2.7))
+plt.plot(
+    times, circular_velocity_magnification,
+    color="#0173B2", label="circular velocity",
+)
+plt.plot(
+    times, kepler_velocity_magnification,
+    color="#029E73", label="Kepler velocity",
+)
 plt.xlabel("Time")
 plt.ylabel("Magnification")
+plt.legend(loc="upper left", fontsize=8)
 plt.show()
 ```
 
-![Binary-source xallarap light curve](figures/BinarySource_xallarap_lightcurve.png)
+![Velocity-based binary-source xallarap light curves](figures/BinarySource_xallarap_lightcurve.png)
 
 Plot both source trajectories with the static lens caustics. `source_trajectory`
 returns one source track, so the two CoM-consistent states are evaluated
