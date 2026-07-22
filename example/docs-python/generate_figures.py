@@ -61,7 +61,7 @@ def standard_binary():
 
 
 def binary_lens_images():
-    q, s, y1, y2, rho = 0.1, 0.8, 0.01, 0.01, 0.01
+    q, s, y1, y2, rho = 0.1, 0.8, 0.015, 0.0, 0.01
     image_plane = lcbinint.image.ImagePlane(
         q=q, s=s, x=y1, y=y2, rho=rho, coordinates="lcbinint"
     )
@@ -72,15 +72,16 @@ def binary_lens_images():
     fig, (source_ax, image_ax) = plt.subplots(1, 2, figsize=(6.6, 3.1))
     for x, y in zip(caustics.x, caustics.y):
         source_ax.plot(x, y, color="tab:red", lw=1.1)
-    source_ax.scatter([y1], [y2], marker="*", color="tab:blue")
-    source_ax.add_patch(Circle((y1, y2), rho, fill=False, color="tab:blue"))
+    source_ax.add_patch(Circle(
+        (y1, y2), rho, fill=False, edgecolor="tab:blue", linewidth=1.4
+    ))
     source_ax.set(title="Source plane", xlabel="x", ylabel="y", aspect="equal")
 
     for x, y in zip(critical_curves.x, critical_curves.y):
-        image_ax.plot(x, y, color="tab:blue")
+        image_ax.plot(x, y, color="black")
     for region in image_regions:
         if len(region.points):
-            image_ax.scatter(region.points[:, 0], region.points[:, 1], s=2)
+            image_ax.scatter(region.points[:, 0], region.points[:, 1], s=2, color="tab:red")
     image_ax.set(title="Image plane", xlabel="x", ylabel="y", aspect="equal")
     fig.tight_layout()
     plt.savefig(OUTPUT / "BinaryLens_images.png", dpi=220)
