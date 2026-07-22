@@ -759,6 +759,7 @@ def higher_order_combination_figures():
         xi_1=0.02, xi_2=-0.01, w1=0.004, w2=0.35, w3=0.08,
     )
     configurations = [
+        ("FiniteSourceOnly", "Finite source only", False, False, False, False),
         ("ParallaxOrbital", "Parallax + lens orbit", False, True, True, False),
         ("ParallaxXallarap", "Parallax + xallarap", False, True, False, True),
         ("OrbitalXallarap", "Lens orbit + xallarap", False, False, True, True),

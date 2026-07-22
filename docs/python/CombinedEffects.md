@@ -7,6 +7,7 @@ example with a light curve and a source-trajectory/caustic figure.
 
 | Sources | Effects | Example |
 | --- | --- | --- |
+| Single | Finite source only | [Open](HigherOrderCombinations.md#finite-source-only) |
 | Single | Parallax + lens orbit | [Open](HigherOrderCombinations.md#parallax--lens-orbit) |
 | Single | Parallax + xallarap | [Open](HigherOrderCombinations.md#parallax--xallarap) |
 | Single | Lens orbit + xallarap | [Open](HigherOrderCombinations.md#lens-orbit--xallarap) |

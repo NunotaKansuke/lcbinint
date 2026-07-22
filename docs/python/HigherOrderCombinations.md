@@ -68,6 +68,24 @@ plt.legend(fontsize=7)
 plt.show()
 ```
 
+## Finite source only
+
+This baseline has a finite source and no parallax, lens orbital motion, or
+xallarap.
+
+```python
+parameters = {
+    "s": 0.9, "q": 0.1, "t0": 7500.0, "u0": 0.20,
+    "tE": 30.0, "alpha": 0.7, "rho": 0.004,
+}
+curve = lcbinint.LightCurve(options=options)
+magnification = curve(times, parameters)
+trajectory = curve.source_trajectory(times, parameters)
+caustics = curve.caustics(parameters)
+```
+
+<p><img src="figures/FiniteSourceOnly_lightcurve.png" alt="Finite-source light curve" width="56%"> <img src="figures/FiniteSourceOnly_geometry.png" alt="Finite-source trajectory and caustics" width="40%"></p>
+
 ## Parallax + lens orbit
 
 ```python
