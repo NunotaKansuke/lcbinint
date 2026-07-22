@@ -2,10 +2,22 @@
 
 # Binary sources
 
-> VBMicrolensing correspondence: [BinarySources.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/BinarySources.md). Flux ratios, epochs, source radii, parallax, and xallarap velocity components retain the published example values.
+> VBMicrolensing correspondence: [BinarySources.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/BinarySources.md). The same physical effects are demonstrated, but the parameters below deliberately use `lcbinint`'s barycentric state-vector convention rather than VBMicrolensing's function-specific transformation.
 
-`lcbinint` exposes binary sources together with a binary lens. The single-lens
-binary-source-only functions are therefore not replaced by a different model.
+`lcbinint` uses one convention for every binary-source lens model:
+
+| Parameter | Meaning at `t_ref` |
+| --- | --- |
+| `t0`, `u0`, `tE`, `alpha` | Rectilinear trajectory of the source barycenter. |
+| `xi_1`, `xi_2` | Projected position of source 1 relative to the barycenter, in the trajectory basis. |
+| `q_mass` | Source mass ratio (M_2/M_1); source 2 is placed at `(-xi_1/q_mass, -xi_2/q_mass)`. |
+| `q_source` | Flux ratio (F_2/F_1), used only for the magnification blend. |
+| `w1` | Fractional radial velocity of the relative source orbit. |
+| `w2` | Angular velocity of the relative source orbit. |
+| `w3` | Fractional line-of-sight velocity; the circular constraint determines the unobserved depth. |
+
+This keeps source dynamics independent of luminosity. In particular,
+`q_source` never silently determines `q_mass`.
 
 ## Xallarap
 
@@ -15,34 +27,27 @@ import matplotlib.pyplot as plt
 import lcbinint
 
 tE = 37.3
-FR = 0.4
-u01 = 0.1
-u02 = 0.05
-t01 = 7550.4
-t02 = 7555.8
+t0 = 7550.4
+u0 = 0.075
 rho = 0.004
-piEN = 0.03
-piEE = -0.02
+FR = 0.4
+q_mass = 1.0
+xi_1 = 0.04
+xi_2 = -0.025
 w1 = 0.021
 w2 = -0.02
 w3 = 0.03
 
 params = {
     "s": 1.0, "q": 1.0, "alpha": 0.0,
-    "tE": tE, "q_source": FR,
-    "u0": u01, "u0_2": u02,
-    "t0": t01, "t0_2": t02,
-    "rho": rho,
-    "piEN": piEN, "piEE": piEE,
+    "tE": tE, "t0": t0, "u0": u0, "rho": rho,
+    "q_source": FR, "q_mass": q_mass,
+    "xi_1": xi_1, "xi_2": xi_2,
     "w1": w1, "w2": w2, "w3": w3,
 }
-t = np.linspace(t01 - tE, t01 + tE, 300)
+t = np.linspace(t0 - tE, t0 + tE, 300)
 
 options = lcbinint.Options(tol=1e-3, reltol=1e-3)
-static_curve = lcbinint.LightCurve(
-    model=lcbinint.Model(lens="binary", source="binary"),
-    options=options,
-)
 xallarap_curve = lcbinint.LightCurve(
     model=lcbinint.Model(
         lens="binary",
@@ -52,7 +57,8 @@ xallarap_curve = lcbinint.LightCurve(
     options=options,
 )
 
-magnifications_static = static_curve(t, params)
+static_params = {**params, "w1": 0.0, "w2": 0.0, "w3": 0.0}
+magnifications_static = xallarap_curve(t, static_params)
 magnifications_xallarap = xallarap_curve(t, params)
 ```
 
@@ -69,12 +75,12 @@ plt.show()
 
 ![Binary-source xallarap light curve](figures/BinarySource_lightcurve_xallarap_2.png)
 
-## Binary sources and Binary lenses
+## Binary sources and binary lenses
 
 ```python
 s = 0.9
 q = 0.1
-u0 = 0.0
+u0 = 0.1
 alpha = 1.0
 rho = 0.01
 tE = 30.0
@@ -84,20 +90,22 @@ piEE = -0.2
 gamma1 = 0.011
 gamma2 = -0.005
 gamma3 = 0.005
-u02 = u0 + 0.2
-t02 = t0 + 0.0
 FR = 1.0
-ws1 = 0.01
-ws2 = 0.02
-ws3 = -0.015
+q_mass = 1.0
+xi_1 = 0.0
+xi_2 = -0.1
+source_w1 = 0.01
+source_w2 = 0.02
+source_w3 = 0.015
 
 params = {
     "s": s, "q": q, "u0": u0, "alpha": alpha,
     "rho": rho, "tE": tE, "t0": t0,
     "piEN": piEN, "piEE": piEE,
     "g1": gamma1, "g2": gamma2, "g3": gamma3,
-    "u0_2": u02, "t0_2": t02, "q_source": FR,
-    "w1": ws1, "w2": ws2, "w3": ws3,
+    "q_source": FR, "q_mass": q_mass,
+    "xi_1": xi_1, "xi_2": xi_2,
+    "w1": source_w1, "w2": source_w2, "w3": source_w3,
 }
 t = np.linspace(t0 - tE, t0 + tE, 300)
 sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
@@ -105,7 +113,6 @@ combined_options = lcbinint.Options(
     coordinates="vbm", tol=1e-3, reltol=1e-3
 )
 
-# Corresponds to VBM.BinaryLightCurveOrbital(pr, t).
 single_source_model = lcbinint.Model(
     parallax=True,
     orbital_motion="circular",
@@ -116,18 +123,25 @@ single_source_curve = lcbinint.LightCurve(
     model=single_source_model,
     options=combined_options,
 )
-magnifications_single_source = single_source_curve(t, params)
-
-# Corresponds to VBM.BinSourceBinLensLightCurve(pr, t). This compatibility
-# calculation jointly reconstructs the lens orbit, source barycenter, source
-# mass ratio, and relative source orbit used by that function.
-magnifications_binary_source = lcbinint.vbm_binary_source_binary_lens(
-    t,
-    params,
+binary_source_model = lcbinint.Model(
+    lens="binary",
+    source="binary",
+    parallax=True,
+    orbital_motion="circular",
+    xallarap="circular_velocity",
     sky=sky,
-    options=combined_options,
     t_ref=t0,
 )
+binary_source_curve = lcbinint.LightCurve(
+    model=binary_source_model,
+    options=combined_options,
+)
+single_source_params = {
+    key: value for key, value in params.items()
+    if key not in {"q_source", "q_mass", "xi_1", "xi_2", "w1", "w2", "w3"}
+}
+magnifications_single_source = single_source_curve(t, single_source_params)
+magnifications_binary_source = binary_source_curve(t, params)
 ```
 
 The figure makes the extra binary-source and xallarap terms visible instead of
