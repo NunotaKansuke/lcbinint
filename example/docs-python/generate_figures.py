@@ -339,9 +339,9 @@ def binary_source_xallarap_trajectories():
     t_ref = 7500.0
     times = np.linspace(t_ref - 30.0, t_ref + 30.0, 300)
     params = dict(
-        s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=t_ref, u0=0.35,
+        s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=t_ref, u0=0.20,
         rho1=0.004, rho2=0.002, flux_ratio=0.4, source_mass_ratio=0.7,
-        xi_1=0.006, xi_2=-0.003, w1=0.001, w2=0.12, w3=0.02,
+        xi_1=0.02, xi_2=-0.01, w1=0.004, w2=0.35, w3=0.08,
     )
     curve = lcbinint.LightCurve(
         source="binary", xallarap="circular_velocity",
@@ -366,9 +366,9 @@ def binary_source_xallarap_trajectories():
 
 def binary_source_xallarap_lightcurve():
     params = dict(
-        s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=7500.0, u0=0.35,
+        s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=7500.0, u0=0.20,
         rho1=0.004, rho2=0.002, flux_ratio=0.4, source_mass_ratio=0.7,
-        xi_1=0.006, xi_2=-0.003, w1=0.001, w2=0.12, w3=0.02,
+        xi_1=0.02, xi_2=-0.01, w1=0.004, w2=0.35, w3=0.08,
     )
     times = np.linspace(7470.0, 7530.0, 300)
     circular = lcbinint.LightCurve(
@@ -424,10 +424,10 @@ def binary_source_xallarap_elements_lightcurve():
 
 def binary_source_xallarap_offset_lightcurve():
     params = dict(
-        s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=7499.82, u0=0.347,
-        t0_2=7500.257142857, u0_2=0.354285714, rho1=0.004, rho2=0.002,
+        s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=7499.4, u0=0.19,
+        t0_2=7500.857142857, u0_2=0.214285714, rho1=0.004, rho2=0.002,
         flux_ratio=0.4, source_mass_ratio=0.7,
-        w1=0.001, w2=0.12, w3=0.02,
+        w1=0.004, w2=0.35, w3=0.08,
     )
     times = np.linspace(7470.0, 7530.0, 300)
     curve = lcbinint.LightCurve(
