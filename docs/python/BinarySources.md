@@ -32,9 +32,12 @@ Both `rho1` and `rho2` are required.  Set either to zero for a point source.
 
 ```python
 import numpy as np
+import matplotlib.pyplot as plt
 import lcbinint
 
-curve = lcbinint.LightCurve(source="binary")
+options = lcbinint.Options(tol=1e-3, reltol=1e-3)
+binary_curve = lcbinint.LightCurve(source="binary", options=options)
+single_source_curve = lcbinint.LightCurve(options=options)
 parameters = {
     "s": 0.9, "q": 0.1, "alpha": 1.0, "tE": 30.0,
     "t0": 7500.0, "u0": 0.10, "rho1": 0.004,
@@ -42,13 +45,62 @@ parameters = {
     "flux_ratio": 0.4,
 }
 times = np.linspace(7470.0, 7530.0, 300)
-magnification = curve(times, parameters)
+
+# The two single-source calls expose the components of the binary-source sum.
+source1_params = dict(parameters, rho=parameters["rho1"])
+source2_params = dict(
+    parameters,
+    t0=parameters["t0_2"], u0=parameters["u0_2"], rho=parameters["rho2"],
+)
+for key in ("rho1", "t0_2", "u0_2", "rho2", "flux_ratio"):
+    source1_params.pop(key)
+    source2_params.pop(key)
+
+source1_magnification = single_source_curve(times, source1_params)
+source2_magnification = single_source_curve(times, source2_params)
+binary_magnification = binary_curve(times, parameters)
 ```
 
-The figure separates the two source magnifications from their flux-weighted
-binary-source result.
+Plot the component curves and their flux-weighted binary-source result:
+
+```python
+plt.figure(figsize=(4.8, 3.0))
+plt.plot(times, source1_magnification, color="#0173B2", label="source 1")
+plt.plot(times, source2_magnification, color="#029E73", label="source 2")
+plt.plot(
+    times, binary_magnification, color="black", lw=1.5,
+    label="flux-weighted binary source",
+)
+plt.xlabel("Time")
+plt.ylabel("Magnification")
+plt.legend(fontsize=8)
+plt.show()
+```
 
 ![Static binary-source light curve](figures/BinarySource_static_lightcurve.png)
+
+The same two trajectories can be inspected against the caustics:
+
+```python
+source1_trajectory = single_source_curve.source_trajectory(times, source1_params)
+source2_trajectory = single_source_curve.source_trajectory(times, source2_params)
+caustics = single_source_curve.caustics(source1_params)
+
+plt.figure(figsize=(2.8, 2.8))
+for x, y in zip(caustics.x, caustics.y):
+    plt.plot(-np.asarray(x), -np.asarray(y), color="#6C6C6C", lw=1.1)
+plt.plot(-np.asarray(source1_trajectory.x), -np.asarray(source1_trajectory.y),
+         color="#0173B2", label="source 1")
+plt.plot(-np.asarray(source2_trajectory.x), -np.asarray(source2_trajectory.y),
+         color="#029E73", label="source 2")
+plt.xlabel("X")
+plt.ylabel("Y")
+plt.axis("equal")
+plt.legend(fontsize=7)
+plt.show()
+```
+
+![Static binary-source trajectories and caustics](figures/BinarySource_static_geometry.png)
 
 ## Source orbital motion (xallarap)
 
@@ -144,10 +196,59 @@ parameters = {
     "xi_1": 0.04, "xi_2": -0.02,
     "w1": 0.01, "w2": 0.8, "w3": 0.2,
 }
+times = np.linspace(7470.0, 7530.0, 300)
+binary_source_magnification = curve(times, parameters)
 ```
 
-The source-orbit figure shows the two CoM-consistent projected trajectories.
-The filled markers are their positions at `t_ref`; their different distances
+Plot the binary-source light curve produced by that configured model:
+
+```python
+plt.figure(figsize=(3.8, 2.55))
+plt.plot(times, binary_source_magnification, color="#0173B2")
+plt.xlabel("Time")
+plt.ylabel("Magnification")
+plt.show()
+```
+
+![Binary-source xallarap light curve](figures/BinarySource_xallarap_lightcurve.png)
+
+Plot both source trajectories with the static lens caustics. `source_trajectory`
+returns one source track, so the two CoM-consistent states are evaluated
+explicitly for this geometry plot:
+
+```python
+trajectory_curve = lcbinint.LightCurve(
+    xallarap="circular_velocity",
+    t_ref=7500.0,
+)
+centre_curve = lcbinint.LightCurve()
+trajectory_params = dict(parameters, rho=0.0)
+for key in ("rho1", "rho2", "flux_ratio", "source_mass_ratio"):
+    trajectory_params.pop(key)
+source2_params = dict(
+    trajectory_params,
+    xi_1=-trajectory_params["xi_1"] / parameters["source_mass_ratio"],
+    xi_2=-trajectory_params["xi_2"] / parameters["source_mass_ratio"],
+)
+source1_trajectory = trajectory_curve.source_trajectory(times, trajectory_params)
+source2_trajectory = trajectory_curve.source_trajectory(times, source2_params)
+centre_trajectory = centre_curve.source_trajectory(times, trajectory_params)
+caustics = centre_curve.caustics(trajectory_params)
+
+plt.figure(figsize=(3.4, 3.2))
+for x, y in zip(caustics.x, caustics.y):
+    plt.plot(x, y, color="#6C6C6C", lw=1.1)
+plt.plot(centre_trajectory.x, centre_trajectory.y, color="0.55", ls="--", label="CoM")
+plt.plot(source1_trajectory.x, source1_trajectory.y, color="#0173B2", label="source 1")
+plt.plot(source2_trajectory.x, source2_trajectory.y, color="#029E73", label="source 2")
+plt.xlabel("Trajectory coordinate 1")
+plt.ylabel("Trajectory coordinate 2")
+plt.axis("equal")
+plt.legend(fontsize=7)
+plt.show()
+```
+
+The filled markers are the positions at `t_ref`; their different distances
 from the CoM reflect `source_mass_ratio`, not `flux_ratio`.
 
 ![Binary-source xallarap trajectories](figures/BinarySource_xallarap_trajectories.png)

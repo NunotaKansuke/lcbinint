@@ -314,15 +314,38 @@ def binary_source():
         source1_params.pop(key)
         source2_params.pop(key)
 
+    source1_magnification = source1(times, source1_params)
+    source2_magnification = source1(times, source2_params)
+    binary_magnification = binary(times, params)
+
     plt.figure(figsize=(4.8, 3.0))
-    plt.plot(times, source1(times, source1_params), label="source 1")
-    plt.plot(times, source1(times, source2_params), label="source 2")
-    plt.plot(times, binary(times, params), color="black", lw=1.5,
+    plt.plot(times, source1_magnification, color="#0173B2", label="source 1")
+    plt.plot(times, source2_magnification, color="#029E73", label="source 2")
+    plt.plot(times, binary_magnification, color="black", lw=1.5,
              label="flux-weighted binary source")
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     plt.legend(fontsize=8)
     save("BinarySource_static_lightcurve.png")
+
+    source1_trajectory = source1.source_trajectory(times, source1_params)
+    source2_trajectory = source1.source_trajectory(times, source2_params)
+    caustics = source1.caustics(source1_params)
+    plt.figure(figsize=(2.8, 2.8))
+    plot_caustics(caustics, color="#6C6C6C", lw=1.1)
+    plt.plot(
+        -np.asarray(source1_trajectory.x), -np.asarray(source1_trajectory.y),
+        color="#0173B2", label="source 1",
+    )
+    plt.plot(
+        -np.asarray(source2_trajectory.x), -np.asarray(source2_trajectory.y),
+        color="#029E73", label="source 2",
+    )
+    plt.xlabel("X")
+    plt.ylabel("Y")
+    plt.axis("equal")
+    plt.legend(fontsize=7)
+    save("BinarySource_static_geometry.png")
 
 
 def binary_source_xallarap_trajectories():
@@ -348,22 +371,43 @@ def binary_source_xallarap_trajectories():
         ),
     )
     centre = static.source_trajectory(times, **common)
+    caustics = static.caustics(**common)
     ref_index = int(np.argmin(np.abs(times - t_ref)))
 
-    plt.figure(figsize=(4.3, 3.4))
+    plt.figure(figsize=(3.4, 3.2))
+    for x, y in zip(caustics.x, caustics.y):
+        plt.plot(x, y, color="#6C6C6C", lw=1.1, zorder=1)
     plt.plot(centre.x, centre.y, color="0.55", linestyle="--", label="CoM track")
-    plt.plot(first.x, first.y, color="tab:blue", label="source 1")
-    plt.plot(second.x, second.y, color="tab:orange", label="source 2")
+    plt.plot(first.x, first.y, color="#0173B2", label="source 1")
+    plt.plot(second.x, second.y, color="#029E73", label="source 2")
     plt.scatter(
         [first.x[ref_index], second.x[ref_index], centre.x[ref_index]],
         [first.y[ref_index], second.y[ref_index], centre.y[ref_index]],
-        color=["tab:blue", "tab:orange", "0.35"], s=24, zorder=3,
+        color=["#0173B2", "#029E73", "0.35"], s=14, zorder=3,
     )
     plt.xlabel("Trajectory coordinate 1")
     plt.ylabel("Trajectory coordinate 2")
     plt.axis("equal")
     plt.legend(fontsize=8)
     save("BinarySource_xallarap_trajectories.png")
+
+
+def binary_source_xallarap_lightcurve():
+    params = dict(
+        s=0.9, q=0.1, alpha=1.0, tE=30.0, t0=7500.0, u0=0.10,
+        rho1=0.004, rho2=0.002, flux_ratio=0.4, source_mass_ratio=0.7,
+        xi_1=0.04, xi_2=-0.02, w1=0.01, w2=0.8, w3=0.2,
+    )
+    times = np.linspace(7470.0, 7530.0, 300)
+    curve = lcbinint.LightCurve(
+        source="binary", xallarap="circular_velocity",
+        source_orbit_coordinates="xallarap", t_ref=7500.0,
+    )
+    plt.figure(figsize=(3.8, 2.55))
+    plt.plot(times, curve(times, params), color="#0173B2")
+    plt.xlabel("Time")
+    plt.ylabel("Magnification")
+    save("BinarySource_xallarap_lightcurve.png")
 
 
 def binary_source_binary_lens():
@@ -600,6 +644,7 @@ def main():
     parallax()
     orbital_motion()
     binary_source()
+    binary_source_xallarap_lightcurve()
     binary_source_xallarap_trajectories()
     binary_source_binary_lens()
     limb_darkening()
