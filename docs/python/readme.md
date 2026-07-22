@@ -57,6 +57,8 @@ plt.show()
 - [Parallax](Parallax.md)
 - [Orbital motion](OrbitalMotion.md)
 - [Binary sources](BinarySources.md)
+- [Xallarap](Xallarap.md)
+- [Binary source + xallarap](BinarySourceXallarap.md)
 - [Combining higher-order effects](CombinedEffects.md)
 
 `lcbinint` currently supports binary and triple lenses. Single-lens-only and

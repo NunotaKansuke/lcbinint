@@ -524,6 +524,47 @@ def binary_source_xallarap_offset_lightcurve():
     save("BinarySource_xallarap_offset_geometry.png")
 
 
+def xallarap_single_source():
+    times = np.linspace(7470.0, 7530.0, 300)
+    common = dict(s=0.9, q=0.1, alpha=1.0, tE=30.0, t0=7500.0, u0=0.10, rho=0.004,
+                  xi_1=0.04, xi_2=-0.02)
+    static = lcbinint.LightCurve()
+
+    elements_params = dict(common, period_xa=120.0, inc_xa=0.8)
+    elements = lcbinint.LightCurve(xallarap="circular_elements", t_ref=7500.0)
+    plt.figure(figsize=(4.2, 2.7))
+    plt.plot(times, elements(times, elements_params), color="#0173B2")
+    plt.xlabel("Time")
+    plt.ylabel("Magnification")
+    save("Xallarap_elements_lightcurve.png")
+    trajectory = elements.source_trajectory(times, elements_params)
+    caustics = static.caustics(elements_params)
+    plt.figure(figsize=(3.4, 3.2))
+    plot_caustics(caustics, color="#6C6C6C", lw=1.1)
+    plt.plot(trajectory.x, trajectory.y, color="#0173B2")
+    plt.xlabel("Trajectory coordinate 1")
+    plt.ylabel("Trajectory coordinate 2")
+    plt.axis("equal")
+    save("Xallarap_elements_geometry.png")
+
+    velocity_params = dict(common, w1=0.01, w2=0.8, w3=0.2)
+    velocity = lcbinint.LightCurve(xallarap="circular_velocity", t_ref=7500.0)
+    plt.figure(figsize=(4.2, 2.7))
+    plt.plot(times, velocity(times, velocity_params), color="#0173B2")
+    plt.xlabel("Time")
+    plt.ylabel("Magnification")
+    save("Xallarap_velocity_lightcurve.png")
+    trajectory = velocity.source_trajectory(times, velocity_params)
+    caustics = static.caustics(velocity_params)
+    plt.figure(figsize=(3.4, 3.2))
+    plot_caustics(caustics, color="#6C6C6C", lw=1.1)
+    plt.plot(trajectory.x, trajectory.y, color="#0173B2")
+    plt.xlabel("Trajectory coordinate 1")
+    plt.ylabel("Trajectory coordinate 2")
+    plt.axis("equal")
+    save("Xallarap_velocity_geometry.png")
+
+
 def binary_source_binary_lens():
     params = dict(
         s=0.9, q=0.1, u0=0.1, alpha=1.0, rho1=0.01, tE=30.0, t0=7500,
@@ -761,6 +802,7 @@ def main():
     binary_source_xallarap_elements_lightcurve()
     binary_source_xallarap_lightcurve()
     binary_source_xallarap_offset_lightcurve()
+    xallarap_single_source()
     binary_source_xallarap_trajectories()
     binary_source_binary_lens()
     limb_darkening()

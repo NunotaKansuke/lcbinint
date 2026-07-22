@@ -9,6 +9,8 @@ copy/paste-ready calculations rather than an API inventory:
 - [Parallax](python/Parallax.md)
 - [Orbital motion](python/OrbitalMotion.md)
 - [Binary sources](python/BinarySources.md)
+- [Xallarap](python/Xallarap.md)
+- [Binary source + xallarap](python/BinarySourceXallarap.md)
 - [Limb darkening](python/LimbDarkening.md)
 - [Accuracy control](python/AccuracyControl.md)
 - [Coordinates](python/Coordinates.md)

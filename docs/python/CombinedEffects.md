@@ -1,4 +1,4 @@
-[Previous: Binary sources](BinarySources.md) · [Documentation home](readme.md)
+[Previous: Binary source + xallarap](BinarySourceXallarap.md) · [Documentation home](readme.md)
 
 # Combining higher-order effects
 
@@ -40,7 +40,7 @@ magnification = curve(times, parameters)
 Binary sources can also be combined with xallarap. They always use independent
 `rho1`, `rho2`, and `flux_ratio`; `source_mass_ratio` is used only to distribute
 the dynamical xallarap orbit about its centre of mass. See
-[Binary sources](BinarySources.md#binary-source-with-xallarap) for the two
-velocity-coordinate choices and the elements-mode API.
+[Binary source + xallarap](BinarySourceXallarap.md) for the two
+velocity-coordinate choices and the integrated API.
 
-[Previous: Binary sources](BinarySources.md) · [Documentation home](readme.md)
+[Previous: Binary source + xallarap](BinarySourceXallarap.md) · [Documentation home](readme.md)
