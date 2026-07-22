@@ -22,9 +22,9 @@ example below.
 times = np.linspace(7470.0, 7530.0, 300)
 parameters = {
     "s": 0.9, "q": 0.1, "alpha": 0.7, "tE": 30.0,
-    "t0": 7500.0, "u0": 0.25, "rho": 0.004,
-    "xi_1": 0.015, "xi_2": -0.0075,
-    "period_xa": 120.0, "inc_xa": 0.5,
+    "t0": 7500.0, "u0": 0.35, "rho": 0.004,
+    "xi_1": 0.006, "xi_2": -0.003,
+    "period_xa": 300.0, "inc_xa": 0.3,
 }
 static_curve = lcbinint.LightCurve()
 curve = lcbinint.LightCurve(xallarap="circular_elements", t_ref=7500.0)
