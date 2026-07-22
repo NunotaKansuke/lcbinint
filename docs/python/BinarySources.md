@@ -195,10 +195,4 @@ Choose `t_ref` near the event centre or the centre of the data span.  This
 makes the stated positional anchor useful and usually reduces parameter
 correlations.
 
-## Removed legacy names
-
-The legacy names `q_mass`, `q_source`, and `fluxratio` are rejected.  Use
-`source_mass_ratio` for `M2 / M1` only when binary-source xallarap is
-active, and `flux_ratio` for \(F_2/F_1\) in every binary-source model.
-
 [Previous: Orbital motion](OrbitalMotion.md) · [Documentation home](readme.md) · [Next: Combining higher-order effects](CombinedEffects.md)
