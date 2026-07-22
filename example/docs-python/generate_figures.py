@@ -410,10 +410,10 @@ def accuracy_method_selection():
     )
     light_ax.plot(times, magnifications)
     light_ax.set_ylabel("Magnification")
-    for level, name in enumerate(names):
+    for level, name in enumerate(names, start=1):
         selected = methods == name
         method_ax.scatter(times[selected], np.full(selected.sum(), level), s=9)
-    method_ax.set_yticks(range(len(names)), names)
+    method_ax.set_yticks(range(1, len(names) + 1))
     method_ax.set(xlabel="Time", ylabel="Method")
     fig.tight_layout()
     plt.savefig(OUTPUT / "Accuracy_method_selection.png", dpi=220)

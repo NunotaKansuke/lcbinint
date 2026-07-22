@@ -125,20 +125,28 @@ curve = lcbinint.LightCurve(options=automatic)
 info = curve.info(t, params)
 
 method_names = list(dict.fromkeys(info.finite_source_method_names))
-method_index = {name: index for index, name in enumerate(method_names)}
+method_index = {name: index for index, name in enumerate(method_names, start=1)}
 selected = [method_index[name] for name in info.finite_source_method_names]
 
 fig, (mag_ax, method_ax) = plt.subplots(2, 1, sharex=True, figsize=(4.8, 3.8))
 mag_ax.plot(t, info.magnifications)
 mag_ax.set_ylabel("Magnification")
 method_ax.scatter(t, selected, s=10)
-method_ax.set_yticks(range(len(method_names)), method_names)
+method_ax.set_yticks(range(1, len(method_names) + 1))
 method_ax.set(xlabel="Time", ylabel="Method")
 fig.tight_layout()
 plt.show()
 ```
 
 ![Automatic method selection](figures/Accuracy_method_selection.png)
+
+The method numbers in the lower panel are:
+
+1. `point_source` — point-source approximation.
+2. `hexadecapole` — fourth-order finite-source approximation.
+3. `inverse_ray_cartesian` — Cartesian inverse ray shooting.
+4. `source_plane_quadrature` — direct source-plane integration.
+5. `inverse_ray_polar` — polar inverse ray shooting.
 
 For the calibration evidence and the exact retry rules, continue to
 [Numerical methods](../numerical-methods.md).
