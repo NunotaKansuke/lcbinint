@@ -16,6 +16,61 @@ All integrated models require `rho1`, `rho2`, `flux_ratio`, and
 | `"circular_velocity"` | `xi_1`, `xi_2`, `w1`, `w2`, `w3` |
 | `"kepler_velocity"` | `xi_1`, `xi_2`, `w1`, `w2`, `w3`, `xa_szs`, `xa_ar` |
 
+## Circular elements
+
+The elements-mode source 1 is the same state used in the standalone
+[circular-elements example](Xallarap.md#circular-elements).
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+import lcbinint
+
+times = np.linspace(7470.0, 7530.0, 300)
+parameters = {
+    "s": 0.9, "q": 0.1, "alpha": 0.7, "tE": 30.0,
+    "t0": 7500.0, "u0": 0.25,
+    "rho1": 0.004, "rho2": 0.002, "flux_ratio": 0.4,
+    "source_mass_ratio": 0.7,
+    "xi_1": 0.015, "xi_2": -0.0075,
+    "period_xa": 120.0, "inc_xa": 0.5,
+}
+binary_curve = lcbinint.LightCurve(
+    source="binary", xallarap="circular_elements", t_ref=7500.0,
+)
+components = binary_curve.binary_source_components(times, parameters)
+```
+
+```python
+plt.figure(figsize=(4.2, 2.7))
+plt.plot(times, components.source1.magnification, color="#0173B2", alpha=0.45, lw=1.0, label="source 1")
+plt.plot(times, components.source2.magnification, color="#029E73", alpha=0.45, lw=1.0, label="source 2")
+plt.plot(times, components.total, color="black", lw=1.5, label="total")
+plt.xlabel("Time")
+plt.ylabel("Magnification")
+plt.legend(loc="upper left", fontsize=8)
+plt.show()
+```
+
+![Elements binary-source xallarap light curve](figures/BinarySource_xallarap_elements_lightcurve.png)
+
+```python
+caustics = binary_curve.caustics(parameters)
+
+plt.figure(figsize=(3.4, 3.2))
+for x, y in zip(caustics.x, caustics.y):
+    plt.plot(x, y, color="#6C6C6C", lw=1.1)
+plt.plot(components.source1.trajectory.x, components.source1.trajectory.y, color="#0173B2", label="source 1")
+plt.plot(components.source2.trajectory.x, components.source2.trajectory.y, color="#029E73", label="source 2")
+plt.xlabel("Trajectory coordinate 1")
+plt.ylabel("Trajectory coordinate 2")
+plt.axis("equal")
+plt.legend(fontsize=7)
+plt.show()
+```
+
+![Elements binary-source xallarap trajectories and caustics](figures/BinarySource_xallarap_elements_geometry.png)
+
 ## Direct xallarap coordinates
 
 With `source_orbit_coordinates="xallarap"`, `t0` and `u0` specify the CoM
