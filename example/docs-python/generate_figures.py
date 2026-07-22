@@ -748,6 +748,87 @@ def combined_effects():
     save("CombinedEffects_geometry.png")
 
 
+def higher_order_combination_figures():
+    """Render the catalogue figures used by the higher-order index pages."""
+    sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
+    options = lcbinint.Options(coordinates="vbm", tol=1e-3, reltol=1e-3)
+    times = np.linspace(7470.0, 7530.0, 300)
+    common = dict(
+        s=0.9, q=0.1, t0=7500.0, u0=0.20, tE=30.0, alpha=0.7,
+        piEN=0.03, piEE=-0.02, g1=0.011, g2=-0.005, g3=0.005,
+        xi_1=0.02, xi_2=-0.01, w1=0.004, w2=0.35, w3=0.08,
+    )
+    configurations = [
+        ("ParallaxOrbital", "Parallax + lens orbit", False, True, True, False),
+        ("ParallaxXallarap", "Parallax + xallarap", False, True, False, True),
+        ("OrbitalXallarap", "Lens orbit + xallarap", False, False, True, True),
+        ("ParallaxOrbitalXallarap", "Parallax + lens orbit + xallarap", False, True, True, True),
+        ("BinarySourceParallax", "Binary source + parallax", True, True, False, False),
+        ("BinarySourceOrbital", "Binary source + lens orbit", True, False, True, False),
+        ("BinarySourceParallaxOrbital", "Binary source + parallax + lens orbit", True, True, True, False),
+        ("BinarySourceParallaxXallarap", "Binary source + parallax + xallarap", True, True, False, True),
+        ("BinarySourceOrbitalXallarap", "Binary source + lens orbit + xallarap", True, False, True, True),
+        ("BinarySourceParallaxOrbitalXallarap", "Binary source + parallax + lens orbit + xallarap", True, True, True, True),
+    ]
+    for stem, title, binary_source, parallax, orbital, xallarap in configurations:
+        params = dict(common)
+        if not xallarap:
+            for key in ("xi_1", "xi_2", "w1", "w2", "w3"):
+                params.pop(key)
+        if binary_source:
+            params.update(
+                rho1=0.0 if orbital else 0.004,
+                rho2=0.0 if orbital else 0.003,
+                flux_ratio=0.4,
+            )
+            if xallarap:
+                params["source_mass_ratio"] = 0.7
+            else:
+                params.update(t0_2=7501.2, u0_2=-0.06)
+        else:
+            params["rho"] = 0.0 if orbital else 0.004
+
+        model_args = dict(
+            source="binary" if binary_source else "single",
+            parallax=parallax,
+            sky=sky if parallax else None,
+            t_ref=7500.0,
+        )
+        if orbital:
+            model_args["orbital_motion"] = "circular"
+        if xallarap:
+            model_args["xallarap"] = "circular_velocity"
+            if binary_source:
+                model_args["source_orbit_coordinates"] = "xallarap"
+        curve = lcbinint.LightCurve(model=lcbinint.Model(**model_args), options=options)
+        magnification = curve(times, params)
+
+        plt.figure(figsize=(4.2, 2.7))
+        plt.plot(times, magnification, color="#0173B2")
+        plt.xlabel("Time")
+        plt.ylabel("Magnification")
+        plt.title(title, fontsize=9)
+        save(f"{stem}_lightcurve.png")
+
+        caustics = curve.caustics(7500.0, params) if orbital else curve.caustics(params)
+        plt.figure(figsize=(3.4, 3.2))
+        plot_caustics(caustics, color="#6C6C6C", lw=1.1)
+        if binary_source:
+            components = curve.binary_source_components(times, params)
+            plt.plot(components.source1.trajectory.x, components.source1.trajectory.y,
+                     color="#0173B2", label="source 1")
+            plt.plot(components.source2.trajectory.x, components.source2.trajectory.y,
+                     color="#029E73", label="source 2")
+            plt.legend(fontsize=7)
+        else:
+            trajectory = curve.source_trajectory(times, params)
+            plt.plot(trajectory.x, trajectory.y, color="#0173B2")
+        plt.xlabel("Trajectory coordinate 1")
+        plt.ylabel("Trajectory coordinate 2")
+        plt.axis("equal")
+        save(f"{stem}_geometry.png")
+
+
 def main():
     standard_binary()
     binary_lens_images()
@@ -766,6 +847,7 @@ def main():
     accuracy_method_selection()
     coordinates()
     combined_effects()
+    higher_order_combination_figures()
 
 
 if __name__ == "__main__":
