@@ -1,4 +1,4 @@
-[Previous: Orbital motion](OrbitalMotion.md) · [Documentation home](readme.md) · [Next: Combining physical effects](CombinedEffects.md)
+[Previous: Orbital motion](OrbitalMotion.md) · [Documentation home](readme.md) · [Next: Combining higher-order effects](CombinedEffects.md)
 
 # Binary sources
 
@@ -159,4 +159,4 @@ plt.show()
 
 ![Binary-source binary-lens light curve](figures/BinarySourceBinaryLens_lightcurve.png)
 
-[Previous: Orbital motion](OrbitalMotion.md) · [Documentation home](readme.md) · [Next: Combining physical effects](CombinedEffects.md)
+[Previous: Orbital motion](OrbitalMotion.md) · [Documentation home](readme.md) · [Next: Combining higher-order effects](CombinedEffects.md)

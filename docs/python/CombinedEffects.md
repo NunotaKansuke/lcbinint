@@ -1,6 +1,6 @@
 [Previous: Binary sources](BinarySources.md) · [Documentation home](readme.md)
 
-# Combining physical effects
+# Combining higher-order effects
 
 > VBMicrolensing correspondence: this example combines the parameter sets documented separately in [Parallax.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/Parallax.md), [OrbitalMotion.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/OrbitalMotion.md), and [BinarySources.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/BinarySources.md).
 

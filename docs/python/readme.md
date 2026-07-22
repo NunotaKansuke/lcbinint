@@ -57,7 +57,7 @@ plt.show()
 - [Parallax](Parallax.md)
 - [Orbital motion](OrbitalMotion.md)
 - [Binary sources](BinarySources.md)
-- [Combining physical effects](CombinedEffects.md)
+- [Combining higher-order effects](CombinedEffects.md)
 
 `lcbinint` currently supports binary and triple lenses. Single-lens-only and
 arbitrary four-or-more-lens examples are not represented by a different model.
