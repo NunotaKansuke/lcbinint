@@ -345,7 +345,7 @@ def binary_source_binary_lens():
         key: value for key, value in params.items()
         if key not in {"q_source", "q_mass", "xi_1", "xi_2", "w1", "w2", "w3"}
     }
-    plt.figure(figsize=(3.6, 2.7))
+    plt.figure(figsize=(5.6, 3.2))
     plt.plot(
         times, single_source(times, single_source_params), "y",
         label="single source + lens orbit",
@@ -356,7 +356,7 @@ def binary_source_binary_lens():
     )
     plt.xlabel("Time")
     plt.ylabel("Magnification")
-    plt.legend(loc="upper center", bbox_to_anchor=(0.5, 1.34), fontsize=8)
+    plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=8)
     save("BinarySourceBinaryLens_lightcurve.png")
 
 
