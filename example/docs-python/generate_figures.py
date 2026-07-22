@@ -827,8 +827,13 @@ def higher_order_combination_figures():
         save(f"{stem}_geometry.png")
 
 
-def hierarchical_combination_sheets():
-    """Render every hierarchy-respecting high-order configuration."""
+def higher_order_catalogue():
+    """Render and document every hierarchy-respecting high-order configuration.
+
+    This deliberately makes one light-curve figure and one geometry figure per
+    configuration.  The catalogue is intended for reading one physical model
+    at a time, rather than for comparing a contact sheet of tiny plots.
+    """
     sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
     options = lcbinint.Options(coordinates="vbm", tol=1e-3, reltol=1e-3)
     times = np.linspace(7470.0, 7530.0, 160)
@@ -836,59 +841,134 @@ def hierarchical_combination_sheets():
                 piEN=.03, piEE=-.02, g1=.011, g2=-.005, g3=.005,
                 lom_szs=.2, lom_ar=1.4)
     def modes(binary):
-        out = [("P", None, None, None)]
-        x = [("P+XE", "circular_elements", None), ("P+XK", "orbital_elements", None),
-             ("P+XD", "circular_velocity", "xallarap"), ("P+XKD", "kepler_velocity", "xallarap")]
+        out = [("Parallax", None, None, None)]
+        x = [("circular-elements xallarap", "circular_elements", None),
+             ("Kepler-elements xallarap", "orbital_elements", None),
+             ("direct circular-velocity xallarap", "circular_velocity", "xallarap"),
+             ("direct Kepler-velocity xallarap", "kepler_velocity", "xallarap")]
         if binary:
-            x += [("P+XTO", "circular_velocity", "trajectory_offset"),
-                  ("P+XKTO", "kepler_velocity", "trajectory_offset")]
+            x += [("trajectory-offset circular-velocity xallarap", "circular_velocity", "trajectory_offset"),
+                  ("trajectory-offset Kepler-velocity xallarap", "kepler_velocity", "trajectory_offset")]
+        out += [("Parallax + " + name, xm, co, None) for name, xm, co in x]
         for orbit, label in (("circular", "O"), ("kepler", "OK")):
-            out.append(("P+" + label, None, None, orbit))
-            out += [(name.replace("P+", "P+" + label + "+"), xm, co, orbit) for name, xm, co in x[1:]]
+            orbit_name = "circular lens orbit" if orbit == "circular" else "Kepler lens orbit"
+            out.append(("Parallax + " + orbit_name, None, None, orbit))
+            out += [("Parallax + " + orbit_name + " + " + name, xm, co, orbit)
+                    for name, xm, co in x]
         return out
-    for lens, source in (("binary", "single"), ("binary", "binary"), ("triple", "single"), ("triple", "binary")):
+
+    def slug(text):
+        return "".join(char.lower() if char.isalnum() else "_" for char in text).strip("_").replace("__", "_")
+
+    def config_parameters(lens, source, xmode, coordinates, orbit):
+        params = dict(base)
+        if lens == "triple":
+            params.update(sep2=1.3, q2=.01, ang=.5)
+        if xmode in ("circular_elements", "orbital_elements"):
+            params.update(xi_1=.006, xi_2=-.003, period_xa=12., inc_xa=.6)
+            if xmode == "orbital_elements":
+                params.update(ecc_xa=.2, peri_xa=.4)
+        elif xmode:
+            params.update(xi_1=.006, xi_2=-.003, w1=.004, w2=.35, w3=.08)
+            if xmode == "kepler_velocity":
+                params.update(xa_szs=.2, xa_ar=1.4)
+        if source == "binary":
+            params.update(rho1=.004, rho2=.003, flux_ratio=.4)
+            if xmode:
+                params["source_mass_ratio"] = .7
+                if coordinates == "trajectory_offset":
+                    params.update(t0=7499.4, u0=.19, t0_2=7500.857142857, u0_2=.214285714)
+            else:
+                params.update(t0_2=7501.2, u0_2=-.06)
+        else:
+            params["rho"] = .004
+        return params
+
+    catalogue = [
+        "[Previous: Combining higher-order effects](CombinedEffects.md) · [Documentation home](readme.md)",
+        "", "# Higher-order combination catalogue", "",
+        "Each entry is a complete, hierarchy-valid model: finite source first, then annual parallax, followed by lens orbital motion and/or xallarap. Lens orbit is therefore never shown without parallax, and triple lenses are limited to their supported static-lens geometry.",
+        "", "```python", "import numpy as np", "import matplotlib.pyplot as plt", "import lcbinint", "", "times = np.linspace(7470.0, 7530.0, 160)", "sky = lcbinint.obs.SkyCoord(\"17:59:02.3\", \"-29:04:15.2\")", "options = lcbinint.Options(coordinates=\"vbm\", tol=1e-3, reltol=1e-3)", "```", "",
+        "## Finite source only", "", "```python", "parameters = {\"s\": 0.9, \"q\": 0.1, \"t0\": 7500.0, \"u0\": 0.20,", "    \"tE\": 30.0, \"alpha\": 0.7, \"rho\": 0.004}", "curve = lcbinint.LightCurve(options=options)", "magnification = curve(times, parameters)", "trajectory = curve.source_trajectory(times, parameters)", "caustics = curve.caustics(parameters)", "```", "",
+        "```python", "plt.figure(figsize=(3.8, 2.4))", "plt.plot(times, magnification, color=\"#0173B2\")", "plt.xlabel(\"Time\"); plt.ylabel(\"Magnification\")", "plt.show()", "", "plt.figure(figsize=(2.8, 2.7))", "for x, y in zip(caustics.x, caustics.y):", "    plt.plot(x, y, color=\"#6C6C6C\", lw=1.1)", "plt.plot(trajectory.x, trajectory.y, color=\"#0173B2\")", "plt.xlabel(\"Trajectory coordinate 1\"); plt.ylabel(\"Trajectory coordinate 2\")", "plt.axis(\"equal\"); plt.show()", "```", "", "<p><img src=\"figures/FiniteSourceOnly_lightcurve.png\" alt=\"Finite-source light curve\" width=\"56%\"> <img src=\"figures/FiniteSourceOnly_geometry.png\" alt=\"Finite-source trajectory and caustics\" width=\"40%\"></p>", ""
+    ]
+    groups = (("binary", "single", "Binary lens, single source"),
+              ("binary", "binary", "Binary lens, binary source"),
+              ("triple", "single", "Triple lens, single source"),
+              ("triple", "binary", "Triple lens, binary source"))
+    for lens, source, heading in groups:
+        catalogue += ["## " + heading, ""]
         binary = source == "binary"
         configs = modes(binary)
-        if lens == "triple": configs = [item for item in configs if item[3] is None]
-        cols = 5; rows = (len(configs) + cols - 1) // cols
-        light, geo = plt.subplots(rows, cols, figsize=(10, 1.9 * rows), squeeze=False), plt.subplots(rows, cols, figsize=(10, 1.9 * rows), squeeze=False)
-        for index, (label, xmode, coordinates, orbit) in enumerate(configs):
-            axl, axg = light[1][index // cols][index % cols], geo[1][index // cols][index % cols]
-            params = dict(base)
-            if lens == "triple": params.update(sep2=1.3, q2=.01, ang=.5)
-            if xmode in ("circular_elements", "orbital_elements"):
-                params.update(xi_1=.006, xi_2=-.003, period_xa=12., inc_xa=.6)
-                if xmode == "orbital_elements": params.update(ecc_xa=.2, peri_xa=.4)
-            elif xmode:
-                params.update(xi_1=.006, xi_2=-.003, w1=.004, w2=.35, w3=.08)
-                if xmode == "kepler_velocity": params.update(xa_szs=.2, xa_ar=1.4)
-            if binary:
-                params.update(rho1=.004, rho2=.003, flux_ratio=.4)
-                if xmode:
-                    params["source_mass_ratio"] = .7
-                    if coordinates == "trajectory_offset":
-                        params.update(t0=7499.4, u0=.19, t0_2=7500.857142857, u0_2=.214285714)
-                else: params.update(t0_2=7501.2, u0_2=-.06)
-            else: params["rho"] = .004
+        if lens == "triple":
+            configs = [item for item in configs if item[3] is None]
+        for label, xmode, coordinates, orbit in configs:
+            params = config_parameters(lens, source, xmode, coordinates, orbit)
             args = dict(lens=lens, source=source, parallax=True, sky=sky, t_ref=7500.)
-            if orbit: args["orbital_motion"] = orbit
-            if xmode: args["xallarap"] = xmode
-            if binary and coordinates: args["source_orbit_coordinates"] = coordinates
+            if orbit:
+                args["orbital_motion"] = orbit
+            if xmode:
+                args["xallarap"] = xmode
+            if binary and coordinates:
+                args["source_orbit_coordinates"] = coordinates
             curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(**args))
-            mag = curve(times, params); axl.plot(times, mag, color="#0173B2", lw=.8)
+            components = curve.binary_source_components(times, params) if binary else None
+            mag = components.total if binary else curve(times, params)
             caustics = curve.caustics(7500., params) if orbit else curve.caustics(params)
-            plot_caustics(caustics, color="#6C6C6C", lw=.6)
+            stem = "HigherOrder_" + slug("_".join((lens, source, label)))
+            plt.figure(figsize=(3.8, 2.4))
             if binary:
-                c = curve.binary_source_components(times, params)
-                axg.plot(c.source1.trajectory.x, c.source1.trajectory.y, color="#0173B2", lw=.7)
-                axg.plot(c.source2.trajectory.x, c.source2.trajectory.y, color="#029E73", lw=.7)
+                plt.plot(times, components.source1.magnification, color="#0173B2", alpha=.45, lw=.9, label="source 1")
+                plt.plot(times, components.source2.magnification, color="#029E73", alpha=.45, lw=.9, label="source 2")
+                plt.plot(times, mag, color="black", lw=1.3, label="total")
+                plt.legend(loc="upper left", fontsize=7)
             else:
-                tr = curve.source_trajectory(times, params); axg.plot(tr.x, tr.y, color="#0173B2", lw=.7)
-            for ax in (axl, axg): ax.set_title(label, fontsize=6); ax.tick_params(labelsize=5)
-            axg.set_aspect("equal")
-        for ax in list(light[1].flat)[len(configs):] + list(geo[1].flat)[len(configs):]: ax.axis("off")
-        for fig, kind in ((light[0], "lightcurves"), (geo[0], "geometry")):
-            fig.tight_layout(pad=.5); fig.savefig(OUTPUT / f"Hierarchical_{lens}_{source}_{kind}.png", dpi=220); plt.close(fig)
+                plt.plot(times, mag, color="#0173B2", lw=1.1)
+            plt.xlabel("Time"); plt.ylabel("Magnification")
+            save(f"{stem}_lightcurve.png")
+            plt.figure(figsize=(2.8, 2.7))
+            plot_caustics(caustics, color="#6C6C6C", lw=1.1)
+            if binary:
+                plt.plot(components.source1.trajectory.x, components.source1.trajectory.y, color="#0173B2", lw=1.0, label="source 1")
+                plt.plot(components.source2.trajectory.x, components.source2.trajectory.y, color="#029E73", lw=1.0, label="source 2")
+                plt.legend(fontsize=7)
+            else:
+                tr = curve.source_trajectory(times, params)
+                plt.plot(tr.x, tr.y, color="#0173B2", lw=1.0)
+            plt.xlabel("Trajectory coordinate 1"); plt.ylabel("Trajectory coordinate 2")
+            plt.axis("equal")
+            save(f"{stem}_geometry.png")
+
+            model_parts = []
+            for key, value in args.items():
+                if key == "sky":
+                    rendered = "sky"
+                else:
+                    rendered = repr(value)
+                model_parts.append(f"{key}={rendered}")
+            model_code = ", ".join(model_parts)
+            catalogue += ["### " + label, "", "```python", "parameters = " + repr(params),
+                          "curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(" + model_code + "))",
+                          ]
+            if binary:
+                catalogue += ["components = curve.binary_source_components(times, parameters)", "magnification = components.total", "trajectory1 = components.source1.trajectory", "trajectory2 = components.source2.trajectory"]
+            else:
+                catalogue += ["magnification = curve(times, parameters)", "trajectory = curve.source_trajectory(times, parameters)"]
+            catalogue += [("caustics = curve.caustics(7500.0, parameters)" if orbit else "caustics = curve.caustics(parameters)"), "```", "",
+                          "```python", "plt.figure(figsize=(3.8, 2.4))"]
+            if binary:
+                catalogue += ["plt.plot(times, components.source1.magnification, color=\"#0173B2\", alpha=0.45, label=\"source 1\")", "plt.plot(times, components.source2.magnification, color=\"#029E73\", alpha=0.45, label=\"source 2\")", "plt.plot(times, magnification, color=\"black\", label=\"total\")", "plt.legend(loc=\"upper left\", fontsize=7)"]
+            else:
+                catalogue += ["plt.plot(times, magnification, color=\"#0173B2\")"]
+            catalogue += ["plt.xlabel(\"Time\"); plt.ylabel(\"Magnification\")", "plt.show()", "```", "",
+                          "```python", "plt.figure(figsize=(2.8, 2.7))", "for x, y in zip(caustics.x, caustics.y):", "    plt.plot(x, y, color=\"#6C6C6C\", lw=1.1)"]
+            if binary:
+                catalogue += ["plt.plot(trajectory1.x, trajectory1.y, color=\"#0173B2\", label=\"source 1\")", "plt.plot(trajectory2.x, trajectory2.y, color=\"#029E73\", label=\"source 2\")", "plt.legend(fontsize=7)"]
+            else:
+                catalogue += ["plt.plot(trajectory.x, trajectory.y, color=\"#0173B2\")"]
+            catalogue += ["plt.xlabel(\"Trajectory coordinate 1\"); plt.ylabel(\"Trajectory coordinate 2\")", "plt.axis(\"equal\"); plt.show()", "```", "", f"<p><img src=\"figures/{stem}_lightcurve.png\" alt=\"{label} light curve\" width=\"56%\"> <img src=\"figures/{stem}_geometry.png\" alt=\"{label} caustics and trajectories\" width=\"40%\"></p>", ""]
+    catalogue += ["[Previous: Combining higher-order effects](CombinedEffects.md) · [Documentation home](readme.md)", ""]
+    (OUTPUT.parent / "HigherOrderCombinations.md").write_text("\n".join(catalogue))
 
 
 def main():
@@ -910,7 +990,7 @@ def main():
     coordinates()
     combined_effects()
     higher_order_combination_figures()
-    hierarchical_combination_sheets()
+    higher_order_catalogue()
 
 
 if __name__ == "__main__":
