@@ -8,10 +8,10 @@ of whether the configured lens is binary or triple.
 
 The observed magnification is the flux-weighted sum
 
-\[
+$$
 A(t) = \frac{A_1(t) + f\,A_2(t)}{1+f},
 \qquad f = \mathtt{flux\_ratio} = F_2/F_1.
-\]
+$$
 
 `flux_ratio` is a photometric quantity.  It must not be used as a proxy for a
 source mass ratio: stars of the same mass need not have the same brightness,
@@ -54,16 +54,16 @@ With xallarap, the two sources are the two members of a physical source binary.
 Their sky-plane positions are related to the source-binary centre of mass
 (CoM):
 
-\[
+$$
 M_1\mathbf r_1 + M_2\mathbf r_2 = 0.
-\]
+$$
 
 For `source_mass_ratio = M_2/M_1`, once the state of source 1 is known, source
 2 is fixed by
 
-\[
+$$
 \mathbf r_2 = -\frac{\mathbf r_1}{\mathtt{source\_mass\_ratio}}.
-\]
+$$
 
 This is why xallarap for a single source needs no mass ratio: only the
 trajectory of the observed source is required.  A binary-source calculation
@@ -158,18 +158,18 @@ This convention retains the familiar two-track inputs.  At `t_ref`, the
 physical positions of source 1 and source 2 are exactly the positions obtained
 from their respective rectilinear trajectories:
 
-\[
+$$
 \tau_i(t_\mathrm{ref}) = \frac{t_\mathrm{ref}-t_{0,i}}{t_E},
 \qquad \beta_i(t_\mathrm{ref})=u_{0,i}.
-\]
+$$
 
 Internally, `lcbinint` converts them to a CoM trajectory and an orbital
 relative state.  For \(q_s=M_2/M_1\), the conversion is
 
-\[
+$$
 t_{0,\mathrm{CoM}}=\frac{t_{0,1}+q_s t_{0,2}}{1+q_s},\qquad
 u_{0,\mathrm{CoM}}=\frac{u_{0,1}+q_s u_{0,2}}{1+q_s},
-\]
+$$
 
 with the source-1 relative position chosen so that both positions above are
 preserved at `t_ref`.  Consequently, the supplied `t0`, `u0`, `t0_2`, and
