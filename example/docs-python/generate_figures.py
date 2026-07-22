@@ -403,16 +403,8 @@ def binary_source_xallarap_lightcurve():
         source="binary", xallarap="circular_velocity",
         source_orbit_coordinates="xallarap", t_ref=7500.0,
     )
-    kepler = lcbinint.LightCurve(
-        source="binary", xallarap="kepler_velocity",
-        source_orbit_coordinates="xallarap", t_ref=7500.0,
-    )
     plt.figure(figsize=(4.2, 2.7))
     plt.plot(times, circular(times, params), color="#0173B2", label="circular velocity")
-    plt.plot(
-        times, kepler(times, dict(params, xa_szs=0.2, xa_ar=1.4)),
-        color="#029E73", label="Kepler velocity",
-    )
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     plt.legend(loc="upper left", fontsize=8)
@@ -429,29 +421,35 @@ def binary_source_xallarap_elements_lightcurve():
     circular = lcbinint.LightCurve(
         source="binary", xallarap="circular_elements", t_ref=7500.0,
     )
-    orbital = lcbinint.LightCurve(
-        source="binary", xallarap="orbital_elements", t_ref=7500.0,
-    )
     plt.figure(figsize=(4.2, 2.7))
     plt.plot(
         times, circular(times, dict(params, period_xa=120.0, inc_xa=0.8)),
         color="#0173B2", label="circular elements",
     )
-    plt.plot(
-        times,
-        orbital(
-            times,
-            dict(
-                params,
-                period_xa=120.0, ecc_xa=0.2, peri_xa=0.4, inc_xa=0.8,
-            ),
-        ),
-        color="#029E73", label="orbital elements",
-    )
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     plt.legend(loc="upper left", fontsize=8)
     save("BinarySource_xallarap_elements_lightcurve.png")
+
+
+def binary_source_xallarap_offset_lightcurve():
+    params = dict(
+        s=0.9, q=0.1, alpha=1.0, tE=30.0, t0=7500.0, u0=0.10,
+        t0_2=7501.2, u0_2=-0.06, rho1=0.004, rho2=0.002,
+        flux_ratio=0.4, source_mass_ratio=0.7,
+        w1=0.01, w2=0.8, w3=0.2,
+    )
+    times = np.linspace(7470.0, 7530.0, 300)
+    curve = lcbinint.LightCurve(
+        source="binary", xallarap="circular_velocity",
+        source_orbit_coordinates="trajectory_offset", t_ref=7500.0,
+    )
+    plt.figure(figsize=(4.2, 2.7))
+    plt.plot(times, curve(times, params), color="#0173B2", label="trajectory offset")
+    plt.xlabel("Time")
+    plt.ylabel("Magnification")
+    plt.legend(loc="upper left", fontsize=8)
+    save("BinarySource_xallarap_offset_lightcurve.png")
 
 
 def binary_source_binary_lens():
@@ -690,6 +688,7 @@ def main():
     binary_source()
     binary_source_xallarap_elements_lightcurve()
     binary_source_xallarap_lightcurve()
+    binary_source_xallarap_offset_lightcurve()
     binary_source_xallarap_trajectories()
     binary_source_binary_lens()
     limb_darkening()

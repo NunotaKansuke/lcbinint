@@ -152,20 +152,9 @@ circular_elements = lcbinint.LightCurve(
 circular_elements_magnification = circular_elements(
     times, dict(parameters, period_xa=120.0, inc_xa=0.8),
 )
-
-orbital_elements = lcbinint.LightCurve(
-    source="binary", xallarap="orbital_elements", t_ref=7500.0,
-)
-orbital_elements_magnification = orbital_elements(
-    times,
-    dict(
-        parameters,
-        period_xa=120.0, ecc_xa=0.2, peri_xa=0.4, inc_xa=0.8,
-    ),
-)
 ```
 
-Plot both element-based modes:
+Plot the `circular_elements` example:
 
 ```python
 plt.figure(figsize=(4.2, 2.7))
@@ -173,17 +162,13 @@ plt.plot(
     times, circular_elements_magnification,
     color="#0173B2", label="circular elements",
 )
-plt.plot(
-    times, orbital_elements_magnification,
-    color="#029E73", label="orbital elements",
-)
 plt.xlabel("Time")
 plt.ylabel("Magnification")
 plt.legend(loc="upper left", fontsize=8)
 plt.show()
 ```
 
-![Element-based binary-source xallarap light curves](figures/BinarySource_xallarap_elements_lightcurve.png)
+![Circular-elements binary-source xallarap light curve](figures/BinarySource_xallarap_elements_lightcurve.png)
 
 ### Position--velocity modes
 
@@ -227,20 +212,9 @@ parameters = {
 }
 times = np.linspace(7470.0, 7530.0, 300)
 circular_velocity_magnification = circular_velocity(times, parameters)
-
-kepler_velocity = lcbinint.LightCurve(
-    source="binary",
-    xallarap="kepler_velocity",
-    source_orbit_coordinates="xallarap",
-    t_ref=7500.0,
-)
-kepler_velocity_magnification = kepler_velocity(
-    times,
-    dict(parameters, xa_szs=0.2, xa_ar=1.4),
-)
 ```
 
-Plot both velocity-based modes:
+Plot the `circular_velocity` example:
 
 ```python
 plt.figure(figsize=(4.2, 2.7))
@@ -248,17 +222,13 @@ plt.plot(
     times, circular_velocity_magnification,
     color="#0173B2", label="circular velocity",
 )
-plt.plot(
-    times, kepler_velocity_magnification,
-    color="#029E73", label="Kepler velocity",
-)
 plt.xlabel("Time")
 plt.ylabel("Magnification")
 plt.legend(loc="upper left", fontsize=8)
 plt.show()
 ```
 
-![Velocity-based binary-source xallarap light curves](figures/BinarySource_xallarap_lightcurve.png)
+![Circular-velocity binary-source xallarap light curve](figures/BinarySource_xallarap_lightcurve.png)
 
 Plot both source trajectories with the static lens caustics. `source_trajectory`
 returns one source track, so the two CoM-consistent states are evaluated
@@ -338,7 +308,25 @@ parameters = {
     "source_mass_ratio": 0.7,
     "w1": 0.01, "w2": 0.8, "w3": 0.2,
 }
+times = np.linspace(7470.0, 7530.0, 300)
+trajectory_offset_magnification = curve(times, parameters)
 ```
+
+Plot the binary-source light curve for this `trajectory_offset` convention:
+
+```python
+plt.figure(figsize=(4.2, 2.7))
+plt.plot(
+    times, trajectory_offset_magnification,
+    color="#0173B2", label="trajectory offset",
+)
+plt.xlabel("Time")
+plt.ylabel("Magnification")
+plt.legend(loc="upper left", fontsize=8)
+plt.show()
+```
+
+![Trajectory-offset binary-source xallarap light curve](figures/BinarySource_xallarap_offset_lightcurve.png)
 
 Choose `t_ref` near the event centre or the centre of the data span.  This
 makes the stated positional anchor useful and usually reduces parameter
