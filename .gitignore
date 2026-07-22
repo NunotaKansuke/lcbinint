@@ -12,3 +12,6 @@ venv/
 .note/
 .ipynb_checkpoints/
 *.png
+!docs/assets/
+!docs/assets/tutorials/
+!docs/assets/tutorials/*.png
