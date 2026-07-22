@@ -165,6 +165,9 @@ plt.legend(fontsize=7)
 plt.show()
 ```
 
-![Trajectory-offset source trajectories and caustics](figures/BinarySource_xallarap_offset_geometry.png)
+The source trajectories and caustics are the same as the direct-coordinate
+example above; this is the same physical state expressed with different inputs.
+
+![Trajectory-offset source trajectories and caustics](figures/BinarySource_xallarap_trajectories.png)
 
 [Previous: Xallarap](Xallarap.md) · [Documentation home](readme.md) · [Next: Combining higher-order effects](CombinedEffects.md)
