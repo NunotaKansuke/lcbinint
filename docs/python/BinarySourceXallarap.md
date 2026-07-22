@@ -6,11 +6,11 @@ For a binary source, choose how the two source trajectories are specified.
 Every form uses `rho1`, `rho2`, `flux_ratio`, and `source_mass_ratio`; the
 last parameter determines the orbital state of source 2 from source 1.
 
-| Form | `LightCurve` configuration | Trajectory inputs |
+| Form | Circular | Kepler |
 | --- | --- | --- |
-| Circular elements | `xallarap="circular_elements"` | CoM track `t0`, `u0`; source-1 elements `xi_1`, `xi_2`, `period_xa`, `inc_xa` |
-| Direct xallarap coordinates | `xallarap="circular_velocity"`, `source_orbit_coordinates="xallarap"` | CoM track `t0`, `u0`; source-1 state `xi_1`, `xi_2`, `w1`, `w2`, `w3` |
-| Trajectory-offset coordinates | `xallarap="circular_velocity"`, `source_orbit_coordinates="trajectory_offset"` | Two tangent tracks `t0`, `u0`, `t0_2`, `u0_2`; orbit state `w1`, `w2`, `w3` |
+| Elements | `xallarap="circular_elements"` with `xi_1`, `xi_2`, `period_xa`, `inc_xa` | `xallarap="orbital_elements"` with `ecc_xa`, `peri_xa` added |
+| Direct xallarap coordinates | `xallarap="circular_velocity"`, `source_orbit_coordinates="xallarap"`; CoM `t0`, `u0` and source-1 state `xi_1`, `xi_2`, `w1`, `w2`, `w3` | `xallarap="kepler_velocity"` with `xa_szs`, `xa_ar` added |
+| Trajectory-offset coordinates | `xallarap="circular_velocity"`, `source_orbit_coordinates="trajectory_offset"`; tracks `t0`, `u0`, `t0_2`, `u0_2` and `w1`, `w2`, `w3` | `xallarap="kepler_velocity"` with `xa_szs`, `xa_ar` added |
 
 ## Circular elements
 
@@ -66,6 +66,19 @@ plt.show()
 ```
 
 ![Elements binary-source xallarap trajectories and caustics](figures/BinarySource_xallarap_elements_geometry.png)
+
+### Keplerian elements
+
+`orbital_elements` extends the circular-elements state with eccentricity and
+periapsis. The call returns the total binary-source magnification.
+
+```python
+kepler_parameters = dict(parameters, ecc_xa=0.2, peri_xa=0.4)
+kepler_curve = lcbinint.LightCurve(
+    source="binary", xallarap="orbital_elements", t_ref=7500.0,
+)
+kepler_magnification = kepler_curve(times, kepler_parameters)
+```
 
 ## Direct xallarap coordinates
 
@@ -123,6 +136,20 @@ plt.show()
 
 ![Direct binary-source xallarap trajectories and caustics](figures/BinarySource_xallarap_trajectories.png)
 
+### Kepler velocity
+
+`kepler_velocity` keeps the direct source-1 coordinates and adds the
+line-of-sight state `xa_szs` and `xa_ar`.
+
+```python
+kepler_parameters = dict(parameters, xa_szs=0.2, xa_ar=1.4)
+kepler_curve = lcbinint.LightCurve(
+    source="binary", xallarap="kepler_velocity",
+    source_orbit_coordinates="xallarap", t_ref=7500.0,
+)
+kepler_magnification = kepler_curve(times, kepler_parameters)
+```
+
 ## Trajectory-offset coordinates
 
 `source_orbit_coordinates="trajectory_offset"` accepts the two tangent tracks
@@ -177,5 +204,16 @@ The source trajectories and caustics are the same as the direct-coordinate
 example above; this is the same physical state expressed with different inputs.
 
 ![Trajectory-offset source trajectories and caustics](figures/BinarySource_xallarap_trajectories.png)
+
+### Kepler velocity
+
+```python
+kepler_parameters = dict(offset_parameters, xa_szs=0.2, xa_ar=1.4)
+kepler_curve = lcbinint.LightCurve(
+    source="binary", xallarap="kepler_velocity",
+    source_orbit_coordinates="trajectory_offset", t_ref=7500.0,
+)
+kepler_magnification = kepler_curve(times, kepler_parameters)
+```
 
 [Previous: Xallarap](Xallarap.md) · [Documentation home](readme.md) · [Next: Combining higher-order effects](CombinedEffects.md)
