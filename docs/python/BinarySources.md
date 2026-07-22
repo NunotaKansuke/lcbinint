@@ -26,7 +26,6 @@ import lcbinint
 
 options = lcbinint.Options(tol=1e-3, reltol=1e-3)
 binary_curve = lcbinint.LightCurve(source="binary", options=options)
-single_source_curve = lcbinint.LightCurve(options=options)
 parameters = {
     "s": 0.9, "q": 0.1, "alpha": 1.0, "tE": 30.0,
     "t0": 7500.0, "u0": 0.10, "rho1": 0.004,
@@ -35,25 +34,14 @@ parameters = {
 }
 times = np.linspace(7470.0, 7530.0, 300)
 
-source1_params = dict(parameters, rho=parameters["rho1"])
-source2_params = dict(
-    parameters,
-    t0=parameters["t0_2"], u0=parameters["u0_2"], rho=parameters["rho2"],
-)
-for key in ("rho1", "t0_2", "u0_2", "rho2", "flux_ratio"):
-    source1_params.pop(key)
-    source2_params.pop(key)
-
-source1_magnification = single_source_curve(times, source1_params)
-source2_magnification = single_source_curve(times, source2_params)
-binary_magnification = binary_curve(times, parameters)
+components = binary_curve.binary_source_components(times, parameters)
 ```
 
 ```python
 plt.figure(figsize=(4.8, 3.0))
-plt.plot(times, source1_magnification, color="#0173B2", alpha=0.45, lw=1.0, label="source 1")
-plt.plot(times, source2_magnification, color="#029E73", alpha=0.45, lw=1.0, label="source 2")
-plt.plot(times, binary_magnification, color="black", lw=1.5, label="total")
+plt.plot(times, components.source1.magnification, color="#0173B2", alpha=0.45, lw=1.0, label="source 1")
+plt.plot(times, components.source2.magnification, color="#029E73", alpha=0.45, lw=1.0, label="source 2")
+plt.plot(times, components.total, color="black", lw=1.5, label="total")
 plt.xlabel("Time")
 plt.ylabel("Magnification")
 plt.legend(loc="upper left", fontsize=8)
@@ -63,15 +51,13 @@ plt.show()
 ![Static binary-source light curve](figures/BinarySource_static_lightcurve.png)
 
 ```python
-source1_trajectory = single_source_curve.source_trajectory(times, source1_params)
-source2_trajectory = single_source_curve.source_trajectory(times, source2_params)
-caustics = single_source_curve.caustics(source1_params)
+caustics = binary_curve.caustics(parameters)
 
 plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(-np.asarray(x), -np.asarray(y), color="#6C6C6C", lw=1.1)
-plt.plot(-np.asarray(source1_trajectory.x), -np.asarray(source1_trajectory.y), color="#0173B2", label="source 1")
-plt.plot(-np.asarray(source2_trajectory.x), -np.asarray(source2_trajectory.y), color="#029E73", label="source 2")
+plt.plot(-np.asarray(components.source1.trajectory.x), -np.asarray(components.source1.trajectory.y), color="#0173B2", label="source 1")
+plt.plot(-np.asarray(components.source2.trajectory.x), -np.asarray(components.source2.trajectory.y), color="#029E73", label="source 2")
 plt.xlabel("X")
 plt.ylabel("Y")
 plt.axis("equal")

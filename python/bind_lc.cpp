@@ -67,6 +67,18 @@ struct PySourceTrajectory {
     std::vector<double> y;
 };
 
+struct PyBinarySourceComponent {
+    std::vector<double> magnification;
+    PySourceTrajectory trajectory;
+};
+
+struct PyBinarySourceComponents {
+    PyBinarySourceComponent source1;
+    PyBinarySourceComponent source2;
+    std::vector<double> total;
+    double flux_ratio = 1.0;
+};
+
 struct PyFiniteSourceGeometry {
     std::vector<double> separation;
     std::vector<double> mass_ratio;
@@ -1125,6 +1137,16 @@ void register_lc_submodule(py::module_& parent)
 	            throw py::key_error("SourceTrajectory: unknown key '" + key + "'");
 	        });
 
+    py::class_<PyBinarySourceComponent>(lc, "BinarySourceComponent")
+        .def_readonly("magnification", &PyBinarySourceComponent::magnification)
+        .def_readonly("trajectory", &PyBinarySourceComponent::trajectory);
+
+    py::class_<PyBinarySourceComponents>(lc, "BinarySourceComponents")
+        .def_readonly("source1", &PyBinarySourceComponents::source1)
+        .def_readonly("source2", &PyBinarySourceComponents::source2)
+        .def_readonly("total", &PyBinarySourceComponents::total)
+        .def_readonly("flux_ratio", &PyBinarySourceComponents::flux_ratio);
+
     py::class_<PyFiniteSourceGeometry>(lc, "FiniteSourceGeometry")
         .def_readonly("separation", &PyFiniteSourceGeometry::separation)
         .def_readonly("mass_ratio", &PyFiniteSourceGeometry::mass_ratio)
@@ -1441,6 +1463,51 @@ LightCurves with a ground Site apply the terrestrial correction.)")
         return vec_to_numpy(std::move(mags));
     };
 
+    auto binary_source_components = [](const LC& lc,
+                                       const TimesArray& times,
+                                       py::dict values) -> PyBinarySourceComponents {
+        if (lc.source_kind() != SKind::binary) {
+            throw std::invalid_argument(
+                "binary_source_components requires LightCurve(source='binary')");
+        }
+        const auto row = binary_source_parameter_row(values, lc.model());
+        const std::vector<double> tv = times_from_array(times);
+        PyBinarySourceComponents result;
+        result.flux_ratio = row.source_ratio;
+        {
+            py::gil_scoped_release release;
+            result.source1.magnification = lc.magnification(tv, row.primary);
+            result.source2.magnification = lc.magnification(tv, row.secondary);
+        }
+        result.total.resize(tv.size());
+        const double denominator = 1.0 + row.source_ratio;
+        for (std::size_t i = 0; i < tv.size(); ++i) {
+            result.total[i] = (result.source1.magnification[i]
+                + row.source_ratio * result.source2.magnification[i]) / denominator;
+        }
+
+        const auto primary = lc.apply_coords(row.primary);
+        const auto secondary = lc.apply_coords(row.secondary);
+        result.source1.trajectory.times = tv;
+        result.source2.trajectory.times = tv;
+        result.source1.trajectory.x.resize(tv.size());
+        result.source1.trajectory.y.resize(tv.size());
+        result.source2.trajectory.x.resize(tv.size());
+        result.source2.trajectory.y.resize(tv.size());
+        {
+            py::gil_scoped_release release;
+            for (std::size_t i = 0; i < tv.size(); ++i) {
+                const auto source1 = lens_frame_source_position(lc, primary, tv[i]);
+                const auto source2 = lens_frame_source_position(lc, secondary, tv[i]);
+                result.source1.trajectory.x[i] = source1.x;
+                result.source1.trajectory.y[i] = source1.y;
+                result.source2.trajectory.x[i] = source2.x;
+                result.source2.trajectory.y[i] = source2.y;
+            }
+        }
+        return result;
+    };
+
     py::class_<LC, std::shared_ptr<LC>>(lc, "LightCurve")
         // Constructor 1: explicit lc.Options + lc.Model objects
         .def(py::init([&](const lcbi_options& opts,
@@ -1612,6 +1679,11 @@ LightCurves with a ground Site apply the terrestrial correction.)")
                 return compute_dispatch(lc, times, params_from_dict(d), d);
             },
             py::arg("times"))
+
+        .def("binary_source_components", binary_source_components,
+            py::arg("times"), py::arg("params"),
+            "Return source-1/source-2 magnifications and trajectories plus the flux-weighted total.\n"
+            "Requires LightCurve(source='binary').")
 
         // Internal inference fast path. Existing scalar call/magnification
         // overloads are unchanged.

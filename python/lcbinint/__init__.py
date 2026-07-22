@@ -14,6 +14,8 @@ LimbDarkening = _native.LimbDarkening
 _NativeLightCurve = _native.LightCurve
 LightCurveInfo = _native.LightCurveInfo
 SourceTrajectory = _native.SourceTrajectory
+BinarySourceComponent = _native.BinarySourceComponent
+BinarySourceComponents = _native.BinarySourceComponents
 GeometryBranches = _native.GeometryBranches
 Model = _native.Model
 OrbitalMotionMode = _native.OrbitalMotionMode
@@ -118,6 +120,18 @@ class LightCurve:
     def source_trajectory(self, times, params=None, **kwargs):
         return self._native.source_trajectory(times, **self._merge_params(params, **kwargs))
 
+    def binary_source_components(self, times, params=None, **kwargs):
+        """Return individual binary-source curves and trajectories.
+
+        The returned ``BinarySourceComponents`` contains ``source1`` and
+        ``source2`` components, each with ``magnification`` and ``trajectory``,
+        plus the flux-weighted ``total`` curve. This method requires
+        ``LightCurve(source="binary")``.
+        """
+        return self._native.binary_source_components(
+            times, self._merge_params(params, **kwargs)
+        )
+
     def finite_source_geometry(self, times, params=None, **kwargs):
         """Return trajectory-resolved geometry without solving lens roots."""
         return self._native.finite_source_geometry(
@@ -169,7 +183,8 @@ def _orbital_motion_name(mode):
 __all__ = [
     "obs",
     "Options", "Parameters", "LensParams", "LimbDarkening", "LightCurve",
-    "LightCurveInfo", "SourceTrajectory", "GeometryBranches", "Model",
+    "LightCurveInfo", "SourceTrajectory", "BinarySourceComponent",
+    "BinarySourceComponents", "GeometryBranches", "Model",
     "OrbitalMotionMode", "XallarapParamType",
     "binary_ray_shooting",
     "image", "ImagePlane",
