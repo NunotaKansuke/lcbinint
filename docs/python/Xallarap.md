@@ -110,13 +110,18 @@ plt.show()
 ```python
 trajectory = curve.source_trajectory(times, parameters)
 static_trajectory = static_curve.source_trajectory(times, rectilinear_parameters)
-caustics = static_curve.caustics(rectilinear_parameters)
+caustics = curve.caustics(parameters)
+peak = np.argmax(magnification)
 
 plt.figure(figsize=(3.4, 3.2))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(x, y, color="#6C6C6C", lw=1.1)
 plt.plot(static_trajectory.x, static_trajectory.y, color="0.55", ls="--", label="rectilinear")
 plt.plot(trajectory.x, trajectory.y, color="#0173B2", label="xallarap")
+plt.scatter(
+    trajectory.x[peak], trajectory.y[peak], s=12, color="#0173B2",
+    edgecolor="white", linewidth=0.45, zorder=3, label="xallarap peak",
+)
 plt.xlabel("Trajectory coordinate 1")
 plt.ylabel("Trajectory coordinate 2")
 plt.axis("equal")
@@ -125,6 +130,10 @@ plt.show()
 ```
 
 ![Velocity xallarap trajectory and caustics](figures/Xallarap_velocity_geometry.png)
+
+The marker identifies the maximum of the blue light curve. Xallarap changes
+the source trajectory only; with fixed `s` and `q`, its caustic is the same
+static binary-lens caustic.
 
 For the element parameterizations, replace `xallarap="circular_velocity"`
 with the corresponding mode and supply the parameters listed in the table.
