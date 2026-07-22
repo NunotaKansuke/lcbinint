@@ -83,9 +83,9 @@ kepler_magnification = kepler_curve(times, kepler_parameters)
 ```python
 parameters = {
     "s": 0.9, "q": 0.1, "alpha": 0.7, "tE": 30.0,
-    "t0": 7500.0, "u0": 0.35, "rho": 0.004,
-    "xi_1": 0.006, "xi_2": -0.003,
-    "period_xa": 300.0, "inc_xa": 0.3,
+    "t0": 7500.0, "u0": 0.10, "rho": 0.004,
+    "xi_1": 0.02, "xi_2": -0.01,
+    "period_xa": 90.0, "inc_xa": 0.6,
 }
 static_curve = lcbinint.LightCurve()
 curve = lcbinint.LightCurve(xallarap="circular_elements", t_ref=7500.0)

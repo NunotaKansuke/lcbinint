@@ -388,15 +388,15 @@ def binary_source_xallarap_lightcurve():
 
 def binary_source_xallarap_elements_lightcurve():
     params = dict(
-        s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=7500.0, u0=0.35,
+        s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=7500.0, u0=0.10,
         rho1=0.004, rho2=0.002, flux_ratio=0.4, source_mass_ratio=0.7,
-        xi_1=0.006, xi_2=-0.003,
+        xi_1=0.02, xi_2=-0.01,
     )
     times = np.linspace(7470.0, 7530.0, 300)
     circular = lcbinint.LightCurve(
         source="binary", xallarap="circular_elements", t_ref=7500.0,
     )
-    component_params = dict(params, period_xa=300.0, inc_xa=0.3)
+    component_params = dict(params, period_xa=90.0, inc_xa=0.6)
     components = circular.binary_source_components(times, component_params)
     plt.figure(figsize=(4.2, 2.7))
     plt.plot(times, components.source1.magnification, color="#0173B2", alpha=0.45, lw=1.0, label="source 1")
@@ -464,8 +464,8 @@ def xallarap_single_source():
     static = lcbinint.LightCurve()
 
     elements_params = dict(
-        common, u0=0.35, xi_1=0.006, xi_2=-0.003,
-        period_xa=300.0, inc_xa=0.3,
+        common, u0=0.10, xi_1=0.02, xi_2=-0.01,
+        period_xa=90.0, inc_xa=0.6,
     )
     elements = lcbinint.LightCurve(xallarap="circular_elements", t_ref=7500.0)
     elements_static_params = dict(elements_params)
