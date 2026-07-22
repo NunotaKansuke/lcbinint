@@ -436,7 +436,7 @@ def accuracy_method_selection():
     caustics = curve.caustics(params)
     plt.figure(figsize=(2.8, 2.8))
     for x, y in zip(caustics.x, caustics.y):
-        plt.plot(-np.asarray(x), -np.asarray(y), color="#D55E00", lw=1.1)
+        plt.plot(-np.asarray(x), -np.asarray(y), color="#6C6C6C", lw=1.1)
 
     display_x = -np.asarray(trajectory.x)
     display_y = -np.asarray(trajectory.y)
