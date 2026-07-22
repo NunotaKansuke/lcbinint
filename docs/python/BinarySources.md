@@ -65,8 +65,8 @@ Plot the component curves and their flux-weighted binary-source result:
 
 ```python
 plt.figure(figsize=(4.8, 3.0))
-plt.plot(times, source1_magnification, color="#0173B2", alpha=0.72, label="source 1")
-plt.plot(times, source2_magnification, color="#029E73", alpha=0.72, label="source 2")
+plt.plot(times, source1_magnification, color="#0173B2", alpha=0.45, lw=1.0, label="source 1")
+plt.plot(times, source2_magnification, color="#029E73", alpha=0.45, lw=1.0, label="source 2")
 plt.plot(
     times, binary_magnification, color="black", lw=1.5,
     label="flux-weighted binary source",
@@ -152,15 +152,33 @@ circular_elements = lcbinint.LightCurve(
 circular_elements_magnification = circular_elements(
     times, dict(parameters, period_xa=120.0, inc_xa=0.8),
 )
+
+component_curve = lcbinint.LightCurve(
+    xallarap="circular_elements", t_ref=7500.0,
+)
+component_parameters = dict(parameters, period_xa=120.0, inc_xa=0.8)
+source1_params = dict(component_parameters, rho=parameters["rho1"])
+for key in ("rho1", "rho2", "flux_ratio", "source_mass_ratio"):
+    source1_params.pop(key)
+source2_params = dict(
+    source1_params,
+    rho=parameters["rho2"],
+    xi_1=-source1_params["xi_1"] / parameters["source_mass_ratio"],
+    xi_2=-source1_params["xi_2"] / parameters["source_mass_ratio"],
+)
+source1_magnification = component_curve(times, source1_params)
+source2_magnification = component_curve(times, source2_params)
 ```
 
 Plot the `circular_elements` example:
 
 ```python
 plt.figure(figsize=(4.2, 2.7))
+plt.plot(times, source1_magnification, color="#0173B2", alpha=0.45, lw=1.0, label="source 1")
+plt.plot(times, source2_magnification, color="#029E73", alpha=0.45, lw=1.0, label="source 2")
 plt.plot(
     times, circular_elements_magnification,
-    color="#0173B2", label="circular elements",
+    color="black", lw=1.5, label="flux-weighted binary source",
 )
 plt.xlabel("Time")
 plt.ylabel("Magnification")
@@ -169,6 +187,25 @@ plt.show()
 ```
 
 ![Circular-elements binary-source xallarap light curve](figures/BinarySource_xallarap_elements_lightcurve.png)
+
+```python
+source1_trajectory = component_curve.source_trajectory(times, source1_params)
+source2_trajectory = component_curve.source_trajectory(times, source2_params)
+caustics = lcbinint.LightCurve().caustics(source1_params)
+
+plt.figure(figsize=(3.4, 3.2))
+for x, y in zip(caustics.x, caustics.y):
+    plt.plot(x, y, color="#6C6C6C", lw=1.1)
+plt.plot(source1_trajectory.x, source1_trajectory.y, color="#0173B2", label="source 1")
+plt.plot(source2_trajectory.x, source2_trajectory.y, color="#029E73", label="source 2")
+plt.xlabel("Trajectory coordinate 1")
+plt.ylabel("Trajectory coordinate 2")
+plt.axis("equal")
+plt.legend(fontsize=7)
+plt.show()
+```
+
+![Circular-elements source trajectories and caustics](figures/BinarySource_xallarap_elements_geometry.png)
 
 ### Position--velocity modes
 
@@ -212,15 +249,32 @@ parameters = {
 }
 times = np.linspace(7470.0, 7530.0, 300)
 circular_velocity_magnification = circular_velocity(times, parameters)
+
+component_curve = lcbinint.LightCurve(
+    xallarap="circular_velocity", t_ref=7500.0,
+)
+source1_params = dict(parameters, rho=parameters["rho1"])
+for key in ("rho1", "rho2", "flux_ratio", "source_mass_ratio"):
+    source1_params.pop(key)
+source2_params = dict(
+    source1_params,
+    rho=parameters["rho2"],
+    xi_1=-source1_params["xi_1"] / parameters["source_mass_ratio"],
+    xi_2=-source1_params["xi_2"] / parameters["source_mass_ratio"],
+)
+source1_magnification = component_curve(times, source1_params)
+source2_magnification = component_curve(times, source2_params)
 ```
 
 Plot the `circular_velocity` example:
 
 ```python
 plt.figure(figsize=(4.2, 2.7))
+plt.plot(times, source1_magnification, color="#0173B2", alpha=0.45, lw=1.0, label="source 1")
+plt.plot(times, source2_magnification, color="#029E73", alpha=0.45, lw=1.0, label="source 2")
 plt.plot(
     times, circular_velocity_magnification,
-    color="#0173B2", label="circular velocity",
+    color="black", lw=1.5, label="flux-weighted binary source",
 )
 plt.xlabel("Time")
 plt.ylabel("Magnification")
@@ -310,15 +364,42 @@ parameters = {
 }
 times = np.linspace(7470.0, 7530.0, 300)
 trajectory_offset_magnification = curve(times, parameters)
+
+component_curve = lcbinint.LightCurve(
+    xallarap="circular_velocity", t_ref=7500.0,
+)
+q_s = parameters["source_mass_ratio"]
+t0_com = (parameters["t0"] + q_s * parameters["t0_2"]) / (1.0 + q_s)
+u0_com = (parameters["u0"] + q_s * parameters["u0_2"]) / (1.0 + q_s)
+relative_tau = (parameters["t0"] - parameters["t0_2"]) / parameters["tE"]
+relative_beta = parameters["u0_2"] - parameters["u0"]
+source1_params = {
+    "s": parameters["s"], "q": parameters["q"], "alpha": parameters["alpha"],
+    "tE": parameters["tE"], "t0": t0_com, "u0": u0_com,
+    "rho": parameters["rho1"],
+    "xi_1": -q_s * relative_tau / (1.0 + q_s),
+    "xi_2": -q_s * relative_beta / (1.0 + q_s),
+    "w1": parameters["w1"], "w2": parameters["w2"], "w3": parameters["w3"],
+}
+source2_params = dict(
+    source1_params,
+    rho=parameters["rho2"],
+    xi_1=-source1_params["xi_1"] / q_s,
+    xi_2=-source1_params["xi_2"] / q_s,
+)
+source1_magnification = component_curve(times, source1_params)
+source2_magnification = component_curve(times, source2_params)
 ```
 
 Plot the binary-source light curve for this `trajectory_offset` convention:
 
 ```python
 plt.figure(figsize=(4.2, 2.7))
+plt.plot(times, source1_magnification, color="#0173B2", alpha=0.45, lw=1.0, label="source 1")
+plt.plot(times, source2_magnification, color="#029E73", alpha=0.45, lw=1.0, label="source 2")
 plt.plot(
     times, trajectory_offset_magnification,
-    color="#0173B2", label="trajectory offset",
+    color="black", lw=1.5, label="flux-weighted binary source",
 )
 plt.xlabel("Time")
 plt.ylabel("Magnification")
@@ -327,6 +408,25 @@ plt.show()
 ```
 
 ![Trajectory-offset binary-source xallarap light curve](figures/BinarySource_xallarap_offset_lightcurve.png)
+
+```python
+source1_trajectory = component_curve.source_trajectory(times, source1_params)
+source2_trajectory = component_curve.source_trajectory(times, source2_params)
+caustics = lcbinint.LightCurve().caustics(source1_params)
+
+plt.figure(figsize=(3.4, 3.2))
+for x, y in zip(caustics.x, caustics.y):
+    plt.plot(x, y, color="#6C6C6C", lw=1.1)
+plt.plot(source1_trajectory.x, source1_trajectory.y, color="#0173B2", label="source 1")
+plt.plot(source2_trajectory.x, source2_trajectory.y, color="#029E73", label="source 2")
+plt.xlabel("Trajectory coordinate 1")
+plt.ylabel("Trajectory coordinate 2")
+plt.axis("equal")
+plt.legend(fontsize=7)
+plt.show()
+```
+
+![Trajectory-offset source trajectories and caustics](figures/BinarySource_xallarap_offset_geometry.png)
 
 Choose `t_ref` near the event centre or the centre of the data span.  This
 makes the stated positional anchor useful and usually reduces parameter
