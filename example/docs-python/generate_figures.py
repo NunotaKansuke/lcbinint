@@ -362,32 +362,26 @@ def binary_source_binary_lens():
 
 
 def limb_darkening():
-    s, q, y2, rho = 0.8, 0.1, 0.01, 0.01
-    x = np.linspace(-0.04, 0.04, 161)
-    uniform = np.array([
-        lcbinint.binary_ray_shooting(xi, y2, s=s, q=q, rho=rho) for xi in x
-    ])
-    linear = np.array([
-        lcbinint.binary_ray_shooting(
-            xi, y2, s=s, q=q, rho=rho,
-            limb_darkening=lcbinint.LimbDarkening.linear(0.51),
-        )
-        for xi in x
-    ])
-    square_root = np.array([
-        lcbinint.binary_ray_shooting(
-            xi, y2, s=s, q=q, rho=rho,
-            limb_darkening=lcbinint.LimbDarkening.square_root(0.51, 0.3),
-        )
-        for xi in x
-    ])
-    plt.figure(figsize=(3.8, 2.55))
-    plt.plot(x, uniform, label="uniform")
-    plt.plot(x, linear, label="linear: 0.51")
-    plt.plot(x, square_root, label="square root: 0.51, 0.3")
-    plt.xlabel("Source x")
+    params = dict(s=0.8, q=0.1, u0=0.01, alpha=0.0, rho=0.01, tE=1.0, t0=0.0)
+    times = np.linspace(-0.04, 0.04, 161)
+    options = lcbinint.Options(tol=1e-3, reltol=1e-3)
+    uniform_curve = lcbinint.LightCurve(
+        options=options, limb_darkening=lcbinint.LimbDarkening.none()
+    )
+    linear_curve = lcbinint.LightCurve(
+        options=options, limb_darkening=lcbinint.LimbDarkening.linear(0.51)
+    )
+    square_root_curve = lcbinint.LightCurve(
+        options=options, limb_darkening=lcbinint.LimbDarkening.square_root(0.51, 0.3)
+    )
+
+    plt.figure(figsize=(5.5, 3.2))
+    plt.plot(times, uniform_curve(times, params), label="uniform")
+    plt.plot(times, linear_curve(times, params), label="linear: 0.51")
+    plt.plot(times, square_root_curve(times, params), label="square root: 0.51, 0.3")
+    plt.xlabel("Time")
     plt.ylabel("Magnification")
-    plt.legend()
+    plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=8)
     save("LimbDarkening_comparison.png")
 
 
