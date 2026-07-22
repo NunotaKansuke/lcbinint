@@ -345,7 +345,7 @@ def binary_source_binary_lens():
         key: value for key, value in params.items()
         if key not in {"q_source", "q_mass", "xi_1", "xi_2", "w1", "w2", "w3"}
     }
-    plt.figure(figsize=(5.6, 3.2))
+    plt.figure(figsize=(7.2, 4.0))
     plt.plot(
         times, single_source(times, single_source_params), "y",
         label="single source + lens orbit",

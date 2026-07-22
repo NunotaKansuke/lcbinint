@@ -148,7 +148,7 @@ The figure makes the extra binary-source and xallarap terms visible instead of
 leaving the combined calculation as a single printed array:
 
 ```python
-plt.figure(figsize=(5.6, 3.2))
+plt.figure(figsize=(7.2, 4.0))
 plt.plot(t, magnifications_single_source, "y", label="single source + lens orbit")
 plt.plot(t, magnifications_binary_source, "g", label="binary source + xallarap")
 plt.xlabel("Time")
