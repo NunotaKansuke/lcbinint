@@ -1,7 +1,18 @@
 # Documentation
 
-Start with the repository `README.md` for installation and the callable API.
-The focused documents here describe numerical behavior and its validation:
+`lcbinint` keeps its documentation as Markdown alongside its source. Start
+with the guide that matches the task:
+
+- [`user-guide.md`](user-guide.md): install the package, evaluate a light
+  curve, choose physical and numerical settings, inspect diagnostics, use
+  parallax, and plot lens-plane geometry.
+- [`python-api.md`](python-api.md): public Python API reference, including
+  parameter names, return values, coordinate conventions, and limitations.
+- [`c-api.md`](c-api.md): C/C++ integration reference for the public header.
+- [`development.md`](development.md): project layout, CMake/Python builds,
+  test commands, and the validation workflow for contributors.
+
+The focused documents below describe numerical behavior and its validation:
 
 - [`numerical-methods.md`](numerical-methods.md): runtime method selection,
   fourth-order finite-source correction, automatic `nbin`, external-contour

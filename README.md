@@ -11,6 +11,26 @@ performance-oriented development are strongly informed by
 This is an early developer release.  The Python API is intended to provide
 lightweight, reusable callables for repeated model evaluation.
 
+## Documentation
+
+The documentation is maintained as Markdown in this repository so it remains
+useful from a source checkout, a rendered GitHub view, or a package build:
+
+- [Documentation index](docs/README.md) — choose a guide by task
+- [User guide](docs/user-guide.md) — installation, first calculation, model
+  configuration, diagnostics, and plotting geometry
+- [Python API reference](docs/python-api.md) — public classes, functions,
+  argument names, outputs, and conventions
+- [C/C++ API reference](docs/c-api.md) — stable C entry points, structures,
+  statuses, and integration guidance
+- [Developer guide](docs/development.md) — native architecture, build/test
+  workflow, and where to add or validate changes
+- [Numerical methods](docs/numerical-methods.md) — finite-source method
+  selection, accuracy semantics, and parallax conventions
+
+The API is still pre-1.0; this repository documentation is the authoritative
+reference for the current development version.
+
 Features:
 
 - point-source and finite-source binary-lens magnification
