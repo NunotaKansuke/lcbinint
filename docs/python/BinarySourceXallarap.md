@@ -28,12 +28,12 @@ import lcbinint
 
 times = np.linspace(7470.0, 7530.0, 300)
 parameters = {
-    "s": 0.9, "q": 0.1, "alpha": 1.0, "tE": 30.0,
-    "t0": 7500.0, "u0": 0.10,
+    "s": 0.9, "q": 0.1, "alpha": 0.7, "tE": 30.0,
+    "t0": 7500.0, "u0": 0.35,
     "rho1": 0.004, "rho2": 0.002, "flux_ratio": 0.4,
     "source_mass_ratio": 0.7,
-    "xi_1": 0.04, "xi_2": -0.02,
-    "w1": 0.01, "w2": 0.8, "w3": 0.2,
+    "xi_1": 0.006, "xi_2": -0.003,
+    "w1": 0.001, "w2": 0.12, "w3": 0.02,
 }
 binary_curve = lcbinint.LightCurve(
     source="binary", xallarap="circular_velocity",
@@ -95,7 +95,7 @@ above, replacing the xallarap state with:
 
 ```python
 parameters.update({
-    "t0_2": 7501.2, "u0_2": -0.06,
+    "t0_2": 7501.2, "u0_2": 0.32,
 })
 binary_curve = lcbinint.LightCurve(
     source="binary", xallarap="circular_velocity",
