@@ -28,8 +28,8 @@ parameters = {
     "t0": 7500.0, "u0": 0.20,
     "rho1": 0.004, "rho2": 0.002, "flux_ratio": 0.4,
     "source_mass_ratio": 0.7,
-    "xi_1": 0.02, "xi_2": -0.01,
-    "period_xa": 90.0, "inc_xa": 0.6,
+    "xi_1": 0.006, "xi_2": -0.003,
+    "period_xa": 12.0, "inc_xa": 0.6,
 }
 binary_curve = lcbinint.LightCurve(
     source="binary", xallarap="circular_elements", t_ref=7500.0,
