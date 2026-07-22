@@ -7,11 +7,8 @@ lens.  It changes the source trajectory and flux model only; it is independent
 of whether the configured lens is binary or triple.
 
 The observed magnification is the flux-weighted sum
-
-$$
-A(t) = \frac{A_1(t) + f A_2(t)}{1+f},
-\qquad f = \mathtt{flux\_ratio} = F_2/F_1.
-$$
+`A(t) = (A1(t) + flux_ratio * A2(t)) / (1 + flux_ratio)`, where
+`flux_ratio = F2 / F1`.
 
 `flux_ratio` is a photometric quantity.  It must not be used as a proxy for a
 source mass ratio: stars of the same mass need not have the same brightness,
@@ -29,7 +26,7 @@ source sizes.
 | `t0`, `u0`, `rho1` | Closest-approach epoch, impact parameter, and normalized radius of source 1. |
 | `t0_2`, `u0_2`, `rho2` | The corresponding quantities for source 2. |
 | `tE`, `alpha` | Shared Einstein timescale and trajectory angle. |
-| `flux_ratio` | Source flux ratio, \(F_2/F_1\). |
+| `flux_ratio` | Source flux ratio, `F2 / F1`. |
 
 Both `rho1` and `rho2` are required.  Set either to zero for a point source.
 
@@ -48,22 +45,19 @@ times = np.linspace(7470.0, 7530.0, 300)
 magnification = curve(times, parameters)
 ```
 
+The figure separates the two source magnifications from their flux-weighted
+binary-source result.
+
+![Static binary-source light curve](figures/BinarySource_static_lightcurve.png)
+
 ## Source orbital motion (xallarap)
 
 With xallarap, the two sources are the two members of a physical source binary.
 Their sky-plane positions are related to the source-binary centre of mass
-(CoM):
+(CoM): `M1 * r1 + M2 * r2 = 0`.
 
-$$
-M_1\mathbf r_1 + M_2\mathbf r_2 = 0.
-$$
-
-For `source_mass_ratio = M_2/M_1`, once the state of source 1 is known, source
-2 is fixed by
-
-$$
-\mathbf r_2 = -\frac{\mathbf r_1}{\mathtt{source\_mass\_ratio}}.
-$$
+For `source_mass_ratio = M2 / M1`, once the state of source 1 is known, source
+2 is fixed by `r2 = -r1 / source_mass_ratio`.
 
 This is why xallarap for a single source needs no mass ratio: only the
 trajectory of the observed source is required.  A binary-source calculation
@@ -152,24 +146,27 @@ parameters = {
 }
 ```
 
+The source-orbit figure shows the two CoM-consistent projected trajectories.
+The filled markers are their positions at `t_ref`; their different distances
+from the CoM reflect `source_mass_ratio`, not `flux_ratio`.
+
+![Binary-source xallarap trajectories](figures/BinarySource_xallarap_trajectories.png)
+
 #### `source_orbit_coordinates="trajectory_offset"`
 
 This convention retains the familiar two-track inputs.  At `t_ref`, the
 physical positions of source 1 and source 2 are exactly the positions obtained
 from their respective rectilinear trajectories:
 
-$$
-\tau_i(t_\mathrm{ref}) = \frac{t_\mathrm{ref}-t_{0,i}}{t_E},
-\qquad \beta_i(t_\mathrm{ref})=u_{0,i}.
-$$
+`tau_i(t_ref) = (t_ref - t0_i) / tE` and `beta_i(t_ref) = u0_i`.
 
 Internally, `lcbinint` converts them to a CoM trajectory and an orbital
-relative state.  For \(q_s=M_2/M_1\), the conversion is
+relative state. For `q_s = M2 / M1`, the conversion is:
 
-$$
-t_{0,\mathrm{CoM}}=\frac{t_{0,1}+q_s t_{0,2}}{1+q_s},\qquad
-u_{0,\mathrm{CoM}}=\frac{u_{0,1}+q_s u_{0,2}}{1+q_s},
-$$
+```text
+t0_com = (t0_1 + q_s * t0_2) / (1 + q_s)
+u0_com = (u0_1 + q_s * u0_2) / (1 + q_s)
+```
 
 with the source-1 relative position chosen so that both positions above are
 preserved at `t_ref`.  Consequently, the supplied `t0`, `u0`, `t0_2`, and
@@ -201,7 +198,7 @@ correlations.
 ## Removed legacy names
 
 The legacy names `q_mass`, `q_source`, and `fluxratio` are rejected.  Use
-`source_mass_ratio` for \(M_2/M_1\) only when binary-source xallarap is
+`source_mass_ratio` for `M2 / M1` only when binary-source xallarap is
 active, and `flux_ratio` for \(F_2/F_1\) in every binary-source model.
 
 [Previous: Orbital motion](OrbitalMotion.md) · [Documentation home](readme.md) · [Next: Combining higher-order effects](CombinedEffects.md)

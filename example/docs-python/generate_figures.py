@@ -304,11 +304,66 @@ def binary_source():
     options = lcbinint.Options(tol=1e-3, reltol=1e-3)
     binary = lcbinint.LightCurve(source="binary", options=options)
 
+    source1 = lcbinint.LightCurve(options=options)
+    source1_params = dict(params, rho=params["rho1"])
+    source2_params = dict(
+        params,
+        t0=params["t0_2"], u0=params["u0_2"], rho=params["rho2"],
+    )
+    for key in ("rho1", "t0_2", "u0_2", "rho2", "flux_ratio"):
+        source1_params.pop(key)
+        source2_params.pop(key)
+
     plt.figure(figsize=(4.8, 3.0))
-    plt.plot(times, binary(times, params), "y")
+    plt.plot(times, source1(times, source1_params), label="source 1")
+    plt.plot(times, source1(times, source2_params), label="source 2")
+    plt.plot(times, binary(times, params), color="black", lw=1.5,
+             label="flux-weighted binary source")
     plt.xlabel("Time")
     plt.ylabel("Magnification")
-    save("BinarySource_lightcurve_xallarap_2.png")
+    plt.legend(fontsize=8)
+    save("BinarySource_static_lightcurve.png")
+
+
+def binary_source_xallarap_trajectories():
+    """Projected source paths for the binary velocity-xallarap convention."""
+    t_ref = 7500.0
+    mass_ratio = 0.7
+    times = np.linspace(t_ref - 15.0, t_ref + 15.0, 240)
+    common = dict(
+        s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=t_ref, u0=0.10, rho=0.0,
+        xi_1=0.10, xi_2=-0.06, w1=0.01, w2=0.8, w3=0.2,
+    )
+    xallarap = lcbinint.LightCurve(
+        xallarap="circular_velocity", t_ref=t_ref,
+    )
+    static = lcbinint.LightCurve()
+    first = xallarap.source_trajectory(times, **common)
+    second = xallarap.source_trajectory(
+        times,
+        **dict(
+            common,
+            xi_1=-common["xi_1"] / mass_ratio,
+            xi_2=-common["xi_2"] / mass_ratio,
+        ),
+    )
+    centre = static.source_trajectory(times, **common)
+    ref_index = int(np.argmin(np.abs(times - t_ref)))
+
+    plt.figure(figsize=(4.3, 3.4))
+    plt.plot(centre.x, centre.y, color="0.55", linestyle="--", label="CoM track")
+    plt.plot(first.x, first.y, color="tab:blue", label="source 1")
+    plt.plot(second.x, second.y, color="tab:orange", label="source 2")
+    plt.scatter(
+        [first.x[ref_index], second.x[ref_index], centre.x[ref_index]],
+        [first.y[ref_index], second.y[ref_index], centre.y[ref_index]],
+        color=["tab:blue", "tab:orange", "0.35"], s=24, zorder=3,
+    )
+    plt.xlabel("Trajectory coordinate 1")
+    plt.ylabel("Trajectory coordinate 2")
+    plt.axis("equal")
+    plt.legend(fontsize=8)
+    save("BinarySource_xallarap_trajectories.png")
 
 
 def binary_source_binary_lens():
@@ -545,6 +600,7 @@ def main():
     parallax()
     orbital_motion()
     binary_source()
+    binary_source_xallarap_trajectories()
     binary_source_binary_lens()
     limb_darkening()
     accuracy_method_selection()
