@@ -6,6 +6,8 @@ with the guide that matches the task:
 - [`user-guide.md`](user-guide.md): install the package, evaluate a light
   curve, choose physical and numerical settings, inspect diagnostics, use
   parallax, and plot lens-plane geometry.
+- [`effects-and-examples.md`](effects-and-examples.md): short runnable recipes
+  for individual high-order effects, each paired with observed output.
 - [`python-api.md`](python-api.md): public Python API reference, including
   parameter names, return values, coordinate conventions, and limitations.
 - [`c-api.md`](c-api.md): C/C++ integration reference for the public header.

@@ -199,7 +199,9 @@ the production magnification calculation.
 
 ## Next steps
 
-The runnable examples are a useful complement to this guide:
+For copyable, effect-by-effect code and observed terminal output, start with
+the [effects cookbook](effects-and-examples.md). The runnable examples are a
+useful complement to this guide:
 
 - [`example/light-curve/`](../example/light-curve/) for model and diagnostics;
 - [`example/image-plane/`](../example/image-plane/) for geometry plots;
