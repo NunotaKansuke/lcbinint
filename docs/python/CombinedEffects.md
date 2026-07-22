@@ -98,14 +98,14 @@ combined_mag = combined(t, params)
 Plot the cumulative effect on the light curve:
 
 ```python
-plt.figure(figsize=(5.5, 3.5))
+plt.figure(figsize=(8.2, 4.0))
 plt.plot(t, static_mag, label="static 2L1S")
 plt.plot(t, parallax_mag, label="+ parallax")
 plt.plot(t, orbit_mag, label="+ lens orbit")
 plt.plot(t, combined_mag, label="+ binary source + xallarap")
 plt.xlabel("Time")
 plt.ylabel("Magnification")
-plt.legend()
+plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=8)
 plt.show()
 ```
 

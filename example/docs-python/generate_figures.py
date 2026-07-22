@@ -305,7 +305,7 @@ def binary_source():
         options=options,
     )
 
-    plt.figure(figsize=(4.0, 2.7))
+    plt.figure(figsize=(5.2, 3.2))
     static_params = dict(params, w1=0.0, w2=0.0, w3=0.0)
     plt.plot(times, xallarap(times, static_params))
     plt.plot(times, xallarap(times, params), "y")
@@ -473,14 +473,14 @@ def combined_effects():
         key: value for key, value in params.items()
         if key not in {"q_source", "q_mass", "xi_1", "xi_2", "w1", "w2", "w3"}
     }
-    plt.figure(figsize=(5.5, 3.5))
+    plt.figure(figsize=(8.2, 4.0))
     plt.plot(times, static(times, single_source_params), label="static 2L1S")
     plt.plot(times, parallax_curve(times, single_source_params), label="+ parallax")
     plt.plot(times, parallax_orbit(times, single_source_params), label="+ lens orbit")
     plt.plot(times, combined(times, params), label="+ binary source + xallarap")
     plt.xlabel("Time")
     plt.ylabel("Magnification")
-    plt.legend()
+    plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=8)
     save("CombinedEffects_lightcurve.png")
 
     trajectory = combined.source_trajectory(times, params)
