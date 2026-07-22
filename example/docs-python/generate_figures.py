@@ -319,13 +319,13 @@ def binary_source():
     binary_magnification = binary(times, params)
 
     plt.figure(figsize=(4.8, 3.0))
-    plt.plot(times, source1_magnification, color="#0173B2", label="source 1")
-    plt.plot(times, source2_magnification, color="#029E73", label="source 2")
+    plt.plot(times, source1_magnification, color="#0173B2", alpha=0.72, label="source 1")
+    plt.plot(times, source2_magnification, color="#029E73", alpha=0.72, label="source 2")
     plt.plot(times, binary_magnification, color="black", lw=1.5,
              label="flux-weighted binary source")
     plt.xlabel("Time")
     plt.ylabel("Magnification")
-    plt.legend(fontsize=8)
+    plt.legend(loc="upper left", fontsize=8)
     save("BinarySource_static_lightcurve.png")
 
     source1_trajectory = source1.source_trajectory(times, source1_params)

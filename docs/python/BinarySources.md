@@ -65,15 +65,15 @@ Plot the component curves and their flux-weighted binary-source result:
 
 ```python
 plt.figure(figsize=(4.8, 3.0))
-plt.plot(times, source1_magnification, color="#0173B2", label="source 1")
-plt.plot(times, source2_magnification, color="#029E73", label="source 2")
+plt.plot(times, source1_magnification, color="#0173B2", alpha=0.72, label="source 1")
+plt.plot(times, source2_magnification, color="#029E73", alpha=0.72, label="source 2")
 plt.plot(
     times, binary_magnification, color="black", lw=1.5,
     label="flux-weighted binary source",
 )
 plt.xlabel("Time")
 plt.ylabel("Magnification")
-plt.legend(fontsize=8)
+plt.legend(loc="upper left", fontsize=8)
 plt.show()
 ```
 
@@ -137,19 +137,32 @@ There is no `source_orbit_coordinates` switch for elements modes, and do not
 provide `t0_2` or `u0_2`: positions are specified by the orbit itself.
 
 ```python
-curve = lcbinint.LightCurve(
-    source="binary",
-    xallarap="circular_elements",
-    t_ref=7500.0,
-)
+times = np.linspace(7470.0, 7530.0, 300)
 parameters = {
     "s": 0.9, "q": 0.1, "alpha": 1.0, "tE": 30.0,
     "t0": 7500.0, "u0": 0.10,
     "rho1": 0.004, "rho2": 0.002, "flux_ratio": 0.4,
     "source_mass_ratio": 0.7,
     "xi_1": 0.04, "xi_2": -0.02,
-    "period_xa": 120.0, "inc_xa": 0.8,
 }
+
+circular_elements = lcbinint.LightCurve(
+    source="binary", xallarap="circular_elements", t_ref=7500.0,
+)
+circular_elements_magnification = circular_elements(
+    times, dict(parameters, period_xa=120.0, inc_xa=0.8),
+)
+
+orbital_elements = lcbinint.LightCurve(
+    source="binary", xallarap="orbital_elements", t_ref=7500.0,
+)
+orbital_elements_magnification = orbital_elements(
+    times,
+    dict(
+        parameters,
+        period_xa=120.0, ecc_xa=0.2, peri_xa=0.4, inc_xa=0.8,
+    ),
+)
 ```
 
 ### Position--velocity modes
@@ -178,7 +191,7 @@ This is the direct state-vector convention.  `t0` and `u0` belong to the CoM;
 The second state follows from the mass ratio.
 
 ```python
-curve = lcbinint.LightCurve(
+circular_velocity = lcbinint.LightCurve(
     source="binary",
     xallarap="circular_velocity",
     source_orbit_coordinates="xallarap",
@@ -193,14 +206,25 @@ parameters = {
     "w1": 0.01, "w2": 0.8, "w3": 0.2,
 }
 times = np.linspace(7470.0, 7530.0, 300)
-binary_source_magnification = curve(times, parameters)
+circular_velocity_magnification = circular_velocity(times, parameters)
+
+kepler_velocity = lcbinint.LightCurve(
+    source="binary",
+    xallarap="kepler_velocity",
+    source_orbit_coordinates="xallarap",
+    t_ref=7500.0,
+)
+kepler_velocity_magnification = kepler_velocity(
+    times,
+    dict(parameters, xa_szs=0.2, xa_ar=1.4),
+)
 ```
 
-Plot the binary-source light curve produced by that configured model:
+Plot the circular-velocity binary-source light curve:
 
 ```python
 plt.figure(figsize=(3.8, 2.55))
-plt.plot(times, binary_source_magnification, color="#0173B2")
+plt.plot(times, circular_velocity_magnification, color="#0173B2")
 plt.xlabel("Time")
 plt.ylabel("Magnification")
 plt.show()
