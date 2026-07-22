@@ -803,7 +803,7 @@ def higher_order_combination_figures():
         curve = lcbinint.LightCurve(model=lcbinint.Model(**model_args), options=options)
         magnification = curve(times, params)
 
-        plt.figure(figsize=(4.2, 2.7))
+        plt.figure(figsize=(3.8, 2.4))
         plt.plot(times, magnification, color="#0173B2")
         plt.xlabel("Time")
         plt.ylabel("Magnification")
@@ -811,7 +811,7 @@ def higher_order_combination_figures():
         save(f"{stem}_lightcurve.png")
 
         caustics = curve.caustics(7500.0, params) if orbital else curve.caustics(params)
-        plt.figure(figsize=(3.4, 3.2))
+        plt.figure(figsize=(2.8, 2.7))
         plot_caustics(caustics, color="#6C6C6C", lw=1.1)
         if binary_source:
             components = curve.binary_source_components(times, params)

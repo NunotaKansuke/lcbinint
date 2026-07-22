@@ -80,8 +80,7 @@ trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
 ```
 
-![Parallax and lens orbit light curve](figures/ParallaxOrbital_lightcurve.png)
-![Parallax and lens orbit geometry](figures/ParallaxOrbital_geometry.png)
+<p><img src="figures/ParallaxOrbital_lightcurve.png" alt="Parallax and lens orbit light curve" width="56%"> <img src="figures/ParallaxOrbital_geometry.png" alt="Parallax and lens orbit geometry" width="40%"></p>
 
 ## Parallax + xallarap
 
@@ -95,8 +94,7 @@ trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(parameters)
 ```
 
-![Parallax and xallarap light curve](figures/ParallaxXallarap_lightcurve.png)
-![Parallax and xallarap geometry](figures/ParallaxXallarap_geometry.png)
+<p><img src="figures/ParallaxXallarap_lightcurve.png" alt="Parallax and xallarap light curve" width="56%"> <img src="figures/ParallaxXallarap_geometry.png" alt="Parallax and xallarap geometry" width="40%"></p>
 
 ## Lens orbit + xallarap
 
@@ -110,8 +108,7 @@ trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
 ```
 
-![Lens orbit and xallarap light curve](figures/OrbitalXallarap_lightcurve.png)
-![Lens orbit and xallarap geometry](figures/OrbitalXallarap_geometry.png)
+<p><img src="figures/OrbitalXallarap_lightcurve.png" alt="Lens orbit and xallarap light curve" width="56%"> <img src="figures/OrbitalXallarap_geometry.png" alt="Lens orbit and xallarap geometry" width="40%"></p>
 
 ## Parallax + lens orbit + xallarap
 
@@ -126,8 +123,7 @@ trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
 ```
 
-![All single-source effects light curve](figures/ParallaxOrbitalXallarap_lightcurve.png)
-![All single-source effects geometry](figures/ParallaxOrbitalXallarap_geometry.png)
+<p><img src="figures/ParallaxOrbitalXallarap_lightcurve.png" alt="All single-source effects light curve" width="56%"> <img src="figures/ParallaxOrbitalXallarap_geometry.png" alt="All single-source effects geometry" width="40%"></p>
 
 ## Binary source + parallax
 
@@ -144,8 +140,7 @@ magnification = components.total
 caustics = curve.caustics(parameters)
 ```
 
-![Binary source and parallax light curve](figures/BinarySourceParallax_lightcurve.png)
-![Binary source and parallax geometry](figures/BinarySourceParallax_geometry.png)
+<p><img src="figures/BinarySourceParallax_lightcurve.png" alt="Binary source and parallax light curve" width="56%"> <img src="figures/BinarySourceParallax_geometry.png" alt="Binary source and parallax geometry" width="40%"></p>
 
 ## Binary source + lens orbit
 
@@ -162,8 +157,7 @@ magnification = components.total
 caustics = curve.caustics(7500.0, parameters)
 ```
 
-![Binary source and lens orbit light curve](figures/BinarySourceOrbital_lightcurve.png)
-![Binary source and lens orbit geometry](figures/BinarySourceOrbital_geometry.png)
+<p><img src="figures/BinarySourceOrbital_lightcurve.png" alt="Binary source and lens orbit light curve" width="56%"> <img src="figures/BinarySourceOrbital_geometry.png" alt="Binary source and lens orbit geometry" width="40%"></p>
 
 ## Binary source + parallax + lens orbit
 
@@ -181,8 +175,7 @@ magnification = components.total
 caustics = curve.caustics(7500.0, parameters)
 ```
 
-![Binary source parallax lens orbit light curve](figures/BinarySourceParallaxOrbital_lightcurve.png)
-![Binary source parallax lens orbit geometry](figures/BinarySourceParallaxOrbital_geometry.png)
+<p><img src="figures/BinarySourceParallaxOrbital_lightcurve.png" alt="Binary source parallax lens orbit light curve" width="56%"> <img src="figures/BinarySourceParallaxOrbital_geometry.png" alt="Binary source parallax lens orbit geometry" width="40%"></p>
 
 ## Binary source + parallax + xallarap
 
@@ -198,8 +191,7 @@ magnification = components.total
 caustics = curve.caustics(parameters)
 ```
 
-![Binary source parallax xallarap light curve](figures/BinarySourceParallaxXallarap_lightcurve.png)
-![Binary source parallax xallarap geometry](figures/BinarySourceParallaxXallarap_geometry.png)
+<p><img src="figures/BinarySourceParallaxXallarap_lightcurve.png" alt="Binary source parallax xallarap light curve" width="56%"> <img src="figures/BinarySourceParallaxXallarap_geometry.png" alt="Binary source parallax xallarap geometry" width="40%"></p>
 
 ## Binary source + lens orbit + xallarap
 
@@ -215,8 +207,7 @@ magnification = components.total
 caustics = curve.caustics(7500.0, parameters)
 ```
 
-![Binary source lens orbit xallarap light curve](figures/BinarySourceOrbitalXallarap_lightcurve.png)
-![Binary source lens orbit xallarap geometry](figures/BinarySourceOrbitalXallarap_geometry.png)
+<p><img src="figures/BinarySourceOrbitalXallarap_lightcurve.png" alt="Binary source lens orbit xallarap light curve" width="56%"> <img src="figures/BinarySourceOrbitalXallarap_geometry.png" alt="Binary source lens orbit xallarap geometry" width="40%"></p>
 
 ## Binary source + parallax + lens orbit + xallarap
 
@@ -233,7 +224,6 @@ magnification = components.total
 caustics = curve.caustics(7500.0, parameters)
 ```
 
-![All binary-source effects light curve](figures/BinarySourceParallaxOrbitalXallarap_lightcurve.png)
-![All binary-source effects geometry](figures/BinarySourceParallaxOrbitalXallarap_geometry.png)
+<p><img src="figures/BinarySourceParallaxOrbitalXallarap_lightcurve.png" alt="All binary-source effects light curve" width="56%"> <img src="figures/BinarySourceParallaxOrbitalXallarap_geometry.png" alt="All binary-source effects geometry" width="40%"></p>
 
 [Previous: Combining higher-order effects](CombinedEffects.md) · [Documentation home](readme.md)
