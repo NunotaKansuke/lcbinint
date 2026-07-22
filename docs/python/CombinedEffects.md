@@ -20,7 +20,6 @@ example with a light curve and a source-trajectory/caustic figure.
 | Binary | Binary source + lens orbit + xallarap | [Open](HigherOrderCombinations.md#binary-source--lens-orbit--xallarap) |
 | Binary | Binary source + parallax + lens orbit + xallarap | [Open](HigherOrderCombinations.md#binary-source--parallax--lens-orbit--xallarap) |
 
-Lens-orbit examples use point sources (`rho=0`; or `rho1=rho2=0`) because the
-current finite-source calculation does not support a time-dependent lens.
+Finite-source radii can be used with every binary-lens combination shown here.
 
 [Previous: Binary source + xallarap](BinarySourceXallarap.md) · [Documentation home](readme.md)

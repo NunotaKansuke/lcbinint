@@ -778,8 +778,8 @@ def higher_order_combination_figures():
                 params.pop(key)
         if binary_source:
             params.update(
-                rho1=0.0 if orbital else 0.004,
-                rho2=0.0 if orbital else 0.003,
+                rho1=0.004,
+                rho2=0.003,
                 flux_ratio=0.4,
             )
             if xallarap:
@@ -787,7 +787,7 @@ def higher_order_combination_figures():
             else:
                 params.update(t0_2=7501.2, u0_2=-0.06)
         else:
-            params["rho"] = 0.0 if orbital else 0.004
+            params["rho"] = 0.004
 
         model_args = dict(
             source="binary" if binary_source else "single",

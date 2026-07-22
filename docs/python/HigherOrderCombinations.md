@@ -89,7 +89,7 @@ caustics = curve.caustics(parameters)
 ## Parallax + lens orbit
 
 ```python
-parameters = dict(base, rho=0.0)
+parameters = dict(base, rho=0.004)
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(
     parallax=True, orbital_motion="circular", sky=sky, t_ref=7500.0,
 ))
@@ -117,7 +117,7 @@ caustics = curve.caustics(parameters)
 ## Lens orbit + xallarap
 
 ```python
-parameters = dict(base, rho=0.0)
+parameters = dict(base, rho=0.004)
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(
     orbital_motion="circular", xallarap="circular_velocity", t_ref=7500.0,
 ))
@@ -131,7 +131,7 @@ caustics = curve.caustics(7500.0, parameters)
 ## Parallax + lens orbit + xallarap
 
 ```python
-parameters = dict(base, rho=0.0)
+parameters = dict(base, rho=0.004)
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(
     parallax=True, orbital_motion="circular", xallarap="circular_velocity",
     sky=sky, t_ref=7500.0,
@@ -163,7 +163,7 @@ caustics = curve.caustics(parameters)
 ## Binary source + lens orbit
 
 ```python
-parameters = dict(base, rho1=0.0, rho2=0.0, flux_ratio=0.4,
+parameters = dict(base, rho1=0.004, rho2=0.003, flux_ratio=0.4,
                   t0_2=7501.2, u0_2=-0.06)
 for key in ("xi_1", "xi_2", "w1", "w2", "w3"):
     parameters.pop(key)
@@ -180,7 +180,7 @@ caustics = curve.caustics(7500.0, parameters)
 ## Binary source + parallax + lens orbit
 
 ```python
-parameters = dict(base, rho1=0.0, rho2=0.0, flux_ratio=0.4,
+parameters = dict(base, rho1=0.004, rho2=0.003, flux_ratio=0.4,
                   t0_2=7501.2, u0_2=-0.06)
 for key in ("xi_1", "xi_2", "w1", "w2", "w3"):
     parameters.pop(key)
@@ -214,7 +214,7 @@ caustics = curve.caustics(parameters)
 ## Binary source + lens orbit + xallarap
 
 ```python
-parameters = dict(base, rho1=0.0, rho2=0.0, flux_ratio=0.4,
+parameters = dict(base, rho1=0.004, rho2=0.003, flux_ratio=0.4,
                   source_mass_ratio=0.7)
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(
     source="binary", orbital_motion="circular", xallarap="circular_velocity",
