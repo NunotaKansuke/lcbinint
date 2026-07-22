@@ -78,9 +78,9 @@ plt.show()
 ```python
 parameters = {
     "s": 0.9, "q": 0.1, "alpha": 0.7, "tE": 30.0,
-    "t0": 7500.0, "u0": 0.30, "rho": 0.004,
+    "t0": 7500.0, "u0": 0.20, "rho": 0.004,
     "xi_1": 0.02, "xi_2": -0.01,
-    "w1": 0.008, "w2": 0.5, "w3": 0.12,
+    "w1": 0.004, "w2": 0.35, "w3": 0.08,
 }
 static_curve = lcbinint.LightCurve()
 curve = lcbinint.LightCurve(xallarap="circular_velocity", t_ref=7500.0)

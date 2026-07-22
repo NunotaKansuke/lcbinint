@@ -487,7 +487,7 @@ def xallarap_single_source():
     plt.legend(fontsize=7)
     save("Xallarap_elements_geometry.png")
 
-    velocity_params = dict(common, w1=0.008, w2=0.5, w3=0.12)
+    velocity_params = dict(common, u0=0.20, w1=0.004, w2=0.35, w3=0.08)
     velocity = lcbinint.LightCurve(xallarap="circular_velocity", t_ref=7500.0)
     velocity_static_params = dict(velocity_params)
     for key in ("xi_1", "xi_2", "w1", "w2", "w3"):
