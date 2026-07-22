@@ -827,6 +827,70 @@ def higher_order_combination_figures():
         save(f"{stem}_geometry.png")
 
 
+def hierarchical_combination_sheets():
+    """Render every hierarchy-respecting high-order configuration."""
+    sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
+    options = lcbinint.Options(coordinates="vbm", tol=1e-3, reltol=1e-3)
+    times = np.linspace(7470.0, 7530.0, 160)
+    base = dict(s=.9, q=.1, t0=7500., u0=.20, tE=30., alpha=.7,
+                piEN=.03, piEE=-.02, g1=.011, g2=-.005, g3=.005,
+                lom_szs=.2, lom_ar=1.4)
+    def modes(binary):
+        out = [("P", None, None, None)]
+        x = [("P+XE", "circular_elements", None), ("P+XK", "orbital_elements", None),
+             ("P+XD", "circular_velocity", "xallarap"), ("P+XKD", "kepler_velocity", "xallarap")]
+        if binary:
+            x += [("P+XTO", "circular_velocity", "trajectory_offset"),
+                  ("P+XKTO", "kepler_velocity", "trajectory_offset")]
+        for orbit, label in (("circular", "O"), ("kepler", "OK")):
+            out.append(("P+" + label, None, None, orbit))
+            out += [(name.replace("P+", "P+" + label + "+"), xm, co, orbit) for name, xm, co in x[1:]]
+        return out
+    for lens, source in (("binary", "single"), ("binary", "binary"), ("triple", "single"), ("triple", "binary")):
+        binary = source == "binary"
+        configs = modes(binary)
+        if lens == "triple": configs = [item for item in configs if item[3] is None]
+        cols = 5; rows = (len(configs) + cols - 1) // cols
+        light, geo = plt.subplots(rows, cols, figsize=(10, 1.9 * rows), squeeze=False), plt.subplots(rows, cols, figsize=(10, 1.9 * rows), squeeze=False)
+        for index, (label, xmode, coordinates, orbit) in enumerate(configs):
+            axl, axg = light[1][index // cols][index % cols], geo[1][index // cols][index % cols]
+            params = dict(base)
+            if lens == "triple": params.update(sep2=1.3, q2=.01, ang=.5)
+            if xmode in ("circular_elements", "orbital_elements"):
+                params.update(xi_1=.006, xi_2=-.003, period_xa=12., inc_xa=.6)
+                if xmode == "orbital_elements": params.update(ecc_xa=.2, peri_xa=.4)
+            elif xmode:
+                params.update(xi_1=.006, xi_2=-.003, w1=.004, w2=.35, w3=.08)
+                if xmode == "kepler_velocity": params.update(xa_szs=.2, xa_ar=1.4)
+            if binary:
+                params.update(rho1=.004, rho2=.003, flux_ratio=.4)
+                if xmode:
+                    params["source_mass_ratio"] = .7
+                    if coordinates == "trajectory_offset":
+                        params.update(t0=7499.4, u0=.19, t0_2=7500.857142857, u0_2=.214285714)
+                else: params.update(t0_2=7501.2, u0_2=-.06)
+            else: params["rho"] = .004
+            args = dict(lens=lens, source=source, parallax=True, sky=sky, t_ref=7500.)
+            if orbit: args["orbital_motion"] = orbit
+            if xmode: args["xallarap"] = xmode
+            if binary and coordinates: args["source_orbit_coordinates"] = coordinates
+            curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(**args))
+            mag = curve(times, params); axl.plot(times, mag, color="#0173B2", lw=.8)
+            caustics = curve.caustics(7500., params) if orbit else curve.caustics(params)
+            plot_caustics(caustics, color="#6C6C6C", lw=.6)
+            if binary:
+                c = curve.binary_source_components(times, params)
+                axg.plot(c.source1.trajectory.x, c.source1.trajectory.y, color="#0173B2", lw=.7)
+                axg.plot(c.source2.trajectory.x, c.source2.trajectory.y, color="#029E73", lw=.7)
+            else:
+                tr = curve.source_trajectory(times, params); axg.plot(tr.x, tr.y, color="#0173B2", lw=.7)
+            for ax in (axl, axg): ax.set_title(label, fontsize=6); ax.tick_params(labelsize=5)
+            axg.set_aspect("equal")
+        for ax in list(light[1].flat)[len(configs):] + list(geo[1].flat)[len(configs):]: ax.axis("off")
+        for fig, kind in ((light[0], "lightcurves"), (geo[0], "geometry")):
+            fig.tight_layout(pad=.5); fig.savefig(OUTPUT / f"Hierarchical_{lens}_{source}_{kind}.png", dpi=220); plt.close(fig)
+
+
 def main():
     standard_binary()
     binary_lens_images()
@@ -846,6 +910,7 @@ def main():
     coordinates()
     combined_effects()
     higher_order_combination_figures()
+    hierarchical_combination_sheets()
 
 
 if __name__ == "__main__":

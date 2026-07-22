@@ -5,6 +5,8 @@
 This is an index of the supported combinations. Each entry opens a worked
 example with a light curve and a source-trajectory/caustic figure.
 
+The mode-complete catalogue is [Hierarchical higher-order catalogue](HierarchicalCombinations.md).
+
 | Sources | Effects | Example |
 | --- | --- | --- |
 | Single | Finite source only | [Open](HigherOrderCombinations.md#finite-source-only) |
