@@ -104,19 +104,12 @@ plt.show()
 
 ## Source orbital motion (xallarap)
 
-With xallarap, the two sources are the two members of a physical source binary.
-Their sky-plane positions are related to the source-binary centre of mass
-(CoM): `M1 * r1 + M2 * r2 = 0`.
+With xallarap, the two source positions are constrained by the source-binary
+centre of mass: `M1 * r1 + M2 * r2 = 0`. Set
+`source_mass_ratio = M2 / M1`; source 2 is then derived as
+`r2 = -r1 / source_mass_ratio`.
 
-For `source_mass_ratio = M2 / M1`, once the state of source 1 is known, source
-2 is fixed by `r2 = -r1 / source_mass_ratio`.
-
-This is why xallarap for a single source needs no mass ratio: only the
-trajectory of the observed source is required.  A binary-source calculation
-must also locate source 2, so it requires `source_mass_ratio`.  This parameter
-controls dynamics only and remains independent of `flux_ratio`.
-
-All binary-source xallarap models require:
+All binary-source xallarap models require these source parameters:
 
 ```python
 "rho1": 0.004,
@@ -124,6 +117,9 @@ All binary-source xallarap models require:
 "flux_ratio": 0.4,
 "source_mass_ratio": 0.7,  # M2 / M1, not a flux ratio
 ```
+
+`source_mass_ratio` controls the orbital geometry. `flux_ratio` controls the
+photometric weighting and is independent of the mass ratio.
 
 ### Orbital-elements modes
 
