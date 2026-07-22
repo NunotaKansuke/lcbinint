@@ -362,8 +362,9 @@ def binary_source_binary_lens():
 
 
 def limb_darkening():
-    params = dict(s=0.8, q=0.1, u0=0.01, alpha=0.0, rho=0.01, tE=1.0, t0=0.0)
-    times = np.linspace(-0.04, 0.04, 161)
+    params = dict(s=0.9, q=0.1, u0=0.0, alpha=1.0, rho=0.01, tE=30.0, t0=7500.0)
+    times = np.linspace(7470.0, 7530.0, 300)
+    zoom_times = np.linspace(7500.8, 7502.6, 500)
     options = lcbinint.Options(tol=1e-3, reltol=1e-3)
     uniform_curve = lcbinint.LightCurve(
         options=options, limb_darkening=lcbinint.LimbDarkening.none()
@@ -375,10 +376,21 @@ def limb_darkening():
         options=options, limb_darkening=lcbinint.LimbDarkening.square_root(0.51, 0.3)
     )
 
+    plt.figure(figsize=(3.8, 2.55))
+    plt.plot(times, square_root_curve(times, params), color="tab:green", label="square-root profile")
+    plt.axvspan(7500.8, 7502.6, color="0.85", zorder=0, label="zoomed interval")
+    plt.xlabel("Time")
+    plt.ylabel("Magnification")
+    plt.legend(fontsize=8)
+    save("LimbDarkening_full_event.png")
+
     plt.figure(figsize=(5.5, 3.2))
-    plt.plot(times, uniform_curve(times, params), label="uniform")
-    plt.plot(times, linear_curve(times, params), label="linear: 0.51")
-    plt.plot(times, square_root_curve(times, params), label="square root: 0.51, 0.3")
+    plt.plot(zoom_times, uniform_curve(zoom_times, params), label="uniform")
+    plt.plot(zoom_times, linear_curve(zoom_times, params), label="linear: 0.51")
+    plt.plot(
+        zoom_times, square_root_curve(zoom_times, params),
+        label="square root: 0.51, 0.3",
+    )
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=8)
