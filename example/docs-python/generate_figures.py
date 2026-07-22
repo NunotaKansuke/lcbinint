@@ -526,11 +526,11 @@ def binary_source_xallarap_offset_lightcurve():
 
 def xallarap_single_source():
     times = np.linspace(7470.0, 7530.0, 300)
-    common = dict(s=0.9, q=0.1, alpha=0.7, tE=30.0, t0=7500.0, u0=0.35, rho=0.004,
-                  xi_1=0.006, xi_2=-0.003)
+    common = dict(s=0.9, q=0.1, alpha=1.0, tE=30.0, t0=7500.0, u0=0.10, rho=0.004,
+                  xi_1=0.04, xi_2=-0.02)
     static = lcbinint.LightCurve()
 
-    elements_params = dict(common, period_xa=300.0, inc_xa=0.3)
+    elements_params = dict(common, period_xa=120.0, inc_xa=0.8)
     elements = lcbinint.LightCurve(xallarap="circular_elements", t_ref=7500.0)
     plt.figure(figsize=(4.2, 2.7))
     plt.plot(times, elements(times, elements_params), color="#0173B2")
@@ -547,7 +547,7 @@ def xallarap_single_source():
     plt.axis("equal")
     save("Xallarap_elements_geometry.png")
 
-    velocity_params = dict(common, w1=0.001, w2=0.12, w3=0.02)
+    velocity_params = dict(common, w1=0.01, w2=0.8, w3=0.2)
     velocity = lcbinint.LightCurve(xallarap="circular_velocity", t_ref=7500.0)
     plt.figure(figsize=(4.2, 2.7))
     plt.plot(times, velocity(times, velocity_params), color="#0173B2")

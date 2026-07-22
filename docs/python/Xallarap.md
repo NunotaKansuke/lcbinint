@@ -25,10 +25,10 @@ import lcbinint
 
 times = np.linspace(7470.0, 7530.0, 300)
 parameters = {
-    "s": 0.9, "q": 0.1, "alpha": 0.7, "tE": 30.0,
-    "t0": 7500.0, "u0": 0.35, "rho": 0.004,
-    "xi_1": 0.006, "xi_2": -0.003,
-    "period_xa": 300.0, "inc_xa": 0.3,
+    "s": 0.9, "q": 0.1, "alpha": 1.0, "tE": 30.0,
+    "t0": 7500.0, "u0": 0.10, "rho": 0.004,
+    "xi_1": 0.04, "xi_2": -0.02,
+    "period_xa": 120.0, "inc_xa": 0.8,
 }
 curve = lcbinint.LightCurve(xallarap="circular_elements", t_ref=7500.0)
 magnification = curve(times, parameters)
@@ -67,10 +67,10 @@ plt.show()
 
 ```python
 parameters = {
-    "s": 0.9, "q": 0.1, "alpha": 0.7, "tE": 30.0,
-    "t0": 7500.0, "u0": 0.35, "rho": 0.004,
-    "xi_1": 0.006, "xi_2": -0.003,
-    "w1": 0.001, "w2": 0.12, "w3": 0.02,
+    "s": 0.9, "q": 0.1, "alpha": 1.0, "tE": 30.0,
+    "t0": 7500.0, "u0": 0.10, "rho": 0.004,
+    "xi_1": 0.04, "xi_2": -0.02,
+    "w1": 0.01, "w2": 0.8, "w3": 0.2,
 }
 curve = lcbinint.LightCurve(xallarap="circular_velocity", t_ref=7500.0)
 magnification = curve(times, parameters)
