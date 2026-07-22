@@ -118,15 +118,18 @@ trajectory = combined.source_trajectory(t, params)
 display_x = -np.asarray(trajectory.x)
 display_y = -np.asarray(trajectory.y)
 indices = [75, 150, 225]
-colors = ["tab:blue", "tab:purple", "tab:red"]
+colors = ["#0173B2", "#029E73", "#CC78BC"]
 
 plt.figure(figsize=(3.3, 3.3))
+plt.plot(display_x, display_y, color="0.35", lw=0.9, zorder=1)
 for index, color in zip(indices, colors):
     caustics = combined.caustics(float(t[index]), params)
     for x, y in zip(caustics.x, caustics.y):
-        plt.plot(-np.asarray(x), -np.asarray(y), color=color, lw=1.1)
-    plt.scatter([display_x[index]], [display_y[index]], color=color)
-plt.plot(display_x, display_y, color="0.25")
+        plt.plot(-np.asarray(x), -np.asarray(y), color=color, lw=1.1, zorder=2)
+    plt.scatter(
+        [display_x[index]], [display_y[index]], s=16, color=color,
+        edgecolor="white", linewidth=0.35, zorder=3,
+    )
 plt.xlabel("y1")
 plt.ylabel("y2")
 plt.axis("equal")
