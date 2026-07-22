@@ -762,13 +762,10 @@ def higher_order_combination_figures():
         ("FiniteSourceOnly", "Finite source only", False, False, False, False),
         ("ParallaxOrbital", "Parallax + lens orbit", False, True, True, False),
         ("ParallaxXallarap", "Parallax + xallarap", False, True, False, True),
-        ("OrbitalXallarap", "Lens orbit + xallarap", False, False, True, True),
         ("ParallaxOrbitalXallarap", "Parallax + lens orbit + xallarap", False, True, True, True),
         ("BinarySourceParallax", "Binary source + parallax", True, True, False, False),
-        ("BinarySourceOrbital", "Binary source + lens orbit", True, False, True, False),
         ("BinarySourceParallaxOrbital", "Binary source + parallax + lens orbit", True, True, True, False),
         ("BinarySourceParallaxXallarap", "Binary source + parallax + xallarap", True, True, False, True),
-        ("BinarySourceOrbitalXallarap", "Binary source + lens orbit + xallarap", True, False, True, True),
         ("BinarySourceParallaxOrbitalXallarap", "Binary source + parallax + lens orbit + xallarap", True, True, True, True),
     ]
     for stem, title, binary_source, parallax, orbital, xallarap in configurations:

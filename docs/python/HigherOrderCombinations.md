@@ -114,20 +114,6 @@ caustics = curve.caustics(parameters)
 
 <p><img src="figures/ParallaxXallarap_lightcurve.png" alt="Parallax and xallarap light curve" width="56%"> <img src="figures/ParallaxXallarap_geometry.png" alt="Parallax and xallarap geometry" width="40%"></p>
 
-## Lens orbit + xallarap
-
-```python
-parameters = dict(base, rho=0.004)
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(
-    orbital_motion="circular", xallarap="circular_velocity", t_ref=7500.0,
-))
-magnification = curve(times, parameters)
-trajectory = curve.source_trajectory(times, parameters)
-caustics = curve.caustics(7500.0, parameters)
-```
-
-<p><img src="figures/OrbitalXallarap_lightcurve.png" alt="Lens orbit and xallarap light curve" width="56%"> <img src="figures/OrbitalXallarap_geometry.png" alt="Lens orbit and xallarap geometry" width="40%"></p>
-
 ## Parallax + lens orbit + xallarap
 
 ```python
@@ -159,23 +145,6 @@ caustics = curve.caustics(parameters)
 ```
 
 <p><img src="figures/BinarySourceParallax_lightcurve.png" alt="Binary source and parallax light curve" width="56%"> <img src="figures/BinarySourceParallax_geometry.png" alt="Binary source and parallax geometry" width="40%"></p>
-
-## Binary source + lens orbit
-
-```python
-parameters = dict(base, rho1=0.004, rho2=0.003, flux_ratio=0.4,
-                  t0_2=7501.2, u0_2=-0.06)
-for key in ("xi_1", "xi_2", "w1", "w2", "w3"):
-    parameters.pop(key)
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(
-    source="binary", orbital_motion="circular", t_ref=7500.0,
-))
-components = curve.binary_source_components(times, parameters)
-magnification = components.total
-caustics = curve.caustics(7500.0, parameters)
-```
-
-<p><img src="figures/BinarySourceOrbital_lightcurve.png" alt="Binary source and lens orbit light curve" width="56%"> <img src="figures/BinarySourceOrbital_geometry.png" alt="Binary source and lens orbit geometry" width="40%"></p>
 
 ## Binary source + parallax + lens orbit
 
@@ -211,26 +180,10 @@ caustics = curve.caustics(parameters)
 
 <p><img src="figures/BinarySourceParallaxXallarap_lightcurve.png" alt="Binary source parallax xallarap light curve" width="56%"> <img src="figures/BinarySourceParallaxXallarap_geometry.png" alt="Binary source parallax xallarap geometry" width="40%"></p>
 
-## Binary source + lens orbit + xallarap
-
-```python
-parameters = dict(base, rho1=0.004, rho2=0.003, flux_ratio=0.4,
-                  source_mass_ratio=0.7)
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(
-    source="binary", orbital_motion="circular", xallarap="circular_velocity",
-    source_orbit_coordinates="xallarap", t_ref=7500.0,
-))
-components = curve.binary_source_components(times, parameters)
-magnification = components.total
-caustics = curve.caustics(7500.0, parameters)
-```
-
-<p><img src="figures/BinarySourceOrbitalXallarap_lightcurve.png" alt="Binary source lens orbit xallarap light curve" width="56%"> <img src="figures/BinarySourceOrbitalXallarap_geometry.png" alt="Binary source lens orbit xallarap geometry" width="40%"></p>
-
 ## Binary source + parallax + lens orbit + xallarap
 
 ```python
-parameters = dict(base, rho1=0.0, rho2=0.0, flux_ratio=0.4,
+parameters = dict(base, rho1=0.004, rho2=0.003, flux_ratio=0.4,
                   source_mass_ratio=0.7)
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(
     source="binary", parallax=True, orbital_motion="circular",
