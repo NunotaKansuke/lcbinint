@@ -85,7 +85,7 @@ The narrow finite-source feature here is resolved with a denser time grid.
 times = np.linspace(7470.0, 7530.0, 1200)
 parameters = {
     "s": 0.9, "q": 0.1, "alpha": 0.7, "tE": 30.0,
-    "t0": 7500.0, "u0": 0.10, "rho": 0.004,
+    "t0": 7500.0, "u0": 0.20, "rho": 0.004,
     "xi_1": 0.02, "xi_2": -0.01,
     "period_xa": 90.0, "inc_xa": 0.6,
 }
