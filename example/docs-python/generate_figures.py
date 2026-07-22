@@ -509,17 +509,12 @@ def xallarap_single_source():
     save("Xallarap_velocity_lightcurve.png")
     trajectory = velocity.source_trajectory(times, velocity_params)
     caustics = velocity.caustics(velocity_params)
-    peak = np.argmax(velocity(times, velocity_params))
     plt.figure(figsize=(3.4, 3.2))
     for x, y in zip(caustics.x, caustics.y):
         plt.plot(x, y, color="#6C6C6C", lw=1.1)
     static_trajectory = static.source_trajectory(times, velocity_static_params)
     plt.plot(static_trajectory.x, static_trajectory.y, color="0.55", ls="--", label="rectilinear")
     plt.plot(trajectory.x, trajectory.y, color="#0173B2", label="xallarap")
-    plt.scatter(
-        trajectory.x[peak], trajectory.y[peak], s=12, color="#0173B2",
-        edgecolor="white", linewidth=0.45, zorder=3, label="xallarap peak",
-    )
     plt.xlabel("Trajectory coordinate 1")
     plt.ylabel("Trajectory coordinate 2")
     plt.axis("equal")
