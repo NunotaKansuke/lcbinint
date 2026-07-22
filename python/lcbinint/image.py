@@ -168,7 +168,7 @@ class ImagePlane:
         if ax is None:
             import matplotlib.pyplot as plt
 
-            _, ax = plt.subplots(figsize=(4.8, 4.8))
+            _, ax = plt.subplots(figsize=(3.8, 3.8))
 
         if critical_curves:
             self._plot_branches(

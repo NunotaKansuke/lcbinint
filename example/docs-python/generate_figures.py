@@ -43,13 +43,13 @@ def standard_binary():
     magnifications = curve(times, params)
     trajectory = curve.source_trajectory(times, params)
 
-    plt.figure(figsize=(4.8, 3.2))
+    plt.figure(figsize=(3.6, 2.4))
     plt.plot(times, magnifications)
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     save("BinaryLens_lightcurve.png")
 
-    plt.figure(figsize=(4, 4))
+    plt.figure(figsize=(3.2, 3.2))
     plot_caustics(curve.caustics(params), color="tab:red", lw=1.1)
     plt.plot(
         -np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue"
@@ -69,7 +69,7 @@ def binary_lens_images():
     critical_curves = image_plane.critical_curves()
     image_regions = image_plane.ray_shooting_images(resolution=300)
 
-    fig, (source_ax, image_ax) = plt.subplots(1, 2, figsize=(8, 3.6))
+    fig, (source_ax, image_ax) = plt.subplots(1, 2, figsize=(6.4, 3.0))
     for x, y in zip(caustics.x, caustics.y):
         source_ax.plot(x, y, color="tab:red", lw=1.1)
     source_ax.scatter([y1], [y2], marker="*", color="tab:blue")
@@ -99,13 +99,13 @@ def standard_triple():
     magnifications = curve(times, params)
     trajectory = curve.source_trajectory(times, params)
 
-    plt.figure(figsize=(4.8, 3.2))
+    plt.figure(figsize=(3.6, 2.4))
     plt.plot(times, magnifications)
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     save("TripleLens_lightcurve.png")
 
-    plt.figure(figsize=(4, 4))
+    plt.figure(figsize=(3.2, 3.2))
     plot_caustics(curve.caustics(params), color="tab:red", lw=1.1)
     plt.plot(
         -np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue"
@@ -120,12 +120,12 @@ def critical_curves_and_caustics():
     params = dict(s=0.6, q=0.1)
     curve = lcbinint.LightCurve(options=lcbinint.Options(caustic_bins=200))
 
-    plt.figure(figsize=(4, 4))
+    plt.figure(figsize=(3.2, 3.2))
     plot_caustics(curve.caustics(params), color="tab:red", lw=1.1)
     plt.axis("equal")
     save("Caustics_binary.png")
 
-    plt.figure(figsize=(4, 4))
+    plt.figure(figsize=(3.2, 3.2))
     plot_branches(curve.critical_curves(params), color="tab:blue")
     plt.axis("equal")
     save("Criticalcurves_binary.png")
@@ -152,14 +152,14 @@ def parallax():
     static_trajectory = static.source_trajectory(times, params)
     moved_trajectory = moved.source_trajectory(times, params)
 
-    plt.figure(figsize=(4.8, 3.2))
+    plt.figure(figsize=(3.6, 2.4))
     plt.plot(times, static_mag, "g")
     plt.plot(times, moved_mag, "m")
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     save("BinaryLens_lightcurve_parallax.png")
 
-    plt.figure(figsize=(4, 4))
+    plt.figure(figsize=(3.2, 3.2))
     plot_caustics(static.caustics(params), color="tab:red", lw=1.1)
     plt.plot(
         -np.asarray(static_trajectory.x), -np.asarray(static_trajectory.y),
@@ -198,7 +198,7 @@ def parallax():
     ground_mag = ground(times, params)
     space_mag = space(times, params)
     fig, (curve_ax, difference_ax) = plt.subplots(
-        2, 1, sharex=True, figsize=(5.6, 4.8),
+        2, 1, sharex=True, figsize=(4.4, 3.6),
         gridspec_kw={"height_ratios": [3, 1]},
     )
     curve_ax.plot(times, ground_mag, label="ground: Chile")
@@ -231,7 +231,7 @@ def parallax():
     africa_mag = africa(times, params)
     chile_mag = chile(times, params)
     fig, (curve_ax, difference_ax) = plt.subplots(
-        2, 1, sharex=True, figsize=(5.6, 4.8),
+        2, 1, sharex=True, figsize=(4.4, 3.6),
         gridspec_kw={"height_ratios": [3, 1]},
     )
     curve_ax.plot(times, africa_mag, label="Africa: 29 S, 20 E")
@@ -268,7 +268,7 @@ def orbital_motion():
     )
     trajectory = orbital.source_trajectory(times, params)
 
-    plt.figure(figsize=(4.8, 3.2))
+    plt.figure(figsize=(3.6, 2.4))
     plt.plot(times, static(times, params), "g")
     plt.plot(times, moved(times, params), "m")
     plt.plot(times, orbital(times, params), "y")
@@ -278,7 +278,7 @@ def orbital_motion():
 
     indices = [100, 150, 200]
     colors = [(0, 0, 1, 1), (0.4, 0, 0.6, 1), (0.6, 0, 0.4, 1)]
-    plt.figure(figsize=(4, 4))
+    plt.figure(figsize=(3.2, 3.2))
     for index, color in zip(indices, colors):
         plot_caustics(orbital.caustics(float(times[index]), params), color=color, lw=1.1)
     source_x = -np.asarray(trajectory.x)
@@ -305,7 +305,7 @@ def binary_source():
         options=options,
     )
 
-    plt.figure(figsize=(4.8, 3.2))
+    plt.figure(figsize=(3.6, 2.4))
     static_params = dict(params, w1=0.0, w2=0.0, w3=0.0)
     plt.plot(times, xallarap(times, static_params))
     plt.plot(times, xallarap(times, params), "y")
@@ -345,7 +345,7 @@ def binary_source_binary_lens():
         key: value for key, value in params.items()
         if key not in {"q_source", "q_mass", "xi_1", "xi_2", "w1", "w2", "w3"}
     }
-    plt.figure(figsize=(4.8, 3.2))
+    plt.figure(figsize=(3.6, 2.4))
     plt.plot(
         times, single_source(times, single_source_params), "y",
         label="single source + lens orbit",
@@ -380,7 +380,7 @@ def limb_darkening():
         )
         for xi in x
     ])
-    plt.figure(figsize=(4.8, 3.2))
+    plt.figure(figsize=(3.6, 2.4))
     plt.plot(x, uniform, label="uniform")
     plt.plot(x, linear, label="linear: 0.51")
     plt.plot(x, square_root, label="square root: 0.51, 0.3")
@@ -404,7 +404,7 @@ def accuracy_method_selection():
     names = list(dict.fromkeys(methods.tolist()))
 
     fig, (light_ax, method_ax) = plt.subplots(
-        2, 1, figsize=(5.6, 4.4), sharex=True,
+        2, 1, figsize=(4.4, 3.5), sharex=True,
         gridspec_kw={"height_ratios": [3, 1]},
     )
     light_ax.plot(times, magnifications)
@@ -426,7 +426,7 @@ def coordinates():
         options=lcbinint.Options(coordinates="vbm", caustic_bins=600)
     )
     trajectory = curve.source_trajectory(times, params)
-    plt.figure(figsize=(4, 4))
+    plt.figure(figsize=(3.2, 3.2))
     plot_caustics(curve.caustics(params), color="tab:red", lw=1.1)
     display_x = -np.asarray(trajectory.x)
     display_y = -np.asarray(trajectory.y)
@@ -473,7 +473,7 @@ def combined_effects():
         key: value for key, value in params.items()
         if key not in {"q_source", "q_mass", "xi_1", "xi_2", "w1", "w2", "w3"}
     }
-    plt.figure(figsize=(6.4, 4))
+    plt.figure(figsize=(5, 3.2))
     plt.plot(times, static(times, single_source_params), label="static 2L1S")
     plt.plot(times, parallax_curve(times, single_source_params), label="+ parallax")
     plt.plot(times, parallax_orbit(times, single_source_params), label="+ lens orbit")
@@ -488,7 +488,7 @@ def combined_effects():
     display_y = -np.asarray(trajectory.y)
     indices = [75, 150, 225]
     colors = ["tab:blue", "tab:purple", "tab:red"]
-    plt.figure(figsize=(4.8, 4.8))
+    plt.figure(figsize=(3.8, 3.8))
     for index, color in zip(indices, colors):
         plot_caustics(
             combined.caustics(float(times[index]), params), color=color, lw=1.1

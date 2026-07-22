@@ -35,7 +35,7 @@ trajectory = curve.source_trajectory(t, params)
 Plot only the light curve:
 
 ```python
-plt.figure(figsize=(4.8, 3.2))
+plt.figure(figsize=(3.6, 2.4))
 plt.plot(t, magnifications)
 plt.xlabel("Time")
 plt.ylabel("Magnification")
@@ -49,7 +49,7 @@ Calculate and plot the caustics and source trajectory separately:
 ```python
 caustics = curve.caustics(params)
 
-plt.figure(figsize=(4, 4))
+plt.figure(figsize=(3.2, 3.2))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
 plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue")
@@ -93,7 +93,7 @@ trajectory = curve.source_trajectory(t, params)
 Plot only the light curve:
 
 ```python
-plt.figure(figsize=(4.8, 3.2))
+plt.figure(figsize=(3.6, 2.4))
 plt.plot(t, magnifications)
 plt.xlabel("Time")
 plt.ylabel("Magnification")
@@ -107,7 +107,7 @@ Calculate and plot the caustics and source trajectory separately:
 ```python
 caustics = curve.caustics(params)
 
-plt.figure(figsize=(4, 4))
+plt.figure(figsize=(3.2, 3.2))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
 plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue")
