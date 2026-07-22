@@ -101,28 +101,33 @@ params = {
 }
 t = np.linspace(t0 - tE, t0 + tE, 300)
 sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
-model = lcbinint.Model(
-    lens="binary",
-    source="binary",
+combined_options = lcbinint.Options(
+    coordinates="vbm", tol=1e-3, reltol=1e-3
+)
+
+# Corresponds to VBM.BinaryLightCurveOrbital(pr, t).
+single_source_model = lcbinint.Model(
     parallax=True,
     orbital_motion="circular",
-    xallarap="circular_velocity",
     sky=sky,
     t_ref=t0,
 )
-binary_source_curve = lcbinint.LightCurve(model=model, options=options)
-magnifications_binary_source = binary_source_curve(t, params)
-
 single_source_curve = lcbinint.LightCurve(
-    model=lcbinint.Model(
-        parallax=True,
-        orbital_motion="circular",
-        sky=sky,
-        t_ref=t0,
-    ),
-    options=options,
+    model=single_source_model,
+    options=combined_options,
 )
 magnifications_single_source = single_source_curve(t, params)
+
+# Corresponds to VBM.BinSourceBinLensLightCurve(pr, t). This compatibility
+# calculation jointly reconstructs the lens orbit, source barycenter, source
+# mass ratio, and relative source orbit used by that function.
+magnifications_binary_source = lcbinint.vbm_binary_source_binary_lens(
+    t,
+    params,
+    sky=sky,
+    options=combined_options,
+    t_ref=t0,
+)
 ```
 
 The figure makes the extra binary-source and xallarap terms visible instead of
@@ -130,8 +135,8 @@ leaving the combined calculation as a single printed array:
 
 ```python
 plt.figure()
-plt.plot(t, magnifications_single_source, label="single source + lens orbit")
-plt.plot(t, magnifications_binary_source, label="binary source + xallarap")
+plt.plot(t, magnifications_single_source, "y", label="single source + lens orbit")
+plt.plot(t, magnifications_binary_source, "g", label="binary source + xallarap")
 plt.xlabel("Time")
 plt.ylabel("Magnification")
 plt.legend()

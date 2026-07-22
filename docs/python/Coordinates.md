@@ -40,9 +40,12 @@ display_x = -np.asarray(trajectory.x)
 display_y = -np.asarray(trajectory.y)
 
 for x, y in zip(caustics.x, caustics.y):
-    plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color="k")
-plt.plot(display_x, display_y, color="tab:red")
-plt.scatter([display_x[0], display_x[-1]], [display_y[0], display_y[-1]])
+    plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color="tab:red")
+plt.plot(display_x, display_y, color="tab:blue")
+plt.scatter(
+    [display_x[0], display_x[-1]], [display_y[0], display_y[-1]],
+    color="tab:blue",
+)
 plt.xlabel("y1")
 plt.ylabel("y2")
 plt.axis("equal")

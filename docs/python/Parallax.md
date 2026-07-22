@@ -68,9 +68,15 @@ caustic_x = np.concatenate([np.asarray(x) for x in caustics.x])
 caustic_y = np.concatenate([np.asarray(y) for y in caustics.y])
 
 plt.figure(figsize=(5, 5))
-plt.scatter(-caustic_x, -caustic_y, s=3, color="k")
-plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y), "g")
-plt.plot(-np.asarray(trajectory_parallax.x), -np.asarray(trajectory_parallax.y), "m")
+plt.scatter(-caustic_x, -caustic_y, s=3, color="tab:red")
+plt.plot(
+    -np.asarray(trajectory.x), -np.asarray(trajectory.y),
+    color="tab:blue", linestyle="--",
+)
+plt.plot(
+    -np.asarray(trajectory_parallax.x), -np.asarray(trajectory_parallax.y),
+    color="tab:blue",
+)
 plt.axis("equal")
 plt.show()
 ```

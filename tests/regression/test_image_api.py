@@ -48,8 +48,47 @@ def test_image_plane_geometry_helpers_return_branches():
     caustics = plane.caustics()
     critical_curves = plane.critical_curves()
 
-    assert [len(branch) for branch in caustics.x] == [64, 64, 64, 64]
-    assert [len(branch) for branch in critical_curves.x] == [64, 64, 64, 64]
+    assert [len(branch) for branch in caustics.x] == [4 * 64]
+    assert [len(branch) for branch in critical_curves.x] == [4 * 64]
+
+
+@pytest.mark.parametrize(
+    ("separation", "expected_lengths"),
+    [
+        (0.6, [2 * 64, 64, 64]),
+        (1.0, [4 * 64]),
+        (1.8, [2 * 64, 2 * 64]),
+    ],
+)
+def test_geometry_helpers_group_binary_roots_into_physical_curves(
+    separation, expected_lengths
+):
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = lcbinint.LightCurve(options=lcbinint.Options(caustic_bins=64))
+
+    caustics = curve.caustics(s=separation, q=0.1)
+    critical_curves = curve.critical_curves(s=separation, q=0.1)
+
+    assert sorted(len(branch) for branch in caustics.x) == sorted(expected_lengths)
+    assert sorted(len(branch) for branch in critical_curves.x) == sorted(expected_lengths)
+    assert sum(len(branch) for branch in caustics.x) == 4 * 64
+    assert sum(len(branch) for branch in critical_curves.x) == 4 * 64
+
+
+def test_geometry_helpers_group_triple_roots_into_physical_curves():
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = lcbinint.LightCurve(
+        lens="triple", options=lcbinint.Options(caustic_bins=64)
+    )
+    params = dict(s=0.9, q=0.1, sep2=1.5, q2=0.003, ang=1.0)
+
+    caustics = curve.caustics(params)
+    critical_curves = curve.critical_curves(params)
+
+    assert sorted(len(branch) for branch in caustics.x) == [2 * 64, 4 * 64]
+    assert sorted(len(branch) for branch in critical_curves.x) == [2 * 64, 4 * 64]
+    assert sum(len(branch) for branch in caustics.x) == 6 * 64
+    assert sum(len(branch) for branch in critical_curves.x) == 6 * 64
 
 
 def test_ray_shooting_images_return_finite_source_regions_with_seeds():

@@ -1579,14 +1579,17 @@ def test_lcbinint_callable_geometry_caustics_and_critical_curves_have_branches()
     caustics = func.caustics(s=1.0, q=1.0e-3, n_points=64)
     critical_curves = func.critical_curves(s=1.0, q=1.0e-3, n_points=64)
 
-    assert len(caustics.x) == 4
-    assert len(caustics.y) == 4
-    assert len(critical_curves.x) == 4
-    assert len(critical_curves.y) == 4
-    assert [len(branch) for branch in caustics.x] == [64, 64, 64, 64]
-    assert [len(branch) for branch in caustics.y] == [64, 64, 64, 64]
-    assert [len(branch) for branch in critical_curves.x] == [64, 64, 64, 64]
-    assert [len(branch) for branch in critical_curves.y] == [64, 64, 64, 64]
+    # The resonant topology is one physical closed curve.  All four polynomial
+    # roots participate in that curve rather than being exposed as four
+    # root-index branches.
+    assert len(caustics.x) == 1
+    assert len(caustics.y) == 1
+    assert len(critical_curves.x) == 1
+    assert len(critical_curves.y) == 1
+    assert [len(branch) for branch in caustics.x] == [4 * 64]
+    assert [len(branch) for branch in caustics.y] == [4 * 64]
+    assert [len(branch) for branch in critical_curves.x] == [4 * 64]
+    assert [len(branch) for branch in critical_curves.y] == [4 * 64]
 
 
 def test_lcbinint_parallax_callable_geometry_source_trajectory_is_available():

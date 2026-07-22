@@ -62,7 +62,7 @@ source_ax.add_patch(Circle((y1, y2), rho, fill=False, color="tab:blue"))
 source_ax.set(title="Source plane", xlabel="x", ylabel="y", aspect="equal")
 
 for x, y in zip(critical_curves.x, critical_curves.y):
-    image_ax.plot(x, y, color="0.45")
+    image_ax.plot(x, y, color="tab:blue")
 for region in image_regions:
     if len(region.points):
         image_ax.scatter(region.points[:, 0], region.points[:, 1], s=2)

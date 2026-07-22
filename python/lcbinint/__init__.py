@@ -3,6 +3,7 @@ from ._lcbinint import *          # noqa: F401, F403
 from ._lcbinint import obs
 from . import image
 from .image import ImagePlane
+from .vbm import binary_source_binary_lens as vbm_binary_source_binary_lens
 import numpy as _np
 
 Options = _native.Options
@@ -172,5 +173,6 @@ __all__ = [
     "LightCurveInfo", "SourceTrajectory", "GeometryBranches", "Model",
     "OrbitalMotionMode", "XallarapParamType",
     "binary_ray_shooting",
+    "vbm_binary_source_binary_lens",
     "image", "ImagePlane",
 ]

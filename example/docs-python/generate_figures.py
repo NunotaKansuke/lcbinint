@@ -51,8 +51,10 @@ def standard_binary():
     save("BinaryLens_lightcurve.png")
 
     plt.figure(figsize=(5, 5))
-    scatter_caustics(curve.caustics(params))
-    plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y))
+    scatter_caustics(curve.caustics(params), color="tab:red")
+    plt.plot(
+        -np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue"
+    )
     plt.xlabel("X")
     plt.ylabel("Y")
     plt.axis("equal")
@@ -76,7 +78,7 @@ def binary_lens_images():
     source_ax.set(title="Source plane", xlabel="x", ylabel="y", aspect="equal")
 
     for x, y in zip(critical_curves.x, critical_curves.y):
-        image_ax.plot(x, y, color="0.45")
+        image_ax.plot(x, y, color="tab:blue")
     for region in image_regions:
         if len(region.points):
             image_ax.scatter(region.points[:, 0], region.points[:, 1], s=2)
@@ -105,8 +107,10 @@ def standard_triple():
     save("TripleLens_lightcurve.png")
 
     plt.figure(figsize=(5, 5))
-    scatter_caustics(curve.caustics(params), color="r")
-    plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y))
+    scatter_caustics(curve.caustics(params), color="tab:red")
+    plt.plot(
+        -np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue"
+    )
     plt.xlabel("X")
     plt.ylabel("Y")
     plt.axis("equal")
@@ -118,12 +122,12 @@ def critical_curves_and_caustics():
     curve = lcbinint.LightCurve(options=lcbinint.Options(caustic_bins=200))
 
     plt.figure(figsize=(5, 5))
-    scatter_caustics(curve.caustics(params), color="k")
+    scatter_caustics(curve.caustics(params), color="tab:red")
     plt.axis("equal")
     save("Caustics_binary.png")
 
     plt.figure(figsize=(5, 5))
-    plot_branches(curve.critical_curves(params), "k")
+    plot_branches(curve.critical_curves(params), color="tab:blue")
     plt.axis("equal")
     save("Criticalcurves_binary.png")
 
@@ -157,9 +161,15 @@ def parallax():
     save("BinaryLens_lightcurve_parallax.png")
 
     plt.figure(figsize=(5, 5))
-    scatter_caustics(static.caustics(params), color="k")
-    plt.plot(-np.asarray(static_trajectory.x), -np.asarray(static_trajectory.y), "g")
-    plt.plot(-np.asarray(moved_trajectory.x), -np.asarray(moved_trajectory.y), "m")
+    scatter_caustics(static.caustics(params), color="tab:red")
+    plt.plot(
+        -np.asarray(static_trajectory.x), -np.asarray(static_trajectory.y),
+        color="tab:blue", linestyle="--",
+    )
+    plt.plot(
+        -np.asarray(moved_trajectory.x), -np.asarray(moved_trajectory.y),
+        color="tab:blue",
+    )
     plt.axis("equal")
     save("BinaryLens_lightcurve_parallax_caustics.png")
 
@@ -316,25 +326,25 @@ def binary_source_binary_lens():
     )
     times = np.linspace(7470, 7530, 300)
     sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
-    options = lcbinint.Options(tol=1e-3, reltol=1e-3)
+    options = lcbinint.Options(
+        coordinates="vbm", tol=1e-3, reltol=1e-3
+    )
     single_source = lcbinint.LightCurve(
         model=lcbinint.Model(
             parallax=True, orbital_motion="circular", sky=sky, t_ref=7500
         ),
         options=options,
     )
-    binary_source_curve = lcbinint.LightCurve(
-        model=lcbinint.Model(
-            lens="binary", source="binary", parallax=True,
-            orbital_motion="circular", xallarap="circular_velocity",
-            sky=sky, t_ref=7500,
-        ),
-        options=options,
+    binary_source_magnifications = lcbinint.vbm_binary_source_binary_lens(
+        times, params, sky=sky, options=options, t_ref=7500
     )
     plt.figure(figsize=(6, 4))
-    plt.plot(times, single_source(times, params), label="single source + lens orbit")
     plt.plot(
-        times, binary_source_curve(times, params),
+        times, single_source(times, params), "y",
+        label="single source + lens orbit",
+    )
+    plt.plot(
+        times, binary_source_magnifications, "g",
         label="binary source + xallarap",
     )
     plt.xlabel("Time")
@@ -413,7 +423,7 @@ def coordinates():
     scatter_caustics(curve.caustics(params), color="tab:red")
     display_x = -np.asarray(trajectory.x)
     display_y = -np.asarray(trajectory.y)
-    plt.plot(display_x, display_y, color="0.25")
+    plt.plot(display_x, display_y, color="tab:blue")
     plt.scatter(display_x[[0, -1]], display_y[[0, -1]], color="tab:blue")
     plt.xlabel("y1")
     plt.ylabel("y2")

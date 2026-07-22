@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <deque>
+#include <iterator>
 #include <limits>
 #include <numeric>
 #include <queue>
@@ -1019,6 +1020,92 @@ void append_tracked_caustic_points(
     }
 }
 
+// A root followed through one 0..2pi phase sweep need not return to its own
+// starting point.  At a branch point it can continue on another tracked root,
+// so the raw root-index branches are not necessarily physical closed curves.
+// Reconstruct the monodromy cycles using the same endpoint rule as
+// VBMicrolensing::PlotCrit: continue onto the closest remaining branch when
+// that is nearer than closing the current curve back to its own start.
+std::vector<std::vector<SourcePosition>> merge_tracked_phase_branches(
+    std::vector<std::vector<SourcePosition>> branches)
+{
+    std::vector<std::vector<SourcePosition>> curves;
+    curves.reserve(branches.size());
+    while (!branches.empty()) {
+        std::vector<SourcePosition> curve = std::move(branches.front());
+        branches.erase(branches.begin());
+        if (curve.empty()) {
+            continue;
+        }
+
+        while (!branches.empty()) {
+            const double closing_distance =
+                distance_squared(curve.back(), curve.front());
+            std::size_t closest = branches.size();
+            double closest_distance = std::numeric_limits<double>::infinity();
+            for (std::size_t i = 0; i < branches.size(); ++i) {
+                if (branches[i].empty()) {
+                    continue;
+                }
+                const double candidate =
+                    distance_squared(curve.back(), branches[i].front());
+                if (candidate < closest_distance) {
+                    closest_distance = candidate;
+                    closest = i;
+                }
+            }
+            if (closest == branches.size() ||
+                !(closest_distance < closing_distance)) {
+                break;
+            }
+
+            auto& continuation = branches[closest];
+            curve.insert(
+                curve.end(),
+                std::make_move_iterator(continuation.begin()),
+                std::make_move_iterator(continuation.end()));
+            branches.erase(branches.begin() + static_cast<std::ptrdiff_t>(closest));
+        }
+        curves.push_back(std::move(curve));
+    }
+    return curves;
+}
+
+std::vector<std::vector<SourcePosition>> build_binary_critical_curves(
+    double separation,
+    double mass_ratio,
+    int bins)
+{
+    std::vector<std::vector<SourcePosition>> branches(4);
+    for (int i = 0; i < bins; ++i) {
+        const double phase_angle = 2.0 * kPi * static_cast<double>(i) /
+                                   static_cast<double>(bins);
+        append_tracked_caustic_points(
+            branches,
+            critical_curve_points_at_phase(separation, mass_ratio, phase_angle));
+    }
+    return merge_tracked_phase_branches(std::move(branches));
+}
+
+std::vector<std::vector<SourcePosition>> map_binary_critical_curves_to_caustics(
+    const std::vector<std::vector<SourcePosition>>& critical_curves,
+    double separation,
+    double mass_ratio)
+{
+    const PointSourceMagnifier point_magnifier;
+    std::vector<std::vector<SourcePosition>> caustics;
+    caustics.reserve(critical_curves.size());
+    for (const auto& critical_curve : critical_curves) {
+        auto& caustic = caustics.emplace_back();
+        caustic.reserve(critical_curve.size());
+        for (const auto& image : critical_curve) {
+            caustic.push_back(point_magnifier.binary_lens_equation(
+                separation, mass_ratio, image));
+        }
+    }
+    return caustics;
+}
+
 struct TripleCausticBranches {
     std::vector<std::vector<SourcePosition>> branches;
     int bins = 0;
@@ -1030,13 +1117,22 @@ TripleCausticBranches build_triple_caustic_branches(
 {
     const int bins = std::max(caustic_bins, 64);
     TripleCausticBranches result;
-    result.branches.resize(6);
     result.bins = bins;
+    std::vector<std::vector<SourcePosition>> critical_branches(6);
     for (int i = 0; i < bins; ++i) {
         const double phase_angle = 2.0 * kPi * static_cast<double>(i) / static_cast<double>(bins);
         append_tracked_caustic_points(
-            result.branches,
-            triple_caustic_points_at_phase(geometry, phase_angle));
+            critical_branches,
+            triple_critical_curve_points_at_phase(geometry, phase_angle));
+    }
+    critical_branches = merge_tracked_phase_branches(std::move(critical_branches));
+    result.branches.reserve(critical_branches.size());
+    for (const auto& critical_curve : critical_branches) {
+        auto& caustic = result.branches.emplace_back();
+        caustic.reserve(critical_curve.size());
+        for (const auto& image : critical_curve) {
+            caustic.push_back(model::triple_lens_equation(geometry, image));
+        }
     }
     return result;
 }
@@ -2080,11 +2176,9 @@ CausticBranchScan scan_caustic_branches(
     double source_radius)
 {
     constexpr std::size_t max_probes = 64;
-    // A branch-tracking swap stitches two distant caustic points with a
-    // phantom chord.  Real segment lengths vary smoothly along a branch (they
-    // only shrink toward cusps), so a segment vastly longer than both of its
-    // neighbours does not correspond to any caustic arc; using it for
-    // distance or crossing queries fabricates near-caustic contact.
+    // Retain a defensive long-segment rejection for ill-conditioned root
+    // solves. Physical curves are already joined by their phase monodromy, so
+    // the closing segment is treated exactly like every other segment.
     constexpr double kPhantomLengthRatio2 = 625.0;  // 25x either neighbour
     CausticBranchScan scan;
     const double source_radius2 = source_radius * source_radius;
@@ -2094,29 +2188,22 @@ CausticBranchScan scan_caustic_branches(
             continue;
         }
         segment_length2.assign(branch.size(), 0.0);
-        for (std::size_t i = 1; i < branch.size(); ++i) {
-            segment_length2[i] = distance_squared(branch[i - 1], branch[i]);
+        for (std::size_t i = 0; i < branch.size(); ++i) {
+            const std::size_t previous = i == 0 ? branch.size() - 1 : i - 1;
+            segment_length2[i] = distance_squared(branch[previous], branch[i]);
         }
         auto is_phantom_segment = [&](std::size_t i) {
-            const double prev = i >= 2 ? segment_length2[i - 1] : 0.0;
-            const double next = i + 1 < branch.size() ? segment_length2[i + 1] : 0.0;
+            const double prev = segment_length2[
+                i == 0 ? branch.size() - 1 : i - 1];
+            const double next = segment_length2[(i + 1) % branch.size()];
             const double reference = std::max(prev, next);
             return reference > 0.0 &&
                    segment_length2[i] > kPhantomLengthRatio2 * reference;
         };
-        bool prev_inside = distance_squared(branch.front(), source) < source_radius2;
-        if (prev_inside) {
-            scan.any_vertex_inside = true;
-            if (scan.crossing_probes.size() < max_probes) {
-                scan.crossing_probes.push_back(branch.front());
-            }
-        }
-        // The wrap-around segment (back to front) is skipped: when branch
-        // tracking swaps occur it is a phantom chord that does not correspond
-        // to any real caustic arc (same reasoning as
-        // augment_seeds_from_caustic_branches).
-        for (std::size_t i = 1; i < branch.size(); ++i) {
-            const SourcePosition p0 = branch[i - 1];
+        bool prev_inside = distance_squared(branch.back(), source) < source_radius2;
+        for (std::size_t i = 0; i < branch.size(); ++i) {
+            const SourcePosition p0 = branch[
+                i == 0 ? branch.size() - 1 : i - 1];
             const SourcePosition p1 = branch[i];
             if (!is_phantom_segment(i)) {
                 const SourcePosition candidate = closest_point_on_segment(source, p0, p1);
@@ -2360,10 +2447,9 @@ std::vector<SourcePosition> augmented_image_seeds(
     }
 
     // Fallback (no cached branches supplied): per-epoch critical-curve phase
-    // scans.  Do not skip the caustic scan based on hint_caustic_dist alone:
-    // the computed caustic distance can be slightly over-estimated (e.g. when
-    // a phantom wrap-around segment distorts the branch grid search), causing
-    // a false early exit when the source disk just straddles the caustic.
+    // scans. Do not skip the caustic scan based on hint_caustic_dist alone:
+    // sampled distances can be slightly over-estimated, causing a false early
+    // exit when the source disk just straddles the caustic.
 
     const double source_radius2 = source_radius * source_radius;
     const int samples = 1400;
@@ -4555,26 +4641,24 @@ void FiniteSourceMagnifier::ensure_binary_caustic_cache(
                                std::abs(caustic_cache_separation_ - separation) <=
                                    std::max(separation_tolerance, 0.0);
     if (!cache_matches) {
-        const PointSourceMagnifier point_magnifier;
-        caustic_cache_branches_.assign(4, {});
+        const auto critical_curves =
+            build_binary_critical_curves(separation, mass_ratio, bins);
+        caustic_cache_branches_ = map_binary_critical_curves_to_caustics(
+            critical_curves, separation, mass_ratio);
         caustic_cache_points_.clear();
         caustic_cache_points_.reserve(static_cast<std::size_t>(bins) * 4);
         caustic_cache_min_x_ = std::numeric_limits<double>::infinity();
         caustic_cache_max_x_ = -std::numeric_limits<double>::infinity();
         caustic_cache_min_y_ = std::numeric_limits<double>::infinity();
         caustic_cache_max_y_ = -std::numeric_limits<double>::infinity();
-        for (int i = 0; i < bins; ++i) {
-            const double phase_angle = 2.0 * kPi * static_cast<double>(i) /
-                                       static_cast<double>(bins);
-            auto points = caustic_points_at_phase(point_magnifier, separation, mass_ratio, phase_angle);
-            for (const auto& point : points) {
+        for (const auto& branch : caustic_cache_branches_) {
+            for (const auto& point : branch) {
                 caustic_cache_points_.push_back(point);
                 caustic_cache_min_x_ = std::min(caustic_cache_min_x_, point.x);
                 caustic_cache_max_x_ = std::max(caustic_cache_max_x_, point.x);
                 caustic_cache_min_y_ = std::min(caustic_cache_min_y_, point.y);
                 caustic_cache_max_y_ = std::max(caustic_cache_max_y_, point.y);
             }
-            append_tracked_caustic_points(caustic_cache_branches_, std::move(points));
         }
         const double width = std::max(caustic_cache_max_x_ - caustic_cache_min_x_, 1.0e-12);
         const double height = std::max(caustic_cache_max_y_ - caustic_cache_min_y_, 1.0e-12);
@@ -4599,12 +4683,9 @@ void FiniteSourceMagnifier::ensure_binary_caustic_cache(
         caustic_cache_branch_grid_.assign(
             static_cast<std::size_t>(caustic_cache_grid_size_ * caustic_cache_grid_size_), {});
         // max_seg_len is used as a safety margin when bounding the grid search
-        // radius in binary_caustic_distance.  The wrap-around segment
-        // (from j=n-1 back to j=0) can be spuriously long when branch tracking
-        // swaps inner/outer caustic components near a crossing phase.  Excluding
-        // it keeps max_seg_len tight.  Correctness is preserved because the
-        // wrap-around gap is still found via the "prev" check on the j=0 entry
-        // of each branch in binary_caustic_distance.
+        // radius in binary_caustic_distance. The monodromy reconstruction makes
+        // every branch a physical closed curve, including its last-to-first
+        // segment.
         double max_seg2 = 0.0;
         for (int b = 0; b < static_cast<int>(caustic_cache_branches_.size()); ++b) {
             const auto& br = caustic_cache_branches_[static_cast<std::size_t>(b)];
@@ -4612,13 +4693,9 @@ void FiniteSourceMagnifier::ensure_binary_caustic_cache(
             for (int j = 0; j < n; ++j) {
                 const auto& pt = br[static_cast<std::size_t>(j)];
                 const auto& next_pt = br[static_cast<std::size_t>((j + 1) % n)];
-                // Exclude wrap-around (j == n-1) from max_seg_len to avoid
-                // inflating the search radius with tracking-artifact segments.
-                if (j < n - 1) {
-                    const double seg2 = distance_squared(pt, next_pt);
-                    if (seg2 > max_seg2) {
-                        max_seg2 = seg2;
-                    }
+                const double seg2 = distance_squared(pt, next_pt);
+                if (seg2 > max_seg2) {
+                    max_seg2 = seg2;
                 }
                 const int ix = std::clamp(
                     static_cast<int>((pt.x - caustic_cache_min_x_) / caustic_cache_grid_step_x_),
@@ -4655,14 +4732,7 @@ FiniteSourceMagnifier::binary_critical_curve_branches(
     double mass_ratio) const
 {
     const int bins = std::max(settings_.caustic_bins, 32);
-    std::vector<std::vector<SourcePosition>> branches(4);
-    for (int i = 0; i < bins; ++i) {
-        const double phase_angle = 2.0 * kPi * static_cast<double>(i) /
-                                   static_cast<double>(bins);
-        append_tracked_caustic_points(
-            branches, critical_curve_points_at_phase(separation, mass_ratio, phase_angle));
-    }
-    return branches;
+    return build_binary_critical_curves(separation, mass_ratio, bins);
 }
 
 std::vector<std::vector<SourcePosition>>
@@ -4686,7 +4756,7 @@ FiniteSourceMagnifier::triple_critical_curve_branches(
         append_tracked_caustic_points(
             branches, triple_critical_curve_points_at_phase(geometry, phase_angle));
     }
-    return branches;
+    return merge_tracked_phase_branches(std::move(branches));
 }
 
 double FiniteSourceMagnifier::binary_caustic_distance(
@@ -5835,11 +5905,6 @@ void FiniteSourceMagnifier::augment_seeds_from_caustic_branches(
                 const int n = static_cast<int>(branch.size());
                 if (n < 2) continue;
                 const int next = (ref.pos + 1) % n;
-                // Skip the wrap-around segment (last point back to first).  When
-                // branch-tracking swaps occur, this segment is a phantom artifact of
-                // length ~O(1) that does not correspond to any real caustic arc, yet
-                // it can pass through the source disk and produce spurious seed updates.
-                if (next == 0) continue;
                 const SourcePosition p0 = branch[static_cast<std::size_t>(ref.pos)];
                 const SourcePosition p1 = branch[static_cast<std::size_t>(next)];
                 if (point_segment_distance(source, p0, p1) >= source_radius) continue;

@@ -139,9 +139,10 @@ public:
         double source_radius,
         std::vector<SourcePosition>& seeds) const;
     double limb_darkening_table_brightness(double normalized_radius2) const;
-    // Phase-ordered caustic branch polylines for (separation, mass_ratio),
-    // built once per lens geometry.  Seed generation walks these instead of
-    // re-solving the critical-curve polynomial per source position.
+    // Phase-ordered physical caustic curves for (separation, mass_ratio),
+    // reconstructed from the root monodromy and built once per lens geometry.
+    // Seed generation walks these instead of re-solving the critical-curve
+    // polynomial per source position.
     const std::vector<std::vector<SourcePosition>>& binary_caustic_branches(
         double separation,
         double mass_ratio) const;

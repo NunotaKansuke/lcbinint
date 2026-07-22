@@ -5,7 +5,10 @@
 > VBMicrolensing correspondence: [CriticalCurvesAndCaustics.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/CriticalCurvesAndCaustics.md). The binary example retains `s=0.6` and `q=0.1`.
 
 The two geometries are deliberately calculated and plotted in different code
-blocks.
+blocks. Each element of `caustics.x/y` or `critical_curves.x/y` is one complete
+physical closed curve. `lcbinint` follows the polynomial roots through a full
+phase sweep and joins their monodromy cycles, matching the ordering performed
+by VBMicrolensing rather than exposing one array per root.
 
 ## Binary Lens
 
@@ -25,7 +28,7 @@ caustics = curve.caustics(params)
 
 fig = plt.figure(figsize=(5, 5))
 for x, y in zip(caustics.x, caustics.y):
-    plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color="k")
+    plt.scatter(-np.asarray(x), -np.asarray(y), s=3, color="tab:red")
 plt.axis("equal")
 plt.show()
 ```
@@ -39,7 +42,7 @@ critical_curves = curve.critical_curves(params)
 
 fig = plt.figure(figsize=(5, 5))
 for x, y in zip(critical_curves.x, critical_curves.y):
-    plt.plot(-np.asarray(x), -np.asarray(y), "k")
+    plt.plot(-np.asarray(x), -np.asarray(y), color="tab:blue")
 plt.axis("equal")
 plt.show()
 ```

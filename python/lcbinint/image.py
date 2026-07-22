@@ -142,11 +142,11 @@ class ImagePlane:
         return regions
 
     def caustics(self):
-        """Return caustic branches in the source plane."""
+        """Return one closed polyline per physical caustic in the source plane."""
         return self._light_curve().caustics(s=self.s, q=self.q, n_points=self.n_points)
 
     def critical_curves(self):
-        """Return critical-curve branches in the image plane."""
+        """Return one closed polyline per physical critical curve in the image plane."""
         return self._light_curve().critical_curves(
             s=self.s, q=self.q, n_points=self.n_points
         )
@@ -172,12 +172,12 @@ class ImagePlane:
 
         if critical_curves:
             self._plot_branches(
-                ax, self.critical_curves(), color="0.45", lw=1.1,
+                ax, self.critical_curves(), color="tab:blue", lw=1.1,
                 label="critical curve"
             )
         if caustics:
-            self._plot_branches(
-                ax, self.caustics(), color="#c43c35", lw=1.3,
+            self._scatter_branches(
+                ax, self.caustics(), color="tab:red", s=4,
                 label="caustic"
             )
         if source:
@@ -261,6 +261,12 @@ class ImagePlane:
         label = kwargs.pop("label", None)
         for i, (xs, ys) in enumerate(zip(branches.x, branches.y)):
             ax.plot(xs, ys, label=label if i == 0 else None, **kwargs)
+
+    @staticmethod
+    def _scatter_branches(ax, branches, **kwargs):
+        label = kwargs.pop("label", None)
+        for i, (xs, ys) in enumerate(zip(branches.x, branches.y)):
+            ax.scatter(xs, ys, label=label if i == 0 else None, **kwargs)
 
 
 def binary(q, s, x, y, *, rho=0.0, n_points=512, coordinates="vbm"):
