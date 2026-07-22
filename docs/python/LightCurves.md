@@ -51,8 +51,8 @@ caustics = curve.caustics(params)
 
 plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(caustics.x, caustics.y):
-    plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
-plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue")
+    plt.plot(x, y, color="tab:red", lw=1.1)
+plt.plot(trajectory.x, trajectory.y, color="tab:blue")
 plt.xlabel("X")
 plt.ylabel("Y")
 plt.axis("equal")
@@ -109,8 +109,8 @@ caustics = curve.caustics(params)
 
 plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(caustics.x, caustics.y):
-    plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
-plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue")
+    plt.plot(x, y, color="tab:red", lw=1.1)
+plt.plot(trajectory.x, trajectory.y, color="tab:blue")
 plt.xlabel("X")
 plt.ylabel("Y")
 plt.axis("equal")

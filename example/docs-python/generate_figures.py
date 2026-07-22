@@ -28,7 +28,7 @@ def save(name):
 
 def plot_branches(branches, *args, **kwargs):
     for x, y in zip(branches.x, branches.y):
-        plt.plot(-np.asarray(x), -np.asarray(y), *args, **kwargs)
+        plt.plot(x, y, *args, **kwargs)
 
 
 def plot_caustics(branches, *args, **kwargs):
@@ -52,7 +52,7 @@ def standard_binary():
     plt.figure(figsize=(2.8, 2.8))
     plot_caustics(curve.caustics(params), color="tab:red", lw=1.1)
     plt.plot(
-        -np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue"
+        trajectory.x, trajectory.y, color="tab:blue"
     )
     plt.xlabel("X")
     plt.ylabel("Y")
@@ -109,7 +109,7 @@ def standard_triple():
     plt.figure(figsize=(2.8, 2.8))
     plot_caustics(curve.caustics(params), color="tab:red", lw=1.1)
     plt.plot(
-        -np.asarray(trajectory.x), -np.asarray(trajectory.y), color="tab:blue"
+        trajectory.x, trajectory.y, color="tab:blue"
     )
     plt.xlabel("X")
     plt.ylabel("Y")
@@ -163,11 +163,11 @@ def parallax():
     plt.figure(figsize=(2.8, 2.8))
     plot_caustics(static.caustics(params), color="tab:red", lw=1.1)
     plt.plot(
-        -np.asarray(static_trajectory.x), -np.asarray(static_trajectory.y),
+        static_trajectory.x, static_trajectory.y,
         color="tab:blue", linestyle="--",
     )
     plt.plot(
-        -np.asarray(moved_trajectory.x), -np.asarray(moved_trajectory.y),
+        moved_trajectory.x, moved_trajectory.y,
         color="tab:blue",
     )
     plt.axis("equal")
@@ -282,8 +282,8 @@ def orbital_motion():
     plt.figure(figsize=(2.8, 2.8))
     for index, color in zip(indices, colors):
         plot_caustics(orbital.caustics(float(times[index]), params), color=color, lw=1.1)
-    source_x = -np.asarray(trajectory.x)
-    source_y = -np.asarray(trajectory.y)
+    source_x = np.asarray(trajectory.x)
+    source_y = np.asarray(trajectory.y)
     plt.plot(source_x, source_y, "y")
     for index, color in zip(indices, colors):
         plt.plot(
@@ -320,11 +320,11 @@ def binary_source():
     plt.figure(figsize=(2.8, 2.8))
     plot_caustics(caustics, color="#6C6C6C", lw=1.1)
     plt.plot(
-        -np.asarray(components.source1.trajectory.x), -np.asarray(components.source1.trajectory.y),
+        components.source1.trajectory.x, components.source1.trajectory.y,
         color="#0173B2", label="source 1",
     )
     plt.plot(
-        -np.asarray(components.source2.trajectory.x), -np.asarray(components.source2.trajectory.y),
+        components.source2.trajectory.x, components.source2.trajectory.y,
         color="#029E73", label="source 2",
     )
     plt.xlabel("X")
@@ -641,10 +641,10 @@ def accuracy_method_selection():
     caustics = curve.caustics(params)
     plt.figure(figsize=(2.8, 2.8))
     for x, y in zip(caustics.x, caustics.y):
-        plt.plot(-np.asarray(x), -np.asarray(y), color="#6C6C6C", lw=1.1)
+        plt.plot(x, y, color="#6C6C6C", lw=1.1)
 
-    display_x = -np.asarray(trajectory.x)
-    display_y = -np.asarray(trajectory.y)
+    display_x = np.asarray(trajectory.x)
+    display_y = np.asarray(trajectory.y)
     for color_index, name in enumerate(names):
         indices = np.flatnonzero(methods == name)
         breaks = np.where(np.diff(indices) != 1)[0] + 1
@@ -674,8 +674,8 @@ def coordinates():
     trajectory = curve.source_trajectory(times, params)
     plt.figure(figsize=(2.8, 2.8))
     plot_caustics(curve.caustics(params), color="tab:red", lw=1.1)
-    display_x = -np.asarray(trajectory.x)
-    display_y = -np.asarray(trajectory.y)
+    display_x = np.asarray(trajectory.x)
+    display_y = np.asarray(trajectory.y)
     plt.plot(display_x, display_y, color="tab:blue")
     plt.scatter(display_x[[0, -1]], display_y[[0, -1]], color="tab:blue")
     plt.xlabel("y1")
@@ -729,8 +729,8 @@ def combined_effects():
     save("CombinedEffects_lightcurve.png")
 
     trajectory = combined.source_trajectory(times, params)
-    display_x = -np.asarray(trajectory.x)
-    display_y = -np.asarray(trajectory.y)
+    display_x = np.asarray(trajectory.x)
+    display_y = np.asarray(trajectory.y)
     indices = [75, 150, 225]
     colors = ["#0173B2", "#029E73", "#CC78BC"]
     plt.figure(figsize=(3.3, 3.3))

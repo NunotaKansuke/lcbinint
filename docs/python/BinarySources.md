@@ -55,9 +55,9 @@ caustics = binary_curve.caustics(parameters)
 
 plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(caustics.x, caustics.y):
-    plt.plot(-np.asarray(x), -np.asarray(y), color="#6C6C6C", lw=1.1)
-plt.plot(-np.asarray(components.source1.trajectory.x), -np.asarray(components.source1.trajectory.y), color="#0173B2", label="source 1")
-plt.plot(-np.asarray(components.source2.trajectory.x), -np.asarray(components.source2.trajectory.y), color="#029E73", label="source 2")
+    plt.plot(x, y, color="#6C6C6C", lw=1.1)
+plt.plot(components.source1.trajectory.x, components.source1.trajectory.y, color="#0173B2", label="source 1")
+plt.plot(components.source2.trajectory.x, components.source2.trajectory.y, color="#029E73", label="source 2")
 plt.xlabel("X")
 plt.ylabel("Y")
 plt.axis("equal")

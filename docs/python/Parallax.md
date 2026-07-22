@@ -67,13 +67,13 @@ caustics = static_curve.caustics(params)
 
 plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(caustics.x, caustics.y):
-    plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
+    plt.plot(x, y, color="tab:red", lw=1.1)
 plt.plot(
-    -np.asarray(trajectory.x), -np.asarray(trajectory.y),
+    trajectory.x, trajectory.y,
     color="tab:blue", linestyle="--",
 )
 plt.plot(
-    -np.asarray(trajectory_parallax.x), -np.asarray(trajectory_parallax.y),
+    trajectory_parallax.x, trajectory_parallax.y,
     color="tab:blue",
 )
 plt.axis("equal")

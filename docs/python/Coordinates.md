@@ -34,14 +34,14 @@ curve = lcbinint.LightCurve(
 trajectory = curve.source_trajectory(t, params)
 caustics = curve.caustics(params)
 
-# `lcbinint` returns the internally rotated frame. Negating both axes gives
-# the display orientation used by the corresponding VBMicrolensing figures.
-display_x = -np.asarray(trajectory.x)
-display_y = -np.asarray(trajectory.y)
+# Both methods return coordinates in this curve's lens-plane frame.
+# Plot them directly; do not negate either axis.
+display_x = np.asarray(trajectory.x)
+display_y = np.asarray(trajectory.y)
 
 plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(caustics.x, caustics.y):
-    plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
+    plt.plot(x, y, color="tab:red", lw=1.1)
 plt.plot(display_x, display_y, color="tab:blue")
 plt.scatter(
     [display_x[0], display_x[-1]], [display_y[0], display_y[-1]],
@@ -55,9 +55,8 @@ plt.show()
 
 ![Coordinate convention](figures/Coordinates_binary.png)
 
-The 180-degree display rotation changes neither distances nor magnification.
-Apply it to both the lens geometry and the source trajectory; rotating only one
-of them would describe a different physical configuration.
+`source_trajectory()` and `caustics()` use the same lens-plane frame. No
+additional display rotation is required.
 
 ## `coordinates` option
 

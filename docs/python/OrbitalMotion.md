@@ -79,10 +79,10 @@ plt.figure(figsize=(2.8, 2.8))
 for index, color in zip(caustic_indices, colors):
     caustics = orbital_curve.caustics(float(t[index]), params)
     for x, y in zip(caustics.x, caustics.y):
-        plt.plot(-np.asarray(x), -np.asarray(y), color=color, lw=1.1)
+        plt.plot(x, y, color=color, lw=1.1)
 
-source_x = -np.asarray(trajectory_orbital.x)
-source_y = -np.asarray(trajectory_orbital.y)
+source_x = np.asarray(trajectory_orbital.x)
+source_y = np.asarray(trajectory_orbital.y)
 plt.plot(source_x, source_y, "y")
 for index, color in zip(caustic_indices, colors):
     plt.plot(

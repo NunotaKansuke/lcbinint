@@ -158,10 +158,10 @@ caustics = curve.caustics(params)
 
 plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(caustics.x, caustics.y):
-    plt.plot(-np.asarray(x), -np.asarray(y), color="#6C6C6C", lw=1.1)
+    plt.plot(x, y, color="#6C6C6C", lw=1.1)
 
-display_x = -np.asarray(trajectory.x)
-display_y = -np.asarray(trajectory.y)
+display_x = np.asarray(trajectory.x)
+display_y = np.asarray(trajectory.y)
 for color_index, name in enumerate(method_names):
     indices = np.flatnonzero(methods == name)
     breaks = np.where(np.diff(indices) != 1)[0] + 1
