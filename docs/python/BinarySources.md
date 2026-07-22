@@ -9,7 +9,7 @@ of whether the configured lens is binary or triple.
 The observed magnification is the flux-weighted sum
 
 $$
-A(t) = \frac{A_1(t) + f\,A_2(t)}{1+f},
+A(t) = \frac{A_1(t) + f A_2(t)}{1+f},
 \qquad f = \mathtt{flux\_ratio} = F_2/F_1.
 $$
 
