@@ -322,7 +322,7 @@ def binary_source():
     plt.plot(times, source1_magnification, color="#0173B2", alpha=0.45, lw=1.0, label="source 1")
     plt.plot(times, source2_magnification, color="#029E73", alpha=0.45, lw=1.0, label="source 2")
     plt.plot(times, binary_magnification, color="black", lw=1.5,
-             label="flux-weighted binary source")
+             label="total")
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     plt.legend(loc="upper left", fontsize=8)
@@ -416,7 +416,7 @@ def binary_source_xallarap_lightcurve():
     plt.figure(figsize=(4.2, 2.7))
     plt.plot(times, component_curve(times, source1_params), color="#0173B2", alpha=0.45, lw=1.0, label="source 1")
     plt.plot(times, component_curve(times, source2_params), color="#029E73", alpha=0.45, lw=1.0, label="source 2")
-    plt.plot(times, circular(times, params), color="black", lw=1.5, label="flux-weighted binary source")
+    plt.plot(times, circular(times, params), color="black", lw=1.5, label="total")
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     plt.legend(loc="upper left", fontsize=8)
@@ -449,7 +449,7 @@ def binary_source_xallarap_elements_lightcurve():
     plt.plot(times, component_curve(times, source2_params), color="#029E73", alpha=0.45, lw=1.0, label="source 2")
     plt.plot(
         times, circular(times, component_params),
-        color="black", lw=1.5, label="flux-weighted binary source",
+        color="black", lw=1.5, label="total",
     )
     plt.xlabel("Time")
     plt.ylabel("Magnification")
@@ -504,7 +504,7 @@ def binary_source_xallarap_offset_lightcurve():
     plt.figure(figsize=(4.2, 2.7))
     plt.plot(times, component_curve(times, source1_params), color="#0173B2", alpha=0.45, lw=1.0, label="source 1")
     plt.plot(times, component_curve(times, source2_params), color="#029E73", alpha=0.45, lw=1.0, label="source 2")
-    plt.plot(times, curve(times, params), color="black", lw=1.5, label="flux-weighted binary source")
+    plt.plot(times, curve(times, params), color="black", lw=1.5, label="total")
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     plt.legend(loc="upper left", fontsize=8)
