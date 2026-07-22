@@ -50,7 +50,7 @@ trajectory_parallax = parallax_curve.source_trajectory(t, params)
 Plot the static and parallax light curves:
 
 ```python
-plt.figure(figsize=(4.0, 2.7))
+plt.figure(figsize=(3.8, 2.55))
 plt.plot(t, magnifications, "g")
 plt.plot(t, magnifications_parallax, "m")
 plt.xlabel("Time")
@@ -65,7 +65,7 @@ Plot the caustics and trajectories in a separate block:
 ```python
 caustics = static_curve.caustics(params)
 
-plt.figure(figsize=(3.5, 3.5))
+plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
 plt.plot(

@@ -39,7 +39,7 @@ caustics = curve.caustics(params)
 display_x = -np.asarray(trajectory.x)
 display_y = -np.asarray(trajectory.y)
 
-plt.figure(figsize=(3.5, 3.5))
+plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
 plt.plot(display_x, display_y, color="tab:blue")

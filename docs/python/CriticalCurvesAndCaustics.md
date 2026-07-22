@@ -26,7 +26,7 @@ params = {"s": s, "q": q}
 curve = lcbinint.LightCurve(options=lcbinint.Options(caustic_bins=200))
 caustics = curve.caustics(params)
 
-fig = plt.figure(figsize=(3.5, 3.5))
+fig = plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(-np.asarray(x), -np.asarray(y), color="tab:red", lw=1.1)
 plt.axis("equal")
@@ -40,7 +40,7 @@ Calculate and plot the critical curves in a new block:
 ```python
 critical_curves = curve.critical_curves(params)
 
-fig = plt.figure(figsize=(3.5, 3.5))
+fig = plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(critical_curves.x, critical_curves.y):
     plt.plot(-np.asarray(x), -np.asarray(y), color="tab:blue")
 plt.axis("equal")

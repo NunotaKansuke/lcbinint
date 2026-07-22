@@ -98,7 +98,7 @@ combined_mag = combined(t, params)
 Plot the cumulative effect on the light curve:
 
 ```python
-plt.figure(figsize=(8.2, 4.0))
+plt.figure(figsize=(7.4, 3.8))
 plt.plot(t, static_mag, label="static 2L1S")
 plt.plot(t, parallax_mag, label="+ parallax")
 plt.plot(t, orbit_mag, label="+ lens orbit")
@@ -120,7 +120,7 @@ display_y = -np.asarray(trajectory.y)
 indices = [75, 150, 225]
 colors = ["tab:blue", "tab:purple", "tab:red"]
 
-plt.figure(figsize=(4.2, 4.2))
+plt.figure(figsize=(3.3, 3.3))
 for index, color in zip(indices, colors):
     caustics = combined.caustics(float(t[index]), params)
     for x, y in zip(caustics.x, caustics.y):

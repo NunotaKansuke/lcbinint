@@ -58,7 +58,7 @@ trajectory_orbital = orbital_curve.source_trajectory(t, params)
 Plot the three light curves:
 
 ```python
-plt.figure(figsize=(4.0, 2.7))
+plt.figure(figsize=(3.8, 2.55))
 plt.plot(t, magnifications, "g")
 plt.plot(t, magnifications_parallax, "m")
 plt.plot(t, magnifications_orbital, "y")
@@ -75,7 +75,7 @@ Plot caustics at the same three array indices used in the example:
 caustic_indices = [100, 150, 200]
 colors = [(0, 0, 1, 1), (0.4, 0, 0.6, 1), (0.6, 0, 0.4, 1)]
 
-plt.figure(figsize=(3.5, 3.5))
+plt.figure(figsize=(2.8, 2.8))
 for index, color in zip(caustic_indices, colors):
     caustics = orbital_curve.caustics(float(t[index]), params)
     for x, y in zip(caustics.x, caustics.y):
