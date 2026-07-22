@@ -60,13 +60,13 @@ SourcePosition rotate_and_offset_source(
     double sin_theta,
     const OrbitalState& orbit,
     bool static_orbit,
-    bool has_parallax)
+    bool has_trajectory_perturbation)
 {
     if (!static_orbit) {
         if (options.vbm_compatible != 0) {
             double tau = 0.0;
             double beta = 0.0;
-            if (!has_parallax) {
+            if (!has_trajectory_perturbation) {
                 tau = (time - params.t0) / params.tE;
                 beta = params.umin;
             } else {
@@ -162,7 +162,8 @@ bool LensModel::finite_source_geometry(
         return false;
     }
     source = rotate_and_offset_source(
-        source, time, params_, options_, cos_theta_, sin_theta_, orbit, static_orbit, has_parallax);
+        source, time, params_, options_, cos_theta_, sin_theta_, orbit, static_orbit,
+        has_parallax || has_xallarap);
     double tolerance = options_.finite_source_tol;
     if (!(std::isfinite(tolerance) && tolerance > 0.0)) tolerance = 1.0e-5;
     output.separation = orbit.separation;
@@ -268,7 +269,8 @@ MagnificationResult LensModel::magnification(double time) const
 
     if (!params_.is_triple() && !has_unsupported_dynamic_effects(params_, options_)) {
         auto source_for_magnification = rotate_and_offset_source(
-            source, time, params_, options_, cos_theta_, sin_theta_, orbit, static_orbit, has_parallax);
+            source, time, params_, options_, cos_theta_, sin_theta_, orbit, static_orbit,
+            has_parallax || has_xallarap);
         result.source = source_for_magnification;
         const double effective_q = (options_.vbm_compatible != 0 && params_.q != 0.0)
             ? 1.0 / params_.q

@@ -83,6 +83,25 @@ LightCurve::LightCurve(lcbi_options opts, double ld_c, double ld_d,
       site_(std::move(site))
 {
     if (!model_) model_ = std::make_shared<Model>();
+    const bool binary_xallarap = model_->source == SourceKind::binary &&
+        model_->xallarap != LCBI_XALLARAP_NONE;
+    const bool velocity_xallarap = model_->xallarap == LCBI_XALLARAP_CIRCULAR_VEL ||
+        model_->xallarap == LCBI_XALLARAP_KEPLER_VEL;
+    if (!binary_xallarap &&
+        model_->source_orbit_coordinates != SourceOrbitCoordinates::none) {
+        throw std::invalid_argument(
+            "LightCurve: source_orbit_coordinates requires binary source xallarap");
+    }
+    if (binary_xallarap && velocity_xallarap &&
+        model_->source_orbit_coordinates == SourceOrbitCoordinates::none) {
+        throw std::invalid_argument(
+            "LightCurve: binary velocity xallarap requires source_orbit_coordinates");
+    }
+    if (binary_xallarap && !velocity_xallarap &&
+        model_->source_orbit_coordinates != SourceOrbitCoordinates::none) {
+        throw std::invalid_argument(
+            "LightCurve: source_orbit_coordinates is available only with binary velocity xallarap");
+    }
     // Model overrides lcbi_options for physics-mode fields.
     opts_.parallax_mode = model_->parallax ? 1 : 0;
     opts_.xallarap_param_type = model_->xallarap;
@@ -98,10 +117,12 @@ LightCurve::LightCurve(lcbi_options opts, double ld_c, double ld_d,
 lcbi_params LightCurve::apply_coords(const lcbi_params& params) const
 {
     const bool needs_tref = model_->parallax
-                         || (model_->orbital_motion != LCBI_ORBIT_STATIC);
+                         || (model_->orbital_motion != LCBI_ORBIT_STATIC)
+                         || (model_->source == SourceKind::binary &&
+                             model_->xallarap != LCBI_XALLARAP_NONE);
     if (needs_tref && !model_->t_ref.has_value())
         throw std::runtime_error(
-            "LightCurve: t_ref must be set when using parallax or orbital motion");
+            "LightCurve: t_ref must be set when using parallax, orbital motion, or binary-source xallarap");
 
     lcbi_params p = params;
     if (model_->lens == LensKind::triple && p.q2 <= 0.0) {
@@ -307,6 +328,13 @@ LikelihoodBatchResult LightCurve::light_curve_log_likelihood_batch(
         throw std::invalid_argument(
             "times, flux, error, and parameter rows must be non-empty and aligned");
     }
+    for (std::size_t index = 0; index < times.size(); ++index) {
+        if (!std::isfinite(flux[index]) ||
+            !(std::isfinite(error[index]) && error[index] > 0.0)) {
+            throw std::invalid_argument(
+                "flux must be finite and error must be finite and positive");
+        }
+    }
     if (distribution == LikelihoodDistribution::student_t &&
         (!(std::isfinite(nu)) || nu <= 0.0)) {
         throw std::invalid_argument("Student-t nu must be finite and positive");
@@ -439,30 +467,8 @@ LikelihoodBatchResult LightCurve::light_curve_log_likelihood_batch(
 
 std::vector<double> LightCurve::magnification_binary(
     const std::vector<double>& times,
-    const lcbi_params&         params,
-    double                     q_source,
-    double                     t0_2,
-    double                     u0_2) const
-{
-    lcbi_params p2 = params;
-    p2.t0   = t0_2;
-    p2.umin = u0_2;
-
-    const auto r1 = evaluate(times, params);
-    const auto r2 = evaluate(times, p2);
-
-    const int n = static_cast<int>(times.size());
-    std::vector<double> mags(n);
-    const double denom = 1.0 + q_source;
-    for (int i = 0; i < n; ++i)
-        mags[i] = (r1[i].magnification + q_source * r2[i].magnification) / denom;
-    return mags;
-}
-
-std::vector<double> LightCurve::magnification_binary(
-    const std::vector<double>& times,
     const lcbi_params&         params1,
-    double                     q_source,
+    double                     flux_ratio,
     const lcbi_params&         params2) const
 {
     const auto r1 = evaluate(times, params1);
@@ -470,9 +476,9 @@ std::vector<double> LightCurve::magnification_binary(
 
     const int n = static_cast<int>(times.size());
     std::vector<double> mags(n);
-    const double denom = 1.0 + q_source;
+    const double denom = 1.0 + flux_ratio;
     for (int i = 0; i < n; ++i)
-        mags[i] = (r1[i].magnification + q_source * r2[i].magnification) / denom;
+        mags[i] = (r1[i].magnification + flux_ratio * r2[i].magnification) / denom;
     return mags;
 }
 

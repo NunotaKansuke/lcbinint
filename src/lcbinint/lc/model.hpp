@@ -8,6 +8,7 @@ namespace lcbinint::lc {
 
 enum class LensKind { binary, triple };
 enum class SourceKind { single, binary };
+enum class SourceOrbitCoordinates { none, xallarap, trajectory_offset };
 
 // Physical light-curve model, separate from numerical Options (lcbi_options).
 // Rules:
@@ -18,6 +19,7 @@ struct Model {
     SourceKind               source         = SourceKind::single;
     lcbi_orbital_motion_mode orbital_motion = LCBI_ORBIT_STATIC;
     lcbi_xallarap_param_type xallarap       = LCBI_XALLARAP_NONE;
+    SourceOrbitCoordinates   source_orbit_coordinates = SourceOrbitCoordinates::none;
     bool                     parallax       = false;
     bool                     terrestrial    = false;
     std::shared_ptr<obs::SkyCoord> sky      = nullptr;

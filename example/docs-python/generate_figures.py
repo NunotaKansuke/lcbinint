@@ -297,22 +297,15 @@ def orbital_motion():
 def binary_source():
     params = dict(
         s=1.0, q=1.0, alpha=0.0, tE=37.3, t0=7550.4,
-        u0=0.075, rho=0.004, q_source=0.4, q_mass=1.0,
-        xi_1=0.04, xi_2=-0.025, w1=0.021, w2=-0.02, w3=0.03,
+        u0=0.075, rho1=0.004, t0_2=7552.0, u0_2=-0.04, rho2=0.002,
+        flux_ratio=0.4,
     )
     times = np.linspace(7550.4 - 37.3, 7550.4 + 37.3, 300)
     options = lcbinint.Options(tol=1e-3, reltol=1e-3)
-    xallarap = lcbinint.LightCurve(
-        model=lcbinint.Model(
-            lens="binary", source="binary", xallarap="circular_velocity"
-        ),
-        options=options,
-    )
+    binary = lcbinint.LightCurve(source="binary", options=options)
 
     plt.figure(figsize=(4.8, 3.0))
-    static_params = dict(params, w1=0.0, w2=0.0, w3=0.0)
-    plt.plot(times, xallarap(times, static_params))
-    plt.plot(times, xallarap(times, params), "y")
+    plt.plot(times, binary(times, params), "y")
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     save("BinarySource_lightcurve_xallarap_2.png")
@@ -320,10 +313,9 @@ def binary_source():
 
 def binary_source_binary_lens():
     params = dict(
-        s=0.9, q=0.1, u0=0.1, alpha=1.0, rho=0.01, tE=30.0, t0=7500,
+        s=0.9, q=0.1, u0=0.1, alpha=1.0, rho1=0.01, tE=30.0, t0=7500,
         piEN=0.3, piEE=-0.2, g1=0.011, g2=-0.005, g3=0.005,
-        q_source=1.0, q_mass=1.0, xi_1=0.0, xi_2=-0.1,
-        w1=0.01, w2=0.02, w3=0.015,
+        t0_2=7501.0, u0_2=-0.05, rho2=0.005, flux_ratio=1.0,
     )
     times = np.linspace(7470, 7530, 300)
     sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
@@ -339,7 +331,7 @@ def binary_source_binary_lens():
     binary_source_curve = lcbinint.LightCurve(
         model=lcbinint.Model(
             lens="binary", source="binary", parallax=True,
-            orbital_motion="circular", xallarap="circular_velocity",
+            orbital_motion="circular",
             sky=sky, t_ref=7500,
         ),
         options=options,
@@ -347,7 +339,7 @@ def binary_source_binary_lens():
     binary_source_magnifications = binary_source_curve(times, params)
     single_source_params = {
         key: value for key, value in params.items()
-        if key not in {"q_source", "q_mass", "xi_1", "xi_2", "w1", "w2", "w3"}
+        if key not in {"t0_2", "u0_2", "rho2", "rho1", "flux_ratio"}
     }
     plt.figure(figsize=(6.6, 3.7))
     plt.plot(
@@ -356,7 +348,7 @@ def binary_source_binary_lens():
     )
     plt.plot(
         times, binary_source_magnifications, "g",
-        label="binary source + xallarap",
+        label="binary source",
     )
     plt.xlabel("Time")
     plt.ylabel("Magnification")
@@ -483,8 +475,7 @@ def combined_effects():
     params = dict(
         s=0.9, q=0.1, u0=0.1, alpha=1.0, rho=0.01, tE=30.0, t0=7500,
         piEN=0.3, piEE=-0.2, g1=0.011, g2=-0.005, g3=0.005,
-        q_source=1.0, q_mass=1.0, xi_1=0.0, xi_2=-0.1,
-        w1=0.01, w2=0.02, w3=0.015,
+        xi_1=0.0, xi_2=-0.1, w1=0.01, w2=0.02, w3=0.015,
     )
     times = np.linspace(7470, 7530, 300)
     sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
@@ -504,7 +495,7 @@ def combined_effects():
     )
     combined = lcbinint.LightCurve(
         model=lcbinint.Model(
-            lens="binary", source="binary", parallax=True,
+            lens="binary", parallax=True,
             orbital_motion="circular", xallarap="circular_velocity",
             sky=sky, t_ref=7500,
         ),
@@ -512,13 +503,13 @@ def combined_effects():
     )
     single_source_params = {
         key: value for key, value in params.items()
-        if key not in {"q_source", "q_mass", "xi_1", "xi_2", "w1", "w2", "w3"}
+        if key not in {"xi_1", "xi_2", "w1", "w2", "w3"}
     }
     plt.figure(figsize=(7.4, 3.8))
     plt.plot(times, static(times, single_source_params), label="static 2L1S")
     plt.plot(times, parallax_curve(times, single_source_params), label="+ parallax")
     plt.plot(times, parallax_orbit(times, single_source_params), label="+ lens orbit")
-    plt.plot(times, combined(times, params), label="+ binary source + xallarap")
+    plt.plot(times, combined(times, params), label="+ xallarap")
     plt.xlabel("Time")
     plt.ylabel("Magnification")
     plt.legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize=8)

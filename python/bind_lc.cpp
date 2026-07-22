@@ -169,7 +169,7 @@ lcbi_params params_from_dict(const py::dict& d)
         else if (key == "alpha"|| key == "theta") p.theta = val;
         else if (key == "s"    || key == "sep")   p.sep   = val;
         else if (key == "q")                       p.q     = val;
-        else if (key == "rho")                     p.rho   = val;
+        else if (key == "rho" || key == "rho1")  p.rho   = val;
         else if (key == "piEN")                    p.piEN  = val;
         else if (key == "piEE")                    p.piEE  = val;
         else if (key == "q2")                      p.q2    = val;
@@ -203,9 +203,9 @@ lcbi_params params_from_dict(const py::dict& d)
         // kepler_velocity: xa_szs/xa_ar (mapped to piEN_xa/piEE_xa fields)
         else if (key == "xa_szs")                  p.piEN_xa = val;
         else if (key == "xa_ar")                   p.piEE_xa = val;
-        // Binary source params — handled by compute_dispatch, not lcbi_params.
-        else if (key == "q_source" || key == "fluxratio" ||
-                 key == "t0_2"     || key == "u0_2" || key == "q_mass") { /* skip */ }
+        // Binary-source parameters are handled by binary_source_parameter_row.
+        else if (key == "t0_2" || key == "u0_2" || key == "rho2" ||
+                 key == "flux_ratio" || key == "source_mass_ratio") { /* skip */ }
         else {
             throw py::key_error("lcbinint: unknown parameter '" + key + "'");
         }
@@ -242,14 +242,27 @@ py::array_t<double> matrix_to_numpy(
 }
 
 // Core dispatch: build times vector, release GIL, compute, return numpy array.
+using TimesArray = py::array_t<double, py::array::c_style | py::array::forcecast>;
+
+std::vector<double> times_from_array(const TimesArray& times)
+{
+    const auto buffer = times.request();
+    if (buffer.ndim == 0) {
+        return {*static_cast<const double*>(buffer.ptr)};
+    }
+    if (buffer.ndim != 1) {
+        throw std::invalid_argument("times must be one-dimensional");
+    }
+    const auto* pointer = static_cast<const double*>(buffer.ptr);
+    return {pointer, pointer + buffer.size};
+}
+
 py::array_t<double> compute(
     const lcbinint::lc::LightCurve& lc,
-    py::array_t<double>             times,
+    const TimesArray&               times,
     const lcbi_params&              params)
 {
-    auto buf = times.request();
-    const double* ptr = static_cast<const double*>(buf.ptr);
-    std::vector<double> tv(ptr, ptr + buf.size);
+    const std::vector<double> tv = times_from_array(times);
     std::vector<double> mags;
     {
         py::gil_scoped_release release;
@@ -280,53 +293,121 @@ struct InferenceParameterRow {
     double source_ratio = 1.0;
 };
 
-InferenceParameterRow inference_parameter_row(
-    const py::handle& item, bool binary_source)
+InferenceParameterRow binary_source_parameter_row(
+    const py::dict& values,
+    const lcbinint::lc::Model& model)
 {
     InferenceParameterRow row;
-    row.primary = inference_params_from_object(item);
+    row.primary = params_from_dict(values);
     row.secondary = row.primary;
-    if (!binary_source) return row;
+
+    bool has_rho1 = false;
+    bool has_t0_2 = false;
+    bool has_u0_2 = false;
+    bool has_rho2 = false;
+    bool has_flux_ratio = false;
+    bool has_mass_ratio = false;
+    double source_mass_ratio = 0.0;
+    double rho1 = 0.0;
+    double rho2 = 0.0;
+    for (const auto& entry : values) {
+        const std::string key = entry.first.cast<std::string>();
+        if (key == "rho") {
+            throw std::invalid_argument("binary source uses rho1, not rho");
+        }
+        if (key == "rho1") {
+            rho1 = entry.second.cast<double>();
+            has_rho1 = true;
+        }
+        else if (key == "t0_2") {
+            row.secondary.t0 = entry.second.cast<double>();
+            has_t0_2 = true;
+        } else if (key == "u0_2") {
+            row.secondary.umin = entry.second.cast<double>();
+            has_u0_2 = true;
+        } else if (key == "rho2") {
+            rho2 = entry.second.cast<double>();
+            row.secondary.rho = rho2;
+            has_rho2 = true;
+        } else if (key == "flux_ratio") {
+            row.source_ratio = entry.second.cast<double>();
+            has_flux_ratio = true;
+        } else if (key == "source_mass_ratio") {
+            source_mass_ratio = entry.second.cast<double>();
+            has_mass_ratio = true;
+        }
+    }
+    const bool has_xallarap = model.xallarap != LCBI_XALLARAP_NONE;
+    const bool offset_coordinates =
+        model.source_orbit_coordinates == lcbinint::lc::SourceOrbitCoordinates::trajectory_offset;
+    const bool needs_secondary_track = !has_xallarap || offset_coordinates;
+    if (!(has_rho1 && has_rho2 && has_flux_ratio) ||
+        (needs_secondary_track && !(has_t0_2 && has_u0_2)) ||
+        (has_xallarap && !has_mass_ratio)) {
+        throw std::invalid_argument(
+            "binary source requires rho1, rho2, flux_ratio, and the parameters for its selected orbit coordinates");
+    }
+    if (!(std::isfinite(row.primary.rho) && row.primary.rho >= 0.0 &&
+          std::isfinite(row.secondary.rho) && row.secondary.rho >= 0.0 &&
+          std::isfinite(row.source_ratio) && row.source_ratio >= 0.0)) {
+        throw std::invalid_argument(
+            "binary-source rho1, rho2, and flux_ratio must be finite and non-negative");
+    }
+    if (has_xallarap && !(std::isfinite(source_mass_ratio) && source_mass_ratio > 0.0)) {
+        throw std::invalid_argument("source_mass_ratio must be finite and positive");
+    }
+    if (!has_xallarap) return row;
+
+    if (offset_coordinates) {
+        // t0/u0 and t0_2/u0_2 specify the two tangent trajectories. Convert
+        // their projected separation at t_ref into the CoM state required by
+        // the velocity xallarap propagators.
+        const double q = source_mass_ratio;
+        const double inv_total_mass = 1.0 / (1.0 + q);
+        const double relative_tau = (row.primary.t0 - row.secondary.t0) / row.primary.tE;
+        const double relative_beta = row.secondary.umin - row.primary.umin;
+        row.primary.t0 = (row.primary.t0 + q * row.secondary.t0) * inv_total_mass;
+        row.primary.umin = (row.primary.umin + q * row.secondary.umin) * inv_total_mass;
+        row.secondary = row.primary;
+        row.primary.rho = rho1;
+        row.secondary.rho = rho2;
+        row.primary.xi_1 = -q * inv_total_mass * relative_tau;
+        row.primary.xi_2 = -q * inv_total_mass * relative_beta;
+        row.secondary.xi_1 = -row.primary.xi_1 / q;
+        row.secondary.xi_2 = -row.primary.xi_2 / q;
+    } else {
+        // xallarap coordinates use the supplied source-one state around the
+        // CoM; source two is fixed by the dynamical mass ratio.
+        row.secondary.xi_1 = -row.primary.xi_1 / source_mass_ratio;
+        row.secondary.xi_2 = -row.primary.xi_2 / source_mass_ratio;
+    }
+    return row;
+}
+
+InferenceParameterRow inference_parameter_row(
+    const py::handle& item, const lcbinint::lc::Model& model)
+{
+    const bool binary_source = model.source == lcbinint::lc::SourceKind::binary;
+    if (!binary_source) {
+        InferenceParameterRow row;
+        row.primary = inference_params_from_object(item);
+        row.secondary = row.primary;
+        return row;
+    }
     const auto object = py::reinterpret_borrow<py::object>(item);
     if (!py::isinstance<py::dict>(object)) {
         throw std::invalid_argument(
             "binary-source batch rows must be parameter dictionaries");
     }
-    const py::dict values = object.cast<py::dict>();
-    double q_mass = 0.0;
-    double t0_2 = row.primary.t0;
-    double u0_2 = row.primary.umin;
-    for (const auto& entry : values) {
-        const std::string key = entry.first.cast<std::string>();
-        if (key == "q_source" || key == "fluxratio") {
-            row.source_ratio = entry.second.cast<double>();
-        } else if (key == "q_mass") {
-            q_mass = entry.second.cast<double>();
-        } else if (key == "t0_2") {
-            t0_2 = entry.second.cast<double>();
-        } else if (key == "u0_2") {
-            u0_2 = entry.second.cast<double>();
-        }
-    }
-    if (q_mass > 0.0) {
-        row.secondary.xi_1 = -row.primary.xi_1 / q_mass;
-        row.secondary.xi_2 = -row.primary.xi_2 / q_mass;
-    } else {
-        row.secondary.t0 = t0_2;
-        row.secondary.umin = u0_2;
-    }
-    return row;
+    return binary_source_parameter_row(object.cast<py::dict>(), model);
 }
 
 py::array_t<double> compute_batch(
     const lcbinint::lc::LightCurve& lc,
-    py::array_t<double> times,
+    const TimesArray& times,
     const py::sequence& parameter_rows)
 {
-    auto buf = times.request();
-    if (buf.ndim != 1) throw std::invalid_argument("times must be one-dimensional");
-    const double* ptr = static_cast<const double*>(buf.ptr);
-    std::vector<double> tv(ptr, ptr + buf.size);
+    const std::vector<double> tv = times_from_array(times);
     const bool binary_source =
         lc.source_kind() == lcbinint::lc::SourceKind::binary;
     std::vector<lcbi_params> parameters;
@@ -339,7 +420,7 @@ py::array_t<double> compute_batch(
         source_ratios.reserve(count);
     }
     for (const auto& item : parameter_rows) {
-        const auto row = inference_parameter_row(item, binary_source);
+        const auto row = inference_parameter_row(item, lc.model());
         parameters.push_back(row.primary);
         if (binary_source) {
             secondary_parameters.push_back(row.secondary);
@@ -408,7 +489,7 @@ py::dict compute_light_curve_log_likelihood_batch(
             static_cast<std::size_t>(py::len(parameter_rows)));
     }
     for (const auto& item : parameter_rows) {
-        const auto row = inference_parameter_row(item, binary_source);
+        const auto row = inference_parameter_row(item, lc.model());
         parameters.push_back(row.primary);
         if (binary_source) {
             secondary_parameters.push_back(row.secondary);
@@ -456,12 +537,10 @@ std::string finite_source_method_name_from_int(int method)
 
 PyLightCurveInfo compute_info(
     const lcbinint::lc::LightCurve& lc,
-    py::array_t<double>             times,
+    const TimesArray&               times,
     const lcbi_params&              params)
 {
-    auto buf = times.request();
-    const double* ptr = static_cast<const double*>(buf.ptr);
-    std::vector<double> tv(ptr, ptr + buf.size);
+    std::vector<double> tv = times_from_array(times);
     const int n = static_cast<int>(tv.size());
     std::vector<lcbinint::MagnificationResult> results;
     {
@@ -1201,6 +1280,17 @@ void register_lc_submodule(py::module_& parent)
             "'circular_velocity', or 'kepler_velocity'");
     };
 
+    auto parse_source_orbit_coordinates = [](const std::string& s)
+        -> lcbinint::lc::SourceOrbitCoordinates {
+        using Coordinates = lcbinint::lc::SourceOrbitCoordinates;
+        if (s.empty() || s == "none") return Coordinates::none;
+        if (s == "xallarap" || s == "xi") return Coordinates::xallarap;
+        if (s == "trajectory_offset" || s == "offset")
+            return Coordinates::trajectory_offset;
+        throw std::invalid_argument(
+            "source_orbit_coordinates must be 'xallarap' or 'trajectory_offset'");
+    };
+
     py::class_<Model, std::shared_ptr<Model>>(lc, "Model",
         R"(Physical model configuration for a LightCurve.
 
@@ -1213,6 +1303,7 @@ LightCurves with a ground Site apply the terrestrial correction.)")
                 const std::string& source,
                 const std::string& orbital_motion,
                 const std::string& xallarap,
+                const std::string& source_orbit_coordinates,
                 bool               parallax,
                 bool               terrestrial,
                 py::object         sky,
@@ -1223,6 +1314,8 @@ LightCurves with a ground Site apply the terrestrial correction.)")
             model.source         = parse_source(source);
             model.orbital_motion = parse_orbital(orbital_motion);
             model.xallarap       = parse_xallarap(xallarap);
+            model.source_orbit_coordinates =
+                parse_source_orbit_coordinates(source_orbit_coordinates);
             model.parallax       = parallax;
             model.terrestrial    = terrestrial;
             if (!sky.is_none())   model.sky  = sky.cast<std::shared_ptr<SkyCoord>>();
@@ -1232,6 +1325,7 @@ LightCurves with a ground Site apply the terrestrial correction.)")
             py::arg("source")         = "single",
             py::arg("orbital_motion") = "static",
             py::arg("xallarap")       = "none",
+            py::arg("source_orbit_coordinates") = "none",
             py::arg("parallax")       = false,
             py::arg("terrestrial")    = false,
             py::arg("sky")            = py::none(),
@@ -1261,6 +1355,18 @@ LightCurves with a ground Site apply the terrestrial correction.)")
                 }
             },
             [&](Model& model, const std::string& s) { model.xallarap = parse_xallarap(s); })
+        .def_property("source_orbit_coordinates",
+            [](const Model& model) -> std::string {
+                using Coordinates = lcbinint::lc::SourceOrbitCoordinates;
+                switch (model.source_orbit_coordinates) {
+                case Coordinates::xallarap: return "xallarap";
+                case Coordinates::trajectory_offset: return "trajectory_offset";
+                default: return "none";
+                }
+            },
+            [&](Model& model, const std::string& s) {
+                model.source_orbit_coordinates = parse_source_orbit_coordinates(s);
+            })
         .def_readwrite("parallax",    &Model::parallax)
         .def_readwrite("terrestrial", &Model::terrestrial)
         .def_property("sky",
@@ -1298,6 +1404,11 @@ LightCurves with a ground Site apply the terrestrial correction.)")
                 }
             }
             if (model.source == SKind::binary) s += " source=binary";
+            using Coordinates = lcbinint::lc::SourceOrbitCoordinates;
+            if (model.source_orbit_coordinates == Coordinates::xallarap)
+                s += " source_orbit_coordinates=xallarap";
+            else if (model.source_orbit_coordinates == Coordinates::trajectory_offset)
+                s += " source_orbit_coordinates=trajectory_offset";
             if (model.sky)  s += " sky=set";
             if (model.t_ref.has_value()) s += " t_ref=" + std::to_string(*model.t_ref);
             s += ">";
@@ -1312,38 +1423,20 @@ LightCurves with a ground Site apply the terrestrial correction.)")
     static const lcbi_options kDefaultOpts = []{ auto o = lcbi_default_options(); o.vbm_compatible = 1; return o; }();
 
     // Dispatch __call__ based on source kind.
-    // For binary source, dict/kwargs must contain q_source + t0_2 + u0_2.
     auto compute_dispatch = [](const LC& lc,
-                                py::array_t<double> times,
+                                const TimesArray& times,
                                 const lcbi_params& base_params,
                                 py::dict extra) -> py::array_t<double> {
         if (lc.source_kind() == SKind::single) {
             return compute(lc, times, base_params);
         }
-        // Binary source: extract q_source, q_mass, t0_2, u0_2 from extra dict.
-        double q_source = 1.0, q_mass = 0.0, t0_2 = base_params.t0, u0_2 = base_params.umin;
-        for (auto& item : extra) {
-            const std::string key = item.first.cast<std::string>();
-            if      (key == "q_source" || key == "fluxratio") q_source = item.second.cast<double>();
-            else if (key == "q_mass")                          q_mass   = item.second.cast<double>();
-            else if (key == "t0_2")                            t0_2     = item.second.cast<double>();
-            else if (key == "u0_2")                            u0_2     = item.second.cast<double>();
-        }
-        auto buf = times.request();
-        const double* ptr = static_cast<const double*>(buf.ptr);
-        std::vector<double> tv(ptr, ptr + buf.size);
+        const auto row = binary_source_parameter_row(extra, lc.model());
+        const std::vector<double> tv = times_from_array(times);
         std::vector<double> mags;
         {
             py::gil_scoped_release release;
-            if (q_mass > 0.0) {
-                // Coupled xallarap: source 2 has xi scaled by -1/q_mass, same t0/u0 (CoM)
-                lcbi_params p2 = base_params;
-                p2.xi_1 = -base_params.xi_1 / q_mass;
-                p2.xi_2 = -base_params.xi_2 / q_mass;
-                mags = lc.magnification_binary(tv, base_params, q_source, p2);
-            } else {
-                mags = lc.magnification_binary(tv, base_params, q_source, t0_2, u0_2);
-            }
+            mags = lc.magnification_binary(
+                tv, row.primary, row.source_ratio, row.secondary);
         }
         return vec_to_numpy(std::move(mags));
     };
@@ -1416,6 +1509,10 @@ LightCurves with a ground Site apply the terrestrial correction.)")
                 else if (key == "source")         model->source        = parse_source(item.second.cast<std::string>());
                 else if (key == "orbital_motion") model->orbital_motion = parse_orbital(item.second.cast<std::string>());
                 else if (key == "xallarap")       model->xallarap      = parse_xallarap(item.second.cast<std::string>());
+                else if (key == "source_orbit_coordinates") {
+                    model->source_orbit_coordinates =
+                        parse_source_orbit_coordinates(item.second.cast<std::string>());
+                }
                 else if (key == "parallax")       model->parallax      = item.second.cast<bool>();
                 else if (key == "terrestrial")    model->terrestrial   = item.second.cast<bool>();
                 else if (key == "lens") {
@@ -1472,24 +1569,24 @@ LightCurves with a ground Site apply the terrestrial correction.)")
 
         // __call__ overload 1: lcbi_params object
         .def("__call__",
-            [&](const LC& lc, py::array_t<double> times, const lcbi_params& params) {
+            [&](const LC& lc, const TimesArray& times, const lcbi_params& params) {
                 if (lc.source_kind() == SKind::single) return compute(lc, times, params);
                 throw std::runtime_error(
-                    "source='binary': pass params as dict/kwargs including q_source, t0_2, u0_2");
+                    "source='binary': pass a dictionary with rho1, t0_2, u0_2, rho2, and flux_ratio");
                 return py::array_t<double>{};  // unreachable
             },
             py::arg("times"), py::arg("params"))
 
         // __call__ overload 2: dict
         .def("__call__",
-            [&](const LC& lc, py::array_t<double> times, py::dict d) {
+            [&](const LC& lc, const TimesArray& times, py::dict d) {
                 return compute_dispatch(lc, times, params_from_dict(d), d);
             },
             py::arg("times"), py::arg("params"))
 
         // __call__ overload 3: **kwargs
         .def("__call__",
-            [&](const LC& lc, py::array_t<double> times, py::kwargs kw) {
+            [&](const LC& lc, const TimesArray& times, py::kwargs kw) {
                 py::dict d(kw);
                 return compute_dispatch(lc, times, params_from_dict(d), d);
             },
@@ -1497,20 +1594,20 @@ LightCurves with a ground Site apply the terrestrial correction.)")
 
         // .magnification() alias
         .def("magnification",
-            [&](const LC& lc, py::array_t<double> times, const lcbi_params& params) {
+            [&](const LC& lc, const TimesArray& times, const lcbi_params& params) {
                 if (lc.source_kind() == SKind::single) return compute(lc, times, params);
                 throw std::runtime_error(
-                    "source='binary': pass params as dict/kwargs including q_source, t0_2, u0_2");
+                    "source='binary': pass a dictionary with rho1, t0_2, u0_2, rho2, and flux_ratio");
                 return py::array_t<double>{};
             },
             py::arg("times"), py::arg("params"))
         .def("magnification",
-            [&](const LC& lc, py::array_t<double> times, py::dict d) {
+            [&](const LC& lc, const TimesArray& times, py::dict d) {
                 return compute_dispatch(lc, times, params_from_dict(d), d);
             },
             py::arg("times"), py::arg("params"))
         .def("magnification",
-            [&](const LC& lc, py::array_t<double> times, py::kwargs kw) {
+            [&](const LC& lc, const TimesArray& times, py::kwargs kw) {
                 py::dict d(kw);
                 return compute_dispatch(lc, times, params_from_dict(d), d);
             },
@@ -1531,7 +1628,7 @@ LightCurves with a ground Site apply the terrestrial correction.)")
 
         // .info() returns diagnostics in addition to magnification.
         .def("info",
-            [&](const LC& lc, py::array_t<double> times, const lcbi_params& params) {
+            [&](const LC& lc, const TimesArray& times, const lcbi_params& params) {
                 if (lc.source_kind() == SKind::single) return compute_info(lc, times, params);
                 throw std::runtime_error(
                     "source='binary': LightCurve.info currently supports single-source only");
@@ -1539,7 +1636,7 @@ LightCurves with a ground Site apply the terrestrial correction.)")
             },
             py::arg("times"), py::arg("params"))
         .def("info",
-            [&](const LC& lc, py::array_t<double> times, py::dict d) {
+            [&](const LC& lc, const TimesArray& times, py::dict d) {
                 if (lc.source_kind() == SKind::single) {
                     return compute_info(lc, times, params_from_dict(d));
                 }
@@ -1549,7 +1646,7 @@ LightCurves with a ground Site apply the terrestrial correction.)")
             },
             py::arg("times"), py::arg("params"))
 	        .def("info",
-	            [&](const LC& lc, py::array_t<double> times, py::kwargs kw) {
+	            [&](const LC& lc, const TimesArray& times, py::kwargs kw) {
 	                if (lc.source_kind() == SKind::single) {
 	                    py::dict d(kw);
 	                    return compute_info(lc, times, params_from_dict(d));
@@ -1587,19 +1684,18 @@ LightCurves with a ground Site apply the terrestrial correction.)")
 	        .def("source_trajectory",
 	            [](const LC& lc, py::object times_obj, py::kwargs kw) -> PySourceTrajectory {
 	                const lcbi_params p = lc.apply_coords(params_from_dict(py::dict(kw)));
-	                py::array_t<double, py::array::forcecast> times(times_obj);
-	                auto buf = times.request();
-	                const double* ptr = static_cast<const double*>(buf.ptr);
-	                const int n = static_cast<int>(buf.size);
+	                TimesArray times(times_obj);
+	                const std::vector<double> values = times_from_array(times);
+	                const int n = static_cast<int>(values.size());
 
 	                PySourceTrajectory result;
-	                result.times.assign(ptr, ptr + n);
+	                result.times = values;
 	                result.x.resize(n);
 	                result.y.resize(n);
 	                {
 	                    py::gil_scoped_release release;
 	                    for (int i = 0; i < n; ++i) {
-	                        const auto pos = lens_frame_source_position(lc, p, ptr[i]);
+	                        const auto pos = lens_frame_source_position(lc, p, values[i]);
 	                        result.x[i] = pos.x;
 	                        result.y[i] = pos.y;
 	                    }
@@ -1612,10 +1708,8 @@ LightCurves with a ground Site apply the terrestrial correction.)")
 
             .def("finite_source_geometry",
                 [](const LC& curve, py::object times_obj, py::kwargs kw) {
-                    py::array_t<double, py::array::forcecast> times(times_obj);
-                    auto buffer = times.request();
-                    const auto* pointer = static_cast<const double*>(buffer.ptr);
-                    std::vector<double> values(pointer, pointer + buffer.size);
+                    TimesArray times(times_obj);
+                    const std::vector<double> values = times_from_array(times);
                     const lcbi_params parameters = params_from_dict(py::dict(kw));
                     std::vector<lcbinint::magnification::FiniteSourceGeometry> geometry;
                     {

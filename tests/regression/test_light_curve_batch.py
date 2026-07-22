@@ -55,16 +55,29 @@ def test_binary_source_native_batch_preserves_scalar_semantics():
             "s": 1.2,
             "q": 0.05,
             "alpha": 0.3,
-            "rho": 0.0,
-            "q_source": 0.2,
+            "rho1": 0.0,
             "t0_2": 0.1 + 0.01 * index,
             "u0_2": 0.2,
+            "rho2": 0.0,
+            "flux_ratio": 0.2,
         }
         for index in range(3)
     ]
 
     expected = np.asarray([curve(times, row) for row in rows])
     np.testing.assert_array_equal(curve.magnification_batch(times, rows), expected)
+
+    single = lcbinint.LightCurve()
+    first = rows[0]
+    source1 = dict(first, rho=first["rho1"])
+    source2 = dict(
+        first, t0=first["t0_2"], u0=first["u0_2"], rho=first["rho2"],
+    )
+    for key in ("rho1", "t0_2", "u0_2", "rho2", "flux_ratio"):
+        source1.pop(key)
+        source2.pop(key)
+    manual = (single(times, source1) + 0.2 * single(times, source2)) / 1.2
+    np.testing.assert_allclose(expected[0], manual, rtol=1e-12)
 
     flux = 120.0 * expected[0] + 4.0
     flux += 0.01 * np.cos(np.arange(len(times)))
@@ -82,6 +95,41 @@ def test_binary_source_native_batch_preserves_scalar_semantics():
             fused["log_likelihood"][index], -0.5 * residual @ residual,
             rtol=2e-9,
         )
+
+
+def test_binary_velocity_xallarap_batch_preserves_scalar_semantics():
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = lcbinint.LightCurve(
+        source="binary", xallarap="circular_velocity",
+        source_orbit_coordinates="trajectory_offset", t_ref=0.0,
+    )
+    times = np.linspace(-0.5, 0.5, 7)
+    rows = [
+        {
+            "t0": -0.1, "u0": 0.1, "t0_2": 0.1 + 0.01 * index,
+            "u0_2": -0.05, "tE": 10.0, "s": 1.2, "q": 0.05,
+            "alpha": 0.3, "rho1": 0.0, "rho2": 0.0,
+            "flux_ratio": 0.2, "source_mass_ratio": 0.5,
+            "w1": 0.01, "w2": 1.0, "w3": 0.2,
+        }
+        for index in range(3)
+    ]
+    expected = np.asarray([curve(times, row) for row in rows])
+    np.testing.assert_array_equal(curve.magnification_batch(times, rows), expected)
+
+
+@pytest.mark.parametrize("legacy_key", ["q_mass", "q_source", "fluxratio"])
+def test_binary_source_rejects_removed_mass_and_flux_aliases(legacy_key):
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = lcbinint.LightCurve(source="binary")
+    params = {
+        "t0": 0.0, "tE": 10.0, "u0": 0.1, "rho1": 0.0,
+        "t0_2": 0.2, "u0_2": -0.1, "rho2": 0.0, "flux_ratio": 0.3,
+        "s": 1.2, "q": 0.05, "alpha": 0.3,
+        legacy_key: 1.0,
+    }
+    with pytest.raises(KeyError, match=legacy_key):
+        curve([0.0], params)
 
 
 @pytest.mark.parametrize("flux_mode", ["fit", "marginalize"])
@@ -172,3 +220,33 @@ def test_fused_sampled_flux_ignores_inference_flux_parameter_names():
             - 0.5 * np.log(4.0 * np.pi)
         )
     )
+
+
+@pytest.mark.parametrize(
+    "flux,error",
+    [
+        (np.asarray([1.0, np.nan, 1.0]), np.ones(3)),
+        (np.ones(3), np.asarray([1.0, 0.0, 1.0])),
+        (np.ones(3), np.asarray([1.0, -1.0, 1.0])),
+        (np.ones(3), np.asarray([1.0, np.nan, 1.0])),
+    ],
+)
+def test_fused_sampled_flux_rejects_invalid_observations(flux, error):
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = lcbinint.LightCurve()
+    times = np.asarray([-0.1, 0.0, 0.1])
+    rows = [{
+        "t0": 0.0,
+        "tE": 10.0,
+        "u0": 0.1,
+        "s": 1.2,
+        "q": 0.05,
+        "alpha": 0.3,
+        "rho": 0.0,
+    }]
+
+    with pytest.raises(ValueError, match="flux must be finite"):
+        curve.light_curve_log_likelihood_batch(
+            times, flux, error, rows, "student_t", "sample", 4.0,
+            np.asarray([100.0]), np.asarray([5.0]),
+        )

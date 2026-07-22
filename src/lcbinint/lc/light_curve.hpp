@@ -83,22 +83,12 @@ public:
         const std::vector<double>& source_ratios = {}
     ) const;
 
-    // Binary-source magnification: source 2 has different t0/u0, same tE/alpha.
-    // A_eff = (A1 + q_source * A2) / (1 + q_source)
-    std::vector<double> magnification_binary(
-        const std::vector<double>& times,
-        const lcbi_params&         params,
-        double                     q_source,
-        double                     t0_2,
-        double                     u0_2
-    ) const;
-
-    // Binary-source magnification: caller supplies full params for source 2.
-    // Used for coupled xallarap where source 2's xi_1/xi_2 differ from source 1's.
+    // Binary-source magnification. The caller supplies the independent
+    // rectilinear parameters of both sources.
     std::vector<double> magnification_binary(
         const std::vector<double>& times,
         const lcbi_params&         params1,
-        double                     q_source,
+        double                     flux_ratio,
         const lcbi_params&         params2
     ) const;
 

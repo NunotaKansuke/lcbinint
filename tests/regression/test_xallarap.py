@@ -9,7 +9,6 @@ Covers all 4 supported modes:
 Also covers:
   - orbital_elements(ecc=0, peri=0) == circular_elements identity
   - xi_1=xi_2=0 degenerates to no-xallarap case
-  - coupled binary source (q_mass scaling)
 """
 import math
 import sys
@@ -94,52 +93,124 @@ def test_xi_zero_is_no_xallarap():
                                    err_msg=f"{mode}: xi=0 should equal no-xallarap")
 
 
-# ---------------------------------------------------------------------------
-# Coupled binary source
-# ---------------------------------------------------------------------------
-
-def test_coupled_binary_regression():
-    """circular_elements + coupled binary source regression."""
-    lc = _lc().LightCurve(xallarap="circular_elements", source="binary")
-    mag = lc(TIMES, **COMMON, xi_1=0.25, xi_2=-0.1, period_xa=35.0, inc_xa=1.1,
-             q_source=0.5, q_mass=2.0)
-    expected = [1.3233486146, 2.1688701857, 2.8680974931, 3.0173340503, 1.3013206685]
-    np.testing.assert_allclose(mag, expected, rtol=1e-7)
-
-
-def test_coupled_binary_qmass_scaling():
-    """Source 2 xi is -xi_1/q_mass: manual construction must match LightCurve q_mass path."""
+def test_binary_velocity_xallarap_requires_explicit_coordinate_system():
     lc = _lc()
-    lc_s = lc.LightCurve(xallarap="circular_elements")
-    lc_b = lc.LightCurve(xallarap="circular_elements", source="binary")
-    kw = dict(**COMMON, xi_1=0.3, xi_2=0.0, period_xa=40.0, inc_xa=0.9)
-
-    for q_mass in [1.0, 3.0]:
-        m_coupled = lc_b(TIMES, **kw, q_source=1.0, q_mass=q_mass)
-        m_s1 = lc_s(TIMES, **kw)
-        kw2 = dict(**COMMON, xi_1=-kw["xi_1"]/q_mass, xi_2=0.0,
-                   period_xa=kw["period_xa"], inc_xa=kw["inc_xa"])
-        m_s2 = lc_s(TIMES, **kw2)
-        m_manual = (m_s1 + m_s2) / 2.0
-        np.testing.assert_allclose(m_coupled, m_manual, rtol=1e-10,
-                                   err_msg=f"q_mass={q_mass}")
+    with pytest.raises(ValueError, match="requires source_orbit_coordinates"):
+        lc.LightCurve(source="binary", xallarap="circular_velocity", t_ref=0.0)
+    with pytest.raises(ValueError, match="requires binary source xallarap"):
+        lc.LightCurve(source_orbit_coordinates="xallarap")
+    with pytest.raises(ValueError, match="only with binary velocity xallarap"):
+        lc.LightCurve(
+            source="binary", xallarap="circular_elements",
+            source_orbit_coordinates="xallarap", t_ref=0.0,
+        )
 
 
-def test_coupled_binary_all_modes_run():
-    """All 4 modes with binary source must compute without error."""
+def _binary_xallarap_base():
+    return dict(
+        s=1.0, q=0.1, alpha=0.5, tE=20.0,
+        rho1=0.0, rho2=0.0, flux_ratio=0.4,
+        source_mass_ratio=0.5,
+    )
+
+
+def test_binary_velocity_xallarap_coordinates_match_two_single_sources():
+    """The xi path uses the supplied source-one CoM state and q fixes source two."""
     lc = _lc()
-    modes_kwargs = [
-        ("orbital_elements",
-         dict(xi_1=0.2, xi_2=0.0, period_xa=30.0, ecc_xa=0.1, peri_xa=0.5, inc_xa=1.0)),
-        ("circular_elements",
-         dict(xi_1=0.2, xi_2=0.0, period_xa=30.0, inc_xa=1.0)),
-        ("circular_velocity",
-         dict(xi_1=0.2, xi_2=0.0, w1=0.01, w2=1.0, w3=0.2)),
-        ("kepler_velocity",
-         dict(xi_1=0.2, xi_2=0.0, w1=0.01, w2=1.0, w3=0.2, xa_szs=0.1, xa_ar=1.3)),
-    ]
-    for mode, extra in modes_kwargs:
-        lb = lc.LightCurve(xallarap=mode, source="binary")
-        mag = lb(TIMES, **COMMON, **extra, q_source=1.0, q_mass=2.0)
-        assert np.all(np.isfinite(mag)), f"{mode}: non-finite magnification"
-        assert np.all(mag > 0), f"{mode}: non-positive magnification"
+    params = dict(
+        _binary_xallarap_base(), t0=0.0, u0=0.3,
+        xi_1=0.25, xi_2=-0.1, w1=0.02, w2=1.1, w3=0.3,
+    )
+    binary = lc.LightCurve(
+        source="binary", xallarap="circular_velocity",
+        source_orbit_coordinates="xallarap", t_ref=0.0,
+    )
+    got = binary(TIMES, params)
+    one = lc.LightCurve(xallarap="circular_velocity", t_ref=0.0)
+    first = one(TIMES, dict(params, rho=0.0))
+    second = one(TIMES, dict(
+        params, rho=0.0,
+        xi_1=-params["xi_1"] / params["source_mass_ratio"],
+        xi_2=-params["xi_2"] / params["source_mass_ratio"],
+    ))
+    np.testing.assert_allclose(got, (first + 0.4 * second) / 1.4, rtol=1e-12)
+
+
+def test_binary_trajectory_offset_xallarap_coordinates_match_two_single_sources():
+    """The t0/u0 path is converted to CoM plus the relative state at t_ref."""
+    lc = _lc()
+    params = dict(
+        _binary_xallarap_base(), t0=-0.4, u0=0.3, t0_2=0.8, u0_2=-0.1,
+        w1=0.02, w2=1.1, w3=0.3,
+    )
+    binary = lc.LightCurve(
+        source="binary", xallarap="circular_velocity",
+        source_orbit_coordinates="trajectory_offset", t_ref=0.0,
+    )
+    got = binary(TIMES, params)
+
+    q = params["source_mass_ratio"]
+    t0_com = (params["t0"] + q * params["t0_2"]) / (1.0 + q)
+    u0_com = (params["u0"] + q * params["u0_2"]) / (1.0 + q)
+    xi_1 = -q / (1.0 + q) * (params["t0"] - params["t0_2"]) / params["tE"]
+    xi_2 = -q / (1.0 + q) * (params["u0_2"] - params["u0"])
+    common = dict(params, t0=t0_com, u0=u0_com, rho=0.0, xi_1=xi_1, xi_2=xi_2)
+    one = lc.LightCurve(xallarap="circular_velocity", t_ref=0.0)
+    first = one(TIMES, common)
+    second = one(TIMES, dict(common, xi_1=-xi_1 / q, xi_2=-xi_2 / q))
+    np.testing.assert_allclose(got, (first + 0.4 * second) / 1.4, rtol=1e-12)
+
+
+def test_binary_element_xallarap_uses_xi_coordinates_without_switch():
+    lc = _lc()
+    params = dict(
+        _binary_xallarap_base(), t0=0.0, u0=0.3,
+        xi_1=0.25, xi_2=-0.1, period_xa=35.0, inc_xa=1.1,
+    )
+    binary = lc.LightCurve(
+        source="binary", xallarap="circular_elements", t_ref=0.0,
+    )
+    got = binary(TIMES, params)
+    one = lc.LightCurve(xallarap="circular_elements", t_ref=0.0)
+    first = one(TIMES, dict(params, rho=0.0))
+    second = one(TIMES, dict(
+        params, rho=0.0,
+        xi_1=-params["xi_1"] / params["source_mass_ratio"],
+        xi_2=-params["xi_2"] / params["source_mass_ratio"],
+    ))
+    np.testing.assert_allclose(got, (first + 0.4 * second) / 1.4, rtol=1e-12)
+
+
+@pytest.mark.parametrize("orbital_motion", ["circular", "kepler"])
+def test_xallarap_is_not_discarded_when_lens_orbital_motion_is_active(orbital_motion):
+    """The LOM frame rotation must use the xallarap-perturbed trajectory."""
+    lc = _lc()
+    common = dict(
+        **COMMON,
+        rho=0.0,
+        g1=0.004,
+        g2=0.011,
+        g3=0.006,
+    )
+    if orbital_motion == "kepler":
+        common.update(lom_szs=0.2, lom_ar=1.4)
+    plain = lc.LightCurve(orbital_motion=orbital_motion, t_ref=0.0)
+    perturbed = lc.LightCurve(
+        orbital_motion=orbital_motion,
+        xallarap="circular_elements",
+        t_ref=0.0,
+    )
+    times = np.asarray([-15.0, -5.0, 5.0, 15.0])
+    no_xallarap = plain(times, common)
+    with_xallarap = perturbed(
+        times,
+        dict(
+            common,
+            xi_1=0.25,
+            xi_2=-0.1,
+            period_xa=35.0,
+            inc_xa=1.1,
+        ),
+    )
+
+    assert np.max(np.abs(with_xallarap - no_xallarap)) > 1.0e-5
