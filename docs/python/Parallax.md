@@ -64,10 +64,11 @@ Plot the caustics and trajectories in a separate block:
 
 ```python
 caustics = static_curve.caustics(params)
+caustic_x = np.concatenate([np.asarray(x) for x in caustics.x])
+caustic_y = np.concatenate([np.asarray(y) for y in caustics.y])
 
 plt.figure(figsize=(5, 5))
-for x, y in zip(caustics.x, caustics.y):
-    plt.scatter(-np.asarray(x), -np.asarray(y), s=3)
+plt.scatter(-caustic_x, -caustic_y, s=3, color="k")
 plt.plot(-np.asarray(trajectory.x), -np.asarray(trajectory.y), "g")
 plt.plot(-np.asarray(trajectory_parallax.x), -np.asarray(trajectory_parallax.y), "m")
 plt.axis("equal")
@@ -79,17 +80,58 @@ plt.show()
 ## Satellite Parallax
 
 For a space observatory, pass a table with `(JD, RA_deg, Dec_deg, distance_AU)`
-columns to its own site while reusing the same physical model:
+columns to its own site while reusing the same physical model. The small table
+below is an illustrative ephemeris that keeps this example self-contained;
+replace it with the observatory ephemeris for a real event.
 
 ```python
-satellite_table = np.loadtxt("satellite1.txt")
+satellite_phase = np.linspace(-1.0, 1.0, len(t))
+satellite_table = np.column_stack([
+    2450000.0 + t,
+    270.0 + 12.0 * satellite_phase,
+    -20.0 + 4.0 * np.sin(np.pi * satellite_phase),
+    0.55 + 0.05 * satellite_phase,
+])
+satellite_model = lcbinint.Model(
+    parallax=True,
+    terrestrial=True,
+    sky=sky,
+    t_ref=t0,
+)
+ground_curve = lcbinint.LightCurve(
+    model=satellite_model,
+    site=lcbinint.obs.Site("ground", -29.0, -70.7),
+    options=options,
+)
 space_curve = lcbinint.LightCurve(
-    model=parallax_curve.model,
+    model=satellite_model,
     site=lcbinint.obs.Site("space", satellite_table),
     options=options,
 )
+magnifications_ground = ground_curve(t, params)
 magnifications_satellite = space_curve(t, params)
 ```
+
+Plot the Earth and spacecraft observations together, then isolate the
+spacecraft contribution in a difference panel:
+
+```python
+fig, (curve_ax, difference_ax) = plt.subplots(
+    2, 1, sharex=True, figsize=(7, 6),
+    gridspec_kw={"height_ratios": [3, 1]},
+)
+curve_ax.plot(t, magnifications_ground, label="ground: Chile")
+curve_ax.plot(t, magnifications_satellite, label="spacecraft")
+curve_ax.set_ylabel("Magnification")
+curve_ax.legend()
+difference_ax.plot(t, magnifications_satellite - magnifications_ground)
+difference_ax.axhline(0.0, color="0.6", linewidth=1)
+difference_ax.set(xlabel="Time", ylabel="space - ground")
+fig.tight_layout()
+plt.show()
+```
+
+![Ground and satellite parallax comparison](figures/SatelliteParallax_comparison.png)
 
 ## Terrestrial parallax
 
@@ -110,6 +152,30 @@ chile = lcbinint.LightCurve(
     site=lcbinint.obs.Site("ground", -29.0, -70.7),
     options=options,
 )
+magnifications_africa = africa(t, params)
+magnifications_chile = chile(t, params)
 ```
+
+The terrestrial signal is much smaller than the annual or satellite signal,
+so show the two observatories together and magnify their difference in a lower
+panel:
+
+```python
+fig, (curve_ax, difference_ax) = plt.subplots(
+    2, 1, sharex=True, figsize=(7, 6),
+    gridspec_kw={"height_ratios": [3, 1]},
+)
+curve_ax.plot(t, magnifications_africa, label="Africa: 29 S, 20 E")
+curve_ax.plot(t, magnifications_chile, label="Chile: 29 S, 70.7 W")
+curve_ax.set_ylabel("Magnification")
+curve_ax.legend()
+difference_ax.plot(t, 1e3 * (magnifications_africa - magnifications_chile))
+difference_ax.axhline(0.0, color="0.6", linewidth=1)
+difference_ax.set(xlabel="Time", ylabel=r"$10^3\,(A_{Africa}-A_{Chile})$")
+fig.tight_layout()
+plt.show()
+```
+
+![Terrestrial parallax comparison](figures/TerrestrialParallax_comparison.png)
 
 [Go to Orbital Motion](OrbitalMotion.md)

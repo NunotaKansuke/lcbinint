@@ -32,8 +32,9 @@ def plot_branches(branches, *args, **kwargs):
 
 
 def scatter_caustics(branches, *, size=3, **kwargs):
-    for x, y in zip(branches.x, branches.y):
-        plt.scatter(-np.asarray(x), -np.asarray(y), s=size, **kwargs)
+    x = np.concatenate([np.asarray(branch) for branch in branches.x])
+    y = np.concatenate([np.asarray(branch) for branch in branches.y])
+    plt.scatter(-x, -y, s=size, **kwargs)
 
 
 def standard_binary():
@@ -156,11 +157,86 @@ def parallax():
     save("BinaryLens_lightcurve_parallax.png")
 
     plt.figure(figsize=(5, 5))
-    scatter_caustics(static.caustics(params))
+    scatter_caustics(static.caustics(params), color="k")
     plt.plot(-np.asarray(static_trajectory.x), -np.asarray(static_trajectory.y), "g")
     plt.plot(-np.asarray(moved_trajectory.x), -np.asarray(moved_trajectory.y), "m")
     plt.axis("equal")
     save("BinaryLens_lightcurve_parallax_caustics.png")
+
+    satellite_phase = np.linspace(-1.0, 1.0, len(times))
+    satellite_table = np.column_stack([
+        2450000.0 + times,
+        270.0 + 12.0 * satellite_phase,
+        -20.0 + 4.0 * np.sin(np.pi * satellite_phase),
+        0.55 + 0.05 * satellite_phase,
+    ])
+    satellite_model = lcbinint.Model(
+        parallax=True,
+        terrestrial=True,
+        sky=lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2"),
+        t_ref=7500,
+    )
+    ground = lcbinint.LightCurve(
+        model=satellite_model,
+        site=lcbinint.obs.Site("ground", -29.0, -70.7),
+        options=options,
+    )
+    space = lcbinint.LightCurve(
+        model=satellite_model,
+        site=lcbinint.obs.Site("space", satellite_table),
+        options=options,
+    )
+    ground_mag = ground(times, params)
+    space_mag = space(times, params)
+    fig, (curve_ax, difference_ax) = plt.subplots(
+        2, 1, sharex=True, figsize=(7, 6),
+        gridspec_kw={"height_ratios": [3, 1]},
+    )
+    curve_ax.plot(times, ground_mag, label="ground: Chile")
+    curve_ax.plot(times, space_mag, label="spacecraft")
+    curve_ax.set_ylabel("Magnification")
+    curve_ax.legend()
+    difference_ax.plot(times, space_mag - ground_mag)
+    difference_ax.axhline(0.0, color="0.6", linewidth=1)
+    difference_ax.set(xlabel="Time", ylabel="space - ground")
+    fig.tight_layout()
+    plt.savefig(OUTPUT / "SatelliteParallax_comparison.png", dpi=150)
+    plt.close()
+
+    terrestrial_model = lcbinint.Model(
+        parallax=True,
+        terrestrial=True,
+        sky=lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2"),
+        t_ref=7500,
+    )
+    africa = lcbinint.LightCurve(
+        model=terrestrial_model,
+        site=lcbinint.obs.Site("ground", -29.0, 20.0),
+        options=options,
+    )
+    chile = lcbinint.LightCurve(
+        model=terrestrial_model,
+        site=lcbinint.obs.Site("ground", -29.0, -70.7),
+        options=options,
+    )
+    africa_mag = africa(times, params)
+    chile_mag = chile(times, params)
+    fig, (curve_ax, difference_ax) = plt.subplots(
+        2, 1, sharex=True, figsize=(7, 6),
+        gridspec_kw={"height_ratios": [3, 1]},
+    )
+    curve_ax.plot(times, africa_mag, label="Africa: 29 S, 20 E")
+    curve_ax.plot(times, chile_mag, label="Chile: 29 S, 70.7 W")
+    curve_ax.set_ylabel("Magnification")
+    curve_ax.legend()
+    difference_ax.plot(times, 1e3 * (africa_mag - chile_mag))
+    difference_ax.axhline(0.0, color="0.6", linewidth=1)
+    difference_ax.set(
+        xlabel="Time", ylabel=r"$10^3\,(A_{Africa}-A_{Chile})$"
+    )
+    fig.tight_layout()
+    plt.savefig(OUTPUT / "TerrestrialParallax_comparison.png", dpi=150)
+    plt.close()
 
 
 def orbital_motion():
