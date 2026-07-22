@@ -2,7 +2,7 @@
 
 # Binary source + xallarap
 
-> VBMicrolensing correspondence: [BinarySources.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/BinarySources.md). This page translates its binary-source xallarap examples to the `lcbinint` API.
+> VBMicrolensing correspondence: [BinarySources.md](https://github.com/valboz/VBMicrolensing/blob/main/docs/python/BinarySources.md).
 
 For a binary source, choose how the two source trajectories are specified.
 Every form uses `rho1`, `rho2`, `flux_ratio`, and `source_mass_ratio`; the
