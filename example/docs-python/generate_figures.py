@@ -294,29 +294,6 @@ def orbital_motion():
     save("BinaryLens_lightcurve_orbital_caustics.png")
 
 
-def keplerian_orbital_motion():
-    params = dict(
-        t0=10.0, tE=np.exp(1.5), u0=0.01, alpha=0.1,
-        s=0.97, q=10.0 ** -1.5, rho=0.0,
-        g1=0.004, g2=0.011, g3=0.006, lom_szs=0.2, lom_ar=1.4,
-    )
-    times = np.linspace(2.0, 20.0, 200)
-    options = lcbinint.Options(coordinates="vbm", nbin="auto")
-    static = lcbinint.LightCurve(options=options)
-    kepler = lcbinint.LightCurve(
-        model=lcbinint.Model(orbital_motion="kepler", t_ref=params["t0"]),
-        options=options,
-    )
-
-    plt.figure(figsize=(4.2, 2.8))
-    plt.plot(times, static(times, params), label="static binary")
-    plt.plot(times, kepler(times, params), label="Keplerian orbit")
-    plt.xlabel("Time")
-    plt.ylabel("Magnification")
-    plt.legend(fontsize=8)
-    save("KeplerianOrbitalMotion_lightcurve.png")
-
-
 def binary_source():
     params = dict(
         s=1.0, q=1.0, alpha=0.0, tE=37.3, t0=7550.4,
@@ -541,7 +518,6 @@ def main():
     critical_curves_and_caustics()
     parallax()
     orbital_motion()
-    keplerian_orbital_motion()
     binary_source()
     binary_source_binary_lens()
     limb_darkening()

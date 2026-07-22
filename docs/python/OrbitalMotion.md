@@ -97,38 +97,26 @@ plt.show()
 
 ## Keplerian orbital motion
 
-For a Keplerian binary orbit, select `orbital_motion="kepler"`. The velocity
-parameters `g1`, `g2`, and `g3` give the instantaneous orbital state at
-`t_ref`; `lom_szs` and `lom_ar` complete the line-of-sight separation and
-acceleration specification.
+To use a Keplerian orbit with the same event, time array, parallax settings,
+and `g1`/`g2`/`g3` parameters above, switch the orbital-motion mode and add
+the two Kepler-specific parameters:
 
 ```python
-kepler_params = {
-    "t0": 10.0, "tE": np.exp(1.5), "u0": 0.01, "alpha": 0.1,
-    "s": 0.97, "q": 10.0 ** -1.5, "rho": 0.0,
-    "g1": 0.004, "g2": 0.011, "g3": 0.006,
-    "lom_szs": 0.2, "lom_ar": 1.4,
-}
-kepler_t = np.linspace(2.0, 20.0, 200)
-kepler_options = lcbinint.Options(coordinates="vbm", nbin="auto")
-
-static_kepler = lcbinint.LightCurve(options=kepler_options)
 kepler_curve = lcbinint.LightCurve(
-    model=lcbinint.Model(orbital_motion="kepler", t_ref=kepler_params["t0"]),
-    options=kepler_options,
+    model=lcbinint.Model(
+        parallax=True,
+        orbital_motion="kepler",
+        sky=sky,
+        t_ref=t0,
+    ),
+    options=options,
 )
-static_magnification = static_kepler(kepler_t, kepler_params)
-kepler_magnification = kepler_curve(kepler_t, kepler_params)
-
-plt.figure(figsize=(4.2, 2.8))
-plt.plot(kepler_t, static_magnification, label="static binary")
-plt.plot(kepler_t, kepler_magnification, label="Keplerian orbit")
-plt.xlabel("Time")
-plt.ylabel("Magnification")
-plt.legend(fontsize=8)
-plt.show()
+kepler_params = dict(params, lom_szs=0.2, lom_ar=1.4)
+kepler_magnifications = kepler_curve(t, kepler_params)
 ```
 
-![Keplerian orbital-motion light curve](figures/KeplerianOrbitalMotion_lightcurve.png)
+`g1`, `g2`, and `g3` remain the instantaneous orbital state at `t_ref`. The
+Keplerian mode additionally requires `lom_szs` and `lom_ar` in `params` to
+specify the line-of-sight separation and acceleration.
 
 [Previous: Parallax](Parallax.md) · [Documentation home](readme.md) · [Next: Binary sources](BinarySources.md)
