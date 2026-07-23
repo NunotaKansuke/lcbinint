@@ -951,9 +951,15 @@ def higher_order_catalogue():
                 params.pop("piEN")
                 params.pop("piEE")
             sample_times = times
+            geometry_times = sample_times
             if observer == "terrestrial":
+                params.update(u0=0.0003, rho=0.00001)
+                sample_times = np.linspace(7501.37, 7501.46, 600)
+                geometry_times = np.linspace(7485.0, 7515.0, 300)
+            if observer == "space":
                 params.update(u0=0.0003, rho=0.0001)
-                sample_times = np.linspace(7501.25, 7501.60, 500)
+                sample_times = np.linspace(7501.35, 7501.48, 600)
+                geometry_times = np.linspace(7485.0, 7515.0, 300)
             args = dict(lens=lens, source=source,
                         finite_source=not point_source,
                         parallax=parallax, t_ref=7500.)
@@ -970,6 +976,16 @@ def higher_order_catalogue():
             curve_kwargs = dict(options=options, model=lcbinint.Model(**args))
             if observer in parallax_sites:
                 curve_kwargs["site"] = parallax_sites[observer]
+            if observer == "space":
+                space_phase = np.linspace(-1.0, 1.0, len(sample_times))
+                space_table = np.column_stack([
+                    2450000.0 + sample_times,
+                    270.0 + 12.0 * space_phase,
+                    -20.0 + 4.0 * np.sin(np.pi * space_phase),
+                    0.55 + 0.05 * space_phase,
+                ])
+                space_site = lcbinint.obs.Site("space", space_table)
+                curve_kwargs["site"] = space_site
             curve = lcbinint.LightCurve(**curve_kwargs)
             comparison_curves = None
             if observer == "space":
@@ -1036,7 +1052,7 @@ def higher_order_catalogue():
             elif comparison_curves:
                 colors = ("#0173B2", "#6C6C6C") if observer == "space" else ("#0173B2", "#CC79A7")
                 for (name, value), color in zip(comparison_curves.items(), colors):
-                    tr = value.source_trajectory(sample_times, params)
+                    tr = value.source_trajectory(geometry_times, params)
                     plt.plot(tr.x, tr.y, color=color, lw=1.0, label=name)
                 plt.legend(fontsize=7)
             else:
@@ -1056,15 +1072,17 @@ def higher_order_catalogue():
             model_code = ", ".join(model_parts)
             catalogue += ["#### " + label, "", "```python"]
             if observer == "terrestrial":
-                catalogue += ["# A narrow, high-magnification caustic feature makes the site offset visible.", "times = np.linspace(7501.25, 7501.60, 500)"]
+                catalogue += ["# A narrow, high-magnification caustic feature makes the site offset visible.", "times = np.linspace(7501.37, 7501.46, 600)", "geometry_times = np.linspace(7485.0, 7515.0, 300)"]
+            if observer == "space":
+                catalogue += ["# This high-magnification feature makes the ground/space offset visible.", "times = np.linspace(7501.35, 7501.48, 600)", "geometry_times = np.linspace(7485.0, 7515.0, 300)", "space_phase = np.linspace(-1.0, 1.0, len(times))", "space_ephemeris = {", "    \"jd\": 2450000.0 + times,", "    \"ra_deg\": 270.0 + 12.0 * space_phase,", "    \"dec_deg\": -20.0 + 4.0 * np.sin(np.pi * space_phase),", "    \"distance_au\": 0.55 + 0.05 * space_phase,", "}", "space_site = lcbinint.obs.Site(\"space\", np.column_stack(tuple(space_ephemeris.values())))"]
             catalogue += ["parameters = " + repr(params),
                           "curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(" + model_code + "))"]
             if observer == "space":
                 catalogue[-1] = "space_model = lcbinint.Model(" + model_code + ")"
-                catalogue += ["parallax_curves = {", "    \"ground\": lcbinint.LightCurve(model=space_model, site=parallax_sites[\"chile\"], options=options),", "    \"space\": lcbinint.LightCurve(model=space_model, site=parallax_sites[\"space\"], options=options),", "}", "magnifications = {name: value(times, parameters) for name, value in parallax_curves.items()}", "trajectories = {name: value.source_trajectory(times, parameters) for name, value in parallax_curves.items()}", "caustics = parallax_curves[\"ground\"].caustics(parameters)"]
+                catalogue += ["parallax_curves = {", "    \"ground\": lcbinint.LightCurve(model=space_model, site=parallax_sites[\"chile\"], options=options),", "    \"space\": lcbinint.LightCurve(model=space_model, site=space_site, options=options),", "}", "magnifications = {name: value(times, parameters) for name, value in parallax_curves.items()}", "trajectories = {name: value.source_trajectory(geometry_times, parameters) for name, value in parallax_curves.items()}", "caustics = parallax_curves[\"ground\"].caustics(parameters)"]
             elif observer == "terrestrial":
                 catalogue[-1] = "site_model = lcbinint.Model(" + model_code + ")"
-                catalogue += ["terrestrial_curves = {", "    \"Chile\": lcbinint.LightCurve(model=site_model, site=parallax_sites[\"chile\"], options=options),", "    \"Africa\": lcbinint.LightCurve(model=site_model, site=parallax_sites[\"africa\"], options=options),", "}", "magnifications = {name: value(times, parameters) for name, value in terrestrial_curves.items()}", "trajectories = {name: value.source_trajectory(times, parameters) for name, value in terrestrial_curves.items()}", "caustics = terrestrial_curves[\"Chile\"].caustics(parameters)"]
+                catalogue += ["terrestrial_curves = {", "    \"Chile\": lcbinint.LightCurve(model=site_model, site=parallax_sites[\"chile\"], options=options),", "    \"Africa\": lcbinint.LightCurve(model=site_model, site=parallax_sites[\"africa\"], options=options),", "}", "magnifications = {name: value(times, parameters) for name, value in terrestrial_curves.items()}", "trajectories = {name: value.source_trajectory(geometry_times, parameters) for name, value in terrestrial_curves.items()}", "caustics = terrestrial_curves[\"Chile\"].caustics(parameters)"]
             elif binary:
                 catalogue += ["components = curve.binary_source_components(times, parameters)", "magnification = components.total", "trajectory1 = components.source1.trajectory", "trajectory2 = components.source2.trajectory"]
             else:

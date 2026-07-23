@@ -124,15 +124,16 @@ plt.axis("equal"); plt.show()
 
 ```python
 # A narrow, high-magnification caustic feature makes the site offset visible.
-times = np.linspace(7501.25, 7501.60, 500)
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.0003, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.0001}
+times = np.linspace(7501.37, 7501.46, 600)
+geometry_times = np.linspace(7485.0, 7515.0, 300)
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.0003, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 1e-05}
 site_model = lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, terrestrial=True)
 terrestrial_curves = {
     "Chile": lcbinint.LightCurve(model=site_model, site=parallax_sites["chile"], options=options),
     "Africa": lcbinint.LightCurve(model=site_model, site=parallax_sites["africa"], options=options),
 }
 magnifications = {name: value(times, parameters) for name, value in terrestrial_curves.items()}
-trajectories = {name: value.source_trajectory(times, parameters) for name, value in terrestrial_curves.items()}
+trajectories = {name: value.source_trajectory(geometry_times, parameters) for name, value in terrestrial_curves.items()}
 caustics = terrestrial_curves["Chile"].caustics(parameters)
 ```
 
@@ -167,14 +168,25 @@ plt.axis("equal"); plt.show()
 #### Space parallax
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.004}
+# This high-magnification feature makes the ground/space offset visible.
+times = np.linspace(7501.35, 7501.48, 600)
+geometry_times = np.linspace(7485.0, 7515.0, 300)
+space_phase = np.linspace(-1.0, 1.0, len(times))
+space_ephemeris = {
+    "jd": 2450000.0 + times,
+    "ra_deg": 270.0 + 12.0 * space_phase,
+    "dec_deg": -20.0 + 4.0 * np.sin(np.pi * space_phase),
+    "distance_au": 0.55 + 0.05 * space_phase,
+}
+space_site = lcbinint.obs.Site("space", np.column_stack(tuple(space_ephemeris.values())))
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.0003, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.0001}
 space_model = lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, terrestrial=True)
 parallax_curves = {
     "ground": lcbinint.LightCurve(model=space_model, site=parallax_sites["chile"], options=options),
-    "space": lcbinint.LightCurve(model=space_model, site=parallax_sites["space"], options=options),
+    "space": lcbinint.LightCurve(model=space_model, site=space_site, options=options),
 }
 magnifications = {name: value(times, parameters) for name, value in parallax_curves.items()}
-trajectories = {name: value.source_trajectory(times, parameters) for name, value in parallax_curves.items()}
+trajectories = {name: value.source_trajectory(geometry_times, parameters) for name, value in parallax_curves.items()}
 caustics = parallax_curves["ground"].caustics(parameters)
 ```
 
