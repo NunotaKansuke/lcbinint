@@ -885,12 +885,10 @@ def higher_order_catalogue():
         return params
 
     catalogue = [
-        "[Previous: Combining higher-order effects](CombinedEffects.md) · [Documentation home](readme.md)",
+        "[← Higher-order effects](CombinedEffects.md)",
         "", "# Higher-order combination catalogue", "",
-        "Each entry is a complete, hierarchy-valid model: finite source first, then annual parallax, followed by lens orbital motion and/or xallarap. Lens orbit is therefore never shown without parallax, and triple lenses are limited to their supported static-lens geometry.",
+        "The catalogue is grouped first by lens and source multiplicity. Within every group, the examples progress through three levels: finite-source baseline, annual parallax, and parallax with additional higher-order effects. Lens orbit is therefore never shown without parallax, and triple lenses are limited to their supported static-lens geometry.",
         "", "```python", "import numpy as np", "import matplotlib.pyplot as plt", "import lcbinint", "", "times = np.linspace(7470.0, 7530.0, 160)", "sky = lcbinint.obs.SkyCoord(\"17:59:02.3\", \"-29:04:15.2\")", "options = lcbinint.Options(coordinates=\"vbm\", tol=1e-3, reltol=1e-3)", "```", "",
-        "## Finite source only", "", "```python", "parameters = {\"s\": 0.9, \"q\": 0.1, \"t0\": 7500.0, \"u0\": 0.20,", "    \"tE\": 30.0, \"alpha\": 0.7, \"rho\": 0.004}", "curve = lcbinint.LightCurve(options=options)", "magnification = curve(times, parameters)", "trajectory = curve.source_trajectory(times, parameters)", "caustics = curve.caustics(parameters)", "```", "",
-        "```python", "plt.figure(figsize=(3.8, 2.4))", "plt.plot(times, magnification, color=\"#0173B2\")", "plt.xlabel(\"Time\"); plt.ylabel(\"Magnification\")", "plt.show()", "", "plt.figure(figsize=(2.8, 2.7))", "for x, y in zip(caustics.x, caustics.y):", "    plt.plot(x, y, color=\"#6C6C6C\", lw=1.1)", "plt.plot(trajectory.x, trajectory.y, color=\"#0173B2\")", "plt.xlabel(\"Trajectory coordinate 1\"); plt.ylabel(\"Trajectory coordinate 2\")", "plt.axis(\"equal\"); plt.show()", "```", "", "<p><img src=\"figures/FiniteSourceOnly_lightcurve.png\" alt=\"Finite-source light curve\" width=\"56%\"> <img src=\"figures/FiniteSourceOnly_geometry.png\" alt=\"Finite-source trajectory and caustics\" width=\"40%\"></p>", ""
     ]
     groups = (("binary", "single", "Binary lens, single source"),
               ("binary", "binary", "Binary lens, binary source"),
@@ -902,11 +900,18 @@ def higher_order_catalogue():
         configs = modes(binary)
         if lens == "triple":
             configs = [item for item in configs if item[3] is None]
-        # The single binary-lens baseline is shown above.  Binary sources and
-        # both triple-lens families need their own finite-source baselines.
-        if binary or lens == "triple":
-            configs.insert(0, ("Finite source only", None, None, None))
+        configs.insert(0, ("Finite source only", None, None, None))
+        level = None
         for label, xmode, coordinates, orbit in configs:
+            if label == "Finite source only":
+                category = "### 1. Finite-source baseline"
+            elif label == "Parallax":
+                category = "### 2. Annual parallax"
+            else:
+                category = "### 3. Parallax with additional higher-order effects"
+            if category != level:
+                catalogue += [category, ""]
+                level = category
             params = config_parameters(lens, source, xmode, coordinates, orbit)
             parallax = label != "Finite source only"
             if not parallax:
@@ -957,7 +962,7 @@ def higher_order_catalogue():
                     rendered = repr(value)
                 model_parts.append(f"{key}={rendered}")
             model_code = ", ".join(model_parts)
-            catalogue += ["### " + label, "", "```python", "parameters = " + repr(params),
+            catalogue += ["#### " + label, "", "```python", "parameters = " + repr(params),
                           "curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(" + model_code + "))",
                           ]
             if binary:
@@ -977,7 +982,7 @@ def higher_order_catalogue():
             else:
                 catalogue += ["plt.plot(trajectory.x, trajectory.y, color=\"#0173B2\")"]
             catalogue += ["plt.xlabel(\"Trajectory coordinate 1\"); plt.ylabel(\"Trajectory coordinate 2\")", "plt.axis(\"equal\"); plt.show()", "```", "", f"<p><img src=\"figures/{stem}_lightcurve.png\" alt=\"{label} light curve\" width=\"56%\"> <img src=\"figures/{stem}_geometry.png\" alt=\"{label} caustics and trajectories\" width=\"40%\"></p>", ""]
-    catalogue += ["[Previous: Combining higher-order effects](CombinedEffects.md) · [Documentation home](readme.md)", ""]
+    catalogue += ["[← Higher-order effects](CombinedEffects.md)", ""]
     (OUTPUT.parent / "HigherOrderCombinations.md").write_text("\n".join(catalogue))
 
 
