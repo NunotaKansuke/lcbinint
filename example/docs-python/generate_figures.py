@@ -759,7 +759,7 @@ def higher_order_combination_figures():
         xi_1=0.02, xi_2=-0.01, w1=0.004, w2=0.35, w3=0.08,
     )
     configurations = [
-        ("FiniteSourceOnly", "Finite source only", False, False, False, False),
+        ("FiniteSource", "Finite source", False, False, False, False),
         ("ParallaxOrbital", "Parallax + lens orbit", False, True, True, False),
         ("ParallaxXallarap", "Parallax + xallarap", False, True, False, True),
         ("ParallaxOrbitalXallarap", "Parallax + lens orbit + xallarap", False, True, True, True),
@@ -912,11 +912,11 @@ def higher_order_catalogue():
         configs = modes(binary)
         if lens == "triple":
             configs = [item for item in configs if item[3] is None]
-        configs.insert(0, ("Finite source only", None, None, None))
+        configs.insert(0, ("Finite source", None, None, None))
         configs.insert(0, ("Point source", None, None, None))
         observer_configs = []
         for label, xmode, coordinates, orbit in configs:
-            if label in ("Point source", "Finite source only"):
+            if label in ("Point source", "Finite source"):
                 observer_configs.append((label, xmode, coordinates, orbit, None))
                 continue
             suffix = label.removeprefix("Parallax")
@@ -928,7 +928,7 @@ def higher_order_catalogue():
                                          xmode, coordinates, orbit, observer))
         level = None
         for label, xmode, coordinates, orbit, observer in observer_configs:
-            if label in ("Point source", "Finite source only"):
+            if label in ("Point source", "Finite source"):
                 category = "### 1. Source-size baselines"
             elif xmode is None and orbit is None:
                 category = "### 2. Parallax"

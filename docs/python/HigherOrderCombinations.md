@@ -61,7 +61,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_point_source_lightcurve.png" alt="Point source light curve" width="56%"> <img src="figures/HigherOrder_binary_single_point_source_geometry.png" alt="Point source caustics and trajectories" width="40%"></p>
 
-#### Finite source only
+#### Finite source
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.004}
@@ -87,7 +87,7 @@ plt.xlabel("Trajectory coordinate 1"); plt.ylabel("Trajectory coordinate 2")
 plt.axis("equal"); plt.show()
 ```
 
-<p><img src="figures/HigherOrder_binary_single_finite_source_only_lightcurve.png" alt="Finite source only light curve" width="56%"> <img src="figures/HigherOrder_binary_single_finite_source_only_geometry.png" alt="Finite source only caustics and trajectories" width="40%"></p>
+<p><img src="figures/HigherOrder_binary_single_finite_source_lightcurve.png" alt="Finite source light curve" width="56%"> <img src="figures/HigherOrder_binary_single_finite_source_geometry.png" alt="Finite source caustics and trajectories" width="40%"></p>
 
 ### 2. Parallax
 
@@ -608,7 +608,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_point_source_lightcurve.png" alt="Point source light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_point_source_geometry.png" alt="Point source caustics and trajectories" width="40%"></p>
 
-#### Finite source only
+#### Finite source
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
@@ -641,7 +641,7 @@ plt.xlabel("Trajectory coordinate 1"); plt.ylabel("Trajectory coordinate 2")
 plt.axis("equal"); plt.show()
 ```
 
-<p><img src="figures/HigherOrder_binary_binary_finite_source_only_lightcurve.png" alt="Finite source only light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_finite_source_only_geometry.png" alt="Finite source only caustics and trajectories" width="40%"></p>
+<p><img src="figures/HigherOrder_binary_binary_finite_source_lightcurve.png" alt="Finite source light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_finite_source_geometry.png" alt="Finite source caustics and trajectories" width="40%"></p>
 
 ### 2. Parallax
 
@@ -1414,7 +1414,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_single_point_source_lightcurve.png" alt="Point source light curve" width="56%"> <img src="figures/HigherOrder_triple_single_point_source_geometry.png" alt="Point source caustics and trajectories" width="40%"></p>
 
-#### Finite source only
+#### Finite source
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho': 0.004}
@@ -1440,7 +1440,7 @@ plt.xlabel("Trajectory coordinate 1"); plt.ylabel("Trajectory coordinate 2")
 plt.axis("equal"); plt.show()
 ```
 
-<p><img src="figures/HigherOrder_triple_single_finite_source_only_lightcurve.png" alt="Finite source only light curve" width="56%"> <img src="figures/HigherOrder_triple_single_finite_source_only_geometry.png" alt="Finite source only caustics and trajectories" width="40%"></p>
+<p><img src="figures/HigherOrder_triple_single_finite_source_lightcurve.png" alt="Finite source light curve" width="56%"> <img src="figures/HigherOrder_triple_single_finite_source_geometry.png" alt="Finite source caustics and trajectories" width="40%"></p>
 
 ### 2. Parallax
 
@@ -1625,7 +1625,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_binary_point_source_lightcurve.png" alt="Point source light curve" width="56%"> <img src="figures/HigherOrder_triple_binary_point_source_geometry.png" alt="Point source caustics and trajectories" width="40%"></p>
 
-#### Finite source only
+#### Finite source
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
@@ -1658,7 +1658,7 @@ plt.xlabel("Trajectory coordinate 1"); plt.ylabel("Trajectory coordinate 2")
 plt.axis("equal"); plt.show()
 ```
 
-<p><img src="figures/HigherOrder_triple_binary_finite_source_only_lightcurve.png" alt="Finite source only light curve" width="56%"> <img src="figures/HigherOrder_triple_binary_finite_source_only_geometry.png" alt="Finite source only caustics and trajectories" width="40%"></p>
+<p><img src="figures/HigherOrder_triple_binary_finite_source_lightcurve.png" alt="Finite source light curve" width="56%"> <img src="figures/HigherOrder_triple_binary_finite_source_geometry.png" alt="Finite source caustics and trajectories" width="40%"></p>
 
 ### 2. Parallax
 
