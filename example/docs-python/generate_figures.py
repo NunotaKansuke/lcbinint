@@ -902,9 +902,19 @@ def higher_order_catalogue():
         configs = modes(binary)
         if lens == "triple":
             configs = [item for item in configs if item[3] is None]
+        # The single binary-lens baseline is shown above.  Binary sources and
+        # both triple-lens families need their own finite-source baselines.
+        if binary or lens == "triple":
+            configs.insert(0, ("Finite source only", None, None, None))
         for label, xmode, coordinates, orbit in configs:
             params = config_parameters(lens, source, xmode, coordinates, orbit)
-            args = dict(lens=lens, source=source, parallax=True, sky=sky, t_ref=7500.)
+            parallax = label != "Finite source only"
+            if not parallax:
+                params.pop("piEN")
+                params.pop("piEE")
+            args = dict(lens=lens, source=source, parallax=parallax, t_ref=7500.)
+            if parallax:
+                args["sky"] = sky
             if orbit:
                 args["orbital_motion"] = orbit
             if xmode:

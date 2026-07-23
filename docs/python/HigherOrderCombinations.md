@@ -47,7 +47,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(parameters)
@@ -75,7 +75,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, xallarap='circular_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(parameters)
@@ -103,7 +103,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, xallarap='orbital_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, xallarap='orbital_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(parameters)
@@ -131,7 +131,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, xallarap='circular_velocity'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(parameters)
@@ -159,7 +159,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, xallarap='kepler_velocity'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(parameters)
@@ -187,7 +187,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
@@ -215,7 +215,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular', xallarap='circular_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='circular_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
@@ -243,7 +243,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular', xallarap='orbital_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='orbital_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
@@ -271,7 +271,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular', xallarap='circular_velocity'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='circular_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
@@ -299,7 +299,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular', xallarap='kepler_velocity'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='kepler_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
@@ -327,7 +327,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
@@ -355,7 +355,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler', xallarap='circular_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler', xallarap='circular_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
@@ -383,7 +383,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler', xallarap='orbital_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler', xallarap='orbital_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
@@ -411,7 +411,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler', xallarap='circular_velocity'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler', xallarap='circular_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
@@ -439,7 +439,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler', xallarap='kepler_velocity'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler', xallarap='kepler_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(7500.0, parameters)
@@ -465,11 +465,46 @@ plt.axis("equal"); plt.show()
 
 ## Binary lens, binary source
 
+### Finite source only
+
+```python
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=False, t_ref=7500.0))
+components = curve.binary_source_components(times, parameters)
+magnification = components.total
+trajectory1 = components.source1.trajectory
+trajectory2 = components.source2.trajectory
+caustics = curve.caustics(parameters)
+```
+
+```python
+plt.figure(figsize=(3.8, 2.4))
+plt.plot(times, components.source1.magnification, color="#0173B2", alpha=0.45, label="source 1")
+plt.plot(times, components.source2.magnification, color="#029E73", alpha=0.45, label="source 2")
+plt.plot(times, magnification, color="black", label="total")
+plt.legend(loc="upper left", fontsize=7)
+plt.xlabel("Time"); plt.ylabel("Magnification")
+plt.show()
+```
+
+```python
+plt.figure(figsize=(2.8, 2.7))
+for x, y in zip(caustics.x, caustics.y):
+    plt.plot(x, y, color="#6C6C6C", lw=1.1)
+plt.plot(trajectory1.x, trajectory1.y, color="#0173B2", label="source 1")
+plt.plot(trajectory2.x, trajectory2.y, color="#029E73", label="source 2")
+plt.legend(fontsize=7)
+plt.xlabel("Trajectory coordinate 1"); plt.ylabel("Trajectory coordinate 2")
+plt.axis("equal"); plt.show()
+```
+
+<p><img src="figures/HigherOrder_binary_binary_finite_source_only_lightcurve.png" alt="Finite source only light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_finite_source_only_geometry.png" alt="Finite source only caustics and trajectories" width="40%"></p>
+
 ### Parallax
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -504,7 +539,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='circular_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -539,7 +574,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='orbital_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='orbital_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -574,7 +609,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='circular_velocity', source_orbit_coordinates='xallarap'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -609,7 +644,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='kepler_velocity', source_orbit_coordinates='xallarap'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -644,7 +679,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='circular_velocity', source_orbit_coordinates='trajectory_offset'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -679,7 +714,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='kepler_velocity', source_orbit_coordinates='trajectory_offset'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -714,7 +749,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -749,7 +784,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular', xallarap='circular_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='circular_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -784,7 +819,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular', xallarap='orbital_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='orbital_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -819,7 +854,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular', xallarap='circular_velocity', source_orbit_coordinates='xallarap'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='circular_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -854,7 +889,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular', xallarap='kepler_velocity', source_orbit_coordinates='xallarap'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='kepler_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -889,7 +924,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular', xallarap='circular_velocity', source_orbit_coordinates='trajectory_offset'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='circular_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -924,7 +959,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='circular', xallarap='kepler_velocity', source_orbit_coordinates='trajectory_offset'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='kepler_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -959,7 +994,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -994,7 +1029,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler', xallarap='circular_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler', xallarap='circular_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1029,7 +1064,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler', xallarap='orbital_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler', xallarap='orbital_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1064,7 +1099,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler', xallarap='circular_velocity', source_orbit_coordinates='xallarap'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler', xallarap='circular_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1099,7 +1134,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler', xallarap='kepler_velocity', source_orbit_coordinates='xallarap'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler', xallarap='kepler_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1134,7 +1169,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler', xallarap='circular_velocity', source_orbit_coordinates='trajectory_offset'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler', xallarap='circular_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1169,7 +1204,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, sky=sky, t_ref=7500.0, orbital_motion='kepler', xallarap='kepler_velocity', source_orbit_coordinates='trajectory_offset'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', parallax=True, t_ref=7500.0, sky=sky, orbital_motion='kepler', xallarap='kepler_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1202,11 +1237,39 @@ plt.axis("equal"); plt.show()
 
 ## Triple lens, single source
 
+### Finite source only
+
+```python
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho': 0.004}
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', parallax=False, t_ref=7500.0))
+magnification = curve(times, parameters)
+trajectory = curve.source_trajectory(times, parameters)
+caustics = curve.caustics(parameters)
+```
+
+```python
+plt.figure(figsize=(3.8, 2.4))
+plt.plot(times, magnification, color="#0173B2")
+plt.xlabel("Time"); plt.ylabel("Magnification")
+plt.show()
+```
+
+```python
+plt.figure(figsize=(2.8, 2.7))
+for x, y in zip(caustics.x, caustics.y):
+    plt.plot(x, y, color="#6C6C6C", lw=1.1)
+plt.plot(trajectory.x, trajectory.y, color="#0173B2")
+plt.xlabel("Trajectory coordinate 1"); plt.ylabel("Trajectory coordinate 2")
+plt.axis("equal"); plt.show()
+```
+
+<p><img src="figures/HigherOrder_triple_single_finite_source_only_lightcurve.png" alt="Finite source only light curve" width="56%"> <img src="figures/HigherOrder_triple_single_finite_source_only_geometry.png" alt="Finite source only caustics and trajectories" width="40%"></p>
+
 ### Parallax
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', parallax=True, sky=sky, t_ref=7500.0))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', parallax=True, t_ref=7500.0, sky=sky))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(parameters)
@@ -1234,7 +1297,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', parallax=True, sky=sky, t_ref=7500.0, xallarap='circular_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(parameters)
@@ -1262,7 +1325,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', parallax=True, sky=sky, t_ref=7500.0, xallarap='orbital_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', parallax=True, t_ref=7500.0, sky=sky, xallarap='orbital_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(parameters)
@@ -1290,7 +1353,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', parallax=True, sky=sky, t_ref=7500.0, xallarap='circular_velocity'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(parameters)
@@ -1318,7 +1381,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', parallax=True, sky=sky, t_ref=7500.0, xallarap='kepler_velocity'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
 caustics = curve.caustics(parameters)
@@ -1344,11 +1407,46 @@ plt.axis("equal"); plt.show()
 
 ## Triple lens, binary source
 
+### Finite source only
+
+```python
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=False, t_ref=7500.0))
+components = curve.binary_source_components(times, parameters)
+magnification = components.total
+trajectory1 = components.source1.trajectory
+trajectory2 = components.source2.trajectory
+caustics = curve.caustics(parameters)
+```
+
+```python
+plt.figure(figsize=(3.8, 2.4))
+plt.plot(times, components.source1.magnification, color="#0173B2", alpha=0.45, label="source 1")
+plt.plot(times, components.source2.magnification, color="#029E73", alpha=0.45, label="source 2")
+plt.plot(times, magnification, color="black", label="total")
+plt.legend(loc="upper left", fontsize=7)
+plt.xlabel("Time"); plt.ylabel("Magnification")
+plt.show()
+```
+
+```python
+plt.figure(figsize=(2.8, 2.7))
+for x, y in zip(caustics.x, caustics.y):
+    plt.plot(x, y, color="#6C6C6C", lw=1.1)
+plt.plot(trajectory1.x, trajectory1.y, color="#0173B2", label="source 1")
+plt.plot(trajectory2.x, trajectory2.y, color="#029E73", label="source 2")
+plt.legend(fontsize=7)
+plt.xlabel("Trajectory coordinate 1"); plt.ylabel("Trajectory coordinate 2")
+plt.axis("equal"); plt.show()
+```
+
+<p><img src="figures/HigherOrder_triple_binary_finite_source_only_lightcurve.png" alt="Finite source only light curve" width="56%"> <img src="figures/HigherOrder_triple_binary_finite_source_only_geometry.png" alt="Finite source only caustics and trajectories" width="40%"></p>
+
 ### Parallax
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, sky=sky, t_ref=7500.0))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, t_ref=7500.0, sky=sky))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1383,7 +1481,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='circular_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1418,7 +1516,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='orbital_elements'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='orbital_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1453,7 +1551,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='circular_velocity', source_orbit_coordinates='xallarap'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1488,7 +1586,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='kepler_velocity', source_orbit_coordinates='xallarap'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1523,7 +1621,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='circular_velocity', source_orbit_coordinates='trajectory_offset'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
@@ -1558,7 +1656,7 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, sky=sky, t_ref=7500.0, xallarap='kepler_velocity', source_orbit_coordinates='trajectory_offset'))
+curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
 trajectory1 = components.source1.trajectory
