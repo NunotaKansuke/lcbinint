@@ -125,6 +125,7 @@ lcbi_params LightCurve::apply_coords(const lcbi_params& params) const
             "LightCurve: t_ref must be set when using parallax, orbital motion, or binary-source xallarap");
 
     lcbi_params p = params;
+    if (!model_->finite_source) p.rho = 0.0;
     if (model_->lens == LensKind::triple && p.q2 <= 0.0) {
         throw std::runtime_error(
             "LightCurve: lens='triple' requires a positive q2 parameter");

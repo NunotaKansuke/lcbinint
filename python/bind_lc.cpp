@@ -1330,10 +1330,12 @@ LightCurves with a ground Site apply the terrestrial correction.)")
                 bool               terrestrial,
                 py::object         sky,
                 py::object         t_ref,
-                const std::string& lens) {
+                const std::string& lens,
+                bool               finite_source) {
             Model model;
             model.lens           = parse_lens(lens);
             model.source         = parse_source(source);
+            model.finite_source  = finite_source;
             model.orbital_motion = parse_orbital(orbital_motion);
             model.xallarap       = parse_xallarap(xallarap);
             model.source_orbit_coordinates =
@@ -1352,13 +1354,15 @@ LightCurves with a ground Site apply the terrestrial correction.)")
             py::arg("terrestrial")    = false,
             py::arg("sky")            = py::none(),
             py::arg("t_ref")          = py::none(),
-            py::arg("lens")           = "binary")
+            py::arg("lens")           = "binary",
+            py::arg("finite_source")  = true)
         .def_property("lens",
             [](const Model& model) { return model.lens == LKind::triple ? "triple" : "binary"; },
             [&](Model& model, const std::string& s) { model.lens = parse_lens(s); })
         .def_property("source",
             [](const Model& model) { return model.source == SKind::binary ? "binary" : "single"; },
             [&](Model& model, const std::string& s) { model.source = parse_source(s); })
+        .def_readwrite("finite_source", &Model::finite_source)
         .def_property("orbital_motion",
             [](const Model& model) -> std::string {
                 if (model.orbital_motion == LCBI_ORBIT_CIRCULAR) return "circular";

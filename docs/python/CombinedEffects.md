@@ -2,45 +2,93 @@
 
 # Combining higher-order effects
 
-For a single source, parallax, lens orbital motion, and xallarap are
-composable. Numerical controls remain on `Options`.
+[Open the full combination catalogue](HigherOrderCombinations.md)
 
-| Effect | `Model` switch | Parameters used here |
-| --- | --- | --- |
-| Annual parallax | `parallax=True` | `piEN`, `piEE`, `sky`, `t_ref` |
-| Lens orbital motion | `orbital_motion="circular"` | `g1`, `g2`, `g3` |
-| Xallarap | `xallarap="circular_velocity"` | `xi_1`, `xi_2`, `w1`, `w2`, `w3` |
+<details><summary>Binary lens · single source</summary>
 
-```python
-import numpy as np
-import lcbinint
+| `finite_source` | Parallax | Lens orbit | Xallarap | Example |
+| --- | --- | --- | --- | --- |
+| False | — | — | — | [Open](HigherOrderCombinations.md#higher-order-binary_single_point_source) |
+| True | — | — | — | [Open](HigherOrderCombinations.md#higher-order-binary_single_finite_source) |
+| True | annual | — | — | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax) |
+| True | terrestrial | — | — | [Open](HigherOrderCombinations.md#higher-order-binary_single_terrestrial_parallax) |
+| True | space | — | — | [Open](HigherOrderCombinations.md#higher-order-binary_single_space_parallax) |
+| True | annual | — | circular elements | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__circular_elements_xallarap) |
+| True | annual | — | Kepler elements | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__kepler_elements_xallarap) |
+| True | annual | — | circular velocity | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__direct_circular_velocity_xallarap) |
+| True | annual | — | Kepler velocity | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__direct_kepler_velocity_xallarap) |
+| True | annual | circular | — | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__circular_lens_orbit) |
+| True | annual | circular | circular elements | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__circular_lens_orbit__circular_elements_xallarap) |
+| True | annual | circular | Kepler elements | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__circular_lens_orbit__kepler_elements_xallarap) |
+| True | annual | circular | circular velocity | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__circular_lens_orbit__direct_circular_velocity_xallarap) |
+| True | annual | circular | Kepler velocity | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__circular_lens_orbit__direct_kepler_velocity_xallarap) |
+| True | annual | kepler | — | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__kepler_lens_orbit) |
+| True | annual | kepler | circular elements | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__kepler_lens_orbit__circular_elements_xallarap) |
+| True | annual | kepler | Kepler elements | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__kepler_lens_orbit__kepler_elements_xallarap) |
+| True | annual | kepler | circular velocity | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__kepler_lens_orbit__direct_circular_velocity_xallarap) |
+| True | annual | kepler | Kepler velocity | [Open](HigherOrderCombinations.md#higher-order-binary_single_annual_parallax__kepler_lens_orbit__direct_kepler_velocity_xallarap) |
 
-sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
-curve = lcbinint.LightCurve(
-    model=lcbinint.Model(
-        parallax=True,
-        orbital_motion="circular",
-        xallarap="circular_velocity",
-        sky=sky,
-        t_ref=7500.0,
-    )
-)
-parameters = {
-    "s": 0.9, "q": 0.1, "t0": 7500.0, "u0": 0.1,
-    "tE": 30.0, "alpha": 1.0, "rho": 0.01,
-    "piEN": 0.3, "piEE": -0.2,
-    "g1": 0.011, "g2": -0.005, "g3": 0.005,
-    "xi_1": 0.04, "xi_2": -0.02,
-    "w1": 0.01, "w2": 0.02, "w3": 0.015,
-}
-times = np.linspace(7470.0, 7530.0, 300)
-magnification = curve(times, parameters)
-```
+</details>
 
-Binary sources can also be combined with xallarap. They always use independent
-`rho1`, `rho2`, and `flux_ratio`; `source_mass_ratio` is used only to distribute
-the dynamical xallarap orbit about its centre of mass. See
-[Binary source + xallarap](BinarySourceXallarap.md) for the two
-velocity-coordinate choices and the integrated API.
+<details><summary>Binary lens · binary source</summary>
+
+| `finite_source` | Parallax | Lens orbit | Xallarap | Example |
+| --- | --- | --- | --- | --- |
+| False | — | — | — | [Open](HigherOrderCombinations.md#higher-order-binary_binary_point_source) |
+| True | — | — | — | [Open](HigherOrderCombinations.md#higher-order-binary_binary_finite_source) |
+| True | annual | — | — | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax) |
+| True | annual | — | circular elements | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__circular_elements_xallarap) |
+| True | annual | — | Kepler elements | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__kepler_elements_xallarap) |
+| True | annual | — | circular velocity | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__direct_circular_velocity_xallarap) |
+| True | annual | — | Kepler velocity | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__direct_kepler_velocity_xallarap) |
+| True | annual | — | circular velocity (trajectory offset) | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__trajectory_offset_circular_velocity_xallarap) |
+| True | annual | — | Kepler velocity (trajectory offset) | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__trajectory_offset_kepler_velocity_xallarap) |
+| True | annual | circular | — | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__circular_lens_orbit) |
+| True | annual | circular | circular elements | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__circular_lens_orbit__circular_elements_xallarap) |
+| True | annual | circular | Kepler elements | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__circular_lens_orbit__kepler_elements_xallarap) |
+| True | annual | circular | circular velocity | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__circular_lens_orbit__direct_circular_velocity_xallarap) |
+| True | annual | circular | Kepler velocity | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__circular_lens_orbit__direct_kepler_velocity_xallarap) |
+| True | annual | circular | circular velocity (trajectory offset) | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__circular_lens_orbit__trajectory_offset_circular_velocity_xallarap) |
+| True | annual | circular | Kepler velocity (trajectory offset) | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__circular_lens_orbit__trajectory_offset_kepler_velocity_xallarap) |
+| True | annual | kepler | — | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__kepler_lens_orbit) |
+| True | annual | kepler | circular elements | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__kepler_lens_orbit__circular_elements_xallarap) |
+| True | annual | kepler | Kepler elements | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__kepler_lens_orbit__kepler_elements_xallarap) |
+| True | annual | kepler | circular velocity | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__kepler_lens_orbit__direct_circular_velocity_xallarap) |
+| True | annual | kepler | Kepler velocity | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__kepler_lens_orbit__direct_kepler_velocity_xallarap) |
+| True | annual | kepler | circular velocity (trajectory offset) | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__kepler_lens_orbit__trajectory_offset_circular_velocity_xallarap) |
+| True | annual | kepler | Kepler velocity (trajectory offset) | [Open](HigherOrderCombinations.md#higher-order-binary_binary_annual_parallax__kepler_lens_orbit__trajectory_offset_kepler_velocity_xallarap) |
+
+</details>
+
+<details><summary>Triple lens · single source</summary>
+
+| `finite_source` | Parallax | Lens orbit | Xallarap | Example |
+| --- | --- | --- | --- | --- |
+| False | — | — | — | [Open](HigherOrderCombinations.md#higher-order-triple_single_point_source) |
+| True | — | — | — | [Open](HigherOrderCombinations.md#higher-order-triple_single_finite_source) |
+| True | annual | — | — | [Open](HigherOrderCombinations.md#higher-order-triple_single_annual_parallax) |
+| True | annual | — | circular elements | [Open](HigherOrderCombinations.md#higher-order-triple_single_annual_parallax__circular_elements_xallarap) |
+| True | annual | — | Kepler elements | [Open](HigherOrderCombinations.md#higher-order-triple_single_annual_parallax__kepler_elements_xallarap) |
+| True | annual | — | circular velocity | [Open](HigherOrderCombinations.md#higher-order-triple_single_annual_parallax__direct_circular_velocity_xallarap) |
+| True | annual | — | Kepler velocity | [Open](HigherOrderCombinations.md#higher-order-triple_single_annual_parallax__direct_kepler_velocity_xallarap) |
+
+</details>
+
+<details><summary>Triple lens · binary source</summary>
+
+| `finite_source` | Parallax | Lens orbit | Xallarap | Example |
+| --- | --- | --- | --- | --- |
+| False | — | — | — | [Open](HigherOrderCombinations.md#higher-order-triple_binary_point_source) |
+| True | — | — | — | [Open](HigherOrderCombinations.md#higher-order-triple_binary_finite_source) |
+| True | annual | — | — | [Open](HigherOrderCombinations.md#higher-order-triple_binary_annual_parallax) |
+| True | annual | — | circular elements | [Open](HigherOrderCombinations.md#higher-order-triple_binary_annual_parallax__circular_elements_xallarap) |
+| True | annual | — | Kepler elements | [Open](HigherOrderCombinations.md#higher-order-triple_binary_annual_parallax__kepler_elements_xallarap) |
+| True | annual | — | circular velocity | [Open](HigherOrderCombinations.md#higher-order-triple_binary_annual_parallax__direct_circular_velocity_xallarap) |
+| True | annual | — | Kepler velocity | [Open](HigherOrderCombinations.md#higher-order-triple_binary_annual_parallax__direct_kepler_velocity_xallarap) |
+| True | annual | — | circular velocity (trajectory offset) | [Open](HigherOrderCombinations.md#higher-order-triple_binary_annual_parallax__trajectory_offset_circular_velocity_xallarap) |
+| True | annual | — | Kepler velocity (trajectory offset) | [Open](HigherOrderCombinations.md#higher-order-triple_binary_annual_parallax__trajectory_offset_kepler_velocity_xallarap) |
+
+</details>
+
 
 [Previous: Binary source + xallarap](BinarySourceXallarap.md) · [Documentation home](readme.md)

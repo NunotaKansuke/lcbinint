@@ -17,6 +17,7 @@ enum class SourceOrbitCoordinates { none, xallarap, trajectory_offset };
 struct Model {
     LensKind                 lens           = LensKind::binary;
     SourceKind               source         = SourceKind::single;
+    bool                     finite_source  = true;
     lcbi_orbital_motion_mode orbital_motion = LCBI_ORBIT_STATIC;
     lcbi_xallarap_param_type xallarap       = LCBI_XALLARAP_NONE;
     SourceOrbitCoordinates   source_orbit_coordinates = SourceOrbitCoordinates::none;
