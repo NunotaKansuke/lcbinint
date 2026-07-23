@@ -14,6 +14,4 @@ higher-order effects.
 | Triple | Single | finite source | parallax | four static-lens xallarap modes | [Open](HigherOrderCombinations.md#triple-lens-single-source) |
 | Triple | Binary | finite source | parallax | six static-lens xallarap modes | [Open](HigherOrderCombinations.md#triple-lens-binary-source) |
 
-Finite-source radii can be used with every binary-lens combination shown here.
-
 [Previous: Binary source + xallarap](BinarySourceXallarap.md) · [Documentation home](readme.md)
