@@ -837,21 +837,12 @@ def higher_order_catalogue():
     sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
     options = lcbinint.Options(coordinates="vbm", tol=1e-3, reltol=1e-3)
     times = np.linspace(7470.0, 7530.0, 160)
-    phase = np.linspace(-1.0, 1.0, len(times))
-    satellite_table = np.column_stack([
-        2450000.0 + times,
-        270.0 + 12.0 * phase,
-        -20.0 + 4.0 * np.sin(np.pi * phase),
-        0.55 + 0.05 * phase,
-    ])
     parallax_sites = {
-        "terrestrial": lcbinint.obs.Site("ground", -29.0, -70.7),
+        "chile": lcbinint.obs.Site("ground", -29.0, -70.7),
         "africa": lcbinint.obs.Site("ground", -29.0, 20.0),
-        "space": lcbinint.obs.Site("space", satellite_table),
     }
     base = dict(s=.9, q=.1, t0=7500., u0=.20, tE=30., alpha=.7,
-                piEN=.03, piEE=-.02, g1=.011, g2=-.005, g3=.005,
-                lom_szs=.2, lom_ar=1.4)
+                piEN=.03, piEE=-.02)
     def modes(binary):
         out = [("Parallax", None, None, None)]
         x = [("circular-elements xallarap", "circular_elements", None),
@@ -874,6 +865,10 @@ def higher_order_catalogue():
 
     def config_parameters(lens, source, xmode, coordinates, orbit):
         params = dict(base)
+        if orbit:
+            params.update(g1=.011, g2=-.005, g3=.005)
+            if orbit == "kepler":
+                params.update(lom_szs=.2, lom_ar=1.4)
         if lens == "triple":
             params.update(sep2=1.3, q2=.01, ang=.5)
         if xmode in ("circular_elements", "orbital_elements"):
@@ -901,7 +896,7 @@ def higher_order_catalogue():
         "", "# Higher-order combination catalogue", "",
         "The catalogue is grouped first by lens and source multiplicity. Within every group, the examples progress through three levels: source-size baselines, annual parallax, and parallax with additional higher-order effects. Lens orbit is therefore never shown without parallax, and triple lenses are limited to their supported static-lens geometry.",
         "", '`source` selects source multiplicity (`"single"` or `"binary"`). `finite_source=False` selects point-source evaluation and sets every source radius to zero during evaluation.',
-        "", "```python", "import numpy as np", "import matplotlib.pyplot as plt", "import lcbinint", "", "times = np.linspace(7470.0, 7530.0, 160)", "sky = lcbinint.obs.SkyCoord(\"17:59:02.3\", \"-29:04:15.2\")", "options = lcbinint.Options(coordinates=\"vbm\", tol=1e-3, reltol=1e-3)", "", "phase = np.linspace(-1.0, 1.0, len(times))", "satellite_ephemeris = {", "    \"jd\": 2450000.0 + times,", "    \"ra_deg\": 270.0 + 12.0 * phase,", "    \"dec_deg\": -20.0 + 4.0 * np.sin(np.pi * phase),", "    \"distance_au\": 0.55 + 0.05 * phase,", "}", "satellite_table = np.column_stack(tuple(satellite_ephemeris.values()))", "parallax_sites = {", "    \"chile\": lcbinint.obs.Site(\"ground\", -29.0, -70.7),", "    \"africa\": lcbinint.obs.Site(\"ground\", -29.0, 20.0),", "    \"space\": lcbinint.obs.Site(\"space\", satellite_table),", "}", "```", "",
+        "", "```python", "import numpy as np", "import matplotlib.pyplot as plt", "import lcbinint", "", "times = np.linspace(7470.0, 7530.0, 160)", "sky = lcbinint.obs.SkyCoord(\"17:59:02.3\", \"-29:04:15.2\")", "options = lcbinint.Options(coordinates=\"vbm\", tol=1e-3, reltol=1e-3)", "", "parallax_sites = {", "    \"chile\": lcbinint.obs.Site(\"ground\", -29.0, -70.7),", "    \"africa\": lcbinint.obs.Site(\"ground\", -29.0, 20.0),", "}", "```", "",
     ]
     groups = (("binary", "single", "Binary lens, single source"),
               ("binary", "binary", "Binary lens, binary source"),
@@ -974,12 +969,12 @@ def higher_order_catalogue():
             if binary and coordinates:
                 args["source_orbit_coordinates"] = coordinates
             curve_kwargs = dict(options=options, model=lcbinint.Model(**args))
-            if observer in parallax_sites:
-                curve_kwargs["site"] = parallax_sites[observer]
+            if observer == "terrestrial":
+                curve_kwargs["site"] = parallax_sites["chile"]
             if observer == "space":
-                space_phase = np.linspace(-1.0, 1.0, len(sample_times))
+                space_phase = np.linspace(-1.0, 1.0, len(geometry_times))
                 space_table = np.column_stack([
-                    2450000.0 + sample_times,
+                    2450000.0 + geometry_times,
                     270.0 + 12.0 * space_phase,
                     -20.0 + 4.0 * np.sin(np.pi * space_phase),
                     0.55 + 0.05 * space_phase,
@@ -992,7 +987,7 @@ def higher_order_catalogue():
                 comparison_curves = {
                     "ground": lcbinint.LightCurve(
                         options=options, model=lcbinint.Model(**args),
-                        site=parallax_sites["terrestrial"]),
+                        site=parallax_sites["chile"]),
                     "space": curve,
                 }
             elif observer == "terrestrial":
@@ -1074,7 +1069,7 @@ def higher_order_catalogue():
             if observer == "terrestrial":
                 catalogue += ["# A narrow, high-magnification caustic feature makes the site offset visible.", "times = np.linspace(7501.37, 7501.46, 600)", "geometry_times = np.linspace(7485.0, 7515.0, 300)"]
             if observer == "space":
-                catalogue += ["# This high-magnification feature makes the ground/space offset visible.", "times = np.linspace(7501.35, 7501.48, 600)", "geometry_times = np.linspace(7485.0, 7515.0, 300)", "space_phase = np.linspace(-1.0, 1.0, len(times))", "space_ephemeris = {", "    \"jd\": 2450000.0 + times,", "    \"ra_deg\": 270.0 + 12.0 * space_phase,", "    \"dec_deg\": -20.0 + 4.0 * np.sin(np.pi * space_phase),", "    \"distance_au\": 0.55 + 0.05 * space_phase,", "}", "space_site = lcbinint.obs.Site(\"space\", np.column_stack(tuple(space_ephemeris.values())))"]
+                catalogue += ["# This high-magnification feature makes the ground/space offset visible.", "times = np.linspace(7501.35, 7501.48, 600)", "geometry_times = np.linspace(7485.0, 7515.0, 300)", "# Cover the complete geometry range so source trajectories use interpolation, not extrapolation.", "space_phase = np.linspace(-1.0, 1.0, len(geometry_times))", "space_ephemeris = {", "    \"jd\": 2450000.0 + geometry_times,", "    \"ra_deg\": 270.0 + 12.0 * space_phase,", "    \"dec_deg\": -20.0 + 4.0 * np.sin(np.pi * space_phase),", "    \"distance_au\": 0.55 + 0.05 * space_phase,", "}", "space_site = lcbinint.obs.Site(\"space\", np.column_stack(tuple(space_ephemeris.values())))"]
             catalogue += ["parameters = " + repr(params),
                           "curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(" + model_code + "))"]
             if observer == "space":

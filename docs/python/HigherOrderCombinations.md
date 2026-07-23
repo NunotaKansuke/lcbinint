@@ -15,18 +15,9 @@ times = np.linspace(7470.0, 7530.0, 160)
 sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
 options = lcbinint.Options(coordinates="vbm", tol=1e-3, reltol=1e-3)
 
-phase = np.linspace(-1.0, 1.0, len(times))
-satellite_ephemeris = {
-    "jd": 2450000.0 + times,
-    "ra_deg": 270.0 + 12.0 * phase,
-    "dec_deg": -20.0 + 4.0 * np.sin(np.pi * phase),
-    "distance_au": 0.55 + 0.05 * phase,
-}
-satellite_table = np.column_stack(tuple(satellite_ephemeris.values()))
 parallax_sites = {
     "chile": lcbinint.obs.Site("ground", -29.0, -70.7),
     "africa": lcbinint.obs.Site("ground", -29.0, 20.0),
-    "space": lcbinint.obs.Site("space", satellite_table),
 }
 ```
 
@@ -37,7 +28,7 @@ parallax_sites = {
 #### Point source
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.0}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'rho': 0.0}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=False, parallax=False, t_ref=7500.0))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -65,7 +56,7 @@ plt.axis("equal"); plt.show()
 #### Finite source
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=False, t_ref=7500.0))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -95,7 +86,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -126,7 +117,7 @@ plt.axis("equal"); plt.show()
 # A narrow, high-magnification caustic feature makes the site offset visible.
 times = np.linspace(7501.37, 7501.46, 600)
 geometry_times = np.linspace(7485.0, 7515.0, 300)
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.0003, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 1e-05}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.0003, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'rho': 1e-05}
 site_model = lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, terrestrial=True)
 terrestrial_curves = {
     "Chile": lcbinint.LightCurve(model=site_model, site=parallax_sites["chile"], options=options),
@@ -171,15 +162,16 @@ plt.axis("equal"); plt.show()
 # This high-magnification feature makes the ground/space offset visible.
 times = np.linspace(7501.35, 7501.48, 600)
 geometry_times = np.linspace(7485.0, 7515.0, 300)
-space_phase = np.linspace(-1.0, 1.0, len(times))
+# Cover the complete geometry range so source trajectories use interpolation, not extrapolation.
+space_phase = np.linspace(-1.0, 1.0, len(geometry_times))
 space_ephemeris = {
-    "jd": 2450000.0 + times,
+    "jd": 2450000.0 + geometry_times,
     "ra_deg": 270.0 + 12.0 * space_phase,
     "dec_deg": -20.0 + 4.0 * np.sin(np.pi * space_phase),
     "distance_au": 0.55 + 0.05 * space_phase,
 }
 space_site = lcbinint.obs.Site("space", np.column_stack(tuple(space_ephemeris.values())))
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.0003, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.0001}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.0003, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'rho': 0.0001}
 space_model = lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, terrestrial=True)
 parallax_curves = {
     "ground": lcbinint.LightCurve(model=space_model, site=parallax_sites["chile"], options=options),
@@ -217,7 +209,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -245,7 +237,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + Kepler-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='orbital_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -273,7 +265,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + direct circular-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -301,7 +293,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + direct Kepler-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -329,7 +321,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -357,7 +349,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit + circular-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='circular_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -385,7 +377,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit + Kepler-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='orbital_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -413,7 +405,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit + direct circular-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='circular_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -441,7 +433,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit + direct Kepler-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='kepler_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -613,7 +605,7 @@ plt.axis("equal"); plt.show()
 #### Point source
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho1': 0.0, 'rho2': 0.0, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'rho1': 0.0, 'rho2': 0.0, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=False, parallax=False, t_ref=7500.0))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -648,7 +640,7 @@ plt.axis("equal"); plt.show()
 #### Finite source
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=False, t_ref=7500.0))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -685,7 +677,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -722,7 +714,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -757,7 +749,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + Kepler-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='orbital_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -792,7 +784,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + direct circular-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -827,7 +819,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + direct Kepler-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -862,7 +854,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + trajectory-offset circular-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -897,7 +889,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + trajectory-offset Kepler-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -932,7 +924,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -967,7 +959,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit + circular-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='circular_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1002,7 +994,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit + Kepler-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='orbital_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1037,7 +1029,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit + direct circular-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='circular_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1072,7 +1064,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit + direct Kepler-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='kepler_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1107,7 +1099,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit + trajectory-offset circular-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='circular_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1142,7 +1134,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular lens orbit + trajectory-offset Kepler-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, orbital_motion='circular', xallarap='kepler_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1426,7 +1418,7 @@ plt.axis("equal"); plt.show()
 #### Point source
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho': 0.0}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho': 0.0}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', finite_source=False, parallax=False, t_ref=7500.0))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -1454,7 +1446,7 @@ plt.axis("equal"); plt.show()
 #### Finite source
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', finite_source=True, parallax=False, t_ref=7500.0))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -1484,7 +1476,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -1514,7 +1506,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -1542,7 +1534,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + Kepler-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='orbital_elements'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -1570,7 +1562,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + direct circular-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -1598,7 +1590,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + direct Kepler-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho': 0.004}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho': 0.004}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity'))
 magnification = curve(times, parameters)
 trajectory = curve.source_trajectory(times, parameters)
@@ -1630,7 +1622,7 @@ plt.axis("equal"); plt.show()
 #### Point source
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho1': 0.0, 'rho2': 0.0, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho1': 0.0, 'rho2': 0.0, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', finite_source=False, parallax=False, t_ref=7500.0))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1665,7 +1657,7 @@ plt.axis("equal"); plt.show()
 #### Finite source
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', finite_source=True, parallax=False, t_ref=7500.0))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1702,7 +1694,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 't0_2': 7501.2, 'u0_2': -0.06}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1739,7 +1731,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + circular-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1774,7 +1766,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + Kepler-elements xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'period_xa': 12.0, 'inc_xa': 0.6, 'ecc_xa': 0.2, 'peri_xa': 0.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='orbital_elements'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1809,7 +1801,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + direct circular-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1844,7 +1836,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + direct Kepler-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity', source_orbit_coordinates='xallarap'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1879,7 +1871,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + trajectory-offset circular-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='circular_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
@@ -1914,7 +1906,7 @@ plt.axis("equal"); plt.show()
 #### Annual parallax + trajectory-offset Kepler-velocity xallarap
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7499.4, 'u0': 0.19, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'sep2': 1.3, 'q2': 0.01, 'ang': 0.5, 'xi_1': 0.006, 'xi_2': -0.003, 'w1': 0.004, 'w2': 0.35, 'w3': 0.08, 'xa_szs': 0.2, 'xa_ar': 1.4, 'rho1': 0.004, 'rho2': 0.003, 'flux_ratio': 0.4, 'source_mass_ratio': 0.7, 't0_2': 7500.857142857, 'u0_2': 0.214285714}
 curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='triple', source='binary', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, xallarap='kepler_velocity', source_orbit_coordinates='trajectory_offset'))
 components = curve.binary_source_components(times, parameters)
 magnification = components.total
