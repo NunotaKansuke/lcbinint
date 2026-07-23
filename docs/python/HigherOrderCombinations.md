@@ -15,9 +15,17 @@ times = np.linspace(7470.0, 7530.0, 160)
 sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
 options = lcbinint.Options(coordinates="vbm", tol=1e-3, reltol=1e-3)
 
+space_geometry_times = np.linspace(7470.0, 7530.0, 400)
+space_ephemeris = {
+    "jd": 2450000.0 + space_geometry_times,
+    "ra_deg": np.full(len(space_geometry_times), 180.0),
+    "dec_deg": np.full(len(space_geometry_times), -30.0),
+    "distance_au": np.full(len(space_geometry_times), 1.0),
+}
 parallax_sites = {
     "chile": lcbinint.obs.Site("ground", -29.0, -70.7),
     "africa": lcbinint.obs.Site("ground", -29.0, 20.0),
+    "space": lcbinint.obs.Site("space", np.column_stack(tuple(space_ephemeris.values()))),
 }
 ```
 
@@ -161,19 +169,12 @@ plt.axis("equal"); plt.show()
 ```python
 # Compare the complete event from ground and space.
 times = np.linspace(7470.0, 7530.0, 1800)
-geometry_times = np.linspace(7470.0, 7530.0, 400)
-space_ephemeris = {
-    "jd": 2450000.0 + geometry_times,
-    "ra_deg": np.full(len(geometry_times), 180.0),
-    "dec_deg": np.full(len(geometry_times), -30.0),
-    "distance_au": np.full(len(geometry_times), 1.0),
-}
-space_site = lcbinint.obs.Site("space", np.column_stack(tuple(space_ephemeris.values())))
+geometry_times = space_geometry_times
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.03, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.08, 'piEE': -0.06, 'rho': 0.004}
 space_model = lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, terrestrial=True)
 parallax_curves = {
     "ground": lcbinint.LightCurve(model=space_model, site=parallax_sites["chile"], options=options),
-    "space": lcbinint.LightCurve(model=space_model, site=space_site, options=options),
+    "space": lcbinint.LightCurve(model=space_model, site=parallax_sites["space"], options=options),
 }
 magnifications = {name: value(times, parameters) for name, value in parallax_curves.items()}
 trajectories = {name: value.source_trajectory(geometry_times, parameters) for name, value in parallax_curves.items()}
