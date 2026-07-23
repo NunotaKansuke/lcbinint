@@ -837,6 +837,17 @@ def higher_order_catalogue():
     sky = lcbinint.obs.SkyCoord("17:59:02.3", "-29:04:15.2")
     options = lcbinint.Options(coordinates="vbm", tol=1e-3, reltol=1e-3)
     times = np.linspace(7470.0, 7530.0, 160)
+    phase = np.linspace(-1.0, 1.0, len(times))
+    satellite_table = np.column_stack([
+        2450000.0 + times,
+        270.0 + 12.0 * phase,
+        -20.0 + 4.0 * np.sin(np.pi * phase),
+        0.55 + 0.05 * phase,
+    ])
+    parallax_sites = {
+        "terrestrial": lcbinint.obs.Site("ground", -29.0, -70.7),
+        "space": lcbinint.obs.Site("space", satellite_table),
+    }
     base = dict(s=.9, q=.1, t0=7500., u0=.20, tE=30., alpha=.7,
                 piEN=.03, piEE=-.02, g1=.011, g2=-.005, g3=.005,
                 lom_szs=.2, lom_ar=1.4)
@@ -889,7 +900,7 @@ def higher_order_catalogue():
         "", "# Higher-order combination catalogue", "",
         "The catalogue is grouped first by lens and source multiplicity. Within every group, the examples progress through three levels: source-size baselines, annual parallax, and parallax with additional higher-order effects. Lens orbit is therefore never shown without parallax, and triple lenses are limited to their supported static-lens geometry.",
         "", '`source` selects source multiplicity (`"single"` or `"binary"`). `finite_source=False` selects point-source evaluation and sets every source radius to zero during evaluation.',
-        "", "```python", "import numpy as np", "import matplotlib.pyplot as plt", "import lcbinint", "", "times = np.linspace(7470.0, 7530.0, 160)", "sky = lcbinint.obs.SkyCoord(\"17:59:02.3\", \"-29:04:15.2\")", "options = lcbinint.Options(coordinates=\"vbm\", tol=1e-3, reltol=1e-3)", "```", "",
+        "", "```python", "import numpy as np", "import matplotlib.pyplot as plt", "import lcbinint", "", "times = np.linspace(7470.0, 7530.0, 160)", "sky = lcbinint.obs.SkyCoord(\"17:59:02.3\", \"-29:04:15.2\")", "options = lcbinint.Options(coordinates=\"vbm\", tol=1e-3, reltol=1e-3)", "", "phase = np.linspace(-1.0, 1.0, len(times))", "satellite_ephemeris = {", "    \"jd\": 2450000.0 + times,", "    \"ra_deg\": 270.0 + 12.0 * phase,", "    \"dec_deg\": -20.0 + 4.0 * np.sin(np.pi * phase),", "    \"distance_au\": 0.55 + 0.05 * phase,", "}", "satellite_table = np.column_stack(tuple(satellite_ephemeris.values()))", "parallax_sites = {", "    \"terrestrial\": lcbinint.obs.Site(\"ground\", -29.0, -70.7),", "    \"space\": lcbinint.obs.Site(\"space\", satellite_table),", "}", "```", "",
     ]
     groups = (("binary", "single", "Binary lens, single source"),
               ("binary", "binary", "Binary lens, binary source"),
@@ -903,12 +914,24 @@ def higher_order_catalogue():
             configs = [item for item in configs if item[3] is None]
         configs.insert(0, ("Finite source only", None, None, None))
         configs.insert(0, ("Point source", None, None, None))
-        level = None
+        observer_configs = []
         for label, xmode, coordinates, orbit in configs:
             if label in ("Point source", "Finite source only"):
+                observer_configs.append((label, xmode, coordinates, orbit, None))
+                continue
+            suffix = label.removeprefix("Parallax")
+            observers = ("annual",)
+            if (label == "Parallax" and lens == "binary" and source == "single"):
+                observers = ("annual", "terrestrial", "space")
+            for observer in observers:
+                observer_configs.append((observer.capitalize() + " parallax" + suffix,
+                                         xmode, coordinates, orbit, observer))
+        level = None
+        for label, xmode, coordinates, orbit, observer in observer_configs:
+            if label in ("Point source", "Finite source only"):
                 category = "### 1. Source-size baselines"
-            elif label == "Parallax":
-                category = "### 2. Annual parallax"
+            elif xmode is None and orbit is None:
+                category = "### 2. Parallax"
             else:
                 category = "### 3. Parallax with additional higher-order effects"
             if category != level:
@@ -916,7 +939,7 @@ def higher_order_catalogue():
                 level = category
             params = config_parameters(lens, source, xmode, coordinates, orbit)
             point_source = label == "Point source"
-            parallax = label not in ("Point source", "Finite source only")
+            parallax = observer is not None
             if point_source:
                 if binary:
                     params["rho1"] = 0.0
@@ -931,13 +954,18 @@ def higher_order_catalogue():
                         parallax=parallax, t_ref=7500.)
             if parallax:
                 args["sky"] = sky
+            if observer in ("terrestrial", "space"):
+                args["terrestrial"] = True
             if orbit:
                 args["orbital_motion"] = orbit
             if xmode:
                 args["xallarap"] = xmode
             if binary and coordinates:
                 args["source_orbit_coordinates"] = coordinates
-            curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(**args))
+            curve_kwargs = dict(options=options, model=lcbinint.Model(**args))
+            if observer in parallax_sites:
+                curve_kwargs["site"] = parallax_sites[observer]
+            curve = lcbinint.LightCurve(**curve_kwargs)
             components = curve.binary_source_components(times, params) if binary else None
             mag = components.total if binary else curve(times, params)
             caustics = curve.caustics(7500., params) if orbit else curve.caustics(params)
@@ -976,6 +1004,8 @@ def higher_order_catalogue():
             catalogue += ["#### " + label, "", "```python", "parameters = " + repr(params),
                           "curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(" + model_code + "))",
                           ]
+            if observer in ("terrestrial", "space"):
+                catalogue[-1] = "curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(" + model_code + "), site=parallax_sites[\"" + observer + "\"])"
             if binary:
                 catalogue += ["components = curve.binary_source_components(times, parameters)", "magnification = components.total", "trajectory1 = components.source1.trajectory", "trajectory2 = components.source2.trajectory"]
             else:
