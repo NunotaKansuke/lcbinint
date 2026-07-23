@@ -33,6 +33,7 @@ parallax_sites = {
 
 ### 1. Source-size baselines
 
+<a id="higher-order-binary_single_point_source"></a>
 #### Point source
 
 ```python
@@ -61,6 +62,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_point_source_lightcurve.png" alt="Point source light curve" width="56%"> <img src="figures/HigherOrder_binary_single_point_source_geometry.png" alt="Point source caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_finite_source"></a>
 #### Finite source
 
 ```python
@@ -91,6 +93,7 @@ plt.axis("equal"); plt.show()
 
 ### 2. Parallax
 
+<a id="higher-order-binary_single_annual_parallax"></a>
 #### Annual parallax
 
 ```python
@@ -119,6 +122,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax_lightcurve.png" alt="Annual parallax light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax_geometry.png" alt="Annual parallax caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_terrestrial_parallax"></a>
 #### Terrestrial parallax
 
 ```python
@@ -164,6 +168,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_terrestrial_parallax_lightcurve.png" alt="Terrestrial parallax light curve" width="56%"> <img src="figures/HigherOrder_binary_single_terrestrial_parallax_geometry.png" alt="Terrestrial parallax caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_space_parallax"></a>
 #### Space parallax
 
 ```python
@@ -205,6 +210,7 @@ plt.axis("equal"); plt.show()
 
 ### 3. Parallax with additional higher-order effects
 
+<a id="higher-order-binary_single_annual_parallax__circular_elements_xallarap"></a>
 #### Annual parallax + circular-elements xallarap
 
 ```python
@@ -233,6 +239,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__circular_elements_xallarap_lightcurve.png" alt="Annual parallax + circular-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__circular_elements_xallarap_geometry.png" alt="Annual parallax + circular-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__kepler_elements_xallarap"></a>
 #### Annual parallax + Kepler-elements xallarap
 
 ```python
@@ -261,6 +268,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__kepler_elements_xallarap_lightcurve.png" alt="Annual parallax + Kepler-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__kepler_elements_xallarap_geometry.png" alt="Annual parallax + Kepler-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__direct_circular_velocity_xallarap"></a>
 #### Annual parallax + direct circular-velocity xallarap
 
 ```python
@@ -289,6 +297,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__direct_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + direct circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__direct_circular_velocity_xallarap_geometry.png" alt="Annual parallax + direct circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__direct_kepler_velocity_xallarap"></a>
 #### Annual parallax + direct Kepler-velocity xallarap
 
 ```python
@@ -317,6 +326,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__direct_kepler_velocity_xallarap_lightcurve.png" alt="Annual parallax + direct Kepler-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__direct_kepler_velocity_xallarap_geometry.png" alt="Annual parallax + direct Kepler-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__circular_lens_orbit"></a>
 #### Annual parallax + circular lens orbit
 
 ```python
@@ -345,6 +355,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__circular_lens_orbit_lightcurve.png" alt="Annual parallax + circular lens orbit light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__circular_lens_orbit_geometry.png" alt="Annual parallax + circular lens orbit caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__circular_lens_orbit__circular_elements_xallarap"></a>
 #### Annual parallax + circular lens orbit + circular-elements xallarap
 
 ```python
@@ -373,6 +384,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__circular_lens_orbit__circular_elements_xallarap_lightcurve.png" alt="Annual parallax + circular lens orbit + circular-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__circular_lens_orbit__circular_elements_xallarap_geometry.png" alt="Annual parallax + circular lens orbit + circular-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__circular_lens_orbit__kepler_elements_xallarap"></a>
 #### Annual parallax + circular lens orbit + Kepler-elements xallarap
 
 ```python
@@ -401,6 +413,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__circular_lens_orbit__kepler_elements_xallarap_lightcurve.png" alt="Annual parallax + circular lens orbit + Kepler-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__circular_lens_orbit__kepler_elements_xallarap_geometry.png" alt="Annual parallax + circular lens orbit + Kepler-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__circular_lens_orbit__direct_circular_velocity_xallarap"></a>
 #### Annual parallax + circular lens orbit + direct circular-velocity xallarap
 
 ```python
@@ -429,6 +442,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__circular_lens_orbit__direct_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + circular lens orbit + direct circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__circular_lens_orbit__direct_circular_velocity_xallarap_geometry.png" alt="Annual parallax + circular lens orbit + direct circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__circular_lens_orbit__direct_kepler_velocity_xallarap"></a>
 #### Annual parallax + circular lens orbit + direct Kepler-velocity xallarap
 
 ```python
@@ -457,6 +471,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__circular_lens_orbit__direct_kepler_velocity_xallarap_lightcurve.png" alt="Annual parallax + circular lens orbit + direct Kepler-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__circular_lens_orbit__direct_kepler_velocity_xallarap_geometry.png" alt="Annual parallax + circular lens orbit + direct Kepler-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__kepler_lens_orbit"></a>
 #### Annual parallax + Kepler lens orbit
 
 ```python
@@ -485,6 +500,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__kepler_lens_orbit_lightcurve.png" alt="Annual parallax + Kepler lens orbit light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__kepler_lens_orbit_geometry.png" alt="Annual parallax + Kepler lens orbit caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__kepler_lens_orbit__circular_elements_xallarap"></a>
 #### Annual parallax + Kepler lens orbit + circular-elements xallarap
 
 ```python
@@ -513,6 +529,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__kepler_lens_orbit__circular_elements_xallarap_lightcurve.png" alt="Annual parallax + Kepler lens orbit + circular-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__kepler_lens_orbit__circular_elements_xallarap_geometry.png" alt="Annual parallax + Kepler lens orbit + circular-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__kepler_lens_orbit__kepler_elements_xallarap"></a>
 #### Annual parallax + Kepler lens orbit + Kepler-elements xallarap
 
 ```python
@@ -541,6 +558,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__kepler_lens_orbit__kepler_elements_xallarap_lightcurve.png" alt="Annual parallax + Kepler lens orbit + Kepler-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__kepler_lens_orbit__kepler_elements_xallarap_geometry.png" alt="Annual parallax + Kepler lens orbit + Kepler-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__kepler_lens_orbit__direct_circular_velocity_xallarap"></a>
 #### Annual parallax + Kepler lens orbit + direct circular-velocity xallarap
 
 ```python
@@ -569,6 +587,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_single_annual_parallax__kepler_lens_orbit__direct_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + Kepler lens orbit + direct circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_single_annual_parallax__kepler_lens_orbit__direct_circular_velocity_xallarap_geometry.png" alt="Annual parallax + Kepler lens orbit + direct circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_single_annual_parallax__kepler_lens_orbit__direct_kepler_velocity_xallarap"></a>
 #### Annual parallax + Kepler lens orbit + direct Kepler-velocity xallarap
 
 ```python
@@ -601,6 +620,7 @@ plt.axis("equal"); plt.show()
 
 ### 1. Source-size baselines
 
+<a id="higher-order-binary_binary_point_source"></a>
 #### Point source
 
 ```python
@@ -636,6 +656,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_point_source_lightcurve.png" alt="Point source light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_point_source_geometry.png" alt="Point source caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_finite_source"></a>
 #### Finite source
 
 ```python
@@ -673,6 +694,7 @@ plt.axis("equal"); plt.show()
 
 ### 2. Parallax
 
+<a id="higher-order-binary_binary_annual_parallax"></a>
 #### Annual parallax
 
 ```python
@@ -710,6 +732,7 @@ plt.axis("equal"); plt.show()
 
 ### 3. Parallax with additional higher-order effects
 
+<a id="higher-order-binary_binary_annual_parallax__circular_elements_xallarap"></a>
 #### Annual parallax + circular-elements xallarap
 
 ```python
@@ -745,6 +768,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__circular_elements_xallarap_lightcurve.png" alt="Annual parallax + circular-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__circular_elements_xallarap_geometry.png" alt="Annual parallax + circular-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__kepler_elements_xallarap"></a>
 #### Annual parallax + Kepler-elements xallarap
 
 ```python
@@ -780,6 +804,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_elements_xallarap_lightcurve.png" alt="Annual parallax + Kepler-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_elements_xallarap_geometry.png" alt="Annual parallax + Kepler-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__direct_circular_velocity_xallarap"></a>
 #### Annual parallax + direct circular-velocity xallarap
 
 ```python
@@ -815,6 +840,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__direct_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + direct circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__direct_circular_velocity_xallarap_geometry.png" alt="Annual parallax + direct circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__direct_kepler_velocity_xallarap"></a>
 #### Annual parallax + direct Kepler-velocity xallarap
 
 ```python
@@ -850,6 +876,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__direct_kepler_velocity_xallarap_lightcurve.png" alt="Annual parallax + direct Kepler-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__direct_kepler_velocity_xallarap_geometry.png" alt="Annual parallax + direct Kepler-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__trajectory_offset_circular_velocity_xallarap"></a>
 #### Annual parallax + trajectory-offset circular-velocity xallarap
 
 ```python
@@ -885,6 +912,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__trajectory_offset_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + trajectory-offset circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__trajectory_offset_circular_velocity_xallarap_geometry.png" alt="Annual parallax + trajectory-offset circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__trajectory_offset_kepler_velocity_xallarap"></a>
 #### Annual parallax + trajectory-offset Kepler-velocity xallarap
 
 ```python
@@ -920,6 +948,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__trajectory_offset_kepler_velocity_xallarap_lightcurve.png" alt="Annual parallax + trajectory-offset Kepler-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__trajectory_offset_kepler_velocity_xallarap_geometry.png" alt="Annual parallax + trajectory-offset Kepler-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__circular_lens_orbit"></a>
 #### Annual parallax + circular lens orbit
 
 ```python
@@ -955,6 +984,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit_lightcurve.png" alt="Annual parallax + circular lens orbit light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit_geometry.png" alt="Annual parallax + circular lens orbit caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__circular_lens_orbit__circular_elements_xallarap"></a>
 #### Annual parallax + circular lens orbit + circular-elements xallarap
 
 ```python
@@ -990,6 +1020,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__circular_elements_xallarap_lightcurve.png" alt="Annual parallax + circular lens orbit + circular-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__circular_elements_xallarap_geometry.png" alt="Annual parallax + circular lens orbit + circular-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__circular_lens_orbit__kepler_elements_xallarap"></a>
 #### Annual parallax + circular lens orbit + Kepler-elements xallarap
 
 ```python
@@ -1025,6 +1056,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__kepler_elements_xallarap_lightcurve.png" alt="Annual parallax + circular lens orbit + Kepler-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__kepler_elements_xallarap_geometry.png" alt="Annual parallax + circular lens orbit + Kepler-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__circular_lens_orbit__direct_circular_velocity_xallarap"></a>
 #### Annual parallax + circular lens orbit + direct circular-velocity xallarap
 
 ```python
@@ -1060,6 +1092,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__direct_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + circular lens orbit + direct circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__direct_circular_velocity_xallarap_geometry.png" alt="Annual parallax + circular lens orbit + direct circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__circular_lens_orbit__direct_kepler_velocity_xallarap"></a>
 #### Annual parallax + circular lens orbit + direct Kepler-velocity xallarap
 
 ```python
@@ -1095,6 +1128,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__direct_kepler_velocity_xallarap_lightcurve.png" alt="Annual parallax + circular lens orbit + direct Kepler-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__direct_kepler_velocity_xallarap_geometry.png" alt="Annual parallax + circular lens orbit + direct Kepler-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__circular_lens_orbit__trajectory_offset_circular_velocity_xallarap"></a>
 #### Annual parallax + circular lens orbit + trajectory-offset circular-velocity xallarap
 
 ```python
@@ -1130,6 +1164,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__trajectory_offset_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + circular lens orbit + trajectory-offset circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__trajectory_offset_circular_velocity_xallarap_geometry.png" alt="Annual parallax + circular lens orbit + trajectory-offset circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__circular_lens_orbit__trajectory_offset_kepler_velocity_xallarap"></a>
 #### Annual parallax + circular lens orbit + trajectory-offset Kepler-velocity xallarap
 
 ```python
@@ -1165,6 +1200,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__trajectory_offset_kepler_velocity_xallarap_lightcurve.png" alt="Annual parallax + circular lens orbit + trajectory-offset Kepler-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__circular_lens_orbit__trajectory_offset_kepler_velocity_xallarap_geometry.png" alt="Annual parallax + circular lens orbit + trajectory-offset Kepler-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__kepler_lens_orbit"></a>
 #### Annual parallax + Kepler lens orbit
 
 ```python
@@ -1200,6 +1236,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit_lightcurve.png" alt="Annual parallax + Kepler lens orbit light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit_geometry.png" alt="Annual parallax + Kepler lens orbit caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__kepler_lens_orbit__circular_elements_xallarap"></a>
 #### Annual parallax + Kepler lens orbit + circular-elements xallarap
 
 ```python
@@ -1235,6 +1272,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit__circular_elements_xallarap_lightcurve.png" alt="Annual parallax + Kepler lens orbit + circular-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit__circular_elements_xallarap_geometry.png" alt="Annual parallax + Kepler lens orbit + circular-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__kepler_lens_orbit__kepler_elements_xallarap"></a>
 #### Annual parallax + Kepler lens orbit + Kepler-elements xallarap
 
 ```python
@@ -1270,6 +1308,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit__kepler_elements_xallarap_lightcurve.png" alt="Annual parallax + Kepler lens orbit + Kepler-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit__kepler_elements_xallarap_geometry.png" alt="Annual parallax + Kepler lens orbit + Kepler-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__kepler_lens_orbit__direct_circular_velocity_xallarap"></a>
 #### Annual parallax + Kepler lens orbit + direct circular-velocity xallarap
 
 ```python
@@ -1305,6 +1344,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit__direct_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + Kepler lens orbit + direct circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit__direct_circular_velocity_xallarap_geometry.png" alt="Annual parallax + Kepler lens orbit + direct circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__kepler_lens_orbit__direct_kepler_velocity_xallarap"></a>
 #### Annual parallax + Kepler lens orbit + direct Kepler-velocity xallarap
 
 ```python
@@ -1340,6 +1380,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit__direct_kepler_velocity_xallarap_lightcurve.png" alt="Annual parallax + Kepler lens orbit + direct Kepler-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit__direct_kepler_velocity_xallarap_geometry.png" alt="Annual parallax + Kepler lens orbit + direct Kepler-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__kepler_lens_orbit__trajectory_offset_circular_velocity_xallarap"></a>
 #### Annual parallax + Kepler lens orbit + trajectory-offset circular-velocity xallarap
 
 ```python
@@ -1375,6 +1416,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit__trajectory_offset_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + Kepler lens orbit + trajectory-offset circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_binary_binary_annual_parallax__kepler_lens_orbit__trajectory_offset_circular_velocity_xallarap_geometry.png" alt="Annual parallax + Kepler lens orbit + trajectory-offset circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-binary_binary_annual_parallax__kepler_lens_orbit__trajectory_offset_kepler_velocity_xallarap"></a>
 #### Annual parallax + Kepler lens orbit + trajectory-offset Kepler-velocity xallarap
 
 ```python
@@ -1414,6 +1456,7 @@ plt.axis("equal"); plt.show()
 
 ### 1. Source-size baselines
 
+<a id="higher-order-triple_single_point_source"></a>
 #### Point source
 
 ```python
@@ -1442,6 +1485,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_single_point_source_lightcurve.png" alt="Point source light curve" width="56%"> <img src="figures/HigherOrder_triple_single_point_source_geometry.png" alt="Point source caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-triple_single_finite_source"></a>
 #### Finite source
 
 ```python
@@ -1472,6 +1516,7 @@ plt.axis("equal"); plt.show()
 
 ### 2. Parallax
 
+<a id="higher-order-triple_single_annual_parallax"></a>
 #### Annual parallax
 
 ```python
@@ -1502,6 +1547,7 @@ plt.axis("equal"); plt.show()
 
 ### 3. Parallax with additional higher-order effects
 
+<a id="higher-order-triple_single_annual_parallax__circular_elements_xallarap"></a>
 #### Annual parallax + circular-elements xallarap
 
 ```python
@@ -1530,6 +1576,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_single_annual_parallax__circular_elements_xallarap_lightcurve.png" alt="Annual parallax + circular-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_triple_single_annual_parallax__circular_elements_xallarap_geometry.png" alt="Annual parallax + circular-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-triple_single_annual_parallax__kepler_elements_xallarap"></a>
 #### Annual parallax + Kepler-elements xallarap
 
 ```python
@@ -1558,6 +1605,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_single_annual_parallax__kepler_elements_xallarap_lightcurve.png" alt="Annual parallax + Kepler-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_triple_single_annual_parallax__kepler_elements_xallarap_geometry.png" alt="Annual parallax + Kepler-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-triple_single_annual_parallax__direct_circular_velocity_xallarap"></a>
 #### Annual parallax + direct circular-velocity xallarap
 
 ```python
@@ -1586,6 +1634,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_single_annual_parallax__direct_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + direct circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_triple_single_annual_parallax__direct_circular_velocity_xallarap_geometry.png" alt="Annual parallax + direct circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-triple_single_annual_parallax__direct_kepler_velocity_xallarap"></a>
 #### Annual parallax + direct Kepler-velocity xallarap
 
 ```python
@@ -1618,6 +1667,7 @@ plt.axis("equal"); plt.show()
 
 ### 1. Source-size baselines
 
+<a id="higher-order-triple_binary_point_source"></a>
 #### Point source
 
 ```python
@@ -1653,6 +1703,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_binary_point_source_lightcurve.png" alt="Point source light curve" width="56%"> <img src="figures/HigherOrder_triple_binary_point_source_geometry.png" alt="Point source caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-triple_binary_finite_source"></a>
 #### Finite source
 
 ```python
@@ -1690,6 +1741,7 @@ plt.axis("equal"); plt.show()
 
 ### 2. Parallax
 
+<a id="higher-order-triple_binary_annual_parallax"></a>
 #### Annual parallax
 
 ```python
@@ -1727,6 +1779,7 @@ plt.axis("equal"); plt.show()
 
 ### 3. Parallax with additional higher-order effects
 
+<a id="higher-order-triple_binary_annual_parallax__circular_elements_xallarap"></a>
 #### Annual parallax + circular-elements xallarap
 
 ```python
@@ -1762,6 +1815,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_binary_annual_parallax__circular_elements_xallarap_lightcurve.png" alt="Annual parallax + circular-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_triple_binary_annual_parallax__circular_elements_xallarap_geometry.png" alt="Annual parallax + circular-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-triple_binary_annual_parallax__kepler_elements_xallarap"></a>
 #### Annual parallax + Kepler-elements xallarap
 
 ```python
@@ -1797,6 +1851,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_binary_annual_parallax__kepler_elements_xallarap_lightcurve.png" alt="Annual parallax + Kepler-elements xallarap light curve" width="56%"> <img src="figures/HigherOrder_triple_binary_annual_parallax__kepler_elements_xallarap_geometry.png" alt="Annual parallax + Kepler-elements xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-triple_binary_annual_parallax__direct_circular_velocity_xallarap"></a>
 #### Annual parallax + direct circular-velocity xallarap
 
 ```python
@@ -1832,6 +1887,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_binary_annual_parallax__direct_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + direct circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_triple_binary_annual_parallax__direct_circular_velocity_xallarap_geometry.png" alt="Annual parallax + direct circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-triple_binary_annual_parallax__direct_kepler_velocity_xallarap"></a>
 #### Annual parallax + direct Kepler-velocity xallarap
 
 ```python
@@ -1867,6 +1923,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_binary_annual_parallax__direct_kepler_velocity_xallarap_lightcurve.png" alt="Annual parallax + direct Kepler-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_triple_binary_annual_parallax__direct_kepler_velocity_xallarap_geometry.png" alt="Annual parallax + direct Kepler-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-triple_binary_annual_parallax__trajectory_offset_circular_velocity_xallarap"></a>
 #### Annual parallax + trajectory-offset circular-velocity xallarap
 
 ```python
@@ -1902,6 +1959,7 @@ plt.axis("equal"); plt.show()
 
 <p><img src="figures/HigherOrder_triple_binary_annual_parallax__trajectory_offset_circular_velocity_xallarap_lightcurve.png" alt="Annual parallax + trajectory-offset circular-velocity xallarap light curve" width="56%"> <img src="figures/HigherOrder_triple_binary_annual_parallax__trajectory_offset_circular_velocity_xallarap_geometry.png" alt="Annual parallax + trajectory-offset circular-velocity xallarap caustics and trajectories" width="40%"></p>
 
+<a id="higher-order-triple_binary_annual_parallax__trajectory_offset_kepler_velocity_xallarap"></a>
 #### Annual parallax + trajectory-offset Kepler-velocity xallarap
 
 ```python

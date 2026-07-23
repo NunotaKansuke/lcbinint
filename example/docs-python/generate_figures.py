@@ -906,6 +906,7 @@ def higher_order_catalogue():
         "", '`source` selects source multiplicity (`"single"` or `"binary"`). `finite_source=False` selects point-source evaluation and sets every source radius to zero during evaluation.',
         "", "```python", "import numpy as np", "import matplotlib.pyplot as plt", "import lcbinint", "", "times = np.linspace(7470.0, 7530.0, 160)", "sky = lcbinint.obs.SkyCoord(\"17:59:02.3\", \"-29:04:15.2\")", "options = lcbinint.Options(coordinates=\"vbm\", tol=1e-3, reltol=1e-3)", "", "space_geometry_times = np.linspace(7470.0, 7530.0, 400)", "space_ephemeris = {", "    \"jd\": 2450000.0 + space_geometry_times,", "    \"ra_deg\": np.full(len(space_geometry_times), 180.0),", "    \"dec_deg\": np.full(len(space_geometry_times), -30.0),", "    \"distance_au\": np.full(len(space_geometry_times), 1.0),", "}", "parallax_sites = {", "    \"chile\": lcbinint.obs.Site(\"ground\", -29.0, -70.7),", "    \"africa\": lcbinint.obs.Site(\"ground\", -29.0, 20.0),", "    \"space\": lcbinint.obs.Site(\"space\", np.column_stack(tuple(space_ephemeris.values()))),", "}", "```", "",
     ]
+    index_rows = []
     groups = (("binary", "single", "Binary lens, single source"),
               ("binary", "binary", "Binary lens, binary source"),
               ("triple", "single", "Triple lens, single source"),
@@ -944,6 +945,21 @@ def higher_order_catalogue():
             params = config_parameters(lens, source, xmode, coordinates, orbit)
             point_source = label == "Point source"
             parallax = observer is not None
+            anchor = "higher-order-" + slug("_".join((lens, source, label)))
+            xallarap_name = {
+                "circular_elements": "circular elements",
+                "orbital_elements": "Kepler elements",
+                "circular_velocity": "circular velocity",
+                "kepler_velocity": "Kepler velocity",
+            }.get(xmode, "—")
+            if coordinates == "trajectory_offset":
+                xallarap_name += " (trajectory offset)"
+            index_rows.append((
+                lens.title(), source.title(),
+                "False" if point_source else "True",
+                observer or "—", orbit or "—", xallarap_name,
+                anchor,
+            ))
             if point_source:
                 if binary:
                     params["rho1"] = 0.0
@@ -1067,7 +1083,7 @@ def higher_order_catalogue():
                     rendered = repr(value)
                 model_parts.append(f"{key}={rendered}")
             model_code = ", ".join(model_parts)
-            catalogue += ["#### " + label, "", "```python"]
+            catalogue += [f'<a id="{anchor}"></a>', "#### " + label, "", "```python"]
             if observer == "terrestrial":
                 catalogue += ["# A narrow, high-magnification caustic feature makes the site offset visible.", "times = np.linspace(7501.37, 7501.46, 600)", "geometry_times = np.linspace(7485.0, 7515.0, 300)"]
             if observer == "space":
@@ -1114,6 +1130,26 @@ def higher_order_catalogue():
             catalogue += ["plt.xlabel(\"Trajectory coordinate 1\"); plt.ylabel(\"Trajectory coordinate 2\")", "plt.axis(\"equal\"); plt.show()", "```", "", f"<p><img src=\"figures/{stem}_lightcurve.png\" alt=\"{label} light curve\" width=\"56%\"> <img src=\"figures/{stem}_geometry.png\" alt=\"{label} caustics and trajectories\" width=\"40%\"></p>", ""]
     catalogue += ["[← Higher-order effects](CombinedEffects.md)", ""]
     (OUTPUT.parent / "HigherOrderCombinations.md").write_text("\n".join(catalogue))
+
+    index = [
+        "[Previous: Binary source + xallarap](BinarySourceXallarap.md) · [Documentation home](readme.md)",
+        "", "# Combining higher-order effects", "",
+    ]
+    for lens, source in (("Binary", "Single"), ("Binary", "Binary"),
+                         ("Triple", "Single"), ("Triple", "Binary")):
+        index += [f"<details><summary>{lens} lens · {source.lower()} source</summary>", "",
+                  "| `finite_source` | Parallax | Lens orbit | Xallarap | Example |",
+                  "| --- | --- | --- | --- | --- |"]
+        for row_lens, row_source, finite_source, parallax_name, lens_orbit, xallarap_name, anchor in index_rows:
+            if (row_lens, row_source) != (lens, source):
+                continue
+            index.append(
+                f"| {finite_source} | {parallax_name} | {lens_orbit} | "
+                f"{xallarap_name} | [Open](HigherOrderCombinations.md#{anchor}) |"
+            )
+        index += ["", "</details>", ""]
+    index += ["", "[Previous: Binary source + xallarap](BinarySourceXallarap.md) · [Documentation home](readme.md)", ""]
+    (OUTPUT.parent / "CombinedEffects.md").write_text("\n".join(index))
 
 
 def main():
