@@ -952,9 +952,11 @@ def higher_order_catalogue():
                 sample_times = np.linspace(7501.37, 7501.46, 600)
                 geometry_times = np.linspace(7485.0, 7515.0, 300)
             if observer == "space":
-                params.update(u0=0.0003, rho=0.0001)
-                sample_times = np.linspace(7501.35, 7501.48, 600)
-                geometry_times = np.linspace(7485.0, 7515.0, 300)
+                # A transverse observer baseline makes both the full light
+                # curve and the two source tracks easy to compare.
+                params.update(u0=0.03, rho=0.004, piEN=0.08, piEE=-0.06)
+                sample_times = np.linspace(7470.0, 7530.0, 1800)
+                geometry_times = np.linspace(7470.0, 7530.0, 400)
             args = dict(lens=lens, source=source,
                         finite_source=not point_source,
                         parallax=parallax, t_ref=7500.)
@@ -972,12 +974,11 @@ def higher_order_catalogue():
             if observer == "terrestrial":
                 curve_kwargs["site"] = parallax_sites["chile"]
             if observer == "space":
-                space_phase = np.linspace(-1.0, 1.0, len(geometry_times))
                 space_table = np.column_stack([
                     2450000.0 + geometry_times,
-                    270.0 + 12.0 * space_phase,
-                    -20.0 + 4.0 * np.sin(np.pi * space_phase),
-                    0.55 + 0.05 * space_phase,
+                    np.full(len(geometry_times), 180.0),
+                    np.full(len(geometry_times), -30.0),
+                    np.full(len(geometry_times), 1.0),
                 ])
                 space_site = lcbinint.obs.Site("space", space_table)
                 curve_kwargs["site"] = space_site
@@ -1069,7 +1070,7 @@ def higher_order_catalogue():
             if observer == "terrestrial":
                 catalogue += ["# A narrow, high-magnification caustic feature makes the site offset visible.", "times = np.linspace(7501.37, 7501.46, 600)", "geometry_times = np.linspace(7485.0, 7515.0, 300)"]
             if observer == "space":
-                catalogue += ["# This high-magnification feature makes the ground/space offset visible.", "times = np.linspace(7501.35, 7501.48, 600)", "geometry_times = np.linspace(7485.0, 7515.0, 300)", "# Cover the complete geometry range so source trajectories use interpolation, not extrapolation.", "space_phase = np.linspace(-1.0, 1.0, len(geometry_times))", "space_ephemeris = {", "    \"jd\": 2450000.0 + geometry_times,", "    \"ra_deg\": 270.0 + 12.0 * space_phase,", "    \"dec_deg\": -20.0 + 4.0 * np.sin(np.pi * space_phase),", "    \"distance_au\": 0.55 + 0.05 * space_phase,", "}", "space_site = lcbinint.obs.Site(\"space\", np.column_stack(tuple(space_ephemeris.values())))"]
+                catalogue += ["# Compare the complete event from ground and space.", "times = np.linspace(7470.0, 7530.0, 1800)", "geometry_times = np.linspace(7470.0, 7530.0, 400)", "space_ephemeris = {", "    \"jd\": 2450000.0 + geometry_times,", "    \"ra_deg\": np.full(len(geometry_times), 180.0),", "    \"dec_deg\": np.full(len(geometry_times), -30.0),", "    \"distance_au\": np.full(len(geometry_times), 1.0),", "}", "space_site = lcbinint.obs.Site(\"space\", np.column_stack(tuple(space_ephemeris.values())))"]
             catalogue += ["parameters = " + repr(params),
                           "curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(" + model_code + "))"]
             if observer == "space":

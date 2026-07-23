@@ -159,19 +159,17 @@ plt.axis("equal"); plt.show()
 #### Space parallax
 
 ```python
-# This high-magnification feature makes the ground/space offset visible.
-times = np.linspace(7501.35, 7501.48, 600)
-geometry_times = np.linspace(7485.0, 7515.0, 300)
-# Cover the complete geometry range so source trajectories use interpolation, not extrapolation.
-space_phase = np.linspace(-1.0, 1.0, len(geometry_times))
+# Compare the complete event from ground and space.
+times = np.linspace(7470.0, 7530.0, 1800)
+geometry_times = np.linspace(7470.0, 7530.0, 400)
 space_ephemeris = {
     "jd": 2450000.0 + geometry_times,
-    "ra_deg": 270.0 + 12.0 * space_phase,
-    "dec_deg": -20.0 + 4.0 * np.sin(np.pi * space_phase),
-    "distance_au": 0.55 + 0.05 * space_phase,
+    "ra_deg": np.full(len(geometry_times), 180.0),
+    "dec_deg": np.full(len(geometry_times), -30.0),
+    "distance_au": np.full(len(geometry_times), 1.0),
 }
 space_site = lcbinint.obs.Site("space", np.column_stack(tuple(space_ephemeris.values())))
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.0003, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'rho': 0.0001}
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.03, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.08, 'piEE': -0.06, 'rho': 0.004}
 space_model = lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, terrestrial=True)
 parallax_curves = {
     "ground": lcbinint.LightCurve(model=space_model, site=parallax_sites["chile"], options=options),
