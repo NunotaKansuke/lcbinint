@@ -43,10 +43,6 @@ plt.figure(figsize=(2.8, 2.8))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(x, y, color="tab:red", lw=1.1)
 plt.plot(display_x, display_y, color="tab:blue")
-plt.scatter(
-    [display_x[0], display_x[-1]], [display_y[0], display_y[-1]],
-    color="tab:blue",
-)
 plt.xlabel("y1")
 plt.ylabel("y2")
 plt.axis("equal")
