@@ -24,7 +24,8 @@ satellite_ephemeris = {
 }
 satellite_table = np.column_stack(tuple(satellite_ephemeris.values()))
 parallax_sites = {
-    "terrestrial": lcbinint.obs.Site("ground", -29.0, -70.7),
+    "chile": lcbinint.obs.Site("ground", -29.0, -70.7),
+    "africa": lcbinint.obs.Site("ground", -29.0, 20.0),
     "space": lcbinint.obs.Site("space", satellite_table),
 }
 ```
@@ -122,17 +123,31 @@ plt.axis("equal"); plt.show()
 #### Terrestrial parallax
 
 ```python
-parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, terrestrial=True), site=parallax_sites["terrestrial"])
-magnification = curve(times, parameters)
-trajectory = curve.source_trajectory(times, parameters)
-caustics = curve.caustics(parameters)
+# A narrow, high-magnification caustic feature makes the site offset visible.
+times = np.linspace(7501.25, 7501.60, 500)
+parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.0003, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.0001}
+site_model = lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, terrestrial=True)
+terrestrial_curves = {
+    "Chile": lcbinint.LightCurve(model=site_model, site=parallax_sites["chile"], options=options),
+    "Africa": lcbinint.LightCurve(model=site_model, site=parallax_sites["africa"], options=options),
+}
+magnifications = {name: value(times, parameters) for name, value in terrestrial_curves.items()}
+trajectories = {name: value.source_trajectory(times, parameters) for name, value in terrestrial_curves.items()}
+caustics = terrestrial_curves["Chile"].caustics(parameters)
 ```
 
 ```python
-plt.figure(figsize=(3.8, 2.4))
-plt.plot(times, magnification, color="#0173B2")
-plt.xlabel("Time"); plt.ylabel("Magnification")
+fig, (curve_ax, difference_ax) = plt.subplots(
+    2, 1, sharex=True, figsize=(3.8, 3.15),
+    gridspec_kw={"height_ratios": [3, 1]},
+)
+curve_ax.plot(times, magnifications["Chile"], color="#0173B2", label="Chile")
+curve_ax.plot(times, magnifications["Africa"], color="#CC79A7", label="Africa")
+curve_ax.set_ylabel("Magnification")
+curve_ax.legend(loc="upper left", fontsize=7)
+difference_ax.plot(times, magnifications["Africa"] - magnifications["Chile"], color="#6C6C6C")
+difference_ax.axhline(0.0, color="0.75", lw=0.8)
+difference_ax.set(xlabel="Time", ylabel="Africa − Chile")
 plt.show()
 ```
 
@@ -140,7 +155,9 @@ plt.show()
 plt.figure(figsize=(2.8, 2.7))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(x, y, color="#6C6C6C", lw=1.1)
-plt.plot(trajectory.x, trajectory.y, color="#0173B2")
+plt.plot(trajectories["Chile"].x, trajectories["Chile"].y, color="#0173B2", label="Chile")
+plt.plot(trajectories["Africa"].x, trajectories["Africa"].y, color="#CC79A7", label="Africa")
+plt.legend(fontsize=7)
 plt.xlabel("Trajectory coordinate 1"); plt.ylabel("Trajectory coordinate 2")
 plt.axis("equal"); plt.show()
 ```
@@ -151,15 +168,21 @@ plt.axis("equal"); plt.show()
 
 ```python
 parameters = {'s': 0.9, 'q': 0.1, 't0': 7500.0, 'u0': 0.2, 'tE': 30.0, 'alpha': 0.7, 'piEN': 0.03, 'piEE': -0.02, 'g1': 0.011, 'g2': -0.005, 'g3': 0.005, 'lom_szs': 0.2, 'lom_ar': 1.4, 'rho': 0.004}
-curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, terrestrial=True), site=parallax_sites["space"])
-magnification = curve(times, parameters)
-trajectory = curve.source_trajectory(times, parameters)
-caustics = curve.caustics(parameters)
+space_model = lcbinint.Model(lens='binary', source='single', finite_source=True, parallax=True, t_ref=7500.0, sky=sky, terrestrial=True)
+parallax_curves = {
+    "ground": lcbinint.LightCurve(model=space_model, site=parallax_sites["chile"], options=options),
+    "space": lcbinint.LightCurve(model=space_model, site=parallax_sites["space"], options=options),
+}
+magnifications = {name: value(times, parameters) for name, value in parallax_curves.items()}
+trajectories = {name: value.source_trajectory(times, parameters) for name, value in parallax_curves.items()}
+caustics = parallax_curves["ground"].caustics(parameters)
 ```
 
 ```python
 plt.figure(figsize=(3.8, 2.4))
-plt.plot(times, magnification, color="#0173B2")
+plt.plot(times, magnifications["ground"], color="#0173B2", label="ground")
+plt.plot(times, magnifications["space"], color="#6C6C6C", label="space")
+plt.legend(loc="upper left", fontsize=7)
 plt.xlabel("Time"); plt.ylabel("Magnification")
 plt.show()
 ```
@@ -168,7 +191,9 @@ plt.show()
 plt.figure(figsize=(2.8, 2.7))
 for x, y in zip(caustics.x, caustics.y):
     plt.plot(x, y, color="#6C6C6C", lw=1.1)
-plt.plot(trajectory.x, trajectory.y, color="#0173B2")
+plt.plot(trajectories["ground"].x, trajectories["ground"].y, color="#0173B2", label="ground")
+plt.plot(trajectories["space"].x, trajectories["space"].y, color="#6C6C6C", label="space")
+plt.legend(fontsize=7)
 plt.xlabel("Trajectory coordinate 1"); plt.ylabel("Trajectory coordinate 2")
 plt.axis("equal"); plt.show()
 ```

@@ -846,6 +846,7 @@ def higher_order_catalogue():
     ])
     parallax_sites = {
         "terrestrial": lcbinint.obs.Site("ground", -29.0, -70.7),
+        "africa": lcbinint.obs.Site("ground", -29.0, 20.0),
         "space": lcbinint.obs.Site("space", satellite_table),
     }
     base = dict(s=.9, q=.1, t0=7500., u0=.20, tE=30., alpha=.7,
@@ -900,7 +901,7 @@ def higher_order_catalogue():
         "", "# Higher-order combination catalogue", "",
         "The catalogue is grouped first by lens and source multiplicity. Within every group, the examples progress through three levels: source-size baselines, annual parallax, and parallax with additional higher-order effects. Lens orbit is therefore never shown without parallax, and triple lenses are limited to their supported static-lens geometry.",
         "", '`source` selects source multiplicity (`"single"` or `"binary"`). `finite_source=False` selects point-source evaluation and sets every source radius to zero during evaluation.',
-        "", "```python", "import numpy as np", "import matplotlib.pyplot as plt", "import lcbinint", "", "times = np.linspace(7470.0, 7530.0, 160)", "sky = lcbinint.obs.SkyCoord(\"17:59:02.3\", \"-29:04:15.2\")", "options = lcbinint.Options(coordinates=\"vbm\", tol=1e-3, reltol=1e-3)", "", "phase = np.linspace(-1.0, 1.0, len(times))", "satellite_ephemeris = {", "    \"jd\": 2450000.0 + times,", "    \"ra_deg\": 270.0 + 12.0 * phase,", "    \"dec_deg\": -20.0 + 4.0 * np.sin(np.pi * phase),", "    \"distance_au\": 0.55 + 0.05 * phase,", "}", "satellite_table = np.column_stack(tuple(satellite_ephemeris.values()))", "parallax_sites = {", "    \"terrestrial\": lcbinint.obs.Site(\"ground\", -29.0, -70.7),", "    \"space\": lcbinint.obs.Site(\"space\", satellite_table),", "}", "```", "",
+        "", "```python", "import numpy as np", "import matplotlib.pyplot as plt", "import lcbinint", "", "times = np.linspace(7470.0, 7530.0, 160)", "sky = lcbinint.obs.SkyCoord(\"17:59:02.3\", \"-29:04:15.2\")", "options = lcbinint.Options(coordinates=\"vbm\", tol=1e-3, reltol=1e-3)", "", "phase = np.linspace(-1.0, 1.0, len(times))", "satellite_ephemeris = {", "    \"jd\": 2450000.0 + times,", "    \"ra_deg\": 270.0 + 12.0 * phase,", "    \"dec_deg\": -20.0 + 4.0 * np.sin(np.pi * phase),", "    \"distance_au\": 0.55 + 0.05 * phase,", "}", "satellite_table = np.column_stack(tuple(satellite_ephemeris.values()))", "parallax_sites = {", "    \"chile\": lcbinint.obs.Site(\"ground\", -29.0, -70.7),", "    \"africa\": lcbinint.obs.Site(\"ground\", -29.0, 20.0),", "    \"space\": lcbinint.obs.Site(\"space\", satellite_table),", "}", "```", "",
     ]
     groups = (("binary", "single", "Binary lens, single source"),
               ("binary", "binary", "Binary lens, binary source"),
@@ -949,6 +950,10 @@ def higher_order_catalogue():
             if not parallax:
                 params.pop("piEN")
                 params.pop("piEE")
+            sample_times = times
+            if observer == "terrestrial":
+                params.update(u0=0.0003, rho=0.0001)
+                sample_times = np.linspace(7501.25, 7501.60, 500)
             args = dict(lens=lens, source=source,
                         finite_source=not point_source,
                         parallax=parallax, t_ref=7500.)
@@ -966,19 +971,61 @@ def higher_order_catalogue():
             if observer in parallax_sites:
                 curve_kwargs["site"] = parallax_sites[observer]
             curve = lcbinint.LightCurve(**curve_kwargs)
-            components = curve.binary_source_components(times, params) if binary else None
-            mag = components.total if binary else curve(times, params)
+            comparison_curves = None
+            if observer == "space":
+                comparison_curves = {
+                    "ground": lcbinint.LightCurve(
+                        options=options, model=lcbinint.Model(**args),
+                        site=parallax_sites["terrestrial"]),
+                    "space": curve,
+                }
+            elif observer == "terrestrial":
+                comparison_curves = {
+                    "Chile": curve,
+                    "Africa": lcbinint.LightCurve(
+                        options=options, model=lcbinint.Model(**args),
+                        site=parallax_sites["africa"]),
+                }
+            components = curve.binary_source_components(sample_times, params) if binary else None
+            comparison_magnifications = (
+                {name: value(sample_times, params) for name, value in comparison_curves.items()}
+                if comparison_curves else None
+            )
+            mag = (comparison_magnifications["space"] if observer == "space" else
+                   comparison_magnifications["Chile"] if observer == "terrestrial" else
+                   components.total if binary else curve(sample_times, params))
             caustics = curve.caustics(7500., params) if orbit else curve.caustics(params)
             stem = "HigherOrder_" + slug("_".join((lens, source, label)))
-            plt.figure(figsize=(3.8, 2.4))
-            if binary:
-                plt.plot(times, components.source1.magnification, color="#0173B2", alpha=.45, lw=.9, label="source 1")
-                plt.plot(times, components.source2.magnification, color="#029E73", alpha=.45, lw=.9, label="source 2")
-                plt.plot(times, mag, color="black", lw=1.3, label="total")
+            if observer == "terrestrial":
+                figure, (curve_axis, difference_axis) = plt.subplots(
+                    2, 1, sharex=True, figsize=(3.8, 3.15),
+                    gridspec_kw={"height_ratios": [3, 1]},
+                )
+                curve_axis.plot(sample_times, comparison_magnifications["Chile"], color="#0173B2", lw=1.1, label="Chile")
+                curve_axis.plot(sample_times, comparison_magnifications["Africa"], color="#CC79A7", lw=1.1, label="Africa")
+                curve_axis.set_ylabel("Magnification")
+                curve_axis.legend(loc="upper left", fontsize=7)
+                difference_axis.plot(sample_times, comparison_magnifications["Africa"] - comparison_magnifications["Chile"], color="#6C6C6C", lw=1.0)
+                difference_axis.axhline(0.0, color="0.75", lw=.8)
+                difference_axis.set(xlabel="Time", ylabel="Africa − Chile")
+            else:
+                plt.figure(figsize=(3.8, 2.4))
+            if observer == "terrestrial":
+                pass
+            elif binary:
+                plt.plot(sample_times, components.source1.magnification, color="#0173B2", alpha=.45, lw=.9, label="source 1")
+                plt.plot(sample_times, components.source2.magnification, color="#029E73", alpha=.45, lw=.9, label="source 2")
+                plt.plot(sample_times, mag, color="black", lw=1.3, label="total")
+                plt.legend(loc="upper left", fontsize=7)
+            elif comparison_curves:
+                colors = ("#0173B2", "#6C6C6C") if observer == "space" else ("#0173B2", "#CC79A7")
+                for (name, values), color in zip(comparison_magnifications.items(), colors):
+                    plt.plot(sample_times, values, color=color, lw=1.1, label=name)
                 plt.legend(loc="upper left", fontsize=7)
             else:
-                plt.plot(times, mag, color="#0173B2", lw=1.1)
-            plt.xlabel("Time"); plt.ylabel("Magnification")
+                plt.plot(sample_times, mag, color="#0173B2", lw=1.1)
+            if observer != "terrestrial":
+                plt.xlabel("Time"); plt.ylabel("Magnification")
             save(f"{stem}_lightcurve.png")
             plt.figure(figsize=(2.8, 2.7))
             plot_caustics(caustics, color="#6C6C6C", lw=1.1)
@@ -986,8 +1033,14 @@ def higher_order_catalogue():
                 plt.plot(components.source1.trajectory.x, components.source1.trajectory.y, color="#0173B2", lw=1.0, label="source 1")
                 plt.plot(components.source2.trajectory.x, components.source2.trajectory.y, color="#029E73", lw=1.0, label="source 2")
                 plt.legend(fontsize=7)
+            elif comparison_curves:
+                colors = ("#0173B2", "#6C6C6C") if observer == "space" else ("#0173B2", "#CC79A7")
+                for (name, value), color in zip(comparison_curves.items(), colors):
+                    tr = value.source_trajectory(sample_times, params)
+                    plt.plot(tr.x, tr.y, color=color, lw=1.0, label=name)
+                plt.legend(fontsize=7)
             else:
-                tr = curve.source_trajectory(times, params)
+                tr = curve.source_trajectory(sample_times, params)
                 plt.plot(tr.x, tr.y, color="#0173B2", lw=1.0)
             plt.xlabel("Trajectory coordinate 1"); plt.ylabel("Trajectory coordinate 2")
             plt.axis("equal")
@@ -1001,24 +1054,45 @@ def higher_order_catalogue():
                     rendered = repr(value)
                 model_parts.append(f"{key}={rendered}")
             model_code = ", ".join(model_parts)
-            catalogue += ["#### " + label, "", "```python", "parameters = " + repr(params),
-                          "curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(" + model_code + "))",
-                          ]
-            if observer in ("terrestrial", "space"):
-                catalogue[-1] = "curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(" + model_code + "), site=parallax_sites[\"" + observer + "\"])"
-            if binary:
+            catalogue += ["#### " + label, "", "```python"]
+            if observer == "terrestrial":
+                catalogue += ["# A narrow, high-magnification caustic feature makes the site offset visible.", "times = np.linspace(7501.25, 7501.60, 500)"]
+            catalogue += ["parameters = " + repr(params),
+                          "curve = lcbinint.LightCurve(options=options, model=lcbinint.Model(" + model_code + "))"]
+            if observer == "space":
+                catalogue[-1] = "space_model = lcbinint.Model(" + model_code + ")"
+                catalogue += ["parallax_curves = {", "    \"ground\": lcbinint.LightCurve(model=space_model, site=parallax_sites[\"chile\"], options=options),", "    \"space\": lcbinint.LightCurve(model=space_model, site=parallax_sites[\"space\"], options=options),", "}", "magnifications = {name: value(times, parameters) for name, value in parallax_curves.items()}", "trajectories = {name: value.source_trajectory(times, parameters) for name, value in parallax_curves.items()}", "caustics = parallax_curves[\"ground\"].caustics(parameters)"]
+            elif observer == "terrestrial":
+                catalogue[-1] = "site_model = lcbinint.Model(" + model_code + ")"
+                catalogue += ["terrestrial_curves = {", "    \"Chile\": lcbinint.LightCurve(model=site_model, site=parallax_sites[\"chile\"], options=options),", "    \"Africa\": lcbinint.LightCurve(model=site_model, site=parallax_sites[\"africa\"], options=options),", "}", "magnifications = {name: value(times, parameters) for name, value in terrestrial_curves.items()}", "trajectories = {name: value.source_trajectory(times, parameters) for name, value in terrestrial_curves.items()}", "caustics = terrestrial_curves[\"Chile\"].caustics(parameters)"]
+            elif binary:
                 catalogue += ["components = curve.binary_source_components(times, parameters)", "magnification = components.total", "trajectory1 = components.source1.trajectory", "trajectory2 = components.source2.trajectory"]
             else:
                 catalogue += ["magnification = curve(times, parameters)", "trajectory = curve.source_trajectory(times, parameters)"]
-            catalogue += [("caustics = curve.caustics(7500.0, parameters)" if orbit else "caustics = curve.caustics(parameters)"), "```", "",
-                          "```python", "plt.figure(figsize=(3.8, 2.4))"]
-            if binary:
+            if observer not in ("terrestrial", "space"):
+                catalogue += [("caustics = curve.caustics(7500.0, parameters)" if orbit else "caustics = curve.caustics(parameters)")]
+            catalogue += ["```", "", "```python"]
+            if observer == "terrestrial":
+                catalogue += ["fig, (curve_ax, difference_ax) = plt.subplots(", "    2, 1, sharex=True, figsize=(3.8, 3.15),", "    gridspec_kw={\"height_ratios\": [3, 1]},", ")", "curve_ax.plot(times, magnifications[\"Chile\"], color=\"#0173B2\", label=\"Chile\")", "curve_ax.plot(times, magnifications[\"Africa\"], color=\"#CC79A7\", label=\"Africa\")", "curve_ax.set_ylabel(\"Magnification\")", "curve_ax.legend(loc=\"upper left\", fontsize=7)", "difference_ax.plot(times, magnifications[\"Africa\"] - magnifications[\"Chile\"], color=\"#6C6C6C\")", "difference_ax.axhline(0.0, color=\"0.75\", lw=0.8)", "difference_ax.set(xlabel=\"Time\", ylabel=\"Africa − Chile\")"]
+            else:
+                catalogue += ["plt.figure(figsize=(3.8, 2.4))"]
+            if observer == "space":
+                catalogue += ["plt.plot(times, magnifications[\"ground\"], color=\"#0173B2\", label=\"ground\")", "plt.plot(times, magnifications[\"space\"], color=\"#6C6C6C\", label=\"space\")", "plt.legend(loc=\"upper left\", fontsize=7)"]
+            elif observer == "terrestrial":
+                pass
+            elif binary:
                 catalogue += ["plt.plot(times, components.source1.magnification, color=\"#0173B2\", alpha=0.45, label=\"source 1\")", "plt.plot(times, components.source2.magnification, color=\"#029E73\", alpha=0.45, label=\"source 2\")", "plt.plot(times, magnification, color=\"black\", label=\"total\")", "plt.legend(loc=\"upper left\", fontsize=7)"]
             else:
                 catalogue += ["plt.plot(times, magnification, color=\"#0173B2\")"]
-            catalogue += ["plt.xlabel(\"Time\"); plt.ylabel(\"Magnification\")", "plt.show()", "```", "",
+            if observer != "terrestrial":
+                catalogue += ["plt.xlabel(\"Time\"); plt.ylabel(\"Magnification\")"]
+            catalogue += ["plt.show()", "```", "",
                           "```python", "plt.figure(figsize=(2.8, 2.7))", "for x, y in zip(caustics.x, caustics.y):", "    plt.plot(x, y, color=\"#6C6C6C\", lw=1.1)"]
-            if binary:
+            if observer == "space":
+                catalogue += ["plt.plot(trajectories[\"ground\"].x, trajectories[\"ground\"].y, color=\"#0173B2\", label=\"ground\")", "plt.plot(trajectories[\"space\"].x, trajectories[\"space\"].y, color=\"#6C6C6C\", label=\"space\")", "plt.legend(fontsize=7)"]
+            elif observer == "terrestrial":
+                catalogue += ["plt.plot(trajectories[\"Chile\"].x, trajectories[\"Chile\"].y, color=\"#0173B2\", label=\"Chile\")", "plt.plot(trajectories[\"Africa\"].x, trajectories[\"Africa\"].y, color=\"#CC79A7\", label=\"Africa\")", "plt.legend(fontsize=7)"]
+            elif binary:
                 catalogue += ["plt.plot(trajectory1.x, trajectory1.y, color=\"#0173B2\", label=\"source 1\")", "plt.plot(trajectory2.x, trajectory2.y, color=\"#029E73\", label=\"source 2\")", "plt.legend(fontsize=7)"]
             else:
                 catalogue += ["plt.plot(trajectory.x, trajectory.y, color=\"#0173B2\")"]
