@@ -887,7 +887,8 @@ def higher_order_catalogue():
     catalogue = [
         "[← Higher-order effects](CombinedEffects.md)",
         "", "# Higher-order combination catalogue", "",
-        "The catalogue is grouped first by lens and source multiplicity. Within every group, the examples progress through three levels: finite-source baseline, annual parallax, and parallax with additional higher-order effects. Lens orbit is therefore never shown without parallax, and triple lenses are limited to their supported static-lens geometry.",
+        "The catalogue is grouped first by lens and source multiplicity. Within every group, the examples progress through three levels: source-size baselines, annual parallax, and parallax with additional higher-order effects. Lens orbit is therefore never shown without parallax, and triple lenses are limited to their supported static-lens geometry.",
+        "", '`source` selects source multiplicity (`"single"` or `"binary"`). `finite_source=False` selects point-source evaluation and sets every source radius to zero during evaluation.',
         "", "```python", "import numpy as np", "import matplotlib.pyplot as plt", "import lcbinint", "", "times = np.linspace(7470.0, 7530.0, 160)", "sky = lcbinint.obs.SkyCoord(\"17:59:02.3\", \"-29:04:15.2\")", "options = lcbinint.Options(coordinates=\"vbm\", tol=1e-3, reltol=1e-3)", "```", "",
     ]
     groups = (("binary", "single", "Binary lens, single source"),
@@ -901,10 +902,11 @@ def higher_order_catalogue():
         if lens == "triple":
             configs = [item for item in configs if item[3] is None]
         configs.insert(0, ("Finite source only", None, None, None))
+        configs.insert(0, ("Point source", None, None, None))
         level = None
         for label, xmode, coordinates, orbit in configs:
-            if label == "Finite source only":
-                category = "### 1. Finite-source baseline"
+            if label in ("Point source", "Finite source only"):
+                category = "### 1. Source-size baselines"
             elif label == "Parallax":
                 category = "### 2. Annual parallax"
             else:
@@ -913,11 +915,20 @@ def higher_order_catalogue():
                 catalogue += [category, ""]
                 level = category
             params = config_parameters(lens, source, xmode, coordinates, orbit)
-            parallax = label != "Finite source only"
+            point_source = label == "Point source"
+            parallax = label not in ("Point source", "Finite source only")
+            if point_source:
+                if binary:
+                    params["rho1"] = 0.0
+                    params["rho2"] = 0.0
+                else:
+                    params["rho"] = 0.0
             if not parallax:
                 params.pop("piEN")
                 params.pop("piEE")
-            args = dict(lens=lens, source=source, parallax=parallax, t_ref=7500.)
+            args = dict(lens=lens, source=source,
+                        finite_source=not point_source,
+                        parallax=parallax, t_ref=7500.)
             if parallax:
                 args["sky"] = sky
             if orbit:
