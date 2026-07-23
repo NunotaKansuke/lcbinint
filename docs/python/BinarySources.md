@@ -27,12 +27,12 @@ import lcbinint
 options = lcbinint.Options(tol=1e-3, reltol=1e-3)
 binary_curve = lcbinint.LightCurve(source="binary", options=options)
 parameters = {
-    "s": 0.9, "q": 0.1, "alpha": 1.0, "tE": 30.0,
-    "t0": 7500.0, "u0": 0.10, "rho1": 0.004,
-    "t0_2": 7501.2, "u0_2": -0.06, "rho2": 0.002,
+    "s": 1.0, "q": 1.0, "alpha": 0.0, "tE": 37.3,
+    "t0": 7550.4, "u0": 0.075, "rho1": 0.004,
+    "t0_2": 7552.0, "u0_2": -0.04, "rho2": 0.002,
     "flux_ratio": 0.4,
 }
-times = np.linspace(7470.0, 7530.0, 300)
+times = np.linspace(7550.4 - 37.3, 7550.4 + 37.3, 300)
 
 components = binary_curve.binary_source_components(times, parameters)
 ```
