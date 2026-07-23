@@ -2,6 +2,8 @@
 
 # Combining higher-order effects
 
+[Open the full combination catalogue](HigherOrderCombinations.md)
+
 <details><summary>Binary lens · single source</summary>
 
 | `finite_source` | Parallax | Lens orbit | Xallarap | Example |

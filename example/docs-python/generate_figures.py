@@ -1134,6 +1134,7 @@ def higher_order_catalogue():
     index = [
         "[Previous: Binary source + xallarap](BinarySourceXallarap.md) · [Documentation home](readme.md)",
         "", "# Combining higher-order effects", "",
+        "[Open the full combination catalogue](HigherOrderCombinations.md)", "",
     ]
     for lens, source in (("Binary", "Single"), ("Binary", "Binary"),
                          ("Triple", "Single"), ("Triple", "Binary")):
