@@ -22,3 +22,7 @@ automatic finite-source choices:
 - [Numerical methods](numerical-methods.md)
 - [Finite-source auto calibration](finite-source-auto-calibration.md)
 - [Finite-source safety validation](finite-source-safety-validation.md)
+
+Proposed designs:
+
+- [JAX CPU differentiable inverse-ray engine](design/jax-cpu-inverse-ray-plan.md)
