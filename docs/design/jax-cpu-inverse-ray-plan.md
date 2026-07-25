@@ -849,7 +849,7 @@ On 2026-07-26, the implementation branch contains the standalone
 - stabilized affine boundary-cell moments with axis-aligned limits;
 - a JIT-compiled fixed-support macro-tile reducer;
 - gradients with respect to \(w_x,w_y,s,q,\rho,c,d\);
-- 35 focused value/JVP/reverse-gradient/discovery tests;
+- 42 focused value/JVP/reverse-gradient/discovery/reference tests;
 - a machine-readable CPU benchmark harness.
 
 One preliminary x86-64/JAX 0.6.2 CPU run at 40,000--43,264 rays measured:
@@ -883,15 +883,21 @@ calibrated capacity buckets are a performance requirement rather than only a
 memory optimization. A tile-reducer `custom_vjp` remains a possible later
 optimization, not an immediate blocker.
 
-The current end-to-end result reports `support_valid`, not `converged`.
+The end-to-end result reports `support_valid`, not `converged`.
 `support_valid=True` means only that root filtering and bounded tile discovery
-did not report failure. Numerical convergence requires the planned coarse/fine
-value and gradient estimator and must not be inferred from this flag.
+did not report failure. A separate coarse/fine API now compares magnification,
+all three source-area-normalized moments, and an optional directional JVP,
+returning `value_converged`, `moments_converged`, and `gradient_converged`.
 
-The local native extension could not be rebuilt on this host because GSL
-development files are absent. The standalone JAX package intentionally imports
-without the C++ extension or GSL, so its focused tests and benchmarks remain
-fully runnable.
+The native extension was rebuilt after installing the GSL development package
+in the active Conda environment. Its CMake install destination was corrected
+from the wheel root to `lcbinint/`, making editable imports use
+`lcbinint._lcbinint` as intended. Direct 128-bin JAX/native regression cases
+now cover uniform brightness, quadratic limb darkening, and a source near a
+resonant-caustic cusp. Their absolute magnification differences in the initial
+checkpoint are \(3.44\times10^{-4}\), \(4.67\times10^{-4}\), and
+\(1.95\times10^{-4}\), respectively. A regular-case JAX directional JVP is
+also checked against a 512-bin native central difference.
 
 ## 15. References
 

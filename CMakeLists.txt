@@ -143,7 +143,7 @@ if(LCBININT_BUILD_PYTHON)
             BUILD_RPATH "${LCBININT_GSL_LIBRARY_DIR}"
             INSTALL_RPATH "${LCBININT_GSL_LIBRARY_DIR}")
     endif()
-    install(TARGETS lcbinint_python LIBRARY DESTINATION .)
+    install(TARGETS lcbinint_python LIBRARY DESTINATION lcbinint)
 else()
     message(STATUS "Python extension disabled")
 endif()

@@ -61,11 +61,54 @@ parameters = jnp.array([0.2, 0.1, 1.2, 0.1, 0.2, 0.4, 0.1])
 value, gradient = jax.value_and_grad(model)(parameters)
 ```
 
+Use the coarse/fine diagnostic when a numerical acceptance decision is
+required:
+
+```python
+from lcbinint_jax import binary_inverse_ray_convergence
+
+diagnostic = binary_inverse_ray_convergence(
+    parameters,
+    direction=jnp.array([0.2, -0.1, 0.05, 0.02, 0.0, 0.1, -0.05]),
+    coarse_resolution=64,
+    fine_resolution=128,
+    coarse_tile_capacity=1024,
+    fine_tile_capacity=4096,
+)
+
+print(diagnostic.value_converged)
+print(diagnostic.moments_converged)
+print(diagnostic.gradient_converged)
+```
+
+The compared observables are magnification and the three image moments
+normalized by the unlensed source area. Gradient convergence is checked only
+when `direction` is supplied.
+
+## Native reference validation
+
+The focused test suite directly compares the JAX engine with
+`lcbinint.binary_ray_shooting`, including quadratic limb darkening and a source
+centred close to a resonant-caustic cusp. One 128-bin development comparison
+gave:
+
+| Case | JAX | native `lcbinint` | Absolute difference |
+| --- | ---: | ---: | ---: |
+| regular, uniform | 4.4812779 | 4.4809341 | 0.0003438 |
+| regular, \(c=0.4,d=0.1\) | 4.4704993 | 4.4700322 | 0.0004671 |
+| near cusp, uniform | 8.8565603 | 8.8563649 | 0.0001954 |
+
+At the regular limb-darkened point, a JAX directional derivative of
+approximately -1.7926 also agrees with a 512-bin native central difference to
+within the development tolerance. These are regression checkpoints, not a
+completed calibration over the full parameter domain.
+
 ## Current limitations
 
 - Binary lenses only.
 - The current `support_valid` flag detects root and tile-capacity failures; it
-  is not a numerical-accuracy or gradient-convergence guarantee.
+  is not a numerical-accuracy or gradient-convergence guarantee; use the
+  coarse/fine diagnostic for that decision.
 - Resolution and capacity buckets are not calibrated yet.
 - Very small image components may still be missed by finite source-limb
   sampling; the planned halo and topology sweeps must validate this.

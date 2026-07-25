@@ -39,3 +39,24 @@ class InverseRayResult(NamedTuple):
     discovery_overflow: jax.Array
     root_failure: jax.Array
     support_valid: jax.Array
+
+
+class ConvergenceResult(NamedTuple):
+    """Coarse/fine convergence diagnostics for normalized observables."""
+
+    coarse_observables: jax.Array
+    fine_observables: jax.Array
+    observable_errors: jax.Array
+    observable_budgets: jax.Array
+    coarse_directional_derivatives: jax.Array
+    fine_directional_derivatives: jax.Array
+    derivative_errors: jax.Array
+    derivative_budgets: jax.Array
+    coarse_tile_count: jax.Array
+    fine_tile_count: jax.Array
+    coarse_support_valid: jax.Array
+    fine_support_valid: jax.Array
+    value_converged: jax.Array
+    moments_converged: jax.Array
+    gradient_checked: jax.Array
+    gradient_converged: jax.Array
