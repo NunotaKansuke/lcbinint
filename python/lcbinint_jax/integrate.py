@@ -6,7 +6,12 @@ import jax
 import jax.numpy as jnp
 
 from ._config import require_x64
-from .cell_moments import resolved_cell_moments
+from .cell_moments import (
+    midpoint_cell_moments,
+    midpoint_cell_moments_linear,
+    resolved_cell_moments,
+    resolved_cell_moments_linear,
+)
 from .lens import (
     binary_lens_map_and_derivatives_real,
     binary_lens_map_complex,
@@ -78,7 +83,7 @@ def _phi_and_gradient_complex(
     return phi, gradient[0], gradient[1]
 
 
-@partial(jax.jit, static_argnames=("tile_size", "kernel"))
+@partial(jax.jit, static_argnames=("tile_size", "kernel", "moment_mode"))
 def binary_inverse_ray_fixed_support(
     tile_origins: jax.Array,
     tile_mask: jax.Array,
@@ -93,6 +98,7 @@ def binary_inverse_ray_fixed_support(
     *,
     tile_size: int = 8,
     kernel: str = "real",
+    moment_mode: str = "two_coefficient",
 ) -> FixedSupportResult:
     """Integrate caller-supplied, non-overlapping image-plane macro-tiles.
 
@@ -103,10 +109,20 @@ def binary_inverse_ray_fixed_support(
     require_x64()
     if kernel not in ("real", "complex"):
         raise ValueError("kernel must be 'real' or 'complex'")
+    if moment_mode not in ("linear", "two_coefficient"):
+        raise ValueError("moment_mode must be 'linear' or 'two_coefficient'")
 
     frozen_origins = jax.lax.stop_gradient(tile_origins)
     frozen_mask = jax.lax.stop_gradient(tile_mask)
     offset_x, offset_y = _tile_offsets(tile_size, cell_size)
+    if moment_mode == "linear":
+        midpoint_moments = midpoint_cell_moments_linear
+        resolved_moments = resolved_cell_moments_linear
+        moment_count = 2
+    else:
+        midpoint_moments = midpoint_cell_moments
+        resolved_moments = resolved_cell_moments
+        moment_count = 3
     phi_kernel = (
         _phi_and_gradient_real if kernel == "real" else _phi_and_gradient_complex
     )
@@ -128,24 +144,74 @@ def binary_inverse_ray_fixed_support(
                     source_radius,
                 )
             )(image_x, image_y)
-            cell_moments, boundary, contributing = jax.vmap(
-                lambda value, dx, dy: resolved_cell_moments(value, dx, dy, cell_size)
-            )(phi, gradient_x, gradient_y)
-            return (
-                jnp.sum(cell_moments, axis=0),
-                jnp.sum(boundary.astype(jnp.int32), dtype=jnp.int32),
-                jnp.sum(contributing.astype(jnp.int32), dtype=jnp.int32),
+            half_delta_x = 0.5 * gradient_x * cell_size
+            half_delta_y = 0.5 * gradient_y * cell_size
+            extent = jnp.abs(half_delta_x) + jnp.abs(half_delta_y)
+            fully_inside = phi - extent > 0.0
+            fully_outside = phi + extent <= 0.0
+            boundary = ~(fully_inside | fully_outside)
+
+            def detailed_tile(_):
+                cell_moments, detailed_boundary, contributing = jax.vmap(
+                    lambda value, dx, dy: resolved_moments(value, dx, dy, cell_size)
+                )(phi, gradient_x, gradient_y)
+                return (
+                    jnp.sum(cell_moments, axis=0),
+                    jnp.sum(
+                        detailed_boundary.astype(jnp.int32),
+                        dtype=jnp.int32,
+                    ),
+                    jnp.sum(
+                        contributing.astype(jnp.int32),
+                        dtype=jnp.int32,
+                    ),
+                )
+
+            def boundary_free_tile(_):
+                def interior_tile(_):
+                    cell_moments = jax.vmap(
+                        lambda value: midpoint_moments(value, cell_size)
+                    )(phi)
+                    cell_moments = jnp.where(
+                        fully_inside[:, None],
+                        cell_moments,
+                        jnp.zeros_like(cell_moments),
+                    )
+                    return (
+                        jnp.sum(cell_moments, axis=0),
+                        jnp.asarray(0, dtype=jnp.int32),
+                        jnp.sum(
+                            fully_inside.astype(jnp.int32),
+                            dtype=jnp.int32,
+                        ),
+                    )
+
+                return jax.lax.cond(
+                    jnp.any(fully_inside),
+                    interior_tile,
+                    inactive_tile,
+                    active_origin,
+                )
+
+            return jax.lax.cond(
+                jnp.any(boundary),
+                detailed_tile,
+                boundary_free_tile,
+                active_origin,
             )
 
         def inactive_tile(_):
             return (
-                jnp.zeros(3, dtype=carry[0].dtype),
+                jnp.zeros(moment_count, dtype=carry[0].dtype),
                 jnp.asarray(0, dtype=jnp.int32),
                 jnp.asarray(0, dtype=jnp.int32),
             )
 
         tile_moments, tile_boundary, tile_contributing = jax.lax.cond(
-            active, active_tile, inactive_tile, origin
+            active,
+            jax.checkpoint(active_tile),
+            inactive_tile,
+            origin,
         )
         moments, boundary_count, active_count = carry
         return (
@@ -155,16 +221,24 @@ def binary_inverse_ray_fixed_support(
         ), None
 
     initial = (
-        jnp.zeros(3, dtype=jnp.result_type(tile_origins, source_radius)),
+        jnp.zeros(
+            moment_count,
+            dtype=jnp.result_type(tile_origins, source_radius),
+        ),
         jnp.asarray(0, dtype=jnp.int32),
         jnp.asarray(0, dtype=jnp.int32),
     )
     (moments, boundary_cells, active_cells), _ = jax.lax.scan(
         integrate_tile, initial, (frozen_origins, frozen_mask)
     )
-    magnification = combine_limb_darkening_moments(
-        moments, source_radius, limb_c, limb_d
-    )
+    if moment_mode == "linear":
+        magnification = ((1.0 - limb_c) * moments[0] + limb_c * moments[1]) / (
+            jnp.pi * source_radius * source_radius * (1.0 - limb_c / 3.0)
+        )
+    else:
+        magnification = combine_limb_darkening_moments(
+            moments, source_radius, limb_c, limb_d
+        )
     return FixedSupportResult(
         magnification=magnification,
         moments=moments,

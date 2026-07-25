@@ -10,28 +10,22 @@ from .integrate import binary_inverse_ray_fixed_support
 from .types import InverseRayResult
 
 
-@partial(
-    jax.jit,
-    static_argnames=("tile_size", "tile_capacity", "limb_samples", "kernel"),
-)
-def binary_inverse_ray(
+def _binary_inverse_ray(
     source_x,
     source_y,
     separation,
     mass_ratio,
     source_radius,
-    limb_c=0.0,
-    limb_d=0.0,
+    limb_c,
+    limb_d,
     *,
-    resolution=64,
-    tile_size=16,
-    tile_capacity=1024,
-    limb_samples=32,
-    kernel="real",
+    resolution,
+    tile_size,
+    tile_capacity,
+    limb_samples,
+    kernel,
+    moment_mode,
 ):
-    """Discover image support and integrate a finite binary-lens source."""
-
-    require_x64()
     cell_size = jax.lax.stop_gradient(source_radius / resolution)
     discovery = discover_binary_macro_tiles(
         source_x,
@@ -57,6 +51,7 @@ def binary_inverse_ray(
         limb_d,
         tile_size=tile_size,
         kernel=kernel,
+        moment_mode=moment_mode,
     )
     support_valid = ~(discovery.overflow | discovery.root_failure)
     return InverseRayResult(
@@ -68,4 +63,81 @@ def binary_inverse_ray(
         discovery_overflow=discovery.overflow,
         root_failure=discovery.root_failure,
         support_valid=support_valid,
+    )
+
+
+@partial(
+    jax.jit,
+    static_argnames=("tile_size", "tile_capacity", "limb_samples", "kernel"),
+)
+def binary_inverse_ray(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    resolution=64,
+    tile_size=16,
+    tile_capacity=1024,
+    limb_samples=32,
+    kernel="real",
+):
+    """Discover image support and integrate a finite binary-lens source."""
+
+    require_x64()
+    return _binary_inverse_ray(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        limb_c,
+        limb_d,
+        resolution=resolution,
+        tile_size=tile_size,
+        tile_capacity=tile_capacity,
+        limb_samples=limb_samples,
+        kernel=kernel,
+        moment_mode="two_coefficient",
+    )
+
+
+@partial(
+    jax.jit,
+    static_argnames=("tile_size", "tile_capacity", "limb_samples", "kernel"),
+)
+def binary_inverse_ray_linear(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    *,
+    resolution=64,
+    tile_size=16,
+    tile_capacity=1024,
+    limb_samples=32,
+    kernel="real",
+):
+    """Specialized inverse-ray path for linear limb darkening."""
+
+    require_x64()
+    return _binary_inverse_ray(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        limb_c,
+        0.0,
+        resolution=resolution,
+        tile_size=tile_size,
+        tile_capacity=tile_capacity,
+        limb_samples=limb_samples,
+        kernel=kernel,
+        moment_mode="linear",
     )

@@ -2,7 +2,11 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from lcbinint_jax import binary_inverse_ray, discover_binary_macro_tiles
+from lcbinint_jax import (
+    binary_inverse_ray,
+    binary_inverse_ray_linear,
+    discover_binary_macro_tiles,
+)
 from lcbinint_jax.discovery import binary_image_seed_points
 
 
@@ -100,4 +104,50 @@ def test_automatic_path_jvp_matches_local_finite_difference():
         finite_difference,
         rtol=2.0e-6,
         atol=2.0e-6,
+    )
+
+
+def test_linear_specialization_matches_general_value_and_gradient():
+    parameters = jnp.asarray([0.2, 0.1, 1.2, 0.1, 0.2, 0.4])
+
+    def general(active_parameters):
+        x, y, separation, mass_ratio, radius, limb_c = active_parameters
+        return binary_inverse_ray(
+            x,
+            y,
+            separation,
+            mass_ratio,
+            radius,
+            limb_c,
+            0.0,
+            resolution=32,
+            tile_size=16,
+            tile_capacity=512,
+            limb_samples=16,
+        ).magnification
+
+    def specialized(active_parameters):
+        return binary_inverse_ray_linear(
+            *active_parameters,
+            resolution=32,
+            tile_size=16,
+            tile_capacity=512,
+            limb_samples=16,
+        ).magnification
+
+    general_value, general_gradient = jax.value_and_grad(general)(parameters)
+    specialized_value, specialized_gradient = jax.value_and_grad(specialized)(
+        parameters
+    )
+    np.testing.assert_allclose(
+        specialized_value,
+        general_value,
+        rtol=2.0e-11,
+        atol=2.0e-11,
+    )
+    np.testing.assert_allclose(
+        specialized_gradient,
+        general_gradient,
+        rtol=5.0e-8,
+        atol=5.0e-8,
     )

@@ -849,7 +849,7 @@ On 2026-07-26, the implementation branch contains the standalone
 - stabilized affine boundary-cell moments with axis-aligned limits;
 - a JIT-compiled fixed-support macro-tile reducer;
 - gradients with respect to \(w_x,w_y,s,q,\rho,c,d\);
-- 42 focused value/JVP/reverse-gradient/discovery/reference tests;
+- 43 focused value/JVP/reverse-gradient/discovery/reference tests;
 - a machine-readable CPU benchmark harness.
 
 One preliminary x86-64/JAX 0.6.2 CPU run at 40,000--43,264 rays measured:
@@ -916,6 +916,24 @@ gap. In particular, the limb-darkened case needed resolution 128 in JAX but
 only 32 native source bins under the oracle-selected rule. Boundary treatment
 and brightness-moment quadrature must be improved enough to lower that
 resolution before lower-level `custom_vjp` work is likely to pay off.
+
+The first optimization pass changed that conclusion materially for linear limb
+darkening. Tile-level lazy branching avoids evaluating affine boundary moments
+on wholly interior or exterior tiles. Boundary-adjacent interior cells now
+retain affine integration, improving \(M_{1/2}\) enough for resolution 64 to
+meet the development error budget. A linear-only moment path removes
+\(M_{1/4}\), constant powers expose more XLA simplification, and checkpointing
+the active-tile body nearly halves reverse latency.
+
+Against microLUX commit
+`a241b8c2f2198bc4846c0fa66e2bcdcf5cfa6428`, the optimized regular
+linear-limb case measured 8.48/16.77/31.06 ms for forward/JVP/value-plus-grad,
+versus 19.66/24.55/48.27 ms for microLUX. Near a resonant cusp, matched
+accuracy required 80 microLUX annuli; timings were 13.71/27.15/51.30 ms for
+inverse rays and 343.68/418.33/595.52 ms for microLUX. Thus the current
+development speedups are 1.46--2.32x on the regular case and 11.61--25.06x at
+the cusp. A broad held-out sweep is still required before promoting those
+case-level wins to a general performance claim.
 
 ## 15. References
 

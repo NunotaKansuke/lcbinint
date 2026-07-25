@@ -61,6 +61,28 @@ parameters = jnp.array([0.2, 0.1, 1.2, 0.1, 0.2, 0.4, 0.1])
 value, gradient = jax.value_and_grad(model)(parameters)
 ```
 
+For microLUX-compatible linear limb darkening, use the specialized path:
+
+```python
+from lcbinint_jax import binary_inverse_ray_linear
+
+result = binary_inverse_ray_linear(
+    source_x=0.2,
+    source_y=0.1,
+    separation=1.2,
+    mass_ratio=0.1,
+    source_radius=0.2,
+    limb_c=0.4,
+    resolution=64,
+    tile_size=16,
+    tile_capacity=512,
+)
+```
+
+It accumulates only \(M_0\) and \(M_{1/2}\). The general
+`binary_inverse_ray` path continues to support the two-coefficient
+square-root law.
+
 Use the coarse/fine diagnostic when a numerical acceptance decision is
 required:
 
@@ -146,6 +168,58 @@ VBMicrolensing uniform-source forward times were about 0.16--0.18 ms at the
 same requested error budget. Its installed Python API did not reproduce
 `lcbinint`'s two-coefficient square-root-law convention reliably, so no
 limb-darkened VBMicrolensing timing is presented as a matched physical case.
+
+## Optimized comparison with microLUX
+
+The linear-limb-darkening path was optimized after the initial benchmark:
+
+- tiles without boundary cells bypass the affine positive-part formula;
+- cells just inside the limb on a boundary tile retain affine moment
+  integration instead of reverting to midpoint brightness;
+- the linear specialization removes the unused \(M_{1/4}\) graph;
+- constant moment powers allow XLA to simplify the closed-form expressions;
+- checkpointing the active-tile body reduces reverse-pass memory traffic.
+
+The reproducible harness is
+[`benchmark_microlux_linear.py`](../tests/diagnostics/jax_ir/benchmark_microlux_linear.py).
+It compares against local microLUX commit
+`a241b8c2f2198bc4846c0fa66e2bcdcf5cfa6428`, using JAX 0.6.2 on one CPU
+device. Both engines use \(c=0.4\), and each reported setting satisfies
+
+\[
+10^{-4}+10^{-4}\max(|A_{\rm ref}|,1).
+\]
+
+Warm scalar timings were:
+
+| Case | Engine setting | Forward | Directional JVP | Value + gradient |
+| --- | --- | ---: | ---: | ---: |
+| regular | inverse ray, resolution 64 | 8.48 ms | 16.77 ms | 31.06 ms |
+| regular | microLUX, 10 annuli | 19.66 ms | 24.55 ms | 48.27 ms |
+| resonant cusp | inverse ray, resolution 64 | 13.71 ms | 27.15 ms | 51.30 ms |
+| resonant cusp | microLUX, 80 annuli | 343.68 ms | 418.33 ms | 595.52 ms |
+
+The resulting inverse-ray speedups were:
+
+| Case | Forward | Directional JVP | Value + gradient |
+| --- | ---: | ---: | ---: |
+| regular | 2.32x | 1.46x | 1.55x |
+| resonant cusp | 25.06x | 15.41x | 11.61x |
+
+For the regular case, the reference magnification was 4.47211877. The
+inverse-ray value was 4.47262454 and the microLUX value was 4.47246599; both
+passed the 0.00054721 budget.
+
+At the cusp, VBMicrolensing's limb-darkened value disagreed with the
+high-resolution native, JAX, and microLUX convergence sequence. The benchmark
+therefore uses their consensus near 9.12500 rather than treating one solver as
+an oracle. The inverse-ray value at resolution 64 was 9.12574905. microLUX's
+default 10-annulus result missed the matched budget; 80 annuli produced
+9.12483904 and passed.
+
+These two cases meet the microLUX CPU target, including reverse mode. They do
+not yet establish dominance over the full \((s,q,\rho,w,c)\) domain; a
+stratified held-out sweep remains required.
 
 ## Current limitations
 

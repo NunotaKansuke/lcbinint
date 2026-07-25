@@ -69,6 +69,28 @@ def _affine_unit_square_moment(
     )
 
 
+def _affine_cell_moments_with_powers(
+    phi_centre: jax.Array,
+    phi_gradient_x: jax.Array,
+    phi_gradient_y: jax.Array,
+    cell_size: jax.Array,
+    powers,
+) -> jax.Array:
+    phi_centre = jnp.asarray(phi_centre)
+    phi_gradient_x = jnp.asarray(phi_gradient_x, dtype=phi_centre.dtype)
+    phi_gradient_y = jnp.asarray(phi_gradient_y, dtype=phi_centre.dtype)
+    cell_size = jnp.asarray(cell_size, dtype=phi_centre.dtype)
+    frozen_cell_size = jax.lax.stop_gradient(cell_size)
+    delta_x = phi_gradient_x * frozen_cell_size
+    delta_y = phi_gradient_y * frozen_cell_size
+    lower_left = phi_centre - 0.5 * (delta_x + delta_y)
+    powers = jnp.asarray(powers, dtype=phi_centre.dtype)
+    unit_moments = jax.vmap(
+        lambda power: _affine_unit_square_moment(lower_left, delta_x, delta_y, power)
+    )(powers)
+    return frozen_cell_size * frozen_cell_size * unit_moments
+
+
 def affine_cell_moments(
     phi_centre: jax.Array,
     phi_gradient_x: jax.Array,
@@ -76,6 +98,23 @@ def affine_cell_moments(
     cell_size: jax.Array,
 ) -> jax.Array:
     """Return ``(M0, M1/2, M1/4)`` for a locally affine source boundary."""
+
+    return _affine_cell_moments_with_powers(
+        phi_centre,
+        phi_gradient_x,
+        phi_gradient_y,
+        cell_size,
+        _POWERS,
+    )
+
+
+def affine_cell_moments_linear(
+    phi_centre: jax.Array,
+    phi_gradient_x: jax.Array,
+    phi_gradient_y: jax.Array,
+    cell_size: jax.Array,
+) -> jax.Array:
+    """Return ``(M0, M1/2)`` for linear limb darkening."""
 
     phi_centre = jnp.asarray(phi_centre)
     phi_gradient_x = jnp.asarray(phi_gradient_x, dtype=phi_centre.dtype)
@@ -85,11 +124,40 @@ def affine_cell_moments(
     delta_x = phi_gradient_x * frozen_cell_size
     delta_y = phi_gradient_y * frozen_cell_size
     lower_left = phi_centre - 0.5 * (delta_x + delta_y)
-    powers = jnp.asarray(_POWERS, dtype=phi_centre.dtype)
-    unit_moments = jax.vmap(
-        lambda power: _affine_unit_square_moment(lower_left, delta_x, delta_y, power)
+    moment_0 = _affine_unit_square_moment(
+        lower_left,
+        delta_x,
+        delta_y,
+        jnp.asarray(0.0, dtype=phi_centre.dtype),
+    )
+    moment_half = _affine_unit_square_moment(
+        lower_left,
+        delta_x,
+        delta_y,
+        jnp.asarray(0.5, dtype=phi_centre.dtype),
+    )
+    return frozen_cell_size * frozen_cell_size * jnp.stack((moment_0, moment_half))
+
+
+def _midpoint_cell_moments_with_powers(
+    phi_centre: jax.Array,
+    cell_size: jax.Array,
+    powers,
+) -> jax.Array:
+    phi_centre = jnp.asarray(phi_centre)
+    cell_size = jnp.asarray(cell_size, dtype=phi_centre.dtype)
+    frozen_cell_size = jax.lax.stop_gradient(cell_size)
+    area = frozen_cell_size * frozen_cell_size
+    positive = phi_centre > 0.0
+    safe_phi = jnp.where(positive, phi_centre, 1.0)
+    powers = jnp.asarray(powers, dtype=phi_centre.dtype)
+    return area * jax.vmap(
+        lambda power: jnp.where(
+            power == 0.0,
+            positive.astype(phi_centre.dtype),
+            jnp.where(positive, jnp.power(safe_phi, power), 0.0),
+        )
     )(powers)
-    return frozen_cell_size * frozen_cell_size * unit_moments
 
 
 def midpoint_cell_moments(
@@ -97,6 +165,15 @@ def midpoint_cell_moments(
     cell_size: jax.Array,
 ) -> jax.Array:
     """Midpoint moments for a cell known to lie fully inside the source."""
+
+    return _midpoint_cell_moments_with_powers(phi_centre, cell_size, _POWERS)
+
+
+def midpoint_cell_moments_linear(
+    phi_centre: jax.Array,
+    cell_size: jax.Array,
+) -> jax.Array:
+    """Midpoint ``(M0, M1/2)`` for linear limb darkening."""
 
     phi_centre = jnp.asarray(phi_centre)
     cell_size = jnp.asarray(cell_size, dtype=phi_centre.dtype)
@@ -108,19 +185,17 @@ def midpoint_cell_moments(
         (
             positive.astype(phi_centre.dtype),
             jnp.where(positive, jnp.sqrt(safe_phi), 0.0),
-            jnp.where(positive, jnp.power(safe_phi, 0.25), 0.0),
         )
     )
 
 
-def resolved_cell_moments(
+def _resolved_cell_moments(
     phi_centre: jax.Array,
     phi_gradient_x: jax.Array,
     phi_gradient_y: jax.Array,
     cell_size: jax.Array,
+    affine_moments,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
-    """Select outside, midpoint-interior, or affine-boundary cell moments."""
-
     phi_centre = jnp.asarray(phi_centre)
     phi_gradient_x = jnp.asarray(phi_gradient_x, dtype=phi_centre.dtype)
     phi_gradient_y = jnp.asarray(phi_gradient_y, dtype=phi_centre.dtype)
@@ -141,13 +216,46 @@ def resolved_cell_moments(
     fully_outside = jnp.max(corner_phi) <= 0.0
     boundary = ~(fully_inside | fully_outside)
 
-    inside_moments = midpoint_cell_moments(phi_centre, frozen_cell_size)
-    boundary_moments = affine_cell_moments(
+    resolved_moments = affine_moments(
         phi_centre, phi_gradient_x, phi_gradient_y, frozen_cell_size
     )
     moments = jnp.where(
         fully_outside,
-        jnp.zeros_like(inside_moments),
-        jnp.where(fully_inside, inside_moments, boundary_moments),
+        jnp.zeros_like(resolved_moments),
+        resolved_moments,
     )
     return moments, boundary, ~fully_outside
+
+
+def resolved_cell_moments(
+    phi_centre: jax.Array,
+    phi_gradient_x: jax.Array,
+    phi_gradient_y: jax.Array,
+    cell_size: jax.Array,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
+    """Resolve ``(M0, M1/2, M1/4)`` for one cell."""
+
+    return _resolved_cell_moments(
+        phi_centre,
+        phi_gradient_x,
+        phi_gradient_y,
+        cell_size,
+        affine_cell_moments,
+    )
+
+
+def resolved_cell_moments_linear(
+    phi_centre: jax.Array,
+    phi_gradient_x: jax.Array,
+    phi_gradient_y: jax.Array,
+    cell_size: jax.Array,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
+    """Resolve ``(M0, M1/2)`` for one linear-limb-darkened cell."""
+
+    return _resolved_cell_moments(
+        phi_centre,
+        phi_gradient_x,
+        phi_gradient_y,
+        cell_size,
+        affine_cell_moments_linear,
+    )
