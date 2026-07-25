@@ -899,6 +899,24 @@ checkpoint are \(3.44\times10^{-4}\), \(4.67\times10^{-4}\), and
 \(1.95\times10^{-4}\), respectively. A regular-case JAX directional JVP is
 also checked against a 512-bin native central difference.
 
+A first matched-accuracy scalar CPU benchmark then exposed the main performance
+gap. At an error budget of
+\(10^{-4}+10^{-4}\max(|A_{\rm ref}|,1)\), warm JAX/native forward times were
+30.48/2.30 ms for a regular uniform source, 87.12/2.45 ms for the same source
+with two-coefficient square-root limb darkening, and 51.63/2.72 ms near a
+resonant cusp. JAX value-plus-gradient took 132.49, 441.31, and 247.97 ms,
+versus 33.56, 34.53, and 39.55 ms for fourteen native evaluations forming a
+seven-parameter central difference.
+
+Separating the JAX forward path showed discovery at 3.64--11.13 ms and
+fixed-support integration at 21.28--70.39 ms. The immediate optimization
+priority is therefore accuracy per integrated ray and CPU execution of the
+tile reducer. Root caching cannot by itself close the current scalar latency
+gap. In particular, the limb-darkened case needed resolution 128 in JAX but
+only 32 native source bins under the oracle-selected rule. Boundary treatment
+and brightness-moment quadrature must be improved enough to lower that
+resolution before lower-level `custom_vjp` work is likely to pay off.
+
 ## 15. References
 
 - Miyazaki & Kawahara, “microJAX: A Differentiable Framework for Microlensing

@@ -103,6 +103,50 @@ approximately -1.7926 also agrees with a 512-bin native central difference to
 within the development tolerance. These are regression checkpoints, not a
 completed calibration over the full parameter domain.
 
+## Matched-accuracy CPU benchmark
+
+The cross-engine harness
+[`benchmark_engines.py`](../tests/diagnostics/jax_ir/benchmark_engines.py)
+selects the lowest tested setting whose absolute error satisfies
+
+\[
+10^{-4}+10^{-4}\max(|A_{\rm ref}|,1).
+\]
+
+One warm scalar-epoch run on the development x86-64 CPU with JAX 0.6.2 gave:
+
+| Case | native setting / time | JAX setting / forward | JAX JVP | JAX value + gradient |
+| --- | ---: | ---: | ---: | ---: |
+| regular, uniform | 32 bins / 2.30 ms | 64 / 30.48 ms | 72.70 ms | 132.49 ms |
+| regular, square-root limb | 32 bins / 2.45 ms | 128 / 87.12 ms | 223.52 ms | 441.31 ms |
+| resonant cusp, uniform | 48 bins / 2.72 ms | 64 / 51.63 ms | 131.55 ms | 247.97 ms |
+
+For context, seven-parameter native central differences took 33.56, 34.53,
+and 39.55 ms on the same three cases. The JAX reverse pass is therefore about
+4.0, 12.8, and 6.3 times slower than fourteen native forward evaluations in
+this initial implementation. JAX compilation was measured separately and is
+not included in the warm times.
+
+The JAX forward breakdown was:
+
+| Case | Discovery | Fixed-support integration |
+| --- | ---: | ---: |
+| regular, uniform | 3.64 ms | 21.28 ms |
+| regular, square-root limb | 11.13 ms | 70.39 ms |
+| resonant cusp, uniform | 5.76 ms | 45.97 ms |
+
+The current bottleneck is thus the ray integral, not polynomial roots or
+macro-tile discovery. The native grid's reference error is non-monotonic in
+some bins, so choosing the first oracle-passing setting is optimistic; the
+full calibration arrays are retained in the JSON benchmark output. Even with
+more conservative native settings, the present JAX kernel is not yet
+competitive on scalar CPU latency.
+
+VBMicrolensing uniform-source forward times were about 0.16--0.18 ms at the
+same requested error budget. Its installed Python API did not reproduce
+`lcbinint`'s two-coefficient square-root-law convention reliably, so no
+limb-darkened VBMicrolensing timing is presented as a matched physical case.
+
 ## Current limitations
 
 - Binary lenses only.
