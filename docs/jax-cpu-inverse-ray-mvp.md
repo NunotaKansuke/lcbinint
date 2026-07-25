@@ -83,6 +83,23 @@ It accumulates only \(M_0\) and \(M_{1/2}\). The general
 `binary_inverse_ray` path continues to support the two-coefficient
 square-root law.
 
+For a uniform source, use the still smaller \(M_0\)-only graph:
+
+```python
+from lcbinint_jax import binary_inverse_ray_uniform
+
+result = binary_inverse_ray_uniform(
+    source_x=0.2,
+    source_y=0.1,
+    separation=1.2,
+    mass_ratio=0.1,
+    source_radius=0.2,
+    resolution=64,
+    tile_size=16,
+    tile_capacity=512,
+)
+```
+
 Use the coarse/fine diagnostic when a numerical acceptance decision is
 required:
 
@@ -220,6 +237,61 @@ default 10-annulus result missed the matched budget; 80 annuli produced
 These two cases meet the microLUX CPU target, including reverse mode. They do
 not yet establish dominance over the full \((s,q,\rho,w,c)\) domain; a
 stratified held-out sweep remains required.
+
+## Four-engine positioning
+
+The newer
+[`benchmark_positioning.py`](../tests/diagnostics/jax_ir/benchmark_positioning.py)
+compares the specialized uniform and linear paths against microLUX, native
+`lcbinint`, and VBMicrolensing. It calibrates increasing JAX resolutions and
+native source-bin counts against the same error budget before timing. The
+microLUX configuration is also rejected when its achieved error misses that
+budget. These are warm scalar CPU latencies; JIT compilation is excluded.
+
+One development-machine run produced:
+
+| Geometry and profile | JAX inverse ray | microLUX | native `lcbinint` | VBMicrolensing |
+| --- | ---: | ---: | ---: | ---: |
+| regular, uniform | 5.30 ms | 2.83 ms | 2.43 ms | 0.145 ms |
+| resonant cusp, uniform | 8.17 ms | 5.60 ms | 2.94 ms | 0.160 ms |
+| planetary far field, uniform | 3.60 ms | 1.70 ms | 1.25 ms | 0.052 ms |
+| regular, linear \(c=0.4\) | 8.98 ms | 18.10 ms | 2.98 ms | 2.13 ms |
+| resonant cusp, linear \(c=0.4\) | 13.64 ms | 347.87 ms | 3.24 ms | failed accuracy |
+| planetary cusp, linear \(c=0.4\) | 8.45 ms | 288.88 ms | 2.22 ms | failed accuracy |
+| planetary far field, linear \(c=0.4\) | 14.33 ms | 6.77 ms | 1.26 ms | 0.055 ms |
+
+The corresponding differentiable timings were:
+
+| Geometry and profile | JAX JVP / gradient | microLUX JVP / gradient |
+| --- | ---: | ---: |
+| regular, uniform | 7.18 / 23.47 ms | 4.13 / 4.85 ms |
+| resonant cusp, uniform | 10.70 / 32.51 ms | 6.43 / 8.04 ms |
+| regular, linear | 17.48 / 37.86 ms | 25.94 / 46.42 ms |
+| resonant cusp, linear | 27.32 / 51.42 ms | 419.49 / 614.87 ms |
+| planetary cusp, linear | 15.28 / 37.41 ms | 356.11 / 558.50 ms |
+| planetary far field, linear | 25.04 / 71.33 ms | 12.86 / 35.99 ms |
+
+This fixes the current position of the method:
+
+- inverse rays do not win for uniform sources; one contour integration or a
+  point/multipole shortcut is cheaper than rasterizing image area;
+- inverse rays beat microLUX for linear limb darkening when a true
+  finite-source calculation is required, by about 2x at the regular point and
+  25--34x on the two tested caustic cusps;
+- inverse rays lose away from caustics when microLUX can accept its
+  point/quadrupole result;
+- native `lcbinint` remains 3--4x faster than the JAX inverse-ray forward path;
+- VBMicrolensing is the strongest forward-only baseline where its contour
+  result meets the common accuracy check, but it is not differentiable in
+  JAX and missed the selected cusp references.
+
+The practical production architecture should therefore be hybrid: use a
+differentiable point/multipole or contour path for uniform and safely
+far-from-caustic epochs, and dispatch to the JAX inverse-ray moment kernel for
+finite-source, limb-darkened caustic epochs. A broad held-out sweep is still
+needed to calibrate that dispatch boundary. Native-bin errors are
+non-monotonic, so the first-passing native setting remains an optimistic
+latency comparison; the full calibration rows are retained by the harness.
 
 ## Current limitations
 

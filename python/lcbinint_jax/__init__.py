@@ -1,6 +1,10 @@
 """CPU-oriented differentiable inverse-ray integration in JAX."""
 
-from .api import binary_inverse_ray, binary_inverse_ray_linear
+from .api import (
+    binary_inverse_ray,
+    binary_inverse_ray_linear,
+    binary_inverse_ray_uniform,
+)
 from .convergence import binary_inverse_ray_convergence
 from .discovery import discover_binary_macro_tiles
 from .integrate import binary_inverse_ray_fixed_support
@@ -21,6 +25,7 @@ __all__ = [
     "binary_inverse_ray_convergence",
     "binary_inverse_ray_fixed_support",
     "binary_inverse_ray_linear",
+    "binary_inverse_ray_uniform",
     "combine_limb_darkening_moments",
     "discover_binary_macro_tiles",
 ]

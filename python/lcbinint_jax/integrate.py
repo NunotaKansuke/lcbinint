@@ -9,8 +9,10 @@ from ._config import require_x64
 from .cell_moments import (
     midpoint_cell_moments,
     midpoint_cell_moments_linear,
+    midpoint_cell_moments_uniform,
     resolved_cell_moments,
     resolved_cell_moments_linear,
+    resolved_cell_moments_uniform,
 )
 from .lens import (
     binary_lens_map_and_derivatives_real,
@@ -109,13 +111,19 @@ def binary_inverse_ray_fixed_support(
     require_x64()
     if kernel not in ("real", "complex"):
         raise ValueError("kernel must be 'real' or 'complex'")
-    if moment_mode not in ("linear", "two_coefficient"):
-        raise ValueError("moment_mode must be 'linear' or 'two_coefficient'")
+    if moment_mode not in ("uniform", "linear", "two_coefficient"):
+        raise ValueError(
+            "moment_mode must be 'uniform', 'linear', or 'two_coefficient'"
+        )
 
     frozen_origins = jax.lax.stop_gradient(tile_origins)
     frozen_mask = jax.lax.stop_gradient(tile_mask)
     offset_x, offset_y = _tile_offsets(tile_size, cell_size)
-    if moment_mode == "linear":
+    if moment_mode == "uniform":
+        midpoint_moments = midpoint_cell_moments_uniform
+        resolved_moments = resolved_cell_moments_uniform
+        moment_count = 1
+    elif moment_mode == "linear":
         midpoint_moments = midpoint_cell_moments_linear
         resolved_moments = resolved_cell_moments_linear
         moment_count = 2
@@ -231,7 +239,9 @@ def binary_inverse_ray_fixed_support(
     (moments, boundary_cells, active_cells), _ = jax.lax.scan(
         integrate_tile, initial, (frozen_origins, frozen_mask)
     )
-    if moment_mode == "linear":
+    if moment_mode == "uniform":
+        magnification = moments[0] / (jnp.pi * source_radius * source_radius)
+    elif moment_mode == "linear":
         magnification = ((1.0 - limb_c) * moments[0] + limb_c * moments[1]) / (
             jnp.pi * source_radius * source_radius * (1.0 - limb_c / 3.0)
         )

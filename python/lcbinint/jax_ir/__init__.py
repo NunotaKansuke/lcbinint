@@ -9,6 +9,7 @@ from lcbinint_jax import (
     binary_inverse_ray_convergence,
     binary_inverse_ray_fixed_support,
     binary_inverse_ray_linear,
+    binary_inverse_ray_uniform,
     combine_limb_darkening_moments,
     discover_binary_macro_tiles,
 )
@@ -22,6 +23,7 @@ __all__ = [
     "binary_inverse_ray_convergence",
     "binary_inverse_ray_fixed_support",
     "binary_inverse_ray_linear",
+    "binary_inverse_ray_uniform",
     "combine_limb_darkening_moments",
     "discover_binary_macro_tiles",
 ]

@@ -109,6 +109,43 @@ def binary_inverse_ray(
     jax.jit,
     static_argnames=("tile_size", "tile_capacity", "limb_samples", "kernel"),
 )
+def binary_inverse_ray_uniform(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    *,
+    resolution=64,
+    tile_size=16,
+    tile_capacity=1024,
+    limb_samples=32,
+    kernel="real",
+):
+    """Specialized inverse-ray path for a uniform source."""
+
+    require_x64()
+    return _binary_inverse_ray(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        0.0,
+        0.0,
+        resolution=resolution,
+        tile_size=tile_size,
+        tile_capacity=tile_capacity,
+        limb_samples=limb_samples,
+        kernel=kernel,
+        moment_mode="uniform",
+    )
+
+
+@partial(
+    jax.jit,
+    static_argnames=("tile_size", "tile_capacity", "limb_samples", "kernel"),
+)
 def binary_inverse_ray_linear(
     source_x,
     source_y,

@@ -935,6 +935,39 @@ development speedups are 1.46--2.32x on the regular case and 11.61--25.06x at
 the cusp. A broad held-out sweep is still required before promoting those
 case-level wins to a general performance claim.
 
+A follow-up four-engine benchmark added an \(M_0\)-only uniform-source JAX
+graph and fixed the method's current operating envelope. At matched achieved
+accuracy, warm forward times for JAX/microLUX/native/VBMicrolensing were
+5.30/2.83/2.43/0.145 ms at the regular uniform point and
+8.17/5.60/2.94/0.160 ms at the uniform resonant cusp. Inverse rays therefore
+do not have a scalar-CPU advantage without limb darkening.
+
+With linear limb darkening, the same four-way comparison measured
+8.98/18.10/2.98/2.13 ms at the regular point. At the resonant cusp it measured
+13.64/347.87/3.24 ms for JAX/microLUX/native, while VBMicrolensing missed the
+common error budget. A second cusp at \(q=10^{-3}\) measured
+8.45/288.88/2.22 ms, again with the VBMicrolensing result outside the common
+budget. Thus the microLUX advantage is reversed precisely where its concentric
+contour evaluations multiply, and the result is not limited to \(q=0.1\).
+
+The counterexample is equally important: at a planetary far-field point, the
+linear-profile timings were 14.33/6.77/1.26/0.055 ms. microLUX and the native
+solvers can take a point/quadrupole shortcut while the current JAX API always
+rasterizes the finite source. The production design should now prioritize a
+hybrid differentiable dispatcher:
+
+1. point/multipole or one-contour evaluation for uniform sources and epochs
+   certified far from caustics;
+2. inverse-ray moments for limb-darkened epochs that fail the shortcut test;
+3. coarse/fine and support diagnostics before accepting either numerical
+   finite-source path.
+
+This routing is not a retreat from the inverse-ray objective. It confines the
+inverse-ray kernel to the regime where its single-pass limb moments provide a
+measured CPU advantage. The immediate benchmark sweep should calibrate the
+dispatcher boundary rather than attempt to make inverse rays beat contour
+integration in the uniform far field.
+
 ## 15. References
 
 - Miyazaki & Kawahara, “microJAX: A Differentiable Framework for Microlensing

@@ -139,6 +139,31 @@ def affine_cell_moments_linear(
     return frozen_cell_size * frozen_cell_size * jnp.stack((moment_0, moment_half))
 
 
+def affine_cell_moments_uniform(
+    phi_centre: jax.Array,
+    phi_gradient_x: jax.Array,
+    phi_gradient_y: jax.Array,
+    cell_size: jax.Array,
+) -> jax.Array:
+    """Return ``(M0,)`` for a uniform source."""
+
+    phi_centre = jnp.asarray(phi_centre)
+    phi_gradient_x = jnp.asarray(phi_gradient_x, dtype=phi_centre.dtype)
+    phi_gradient_y = jnp.asarray(phi_gradient_y, dtype=phi_centre.dtype)
+    cell_size = jnp.asarray(cell_size, dtype=phi_centre.dtype)
+    frozen_cell_size = jax.lax.stop_gradient(cell_size)
+    delta_x = phi_gradient_x * frozen_cell_size
+    delta_y = phi_gradient_y * frozen_cell_size
+    lower_left = phi_centre - 0.5 * (delta_x + delta_y)
+    moment_0 = _affine_unit_square_moment(
+        lower_left,
+        delta_x,
+        delta_y,
+        jnp.asarray(0.0, dtype=phi_centre.dtype),
+    )
+    return frozen_cell_size * frozen_cell_size * moment_0[None]
+
+
 def _midpoint_cell_moments_with_powers(
     phi_centre: jax.Array,
     cell_size: jax.Array,
@@ -187,6 +212,19 @@ def midpoint_cell_moments_linear(
             jnp.where(positive, jnp.sqrt(safe_phi), 0.0),
         )
     )
+
+
+def midpoint_cell_moments_uniform(
+    phi_centre: jax.Array,
+    cell_size: jax.Array,
+) -> jax.Array:
+    """Midpoint ``(M0,)`` for a uniform source."""
+
+    phi_centre = jnp.asarray(phi_centre)
+    cell_size = jnp.asarray(cell_size, dtype=phi_centre.dtype)
+    frozen_cell_size = jax.lax.stop_gradient(cell_size)
+    area = frozen_cell_size * frozen_cell_size
+    return (area * (phi_centre > 0.0).astype(phi_centre.dtype))[None]
 
 
 def _resolved_cell_moments(
@@ -258,4 +296,21 @@ def resolved_cell_moments_linear(
         phi_gradient_y,
         cell_size,
         affine_cell_moments_linear,
+    )
+
+
+def resolved_cell_moments_uniform(
+    phi_centre: jax.Array,
+    phi_gradient_x: jax.Array,
+    phi_gradient_y: jax.Array,
+    cell_size: jax.Array,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
+    """Resolve ``(M0,)`` for one uniform-source cell."""
+
+    return _resolved_cell_moments(
+        phi_centre,
+        phi_gradient_x,
+        phi_gradient_y,
+        cell_size,
+        affine_cell_moments_uniform,
     )
