@@ -293,12 +293,59 @@ needed to calibrate that dispatch boundary. Native-bin errors are
 non-monotonic, so the first-passing native setting remains an optimistic
 latency comparison; the full calibration rows are retained by the harness.
 
+## Experimental polar inverse rays and automatic dispatch
+
+The JAX package now also contains an image-informed polar kernel. Physical
+centre and source-limb roots are converted into stopped-gradient radial bands.
+For each angular chunk, only bands near a sampled image boundary are activated.
+The cells use the same affine positive-part moments as the Cartesian kernel,
+with the local derivatives transformed from \((x,y)\) to \((r,\theta)\).
+Forward, JVP, and reverse-mode differentiation all pass.
+
+`binary_inverse_ray_auto` hides the coordinate choice:
+
+- ordinary sources use the Cartesian macro-tile path;
+- tiny sources above a stopped-gradient point-magnification threshold are sent
+  directly to polar integration;
+- Cartesian discovery overflow triggers a polar fallback.
+
+The dispatcher defaults to the full two-coefficient square-root law. Callers
+with a known uniform or linear profile can set `moment_mode="uniform"` or
+`moment_mode="linear"`; the coordinate decision remains automatic while XLA
+compiles the smaller one- or two-moment graph.
+
+The focused benchmark
+[`benchmark_polar.py`](../tests/diagnostics/jax_ir/benchmark_polar.py) uses
+\(s=0.95,q=0.01,\rho=0.005\) at a high-magnification epoch with linear
+limb darkening \(c=0.4\). A 512-bin native polar result, 95.42477782, defines
+the same \(10^{-4}+10^{-4}\max(|A_{\rm ref}|,1)\) budget used elsewhere.
+
+| Method / setting | Value | Absolute error | Warm forward |
+| --- | ---: | ---: | ---: |
+| JAX polar, 64 radial / 2048 angular | 95.46624722 | 0.04147, fails | 76.28 ms |
+| JAX polar, 64 / 4096 | 95.44233862 | 0.01756, fails | 147.21 ms |
+| JAX polar, 128 / 4096 | 95.43521044 | 0.01043, fails | 188.43 ms |
+| JAX polar, 128 / 8192 | 95.42927862 | 0.00450, passes | 363.43 ms |
+| microLUX, 80 annuli | 95.42525035 | 0.00047, passes | 89.72 ms |
+
+The Cartesian JAX path overflowed even with 4096 tile slots on this point, so
+polar integration materially expands the supported domain. It is not yet the
+matched-accuracy speed winner: the coarse polar setting was slightly faster
+than microLUX but failed the error budget, while the first passing setting was
+about four times slower. The current role of polar is therefore robust
+tiny-source/high-magnification fallback, not a general replacement for the
+Cartesian caustic kernel. Angular boundary accuracy is the next polar
+optimization target.
+
 ## Current limitations
 
 - Binary lenses only.
 - The current `support_valid` flag detects root and tile-capacity failures; it
   is not a numerical-accuracy or gradient-convergence guarantee; use the
   coarse/fine diagnostic for that decision.
+- Polar `support_valid` likewise checks band/root capacity, not quadrature
+  convergence. Its default angular resolution is intentionally conservative
+  in the automatic dispatcher.
 - Resolution and capacity buckets are not calibrated yet.
 - Very small image components may still be missed by finite source-limb
   sampling; the planned halo and topology sweeps must validate this.

@@ -968,6 +968,28 @@ measured CPU advantage. The immediate benchmark sweep should calibrate the
 dispatcher boundary rather than attempt to make inverse rays beat contour
 integration in the uniform far field.
 
+The next implementation checkpoint added a differentiable polar inverse-ray
+kernel and a Cartesian/polar dispatcher. Rather than port the native variable
+length queue literally, the JAX path merges stopped-gradient centre/limb image
+radii into fixed-capacity bands. It then constructs angle-local radial
+intervals and evaluates them in fixed angular chunks. The lens-map derivatives
+are transformed into radial and angular derivatives, allowing the existing
+affine positive-part moment formula to integrate \(M_0,M_{1/2},M_{1/4}\).
+
+This solves a real support problem: for a tested
+\(s=0.95,q=0.01,\rho=0.005\) high-magnification epoch, Cartesian discovery
+overflowed at 4096 macro tiles while the polar representation required three
+radial bands. The automatic API preselects polar for tiny, high-magnification
+sources and also uses it after Cartesian discovery overflow.
+
+The speed result is deliberately not promoted as a win. With linear limb
+darkening and a common absolute error budget of 0.009642, polar
+64-radial/2048-angular ran in 76.28 ms but missed the budget by 0.04147.
+The first passing tested setting, 128/8192, ran in 363.43 ms. microLUX passed
+in 89.72 ms. Polar therefore expands the valid domain and keeps JAX AD
+available, but its angular boundary rule needs substantially better accuracy
+per column before it should be selected for speed alone.
+
 ## 15. References
 
 - Miyazaki & Kawahara, “microJAX: A Differentiable Framework for Microlensing
