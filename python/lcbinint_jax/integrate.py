@@ -1,0 +1,173 @@
+"""Fixed-support Cartesian macro-tile inverse-ray integration."""
+
+from functools import partial
+
+import jax
+import jax.numpy as jnp
+
+from ._config import require_x64
+from .cell_moments import resolved_cell_moments
+from .lens import (
+    binary_lens_map_and_derivatives_real,
+    binary_lens_map_complex,
+)
+from .limb_darkening import combine_limb_darkening_moments
+from .types import FixedSupportResult
+
+
+def _tile_offsets(tile_size: int, cell_size: jax.Array) -> tuple[jax.Array, jax.Array]:
+    frozen_cell_size = jax.lax.stop_gradient(cell_size)
+    one_dimensional = (
+        jnp.arange(tile_size, dtype=frozen_cell_size.dtype) + 0.5
+    ) * frozen_cell_size
+    offset_x, offset_y = jnp.meshgrid(one_dimensional, one_dimensional, indexing="xy")
+    return offset_x.ravel(), offset_y.ravel()
+
+
+def _phi_and_gradient_real(
+    image_x: jax.Array,
+    image_y: jax.Array,
+    source_x: jax.Array,
+    source_y: jax.Array,
+    separation: jax.Array,
+    mass_ratio: jax.Array,
+    source_radius: jax.Array,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
+    mapped_x, mapped_y, du_dx, du_dy, dv_dx, dv_dy = (
+        binary_lens_map_and_derivatives_real(image_x, image_y, separation, mass_ratio)
+    )
+    residual_x = mapped_x - source_x
+    residual_y = mapped_y - source_y
+    inverse_radius_squared = 1.0 / (source_radius * source_radius)
+    phi = (
+        1.0
+        - (residual_x * residual_x + residual_y * residual_y) * inverse_radius_squared
+    )
+    gradient_x = (
+        -2.0 * inverse_radius_squared * (residual_x * du_dx + residual_y * dv_dx)
+    )
+    gradient_y = (
+        -2.0 * inverse_radius_squared * (residual_x * du_dy + residual_y * dv_dy)
+    )
+    return phi, gradient_x, gradient_y
+
+
+def _phi_and_gradient_complex(
+    image_x: jax.Array,
+    image_y: jax.Array,
+    source_x: jax.Array,
+    source_y: jax.Array,
+    separation: jax.Array,
+    mass_ratio: jax.Array,
+    source_radius: jax.Array,
+) -> tuple[jax.Array, jax.Array, jax.Array]:
+    image = image_x + 1j * image_y
+
+    def scalar_phi(real_xy):
+        mapped = binary_lens_map_complex(
+            real_xy[0] + 1j * real_xy[1], separation, mass_ratio
+        )
+        residual_x = jnp.real(mapped) - source_x
+        residual_y = jnp.imag(mapped) - source_y
+        return 1.0 - (residual_x * residual_x + residual_y * residual_y) / (
+            source_radius * source_radius
+        )
+
+    phi = scalar_phi(jnp.stack((jnp.real(image), jnp.imag(image))))
+    gradient = jax.grad(scalar_phi)(jnp.stack((jnp.real(image), jnp.imag(image))))
+    return phi, gradient[0], gradient[1]
+
+
+@partial(jax.jit, static_argnames=("tile_size", "kernel"))
+def binary_inverse_ray_fixed_support(
+    tile_origins: jax.Array,
+    tile_mask: jax.Array,
+    cell_size: jax.Array,
+    source_x: jax.Array,
+    source_y: jax.Array,
+    separation: jax.Array,
+    mass_ratio: jax.Array,
+    source_radius: jax.Array,
+    limb_c: jax.Array = 0.0,
+    limb_d: jax.Array = 0.0,
+    *,
+    tile_size: int = 8,
+    kernel: str = "real",
+) -> FixedSupportResult:
+    """Integrate caller-supplied, non-overlapping image-plane macro-tiles.
+
+    ``tile_origins`` contains the lower-left physical coordinate of each tile.
+    Numerical support and grid geometry are stopped-gradient by design.
+    """
+
+    require_x64()
+    if kernel not in ("real", "complex"):
+        raise ValueError("kernel must be 'real' or 'complex'")
+
+    frozen_origins = jax.lax.stop_gradient(tile_origins)
+    frozen_mask = jax.lax.stop_gradient(tile_mask)
+    offset_x, offset_y = _tile_offsets(tile_size, cell_size)
+    phi_kernel = (
+        _phi_and_gradient_real if kernel == "real" else _phi_and_gradient_complex
+    )
+
+    def integrate_tile(carry, inputs):
+        origin, active = inputs
+
+        def active_tile(active_origin):
+            image_x = active_origin[0] + offset_x
+            image_y = active_origin[1] + offset_y
+            phi, gradient_x, gradient_y = jax.vmap(
+                lambda x, y: phi_kernel(
+                    x,
+                    y,
+                    source_x,
+                    source_y,
+                    separation,
+                    mass_ratio,
+                    source_radius,
+                )
+            )(image_x, image_y)
+            cell_moments, boundary, contributing = jax.vmap(
+                lambda value, dx, dy: resolved_cell_moments(value, dx, dy, cell_size)
+            )(phi, gradient_x, gradient_y)
+            return (
+                jnp.sum(cell_moments, axis=0),
+                jnp.sum(boundary.astype(jnp.int32), dtype=jnp.int32),
+                jnp.sum(contributing.astype(jnp.int32), dtype=jnp.int32),
+            )
+
+        def inactive_tile(_):
+            return (
+                jnp.zeros(3, dtype=carry[0].dtype),
+                jnp.asarray(0, dtype=jnp.int32),
+                jnp.asarray(0, dtype=jnp.int32),
+            )
+
+        tile_moments, tile_boundary, tile_contributing = jax.lax.cond(
+            active, active_tile, inactive_tile, origin
+        )
+        moments, boundary_count, active_count = carry
+        return (
+            moments + tile_moments,
+            boundary_count + tile_boundary,
+            active_count + tile_contributing,
+        ), None
+
+    initial = (
+        jnp.zeros(3, dtype=jnp.result_type(tile_origins, source_radius)),
+        jnp.asarray(0, dtype=jnp.int32),
+        jnp.asarray(0, dtype=jnp.int32),
+    )
+    (moments, boundary_cells, active_cells), _ = jax.lax.scan(
+        integrate_tile, initial, (frozen_origins, frozen_mask)
+    )
+    magnification = combine_limb_darkening_moments(
+        moments, source_radius, limb_c, limb_d
+    )
+    return FixedSupportResult(
+        magnification=magnification,
+        moments=moments,
+        boundary_cells=boundary_cells,
+        active_cells=active_cells,
+    )

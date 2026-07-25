@@ -26,3 +26,4 @@ automatic finite-source choices:
 Proposed designs:
 
 - [JAX CPU differentiable inverse-ray engine](design/jax-cpu-inverse-ray-plan.md)
+- [Experimental JAX CPU inverse-ray MVP](jax-cpu-inverse-ray-mvp.md)

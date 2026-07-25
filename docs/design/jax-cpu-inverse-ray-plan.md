@@ -1,8 +1,10 @@
 # JAX CPU differentiable inverse-ray engine: implementation plan
 
-Status: proposed
+Status: implementation in progress
 
-Branch: `feature/jax-cpu-inverse-ray-plan`
+Planning branch: `feature/jax-cpu-inverse-ray-plan`
+
+Implementation branch: `feature/jax-cpu-inverse-ray-mvp`
 
 Initial scope: static binary lens, finite circular source, CPU, JAX, differentiable
 
@@ -121,8 +123,7 @@ not merely translate the same dense grid to a different device.
 
 The proposed engine combines:
 
-- microJAX's static-shape, pure-JAX, implicit-root differentiation and
-  recomputation strategy;
+- microJAX's static-shape, pure-JAX root solving and recomputation strategy;
 - `lcbinint`'s sparse image-centred traversal and explicit numerical safety;
 - a new differentiable partial-cell moment rule for the source boundary.
 
@@ -142,12 +143,13 @@ map into the source. It determines computational support, not flux.
 1. Solve the binary-lens polynomial for the source centre.
 2. Solve it at a static bucket of source-limb angles.
 3. Filter physical images by lens-equation residual.
-4. Match roots between adjacent limb angles to retain branch continuity.
-5. Convert centre and limb images to integration-lattice macro-tile IDs.
-6. Seed a bounded macro-tile flood fill from those IDs.
-7. Keep a tile when its centre/corners map inside the source, straddle the
+4. Convert all physical centre and limb images to integration-lattice
+   macro-tile IDs. Initial macro-tile discovery does not require root-branch
+   matching.
+5. Seed a bounded macro-tile flood fill from those IDs.
+6. Keep a tile when its centre/corners map inside the source, straddle the
    source boundary, or are adjacent to an already active boundary tile.
-8. Expand the final set by a configurable one- or two-tile halo.
+7. Expand the final set by a configurable one- or two-tile halo.
 
 All arrays have static capacities. Candidate capacities are bucketed, for
 example:
@@ -179,9 +181,11 @@ This is not permission to ignore support failures. A nonzero contribution in
 the outer halo, a capacity overflow, or an unmatched limb branch sets
 `converged=False`.
 
-The root values themselves remain differentiable where they are used for
-continuous diagnostics, but gradients do not flow through integer tile
-selection.
+For the inverse-ray MVP, the root solve and all root-derived support are
+wrapped in `stop_gradient`. The physical integral is differentiated through
+the lens map at the rays, not through the algorithm that found its conservative
+support. Implicit root derivatives are deferred until a differentiable
+point-source or multipole API is added.
 
 ### 4.2 Stage B: differentiable tile integration
 
@@ -301,13 +305,8 @@ result is a numerical failure, not a partial magnification.
 ### 5.1 Polynomial roots
 
 Implement a pure-JAX binary polynomial coefficient builder and a batched
-Ehrlich-Aberth solver in float64/complex128. Use `custom_jvp` with implicit
-root differentiation:
-
-\[
-\dot z_i = -
-\frac{\sum_k \dot a_k z_i^k}{P'(z_i)}.
-\]
+Ehrlich-Aberth solver in float64/complex128. The solver is a support-discovery
+primitive and is stopped-gradient in the inverse-ray path.
 
 Requirements:
 
@@ -315,12 +314,24 @@ Requirements:
 - fixed maximum iterations with a convergence mask;
 - optional warm starts along source-limb angles and trajectories;
 - residual-based physical-image filtering;
-- no gradient through iteration count or initial-root selection;
+- no gradient through roots, iteration count, root ordering, physical masks,
+  or initial-root selection in the inverse-ray MVP;
 - explicit failure when roots are unresolved or near-multiple beyond the
   supported tolerance.
 
-Root ordering is discrete and receives no gradient. Symmetric sums such as
-total point magnification must not depend on ordering.
+Branch matching is unnecessary when every physical limb root is only converted
+to a macro-tile seed. If later scanline rasterization needs branch continuity,
+matching is added as a separate stopped-gradient discovery operation.
+
+An implicit root JVP,
+
+\[
+\dot z_i = -
+\frac{\sum_k \dot a_k z_i^k}{P'(z_i)},
+\]
+
+is reserved for a future point-source or multipole API. It is deliberately not
+on the MVP critical path.
 
 ### 5.2 Tile integral AD
 
@@ -540,18 +551,20 @@ transformations feeding source positions into the kernel.
 ### 8.2 Proposed package layout
 
 ```text
-python/lcbinint/jax_ir/
+python/lcbinint_jax/
   __init__.py
   api.py                 # public experimental entry points
   types.py               # NamedTuple/PyTree result and static options
   lens.py                # real and complex binary lens maps
-  polynomial.py          # coefficients, EA roots, implicit JVP
-  images.py              # residuals, physical masks, branch matching
+  polynomial.py          # coefficients and stopped-gradient EA roots
+  images.py              # residuals and physical masks
   discovery.py           # fixed-capacity macro-tile discovery
   cell_moments.py        # stabilized partial-cell moment primitive
   integrate.py           # tile/chunk reducers
   convergence.py         # bucket selection and coarse/fine checks
   limb_darkening.py      # moment combination and normalization
+python/lcbinint/jax_ir/
+  __init__.py            # compatibility re-export
 tests/jax_ir/
   test_roots.py
   test_cell_moments.py
@@ -566,13 +579,14 @@ tests/diagnostics/jax_ir/
   inspect_tiles.py
 ```
 
-JAX should be an optional dependency, for example an eventual `jax` project
-extra. Importing ordinary `lcbinint` must not require JAX.
+JAX is an optional project dependency. The standalone `lcbinint_jax` namespace
+does not import the native extension or require GSL. Importing ordinary
+`lcbinint` must not require JAX.
 
 ### 8.3 Candidate API
 
 ```python
-from lcbinint.jax_ir import binary_inverse_ray, InverseRayOptions
+from lcbinint_jax import binary_inverse_ray, InverseRayOptions
 
 result = binary_inverse_ray(
     source_x,
@@ -617,35 +631,16 @@ Gate:
 - benchmark runs reproducibly from one command and saves machine-readable
   results.
 
-### Phase 1: lens map, roots, and moment algebra
+### Phase 1: lens map, moment algebra, and fixed-support hot kernel
 
 Deliver:
 
 - binary lens map;
-- binary polynomial coefficients;
-- batched EA root solver with implicit JVP;
-- physical-root filtering;
-- analytic combination of the three image moments into \(A(c,d)\).
-
-Gate:
-
-- roots and point magnifications agree with current `lcbinint` over a
-  stratified \((s,q,w)\) sweep;
-- root JVP passes directional finite-difference and dot-product tests away
-  from declared degeneracies.
-
-### Phase 2: fixed-support tile integrator
-
-Use externally supplied, conservative tile IDs at first. This isolates the hot
-integrator from discovery.
-
-Deliver:
-
-- vectorized tile lens map;
-- three-moment accumulation;
+- analytic combination of the three image moments into \(A(c,d)\);
 - midpoint/subcell reference rule;
 - stabilized affine boundary-cell prototype;
-- rematerialized reverse pass.
+- fixed-support tile reducer with real and complex lens-map variants;
+- forward, JVP, reverse-gradient, and CPU benchmark tests.
 
 Gate:
 
@@ -653,14 +648,31 @@ Gate:
   cusp, and high-magnification cases;
 - gradients converge with resolution;
 - the affine primitive is retained only if it beats the subcell fallback in
-  both accuracy per ray and CPU time.
+  both accuracy per ray and CPU time;
+- fixed-support CPU throughput justifies proceeding to discovery.
+
+### Phase 2: root solver and support seeds
+
+Deliver:
+
+- binary polynomial coefficients;
+- batched stopped-gradient EA root solver;
+- cold start, warm start, phase-shift fallback, and Newton polishing;
+- physical-root residual filtering;
+- centre and source-limb tile seeds.
+
+Gate:
+
+- roots and physical images agree with current `lcbinint` over a stratified
+  \((s,q,w)\) sweep;
+- injected non-convergence is reported rather than silently filtered;
+- all known centre and limb image components produce at least one tile seed.
 
 ### Phase 3: pure-JAX discovery
 
 Deliver:
 
 - centre and source-limb root sampling;
-- root branch matching;
 - bounded macro-tile flood fill;
 - tile deduplication;
 - halo, overflow, and coverage diagnostics.
@@ -824,7 +836,64 @@ Experiment 4 is the most important early de-risking step. If a perfect
 externally supplied support mask does not yield the required CPU speed, the
 rest of the discovery work cannot rescue the design.
 
-## 14. References
+## 14. Initial implementation checkpoint
+
+On 2026-07-26, the implementation branch contains the standalone
+`lcbinint_jax` package with:
+
+- real and complex binary-lens maps;
+- stopped-gradient Ehrlich-Aberth quintic/quartic root solving and
+  lens-equation residual filtering;
+- centre-plus-source-limb macro-tile discovery with an explicit overflow flag;
+- simultaneous \(M_0,M_{1/2},M_{1/4}\) accumulation;
+- stabilized affine boundary-cell moments with axis-aligned limits;
+- a JIT-compiled fixed-support macro-tile reducer;
+- gradients with respect to \(w_x,w_y,s,q,\rho,c,d\);
+- 35 focused value/JVP/reverse-gradient/discovery tests;
+- a machine-readable CPU benchmark harness.
+
+One preliminary x86-64/JAX 0.6.2 CPU run at 40,000--43,264 rays measured:
+
+| Tile | Lens arithmetic | Forward | Directional JVP | Value + gradient |
+| --- | --- | ---: | ---: | ---: |
+| 8 | real | 8.96 ms | 25.95 ms | 74.24 ms |
+| 8 | complex | 9.65 ms | 21.16 ms | 51.82 ms |
+| 16 | real | 7.17 ms | 21.15 ms | 41.04 ms |
+| 16 | complex | 7.12 ms | 24.31 ms | 41.89 ms |
+
+These are development measurements, not accepted performance claims. They do
+show that a scalar `lax.cond` around each tile skips inactive work: on the same
+625-slot, 8-by-8 configuration, warm forward time fell from about 8.85 ms for
+625 active tiles to 1.95 ms for 128, 0.50 ms for 32, and 0.08 ms for none.
+This supports continuing with packed sparse discovery.
+
+The first automatic centre-plus-limb-root discovery prototype measured:
+
+| Resolution | Tile slots / used | Forward | Directional JVP | Value + gradient |
+| ---: | ---: | ---: | ---: | ---: |
+| 16 | 128 / 85 | 6.71 ms | 13.79 ms | 28.25 ms |
+| 32 | 256 / 196 | 12.59 ms | 30.81 ms | 63.14 ms |
+| 64 | 512 / 487 | 32.43 ms | 74.49 ms | 140.20 ms |
+
+All three completed without root or discovery overflow on the benchmark case.
+The value-plus-gradient path is about 4.2--5.0 times the forward path when the
+capacity bucket is tight, meeting the initial ratio gate. Oversized capacities
+substantially slow reverse mode even when inactive tiles are skipped, so
+calibrated capacity buckets are a performance requirement rather than only a
+memory optimization. A tile-reducer `custom_vjp` remains a possible later
+optimization, not an immediate blocker.
+
+The current end-to-end result reports `support_valid`, not `converged`.
+`support_valid=True` means only that root filtering and bounded tile discovery
+did not report failure. Numerical convergence requires the planned coarse/fine
+value and gradient estimator and must not be inferred from this flag.
+
+The local native extension could not be rebuilt on this host because GSL
+development files are absent. The standalone JAX package intentionally imports
+without the C++ extension or GSL, so its focused tests and benchmarks remain
+fully runnable.
+
+## 15. References
 
 - Miyazaki & Kawahara, “microJAX: A Differentiable Framework for Microlensing
   Modeling with GPU-Accelerated Image-Centered Ray Shooting,” 2025,
