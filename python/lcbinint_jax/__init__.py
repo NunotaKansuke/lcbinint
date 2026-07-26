@@ -19,6 +19,8 @@ from .cpp_backend import (
     binary_inverse_ray_fixed_support_cpp,
     binary_inverse_ray_fixed_support_ffi,
     cpp_fixed_support_ffi_available,
+    cpp_macro_tile_discovery_ffi_available,
+    discover_binary_macro_tiles_ffi,
 )
 from .discovery import discover_binary_macro_tiles
 from .integrate import binary_inverse_ray_fixed_support
@@ -69,6 +71,8 @@ __all__ = [
     "binary_inverse_ray_uniform",
     "combine_limb_darkening_moments",
     "cpp_fixed_support_ffi_available",
+    "cpp_macro_tile_discovery_ffi_available",
     "discover_binary_macro_tiles",
+    "discover_binary_macro_tiles_ffi",
     "discover_binary_polar_bands",
 ]

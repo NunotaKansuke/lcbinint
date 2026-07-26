@@ -9,6 +9,8 @@ from ._config import require_x64
 from .cpp_backend import (
     binary_inverse_ray_fixed_support_ffi,
     cpp_fixed_support_ffi_available,
+    cpp_macro_tile_discovery_ffi_available,
+    discover_binary_macro_tiles_ffi,
 )
 from .discovery import discover_binary_macro_tiles
 from .images import binary_images
@@ -56,7 +58,13 @@ def _binary_inverse_ray(
     cartesian_backend,
 ):
     cell_size = jax.lax.stop_gradient(source_radius / resolution)
-    discovery = discover_binary_macro_tiles(
+    use_ffi = _use_ffi_cartesian_backend(cartesian_backend, kernel)
+    discovery_function = (
+        discover_binary_macro_tiles_ffi
+        if use_ffi and cpp_macro_tile_discovery_ffi_available()
+        else discover_binary_macro_tiles
+    )
+    discovery = discovery_function(
         source_x,
         source_y,
         separation,
@@ -67,7 +75,7 @@ def _binary_inverse_ray(
         tile_capacity=tile_capacity,
         limb_samples=limb_samples,
     )
-    if _use_ffi_cartesian_backend(cartesian_backend, kernel):
+    if use_ffi:
         integrated = binary_inverse_ray_fixed_support_ffi(
             discovery.tile_origins,
             discovery.tile_mask,
@@ -366,7 +374,13 @@ def binary_inverse_ray_auto(
 
     def cartesian_or_fallback(_):
         cell_size = jax.lax.stop_gradient(source_radius / resolution)
-        discovery = discover_binary_macro_tiles(
+        use_ffi = _use_ffi_cartesian_backend(cartesian_backend, kernel)
+        discovery_function = (
+            discover_binary_macro_tiles_ffi
+            if use_ffi and cpp_macro_tile_discovery_ffi_available()
+            else discover_binary_macro_tiles
+        )
+        discovery = discovery_function(
             source_x,
             source_y,
             separation,
@@ -383,7 +397,7 @@ def binary_inverse_ray_auto(
 
         def integrate_cartesian(_):
             subdivision = 4 if moment_mode == "two_coefficient" else 3
-            if _use_ffi_cartesian_backend(cartesian_backend, kernel):
+            if use_ffi:
                 integrated = binary_inverse_ray_fixed_support_ffi(
                     discovery.tile_origins,
                     discovery.tile_mask,

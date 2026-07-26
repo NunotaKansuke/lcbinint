@@ -10,6 +10,9 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 
 #ifdef LCBININT_HAS_JAX_FFI
 #include "xla/ffi/api/c_api.h"
@@ -558,6 +561,204 @@ py::tuple fixed_support_forward(
 #ifdef LCBININT_HAS_JAX_FFI
 namespace ffi = xla::ffi;
 
+std::uint64_t tile_key(std::int32_t x, std::int32_t y)
+{
+    return (
+        static_cast<std::uint64_t>(static_cast<std::uint32_t>(x)) << 32)
+        | static_cast<std::uint32_t>(y);
+}
+
+bool tile_has_inside_probe(
+    std::int32_t tile_x,
+    std::int32_t tile_y,
+    double tile_width,
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double source_radius)
+{
+    const double total_mass = 1.0 + mass_ratio;
+    const double lens_1_x = -mass_ratio / total_mass * separation;
+    const double lens_2_x = separation / total_mass;
+    const double mass_1 = 1.0 / total_mass;
+    const double mass_2 = mass_ratio / total_mass;
+    const double source_radius_squared = source_radius * source_radius;
+    const double origin_x = static_cast<double>(tile_x) * tile_width;
+    const double origin_y = static_cast<double>(tile_y) * tile_width;
+    constexpr std::array<double, 3> fractions{0.0, 0.5, 1.0};
+
+    for (double fraction_y : fractions) {
+        const double image_y = origin_y + fraction_y * tile_width;
+        for (double fraction_x : fractions) {
+            const double image_x = origin_x + fraction_x * tile_width;
+            const double dx_1 = image_x - lens_1_x;
+            const double dx_2 = image_x - lens_2_x;
+            const double radius_1_squared =
+                dx_1 * dx_1 + image_y * image_y;
+            const double radius_2_squared =
+                dx_2 * dx_2 + image_y * image_y;
+            const double mapped_x =
+                image_x - mass_1 * dx_1 / radius_1_squared
+                - mass_2 * dx_2 / radius_2_squared;
+            const double mapped_y =
+                image_y - mass_1 * image_y / radius_1_squared
+                - mass_2 * image_y / radius_2_squared;
+            const double residual_x = mapped_x - source_x;
+            const double residual_y = mapped_y - source_y;
+            const double distance_squared =
+                residual_x * residual_x + residual_y * residual_y;
+            if (
+                std::isfinite(distance_squared)
+                && distance_squared <= source_radius_squared) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+ffi::Error macro_tile_discovery_ffi_impl(
+    ffi::BufferR2<ffi::F64> seed_coordinates,
+    ffi::BufferR1<ffi::PRED> seed_physical,
+    ffi::BufferR0<ffi::F64> tile_width,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::ResultBufferR2<ffi::S32> tile_indices,
+    ffi::ResultBufferR2<ffi::F64> tile_origins,
+    ffi::ResultBufferR1<ffi::PRED> tile_mask,
+    ffi::ResultBufferR1<ffi::PRED> active_mask,
+    ffi::ResultBufferR0<ffi::PRED> overflow,
+    ffi::ResultBufferR0<ffi::S32> visited_count,
+    ffi::ResultBufferR0<ffi::S32> active_count,
+    ffi::ResultBufferR0<ffi::S32> seed_count)
+{
+    const auto seed_dimensions = seed_coordinates.dimensions();
+    const auto index_dimensions = tile_indices->dimensions();
+    const auto origin_dimensions = tile_origins->dimensions();
+    const std::int64_t capacity = index_dimensions[0];
+    if (
+        seed_dimensions[1] != 2
+        || seed_physical.dimensions()[0] != seed_dimensions[0]) {
+        return ffi::Error::InvalidArgument(
+            "seed arrays must have shapes (N, 2) and (N,)");
+    }
+    if (
+        capacity <= 0 || index_dimensions[1] != 2
+        || origin_dimensions[0] != capacity || origin_dimensions[1] != 2
+        || tile_mask->dimensions()[0] != capacity
+        || active_mask->dimensions()[0] != capacity) {
+        return ffi::Error::InvalidArgument(
+            "discovery outputs have inconsistent capacities");
+    }
+    const double width = *tile_width.typed_data();
+    const double rho = *source_radius.typed_data();
+    if (!(width > 0.0) || !(rho > 0.0)) {
+        return ffi::Error::InvalidArgument(
+            "tile width and source radius must be positive");
+    }
+
+    auto* output_indices = tile_indices->typed_data();
+    auto* output_origins = tile_origins->typed_data();
+    auto* output_mask = tile_mask->typed_data();
+    auto* output_active = active_mask->typed_data();
+    std::fill(output_indices, output_indices + 2 * capacity, 0);
+    std::fill(output_origins, output_origins + 2 * capacity, 0.0);
+    std::fill(output_mask, output_mask + capacity, false);
+    std::fill(output_active, output_active + capacity, false);
+
+    std::vector<std::array<std::int32_t, 2>> queue;
+    queue.reserve(static_cast<std::size_t>(capacity));
+    std::unordered_map<std::uint64_t, std::int32_t> visited;
+    visited.reserve(static_cast<std::size_t>(capacity));
+    std::unordered_set<std::uint64_t> seeds;
+    seeds.reserve(static_cast<std::size_t>(seed_dimensions[0]));
+    bool did_overflow = false;
+
+    const auto insert = [&](std::int32_t x, std::int32_t y) {
+        const std::uint64_t key = tile_key(x, y);
+        if (visited.find(key) != visited.end()) return true;
+        if (queue.size() >= static_cast<std::size_t>(capacity)) {
+            did_overflow = true;
+            return false;
+        }
+        visited.emplace(key, static_cast<std::int32_t>(queue.size()));
+        queue.push_back({x, y});
+        return true;
+    };
+
+    const auto* coordinates = seed_coordinates.typed_data();
+    const auto* physical = seed_physical.typed_data();
+    for (std::int64_t index = 0; index < seed_dimensions[0]; ++index) {
+        if (!physical[index]) continue;
+        const auto x = static_cast<std::int32_t>(
+            std::floor(coordinates[2 * index] / width));
+        const auto y = static_cast<std::int32_t>(
+            std::floor(coordinates[2 * index + 1] / width));
+        if (insert(x, y)) seeds.insert(tile_key(x, y));
+    }
+    const std::int32_t unique_seed_count =
+        static_cast<std::int32_t>(queue.size());
+    constexpr std::array<std::array<std::int32_t, 2>, 4> neighbours{{
+        {1, 0}, {-1, 0}, {0, 1}, {0, -1}
+    }};
+    std::int32_t active_total = 0;
+    for (std::size_t head = 0; head < queue.size(); ++head) {
+        const auto tile = queue[head];
+        const bool active =
+            seeds.find(tile_key(tile[0], tile[1])) != seeds.end()
+            || tile_has_inside_probe(
+                tile[0], tile[1], width, *source_x.typed_data(),
+                *source_y.typed_data(), *separation.typed_data(),
+                *mass_ratio.typed_data(), rho);
+        output_active[head] = active;
+        active_total += static_cast<std::int32_t>(active);
+        if (active) {
+            for (const auto& neighbour : neighbours) {
+                insert(tile[0] + neighbour[0], tile[1] + neighbour[1]);
+            }
+        }
+    }
+
+    for (std::size_t index = 0; index < queue.size(); ++index) {
+        output_indices[2 * index] = queue[index][0];
+        output_indices[2 * index + 1] = queue[index][1];
+        output_origins[2 * index] = queue[index][0] * width;
+        output_origins[2 * index + 1] = queue[index][1] * width;
+        output_mask[index] = true;
+    }
+    *overflow->typed_data() = did_overflow;
+    *visited_count->typed_data() =
+        static_cast<std::int32_t>(queue.size());
+    *active_count->typed_data() = active_total;
+    *seed_count->typed_data() = unique_seed_count;
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    macro_tile_discovery_ffi_handler,
+    macro_tile_discovery_ffi_impl,
+    ffi::Ffi::Bind()
+        .Arg<ffi::BufferR2<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::PRED>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::S32>>()
+        .Ret<ffi::BufferR2<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR0<ffi::PRED>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::S32>>());
+
 ffi::Error fixed_support_forward_ffi_impl(
     std::int64_t tile_size,
     std::int64_t mode_value,
@@ -783,6 +984,12 @@ py::capsule fixed_support_forward_ffi_capsule()
         reinterpret_cast<void*>(fixed_support_forward_ffi_handler));
 }
 
+py::capsule macro_tile_discovery_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(macro_tile_discovery_ffi_handler));
+}
+
 py::capsule fixed_support_value_jacobian_ffi_capsule()
 {
     return py::capsule(
@@ -816,6 +1023,10 @@ void register_jax_ir_submodule(py::module_& parent)
         py::arg("boundary_subdivision") = 4,
         "Evaluate the JAX fixed-support cell algorithm in native C++.");
 #ifdef LCBININT_HAS_JAX_FFI
+    module.def(
+        "macro_tile_discovery_ffi",
+        &macro_tile_discovery_ffi_capsule,
+        "Return the typed XLA macro-tile discovery FFI handler capsule.");
     module.def(
         "fixed_support_forward_ffi",
         &fixed_support_forward_ffi_capsule,

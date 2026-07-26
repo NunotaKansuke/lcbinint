@@ -17,6 +17,7 @@ from .types import FixedSupportResult
 
 _FFI_FORWARD_TARGET = "lcbinint_jax_fixed_support_forward_f64_v1"
 _FFI_VALUE_JACOBIAN_TARGET = "lcbinint_jax_fixed_support_value_jacobian_f64_v1"
+_FFI_DISCOVERY_TARGET = "lcbinint_jax_macro_tile_discovery_f64_v1"
 _MOMENT_COUNTS = {
     "uniform": 1,
     "linear": 2,
@@ -58,6 +59,18 @@ def cpp_fixed_support_ffi_available():
         return False
 
 
+def cpp_macro_tile_discovery_ffi_available():
+    """Return whether the typed macro-tile discovery FFI is available."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        return hasattr(native._jax_ir, "macro_tile_discovery_ffi")
+    except (AttributeError, RuntimeError):
+        return False
+
+
 @lru_cache(maxsize=1)
 def _register_fixed_support_ffi():
     native = _native_module()
@@ -74,6 +87,106 @@ def _register_fixed_support_ffi():
         _FFI_VALUE_JACOBIAN_TARGET,
         value_jacobian_capsule,
         platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_macro_tile_discovery_ffi():
+    native = _native_module()
+    try:
+        discovery_capsule = native._jax_ir.macro_tile_discovery_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the macro-tile discovery FFI; rebuild "
+            "with LCBININT_ENABLE_JAX_FFI=ON"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_DISCOVERY_TARGET,
+        discovery_capsule,
+        platform="cpu",
+    )
+
+
+def discover_binary_macro_tiles_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    cell_size,
+    *,
+    tile_size=16,
+    tile_capacity=1024,
+    limb_samples=16,
+):
+    """Discover stopped-gradient Cartesian support with a typed CPU FFI BFS."""
+
+    from .discovery import binary_image_seed_points
+    from .types import DiscoveryResult
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("the macro-tile discovery FFI is CPU-only")
+    if tile_size <= 0 or tile_capacity <= 0:
+        raise ValueError("tile_size and tile_capacity must be positive")
+
+    frozen_cell_size = jax.lax.stop_gradient(jnp.asarray(cell_size, dtype=jnp.float64))
+    tile_width = frozen_cell_size * tile_size
+    seeds = binary_image_seed_points(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        limb_samples=limb_samples,
+    )
+    seed_coordinates = jnp.stack(
+        (jnp.real(seeds.roots), jnp.imag(seeds.roots)),
+        axis=1,
+    )
+    stopped_scalars = tuple(
+        jax.lax.stop_gradient(jnp.asarray(value, dtype=jnp.float64))
+        for value in (
+            tile_width,
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+        )
+    )
+    _register_macro_tile_discovery_ffi()
+    outputs = jax.ffi.ffi_call(
+        _FFI_DISCOVERY_TARGET,
+        (
+            jax.ShapeDtypeStruct((tile_capacity, 2), jnp.int32),
+            jax.ShapeDtypeStruct((tile_capacity, 2), jnp.float64),
+            jax.ShapeDtypeStruct((tile_capacity,), jnp.bool_),
+            jax.ShapeDtypeStruct((tile_capacity,), jnp.bool_),
+            jax.ShapeDtypeStruct((), jnp.bool_),
+            jax.ShapeDtypeStruct((), jnp.int32),
+            jax.ShapeDtypeStruct((), jnp.int32),
+            jax.ShapeDtypeStruct((), jnp.int32),
+        ),
+        vmap_method="sequential",
+    )(
+        seed_coordinates,
+        seeds.physical,
+        *stopped_scalars,
+    )
+    return jax.tree_util.tree_map(
+        jax.lax.stop_gradient,
+        DiscoveryResult(
+            tile_indices=outputs[0],
+            tile_origins=outputs[1],
+            tile_mask=outputs[2],
+            active_mask=outputs[3],
+            overflow=outputs[4],
+            visited_count=outputs[5],
+            active_count=outputs[6],
+            seed_count=outputs[7],
+            root_failure=seeds.root_failure,
+        ),
     )
 
 

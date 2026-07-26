@@ -523,17 +523,17 @@ repeat after connecting the FFI to the dispatcher measured:
 
 | Engine | 64-epoch forward |
 | --- | ---: |
-| native `lcbinint`, fixed Cartesian 64 | 133 ms |
+| native `lcbinint`, fixed Cartesian 64 | 130 ms |
 | JAX conditional trajectory, pure-JAX cells | 572 ms |
-| JAX conditional trajectory, C++ FFI cells | 444 ms |
-| VBMicrolensing | 3.03 s |
-| microLUX, 80 annuli | 14.99 s |
+| JAX conditional trajectory, C++ FFI discovery and cells | 239 ms |
+| VBMicrolensing | 3.00 s |
+| microLUX, 80 annuli | 14.59 s |
 
-The FFI trajectory is 1.29 times faster than the pure-JAX-cell trajectory,
-33.8 times faster than microLUX, 6.8 times faster than VBMicrolensing, and
-3.35 times slower than native on this pilot.  On a 16-epoch subset, FFI
-separation-JVP/value-plus-gradient took 198/217 ms, versus 277 ms/1.12 s for
-pure JAX and 13.53/28.75 s for microLUX.  Compilation is excluded from all
+The FFI trajectory is 2.39 times faster than the pure-JAX trajectory,
+61.1 times faster than microLUX, 12.6 times faster than VBMicrolensing, and
+1.83 times slower than native on this pilot.  On a 16-epoch subset, FFI
+separation-JVP/value-plus-gradient took 145/171 ms, versus 269 ms/1.09 s for
+pure JAX and 13.42/28.22 s for microLUX.  Compilation is excluded from all
 these warm timings.  FFI and JAX produced identical method counts
 (32 hexadecapole and 32 Cartesian), no invalid epochs, and indistinguishable
 VBMicrolensing error-budget ratios.  The reproducible harness is

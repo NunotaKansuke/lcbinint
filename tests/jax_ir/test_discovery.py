@@ -8,6 +8,7 @@ from lcbinint_jax import (
     binary_inverse_ray_linear,
     binary_inverse_ray_uniform,
     discover_binary_macro_tiles,
+    discover_binary_macro_tiles_ffi,
 )
 from lcbinint_jax.discovery import binary_image_seed_points
 
@@ -17,6 +18,13 @@ def _require_compiled_ffi():
 
     if not hasattr(_native._jax_ir, "fixed_support_forward_ffi"):
         pytest.skip("lcbinint was built without JAX FFI support")
+
+
+def _require_discovery_ffi():
+    from lcbinint import _native
+
+    if not hasattr(_native._jax_ir, "macro_tile_discovery_ffi"):
+        pytest.skip("lcbinint was built without macro-tile discovery FFI support")
 
 
 def test_source_centre_and_limb_seed_shapes_are_static():
@@ -46,6 +54,41 @@ def test_macro_tile_discovery_builds_halo_without_overflow():
     assert not bool(discovery.root_failure)
     assert int(discovery.visited_count) > int(discovery.active_count)
     assert int(discovery.active_count) > 0
+
+
+@pytest.mark.parametrize("tile_capacity", (32, 512))
+def test_macro_tile_discovery_ffi_matches_jax_exactly(tile_capacity):
+    _require_discovery_ffi()
+    arguments = (0.2, 0.1, 1.2, 0.1, 0.2, 0.2 / 32.0)
+    options = {
+        "tile_size": 16,
+        "tile_capacity": tile_capacity,
+        "limb_samples": 16,
+    }
+    pure = discover_binary_macro_tiles(*arguments, **options)
+    ffi = discover_binary_macro_tiles_ffi(*arguments, **options)
+    for field in pure._fields:
+        np.testing.assert_array_equal(getattr(ffi, field), getattr(pure, field))
+
+
+def test_macro_tile_discovery_ffi_is_stopped_gradient():
+    _require_discovery_ffi()
+
+    def support_origin_sum(source_x):
+        result = discover_binary_macro_tiles_ffi(
+            source_x,
+            0.1,
+            1.2,
+            0.1,
+            0.2,
+            0.2 / 32.0,
+            tile_size=16,
+            tile_capacity=512,
+            limb_samples=16,
+        )
+        return jnp.sum(result.tile_origins)
+
+    assert float(jax.grad(support_origin_sum)(0.2)) == 0.0
 
 
 def test_extreme_planetary_limb_roots_use_robust_fallback():

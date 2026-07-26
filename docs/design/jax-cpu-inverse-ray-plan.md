@@ -57,6 +57,55 @@ epochs, and wrapping the old native inverse-ray implementation.  Keeping
 these out of the first gate makes any measured speedup attributable to the
 new fixed-support kernel and leaves the differentiation boundary explicit.
 
+### Whole-engine FFI phase
+
+The fixed-support gate showed that leaving every other numerical kernel in
+JAX is no longer the fastest CPU architecture.  The next phase moves the
+expensive scalar-epoch kernels behind independent typed FFI boundaries while
+retaining the dispatcher, trajectory transformations, static method choice,
+and public API in JAX.  This is deliberately several calibrated handlers, not
+one opaque native light-curve call:
+
+1. **Macro-tile discovery FFI.**  Keep the current stopped-gradient image
+   seeds, but replace the fixed-capacity JAX BFS and its linear duplicate
+   searches with a bounded C++ queue and hash index.  Require exact support
+   order, masks, capacity flags, and counts.
+2. **Shared binary-image-root FFI.**  Implement the JAX binary quintic,
+   bounded root solve, physical-image filtering, and polishing semantics in
+   the new backend.  Expose stopped roots for discovery and implicit
+   root-equation derivatives for point-source consumers.  This handler is
+   shared by Cartesian, polar, hexadecapole, and source-plane quadrature.
+3. **Fused Cartesian epoch.**  Fuse roots, discovery, and fixed-support
+   integration after their independent handlers are calibrated.  Its custom
+   JVP differentiates only the continuous cell integral; root/support choices
+   remain stopped as in the JAX reference.
+4. **Hexadecapole FFI.**  Solve the 13 point-source samples in one call,
+   compute root tangents by implicit differentiation, and return the scalar
+   expansion diagnostics plus a seven-parameter Jacobian.
+5. **Polar FFI.**  Fuse stopped radial-band discovery with the polar cell
+   traversal and analytic moments.  Preserve all band, radial, and boundary
+   overflow diagnostics.
+6. **Source-plane FFI.**  Reuse the common differentiable point-source kernel
+   across fixed quadrature nodes.  This comes after hex because both use the
+   same root/Jacobian primitive and hex is selected much more frequently.
+
+Each step retains an explicit pure-JAX fallback and must independently pass
+close/resonant/wide value and derivative sweeps.  Automatic dispatch promotes
+a handler only after its gate passes.  Method selection itself stays in JAX,
+so a failed or unsupported FFI branch cannot silently change the numerical
+algorithm.
+
+The first discovery handler is now implemented.  On the representative
+1028-visited-tile support, JAX image seeds plus JAX BFS took 10.90 ms, while
+the same JAX seeds plus C++ FFI BFS took 1.55 ms.  All tile indices, origins,
+masks, overflow flags, and counts agreed exactly, both on that case and on all
+40 source positions in the eight-configuration held-out sweep.  With the
+already-calibrated cell FFI, a representative full Cartesian epoch improved
+from 47.5 to 13.1 ms for forward, 103.6 to 36.6 ms for JVP, and 435 to
+38.0 ms for value plus gradient.  The 64-epoch half-hex/half-Cartesian
+trajectory improved from 573 to 239 ms.  Root solving remains JAX in these
+measurements.
+
 ### First forward-gate result
 
 The initial C++17/pybind prototype implements the real binary-lens map,

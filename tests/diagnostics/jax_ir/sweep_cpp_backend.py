@@ -18,6 +18,7 @@ from lcbinint_jax import (  # noqa: E402
     binary_inverse_ray_fixed_support,
     binary_inverse_ray_fixed_support_ffi,
     discover_binary_macro_tiles,
+    discover_binary_macro_tiles_ffi,
 )
 
 
@@ -167,7 +168,26 @@ def run(args):
                 tile_capacity=args.tile_capacity,
                 limb_samples=args.limb_samples,
             )
+            ffi_discovery = discover_binary_macro_tiles_ffi(
+                point[0],
+                point[1],
+                case.separation,
+                case.mass_ratio,
+                case.source_radius,
+                cell_size,
+                tile_size=16,
+                tile_capacity=args.tile_capacity,
+                limb_samples=args.limb_samples,
+            )
             jax.block_until_ready(discovery.tile_origins)
+            jax.block_until_ready(ffi_discovery.tile_origins)
+            discovery_matches = all(
+                np.array_equal(
+                    np.asarray(getattr(discovery, field)),
+                    np.asarray(getattr(ffi_discovery, field)),
+                )
+                for field in discovery._fields
+            )
             support_valid = not (
                 bool(discovery.overflow) or bool(discovery.root_failure)
             )
@@ -183,6 +203,7 @@ def run(args):
                     "profile": profile,
                     "support_valid": support_valid,
                     "tile_count": int(discovery.visited_count),
+                    "discovery_matches": discovery_matches,
                 }
                 if not support_valid:
                     rows.append(row)
@@ -262,6 +283,7 @@ def run(args):
         "support_valid_rows": len(evaluated),
         "unsupported_rows": len(rows) - len(evaluated),
         "failures": sum(not row["passes"] for row in evaluated),
+        "discovery_failures": sum(not row["discovery_matches"] for row in rows),
         "max_value_budget_ratio": max(
             (row["value_max_budget_ratio"] for row in evaluated),
             default=math.nan,
@@ -289,7 +311,7 @@ def run(args):
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(rendered + "\n")
-    return int(summary["failures"] != 0)
+    return int(summary["failures"] != 0 or summary["discovery_failures"] != 0)
 
 
 def parse_args():
