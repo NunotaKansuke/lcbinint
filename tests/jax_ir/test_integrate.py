@@ -280,26 +280,71 @@ def test_ffi_forward_matches_jax_under_jit(support, moment_mode, boundary_subdiv
     assert int(ffi_result.active_cells) == int(jax_result.active_cells)
 
 
-def test_ffi_forward_rejects_differentiation_explicitly(support):
+@pytest.mark.parametrize(
+    ("moment_mode", "boundary_subdivision"),
+    (("uniform", 3), ("linear", 3), ("two_coefficient", 4)),
+)
+def test_ffi_analytic_jvp_and_grad_match_jax(
+    support, moment_mode, boundary_subdivision
+):
     _require_compiled_ffi()
     origins, mask = support
+    parameters = jnp.asarray([0.2, 0.1, 1.2, 0.1, 0.2, 0.4, 0.1])
+    tangent = jnp.asarray([0.2, -0.1, 0.05, 0.02, -0.03, 0.1, -0.05])
 
-    def value(source_x):
-        return binary_inverse_ray_fixed_support_ffi(
+    def evaluate(function, active_parameters):
+        result = function(
             origins,
             mask,
             0.05,
-            source_x,
-            0.1,
-            1.2,
-            0.1,
-            0.2,
-            0.4,
-            0.1,
-        ).magnification
+            *active_parameters,
+            tile_size=8,
+            moment_mode=moment_mode,
+            boundary_subdivision=boundary_subdivision,
+        )
+        return jnp.concatenate(
+            (jnp.reshape(result.magnification, (1,)), result.moments)
+        )
 
-    with pytest.raises(ValueError, match="cannot be differentiated"):
-        jax.grad(value)(0.2)
+    jax_value, jax_tangent = jax.jvp(
+        lambda active: evaluate(binary_inverse_ray_fixed_support, active),
+        (parameters,),
+        (tangent,),
+    )
+    ffi_value, ffi_tangent = jax.jit(
+        lambda active, direction: jax.jvp(
+            lambda values: evaluate(binary_inverse_ray_fixed_support_ffi, values),
+            (active,),
+            (direction,),
+        )
+    )(parameters, tangent)
+    np.testing.assert_allclose(
+        ffi_value,
+        jax_value,
+        rtol=2.0e-11,
+        atol=2.0e-11,
+    )
+    np.testing.assert_allclose(
+        ffi_tangent,
+        jax_tangent,
+        rtol=2.0e-9,
+        atol=2.0e-9,
+    )
+
+    jax_gradient = jax.grad(
+        lambda active: evaluate(binary_inverse_ray_fixed_support, active)[0]
+    )(parameters)
+    ffi_gradient = jax.jit(
+        jax.grad(
+            lambda active: evaluate(binary_inverse_ray_fixed_support_ffi, active)[0]
+        )
+    )(parameters)
+    np.testing.assert_allclose(
+        ffi_gradient,
+        jax_gradient,
+        rtol=2.0e-9,
+        atol=2.0e-9,
+    )
 
 
 def test_ffi_forward_supports_sequential_vmap(support):

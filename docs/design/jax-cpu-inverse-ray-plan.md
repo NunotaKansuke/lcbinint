@@ -104,11 +104,34 @@ relative to the host prototype.  Its value, moments, and diagnostic counts
 match the raw C++ path; the magnification difference from pure JAX remains
 `6.5e-12`.
 
-Differentiation is intentionally not faked at this point.  Calling `jvp` or
-`grad` raises JAX's "cannot be differentiated" FFI error.  The next gate is
-the analytic tangent kernel and a `custom_jvp` wrapper; only after it agrees
-with the pure-JAX derivatives will the FFI backend enter differentiable
-production dispatch.
+### Analytic differentiation result
+
+The C++ cell algebra now uses a small forward-mode value type to accumulate
+the Jacobian with respect to source x/y, separation, mass ratio, and source
+radius during the same fixed-support traversal.  Limb-coefficient derivatives
+are combined analytically from the completed moments, avoiding two inactive
+derivative lanes in the hot cell loop.  Numerical support, cell classification,
+tile origins, and cell size remain stopped-gradient.
+
+A second typed FFI handler returns value plus the seven-parameter Jacobian.
+`binary_inverse_ray_fixed_support_ffi` wraps it in `custom_jvp`: arbitrary
+directional derivatives are Jacobian-vector products in JAX, and JAX
+transposes that explicit linear map for reverse mode.  No finite differences
+or derivative of the discrete support search are involved.
+
+Uniform, linear, and two-coefficient modes pass value, moment-JVP, scalar JVP,
+and full magnification-gradient comparisons against the pure-JAX reference.
+On the representative 1028-tile linear case, the first calibrated run measured
+36.92 ms versus 21.41 ms for directional JVP and 239.3 ms versus 21.42 ms for
+value plus seven-parameter gradient.  Thus the analytic backend was 1.72 times
+faster for JVP and 11.18 times faster for reverse mode while retaining the
+roughly 2-times forward speedup.  The maximum seven-component gradient
+difference was `4.3e-10`.
+
+The remaining differentiation work is calibration beyond the local fixed
+support test and, if trajectory-level forward JVP throughput warrants it, a
+one-direction tangent handler.  Production dispatch must not select the C++
+backend until its held-out caustic-gradient replay passes.
 
 ## 1. Mission
 

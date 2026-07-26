@@ -64,6 +64,29 @@ def main():
     jax.block_until_ready(discovery.tile_origins)
     origins = np.asarray(discovery.tile_origins)
     mask = np.asarray(discovery.tile_mask)
+    parameters = jnp.asarray(
+        [
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        ]
+    )
+    tangent = jnp.asarray([0.2, -0.1, 0.05, 0.02, -0.03, 0.1, -0.05])
+
+    def parameterized_value(function, active_parameters):
+        return function(
+            origins,
+            mask,
+            cell_size,
+            *active_parameters,
+            tile_size=tile_size,
+            moment_mode="linear",
+            boundary_subdivision=3,
+        ).magnification
 
     def jax_forward():
         return binary_inverse_ray_fixed_support(
@@ -116,6 +139,36 @@ def main():
             boundary_subdivision=3,
         )
     )
+    jax_jvp = jax.jit(
+        lambda active, direction: jax.jvp(
+            lambda values: parameterized_value(
+                binary_inverse_ray_fixed_support, values
+            ),
+            (active,),
+            (direction,),
+        )[1]
+    )
+    ffi_jvp = jax.jit(
+        lambda active, direction: jax.jvp(
+            lambda values: parameterized_value(
+                binary_inverse_ray_fixed_support_ffi, values
+            ),
+            (active,),
+            (direction,),
+        )[1]
+    )
+    jax_value_and_grad = jax.jit(
+        jax.value_and_grad(
+            lambda active: parameterized_value(binary_inverse_ray_fixed_support, active)
+        )
+    )
+    ffi_value_and_grad = jax.jit(
+        jax.value_and_grad(
+            lambda active: parameterized_value(
+                binary_inverse_ray_fixed_support_ffi, active
+            )
+        )
+    )
 
     jax_reference = jax_forward()
     jax.block_until_ready(jax_reference)
@@ -125,6 +178,26 @@ def main():
     jax_timing = timed(jax_forward, args.repeat, block=True)
     cpp_timing = timed(cpp_forward, args.repeat)
     ffi_timing = timed(ffi_forward, args.repeat, block=True)
+    jax_jvp(parameters, tangent).block_until_ready()
+    ffi_jvp(parameters, tangent).block_until_ready()
+    jax.block_until_ready(jax_value_and_grad(parameters))
+    jax.block_until_ready(ffi_value_and_grad(parameters))
+    jax_jvp_timing = timed(
+        lambda: jax_jvp(parameters, tangent), args.repeat, block=True
+    )
+    ffi_jvp_timing = timed(
+        lambda: ffi_jvp(parameters, tangent), args.repeat, block=True
+    )
+    jax_grad_timing = timed(
+        lambda: jax_value_and_grad(parameters), args.repeat, block=True
+    )
+    ffi_grad_timing = timed(
+        lambda: ffi_value_and_grad(parameters), args.repeat, block=True
+    )
+    jax_jvp_value = jax_jvp(parameters, tangent)
+    ffi_jvp_value = ffi_jvp(parameters, tangent)
+    jax_gradient = jax_value_and_grad(parameters)[1]
+    ffi_gradient = ffi_value_and_grad(parameters)[1]
 
     report = {
         "configuration": {
@@ -160,12 +233,30 @@ def main():
                     )
                 )
             ),
+            "ffi_jvp_absolute_error": abs(float(jax_jvp_value) - float(ffi_jvp_value)),
+            "ffi_gradient_max_absolute_error": float(
+                np.max(np.abs(np.asarray(jax_gradient - ffi_gradient)))
+            ),
         },
         "jax": jax_timing,
         "cpp": cpp_timing,
         "ffi": ffi_timing,
         "cpp_speedup": (jax_timing["median_seconds"] / cpp_timing["median_seconds"]),
         "ffi_speedup": (jax_timing["median_seconds"] / ffi_timing["median_seconds"]),
+        "jvp": {
+            "jax": jax_jvp_timing,
+            "ffi": ffi_jvp_timing,
+            "ffi_speedup": (
+                jax_jvp_timing["median_seconds"] / ffi_jvp_timing["median_seconds"]
+            ),
+        },
+        "value_and_grad": {
+            "jax": jax_grad_timing,
+            "ffi": ffi_grad_timing,
+            "ffi_speedup": (
+                jax_grad_timing["median_seconds"] / ffi_grad_timing["median_seconds"]
+            ),
+        },
     }
     print(json.dumps(report, indent=2))
 

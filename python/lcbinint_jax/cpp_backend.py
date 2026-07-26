@@ -1,11 +1,11 @@
 """Experimental native execution backends for fixed-support inverse rays.
 
 The host interface is NumPy-callable.  The typed CPU FFI interface supports
-``jax.jit`` and sequential ``jax.vmap``; analytic differentiation rules are
-the next implementation gate.
+``jax.jit``, sequential ``jax.vmap``, and analytic forward/reverse automatic
+differentiation through a custom JVP.
 """
 
-from functools import lru_cache
+from functools import lru_cache, partial
 from typing import NamedTuple
 
 import jax
@@ -15,7 +15,8 @@ import numpy as np
 from ._config import require_x64
 from .types import FixedSupportResult
 
-_FFI_TARGET = "lcbinint_jax_fixed_support_forward_f64_v1"
+_FFI_FORWARD_TARGET = "lcbinint_jax_fixed_support_forward_f64_v1"
+_FFI_VALUE_JACOBIAN_TARGET = "lcbinint_jax_fixed_support_value_jacobian_f64_v1"
 _MOMENT_COUNTS = {
     "uniform": 1,
     "linear": 2,
@@ -46,13 +47,183 @@ def _native_module():
 def _register_fixed_support_ffi():
     native = _native_module()
     try:
-        capsule = native._jax_ir.fixed_support_forward_ffi()
+        forward_capsule = native._jax_ir.fixed_support_forward_ffi()
+        value_jacobian_capsule = native._jax_ir.fixed_support_value_jacobian_ffi()
     except AttributeError as error:
         raise RuntimeError(
             "lcbinint was built without JAX FFI headers; rebuild with "
             "LCBININT_ENABLE_JAX_FFI=ON"
         ) from error
-    jax.ffi.register_ffi_target(_FFI_TARGET, capsule, platform="cpu")
+    jax.ffi.register_ffi_target(_FFI_FORWARD_TARGET, forward_capsule, platform="cpu")
+    jax.ffi.register_ffi_target(
+        _FFI_VALUE_JACOBIAN_TARGET,
+        value_jacobian_capsule,
+        platform="cpu",
+    )
+
+
+def _output_specifications(moment_count, include_jacobian):
+    outputs = (
+        jax.ShapeDtypeStruct((), jnp.float64),
+        jax.ShapeDtypeStruct((moment_count,), jnp.float64),
+        jax.ShapeDtypeStruct((), jnp.int32),
+        jax.ShapeDtypeStruct((), jnp.int32),
+    )
+    if include_jacobian:
+        return outputs + (
+            jax.ShapeDtypeStruct((7,), jnp.float64),
+            jax.ShapeDtypeStruct((moment_count, 7), jnp.float64),
+        )
+    return outputs
+
+
+def _ffi_call(
+    target,
+    tile_size,
+    moment_count,
+    boundary_subdivision,
+    origins,
+    mask,
+    scalars,
+    *,
+    include_jacobian,
+):
+    return jax.ffi.ffi_call(
+        target,
+        _output_specifications(moment_count, include_jacobian),
+        vmap_method="sequential",
+    )(
+        origins,
+        mask,
+        *scalars,
+        tile_size=np.int64(tile_size),
+        moment_mode=np.int64(moment_count),
+        boundary_subdivision=np.int64(boundary_subdivision),
+    )
+
+
+def _as_fixed_support_result(outputs):
+    return FixedSupportResult(
+        magnification=outputs[0],
+        moments=outputs[1],
+        boundary_cells=outputs[2],
+        active_cells=outputs[3],
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=(0, 1, 2))
+def _fixed_support_ffi_transformable(
+    tile_size,
+    moment_count,
+    boundary_subdivision,
+    origins,
+    mask,
+    cell_size,
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+):
+    outputs = _ffi_call(
+        _FFI_FORWARD_TARGET,
+        tile_size,
+        moment_count,
+        boundary_subdivision,
+        origins,
+        mask,
+        (
+            cell_size,
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        ),
+        include_jacobian=False,
+    )
+    return _as_fixed_support_result(outputs)
+
+
+@_fixed_support_ffi_transformable.defjvp
+def _fixed_support_ffi_jvp(
+    tile_size,
+    moment_count,
+    boundary_subdivision,
+    primals,
+    tangents,
+):
+    (
+        origins,
+        mask,
+        cell_size,
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        limb_c,
+        limb_d,
+    ) = primals
+    (
+        _,
+        _,
+        _,
+        source_x_tangent,
+        source_y_tangent,
+        separation_tangent,
+        mass_ratio_tangent,
+        source_radius_tangent,
+        limb_c_tangent,
+        limb_d_tangent,
+    ) = tangents
+    outputs = _ffi_call(
+        _FFI_VALUE_JACOBIAN_TARGET,
+        tile_size,
+        moment_count,
+        boundary_subdivision,
+        origins,
+        mask,
+        (
+            cell_size,
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        ),
+        include_jacobian=True,
+    )
+    primal_result = _as_fixed_support_result(outputs)
+    magnification_jacobian, moments_jacobian = outputs[4:]
+    parameter_tangent = jnp.stack(
+        (
+            source_x_tangent,
+            source_y_tangent,
+            separation_tangent,
+            mass_ratio_tangent,
+            source_radius_tangent,
+            limb_c_tangent,
+            limb_d_tangent,
+        )
+    )
+    float0_boundary = jnp.zeros_like(
+        primal_result.boundary_cells, dtype=jax.dtypes.float0
+    )
+    float0_active = jnp.zeros_like(primal_result.active_cells, dtype=jax.dtypes.float0)
+    tangent_result = FixedSupportResult(
+        magnification=jnp.vdot(magnification_jacobian, parameter_tangent),
+        moments=moments_jacobian @ parameter_tangent,
+        boundary_cells=float0_boundary,
+        active_cells=float0_active,
+    )
+    return primal_result, tangent_result
 
 
 def binary_inverse_ray_fixed_support_cpp(
@@ -118,9 +289,8 @@ def binary_inverse_ray_fixed_support_ffi(
     """Run the C++ fixed-support forward kernel inside JAX CPU programs.
 
     The typed FFI call supports ``jax.jit`` and sequential ``jax.vmap``.
-    Analytic JVP/VJP rules are a separate implementation gate, so attempting
-    to differentiate this function currently raises JAX's explicit FFI
-    differentiation error.
+    Its custom JVP obtains a seven-parameter analytic Jacobian from C++; JAX
+    transposes the resulting linear map for reverse-mode differentiation.
     """
 
     require_x64()
@@ -141,10 +311,11 @@ def binary_inverse_ray_fixed_support_ffi(
         raise ValueError("tile_origins must have shape (N, 2)")
     if mask.ndim != 1 or mask.shape[0] != origins.shape[0]:
         raise ValueError("tile_mask must have shape (N,)")
-    scalars = tuple(
+    scalars = (
+        jax.lax.stop_gradient(jnp.asarray(cell_size, dtype=jnp.float64)),
+    ) + tuple(
         jnp.asarray(value, dtype=jnp.float64)
         for value in (
-            cell_size,
             source_x,
             source_y,
             separation,
@@ -159,27 +330,11 @@ def binary_inverse_ray_fixed_support_ffi(
 
     _register_fixed_support_ffi()
     moment_count = _MOMENT_COUNTS[moment_mode]
-    output_specifications = (
-        jax.ShapeDtypeStruct((), jnp.float64),
-        jax.ShapeDtypeStruct((moment_count,), jnp.float64),
-        jax.ShapeDtypeStruct((), jnp.int32),
-        jax.ShapeDtypeStruct((), jnp.int32),
-    )
-    magnification, moments, boundary_cells, active_cells = jax.ffi.ffi_call(
-        _FFI_TARGET,
-        output_specifications,
-        vmap_method="sequential",
-    )(
+    return _fixed_support_ffi_transformable(
+        tile_size,
+        moment_count,
+        boundary_subdivision,
         origins,
         mask,
         *scalars,
-        tile_size=np.int64(tile_size),
-        moment_mode=np.int64(moment_count),
-        boundary_subdivision=np.int64(boundary_subdivision),
-    )
-    return FixedSupportResult(
-        magnification=magnification,
-        moments=moments,
-        boundary_cells=boundary_cells,
-        active_cells=active_cells,
     )
