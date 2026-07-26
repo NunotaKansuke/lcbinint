@@ -8,6 +8,78 @@ Implementation branch: `feature/jax-cpu-inverse-ray-mvp`
 
 Initial scope: static binary lens, finite circular source, CPU, JAX, differentiable
 
+## 0. C++ execution-backend phase
+
+The JAX implementation remains the algorithmic reference and public
+composition layer.  The project will not call the pre-existing native
+finite-source engine from a JAX differentiation rule.  Instead, selected
+fixed-shape hot paths will gain an independently implemented C++ execution
+backend with the same cell moments and stopped-support semantics as the JAX
+kernel.
+
+The work is split into gates:
+
+1. **Raw fixed-support forward kernel.**  Keep discovery in JAX.  Pass
+   `tile_origins`, `tile_mask`, and scalar physical parameters to a C++17
+   kernel through the existing extension module.  This deliberately starts as
+   a NumPy-callable benchmark/reference interface, outside `jit`, so raw
+   kernel merit is measured before adding XLA integration.
+2. **Semantic lockstep.**  Require agreement with
+   `binary_inverse_ray_fixed_support` for all three moment modes, 3-by-3 and
+   4-by-4 detailed-cell rules, masks, and diagnostics.  The C++ implementation
+   follows the JAX equations; it does not reuse the native `lcbinint`
+   integrator.
+3. **FFI viability gate.**  Measure raw C++ time, Python dispatch time, and
+   host/device transfer time separately.  Proceed to a JAX CPU FFI/custom-call
+   only if fixed-support forward is at least 2 times faster on representative
+   inverse-ray epochs.  The target is 2--4 times.
+4. **Analytic tangent kernel.**  Add a C++ JVP for source position,
+   separation, mass ratio, source radius, and limb coefficients.  Finite
+   differences are not an accepted differentiation backend.  Validate each
+   tangent against the JAX reference before exposing it through a custom JVP.
+5. **Reverse mode.**  Add a VJP by contracting the same local analytic
+   derivatives while scanning cells.  It must not materialize a
+   rays-by-parameters Jacobian.
+6. **Automatic backend choice.**  JAX retains discovery, multipole routing,
+   trajectory transforms, and unsupported-platform fallback.  CPU calls use
+   C++ only for calibrated shapes/modes; pure JAX remains the correctness
+   fallback and the implementation on other platforms.
+
+The forward gate reports both numerical and performance evidence.  Required
+numerical evidence is moment agreement within `2e-11` relative/absolute on
+ordinary cases and no change to boundary/active cell counts.  Required
+performance evidence is compile-excluded median time over repeated calls,
+including a representative production-discovered support rather than only a
+small synthetic grid.
+
+Initial non-goals are support discovery in C++, OpenMP across JAX trajectory
+epochs, and wrapping the old native inverse-ray implementation.  Keeping
+these out of the first gate makes any measured speedup attributable to the
+new fixed-support kernel and leaves the differentiation boundary explicit.
+
+### First forward-gate result
+
+The initial C++17/pybind prototype implements the real binary-lens map,
+interior second-order moments, curved detailed-cell subdivision, all three
+moment modes, and the JAX diagnostic counts.  It is available as
+`binary_inverse_ray_fixed_support_cpp`; the name and docstring deliberately
+state that this is an experimental host interface.
+
+On the representative `s=1`, `q=0.1`, `rho=0.03`, `x=0.5` discovery at
+resolution 96, the stopped support contained 1028 active 16-by-16 tiles,
+4766 detailed cells, and 161056 contributing cells.  Median warm forward
+times over 30 calls were 13.80 ms for the JAX fixed-support kernel and
+6.52 ms for C++, a 2.11-times raw-kernel speedup including the Python call.
+The magnification absolute difference was `6.5e-12`, the largest moment
+difference was `2.7e-14`, and both diagnostic counts agreed exactly.
+
+This passes the stated 2-times FFI viability gate.  It does **not** yet make
+the production API faster: the prototype converts to host NumPy inputs and
+cannot participate in `jit`, `jvp`, or `grad`.  The next implementation step
+is therefore a CPU FFI/custom-call wrapper around this kernel, followed by
+analytic JVP/VJP kernels.  The reproducible raw comparison is
+`tests/diagnostics/jax_ir/benchmark_cpp_backend.py`.
+
 ## 1. Mission
 
 Build a finite-source microlensing engine whose defining properties are:

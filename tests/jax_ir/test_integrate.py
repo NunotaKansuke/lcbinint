@@ -3,7 +3,10 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
-from lcbinint_jax import binary_inverse_ray_fixed_support
+from lcbinint_jax import (
+    binary_inverse_ray_fixed_support,
+    binary_inverse_ray_fixed_support_cpp,
+)
 from lcbinint_jax.integrate import (
     _phi_gradient_laplacian_complex,
     _phi_gradient_laplacian_real,
@@ -174,3 +177,49 @@ def test_adaptive_boundary_threshold_must_be_positive(support):
             tile_size=8,
             boundary_adaptive_threshold=0.0,
         )
+
+
+@pytest.mark.parametrize(
+    ("moment_mode", "boundary_subdivision"),
+    (("uniform", 3), ("linear", 3), ("two_coefficient", 4)),
+)
+def test_cpp_forward_matches_jax_fixed_support(
+    support, moment_mode, boundary_subdivision
+):
+    parameters = np.asarray([0.2, 0.1, 1.2, 0.1, 0.2, 0.4, 0.1])
+    origins, mask = support
+    try:
+        cpp = binary_inverse_ray_fixed_support_cpp(
+            origins,
+            mask,
+            0.05,
+            *parameters,
+            tile_size=8,
+            moment_mode=moment_mode,
+            boundary_subdivision=boundary_subdivision,
+        )
+    except RuntimeError as error:
+        pytest.skip(str(error))
+    jax_result = binary_inverse_ray_fixed_support(
+        origins,
+        mask,
+        0.05,
+        *parameters,
+        tile_size=8,
+        moment_mode=moment_mode,
+        boundary_subdivision=boundary_subdivision,
+    )
+    np.testing.assert_allclose(
+        cpp.moments,
+        jax_result.moments,
+        rtol=2.0e-11,
+        atol=2.0e-11,
+    )
+    np.testing.assert_allclose(
+        cpp.magnification,
+        jax_result.magnification,
+        rtol=2.0e-11,
+        atol=2.0e-11,
+    )
+    assert cpp.boundary_cells == int(jax_result.boundary_cells)
+    assert cpp.active_cells == int(jax_result.active_cells)

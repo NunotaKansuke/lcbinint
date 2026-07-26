@@ -14,6 +14,10 @@ from .multipole import (
     binary_point_source_magnification,
 )
 from .convergence import binary_inverse_ray_convergence
+from .cpp_backend import (
+    CppFixedSupportResult,
+    binary_inverse_ray_fixed_support_cpp,
+)
 from .discovery import discover_binary_macro_tiles
 from .integrate import binary_inverse_ray_fixed_support
 from .limb_darkening import combine_limb_darkening_moments
@@ -37,6 +41,7 @@ from .types import (
 __all__ = [
     "AutoInverseRayResult",
     "ConvergenceResult",
+    "CppFixedSupportResult",
     "DiscoveryResult",
     "FixedSupportResult",
     "HexadecapoleResult",
@@ -55,6 +60,7 @@ __all__ = [
     "binary_inverse_ray_auto",
     "binary_inverse_ray_convergence",
     "binary_inverse_ray_fixed_support",
+    "binary_inverse_ray_fixed_support_cpp",
     "binary_inverse_ray_linear",
     "binary_inverse_ray_polar",
     "binary_inverse_ray_uniform",

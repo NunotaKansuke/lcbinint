@@ -1,5 +1,6 @@
 #include "bind_lc.hpp"
 #include "bind_obs.hpp"
+#include "bind_jax_ir.hpp"
 
 #include <pybind11/pybind11.h>
 
@@ -11,4 +12,5 @@ PYBIND11_MODULE(_lcbinint, m)
 
     register_lc_submodule(m);
     register_obs_submodule(m);
+    register_jax_ir_submodule(m);
 }

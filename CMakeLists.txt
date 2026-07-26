@@ -125,7 +125,8 @@ if(LCBININT_BUILD_PYTHON)
     pybind11_add_module(lcbinint_python
         python/lcbinint_pybind.cpp
         python/bind_lc.cpp
-        python/bind_obs.cpp)
+        python/bind_obs.cpp
+        python/bind_jax_ir.cpp)
     target_link_libraries(lcbinint_python PRIVATE lcbinint_lightcurve)
     set_target_properties(lcbinint_python PROPERTIES OUTPUT_NAME _lcbinint)
     # Copy Python package files to build dir so `import lcbinint` works from build/
