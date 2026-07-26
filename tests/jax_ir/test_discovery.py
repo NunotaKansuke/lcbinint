@@ -5,6 +5,7 @@ import pytest
 
 from lcbinint_jax import (
     binary_inverse_ray,
+    binary_inverse_ray_cartesian_batch_ffi,
     binary_inverse_ray_cartesian_ffi,
     binary_inverse_ray_fixed_support_ffi,
     binary_inverse_ray_linear,
@@ -34,6 +35,13 @@ def _require_cartesian_epoch_ffi():
 
     if not hasattr(_native._jax_ir, "cartesian_epoch_forward_ffi"):
         pytest.skip("lcbinint was built without fused Cartesian epoch FFI support")
+
+
+def _require_cartesian_batch_ffi():
+    from lcbinint import _native
+
+    if not hasattr(_native._jax_ir, "cartesian_batch_forward_ffi"):
+        pytest.skip("lcbinint was built without Cartesian batch FFI support")
 
 
 def test_source_centre_and_limb_seed_shapes_are_static():
@@ -405,3 +413,91 @@ def test_fused_cartesian_epoch_matches_staged_ffi_value_and_gradient(
     assert int(fused_aux[3]) == int(discovery.visited_count)
     assert not bool(fused_aux[4])
     assert not bool(fused_aux[5])
+
+
+@pytest.mark.parametrize(
+    "moment_mode,limb_c,limb_d,boundary_subdivision",
+    (
+        ("uniform", 0.0, 0.0, 3),
+        ("linear", 0.4, 0.0, 3),
+        ("two_coefficient", 0.3, 0.2, 4),
+    ),
+)
+def test_masked_cartesian_batch_ffi_matches_scalar_values_and_gradient(
+    moment_mode,
+    limb_c,
+    limb_d,
+    boundary_subdivision,
+):
+    _require_cartesian_batch_ffi()
+    source_x = jnp.asarray((-0.02, 0.0, 0.035, 0.08))
+    source_y = jnp.asarray((0.01, 0.015, -0.01, 0.03))
+    active = jnp.asarray((True, False, True, True))
+    shared = jnp.asarray((1.0, 0.1, 0.03, limb_c, limb_d))
+    options = {
+        "cell_size": 5.0e-4,
+        "tile_size": 16,
+        "tile_capacity": 4096,
+        "limb_samples": 24,
+        "moment_mode": moment_mode,
+        "boundary_subdivision": boundary_subdivision,
+    }
+
+    def batched(active_shared):
+        result = binary_inverse_ray_cartesian_batch_ffi(
+            source_x,
+            source_y,
+            *active_shared,
+            active=active,
+            **options,
+        )
+        return jnp.sum(result.magnification), result
+
+    (batch_loss, batch), batch_gradient = jax.value_and_grad(
+        batched,
+        has_aux=True,
+    )(shared)
+    scalar_results = [
+        binary_inverse_ray_cartesian_ffi(
+            source_x[index],
+            source_y[index],
+            *shared,
+            **options,
+        )
+        for index in (0, 2, 3)
+    ]
+    expected_magnification = jnp.asarray(
+        (
+            scalar_results[0].magnification,
+            0.0,
+            scalar_results[1].magnification,
+            scalar_results[2].magnification,
+        )
+    )
+
+    def scalar_loss(active_shared):
+        return sum(
+            binary_inverse_ray_cartesian_ffi(
+                source_x[index],
+                source_y[index],
+                *active_shared,
+                **options,
+            ).magnification
+            for index in (0, 2, 3)
+        )
+
+    scalar_gradient = jax.grad(scalar_loss)(shared)
+    np.testing.assert_allclose(
+        batch.magnification,
+        expected_magnification,
+        rtol=0.0,
+        atol=0.0,
+    )
+    np.testing.assert_allclose(batch_loss, jnp.sum(expected_magnification))
+    np.testing.assert_array_equal(batch.support_valid, active)
+    np.testing.assert_allclose(
+        batch_gradient,
+        scalar_gradient,
+        rtol=0.0,
+        atol=2.0e-12,
+    )

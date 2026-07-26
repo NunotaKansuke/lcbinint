@@ -571,16 +571,29 @@ Representative uniform/linear/two-coefficient forward times improved from
 4.72/6.09/30.29 ms to 3.13/3.83/14.06 ms.  Value-plus-gradient improved from
 14.70/19.22/74.86 ms to 5.05/14.72/37.14 ms.
 
-The 64-epoch linear trajectory now measures 97.94 ms forward, 93.39 ms JVP,
-and 103.12 ms value-plus-gradient.  Native `lcbinint` forward is 130.82 ms,
-VBMicrolensing forward is 3.01 s, and microLUX measures
-14.15/12.82/26.22 s.  All 64 FFI values pass the common VBM error budget.
+The trajectory dispatcher now sends all selected Cartesian epochs through one
+masked FFI call. Hexadecapole selection remains vector-valued and stopped
+gradient; polar-preselected or invalid-support rows retain the scalar
+dispatcher, so method and fallback decisions are unchanged. The C++ handler
+parallelizes independent active epochs with OpenMP, respects
+`OMP_NUM_THREADS`, and caps its own team at 32 threads. The Skowron--Gould
+scratch variables were made call-local before enabling this path.
 
-With `--profile uniform`, FFI forward/JVP/value-plus-gradient measures
-84.51/35.48/49.63 ms.  Native forward is 127.75 ms and has two common-budget
-misses; VBMicrolensing is faster at 46.04 ms.  The 80-annulus microLUX
-configuration measures 14.15 s but is not an optimized uniform-source
-baseline.  FFI has zero uniform accuracy-budget failures.
+On the 32-thread benchmark host, the 64-epoch linear trajectory measures
+9.14 ms forward, 24.04 ms JVP, and 32.64 ms value-plus-gradient. The prior
+scalar FFI path measured 97.94/93.39/103.12 ms. Native `lcbinint` forward is
+134.84 ms, VBMicrolensing forward is 3.02 s, and microLUX measures
+14.19/12.66/26.30 s. All 64 batched FFI values pass the common VBM error
+budget. With `OMP_NUM_THREADS=1`, batching has essentially no forward
+overhead (97.88 ms versus 98.01 ms scalar); the large throughput result is
+therefore explicitly a multicore comparison.
+
+With `--profile uniform`, batched FFI forward/JVP/value-plus-gradient measures
+12.30/11.58/21.84 ms. Native forward is 130.91 ms and has two common-budget
+misses; VBMicrolensing measures 46.08 ms, so the batched inverse-ray path is
+3.75 times faster on this trajectory. The 80-annulus microLUX configuration
+measures 14.07/12.80/25.15 s but is not an optimized uniform-source baseline.
+FFI has zero uniform accuracy-budget failures.
 
 The two hex/Cartesian switch boundaries in a 32-point replay were value-safe:
 the four values adjacent to the boundaries used at most 0.43 of their error

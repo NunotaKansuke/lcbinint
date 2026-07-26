@@ -22,6 +22,8 @@ _FFI_BINARY_ROOT_TARGET = "lcbinint_jax_binary_image_roots_f64_v1"
 _FFI_BINARY_ROOT_JACOBIAN_TARGET = "lcbinint_jax_binary_image_roots_jacobian_f64_v1"
 _FFI_CARTESIAN_EPOCH_TARGET = "lcbinint_jax_cartesian_epoch_f64_v1"
 _FFI_CARTESIAN_EPOCH_JACOBIAN_TARGET = "lcbinint_jax_cartesian_epoch_jacobian_f64_v1"
+_FFI_CARTESIAN_BATCH_TARGET = "lcbinint_jax_cartesian_batch_f64_v1"
+_FFI_CARTESIAN_BATCH_JACOBIAN_TARGET = "lcbinint_jax_cartesian_batch_jacobian_f64_v1"
 _MOMENT_COUNTS = {
     "uniform": 1,
     "linear": 2,
@@ -122,6 +124,21 @@ def cpp_cartesian_epoch_ffi_available():
         return False
 
 
+def cpp_cartesian_batch_ffi_available():
+    """Return whether masked Cartesian batch FFI handlers are available."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        jax_ir = native._jax_ir
+        return hasattr(jax_ir, "cartesian_batch_forward_ffi") and hasattr(
+            jax_ir, "cartesian_batch_value_jacobian_ffi"
+        )
+    except (AttributeError, RuntimeError):
+        return False
+
+
 @lru_cache(maxsize=1)
 def _register_fixed_support_ffi():
     native = _native_module()
@@ -199,6 +216,29 @@ def _register_cartesian_epoch_ffi():
     )
     jax.ffi.register_ffi_target(
         _FFI_CARTESIAN_EPOCH_JACOBIAN_TARGET,
+        jacobian_capsule,
+        platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_cartesian_batch_ffi():
+    native = _native_module()
+    try:
+        forward_capsule = native._jax_ir.cartesian_batch_forward_ffi()
+        jacobian_capsule = native._jax_ir.cartesian_batch_value_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the Cartesian batch FFI; rebuild with "
+            "LCBININT_ENABLE_JAX_FFI=ON"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_CARTESIAN_BATCH_TARGET,
+        forward_capsule,
+        platform="cpu",
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_CARTESIAN_BATCH_JACOBIAN_TARGET,
         jacobian_capsule,
         platform="cpu",
     )
@@ -508,6 +548,260 @@ def binary_inverse_ray_cartesian_ffi(
         *scalars,
     )
     support_valid = ~(result.overflow | result.root_failure)
+    return InverseRayResult(
+        magnification=result.magnification,
+        moments=result.moments,
+        boundary_cells=result.boundary_cells,
+        active_cells=result.active_cells,
+        tile_count=result.tile_count,
+        discovery_overflow=result.overflow,
+        root_failure=result.root_failure,
+        support_valid=support_valid,
+    )
+
+
+def _cartesian_batch_output_specifications(
+    batch_size,
+    moment_count,
+    include_jacobian,
+):
+    outputs = (
+        jax.ShapeDtypeStruct((batch_size,), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size, moment_count), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size,), jnp.int32),
+        jax.ShapeDtypeStruct((batch_size,), jnp.int32),
+        jax.ShapeDtypeStruct((batch_size,), jnp.int32),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+    )
+    if include_jacobian:
+        return outputs + (
+            jax.ShapeDtypeStruct((batch_size, 7), jnp.float64),
+            jax.ShapeDtypeStruct((batch_size, moment_count, 7), jnp.float64),
+        )
+    return outputs
+
+
+def _cartesian_batch_ffi_call(
+    target,
+    tile_size,
+    tile_capacity,
+    limb_samples,
+    moment_count,
+    boundary_subdivision,
+    source_x,
+    source_y,
+    active,
+    scalars,
+    *,
+    include_jacobian,
+):
+    return jax.ffi.ffi_call(
+        target,
+        _cartesian_batch_output_specifications(
+            source_x.shape[0],
+            moment_count,
+            include_jacobian,
+        ),
+        vmap_method="sequential",
+    )(
+        source_x,
+        source_y,
+        active,
+        *scalars,
+        tile_size=np.int64(tile_size),
+        tile_capacity=np.int64(tile_capacity),
+        limb_samples=np.int64(limb_samples),
+        moment_mode=np.int64(moment_count),
+        boundary_subdivision=np.int64(boundary_subdivision),
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=(0, 1, 2, 3, 4))
+def _cartesian_batch_ffi_transformable(
+    tile_size,
+    tile_capacity,
+    limb_samples,
+    moment_count,
+    boundary_subdivision,
+    source_x,
+    source_y,
+    active,
+    cell_size,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+):
+    outputs = _cartesian_batch_ffi_call(
+        _FFI_CARTESIAN_BATCH_TARGET,
+        tile_size,
+        tile_capacity,
+        limb_samples,
+        moment_count,
+        boundary_subdivision,
+        source_x,
+        source_y,
+        active,
+        (
+            cell_size,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        ),
+        include_jacobian=False,
+    )
+    return _FfiCartesianEpochResult(*outputs)
+
+
+@_cartesian_batch_ffi_transformable.defjvp
+def _cartesian_batch_ffi_jvp(
+    tile_size,
+    tile_capacity,
+    limb_samples,
+    moment_count,
+    boundary_subdivision,
+    primals,
+    tangents,
+):
+    (
+        source_x,
+        source_y,
+        active,
+        cell_size,
+        separation,
+        mass_ratio,
+        source_radius,
+        limb_c,
+        limb_d,
+    ) = primals
+    (
+        source_x_tangent,
+        source_y_tangent,
+        _,
+        _,
+        separation_tangent,
+        mass_ratio_tangent,
+        source_radius_tangent,
+        limb_c_tangent,
+        limb_d_tangent,
+    ) = tangents
+    outputs = _cartesian_batch_ffi_call(
+        _FFI_CARTESIAN_BATCH_JACOBIAN_TARGET,
+        tile_size,
+        tile_capacity,
+        limb_samples,
+        moment_count,
+        boundary_subdivision,
+        source_x,
+        source_y,
+        active,
+        (
+            cell_size,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        ),
+        include_jacobian=True,
+    )
+    primal_result = _FfiCartesianEpochResult(*outputs[:7])
+    parameter_tangent = jnp.stack(
+        (
+            source_x_tangent,
+            source_y_tangent,
+            jnp.full_like(source_x, separation_tangent),
+            jnp.full_like(source_x, mass_ratio_tangent),
+            jnp.full_like(source_x, source_radius_tangent),
+            jnp.full_like(source_x, limb_c_tangent),
+            jnp.full_like(source_x, limb_d_tangent),
+        ),
+        axis=1,
+    )
+    tangent_result = _FfiCartesianEpochResult(
+        magnification=jnp.sum(outputs[7] * parameter_tangent, axis=1),
+        moments=jnp.einsum("nmq,nq->nm", outputs[8], parameter_tangent),
+        boundary_cells=jnp.zeros_like(
+            primal_result.boundary_cells, dtype=jax.dtypes.float0
+        ),
+        active_cells=jnp.zeros_like(
+            primal_result.active_cells, dtype=jax.dtypes.float0
+        ),
+        tile_count=jnp.zeros_like(primal_result.tile_count, dtype=jax.dtypes.float0),
+        overflow=jnp.zeros_like(primal_result.overflow, dtype=jax.dtypes.float0),
+        root_failure=jnp.zeros_like(
+            primal_result.root_failure, dtype=jax.dtypes.float0
+        ),
+    )
+    return primal_result, tangent_result
+
+
+def binary_inverse_ray_cartesian_batch_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    active=None,
+    cell_size,
+    tile_size=16,
+    tile_capacity=4096,
+    limb_samples=24,
+    moment_mode="two_coefficient",
+    boundary_subdivision=4,
+):
+    """Evaluate masked independent Cartesian epochs in one differentiable FFI."""
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("the Cartesian batch FFI is CPU-only")
+    if moment_mode not in _MOMENT_COUNTS:
+        raise ValueError(
+            "moment_mode must be 'uniform', 'linear', or 'two_coefficient'"
+        )
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    if source_x.ndim != 1 or source_y.shape != source_x.shape:
+        raise ValueError("source_x and source_y must have the same 1-D shape")
+    if active is None:
+        active = jnp.ones(source_x.shape, dtype=jnp.bool_)
+    active = jax.lax.stop_gradient(jnp.asarray(active, dtype=jnp.bool_))
+    if active.shape != source_x.shape:
+        raise ValueError("active must have the same shape as source_x")
+    scalars = (
+        jax.lax.stop_gradient(jnp.asarray(cell_size, dtype=jnp.float64)),
+    ) + tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
+    if any(value.ndim != 0 for value in scalars):
+        raise ValueError("lens and source parameters must be scalars")
+    _register_cartesian_batch_ffi()
+    result = _cartesian_batch_ffi_transformable(
+        tile_size,
+        tile_capacity,
+        limb_samples,
+        _MOMENT_COUNTS[moment_mode],
+        boundary_subdivision,
+        source_x,
+        source_y,
+        active,
+        *scalars,
+    )
+    support_valid = active & ~(result.overflow | result.root_failure)
     return InverseRayResult(
         magnification=result.magnification,
         moments=result.moments,

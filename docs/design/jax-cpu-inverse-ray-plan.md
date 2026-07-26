@@ -181,20 +181,33 @@ reproduce it because the Jet arithmetic helpers remained in the default
 translation-unit target.  The production implementation therefore remains a
 portable build rather than imposing AVX2 or AVX-512.
 
-On the 64-epoch mixed linear trajectory, optimized FFI forward/JVP/
-value-plus-gradient measured 97.94/93.39/103.12 ms, compared with 130.82 ms
-native forward, 3.01 s VBMicrolensing forward, and
-14.15/12.82/26.22 s for microLUX.  This is the first matched trajectory on
-which the differentiable JAX/FFI engine is faster than native `lcbinint`:
-1.34 times forward, while retaining zero accuracy-budget failures.
+The next trajectory-level pass added a masked Cartesian batch FFI. JAX still
+computes the hexadecapole acceptance and polar-preselection masks; one C++
+call evaluates only the selected Cartesian rows, while polar and invalid
+support rows retain the complete scalar dispatcher. This preserves method and
+fallback choices while removing one FFI boundary per active epoch. The
+handler parallelizes independent epochs with OpenMP, honors
+`OMP_NUM_THREADS`, and caps its team at 32. Before enabling this, mutable
+Skowron--Gould scratch storage was changed from process-static to call-local;
+the batch and scalar results then matched exactly under concurrent root
+solves.
 
-The uniform trajectory measured 84.51 ms FFI, 127.75 ms native, 46.04 ms
-VBMicrolensing, and 14.15 s for the same 80-annulus microLUX configuration.
-FFI had zero accuracy-budget failures; native had two under the common budget.
-VBMicrolensing remains the fastest appropriate uniform-source comparator on
-this path.  The uniform JVP/value-plus-gradient FFI timings were
-35.48/49.63 ms.  The benchmark harness exposes `--profile uniform` and
-`--profile linear`.
+On the 32-thread benchmark host, the 64-epoch mixed linear trajectory now
+measures 9.14/24.04/32.64 ms forward/JVP/value-plus-gradient. The scalar FFI
+baseline was 97.94/93.39/103.12 ms, native forward is 134.84 ms,
+VBMicrolensing forward is 3.02 s, and microLUX measures
+14.19/12.66/26.30 s. All 64 rows retain zero common-budget failures.
+At one OpenMP thread the batch and scalar forward times are 97.88 and
+98.01 ms, respectively, making the distinction between boundary removal and
+multicore throughput explicit.
+
+The 32-thread uniform trajectory measures 12.30/11.58/21.84 ms for batched
+FFI, 130.91 ms native, 46.08 ms VBMicrolensing, and
+14.07/12.80/25.15 s microLUX. FFI again has zero accuracy-budget failures;
+native has two under the common budget. The batched inverse ray is now
+3.75 times faster than the appropriate VBMicrolensing uniform comparator on
+this trajectory. The benchmark harness exposes `--profile uniform` and
+`--profile linear` and records `OMP_NUM_THREADS`.
 
 Repeating the eight-configuration held-out sweep after the arithmetic changes
 again produced zero value, JVP, gradient, discovery, point-source,

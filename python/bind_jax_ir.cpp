@@ -17,6 +17,10 @@
 #include <unordered_set>
 #include <vector>
 
+#ifdef LCBININT_HAS_OPENMP
+#include <omp.h>
+#endif
+
 #ifdef LCBININT_HAS_JAX_FFI
 #include "xla/ffi/api/c_api.h"
 #include "xla/ffi/api/ffi.h"
@@ -1890,6 +1894,339 @@ XLA_FFI_DEFINE_HANDLER(
         .Ret<ffi::BufferR1<ffi::F64>>()
         .Ret<ffi::BufferR2<ffi::F64>>());
 
+ffi::Error validate_cartesian_batch_arguments(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR1<ffi::F64>& source_x,
+    ffi::BufferR1<ffi::F64>& source_y,
+    ffi::BufferR1<ffi::PRED>& active,
+    ffi::ResultBufferR1<ffi::F64>& magnification,
+    ffi::ResultBufferR2<ffi::F64>& moments)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        source_y.dimensions()[0] != batch_size
+        || active.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || moments->dimensions()[0] != batch_size) {
+        return ffi::Error::InvalidArgument(
+            "Cartesian batch arrays must have a common leading dimension");
+    }
+    if (
+        mode_value < 1 || mode_value > 3
+        || moments->dimensions()[1]
+            != moment_count(static_cast<MomentMode>(mode_value))) {
+        return ffi::Error::InvalidArgument(
+            "Cartesian batch moments have an invalid shape");
+    }
+    if (
+        tile_size <= 0 || tile_capacity <= 0 || limb_samples <= 0
+        || boundary_subdivision < 1 || boundary_subdivision > 4) {
+        return ffi::Error::InvalidArgument(
+            "invalid Cartesian batch static configuration");
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error cartesian_batch_forward_ffi_impl(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::PRED> active,
+    ffi::BufferR0<ffi::F64> cell_size,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR2<ffi::F64> moments,
+    ffi::ResultBufferR1<ffi::S32> boundary_cells,
+    ffi::ResultBufferR1<ffi::S32> active_cells,
+    ffi::ResultBufferR1<ffi::S32> visited_tiles,
+    ffi::ResultBufferR1<ffi::PRED> overflow,
+    ffi::ResultBufferR1<ffi::PRED> root_failure)
+{
+    auto validation = validate_cartesian_batch_arguments(
+        tile_size, tile_capacity, limb_samples, mode_value,
+        boundary_subdivision, source_x, source_y, active, magnification,
+        moments);
+    if (validation.failure()) return validation;
+    if (!(*cell_size.typed_data() > 0.0)
+        || !(*source_radius.typed_data() > 0.0)) {
+        return ffi::Error::InvalidArgument(
+            "cell_size and source_radius must be positive");
+    }
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        boundary_cells->dimensions()[0] != batch_size
+        || active_cells->dimensions()[0] != batch_size
+        || visited_tiles->dimensions()[0] != batch_size
+        || overflow->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size) {
+        return ffi::Error::InvalidArgument(
+            "Cartesian batch diagnostic outputs have invalid shapes");
+    }
+    const auto mode = static_cast<MomentMode>(mode_value);
+    const int output_moment_count = moment_count(mode);
+
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1,
+        std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(dynamic, 1) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        double* output_moments =
+            moments->typed_data() + index * output_moment_count;
+        if (!active.typed_data()[index]) {
+            magnification->typed_data()[index] = 0.0;
+            std::fill(
+                output_moments,
+                output_moments + output_moment_count,
+                0.0);
+            boundary_cells->typed_data()[index] = 0;
+            active_cells->typed_data()[index] = 0;
+            visited_tiles->typed_data()[index] = 0;
+            overflow->typed_data()[index] = false;
+            root_failure->typed_data()[index] = false;
+            continue;
+        }
+        const auto result = cartesian_epoch_kernel(
+            *cell_size.typed_data(), source_x.typed_data()[index],
+            source_y.typed_data()[index], *separation.typed_data(),
+            *mass_ratio.typed_data(), *source_radius.typed_data(),
+            *limb_d.typed_data(), tile_size, tile_capacity, limb_samples,
+            mode, boundary_subdivision);
+        for (int moment = 0; moment < output_moment_count; ++moment) {
+            output_moments[moment] = result.integration.moments[moment];
+        }
+        magnification->typed_data()[index] = combine_magnification(
+            result.integration.moments, *source_radius.typed_data(),
+            *limb_c.typed_data(), *limb_d.typed_data(), mode);
+        boundary_cells->typed_data()[index] =
+            static_cast<std::int32_t>(result.integration.boundary_cells);
+        active_cells->typed_data()[index] =
+            static_cast<std::int32_t>(result.integration.active_cells);
+        visited_tiles->typed_data()[index] = result.tile_count;
+        overflow->typed_data()[index] = result.overflow;
+        root_failure->typed_data()[index] = result.root_failure;
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    cartesian_batch_forward_ffi_handler,
+    cartesian_batch_forward_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<std::int64_t>("tile_size")
+        .Attr<std::int64_t>("tile_capacity")
+        .Attr<std::int64_t>("limb_samples")
+        .Attr<std::int64_t>("moment_mode")
+        .Attr<std::int64_t>("boundary_subdivision")
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::PRED>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::S32>>()
+        .Ret<ffi::BufferR1<ffi::S32>>()
+        .Ret<ffi::BufferR1<ffi::S32>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>());
+
+ffi::Error cartesian_batch_value_jacobian_ffi_impl(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::PRED> active,
+    ffi::BufferR0<ffi::F64> cell_size,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR2<ffi::F64> moments,
+    ffi::ResultBufferR1<ffi::S32> boundary_cells,
+    ffi::ResultBufferR1<ffi::S32> active_cells,
+    ffi::ResultBufferR1<ffi::S32> visited_tiles,
+    ffi::ResultBufferR1<ffi::PRED> overflow,
+    ffi::ResultBufferR1<ffi::PRED> root_failure,
+    ffi::ResultBufferR2<ffi::F64> magnification_jacobian,
+    ffi::ResultBufferR3<ffi::F64> moments_jacobian)
+{
+    auto validation = validate_cartesian_batch_arguments(
+        tile_size, tile_capacity, limb_samples, mode_value,
+        boundary_subdivision, source_x, source_y, active, magnification,
+        moments);
+    if (validation.failure()) return validation;
+    if (!(*cell_size.typed_data() > 0.0)
+        || !(*source_radius.typed_data() > 0.0)) {
+        return ffi::Error::InvalidArgument(
+            "cell_size and source_radius must be positive");
+    }
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    const auto mode = static_cast<MomentMode>(mode_value);
+    const int output_moment_count = moment_count(mode);
+    const auto moment_jacobian_dimensions = moments_jacobian->dimensions();
+    if (
+        boundary_cells->dimensions()[0] != batch_size
+        || active_cells->dimensions()[0] != batch_size
+        || visited_tiles->dimensions()[0] != batch_size
+        || overflow->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size
+        || magnification_jacobian->dimensions()[0] != batch_size
+        || magnification_jacobian->dimensions()[1] != parameter_count
+        || moment_jacobian_dimensions[0] != batch_size
+        || moment_jacobian_dimensions[1] != output_moment_count
+        || moment_jacobian_dimensions[2] != parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "Cartesian batch Jacobian outputs have invalid shapes");
+    }
+
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1,
+        std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(dynamic, 1) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        double* output_moments =
+            moments->typed_data() + index * output_moment_count;
+        double* output_magnification_jacobian =
+            magnification_jacobian->typed_data() + index * parameter_count;
+        double* output_moments_jacobian =
+            moments_jacobian->typed_data()
+            + index * output_moment_count * parameter_count;
+        if (!active.typed_data()[index]) {
+            magnification->typed_data()[index] = 0.0;
+            std::fill(
+                output_moments,
+                output_moments + output_moment_count,
+                0.0);
+            std::fill(
+                output_magnification_jacobian,
+                output_magnification_jacobian + parameter_count,
+                0.0);
+            std::fill(
+                output_moments_jacobian,
+                output_moments_jacobian
+                    + output_moment_count * parameter_count,
+                0.0);
+            boundary_cells->typed_data()[index] = 0;
+            active_cells->typed_data()[index] = 0;
+            visited_tiles->typed_data()[index] = 0;
+            overflow->typed_data()[index] = false;
+            root_failure->typed_data()[index] = false;
+            continue;
+        }
+        const Jet source_x_jet =
+            Jet::variable(source_x.typed_data()[index], 0);
+        const Jet source_y_jet =
+            Jet::variable(source_y.typed_data()[index], 1);
+        const Jet separation_jet =
+            Jet::variable(*separation.typed_data(), 2);
+        const Jet mass_ratio_jet =
+            Jet::variable(*mass_ratio.typed_data(), 3);
+        const Jet source_radius_jet =
+            Jet::variable(*source_radius.typed_data(), 4);
+        const Jet limb_c_jet(*limb_c.typed_data());
+        const Jet limb_d_jet(*limb_d.typed_data());
+        const auto result = cartesian_epoch_kernel(
+            *cell_size.typed_data(), source_x_jet, source_y_jet,
+            separation_jet, mass_ratio_jet, source_radius_jet, limb_d_jet,
+            tile_size, tile_capacity, limb_samples, mode,
+            boundary_subdivision);
+        const Jet magnification_result = combine_magnification(
+            result.integration.moments, source_radius_jet, limb_c_jet,
+            limb_d_jet, mode);
+        const auto limb_derivatives = limb_coefficient_derivatives(
+            result.integration.moments, *source_radius.typed_data(),
+            *limb_c.typed_data(), *limb_d.typed_data(), mode);
+        magnification->typed_data()[index] = magnification_result.value;
+        for (
+            std::size_t parameter = 0;
+            parameter < kernel_derivative_count;
+            ++parameter) {
+            output_magnification_jacobian[parameter] =
+                magnification_result.derivative[parameter];
+        }
+        output_magnification_jacobian[5] = limb_derivatives[0];
+        output_magnification_jacobian[6] = limb_derivatives[1];
+        for (int moment = 0; moment < output_moment_count; ++moment) {
+            output_moments[moment] =
+                result.integration.moments[moment].value;
+            for (
+                std::size_t parameter = 0;
+                parameter < parameter_count;
+                ++parameter) {
+                output_moments_jacobian[
+                    moment * parameter_count + parameter] =
+                    parameter < kernel_derivative_count
+                    ? result.integration.moments[moment]
+                          .derivative[parameter]
+                    : 0.0;
+            }
+        }
+        boundary_cells->typed_data()[index] =
+            static_cast<std::int32_t>(result.integration.boundary_cells);
+        active_cells->typed_data()[index] =
+            static_cast<std::int32_t>(result.integration.active_cells);
+        visited_tiles->typed_data()[index] = result.tile_count;
+        overflow->typed_data()[index] = result.overflow;
+        root_failure->typed_data()[index] = result.root_failure;
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    cartesian_batch_value_jacobian_ffi_handler,
+    cartesian_batch_value_jacobian_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<std::int64_t>("tile_size")
+        .Attr<std::int64_t>("tile_capacity")
+        .Attr<std::int64_t>("limb_samples")
+        .Attr<std::int64_t>("moment_mode")
+        .Attr<std::int64_t>("boundary_subdivision")
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::PRED>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::S32>>()
+        .Ret<ffi::BufferR1<ffi::S32>>()
+        .Ret<ffi::BufferR1<ffi::S32>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR2<ffi::F64>>()
+        .Ret<ffi::BufferR3<ffi::F64>>());
+
 py::capsule fixed_support_forward_ffi_capsule()
 {
     return py::capsule(
@@ -1932,6 +2269,19 @@ py::capsule cartesian_epoch_value_jacobian_ffi_capsule()
     return py::capsule(
         reinterpret_cast<void*>(
             cartesian_epoch_value_jacobian_ffi_handler));
+}
+
+py::capsule cartesian_batch_forward_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(cartesian_batch_forward_ffi_handler));
+}
+
+py::capsule cartesian_batch_value_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(
+            cartesian_batch_value_jacobian_ffi_handler));
 }
 #endif
 
@@ -1988,5 +2338,13 @@ void register_jax_ir_submodule(py::module_& parent)
         "cartesian_epoch_value_jacobian_ffi",
         &cartesian_epoch_value_jacobian_ffi_capsule,
         "Return the fused Cartesian epoch value/Jacobian FFI capsule.");
+    module.def(
+        "cartesian_batch_forward_ffi",
+        &cartesian_batch_forward_ffi_capsule,
+        "Return the masked Cartesian batch FFI handler capsule.");
+    module.def(
+        "cartesian_batch_value_jacobian_ffi",
+        &cartesian_batch_value_jacobian_ffi_capsule,
+        "Return the masked Cartesian batch value/Jacobian FFI capsule.");
 #endif
 }

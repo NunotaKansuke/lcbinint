@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import platform
 import statistics
 import time
@@ -75,6 +76,7 @@ def jax_curve(
     separation=SEPARATION,
     backend="jax",
     profile="linear",
+    trajectory_backend="auto",
 ):
     limb_c = 0.0 if profile == "uniform" else LIMB_C
     return binary_magnification_trajectory(
@@ -88,6 +90,7 @@ def jax_curve(
         moment_mode=profile,
         cartesian_backend=backend,
         root_backend=backend,
+        trajectory_backend=trajectory_backend,
     )
 
 
@@ -146,6 +149,16 @@ def main():
         ),
         args.repeat,
     )
+    ffi_scalar_result, ffi_scalar_forward = timed_jax(
+        lambda: jax_curve(
+            source_x,
+            source_y,
+            backend="ffi",
+            profile=args.profile,
+            trajectory_backend="scalar",
+        ),
+        args.repeat,
+    )
     microlux_result, microlux_forward = timed_jax(
         lambda: microlux_curve(source_x, source_y, profile=args.profile),
         args.repeat,
@@ -197,6 +210,36 @@ def main():
                     separation,
                     backend="ffi",
                     profile=args.profile,
+                ).magnification
+            )
+        )(SEPARATION),
+        args.repeat,
+    )
+    _, ffi_scalar_jvp = timed_jax(
+        lambda: jax.jvp(
+            lambda separation: jax_curve(
+                ad_x,
+                ad_y,
+                separation,
+                backend="ffi",
+                profile=args.profile,
+                trajectory_backend="scalar",
+            ).magnification,
+            (SEPARATION,),
+            (1.0,),
+        ),
+        args.repeat,
+    )
+    _, ffi_scalar_gradient = timed_jax(
+        lambda: jax.value_and_grad(
+            lambda separation: jnp.nansum(
+                jax_curve(
+                    ad_x,
+                    ad_y,
+                    separation,
+                    backend="ffi",
+                    profile=args.profile,
+                    trajectory_backend="scalar",
                 ).magnification
             )
         )(SEPARATION),
@@ -292,6 +335,7 @@ def main():
             "platform": platform.platform(),
             "jax_backend": jax.default_backend(),
             "jax_devices": [str(device) for device in jax.devices()],
+            "omp_num_threads": os.environ.get("OMP_NUM_THREADS"),
             "separation": SEPARATION,
             "mass_ratio": MASS_RATIO,
             "source_radius": SOURCE_RADIUS,
@@ -304,6 +348,9 @@ def main():
             "ffi_forward": ffi_forward,
             "ffi_jvp": ffi_jvp,
             "ffi_value_and_grad": ffi_gradient,
+            "ffi_scalar_forward": ffi_scalar_forward,
+            "ffi_scalar_jvp": ffi_scalar_jvp,
+            "ffi_scalar_value_and_grad": ffi_scalar_gradient,
             "microlux_forward": microlux_forward,
             "microlux_jvp": microlux_jvp,
             "microlux_value_and_grad": microlux_gradient,
@@ -313,6 +360,10 @@ def main():
         "accuracy": {
             "jax": accuracy_record(jax_result.magnification, reference),
             "ffi": accuracy_record(ffi_result.magnification, reference),
+            "ffi_scalar": accuracy_record(
+                ffi_scalar_result.magnification,
+                reference,
+            ),
             "microlux": accuracy_record(microlux_result, reference),
             "native": accuracy_record(native_result, reference),
         },

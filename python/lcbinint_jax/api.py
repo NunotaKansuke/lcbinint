@@ -529,6 +529,52 @@ def binary_inverse_ray_auto(
     )
 
 
+def _multipole_dispatch_masks(
+    hexadecapole,
+    mass_ratio,
+    source_radius,
+    absolute_tolerance,
+    relative_tolerance,
+    multipole_safety_factor,
+    polar_min_mass_ratio,
+):
+    budget = absolute_tolerance + relative_tolerance * jnp.maximum(
+        jnp.abs(hexadecapole.magnification),
+        1.0,
+    )
+    correction_scale = jnp.maximum(
+        jnp.abs(hexadecapole.quadrupole_correction),
+        budget,
+    )
+    expansion_well_ordered = (
+        hexadecapole.estimated_error <= 0.25 * correction_scale
+    ) & (
+        jnp.abs(hexadecapole.quadrupole_correction)
+        <= 0.1 * jnp.maximum(jnp.abs(hexadecapole.magnification), 1.0)
+    )
+    accept_multipole = jax.lax.stop_gradient(
+        (source_radius >= 0.0)
+        & hexadecapole.topology_stable
+        & ~hexadecapole.root_failure
+        & jnp.isfinite(hexadecapole.magnification)
+        & expansion_well_ordered
+        & (multipole_safety_factor * hexadecapole.estimated_error <= budget)
+    )
+    absolute_mass_ratio = jnp.abs(mass_ratio)
+    symmetric_mass_ratio = jnp.minimum(
+        absolute_mass_ratio,
+        jnp.where(
+            absolute_mass_ratio > 0.0,
+            1.0 / absolute_mass_ratio,
+            0.0,
+        ),
+    )
+    polar_allowed = jax.lax.stop_gradient(
+        hexadecapole.topology_stable & (symmetric_mass_ratio >= polar_min_mass_ratio)
+    )
+    return accept_multipole, polar_allowed
+
+
 @partial(
     jax.jit,
     static_argnames=(
@@ -624,35 +670,14 @@ def binary_magnification_auto(
         limb_d,
         root_backend=root_backend,
     )
-    budget = absolute_tolerance + relative_tolerance * jnp.maximum(
-        jnp.abs(hexadecapole.magnification), 1.0
-    )
-    correction_scale = jnp.maximum(jnp.abs(hexadecapole.quadrupole_correction), budget)
-    expansion_well_ordered = (
-        hexadecapole.estimated_error <= 0.25 * correction_scale
-    ) & (
-        jnp.abs(hexadecapole.quadrupole_correction)
-        <= 0.1 * jnp.maximum(jnp.abs(hexadecapole.magnification), 1.0)
-    )
-    accept_multipole = jax.lax.stop_gradient(
-        (source_radius >= 0.0)
-        & hexadecapole.topology_stable
-        & ~hexadecapole.root_failure
-        & jnp.isfinite(hexadecapole.magnification)
-        & expansion_well_ordered
-        & (multipole_safety_factor * hexadecapole.estimated_error <= budget)
-    )
-    absolute_mass_ratio = jnp.abs(mass_ratio)
-    symmetric_mass_ratio = jnp.minimum(
-        absolute_mass_ratio,
-        jnp.where(
-            absolute_mass_ratio > 0.0,
-            1.0 / absolute_mass_ratio,
-            0.0,
-        ),
-    )
-    polar_allowed = jax.lax.stop_gradient(
-        hexadecapole.topology_stable & (symmetric_mass_ratio >= polar_min_mass_ratio)
+    accept_multipole, polar_allowed = _multipole_dispatch_masks(
+        hexadecapole,
+        mass_ratio,
+        source_radius,
+        absolute_tolerance,
+        relative_tolerance,
+        multipole_safety_factor,
+        polar_min_mass_ratio,
     )
 
     def multipole_path(_):

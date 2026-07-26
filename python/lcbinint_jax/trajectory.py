@@ -6,8 +6,13 @@ import jax
 import jax.numpy as jnp
 
 from ._config import require_x64
-from .api import binary_magnification_auto
-from .types import TrajectoryMagnificationResult
+from .api import _multipole_dispatch_masks, binary_magnification_auto
+from .cpp_backend import (
+    binary_inverse_ray_cartesian_batch_ffi,
+    cpp_cartesian_batch_ffi_available,
+)
+from .multipole import binary_hexadecapole
+from .types import HybridMagnificationResult, TrajectoryMagnificationResult
 
 
 @partial(
@@ -37,6 +42,7 @@ from .types import TrajectoryMagnificationResult
         "expanded_limb_samples",
         "cartesian_backend",
         "root_backend",
+        "trajectory_backend",
     ),
 )
 def _binary_magnification_trajectory(
@@ -80,6 +86,7 @@ def _binary_magnification_trajectory(
     expanded_limb_samples,
     cartesian_backend,
     root_backend,
+    trajectory_backend,
 ):
     def evaluate_epoch(position):
         return binary_magnification_auto(
@@ -124,7 +131,101 @@ def _binary_magnification_trajectory(
             root_backend=root_backend,
         )
 
-    result = jax.lax.map(evaluate_epoch, (source_x, source_y))
+    use_batch = trajectory_backend == "batch" or (
+        trajectory_backend == "auto"
+        and jax.default_backend() == "cpu"
+        and kernel == "real"
+        and cartesian_backend != "jax"
+        and root_backend != "jax"
+        and cpp_cartesian_batch_ffi_available()
+    )
+    if use_batch:
+
+        def evaluate_hexadecapole(position):
+            return binary_hexadecapole(
+                position[0],
+                position[1],
+                separation,
+                mass_ratio,
+                source_radius,
+                limb_c,
+                limb_d,
+                root_backend=root_backend,
+            )
+
+        hexadecapole = jax.lax.map(
+            evaluate_hexadecapole,
+            (source_x, source_y),
+        )
+        accept_multipole, polar_allowed = _multipole_dispatch_masks(
+            hexadecapole,
+            mass_ratio,
+            source_radius,
+            absolute_tolerance,
+            relative_tolerance,
+            multipole_safety_factor,
+            polar_min_mass_ratio,
+        )
+        preselect_polar = jax.lax.stop_gradient(
+            (hexadecapole.point_magnification >= polar_magnification_threshold)
+            & (source_radius <= polar_max_source_radius)
+            & (source_radius > 0.0)
+            & polar_allowed
+        )
+        active_cartesian = ~accept_multipole & ~preselect_polar
+        cartesian = binary_inverse_ray_cartesian_batch_ffi(
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            active=active_cartesian,
+            cell_size=jax.lax.stop_gradient(source_radius / resolution),
+            tile_size=tile_size,
+            tile_capacity=tile_capacity,
+            limb_samples=limb_samples,
+            moment_mode=moment_mode,
+            boundary_subdivision=4 if moment_mode == "two_coefficient" else 3,
+        )
+        provisional = HybridMagnificationResult(
+            magnification=jnp.where(
+                accept_multipole,
+                hexadecapole.magnification,
+                cartesian.magnification,
+            ),
+            method=jnp.where(accept_multipole, 0, 1).astype(jnp.int32),
+            estimated_error=jnp.where(
+                accept_multipole,
+                hexadecapole.estimated_error,
+                jnp.nan,
+            ),
+            support_valid=accept_multipole | cartesian.support_valid,
+            used_multipole=accept_multipole,
+            used_polar=jnp.zeros_like(accept_multipole),
+            used_source_plane=jnp.zeros_like(accept_multipole),
+            used_expanded_cartesian=jnp.zeros_like(accept_multipole),
+        )
+        use_scalar_dispatcher = ~accept_multipole & (
+            preselect_polar | ~cartesian.support_valid
+        )
+
+        def evaluate_exception(operand):
+            position, use_scalar, fast_result = operand
+            return jax.lax.cond(
+                use_scalar,
+                evaluate_epoch,
+                lambda _: fast_result,
+                position,
+            )
+
+        result = jax.lax.map(
+            evaluate_exception,
+            ((source_x, source_y), use_scalar_dispatcher, provisional),
+        )
+    else:
+        result = jax.lax.map(evaluate_epoch, (source_x, source_y))
     attempted_counts = jnp.stack(
         (
             jnp.sum(result.used_multipole, dtype=jnp.int32),
@@ -190,17 +291,17 @@ def binary_magnification_trajectory(
     expanded_limb_samples=32,
     cartesian_backend="auto",
     root_backend="auto",
+    trajectory_backend="auto",
 ):
     """Evaluate a one-dimensional trajectory with per-epoch conditionals.
 
-    ``lax.map`` deliberately preserves scalar ``lax.cond`` branches. On CPU
-    this is substantially faster than batching the branch predicate with
-    ``vmap``, which can evaluate expensive unselected methods. The trajectory
-    defaults use the calibrated 96/4096 Cartesian bucket; the scalar API keeps
-    its lower-latency 64/1024 default. ``cartesian_backend="auto"`` selects the
-    typed C++ FFI for the real CPU kernel when available and otherwise retains
-    the pure-JAX implementation. Method selection is stopped-gradient while
-    every selected magnification remains differentiable.
+    On CPU, ``trajectory_backend="auto"`` uses one masked C++ FFI call for
+    independent Cartesian epochs while retaining scalar conditionals for polar
+    and fallback epochs. ``trajectory_backend="scalar"`` preserves the
+    one-epoch-at-a-time reference path. The trajectory defaults use the
+    calibrated 96/4096 Cartesian bucket; the scalar API keeps its lower-latency
+    64/1024 default. Method selection is stopped-gradient while every selected
+    magnification remains differentiable.
     """
 
     require_x64()
@@ -208,6 +309,20 @@ def binary_magnification_trajectory(
     source_y = jnp.asarray(source_y)
     if source_x.ndim != 1 or source_y.shape != source_x.shape:
         raise ValueError("source_x and source_y must have the same 1-D shape")
+    if trajectory_backend not in ("auto", "scalar", "batch"):
+        raise ValueError("trajectory_backend must be 'auto', 'scalar', or 'batch'")
+    if trajectory_backend == "batch":
+        if (
+            jax.default_backend() != "cpu"
+            or kernel != "real"
+            or cartesian_backend == "jax"
+            or root_backend == "jax"
+            or not cpp_cartesian_batch_ffi_available()
+        ):
+            raise RuntimeError(
+                "the batched trajectory backend requires the CPU real-kernel "
+                "Cartesian/root FFI"
+            )
     return _binary_magnification_trajectory(
         source_x,
         source_y,
@@ -248,4 +363,5 @@ def binary_magnification_trajectory(
         expanded_limb_samples=expanded_limb_samples,
         cartesian_backend=cartesian_backend,
         root_backend=root_backend,
+        trajectory_backend=trajectory_backend,
     )
