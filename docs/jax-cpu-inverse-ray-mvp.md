@@ -648,6 +648,40 @@ curvature indicator and evaluates them directly at 2-by-2 or 4-by-4 order.
 That adaptive rule is faster for forward/JVP workloads, but is not the default
 because its extra packed branches made reverse-mode slower.
 
+## Integrated polar, multipole, and trajectory FFI
+
+The production CPU route now covers the three remaining dispatcher layers.
+The polar kernel streams radial cells after discovering and merging the image
+bands, the batched hexadecapole kernel evaluates its 13 samples in one call,
+and the integrated trajectory kernel performs hexadecapole acceptance, polar
+preselection, and Cartesian/polar execution behind one typed FFI boundary.
+Each numerical kernel has an analytic seven-input Jacobian connected to JAX
+with `custom_jvp`; selection and support construction remain deliberately
+stopped-gradient.
+
+The integrated call returns method, error, support, and fallback diagnostics
+for every epoch. Ordinary rows stay entirely in the C++ batch. An explicit
+invalid-support or capacity result sends only that row through the existing
+scalar dispatcher, retaining its source-plane and enlarged-support behavior
+without making retry work part of the fast path.
+
+On the 32-thread benchmark host, the 64-epoch linear trajectory now measures
+9.48 ms forward, 21.70 ms JVP, and 27.84 ms value-plus-gradient. Native
+`lcbinint` forward is 135.20 ms, VBMicrolensing is 2.96 s, and microLUX
+measures 14.05/13.07/27.00 s. The uniform trajectory measures
+5.86/8.88/16.60 ms, versus 131.80 ms native, 45.76 ms VBMicrolensing, and
+13.85/12.89/26.17 s microLUX. These figures include dispatcher selection and
+all epochs, but exclude compilation; compile plus first execution is
+0.39 s for linear and 0.30 s for uniform.
+
+The focused polar case improves from 24.03/81.61 ms to 13.55/17.76 ms for
+forward/value-plus-gradient. A 64-epoch hexadecapole batch improves from
+2.085/3.246 ms to 0.094/0.295 ms. The eight-configuration held-out sweep
+contains 120 rows and reports no value, JVP, gradient, discovery,
+point-source, hexadecapole, or integrated-trajectory failures. The maximum
+integrated value/JVP/gradient error consumes only
+0.000011/0.0036/0.015 of the corresponding budget.
+
 ## Current limitations
 
 - Binary lenses only.
@@ -660,8 +694,9 @@ because its extra packed branches made reverse-mode slower.
 - The first 64/4096 to 128/16384 Cartesian retry is calibrated only on the
   pilot sweep.  A larger held-out trajectory sweep is still required before
   enabling it by default.
-- The corrected trajectory-gradient evidence is still one resonant pilot; a
-  held-out close/resonant/wide gradient sweep remains required.
+- The close/resonant/wide held-out gradient sweep passes, but the calibrated
+  parameter domain is finite; substantially more extreme mass ratios or
+  source radii require a new accuracy sweep.
 - Very small image components may still be missed by finite source-limb
   sampling; the planned halo and topology sweeps must validate this.
 - The public API is experimental and may change.

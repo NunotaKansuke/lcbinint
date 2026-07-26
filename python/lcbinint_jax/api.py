@@ -7,9 +7,11 @@ import jax.numpy as jnp
 
 from ._config import require_x64
 from .cpp_backend import (
+    binary_inverse_ray_polar_ffi,
     binary_inverse_ray_cartesian_ffi,
     binary_inverse_ray_fixed_support_ffi,
     cpp_cartesian_epoch_ffi_available,
+    cpp_polar_epoch_ffi_available,
     cpp_fixed_support_ffi_available,
     cpp_macro_tile_discovery_ffi_available,
     discover_binary_macro_tiles_ffi,
@@ -387,24 +389,44 @@ def binary_inverse_ray_auto(
         )
 
     def polar_path(_):
-        result = binary_inverse_ray_polar(
-            source_x,
-            source_y,
-            separation,
-            mass_ratio,
-            source_radius,
-            limb_c,
-            limb_d,
-            resolution=polar_resolution,
-            angular_bins=polar_angular_bins,
-            radial_capacity=polar_radial_capacity,
-            band_capacity=polar_band_capacity,
-            limb_samples=polar_limb_samples,
-            angular_chunk_size=polar_angular_chunk_size,
-            kernel=kernel,
-            moment_mode=moment_mode,
-            root_backend=root_backend,
+        polar_options = {
+            "resolution": polar_resolution,
+            "angular_bins": polar_angular_bins,
+            "radial_capacity": polar_radial_capacity,
+            "band_capacity": polar_band_capacity,
+            "limb_samples": polar_limb_samples,
+            "angular_chunk_size": polar_angular_chunk_size,
+            "moment_mode": moment_mode,
+        }
+        use_polar_ffi = (
+            kernel == "real"
+            and root_backend != "jax"
+            and cpp_polar_epoch_ffi_available()
         )
+        if use_polar_ffi:
+            result = binary_inverse_ray_polar_ffi(
+                source_x,
+                source_y,
+                separation,
+                mass_ratio,
+                source_radius,
+                limb_c,
+                limb_d,
+                **polar_options,
+            )
+        else:
+            result = binary_inverse_ray_polar(
+                source_x,
+                source_y,
+                separation,
+                mass_ratio,
+                source_radius,
+                limb_c,
+                limb_d,
+                kernel=kernel,
+                root_backend=root_backend,
+                **polar_options,
+            )
         return _auto_result(result, True)
 
     def cartesian_or_fallback(_):

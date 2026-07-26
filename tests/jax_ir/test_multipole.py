@@ -7,6 +7,7 @@ import pytest
 
 from lcbinint_jax import (
     binary_hexadecapole,
+    binary_hexadecapole_batch_ffi,
     binary_magnification_auto,
     binary_point_source_magnification,
 )
@@ -60,6 +61,45 @@ def test_hexadecapole_root_ffi_matches_jax_value_and_gradient():
         pure_gradient,
         rtol=2.0e-9,
         atol=2.0e-9,
+    )
+
+
+def test_batched_hexadecapole_ffi_matches_scalar_value_and_gradient():
+    _require_root_ffi()
+    source_x = jnp.asarray((0.2, 0.5, 0.8))
+    source_y = jnp.asarray((0.04, 0.04, 0.04))
+    shared = jnp.asarray((1.2, 0.1, 0.02, 0.4, 0.1))
+
+    def scalar(active):
+        return jnp.sum(
+            jax.lax.map(
+                lambda position: binary_hexadecapole(
+                    position[0],
+                    position[1],
+                    *active,
+                    root_backend="ffi",
+                ).magnification,
+                (source_x, source_y),
+            )
+        )
+
+    def batched(active):
+        return jnp.sum(
+            binary_hexadecapole_batch_ffi(
+                source_x,
+                source_y,
+                *active,
+            ).magnification
+        )
+
+    scalar_value, scalar_gradient = jax.value_and_grad(scalar)(shared)
+    batch_value, batch_gradient = jax.value_and_grad(batched)(shared)
+    np.testing.assert_allclose(batch_value, scalar_value, rtol=0.0, atol=2.0e-14)
+    np.testing.assert_allclose(
+        batch_gradient,
+        scalar_gradient,
+        rtol=0.0,
+        atol=5.0e-9,
     )
 
 

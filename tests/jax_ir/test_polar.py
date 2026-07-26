@@ -8,6 +8,7 @@ from lcbinint_jax import (
     binary_inverse_ray,
     binary_inverse_ray_auto,
     binary_inverse_ray_polar,
+    binary_inverse_ray_polar_ffi,
     discover_binary_polar_bands,
 )
 
@@ -203,3 +204,68 @@ def test_polar_high_magnification_matches_native_lcbinint():
 
     assert bool(result.support_valid)
     np.testing.assert_allclose(result.magnification, native, rtol=5.0e-4)
+
+
+def test_polar_epoch_ffi_matches_jax_value_diagnostics_and_gradient():
+    separation = 0.95
+    mass_ratio = 0.01
+    source_radius = 0.005
+    u0 = -0.001
+    alpha = 0.5
+    time = 0.004
+    parameters = np.asarray(
+        (
+            time * math.cos(alpha) - u0 * math.sin(alpha),
+            time * math.sin(alpha) + u0 * math.cos(alpha),
+            separation,
+            mass_ratio,
+            source_radius,
+            0.4,
+            0.0,
+        )
+    )
+    options = {
+        "resolution": 64,
+        "angular_bins": 1024,
+        "radial_capacity": 128,
+        "band_capacity": 4,
+        "limb_samples": 32,
+        "angular_chunk_size": 256,
+        "boundary_capacity": 1024,
+        "boundary_subdivision": 2,
+        "moment_mode": "linear",
+    }
+
+    def evaluate(active, backend):
+        function = (
+            binary_inverse_ray_polar_ffi
+            if backend == "ffi"
+            else binary_inverse_ray_polar
+        )
+        result = function(*active, **options)
+        return result.magnification, (
+            result.moments,
+            result.boundary_cells,
+            result.active_cells,
+            result.tile_count,
+            result.support_valid,
+        )
+
+    (jax_value, jax_aux), jax_gradient = jax.value_and_grad(
+        evaluate,
+        has_aux=True,
+    )(parameters, "jax")
+    (ffi_value, ffi_aux), ffi_gradient = jax.value_and_grad(
+        evaluate,
+        has_aux=True,
+    )(parameters, "ffi")
+    np.testing.assert_allclose(ffi_value, jax_value, rtol=0.0, atol=5.0e-13)
+    np.testing.assert_allclose(ffi_aux[0], jax_aux[0], rtol=0.0, atol=5.0e-15)
+    for ffi_diagnostic, jax_diagnostic in zip(ffi_aux[1:], jax_aux[1:]):
+        np.testing.assert_array_equal(ffi_diagnostic, jax_diagnostic)
+    np.testing.assert_allclose(
+        ffi_gradient,
+        jax_gradient,
+        rtol=0.0,
+        atol=1.0e-7,
+    )

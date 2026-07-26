@@ -24,6 +24,12 @@ _FFI_CARTESIAN_EPOCH_TARGET = "lcbinint_jax_cartesian_epoch_f64_v1"
 _FFI_CARTESIAN_EPOCH_JACOBIAN_TARGET = "lcbinint_jax_cartesian_epoch_jacobian_f64_v1"
 _FFI_CARTESIAN_BATCH_TARGET = "lcbinint_jax_cartesian_batch_f64_v1"
 _FFI_CARTESIAN_BATCH_JACOBIAN_TARGET = "lcbinint_jax_cartesian_batch_jacobian_f64_v1"
+_FFI_HEX_BATCH_TARGET = "lcbinint_jax_hexadecapole_batch_f64_v1"
+_FFI_HEX_BATCH_JACOBIAN_TARGET = "lcbinint_jax_hexadecapole_batch_jacobian_f64_v1"
+_FFI_POLAR_EPOCH_TARGET = "lcbinint_jax_polar_epoch_f64_v1"
+_FFI_POLAR_EPOCH_JACOBIAN_TARGET = "lcbinint_jax_polar_epoch_jacobian_f64_v1"
+_FFI_TRAJECTORY_TARGET = "lcbinint_jax_trajectory_f64_v1"
+_FFI_TRAJECTORY_JACOBIAN_TARGET = "lcbinint_jax_trajectory_jacobian_f64_v1"
 _MOMENT_COUNTS = {
     "uniform": 1,
     "linear": 2,
@@ -55,6 +61,25 @@ class _FfiCartesianEpochResult(NamedTuple):
     tile_count: jax.Array
     overflow: jax.Array
     root_failure: jax.Array
+
+
+class _FfiHexadecapoleResult(NamedTuple):
+    magnification: jax.Array
+    point_magnification: jax.Array
+    quadrupole_correction: jax.Array
+    hexadecapole_correction: jax.Array
+    topology_stable: jax.Array
+    root_failure: jax.Array
+
+
+class FfiTrajectoryResult(NamedTuple):
+    magnification: jax.Array
+    method: jax.Array
+    estimated_error: jax.Array
+    support_valid: jax.Array
+    used_multipole: jax.Array
+    used_polar: jax.Array
+    needs_fallback: jax.Array
 
 
 def _native_module():
@@ -134,6 +159,48 @@ def cpp_cartesian_batch_ffi_available():
         jax_ir = native._jax_ir
         return hasattr(jax_ir, "cartesian_batch_forward_ffi") and hasattr(
             jax_ir, "cartesian_batch_value_jacobian_ffi"
+        )
+    except (AttributeError, RuntimeError):
+        return False
+
+
+def cpp_hexadecapole_batch_ffi_available():
+    """Return whether the batched hexadecapole FFI is available."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        return hasattr(native._jax_ir, "hexadecapole_batch_ffi") and hasattr(
+            native._jax_ir, "hexadecapole_batch_jacobian_ffi"
+        )
+    except (AttributeError, RuntimeError):
+        return False
+
+
+def cpp_polar_epoch_ffi_available():
+    """Return whether the fused polar epoch FFI is available."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        return hasattr(native._jax_ir, "polar_epoch_forward_ffi") and hasattr(
+            native._jax_ir, "polar_epoch_jacobian_ffi"
+        )
+    except (AttributeError, RuntimeError):
+        return False
+
+
+def cpp_trajectory_ffi_available():
+    """Return whether the integrated trajectory FFI is available."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        return hasattr(native._jax_ir, "trajectory_forward_ffi") and hasattr(
+            native._jax_ir, "trajectory_jacobian_ffi"
         )
     except (AttributeError, RuntimeError):
         return False
@@ -240,6 +307,66 @@ def _register_cartesian_batch_ffi():
     jax.ffi.register_ffi_target(
         _FFI_CARTESIAN_BATCH_JACOBIAN_TARGET,
         jacobian_capsule,
+        platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_hexadecapole_batch_ffi():
+    native = _native_module()
+    try:
+        forward = native._jax_ir.hexadecapole_batch_ffi()
+        jacobian = native._jax_ir.hexadecapole_batch_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the batched hexadecapole FFI"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_HEX_BATCH_TARGET,
+        forward,
+        platform="cpu",
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_HEX_BATCH_JACOBIAN_TARGET,
+        jacobian,
+        platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_polar_epoch_ffi():
+    native = _native_module()
+    try:
+        forward = native._jax_ir.polar_epoch_forward_ffi()
+        jacobian = native._jax_ir.polar_epoch_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError("lcbinint was built without the polar epoch FFI") from error
+    jax.ffi.register_ffi_target(
+        _FFI_POLAR_EPOCH_TARGET,
+        forward,
+        platform="cpu",
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_POLAR_EPOCH_JACOBIAN_TARGET,
+        jacobian,
+        platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_trajectory_ffi():
+    native = _native_module()
+    try:
+        forward = native._jax_ir.trajectory_forward_ffi()
+        jacobian = native._jax_ir.trajectory_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the integrated trajectory FFI"
+        ) from error
+    jax.ffi.register_ffi_target(_FFI_TRAJECTORY_TARGET, forward, platform="cpu")
+    jax.ffi.register_ffi_target(
+        _FFI_TRAJECTORY_JACOBIAN_TARGET,
+        jacobian,
         platform="cpu",
     )
 
@@ -557,6 +684,553 @@ def binary_inverse_ray_cartesian_ffi(
         discovery_overflow=result.overflow,
         root_failure=result.root_failure,
         support_valid=support_valid,
+    )
+
+
+def _polar_epoch_call(
+    target,
+    configuration,
+    scalars,
+    moment_count,
+    include_jacobian,
+):
+    outputs = (
+        jax.ShapeDtypeStruct((), jnp.float64),
+        jax.ShapeDtypeStruct((moment_count,), jnp.float64),
+        jax.ShapeDtypeStruct((), jnp.int32),
+        jax.ShapeDtypeStruct((), jnp.int32),
+        jax.ShapeDtypeStruct((), jnp.int32),
+        jax.ShapeDtypeStruct((), jnp.bool_),
+        jax.ShapeDtypeStruct((), jnp.bool_),
+    )
+    if include_jacobian:
+        outputs += (
+            jax.ShapeDtypeStruct((7,), jnp.float64),
+            jax.ShapeDtypeStruct((moment_count, 7), jnp.float64),
+        )
+    (
+        resolution,
+        angular_bins,
+        radial_capacity,
+        band_capacity,
+        limb_samples,
+        padding_factor,
+        angular_padding_factor,
+        angular_chunk_size,
+        boundary_capacity,
+        boundary_subdivision,
+    ) = configuration
+    return jax.ffi.ffi_call(target, outputs, vmap_method="sequential")(
+        *scalars,
+        resolution=np.int64(resolution),
+        angular_bins=np.int64(angular_bins),
+        radial_capacity=np.int64(radial_capacity),
+        band_capacity=np.int64(band_capacity),
+        limb_samples=np.int64(limb_samples),
+        padding_factor=np.float64(padding_factor),
+        angular_padding_factor=np.float64(angular_padding_factor),
+        angular_chunk_size=np.int64(angular_chunk_size),
+        boundary_capacity=np.int64(boundary_capacity),
+        moment_mode=np.int64(moment_count),
+        boundary_subdivision=np.int64(boundary_subdivision),
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=tuple(range(11)))
+def _polar_epoch_transformable(
+    resolution,
+    angular_bins,
+    radial_capacity,
+    band_capacity,
+    limb_samples,
+    padding_factor,
+    angular_padding_factor,
+    angular_chunk_size,
+    boundary_capacity,
+    boundary_subdivision,
+    moment_count,
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+):
+    outputs = _polar_epoch_call(
+        _FFI_POLAR_EPOCH_TARGET,
+        (
+            resolution,
+            angular_bins,
+            radial_capacity,
+            band_capacity,
+            limb_samples,
+            padding_factor,
+            angular_padding_factor,
+            angular_chunk_size,
+            boundary_capacity,
+            boundary_subdivision,
+        ),
+        (source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d),
+        moment_count,
+        False,
+    )
+    return _FfiCartesianEpochResult(*outputs)
+
+
+@_polar_epoch_transformable.defjvp
+def _polar_epoch_jvp(*arguments):
+    *configuration, primals, tangents = arguments
+    *kernel_configuration, moment_count = configuration
+    outputs = _polar_epoch_call(
+        _FFI_POLAR_EPOCH_JACOBIAN_TARGET,
+        tuple(kernel_configuration),
+        tuple(primals),
+        moment_count,
+        True,
+    )
+    primal = _FfiCartesianEpochResult(*outputs[:7])
+    parameter_tangent = jnp.stack(tangents)
+    tangent = _FfiCartesianEpochResult(
+        magnification=jnp.vdot(outputs[7], parameter_tangent),
+        moments=outputs[8] @ parameter_tangent,
+        boundary_cells=jnp.zeros_like(primal.boundary_cells, dtype=jax.dtypes.float0),
+        active_cells=jnp.zeros_like(primal.active_cells, dtype=jax.dtypes.float0),
+        tile_count=jnp.zeros_like(primal.tile_count, dtype=jax.dtypes.float0),
+        overflow=jnp.zeros_like(primal.overflow, dtype=jax.dtypes.float0),
+        root_failure=jnp.zeros_like(primal.root_failure, dtype=jax.dtypes.float0),
+    )
+    return primal, tangent
+
+
+def binary_inverse_ray_polar_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    resolution=64,
+    angular_bins=2048,
+    radial_capacity=512,
+    band_capacity=4,
+    limb_samples=16,
+    padding_factor=0.25,
+    angular_padding_factor=4.0,
+    angular_chunk_size=256,
+    boundary_capacity=2048,
+    boundary_subdivision=2,
+    moment_mode="two_coefficient",
+):
+    """Evaluate one differentiable polar inverse-ray epoch in C++."""
+
+    require_x64()
+    if moment_mode not in _MOMENT_COUNTS:
+        raise ValueError("invalid moment_mode")
+    # The FFI currently uses a fixed three-moment ABI. Zero coefficients make
+    # the extra moments inert for uniform/linear callers.
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
+    if any(value.ndim != 0 for value in scalars):
+        raise ValueError("polar epoch parameters must be scalars")
+    _register_polar_epoch_ffi()
+    result = _polar_epoch_transformable(
+        resolution,
+        angular_bins,
+        radial_capacity,
+        band_capacity,
+        limb_samples,
+        padding_factor,
+        angular_padding_factor,
+        angular_chunk_size,
+        boundary_capacity,
+        boundary_subdivision,
+        _MOMENT_COUNTS[moment_mode],
+        *scalars,
+    )
+    return InverseRayResult(
+        magnification=result.magnification,
+        moments=result.moments,
+        boundary_cells=result.boundary_cells,
+        active_cells=result.active_cells,
+        tile_count=result.tile_count,
+        discovery_overflow=result.overflow,
+        root_failure=result.root_failure,
+        support_valid=~(result.overflow | result.root_failure),
+    )
+
+
+def _hexadecapole_batch_specs(batch_size, include_jacobian):
+    outputs = (
+        jax.ShapeDtypeStruct((batch_size,), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size,), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size,), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size,), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+    )
+    if include_jacobian:
+        return outputs + (jax.ShapeDtypeStruct((batch_size, 4, 7), jnp.float64),)
+    return outputs
+
+
+def _hexadecapole_batch_call(target, source_x, source_y, scalars, include_jacobian):
+    return jax.ffi.ffi_call(
+        target,
+        _hexadecapole_batch_specs(source_x.shape[0], include_jacobian),
+        vmap_method="sequential",
+    )(source_x, source_y, *scalars)
+
+
+@jax.custom_jvp
+def _hexadecapole_batch_transformable(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+):
+    outputs = _hexadecapole_batch_call(
+        _FFI_HEX_BATCH_TARGET,
+        source_x,
+        source_y,
+        (separation, mass_ratio, source_radius, limb_c, limb_d),
+        False,
+    )
+    return _FfiHexadecapoleResult(*outputs)
+
+
+@_hexadecapole_batch_transformable.defjvp
+def _hexadecapole_batch_jvp(primals, tangents):
+    source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d = primals
+    (
+        source_x_tangent,
+        source_y_tangent,
+        separation_tangent,
+        mass_ratio_tangent,
+        source_radius_tangent,
+        limb_c_tangent,
+        limb_d_tangent,
+    ) = tangents
+    outputs = _hexadecapole_batch_call(
+        _FFI_HEX_BATCH_JACOBIAN_TARGET,
+        source_x,
+        source_y,
+        (separation, mass_ratio, source_radius, limb_c, limb_d),
+        True,
+    )
+    primal = _FfiHexadecapoleResult(*outputs[:6])
+    parameter_tangent = jnp.stack(
+        (
+            source_x_tangent,
+            source_y_tangent,
+            jnp.full_like(source_x, separation_tangent),
+            jnp.full_like(source_x, mass_ratio_tangent),
+            jnp.full_like(source_x, source_radius_tangent),
+            jnp.full_like(source_x, limb_c_tangent),
+            jnp.full_like(source_x, limb_d_tangent),
+        ),
+        axis=1,
+    )
+    numeric_tangent = jnp.einsum("noq,nq->no", outputs[6], parameter_tangent)
+    tangent = _FfiHexadecapoleResult(
+        magnification=numeric_tangent[:, 0],
+        point_magnification=numeric_tangent[:, 1],
+        quadrupole_correction=numeric_tangent[:, 2],
+        hexadecapole_correction=numeric_tangent[:, 3],
+        topology_stable=jnp.zeros_like(primal.topology_stable, dtype=jax.dtypes.float0),
+        root_failure=jnp.zeros_like(primal.root_failure, dtype=jax.dtypes.float0),
+    )
+    return primal, tangent
+
+
+def binary_hexadecapole_batch_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+):
+    """Evaluate differentiable 13-point expansions in one CPU FFI call."""
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("the batched hexadecapole FFI is CPU-only")
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    if source_x.ndim != 1 or source_y.shape != source_x.shape:
+        raise ValueError("source_x and source_y must have the same 1-D shape")
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (separation, mass_ratio, source_radius, limb_c, limb_d)
+    )
+    if any(value.ndim != 0 for value in scalars):
+        raise ValueError("lens and source parameters must be scalars")
+    _register_hexadecapole_batch_ffi()
+    result = _hexadecapole_batch_transformable(source_x, source_y, *scalars)
+    from .multipole import HexadecapoleResult
+
+    return HexadecapoleResult(
+        magnification=result.magnification,
+        point_magnification=result.point_magnification,
+        quadrupole_correction=result.quadrupole_correction,
+        hexadecapole_correction=result.hexadecapole_correction,
+        estimated_error=jnp.abs(result.hexadecapole_correction),
+        topology_stable=result.topology_stable,
+        root_failure=result.root_failure,
+    )
+
+
+def _trajectory_specs(batch_size, include_jacobian):
+    outputs = (
+        jax.ShapeDtypeStruct((batch_size,), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size,), jnp.int32),
+        jax.ShapeDtypeStruct((batch_size,), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+    )
+    if include_jacobian:
+        outputs += (jax.ShapeDtypeStruct((batch_size, 7), jnp.float64),)
+    return outputs
+
+
+def _trajectory_call(target, configuration, arguments, include_jacobian):
+    (
+        cartesian_resolution,
+        tile_size,
+        tile_capacity,
+        cartesian_limb_samples,
+        polar_resolution,
+        polar_angular_bins,
+        polar_radial_capacity,
+        polar_band_capacity,
+        polar_limb_samples,
+        polar_padding_factor,
+        polar_angular_padding_factor,
+        polar_angular_chunk_size,
+        polar_boundary_capacity,
+        polar_boundary_subdivision,
+        polar_fallback_on_overflow,
+        moment_count,
+    ) = configuration
+    return jax.ffi.ffi_call(
+        target,
+        _trajectory_specs(arguments[0].shape[0], include_jacobian),
+        vmap_method="sequential",
+    )(
+        *arguments,
+        cartesian_resolution=np.int64(cartesian_resolution),
+        tile_size=np.int64(tile_size),
+        tile_capacity=np.int64(tile_capacity),
+        cartesian_limb_samples=np.int64(cartesian_limb_samples),
+        polar_resolution=np.int64(polar_resolution),
+        polar_angular_bins=np.int64(polar_angular_bins),
+        polar_radial_capacity=np.int64(polar_radial_capacity),
+        polar_band_capacity=np.int64(polar_band_capacity),
+        polar_limb_samples=np.int64(polar_limb_samples),
+        polar_padding_factor=np.float64(polar_padding_factor),
+        polar_angular_padding_factor=np.float64(polar_angular_padding_factor),
+        polar_angular_chunk_size=np.int64(polar_angular_chunk_size),
+        polar_boundary_capacity=np.int64(polar_boundary_capacity),
+        polar_boundary_subdivision=np.int64(polar_boundary_subdivision),
+        polar_fallback_on_overflow=np.int64(polar_fallback_on_overflow),
+        moment_mode=np.int64(moment_count),
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=tuple(range(16)))
+def _trajectory_transformable(
+    cartesian_resolution,
+    tile_size,
+    tile_capacity,
+    cartesian_limb_samples,
+    polar_resolution,
+    polar_angular_bins,
+    polar_radial_capacity,
+    polar_band_capacity,
+    polar_limb_samples,
+    polar_padding_factor,
+    polar_angular_padding_factor,
+    polar_angular_chunk_size,
+    polar_boundary_capacity,
+    polar_boundary_subdivision,
+    polar_fallback_on_overflow,
+    moment_count,
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+    absolute_tolerance,
+    relative_tolerance,
+    multipole_safety_factor,
+    polar_magnification_threshold,
+    polar_max_source_radius,
+    polar_min_mass_ratio,
+):
+    return FfiTrajectoryResult(
+        *_trajectory_call(
+            _FFI_TRAJECTORY_TARGET,
+            (
+                cartesian_resolution,
+                tile_size,
+                tile_capacity,
+                cartesian_limb_samples,
+                polar_resolution,
+                polar_angular_bins,
+                polar_radial_capacity,
+                polar_band_capacity,
+                polar_limb_samples,
+                polar_padding_factor,
+                polar_angular_padding_factor,
+                polar_angular_chunk_size,
+                polar_boundary_capacity,
+                polar_boundary_subdivision,
+                polar_fallback_on_overflow,
+                moment_count,
+            ),
+            (
+                source_x,
+                source_y,
+                separation,
+                mass_ratio,
+                source_radius,
+                limb_c,
+                limb_d,
+                absolute_tolerance,
+                relative_tolerance,
+                multipole_safety_factor,
+                polar_magnification_threshold,
+                polar_max_source_radius,
+                polar_min_mass_ratio,
+            ),
+            False,
+        )
+    )
+
+
+@_trajectory_transformable.defjvp
+def _trajectory_jvp(*arguments):
+    *configuration, primals, tangents = arguments
+    outputs = _trajectory_call(
+        _FFI_TRAJECTORY_JACOBIAN_TARGET,
+        tuple(configuration),
+        tuple(primals),
+        True,
+    )
+    primal = FfiTrajectoryResult(*outputs[:7])
+    source_x_tangent, source_y_tangent, *scalar_tangents = tangents
+    parameter_tangent = jnp.stack(
+        (
+            source_x_tangent,
+            source_y_tangent,
+            *(jnp.full_like(primals[0], tangent) for tangent in scalar_tangents[:5]),
+        ),
+        axis=1,
+    )
+    tangent = FfiTrajectoryResult(
+        magnification=jnp.sum(outputs[7] * parameter_tangent, axis=1),
+        method=jnp.zeros_like(primal.method, dtype=jax.dtypes.float0),
+        estimated_error=jnp.zeros_like(primal.estimated_error),
+        support_valid=jnp.zeros_like(primal.support_valid, dtype=jax.dtypes.float0),
+        used_multipole=jnp.zeros_like(primal.used_multipole, dtype=jax.dtypes.float0),
+        used_polar=jnp.zeros_like(primal.used_polar, dtype=jax.dtypes.float0),
+        needs_fallback=jnp.zeros_like(primal.needs_fallback, dtype=jax.dtypes.float0),
+    )
+    return primal, tangent
+
+
+def binary_magnification_trajectory_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+    *,
+    absolute_tolerance,
+    relative_tolerance,
+    multipole_safety_factor,
+    polar_magnification_threshold,
+    polar_max_source_radius,
+    polar_min_mass_ratio,
+    resolution,
+    tile_size,
+    tile_capacity,
+    limb_samples,
+    polar_resolution,
+    polar_angular_bins,
+    polar_radial_capacity,
+    polar_band_capacity,
+    polar_limb_samples,
+    polar_angular_chunk_size,
+    polar_fallback_on_overflow,
+    moment_mode,
+):
+    """Run hex/Cartesian/polar dispatch for a trajectory in one CPU FFI."""
+
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    dynamic = (
+        source_x,
+        source_y,
+        *(
+            jnp.asarray(value, dtype=jnp.float64)
+            for value in (
+                separation,
+                mass_ratio,
+                source_radius,
+                limb_c,
+                limb_d,
+                absolute_tolerance,
+                relative_tolerance,
+                multipole_safety_factor,
+                polar_magnification_threshold,
+                polar_max_source_radius,
+                polar_min_mass_ratio,
+            )
+        ),
+    )
+    _register_trajectory_ffi()
+    return _trajectory_transformable(
+        resolution,
+        tile_size,
+        tile_capacity,
+        limb_samples,
+        polar_resolution,
+        polar_angular_bins,
+        polar_radial_capacity,
+        polar_band_capacity,
+        polar_limb_samples,
+        0.25,
+        4.0,
+        polar_angular_chunk_size,
+        2048,
+        2,
+        polar_fallback_on_overflow,
+        _MOMENT_COUNTS[moment_mode],
+        *dynamic,
     )
 
 

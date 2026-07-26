@@ -1105,6 +1105,217 @@ XLA_FFI_DEFINE_HANDLER(
         .Ret<ffi::BufferR1<ffi::PRED>>()
         .Ret<ffi::BufferR3<ffi::F64>>());
 
+template <typename Scalar>
+Scalar binary_jacobian_determinant(
+    const Scalar& image_x,
+    const Scalar& image_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio)
+{
+    const Scalar total_mass = 1.0 + mass_ratio;
+    const Scalar lens_1_x = -mass_ratio / total_mass * separation;
+    const Scalar lens_2_x = separation / total_mass;
+    const Scalar mass_1 = 1.0 / total_mass;
+    const Scalar mass_2 = mass_ratio / total_mass;
+    const Scalar dx_1 = image_x - lens_1_x;
+    const Scalar dx_2 = image_x - lens_2_x;
+    const Scalar radius_1_squared = dx_1 * dx_1 + image_y * image_y;
+    const Scalar radius_2_squared = dx_2 * dx_2 + image_y * image_y;
+    const Scalar inverse_1 = 1.0 / radius_1_squared;
+    const Scalar inverse_2 = 1.0 / radius_2_squared;
+    const Scalar shear_real =
+        mass_1 * (dx_1 * dx_1 - image_y * image_y)
+            * inverse_1 * inverse_1
+        + mass_2 * (dx_2 * dx_2 - image_y * image_y)
+            * inverse_2 * inverse_2;
+    const Scalar shear_cross =
+        2.0 * image_y
+        * (
+            mass_1 * dx_1 * inverse_1 * inverse_1
+            + mass_2 * dx_2 * inverse_2 * inverse_2);
+    return 1.0 - shear_real * shear_real - shear_cross * shear_cross;
+}
+
+Jet binary_point_magnification_jet(
+    const Jet& source_x,
+    const Jet& source_y,
+    const Jet& separation,
+    const Jet& mass_ratio,
+    std::int32_t& image_count,
+    bool& root_failure)
+{
+    const double x = source_x.value;
+    const double y = source_y.value;
+    const double s = separation.value;
+    const double q = mass_ratio.value;
+    const auto images = solve_binary_images(x, y, s, q);
+    std::int32_t physical_count = 0;
+    bool all_converged = true;
+    Jet magnification(0.0);
+    for (std::size_t root = 0; root < binary_root_count; ++root) {
+        physical_count += static_cast<std::int32_t>(images.physical[root]);
+        all_converged = all_converged && images.converged[root];
+        if (!images.physical[root]) continue;
+        const auto mapped =
+            binary_lens_map_at_root(images.roots[root], s, q);
+        const double determinant =
+            mapped.du_dx * mapped.dv_dy - mapped.du_dy * mapped.dv_dx;
+        if (!(std::abs(determinant) > 1.0e-12)) continue;
+        const auto parameter_map = binary_lens_map_at_fixed_root(
+            images.roots[root], separation, mass_ratio);
+        Jet image_x(images.roots[root].real());
+        Jet image_y(images.roots[root].imag());
+        for (
+            std::size_t parameter = 0;
+            parameter < kernel_derivative_count;
+            ++parameter) {
+            const double rhs_x =
+                source_x.derivative[parameter]
+                - parameter_map[0].derivative[parameter];
+            const double rhs_y =
+                source_y.derivative[parameter]
+                - parameter_map[1].derivative[parameter];
+            image_x.derivative[parameter] =
+                (mapped.dv_dy * rhs_x - mapped.du_dy * rhs_y)
+                / determinant;
+            image_y.derivative[parameter] =
+                (-mapped.dv_dx * rhs_x + mapped.du_dx * rhs_y)
+                / determinant;
+        }
+        const Jet active_determinant = binary_jacobian_determinant(
+            image_x, image_y, separation, mass_ratio);
+        magnification +=
+            1.0
+            / (
+                determinant >= 0.0
+                    ? active_determinant
+                    : -active_determinant);
+    }
+    root_failure =
+        root_failure
+        || !all_converged
+        || (physical_count != 3 && physical_count != 5);
+    image_count = physical_count;
+    return magnification;
+}
+
+struct HexadecapoleKernelResult {
+    Jet magnification;
+    Jet point_magnification;
+    Jet quadrupole_correction;
+    Jet hexadecapole_correction;
+    bool topology_stable = false;
+    bool root_failure = false;
+    double limb_c_derivative = 0.0;
+    double limb_d_derivative = 0.0;
+    double quadrupole_limb_c_derivative = 0.0;
+    double quadrupole_limb_d_derivative = 0.0;
+    double hexadecapole_limb_c_derivative = 0.0;
+    double hexadecapole_limb_d_derivative = 0.0;
+};
+
+HexadecapoleKernelResult hexadecapole_kernel(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double source_radius,
+    double limb_c,
+    double limb_d)
+{
+    constexpr std::array<double, 13> unit_x{
+        0.0, 1.0, 0.0, -1.0, 0.0,
+        0.5, 0.0, -0.5, 0.0,
+        0.7071067811865475244, -0.7071067811865475244,
+        -0.7071067811865475244, 0.7071067811865475244};
+    constexpr std::array<double, 13> unit_y{
+        0.0, 0.0, 1.0, 0.0, -1.0,
+        0.0, 0.5, 0.0, -0.5,
+        0.7071067811865475244, 0.7071067811865475244,
+        -0.7071067811865475244, -0.7071067811865475244};
+    const Jet centre_x = Jet::variable(source_x, 0);
+    const Jet centre_y = Jet::variable(source_y, 1);
+    const Jet active_separation = Jet::variable(separation, 2);
+    const Jet active_mass_ratio = Jet::variable(mass_ratio, 3);
+    const Jet active_radius = Jet::variable(source_radius, 4);
+    std::array<Jet, 13> samples;
+    std::array<std::int32_t, 13> image_counts{};
+    HexadecapoleKernelResult result;
+    for (std::size_t sample = 0; sample < samples.size(); ++sample) {
+        samples[sample] = binary_point_magnification_jet(
+            centre_x + unit_x[sample] * active_radius,
+            centre_y + unit_y[sample] * active_radius,
+            active_separation, active_mass_ratio, image_counts[sample],
+            result.root_failure);
+    }
+    const Jet a0 = samples[0];
+    const Jet a1_plus =
+        0.25 * (samples[1] + samples[2] + samples[3] + samples[4]) - a0;
+    const Jet a2_plus =
+        0.25 * (samples[5] + samples[6] + samples[7] + samples[8]) - a0;
+    const Jet a1_cross =
+        0.25 * (samples[9] + samples[10] + samples[11] + samples[12]) - a0;
+    const Jet a2rho2 = (16.0 * a2_plus - a1_plus) / 3.0;
+    const Jet a4rho4 = 0.5 * (a1_plus + a1_cross) - a2rho2;
+    const double denominator = 15.0 - 5.0 * limb_c - 3.0 * limb_d;
+    const double gamma = denominator != 0.0
+        ? 10.0 * limb_c / denominator
+        : 0.0;
+    const double lambda = denominator != 0.0
+        ? 12.0 * limb_d / denominator
+        : 0.0;
+    result.point_magnification = a0;
+    result.quadrupole_correction =
+        0.5 * a2rho2 * (1.0 - 0.2 * gamma - lambda / 9.0);
+    result.hexadecapole_correction =
+        a4rho4 / 3.0
+        * (1.0 - 11.0 * gamma / 35.0 - 7.0 * lambda / 39.0);
+    result.magnification =
+        a0 + result.quadrupole_correction
+        + result.hexadecapole_correction;
+    result.topology_stable =
+        !result.root_failure
+        && std::all_of(
+            image_counts.begin() + 1,
+            image_counts.end(),
+            [&](std::int32_t count) {
+                return count == image_counts[0];
+            });
+    if (denominator != 0.0) {
+        const double inverse_denominator_squared =
+            1.0 / (denominator * denominator);
+        const double gamma_c =
+            10.0 / denominator
+            + 50.0 * limb_c * inverse_denominator_squared;
+        const double gamma_d =
+            30.0 * limb_c * inverse_denominator_squared;
+        const double lambda_c =
+            60.0 * limb_d * inverse_denominator_squared;
+        const double lambda_d =
+            12.0 / denominator
+            + 36.0 * limb_d * inverse_denominator_squared;
+        result.quadrupole_limb_c_derivative =
+            -0.5 * a2rho2.value
+            * (0.2 * gamma_c + lambda_c / 9.0);
+        result.quadrupole_limb_d_derivative =
+            -0.5 * a2rho2.value
+            * (0.2 * gamma_d + lambda_d / 9.0);
+        result.hexadecapole_limb_c_derivative =
+            -a4rho4.value / 3.0
+            * (11.0 * gamma_c / 35.0 + 7.0 * lambda_c / 39.0);
+        result.hexadecapole_limb_d_derivative =
+            -a4rho4.value / 3.0
+            * (11.0 * gamma_d / 35.0 + 7.0 * lambda_d / 39.0);
+        result.limb_c_derivative =
+            result.quadrupole_limb_c_derivative
+            + result.hexadecapole_limb_c_derivative;
+        result.limb_d_derivative =
+            result.quadrupole_limb_d_derivative
+            + result.hexadecapole_limb_d_derivative;
+    }
+    return result;
+}
+
 std::uint64_t tile_key(std::int32_t x, std::int32_t y)
 {
     return (
@@ -1304,6 +1515,365 @@ CartesianEpochResult<Scalar> cartesian_epoch_kernel(
     result.overflow = discovery.overflow;
     result.root_failure = discovery.root_failure;
     return result;
+}
+
+struct PolarSeed {
+    double radius = 0.0;
+    double angle = 0.0;
+    bool physical = false;
+};
+
+struct PolarDiscovery {
+    std::vector<PolarSeed> seeds;
+    std::vector<std::array<double, 2>> bands;
+    bool overflow = false;
+    bool root_failure = false;
+};
+
+PolarDiscovery discover_polar_support(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double source_radius,
+    std::int64_t limb_samples,
+    std::int64_t band_capacity,
+    double padding_factor)
+{
+    PolarDiscovery result;
+    result.seeds.reserve(
+        static_cast<std::size_t>((limb_samples + 1) * binary_root_count));
+    std::vector<std::array<double, 2>> intervals;
+    intervals.reserve(result.seeds.capacity());
+    const double two_pi = 2.0 * std::acos(-1.0);
+    const double padding = padding_factor * source_radius;
+    for (std::int64_t sample = 0; sample <= limb_samples; ++sample) {
+        double sample_x = source_x;
+        double sample_y = source_y;
+        if (sample > 0) {
+            const double angle =
+                two_pi * static_cast<double>(sample - 1)
+                / static_cast<double>(limb_samples);
+            sample_x += source_radius * std::cos(angle);
+            sample_y += source_radius * std::sin(angle);
+        }
+        const auto images = solve_binary_images(
+            sample_x, sample_y, separation, mass_ratio);
+        std::int32_t physical_count = 0;
+        bool all_converged = true;
+        for (std::size_t root = 0; root < binary_root_count; ++root) {
+            physical_count += static_cast<std::int32_t>(images.physical[root]);
+            all_converged = all_converged && images.converged[root];
+            const double radius = std::abs(images.roots[root]);
+            result.seeds.push_back(
+                {radius, std::arg(images.roots[root]), images.physical[root]});
+            if (images.physical[root]) {
+                intervals.push_back(
+                    {std::max(0.0, radius - padding), radius + padding});
+            }
+        }
+        result.root_failure =
+            result.root_failure
+            || !all_converged
+            || (physical_count != 3 && physical_count != 5);
+    }
+    std::sort(
+        intervals.begin(),
+        intervals.end(),
+        [](const auto& left, const auto& right) {
+            return left[0] < right[0];
+        });
+    for (const auto& interval : intervals) {
+        if (
+            !result.bands.empty()
+            && interval[0] <= result.bands.back()[1]) {
+            result.bands.back()[1] =
+                std::max(result.bands.back()[1], interval[1]);
+        } else if (
+            result.bands.size()
+            < static_cast<std::size_t>(band_capacity)) {
+            result.bands.push_back(interval);
+        } else {
+            result.overflow = true;
+        }
+    }
+    return result;
+}
+
+template <MomentMode Mode, typename Scalar>
+void add_polar_interior(
+    std::array<Scalar, 3>& moments,
+    const PhiDerivatives<Scalar>& values,
+    const Scalar& delta_r,
+    const Scalar& delta_theta,
+    double area)
+{
+    moments[0] += area;
+    if constexpr (Mode != MomentMode::uniform) {
+        const Scalar sqrt_phi = scalar_sqrt(values.phi);
+        const Scalar delta_squared =
+            delta_r * delta_r + delta_theta * delta_theta;
+        moments[1] += area * (
+            sqrt_phi
+            - delta_squared / (96.0 * values.phi * sqrt_phi));
+        if constexpr (Mode == MomentMode::two_coefficient) {
+            const Scalar fourth_root = scalar_sqrt(sqrt_phi);
+            moments[2] += area * (
+                fourth_root
+                - delta_squared
+                    / (128.0 * values.phi * sqrt_phi * fourth_root));
+        }
+    }
+}
+
+template <MomentMode Mode, typename Scalar>
+void add_polar_affine(
+    std::array<Scalar, 3>& moments,
+    const PhiDerivatives<Scalar>& values,
+    const Scalar& delta_r,
+    const Scalar& delta_theta,
+    double area)
+{
+    const Scalar lower_left =
+        values.phi - 0.5 * (delta_r + delta_theta);
+    constexpr std::array<double, 3> powers{0.0, 0.5, 0.25};
+    for (int moment = 0; moment < moment_count(Mode); ++moment) {
+        moments[moment] += area * affine_unit_square_moment(
+            lower_left, delta_r, delta_theta, powers[moment]);
+    }
+}
+
+template <MomentMode Mode, int BoundarySubdivision, typename Scalar>
+CartesianEpochResult<Scalar> polar_epoch_kernel_for_mode(
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& source_radius,
+    std::int64_t resolution,
+    std::int64_t angular_bins,
+    std::int64_t radial_capacity,
+    std::int64_t band_capacity,
+    std::int64_t limb_samples,
+    double padding_factor,
+    double angular_padding_factor,
+    std::int64_t angular_chunk_size,
+    std::int64_t boundary_capacity)
+{
+    const auto support = discover_polar_support(
+        scalar_value(source_x), scalar_value(source_y),
+        scalar_value(separation), scalar_value(mass_ratio),
+        scalar_value(source_radius), limb_samples, band_capacity,
+        padding_factor);
+    CartesianEpochResult<Scalar> result;
+    result.tile_count = static_cast<std::int32_t>(support.bands.size());
+    result.overflow = support.overflow;
+    result.root_failure = support.root_failure;
+    const double two_pi = 2.0 * std::acos(-1.0);
+    const double dr = scalar_value(source_radius) / resolution;
+    const double dtheta = two_pi / angular_bins;
+    const double padding = padding_factor * scalar_value(source_radius);
+    const double angular_padding =
+        angular_padding_factor * two_pi / limb_samples;
+    const Scalar inverse_source_radius_squared =
+        1.0 / (source_radius * source_radius);
+    const Scalar total_mass = 1.0 + mass_ratio;
+    const LensConstants<Scalar> lens{
+        -mass_ratio / total_mass * separation,
+        separation / total_mass,
+        1.0 / total_mass,
+        mass_ratio / total_mass};
+    const LensConstants<double> classification_lens{
+        scalar_value(lens.lens_1_x), scalar_value(lens.lens_2_x),
+        scalar_value(lens.mass_1), scalar_value(lens.mass_2)};
+    const double classification_inverse_radius_squared =
+        scalar_value(inverse_source_radius_squared);
+
+    for (
+        std::int64_t chunk_start = 0;
+        chunk_start < angular_bins;
+        chunk_start += angular_chunk_size) {
+        std::int64_t chunk_boundaries = 0;
+        const std::int64_t chunk_end =
+            std::min(angular_bins, chunk_start + angular_chunk_size);
+        for (
+            std::int64_t angular_index = chunk_start;
+            angular_index < chunk_end;
+            ++angular_index) {
+            const double theta =
+                (static_cast<double>(angular_index) + 0.5) * dtheta;
+            const double cosine = std::cos(theta);
+            const double sine = std::sin(theta);
+            for (const auto& band : support.bands) {
+                double local_lower = std::numeric_limits<double>::infinity();
+                double local_upper = -std::numeric_limits<double>::infinity();
+                for (const auto& seed : support.seeds) {
+                    if (
+                        !seed.physical || seed.radius < band[0]
+                        || seed.radius > band[1]) {
+                        continue;
+                    }
+                    const double distance =
+                        std::abs(std::remainder(seed.angle - theta, two_pi));
+                    if (distance > angular_padding) continue;
+                    local_lower = std::min(local_lower, seed.radius);
+                    local_upper = std::max(local_upper, seed.radius);
+                }
+                if (!std::isfinite(local_lower)) continue;
+                local_lower = std::max(0.0, local_lower - padding);
+                local_upper += padding;
+                if (local_upper - local_lower > radial_capacity * dr) {
+                    result.overflow = true;
+                }
+                for (
+                    std::int64_t radial_index = 0;
+                    radial_index < radial_capacity;
+                    ++radial_index) {
+                    const double radius =
+                        local_lower
+                        + (static_cast<double>(radial_index) + 0.5) * dr;
+                    if (!(radius < local_upper)) continue;
+                    const double image_x = radius * cosine;
+                    const double image_y = radius * sine;
+                    const auto classification = phi_derivatives(
+                        image_x, image_y, scalar_value(source_x),
+                        scalar_value(source_y), classification_lens,
+                        classification_inverse_radius_squared);
+                    const double gradient_r =
+                        classification.gradient_x * cosine
+                        + classification.gradient_y * sine;
+                    const double gradient_theta =
+                        radius
+                        * (
+                            -classification.gradient_x * sine
+                            + classification.gradient_y * cosine);
+                    const double delta_r = gradient_r * dr;
+                    const double delta_theta = gradient_theta * dtheta;
+                    const double extent =
+                        0.5 * (std::abs(delta_r) + std::abs(delta_theta));
+                    const bool inside =
+                        classification.phi - extent > 0.0;
+                    const bool boundary =
+                        !inside
+                        && classification.phi + extent > 0.0;
+                    if (!(inside || boundary)) continue;
+                    ++result.integration.active_cells;
+                    if (inside) {
+                        const auto values = phi_derivatives(
+                            image_x, image_y, source_x, source_y, lens,
+                            inverse_source_radius_squared);
+                        const Scalar active_delta_r =
+                            (values.gradient_x * cosine
+                             + values.gradient_y * sine)
+                            * dr;
+                        const Scalar active_delta_theta =
+                            radius
+                            * (
+                                -values.gradient_x * sine
+                                + values.gradient_y * cosine)
+                            * dtheta;
+                        add_polar_interior<Mode>(
+                            result.integration.moments, values,
+                            active_delta_r, active_delta_theta,
+                            radius * dr * dtheta);
+                        continue;
+                    }
+                    ++result.integration.boundary_cells;
+                    ++chunk_boundaries;
+                    const double subdivision =
+                        static_cast<double>(BoundarySubdivision);
+                    for (int sr = 0; sr < BoundarySubdivision; ++sr) {
+                        const double sub_radius =
+                            radius
+                            + (
+                                  (static_cast<double>(sr) + 0.5)
+                                      / subdivision
+                                  - 0.5)
+                                * dr;
+                        for (int st = 0; st < BoundarySubdivision; ++st) {
+                            const double sub_theta =
+                                theta
+                                + (
+                                      (static_cast<double>(st) + 0.5)
+                                          / subdivision
+                                      - 0.5)
+                                    * dtheta;
+                            const double sub_cosine = std::cos(sub_theta);
+                            const double sub_sine = std::sin(sub_theta);
+                            const auto values = phi_derivatives(
+                                sub_radius * sub_cosine,
+                                sub_radius * sub_sine,
+                                source_x, source_y, lens,
+                                inverse_source_radius_squared);
+                            const Scalar active_delta_r =
+                                (values.gradient_x * sub_cosine
+                                 + values.gradient_y * sub_sine)
+                                * dr / subdivision;
+                            const Scalar active_delta_theta =
+                                sub_radius
+                                * (
+                                    -values.gradient_x * sub_sine
+                                    + values.gradient_y * sub_cosine)
+                                * dtheta / subdivision;
+                            add_polar_affine<Mode>(
+                                result.integration.moments, values,
+                                active_delta_r, active_delta_theta,
+                                sub_radius * dr * dtheta
+                                    / (subdivision * subdivision));
+                        }
+                    }
+                }
+            }
+        }
+        if (chunk_boundaries > boundary_capacity) {
+            result.overflow = true;
+        }
+    }
+    return result;
+}
+
+template <typename Scalar>
+CartesianEpochResult<Scalar> polar_epoch_kernel(
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& source_radius,
+    std::int64_t resolution,
+    std::int64_t angular_bins,
+    std::int64_t radial_capacity,
+    std::int64_t band_capacity,
+    std::int64_t limb_samples,
+    double padding_factor,
+    double angular_padding_factor,
+    std::int64_t angular_chunk_size,
+    std::int64_t boundary_capacity,
+    MomentMode mode,
+    std::int64_t boundary_subdivision)
+{
+#define LCBININT_POLAR_CASE(active_mode, subdivision) \
+    return polar_epoch_kernel_for_mode<active_mode, subdivision>( \
+        source_x, source_y, separation, mass_ratio, source_radius, \
+        resolution, angular_bins, radial_capacity, band_capacity, \
+        limb_samples, padding_factor, angular_padding_factor, \
+        angular_chunk_size, boundary_capacity)
+    if (mode == MomentMode::uniform) {
+        if (boundary_subdivision == 1) LCBININT_POLAR_CASE(MomentMode::uniform, 1);
+        if (boundary_subdivision == 2) LCBININT_POLAR_CASE(MomentMode::uniform, 2);
+        if (boundary_subdivision == 3) LCBININT_POLAR_CASE(MomentMode::uniform, 3);
+        LCBININT_POLAR_CASE(MomentMode::uniform, 4);
+    }
+    if (mode == MomentMode::linear) {
+        if (boundary_subdivision == 1) LCBININT_POLAR_CASE(MomentMode::linear, 1);
+        if (boundary_subdivision == 2) LCBININT_POLAR_CASE(MomentMode::linear, 2);
+        if (boundary_subdivision == 3) LCBININT_POLAR_CASE(MomentMode::linear, 3);
+        LCBININT_POLAR_CASE(MomentMode::linear, 4);
+    }
+    if (boundary_subdivision == 1) LCBININT_POLAR_CASE(MomentMode::two_coefficient, 1);
+    if (boundary_subdivision == 2) LCBININT_POLAR_CASE(MomentMode::two_coefficient, 2);
+    if (boundary_subdivision == 3) LCBININT_POLAR_CASE(MomentMode::two_coefficient, 3);
+    LCBININT_POLAR_CASE(MomentMode::two_coefficient, 4);
+#undef LCBININT_POLAR_CASE
 }
 
 ffi::Error macro_tile_discovery_ffi_impl(
@@ -1894,6 +2464,771 @@ XLA_FFI_DEFINE_HANDLER(
         .Ret<ffi::BufferR1<ffi::F64>>()
         .Ret<ffi::BufferR2<ffi::F64>>());
 
+ffi::Error polar_epoch_forward_ffi_impl(
+    std::int64_t resolution,
+    std::int64_t angular_bins,
+    std::int64_t radial_capacity,
+    std::int64_t band_capacity,
+    std::int64_t limb_samples,
+    double padding_factor,
+    double angular_padding_factor,
+    std::int64_t angular_chunk_size,
+    std::int64_t boundary_capacity,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR0<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> moments,
+    ffi::ResultBufferR0<ffi::S32> boundary_cells,
+    ffi::ResultBufferR0<ffi::S32> active_cells,
+    ffi::ResultBufferR0<ffi::S32> band_count,
+    ffi::ResultBufferR0<ffi::PRED> overflow,
+    ffi::ResultBufferR0<ffi::PRED> root_failure)
+{
+    if (
+        resolution <= 0 || angular_bins <= 0 || radial_capacity <= 0
+        || band_capacity <= 0 || limb_samples <= 0
+        || angular_chunk_size <= 0 || boundary_capacity <= 0
+        || mode_value < 1 || mode_value > 3
+        || boundary_subdivision < 1 || boundary_subdivision > 4
+        || moments->dimensions()[0]
+            != moment_count(static_cast<MomentMode>(mode_value))) {
+        return ffi::Error::InvalidArgument("invalid polar epoch configuration");
+    }
+    const auto mode = static_cast<MomentMode>(mode_value);
+    const auto result = polar_epoch_kernel(
+        *source_x.typed_data(), *source_y.typed_data(),
+        *separation.typed_data(), *mass_ratio.typed_data(),
+        *source_radius.typed_data(), resolution, angular_bins,
+        radial_capacity, band_capacity, limb_samples, padding_factor,
+        angular_padding_factor, angular_chunk_size, boundary_capacity,
+        mode, boundary_subdivision);
+    for (int moment = 0; moment < moment_count(mode); ++moment) {
+        moments->typed_data()[moment] = result.integration.moments[moment];
+    }
+    *magnification->typed_data() = combine_magnification(
+        result.integration.moments, *source_radius.typed_data(),
+        *limb_c.typed_data(), *limb_d.typed_data(), mode);
+    *boundary_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.boundary_cells);
+    *active_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.active_cells);
+    *band_count->typed_data() = result.tile_count;
+    *overflow->typed_data() = result.overflow;
+    *root_failure->typed_data() = result.root_failure;
+    return ffi::Error::Success();
+}
+
+#define LCBININT_POLAR_FFI_BINDING \
+    ffi::Ffi::Bind() \
+        .Attr<std::int64_t>("resolution") \
+        .Attr<std::int64_t>("angular_bins") \
+        .Attr<std::int64_t>("radial_capacity") \
+        .Attr<std::int64_t>("band_capacity") \
+        .Attr<std::int64_t>("limb_samples") \
+        .Attr<double>("padding_factor") \
+        .Attr<double>("angular_padding_factor") \
+        .Attr<std::int64_t>("angular_chunk_size") \
+        .Attr<std::int64_t>("boundary_capacity") \
+        .Attr<std::int64_t>("moment_mode") \
+        .Attr<std::int64_t>("boundary_subdivision") \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR0<ffi::S32>>() \
+        .Ret<ffi::BufferR0<ffi::S32>>() \
+        .Ret<ffi::BufferR0<ffi::S32>>() \
+        .Ret<ffi::BufferR0<ffi::PRED>>() \
+        .Ret<ffi::BufferR0<ffi::PRED>>()
+
+XLA_FFI_DEFINE_HANDLER(
+    polar_epoch_forward_ffi_handler,
+    polar_epoch_forward_ffi_impl,
+    LCBININT_POLAR_FFI_BINDING);
+
+ffi::Error polar_epoch_jacobian_ffi_impl(
+    std::int64_t resolution,
+    std::int64_t angular_bins,
+    std::int64_t radial_capacity,
+    std::int64_t band_capacity,
+    std::int64_t limb_samples,
+    double padding_factor,
+    double angular_padding_factor,
+    std::int64_t angular_chunk_size,
+    std::int64_t boundary_capacity,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR0<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> moments,
+    ffi::ResultBufferR0<ffi::S32> boundary_cells,
+    ffi::ResultBufferR0<ffi::S32> active_cells,
+    ffi::ResultBufferR0<ffi::S32> band_count,
+    ffi::ResultBufferR0<ffi::PRED> overflow,
+    ffi::ResultBufferR0<ffi::PRED> root_failure,
+    ffi::ResultBufferR1<ffi::F64> magnification_jacobian,
+    ffi::ResultBufferR2<ffi::F64> moments_jacobian)
+{
+    const auto mode = static_cast<MomentMode>(mode_value);
+    if (
+        mode_value < 1 || mode_value > 3
+        || moments->dimensions()[0] != moment_count(mode)
+        || magnification_jacobian->dimensions()[0] != parameter_count
+        || moments_jacobian->dimensions()[0] != moment_count(mode)
+        || moments_jacobian->dimensions()[1] != parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "invalid polar epoch Jacobian shapes");
+    }
+    const Jet x = Jet::variable(*source_x.typed_data(), 0);
+    const Jet y = Jet::variable(*source_y.typed_data(), 1);
+    const Jet s = Jet::variable(*separation.typed_data(), 2);
+    const Jet q = Jet::variable(*mass_ratio.typed_data(), 3);
+    const Jet rho = Jet::variable(*source_radius.typed_data(), 4);
+    const auto result = polar_epoch_kernel(
+        x, y, s, q, rho, resolution, angular_bins, radial_capacity,
+        band_capacity, limb_samples, padding_factor,
+        angular_padding_factor, angular_chunk_size, boundary_capacity,
+        mode, boundary_subdivision);
+    const Jet c(*limb_c.typed_data());
+    const Jet d(*limb_d.typed_data());
+    const Jet active_magnification = combine_magnification(
+        result.integration.moments, rho, c, d, mode);
+    const auto limb_derivatives = limb_coefficient_derivatives(
+        result.integration.moments, rho.value, c.value, d.value, mode);
+    *magnification->typed_data() = active_magnification.value;
+    for (
+        std::size_t parameter = 0;
+        parameter < kernel_derivative_count;
+        ++parameter) {
+        magnification_jacobian->typed_data()[parameter] =
+            active_magnification.derivative[parameter];
+    }
+    magnification_jacobian->typed_data()[5] = limb_derivatives[0];
+    magnification_jacobian->typed_data()[6] = limb_derivatives[1];
+    for (int moment = 0; moment < moment_count(mode); ++moment) {
+        moments->typed_data()[moment] =
+            result.integration.moments[moment].value;
+        for (
+            std::size_t parameter = 0;
+            parameter < parameter_count;
+            ++parameter) {
+            moments_jacobian->typed_data()[
+                moment * parameter_count + parameter] =
+                parameter < kernel_derivative_count
+                ? result.integration.moments[moment]
+                      .derivative[parameter]
+                : 0.0;
+        }
+    }
+    *boundary_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.boundary_cells);
+    *active_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.active_cells);
+    *band_count->typed_data() = result.tile_count;
+    *overflow->typed_data() = result.overflow;
+    *root_failure->typed_data() = result.root_failure;
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    polar_epoch_jacobian_ffi_handler,
+    polar_epoch_jacobian_ffi_impl,
+    LCBININT_POLAR_FFI_BINDING
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::F64>>());
+
+#undef LCBININT_POLAR_FFI_BINDING
+
+ffi::Error hexadecapole_batch_ffi_impl(
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> point_magnification,
+    ffi::ResultBufferR1<ffi::F64> quadrupole_correction,
+    ffi::ResultBufferR1<ffi::F64> hexadecapole_correction,
+    ffi::ResultBufferR1<ffi::PRED> topology_stable,
+    ffi::ResultBufferR1<ffi::PRED> root_failure)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        source_y.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || point_magnification->dimensions()[0] != batch_size
+        || quadrupole_correction->dimensions()[0] != batch_size
+        || hexadecapole_correction->dimensions()[0] != batch_size
+        || topology_stable->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size) {
+        return ffi::Error::InvalidArgument(
+            "hexadecapole batch arrays must have a common length");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1,
+        std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        const auto result = hexadecapole_kernel(
+            source_x.typed_data()[index], source_y.typed_data()[index],
+            *separation.typed_data(), *mass_ratio.typed_data(),
+            *source_radius.typed_data(), *limb_c.typed_data(),
+            *limb_d.typed_data());
+        magnification->typed_data()[index] = result.magnification.value;
+        point_magnification->typed_data()[index] =
+            result.point_magnification.value;
+        quadrupole_correction->typed_data()[index] =
+            result.quadrupole_correction.value;
+        hexadecapole_correction->typed_data()[index] =
+            result.hexadecapole_correction.value;
+        topology_stable->typed_data()[index] = result.topology_stable;
+        root_failure->typed_data()[index] = result.root_failure;
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    hexadecapole_batch_ffi_handler,
+    hexadecapole_batch_ffi_impl,
+    ffi::Ffi::Bind()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>());
+
+ffi::Error hexadecapole_batch_jacobian_ffi_impl(
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> point_magnification,
+    ffi::ResultBufferR1<ffi::F64> quadrupole_correction,
+    ffi::ResultBufferR1<ffi::F64> hexadecapole_correction,
+    ffi::ResultBufferR1<ffi::PRED> topology_stable,
+    ffi::ResultBufferR1<ffi::PRED> root_failure,
+    ffi::ResultBufferR3<ffi::F64> output_jacobian)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    const auto jacobian_dimensions = output_jacobian->dimensions();
+    if (
+        source_y.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || point_magnification->dimensions()[0] != batch_size
+        || quadrupole_correction->dimensions()[0] != batch_size
+        || hexadecapole_correction->dimensions()[0] != batch_size
+        || topology_stable->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size
+        || jacobian_dimensions[0] != batch_size
+        || jacobian_dimensions[1] != 4
+        || jacobian_dimensions[2] != parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "hexadecapole batch Jacobian arrays have invalid shapes");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1,
+        std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        const auto result = hexadecapole_kernel(
+            source_x.typed_data()[index], source_y.typed_data()[index],
+            *separation.typed_data(), *mass_ratio.typed_data(),
+            *source_radius.typed_data(), *limb_c.typed_data(),
+            *limb_d.typed_data());
+        magnification->typed_data()[index] = result.magnification.value;
+        point_magnification->typed_data()[index] =
+            result.point_magnification.value;
+        quadrupole_correction->typed_data()[index] =
+            result.quadrupole_correction.value;
+        hexadecapole_correction->typed_data()[index] =
+            result.hexadecapole_correction.value;
+        topology_stable->typed_data()[index] = result.topology_stable;
+        root_failure->typed_data()[index] = result.root_failure;
+        double* jacobian =
+            output_jacobian->typed_data() + index * 4 * parameter_count;
+        const std::array<const Jet*, 4> values{
+            &result.magnification,
+            &result.point_magnification,
+            &result.quadrupole_correction,
+            &result.hexadecapole_correction};
+        for (std::size_t output = 0; output < values.size(); ++output) {
+            for (
+                std::size_t parameter = 0;
+                parameter < kernel_derivative_count;
+                ++parameter) {
+                jacobian[output * parameter_count + parameter] =
+                    values[output]->derivative[parameter];
+            }
+            jacobian[output * parameter_count + 5] = 0.0;
+            jacobian[output * parameter_count + 6] = 0.0;
+        }
+        jacobian[5] = result.limb_c_derivative;
+        jacobian[6] = result.limb_d_derivative;
+        jacobian[2 * parameter_count + 5] =
+            result.quadrupole_limb_c_derivative;
+        jacobian[2 * parameter_count + 6] =
+            result.quadrupole_limb_d_derivative;
+        jacobian[3 * parameter_count + 5] =
+            result.hexadecapole_limb_c_derivative;
+        jacobian[3 * parameter_count + 6] =
+            result.hexadecapole_limb_d_derivative;
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    hexadecapole_batch_jacobian_ffi_handler,
+    hexadecapole_batch_jacobian_ffi_impl,
+    ffi::Ffi::Bind()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR3<ffi::F64>>());
+
+struct TrajectoryEpochDecision {
+    double magnification = std::numeric_limits<double>::quiet_NaN();
+    double estimated_error = std::numeric_limits<double>::quiet_NaN();
+    std::int32_t method = 1;
+    bool support_valid = false;
+    bool used_multipole = false;
+    bool used_polar = false;
+    bool needs_fallback = false;
+    std::array<double, parameter_count> jacobian{};
+};
+
+bool accept_hexadecapole(
+    const HexadecapoleKernelResult& hex,
+    double source_radius,
+    double absolute_tolerance,
+    double relative_tolerance,
+    double safety_factor)
+{
+    const double magnitude = std::max(
+        std::abs(hex.magnification.value), 1.0);
+    const double budget =
+        absolute_tolerance + relative_tolerance * magnitude;
+    const double error = std::abs(hex.hexadecapole_correction.value);
+    const double correction_scale = std::max(
+        std::abs(hex.quadrupole_correction.value), budget);
+    return source_radius >= 0.0
+        && hex.topology_stable && !hex.root_failure
+        && std::isfinite(hex.magnification.value)
+        && error <= 0.25 * correction_scale
+        && std::abs(hex.quadrupole_correction.value) <= 0.1 * magnitude
+        && safety_factor * error <= budget;
+}
+
+template <typename Scalar>
+void write_selected_jacobian(
+    TrajectoryEpochDecision& decision,
+    const Scalar& magnification,
+    const std::array<double, 2>& limb_derivatives)
+{
+    if constexpr (std::is_same_v<Scalar, Jet>) {
+        for (
+            std::size_t parameter = 0;
+            parameter < kernel_derivative_count;
+            ++parameter) {
+            decision.jacobian[parameter] =
+                magnification.derivative[parameter];
+        }
+        decision.jacobian[5] = limb_derivatives[0];
+        decision.jacobian[6] = limb_derivatives[1];
+    }
+}
+
+template <bool WithJacobian>
+TrajectoryEpochDecision trajectory_epoch_kernel(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double source_radius,
+    double limb_c,
+    double limb_d,
+    double absolute_tolerance,
+    double relative_tolerance,
+    double multipole_safety_factor,
+    double polar_magnification_threshold,
+    double polar_max_source_radius,
+    double polar_min_mass_ratio,
+    std::int64_t cartesian_resolution,
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t cartesian_limb_samples,
+    std::int64_t polar_resolution,
+    std::int64_t polar_angular_bins,
+    std::int64_t polar_radial_capacity,
+    std::int64_t polar_band_capacity,
+    std::int64_t polar_limb_samples,
+    double polar_padding_factor,
+    double polar_angular_padding_factor,
+    std::int64_t polar_angular_chunk_size,
+    std::int64_t polar_boundary_capacity,
+    std::int64_t polar_boundary_subdivision,
+    bool polar_fallback_on_overflow,
+    MomentMode mode)
+{
+    TrajectoryEpochDecision decision;
+    const auto hex = hexadecapole_kernel(
+        source_x, source_y, separation, mass_ratio, source_radius,
+        limb_c, limb_d);
+    if (accept_hexadecapole(
+            hex, source_radius, absolute_tolerance, relative_tolerance,
+            multipole_safety_factor)) {
+        decision.magnification = hex.magnification.value;
+        decision.estimated_error =
+            std::abs(hex.hexadecapole_correction.value);
+        decision.method = 0;
+        decision.support_valid = true;
+        decision.used_multipole = true;
+        if constexpr (WithJacobian) {
+            for (
+                std::size_t parameter = 0;
+                parameter < kernel_derivative_count;
+                ++parameter) {
+                decision.jacobian[parameter] =
+                    hex.magnification.derivative[parameter];
+            }
+            decision.jacobian[5] = hex.limb_c_derivative;
+            decision.jacobian[6] = hex.limb_d_derivative;
+        }
+        return decision;
+    }
+    const double absolute_q = std::abs(mass_ratio);
+    const double symmetric_q = absolute_q > 0.0
+        ? std::min(absolute_q, 1.0 / absolute_q)
+        : 0.0;
+    const bool polar_allowed =
+        hex.topology_stable && symmetric_q >= polar_min_mass_ratio;
+    bool use_polar =
+        hex.point_magnification.value >= polar_magnification_threshold
+        && source_radius <= polar_max_source_radius
+        && source_radius > 0.0 && polar_allowed;
+
+    const auto evaluate_polar = [&]() {
+        decision.method = 2;
+        decision.used_polar = true;
+        if constexpr (WithJacobian) {
+            const Jet x = Jet::variable(source_x, 0);
+            const Jet y = Jet::variable(source_y, 1);
+            const Jet s = Jet::variable(separation, 2);
+            const Jet q = Jet::variable(mass_ratio, 3);
+            const Jet rho = Jet::variable(source_radius, 4);
+            const auto result = polar_epoch_kernel(
+                x, y, s, q, rho, polar_resolution, polar_angular_bins,
+                polar_radial_capacity, polar_band_capacity,
+                polar_limb_samples, polar_padding_factor,
+                polar_angular_padding_factor, polar_angular_chunk_size,
+                polar_boundary_capacity, mode,
+                polar_boundary_subdivision);
+            const Jet magnification = combine_magnification(
+                result.integration.moments, rho, Jet(limb_c), Jet(limb_d),
+                mode);
+            decision.magnification = magnification.value;
+            decision.support_valid =
+                !(result.overflow || result.root_failure);
+            write_selected_jacobian(
+                decision, magnification,
+                limb_coefficient_derivatives(
+                    result.integration.moments, source_radius, limb_c,
+                    limb_d, mode));
+        } else {
+            const auto result = polar_epoch_kernel(
+                source_x, source_y, separation, mass_ratio, source_radius,
+                polar_resolution, polar_angular_bins,
+                polar_radial_capacity, polar_band_capacity,
+                polar_limb_samples, polar_padding_factor,
+                polar_angular_padding_factor, polar_angular_chunk_size,
+                polar_boundary_capacity, mode,
+                polar_boundary_subdivision);
+            decision.magnification = combine_magnification(
+                result.integration.moments, source_radius, limb_c, limb_d,
+                mode);
+            decision.support_valid =
+                !(result.overflow || result.root_failure);
+        }
+    };
+    if (use_polar) {
+        evaluate_polar();
+    } else if constexpr (WithJacobian) {
+        const Jet x = Jet::variable(source_x, 0);
+        const Jet y = Jet::variable(source_y, 1);
+        const Jet s = Jet::variable(separation, 2);
+        const Jet q = Jet::variable(mass_ratio, 3);
+        const Jet rho = Jet::variable(source_radius, 4);
+        const auto result = cartesian_epoch_kernel(
+            source_radius / cartesian_resolution, x, y, s, q, rho,
+            Jet(limb_d), tile_size, tile_capacity,
+            cartesian_limb_samples, mode,
+            mode == MomentMode::two_coefficient ? 4 : 3);
+        if (
+            result.overflow && polar_allowed
+            && polar_fallback_on_overflow) {
+            use_polar = true;
+            evaluate_polar();
+        } else {
+            const Jet magnification = combine_magnification(
+                result.integration.moments, rho, Jet(limb_c), Jet(limb_d),
+                mode);
+            decision.magnification = magnification.value;
+            decision.support_valid =
+                !(result.overflow || result.root_failure);
+            write_selected_jacobian(
+                decision, magnification,
+                limb_coefficient_derivatives(
+                    result.integration.moments, source_radius, limb_c,
+                    limb_d, mode));
+        }
+    } else {
+        const auto result = cartesian_epoch_kernel(
+            source_radius / cartesian_resolution, source_x, source_y,
+            separation, mass_ratio, source_radius, limb_d, tile_size,
+            tile_capacity, cartesian_limb_samples, mode,
+            mode == MomentMode::two_coefficient ? 4 : 3);
+        if (
+            result.overflow && polar_allowed
+            && polar_fallback_on_overflow) {
+            use_polar = true;
+            evaluate_polar();
+        } else {
+            decision.magnification = combine_magnification(
+                result.integration.moments, source_radius, limb_c, limb_d,
+                mode);
+            decision.support_valid =
+                !(result.overflow || result.root_failure);
+        }
+    }
+    decision.needs_fallback = !decision.support_valid;
+    return decision;
+}
+
+#define LCBININT_TRAJECTORY_ARGUMENTS \
+    std::int64_t cartesian_resolution, \
+    std::int64_t tile_size, \
+    std::int64_t tile_capacity, \
+    std::int64_t cartesian_limb_samples, \
+    std::int64_t polar_resolution, \
+    std::int64_t polar_angular_bins, \
+    std::int64_t polar_radial_capacity, \
+    std::int64_t polar_band_capacity, \
+    std::int64_t polar_limb_samples, \
+    double polar_padding_factor, \
+    double polar_angular_padding_factor, \
+    std::int64_t polar_angular_chunk_size, \
+    std::int64_t polar_boundary_capacity, \
+    std::int64_t polar_boundary_subdivision, \
+    std::int64_t polar_fallback_on_overflow, \
+    std::int64_t mode_value, \
+    ffi::BufferR1<ffi::F64> source_x, \
+    ffi::BufferR1<ffi::F64> source_y, \
+    ffi::BufferR0<ffi::F64> separation, \
+    ffi::BufferR0<ffi::F64> mass_ratio, \
+    ffi::BufferR0<ffi::F64> source_radius, \
+    ffi::BufferR0<ffi::F64> limb_c, \
+    ffi::BufferR0<ffi::F64> limb_d, \
+    ffi::BufferR0<ffi::F64> absolute_tolerance, \
+    ffi::BufferR0<ffi::F64> relative_tolerance, \
+    ffi::BufferR0<ffi::F64> multipole_safety_factor, \
+    ffi::BufferR0<ffi::F64> polar_magnification_threshold, \
+    ffi::BufferR0<ffi::F64> polar_max_source_radius, \
+    ffi::BufferR0<ffi::F64> polar_min_mass_ratio, \
+    ffi::ResultBufferR1<ffi::F64> magnification, \
+    ffi::ResultBufferR1<ffi::S32> method, \
+    ffi::ResultBufferR1<ffi::F64> estimated_error, \
+    ffi::ResultBufferR1<ffi::PRED> support_valid, \
+    ffi::ResultBufferR1<ffi::PRED> used_multipole, \
+    ffi::ResultBufferR1<ffi::PRED> used_polar, \
+    ffi::ResultBufferR1<ffi::PRED> needs_fallback
+
+#define LCBININT_TRAJECTORY_KERNEL_ARGUMENTS(index) \
+    source_x.typed_data()[index], source_y.typed_data()[index], \
+    *separation.typed_data(), *mass_ratio.typed_data(), \
+    *source_radius.typed_data(), *limb_c.typed_data(), \
+    *limb_d.typed_data(), *absolute_tolerance.typed_data(), \
+    *relative_tolerance.typed_data(), *multipole_safety_factor.typed_data(), \
+    *polar_magnification_threshold.typed_data(), \
+    *polar_max_source_radius.typed_data(), *polar_min_mass_ratio.typed_data(), \
+    cartesian_resolution, tile_size, tile_capacity, \
+    cartesian_limb_samples, polar_resolution, polar_angular_bins, \
+    polar_radial_capacity, polar_band_capacity, polar_limb_samples, \
+    polar_padding_factor, polar_angular_padding_factor, \
+    polar_angular_chunk_size, polar_boundary_capacity, \
+    polar_boundary_subdivision, polar_fallback_on_overflow, \
+    static_cast<MomentMode>(mode_value)
+
+ffi::Error trajectory_forward_ffi_impl(LCBININT_TRAJECTORY_ARGUMENTS)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        source_y.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || method->dimensions()[0] != batch_size
+        || estimated_error->dimensions()[0] != batch_size
+        || support_valid->dimensions()[0] != batch_size
+        || used_multipole->dimensions()[0] != batch_size
+        || used_polar->dimensions()[0] != batch_size
+        || needs_fallback->dimensions()[0] != batch_size
+        || mode_value < 1 || mode_value > 3) {
+        return ffi::Error::InvalidArgument(
+            "invalid trajectory FFI arrays or mode");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1,
+        std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(dynamic, 1) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        const auto result = trajectory_epoch_kernel<false>(
+            LCBININT_TRAJECTORY_KERNEL_ARGUMENTS(index));
+        magnification->typed_data()[index] = result.magnification;
+        method->typed_data()[index] = result.method;
+        estimated_error->typed_data()[index] = result.estimated_error;
+        support_valid->typed_data()[index] = result.support_valid;
+        used_multipole->typed_data()[index] = result.used_multipole;
+        used_polar->typed_data()[index] = result.used_polar;
+        needs_fallback->typed_data()[index] = result.needs_fallback;
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error trajectory_jacobian_ffi_impl(
+    LCBININT_TRAJECTORY_ARGUMENTS,
+    ffi::ResultBufferR2<ffi::F64> output_jacobian)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        output_jacobian->dimensions()[0] != batch_size
+        || output_jacobian->dimensions()[1] != parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "trajectory Jacobian must have shape (N, 7)");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1,
+        std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(dynamic, 1) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        const auto result = trajectory_epoch_kernel<true>(
+            LCBININT_TRAJECTORY_KERNEL_ARGUMENTS(index));
+        magnification->typed_data()[index] = result.magnification;
+        method->typed_data()[index] = result.method;
+        estimated_error->typed_data()[index] = result.estimated_error;
+        support_valid->typed_data()[index] = result.support_valid;
+        used_multipole->typed_data()[index] = result.used_multipole;
+        used_polar->typed_data()[index] = result.used_polar;
+        needs_fallback->typed_data()[index] = result.needs_fallback;
+        std::copy(
+            result.jacobian.begin(), result.jacobian.end(),
+            output_jacobian->typed_data() + index * parameter_count);
+    }
+    return ffi::Error::Success();
+}
+
+#define LCBININT_TRAJECTORY_BINDING \
+    ffi::Ffi::Bind() \
+        .Attr<std::int64_t>("cartesian_resolution") \
+        .Attr<std::int64_t>("tile_size") \
+        .Attr<std::int64_t>("tile_capacity") \
+        .Attr<std::int64_t>("cartesian_limb_samples") \
+        .Attr<std::int64_t>("polar_resolution") \
+        .Attr<std::int64_t>("polar_angular_bins") \
+        .Attr<std::int64_t>("polar_radial_capacity") \
+        .Attr<std::int64_t>("polar_band_capacity") \
+        .Attr<std::int64_t>("polar_limb_samples") \
+        .Attr<double>("polar_padding_factor") \
+        .Attr<double>("polar_angular_padding_factor") \
+        .Attr<std::int64_t>("polar_angular_chunk_size") \
+        .Attr<std::int64_t>("polar_boundary_capacity") \
+        .Attr<std::int64_t>("polar_boundary_subdivision") \
+        .Attr<std::int64_t>("polar_fallback_on_overflow") \
+        .Attr<std::int64_t>("moment_mode") \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::S32>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+
+XLA_FFI_DEFINE_HANDLER(
+    trajectory_forward_ffi_handler,
+    trajectory_forward_ffi_impl,
+    LCBININT_TRAJECTORY_BINDING);
+XLA_FFI_DEFINE_HANDLER(
+    trajectory_jacobian_ffi_handler,
+    trajectory_jacobian_ffi_impl,
+    LCBININT_TRAJECTORY_BINDING.Ret<ffi::BufferR2<ffi::F64>>());
+
+#undef LCBININT_TRAJECTORY_BINDING
+#undef LCBININT_TRAJECTORY_KERNEL_ARGUMENTS
+#undef LCBININT_TRAJECTORY_ARGUMENTS
+
 ffi::Error validate_cartesian_batch_arguments(
     std::int64_t tile_size,
     std::int64_t tile_capacity,
@@ -2283,6 +3618,42 @@ py::capsule cartesian_batch_value_jacobian_ffi_capsule()
         reinterpret_cast<void*>(
             cartesian_batch_value_jacobian_ffi_handler));
 }
+
+py::capsule hexadecapole_batch_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(hexadecapole_batch_ffi_handler));
+}
+
+py::capsule hexadecapole_batch_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(hexadecapole_batch_jacobian_ffi_handler));
+}
+
+py::capsule polar_epoch_forward_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(polar_epoch_forward_ffi_handler));
+}
+
+py::capsule polar_epoch_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(polar_epoch_jacobian_ffi_handler));
+}
+
+py::capsule trajectory_forward_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(trajectory_forward_ffi_handler));
+}
+
+py::capsule trajectory_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(trajectory_jacobian_ffi_handler));
+}
 #endif
 
 }  // namespace
@@ -2346,5 +3717,29 @@ void register_jax_ir_submodule(py::module_& parent)
         "cartesian_batch_value_jacobian_ffi",
         &cartesian_batch_value_jacobian_ffi_capsule,
         "Return the masked Cartesian batch value/Jacobian FFI capsule.");
+    module.def(
+        "hexadecapole_batch_ffi",
+        &hexadecapole_batch_ffi_capsule,
+        "Return the batched hexadecapole FFI capsule.");
+    module.def(
+        "hexadecapole_batch_jacobian_ffi",
+        &hexadecapole_batch_jacobian_ffi_capsule,
+        "Return the batched hexadecapole value/Jacobian FFI capsule.");
+    module.def(
+        "polar_epoch_forward_ffi",
+        &polar_epoch_forward_ffi_capsule,
+        "Return the fused polar epoch FFI capsule.");
+    module.def(
+        "polar_epoch_jacobian_ffi",
+        &polar_epoch_jacobian_ffi_capsule,
+        "Return the fused polar epoch value/Jacobian FFI capsule.");
+    module.def(
+        "trajectory_forward_ffi",
+        &trajectory_forward_ffi_capsule,
+        "Return the integrated trajectory dispatcher FFI capsule.");
+    module.def(
+        "trajectory_jacobian_ffi",
+        &trajectory_jacobian_ffi_capsule,
+        "Return the integrated trajectory dispatcher Jacobian FFI capsule.");
 #endif
 }

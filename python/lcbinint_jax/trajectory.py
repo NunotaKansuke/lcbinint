@@ -8,8 +8,10 @@ import jax.numpy as jnp
 from ._config import require_x64
 from .api import _multipole_dispatch_masks, binary_magnification_auto
 from .cpp_backend import (
+    binary_magnification_trajectory_ffi,
     binary_inverse_ray_cartesian_batch_ffi,
     cpp_cartesian_batch_ffi_available,
+    cpp_trajectory_ffi_available,
 )
 from .multipole import binary_hexadecapole
 from .types import HybridMagnificationResult, TrajectoryMagnificationResult
@@ -18,6 +20,7 @@ from .types import HybridMagnificationResult, TrajectoryMagnificationResult
 @partial(
     jax.jit,
     static_argnames=(
+        "resolution",
         "tile_size",
         "tile_capacity",
         "limb_samples",
@@ -28,6 +31,7 @@ from .types import HybridMagnificationResult, TrajectoryMagnificationResult
         "polar_band_capacity",
         "polar_limb_samples",
         "polar_angular_chunk_size",
+        "polar_fallback_on_overflow",
         "moment_mode",
         "source_plane_fallback",
         "source_plane_rule",
@@ -139,7 +143,60 @@ def _binary_magnification_trajectory(
         and root_backend != "jax"
         and cpp_cartesian_batch_ffi_available()
     )
-    if use_batch:
+    use_integrated_ffi = use_batch and cpp_trajectory_ffi_available()
+    if use_integrated_ffi:
+        fused = binary_magnification_trajectory_ffi(
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            absolute_tolerance=absolute_tolerance,
+            relative_tolerance=relative_tolerance,
+            multipole_safety_factor=multipole_safety_factor,
+            polar_magnification_threshold=polar_magnification_threshold,
+            polar_max_source_radius=polar_max_source_radius,
+            polar_min_mass_ratio=polar_min_mass_ratio,
+            resolution=resolution,
+            tile_size=tile_size,
+            tile_capacity=tile_capacity,
+            limb_samples=limb_samples,
+            polar_resolution=polar_resolution,
+            polar_angular_bins=polar_angular_bins,
+            polar_radial_capacity=polar_radial_capacity,
+            polar_band_capacity=polar_band_capacity,
+            polar_limb_samples=polar_limb_samples,
+            polar_angular_chunk_size=polar_angular_chunk_size,
+            polar_fallback_on_overflow=polar_fallback_on_overflow,
+            moment_mode=moment_mode,
+        )
+        provisional = HybridMagnificationResult(
+            magnification=fused.magnification,
+            method=fused.method,
+            estimated_error=fused.estimated_error,
+            support_valid=fused.support_valid,
+            used_multipole=fused.used_multipole,
+            used_polar=fused.used_polar,
+            used_source_plane=jnp.zeros_like(fused.support_valid),
+            used_expanded_cartesian=jnp.zeros_like(fused.support_valid),
+        )
+
+        def evaluate_fused_exception(operand):
+            position, use_scalar, fast_result = operand
+            return jax.lax.cond(
+                use_scalar,
+                evaluate_epoch,
+                lambda _: fast_result,
+                position,
+            )
+
+        result = jax.lax.map(
+            evaluate_fused_exception,
+            ((source_x, source_y), fused.needs_fallback, provisional),
+        )
+    elif use_batch:
 
         def evaluate_hexadecapole(position):
             return binary_hexadecapole(

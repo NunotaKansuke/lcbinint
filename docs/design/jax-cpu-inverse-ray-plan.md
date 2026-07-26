@@ -213,6 +213,54 @@ Repeating the eight-configuration held-out sweep after the arithmetic changes
 again produced zero value, JVP, gradient, discovery, point-source,
 hexadecapole, or fused/staged failures over all 84 support-valid rows.
 
+### Whole-trajectory CPU FFI result
+
+The remaining three whole-engine kernels are now implemented.
+
+1. The polar handler performs centre/limb root discovery, radial-band merging,
+   angular support selection, and streamed radial-cell integration in one
+   typed FFI call. It returns the same moments and explicit root, band, and
+   capacity diagnostics as the JAX implementation. Its analytic seven-input
+   Jacobian is exposed through `custom_jvp`.
+2. The batched hexadecapole handler evaluates all 13 point-source samples,
+   topology checks, and the quadrupole/hexadecapole combination in C++. It
+   parallelizes independent epochs and returns the full seven-input Jacobian.
+3. The trajectory handler fuses hexadecapole acceptance, polar preselection,
+   and Cartesian/polar execution into one OpenMP-parallel FFI call. Normal
+   rows therefore cross a single JAX/C++ boundary. Only rows reporting an
+   explicit unsupported or capacity condition re-enter the existing scalar
+   dispatcher for its source-plane or expanded-support fallback.
+
+For the representative high-magnification linear polar epoch at resolution
+64 and angular resolution 4096, the streamed polar handler changed
+forward/value-plus-gradient time from 24.03/81.61 ms to 13.55/17.76 ms.
+Values and diagnostic counts agree with the JAX kernel at floating-point
+roundoff; the largest component of the seven-input gradient differed by
+\(3.2\times10^{-9}\).
+
+For 64 hexadecapole epochs, the batched handler changed forward time from
+2.085 to 0.094 ms and value-plus-gradient time from 3.246 to 0.295 ms.
+The largest observed gradient difference from the staged root-FFI
+implementation was \(2.1\times10^{-10}\).
+
+With `OMP_NUM_THREADS=32`, the integrated 64-epoch linear trajectory measures
+9.48/21.70/27.84 ms for forward/JVP/value-plus-gradient. Native `lcbinint`
+forward measures 135.20 ms, VBMicrolensing 2.96 s, and microLUX
+14.05/13.07/27.00 s in the same run. The uniform trajectory measures
+5.86/8.88/16.60 ms, versus 131.80 ms native, 45.76 ms VBMicrolensing, and
+13.85/12.89/26.17 s microLUX. Compile plus first execution is 0.39 s for
+linear and 0.30 s for uniform. All integrated-FFI rows pass the shared
+accuracy budgets.
+
+The repeated eight-configuration held-out sweep contains 120 rows, of which
+84 have valid inverse-ray support. It reports zero value, JVP, gradient,
+discovery, point-source, hexadecapole, or fused-trajectory failures. For the
+integrated trajectory specifically, the maximum value/JVP/gradient error
+ratios are 0.000011/0.0036/0.015 of their respective budgets. Thus the
+single-call path preserves the dispatcher semantics and derivative accuracy;
+the remaining scalar path is a deliberate exceptional-row fallback rather
+than a performance retry.
+
 ### First forward-gate result
 
 The initial C++17/pybind prototype implements the real binary-lens map,
