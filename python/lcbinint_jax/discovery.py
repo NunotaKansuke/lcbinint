@@ -6,6 +6,10 @@ from typing import NamedTuple
 import jax
 import jax.numpy as jnp
 
+from .cpp_backend import (
+    binary_images_ffi,
+    cpp_binary_image_roots_ffi_available,
+)
 from .images import binary_images
 from .lens import binary_lens_map_real
 from .types import DiscoveryResult
@@ -18,7 +22,7 @@ class ImageSeedPoints(NamedTuple):
     root_failure: jax.Array
 
 
-@partial(jax.jit, static_argnames=("limb_samples",))
+@partial(jax.jit, static_argnames=("limb_samples", "root_backend"))
 def binary_image_seed_points(
     source_x: jax.Array,
     source_y: jax.Array,
@@ -27,9 +31,16 @@ def binary_image_seed_points(
     source_radius: jax.Array,
     *,
     limb_samples: int = 16,
+    root_backend: str = "auto",
 ) -> ImageSeedPoints:
     """Return physical centre and source-limb images as stopped-gradient seeds."""
 
+    if root_backend not in ("auto", "jax", "ffi"):
+        raise ValueError("root_backend must be 'auto', 'jax', or 'ffi'")
+    use_ffi = root_backend == "ffi" or (
+        root_backend == "auto" and cpp_binary_image_roots_ffi_available()
+    )
+    image_function = binary_images_ffi if use_ffi else binary_images
     angles = (
         2.0
         * jnp.pi
@@ -39,7 +50,7 @@ def binary_image_seed_points(
     centre = source_x + 1j * source_y
     limb = centre + source_radius * jnp.exp(1j * angles)
     sources = jnp.concatenate((jnp.reshape(centre, (1,)), limb))
-    images = jax.vmap(lambda source: binary_images(source, separation, mass_ratio))(
+    images = jax.vmap(lambda source: image_function(source, separation, mass_ratio))(
         sources
     )
     physical_counts = jnp.sum(images.physical, axis=1)
@@ -81,7 +92,12 @@ def _tile_has_inside_probe(
 
 @partial(
     jax.jit,
-    static_argnames=("tile_size", "tile_capacity", "limb_samples"),
+    static_argnames=(
+        "tile_size",
+        "tile_capacity",
+        "limb_samples",
+        "root_backend",
+    ),
 )
 def discover_binary_macro_tiles(
     source_x: jax.Array,
@@ -94,6 +110,7 @@ def discover_binary_macro_tiles(
     tile_size: int = 16,
     tile_capacity: int = 1024,
     limb_samples: int = 16,
+    root_backend: str = "auto",
 ) -> DiscoveryResult:
     """Discover a one-tile halo around connected finite-source images."""
 
@@ -106,6 +123,7 @@ def discover_binary_macro_tiles(
         mass_ratio,
         source_radius,
         limb_samples=limb_samples,
+        root_backend=root_backend,
     )
     safe_seed_real = jnp.where(seeds.physical, jnp.real(seeds.roots), 0.0)
     safe_seed_imag = jnp.where(seeds.physical, jnp.imag(seeds.roots), 0.0)

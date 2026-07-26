@@ -80,6 +80,7 @@ def jax_curve(source_x, source_y, separation=SEPARATION, backend="jax"):
         0.0,
         moment_mode="linear",
         cartesian_backend=backend,
+        root_backend=backend,
     )
 
 

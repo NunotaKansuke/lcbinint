@@ -16,8 +16,10 @@ from .multipole import (
 from .convergence import binary_inverse_ray_convergence
 from .cpp_backend import (
     CppFixedSupportResult,
+    binary_images_ffi,
     binary_inverse_ray_fixed_support_cpp,
     binary_inverse_ray_fixed_support_ffi,
+    cpp_binary_image_roots_ffi_available,
     cpp_fixed_support_ffi_available,
     cpp_macro_tile_discovery_ffi_available,
     discover_binary_macro_tiles_ffi,
@@ -56,6 +58,7 @@ __all__ = [
     "SourcePlaneQuadratureResult",
     "TrajectoryMagnificationResult",
     "binary_hexadecapole",
+    "binary_images_ffi",
     "binary_magnification_auto",
     "binary_magnification_trajectory",
     "binary_point_source_magnification",
@@ -70,6 +73,7 @@ __all__ = [
     "binary_inverse_ray_polar",
     "binary_inverse_ray_uniform",
     "combine_limb_darkening_moments",
+    "cpp_binary_image_roots_ffi_available",
     "cpp_fixed_support_ffi_available",
     "cpp_macro_tile_discovery_ffi_available",
     "discover_binary_macro_tiles",

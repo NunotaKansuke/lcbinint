@@ -28,11 +28,23 @@ def _surface_brightness(radius_squared, limb_c, limb_d):
     return (1.0 - limb_c - limb_d) + limb_c * mu + limb_d * jnp.sqrt(mu)
 
 
-def _point_samples(source_x, source_y, separation, mass_ratio):
+def _point_samples(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    root_backend,
+):
     flat_x = jnp.ravel(source_x)
     flat_y = jnp.ravel(source_y)
     return jax.vmap(
-        lambda x, y: binary_point_source_magnification(x, y, separation, mass_ratio)
+        lambda x, y: binary_point_source_magnification(
+            x,
+            y,
+            separation,
+            mass_ratio,
+            root_backend=root_backend,
+        )
     )(flat_x, flat_y)
 
 
@@ -47,6 +59,7 @@ def _ring_quadrature(
     *,
     radial_bins,
     angular_bins,
+    root_backend,
 ):
     dtype = jnp.result_type(source_x, source_y, separation, mass_ratio, source_radius)
     radius_squared = (
@@ -56,7 +69,13 @@ def _ring_quadrature(
     angle = 2.0 * jnp.pi * (jnp.arange(angular_bins, dtype=dtype) + 0.5) / angular_bins
     sample_x = source_x + source_radius * radius[:, None] * jnp.cos(angle)[None, :]
     sample_y = source_y + source_radius * radius[:, None] * jnp.sin(angle)[None, :]
-    points = _point_samples(sample_x, sample_y, separation, mass_ratio)
+    points = _point_samples(
+        sample_x,
+        sample_y,
+        separation,
+        mass_ratio,
+        root_backend,
+    )
     magnifications = points.magnification.reshape((radial_bins, angular_bins))
     brightness = _surface_brightness(radius_squared, limb_c, limb_d)
     ring_mean = jnp.mean(magnifications, axis=1)
@@ -76,6 +95,7 @@ def _chord_quadrature(
     limb_d,
     *,
     order,
+    root_backend,
 ):
     nodes_np, weights_np = np.polynomial.legendre.leggauss(order)
     dtype = jnp.result_type(source_x, source_y, separation, mass_ratio, source_radius)
@@ -86,7 +106,13 @@ def _chord_quadrature(
     xi = half_chord * nodes[None, :]
     sample_x = source_x + source_radius * xi
     sample_y = source_y + source_radius * jnp.broadcast_to(eta, xi.shape)
-    points = _point_samples(sample_x, sample_y, separation, mass_ratio)
+    points = _point_samples(
+        sample_x,
+        sample_y,
+        separation,
+        mass_ratio,
+        root_backend,
+    )
     magnifications = points.magnification.reshape((order, order))
     radius_squared = xi * xi + eta * eta
     brightness = _surface_brightness(radius_squared, limb_c, limb_d)
@@ -104,6 +130,7 @@ def _chord_quadrature(
         "coarse_order",
         "fine_order",
         "angular_multiplier",
+        "root_backend",
     ),
 )
 def binary_source_plane_quadrature(
@@ -121,6 +148,7 @@ def binary_source_plane_quadrature(
     angular_multiplier=4,
     absolute_tolerance=1.0e-4,
     relative_tolerance=1.0e-4,
+    root_backend="auto",
 ) -> SourcePlaneQuadratureResult:
     """Integrate point-source magnification over the source disk.
 
@@ -147,6 +175,7 @@ def binary_source_plane_quadrature(
             limb_d,
             radial_bins=coarse_order,
             angular_bins=angular_multiplier * coarse_order,
+            root_backend=root_backend,
         )
         fine, fine_failure = _ring_quadrature(
             source_x,
@@ -158,6 +187,7 @@ def binary_source_plane_quadrature(
             limb_d,
             radial_bins=fine_order,
             angular_bins=angular_multiplier * fine_order,
+            root_backend=root_backend,
         )
         sample_count = angular_multiplier * (
             coarse_order * coarse_order + fine_order * fine_order
@@ -173,6 +203,7 @@ def binary_source_plane_quadrature(
             limb_c,
             limb_d,
             order=coarse_order,
+            root_backend=root_backend,
         )
         fine, fine_failure = _chord_quadrature(
             source_x,
@@ -183,6 +214,7 @@ def binary_source_plane_quadrature(
             limb_c,
             limb_d,
             order=fine_order,
+            root_backend=root_backend,
         )
         sample_count = coarse_order * coarse_order + fine_order * fine_order
         used_chord = True

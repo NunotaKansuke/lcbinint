@@ -36,6 +36,7 @@ from .types import TrajectoryMagnificationResult
         "expanded_fine_tile_capacity",
         "expanded_limb_samples",
         "cartesian_backend",
+        "root_backend",
     ),
 )
 def _binary_magnification_trajectory(
@@ -78,6 +79,7 @@ def _binary_magnification_trajectory(
     expanded_fine_tile_capacity,
     expanded_limb_samples,
     cartesian_backend,
+    root_backend,
 ):
     def evaluate_epoch(position):
         return binary_magnification_auto(
@@ -119,6 +121,7 @@ def _binary_magnification_trajectory(
             expanded_limb_samples=expanded_limb_samples,
             moment_mode=moment_mode,
             cartesian_backend=cartesian_backend,
+            root_backend=root_backend,
         )
 
     result = jax.lax.map(evaluate_epoch, (source_x, source_y))
@@ -186,6 +189,7 @@ def binary_magnification_trajectory(
     expanded_fine_tile_capacity=16384,
     expanded_limb_samples=32,
     cartesian_backend="auto",
+    root_backend="auto",
 ):
     """Evaluate a one-dimensional trajectory with per-epoch conditionals.
 
@@ -243,4 +247,5 @@ def binary_magnification_trajectory(
         expanded_fine_tile_capacity=expanded_fine_tile_capacity,
         expanded_limb_samples=expanded_limb_samples,
         cartesian_backend=cartesian_backend,
+        root_backend=root_backend,
     )

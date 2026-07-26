@@ -13,10 +13,11 @@ from .cpp_backend import (
     discover_binary_macro_tiles_ffi,
 )
 from .discovery import discover_binary_macro_tiles
-from .images import binary_images
 from .integrate import binary_inverse_ray_fixed_support
-from .lens import binary_lens_map_and_derivatives_real
-from .multipole import binary_hexadecapole
+from .multipole import (
+    binary_hexadecapole,
+    binary_point_source_magnification,
+)
 from .polar import binary_inverse_ray_polar
 from .source_plane import binary_source_plane_quadrature
 from .types import (
@@ -56,6 +57,7 @@ def _binary_inverse_ray(
     kernel,
     moment_mode,
     cartesian_backend,
+    root_backend,
 ):
     cell_size = jax.lax.stop_gradient(source_radius / resolution)
     use_ffi = _use_ffi_cartesian_backend(cartesian_backend, kernel)
@@ -74,6 +76,7 @@ def _binary_inverse_ray(
         tile_size=tile_size,
         tile_capacity=tile_capacity,
         limb_samples=limb_samples,
+        root_backend=root_backend,
     )
     if use_ffi:
         integrated = binary_inverse_ray_fixed_support_ffi(
@@ -142,18 +145,16 @@ def _point_source_magnification(
     source_y,
     separation,
     mass_ratio,
+    root_backend,
 ):
-    images = binary_images(source_x + 1j * source_y, separation, mass_ratio)
-    _, _, du_dx, du_dy, dv_dx, dv_dy = binary_lens_map_and_derivatives_real(
-        jnp.real(images.roots),
-        jnp.imag(images.roots),
-        separation,
-        mass_ratio,
-    )
-    determinant = du_dx * dv_dy - du_dy * dv_dx
-    safe = images.physical & (jnp.abs(determinant) > 1.0e-14)
     return jax.lax.stop_gradient(
-        jnp.sum(jnp.where(safe, 1.0 / jnp.abs(determinant), 0.0))
+        binary_point_source_magnification(
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            root_backend=root_backend,
+        ).magnification
     )
 
 
@@ -165,6 +166,7 @@ def _point_source_magnification(
         "limb_samples",
         "kernel",
         "cartesian_backend",
+        "root_backend",
     ),
 )
 def binary_inverse_ray(
@@ -182,6 +184,7 @@ def binary_inverse_ray(
     limb_samples=16,
     kernel="real",
     cartesian_backend="auto",
+    root_backend="auto",
 ):
     """Discover image support and integrate a finite binary-lens source."""
 
@@ -201,6 +204,7 @@ def binary_inverse_ray(
         kernel=kernel,
         moment_mode="two_coefficient",
         cartesian_backend=cartesian_backend,
+        root_backend=root_backend,
     )
 
 
@@ -212,6 +216,7 @@ def binary_inverse_ray(
         "limb_samples",
         "kernel",
         "cartesian_backend",
+        "root_backend",
     ),
 )
 def binary_inverse_ray_uniform(
@@ -227,6 +232,7 @@ def binary_inverse_ray_uniform(
     limb_samples=16,
     kernel="real",
     cartesian_backend="auto",
+    root_backend="auto",
 ):
     """Specialized inverse-ray path for a uniform source."""
 
@@ -246,6 +252,7 @@ def binary_inverse_ray_uniform(
         kernel=kernel,
         moment_mode="uniform",
         cartesian_backend=cartesian_backend,
+        root_backend=root_backend,
     )
 
 
@@ -257,6 +264,7 @@ def binary_inverse_ray_uniform(
         "limb_samples",
         "kernel",
         "cartesian_backend",
+        "root_backend",
     ),
 )
 def binary_inverse_ray_linear(
@@ -273,6 +281,7 @@ def binary_inverse_ray_linear(
     limb_samples=16,
     kernel="real",
     cartesian_backend="auto",
+    root_backend="auto",
 ):
     """Specialized inverse-ray path for linear limb darkening."""
 
@@ -292,6 +301,7 @@ def binary_inverse_ray_linear(
         kernel=kernel,
         moment_mode="linear",
         cartesian_backend=cartesian_backend,
+        root_backend=root_backend,
     )
 
 
@@ -310,6 +320,7 @@ def binary_inverse_ray_linear(
         "polar_angular_chunk_size",
         "moment_mode",
         "cartesian_backend",
+        "root_backend",
     ),
 )
 def binary_inverse_ray_auto(
@@ -338,6 +349,7 @@ def binary_inverse_ray_auto(
     polar_fallback_on_overflow=True,
     moment_mode="two_coefficient",
     cartesian_backend="auto",
+    root_backend="auto",
 ):
     """Automatically dispatch between Cartesian and polar inverse rays.
 
@@ -369,6 +381,7 @@ def binary_inverse_ray_auto(
             angular_chunk_size=polar_angular_chunk_size,
             kernel=kernel,
             moment_mode=moment_mode,
+            root_backend=root_backend,
         )
         return _auto_result(result, True)
 
@@ -390,6 +403,7 @@ def binary_inverse_ray_auto(
             tile_size=tile_size,
             tile_capacity=tile_capacity,
             limb_samples=limb_samples,
+            root_backend=root_backend,
         )
 
         def fallback(_):
@@ -444,6 +458,7 @@ def binary_inverse_ray_auto(
         source_y,
         separation,
         mass_ratio,
+        root_backend,
     )
     preselect_polar = (
         (point_magnification >= polar_magnification_threshold)
@@ -485,6 +500,7 @@ def binary_inverse_ray_auto(
         "expanded_fine_tile_capacity",
         "expanded_limb_samples",
         "cartesian_backend",
+        "root_backend",
     ),
 )
 def binary_magnification_auto(
@@ -527,6 +543,7 @@ def binary_magnification_auto(
     expanded_limb_samples=32,
     moment_mode="two_coefficient",
     cartesian_backend="auto",
+    root_backend="auto",
 ):
     """Dispatch safely-far epochs to a differentiable hexadecapole expansion.
 
@@ -550,6 +567,7 @@ def binary_magnification_auto(
         source_radius,
         limb_c,
         limb_d,
+        root_backend=root_backend,
     )
     budget = absolute_tolerance + relative_tolerance * jnp.maximum(
         jnp.abs(hexadecapole.magnification), 1.0
@@ -620,6 +638,7 @@ def binary_magnification_auto(
             polar_fallback_on_overflow=polar_fallback_on_overflow,
             moment_mode=moment_mode,
             cartesian_backend=cartesian_backend,
+            root_backend=root_backend,
         )
 
         def image_plane_result(_):
@@ -649,6 +668,7 @@ def binary_magnification_auto(
                 angular_multiplier=source_plane_angular_multiplier,
                 absolute_tolerance=absolute_tolerance,
                 relative_tolerance=relative_tolerance,
+                root_backend=root_backend,
             )
             valid = source_plane.converged
 
@@ -692,6 +712,7 @@ def binary_magnification_auto(
                     kernel=kernel,
                     moment_mode=moment_mode,
                     cartesian_backend=cartesian_backend,
+                    root_backend=root_backend,
                 )
                 fine = _binary_inverse_ray(
                     source_x,
@@ -708,6 +729,7 @@ def binary_magnification_auto(
                     kernel=kernel,
                     moment_mode=moment_mode,
                     cartesian_backend=cartesian_backend,
+                    root_backend=root_backend,
                 )
                 error = jnp.abs(fine.magnification - coarse.magnification)
                 retry_budget = absolute_tolerance + relative_tolerance * jnp.maximum(

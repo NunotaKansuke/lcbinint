@@ -3,6 +3,7 @@ import math
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 from lcbinint_jax import (
     binary_hexadecapole,
@@ -11,6 +12,55 @@ from lcbinint_jax import (
 )
 
 jax.config.update("jax_enable_x64", True)
+
+
+def _require_root_ffi():
+    from lcbinint import _native
+
+    if not hasattr(_native._jax_ir, "binary_image_roots_ffi"):
+        pytest.skip("lcbinint was built without binary-image root FFI support")
+
+
+def test_point_source_root_ffi_matches_jax_value_and_gradient():
+    _require_root_ffi()
+    parameters = jnp.asarray((0.2, 0.1, 1.2, 0.1))
+
+    def evaluate(active, backend):
+        return binary_point_source_magnification(
+            *active,
+            root_backend=backend,
+        ).magnification
+
+    pure_value, pure_gradient = jax.value_and_grad(evaluate)(parameters, "jax")
+    ffi_value, ffi_gradient = jax.value_and_grad(evaluate)(parameters, "ffi")
+    np.testing.assert_allclose(ffi_value, pure_value, rtol=2.0e-12, atol=2.0e-12)
+    np.testing.assert_allclose(
+        ffi_gradient,
+        pure_gradient,
+        rtol=2.0e-10,
+        atol=2.0e-10,
+    )
+
+
+def test_hexadecapole_root_ffi_matches_jax_value_and_gradient():
+    _require_root_ffi()
+    parameters = jnp.asarray((0.3, 0.4, 1.4, 1.0e-3, 0.01, 0.4, 0.1))
+
+    def evaluate(active, backend):
+        return binary_hexadecapole(
+            *active,
+            root_backend=backend,
+        ).magnification
+
+    pure_value, pure_gradient = jax.value_and_grad(evaluate)(parameters, "jax")
+    ffi_value, ffi_gradient = jax.value_and_grad(evaluate)(parameters, "ffi")
+    np.testing.assert_allclose(ffi_value, pure_value, rtol=2.0e-11, atol=2.0e-11)
+    np.testing.assert_allclose(
+        ffi_gradient,
+        pure_gradient,
+        rtol=2.0e-9,
+        atol=2.0e-9,
+    )
 
 
 def test_point_source_implicit_gradient_matches_finite_difference():

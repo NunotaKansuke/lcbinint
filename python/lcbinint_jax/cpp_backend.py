@@ -18,6 +18,8 @@ from .types import FixedSupportResult
 _FFI_FORWARD_TARGET = "lcbinint_jax_fixed_support_forward_f64_v1"
 _FFI_VALUE_JACOBIAN_TARGET = "lcbinint_jax_fixed_support_value_jacobian_f64_v1"
 _FFI_DISCOVERY_TARGET = "lcbinint_jax_macro_tile_discovery_f64_v1"
+_FFI_BINARY_ROOT_TARGET = "lcbinint_jax_binary_image_roots_f64_v1"
+_FFI_BINARY_ROOT_JACOBIAN_TARGET = "lcbinint_jax_binary_image_roots_jacobian_f64_v1"
 _MOMENT_COUNTS = {
     "uniform": 1,
     "linear": 2,
@@ -32,6 +34,13 @@ class CppFixedSupportResult(NamedTuple):
     moments: np.ndarray
     boundary_cells: int
     active_cells: int
+
+
+class _FfiBinaryRootResult(NamedTuple):
+    coordinates: jax.Array
+    physical: jax.Array
+    residuals: jax.Array
+    converged: jax.Array
 
 
 def _native_module():
@@ -67,6 +76,21 @@ def cpp_macro_tile_discovery_ffi_available():
     try:
         native = _native_module()
         return hasattr(native._jax_ir, "macro_tile_discovery_ffi")
+    except (AttributeError, RuntimeError):
+        return False
+
+
+def cpp_binary_image_roots_ffi_available():
+    """Return whether binary-image roots and their Jacobian can run via FFI."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        jax_ir = native._jax_ir
+        return hasattr(jax_ir, "binary_image_roots_ffi") and hasattr(
+            jax_ir, "binary_image_roots_jacobian_ffi"
+        )
     except (AttributeError, RuntimeError):
         return False
 
@@ -107,6 +131,118 @@ def _register_macro_tile_discovery_ffi():
     )
 
 
+@lru_cache(maxsize=1)
+def _register_binary_image_roots_ffi():
+    native = _native_module()
+    try:
+        forward_capsule = native._jax_ir.binary_image_roots_ffi()
+        jacobian_capsule = native._jax_ir.binary_image_roots_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the binary-image root FFI; rebuild "
+            "with LCBININT_ENABLE_JAX_FFI=ON"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_BINARY_ROOT_TARGET,
+        forward_capsule,
+        platform="cpu",
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_BINARY_ROOT_JACOBIAN_TARGET,
+        jacobian_capsule,
+        platform="cpu",
+    )
+
+
+def _binary_root_output_specifications(include_jacobian):
+    outputs = (
+        jax.ShapeDtypeStruct((5, 2), jnp.float64),
+        jax.ShapeDtypeStruct((5,), jnp.bool_),
+        jax.ShapeDtypeStruct((5,), jnp.float64),
+        jax.ShapeDtypeStruct((5,), jnp.bool_),
+    )
+    if include_jacobian:
+        return outputs + (jax.ShapeDtypeStruct((5, 2, 4), jnp.float64),)
+    return outputs
+
+
+def _binary_root_ffi_call(target, scalars, *, include_jacobian):
+    return jax.ffi.ffi_call(
+        target,
+        _binary_root_output_specifications(include_jacobian),
+        vmap_method="sequential",
+    )(*scalars)
+
+
+@jax.custom_jvp
+def _binary_image_roots_ffi_transformable(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+):
+    outputs = _binary_root_ffi_call(
+        _FFI_BINARY_ROOT_TARGET,
+        (source_x, source_y, separation, mass_ratio),
+        include_jacobian=False,
+    )
+    return _FfiBinaryRootResult(*outputs)
+
+
+@_binary_image_roots_ffi_transformable.defjvp
+def _binary_image_roots_ffi_jvp(primals, tangents):
+    outputs = _binary_root_ffi_call(
+        _FFI_BINARY_ROOT_JACOBIAN_TARGET,
+        primals,
+        include_jacobian=True,
+    )
+    primal = _FfiBinaryRootResult(*outputs[:4])
+    parameter_tangent = jnp.stack(tangents)
+    coordinate_tangent = jnp.tensordot(
+        outputs[4],
+        parameter_tangent,
+        axes=1,
+    )
+    tangent = _FfiBinaryRootResult(
+        coordinates=coordinate_tangent,
+        physical=jnp.zeros_like(primal.physical, dtype=jax.dtypes.float0),
+        residuals=jnp.zeros_like(primal.residuals),
+        converged=jnp.zeros_like(primal.converged, dtype=jax.dtypes.float0),
+    )
+    return primal, tangent
+
+
+def binary_images_ffi(source, separation, mass_ratio):
+    """Solve binary-lens images with implicit root derivatives in C++."""
+
+    from .images import BinaryImages
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("the binary-image root FFI is CPU-only")
+    source = jnp.asarray(source, dtype=jnp.complex128)
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            jnp.real(source),
+            jnp.imag(source),
+            separation,
+            mass_ratio,
+        )
+    )
+    if source.ndim != 0 or any(value.ndim != 0 for value in scalars):
+        raise ValueError("source and lens parameters must be scalars")
+    _register_binary_image_roots_ffi()
+    result = _binary_image_roots_ffi_transformable(*scalars)
+    return BinaryImages(
+        roots=result.coordinates[:, 0] + 1j * result.coordinates[:, 1],
+        physical=jax.lax.stop_gradient(result.physical),
+        residuals=jax.lax.stop_gradient(result.residuals),
+        root_converged=jax.lax.stop_gradient(result.converged),
+        iterations=jnp.zeros((5,), dtype=jnp.int32),
+    )
+
+
 def discover_binary_macro_tiles_ffi(
     source_x,
     source_y,
@@ -118,6 +254,7 @@ def discover_binary_macro_tiles_ffi(
     tile_size=16,
     tile_capacity=1024,
     limb_samples=16,
+    root_backend="auto",
 ):
     """Discover stopped-gradient Cartesian support with a typed CPU FFI BFS."""
 
@@ -139,6 +276,7 @@ def discover_binary_macro_tiles_ffi(
         mass_ratio,
         source_radius,
         limb_samples=limb_samples,
+        root_backend=root_backend,
     )
     seed_coordinates = jnp.stack(
         (jnp.real(seeds.roots), jnp.imag(seeds.roots)),

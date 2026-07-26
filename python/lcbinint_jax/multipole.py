@@ -7,6 +7,10 @@ import jax
 import jax.numpy as jnp
 
 from ._config import require_x64
+from .cpp_backend import (
+    binary_images_ffi,
+    cpp_binary_image_roots_ffi_available,
+)
 from .images import binary_images
 from .lens import (
     binary_lens_map_and_derivatives_real,
@@ -44,19 +48,15 @@ def _differentiable_binary_image_roots_jvp(primals, tangents):
     solved = binary_images(source, separation, mass_ratio)
     roots = solved.roots
 
-    _, _, du_dx, du_dy, dv_dx, dv_dy = (
-        binary_lens_map_and_derivatives_real(
-            jnp.real(roots),
-            jnp.imag(roots),
-            separation,
-            mass_ratio,
-        )
+    _, _, du_dx, du_dy, dv_dx, dv_dy = binary_lens_map_and_derivatives_real(
+        jnp.real(roots),
+        jnp.imag(roots),
+        separation,
+        mass_ratio,
     )
 
     def map_at_fixed_roots(active_separation, active_mass_ratio):
-        mapped = binary_lens_map_complex(
-            roots, active_separation, active_mass_ratio
-        )
+        mapped = binary_lens_map_complex(roots, active_separation, active_mass_ratio)
         return jnp.stack((jnp.real(mapped), jnp.imag(mapped)), axis=-1)
 
     _, parameter_map_dot = jax.jvp(
@@ -80,33 +80,42 @@ def binary_point_source_magnification(
     source_y,
     separation,
     mass_ratio,
+    *,
+    root_backend="auto",
 ) -> PointSourceResult:
     """Return point-source magnification with implicit root derivatives."""
 
     require_x64()
+    if root_backend not in ("auto", "jax", "ffi"):
+        raise ValueError("root_backend must be 'auto', 'jax', or 'ffi'")
     source = source_x + 1j * source_y
-    roots = _differentiable_binary_image_roots(
-        source, separation, mass_ratio
+    use_ffi = root_backend == "ffi" or (
+        root_backend == "auto" and cpp_binary_image_roots_ffi_available()
+    )
+    ffi_images = binary_images_ffi(source, separation, mass_ratio) if use_ffi else None
+    roots = (
+        ffi_images.roots
+        if use_ffi
+        else _differentiable_binary_image_roots(source, separation, mass_ratio)
     )
     mapped = binary_lens_map_complex(roots, separation, mass_ratio)
     residuals = jnp.abs(mapped - source)
-    physical = jax.lax.stop_gradient(
-        jnp.isfinite(residuals)
-        & (residuals <= 1.0e-9 * (1.0 + jnp.abs(source)))
-    )
-    _, _, du_dx, du_dy, dv_dx, dv_dy = (
-        binary_lens_map_and_derivatives_real(
-            jnp.real(roots),
-            jnp.imag(roots),
-            separation,
-            mass_ratio,
+    physical = (
+        ffi_images.physical
+        if use_ffi
+        else jax.lax.stop_gradient(
+            jnp.isfinite(residuals) & (residuals <= 1.0e-9 * (1.0 + jnp.abs(source)))
         )
+    )
+    _, _, du_dx, du_dy, dv_dx, dv_dy = binary_lens_map_and_derivatives_real(
+        jnp.real(roots),
+        jnp.imag(roots),
+        separation,
+        mass_ratio,
     )
     determinant = du_dx * dv_dy - du_dy * dv_dx
     safe = physical & (jnp.abs(determinant) > 1.0e-14)
-    magnification = jnp.sum(
-        jnp.where(safe, 1.0 / jnp.abs(determinant), 0.0)
-    )
+    magnification = jnp.sum(jnp.where(safe, 1.0 / jnp.abs(determinant), 0.0))
     image_count = jnp.sum(physical, dtype=jnp.int32)
     return PointSourceResult(
         magnification=magnification,
@@ -116,7 +125,7 @@ def binary_point_source_magnification(
     )
 
 
-@partial(jax.jit, static_argnames=())
+@partial(jax.jit, static_argnames=("root_backend",))
 def binary_hexadecapole(
     source_x,
     source_y,
@@ -125,13 +134,13 @@ def binary_hexadecapole(
     source_radius,
     limb_c=0.0,
     limb_d=0.0,
+    *,
+    root_backend="auto",
 ) -> HexadecapoleResult:
     """Thirteen-point finite-source expansion used by native ``lcbinint``."""
 
     require_x64()
-    dtype = jnp.result_type(
-        source_x, source_y, separation, mass_ratio, source_radius
-    )
+    dtype = jnp.result_type(source_x, source_y, separation, mass_ratio, source_radius)
     sqrt_half = jnp.asarray(jnp.sqrt(0.5), dtype=dtype)
     cardinal_x = jnp.asarray((1.0, 0.0, -1.0, 0.0), dtype=dtype)
     cardinal_y = jnp.asarray((0.0, 1.0, 0.0, -1.0), dtype=dtype)
@@ -163,6 +172,7 @@ def binary_hexadecapole(
             source_y + dy,
             separation,
             mass_ratio,
+            root_backend=root_backend,
         )
     )(offsets_x, offsets_y)
     a0 = samples.magnification[0]
@@ -174,20 +184,12 @@ def binary_hexadecapole(
 
     denominator = 15.0 - 5.0 * limb_c - 3.0 * limb_d
     gamma = jnp.where(denominator != 0.0, 10.0 * limb_c / denominator, 0.0)
-    lambda_coefficient = jnp.where(
-        denominator != 0.0, 12.0 * limb_d / denominator, 0.0
-    )
+    lambda_coefficient = jnp.where(denominator != 0.0, 12.0 * limb_d / denominator, 0.0)
     quadrupole_correction = (
         0.5 * a2rho2 * (1.0 - 0.2 * gamma - lambda_coefficient / 9.0)
     )
     hexadecapole_correction = (
-        a4rho4
-        / 3.0
-        * (
-            1.0
-            - 11.0 * gamma / 35.0
-            - 7.0 * lambda_coefficient / 39.0
-        )
+        a4rho4 / 3.0 * (1.0 - 11.0 * gamma / 35.0 - 7.0 * lambda_coefficient / 39.0)
     )
     magnification = a0 + quadrupole_correction + hexadecapole_correction
     image_counts = samples.image_count

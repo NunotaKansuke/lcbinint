@@ -13,7 +13,10 @@ from .limb_darkening import combine_limb_darkening_moments
 from .types import InverseRayResult, PolarSupportResult
 
 
-@partial(jax.jit, static_argnames=("limb_samples", "band_capacity"))
+@partial(
+    jax.jit,
+    static_argnames=("limb_samples", "band_capacity", "root_backend"),
+)
 def discover_binary_polar_bands(
     source_x,
     source_y,
@@ -24,6 +27,7 @@ def discover_binary_polar_bands(
     limb_samples=16,
     band_capacity=16,
     padding_factor=0.25,
+    root_backend="auto",
 ):
     """Merge physical centre/limb image radii into disjoint radial bands."""
 
@@ -34,6 +38,7 @@ def discover_binary_polar_bands(
         mass_ratio,
         source_radius,
         limb_samples=limb_samples,
+        root_backend=root_backend,
     )
     radii = jnp.abs(seeds.roots)
     padding = jax.lax.stop_gradient(padding_factor * source_radius)
@@ -113,6 +118,7 @@ def discover_binary_polar_bands(
         "angular_chunk_size",
         "boundary_capacity",
         "boundary_subdivision",
+        "root_backend",
     ),
 )
 def binary_inverse_ray_polar(
@@ -136,6 +142,7 @@ def binary_inverse_ray_polar(
     boundary_subdivision=2,
     kernel="real",
     moment_mode="two_coefficient",
+    root_backend="auto",
 ):
     """Integrate image-informed radial bands on a polar image-plane grid."""
 
@@ -160,6 +167,7 @@ def binary_inverse_ray_polar(
         limb_samples=limb_samples,
         band_capacity=band_capacity,
         padding_factor=padding_factor,
+        root_backend=root_backend,
     )
     seeds = binary_image_seed_points(
         source_x,
@@ -168,6 +176,7 @@ def binary_inverse_ray_polar(
         mass_ratio,
         source_radius,
         limb_samples=limb_samples,
+        root_backend=root_backend,
     )
     seed_radii = jax.lax.stop_gradient(jnp.abs(seeds.roots))
     seed_angles = jax.lax.stop_gradient(jnp.angle(seeds.roots))

@@ -3,11 +3,19 @@ import jax.numpy as jnp
 import numpy as np
 import pytest
 
+from lcbinint_jax import binary_images_ffi
 from lcbinint_jax.images import binary_images
 from lcbinint_jax.polynomial import (
     binary_lens_polynomial_coefficients,
     binary_lens_polynomial_roots,
 )
+
+
+def _require_root_ffi():
+    from lcbinint import _native
+
+    if not hasattr(_native._jax_ir, "binary_image_roots_ffi"):
+        pytest.skip("lcbinint was built without binary-image root FFI support")
 
 
 @pytest.mark.parametrize(
@@ -63,3 +71,29 @@ def test_source_limb_roots_vectorize_with_static_shape():
     assert images.roots.shape == (16, 5)
     assert images.physical.shape == (16, 5)
     assert jnp.all(jnp.sum(images.physical, axis=1) >= 3)
+
+
+@pytest.mark.parametrize(
+    "source,separation,mass_ratio",
+    (
+        (0.2 + 0.1j, 1.2, 0.1),
+        (-0.04 + 0.004j, 0.98, 1.0e-5),
+        (0.0 + 0.0j, 1.0, 1.0),
+        (2.4 + 0.21j, 2.5, 1.0e-5),
+    ),
+)
+def test_binary_image_root_ffi_matches_jax_physical_root_set(
+    source,
+    separation,
+    mass_ratio,
+):
+    _require_root_ffi()
+    pure = binary_images(source, separation, mass_ratio)
+    ffi = binary_images_ffi(source, separation, mass_ratio)
+    pure_roots = np.asarray(pure.roots)[np.asarray(pure.physical)]
+    ffi_roots = np.asarray(ffi.roots)[np.asarray(ffi.physical)]
+    assert ffi_roots.shape == pure_roots.shape
+    distances = np.abs(ffi_roots[:, None] - pure_roots[None, :])
+    assert np.max(np.min(distances, axis=0)) < 2.0e-11
+    assert np.max(np.min(distances, axis=1)) < 2.0e-11
+    assert np.max(np.asarray(ffi.residuals)[np.asarray(ffi.physical)]) < 1.0e-9

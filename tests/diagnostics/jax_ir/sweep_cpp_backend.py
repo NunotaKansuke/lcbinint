@@ -15,8 +15,10 @@ jax.config.update("jax_enable_x64", True)
 
 import lcbinint  # noqa: E402
 from lcbinint_jax import (  # noqa: E402
+    binary_hexadecapole,
     binary_inverse_ray_fixed_support,
     binary_inverse_ray_fixed_support_ffi,
+    binary_point_source_magnification,
     discover_binary_macro_tiles,
     discover_binary_macro_tiles_ffi,
 )
@@ -140,10 +142,68 @@ def compiled_evaluators(moment_mode, boundary_subdivision):
     )
 
 
+def compiled_point_evaluator(root_backend):
+    def evaluate(parameters):
+        result = binary_point_source_magnification(
+            *parameters,
+            root_backend=root_backend,
+        )
+        return result.magnification, (result.image_count, result.root_failure)
+
+    return jax.jit(jax.value_and_grad(evaluate, has_aux=True))
+
+
+def compiled_hex_evaluator(root_backend):
+    def evaluate(parameters):
+        result = binary_hexadecapole(
+            *parameters,
+            root_backend=root_backend,
+        )
+        diagnostics = (
+            result.point_magnification,
+            result.quadrupole_correction,
+            result.hexadecapole_correction,
+            result.estimated_error,
+            result.topology_stable,
+            result.root_failure,
+        )
+        return result.magnification, diagnostics
+
+    return jax.jit(jax.value_and_grad(evaluate, has_aux=True))
+
+
 def within_budget(actual, expected, absolute, relative):
     budget = absolute + relative * np.maximum(np.abs(expected), 1.0)
     error = np.abs(actual - expected)
     return bool(np.all(error <= budget)), float(np.max(error / budget))
+
+
+def discovery_signature(discovery):
+    indices = np.asarray(discovery.tile_indices)
+    mask = np.asarray(discovery.tile_mask)
+    active = np.asarray(discovery.active_mask)
+    visited_tiles = {(int(index[0]), int(index[1])) for index in indices[mask]}
+    active_tiles = {(int(index[0]), int(index[1])) for index in indices[mask & active]}
+    return (
+        visited_tiles,
+        active_tiles,
+        bool(discovery.overflow),
+        int(discovery.visited_count),
+        int(discovery.active_count),
+        int(discovery.seed_count),
+        bool(discovery.root_failure),
+    )
+
+
+def discoveries_equivalent(pure, ffi):
+    failure_flags_match = bool(pure.overflow) == bool(ffi.overflow) and bool(
+        pure.root_failure
+    ) == bool(ffi.root_failure)
+    if not failure_flags_match:
+        return False
+    if bool(pure.overflow) or bool(pure.root_failure):
+        return True
+    return discovery_signature(pure) == discovery_signature(ffi)
 
 
 def run(args):
@@ -152,10 +212,39 @@ def run(args):
         profile: compiled_evaluators(moment_mode, subdivision)
         for profile, (_, _, moment_mode, subdivision) in PROFILES.items()
     }
+    point_evaluators = (
+        compiled_point_evaluator("jax"),
+        compiled_point_evaluator("ffi"),
+    )
+    hex_evaluators = (
+        compiled_hex_evaluator("jax"),
+        compiled_hex_evaluator("ffi"),
+    )
     rows = []
     for case_index, case in enumerate(cases):
         branches = caustic_branches(case, args.caustic_bins)
         for point_name, point in source_points(case, branches):
+            point_parameters = jnp.asarray(
+                (point[0], point[1], case.separation, case.mass_ratio)
+            )
+            pure_point, pure_point_gradient = point_evaluators[0](point_parameters)
+            ffi_point, ffi_point_gradient = point_evaluators[1](point_parameters)
+            point_value_passes, point_value_ratio = within_budget(
+                np.asarray(ffi_point[0]),
+                np.asarray(pure_point[0]),
+                2.0e-10,
+                2.0e-10,
+            )
+            point_gradient_passes, point_gradient_ratio = within_budget(
+                np.asarray(ffi_point_gradient),
+                np.asarray(pure_point_gradient),
+                2.0e-7,
+                2.0e-7,
+            )
+            point_diagnostics_match = all(
+                np.array_equal(np.asarray(ffi), np.asarray(pure))
+                for ffi, pure in zip(ffi_point[1], pure_point[1])
+            )
             cell_size = case.source_radius / args.resolution
             discovery = discover_binary_macro_tiles(
                 point[0],
@@ -167,6 +256,7 @@ def run(args):
                 tile_size=16,
                 tile_capacity=args.tile_capacity,
                 limb_samples=args.limb_samples,
+                root_backend="jax",
             )
             ffi_discovery = discover_binary_macro_tiles_ffi(
                 point[0],
@@ -178,19 +268,21 @@ def run(args):
                 tile_size=16,
                 tile_capacity=args.tile_capacity,
                 limb_samples=args.limb_samples,
+                root_backend="ffi",
             )
             jax.block_until_ready(discovery.tile_origins)
             jax.block_until_ready(ffi_discovery.tile_origins)
-            discovery_matches = all(
-                np.array_equal(
-                    np.asarray(getattr(discovery, field)),
-                    np.asarray(getattr(ffi_discovery, field)),
-                )
-                for field in discovery._fields
+            discovery_matches = discoveries_equivalent(
+                discovery,
+                ffi_discovery,
             )
-            support_valid = not (
+            pure_support_valid = not (
                 bool(discovery.overflow) or bool(discovery.root_failure)
             )
+            ffi_support_valid = not (
+                bool(ffi_discovery.overflow) or bool(ffi_discovery.root_failure)
+            )
+            support_valid = pure_support_valid and ffi_support_valid
             for profile, (limb_c, limb_d, _, _) in PROFILES.items():
                 row = {
                     "case": case_index,
@@ -204,7 +296,56 @@ def run(args):
                     "support_valid": support_valid,
                     "tile_count": int(discovery.visited_count),
                     "discovery_matches": discovery_matches,
+                    "point_value_passes": point_value_passes,
+                    "point_gradient_passes": point_gradient_passes,
+                    "point_diagnostics_match": point_diagnostics_match,
+                    "point_value_max_budget_ratio": point_value_ratio,
+                    "point_gradient_max_budget_ratio": point_gradient_ratio,
                 }
+                hex_parameters = jnp.asarray(
+                    (
+                        point[0],
+                        point[1],
+                        case.separation,
+                        case.mass_ratio,
+                        case.source_radius,
+                        limb_c,
+                        limb_d,
+                    )
+                )
+                pure_hex, pure_hex_gradient = hex_evaluators[0](hex_parameters)
+                ffi_hex, ffi_hex_gradient = hex_evaluators[1](hex_parameters)
+                hex_value_passes, hex_value_ratio = within_budget(
+                    np.asarray(ffi_hex[0]),
+                    np.asarray(pure_hex[0]),
+                    2.0e-9,
+                    2.0e-9,
+                )
+                hex_gradient_passes, hex_gradient_ratio = within_budget(
+                    np.asarray(ffi_hex_gradient),
+                    np.asarray(pure_hex_gradient),
+                    2.0e-6,
+                    2.0e-6,
+                )
+                hex_diagnostics_match = all(
+                    np.allclose(
+                        np.asarray(ffi),
+                        np.asarray(pure),
+                        rtol=2.0e-9,
+                        atol=2.0e-9,
+                        equal_nan=True,
+                    )
+                    for ffi, pure in zip(ffi_hex[1], pure_hex[1])
+                )
+                row.update(
+                    {
+                        "hex_value_passes": hex_value_passes,
+                        "hex_gradient_passes": hex_gradient_passes,
+                        "hex_diagnostics_match": hex_diagnostics_match,
+                        "hex_value_max_budget_ratio": hex_value_ratio,
+                        "hex_gradient_max_budget_ratio": hex_gradient_ratio,
+                    }
+                )
                 if not support_valid:
                     rows.append(row)
                     continue
@@ -231,21 +372,57 @@ def run(args):
                         -0.05,
                     )
                 )
-                origins = discovery.tile_origins
-                mask = discovery.tile_mask
                 pure, ffi = evaluators[profile]
-                pure_value = np.asarray(pure[0](origins, mask, cell_size, parameters))
-                ffi_value = np.asarray(ffi[0](origins, mask, cell_size, parameters))
+                pure_value = np.asarray(
+                    pure[0](
+                        discovery.tile_origins,
+                        discovery.tile_mask,
+                        cell_size,
+                        parameters,
+                    )
+                )
+                ffi_value = np.asarray(
+                    ffi[0](
+                        ffi_discovery.tile_origins,
+                        ffi_discovery.tile_mask,
+                        cell_size,
+                        parameters,
+                    )
+                )
                 pure_jvp = np.asarray(
-                    pure[1](origins, mask, cell_size, parameters, tangent)
+                    pure[1](
+                        discovery.tile_origins,
+                        discovery.tile_mask,
+                        cell_size,
+                        parameters,
+                        tangent,
+                    )
                 )
                 ffi_jvp = np.asarray(
-                    ffi[1](origins, mask, cell_size, parameters, tangent)
+                    ffi[1](
+                        ffi_discovery.tile_origins,
+                        ffi_discovery.tile_mask,
+                        cell_size,
+                        parameters,
+                        tangent,
+                    )
                 )
                 pure_gradient = np.asarray(
-                    pure[2](parameters, origins, mask, cell_size)
+                    pure[2](
+                        parameters,
+                        discovery.tile_origins,
+                        discovery.tile_mask,
+                        cell_size,
+                    )
                 )
-                ffi_gradient = np.asarray(ffi[2](parameters, origins, mask, cell_size))
+                ffi_gradient = np.asarray(
+                    ffi[2](
+                        parameters,
+                        ffi_discovery.tile_origins,
+                        ffi_discovery.tile_mask,
+                        cell_size,
+                    )
+                )
                 value_passes, value_ratio = within_budget(
                     ffi_value, pure_value, 2.0e-10, 2.0e-10
                 )
@@ -284,6 +461,22 @@ def run(args):
         "unsupported_rows": len(rows) - len(evaluated),
         "failures": sum(not row["passes"] for row in evaluated),
         "discovery_failures": sum(not row["discovery_matches"] for row in rows),
+        "point_failures": sum(
+            not (
+                row["point_value_passes"]
+                and row["point_gradient_passes"]
+                and row["point_diagnostics_match"]
+            )
+            for row in rows
+        ),
+        "hex_failures": sum(
+            not (
+                row["hex_value_passes"]
+                and row["hex_gradient_passes"]
+                and row["hex_diagnostics_match"]
+            )
+            for row in rows
+        ),
         "max_value_budget_ratio": max(
             (row["value_max_budget_ratio"] for row in evaluated),
             default=math.nan,
@@ -311,7 +504,12 @@ def run(args):
     if args.output is not None:
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(rendered + "\n")
-    return int(summary["failures"] != 0 or summary["discovery_failures"] != 0)
+    return int(
+        summary["failures"] != 0
+        or summary["discovery_failures"] != 0
+        or summary["point_failures"] != 0
+        or summary["hex_failures"] != 0
+    )
 
 
 def parse_args():

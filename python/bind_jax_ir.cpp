@@ -1,5 +1,7 @@
 #include "bind_jax_ir.hpp"
 
+#include "lcbinint/math/polynomial_roots.hpp"
+
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 
@@ -561,6 +563,416 @@ py::tuple fixed_support_forward(
 #ifdef LCBININT_HAS_JAX_FFI
 namespace ffi = xla::ffi;
 
+constexpr std::size_t binary_root_count = 5;
+constexpr std::size_t binary_root_parameter_count = 4;
+
+template <std::size_t LeftSize, std::size_t RightSize>
+std::array<lcbinint::Complex, LeftSize + RightSize - 1>
+convolve_polynomials(
+    const std::array<lcbinint::Complex, LeftSize>& left,
+    const std::array<lcbinint::Complex, RightSize>& right)
+{
+    std::array<lcbinint::Complex, LeftSize + RightSize - 1> result{};
+    for (std::size_t left_index = 0; left_index < LeftSize; ++left_index) {
+        for (
+            std::size_t right_index = 0;
+            right_index < RightSize;
+            ++right_index) {
+            result[left_index + right_index] +=
+                left[left_index] * right[right_index];
+        }
+    }
+    return result;
+}
+
+std::array<lcbinint::Complex, 6> binary_lens_polynomial(
+    lcbinint::Complex source,
+    double separation,
+    double mass_ratio)
+{
+    const double total_mass = 1.0 + mass_ratio;
+    const double lens_1_x = -mass_ratio / total_mass * separation;
+    const double lens_2_x = separation / total_mass;
+    const double mass_1 = 1.0 / total_mass;
+    const double mass_2 = mass_ratio / total_mass;
+    const std::array<lcbinint::Complex, 2> factor_1{
+        -lens_1_x, 1.0};
+    const std::array<lcbinint::Complex, 2> factor_2{
+        -lens_2_x, 1.0};
+    const auto denominator = convolve_polynomials(factor_1, factor_2);
+    std::array<lcbinint::Complex, 3> numerator{};
+    for (std::size_t index = 0; index < denominator.size(); ++index) {
+        numerator[index] = std::conj(source) * denominator[index];
+    }
+    numerator[0] += -mass_1 * lens_2_x - mass_2 * lens_1_x;
+    numerator[1] += mass_1 + mass_2;
+    auto conjugate_offset_1 = numerator;
+    auto conjugate_offset_2 = numerator;
+    for (std::size_t index = 0; index < denominator.size(); ++index) {
+        conjugate_offset_1[index] -= lens_1_x * denominator[index];
+        conjugate_offset_2[index] -= lens_2_x * denominator[index];
+    }
+    const std::array<lcbinint::Complex, 2> source_factor{
+        -source, 1.0};
+    auto polynomial = convolve_polynomials(
+        convolve_polynomials(source_factor, conjugate_offset_1),
+        conjugate_offset_2);
+    const auto deflection_1 =
+        convolve_polynomials(denominator, conjugate_offset_2);
+    const auto deflection_2 =
+        convolve_polynomials(denominator, conjugate_offset_1);
+    for (std::size_t index = 0; index < deflection_1.size(); ++index) {
+        polynomial[index] -=
+            mass_1 * deflection_1[index] + mass_2 * deflection_2[index];
+    }
+    return polynomial;
+}
+
+struct BinaryRootResult {
+    std::array<lcbinint::Complex, binary_root_count> roots{};
+    std::array<bool, binary_root_count> converged{};
+    std::array<bool, binary_root_count> physical{};
+    std::array<double, binary_root_count> residuals{};
+};
+
+struct LensMapAtRoot {
+    double mapped_x;
+    double mapped_y;
+    double du_dx;
+    double du_dy;
+    double dv_dx;
+    double dv_dy;
+};
+
+LensMapAtRoot binary_lens_map_at_root(
+    lcbinint::Complex root,
+    double separation,
+    double mass_ratio)
+{
+    const double image_x = root.real();
+    const double image_y = root.imag();
+    const double total_mass = 1.0 + mass_ratio;
+    const double lens_1_x = -mass_ratio / total_mass * separation;
+    const double lens_2_x = separation / total_mass;
+    const double mass_1 = 1.0 / total_mass;
+    const double mass_2 = mass_ratio / total_mass;
+    const double dx_1 = image_x - lens_1_x;
+    const double dx_2 = image_x - lens_2_x;
+    const double y_squared = image_y * image_y;
+    const double radius_1_squared = dx_1 * dx_1 + y_squared;
+    const double radius_2_squared = dx_2 * dx_2 + y_squared;
+    const double inverse_1 = 1.0 / radius_1_squared;
+    const double inverse_2 = 1.0 / radius_2_squared;
+    const double mapped_x =
+        image_x - mass_1 * dx_1 * inverse_1
+        - mass_2 * dx_2 * inverse_2;
+    const double mapped_y =
+        image_y - mass_1 * image_y * inverse_1
+        - mass_2 * image_y * inverse_2;
+    const double shear_real =
+        mass_1 * (dx_1 * dx_1 - y_squared) * inverse_1 * inverse_1
+        + mass_2 * (dx_2 * dx_2 - y_squared) * inverse_2 * inverse_2;
+    const double shear_cross =
+        2.0 * image_y
+        * (mass_1 * dx_1 * inverse_1 * inverse_1
+           + mass_2 * dx_2 * inverse_2 * inverse_2);
+    return {
+        mapped_x,
+        mapped_y,
+        1.0 + shear_real,
+        shear_cross,
+        shear_cross,
+        1.0 - shear_real,
+    };
+}
+
+BinaryRootResult solve_binary_images(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio)
+{
+    const lcbinint::Complex source{source_x, source_y};
+    const auto coefficients = binary_lens_polynomial(
+        source, separation, mass_ratio);
+    double coefficient_scale = 0.0;
+    for (const auto& coefficient : coefficients) {
+        coefficient_scale =
+            std::max(coefficient_scale, std::abs(coefficient));
+    }
+    const bool use_quartic =
+        std::abs(coefficients[5])
+        <= 1.0e-10 * std::max(coefficient_scale, 1.0e-30);
+    const std::size_t coefficient_count = use_quartic ? 5 : 6;
+    std::vector<lcbinint::Complex> active_coefficients(
+        coefficients.begin(),
+        coefficients.begin()
+            + static_cast<std::ptrdiff_t>(coefficient_count));
+    const auto solved =
+        lcbinint::math::PolynomialRootSolver().solve(active_coefficients);
+    BinaryRootResult result;
+    result.residuals.fill(std::numeric_limits<double>::infinity());
+    if (solved.status != lcbinint::math::RootSolverStatus::ok) return result;
+
+    for (
+        std::size_t index = 0;
+        index < solved.roots.size() && index < binary_root_count;
+        ++index) {
+        lcbinint::Complex root = solved.roots[index];
+        bool converged =
+            std::isfinite(root.real()) && std::isfinite(root.imag());
+        for (int polish = 0; polish < 6 && converged; ++polish) {
+            const auto mapped =
+                binary_lens_map_at_root(root, separation, mass_ratio);
+            const double residual_x = mapped.mapped_x - source_x;
+            const double residual_y = mapped.mapped_y - source_y;
+            const double determinant =
+                mapped.du_dx * mapped.dv_dy
+                - mapped.du_dy * mapped.dv_dx;
+            if (
+                !(std::abs(determinant) > 1.0e-14)
+                || !std::isfinite(determinant)) {
+                break;
+            }
+            const double delta_x =
+                (mapped.dv_dy * residual_x - mapped.du_dy * residual_y)
+                / determinant;
+            const double delta_y =
+                (-mapped.dv_dx * residual_x + mapped.du_dx * residual_y)
+                / determinant;
+            const double step_scale =
+                std::max(1.0, std::hypot(delta_x, delta_y) / 0.5);
+            root -= lcbinint::Complex(delta_x, delta_y) / step_scale;
+            converged =
+                std::isfinite(root.real()) && std::isfinite(root.imag());
+        }
+        result.roots[index] = root;
+        result.converged[index] = converged;
+        if (!converged) continue;
+        const auto mapped =
+            binary_lens_map_at_root(root, separation, mass_ratio);
+        result.residuals[index] = std::hypot(
+            mapped.mapped_x - source_x,
+            mapped.mapped_y - source_y);
+        result.physical[index] =
+            std::isfinite(result.residuals[index])
+            && result.residuals[index]
+                <= 1.0e-9 * (1.0 + std::abs(source));
+    }
+    for (std::size_t left = 0; left < binary_root_count; ++left) {
+        if (!result.physical[left]) continue;
+        for (std::size_t right = left + 1; right < binary_root_count; ++right) {
+            if (!result.physical[right]) continue;
+            const double duplicate_tolerance =
+                1.0e-8
+                * (
+                    1.0
+                    + std::max(
+                        std::abs(result.roots[left]),
+                        std::abs(result.roots[right])));
+            if (
+                std::abs(result.roots[left] - result.roots[right])
+                > duplicate_tolerance) {
+                continue;
+            }
+            if (result.residuals[right] < result.residuals[left]) {
+                result.physical[left] = false;
+                break;
+            }
+            result.physical[right] = false;
+        }
+    }
+    return result;
+}
+
+template <typename Scalar>
+std::array<Scalar, 2> binary_lens_map_at_fixed_root(
+    lcbinint::Complex root,
+    const Scalar& separation,
+    const Scalar& mass_ratio)
+{
+    const Scalar total_mass = 1.0 + mass_ratio;
+    const Scalar lens_1_x = -mass_ratio / total_mass * separation;
+    const Scalar lens_2_x = separation / total_mass;
+    const Scalar mass_1 = 1.0 / total_mass;
+    const Scalar mass_2 = mass_ratio / total_mass;
+    const double image_x = root.real();
+    const double image_y = root.imag();
+    const Scalar dx_1 = image_x - lens_1_x;
+    const Scalar dx_2 = image_x - lens_2_x;
+    const double y_squared = image_y * image_y;
+    const Scalar radius_1_squared = dx_1 * dx_1 + y_squared;
+    const Scalar radius_2_squared = dx_2 * dx_2 + y_squared;
+    return {
+        image_x - mass_1 * dx_1 / radius_1_squared
+            - mass_2 * dx_2 / radius_2_squared,
+        image_y - mass_1 * image_y / radius_1_squared
+            - mass_2 * image_y / radius_2_squared,
+    };
+}
+
+void write_binary_root_outputs(
+    const BinaryRootResult& result,
+    double* root_coordinates,
+    bool* physical,
+    double* residuals,
+    bool* converged)
+{
+    for (std::size_t index = 0; index < binary_root_count; ++index) {
+        root_coordinates[2 * index] = result.roots[index].real();
+        root_coordinates[2 * index + 1] = result.roots[index].imag();
+        physical[index] = result.physical[index];
+        residuals[index] = result.residuals[index];
+        converged[index] = result.converged[index];
+    }
+}
+
+ffi::Error validate_binary_root_outputs(
+    ffi::ResultBufferR2<ffi::F64>& roots,
+    ffi::ResultBufferR1<ffi::PRED>& physical,
+    ffi::ResultBufferR1<ffi::F64>& residuals,
+    ffi::ResultBufferR1<ffi::PRED>& converged)
+{
+    const auto root_dimensions = roots->dimensions();
+    if (
+        root_dimensions[0] != binary_root_count || root_dimensions[1] != 2
+        || physical->dimensions()[0] != binary_root_count
+        || residuals->dimensions()[0] != binary_root_count
+        || converged->dimensions()[0] != binary_root_count) {
+        return ffi::Error::InvalidArgument(
+            "binary-root outputs must have five root slots");
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error binary_image_roots_ffi_impl(
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::ResultBufferR2<ffi::F64> roots,
+    ffi::ResultBufferR1<ffi::PRED> physical,
+    ffi::ResultBufferR1<ffi::F64> residuals,
+    ffi::ResultBufferR1<ffi::PRED> converged)
+{
+    auto validation =
+        validate_binary_root_outputs(roots, physical, residuals, converged);
+    if (validation.failure()) return validation;
+    const auto result = solve_binary_images(
+        *source_x.typed_data(), *source_y.typed_data(),
+        *separation.typed_data(), *mass_ratio.typed_data());
+    write_binary_root_outputs(
+        result, roots->typed_data(), physical->typed_data(),
+        residuals->typed_data(), converged->typed_data());
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    binary_image_roots_ffi_handler,
+    binary_image_roots_ffi_impl,
+    ffi::Ffi::Bind()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>());
+
+ffi::Error binary_image_roots_jacobian_ffi_impl(
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::ResultBufferR2<ffi::F64> roots,
+    ffi::ResultBufferR1<ffi::PRED> physical,
+    ffi::ResultBufferR1<ffi::F64> residuals,
+    ffi::ResultBufferR1<ffi::PRED> converged,
+    ffi::ResultBufferR3<ffi::F64> root_jacobian)
+{
+    auto validation =
+        validate_binary_root_outputs(roots, physical, residuals, converged);
+    if (validation.failure()) return validation;
+    const auto jacobian_dimensions = root_jacobian->dimensions();
+    if (
+        jacobian_dimensions[0] != binary_root_count
+        || jacobian_dimensions[1] != 2
+        || jacobian_dimensions[2] != binary_root_parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "root Jacobian must have shape (5, 2, 4)");
+    }
+    const double x = *source_x.typed_data();
+    const double y = *source_y.typed_data();
+    const double s = *separation.typed_data();
+    const double q = *mass_ratio.typed_data();
+    const auto result = solve_binary_images(x, y, s, q);
+    write_binary_root_outputs(
+        result, roots->typed_data(), physical->typed_data(),
+        residuals->typed_data(), converged->typed_data());
+    auto* jacobian = root_jacobian->typed_data();
+    std::fill(
+        jacobian,
+        jacobian
+            + binary_root_count * 2 * binary_root_parameter_count,
+        0.0);
+
+    const Jet separation_jet = Jet::variable(s, 0);
+    const Jet mass_ratio_jet = Jet::variable(q, 1);
+    for (std::size_t index = 0; index < binary_root_count; ++index) {
+        if (!result.physical[index]) continue;
+        const auto mapped = binary_lens_map_at_root(
+            result.roots[index], s, q);
+        const double determinant =
+            mapped.du_dx * mapped.dv_dy - mapped.du_dy * mapped.dv_dx;
+        if (!(std::abs(determinant) > 1.0e-12)) continue;
+        const auto parameter_map = binary_lens_map_at_fixed_root(
+            result.roots[index], separation_jet, mass_ratio_jet);
+        for (
+            std::size_t parameter = 0;
+            parameter < binary_root_parameter_count;
+            ++parameter) {
+            const double rhs_x =
+                parameter == 0
+                ? 1.0
+                : (
+                      parameter >= 2
+                          ? -parameter_map[0].derivative[parameter - 2]
+                          : 0.0);
+            const double rhs_y =
+                parameter == 1
+                ? 1.0
+                : (
+                      parameter >= 2
+                          ? -parameter_map[1].derivative[parameter - 2]
+                          : 0.0);
+            jacobian[
+                (index * 2) * binary_root_parameter_count + parameter] =
+                (mapped.dv_dy * rhs_x - mapped.du_dy * rhs_y)
+                / determinant;
+            jacobian[
+                (index * 2 + 1) * binary_root_parameter_count + parameter] =
+                (-mapped.dv_dx * rhs_x + mapped.du_dx * rhs_y)
+                / determinant;
+        }
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    binary_image_roots_jacobian_ffi_handler,
+    binary_image_roots_jacobian_ffi_impl,
+    ffi::Ffi::Bind()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR3<ffi::F64>>());
+
 std::uint64_t tile_key(std::int32_t x, std::int32_t y)
 {
     return (
@@ -984,6 +1396,18 @@ py::capsule fixed_support_forward_ffi_capsule()
         reinterpret_cast<void*>(fixed_support_forward_ffi_handler));
 }
 
+py::capsule binary_image_roots_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(binary_image_roots_ffi_handler));
+}
+
+py::capsule binary_image_roots_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(binary_image_roots_jacobian_ffi_handler));
+}
+
 py::capsule macro_tile_discovery_ffi_capsule()
 {
     return py::capsule(
@@ -1023,6 +1447,14 @@ void register_jax_ir_submodule(py::module_& parent)
         py::arg("boundary_subdivision") = 4,
         "Evaluate the JAX fixed-support cell algorithm in native C++.");
 #ifdef LCBININT_HAS_JAX_FFI
+    module.def(
+        "binary_image_roots_ffi",
+        &binary_image_roots_ffi_capsule,
+        "Return the typed XLA binary-image root FFI handler capsule.");
+    module.def(
+        "binary_image_roots_jacobian_ffi",
+        &binary_image_roots_jacobian_ffi_capsule,
+        "Return the typed XLA binary-image root/Jacobian FFI handler capsule.");
     module.def(
         "macro_tile_discovery_ffi",
         &macro_tile_discovery_ffi_capsule,

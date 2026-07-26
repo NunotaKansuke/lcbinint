@@ -106,6 +106,34 @@ from 47.5 to 13.1 ms for forward, 103.6 to 36.6 ms for JVP, and 435 to
 trajectory improved from 573 to 239 ms.  Root solving remains JAX in these
 measurements.
 
+The shared binary-image-root handler is now implemented as well.  It mirrors
+the JAX binary quintic, uses the core C++ polynomial solver, applies six
+damped Newton polishing steps, and filters physical roots by lens-equation
+residual.  Algebraic candidates that polish onto the same physical image are
+deduplicated by scale-aware distance while retaining the lower-residual
+candidate.  A second handler returns the analytic implicit root Jacobian with
+respect to source x/y, separation, and mass ratio.  A JAX `custom_jvp` exposes
+that Jacobian to forward and reverse AD without differentiating the iterative
+root solver.
+
+Median warm CPU timings were 45.2 versus 8.1 microseconds for one JAX/FFI
+solve, 48.3 versus 7.3 microseconds for its JVP, and 1.40 ms versus
+42.6 microseconds for 25 solves.  Switching the 13-point hexadecapole
+calculation to the common handler improved forward/JVP/value-plus-gradient
+from 1.084/1.187/1.381 ms to 0.055/0.069/0.152 ms.  The handler is shared by
+hexadecapole, Cartesian discovery, polar discovery, and source-plane
+quadrature; each public dispatcher retains explicit `"jax"`, `"ffi"`, and
+portable `"auto"` root-backend choices.
+
+The same eight-configuration, 120-row held-out sweep found no root-backend
+failure in point-source values/four-parameter gradients or in
+hexadecapole values/seven-parameter gradients for uniform, linear, and
+two-coefficient profiles.  Difficult extreme-planetary caustic samples are
+included.  With both root and Cartesian handlers enabled, the 64-epoch
+half-hex/half-Cartesian trajectory improved from 573 to 158 ms.  It measured
+131 ms in native `lcbinint`, 3.04 s in VBMicrolensing, and 14.37 s in
+microLUX, with zero accuracy-budget failures in every row.
+
 ### First forward-gate result
 
 The initial C++17/pybind prototype implements the real binary-lens map,

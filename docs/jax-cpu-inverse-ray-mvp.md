@@ -516,24 +516,28 @@ the simpler scalar-conditional layout.
 The trajectory default is the 96/4096 Cartesian bucket with 24 limb seeds.
 The scalar API retains 64/1024 for low latency.  Its Cartesian execution
 backend defaults to `auto`: the typed C++ FFI is used for the real kernel on
-CPU when available, with pure JAX retained as the portable fallback.  On a
+CPU when available, with pure JAX retained as the portable fallback.  Binary
+image roots have the same independent backend choice.  The C++ root handler
+constructs the quintic, polishes and deduplicates physical images, and returns
+an analytic implicit root Jacobian through a JAX `custom_jvp`; it is shared by
+hexadecapole, Cartesian/polar discovery, and source-plane quadrature.  On a
 64-epoch resonant, linearly limb-darkened path, the trajectory default had
 zero value-budget failures against a `Tol=1e-7` VBMicrolensing reference.  A
-repeat after connecting the FFI to the dispatcher measured:
+repeat after connecting both FFI backends to the dispatcher measured:
 
 | Engine | 64-epoch forward |
 | --- | ---: |
 | native `lcbinint`, fixed Cartesian 64 | 130 ms |
-| JAX conditional trajectory, pure-JAX cells | 572 ms |
-| JAX conditional trajectory, C++ FFI discovery and cells | 239 ms |
-| VBMicrolensing | 3.00 s |
-| microLUX, 80 annuli | 14.59 s |
+| JAX conditional trajectory, pure JAX | 573 ms |
+| JAX conditional trajectory, C++ FFI roots/discovery/cells | 158 ms |
+| VBMicrolensing | 3.04 s |
+| microLUX, 80 annuli | 14.37 s |
 
-The FFI trajectory is 2.39 times faster than the pure-JAX trajectory,
-61.1 times faster than microLUX, 12.6 times faster than VBMicrolensing, and
-1.83 times slower than native on this pilot.  On a 16-epoch subset, FFI
-separation-JVP/value-plus-gradient took 145/171 ms, versus 269 ms/1.09 s for
-pure JAX and 13.42/28.22 s for microLUX.  Compilation is excluded from all
+The FFI trajectory is 3.64 times faster than the pure-JAX trajectory,
+91.1 times faster than microLUX, 19.3 times faster than VBMicrolensing, and
+1.20 times slower than native on this pilot.  On a 16-epoch subset, FFI
+separation-JVP/value-plus-gradient took 123/134 ms, versus 269 ms/1.06 s for
+pure JAX and 13.25/28.07 s for microLUX.  Compilation is excluded from all
 these warm timings.  FFI and JAX produced identical method counts
 (32 hexadecapole and 32 Cartesian), no invalid epochs, and indistinguishable
 VBMicrolensing error-budget ratios.  The reproducible harness is
