@@ -96,7 +96,7 @@ def _binary_magnification_trajectory(
         return binary_magnification_auto(
             position[0],
             position[1],
-            separation,
+            position[2],
             mass_ratio,
             source_radius,
             limb_c,
@@ -194,7 +194,7 @@ def _binary_magnification_trajectory(
 
         result = jax.lax.map(
             evaluate_fused_exception,
-            ((source_x, source_y), fused.needs_fallback, provisional),
+            ((source_x, source_y, separation), fused.needs_fallback, provisional),
         )
     elif use_batch:
 
@@ -202,7 +202,7 @@ def _binary_magnification_trajectory(
             return binary_hexadecapole(
                 position[0],
                 position[1],
-                separation,
+                position[2],
                 mass_ratio,
                 source_radius,
                 limb_c,
@@ -212,7 +212,7 @@ def _binary_magnification_trajectory(
 
         hexadecapole = jax.lax.map(
             evaluate_hexadecapole,
-            (source_x, source_y),
+            (source_x, source_y, separation),
         )
         accept_multipole, polar_allowed = _multipole_dispatch_masks(
             hexadecapole,
@@ -279,10 +279,14 @@ def _binary_magnification_trajectory(
 
         result = jax.lax.map(
             evaluate_exception,
-            ((source_x, source_y), use_scalar_dispatcher, provisional),
+            (
+                (source_x, source_y, separation),
+                use_scalar_dispatcher,
+                provisional,
+            ),
         )
     else:
-        result = jax.lax.map(evaluate_epoch, (source_x, source_y))
+        result = jax.lax.map(evaluate_epoch, (source_x, source_y, separation))
     attempted_counts = jnp.stack(
         (
             jnp.sum(result.used_multipole, dtype=jnp.int32),
@@ -366,6 +370,11 @@ def binary_magnification_trajectory(
     source_y = jnp.asarray(source_y)
     if source_x.ndim != 1 or source_y.shape != source_x.shape:
         raise ValueError("source_x and source_y must have the same 1-D shape")
+    separation = jnp.asarray(separation)
+    if separation.ndim == 0:
+        separation = jnp.full_like(source_x, separation)
+    elif separation.shape != source_x.shape:
+        raise ValueError("separation must be scalar or match source_x")
     if trajectory_backend not in ("auto", "scalar", "batch"):
         raise ValueError("trajectory_backend must be 'auto', 'scalar', or 'batch'")
     if trajectory_backend == "batch":

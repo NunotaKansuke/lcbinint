@@ -1139,12 +1139,18 @@ def _trajectory_jvp(*arguments):
         True,
     )
     primal = FfiTrajectoryResult(*outputs[:7])
-    source_x_tangent, source_y_tangent, *scalar_tangents = tangents
+    (
+        source_x_tangent,
+        source_y_tangent,
+        separation_tangent,
+        *scalar_tangents,
+    ) = tangents
     parameter_tangent = jnp.stack(
         (
             source_x_tangent,
             source_y_tangent,
-            *(jnp.full_like(primals[0], tangent) for tangent in scalar_tangents[:5]),
+            separation_tangent,
+            *(jnp.full_like(primals[0], tangent) for tangent in scalar_tangents[:4]),
         ),
         axis=1,
     )
@@ -1192,13 +1198,18 @@ def binary_magnification_trajectory_ffi(
 
     source_x = jnp.asarray(source_x, dtype=jnp.float64)
     source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    separation = jnp.asarray(separation, dtype=jnp.float64)
+    if separation.ndim == 0:
+        separation = jnp.full_like(source_x, separation)
+    if separation.shape != source_x.shape:
+        raise ValueError("separation must be scalar or match source_x")
     dynamic = (
         source_x,
         source_y,
+        separation,
         *(
             jnp.asarray(value, dtype=jnp.float64)
             for value in (
-                separation,
                 mass_ratio,
                 source_radius,
                 limb_c,

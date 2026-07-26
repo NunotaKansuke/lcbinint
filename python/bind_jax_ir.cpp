@@ -3070,7 +3070,7 @@ TrajectoryEpochDecision trajectory_epoch_kernel(
     std::int64_t mode_value, \
     ffi::BufferR1<ffi::F64> source_x, \
     ffi::BufferR1<ffi::F64> source_y, \
-    ffi::BufferR0<ffi::F64> separation, \
+    ffi::BufferR1<ffi::F64> separation, \
     ffi::BufferR0<ffi::F64> mass_ratio, \
     ffi::BufferR0<ffi::F64> source_radius, \
     ffi::BufferR0<ffi::F64> limb_c, \
@@ -3091,7 +3091,7 @@ TrajectoryEpochDecision trajectory_epoch_kernel(
 
 #define LCBININT_TRAJECTORY_KERNEL_ARGUMENTS(index) \
     source_x.typed_data()[index], source_y.typed_data()[index], \
-    *separation.typed_data(), *mass_ratio.typed_data(), \
+    separation.typed_data()[index], *mass_ratio.typed_data(), \
     *source_radius.typed_data(), *limb_c.typed_data(), \
     *limb_d.typed_data(), *absolute_tolerance.typed_data(), \
     *relative_tolerance.typed_data(), *multipole_safety_factor.typed_data(), \
@@ -3110,6 +3110,7 @@ ffi::Error trajectory_forward_ffi_impl(LCBININT_TRAJECTORY_ARGUMENTS)
     const std::int64_t batch_size = source_x.dimensions()[0];
     if (
         source_y.dimensions()[0] != batch_size
+        || separation.dimensions()[0] != batch_size
         || magnification->dimensions()[0] != batch_size
         || method->dimensions()[0] != batch_size
         || estimated_error->dimensions()[0] != batch_size
@@ -3197,7 +3198,7 @@ ffi::Error trajectory_jacobian_ffi_impl(
         .Attr<std::int64_t>("moment_mode") \
         .Arg<ffi::BufferR1<ffi::F64>>() \
         .Arg<ffi::BufferR1<ffi::F64>>() \
-        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
         .Arg<ffi::BufferR0<ffi::F64>>() \
         .Arg<ffi::BufferR0<ffi::F64>>() \
         .Arg<ffi::BufferR0<ffi::F64>>() \

@@ -226,3 +226,38 @@ def test_trajectory_ffi_matches_jax_dispatch_value_and_gradient():
         rtol=2.0e-9,
         atol=2.0e-9,
     )
+
+
+def test_trajectory_ffi_accepts_epoch_dependent_separation_and_gradient():
+    _require_compiled_ffi()
+    source_x = jnp.asarray((0.3, 0.65, 0.4))
+    source_y = jnp.asarray((0.4, 0.0, 0.5))
+    separation = jnp.asarray((1.15, 1.2, 1.25))
+
+    def loss(active_separation, backend="auto"):
+        return jnp.sum(
+            binary_magnification_trajectory(
+                source_x,
+                source_y,
+                active_separation,
+                0.1,
+                0.02,
+                0.4,
+                0.0,
+                resolution=64,
+                tile_capacity=1024,
+                limb_samples=16,
+                source_plane_fallback=False,
+                moment_mode="linear",
+                cartesian_backend=backend,
+            ).magnification
+        )
+
+    gradient = jax.grad(loss)(separation)
+    reference = jax.grad(loss)(separation, "jax")
+    np.testing.assert_allclose(
+        gradient,
+        reference,
+        rtol=2.0e-9,
+        atol=2.0e-9,
+    )

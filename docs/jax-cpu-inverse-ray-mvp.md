@@ -682,6 +682,44 @@ point-source, hexadecapole, or integrated-trajectory failures. The maximum
 integrated value/JVP/gradient error consumes only
 0.000011/0.0036/0.015 of the corresponding budget.
 
+## Higher-order trajectories
+
+The fused trajectory FFI now accepts an epoch-dependent separation array
+instead of a single scalar separation. Its analytic Jacobian still has seven
+columns per epoch, but the separation column now represents
+\(\partial A_i/\partial s_i\). A scalar separation is broadcast by the public
+API, preserving the static-lens interface. This makes lens orbital motion a
+single C++ call rather than a `vmap` over scalar FFI calls.
+
+`lcbinint_jax.higher_order` implements the native trajectory conventions in
+pure `float64` JAX:
+
+- circular and bound Kepler lens orbital motion;
+- annual, terrestrial, and VBM-table satellite parallax;
+- circular-elements, Kepler-elements, circular-velocity, and Kepler-velocity
+  xallarap;
+- independent binary-source tracks, source-CoM xallarap coordinates, and the
+  tangent-trajectory-offset binary-source convention;
+- flux-weighted binary-source magnification through two fused trajectory
+  calls.
+
+The geometry layer returns `source_x(t)`, `source_y(t)`, and `separation(t)`.
+Consequently the custom-JVP inverse-ray kernel supplies derivatives with
+respect to lens-plane geometry, while ordinary JAX differentiation propagates
+them to \(t_0,t_E,u_0,\alpha,\boldsymbol{\pi}_E\), orbital-state, xallarap,
+source-mass-ratio, and flux-ratio parameters.
+
+Tests compare every lens-orbit and xallarap mode individually with the native
+geometry. Circular/Kepler lens motion agrees to \(5\times10^{-15}\), all four
+xallarap modes to \(3\times10^{-12}\), and annual, terrestrial, satellite, and
+the combined annual+terrestrial+Kepler-orbit+Kepler-xallarap case to machine
+precision. Both binary-source coordinate conventions also agree to machine
+precision. A 64-epoch warm CPU check measured 5.78/20.54 ms
+forward/value-plus-gradient for a static trajectory and 5.71/21.58 ms for the
+same trajectory with circular lens motion. Geometry evolution was negligible
+in forward mode and added about five percent to this reverse-mode measurement;
+the dominant cost remains magnification integration.
+
 ## Current limitations
 
 - Binary lenses only.
