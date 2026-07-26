@@ -124,7 +124,7 @@ def binary_inverse_ray(
     resolution=64,
     tile_size=16,
     tile_capacity=1024,
-    limb_samples=32,
+    limb_samples=16,
     kernel="real",
 ):
     """Discover image support and integrate a finite binary-lens source."""
@@ -161,7 +161,7 @@ def binary_inverse_ray_uniform(
     resolution=64,
     tile_size=16,
     tile_capacity=1024,
-    limb_samples=32,
+    limb_samples=16,
     kernel="real",
 ):
     """Specialized inverse-ray path for a uniform source."""
@@ -199,7 +199,7 @@ def binary_inverse_ray_linear(
     resolution=64,
     tile_size=16,
     tile_capacity=1024,
-    limb_samples=32,
+    limb_samples=16,
     kernel="real",
 ):
     """Specialized inverse-ray path for linear limb darkening."""
@@ -233,6 +233,7 @@ def binary_inverse_ray_linear(
         "polar_angular_bins",
         "polar_radial_capacity",
         "polar_band_capacity",
+        "polar_limb_samples",
         "polar_angular_chunk_size",
         "moment_mode",
     ),
@@ -249,13 +250,14 @@ def binary_inverse_ray_auto(
     resolution=64,
     tile_size=16,
     tile_capacity=1024,
-    limb_samples=32,
+    limb_samples=16,
     kernel="real",
     polar_resolution=128,
-    polar_angular_bins=8192,
-    polar_radial_capacity=512,
+    polar_angular_bins=4096,
+    polar_radial_capacity=256,
     polar_band_capacity=4,
-    polar_angular_chunk_size=32,
+    polar_limb_samples=32,
+    polar_angular_chunk_size=1024,
     polar_magnification_threshold=80.0,
     polar_max_source_radius=0.01,
     moment_mode="two_coefficient",
@@ -286,7 +288,7 @@ def binary_inverse_ray_auto(
             angular_bins=polar_angular_bins,
             radial_capacity=polar_radial_capacity,
             band_capacity=polar_band_capacity,
-            limb_samples=limb_samples,
+            limb_samples=polar_limb_samples,
             angular_chunk_size=polar_angular_chunk_size,
             kernel=kernel,
             moment_mode=moment_mode,

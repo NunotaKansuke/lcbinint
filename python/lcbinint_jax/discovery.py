@@ -26,7 +26,7 @@ def binary_image_seed_points(
     mass_ratio: jax.Array,
     source_radius: jax.Array,
     *,
-    limb_samples: int = 32,
+    limb_samples: int = 16,
 ) -> ImageSeedPoints:
     """Return physical centre and source-limb images as stopped-gradient seeds."""
 
@@ -90,7 +90,7 @@ def discover_binary_macro_tiles(
     *,
     tile_size: int = 16,
     tile_capacity: int = 1024,
-    limb_samples: int = 32,
+    limb_samples: int = 16,
 ) -> DiscoveryResult:
     """Discover a one-tile halo around connected finite-source images."""
 

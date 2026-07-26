@@ -21,7 +21,7 @@ def discover_binary_polar_bands(
     mass_ratio,
     source_radius,
     *,
-    limb_samples=32,
+    limb_samples=16,
     band_capacity=16,
     padding_factor=0.25,
 ):
@@ -111,6 +111,8 @@ def discover_binary_polar_bands(
         "moment_mode",
         "angular_padding_factor",
         "angular_chunk_size",
+        "boundary_capacity",
+        "boundary_subdivision",
     ),
 )
 def binary_inverse_ray_polar(
@@ -126,10 +128,12 @@ def binary_inverse_ray_polar(
     angular_bins=2048,
     radial_capacity=512,
     band_capacity=4,
-    limb_samples=32,
+    limb_samples=16,
     padding_factor=0.25,
     angular_padding_factor=4.0,
-    angular_chunk_size=32,
+    angular_chunk_size=256,
+    boundary_capacity=2048,
+    boundary_subdivision=2,
     kernel="real",
     moment_mode="two_coefficient",
 ):
@@ -142,8 +146,11 @@ def binary_inverse_ray_polar(
         raise ValueError(
             "moment_mode must be 'uniform', 'linear', or 'two_coefficient'"
         )
+    angular_chunk_size = min(angular_chunk_size, angular_bins)
     if angular_bins % angular_chunk_size != 0:
         raise ValueError("angular_bins must be divisible by angular_chunk_size")
+    if boundary_subdivision < 1:
+        raise ValueError("boundary_subdivision must be positive")
     support = discover_binary_polar_bands(
         source_x,
         source_y,
@@ -260,31 +267,171 @@ def binary_inverse_ray_polar(
         delta_r = gradient_r * dr
         delta_theta = gradient_theta * dtheta
         area = safe_radii * dr * dtheta
-        cell_moments = jnp.moveaxis(
-            jax.vmap(
-                lambda power: area
+        extent = 0.5 * (jnp.abs(delta_r) + jnp.abs(delta_theta))
+        fully_inside = radial_mask & (phi - extent > 0.0)
+        boundary = radial_mask & (phi - extent <= 0.0) & (phi + extent > 0.0)
+        chunk_boundary_count = jnp.sum(boundary, dtype=jnp.int32)
+
+        flat_phi = phi.ravel()
+        flat_delta_r = delta_r.ravel()
+        flat_delta_theta = delta_theta.ravel()
+        flat_area = area.ravel()
+        flat_radius = safe_radii.ravel()
+        flat_theta = jnp.broadcast_to(theta[:, None, None], safe_radii.shape).ravel()
+        boundary_indices = jnp.nonzero(
+            boundary.ravel(),
+            size=boundary_capacity,
+            fill_value=0,
+        )[0]
+        boundary_slot_mask = (
+            jnp.arange(boundary_capacity, dtype=jnp.int32) < chunk_boundary_count
+        )
+        safe_interior_phi = jnp.where(fully_inside, phi, 1.0)
+        safe_interior_area = jnp.where(fully_inside, area, 0.0)
+        delta_squared = delta_r * delta_r + delta_theta * delta_theta
+        interior_0 = jnp.sum(safe_interior_area)
+        if moment_mode == "uniform":
+            interior_moments = interior_0[None]
+        elif moment_mode == "linear":
+            interior_moments = jnp.stack(
+                (
+                    interior_0,
+                    jnp.sum(
+                        safe_interior_area
+                        * (
+                            jnp.sqrt(safe_interior_phi)
+                            - delta_squared
+                            / (96.0 * safe_interior_phi * jnp.sqrt(safe_interior_phi))
+                        )
+                    ),
+                )
+            )
+        else:
+            sqrt_phi = jnp.sqrt(safe_interior_phi)
+            interior_moments = jnp.stack(
+                (
+                    interior_0,
+                    jnp.sum(
+                        safe_interior_area
+                        * (
+                            sqrt_phi
+                            - delta_squared / (96.0 * safe_interior_phi * sqrt_phi)
+                        )
+                    ),
+                    jnp.sum(
+                        safe_interior_area
+                        * (
+                            jnp.sqrt(sqrt_phi)
+                            - delta_squared
+                            / (
+                                128.0
+                                * safe_interior_phi
+                                * sqrt_phi
+                                * jnp.sqrt(sqrt_phi)
+                            )
+                        )
+                    ),
+                )
+            )
+
+        boundary_phi = flat_phi[boundary_indices]
+        boundary_delta_r = flat_delta_r[boundary_indices]
+        boundary_delta_theta = flat_delta_theta[boundary_indices]
+        boundary_area = flat_area[boundary_indices]
+        if boundary_subdivision == 1:
+            boundary_lower_left = (
+                boundary_phi - 0.5 * boundary_delta_r - 0.5 * boundary_delta_theta
+            )
+            boundary_unit_moments = jax.vmap(
+                lambda power: boundary_area
                 * _affine_unit_square_moment(
-                    phi - 0.5 * delta_r - 0.5 * delta_theta,
-                    delta_r,
-                    delta_theta,
+                    boundary_lower_left,
+                    boundary_delta_r,
+                    boundary_delta_theta,
                     power,
                 )
-            )(powers),
-            0,
-            -1,
-        )
-        cell_moments = jnp.where(
-            radial_mask[..., None], cell_moments, jnp.zeros_like(cell_moments)
-        )
-        extent = 0.5 * (jnp.abs(delta_r) + jnp.abs(delta_theta))
-        boundary = radial_mask & (phi - extent <= 0.0) & (phi + extent > 0.0)
-        contributing = radial_mask & (phi + extent > 0.0)
+            )(powers)
+        else:
+            subdivision = jnp.asarray(boundary_subdivision, dtype=dr.dtype)
+            offsets = (
+                jnp.arange(boundary_subdivision, dtype=dr.dtype) + 0.5
+            ) / subdivision - 0.5
+            radial_offset, angular_offset = jnp.meshgrid(
+                offsets, offsets, indexing="ij"
+            )
+            boundary_radius = flat_radius[boundary_indices, None]
+            boundary_theta = flat_theta[boundary_indices, None]
+            sub_radius = boundary_radius + radial_offset.ravel() * dr
+            sub_theta = boundary_theta + angular_offset.ravel() * dtheta
+            sub_cosine = jnp.cos(sub_theta)
+            sub_sine = jnp.sin(sub_theta)
+            sub_x = sub_radius * sub_cosine
+            sub_y = sub_radius * sub_sine
+            if kernel == "real":
+                sub_phi, sub_gradient_x, sub_gradient_y = phi_kernel(
+                    sub_x,
+                    sub_y,
+                    source_x,
+                    source_y,
+                    separation,
+                    mass_ratio,
+                    source_radius,
+                )
+            else:
+                sub_shape = sub_x.shape
+                sub_phi, sub_gradient_x, sub_gradient_y = jax.vmap(
+                    lambda x, y: phi_kernel(
+                        x,
+                        y,
+                        source_x,
+                        source_y,
+                        separation,
+                        mass_ratio,
+                        source_radius,
+                    )
+                )(sub_x.ravel(), sub_y.ravel())
+                sub_phi = sub_phi.reshape(sub_shape)
+                sub_gradient_x = sub_gradient_x.reshape(sub_shape)
+                sub_gradient_y = sub_gradient_y.reshape(sub_shape)
+            sub_gradient_r = sub_gradient_x * sub_cosine + sub_gradient_y * sub_sine
+            sub_gradient_theta = sub_radius * (
+                -sub_gradient_x * sub_sine + sub_gradient_y * sub_cosine
+            )
+            sub_delta_r = sub_gradient_r * dr / subdivision
+            sub_delta_theta = sub_gradient_theta * dtheta / subdivision
+            sub_area = sub_radius * (dr / subdivision) * (dtheta / subdivision)
+            sub_lower_left = sub_phi - 0.5 * sub_delta_r - 0.5 * sub_delta_theta
+            boundary_unit_moments = jax.vmap(
+                lambda power: jnp.sum(
+                    sub_area
+                    * _affine_unit_square_moment(
+                        sub_lower_left,
+                        sub_delta_r,
+                        sub_delta_theta,
+                        power,
+                    ),
+                    axis=1,
+                )
+            )(powers)
+        boundary_moments = jax.vmap(
+            lambda values: jnp.sum(
+                jnp.where(
+                    boundary_slot_mask,
+                    values,
+                    0.0,
+                )
+            )
+        )(boundary_unit_moments)
+        chunk_moments = interior_moments + boundary_moments
+        packing_overflow = chunk_boundary_count > boundary_capacity
         moments, boundary_count, active_count, overflow = carry
         return (
-            moments + jnp.sum(cell_moments, axis=(0, 1, 2)),
+            moments + chunk_moments,
             boundary_count + jnp.sum(boundary, dtype=jnp.int32),
-            active_count + jnp.sum(contributing, dtype=jnp.int32),
-            overflow | jnp.any(local_overflow),
+            active_count
+            + jnp.sum(fully_inside, dtype=jnp.int32)
+            + jnp.sum(boundary, dtype=jnp.int32),
+            overflow | jnp.any(local_overflow) | packing_overflow,
         ), None
 
     initial = (

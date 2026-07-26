@@ -982,13 +982,24 @@ overflowed at 4096 macro tiles while the polar representation required three
 radial bands. The automatic API preselects polar for tiny, high-magnification
 sources and also uses it after Cartesian discovery overflow.
 
-The speed result is deliberately not promoted as a win. With linear limb
-darkening and a common absolute error budget of 0.009642, polar
-64-radial/2048-angular ran in 76.28 ms but missed the budget by 0.04147.
-The first passing tested setting, 128/8192, ran in 363.43 ms. microLUX passed
-in 89.72 ms. Polar therefore expands the valid domain and keeps JAX AD
-available, but its angular boundary rule needs substantially better accuracy
-per column before it should be selected for speed alone.
+The initial polar implementation was not a speed win because every candidate
+cell evaluated all affine fractional moments. Profiling showed roughly
+254,000 contributing cells and 6,100 boundary cells, but about 16 million
+fixed-shape candidates. Boundary packing, second-order interior moments, large
+angular chunks, and two-by-two boundary subdivision changed the result. The
+first common-budget passing setting is now 64 radial by 4096 angular cells:
+36.89 ms forward, 43.59 ms JVP, and 117.17 ms reverse gradient. microLUX took
+88.06, 135.43, and 334.77 ms on the same physical case.
+
+The Cartesian kernel received the same boundary-only affine path and
+second-order interior correction. A topology-changing source sweep established
+16 rather than 8 source-limb samples as the lowest tested safe default. With
+conservative benchmark capacities, regular linear limb darkening now measures
+8.21/9.59/29.65 ms for forward/JVP/gradient versus
+20.02/25.69/43.74 ms for microLUX. The resonant cusp measures
+10.15/14.57/39.41 ms versus 342.40/434.54/620.05 ms. Tight validated capacity
+buckets reduce the JAX rows further, but must not be selected without explicit
+support and convergence checks.
 
 ## 15. References
 

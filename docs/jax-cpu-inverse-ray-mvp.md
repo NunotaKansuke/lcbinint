@@ -322,20 +322,55 @@ the same \(10^{-4}+10^{-4}\max(|A_{\rm ref}|,1)\) budget used elsewhere.
 
 | Method / setting | Value | Absolute error | Warm forward |
 | --- | ---: | ---: | ---: |
-| JAX polar, 64 radial / 2048 angular | 95.46624722 | 0.04147, fails | 76.28 ms |
-| JAX polar, 64 / 4096 | 95.44233862 | 0.01756, fails | 147.21 ms |
-| JAX polar, 128 / 4096 | 95.43521044 | 0.01043, fails | 188.43 ms |
-| JAX polar, 128 / 8192 | 95.42927862 | 0.00450, passes | 363.43 ms |
-| microLUX, 80 annuli | 95.42525035 | 0.00047, passes | 89.72 ms |
+| JAX polar, 64 radial / 2048 angular | 95.44041365 | 0.01564, fails | 19.89 ms |
+| JAX polar, 64 / 4096 | 95.43373464 | 0.00896, passes | 36.89 ms |
+| JAX polar, 128 / 4096 | 95.43005217 | 0.00527, passes | 52.61 ms |
+| JAX polar, 128 / 8192 | 95.42699341 | 0.00222, passes | 105.52 ms |
+| microLUX, 80 annuli | 95.42525035 | 0.00047, passes | 88.06 ms |
 
 The Cartesian JAX path overflowed even with 4096 tile slots on this point, so
-polar integration materially expands the supported domain. It is not yet the
-matched-accuracy speed winner: the coarse polar setting was slightly faster
-than microLUX but failed the error budget, while the first passing setting was
-about four times slower. The current role of polar is therefore robust
-tiny-source/high-magnification fallback, not a general replacement for the
-Cartesian caustic kernel. Angular boundary accuracy is the next polar
-optimization target.
+polar integration materially expands the supported domain. The optimized
+polar kernel packs only boundary cells into the expensive affine-moment path,
+uses second-order interior moments, and subdivides boundary cells two by two.
+This reduced the first passing forward configuration from 363.43 to 36.89 ms.
+At that setting, JVP and reverse-gradient times were 43.59 and 117.17 ms,
+versus 135.43 and 334.77 ms for microLUX. The matched-accuracy speedups are
+therefore 2.39x forward, 3.11x JVP, and 2.86x reverse mode on this
+high-magnification case.
+
+## CPU speed optimization pass
+
+The Cartesian reducer received the analogous sparse treatment. A boundary
+tile now packs only its boundary cells into the affine positive-part formula.
+Fully interior cells use a midpoint value plus the analytic second-order
+correction
+
+\[
+E[\phi^p]\simeq \phi^p+
+\frac{p(p-1)}{24}(\Delta_x^2+\Delta_y^2)\phi^{p-2}.
+\]
+
+Sixteen source-limb seeds replaced the previous default of 32. In a targeted
+107-case sweep where the image topology changed somewhere across the source
+disk, 8 samples missed one component by as much as 2.17%, while 16 reproduced
+the 32-sample values in all tested cases. A frozen regression case protects
+that boundary.
+
+Re-running the four-engine matched-accuracy harness produced:
+
+| Geometry/profile | JAX forward / JVP / grad | microLUX forward / JVP / grad |
+| --- | ---: | ---: |
+| regular, linear | 8.21 / 9.59 / 29.65 ms | 20.02 / 25.69 / 43.74 ms |
+| resonant cusp, linear | 10.15 / 14.57 / 39.41 ms | 342.40 / 434.54 / 620.05 ms |
+| planetary cusp, linear | 6.69 / 9.34 / 33.11 ms | 296.15 / 356.47 / 567.34 ms |
+| planetary far field, linear | 13.48 / 15.39 / 57.38 ms | 7.91 / 10.73 / 36.16 ms |
+
+The harness uses conservative fixed capacity 1024 and 32 limb seeds. Tight
+validated buckets with 16 limb seeds further measured 5.12 / 7.75 / 19.40 ms
+at the regular point and 8.82 / 12.46 / 33.89 ms at the resonant cusp.
+Far-field and uniform epochs still favor contour or point/multipole methods;
+that remaining gap belongs in the hybrid dispatcher rather than in additional
+inverse-ray rasterization.
 
 ## Current limitations
 

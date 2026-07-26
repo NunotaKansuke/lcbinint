@@ -48,7 +48,7 @@ def test_polar_bands_are_finite_disjoint_and_stopped_gradient():
 def test_polar_value_and_gradient_converge_to_cartesian():
     polar_options = dict(
         resolution=128,
-        angular_bins=2048,
+        angular_bins=4096,
         radial_capacity=512,
         band_capacity=4,
         limb_samples=64,

@@ -58,6 +58,34 @@ def test_macro_tile_capacity_overflow_is_explicit():
     assert not bool(result.support_valid)
 
 
+def test_sixteen_limb_seeds_recover_component_missed_by_eight():
+    parameters = (
+        -0.32501429088718237,
+        0.1657421063761565,
+        0.8889281178512844,
+        0.03138754742696359,
+        0.045762863498365475,
+    )
+
+    def value(limb_samples):
+        return binary_inverse_ray(
+            *parameters,
+            0.4,
+            0.0,
+            resolution=32,
+            tile_size=16,
+            tile_capacity=256,
+            limb_samples=limb_samples,
+        ).magnification
+
+    eight = value(8)
+    sixteen = value(16)
+    thirty_two = value(32)
+
+    assert abs(float(eight / thirty_two - 1.0)) > 1.0e-2
+    np.testing.assert_allclose(sixteen, thirty_two, rtol=1.0e-12, atol=1.0e-12)
+
+
 def test_automatic_inverse_ray_converges_with_resolution():
     values = []
     for resolution, capacity in ((16, 512), (32, 1024), (64, 2048)):

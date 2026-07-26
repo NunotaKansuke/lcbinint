@@ -134,7 +134,7 @@ def binary_inverse_ray_convergence(
     tile_size=16,
     coarse_tile_capacity=1024,
     fine_tile_capacity=2048,
-    limb_samples=32,
+    limb_samples=16,
     kernel="real",
     atol=1.0e-3,
     rtol=1.0e-3,

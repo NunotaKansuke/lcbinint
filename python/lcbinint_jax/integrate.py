@@ -85,7 +85,10 @@ def _phi_and_gradient_complex(
     return phi, gradient[0], gradient[1]
 
 
-@partial(jax.jit, static_argnames=("tile_size", "kernel", "moment_mode"))
+@partial(
+    jax.jit,
+    static_argnames=("tile_size", "kernel", "moment_mode", "boundary_capacity"),
+)
 def binary_inverse_ray_fixed_support(
     tile_origins: jax.Array,
     tile_mask: jax.Array,
@@ -101,6 +104,7 @@ def binary_inverse_ray_fixed_support(
     tile_size: int = 8,
     kernel: str = "real",
     moment_mode: str = "two_coefficient",
+    boundary_capacity: int = 32,
 ) -> FixedSupportResult:
     """Integrate caller-supplied, non-overlapping image-plane macro-tiles.
 
@@ -160,19 +164,86 @@ def binary_inverse_ray_fixed_support(
             boundary = ~(fully_inside | fully_outside)
 
             def detailed_tile(_):
-                cell_moments, detailed_boundary, contributing = jax.vmap(
-                    lambda value, dx, dy: resolved_moments(value, dx, dy, cell_size)
-                )(phi, gradient_x, gradient_y)
-                return (
-                    jnp.sum(cell_moments, axis=0),
-                    jnp.sum(
-                        detailed_boundary.astype(jnp.int32),
-                        dtype=jnp.int32,
-                    ),
-                    jnp.sum(
-                        contributing.astype(jnp.int32),
-                        dtype=jnp.int32,
-                    ),
+                boundary_count = jnp.sum(boundary, dtype=jnp.int32)
+
+                def packed_boundary(_):
+                    safe_phi = jnp.where(fully_inside, phi, 1.0)
+                    area = cell_size * cell_size
+                    delta_squared = (
+                        cell_size
+                        * cell_size
+                        * (gradient_x * gradient_x + gradient_y * gradient_y)
+                    )
+                    moment_0 = jnp.full_like(phi, area)
+                    if moment_mode == "uniform":
+                        interior_moments = moment_0[:, None]
+                    elif moment_mode == "linear":
+                        sqrt_phi = jnp.sqrt(safe_phi)
+                        moment_half = area * (
+                            sqrt_phi - delta_squared / (96.0 * safe_phi * sqrt_phi)
+                        )
+                        interior_moments = jnp.stack((moment_0, moment_half), axis=1)
+                    else:
+                        sqrt_phi = jnp.sqrt(safe_phi)
+                        moment_half = area * (
+                            sqrt_phi - delta_squared / (96.0 * safe_phi * sqrt_phi)
+                        )
+                        fourth_root = jnp.sqrt(sqrt_phi)
+                        moment_quarter = area * (
+                            fourth_root
+                            - delta_squared
+                            / (128.0 * safe_phi * sqrt_phi * fourth_root)
+                        )
+                        interior_moments = jnp.stack(
+                            (moment_0, moment_half, moment_quarter), axis=1
+                        )
+                    interior_moments = jnp.where(
+                        fully_inside[:, None],
+                        interior_moments,
+                        jnp.zeros_like(interior_moments),
+                    )
+                    boundary_indices = jnp.nonzero(
+                        boundary,
+                        size=boundary_capacity,
+                        fill_value=0,
+                    )[0]
+                    boundary_slot_mask = (
+                        jnp.arange(boundary_capacity, dtype=jnp.int32) < boundary_count
+                    )
+                    packed_moments, _, _ = jax.vmap(
+                        lambda value, dx, dy: resolved_moments(value, dx, dy, cell_size)
+                    )(
+                        phi[boundary_indices],
+                        gradient_x[boundary_indices],
+                        gradient_y[boundary_indices],
+                    )
+                    packed_moments = jnp.where(
+                        boundary_slot_mask[:, None],
+                        packed_moments,
+                        jnp.zeros_like(packed_moments),
+                    )
+                    return (
+                        jnp.sum(interior_moments, axis=0)
+                        + jnp.sum(packed_moments, axis=0),
+                        boundary_count,
+                        jnp.sum(fully_inside, dtype=jnp.int32) + boundary_count,
+                    )
+
+                def dense_boundary(_):
+                    cell_moments, detailed_boundary, contributing = jax.vmap(
+                        lambda value, dx, dy: resolved_moments(value, dx, dy, cell_size)
+                    )(phi, gradient_x, gradient_y)
+                    return (
+                        jnp.sum(cell_moments, axis=0),
+                        jnp.sum(detailed_boundary, dtype=jnp.int32),
+                        jnp.sum(contributing, dtype=jnp.int32),
+                    )
+
+                return jax.lax.cond(
+                    boundary_count <= boundary_capacity,
+                    packed_boundary,
+                    dense_boundary,
+                    operand=None,
                 )
 
             def boundary_free_tile(_):

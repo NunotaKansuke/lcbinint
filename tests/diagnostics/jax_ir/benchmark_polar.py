@@ -28,6 +28,18 @@ def timed(function, arguments, repeat=5):
     return float(first), float(np.median(samples))
 
 
+def timed_only(function, arguments, repeat=5):
+    first = function(*arguments)
+    jax.block_until_ready(first)
+    samples = []
+    for _ in range(repeat):
+        start = time.perf_counter()
+        result = function(*arguments)
+        jax.block_until_ready(result)
+        samples.append(time.perf_counter() - start)
+    return float(np.median(samples))
+
+
 def main():
     separation = 0.95
     mass_ratio = 0.01
@@ -59,10 +71,10 @@ def main():
     print(f"native reference={native:.12f}, budget={budget:.6g}")
 
     for resolution, angular_bins, radial_capacity in (
-        (64, 2048, 256),
-        (64, 4096, 256),
-        (128, 4096, 512),
-        (128, 8192, 512),
+        (64, 2048, 128),
+        (64, 4096, 128),
+        (128, 4096, 256),
+        (128, 8192, 256),
     ):
 
         @jax.jit
@@ -75,8 +87,10 @@ def main():
                 angular_bins=angular_bins,
                 radial_capacity=radial_capacity,
                 band_capacity=4,
-                limb_samples=64,
-                angular_chunk_size=32,
+                limb_samples=32,
+                angular_chunk_size=min(1024, angular_bins),
+                boundary_capacity=2048,
+                boundary_subdivision=2,
                 moment_mode="linear",
             ).magnification
 
@@ -134,6 +148,44 @@ def main():
         f"error={abs(value - native):.6g}",
         f"passes={abs(value - native) <= budget}",
         f"time={1e3 * seconds:.3f} ms",
+    )
+
+    direction = jnp.asarray((0.2, -0.1, 0.05, 0.02, 0.0))
+
+    @jax.jit
+    def selected_polar(active):
+        return binary_inverse_ray_polar(
+            *active,
+            limb_c,
+            0.0,
+            resolution=64,
+            angular_bins=4096,
+            radial_capacity=128,
+            band_capacity=4,
+            limb_samples=32,
+            angular_chunk_size=1024,
+            boundary_capacity=1024,
+            boundary_subdivision=2,
+            moment_mode="linear",
+        ).magnification
+
+    polar_jvp = jax.jit(
+        lambda active, tangent: jax.jvp(selected_polar, (active,), (tangent,))[1]
+    )
+    polar_grad = jax.jit(jax.grad(selected_polar))
+    micro_jvp = jax.jit(
+        lambda active, tangent: jax.jvp(microlux, (active,), (tangent,))[1]
+    )
+    micro_grad = jax.jit(jax.grad(microlux))
+    print(
+        "polar AD",
+        f"jvp={1e3 * timed_only(polar_jvp, (parameters, direction)):.3f} ms",
+        f"grad={1e3 * timed_only(polar_grad, (parameters,)):.3f} ms",
+    )
+    print(
+        "microLUX AD",
+        f"jvp={1e3 * timed_only(micro_jvp, (parameters, direction)):.3f} ms",
+        f"grad={1e3 * timed_only(micro_grad, (parameters,)):.3f} ms",
     )
 
 
