@@ -543,6 +543,20 @@ these warm timings.  FFI and JAX produced identical method counts
 VBMicrolensing error-budget ratios.  The reproducible harness is
 `tests/diagnostics/jax_ir/benchmark_trajectory.py`.
 
+Roots, Cartesian discovery, and fixed-support integration are now also
+available as one fused FFI epoch handler.  It returns the same capacity/root
+diagnostics and a seven-parameter analytic Jacobian, allowing the dispatcher
+to preserve polar overflow routing.  All 84 support-valid rows in the
+close/resonant/wide held-out sweep passed staged-versus-fused value, JVP, and
+gradient budgets.
+
+The measured speed gain from this fusion is small: a representative epoch
+changed from 8.21 to 8.05 ms forward and from 24.26 to 23.96 ms for value plus
+gradient.  The 64-epoch trajectory measured 156.83 ms fused versus 157.68 ms
+before fusion, while native measured 129.77 ms.  This localizes the remaining
+gap to C++ cell traversal and moment arithmetic rather than JAX intermediate
+arrays or typed-FFI call overhead.
+
 The two hex/Cartesian switch boundaries in a 32-point replay were value-safe:
 the four values adjacent to the boundaries used at most 0.43 of their error
 budgets.

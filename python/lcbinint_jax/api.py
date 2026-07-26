@@ -7,7 +7,9 @@ import jax.numpy as jnp
 
 from ._config import require_x64
 from .cpp_backend import (
+    binary_inverse_ray_cartesian_ffi,
     binary_inverse_ray_fixed_support_ffi,
+    cpp_cartesian_epoch_ffi_available,
     cpp_fixed_support_ffi_available,
     cpp_macro_tile_discovery_ffi_available,
     discover_binary_macro_tiles_ffi,
@@ -61,6 +63,26 @@ def _binary_inverse_ray(
 ):
     cell_size = jax.lax.stop_gradient(source_radius / resolution)
     use_ffi = _use_ffi_cartesian_backend(cartesian_backend, kernel)
+    use_fused_ffi = (
+        use_ffi and root_backend != "jax" and cpp_cartesian_epoch_ffi_available()
+    )
+    subdivision = 4
+    if use_fused_ffi:
+        return binary_inverse_ray_cartesian_ffi(
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            cell_size=cell_size,
+            tile_size=tile_size,
+            tile_capacity=tile_capacity,
+            limb_samples=limb_samples,
+            moment_mode=moment_mode,
+            boundary_subdivision=subdivision,
+        )
     discovery_function = (
         discover_binary_macro_tiles_ffi
         if use_ffi and cpp_macro_tile_discovery_ffi_available()
@@ -388,6 +410,42 @@ def binary_inverse_ray_auto(
     def cartesian_or_fallback(_):
         cell_size = jax.lax.stop_gradient(source_radius / resolution)
         use_ffi = _use_ffi_cartesian_backend(cartesian_backend, kernel)
+        use_fused_ffi = (
+            use_ffi and root_backend != "jax" and cpp_cartesian_epoch_ffi_available()
+        )
+
+        def fallback(_):
+            return polar_path(None)
+
+        if use_fused_ffi:
+            subdivision = 4 if moment_mode == "two_coefficient" else 3
+            cartesian = binary_inverse_ray_cartesian_ffi(
+                source_x,
+                source_y,
+                separation,
+                mass_ratio,
+                source_radius,
+                limb_c,
+                limb_d,
+                cell_size=cell_size,
+                tile_size=tile_size,
+                tile_capacity=tile_capacity,
+                limb_samples=limb_samples,
+                moment_mode=moment_mode,
+                boundary_subdivision=subdivision,
+            )
+            use_fallback = (
+                cartesian.discovery_overflow
+                & jnp.asarray(polar_allowed)
+                & jnp.asarray(polar_fallback_on_overflow)
+            )
+            return jax.lax.cond(
+                use_fallback,
+                fallback,
+                lambda _: _auto_result(cartesian, False),
+                None,
+            )
+
         discovery_function = (
             discover_binary_macro_tiles_ffi
             if use_ffi and cpp_macro_tile_discovery_ffi_available()
@@ -405,9 +463,6 @@ def binary_inverse_ray_auto(
             limb_samples=limb_samples,
             root_backend=root_backend,
         )
-
-        def fallback(_):
-            return polar_path(None)
 
         def integrate_cartesian(_):
             subdivision = 4 if moment_mode == "two_coefficient" else 3

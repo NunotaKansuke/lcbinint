@@ -5,6 +5,8 @@ import pytest
 
 from lcbinint_jax import (
     binary_inverse_ray,
+    binary_inverse_ray_cartesian_ffi,
+    binary_inverse_ray_fixed_support_ffi,
     binary_inverse_ray_linear,
     binary_inverse_ray_uniform,
     discover_binary_macro_tiles,
@@ -25,6 +27,13 @@ def _require_discovery_ffi():
 
     if not hasattr(_native._jax_ir, "macro_tile_discovery_ffi"):
         pytest.skip("lcbinint was built without macro-tile discovery FFI support")
+
+
+def _require_cartesian_epoch_ffi():
+    from lcbinint import _native
+
+    if not hasattr(_native._jax_ir, "cartesian_epoch_forward_ffi"):
+        pytest.skip("lcbinint was built without fused Cartesian epoch FFI support")
 
 
 def test_source_centre_and_limb_seed_shapes_are_static():
@@ -323,3 +332,76 @@ def test_public_inverse_ray_ffi_matches_jax_value_and_gradient():
         rtol=2.0e-9,
         atol=2.0e-9,
     )
+
+
+@pytest.mark.parametrize(
+    "moment_mode,limb_c,limb_d,boundary_subdivision",
+    (
+        ("uniform", 0.0, 0.0, 3),
+        ("linear", 0.4, 0.0, 3),
+        ("two_coefficient", 0.3, 0.2, 4),
+    ),
+)
+def test_fused_cartesian_epoch_matches_staged_ffi_value_and_gradient(
+    moment_mode,
+    limb_c,
+    limb_d,
+    boundary_subdivision,
+):
+    _require_cartesian_epoch_ffi()
+    parameters = jnp.asarray([0.5, 0.02, 1.0, 0.1, 0.03, limb_c, limb_d])
+    cell_size = parameters[4] / 64.0
+    discovery = discover_binary_macro_tiles_ffi(
+        *parameters[:5],
+        cell_size,
+        tile_size=16,
+        tile_capacity=2048,
+        limb_samples=16,
+        root_backend="ffi",
+    )
+
+    def staged(active):
+        result = binary_inverse_ray_fixed_support_ffi(
+            discovery.tile_origins,
+            discovery.tile_mask,
+            cell_size,
+            *active,
+            tile_size=16,
+            moment_mode=moment_mode,
+            boundary_subdivision=boundary_subdivision,
+        )
+        return result.magnification
+
+    def fused(active):
+        result = binary_inverse_ray_cartesian_ffi(
+            *active,
+            cell_size=cell_size,
+            tile_size=16,
+            tile_capacity=2048,
+            limb_samples=16,
+            moment_mode=moment_mode,
+            boundary_subdivision=boundary_subdivision,
+        )
+        return result.magnification, (
+            result.moments,
+            result.boundary_cells,
+            result.active_cells,
+            result.tile_count,
+            result.discovery_overflow,
+            result.root_failure,
+        )
+
+    staged_value, staged_gradient = jax.value_and_grad(staged)(parameters)
+    (fused_value, fused_aux), fused_gradient = jax.value_and_grad(fused, has_aux=True)(
+        parameters
+    )
+    np.testing.assert_allclose(fused_value, staged_value, rtol=0.0, atol=2.0e-14)
+    np.testing.assert_allclose(
+        fused_gradient,
+        staged_gradient,
+        rtol=0.0,
+        atol=2.0e-12,
+    )
+    assert int(fused_aux[3]) == int(discovery.visited_count)
+    assert not bool(fused_aux[4])
+    assert not bool(fused_aux[5])

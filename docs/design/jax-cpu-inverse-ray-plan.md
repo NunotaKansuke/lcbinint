@@ -134,6 +134,33 @@ half-hex/half-Cartesian trajectory improved from 573 to 158 ms.  It measured
 131 ms in native `lcbinint`, 3.04 s in VBMicrolensing, and 14.37 s in
 microLUX, with zero accuracy-budget failures in every row.
 
+The next handler fuses centre/limb root solves, bounded macro-tile discovery,
+and fixed-support integration into one typed CPU FFI call.  Its companion
+handler repeats the stopped support construction and evaluates the continuous
+cell integral with the same seven-parameter Jet Jacobian.  Overflow and root
+failure remain explicit outputs, so the JAX dispatcher can retain its polar
+fallback without materializing tile arrays.  Explicit `root_backend="jax"`
+continues to select the staged path; `"auto"` and `"ffi"` use the fused
+handler when present.
+
+Across the 84 support-valid rows of the existing close/resonant/wide held-out
+sweep, fused values, JVPs, and gradients all passed the same budgets as the
+staged FFI.  Values differed at about \(10^{-15}\) or less.  A few
+square-root-profile derivatives differed at \(10^{-10}\) in JVP and
+\(10^{-9}\) in individual gradient components because internal root seeding
+can permute the same support queue and therefore its floating-point reduction
+order; these differences are well below the established JAX/FFI derivative
+budgets.
+
+Fusion is not the large remaining speed lever.  A representative Cartesian
+epoch improved only from 8.21 to 8.05 ms forward and 24.26 to 23.96 ms for
+value plus gradient.  The 64-epoch mixed trajectory changed from 157.68 to
+156.83 ms forward; run-to-run noise dominated its JVP and reverse timings.
+The native trajectory measured 129.77 ms in the same run.  Thus custom-call
+and intermediate-support overhead account for only roughly one percent here;
+the remaining native gap is primarily inside the cell traversal and moment
+evaluation.
+
 ### First forward-gate result
 
 The initial C++17/pybind prototype implements the real binary-lens map,

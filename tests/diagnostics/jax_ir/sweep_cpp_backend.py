@@ -16,6 +16,7 @@ jax.config.update("jax_enable_x64", True)
 import lcbinint  # noqa: E402
 from lcbinint_jax import (  # noqa: E402
     binary_hexadecapole,
+    binary_inverse_ray_cartesian_ffi,
     binary_inverse_ray_fixed_support,
     binary_inverse_ray_fixed_support_ffi,
     binary_point_source_magnification,
@@ -142,6 +143,40 @@ def compiled_evaluators(moment_mode, boundary_subdivision):
     )
 
 
+def compiled_fused_evaluator(
+    moment_mode,
+    boundary_subdivision,
+    resolution,
+    tile_capacity,
+    limb_samples,
+):
+    def observables(parameters):
+        result = binary_inverse_ray_cartesian_ffi(
+            *parameters,
+            cell_size=jax.lax.stop_gradient(parameters[4] / resolution),
+            tile_size=16,
+            tile_capacity=tile_capacity,
+            limb_samples=limb_samples,
+            moment_mode=moment_mode,
+            boundary_subdivision=boundary_subdivision,
+        )
+        return jnp.concatenate(
+            (jnp.reshape(result.magnification, (1,)), result.moments)
+        )
+
+    return (
+        jax.jit(observables),
+        jax.jit(
+            lambda parameters, tangent: jax.jvp(
+                observables,
+                (parameters,),
+                (tangent,),
+            )[1]
+        ),
+        jax.jit(jax.grad(lambda parameters: observables(parameters)[0])),
+    )
+
+
 def compiled_point_evaluator(root_backend):
     def evaluate(parameters):
         result = binary_point_source_magnification(
@@ -210,6 +245,16 @@ def run(args):
     cases = CASES[: args.lens_cases]
     evaluators = {
         profile: compiled_evaluators(moment_mode, subdivision)
+        for profile, (_, _, moment_mode, subdivision) in PROFILES.items()
+    }
+    fused_evaluators = {
+        profile: compiled_fused_evaluator(
+            moment_mode,
+            subdivision,
+            args.resolution,
+            args.tile_capacity,
+            args.limb_samples,
+        )
         for profile, (_, _, moment_mode, subdivision) in PROFILES.items()
     }
     point_evaluators = (
@@ -423,6 +468,10 @@ def run(args):
                         cell_size,
                     )
                 )
+                fused = fused_evaluators[profile]
+                fused_value = np.asarray(fused[0](parameters))
+                fused_jvp = np.asarray(fused[1](parameters, tangent))
+                fused_gradient = np.asarray(fused[2](parameters))
                 value_passes, value_ratio = within_budget(
                     ffi_value, pure_value, 2.0e-10, 2.0e-10
                 )
@@ -434,6 +483,21 @@ def run(args):
                     pure_gradient,
                     2.0e-7,
                     2.0e-7,
+                )
+                fused_value_passes, fused_value_ratio = within_budget(
+                    fused_value, ffi_value, 2.0e-10, 2.0e-10
+                )
+                fused_jvp_passes, fused_jvp_ratio = within_budget(
+                    # Internal root seeding can permute the same support queue;
+                    # square-root moments then accumulate at slightly different
+                    # floating-point order.
+                    fused_jvp,
+                    ffi_jvp,
+                    2.0e-8,
+                    2.0e-8,
+                )
+                fused_gradient_passes, fused_gradient_ratio = within_budget(
+                    fused_gradient, ffi_gradient, 2.0e-7, 2.0e-7
                 )
                 row.update(
                     {
@@ -448,7 +512,18 @@ def run(args):
                         "gradient_absolute_error": np.abs(
                             ffi_gradient - pure_gradient
                         ).tolist(),
+                        "fused_value_passes": fused_value_passes,
+                        "fused_jvp_passes": fused_jvp_passes,
+                        "fused_gradient_passes": fused_gradient_passes,
+                        "fused_value_max_budget_ratio": fused_value_ratio,
+                        "fused_jvp_max_budget_ratio": fused_jvp_ratio,
+                        "fused_gradient_max_budget_ratio": fused_gradient_ratio,
                         "passes": (value_passes and jvp_passes and gradient_passes),
+                        "fused_passes": (
+                            fused_value_passes
+                            and fused_jvp_passes
+                            and fused_gradient_passes
+                        ),
                     }
                 )
                 rows.append(row)
@@ -460,6 +535,7 @@ def run(args):
         "support_valid_rows": len(evaluated),
         "unsupported_rows": len(rows) - len(evaluated),
         "failures": sum(not row["passes"] for row in evaluated),
+        "fused_failures": sum(not row["fused_passes"] for row in evaluated),
         "discovery_failures": sum(not row["discovery_matches"] for row in rows),
         "point_failures": sum(
             not (
@@ -489,7 +565,22 @@ def run(args):
             (row["gradient_max_budget_ratio"] for row in evaluated),
             default=math.nan,
         ),
+        "max_fused_value_budget_ratio": max(
+            (row["fused_value_max_budget_ratio"] for row in evaluated),
+            default=math.nan,
+        ),
+        "max_fused_jvp_budget_ratio": max(
+            (row["fused_jvp_max_budget_ratio"] for row in evaluated),
+            default=math.nan,
+        ),
+        "max_fused_gradient_budget_ratio": max(
+            (row["fused_gradient_max_budget_ratio"] for row in evaluated),
+            default=math.nan,
+        ),
         "failure_rows": [row for row in evaluated if not row["passes"]][:20],
+        "fused_failure_rows": [row for row in evaluated if not row["fused_passes"]][
+            :20
+        ],
     }
     output = {
         "configuration": {
@@ -506,6 +597,7 @@ def run(args):
         args.output.write_text(rendered + "\n")
     return int(
         summary["failures"] != 0
+        or summary["fused_failures"] != 0
         or summary["discovery_failures"] != 0
         or summary["point_failures"] != 0
         or summary["hex_failures"] != 0

@@ -368,7 +368,7 @@ KernelResult<Scalar> fixed_support_kernel(
     const double subcell_size = cell_size / boundary_subdivision;
 
     for (std::int64_t tile = 0; tile < tile_count; ++tile) {
-        if (!mask[tile]) continue;
+        if (mask != nullptr && !mask[tile]) continue;
         for (int iy = 0; iy < tile_size; ++iy) {
             const double image_y =
                 origins[2 * tile + 1]
@@ -1030,6 +1030,150 @@ bool tile_has_inside_probe(
     return false;
 }
 
+struct CartesianDiscovery {
+    std::vector<std::array<std::int32_t, 2>> queue;
+    bool overflow = false;
+    bool root_failure = false;
+    std::int32_t active_count = 0;
+    std::int32_t seed_count = 0;
+};
+
+CartesianDiscovery discover_cartesian_support(
+    double tile_width,
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double source_radius,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples)
+{
+    CartesianDiscovery result;
+    result.queue.reserve(static_cast<std::size_t>(tile_capacity));
+    std::unordered_map<std::uint64_t, std::int32_t> visited;
+    visited.reserve(static_cast<std::size_t>(tile_capacity));
+    std::unordered_set<std::uint64_t> seeds;
+    seeds.reserve(
+        static_cast<std::size_t>((limb_samples + 1) * binary_root_count));
+
+    const auto insert = [&](std::int32_t x, std::int32_t y) {
+        const std::uint64_t key = tile_key(x, y);
+        if (visited.find(key) != visited.end()) return true;
+        if (result.queue.size() >= static_cast<std::size_t>(tile_capacity)) {
+            result.overflow = true;
+            return false;
+        }
+        visited.emplace(
+            key, static_cast<std::int32_t>(result.queue.size()));
+        result.queue.push_back({x, y});
+        return true;
+    };
+
+    const double two_pi = 2.0 * std::acos(-1.0);
+    for (std::int64_t sample = 0; sample <= limb_samples; ++sample) {
+        double sample_x = source_x;
+        double sample_y = source_y;
+        if (sample > 0) {
+            const double angle =
+                two_pi * static_cast<double>(sample - 1)
+                / static_cast<double>(limb_samples);
+            sample_x += source_radius * std::cos(angle);
+            sample_y += source_radius * std::sin(angle);
+        }
+        const auto images = solve_binary_images(
+            sample_x, sample_y, separation, mass_ratio);
+        std::int32_t physical_count = 0;
+        bool all_converged = true;
+        for (std::size_t root = 0; root < binary_root_count; ++root) {
+            physical_count += static_cast<std::int32_t>(images.physical[root]);
+            all_converged = all_converged && images.converged[root];
+            if (!images.physical[root]) continue;
+            const auto tile_x = static_cast<std::int32_t>(
+                std::floor(images.roots[root].real() / tile_width));
+            const auto tile_y = static_cast<std::int32_t>(
+                std::floor(images.roots[root].imag() / tile_width));
+            if (insert(tile_x, tile_y)) {
+                seeds.insert(tile_key(tile_x, tile_y));
+            }
+        }
+        result.root_failure =
+            result.root_failure
+            || (
+                (physical_count != 3 && physical_count != 5)
+                || !all_converged);
+    }
+    result.seed_count = static_cast<std::int32_t>(result.queue.size());
+
+    constexpr std::array<std::array<std::int32_t, 2>, 4> neighbours{{
+        {1, 0}, {-1, 0}, {0, 1}, {0, -1}
+    }};
+    for (std::size_t head = 0; head < result.queue.size(); ++head) {
+        const auto tile = result.queue[head];
+        const bool active =
+            seeds.find(tile_key(tile[0], tile[1])) != seeds.end()
+            || tile_has_inside_probe(
+                tile[0], tile[1], tile_width, source_x, source_y,
+                separation, mass_ratio, source_radius);
+        result.active_count += static_cast<std::int32_t>(active);
+        if (!active) continue;
+        for (const auto& neighbour : neighbours) {
+            insert(tile[0] + neighbour[0], tile[1] + neighbour[1]);
+        }
+    }
+    return result;
+}
+
+template <typename Scalar>
+struct CartesianEpochResult {
+    KernelResult<Scalar> integration;
+    std::int32_t tile_count = 0;
+    bool overflow = false;
+    bool root_failure = false;
+};
+
+template <typename Scalar>
+CartesianEpochResult<Scalar> cartesian_epoch_kernel(
+    double cell_size,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& source_radius,
+    const Scalar& limb_d,
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    MomentMode mode,
+    std::int64_t boundary_subdivision)
+{
+    const double tile_width =
+        cell_size * static_cast<double>(tile_size);
+    const auto discovery = discover_cartesian_support(
+        tile_width,
+        scalar_value(source_x), scalar_value(source_y),
+        scalar_value(separation), scalar_value(mass_ratio),
+        scalar_value(source_radius), tile_capacity, limb_samples);
+    std::vector<double> origins(2 * discovery.queue.size());
+    for (std::size_t index = 0; index < discovery.queue.size(); ++index) {
+        origins[2 * index] =
+            discovery.queue[index][0] * tile_width;
+        origins[2 * index + 1] =
+            discovery.queue[index][1] * tile_width;
+    }
+    CartesianEpochResult<Scalar> result;
+    result.integration = fixed_support_kernel(
+        origins.data(), nullptr,
+        static_cast<std::int64_t>(discovery.queue.size()), cell_size,
+        source_x, source_y, separation, mass_ratio, source_radius, limb_d,
+        static_cast<int>(tile_size), mode,
+        static_cast<int>(boundary_subdivision));
+    result.tile_count =
+        static_cast<std::int32_t>(discovery.queue.size());
+    result.overflow = discovery.overflow;
+    result.root_failure = discovery.root_failure;
+    return result;
+}
+
 ffi::Error macro_tile_discovery_ffi_impl(
     ffi::BufferR2<ffi::F64> seed_coordinates,
     ffi::BufferR1<ffi::PRED> seed_physical,
@@ -1390,6 +1534,234 @@ XLA_FFI_DEFINE_HANDLER(
         .Ret<ffi::BufferR1<ffi::F64>>()
         .Ret<ffi::BufferR2<ffi::F64>>());
 
+ffi::Error validate_cartesian_epoch_arguments(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    double cell_size,
+    double source_radius,
+    ffi::ResultBufferR1<ffi::F64>& moments)
+{
+    if (
+        tile_size <= 0 || tile_capacity <= 0 || limb_samples <= 0
+        || mode_value < 1 || mode_value > 3) {
+        return ffi::Error::InvalidArgument(
+            "invalid Cartesian epoch static configuration");
+    }
+    if (boundary_subdivision < 1 || boundary_subdivision > 4) {
+        return ffi::Error::InvalidArgument(
+            "boundary_subdivision must be 1, 2, 3, or 4");
+    }
+    if (!(cell_size > 0.0) || !(source_radius > 0.0)) {
+        return ffi::Error::InvalidArgument(
+            "cell_size and source_radius must be positive");
+    }
+    if (
+        moments->dimensions()[0]
+        != moment_count(static_cast<MomentMode>(mode_value))) {
+        return ffi::Error::InvalidArgument(
+            "moments output has the wrong length");
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error cartesian_epoch_forward_ffi_impl(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR0<ffi::F64> cell_size,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR0<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> moments,
+    ffi::ResultBufferR0<ffi::S32> boundary_cells,
+    ffi::ResultBufferR0<ffi::S32> active_cells,
+    ffi::ResultBufferR0<ffi::S32> visited_tiles,
+    ffi::ResultBufferR0<ffi::PRED> overflow,
+    ffi::ResultBufferR0<ffi::PRED> root_failure)
+{
+    auto validation = validate_cartesian_epoch_arguments(
+        tile_size, tile_capacity, limb_samples, mode_value,
+        boundary_subdivision, *cell_size.typed_data(),
+        *source_radius.typed_data(), moments);
+    if (validation.failure()) return validation;
+    const auto mode = static_cast<MomentMode>(mode_value);
+    const auto result = cartesian_epoch_kernel(
+        *cell_size.typed_data(), *source_x.typed_data(),
+        *source_y.typed_data(), *separation.typed_data(),
+        *mass_ratio.typed_data(), *source_radius.typed_data(),
+        *limb_d.typed_data(), tile_size, tile_capacity, limb_samples, mode,
+        boundary_subdivision);
+    for (int index = 0; index < moment_count(mode); ++index) {
+        moments->typed_data()[index] = result.integration.moments[index];
+    }
+    *magnification->typed_data() = combine_magnification(
+        result.integration.moments, *source_radius.typed_data(),
+        *limb_c.typed_data(), *limb_d.typed_data(), mode);
+    *boundary_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.boundary_cells);
+    *active_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.active_cells);
+    *visited_tiles->typed_data() = result.tile_count;
+    *overflow->typed_data() = result.overflow;
+    *root_failure->typed_data() = result.root_failure;
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    cartesian_epoch_forward_ffi_handler,
+    cartesian_epoch_forward_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<std::int64_t>("tile_size")
+        .Attr<std::int64_t>("tile_capacity")
+        .Attr<std::int64_t>("limb_samples")
+        .Attr<std::int64_t>("moment_mode")
+        .Attr<std::int64_t>("boundary_subdivision")
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::PRED>>()
+        .Ret<ffi::BufferR0<ffi::PRED>>());
+
+ffi::Error cartesian_epoch_value_jacobian_ffi_impl(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR0<ffi::F64> cell_size,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR0<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> moments,
+    ffi::ResultBufferR0<ffi::S32> boundary_cells,
+    ffi::ResultBufferR0<ffi::S32> active_cells,
+    ffi::ResultBufferR0<ffi::S32> visited_tiles,
+    ffi::ResultBufferR0<ffi::PRED> overflow,
+    ffi::ResultBufferR0<ffi::PRED> root_failure,
+    ffi::ResultBufferR1<ffi::F64> magnification_jacobian,
+    ffi::ResultBufferR2<ffi::F64> moments_jacobian)
+{
+    auto validation = validate_cartesian_epoch_arguments(
+        tile_size, tile_capacity, limb_samples, mode_value,
+        boundary_subdivision, *cell_size.typed_data(),
+        *source_radius.typed_data(), moments);
+    if (validation.failure()) return validation;
+    const auto mode = static_cast<MomentMode>(mode_value);
+    const auto moment_jacobian_dimensions = moments_jacobian->dimensions();
+    if (
+        magnification_jacobian->dimensions()[0] != parameter_count
+        || moment_jacobian_dimensions[0] != moment_count(mode)
+        || moment_jacobian_dimensions[1] != parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "Cartesian epoch Jacobian outputs have incorrect shapes");
+    }
+
+    const Jet source_x_jet = Jet::variable(*source_x.typed_data(), 0);
+    const Jet source_y_jet = Jet::variable(*source_y.typed_data(), 1);
+    const Jet separation_jet = Jet::variable(*separation.typed_data(), 2);
+    const Jet mass_ratio_jet = Jet::variable(*mass_ratio.typed_data(), 3);
+    const Jet source_radius_jet =
+        Jet::variable(*source_radius.typed_data(), 4);
+    const Jet limb_c_jet(*limb_c.typed_data());
+    const Jet limb_d_jet(*limb_d.typed_data());
+    const auto result = cartesian_epoch_kernel(
+        *cell_size.typed_data(), source_x_jet, source_y_jet,
+        separation_jet, mass_ratio_jet, source_radius_jet, limb_d_jet,
+        tile_size, tile_capacity, limb_samples, mode,
+        boundary_subdivision);
+    const Jet magnification_result = combine_magnification(
+        result.integration.moments, source_radius_jet, limb_c_jet,
+        limb_d_jet, mode);
+    const auto limb_derivatives = limb_coefficient_derivatives(
+        result.integration.moments, *source_radius.typed_data(),
+        *limb_c.typed_data(), *limb_d.typed_data(), mode);
+
+    *magnification->typed_data() = magnification_result.value;
+    for (
+        std::size_t parameter = 0;
+        parameter < kernel_derivative_count;
+        ++parameter) {
+        magnification_jacobian->typed_data()[parameter] =
+            magnification_result.derivative[parameter];
+    }
+    magnification_jacobian->typed_data()[5] = limb_derivatives[0];
+    magnification_jacobian->typed_data()[6] = limb_derivatives[1];
+    for (int moment = 0; moment < moment_count(mode); ++moment) {
+        moments->typed_data()[moment] =
+            result.integration.moments[moment].value;
+        for (
+            std::size_t parameter = 0;
+            parameter < parameter_count;
+            ++parameter) {
+            moments_jacobian->typed_data()[
+                moment * parameter_count + parameter] =
+                parameter < kernel_derivative_count
+                ? result.integration.moments[moment].derivative[parameter]
+                : 0.0;
+        }
+    }
+    *boundary_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.boundary_cells);
+    *active_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.active_cells);
+    *visited_tiles->typed_data() = result.tile_count;
+    *overflow->typed_data() = result.overflow;
+    *root_failure->typed_data() = result.root_failure;
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    cartesian_epoch_value_jacobian_ffi_handler,
+    cartesian_epoch_value_jacobian_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<std::int64_t>("tile_size")
+        .Attr<std::int64_t>("tile_capacity")
+        .Attr<std::int64_t>("limb_samples")
+        .Attr<std::int64_t>("moment_mode")
+        .Attr<std::int64_t>("boundary_subdivision")
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::PRED>>()
+        .Ret<ffi::BufferR0<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::F64>>());
+
 py::capsule fixed_support_forward_ffi_capsule()
 {
     return py::capsule(
@@ -1419,6 +1791,19 @@ py::capsule fixed_support_value_jacobian_ffi_capsule()
     return py::capsule(
         reinterpret_cast<void*>(
             fixed_support_value_jacobian_ffi_handler));
+}
+
+py::capsule cartesian_epoch_forward_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(cartesian_epoch_forward_ffi_handler));
+}
+
+py::capsule cartesian_epoch_value_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(
+            cartesian_epoch_value_jacobian_ffi_handler));
 }
 #endif
 
@@ -1467,5 +1852,13 @@ void register_jax_ir_submodule(py::module_& parent)
         "fixed_support_value_jacobian_ffi",
         &fixed_support_value_jacobian_ffi_capsule,
         "Return the typed XLA value/Jacobian FFI handler capsule.");
+    module.def(
+        "cartesian_epoch_forward_ffi",
+        &cartesian_epoch_forward_ffi_capsule,
+        "Return the fused Cartesian epoch FFI handler capsule.");
+    module.def(
+        "cartesian_epoch_value_jacobian_ffi",
+        &cartesian_epoch_value_jacobian_ffi_capsule,
+        "Return the fused Cartesian epoch value/Jacobian FFI capsule.");
 #endif
 }
