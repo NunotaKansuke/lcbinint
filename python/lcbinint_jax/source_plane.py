@@ -8,6 +8,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from ._config import require_x64
+from .cpp_backend import triple_point_source_batch_ffi
 from .multipole import binary_point_source_magnification
 
 
@@ -46,6 +47,28 @@ def _point_samples(
             root_backend=root_backend,
         )
     )(flat_x, flat_y)
+
+
+def _triple_point_samples(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    convention,
+):
+    return triple_point_source_batch_ffi(
+        jnp.ravel(source_x),
+        jnp.ravel(source_y),
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        convention=convention,
+    )
 
 
 def _ring_quadrature(
@@ -120,6 +143,129 @@ def _chord_quadrature(
     normalizer = jnp.sum(area_weights * brightness)
     value = jnp.sum(area_weights * brightness * magnifications) / normalizer
     invalid = jnp.any(points.root_failure) | ~jnp.isfinite(value) | ~(normalizer > 0.0)
+    return value, invalid
+
+
+def _triple_ring_quadrature(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    limb_c,
+    limb_d,
+    *,
+    radial_bins,
+    angular_bins,
+    convention,
+):
+    dtype = jnp.result_type(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        source_radius,
+    )
+    radius_squared = (
+        jnp.arange(radial_bins, dtype=dtype) + jnp.asarray(0.5, dtype=dtype)
+    ) / radial_bins
+    radius = jnp.sqrt(radius_squared)
+    angle = (
+        2.0
+        * jnp.pi
+        * (jnp.arange(angular_bins, dtype=dtype) + 0.5)
+        / angular_bins
+    )
+    sample_x = (
+        source_x
+        + source_radius * radius[:, None] * jnp.cos(angle)[None, :]
+    )
+    sample_y = (
+        source_y
+        + source_radius * radius[:, None] * jnp.sin(angle)[None, :]
+    )
+    points = _triple_point_samples(
+        sample_x,
+        sample_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        convention,
+    )
+    magnifications = points.magnification.reshape(
+        (radial_bins, angular_bins)
+    )
+    brightness = _surface_brightness(radius_squared, limb_c, limb_d)
+    normalizer = jnp.sum(brightness)
+    value = jnp.sum(brightness * jnp.mean(magnifications, axis=1)) / normalizer
+    invalid = (
+        jnp.any(points.root_failure)
+        | ~jnp.isfinite(value)
+        | ~(normalizer > 0.0)
+    )
+    return value, invalid
+
+
+def _triple_chord_quadrature(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    limb_c,
+    limb_d,
+    *,
+    order,
+    convention,
+):
+    nodes_np, weights_np = np.polynomial.legendre.leggauss(order)
+    dtype = jnp.result_type(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        source_radius,
+    )
+    nodes = jnp.asarray(nodes_np, dtype=dtype)
+    weights = jnp.asarray(weights_np, dtype=dtype)
+    eta = nodes[:, None]
+    half_chord = jnp.sqrt(jnp.maximum(1.0 - eta * eta, 0.0))
+    xi = half_chord * nodes[None, :]
+    sample_x = source_x + source_radius * xi
+    sample_y = source_y + source_radius * jnp.broadcast_to(eta, xi.shape)
+    points = _triple_point_samples(
+        sample_x,
+        sample_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        convention,
+    )
+    magnifications = points.magnification.reshape((order, order))
+    radius_squared = xi * xi + eta * eta
+    brightness = _surface_brightness(radius_squared, limb_c, limb_d)
+    area_weights = weights[:, None] * weights[None, :] * half_chord
+    normalizer = jnp.sum(area_weights * brightness)
+    value = (
+        jnp.sum(area_weights * brightness * magnifications) / normalizer
+    )
+    invalid = (
+        jnp.any(points.root_failure)
+        | ~jnp.isfinite(value)
+        | ~(normalizer > 0.0)
+    )
     return value, invalid
 
 
@@ -226,6 +372,118 @@ def binary_source_plane_quadrature(
     budget = absolute_tolerance + relative_tolerance * jnp.maximum(jnp.abs(fine), 1.0)
     converged = (
         ~root_failure & jnp.isfinite(estimated_error) & (estimated_error <= budget)
+    )
+    return SourcePlaneQuadratureResult(
+        magnification=jnp.where(root_failure, jnp.nan, fine),
+        coarse_magnification=coarse,
+        estimated_error=estimated_error,
+        sample_count=jnp.asarray(sample_count, dtype=jnp.int32),
+        root_failure=root_failure,
+        converged=converged,
+        used_chord=jnp.asarray(used_chord),
+    )
+
+
+@partial(
+    jax.jit,
+    static_argnames=(
+        "rule",
+        "coarse_order",
+        "fine_order",
+        "angular_multiplier",
+        "convention",
+    ),
+)
+def triple_source_plane_quadrature(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    rule="chord",
+    coarse_order=32,
+    fine_order=64,
+    angular_multiplier=4,
+    absolute_tolerance=0.0,
+    relative_tolerance=1.0e-4,
+    convention="center_of_mass",
+) -> SourcePlaneQuadratureResult:
+    """Integrate a triple lens over the source plane with analytic root AD.
+
+    The point-source samples are evaluated by one batched CPU FFI. ``chord``
+    matches the native tensor Gauss--Legendre disk mapping; ``ring`` provides
+    the structurally independent equal-area midpoint rule used for grazing
+    cross-checks.
+    """
+
+    require_x64()
+    if coarse_order < 1 or fine_order <= coarse_order:
+        raise ValueError("require 1 <= coarse_order < fine_order")
+    if angular_multiplier < 1:
+        raise ValueError("angular_multiplier must be positive")
+    if convention not in ("center_of_mass", "vbm"):
+        raise ValueError("convention must be 'center_of_mass' or 'vbm'")
+
+    common = (
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        source_radius,
+        limb_c,
+        limb_d,
+    )
+    if rule == "ring":
+        coarse, coarse_failure = _triple_ring_quadrature(
+            *common,
+            radial_bins=coarse_order,
+            angular_bins=angular_multiplier * coarse_order,
+            convention=convention,
+        )
+        fine, fine_failure = _triple_ring_quadrature(
+            *common,
+            radial_bins=fine_order,
+            angular_bins=angular_multiplier * fine_order,
+            convention=convention,
+        )
+        sample_count = angular_multiplier * (
+            coarse_order * coarse_order + fine_order * fine_order
+        )
+        used_chord = False
+    elif rule == "chord":
+        coarse, coarse_failure = _triple_chord_quadrature(
+            *common,
+            order=coarse_order,
+            convention=convention,
+        )
+        fine, fine_failure = _triple_chord_quadrature(
+            *common,
+            order=fine_order,
+            convention=convention,
+        )
+        sample_count = coarse_order * coarse_order + fine_order * fine_order
+        used_chord = True
+    else:
+        raise ValueError("rule must be 'ring' or 'chord'")
+
+    root_failure = coarse_failure | fine_failure
+    estimated_error = jnp.abs(fine - coarse)
+    budget = absolute_tolerance + relative_tolerance * jnp.maximum(
+        jnp.abs(fine), 1.0
+    )
+    converged = (
+        ~root_failure
+        & jnp.isfinite(estimated_error)
+        & (estimated_error <= budget)
     )
     return SourcePlaneQuadratureResult(
         magnification=jnp.where(root_failure, jnp.nan, fine),

@@ -770,6 +770,13 @@ epochs accepted by either fast path do no cell traversal. All three branches
 support `jax.jit`, forward AD, and reverse AD through custom JVPs; the discrete
 method decision is stopped-gradient.
 
+`triple_source_plane_quadrature` is also available as an explicit
+differentiable grazing/reference path. Every disk node uses the fused triple
+point-source FFI, so the degree-10 solves and their implicit Jacobians remain
+batched in C++. The tensor Gauss--Legendre chord rule matches the native disk
+mapping, while an equal-area ring rule provides a structurally independent
+cross-check.
+
 ```python
 result = lj.triple_magnification_batch(
     source_x, source_y,

@@ -51,6 +51,7 @@ from .polar import binary_inverse_ray_polar, discover_binary_polar_bands
 from .source_plane import (
     SourcePlaneQuadratureResult,
     binary_source_plane_quadrature,
+    triple_source_plane_quadrature,
 )
 from .trajectory import binary_magnification_trajectory
 from .triple import (
@@ -186,5 +187,6 @@ __all__ = [
     "triple_lens_map_and_derivatives_real",
     "triple_lens_map_real",
     "triple_point_source_batch_ffi",
+    "triple_source_plane_quadrature",
     "xallarap_offsets",
 ]

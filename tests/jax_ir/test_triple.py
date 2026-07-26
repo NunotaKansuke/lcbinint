@@ -17,6 +17,7 @@ from lcbinint_jax import (
     triple_magnification_auto,
     triple_magnification_batch,
     triple_point_source_batch_ffi,
+    triple_source_plane_quadrature,
 )
 from lcbinint_jax.lens import binary_lens_map_and_derivatives_real
 
@@ -369,3 +370,40 @@ def test_triple_dispatcher_keeps_zero_radius_on_point_source_path():
     assert int(result.method) == 0
     assert bool(result.support_valid)
     assert float(result.magnification) > 100.0
+
+
+def test_triple_source_plane_chord_converges_and_differentiates():
+    parameters = jnp.asarray(
+        (-0.8, 0.6, 1.0, 0.1, 0.03, 0.7, 0.8, 0.03, 0.3, 0.2)
+    )
+
+    def magnification(values):
+        return triple_source_plane_quadrature(
+            *values,
+            rule="chord",
+            coarse_order=16,
+            fine_order=32,
+        ).magnification
+
+    result = triple_source_plane_quadrature(
+        *parameters,
+        rule="chord",
+        coarse_order=16,
+        fine_order=32,
+    )
+    assert bool(result.converged)
+    assert not bool(result.root_failure)
+    np.testing.assert_allclose(result.magnification, 1.27518316, rtol=1.0e-8)
+
+    value, gradient = jax.value_and_grad(magnification)(parameters)
+    assert bool(jnp.isfinite(value))
+    assert bool(jnp.all(jnp.isfinite(gradient)))
+    for index in range(parameters.size):
+        step = 1.0e-5
+        finite_difference = (
+            magnification(parameters.at[index].add(step))
+            - magnification(parameters.at[index].add(-step))
+        ) / (2.0 * step)
+        np.testing.assert_allclose(
+            gradient[index], finite_difference, rtol=3.0e-4, atol=3.0e-7
+        )
