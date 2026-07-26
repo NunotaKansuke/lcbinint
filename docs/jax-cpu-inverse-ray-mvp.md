@@ -722,38 +722,72 @@ the dominant cost remains magnification integration.
 
 ## Triple-lens inverse-ray milestone
 
-The first differentiable triple-lens inverse-ray path is implemented in
-`lcbinint_jax.triple`. It includes both native center-of-mass and VBM geometry
-conventions, a real-arithmetic three-lens map with analytic image-plane
-Jacobian, source-boundary cell moments, and a row-streamed Cartesian
-integrator. The complete lens map remains inside JAX, so derivatives propagate
-through source coordinates, both mass ratios, both separations, the tertiary
-angle, source radius, and brightness coefficients.
+The differentiable triple-lens path now has a sparse production-oriented CPU
+kernel in addition to the original dense reference. A native degree-10 solver
+samples the source centre and limb, a four-neighbour BFS discovers connected
+image-plane macro-tiles, and a fused C++ FFI integrates only those tiles.
+Root selection, BFS topology, and grid size are stopped-gradient. Within the
+fixed support, a forward-mode analytic jet propagates derivatives through the
+source coordinates, both mass ratios, both separations, tertiary angle, source
+radius, and both brightness coefficients. Both native center-of-mass and VBM
+geometry conventions are supported.
 
-This first kernel intentionally integrates one explicit dense square rather
-than hiding a degree-10 root/topology solver in the support decision. It
-reports invalid support when the square is smaller than a conservative
-preimage-radius bound or a contributing cell reaches its edge. Thus the
-correctness contract is explicit: enlarge `image_extent` whenever
-`support_valid` is false. The next triple-specific performance stage can
-replace the dense square with stopped-gradient root/caustic support without
-changing the differentiable lens-map and moment kernels.
+The scalar public entry point is:
 
-The zero-tertiary-mass map agrees with the binary map and all six first
-derivatives to \(3\times10^{-15}\). For the initial uniform-source triple
-reference
-\((s,q,q_2,s_2,\psi,\rho)=(1,0.1,0.03,0.7,0.8,0.2)\), a 512-by-512 square
-gives 3.14205 versus native `lcbinint` 3.13545 (0.21 percent), and the
-source-coordinate AD derivative agrees with a local finite difference to
-0.1 percent. This is a correctness MVP, not yet a production triple
-dispatcher or a speed claim.
+```python
+import jax
+import lcbinint_jax as lj
+
+jax.config.update("jax_enable_x64", True)
+result = lj.triple_inverse_ray_adaptive(
+    0.2, 0.3,       # source x, y
+    1.0, 0.1,       # s, q
+    0.03, 0.7, 0.8, # q2, sep2, angle
+    0.2,             # rho
+    limb_c=0.3,
+    limb_d=0.2,
+)
+value = result.magnification
+gradient = jax.grad(
+    lambda q2: lj.triple_inverse_ray_adaptive(
+        0.2, 0.3, 1.0, 0.1, q2, 0.7, 0.8, 0.2,
+        limb_c=0.3, limb_d=0.2,
+    ).magnification
+)(0.03)
+```
+
+`triple_inverse_ray_batch` evaluates a complete one-dimensional trajectory in
+one FFI call and parallelizes independent epochs with OpenMP. It accepts an
+optional boolean `active` mask and supports `jax.jit`, forward AD, and reverse
+AD through its custom JVP.
+
+The zero-tertiary-mass map agrees with the binary map and all six image-plane
+derivatives to \(3\times10^{-15}\). For
+\((s,q,q_2,s_2,\psi,\rho)=(1,0.1,0.03,0.7,0.8,0.2)\), the default sparse
+uniform-source result is 3.135506 versus native Cartesian 3.135455, a relative
+difference of \(1.6\times10^{-5}\). All ten scalar derivatives agree with
+local finite differences at roughly \(7\times10^{-5}\) to
+\(8\times10^{-4}\) relative error in this case.
+
+On the current benchmark host, a 20-case random sweep gave median/max
+uniform-source relative differences of \(1.2\times10^{-5}\) and
+\(1.2\times10^{-4}\) at resolution 64. Median single-epoch time was 1.8 ms.
+A 64-epoch uniform trajectory took 2.9--3.7 ms with the parallel batch FFI,
+versus about 71 ms for sequential FFI `vmap`, 110 ms for native Cartesian,
+and 752 ms for the native auto path on the same trajectory. These figures are
+warm-call measurements, not portable guarantees.
 
 ## Current limitations
 
-- The calibrated fast dispatcher and C++ trajectory FFI are binary-lens only.
-  Triple lenses currently use the dense differentiable correctness kernel
-  described above; degree-10 root support, caustic probes, adaptive tiling,
-  and a triple C++ FFI remain future performance work.
+- The calibrated point/hex/polar dispatcher is still binary-lens only. Triple
+  scalar and batch Cartesian FFI paths are complete, but far-from-caustic
+  triple epochs do not yet switch to a differentiable point/hex fast path.
+- The 20-case triple pilot sweep is enough to validate the implementation, not
+  enough to freeze a universal dispatcher calibration. In the square-root
+  limb-darkening pilot, the median resolution-64 difference was
+  \(6.3\times10^{-5}\), while the worst far-from-caustic case was 0.36 percent.
+  Such cases should ultimately route through the planned triple multipole
+  path.
 - The current `support_valid` flag detects root and tile-capacity failures; it
   is not a numerical-accuracy or gradient-convergence guarantee; use the
   coarse/fine diagnostic for that decision.

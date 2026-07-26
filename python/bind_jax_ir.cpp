@@ -1,6 +1,8 @@
 #include "bind_jax_ir.hpp"
 
 #include "lcbinint/math/polynomial_roots.hpp"
+#include "lcbinint/magnification/point_source_magnifier.hpp"
+#include "lcbinint/model/triple_lens_geometry.hpp"
 
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -38,55 +40,65 @@ enum class MomentMode {
 
 constexpr std::size_t kernel_derivative_count = 5;
 constexpr std::size_t parameter_count = 7;
+constexpr std::size_t triple_kernel_derivative_count = 8;
+constexpr std::size_t triple_parameter_count = 10;
 
-struct Jet {
+template <std::size_t DerivativeCount>
+struct JetBase {
     double value = 0.0;
-    std::array<double, kernel_derivative_count> derivative{};
+    std::array<double, DerivativeCount> derivative{};
 
-    Jet() = default;
-    Jet(double scalar) : value(scalar) {}
+    JetBase() = default;
+    JetBase(double scalar) : value(scalar) {}
 
-    static Jet variable(double scalar, std::size_t index)
+    static JetBase variable(double scalar, std::size_t index)
     {
-        Jet result(scalar);
+        JetBase result(scalar);
         result.derivative[index] = 1.0;
         return result;
     }
 };
 
-Jet operator+(const Jet& left, const Jet& right)
+using Jet = JetBase<kernel_derivative_count>;
+using TripleJet = JetBase<triple_kernel_derivative_count>;
+
+template <std::size_t N>
+JetBase<N> operator+(const JetBase<N>& left, const JetBase<N>& right)
 {
-    Jet result(left.value + right.value);
-    for (std::size_t index = 0; index < kernel_derivative_count; ++index) {
+    JetBase<N> result(left.value + right.value);
+    for (std::size_t index = 0; index < N; ++index) {
         result.derivative[index] =
             left.derivative[index] + right.derivative[index];
     }
     return result;
 }
 
-Jet operator-(const Jet& left, const Jet& right)
+template <std::size_t N>
+JetBase<N> operator-(const JetBase<N>& left, const JetBase<N>& right)
 {
-    Jet result(left.value - right.value);
-    for (std::size_t index = 0; index < kernel_derivative_count; ++index) {
+    JetBase<N> result(left.value - right.value);
+    for (std::size_t index = 0; index < N; ++index) {
         result.derivative[index] =
             left.derivative[index] - right.derivative[index];
     }
     return result;
 }
 
-Jet operator-(const Jet& value)
+template <std::size_t N>
+JetBase<N> operator-(const JetBase<N>& value)
 {
-    Jet result(-value.value);
-    for (std::size_t index = 0; index < kernel_derivative_count; ++index) {
+    JetBase<N> result(-value.value);
+    for (std::size_t index = 0; index < N; ++index) {
         result.derivative[index] = -value.derivative[index];
     }
     return result;
 }
 
-Jet operator*(const Jet& left, const Jet& right)
+template <std::size_t N>
+JetBase<N> operator*(const JetBase<N>& left, const JetBase<N>& right)
 {
-    Jet result(left.value * right.value);
-    for (std::size_t index = 0; index < kernel_derivative_count; ++index) {
+    JetBase<N> result(left.value * right.value);
+    for (std::size_t index = 0; index < N; ++index) {
         result.derivative[index] =
             left.derivative[index] * right.value
             + left.value * right.derivative[index];
@@ -94,12 +106,13 @@ Jet operator*(const Jet& left, const Jet& right)
     return result;
 }
 
-Jet operator/(const Jet& left, const Jet& right)
+template <std::size_t N>
+JetBase<N> operator/(const JetBase<N>& left, const JetBase<N>& right)
 {
-    Jet result(left.value / right.value);
+    JetBase<N> result(left.value / right.value);
     const double inverse_denominator_squared =
         1.0 / (right.value * right.value);
-    for (std::size_t index = 0; index < kernel_derivative_count; ++index) {
+    for (std::size_t index = 0; index < N; ++index) {
         result.derivative[index] =
             (left.derivative[index] * right.value
              - left.value * right.derivative[index])
@@ -108,10 +121,66 @@ Jet operator/(const Jet& left, const Jet& right)
     return result;
 }
 
-Jet& operator+=(Jet& left, const Jet& right)
+template <std::size_t N>
+JetBase<N>& operator+=(JetBase<N>& left, const JetBase<N>& right)
 {
     left = left + right;
     return left;
+}
+
+template <std::size_t N>
+JetBase<N>& operator+=(JetBase<N>& left, double right)
+{
+    left.value += right;
+    return left;
+}
+
+template <std::size_t N>
+JetBase<N> operator+(double left, const JetBase<N>& right)
+{
+    return JetBase<N>(left) + right;
+}
+
+template <std::size_t N>
+JetBase<N> operator+(const JetBase<N>& left, double right)
+{
+    return left + JetBase<N>(right);
+}
+
+template <std::size_t N>
+JetBase<N> operator-(double left, const JetBase<N>& right)
+{
+    return JetBase<N>(left) - right;
+}
+
+template <std::size_t N>
+JetBase<N> operator-(const JetBase<N>& left, double right)
+{
+    return left - JetBase<N>(right);
+}
+
+template <std::size_t N>
+JetBase<N> operator*(double left, const JetBase<N>& right)
+{
+    return JetBase<N>(left) * right;
+}
+
+template <std::size_t N>
+JetBase<N> operator*(const JetBase<N>& left, double right)
+{
+    return left * JetBase<N>(right);
+}
+
+template <std::size_t N>
+JetBase<N> operator/(double left, const JetBase<N>& right)
+{
+    return JetBase<N>(left) / right;
+}
+
+template <std::size_t N>
+JetBase<N> operator/(const JetBase<N>& left, double right)
+{
+    return left / JetBase<N>(right);
 }
 
 double scalar_value(double value)
@@ -119,7 +188,8 @@ double scalar_value(double value)
     return value;
 }
 
-double scalar_value(const Jet& value)
+template <std::size_t N>
+double scalar_value(const JetBase<N>& value)
 {
     return value.value;
 }
@@ -129,12 +199,45 @@ double scalar_sqrt(double value)
     return std::sqrt(value);
 }
 
-Jet scalar_sqrt(const Jet& value)
+template <std::size_t N>
+JetBase<N> scalar_sqrt(const JetBase<N>& value)
 {
     const double root = std::sqrt(value.value);
-    Jet result(root);
+    JetBase<N> result(root);
     const double scale = 0.5 / root;
-    for (std::size_t index = 0; index < kernel_derivative_count; ++index) {
+    for (std::size_t index = 0; index < N; ++index) {
+        result.derivative[index] = scale * value.derivative[index];
+    }
+    return result;
+}
+
+double scalar_sin(double value)
+{
+    return std::sin(value);
+}
+
+template <std::size_t N>
+JetBase<N> scalar_sin(const JetBase<N>& value)
+{
+    JetBase<N> result(std::sin(value.value));
+    const double scale = std::cos(value.value);
+    for (std::size_t index = 0; index < N; ++index) {
+        result.derivative[index] = scale * value.derivative[index];
+    }
+    return result;
+}
+
+double scalar_cos(double value)
+{
+    return std::cos(value);
+}
+
+template <std::size_t N>
+JetBase<N> scalar_cos(const JetBase<N>& value)
+{
+    JetBase<N> result(std::cos(value.value));
+    const double scale = -std::sin(value.value);
+    for (std::size_t index = 0; index < N; ++index) {
         result.derivative[index] = scale * value.derivative[index];
     }
     return result;
@@ -156,13 +259,14 @@ double scalar_pow(double value, double power)
     return std::pow(value, power);
 }
 
-Jet scalar_pow(const Jet& value, double power)
+template <std::size_t N>
+JetBase<N> scalar_pow(const JetBase<N>& value, double power)
 {
     const double powered = scalar_pow(value.value, power);
-    Jet result(powered);
+    JetBase<N> result(powered);
     const double scale =
         power == 0.0 ? 0.0 : power * powered / value.value;
-    for (std::size_t index = 0; index < kernel_derivative_count; ++index) {
+    for (std::size_t index = 0; index < N; ++index) {
         result.derivative[index] = scale * value.derivative[index];
     }
     return result;
@@ -182,6 +286,13 @@ struct LensConstants {
     Scalar lens_2_x;
     Scalar mass_1;
     Scalar mass_2;
+};
+
+template <typename Scalar>
+struct TripleLensConstants {
+    std::array<Scalar, 3> lens_x{};
+    std::array<Scalar, 3> lens_y{};
+    std::array<Scalar, 3> mass{};
 };
 
 template <typename Scalar>
@@ -246,6 +357,98 @@ PhiDerivatives<Scalar> phi_derivatives(
     const Scalar residual_x = mapped_x - source_x;
     const Scalar residual_y = mapped_y - source_y;
 
+    return {
+        1.0 - (residual_x * residual_x + residual_y * residual_y)
+                  * inverse_source_radius_squared,
+        -2.0 * inverse_source_radius_squared
+            * (residual_x * du_dx + residual_y * dv_dx),
+        -2.0 * inverse_source_radius_squared
+            * (residual_x * du_dy + residual_y * dv_dy),
+        -2.0 * inverse_source_radius_squared
+            * (du_dx * du_dx + du_dy * du_dy
+               + dv_dx * dv_dx + dv_dy * dv_dy),
+    };
+}
+
+template <typename Scalar>
+TripleLensConstants<Scalar> make_triple_lens_constants(
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& tertiary_mass_ratio,
+    const Scalar& tertiary_separation,
+    const Scalar& tertiary_angle,
+    std::int64_t convention)
+{
+    const Scalar total = 1.0 + mass_ratio + tertiary_mass_ratio;
+    const Scalar mass_1 = 1.0 / total;
+    const Scalar mass_2 = mass_ratio / total;
+    const Scalar mass_3 = tertiary_mass_ratio / total;
+    TripleLensConstants<Scalar> result;
+    result.mass = {mass_1, mass_2, mass_3};
+    if (convention == 0) {
+        const Scalar group_mass = mass_2 + mass_3;
+        result.lens_x[0] = -group_mass * separation;
+        result.lens_y[0] = 0.0;
+        const Scalar group_x = mass_1 * separation;
+        const Scalar delta_x =
+            tertiary_separation * scalar_cos(tertiary_angle);
+        const Scalar delta_y =
+            tertiary_separation * scalar_sin(tertiary_angle);
+        result.lens_x[1] =
+            group_x + mass_3 / group_mass * delta_x;
+        result.lens_y[1] = mass_3 / group_mass * delta_y;
+        result.lens_x[2] =
+            group_x - mass_2 / group_mass * delta_x;
+        result.lens_y[2] = -mass_2 / group_mass * delta_y;
+    } else {
+        result.lens_x[0] =
+            mass_ratio * separation / (1.0 + mass_ratio);
+        result.lens_y[0] = 0.0;
+        result.lens_x[1] = -separation / (1.0 + mass_ratio);
+        result.lens_y[1] = 0.0;
+        result.lens_x[2] = result.lens_x[0]
+            - tertiary_separation * scalar_cos(tertiary_angle);
+        result.lens_y[2] =
+            -tertiary_separation * scalar_sin(tertiary_angle);
+    }
+    return result;
+}
+
+template <typename Scalar>
+PhiDerivatives<Scalar> triple_phi_derivatives(
+    double image_x,
+    double image_y,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const TripleLensConstants<Scalar>& lens,
+    const Scalar& inverse_source_radius_squared)
+{
+    Scalar mapped_x = image_x;
+    Scalar mapped_y = image_y;
+    Scalar shear_real = 0.0;
+    Scalar shear_cross = 0.0;
+    for (std::size_t lens_index = 0; lens_index < 3; ++lens_index) {
+        const Scalar dx = image_x - lens.lens_x[lens_index];
+        const Scalar dy = image_y - lens.lens_y[lens_index];
+        const Scalar radius_squared = dx * dx + dy * dy;
+        const Scalar inverse_radius_squared = 1.0 / radius_squared;
+        const Scalar inverse_radius_fourth =
+            inverse_radius_squared * inverse_radius_squared;
+        mapped_x =
+            mapped_x - lens.mass[lens_index] * dx * inverse_radius_squared;
+        mapped_y =
+            mapped_y - lens.mass[lens_index] * dy * inverse_radius_squared;
+        shear_real += lens.mass[lens_index]
+            * (dx * dx - dy * dy) * inverse_radius_fourth;
+        shear_cross += 2.0 * lens.mass[lens_index]
+            * dx * dy * inverse_radius_fourth;
+    }
+    const Scalar du_dx = 1.0 + shear_real;
+    const Scalar du_dy = shear_cross;
+    const Scalar dv_dx = shear_cross;
+    const Scalar dv_dy = 1.0 - shear_real;
+    const Scalar residual_x = mapped_x - source_x;
+    const Scalar residual_y = mapped_y - source_y;
     return {
         1.0 - (residual_x * residual_x + residual_y * residual_y)
                   * inverse_source_radius_squared,
@@ -568,6 +771,179 @@ KernelResult<Scalar> fixed_support_kernel(
         boundary_subdivision);
 }
 
+template <MomentMode Mode, int BoundarySubdivision, typename Scalar>
+KernelResult<Scalar> triple_fixed_support_kernel_for_mode(
+    const double* origins,
+    std::int64_t tile_count,
+    double cell_size,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& tertiary_mass_ratio,
+    const Scalar& tertiary_separation,
+    const Scalar& tertiary_angle,
+    const Scalar& source_radius,
+    const Scalar& limb_d,
+    int tile_size,
+    std::int64_t convention)
+{
+    KernelResult<Scalar> result;
+    const Scalar inverse_source_radius_squared =
+        1.0 / (source_radius * source_radius);
+    const auto lens = make_triple_lens_constants(
+        separation, mass_ratio, tertiary_mass_ratio,
+        tertiary_separation, tertiary_angle, convention);
+    TripleLensConstants<double> classification_lens;
+    for (std::size_t index = 0; index < 3; ++index) {
+        classification_lens.lens_x[index] =
+            scalar_value(lens.lens_x[index]);
+        classification_lens.lens_y[index] =
+            scalar_value(lens.lens_y[index]);
+        classification_lens.mass[index] =
+            scalar_value(lens.mass[index]);
+    }
+    const double classification_inverse_radius_squared =
+        scalar_value(inverse_source_radius_squared);
+    const double subcell_size = cell_size / BoundarySubdivision;
+    std::array<double, BoundarySubdivision> subcell_offsets{};
+    for (int subcell = 0; subcell < BoundarySubdivision; ++subcell) {
+        subcell_offsets[subcell] =
+            ((static_cast<double>(subcell) + 0.5) / BoundarySubdivision
+             - 0.5) * cell_size;
+    }
+
+    for (std::int64_t tile = 0; tile < tile_count; ++tile) {
+        for (int iy = 0; iy < tile_size; ++iy) {
+            const double image_y =
+                origins[2 * tile + 1]
+                + (static_cast<double>(iy) + 0.5) * cell_size;
+            for (int ix = 0; ix < tile_size; ++ix) {
+                const double image_x =
+                    origins[2 * tile]
+                    + (static_cast<double>(ix) + 0.5) * cell_size;
+                const auto classification = triple_phi_derivatives(
+                    image_x, image_y, scalar_value(source_x),
+                    scalar_value(source_y), classification_lens,
+                    classification_inverse_radius_squared);
+                const double extent = 0.5 * cell_size * (
+                    std::abs(classification.gradient_x)
+                    + std::abs(classification.gradient_y));
+                const bool fully_inside =
+                    classification.phi - extent > 0.0;
+                const bool fully_outside =
+                    classification.phi + extent <= 0.0;
+                bool detailed = !(fully_inside || fully_outside);
+                if constexpr (Mode == MomentMode::two_coefficient) {
+                    if (scalar_value(limb_d) != 0.0 && fully_inside) {
+                        const double relative_variation =
+                            (extent
+                             + 0.125 * std::abs(classification.laplacian)
+                                 * cell_size * cell_size)
+                            / std::max(classification.phi, 1.0e-30);
+                        detailed = relative_variation > 0.2;
+                    }
+                }
+                if (detailed) {
+                    ++result.boundary_cells;
+                    ++result.active_cells;
+                    for (int sy = 0; sy < BoundarySubdivision; ++sy) {
+                        for (int sx = 0; sx < BoundarySubdivision; ++sx) {
+                            const auto values = triple_phi_derivatives(
+                                image_x + subcell_offsets[sx],
+                                image_y + subcell_offsets[sy],
+                                source_x, source_y, lens,
+                                inverse_source_radius_squared);
+                            add_affine_moments<Mode>(
+                                result.moments, values, subcell_size);
+                        }
+                    }
+                } else if (fully_inside) {
+                    ++result.active_cells;
+                    if constexpr (Mode == MomentMode::uniform) {
+                        result.moments[0] += cell_size * cell_size;
+                    } else if constexpr (std::is_same_v<Scalar, double>) {
+                        add_interior_moments<Mode>(
+                            result.moments, classification, cell_size);
+                    } else {
+                        const auto values = triple_phi_derivatives(
+                            image_x, image_y, source_x, source_y, lens,
+                            inverse_source_radius_squared);
+                        add_interior_moments<Mode>(
+                            result.moments, values, cell_size);
+                    }
+                }
+            }
+        }
+    }
+    return result;
+}
+
+template <MomentMode Mode, typename Scalar>
+KernelResult<Scalar> dispatch_triple_fixed_support_kernel(
+    const double* origins,
+    std::int64_t tile_count,
+    double cell_size,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& tertiary_mass_ratio,
+    const Scalar& tertiary_separation,
+    const Scalar& tertiary_angle,
+    const Scalar& source_radius,
+    const Scalar& limb_d,
+    int tile_size,
+    std::int64_t convention,
+    int boundary_subdivision)
+{
+#define LCBININT_TRIPLE_KERNEL(N) \
+    return triple_fixed_support_kernel_for_mode<Mode, N>( \
+        origins, tile_count, cell_size, source_x, source_y, separation, \
+        mass_ratio, tertiary_mass_ratio, tertiary_separation, \
+        tertiary_angle, source_radius, limb_d, tile_size, convention)
+    if (boundary_subdivision == 1) { LCBININT_TRIPLE_KERNEL(1); }
+    if (boundary_subdivision == 2) { LCBININT_TRIPLE_KERNEL(2); }
+    if (boundary_subdivision == 3) { LCBININT_TRIPLE_KERNEL(3); }
+    LCBININT_TRIPLE_KERNEL(4);
+#undef LCBININT_TRIPLE_KERNEL
+}
+
+template <typename Scalar>
+KernelResult<Scalar> triple_fixed_support_kernel(
+    const double* origins,
+    std::int64_t tile_count,
+    double cell_size,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& tertiary_mass_ratio,
+    const Scalar& tertiary_separation,
+    const Scalar& tertiary_angle,
+    const Scalar& source_radius,
+    const Scalar& limb_d,
+    int tile_size,
+    std::int64_t convention,
+    MomentMode mode,
+    int boundary_subdivision)
+{
+#define LCBININT_TRIPLE_MODE(MODE) \
+    return dispatch_triple_fixed_support_kernel<MODE>( \
+        origins, tile_count, cell_size, source_x, source_y, separation, \
+        mass_ratio, tertiary_mass_ratio, tertiary_separation, \
+        tertiary_angle, source_radius, limb_d, tile_size, convention, \
+        boundary_subdivision)
+    if (mode == MomentMode::uniform) {
+        LCBININT_TRIPLE_MODE(MomentMode::uniform);
+    }
+    if (mode == MomentMode::linear) {
+        LCBININT_TRIPLE_MODE(MomentMode::linear);
+    }
+    LCBININT_TRIPLE_MODE(MomentMode::two_coefficient);
+#undef LCBININT_TRIPLE_MODE
+}
+
 template <typename Scalar>
 Scalar combine_magnification(
     const std::array<Scalar, 3>& moments,
@@ -597,8 +973,9 @@ Scalar combine_magnification(
         / source_flux;
 }
 
+template <typename Scalar>
 std::array<double, 2> limb_coefficient_derivatives(
-    const std::array<Jet, 3>& moments,
+    const std::array<Scalar, 3>& moments,
     double source_radius,
     double limb_c,
     double limb_d,
@@ -1003,6 +1380,84 @@ XLA_FFI_DEFINE_HANDLER(
     binary_image_roots_ffi_handler,
     binary_image_roots_ffi_impl,
     ffi::Ffi::Bind()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>());
+
+constexpr std::int64_t triple_root_count = 10;
+
+ffi::Error triple_image_roots_ffi_impl(
+    std::int64_t convention,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_separation,
+    ffi::BufferR0<ffi::F64> tertiary_angle,
+    ffi::ResultBufferR2<ffi::F64> roots,
+    ffi::ResultBufferR1<ffi::PRED> physical,
+    ffi::ResultBufferR1<ffi::F64> residuals,
+    ffi::ResultBufferR1<ffi::PRED> converged)
+{
+    if (
+        roots->dimensions()[0] != triple_root_count
+        || roots->dimensions()[1] != 2
+        || physical->dimensions()[0] != triple_root_count
+        || residuals->dimensions()[0] != triple_root_count
+        || converged->dimensions()[0] != triple_root_count
+        || (convention != 0 && convention != 1)) {
+        return ffi::Error::InvalidArgument(
+            "invalid triple-root output shape or convention");
+    }
+    const double s = *separation.typed_data();
+    const double q = *mass_ratio.typed_data();
+    const double q2 = *tertiary_mass_ratio.typed_data();
+    const double s2 = *tertiary_separation.typed_data();
+    const double angle = *tertiary_angle.typed_data();
+    const auto geometry = convention == 0
+        ? lcbinint::model::make_triple_lens_geometry(s, q, q2, s2, angle)
+        : lcbinint::model::make_triple_lens_geometry_vbm(s, q, s2, angle, q2);
+    const lcbinint::magnification::PointSourceMagnifier magnifier;
+    const auto candidates = magnifier.triple_image_candidates(
+        geometry, {*source_x.typed_data(), *source_y.typed_data()});
+    auto* output_roots = roots->typed_data();
+    auto* output_physical = physical->typed_data();
+    auto* output_residuals = residuals->typed_data();
+    auto* output_converged = converged->typed_data();
+    std::fill(output_roots, output_roots + 2 * triple_root_count, 0.0);
+    std::fill(output_physical, output_physical + triple_root_count, false);
+    std::fill(
+        output_residuals, output_residuals + triple_root_count,
+        std::numeric_limits<double>::infinity());
+    std::fill(output_converged, output_converged + triple_root_count, false);
+    const std::size_t count = std::min<std::size_t>(
+        candidates.size(), static_cast<std::size_t>(triple_root_count));
+    for (std::size_t index = 0; index < count; ++index) {
+        const auto& candidate = candidates[index];
+        output_roots[2 * index] = candidate.position.x;
+        output_roots[2 * index + 1] = candidate.position.y;
+        output_physical[index] = candidate.physical;
+        output_residuals[index] = candidate.residual;
+        output_converged[index] =
+            std::isfinite(candidate.residual) && candidate.residual <= 1.0e-7;
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    triple_image_roots_ffi_handler,
+    triple_image_roots_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<std::int64_t>("convention")
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
@@ -1466,6 +1921,134 @@ CartesianDiscovery discover_cartesian_support(
     return result;
 }
 
+bool triple_tile_has_inside_probe(
+    std::int32_t tile_x,
+    std::int32_t tile_y,
+    double tile_width,
+    double source_x,
+    double source_y,
+    const TripleLensConstants<double>& lens,
+    double source_radius)
+{
+    const double origin_x = static_cast<double>(tile_x) * tile_width;
+    const double origin_y = static_cast<double>(tile_y) * tile_width;
+    const double inverse_radius_squared =
+        1.0 / (source_radius * source_radius);
+    constexpr std::array<double, 3> fractions{0.0, 0.5, 1.0};
+    for (double fraction_y : fractions) {
+        for (double fraction_x : fractions) {
+            const double image_x = origin_x + fraction_x * tile_width;
+            const double image_y = origin_y + fraction_y * tile_width;
+            const auto values = triple_phi_derivatives(
+                image_x, image_y, source_x, source_y, lens,
+                inverse_radius_squared);
+            if (std::isfinite(values.phi) && values.phi >= 0.0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+CartesianDiscovery discover_triple_cartesian_support(
+    double tile_width,
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double tertiary_mass_ratio,
+    double tertiary_separation,
+    double tertiary_angle,
+    double source_radius,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t convention)
+{
+    CartesianDiscovery result;
+    result.queue.reserve(static_cast<std::size_t>(tile_capacity));
+    std::unordered_map<std::uint64_t, std::int32_t> visited;
+    visited.reserve(static_cast<std::size_t>(tile_capacity));
+    std::unordered_set<std::uint64_t> seeds;
+    seeds.reserve(
+        static_cast<std::size_t>((limb_samples + 1) * triple_root_count));
+    const auto insert = [&](std::int32_t x, std::int32_t y) {
+        const auto key = tile_key(x, y);
+        if (visited.find(key) != visited.end()) return true;
+        if (result.queue.size() >= static_cast<std::size_t>(tile_capacity)) {
+            result.overflow = true;
+            return false;
+        }
+        visited.emplace(
+            key, static_cast<std::int32_t>(result.queue.size()));
+        result.queue.push_back({x, y});
+        return true;
+    };
+    const auto native_geometry = convention == 0
+        ? lcbinint::model::make_triple_lens_geometry(
+            separation, mass_ratio, tertiary_mass_ratio,
+            tertiary_separation, tertiary_angle)
+        : lcbinint::model::make_triple_lens_geometry_vbm(
+            separation, mass_ratio, tertiary_separation,
+            tertiary_angle, tertiary_mass_ratio);
+    const auto classification_lens = make_triple_lens_constants(
+        separation, mass_ratio, tertiary_mass_ratio,
+        tertiary_separation, tertiary_angle, convention);
+    const lcbinint::magnification::PointSourceMagnifier magnifier;
+    const double two_pi = 2.0 * std::acos(-1.0);
+    for (std::int64_t sample = 0; sample <= limb_samples; ++sample) {
+        double sample_x = source_x;
+        double sample_y = source_y;
+        if (sample > 0) {
+            const double angle =
+                two_pi * static_cast<double>(sample - 1)
+                / static_cast<double>(limb_samples);
+            sample_x += source_radius * std::cos(angle);
+            sample_y += source_radius * std::sin(angle);
+        }
+        const auto candidates = magnifier.triple_image_candidates(
+            native_geometry, {sample_x, sample_y});
+        std::int32_t physical_count = 0;
+        bool physical_converged = true;
+        for (const auto& candidate : candidates) {
+            if (!candidate.physical) continue;
+            ++physical_count;
+            physical_converged = physical_converged
+                && std::isfinite(candidate.residual)
+                && candidate.residual <= 1.0e-7;
+            const auto tile_x = static_cast<std::int32_t>(
+                std::floor(candidate.position.x / tile_width));
+            const auto tile_y = static_cast<std::int32_t>(
+                std::floor(candidate.position.y / tile_width));
+            if (insert(tile_x, tile_y)) {
+                seeds.insert(tile_key(tile_x, tile_y));
+            }
+        }
+        const bool valid_count =
+            physical_count == 4 || physical_count == 6
+            || physical_count == 8 || physical_count == 10;
+        result.root_failure =
+            result.root_failure || !valid_count || !physical_converged;
+    }
+    result.seed_count = static_cast<std::int32_t>(result.queue.size());
+    constexpr std::array<std::array<std::int32_t, 2>, 4> neighbours{{
+        {1, 0}, {-1, 0}, {0, 1}, {0, -1}
+    }};
+    for (std::size_t head = 0; head < result.queue.size(); ++head) {
+        const auto tile = result.queue[head];
+        const bool active =
+            seeds.find(tile_key(tile[0], tile[1])) != seeds.end()
+            || triple_tile_has_inside_probe(
+                tile[0], tile[1], tile_width, source_x, source_y,
+                classification_lens, source_radius);
+        result.active_count += static_cast<std::int32_t>(active);
+        if (!active) continue;
+        for (const auto& neighbour : neighbours) {
+            insert(tile[0] + neighbour[0], tile[1] + neighbour[1]);
+        }
+    }
+    return result;
+}
+
 template <typename Scalar>
 struct CartesianEpochResult {
     KernelResult<Scalar> integration;
@@ -1510,6 +2093,52 @@ CartesianEpochResult<Scalar> cartesian_epoch_kernel(
         source_x, source_y, separation, mass_ratio, source_radius, limb_d,
         static_cast<int>(tile_size), mode,
         static_cast<int>(boundary_subdivision));
+    result.tile_count =
+        static_cast<std::int32_t>(discovery.queue.size());
+    result.overflow = discovery.overflow;
+    result.root_failure = discovery.root_failure;
+    return result;
+}
+
+template <typename Scalar>
+CartesianEpochResult<Scalar> triple_cartesian_epoch_kernel(
+    double cell_size,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& tertiary_mass_ratio,
+    const Scalar& tertiary_separation,
+    const Scalar& tertiary_angle,
+    const Scalar& source_radius,
+    const Scalar& limb_d,
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t convention,
+    MomentMode mode,
+    std::int64_t boundary_subdivision)
+{
+    const double tile_width =
+        cell_size * static_cast<double>(tile_size);
+    const auto discovery = discover_triple_cartesian_support(
+        tile_width, scalar_value(source_x), scalar_value(source_y),
+        scalar_value(separation), scalar_value(mass_ratio),
+        scalar_value(tertiary_mass_ratio),
+        scalar_value(tertiary_separation), scalar_value(tertiary_angle),
+        scalar_value(source_radius), tile_capacity, limb_samples, convention);
+    std::vector<double> origins(2 * discovery.queue.size());
+    for (std::size_t index = 0; index < discovery.queue.size(); ++index) {
+        origins[2 * index] = discovery.queue[index][0] * tile_width;
+        origins[2 * index + 1] = discovery.queue[index][1] * tile_width;
+    }
+    CartesianEpochResult<Scalar> result;
+    result.integration = triple_fixed_support_kernel(
+        origins.data(), static_cast<std::int64_t>(discovery.queue.size()),
+        cell_size, source_x, source_y, separation, mass_ratio,
+        tertiary_mass_ratio, tertiary_separation, tertiary_angle,
+        source_radius, limb_d, static_cast<int>(tile_size), convention,
+        mode, static_cast<int>(boundary_subdivision));
     result.tile_count =
         static_cast<std::int32_t>(discovery.queue.size());
     result.overflow = discovery.overflow;
@@ -2463,6 +3092,518 @@ XLA_FFI_DEFINE_HANDLER(
         .Ret<ffi::BufferR0<ffi::PRED>>()
         .Ret<ffi::BufferR1<ffi::F64>>()
         .Ret<ffi::BufferR2<ffi::F64>>());
+
+ffi::Error triple_cartesian_epoch_forward_ffi_impl(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t convention,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR0<ffi::F64> cell_size,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_separation,
+    ffi::BufferR0<ffi::F64> tertiary_angle,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR0<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> moments,
+    ffi::ResultBufferR0<ffi::S32> boundary_cells,
+    ffi::ResultBufferR0<ffi::S32> active_cells,
+    ffi::ResultBufferR0<ffi::S32> visited_tiles,
+    ffi::ResultBufferR0<ffi::PRED> overflow,
+    ffi::ResultBufferR0<ffi::PRED> root_failure)
+{
+    auto validation = validate_cartesian_epoch_arguments(
+        tile_size, tile_capacity, limb_samples, mode_value,
+        boundary_subdivision, *cell_size.typed_data(),
+        *source_radius.typed_data(), moments);
+    if (validation.failure()) return validation;
+    if (convention != 0 && convention != 1) {
+        return ffi::Error::InvalidArgument("invalid triple convention");
+    }
+    const auto mode = static_cast<MomentMode>(mode_value);
+    const auto result = triple_cartesian_epoch_kernel(
+        *cell_size.typed_data(), *source_x.typed_data(),
+        *source_y.typed_data(), *separation.typed_data(),
+        *mass_ratio.typed_data(), *tertiary_mass_ratio.typed_data(),
+        *tertiary_separation.typed_data(), *tertiary_angle.typed_data(),
+        *source_radius.typed_data(), *limb_d.typed_data(), tile_size,
+        tile_capacity, limb_samples, convention, mode,
+        boundary_subdivision);
+    for (int index = 0; index < moment_count(mode); ++index) {
+        moments->typed_data()[index] = result.integration.moments[index];
+    }
+    *magnification->typed_data() = combine_magnification(
+        result.integration.moments, *source_radius.typed_data(),
+        *limb_c.typed_data(), *limb_d.typed_data(), mode);
+    *boundary_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.boundary_cells);
+    *active_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.active_cells);
+    *visited_tiles->typed_data() = result.tile_count;
+    *overflow->typed_data() = result.overflow;
+    *root_failure->typed_data() = result.root_failure;
+    return ffi::Error::Success();
+}
+
+ffi::Error triple_cartesian_epoch_value_jacobian_ffi_impl(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t convention,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR0<ffi::F64> cell_size,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_separation,
+    ffi::BufferR0<ffi::F64> tertiary_angle,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR0<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> moments,
+    ffi::ResultBufferR0<ffi::S32> boundary_cells,
+    ffi::ResultBufferR0<ffi::S32> active_cells,
+    ffi::ResultBufferR0<ffi::S32> visited_tiles,
+    ffi::ResultBufferR0<ffi::PRED> overflow,
+    ffi::ResultBufferR0<ffi::PRED> root_failure,
+    ffi::ResultBufferR1<ffi::F64> magnification_jacobian,
+    ffi::ResultBufferR2<ffi::F64> moments_jacobian)
+{
+    auto validation = validate_cartesian_epoch_arguments(
+        tile_size, tile_capacity, limb_samples, mode_value,
+        boundary_subdivision, *cell_size.typed_data(),
+        *source_radius.typed_data(), moments);
+    if (validation.failure()) return validation;
+    const auto mode = static_cast<MomentMode>(mode_value);
+    if (
+        (convention != 0 && convention != 1)
+        || magnification_jacobian->dimensions()[0]
+            != triple_parameter_count
+        || moments_jacobian->dimensions()[0] != moment_count(mode)
+        || moments_jacobian->dimensions()[1] != triple_parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "invalid triple Cartesian Jacobian configuration");
+    }
+    const TripleJet source_x_jet =
+        TripleJet::variable(*source_x.typed_data(), 0);
+    const TripleJet source_y_jet =
+        TripleJet::variable(*source_y.typed_data(), 1);
+    const TripleJet separation_jet =
+        TripleJet::variable(*separation.typed_data(), 2);
+    const TripleJet mass_ratio_jet =
+        TripleJet::variable(*mass_ratio.typed_data(), 3);
+    const TripleJet tertiary_mass_ratio_jet =
+        TripleJet::variable(*tertiary_mass_ratio.typed_data(), 4);
+    const TripleJet tertiary_separation_jet =
+        TripleJet::variable(*tertiary_separation.typed_data(), 5);
+    const TripleJet tertiary_angle_jet =
+        TripleJet::variable(*tertiary_angle.typed_data(), 6);
+    const TripleJet source_radius_jet =
+        TripleJet::variable(*source_radius.typed_data(), 7);
+    const TripleJet limb_c_jet(*limb_c.typed_data());
+    const TripleJet limb_d_jet(*limb_d.typed_data());
+    const auto result = triple_cartesian_epoch_kernel(
+        *cell_size.typed_data(), source_x_jet, source_y_jet,
+        separation_jet, mass_ratio_jet, tertiary_mass_ratio_jet,
+        tertiary_separation_jet, tertiary_angle_jet, source_radius_jet,
+        limb_d_jet, tile_size, tile_capacity, limb_samples, convention,
+        mode, boundary_subdivision);
+    const TripleJet magnification_result = combine_magnification(
+        result.integration.moments, source_radius_jet,
+        limb_c_jet, limb_d_jet, mode);
+    const auto limb_derivatives = limb_coefficient_derivatives(
+        result.integration.moments, *source_radius.typed_data(),
+        *limb_c.typed_data(), *limb_d.typed_data(), mode);
+    *magnification->typed_data() = magnification_result.value;
+    for (
+        std::size_t parameter = 0;
+        parameter < triple_kernel_derivative_count;
+        ++parameter) {
+        magnification_jacobian->typed_data()[parameter] =
+            magnification_result.derivative[parameter];
+    }
+    magnification_jacobian->typed_data()[8] = limb_derivatives[0];
+    magnification_jacobian->typed_data()[9] = limb_derivatives[1];
+    for (int moment = 0; moment < moment_count(mode); ++moment) {
+        moments->typed_data()[moment] =
+            result.integration.moments[moment].value;
+        for (
+            std::size_t parameter = 0;
+            parameter < triple_parameter_count;
+            ++parameter) {
+            moments_jacobian->typed_data()[
+                moment * triple_parameter_count + parameter] =
+                parameter < triple_kernel_derivative_count
+                ? result.integration.moments[moment].derivative[parameter]
+                : 0.0;
+        }
+    }
+    *boundary_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.boundary_cells);
+    *active_cells->typed_data() =
+        static_cast<std::int32_t>(result.integration.active_cells);
+    *visited_tiles->typed_data() = result.tile_count;
+    *overflow->typed_data() = result.overflow;
+    *root_failure->typed_data() = result.root_failure;
+    return ffi::Error::Success();
+}
+
+#define LCBININT_TRIPLE_CARTESIAN_FFI_BINDING \
+    ffi::Ffi::Bind() \
+        .Attr<std::int64_t>("tile_size") \
+        .Attr<std::int64_t>("tile_capacity") \
+        .Attr<std::int64_t>("limb_samples") \
+        .Attr<std::int64_t>("convention") \
+        .Attr<std::int64_t>("moment_mode") \
+        .Attr<std::int64_t>("boundary_subdivision") \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR0<ffi::S32>>() \
+        .Ret<ffi::BufferR0<ffi::S32>>() \
+        .Ret<ffi::BufferR0<ffi::S32>>() \
+        .Ret<ffi::BufferR0<ffi::PRED>>() \
+        .Ret<ffi::BufferR0<ffi::PRED>>()
+
+XLA_FFI_DEFINE_HANDLER(
+    triple_cartesian_epoch_forward_ffi_handler,
+    triple_cartesian_epoch_forward_ffi_impl,
+    LCBININT_TRIPLE_CARTESIAN_FFI_BINDING);
+
+XLA_FFI_DEFINE_HANDLER(
+    triple_cartesian_epoch_value_jacobian_ffi_handler,
+    triple_cartesian_epoch_value_jacobian_ffi_impl,
+    LCBININT_TRIPLE_CARTESIAN_FFI_BINDING
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::F64>>());
+
+#undef LCBININT_TRIPLE_CARTESIAN_FFI_BINDING
+
+ffi::Error validate_triple_cartesian_batch(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t convention,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR1<ffi::F64>& source_x,
+    ffi::BufferR1<ffi::F64>& source_y,
+    ffi::BufferR1<ffi::PRED>& active,
+    ffi::ResultBufferR1<ffi::F64>& magnification,
+    ffi::ResultBufferR2<ffi::F64>& moments)
+{
+    const auto batch_size = source_x.dimensions()[0];
+    if (
+        source_y.dimensions()[0] != batch_size
+        || active.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || moments->dimensions()[0] != batch_size
+        || mode_value < 1 || mode_value > 3
+        || moments->dimensions()[1]
+            != moment_count(static_cast<MomentMode>(mode_value))
+        || tile_size <= 0 || tile_capacity <= 0 || limb_samples <= 0
+        || (convention != 0 && convention != 1)
+        || boundary_subdivision < 1 || boundary_subdivision > 4) {
+        return ffi::Error::InvalidArgument(
+            "invalid triple Cartesian batch configuration");
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error triple_cartesian_batch_forward_ffi_impl(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t convention,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::PRED> active,
+    ffi::BufferR0<ffi::F64> cell_size,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_separation,
+    ffi::BufferR0<ffi::F64> tertiary_angle,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR2<ffi::F64> moments,
+    ffi::ResultBufferR1<ffi::S32> boundary_cells,
+    ffi::ResultBufferR1<ffi::S32> active_cells,
+    ffi::ResultBufferR1<ffi::S32> visited_tiles,
+    ffi::ResultBufferR1<ffi::PRED> overflow,
+    ffi::ResultBufferR1<ffi::PRED> root_failure)
+{
+    auto validation = validate_triple_cartesian_batch(
+        tile_size, tile_capacity, limb_samples, convention, mode_value,
+        boundary_subdivision, source_x, source_y, active,
+        magnification, moments);
+    if (validation.failure()) return validation;
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        boundary_cells->dimensions()[0] != batch_size
+        || active_cells->dimensions()[0] != batch_size
+        || visited_tiles->dimensions()[0] != batch_size
+        || overflow->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size) {
+        return ffi::Error::InvalidArgument(
+            "invalid triple Cartesian batch diagnostic shapes");
+    }
+    const auto mode = static_cast<MomentMode>(mode_value);
+    const int output_moments = moment_count(mode);
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1, std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(dynamic, 1) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        auto* moment_output =
+            moments->typed_data() + index * output_moments;
+        if (!active.typed_data()[index]) {
+            magnification->typed_data()[index] = 0.0;
+            std::fill(moment_output, moment_output + output_moments, 0.0);
+            boundary_cells->typed_data()[index] = 0;
+            active_cells->typed_data()[index] = 0;
+            visited_tiles->typed_data()[index] = 0;
+            overflow->typed_data()[index] = false;
+            root_failure->typed_data()[index] = false;
+            continue;
+        }
+        const auto result = triple_cartesian_epoch_kernel(
+            *cell_size.typed_data(), source_x.typed_data()[index],
+            source_y.typed_data()[index], *separation.typed_data(),
+            *mass_ratio.typed_data(), *tertiary_mass_ratio.typed_data(),
+            *tertiary_separation.typed_data(), *tertiary_angle.typed_data(),
+            *source_radius.typed_data(), *limb_d.typed_data(), tile_size,
+            tile_capacity, limb_samples, convention, mode,
+            boundary_subdivision);
+        for (int moment = 0; moment < output_moments; ++moment) {
+            moment_output[moment] = result.integration.moments[moment];
+        }
+        magnification->typed_data()[index] = combine_magnification(
+            result.integration.moments, *source_radius.typed_data(),
+            *limb_c.typed_data(), *limb_d.typed_data(), mode);
+        boundary_cells->typed_data()[index] =
+            static_cast<std::int32_t>(result.integration.boundary_cells);
+        active_cells->typed_data()[index] =
+            static_cast<std::int32_t>(result.integration.active_cells);
+        visited_tiles->typed_data()[index] = result.tile_count;
+        overflow->typed_data()[index] = result.overflow;
+        root_failure->typed_data()[index] = result.root_failure;
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error triple_cartesian_batch_value_jacobian_ffi_impl(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t convention,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::PRED> active,
+    ffi::BufferR0<ffi::F64> cell_size,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_separation,
+    ffi::BufferR0<ffi::F64> tertiary_angle,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR2<ffi::F64> moments,
+    ffi::ResultBufferR1<ffi::S32> boundary_cells,
+    ffi::ResultBufferR1<ffi::S32> active_cells,
+    ffi::ResultBufferR1<ffi::S32> visited_tiles,
+    ffi::ResultBufferR1<ffi::PRED> overflow,
+    ffi::ResultBufferR1<ffi::PRED> root_failure,
+    ffi::ResultBufferR2<ffi::F64> magnification_jacobian,
+    ffi::ResultBufferR3<ffi::F64> moments_jacobian)
+{
+    auto validation = validate_triple_cartesian_batch(
+        tile_size, tile_capacity, limb_samples, convention, mode_value,
+        boundary_subdivision, source_x, source_y, active,
+        magnification, moments);
+    if (validation.failure()) return validation;
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    const auto mode = static_cast<MomentMode>(mode_value);
+    const int output_moments = moment_count(mode);
+    if (
+        magnification_jacobian->dimensions()[0] != batch_size
+        || magnification_jacobian->dimensions()[1]
+            != triple_parameter_count
+        || moments_jacobian->dimensions()[0] != batch_size
+        || moments_jacobian->dimensions()[1] != output_moments
+        || moments_jacobian->dimensions()[2] != triple_parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "invalid triple Cartesian batch Jacobian shapes");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1, std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(dynamic, 1) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        auto* moment_output =
+            moments->typed_data() + index * output_moments;
+        auto* mag_jacobian = magnification_jacobian->typed_data()
+            + index * triple_parameter_count;
+        auto* moment_jacobian = moments_jacobian->typed_data()
+            + index * output_moments * triple_parameter_count;
+        if (!active.typed_data()[index]) {
+            magnification->typed_data()[index] = 0.0;
+            std::fill(moment_output, moment_output + output_moments, 0.0);
+            std::fill(
+                mag_jacobian,
+                mag_jacobian + triple_parameter_count, 0.0);
+            std::fill(
+                moment_jacobian,
+                moment_jacobian
+                    + output_moments * triple_parameter_count,
+                0.0);
+            boundary_cells->typed_data()[index] = 0;
+            active_cells->typed_data()[index] = 0;
+            visited_tiles->typed_data()[index] = 0;
+            overflow->typed_data()[index] = false;
+            root_failure->typed_data()[index] = false;
+            continue;
+        }
+        const TripleJet source_x_jet =
+            TripleJet::variable(source_x.typed_data()[index], 0);
+        const TripleJet source_y_jet =
+            TripleJet::variable(source_y.typed_data()[index], 1);
+        const TripleJet separation_jet =
+            TripleJet::variable(*separation.typed_data(), 2);
+        const TripleJet mass_ratio_jet =
+            TripleJet::variable(*mass_ratio.typed_data(), 3);
+        const TripleJet tertiary_mass_ratio_jet =
+            TripleJet::variable(*tertiary_mass_ratio.typed_data(), 4);
+        const TripleJet tertiary_separation_jet =
+            TripleJet::variable(*tertiary_separation.typed_data(), 5);
+        const TripleJet tertiary_angle_jet =
+            TripleJet::variable(*tertiary_angle.typed_data(), 6);
+        const TripleJet source_radius_jet =
+            TripleJet::variable(*source_radius.typed_data(), 7);
+        const TripleJet limb_c_jet(*limb_c.typed_data());
+        const TripleJet limb_d_jet(*limb_d.typed_data());
+        const auto result = triple_cartesian_epoch_kernel(
+            *cell_size.typed_data(), source_x_jet, source_y_jet,
+            separation_jet, mass_ratio_jet, tertiary_mass_ratio_jet,
+            tertiary_separation_jet, tertiary_angle_jet,
+            source_radius_jet, limb_d_jet, tile_size, tile_capacity,
+            limb_samples, convention, mode, boundary_subdivision);
+        const auto magnification_result = combine_magnification(
+            result.integration.moments, source_radius_jet,
+            limb_c_jet, limb_d_jet, mode);
+        const auto limb_derivatives = limb_coefficient_derivatives(
+            result.integration.moments, *source_radius.typed_data(),
+            *limb_c.typed_data(), *limb_d.typed_data(), mode);
+        magnification->typed_data()[index] = magnification_result.value;
+        for (
+            std::size_t parameter = 0;
+            parameter < triple_kernel_derivative_count;
+            ++parameter) {
+            mag_jacobian[parameter] =
+                magnification_result.derivative[parameter];
+        }
+        mag_jacobian[8] = limb_derivatives[0];
+        mag_jacobian[9] = limb_derivatives[1];
+        for (int moment = 0; moment < output_moments; ++moment) {
+            moment_output[moment] =
+                result.integration.moments[moment].value;
+            for (
+                std::size_t parameter = 0;
+                parameter < triple_parameter_count;
+                ++parameter) {
+                moment_jacobian[
+                    moment * triple_parameter_count + parameter] =
+                    parameter < triple_kernel_derivative_count
+                    ? result.integration.moments[moment]
+                          .derivative[parameter]
+                    : 0.0;
+            }
+        }
+        boundary_cells->typed_data()[index] =
+            static_cast<std::int32_t>(result.integration.boundary_cells);
+        active_cells->typed_data()[index] =
+            static_cast<std::int32_t>(result.integration.active_cells);
+        visited_tiles->typed_data()[index] = result.tile_count;
+        overflow->typed_data()[index] = result.overflow;
+        root_failure->typed_data()[index] = result.root_failure;
+    }
+    return ffi::Error::Success();
+}
+
+#define LCBININT_TRIPLE_CARTESIAN_BATCH_BINDING \
+    ffi::Ffi::Bind() \
+        .Attr<std::int64_t>("tile_size") \
+        .Attr<std::int64_t>("tile_capacity") \
+        .Attr<std::int64_t>("limb_samples") \
+        .Attr<std::int64_t>("convention") \
+        .Attr<std::int64_t>("moment_mode") \
+        .Attr<std::int64_t>("boundary_subdivision") \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::PRED>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR2<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::S32>>() \
+        .Ret<ffi::BufferR1<ffi::S32>>() \
+        .Ret<ffi::BufferR1<ffi::S32>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+
+XLA_FFI_DEFINE_HANDLER(
+    triple_cartesian_batch_forward_ffi_handler,
+    triple_cartesian_batch_forward_ffi_impl,
+    LCBININT_TRIPLE_CARTESIAN_BATCH_BINDING);
+
+XLA_FFI_DEFINE_HANDLER(
+    triple_cartesian_batch_value_jacobian_ffi_handler,
+    triple_cartesian_batch_value_jacobian_ffi_impl,
+    LCBININT_TRIPLE_CARTESIAN_BATCH_BINDING
+        .Ret<ffi::BufferR2<ffi::F64>>()
+        .Ret<ffi::BufferR3<ffi::F64>>());
+
+#undef LCBININT_TRIPLE_CARTESIAN_BATCH_BINDING
 
 ffi::Error polar_epoch_forward_ffi_impl(
     std::int64_t resolution,
@@ -3581,6 +4722,12 @@ py::capsule binary_image_roots_jacobian_ffi_capsule()
         reinterpret_cast<void*>(binary_image_roots_jacobian_ffi_handler));
 }
 
+py::capsule triple_image_roots_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(triple_image_roots_ffi_handler));
+}
+
 py::capsule macro_tile_discovery_ffi_capsule()
 {
     return py::capsule(
@@ -3605,6 +4752,34 @@ py::capsule cartesian_epoch_value_jacobian_ffi_capsule()
     return py::capsule(
         reinterpret_cast<void*>(
             cartesian_epoch_value_jacobian_ffi_handler));
+}
+
+py::capsule triple_cartesian_epoch_forward_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(
+            triple_cartesian_epoch_forward_ffi_handler));
+}
+
+py::capsule triple_cartesian_epoch_value_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(
+            triple_cartesian_epoch_value_jacobian_ffi_handler));
+}
+
+py::capsule triple_cartesian_batch_forward_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(
+            triple_cartesian_batch_forward_ffi_handler));
+}
+
+py::capsule triple_cartesian_batch_value_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(
+            triple_cartesian_batch_value_jacobian_ffi_handler));
 }
 
 py::capsule cartesian_batch_forward_ffi_capsule()
@@ -3691,6 +4866,10 @@ void register_jax_ir_submodule(py::module_& parent)
         &binary_image_roots_jacobian_ffi_capsule,
         "Return the typed XLA binary-image root/Jacobian FFI handler capsule.");
     module.def(
+        "triple_image_roots_ffi",
+        &triple_image_roots_ffi_capsule,
+        "Return the typed XLA triple-image root FFI handler capsule.");
+    module.def(
         "macro_tile_discovery_ffi",
         &macro_tile_discovery_ffi_capsule,
         "Return the typed XLA macro-tile discovery FFI handler capsule.");
@@ -3710,6 +4889,22 @@ void register_jax_ir_submodule(py::module_& parent)
         "cartesian_epoch_value_jacobian_ffi",
         &cartesian_epoch_value_jacobian_ffi_capsule,
         "Return the fused Cartesian epoch value/Jacobian FFI capsule.");
+    module.def(
+        "triple_cartesian_epoch_forward_ffi",
+        &triple_cartesian_epoch_forward_ffi_capsule,
+        "Return the fused triple Cartesian epoch FFI capsule.");
+    module.def(
+        "triple_cartesian_epoch_value_jacobian_ffi",
+        &triple_cartesian_epoch_value_jacobian_ffi_capsule,
+        "Return the fused triple Cartesian value/Jacobian FFI capsule.");
+    module.def(
+        "triple_cartesian_batch_forward_ffi",
+        &triple_cartesian_batch_forward_ffi_capsule,
+        "Return the fused triple Cartesian batch FFI capsule.");
+    module.def(
+        "triple_cartesian_batch_value_jacobian_ffi",
+        &triple_cartesian_batch_value_jacobian_ffi_capsule,
+        "Return the fused triple Cartesian batch Jacobian FFI capsule.");
     module.def(
         "cartesian_batch_forward_ffi",
         &cartesian_batch_forward_ffi_capsule,

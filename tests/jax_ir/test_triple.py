@@ -1,9 +1,13 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 import lcbinint
 from lcbinint_jax import (
+    cpp_triple_cartesian_epoch_ffi_available,
+    triple_inverse_ray_adaptive,
+    triple_inverse_ray_batch,
     triple_inverse_ray_dense,
     triple_lens_geometry,
     triple_lens_map_and_derivatives_real,
@@ -120,3 +124,123 @@ def test_dense_triple_inverse_ray_rejects_insufficient_support():
         moment_mode="uniform",
     )
     assert not bool(result.support_valid)
+
+
+@pytest.mark.skipif(
+    not cpp_triple_cartesian_epoch_ffi_available(),
+    reason="triple Cartesian FFI is unavailable",
+)
+def test_adaptive_triple_matches_native_uniform_source():
+    parameters = {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.3,
+        "alpha": 0.0,
+        "s": 1.0,
+        "q": 0.1,
+        "q2": 0.03,
+        "sep2": 0.7,
+        "ang": 0.8,
+        "rho": 0.2,
+    }
+    native = lcbinint.LightCurve(
+        model=lcbinint.Model(lens="triple"),
+        options=lcbinint.Options(
+            coordinates="original",
+            nbin=400,
+            inverse_ray_grid="cartesian",
+        ),
+    )([0.2], parameters)[0]
+    actual = triple_inverse_ray_adaptive(
+        0.2,
+        0.3,
+        1.0,
+        0.1,
+        0.03,
+        0.7,
+        0.8,
+        0.2,
+        moment_mode="uniform",
+    )
+    assert bool(actual.support_valid)
+    assert not bool(actual.root_failure)
+    assert int(actual.visited_tiles) > 0
+    np.testing.assert_allclose(actual.magnification, native, rtol=2.0e-4)
+
+
+@pytest.mark.skipif(
+    not cpp_triple_cartesian_epoch_ffi_available(),
+    reason="triple Cartesian FFI is unavailable",
+)
+def test_adaptive_triple_analytic_jacobian_matches_finite_difference():
+    parameters = jnp.asarray(
+        (0.2, 0.3, 1.0, 0.1, 0.03, 0.7, 0.8, 0.2, 0.3, 0.2)
+    )
+
+    def magnification(values):
+        return triple_inverse_ray_adaptive(
+            *values,
+            resolution=96,
+            moment_mode="two_coefficient",
+        ).magnification
+
+    value, gradient = jax.value_and_grad(magnification)(parameters)
+    assert bool(jnp.isfinite(value))
+    assert bool(jnp.all(jnp.isfinite(gradient)))
+    step = 1.0e-5
+    for index in (0, 2, 4, 6, 7, 8, 9):
+        plus = parameters.at[index].add(step)
+        minus = parameters.at[index].add(-step)
+        finite_difference = (
+            magnification(plus) - magnification(minus)
+        ) / (2.0 * step)
+        np.testing.assert_allclose(
+            gradient[index], finite_difference, rtol=2.0e-3, atol=2.0e-5
+        )
+
+
+@pytest.mark.skipif(
+    not cpp_triple_cartesian_epoch_ffi_available(),
+    reason="triple Cartesian FFI is unavailable",
+)
+def test_triple_batch_matches_scalar_values_and_gradients():
+    source_x = jnp.linspace(-0.25, 0.25, 8)
+    source_y = jnp.full_like(source_x, 0.3)
+
+    def batch_loss(separation):
+        return jnp.sum(
+            triple_inverse_ray_batch(
+                source_x,
+                source_y,
+                separation,
+                0.1,
+                0.03,
+                0.7,
+                0.8,
+                0.08,
+                moment_mode="uniform",
+                resolution=48,
+            ).magnification
+        )
+
+    def scalar_loss(separation):
+        values = jax.vmap(
+            lambda x, y: triple_inverse_ray_adaptive(
+                x,
+                y,
+                separation,
+                0.1,
+                0.03,
+                0.7,
+                0.8,
+                0.08,
+                moment_mode="uniform",
+                resolution=48,
+            ).magnification
+        )(source_x, source_y)
+        return jnp.sum(values)
+
+    batch_value, batch_gradient = jax.value_and_grad(batch_loss)(1.0)
+    scalar_value, scalar_gradient = jax.value_and_grad(scalar_loss)(1.0)
+    np.testing.assert_allclose(batch_value, scalar_value, rtol=2.0e-13)
+    np.testing.assert_allclose(batch_gradient, scalar_gradient, rtol=2.0e-12)
