@@ -128,10 +128,22 @@ faster for JVP and 11.18 times faster for reverse mode while retaining the
 roughly 2-times forward speedup.  The maximum seven-component gradient
 difference was `4.3e-10`.
 
-The remaining differentiation work is calibration beyond the local fixed
-support test and, if trajectory-level forward JVP throughput warrants it, a
-one-direction tangent handler.  Production dispatch must not select the C++
-backend until its held-out caustic-gradient replay passes.
+The backend replay now covers eight close/resonant/wide lens configurations,
+three brightness profiles, field points, and source centres at 0.5, 1, 2, and
+5 source radii from sampled caustics.  Of 120 attempted rows, 84 had valid
+fixed support and all 84 passed value, directional-JVP, and full
+seven-parameter-gradient budgets.  The other 36 were rejected by the existing
+JAX discovery overflow/root checks before either cell backend was compared;
+there were no C++-specific failures.  The reproducible harness is
+`tests/diagnostics/jax_ir/sweep_cpp_backend.py`.
+
+The typed FFI is therefore selected automatically for the real Cartesian
+kernel on CPU when the extension exposes both FFI handlers.  Explicit
+`cartesian_backend="jax"` and `"ffi"` choices remain available; `"auto"`
+falls back to pure JAX for non-CPU platforms, complex kernels, and builds
+without FFI support.  A one-direction tangent handler remains a possible
+optimization if future trajectory profiles show that returning the full
+Jacobian dominates forward JVP.
 
 ## 1. Mission
 

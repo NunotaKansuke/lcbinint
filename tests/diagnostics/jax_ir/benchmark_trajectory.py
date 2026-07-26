@@ -69,7 +69,7 @@ def positions(count):
     )
 
 
-def jax_curve(source_x, source_y, separation=SEPARATION):
+def jax_curve(source_x, source_y, separation=SEPARATION, backend="jax"):
     return binary_magnification_trajectory(
         source_x,
         source_y,
@@ -79,6 +79,7 @@ def jax_curve(source_x, source_y, separation=SEPARATION):
         LIMB_C,
         0.0,
         moment_mode="linear",
+        cartesian_backend=backend,
     )
 
 
@@ -122,6 +123,9 @@ def main():
     jax_result, jax_forward = timed_jax(
         lambda: jax_curve(source_x, source_y), args.repeat
     )
+    ffi_result, ffi_forward = timed_jax(
+        lambda: jax_curve(source_x, source_y, backend="ffi"), args.repeat
+    )
     microlux_result, microlux_forward = timed_jax(
         lambda: microlux_curve(source_x, source_y), args.repeat
     )
@@ -139,6 +143,24 @@ def main():
         lambda: jax.value_and_grad(
             lambda separation: jnp.nansum(
                 jax_curve(ad_x, ad_y, separation).magnification
+            )
+        )(SEPARATION),
+        args.repeat,
+    )
+    _, ffi_jvp = timed_jax(
+        lambda: jax.jvp(
+            lambda separation: jax_curve(
+                ad_x, ad_y, separation, backend="ffi"
+            ).magnification,
+            (SEPARATION,),
+            (1.0,),
+        ),
+        args.repeat,
+    )
+    _, ffi_gradient = timed_jax(
+        lambda: jax.value_and_grad(
+            lambda separation: jnp.nansum(
+                jax_curve(ad_x, ad_y, separation, backend="ffi").magnification
             )
         )(SEPARATION),
         args.repeat,
@@ -219,6 +241,9 @@ def main():
             "jax_forward": jax_forward,
             "jax_jvp": jax_jvp,
             "jax_value_and_grad": jax_gradient,
+            "ffi_forward": ffi_forward,
+            "ffi_jvp": ffi_jvp,
+            "ffi_value_and_grad": ffi_gradient,
             "microlux_forward": microlux_forward,
             "microlux_jvp": microlux_jvp,
             "microlux_value_and_grad": microlux_gradient,
@@ -227,6 +252,7 @@ def main():
         },
         "accuracy": {
             "jax": accuracy_record(jax_result.magnification, reference),
+            "ffi": accuracy_record(ffi_result.magnification, reference),
             "microlux": accuracy_record(microlux_result, reference),
             "native": accuracy_record(native_result, reference),
         },
@@ -237,6 +263,14 @@ def main():
                 for method in range(4)
             },
             "invalid": int(jnp.sum(~jax_result.support_valid)),
+        },
+        "ffi_dispatch": {
+            "attempted_counts": np.asarray(ffi_result.attempted_counts).tolist(),
+            "method_counts": {
+                str(method): int(jnp.sum(ffi_result.method == method))
+                for method in range(4)
+            },
+            "invalid": int(jnp.sum(~ffi_result.support_valid)),
         },
     }
     text = json.dumps(output, indent=2, default=str)

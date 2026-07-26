@@ -514,24 +514,29 @@ pack/scatter overhead dominate on CPU, so the production trajectory API uses
 the simpler scalar-conditional layout.
 
 The trajectory default is the 96/4096 Cartesian bucket with 24 limb seeds.
-The scalar API retains 64/1024 for low latency.  On a 64-epoch resonant,
-linearly limb-darkened path, the trajectory default had zero value-budget
-failures against a `Tol=1e-7` VBMicrolensing reference.  The measured warm
-forward times were:
+The scalar API retains 64/1024 for low latency.  Its Cartesian execution
+backend defaults to `auto`: the typed C++ FFI is used for the real kernel on
+CPU when available, with pure JAX retained as the portable fallback.  On a
+64-epoch resonant, linearly limb-darkened path, the trajectory default had
+zero value-budget failures against a `Tol=1e-7` VBMicrolensing reference.  A
+repeat after connecting the FFI to the dispatcher measured:
 
 | Engine | 64-epoch forward |
 | --- | ---: |
-| native `lcbinint`, fixed Cartesian 64 | 135 ms |
-| JAX conditional trajectory, default 96/4096 | 588 ms |
-| VBMicrolensing | 3.12 s |
-| microLUX, 80 annuli | 16.42 s |
+| native `lcbinint`, fixed Cartesian 64 | 133 ms |
+| JAX conditional trajectory, pure-JAX cells | 572 ms |
+| JAX conditional trajectory, C++ FFI cells | 444 ms |
+| VBMicrolensing | 3.03 s |
+| microLUX, 80 annuli | 14.99 s |
 
-Thus this pilot is 27.9 times faster than microLUX after the curved-boundary
-gradient correction and profile-specific quadrature described below, and 4.4
-times slower than native.  On a 16-epoch subset, JAX
-separation-JVP/value-plus-gradient took 283 ms/1.15 s; microLUX took
-15.45/35.61 s.  Compilation is excluded from all these warm
-timings.  The reproducible harness is
+The FFI trajectory is 1.29 times faster than the pure-JAX-cell trajectory,
+33.8 times faster than microLUX, 6.8 times faster than VBMicrolensing, and
+3.35 times slower than native on this pilot.  On a 16-epoch subset, FFI
+separation-JVP/value-plus-gradient took 198/217 ms, versus 277 ms/1.12 s for
+pure JAX and 13.53/28.75 s for microLUX.  Compilation is excluded from all
+these warm timings.  FFI and JAX produced identical method counts
+(32 hexadecapole and 32 Cartesian), no invalid epochs, and indistinguishable
+VBMicrolensing error-budget ratios.  The reproducible harness is
 `tests/diagnostics/jax_ir/benchmark_trajectory.py`.
 
 The two hex/Cartesian switch boundaries in a 32-point replay were value-safe:

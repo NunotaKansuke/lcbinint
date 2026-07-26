@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 from lcbinint_jax import (
     binary_magnification_auto,
@@ -8,6 +9,13 @@ from lcbinint_jax import (
 )
 
 jax.config.update("jax_enable_x64", True)
+
+
+def _require_compiled_ffi():
+    from lcbinint import _native
+
+    if not hasattr(_native._jax_ir, "fixed_support_forward_ffi"):
+        pytest.skip("lcbinint was built without JAX FFI support")
 
 
 def test_bucketed_trajectory_matches_scalar_dispatcher():
@@ -171,3 +179,50 @@ def test_square_root_limb_gradient_uses_detailed_inside_band():
     native_reference = jnp.asarray((149.9868, 7.429045, 0.1992056))
     budget = 1.0e-3 + 5.0e-3 * jnp.maximum(jnp.abs(native_reference), 1.0)
     assert bool(jnp.all(jnp.abs(gradient - native_reference) <= budget))
+
+
+def test_trajectory_ffi_matches_jax_dispatch_value_and_gradient():
+    _require_compiled_ffi()
+    source_x = jnp.asarray((0.3, 0.65, 0.4))
+    source_y = jnp.asarray((0.4, 0.0, 0.5))
+
+    def evaluate(separation, backend):
+        result = binary_magnification_trajectory(
+            source_x,
+            source_y,
+            separation,
+            0.1,
+            0.02,
+            0.4,
+            0.0,
+            resolution=64,
+            tile_capacity=1024,
+            limb_samples=16,
+            source_plane_fallback=False,
+            moment_mode="linear",
+            cartesian_backend=backend,
+        )
+        return jnp.sum(result.magnification), (
+            result.magnification,
+            result.method,
+            result.support_valid,
+            result.attempted_counts,
+        )
+
+    (jax_loss, jax_aux), jax_gradient = jax.value_and_grad(evaluate, has_aux=True)(
+        1.2, "jax"
+    )
+    (ffi_loss, ffi_aux), ffi_gradient = jax.value_and_grad(evaluate, has_aux=True)(
+        1.2, "ffi"
+    )
+
+    np.testing.assert_allclose(ffi_loss, jax_loss, rtol=2.0e-11, atol=2.0e-11)
+    np.testing.assert_allclose(ffi_aux[0], jax_aux[0], rtol=2.0e-11, atol=2.0e-11)
+    for ffi_diagnostic, jax_diagnostic in zip(ffi_aux[1:], jax_aux[1:]):
+        np.testing.assert_array_equal(ffi_diagnostic, jax_diagnostic)
+    np.testing.assert_allclose(
+        ffi_gradient,
+        jax_gradient,
+        rtol=2.0e-9,
+        atol=2.0e-9,
+    )

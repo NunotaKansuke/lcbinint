@@ -1,6 +1,7 @@
 import jax
 import jax.numpy as jnp
 import numpy as np
+import pytest
 
 from lcbinint_jax import (
     binary_inverse_ray,
@@ -9,6 +10,13 @@ from lcbinint_jax import (
     discover_binary_macro_tiles,
 )
 from lcbinint_jax.discovery import binary_image_seed_points
+
+
+def _require_compiled_ffi():
+    from lcbinint import _native
+
+    if not hasattr(_native._jax_ir, "fixed_support_forward_ffi"):
+        pytest.skip("lcbinint was built without JAX FFI support")
 
 
 def test_source_centre_and_limb_seed_shapes_are_static():
@@ -233,4 +241,42 @@ def test_uniform_specialization_matches_general_value_and_gradient():
         general_gradient,
         rtol=5.0e-8,
         atol=5.0e-8,
+    )
+
+
+def test_public_inverse_ray_ffi_matches_jax_value_and_gradient():
+    _require_compiled_ffi()
+    parameters = jnp.asarray([0.2, 0.1, 1.2, 0.1, 0.2, 0.4, 0.1])
+
+    def evaluate(active_parameters, backend):
+        result = binary_inverse_ray(
+            *active_parameters,
+            resolution=32,
+            tile_size=16,
+            tile_capacity=1024,
+            limb_samples=32,
+            cartesian_backend=backend,
+        )
+        return result.magnification, (
+            result.moments,
+            result.boundary_cells,
+            result.active_cells,
+            result.support_valid,
+        )
+
+    (jax_value, jax_aux), jax_gradient = jax.value_and_grad(evaluate, has_aux=True)(
+        parameters, "jax"
+    )
+    (ffi_value, ffi_aux), ffi_gradient = jax.value_and_grad(evaluate, has_aux=True)(
+        parameters, "ffi"
+    )
+
+    np.testing.assert_allclose(ffi_value, jax_value, rtol=2.0e-11, atol=2.0e-11)
+    np.testing.assert_allclose(ffi_aux[0], jax_aux[0], rtol=2.0e-11, atol=2.0e-11)
+    np.testing.assert_array_equal(ffi_aux[1:], jax_aux[1:])
+    np.testing.assert_allclose(
+        ffi_gradient,
+        jax_gradient,
+        rtol=2.0e-9,
+        atol=2.0e-9,
     )

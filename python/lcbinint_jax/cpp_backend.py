@@ -43,6 +43,21 @@ def _native_module():
     return _native
 
 
+def cpp_fixed_support_ffi_available():
+    """Return whether the typed fixed-support FFI can run on this JAX backend."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        jax_ir = native._jax_ir
+        return hasattr(jax_ir, "fixed_support_forward_ffi") and hasattr(
+            jax_ir, "fixed_support_value_jacobian_ffi"
+        )
+    except (AttributeError, RuntimeError):
+        return False
+
+
 @lru_cache(maxsize=1)
 def _register_fixed_support_ffi():
     native = _native_module()

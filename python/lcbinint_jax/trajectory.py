@@ -35,6 +35,7 @@ from .types import TrajectoryMagnificationResult
         "expanded_coarse_tile_capacity",
         "expanded_fine_tile_capacity",
         "expanded_limb_samples",
+        "cartesian_backend",
     ),
 )
 def _binary_magnification_trajectory(
@@ -76,6 +77,7 @@ def _binary_magnification_trajectory(
     expanded_coarse_tile_capacity,
     expanded_fine_tile_capacity,
     expanded_limb_samples,
+    cartesian_backend,
 ):
     def evaluate_epoch(position):
         return binary_magnification_auto(
@@ -116,6 +118,7 @@ def _binary_magnification_trajectory(
             expanded_fine_tile_capacity=expanded_fine_tile_capacity,
             expanded_limb_samples=expanded_limb_samples,
             moment_mode=moment_mode,
+            cartesian_backend=cartesian_backend,
         )
 
     result = jax.lax.map(evaluate_epoch, (source_x, source_y))
@@ -182,6 +185,7 @@ def binary_magnification_trajectory(
     expanded_coarse_tile_capacity=4096,
     expanded_fine_tile_capacity=16384,
     expanded_limb_samples=32,
+    cartesian_backend="auto",
 ):
     """Evaluate a one-dimensional trajectory with per-epoch conditionals.
 
@@ -189,8 +193,10 @@ def binary_magnification_trajectory(
     this is substantially faster than batching the branch predicate with
     ``vmap``, which can evaluate expensive unselected methods. The trajectory
     defaults use the calibrated 96/4096 Cartesian bucket; the scalar API keeps
-    its lower-latency 64/1024 default. Method selection is stopped-gradient
-    while every selected magnification remains differentiable.
+    its lower-latency 64/1024 default. ``cartesian_backend="auto"`` selects the
+    typed C++ FFI for the real CPU kernel when available and otherwise retains
+    the pure-JAX implementation. Method selection is stopped-gradient while
+    every selected magnification remains differentiable.
     """
 
     require_x64()
@@ -236,4 +242,5 @@ def binary_magnification_trajectory(
         expanded_coarse_tile_capacity=expanded_coarse_tile_capacity,
         expanded_fine_tile_capacity=expanded_fine_tile_capacity,
         expanded_limb_samples=expanded_limb_samples,
+        cartesian_backend=cartesian_backend,
     )

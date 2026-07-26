@@ -6,6 +6,10 @@ import jax
 import jax.numpy as jnp
 
 from ._config import require_x64
+from .cpp_backend import (
+    binary_inverse_ray_fixed_support_ffi,
+    cpp_fixed_support_ffi_available,
+)
 from .discovery import discover_binary_macro_tiles
 from .images import binary_images
 from .integrate import binary_inverse_ray_fixed_support
@@ -18,6 +22,20 @@ from .types import (
     HybridMagnificationResult,
     InverseRayResult,
 )
+
+
+def _use_ffi_cartesian_backend(cartesian_backend, kernel):
+    if cartesian_backend not in ("auto", "jax", "ffi"):
+        raise ValueError("cartesian_backend must be 'auto', 'jax', or 'ffi'")
+    if cartesian_backend == "ffi":
+        if kernel != "real":
+            raise ValueError("the FFI Cartesian backend requires kernel='real'")
+        return True
+    return (
+        cartesian_backend == "auto"
+        and kernel == "real"
+        and cpp_fixed_support_ffi_available()
+    )
 
 
 def _binary_inverse_ray(
@@ -35,6 +53,7 @@ def _binary_inverse_ray(
     limb_samples,
     kernel,
     moment_mode,
+    cartesian_backend,
 ):
     cell_size = jax.lax.stop_gradient(source_radius / resolution)
     discovery = discover_binary_macro_tiles(
@@ -48,21 +67,37 @@ def _binary_inverse_ray(
         tile_capacity=tile_capacity,
         limb_samples=limb_samples,
     )
-    integrated = binary_inverse_ray_fixed_support(
-        discovery.tile_origins,
-        discovery.tile_mask,
-        cell_size,
-        source_x,
-        source_y,
-        separation,
-        mass_ratio,
-        source_radius,
-        limb_c,
-        limb_d,
-        tile_size=tile_size,
-        kernel=kernel,
-        moment_mode=moment_mode,
-    )
+    if _use_ffi_cartesian_backend(cartesian_backend, kernel):
+        integrated = binary_inverse_ray_fixed_support_ffi(
+            discovery.tile_origins,
+            discovery.tile_mask,
+            cell_size,
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            tile_size=tile_size,
+            moment_mode=moment_mode,
+        )
+    else:
+        integrated = binary_inverse_ray_fixed_support(
+            discovery.tile_origins,
+            discovery.tile_mask,
+            cell_size,
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            tile_size=tile_size,
+            kernel=kernel,
+            moment_mode=moment_mode,
+        )
     return _cartesian_result(discovery, integrated)
 
 
@@ -116,7 +151,13 @@ def _point_source_magnification(
 
 @partial(
     jax.jit,
-    static_argnames=("tile_size", "tile_capacity", "limb_samples", "kernel"),
+    static_argnames=(
+        "tile_size",
+        "tile_capacity",
+        "limb_samples",
+        "kernel",
+        "cartesian_backend",
+    ),
 )
 def binary_inverse_ray(
     source_x,
@@ -132,6 +173,7 @@ def binary_inverse_ray(
     tile_capacity=1024,
     limb_samples=16,
     kernel="real",
+    cartesian_backend="auto",
 ):
     """Discover image support and integrate a finite binary-lens source."""
 
@@ -150,12 +192,19 @@ def binary_inverse_ray(
         limb_samples=limb_samples,
         kernel=kernel,
         moment_mode="two_coefficient",
+        cartesian_backend=cartesian_backend,
     )
 
 
 @partial(
     jax.jit,
-    static_argnames=("tile_size", "tile_capacity", "limb_samples", "kernel"),
+    static_argnames=(
+        "tile_size",
+        "tile_capacity",
+        "limb_samples",
+        "kernel",
+        "cartesian_backend",
+    ),
 )
 def binary_inverse_ray_uniform(
     source_x,
@@ -169,6 +218,7 @@ def binary_inverse_ray_uniform(
     tile_capacity=1024,
     limb_samples=16,
     kernel="real",
+    cartesian_backend="auto",
 ):
     """Specialized inverse-ray path for a uniform source."""
 
@@ -187,12 +237,19 @@ def binary_inverse_ray_uniform(
         limb_samples=limb_samples,
         kernel=kernel,
         moment_mode="uniform",
+        cartesian_backend=cartesian_backend,
     )
 
 
 @partial(
     jax.jit,
-    static_argnames=("tile_size", "tile_capacity", "limb_samples", "kernel"),
+    static_argnames=(
+        "tile_size",
+        "tile_capacity",
+        "limb_samples",
+        "kernel",
+        "cartesian_backend",
+    ),
 )
 def binary_inverse_ray_linear(
     source_x,
@@ -207,6 +264,7 @@ def binary_inverse_ray_linear(
     tile_capacity=1024,
     limb_samples=16,
     kernel="real",
+    cartesian_backend="auto",
 ):
     """Specialized inverse-ray path for linear limb darkening."""
 
@@ -225,6 +283,7 @@ def binary_inverse_ray_linear(
         limb_samples=limb_samples,
         kernel=kernel,
         moment_mode="linear",
+        cartesian_backend=cartesian_backend,
     )
 
 
@@ -242,6 +301,7 @@ def binary_inverse_ray_linear(
         "polar_limb_samples",
         "polar_angular_chunk_size",
         "moment_mode",
+        "cartesian_backend",
     ),
 )
 def binary_inverse_ray_auto(
@@ -269,6 +329,7 @@ def binary_inverse_ray_auto(
     polar_allowed=True,
     polar_fallback_on_overflow=True,
     moment_mode="two_coefficient",
+    cartesian_backend="auto",
 ):
     """Automatically dispatch between Cartesian and polar inverse rays.
 
@@ -321,22 +382,40 @@ def binary_inverse_ray_auto(
             return polar_path(None)
 
         def integrate_cartesian(_):
-            integrated = binary_inverse_ray_fixed_support(
-                discovery.tile_origins,
-                discovery.tile_mask,
-                cell_size,
-                source_x,
-                source_y,
-                separation,
-                mass_ratio,
-                source_radius,
-                limb_c,
-                limb_d,
-                tile_size=tile_size,
-                kernel=kernel,
-                moment_mode=moment_mode,
-                boundary_subdivision=(4 if moment_mode == "two_coefficient" else 3),
-            )
+            subdivision = 4 if moment_mode == "two_coefficient" else 3
+            if _use_ffi_cartesian_backend(cartesian_backend, kernel):
+                integrated = binary_inverse_ray_fixed_support_ffi(
+                    discovery.tile_origins,
+                    discovery.tile_mask,
+                    cell_size,
+                    source_x,
+                    source_y,
+                    separation,
+                    mass_ratio,
+                    source_radius,
+                    limb_c,
+                    limb_d,
+                    tile_size=tile_size,
+                    moment_mode=moment_mode,
+                    boundary_subdivision=subdivision,
+                )
+            else:
+                integrated = binary_inverse_ray_fixed_support(
+                    discovery.tile_origins,
+                    discovery.tile_mask,
+                    cell_size,
+                    source_x,
+                    source_y,
+                    separation,
+                    mass_ratio,
+                    source_radius,
+                    limb_c,
+                    limb_d,
+                    tile_size=tile_size,
+                    kernel=kernel,
+                    moment_mode=moment_mode,
+                    boundary_subdivision=subdivision,
+                )
             return _auto_result(_cartesian_result(discovery, integrated), False)
 
         use_fallback = (
@@ -391,6 +470,7 @@ def binary_inverse_ray_auto(
         "expanded_coarse_tile_capacity",
         "expanded_fine_tile_capacity",
         "expanded_limb_samples",
+        "cartesian_backend",
     ),
 )
 def binary_magnification_auto(
@@ -432,6 +512,7 @@ def binary_magnification_auto(
     expanded_fine_tile_capacity=16384,
     expanded_limb_samples=32,
     moment_mode="two_coefficient",
+    cartesian_backend="auto",
 ):
     """Dispatch safely-far epochs to a differentiable hexadecapole expansion.
 
@@ -524,6 +605,7 @@ def binary_magnification_auto(
             polar_allowed=polar_allowed,
             polar_fallback_on_overflow=polar_fallback_on_overflow,
             moment_mode=moment_mode,
+            cartesian_backend=cartesian_backend,
         )
 
         def image_plane_result(_):
@@ -595,6 +677,7 @@ def binary_magnification_auto(
                     limb_samples=expanded_limb_samples,
                     kernel=kernel,
                     moment_mode=moment_mode,
+                    cartesian_backend=cartesian_backend,
                 )
                 fine = _binary_inverse_ray(
                     source_x,
@@ -610,6 +693,7 @@ def binary_magnification_auto(
                     limb_samples=expanded_limb_samples,
                     kernel=kernel,
                     moment_mode=moment_mode,
+                    cartesian_backend=cartesian_backend,
                 )
                 error = jnp.abs(fine.magnification - coarse.magnification)
                 retry_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
