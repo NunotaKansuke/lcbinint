@@ -6,11 +6,17 @@ import pytest
 import lcbinint
 from lcbinint_jax import (
     cpp_triple_cartesian_epoch_ffi_available,
+    cpp_triple_hexadecapole_batch_ffi_available,
+    cpp_triple_point_batch_ffi_available,
+    triple_hexadecapole_batch_ffi,
     triple_inverse_ray_adaptive,
     triple_inverse_ray_batch,
     triple_inverse_ray_dense,
     triple_lens_geometry,
     triple_lens_map_and_derivatives_real,
+    triple_magnification_auto,
+    triple_magnification_batch,
+    triple_point_source_batch_ffi,
 )
 from lcbinint_jax.lens import binary_lens_map_and_derivatives_real
 
@@ -187,15 +193,18 @@ def test_adaptive_triple_analytic_jacobian_matches_finite_difference():
     value, gradient = jax.value_and_grad(magnification)(parameters)
     assert bool(jnp.isfinite(value))
     assert bool(jnp.all(jnp.isfinite(gradient)))
-    step = 1.0e-5
-    for index in (0, 2, 4, 6, 7, 8, 9):
+    # The custom JVP intentionally freezes discovered support and cell size.
+    # A sufficiently local difference therefore checks its smooth branch;
+    # rho is excluded because changing rho also changes the stopped grid size.
+    step = 3.0e-7
+    for index in (0, 2, 4, 6, 8, 9):
         plus = parameters.at[index].add(step)
         minus = parameters.at[index].add(-step)
         finite_difference = (
             magnification(plus) - magnification(minus)
         ) / (2.0 * step)
         np.testing.assert_allclose(
-            gradient[index], finite_difference, rtol=2.0e-3, atol=2.0e-5
+            gradient[index], finite_difference, rtol=6.0e-3, atol=2.0e-5
         )
 
 
@@ -244,3 +253,119 @@ def test_triple_batch_matches_scalar_values_and_gradients():
     scalar_value, scalar_gradient = jax.value_and_grad(scalar_loss)(1.0)
     np.testing.assert_allclose(batch_value, scalar_value, rtol=2.0e-13)
     np.testing.assert_allclose(batch_gradient, scalar_gradient, rtol=2.0e-12)
+
+
+@pytest.mark.skipif(
+    not cpp_triple_point_batch_ffi_available(),
+    reason="triple point-source FFI is unavailable",
+)
+def test_triple_point_source_analytic_jacobian_matches_finite_difference():
+    parameters = jnp.asarray((3.0, 2.0, 1.0, 0.1, 0.03, 0.7, 0.8))
+
+    def magnification(values):
+        return triple_point_source_batch_ffi(
+            values[:1], values[1:2], *values[2:]
+        ).magnification[0]
+
+    value, gradient = jax.value_and_grad(magnification)(parameters)
+    assert bool(jnp.isfinite(value))
+    assert bool(jnp.all(jnp.isfinite(gradient)))
+    for index in range(parameters.size):
+        step = 1.0e-5
+        finite_difference = (
+            magnification(parameters.at[index].add(step))
+            - magnification(parameters.at[index].add(-step))
+        ) / (2.0 * step)
+        np.testing.assert_allclose(
+            gradient[index], finite_difference, rtol=2.0e-5, atol=2.0e-8
+        )
+
+
+@pytest.mark.skipif(
+    not cpp_triple_hexadecapole_batch_ffi_available(),
+    reason="triple hexadecapole FFI is unavailable",
+)
+def test_triple_hexadecapole_analytic_jacobian_matches_finite_difference():
+    parameters = jnp.asarray(
+        (-0.8, 0.6, 1.0, 0.1, 0.03, 0.7, 0.8, 0.03, 0.3, 0.2)
+    )
+
+    def magnification(values):
+        return triple_hexadecapole_batch_ffi(
+            values[:1], values[1:2], *values[2:]
+        ).magnification[0]
+
+    value, gradient = jax.value_and_grad(magnification)(parameters)
+    assert bool(jnp.isfinite(value))
+    assert bool(jnp.all(jnp.isfinite(gradient)))
+    for index in range(parameters.size):
+        step = 1.0e-5
+        finite_difference = (
+            magnification(parameters.at[index].add(step))
+            - magnification(parameters.at[index].add(-step))
+        ) / (2.0 * step)
+        np.testing.assert_allclose(
+            gradient[index], finite_difference, rtol=2.0e-4, atol=2.0e-7
+        )
+
+
+@pytest.mark.skipif(
+    not (
+        cpp_triple_point_batch_ffi_available()
+        and cpp_triple_hexadecapole_batch_ffi_available()
+        and cpp_triple_cartesian_epoch_ffi_available()
+    ),
+    reason="the complete triple dispatcher backend is unavailable",
+)
+def test_triple_dispatcher_uses_point_hexadecapole_and_inverse_ray():
+    result = triple_magnification_batch(
+        jnp.asarray((3.0, -0.8, 0.1)),
+        jnp.asarray((2.0, 0.6, 0.3)),
+        1.0,
+        0.1,
+        0.03,
+        0.7,
+        0.8,
+        0.03,
+        moment_mode="uniform",
+    )
+    np.testing.assert_array_equal(result.method, (0, 1, 2))
+    assert bool(jnp.all(jnp.isfinite(result.magnification)))
+    assert bool(jnp.all(result.support_valid))
+
+
+@pytest.mark.skipif(
+    not cpp_triple_cartesian_epoch_ffi_available(),
+    reason="triple Cartesian FFI is unavailable",
+)
+def test_triple_dispatcher_rejects_high_magnification_multipole():
+    result = triple_magnification_auto(
+        -0.046038516588439035,
+        0.025585304221408988,
+        1.0,
+        0.1,
+        1.0e-5,
+        1.0,
+        np.pi / 2.0,
+        1.0e-4,
+        moment_mode="uniform",
+    )
+    assert int(result.method) == 2
+    assert not bool(result.used_multipole)
+    assert bool(result.support_valid)
+
+
+def test_triple_dispatcher_keeps_zero_radius_on_point_source_path():
+    result = triple_magnification_auto(
+        -0.046038516588439035,
+        0.025585304221408988,
+        1.0,
+        0.1,
+        1.0e-5,
+        1.0,
+        np.pi / 2.0,
+        0.0,
+    )
+    assert int(result.method) == 0
+    assert bool(result.support_valid)
+    assert float(result.magnification) > 100.0

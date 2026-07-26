@@ -720,7 +720,7 @@ same trajectory with circular lens motion. Geometry evolution was negligible
 in forward mode and added about five percent to this reverse-mode measurement;
 the dominant cost remains magnification integration.
 
-## Triple-lens inverse-ray milestone
+## Triple-lens automatic magnification milestone
 
 The differentiable triple-lens path now has a sparse production-oriented CPU
 kernel in addition to the original dense reference. A native degree-10 solver
@@ -756,10 +756,39 @@ gradient = jax.grad(
 )(0.03)
 ```
 
-`triple_inverse_ray_batch` evaluates a complete one-dimensional trajectory in
-one FFI call and parallelizes independent epochs with OpenMP. It accepts an
-optional boolean `active` mask and supports `jax.jit`, forward AD, and reverse
-AD through its custom JVP.
+The production entry points are now `triple_magnification_auto` for one epoch
+and `triple_magnification_batch` for a trajectory. They dispatch each epoch
+through a three-level differentiable hierarchy:
+
+1. degree-10 point-source magnification with implicit root derivatives;
+2. a 13-point hexadecapole expansion;
+3. sparse Cartesian inverse rays.
+
+Method codes are 0, 1, and 2 respectively. Point and hex batches use fused C++
+FFIs with analytic Jacobians. The inverse-ray FFI receives an `active` mask, so
+epochs accepted by either fast path do no cell traversal. All three branches
+support `jax.jit`, forward AD, and reverse AD through custom JVPs; the discrete
+method decision is stopped-gradient.
+
+```python
+result = lj.triple_magnification_batch(
+    source_x, source_y,
+    1.0, 0.1, 0.03, 0.7, 0.8, 0.02,
+    limb_c=0.3, limb_d=0.2,
+)
+value = result.magnification
+method = result.method
+```
+
+The default relative budget is \(10^{-4}\). Point acceptance uses the native
+high-derivative indicator with a factor-four margin. Hex acceptance additionally
+requires stable image topology, ordered quadrupole/hex corrections, and the
+hex correction to fit the error budget. Multipoles are rejected when the point
+magnification reaches 100: a frozen calibration found that a nearby caustic can
+invalidate the local expansion while its last term still looks small. Those
+epochs go directly to Cartesian inverse rays. The Cartesian discovery limit is
+large enough for the calibrated high-magnification cases, but initially
+reserves only 4096 tiles and grows on demand.
 
 The zero-tertiary-mass map agrees with the binary map and all six image-plane
 derivatives to \(3\times10^{-15}\). For
@@ -769,25 +798,33 @@ difference of \(1.6\times10^{-5}\). All ten scalar derivatives agree with
 local finite differences at roughly \(7\times10^{-5}\) to
 \(8\times10^{-4}\) relative error in this case.
 
-On the current benchmark host, a 20-case random sweep gave median/max
-uniform-source relative differences of \(1.2\times10^{-5}\) and
-\(1.2\times10^{-4}\) at resolution 64. Median single-epoch time was 1.8 ms.
-A 64-epoch uniform trajectory took 2.9--3.7 ms with the parallel batch FFI,
-versus about 71 ms for sequential FFI `vmap`, 110 ms for native Cartesian,
-and 752 ms for the native auto path on the same trajectory. These figures are
-warm-call measurements, not portable guarantees.
+The final frozen fast-path calibration contains 510 triple-lens/profile rows
+with forced Cartesian-512 references. At relative tolerance \(10^{-4}\), the
+default rules accepted 30 point and 186 hex rows. None exceeded the requested
+tolerance; the maximum accepted relative error was \(2.77\times10^{-5}\).
+The three formerly bad hex rows all had point magnification about 152 and are
+now rejected by the high-magnification guard.
+
+On the current benchmark host, a warm jitted 64-epoch point batch took
+0.038 ms and a 64-epoch hex batch 0.329 ms. A far trajectory accepted entirely
+by the dispatcher took 0.300 ms. A 64-epoch caustic-crossing trajectory, for
+which all epochs required resolution-96 inverse rays, took 13.57 ms through
+the dispatcher versus 15.71 ms through the raw batch inverse-ray entry point.
+Native forced Cartesian-96 took 177 ms and native auto took 1.25 s on that
+same trajectory. Against forced native Cartesian-192, the JAX values had
+median/max relative differences \(1.16\times10^{-5}\) and
+\(1.10\times10^{-4}\). These are warm measurements on one host, not portable
+guarantees.
 
 ## Current limitations
 
-- The calibrated point/hex/polar dispatcher is still binary-lens only. Triple
-  scalar and batch Cartesian FFI paths are complete, but far-from-caustic
-  triple epochs do not yet switch to a differentiable point/hex fast path.
-- The 20-case triple pilot sweep is enough to validate the implementation, not
-  enough to freeze a universal dispatcher calibration. In the square-root
-  limb-darkening pilot, the median resolution-64 difference was
-  \(6.3\times10^{-5}\), while the worst far-from-caustic case was 0.36 percent.
-  Such cases should ultimately route through the planned triple multipole
-  path.
+- The triple dispatcher currently has point, hex, and Cartesian branches, but
+  no triple polar branch. Very high magnification with tiny sources is
+  therefore accurate but can be substantially slower than a future polar or
+  source-plane implementation.
+- The 510-row calibration is broad enough to set the current default fast-path
+  thresholds, but it does not prove a universal bound outside the sampled lens
+  ratios, source radii, and limb profiles.
 - The current `support_valid` flag detects root and tile-capacity failures; it
   is not a numerical-accuracy or gradient-convergence guarantee; use the
   coarse/fine diagnostic for that decision.

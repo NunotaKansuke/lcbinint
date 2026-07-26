@@ -35,6 +35,14 @@ _FFI_CARTESIAN_BATCH_TARGET = "lcbinint_jax_cartesian_batch_f64_v1"
 _FFI_CARTESIAN_BATCH_JACOBIAN_TARGET = "lcbinint_jax_cartesian_batch_jacobian_f64_v1"
 _FFI_HEX_BATCH_TARGET = "lcbinint_jax_hexadecapole_batch_f64_v1"
 _FFI_HEX_BATCH_JACOBIAN_TARGET = "lcbinint_jax_hexadecapole_batch_jacobian_f64_v1"
+_FFI_TRIPLE_HEX_BATCH_TARGET = "lcbinint_jax_triple_hexadecapole_batch_f64_v1"
+_FFI_TRIPLE_HEX_BATCH_JACOBIAN_TARGET = (
+    "lcbinint_jax_triple_hexadecapole_batch_jacobian_f64_v1"
+)
+_FFI_TRIPLE_POINT_BATCH_TARGET = "lcbinint_jax_triple_point_batch_f64_v1"
+_FFI_TRIPLE_POINT_BATCH_JACOBIAN_TARGET = (
+    "lcbinint_jax_triple_point_batch_jacobian_f64_v1"
+)
 _FFI_POLAR_EPOCH_TARGET = "lcbinint_jax_polar_epoch_f64_v1"
 _FFI_POLAR_EPOCH_JACOBIAN_TARGET = "lcbinint_jax_polar_epoch_jacobian_f64_v1"
 _FFI_TRAJECTORY_TARGET = "lcbinint_jax_trajectory_f64_v1"
@@ -85,6 +93,12 @@ class _FfiHexadecapoleResult(NamedTuple):
     quadrupole_correction: jax.Array
     hexadecapole_correction: jax.Array
     topology_stable: jax.Array
+    root_failure: jax.Array
+
+
+class TriplePointSourceResult(NamedTuple):
+    magnification: jax.Array
+    derivative_indicator: jax.Array
     root_failure: jax.Array
 
 
@@ -231,6 +245,36 @@ def cpp_hexadecapole_batch_ffi_available():
         native = _native_module()
         return hasattr(native._jax_ir, "hexadecapole_batch_ffi") and hasattr(
             native._jax_ir, "hexadecapole_batch_jacobian_ffi"
+        )
+    except (AttributeError, RuntimeError):
+        return False
+
+
+def cpp_triple_hexadecapole_batch_ffi_available():
+    """Return whether differentiable triple hexadecapole FFI is available."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        jax_ir = native._jax_ir
+        return hasattr(jax_ir, "triple_hexadecapole_batch_ffi") and hasattr(
+            jax_ir, "triple_hexadecapole_batch_jacobian_ffi"
+        )
+    except (AttributeError, RuntimeError):
+        return False
+
+
+def cpp_triple_point_batch_ffi_available():
+    """Return whether differentiable triple point-source FFI is available."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        jax_ir = native._jax_ir
+        return hasattr(jax_ir, "triple_point_batch_ffi") and hasattr(
+            jax_ir, "triple_point_batch_jacobian_ffi"
         )
     except (AttributeError, RuntimeError):
         return False
@@ -444,6 +488,42 @@ def _register_hexadecapole_batch_ffi():
         _FFI_HEX_BATCH_JACOBIAN_TARGET,
         jacobian,
         platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_triple_hexadecapole_batch_ffi():
+    native = _native_module()
+    try:
+        forward = native._jax_ir.triple_hexadecapole_batch_ffi()
+        jacobian = native._jax_ir.triple_hexadecapole_batch_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the triple hexadecapole FFI"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_TRIPLE_HEX_BATCH_TARGET, forward, platform="cpu"
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_TRIPLE_HEX_BATCH_JACOBIAN_TARGET, jacobian, platform="cpu"
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_triple_point_batch_ffi():
+    native = _native_module()
+    try:
+        forward = native._jax_ir.triple_point_batch_ffi()
+        jacobian = native._jax_ir.triple_point_batch_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the triple point-source FFI"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_TRIPLE_POINT_BATCH_TARGET, forward, platform="cpu"
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_TRIPLE_POINT_BATCH_JACOBIAN_TARGET, jacobian, platform="cpu"
     )
 
 
@@ -1362,6 +1442,332 @@ def binary_hexadecapole_batch_ffi(
         estimated_error=jnp.abs(result.hexadecapole_correction),
         topology_stable=result.topology_stable,
         root_failure=result.root_failure,
+    )
+
+
+def _triple_hexadecapole_batch_call(
+    target,
+    source_x,
+    source_y,
+    active,
+    scalars,
+    convention,
+    include_jacobian,
+):
+    outputs = _hexadecapole_batch_specs(
+        source_x.shape[0], include_jacobian=False
+    )
+    if include_jacobian:
+        outputs += (
+            jax.ShapeDtypeStruct((source_x.shape[0], 4, 10), jnp.float64),
+        )
+    return jax.ffi.ffi_call(target, outputs, vmap_method="sequential")(
+        source_x,
+        source_y,
+        active,
+        *scalars,
+        convention=np.int64(convention),
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=(0,))
+def _triple_hexadecapole_batch_transformable(
+    convention,
+    source_x,
+    source_y,
+    active,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    limb_c,
+    limb_d,
+):
+    outputs = _triple_hexadecapole_batch_call(
+        _FFI_TRIPLE_HEX_BATCH_TARGET,
+        source_x,
+        source_y,
+        active,
+        (
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+            source_radius,
+            limb_c,
+            limb_d,
+        ),
+        convention,
+        False,
+    )
+    return _FfiHexadecapoleResult(*outputs)
+
+
+@_triple_hexadecapole_batch_transformable.defjvp
+def _triple_hexadecapole_batch_jvp(convention, primals, tangents):
+    (
+        source_x,
+        source_y,
+        active,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        source_radius,
+        limb_c,
+        limb_d,
+    ) = primals
+    outputs = _triple_hexadecapole_batch_call(
+        _FFI_TRIPLE_HEX_BATCH_JACOBIAN_TARGET,
+        source_x,
+        source_y,
+        active,
+        (
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+            source_radius,
+            limb_c,
+            limb_d,
+        ),
+        convention,
+        True,
+    )
+    primal = _FfiHexadecapoleResult(*outputs[:6])
+    parameter_tangent = jnp.stack(
+        (
+            tangents[0],
+            tangents[1],
+            jnp.full_like(source_x, tangents[3]),
+            jnp.full_like(source_x, tangents[4]),
+            jnp.full_like(source_x, tangents[5]),
+            jnp.full_like(source_x, tangents[6]),
+            jnp.full_like(source_x, tangents[7]),
+            jnp.full_like(source_x, tangents[8]),
+            jnp.full_like(source_x, tangents[9]),
+            jnp.full_like(source_x, tangents[10]),
+        ),
+        axis=1,
+    )
+    numeric_tangent = jnp.einsum(
+        "noq,nq->no", outputs[6], parameter_tangent
+    )
+    tangent = _FfiHexadecapoleResult(
+        magnification=numeric_tangent[:, 0],
+        point_magnification=numeric_tangent[:, 1],
+        quadrupole_correction=numeric_tangent[:, 2],
+        hexadecapole_correction=numeric_tangent[:, 3],
+        topology_stable=jnp.zeros_like(
+            primal.topology_stable, dtype=jax.dtypes.float0
+        ),
+        root_failure=jnp.zeros_like(
+            primal.root_failure, dtype=jax.dtypes.float0
+        ),
+    )
+    return primal, tangent
+
+
+def triple_hexadecapole_batch_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    active=None,
+    convention="center_of_mass",
+):
+    """Evaluate differentiable triple 13-point expansions in one CPU FFI."""
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("the triple hexadecapole FFI is CPU-only")
+    if convention not in ("center_of_mass", "vbm"):
+        raise ValueError("convention must be 'center_of_mass' or 'vbm'")
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    if source_x.ndim != 1 or source_y.shape != source_x.shape:
+        raise ValueError("source_x and source_y must have the same 1-D shape")
+    if active is None:
+        active = jnp.ones(source_x.shape, dtype=jnp.bool_)
+    active = jax.lax.stop_gradient(jnp.asarray(active, dtype=jnp.bool_))
+    if active.shape != source_x.shape:
+        raise ValueError("active must have the same shape as source_x")
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
+    if any(value.ndim != 0 for value in scalars):
+        raise ValueError("lens and source parameters must be scalars")
+    _register_triple_hexadecapole_batch_ffi()
+    result = _triple_hexadecapole_batch_transformable(
+        0 if convention == "center_of_mass" else 1,
+        source_x,
+        source_y,
+        active,
+        *scalars,
+    )
+    from .multipole import HexadecapoleResult
+
+    return HexadecapoleResult(
+        magnification=result.magnification,
+        point_magnification=result.point_magnification,
+        quadrupole_correction=result.quadrupole_correction,
+        hexadecapole_correction=result.hexadecapole_correction,
+        estimated_error=jnp.abs(result.hexadecapole_correction),
+        topology_stable=result.topology_stable,
+        root_failure=result.root_failure,
+    )
+
+
+def _triple_point_batch_call(
+    target,
+    source_x,
+    source_y,
+    scalars,
+    convention,
+    include_jacobian,
+):
+    outputs = (
+        jax.ShapeDtypeStruct(source_x.shape, jnp.float64),
+        jax.ShapeDtypeStruct(source_x.shape, jnp.float64),
+        jax.ShapeDtypeStruct(source_x.shape, jnp.bool_),
+    )
+    if include_jacobian:
+        outputs += (
+            jax.ShapeDtypeStruct((source_x.shape[0], 7), jnp.float64),
+        )
+    return jax.ffi.ffi_call(target, outputs, vmap_method="sequential")(
+        source_x,
+        source_y,
+        *scalars,
+        convention=np.int64(convention),
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=(0,))
+def _triple_point_batch_transformable(
+    convention,
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+):
+    return TriplePointSourceResult(
+        *_triple_point_batch_call(
+            _FFI_TRIPLE_POINT_BATCH_TARGET,
+            source_x,
+            source_y,
+            (
+                separation,
+                mass_ratio,
+                tertiary_mass_ratio,
+                tertiary_separation,
+                tertiary_angle,
+            ),
+            convention,
+            False,
+        )
+    )
+
+
+@_triple_point_batch_transformable.defjvp
+def _triple_point_batch_jvp(convention, primals, tangents):
+    source_x, source_y, separation, mass_ratio, q2, s2, angle = primals
+    outputs = _triple_point_batch_call(
+        _FFI_TRIPLE_POINT_BATCH_JACOBIAN_TARGET,
+        source_x,
+        source_y,
+        (separation, mass_ratio, q2, s2, angle),
+        convention,
+        True,
+    )
+    primal = TriplePointSourceResult(*outputs[:3])
+    parameter_tangent = jnp.stack(
+        (
+            tangents[0],
+            tangents[1],
+            jnp.full_like(source_x, tangents[2]),
+            jnp.full_like(source_x, tangents[3]),
+            jnp.full_like(source_x, tangents[4]),
+            jnp.full_like(source_x, tangents[5]),
+            jnp.full_like(source_x, tangents[6]),
+        ),
+        axis=1,
+    )
+    tangent = TriplePointSourceResult(
+        magnification=jnp.sum(outputs[3] * parameter_tangent, axis=1),
+        derivative_indicator=jnp.zeros_like(primal.derivative_indicator),
+        root_failure=jnp.zeros_like(
+            primal.root_failure, dtype=jax.dtypes.float0
+        ),
+    )
+    return primal, tangent
+
+
+def triple_point_source_batch_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    *,
+    convention="center_of_mass",
+):
+    """Evaluate triple point sources and analytic gradients in one CPU FFI."""
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("the triple point-source FFI is CPU-only")
+    if convention not in ("center_of_mass", "vbm"):
+        raise ValueError("convention must be 'center_of_mass' or 'vbm'")
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    if source_x.ndim != 1 or source_y.shape != source_x.shape:
+        raise ValueError("source_x and source_y must have the same 1-D shape")
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+        )
+    )
+    if any(value.ndim != 0 for value in scalars):
+        raise ValueError("triple-lens parameters must be scalars")
+    _register_triple_point_batch_ffi()
+    return _triple_point_batch_transformable(
+        0 if convention == "center_of_mass" else 1,
+        source_x,
+        source_y,
+        *scalars,
     )
 
 

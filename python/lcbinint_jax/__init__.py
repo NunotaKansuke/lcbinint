@@ -16,6 +16,7 @@ from .multipole import (
 from .convergence import binary_inverse_ray_convergence
 from .cpp_backend import (
     CppFixedSupportResult,
+    TriplePointSourceResult,
     binary_images_ffi,
     binary_hexadecapole_batch_ffi,
     binary_inverse_ray_cartesian_batch_ffi,
@@ -33,11 +34,15 @@ from .cpp_backend import (
     cpp_trajectory_ffi_available,
     cpp_triple_cartesian_batch_ffi_available,
     cpp_triple_cartesian_epoch_ffi_available,
+    cpp_triple_hexadecapole_batch_ffi_available,
     cpp_triple_image_roots_ffi_available,
+    cpp_triple_point_batch_ffi_available,
     discover_binary_macro_tiles_ffi,
     triple_images_ffi,
+    triple_hexadecapole_batch_ffi,
     triple_inverse_ray_cartesian_batch_ffi,
     triple_inverse_ray_cartesian_ffi,
+    triple_point_source_batch_ffi,
 )
 from .discovery import discover_binary_macro_tiles
 from .integrate import binary_inverse_ray_fixed_support
@@ -53,6 +58,7 @@ from .triple import (
     TripleDiscoveryResult,
     TripleInverseRayResult,
     TripleLensGeometry,
+    TripleMagnificationResult,
     discover_triple_macro_tiles,
     triple_inverse_ray_adaptive,
     triple_inverse_ray_batch,
@@ -61,6 +67,8 @@ from .triple import (
     triple_lens_geometry,
     triple_lens_map_and_derivatives_real,
     triple_lens_map_real,
+    triple_magnification_auto,
+    triple_magnification_batch,
 )
 from .higher_order import (
     EarthEphemeris,
@@ -109,6 +117,8 @@ __all__ = [
     "TripleAdaptiveInverseRayResult",
     "TripleDiscoveryResult",
     "TripleLensGeometry",
+    "TripleMagnificationResult",
+    "TriplePointSourceResult",
     "TrajectoryGeometry",
     "BinarySourceMagnificationResult",
     "BinarySourceTrajectory",
@@ -151,7 +161,9 @@ __all__ = [
     "cpp_trajectory_ffi_available",
     "cpp_triple_cartesian_batch_ffi_available",
     "cpp_triple_cartesian_epoch_ffi_available",
+    "cpp_triple_hexadecapole_batch_ffi_available",
     "cpp_triple_image_roots_ffi_available",
+    "cpp_triple_point_batch_ffi_available",
     "discover_binary_macro_tiles",
     "discover_binary_macro_tiles_ffi",
     "discover_binary_polar_bands",
@@ -162,13 +174,17 @@ __all__ = [
     "terrestrial_parallax_offsets",
     "triple_inverse_ray_dense",
     "triple_images_ffi",
+    "triple_hexadecapole_batch_ffi",
     "triple_inverse_ray_adaptive",
     "triple_inverse_ray_batch",
     "triple_inverse_ray_cartesian_batch_ffi",
     "triple_inverse_ray_cartesian_ffi",
     "triple_inverse_ray_fixed_support",
+    "triple_magnification_auto",
+    "triple_magnification_batch",
     "triple_lens_geometry",
     "triple_lens_map_and_derivatives_real",
     "triple_lens_map_real",
+    "triple_point_source_batch_ffi",
     "xallarap_offsets",
 ]

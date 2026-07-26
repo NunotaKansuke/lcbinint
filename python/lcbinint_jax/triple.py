@@ -14,9 +14,11 @@ from .cell_moments import (
 )
 from .cpp_backend import (
     cpp_triple_cartesian_epoch_ffi_available,
+    triple_hexadecapole_batch_ffi,
     triple_images_ffi,
     triple_inverse_ray_cartesian_batch_ffi,
     triple_inverse_ray_cartesian_ffi,
+    triple_point_source_batch_ffi,
 )
 from .limb_darkening import combine_limb_darkening_moments
 
@@ -63,6 +65,16 @@ class TripleAdaptiveInverseRayResult(NamedTuple):
     seed_tiles: jax.Array
     overflow: jax.Array
     root_failure: jax.Array
+
+
+class TripleMagnificationResult(NamedTuple):
+    magnification: jax.Array
+    method: jax.Array
+    estimated_error: jax.Array
+    support_valid: jax.Array
+    used_multipole: jax.Array
+    root_failure: jax.Array
+    discovery_overflow: jax.Array
 
 
 def triple_lens_geometry(
@@ -658,7 +670,7 @@ def triple_inverse_ray_adaptive(
     *,
     resolution=64,
     tile_size=8,
-    tile_capacity=4096,
+    tile_capacity=131072,
     limb_samples=12,
     convention="center_of_mass",
     moment_mode="two_coefficient",
@@ -800,7 +812,7 @@ def triple_inverse_ray_batch(
     active=None,
     resolution=64,
     tile_size=8,
-    tile_capacity=4096,
+    tile_capacity=131072,
     limb_samples=12,
     convention="center_of_mass",
     moment_mode="two_coefficient",
@@ -830,6 +842,269 @@ def triple_inverse_ray_batch(
         moment_mode=moment_mode,
         boundary_subdivision=boundary_subdivision,
     )
+
+
+@partial(
+    jax.jit,
+    static_argnames=(
+        "resolution",
+        "tile_size",
+        "tile_capacity",
+        "limb_samples",
+        "convention",
+        "moment_mode",
+        "boundary_subdivision",
+    ),
+)
+def triple_magnification_batch(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    absolute_tolerance=0.0,
+    relative_tolerance=1.0e-4,
+    point_safety_factor=4.0,
+    multipole_safety_factor=1.0,
+    multipole_max_magnification=100.0,
+    resolution=96,
+    tile_size=8,
+    tile_capacity=131072,
+    limb_samples=12,
+    convention="center_of_mass",
+    moment_mode="two_coefficient",
+    boundary_subdivision=4,
+):
+    """Dispatch a triple trajectory between point, hexadecapole, and inverse rays.
+
+    Multipoles are deliberately disabled above
+    ``multipole_max_magnification``.  Near a caustic the local series can look
+    well ordered while still missing a nearby singularity; the Cartesian
+    inverse-ray path is the reliable choice there.
+    """
+
+    require_x64()
+    source_x = jnp.asarray(source_x)
+    source_y = jnp.asarray(source_y)
+    if source_x.ndim != 1 or source_y.shape != source_x.shape:
+        raise ValueError("source_x and source_y must have the same 1-D shape")
+    point_source = triple_point_source_batch_ffi(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        convention=convention,
+    )
+    point_magnitude = jnp.maximum(
+        jnp.abs(point_source.magnification), 1.0
+    )
+    point_budget = (
+        absolute_tolerance + relative_tolerance * point_magnitude
+    )
+    point_error = (
+        point_source.derivative_indicator * source_radius * source_radius
+    )
+    point_source_valid = (
+        ~point_source.root_failure
+        & jnp.isfinite(point_source.magnification)
+    )
+    zero_radius = source_radius == 0.0
+    multipole_magnification_safe = (
+        point_magnitude < multipole_max_magnification
+    )
+    accept_point = jax.lax.stop_gradient(
+        point_source_valid
+        & (
+            zero_radius
+            | (
+                (source_radius > 0.0)
+                & multipole_magnification_safe
+                & jnp.isfinite(point_error)
+                & (point_safety_factor * point_error <= point_budget)
+            )
+        )
+    )
+    hexadecapole = triple_hexadecapole_batch_ffi(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        source_radius,
+        limb_c,
+        limb_d,
+        active=~accept_point,
+        convention=convention,
+    )
+    hex_magnitude = jnp.maximum(
+        jnp.abs(hexadecapole.magnification), 1.0
+    )
+    budget = absolute_tolerance + relative_tolerance * hex_magnitude
+    correction_scale = jnp.maximum(
+        jnp.abs(hexadecapole.quadrupole_correction), budget
+    )
+    expansion_well_ordered = (
+        hexadecapole.estimated_error <= 0.25 * correction_scale
+    ) & (
+        jnp.abs(hexadecapole.quadrupole_correction)
+        <= 0.1 * hex_magnitude
+    )
+    accept_hexadecapole = jax.lax.stop_gradient(
+        ~accept_point
+        & multipole_magnification_safe
+        & (source_radius > 0.0)
+        & hexadecapole.topology_stable
+        & ~hexadecapole.root_failure
+        & jnp.isfinite(hexadecapole.magnification)
+        & expansion_well_ordered
+        & (
+            multipole_safety_factor * hexadecapole.estimated_error
+            <= budget
+        )
+    )
+    inverse_ray_radius = jnp.where(source_radius > 0.0, source_radius, 1.0)
+    inverse_ray = triple_inverse_ray_cartesian_batch_ffi(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        inverse_ray_radius,
+        limb_c,
+        limb_d,
+        active=~(accept_point | accept_hexadecapole),
+        cell_size=jax.lax.stop_gradient(inverse_ray_radius / resolution),
+        tile_size=tile_size,
+        tile_capacity=tile_capacity,
+        limb_samples=limb_samples,
+        convention=convention,
+        moment_mode=moment_mode,
+        boundary_subdivision=boundary_subdivision,
+    )
+    magnification = jnp.where(
+        accept_point,
+        point_source.magnification,
+        jnp.where(
+            accept_hexadecapole,
+            hexadecapole.magnification,
+            inverse_ray.magnification,
+        ),
+    )
+    accept_multipole = accept_point | accept_hexadecapole
+    support_valid = accept_multipole | inverse_ray.support_valid
+    root_failure = jnp.where(
+        accept_point,
+        point_source.root_failure,
+        jnp.where(
+            accept_hexadecapole,
+            hexadecapole.root_failure,
+            inverse_ray.root_failure,
+        ),
+    )
+    return TripleMagnificationResult(
+        magnification=magnification,
+        method=jnp.where(
+            accept_point,
+            jnp.asarray(0, dtype=jnp.int32),
+            jnp.where(
+                accept_hexadecapole,
+                jnp.asarray(1, dtype=jnp.int32),
+                jnp.asarray(2, dtype=jnp.int32),
+            ),
+        ),
+        estimated_error=jnp.where(
+            accept_point,
+            point_error,
+            jnp.where(
+                accept_hexadecapole,
+                hexadecapole.estimated_error,
+                jnp.asarray(jnp.nan, dtype=magnification.dtype),
+            ),
+        ),
+        support_valid=support_valid,
+        used_multipole=accept_multipole,
+        root_failure=root_failure,
+        discovery_overflow=inverse_ray.discovery_overflow,
+    )
+
+
+@partial(
+    jax.jit,
+    static_argnames=(
+        "resolution",
+        "tile_size",
+        "tile_capacity",
+        "limb_samples",
+        "convention",
+        "moment_mode",
+        "boundary_subdivision",
+    ),
+)
+def triple_magnification_auto(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    absolute_tolerance=0.0,
+    relative_tolerance=1.0e-4,
+    point_safety_factor=4.0,
+    multipole_safety_factor=1.0,
+    multipole_max_magnification=100.0,
+    resolution=96,
+    tile_size=8,
+    tile_capacity=131072,
+    limb_samples=12,
+    convention="center_of_mass",
+    moment_mode="two_coefficient",
+    boundary_subdivision=4,
+):
+    """Scalar form of :func:`triple_magnification_batch`."""
+
+    result = triple_magnification_batch(
+        jnp.reshape(jnp.asarray(source_x), (1,)),
+        jnp.reshape(jnp.asarray(source_y), (1,)),
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        source_radius,
+        limb_c,
+        limb_d,
+        absolute_tolerance=absolute_tolerance,
+        relative_tolerance=relative_tolerance,
+        point_safety_factor=point_safety_factor,
+        multipole_safety_factor=multipole_safety_factor,
+        multipole_max_magnification=multipole_max_magnification,
+        resolution=resolution,
+        tile_size=tile_size,
+        tile_capacity=tile_capacity,
+        limb_samples=limb_samples,
+        convention=convention,
+        moment_mode=moment_mode,
+        boundary_subdivision=boundary_subdivision,
+    )
+    return jax.tree_util.tree_map(lambda value: value[0], result)
 
 
 @partial(

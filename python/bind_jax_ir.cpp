@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <complex>
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
@@ -1771,6 +1772,335 @@ HexadecapoleKernelResult hexadecapole_kernel(
     return result;
 }
 
+template <typename Scalar>
+struct TripleMapValues {
+    Scalar source_x;
+    Scalar source_y;
+    Scalar du_dx;
+    Scalar du_dy;
+    Scalar dv_dx;
+    Scalar dv_dy;
+    Scalar determinant;
+};
+
+template <typename Scalar>
+TripleMapValues<Scalar> triple_map_values(
+    const Scalar& image_x,
+    const Scalar& image_y,
+    const TripleLensConstants<Scalar>& lens)
+{
+    Scalar source_x = image_x;
+    Scalar source_y = image_y;
+    Scalar shear_real = 0.0;
+    Scalar shear_cross = 0.0;
+    for (std::size_t index = 0; index < 3; ++index) {
+        const Scalar dx = image_x - lens.lens_x[index];
+        const Scalar dy = image_y - lens.lens_y[index];
+        const Scalar radius_squared = dx * dx + dy * dy;
+        const Scalar inverse_radius_squared = 1.0 / radius_squared;
+        const Scalar inverse_radius_fourth =
+            inverse_radius_squared * inverse_radius_squared;
+        source_x =
+            source_x - lens.mass[index] * dx * inverse_radius_squared;
+        source_y =
+            source_y - lens.mass[index] * dy * inverse_radius_squared;
+        shear_real += lens.mass[index]
+            * (dx * dx - dy * dy) * inverse_radius_fourth;
+        shear_cross += 2.0 * lens.mass[index]
+            * dx * dy * inverse_radius_fourth;
+    }
+    const Scalar du_dx = 1.0 + shear_real;
+    const Scalar du_dy = shear_cross;
+    const Scalar dv_dx = shear_cross;
+    const Scalar dv_dy = 1.0 - shear_real;
+    return {
+        source_x,
+        source_y,
+        du_dx,
+        du_dy,
+        dv_dx,
+        dv_dy,
+        du_dx * dv_dy - du_dy * dv_dx,
+    };
+}
+
+TripleJet triple_point_magnification_jet(
+    const TripleJet& source_x,
+    const TripleJet& source_y,
+    const TripleJet& separation,
+    const TripleJet& mass_ratio,
+    const TripleJet& tertiary_mass_ratio,
+    const TripleJet& tertiary_separation,
+    const TripleJet& tertiary_angle,
+    std::int64_t convention,
+    std::int32_t& image_count,
+    bool& root_failure,
+    double* derivative_indicator = nullptr)
+{
+    const auto native_geometry = convention == 0
+        ? lcbinint::model::make_triple_lens_geometry(
+            separation.value, mass_ratio.value, tertiary_mass_ratio.value,
+            tertiary_separation.value, tertiary_angle.value)
+        : lcbinint::model::make_triple_lens_geometry_vbm(
+            separation.value, mass_ratio.value, tertiary_separation.value,
+            tertiary_angle.value, tertiary_mass_ratio.value);
+    const lcbinint::magnification::PointSourceMagnifier magnifier;
+    const auto candidates = magnifier.triple_image_candidates(
+        native_geometry, {source_x.value, source_y.value});
+    if (derivative_indicator != nullptr) {
+        *derivative_indicator = 0.0;
+        for (const auto& candidate : candidates) {
+            if (!candidate.physical) continue;
+            const std::complex<double> image(
+                candidate.position.x, candidate.position.y);
+            std::complex<double> j1(0.0, 0.0);
+            std::complex<double> j2(0.0, 0.0);
+            std::complex<double> j3(0.0, 0.0);
+            for (std::size_t index = 0; index < 3; ++index) {
+                const std::complex<double> lens(
+                    native_geometry.lens_positions[index].x,
+                    native_geometry.lens_positions[index].y);
+                const auto displacement = image - lens;
+                const auto displacement_2 = displacement * displacement;
+                const auto displacement_3 =
+                    displacement_2 * displacement;
+                const auto displacement_4 =
+                    displacement_3 * displacement;
+                const double mass = native_geometry.masses[index];
+                j1 += mass / displacement_2;
+                j2 -= 2.0 * mass / displacement_3;
+                j3 += 6.0 * mass / displacement_4;
+            }
+            const auto j1_conjugate = std::conj(j1);
+            const double determinant =
+                1.0 - std::real(j1 * j1_conjugate);
+            const double determinant_2 = determinant * determinant;
+            const double denominator = std::abs(
+                determinant * determinant_2 * determinant_2);
+            if (
+                denominator == 0.0 || !std::isfinite(denominator)
+                || !std::isfinite(determinant)) {
+                *derivative_indicator =
+                    std::numeric_limits<double>::infinity();
+                break;
+            }
+            const auto j1_conjugate_2 =
+                j1_conjugate * j1_conjugate;
+            const auto j3_modified = j3 * j1_conjugate_2;
+            const double ob2 = std::norm(j2)
+                * (6.0 - 6.0 * determinant + determinant_2);
+            const auto j2_modified =
+                j2 * j2 * j1_conjugate_2 * j1_conjugate;
+            const double contribution = 0.5 * (
+                std::abs(
+                    ob2 - 6.0 * std::real(j2_modified)
+                    - 2.0 * std::real(j3_modified) * determinant)
+                + 3.0 * std::abs(std::imag(j2_modified)))
+                / denominator;
+            if (!std::isfinite(contribution)) {
+                *derivative_indicator =
+                    std::numeric_limits<double>::infinity();
+                break;
+            }
+            *derivative_indicator += contribution;
+        }
+    }
+    const auto active_lens = make_triple_lens_constants(
+        separation, mass_ratio, tertiary_mass_ratio,
+        tertiary_separation, tertiary_angle, convention);
+    TripleLensConstants<double> value_lens;
+    for (std::size_t index = 0; index < 3; ++index) {
+        value_lens.lens_x[index] = active_lens.lens_x[index].value;
+        value_lens.lens_y[index] = active_lens.lens_y[index].value;
+        value_lens.mass[index] = active_lens.mass[index].value;
+    }
+    TripleJet magnification(0.0);
+    std::int32_t physical_count = 0;
+    bool physical_converged = true;
+    for (const auto& candidate : candidates) {
+        if (!candidate.physical) continue;
+        ++physical_count;
+        physical_converged = physical_converged
+            && std::isfinite(candidate.residual)
+            && candidate.residual <= 1.0e-7;
+        const auto value_map = triple_map_values(
+            candidate.position.x, candidate.position.y, value_lens);
+        const double determinant = value_map.determinant;
+        if (!(std::abs(determinant) > 1.0e-12)) {
+            root_failure = true;
+            continue;
+        }
+        const auto fixed_root_map = triple_map_values(
+            TripleJet(candidate.position.x),
+            TripleJet(candidate.position.y), active_lens);
+        TripleJet image_x(candidate.position.x);
+        TripleJet image_y(candidate.position.y);
+        for (
+            std::size_t parameter = 0;
+            parameter < triple_kernel_derivative_count;
+            ++parameter) {
+            const double rhs_x =
+                source_x.derivative[parameter]
+                - fixed_root_map.source_x.derivative[parameter];
+            const double rhs_y =
+                source_y.derivative[parameter]
+                - fixed_root_map.source_y.derivative[parameter];
+            image_x.derivative[parameter] =
+                (value_map.dv_dy * rhs_x - value_map.du_dy * rhs_y)
+                / determinant;
+            image_y.derivative[parameter] =
+                (-value_map.dv_dx * rhs_x + value_map.du_dx * rhs_y)
+                / determinant;
+        }
+        const auto active_map =
+            triple_map_values(image_x, image_y, active_lens);
+        magnification += 1.0 / (
+            determinant >= 0.0
+                ? active_map.determinant
+                : -active_map.determinant);
+    }
+    const bool valid_count =
+        physical_count == 4 || physical_count == 6
+        || physical_count == 8 || physical_count == 10;
+    root_failure =
+        root_failure || !physical_converged || !valid_count;
+    image_count = physical_count;
+    return magnification;
+}
+
+struct TripleHexadecapoleKernelResult {
+    TripleJet magnification;
+    TripleJet point_magnification;
+    TripleJet quadrupole_correction;
+    TripleJet hexadecapole_correction;
+    bool topology_stable = false;
+    bool root_failure = false;
+    double limb_c_derivative = 0.0;
+    double limb_d_derivative = 0.0;
+    double quadrupole_limb_c_derivative = 0.0;
+    double quadrupole_limb_d_derivative = 0.0;
+    double hexadecapole_limb_c_derivative = 0.0;
+    double hexadecapole_limb_d_derivative = 0.0;
+};
+
+TripleHexadecapoleKernelResult triple_hexadecapole_kernel(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double tertiary_mass_ratio,
+    double tertiary_separation,
+    double tertiary_angle,
+    double source_radius,
+    double limb_c,
+    double limb_d,
+    std::int64_t convention)
+{
+    constexpr std::array<double, 13> unit_x{
+        0.0, 1.0, 0.0, -1.0, 0.0,
+        0.5, 0.0, -0.5, 0.0,
+        0.7071067811865475244, -0.7071067811865475244,
+        -0.7071067811865475244, 0.7071067811865475244};
+    constexpr std::array<double, 13> unit_y{
+        0.0, 0.0, 1.0, 0.0, -1.0,
+        0.0, 0.5, 0.0, -0.5,
+        0.7071067811865475244, 0.7071067811865475244,
+        -0.7071067811865475244, -0.7071067811865475244};
+    const TripleJet centre_x = TripleJet::variable(source_x, 0);
+    const TripleJet centre_y = TripleJet::variable(source_y, 1);
+    const TripleJet active_separation =
+        TripleJet::variable(separation, 2);
+    const TripleJet active_mass_ratio =
+        TripleJet::variable(mass_ratio, 3);
+    const TripleJet active_tertiary_mass_ratio =
+        TripleJet::variable(tertiary_mass_ratio, 4);
+    const TripleJet active_tertiary_separation =
+        TripleJet::variable(tertiary_separation, 5);
+    const TripleJet active_tertiary_angle =
+        TripleJet::variable(tertiary_angle, 6);
+    const TripleJet active_radius =
+        TripleJet::variable(source_radius, 7);
+    std::array<TripleJet, 13> samples;
+    std::array<std::int32_t, 13> image_counts{};
+    TripleHexadecapoleKernelResult result;
+    for (std::size_t sample = 0; sample < samples.size(); ++sample) {
+        samples[sample] = triple_point_magnification_jet(
+            centre_x + unit_x[sample] * active_radius,
+            centre_y + unit_y[sample] * active_radius,
+            active_separation, active_mass_ratio,
+            active_tertiary_mass_ratio, active_tertiary_separation,
+            active_tertiary_angle, convention, image_counts[sample],
+            result.root_failure);
+    }
+    const TripleJet a0 = samples[0];
+    const TripleJet a1_plus =
+        0.25 * (samples[1] + samples[2] + samples[3] + samples[4]) - a0;
+    const TripleJet a2_plus =
+        0.25 * (samples[5] + samples[6] + samples[7] + samples[8]) - a0;
+    const TripleJet a1_cross =
+        0.25 * (samples[9] + samples[10] + samples[11] + samples[12]) - a0;
+    const TripleJet a2rho2 = (16.0 * a2_plus - a1_plus) / 3.0;
+    const TripleJet a4rho4 =
+        0.5 * (a1_plus + a1_cross) - a2rho2;
+    const double denominator = 15.0 - 5.0 * limb_c - 3.0 * limb_d;
+    const double gamma = denominator != 0.0
+        ? 10.0 * limb_c / denominator
+        : 0.0;
+    const double lambda = denominator != 0.0
+        ? 12.0 * limb_d / denominator
+        : 0.0;
+    result.point_magnification = a0;
+    result.quadrupole_correction =
+        0.5 * a2rho2 * (1.0 - 0.2 * gamma - lambda / 9.0);
+    result.hexadecapole_correction =
+        a4rho4 / 3.0
+        * (1.0 - 11.0 * gamma / 35.0 - 7.0 * lambda / 39.0);
+    result.magnification =
+        a0 + result.quadrupole_correction
+        + result.hexadecapole_correction;
+    result.topology_stable =
+        !result.root_failure
+        && std::all_of(
+            image_counts.begin() + 1,
+            image_counts.end(),
+            [&](std::int32_t count) {
+                return count == image_counts[0];
+            });
+    if (denominator != 0.0) {
+        const double inverse_denominator_squared =
+            1.0 / (denominator * denominator);
+        const double gamma_c =
+            10.0 / denominator
+            + 50.0 * limb_c * inverse_denominator_squared;
+        const double gamma_d =
+            30.0 * limb_c * inverse_denominator_squared;
+        const double lambda_c =
+            60.0 * limb_d * inverse_denominator_squared;
+        const double lambda_d =
+            12.0 / denominator
+            + 36.0 * limb_d * inverse_denominator_squared;
+        result.quadrupole_limb_c_derivative =
+            -0.5 * a2rho2.value
+            * (0.2 * gamma_c + lambda_c / 9.0);
+        result.quadrupole_limb_d_derivative =
+            -0.5 * a2rho2.value
+            * (0.2 * gamma_d + lambda_d / 9.0);
+        result.hexadecapole_limb_c_derivative =
+            -a4rho4.value / 3.0
+            * (11.0 * gamma_c / 35.0 + 7.0 * lambda_c / 39.0);
+        result.hexadecapole_limb_d_derivative =
+            -a4rho4.value / 3.0
+            * (11.0 * gamma_d / 35.0 + 7.0 * lambda_d / 39.0);
+        result.limb_c_derivative =
+            result.quadrupole_limb_c_derivative
+            + result.hexadecapole_limb_c_derivative;
+        result.limb_d_derivative =
+            result.quadrupole_limb_d_derivative
+            + result.hexadecapole_limb_d_derivative;
+    }
+    return result;
+}
+
 std::uint64_t tile_key(std::int32_t x, std::int32_t y)
 {
     return (
@@ -1965,9 +2295,11 @@ CartesianDiscovery discover_triple_cartesian_support(
     std::int64_t convention)
 {
     CartesianDiscovery result;
-    result.queue.reserve(static_cast<std::size_t>(tile_capacity));
+    const auto initial_capacity = static_cast<std::size_t>(
+        std::min<std::int64_t>(tile_capacity, 4096));
+    result.queue.reserve(initial_capacity);
     std::unordered_map<std::uint64_t, std::int32_t> visited;
-    visited.reserve(static_cast<std::size_t>(tile_capacity));
+    visited.reserve(initial_capacity);
     std::unordered_set<std::uint64_t> seeds;
     seeds.reserve(
         static_cast<std::size_t>((limb_samples + 1) * triple_root_count));
@@ -3974,6 +4306,384 @@ XLA_FFI_DEFINE_HANDLER(
         .Ret<ffi::BufferR1<ffi::PRED>>()
         .Ret<ffi::BufferR3<ffi::F64>>());
 
+ffi::Error validate_triple_hexadecapole_outputs(
+    ffi::BufferR1<ffi::F64>& source_x,
+    ffi::BufferR1<ffi::F64>& source_y,
+    ffi::ResultBufferR1<ffi::F64>& magnification,
+    ffi::ResultBufferR1<ffi::F64>& point_magnification,
+    ffi::ResultBufferR1<ffi::F64>& quadrupole_correction,
+    ffi::ResultBufferR1<ffi::F64>& hexadecapole_correction,
+    ffi::ResultBufferR1<ffi::PRED>& topology_stable,
+    ffi::ResultBufferR1<ffi::PRED>& root_failure)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        source_y.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || point_magnification->dimensions()[0] != batch_size
+        || quadrupole_correction->dimensions()[0] != batch_size
+        || hexadecapole_correction->dimensions()[0] != batch_size
+        || topology_stable->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size) {
+        return ffi::Error::InvalidArgument(
+            "triple hexadecapole arrays must have a common length");
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error triple_hexadecapole_batch_ffi_impl(
+    std::int64_t convention,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::PRED> active,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_separation,
+    ffi::BufferR0<ffi::F64> tertiary_angle,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> point_magnification,
+    ffi::ResultBufferR1<ffi::F64> quadrupole_correction,
+    ffi::ResultBufferR1<ffi::F64> hexadecapole_correction,
+    ffi::ResultBufferR1<ffi::PRED> topology_stable,
+    ffi::ResultBufferR1<ffi::PRED> root_failure)
+{
+    auto validation = validate_triple_hexadecapole_outputs(
+        source_x, source_y, magnification, point_magnification,
+        quadrupole_correction, hexadecapole_correction,
+        topology_stable, root_failure);
+    if (validation.failure()) return validation;
+    if (
+        (convention != 0 && convention != 1)
+        || active.dimensions()[0] != source_x.dimensions()[0]) {
+        return ffi::Error::InvalidArgument("invalid triple convention");
+    }
+    const std::int64_t batch_size = source_x.dimensions()[0];
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1, std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        if (!active.typed_data()[index]) {
+            magnification->typed_data()[index] = 0.0;
+            point_magnification->typed_data()[index] = 0.0;
+            quadrupole_correction->typed_data()[index] = 0.0;
+            hexadecapole_correction->typed_data()[index] = 0.0;
+            topology_stable->typed_data()[index] = false;
+            root_failure->typed_data()[index] = false;
+            continue;
+        }
+        const auto result = triple_hexadecapole_kernel(
+            source_x.typed_data()[index], source_y.typed_data()[index],
+            *separation.typed_data(), *mass_ratio.typed_data(),
+            *tertiary_mass_ratio.typed_data(),
+            *tertiary_separation.typed_data(),
+            *tertiary_angle.typed_data(), *source_radius.typed_data(),
+            *limb_c.typed_data(), *limb_d.typed_data(), convention);
+        magnification->typed_data()[index] = result.magnification.value;
+        point_magnification->typed_data()[index] =
+            result.point_magnification.value;
+        quadrupole_correction->typed_data()[index] =
+            result.quadrupole_correction.value;
+        hexadecapole_correction->typed_data()[index] =
+            result.hexadecapole_correction.value;
+        topology_stable->typed_data()[index] = result.topology_stable;
+        root_failure->typed_data()[index] = result.root_failure;
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error triple_hexadecapole_batch_jacobian_ffi_impl(
+    std::int64_t convention,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::PRED> active,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_separation,
+    ffi::BufferR0<ffi::F64> tertiary_angle,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> point_magnification,
+    ffi::ResultBufferR1<ffi::F64> quadrupole_correction,
+    ffi::ResultBufferR1<ffi::F64> hexadecapole_correction,
+    ffi::ResultBufferR1<ffi::PRED> topology_stable,
+    ffi::ResultBufferR1<ffi::PRED> root_failure,
+    ffi::ResultBufferR3<ffi::F64> output_jacobian)
+{
+    auto validation = validate_triple_hexadecapole_outputs(
+        source_x, source_y, magnification, point_magnification,
+        quadrupole_correction, hexadecapole_correction,
+        topology_stable, root_failure);
+    if (validation.failure()) return validation;
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    const auto dimensions = output_jacobian->dimensions();
+    if (
+        (convention != 0 && convention != 1)
+        || active.dimensions()[0] != batch_size
+        || dimensions[0] != batch_size || dimensions[1] != 4
+        || dimensions[2] != triple_parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "invalid triple hexadecapole Jacobian shape");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1, std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        auto* jacobian = output_jacobian->typed_data()
+            + index * 4 * triple_parameter_count;
+        if (!active.typed_data()[index]) {
+            magnification->typed_data()[index] = 0.0;
+            point_magnification->typed_data()[index] = 0.0;
+            quadrupole_correction->typed_data()[index] = 0.0;
+            hexadecapole_correction->typed_data()[index] = 0.0;
+            topology_stable->typed_data()[index] = false;
+            root_failure->typed_data()[index] = false;
+            std::fill(
+                jacobian,
+                jacobian + 4 * triple_parameter_count,
+                0.0);
+            continue;
+        }
+        const auto result = triple_hexadecapole_kernel(
+            source_x.typed_data()[index], source_y.typed_data()[index],
+            *separation.typed_data(), *mass_ratio.typed_data(),
+            *tertiary_mass_ratio.typed_data(),
+            *tertiary_separation.typed_data(),
+            *tertiary_angle.typed_data(), *source_radius.typed_data(),
+            *limb_c.typed_data(), *limb_d.typed_data(), convention);
+        magnification->typed_data()[index] = result.magnification.value;
+        point_magnification->typed_data()[index] =
+            result.point_magnification.value;
+        quadrupole_correction->typed_data()[index] =
+            result.quadrupole_correction.value;
+        hexadecapole_correction->typed_data()[index] =
+            result.hexadecapole_correction.value;
+        topology_stable->typed_data()[index] = result.topology_stable;
+        root_failure->typed_data()[index] = result.root_failure;
+        const std::array<const TripleJet*, 4> values{
+            &result.magnification,
+            &result.point_magnification,
+            &result.quadrupole_correction,
+            &result.hexadecapole_correction};
+        for (std::size_t output = 0; output < values.size(); ++output) {
+            for (
+                std::size_t parameter = 0;
+                parameter < triple_kernel_derivative_count;
+                ++parameter) {
+                jacobian[output * triple_parameter_count + parameter] =
+                    values[output]->derivative[parameter];
+            }
+            jacobian[output * triple_parameter_count + 8] = 0.0;
+            jacobian[output * triple_parameter_count + 9] = 0.0;
+        }
+        jacobian[8] = result.limb_c_derivative;
+        jacobian[9] = result.limb_d_derivative;
+        jacobian[2 * triple_parameter_count + 8] =
+            result.quadrupole_limb_c_derivative;
+        jacobian[2 * triple_parameter_count + 9] =
+            result.quadrupole_limb_d_derivative;
+        jacobian[3 * triple_parameter_count + 8] =
+            result.hexadecapole_limb_c_derivative;
+        jacobian[3 * triple_parameter_count + 9] =
+            result.hexadecapole_limb_d_derivative;
+    }
+    return ffi::Error::Success();
+}
+
+#define LCBININT_TRIPLE_HEX_BINDING \
+    ffi::Ffi::Bind() \
+        .Attr<std::int64_t>("convention") \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::PRED>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+
+XLA_FFI_DEFINE_HANDLER(
+    triple_hexadecapole_batch_ffi_handler,
+    triple_hexadecapole_batch_ffi_impl,
+    LCBININT_TRIPLE_HEX_BINDING);
+
+XLA_FFI_DEFINE_HANDLER(
+    triple_hexadecapole_batch_jacobian_ffi_handler,
+    triple_hexadecapole_batch_jacobian_ffi_impl,
+    LCBININT_TRIPLE_HEX_BINDING
+        .Ret<ffi::BufferR3<ffi::F64>>());
+
+#undef LCBININT_TRIPLE_HEX_BINDING
+
+ffi::Error triple_point_batch_ffi_impl(
+    std::int64_t convention,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_separation,
+    ffi::BufferR0<ffi::F64> tertiary_angle,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> derivative_indicator,
+    ffi::ResultBufferR1<ffi::PRED> root_failure)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        (convention != 0 && convention != 1)
+        || source_y.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || derivative_indicator->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size) {
+        return ffi::Error::InvalidArgument(
+            "invalid triple point-source batch shapes");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1, std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        const TripleJet x =
+            TripleJet::variable(source_x.typed_data()[index], 0);
+        const TripleJet y =
+            TripleJet::variable(source_y.typed_data()[index], 1);
+        const TripleJet s =
+            TripleJet::variable(*separation.typed_data(), 2);
+        const TripleJet q =
+            TripleJet::variable(*mass_ratio.typed_data(), 3);
+        const TripleJet q2 =
+            TripleJet::variable(*tertiary_mass_ratio.typed_data(), 4);
+        const TripleJet s2 =
+            TripleJet::variable(*tertiary_separation.typed_data(), 5);
+        const TripleJet angle =
+            TripleJet::variable(*tertiary_angle.typed_data(), 6);
+        std::int32_t image_count = 0;
+        bool failed = false;
+        double indicator = 0.0;
+        const auto result = triple_point_magnification_jet(
+            x, y, s, q, q2, s2, angle, convention, image_count, failed,
+            &indicator);
+        magnification->typed_data()[index] = result.value;
+        derivative_indicator->typed_data()[index] = indicator;
+        root_failure->typed_data()[index] = failed;
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error triple_point_batch_jacobian_ffi_impl(
+    std::int64_t convention,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_separation,
+    ffi::BufferR0<ffi::F64> tertiary_angle,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> derivative_indicator,
+    ffi::ResultBufferR1<ffi::PRED> root_failure,
+    ffi::ResultBufferR2<ffi::F64> jacobian)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        (convention != 0 && convention != 1)
+        || source_y.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || derivative_indicator->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size
+        || jacobian->dimensions()[0] != batch_size
+        || jacobian->dimensions()[1] != 7) {
+        return ffi::Error::InvalidArgument(
+            "invalid triple point-source Jacobian shapes");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1, std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        const TripleJet x =
+            TripleJet::variable(source_x.typed_data()[index], 0);
+        const TripleJet y =
+            TripleJet::variable(source_y.typed_data()[index], 1);
+        const TripleJet s =
+            TripleJet::variable(*separation.typed_data(), 2);
+        const TripleJet q =
+            TripleJet::variable(*mass_ratio.typed_data(), 3);
+        const TripleJet q2 =
+            TripleJet::variable(*tertiary_mass_ratio.typed_data(), 4);
+        const TripleJet s2 =
+            TripleJet::variable(*tertiary_separation.typed_data(), 5);
+        const TripleJet angle =
+            TripleJet::variable(*tertiary_angle.typed_data(), 6);
+        std::int32_t image_count = 0;
+        bool failed = false;
+        double indicator = 0.0;
+        const auto result = triple_point_magnification_jet(
+            x, y, s, q, q2, s2, angle, convention, image_count, failed,
+            &indicator);
+        magnification->typed_data()[index] = result.value;
+        derivative_indicator->typed_data()[index] = indicator;
+        root_failure->typed_data()[index] = failed;
+        for (std::size_t parameter = 0; parameter < 7; ++parameter) {
+            jacobian->typed_data()[index * 7 + parameter] =
+                result.derivative[parameter];
+        }
+    }
+    return ffi::Error::Success();
+}
+
+#define LCBININT_TRIPLE_POINT_BINDING \
+    ffi::Ffi::Bind() \
+        .Attr<std::int64_t>("convention") \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+
+XLA_FFI_DEFINE_HANDLER(
+    triple_point_batch_ffi_handler,
+    triple_point_batch_ffi_impl,
+    LCBININT_TRIPLE_POINT_BINDING);
+
+XLA_FFI_DEFINE_HANDLER(
+    triple_point_batch_jacobian_ffi_handler,
+    triple_point_batch_jacobian_ffi_impl,
+    LCBININT_TRIPLE_POINT_BINDING
+        .Ret<ffi::BufferR2<ffi::F64>>());
+
+#undef LCBININT_TRIPLE_POINT_BINDING
+
 struct TrajectoryEpochDecision {
     double magnification = std::numeric_limits<double>::quiet_NaN();
     double estimated_error = std::numeric_limits<double>::quiet_NaN();
@@ -4807,6 +5517,32 @@ py::capsule hexadecapole_batch_jacobian_ffi_capsule()
         reinterpret_cast<void*>(hexadecapole_batch_jacobian_ffi_handler));
 }
 
+py::capsule triple_hexadecapole_batch_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(triple_hexadecapole_batch_ffi_handler));
+}
+
+py::capsule triple_hexadecapole_batch_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(
+            triple_hexadecapole_batch_jacobian_ffi_handler));
+}
+
+py::capsule triple_point_batch_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(triple_point_batch_ffi_handler));
+}
+
+py::capsule triple_point_batch_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(
+            triple_point_batch_jacobian_ffi_handler));
+}
+
 py::capsule polar_epoch_forward_ffi_capsule()
 {
     return py::capsule(
@@ -4921,6 +5657,22 @@ void register_jax_ir_submodule(py::module_& parent)
         "hexadecapole_batch_jacobian_ffi",
         &hexadecapole_batch_jacobian_ffi_capsule,
         "Return the batched hexadecapole value/Jacobian FFI capsule.");
+    module.def(
+        "triple_hexadecapole_batch_ffi",
+        &triple_hexadecapole_batch_ffi_capsule,
+        "Return the batched triple hexadecapole FFI capsule.");
+    module.def(
+        "triple_hexadecapole_batch_jacobian_ffi",
+        &triple_hexadecapole_batch_jacobian_ffi_capsule,
+        "Return the batched triple hexadecapole Jacobian FFI capsule.");
+    module.def(
+        "triple_point_batch_ffi",
+        &triple_point_batch_ffi_capsule,
+        "Return the batched triple point-source FFI capsule.");
+    module.def(
+        "triple_point_batch_jacobian_ffi",
+        &triple_point_batch_jacobian_ffi_capsule,
+        "Return the batched triple point-source Jacobian FFI capsule.");
     module.def(
         "polar_epoch_forward_ffi",
         &polar_epoch_forward_ffi_capsule,
