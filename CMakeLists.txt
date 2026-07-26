@@ -13,6 +13,7 @@ include(CTest)
 
 option(LCBININT_BUILD_PYTHON "Build pybind11 Python extension" ON)
 option(LCBININT_ENABLE_OPENMP "Parallelize independent parameter rows" ON)
+option(LCBININT_ENABLE_JAX_FFI "Build the experimental JAX CPU FFI handler" ON)
 option(LCBININT_BUILD_TESTS "Build lcbinint standalone tests" ${BUILD_TESTING})
 
 if(LCBININT_ENABLE_OPENMP)
@@ -128,6 +129,26 @@ if(LCBININT_BUILD_PYTHON)
         python/bind_obs.cpp
         python/bind_jax_ir.cpp)
     target_link_libraries(lcbinint_python PRIVATE lcbinint_lightcurve)
+    if(LCBININT_ENABLE_JAX_FFI)
+        execute_process(
+            COMMAND ${Python3_EXECUTABLE} -c
+                "import jax.ffi; print(jax.ffi.include_dir())"
+            RESULT_VARIABLE LCBININT_JAX_INCLUDE_RESULT
+            OUTPUT_VARIABLE LCBININT_JAX_INCLUDE_DIR
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET)
+        if(LCBININT_JAX_INCLUDE_RESULT EQUAL 0
+                AND EXISTS "${LCBININT_JAX_INCLUDE_DIR}/xla/ffi/api/ffi.h")
+            target_include_directories(
+                lcbinint_python PRIVATE "${LCBININT_JAX_INCLUDE_DIR}")
+            target_compile_definitions(
+                lcbinint_python PRIVATE LCBININT_HAS_JAX_FFI=1)
+            message(STATUS "Building JAX CPU FFI handler")
+        else()
+            message(WARNING
+                "JAX headers were not found; building without the experimental JAX FFI handler")
+        endif()
+    endif()
     set_target_properties(lcbinint_python PROPERTIES OUTPUT_NAME _lcbinint)
     # Copy Python package files to build dir so `import lcbinint` works from build/
     add_custom_command(TARGET lcbinint_python POST_BUILD

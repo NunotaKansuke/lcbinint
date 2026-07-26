@@ -14,6 +14,7 @@ jax.config.update("jax_enable_x64", True)
 from lcbinint_jax import (  # noqa: E402
     binary_inverse_ray_fixed_support,
     binary_inverse_ray_fixed_support_cpp,
+    binary_inverse_ray_fixed_support_ffi,
     discover_binary_macro_tiles,
 )
 
@@ -98,11 +99,32 @@ def main():
             boundary_subdivision=3,
         )
 
+    ffi_forward = jax.jit(
+        lambda: binary_inverse_ray_fixed_support_ffi(
+            origins,
+            mask,
+            cell_size,
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            tile_size=tile_size,
+            moment_mode="linear",
+            boundary_subdivision=3,
+        )
+    )
+
     jax_reference = jax_forward()
     jax.block_until_ready(jax_reference)
     cpp_reference = cpp_forward()
+    ffi_reference = ffi_forward()
+    jax.block_until_ready(ffi_reference)
     jax_timing = timed(jax_forward, args.repeat, block=True)
     cpp_timing = timed(cpp_forward, args.repeat)
+    ffi_timing = timed(ffi_forward, args.repeat, block=True)
 
     report = {
         "configuration": {
@@ -127,10 +149,23 @@ def main():
                 cpp_reference.boundary_cells == int(jax_reference.boundary_cells)
                 and cpp_reference.active_cells == int(jax_reference.active_cells)
             ),
+            "ffi_magnification_absolute_error": abs(
+                float(jax_reference.magnification) - float(ffi_reference.magnification)
+            ),
+            "ffi_moment_max_absolute_error": float(
+                np.max(
+                    np.abs(
+                        np.asarray(jax_reference.moments)
+                        - np.asarray(ffi_reference.moments)
+                    )
+                )
+            ),
         },
         "jax": jax_timing,
         "cpp": cpp_timing,
+        "ffi": ffi_timing,
         "cpp_speedup": (jax_timing["median_seconds"] / cpp_timing["median_seconds"]),
+        "ffi_speedup": (jax_timing["median_seconds"] / ffi_timing["median_seconds"]),
     }
     print(json.dumps(report, indent=2))
 

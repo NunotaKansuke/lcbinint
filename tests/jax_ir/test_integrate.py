@@ -6,6 +6,7 @@ import pytest
 from lcbinint_jax import (
     binary_inverse_ray_fixed_support,
     binary_inverse_ray_fixed_support_cpp,
+    binary_inverse_ray_fixed_support_ffi,
 )
 from lcbinint_jax.integrate import (
     _phi_gradient_laplacian_complex,
@@ -42,6 +43,13 @@ def _evaluate(parameters, support, kernel="real"):
         tile_size=8,
         kernel=kernel,
     )
+
+
+def _require_compiled_ffi():
+    from lcbinint import _native
+
+    if not hasattr(_native._jax_ir, "fixed_support_forward_ffi"):
+        pytest.skip("lcbinint was built without JAX FFI headers")
 
 
 def test_real_and_complex_hot_kernels_agree(support):
@@ -223,3 +231,118 @@ def test_cpp_forward_matches_jax_fixed_support(
     )
     assert cpp.boundary_cells == int(jax_result.boundary_cells)
     assert cpp.active_cells == int(jax_result.active_cells)
+
+
+@pytest.mark.parametrize(
+    ("moment_mode", "boundary_subdivision"),
+    (("uniform", 3), ("linear", 3), ("two_coefficient", 4)),
+)
+def test_ffi_forward_matches_jax_under_jit(support, moment_mode, boundary_subdivision):
+    _require_compiled_ffi()
+    parameters = jnp.asarray([0.2, 0.1, 1.2, 0.1, 0.2, 0.4, 0.1])
+    origins, mask = support
+
+    @jax.jit
+    def evaluate(active_parameters):
+        return binary_inverse_ray_fixed_support_ffi(
+            origins,
+            mask,
+            0.05,
+            *active_parameters,
+            tile_size=8,
+            moment_mode=moment_mode,
+            boundary_subdivision=boundary_subdivision,
+        )
+
+    ffi_result = evaluate(parameters)
+    jax_result = binary_inverse_ray_fixed_support(
+        origins,
+        mask,
+        0.05,
+        *parameters,
+        tile_size=8,
+        moment_mode=moment_mode,
+        boundary_subdivision=boundary_subdivision,
+    )
+    np.testing.assert_allclose(
+        ffi_result.moments,
+        jax_result.moments,
+        rtol=2.0e-11,
+        atol=2.0e-11,
+    )
+    np.testing.assert_allclose(
+        ffi_result.magnification,
+        jax_result.magnification,
+        rtol=2.0e-11,
+        atol=2.0e-11,
+    )
+    assert int(ffi_result.boundary_cells) == int(jax_result.boundary_cells)
+    assert int(ffi_result.active_cells) == int(jax_result.active_cells)
+
+
+def test_ffi_forward_rejects_differentiation_explicitly(support):
+    _require_compiled_ffi()
+    origins, mask = support
+
+    def value(source_x):
+        return binary_inverse_ray_fixed_support_ffi(
+            origins,
+            mask,
+            0.05,
+            source_x,
+            0.1,
+            1.2,
+            0.1,
+            0.2,
+            0.4,
+            0.1,
+        ).magnification
+
+    with pytest.raises(ValueError, match="cannot be differentiated"):
+        jax.grad(value)(0.2)
+
+
+def test_ffi_forward_supports_sequential_vmap(support):
+    _require_compiled_ffi()
+    origins, mask = support
+
+    def evaluate(source_x):
+        return binary_inverse_ray_fixed_support_ffi(
+            origins,
+            mask,
+            0.05,
+            source_x,
+            0.1,
+            1.2,
+            0.1,
+            0.2,
+            0.4,
+            0.0,
+            moment_mode="linear",
+            boundary_subdivision=3,
+        ).magnification
+
+    source_x = jnp.asarray([0.19, 0.21])
+    ffi_values = jax.jit(jax.vmap(evaluate))(source_x)
+    jax_values = jax.vmap(
+        lambda x: binary_inverse_ray_fixed_support(
+            origins,
+            mask,
+            0.05,
+            x,
+            0.1,
+            1.2,
+            0.1,
+            0.2,
+            0.4,
+            0.0,
+            moment_mode="linear",
+            boundary_subdivision=3,
+        ).magnification
+    )(source_x)
+    np.testing.assert_allclose(
+        ffi_values,
+        jax_values,
+        rtol=2.0e-11,
+        atol=2.0e-11,
+    )

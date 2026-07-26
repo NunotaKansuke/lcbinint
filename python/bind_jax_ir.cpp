@@ -11,6 +11,11 @@
 #include <stdexcept>
 #include <string>
 
+#ifdef LCBININT_HAS_JAX_FFI
+#include "xla/ffi/api/c_api.h"
+#include "xla/ffi/api/ffi.h"
+#endif
+
 namespace py = pybind11;
 
 namespace {
@@ -196,8 +201,9 @@ void add_interior_moments(
 }
 
 KernelResult fixed_support_kernel(
-    const py::detail::unchecked_reference<double, 2>& origins,
-    const py::detail::unchecked_reference<bool, 1>& mask,
+    const double* origins,
+    const bool* mask,
+    std::int64_t tile_count,
     double cell_size,
     double source_x,
     double source_y,
@@ -221,14 +227,16 @@ KernelResult fixed_support_kernel(
     };
     const double subcell_size = cell_size / boundary_subdivision;
 
-    for (py::ssize_t tile = 0; tile < origins.shape(0); ++tile) {
-        if (!mask(tile)) continue;
+    for (std::int64_t tile = 0; tile < tile_count; ++tile) {
+        if (!mask[tile]) continue;
         for (int iy = 0; iy < tile_size; ++iy) {
             const double image_y =
-                origins(tile, 1) + (static_cast<double>(iy) + 0.5) * cell_size;
+                origins[2 * tile + 1]
+                + (static_cast<double>(iy) + 0.5) * cell_size;
             for (int ix = 0; ix < tile_size; ++ix) {
                 const double image_x =
-                    origins(tile, 0) + (static_cast<double>(ix) + 0.5) * cell_size;
+                    origins[2 * tile]
+                    + (static_cast<double>(ix) + 0.5) * cell_size;
                 const auto values = phi_derivatives(
                     image_x, image_y, source_x, source_y, lens,
                     inverse_source_radius_squared);
@@ -317,10 +325,12 @@ py::tuple fixed_support_forward(
         throw std::invalid_argument("boundary_subdivision must be 1, 2, 3, or 4");
     }
     const auto mode = parse_moment_mode(moment_mode);
+    const auto origins = tile_origins.unchecked<2>();
+    const auto mask = tile_mask.unchecked<1>();
     const auto result = fixed_support_kernel(
-        tile_origins.unchecked<2>(), tile_mask.unchecked<1>(), cell_size,
-        source_x, source_y, separation, mass_ratio, source_radius, limb_d,
-        tile_size, mode, boundary_subdivision);
+        origins.data(0, 0), mask.data(0), tile_origins.shape(0),
+        cell_size, source_x, source_y, separation, mass_ratio, source_radius,
+        limb_d, tile_size, mode, boundary_subdivision);
 
     py::array_t<double> moments(moment_count(mode));
     auto output = moments.mutable_unchecked<1>();
@@ -354,6 +364,125 @@ py::tuple fixed_support_forward(
         result.active_cells);
 }
 
+#ifdef LCBININT_HAS_JAX_FFI
+namespace ffi = xla::ffi;
+
+ffi::Error fixed_support_forward_ffi_impl(
+    std::int64_t tile_size,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR2<ffi::F64> tile_origins,
+    ffi::BufferR1<ffi::PRED> tile_mask,
+    ffi::BufferR0<ffi::F64> cell_size,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR0<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> moments,
+    ffi::ResultBufferR0<ffi::S32> boundary_cells,
+    ffi::ResultBufferR0<ffi::S32> active_cells)
+{
+    const auto origin_dimensions = tile_origins.dimensions();
+    if (origin_dimensions[1] != 2) {
+        return ffi::Error::InvalidArgument(
+            "tile_origins must have shape (N, 2)");
+    }
+    if (tile_mask.dimensions()[0] != origin_dimensions[0]) {
+        return ffi::Error::InvalidArgument(
+            "tile_mask must have shape (N,)");
+    }
+    if (tile_size <= 0) {
+        return ffi::Error::InvalidArgument("tile_size must be positive");
+    }
+    if (mode_value < 1 || mode_value > 3) {
+        return ffi::Error::InvalidArgument("invalid moment mode");
+    }
+    const auto mode = static_cast<MomentMode>(mode_value);
+    if (moments->dimensions()[0] != moment_count(mode)) {
+        return ffi::Error::InvalidArgument(
+            "moments output has the wrong length");
+    }
+    if (boundary_subdivision < 1 || boundary_subdivision > 4) {
+        return ffi::Error::InvalidArgument(
+            "boundary_subdivision must be 1, 2, 3, or 4");
+    }
+    if (!(*cell_size.typed_data() > 0.0)
+        || !(*source_radius.typed_data() > 0.0)) {
+        return ffi::Error::InvalidArgument(
+            "cell_size and source_radius must be positive");
+    }
+
+    const auto result = fixed_support_kernel(
+        tile_origins.typed_data(), tile_mask.typed_data(),
+        origin_dimensions[0], *cell_size.typed_data(), *source_x.typed_data(),
+        *source_y.typed_data(), *separation.typed_data(),
+        *mass_ratio.typed_data(), *source_radius.typed_data(),
+        *limb_d.typed_data(), static_cast<int>(tile_size), mode,
+        static_cast<int>(boundary_subdivision));
+    for (int index = 0; index < moment_count(mode); ++index) {
+        moments->typed_data()[index] = result.moments[index];
+    }
+
+    const double pi = std::acos(-1.0);
+    const double rho = *source_radius.typed_data();
+    const double c = *limb_c.typed_data();
+    const double d = *limb_d.typed_data();
+    if (mode == MomentMode::uniform) {
+        *magnification->typed_data() = result.moments[0] / (pi * rho * rho);
+    } else if (mode == MomentMode::linear) {
+        *magnification->typed_data() =
+            ((1.0 - c) * result.moments[0] + c * result.moments[1])
+            / (pi * rho * rho * (1.0 - c / 3.0));
+    } else {
+        const double source_flux =
+            pi * rho * rho * (1.0 - c / 3.0 - d / 5.0);
+        *magnification->typed_data() =
+            source_flux > 0.0
+            ? ((1.0 - c - d) * result.moments[0]
+               + c * result.moments[1] + d * result.moments[2])
+                / source_flux
+            : std::numeric_limits<double>::quiet_NaN();
+    }
+    *boundary_cells->typed_data() =
+        static_cast<std::int32_t>(result.boundary_cells);
+    *active_cells->typed_data() =
+        static_cast<std::int32_t>(result.active_cells);
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    fixed_support_forward_ffi_handler,
+    fixed_support_forward_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<std::int64_t>("tile_size")
+        .Attr<std::int64_t>("moment_mode")
+        .Attr<std::int64_t>("boundary_subdivision")
+        .Arg<ffi::BufferR2<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::PRED>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::S32>>());
+
+py::capsule fixed_support_forward_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(fixed_support_forward_ffi_handler));
+}
+#endif
+
 }  // namespace
 
 void register_jax_ir_submodule(py::module_& parent)
@@ -378,4 +507,10 @@ void register_jax_ir_submodule(py::module_& parent)
         py::arg("moment_mode") = "two_coefficient",
         py::arg("boundary_subdivision") = 4,
         "Evaluate the JAX fixed-support cell algorithm in native C++.");
+#ifdef LCBININT_HAS_JAX_FFI
+    module.def(
+        "fixed_support_forward_ffi",
+        &fixed_support_forward_ffi_capsule,
+        "Return the typed XLA FFI handler capsule.");
+#endif
 }

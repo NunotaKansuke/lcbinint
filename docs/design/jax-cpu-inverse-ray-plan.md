@@ -80,6 +80,36 @@ is therefore a CPU FFI/custom-call wrapper around this kernel, followed by
 analytic JVP/VJP kernels.  The reproducible raw comparison is
 `tests/diagnostics/jax_ir/benchmark_cpp_backend.py`.
 
+### Typed CPU FFI result
+
+The forward kernel is now registered as an XLA typed FFI target and exposed by
+`binary_inverse_ray_fixed_support_ffi`.  It accepts JAX arrays, executes inside
+`jax.jit`, returns the standard `FixedSupportResult`, and uses JAX's explicit
+sequential batching rule.  The handler has strict rank/dtype/shape checks and
+is registered only for CPU.  Builds without JAX headers retain all existing
+native functionality and the raw pybind prototype, while the FFI entry point
+raises a clear rebuild error.
+
+On the same 1028-tile representative support, median warm times over 30 calls
+were:
+
+| path | fixed-support forward |
+| --- | ---: |
+| pure JAX | 13.64 ms |
+| raw C++ through pybind | 6.75 ms |
+| C++ through JAX FFI and `jit` | 6.76 ms |
+
+The FFI path is 2.02 times faster than pure JAX and adds no measurable overhead
+relative to the host prototype.  Its value, moments, and diagnostic counts
+match the raw C++ path; the magnification difference from pure JAX remains
+`6.5e-12`.
+
+Differentiation is intentionally not faked at this point.  Calling `jvp` or
+`grad` raises JAX's "cannot be differentiated" FFI error.  The next gate is
+the analytic tangent kernel and a `custom_jvp` wrapper; only after it agrees
+with the pure-JAX derivatives will the FFI backend enter differentiable
+production dispatch.
+
 ## 1. Mission
 
 Build a finite-source microlensing engine whose defining properties are:
