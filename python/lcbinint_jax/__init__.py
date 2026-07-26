@@ -18,6 +18,10 @@ from .discovery import discover_binary_macro_tiles
 from .integrate import binary_inverse_ray_fixed_support
 from .limb_darkening import combine_limb_darkening_moments
 from .polar import binary_inverse_ray_polar, discover_binary_polar_bands
+from .source_plane import (
+    SourcePlaneQuadratureResult,
+    binary_source_plane_quadrature,
+)
 from .types import (
     ConvergenceResult,
     AutoInverseRayResult,
@@ -38,9 +42,11 @@ __all__ = [
     "InverseRayResult",
     "PointSourceResult",
     "PolarSupportResult",
+    "SourcePlaneQuadratureResult",
     "binary_hexadecapole",
     "binary_magnification_auto",
     "binary_point_source_magnification",
+    "binary_source_plane_quadrature",
     "binary_inverse_ray",
     "binary_inverse_ray_auto",
     "binary_inverse_ray_convergence",

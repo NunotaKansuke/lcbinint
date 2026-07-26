@@ -67,7 +67,7 @@ class AutoInverseRayResult(NamedTuple):
 
 
 class HybridMagnificationResult(NamedTuple):
-    """Result from the point/multipole/Cartesian/polar dispatcher."""
+    """Result from the multipole/image-plane/source-plane dispatcher."""
 
     magnification: jax.Array
     method: jax.Array
@@ -75,6 +75,7 @@ class HybridMagnificationResult(NamedTuple):
     support_valid: jax.Array
     used_multipole: jax.Array
     used_polar: jax.Array
+    used_source_plane: jax.Array
 
 
 class ConvergenceResult(NamedTuple):

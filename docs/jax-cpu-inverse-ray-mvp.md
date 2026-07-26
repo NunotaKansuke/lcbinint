@@ -444,6 +444,45 @@ coverage yet: capacity/resolution buckets and coarse/fine gradient convergence
 are the next required layer.  The separately validated elongated high-mag
 case still selects polar and passes.
 
+## Source-plane and expanded-capacity fallbacks
+
+The first fallback layer now mirrors native `lcbinint` instead of assuming
+that every rejected image-plane support can be repaired by a larger raster.
+`binary_source_plane_quadrature` evaluates the differentiable point-source
+solution over the source disk.  It provides both equal-area squared-radius
+rings and the native tensor Gauss--Legendre chord mapping.  The chord rule is
+the default because its nodes approach the limb efficiently.  Linear and
+square-root limb darkening use the same surface-brightness law as the
+image-plane moment kernels.  Coarse/fine disagreement is returned as an error
+estimate and a failed rule is never silently accepted.
+
+On the 36 unsupported rows in the pilot, chord orders 16/32 converged on 17
+rows; every converged row met the independent native reference budget.  The
+rule correctly rejected the sampled true caustic crossings, where point-source
+singularities make low-order source-plane quadrature unreliable.  Replaying
+the complete 141 trusted rows through the production dispatcher reduced
+explicit invalid results from 36 to 21 with no new accuracy failure.  The
+median warm time over that mixed replay remained 6.4 ms because the
+source-plane branch runs only after image-support failure.
+
+At the rescued equal-mass grazing point used by the regression test, the
+16/32 chord pair took 119 ms forward, 112 ms for a directional JVP, and
+118 ms for value plus reverse-mode gradient after compilation.  Native
+`lcbinint` evaluated the same source-plane-routed reference in about 7 ms.
+The JAX implementation is therefore a correctness fallback, not a competitor
+to native source-plane batching; its value is that it preserves gradients and
+runs only on the small rejected bucket.
+
+The remaining complementary retry is exposed by
+`expanded_cartesian_fallback=True`.  It compares 64/4096 and 128/16384
+resolution/capacity buckets and accepts the fine value only when both supports
+are valid and their magnifications agree within the requested budget.  Among
+source-plane-rejected pilot rows this rescued seven additional rows with zero
+false accepts.  Its warm scalar cost is hundreds of milliseconds, so it is
+off by default: a trajectory fitter should collect failed epochs and evaluate
+that sparse bucket together rather than putting every epoch through the large
+executable.
+
 ## Current limitations
 
 - Binary lenses only.
@@ -453,7 +492,9 @@ case still selects polar and passes.
 - Polar `support_valid` likewise checks band/root capacity, not quadrature
   convergence. The calibrated hybrid dispatcher therefore uses it only for a
   narrow elongated-arc regime and never as an unconditional overflow fallback.
-- Resolution and capacity buckets are not calibrated yet.
+- The first 64/4096 to 128/16384 Cartesian retry is calibrated only on the
+  pilot sweep.  A larger held-out trajectory sweep is still required before
+  enabling it by default.
 - Very small image components may still be missed by finite source-limb
   sampling; the planned halo and topology sweeps must validate this.
 - The public API is experimental and may change.

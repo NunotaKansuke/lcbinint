@@ -10,7 +10,6 @@ from lcbinint_jax import (
     binary_point_source_magnification,
 )
 
-
 jax.config.update("jax_enable_x64", True)
 
 
@@ -54,8 +53,7 @@ def test_hexadecapole_matches_native_formula_and_has_stable_gradient():
 
     step = 1.0e-6
     finite_difference = (
-        magnification(parameters[0] + step)
-        - magnification(parameters[0] - step)
+        magnification(parameters[0] + step) - magnification(parameters[0] - step)
     ) / (2.0 * step)
     np.testing.assert_allclose(
         jax.grad(magnification)(parameters[0]),
@@ -111,9 +109,7 @@ def test_hybrid_far_field_gradient_is_finite():
             moment_mode="linear",
         ).magnification
 
-    gradient = jax.grad(magnification)(
-        jnp.asarray((0.3, 0.4, 1.4, 1.0e-3))
-    )
+    gradient = jax.grad(magnification)(jnp.asarray((0.3, 0.4, 1.4, 1.0e-3)))
     assert bool(jnp.all(jnp.isfinite(gradient)))
 
 
@@ -130,9 +126,47 @@ def test_hybrid_does_not_silently_fallback_to_polar_on_overflow():
         tile_capacity=1,
         moment_mode="linear",
     )
-    assert int(result.method) == 1
+    assert int(result.method) == 3
     assert not bool(result.support_valid)
+    assert bool(result.used_source_plane)
+    assert not bool(result.used_polar)
     assert math.isnan(float(result.magnification))
+
+
+def test_hybrid_source_plane_fallback_rescues_smooth_overflow():
+    result = binary_magnification_auto(
+        -0.12659234106123154,
+        -0.0033574016897174154,
+        0.55,
+        1.0,
+        0.003,
+        0.4,
+        0.0,
+        tile_capacity=1,
+        moment_mode="linear",
+    )
+    assert int(result.method) == 3
+    assert bool(result.support_valid)
+    assert bool(result.used_source_plane)
+    np.testing.assert_allclose(result.magnification, 22.46300856034185, rtol=1.0e-4)
+
+
+def test_hybrid_expanded_cartesian_retry_rescues_source_plane_rejection():
+    result = binary_magnification_auto(
+        -0.04040947298588264,
+        0.004139830325865027,
+        0.98,
+        1.0e-5,
+        3.0e-4,
+        0.4,
+        0.0,
+        expanded_cartesian_fallback=True,
+        moment_mode="linear",
+    )
+    assert int(result.method) == 1
+    assert bool(result.support_valid)
+    assert not bool(result.used_source_plane)
+    np.testing.assert_allclose(result.magnification, 27.687565570160192, rtol=1.0e-4)
 
 
 def test_hybrid_keeps_calibrated_tiny_high_magnification_polar_path():

@@ -31,7 +31,6 @@ from lcbinint_jax import (  # noqa: E402
     binary_magnification_auto,
 )
 
-
 PROFILE_COEFFICIENTS = {
     "uniform": (0.0, 0.0, "uniform"),
     "linear": (0.4, 0.0, "linear"),
@@ -63,8 +62,7 @@ class LensCase:
 def make_cases(count: int, seed: int) -> list[LensCase]:
     rng = np.random.default_rng(seed)
     cases = [
-        LensCase(index, *parameters)
-        for index, parameters in enumerate(ANCHORS[:count])
+        LensCase(index, *parameters) for index, parameters in enumerate(ANCHORS[:count])
     ]
     while len(cases) < count:
         index = len(cases)
@@ -81,13 +79,9 @@ def make_cases(count: int, seed: int) -> list[LensCase]:
 
 def caustic_branches(case: LensCase, bins: int) -> list[np.ndarray]:
     solver = lcbinint.LightCurve(
-        options=lcbinint.Options(
-            coordinates="center_of_mass", caustic_bins=bins
-        )
+        options=lcbinint.Options(coordinates="center_of_mass", caustic_bins=bins)
     )
-    geometry = solver.caustics(
-        s=case.separation, q=case.mass_ratio, n_points=bins
-    )
+    geometry = solver.caustics(s=case.separation, q=case.mass_ratio, n_points=bins)
     return [
         np.column_stack((np.asarray(xs), np.asarray(ys)))
         for xs, ys in zip(geometry.x, geometry.y)
@@ -116,9 +110,7 @@ def source_points(
             normal = np.asarray((1.0, 0.0))
         else:
             normal = np.asarray((-tangent[1], tangent[0])) / tangent_norm
-        factor = CAUSTIC_DISTANCE_FACTORS[
-            point_id % len(CAUSTIC_DISTANCE_FACTORS)
-        ]
+        factor = CAUSTIC_DISTANCE_FACTORS[point_id % len(CAUSTIC_DISTANCE_FACTORS)]
         side = -1.0 if point_id % 2 else 1.0
         point = branch[index] + side * factor * case.source_radius * normal
         samples.append(
@@ -269,9 +261,7 @@ def jax_backends(
         limb_c,
         limb_d,
     )
-    hex_result, hex_ms = timed_jax(
-        lambda: binary_hexadecapole(*parameters), repeat
-    )
+    hex_result, hex_ms = timed_jax(lambda: binary_hexadecapole(*parameters), repeat)
     cart_coarse, cart_coarse_ms = timed_jax(
         lambda: binary_inverse_ray(
             *parameters,
@@ -349,12 +339,8 @@ def jax_backends(
         "hexadecapole": {
             "value": float(hex_result.magnification),
             "point_magnification": float(hex_result.point_magnification),
-            "quadrupole_correction": float(
-                hex_result.quadrupole_correction
-            ),
-            "hexadecapole_correction": float(
-                hex_result.hexadecapole_correction
-            ),
+            "quadrupole_correction": float(hex_result.quadrupole_correction),
+            "hexadecapole_correction": float(hex_result.hexadecapole_correction),
             "estimated_error": float(hex_result.estimated_error),
             "topology_stable": bool(hex_result.topology_stable),
             "root_failure": bool(hex_result.root_failure),
@@ -372,6 +358,7 @@ def jax_backends(
             "support_valid": bool(auto_result.support_valid),
             "used_multipole": bool(auto_result.used_multipole),
             "used_polar": bool(auto_result.used_polar),
+            "used_source_plane": bool(auto_result.used_source_plane),
         },
     }
 
@@ -407,6 +394,7 @@ def gradient_check(
         ).magnification
 
     jax_gradient = float(jax.grad(jax_function)(source_x))
+
     def native_gradient(bins):
         plus = native_value(
             case,
@@ -448,8 +436,7 @@ def gradient_check(
         "absolute_error": abs(jax_gradient - reference_gradient),
         "budget": budget,
         "passes": bool(
-            reference_trusted
-            and abs(jax_gradient - reference_gradient) <= budget
+            reference_trusted and abs(jax_gradient - reference_gradient) <= budget
         ),
         "reference_trusted": bool(reference_trusted),
     }
@@ -468,11 +455,9 @@ def candidate_dispatch(
     correction_scale = max(
         abs(hex_result["quadrupole_correction"]), reference["budget"]
     )
-    ordered = (
-        hex_result["estimated_error"] <= 0.25 * correction_scale
-        and abs(hex_result["quadrupole_correction"])
-        <= 0.1 * max(abs(hex_result["value"]), 1.0)
-    )
+    ordered = hex_result["estimated_error"] <= 0.25 * correction_scale and abs(
+        hex_result["quadrupole_correction"]
+    ) <= 0.1 * max(abs(hex_result["value"]), 1.0)
     accept_hex = (
         hex_result["topology_stable"]
         and not hex_result["root_failure"]
@@ -500,15 +485,18 @@ def candidate_dispatch(
 
 def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     trusted = [row for row in rows if row["reference"]["trusted"]]
-    method_names = {0: "hexadecapole", 1: "cartesian", 2: "polar"}
+    method_names = {
+        0: "hexadecapole",
+        1: "cartesian",
+        2: "polar",
+        3: "source_plane",
+    }
     default_failures = [
         row
         for row in trusted
         if (
             not row["jax"]["auto"]["support_valid"]
-            or abs(
-                row["jax"]["auto"]["value"] - row["reference"]["value"]
-            )
+            or abs(row["jax"]["auto"]["value"] - row["reference"]["value"])
             > row["reference"]["budget"]
         )
     ]
@@ -531,20 +519,13 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
                         )
                         methods[method] = methods.get(method, 0) + 1
                         times.append(result["milliseconds"])
-                        result_invalid = (
-                            not math.isfinite(result["value"])
-                            or (
-                                "support_valid" in result
-                                and not result["support_valid"]
-                            )
+                        result_invalid = not math.isfinite(result["value"]) or (
+                            "support_valid" in result and not result["support_valid"]
                         )
                         invalid += result_invalid
                         accuracy_failures += (
                             not result_invalid
-                            and abs(
-                                result["value"]
-                                - row["reference"]["value"]
-                            )
+                            and abs(result["value"] - row["reference"]["value"])
                             > row["reference"]["budget"]
                         )
                     calibration.append(
@@ -555,9 +536,9 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
                             "polar_min_mass_ratio": polar_min_mass_ratio,
                             "invalid": invalid,
                             "accuracy_failures": accuracy_failures,
-                            "median_milliseconds": float(np.median(times))
-                            if times
-                            else math.nan,
+                            "median_milliseconds": (
+                                float(np.median(times)) if times else math.nan
+                            ),
                             "method_counts": methods,
                         }
                     )
@@ -582,9 +563,7 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 "case_id": row["case"]["case_id"],
                 "point_id": row["point"]["point_id"],
                 "profile": row["profile"],
-                "method": method_names.get(
-                    row["jax"]["auto"]["method"], "unknown"
-                ),
+                "method": method_names.get(row["jax"]["auto"]["method"], "unknown"),
                 "absolute_error": abs(
                     row["jax"]["auto"]["value"] - row["reference"]["value"]
                 ),
@@ -607,9 +586,7 @@ def run(args: argparse.Namespace) -> int:
     rows: list[dict[str, Any]] = []
     for case in cases:
         branches = caustic_branches(case, args.caustic_bins)
-        points = source_points(
-            case, branches, args.points_per_case, args.seed
-        )
+        points = source_points(case, branches, args.points_per_case, args.seed)
         for point in points:
             for profile_index, profile in enumerate(profiles):
                 limb_c, limb_d, moment_mode = PROFILE_COEFFICIENTS[profile]
@@ -673,9 +650,7 @@ def run(args: argparse.Namespace) -> int:
     }
     output["summary"] = summarize(rows)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(
-        json.dumps(output, indent=2, allow_nan=True) + "\n"
-    )
+    args.output.write_text(json.dumps(output, indent=2, allow_nan=True) + "\n")
     print(json.dumps(output["summary"], indent=2))
     return 0
 
@@ -685,9 +660,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--lens-cases", type=int, default=10)
     parser.add_argument("--points-per-case", type=int, default=6)
-    parser.add_argument(
-        "--profiles", default="uniform,linear,square_root"
-    )
+    parser.add_argument("--profiles", default="uniform,linear,square_root")
     parser.add_argument("--caustic-bins", type=int, default=512)
     parser.add_argument("--native-coarse-bins", type=int, default=128)
     parser.add_argument("--native-fine-bins", type=int, default=256)
