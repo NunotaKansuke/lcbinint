@@ -359,6 +359,7 @@ def jax_backends(
             "used_multipole": bool(auto_result.used_multipole),
             "used_polar": bool(auto_result.used_polar),
             "used_source_plane": bool(auto_result.used_source_plane),
+            "used_expanded_cartesian": bool(auto_result.used_expanded_cartesian),
         },
     }
 

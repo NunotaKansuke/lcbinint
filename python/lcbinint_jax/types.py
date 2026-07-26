@@ -76,6 +76,21 @@ class HybridMagnificationResult(NamedTuple):
     used_multipole: jax.Array
     used_polar: jax.Array
     used_source_plane: jax.Array
+    used_expanded_cartesian: jax.Array
+
+
+class TrajectoryMagnificationResult(NamedTuple):
+    """Conditional hybrid results for a one-dimensional source trajectory."""
+
+    magnification: jax.Array
+    method: jax.Array
+    estimated_error: jax.Array
+    support_valid: jax.Array
+    used_multipole: jax.Array
+    used_polar: jax.Array
+    used_source_plane: jax.Array
+    used_expanded_cartesian: jax.Array
+    attempted_counts: jax.Array
 
 
 class ConvergenceResult(NamedTuple):

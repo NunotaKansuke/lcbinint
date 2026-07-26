@@ -495,6 +495,7 @@ def binary_magnification_auto(
             used_multipole=jnp.asarray(True),
             used_polar=jnp.asarray(False),
             used_source_plane=jnp.asarray(False),
+            used_expanded_cartesian=jnp.asarray(False),
         )
 
     def inverse_ray_path(_):
@@ -533,6 +534,7 @@ def binary_magnification_auto(
                 used_multipole=jnp.asarray(False),
                 used_polar=result.used_polar,
                 used_source_plane=jnp.asarray(False),
+                used_expanded_cartesian=jnp.asarray(False),
             )
 
         def source_plane_result(_):
@@ -562,6 +564,7 @@ def binary_magnification_auto(
                     used_multipole=jnp.asarray(False),
                     used_polar=jnp.asarray(False),
                     used_source_plane=jnp.asarray(True),
+                    used_expanded_cartesian=jnp.asarray(False),
                 )
 
             def rejected_source_plane(_):
@@ -573,6 +576,7 @@ def binary_magnification_auto(
                     used_multipole=jnp.asarray(False),
                     used_polar=jnp.asarray(False),
                     used_source_plane=jnp.asarray(True),
+                    used_expanded_cartesian=jnp.asarray(False),
                 )
 
             def expanded_cartesian_result(_):
@@ -624,6 +628,7 @@ def binary_magnification_auto(
                     used_multipole=jnp.asarray(False),
                     used_polar=jnp.asarray(False),
                     used_source_plane=jnp.asarray(False),
+                    used_expanded_cartesian=jnp.asarray(True),
                 )
 
             if expanded_cartesian_fallback:
@@ -649,6 +654,7 @@ def binary_magnification_auto(
                 used_multipole=jnp.asarray(False),
                 used_polar=result.used_polar,
                 used_source_plane=jnp.asarray(False),
+                used_expanded_cartesian=jnp.asarray(False),
             )
 
         if source_plane_fallback:

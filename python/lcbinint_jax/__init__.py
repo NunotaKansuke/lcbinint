@@ -22,6 +22,7 @@ from .source_plane import (
     SourcePlaneQuadratureResult,
     binary_source_plane_quadrature,
 )
+from .trajectory import binary_magnification_trajectory
 from .types import (
     ConvergenceResult,
     AutoInverseRayResult,
@@ -30,6 +31,7 @@ from .types import (
     InverseRayResult,
     HybridMagnificationResult,
     PolarSupportResult,
+    TrajectoryMagnificationResult,
 )
 
 __all__ = [
@@ -43,8 +45,10 @@ __all__ = [
     "PointSourceResult",
     "PolarSupportResult",
     "SourcePlaneQuadratureResult",
+    "TrajectoryMagnificationResult",
     "binary_hexadecapole",
     "binary_magnification_auto",
+    "binary_magnification_trajectory",
     "binary_point_source_magnification",
     "binary_source_plane_quadrature",
     "binary_inverse_ray",

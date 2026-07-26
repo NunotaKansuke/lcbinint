@@ -483,6 +483,66 @@ off by default: a trajectory fitter should collect failed epochs and evaluate
 that sparse bucket together rather than putting every epoch through the large
 executable.
 
+## Conditional trajectory dispatcher
+
+`binary_magnification_trajectory` evaluates a one-dimensional source path
+with shared lens and source-profile parameters.  Its ordering follows the
+native selector where the algorithms overlap:
+
+1. differentiable hexadecapole with topology and error guards;
+2. calibrated Cartesian or narrowly allowed polar inverse rays;
+3. converged source-plane chord quadrature after image-support failure;
+4. optional coarse/fine expanded Cartesian retry;
+5. explicit `NaN` and `support_valid=False`.
+
+Native `lcbinint` can cheaply reuse sampled caustic branches along a light
+curve and uses refined caustic distance, local ghost diagnostics, and a
+calibrated resolution model before this sequence.  Rebuilding that geometry
+inside every JAX trace would erase the CPU advantage.  The JAX dispatcher
+therefore uses the already-required 13-point hexadecapole topology and
+self-consistency result as its first routing proxy.  The choice is
+stopped-gradient; the selected physical calculation remains differentiable.
+
+Two JAX execution layouts were measured before choosing the implementation.
+A fixed-capacity layout first `vmap`ed all hexadecapole solves, packed rejected
+indices, then scattered the expensive results.  A scalar-conditional layout
+uses `lax.map`, retaining the scalar `lax.cond` at every epoch.  On a 64-epoch
+half-hex/half-Cartesian path the packed layout took 200 ms versus 178 ms for
+the scalar layout.  With only four rejected epochs it took 99 versus 71 ms;
+at 256 epochs it regressed to 837 versus 180 ms.  Batched root solving and
+pack/scatter overhead dominate on CPU, so the production trajectory API uses
+the simpler scalar-conditional layout.
+
+The trajectory default is the 96/4096 Cartesian bucket with 24 limb seeds.
+The scalar API retains 64/1024 for low latency.  On a 64-epoch resonant,
+linearly limb-darkened path, the trajectory default had zero value-budget
+failures against a `Tol=1e-7` VBMicrolensing reference.  The measured warm
+forward times were:
+
+| Engine | 64-epoch forward |
+| --- | ---: |
+| native `lcbinint`, fixed Cartesian 64 | 137 ms |
+| JAX conditional trajectory, default 96/4096 | 405 ms |
+| VBMicrolensing | 3.25 s |
+| microLUX, 80 annuli | 4.25 s |
+
+Thus this pilot is 10.5 times faster than microLUX and 2.95 times slower than
+native, at the matched requested value budget.  For a 16-epoch subset, JAX
+forward/JVP/value-plus-gradient took 105/130/459 ms; microLUX took
+1.09/16.3/32.6 s.  Compilation is excluded from all these warm timings.  The
+reproducible harness is
+`tests/diagnostics/jax_ir/benchmark_trajectory.py`.
+
+The two hex/Cartesian switch boundaries in a 32-point replay were value-safe:
+the four values adjacent to the boundaries used at most 0.43 of their error
+budgets.  Source-coordinate gradients are less mature.  Against a VBM central
+difference, 29/32 default-bucket gradients passed the pilot budget; three
+near-caustic points failed, and increasing the raster to 128 or 192 did not
+make the hardest point converge.  This is not a dispatcher-boundary jump.
+Near fold entry/exit, the finite-source derivative and the discrete support
+need a dedicated convergence diagnostic before gradient validity can be
+claimed.
+
 ## Current limitations
 
 - Binary lenses only.
@@ -495,6 +555,8 @@ executable.
 - The first 64/4096 to 128/16384 Cartesian retry is calibrated only on the
   pilot sweep.  A larger held-out trajectory sweep is still required before
   enabling it by default.
+- Trajectory values have a calibrated medium bucket, but near-caustic
+  gradients do not yet carry a per-epoch convergence flag.
 - Very small image components may still be missed by finite source-limb
   sampling; the planned halo and topology sweeps must validate this.
 - The public API is experimental and may change.
