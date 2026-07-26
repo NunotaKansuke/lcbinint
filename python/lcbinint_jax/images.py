@@ -75,33 +75,101 @@ def binary_images(
     """Return stopped-gradient physical images for one binary-lens source."""
 
     coefficients = binary_lens_polynomial_coefficients(source, separation, mass_ratio)
-    solved = binary_lens_polynomial_roots(
-        coefficients,
-        max_iterations=max_iterations,
-        tolerance=tolerance,
-        initial_phase=initial_phase,
-    )
-    polished = _newton_polish_binary_images(
-        solved.roots,
-        solved.converged,
-        source,
-        separation,
-        mass_ratio,
-        polish_steps,
-    )
-    mapped = binary_lens_map_complex(polished, separation, mass_ratio)
-    residuals = jnp.abs(mapped - source)
     residual_limit = residual_tolerance * (1.0 + jnp.abs(source))
-    physical = (
-        solved.converged & jnp.isfinite(residuals) & (residuals <= residual_limit)
-    )
-    return jax.tree_util.tree_map(
-        jax.lax.stop_gradient,
-        BinaryImages(
+
+    def solve_with_phase(phase):
+        solved = binary_lens_polynomial_roots(
+            coefficients,
+            max_iterations=max_iterations,
+            tolerance=tolerance,
+            initial_phase=phase,
+        )
+        polished = _newton_polish_binary_images(
+            solved.roots,
+            solved.converged,
+            source,
+            separation,
+            mass_ratio,
+            polish_steps,
+        )
+        mapped = binary_lens_map_complex(polished, separation, mass_ratio)
+        residuals = jnp.abs(mapped - source)
+        physical = (
+            solved.converged
+            & jnp.isfinite(residuals)
+            & (residuals <= residual_limit)
+        )
+        return BinaryImages(
             roots=polished,
             physical=physical,
             residuals=residuals,
             root_converged=solved.converged,
             iterations=solved.iterations,
-        ),
+        )
+
+    primary = solve_with_phase(initial_phase)
+
+    def choose_better(current, candidate):
+        def score(images):
+            physical_count = jnp.sum(images.physical)
+            valid_count = (physical_count == 3) | (physical_count == 5)
+            return (
+                100 * valid_count.astype(jnp.int32)
+                + 8 * physical_count
+                + jnp.sum(images.root_converged)
+            )
+
+        use_candidate = score(candidate) > score(current)
+        return jax.tree_util.tree_map(
+            lambda candidate_value, current_value: jnp.where(
+                use_candidate, candidate_value, current_value
+            ),
+            candidate,
+            current,
+        )
+
+    def retry_with_companion_matrix(_):
+        roots = jnp.roots(coefficients, strip_zeros=False)
+        converged = jnp.isfinite(jnp.abs(roots))
+        polished = _newton_polish_binary_images(
+            roots,
+            converged,
+            source,
+            separation,
+            mass_ratio,
+            max(polish_steps, 4),
+        )
+        residuals = jnp.abs(
+            binary_lens_map_complex(polished, separation, mass_ratio) - source
+        )
+        physical = (
+            converged
+            & jnp.isfinite(residuals)
+            & (residuals <= residual_limit)
+        )
+        alternate = BinaryImages(
+            roots=polished,
+            physical=physical,
+            residuals=residuals,
+            root_converged=converged,
+            iterations=jnp.zeros(roots.shape, dtype=jnp.int32),
+        )
+        return choose_better(primary, alternate)
+
+    needs_retry = (
+        (mass_ratio <= 1.0e-3)
+        & (
+            ~jnp.all(primary.root_converged)
+            | (jnp.sum(primary.physical) < 3)
+        )
+    )
+    selected = jax.lax.cond(
+        needs_retry,
+        retry_with_companion_matrix,
+        lambda _: primary,
+        operand=None,
+    )
+    return jax.tree_util.tree_map(
+        jax.lax.stop_gradient,
+        selected,
     )

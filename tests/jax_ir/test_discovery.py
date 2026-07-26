@@ -40,6 +40,19 @@ def test_macro_tile_discovery_builds_halo_without_overflow():
     assert int(discovery.active_count) > 0
 
 
+def test_extreme_planetary_limb_roots_use_robust_fallback():
+    seeds = binary_image_seed_points(
+        -0.04040947298588264,
+        0.004139830325865027,
+        0.98,
+        1.0e-5,
+        3.0e-4,
+        limb_samples=16,
+    )
+    assert not bool(seeds.root_failure)
+    assert int(jnp.sum(seeds.physical)) >= 3 * 17
+
+
 def test_macro_tile_capacity_overflow_is_explicit():
     result = binary_inverse_ray(
         0.2,

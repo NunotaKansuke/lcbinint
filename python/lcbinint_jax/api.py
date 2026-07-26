@@ -265,6 +265,8 @@ def binary_inverse_ray_auto(
     polar_angular_chunk_size=1024,
     polar_magnification_threshold=80.0,
     polar_max_source_radius=0.01,
+    polar_allowed=True,
+    polar_fallback_on_overflow=True,
     moment_mode="two_coefficient",
 ):
     """Automatically dispatch between Cartesian and polar inverse rays.
@@ -335,7 +337,14 @@ def binary_inverse_ray_auto(
             )
             return _auto_result(_cartesian_result(discovery, integrated), False)
 
-        return jax.lax.cond(discovery.overflow, fallback, integrate_cartesian, None)
+        use_fallback = (
+            discovery.overflow
+            & jnp.asarray(polar_allowed)
+            & jnp.asarray(polar_fallback_on_overflow)
+        )
+        return jax.lax.cond(
+            use_fallback, fallback, integrate_cartesian, None
+        )
 
     point_magnification = _point_source_magnification(
         source_x,
@@ -347,6 +356,7 @@ def binary_inverse_ray_auto(
         (point_magnification >= polar_magnification_threshold)
         & (source_radius <= polar_max_source_radius)
         & (source_radius > 0.0)
+        & jnp.asarray(polar_allowed)
     )
     return jax.lax.cond(
         preselect_polar,
@@ -397,6 +407,8 @@ def binary_magnification_auto(
     polar_angular_chunk_size=1024,
     polar_magnification_threshold=80.0,
     polar_max_source_radius=0.01,
+    polar_min_mass_ratio=5.0e-3,
+    polar_fallback_on_overflow=False,
     moment_mode="two_coefficient",
 ):
     """Dispatch safely-far epochs to a differentiable hexadecapole expansion.
@@ -440,6 +452,19 @@ def binary_magnification_auto(
             <= budget
         )
     )
+    absolute_mass_ratio = jnp.abs(mass_ratio)
+    symmetric_mass_ratio = jnp.minimum(
+        absolute_mass_ratio,
+        jnp.where(
+            absolute_mass_ratio > 0.0,
+            1.0 / absolute_mass_ratio,
+            0.0,
+        ),
+    )
+    polar_allowed = jax.lax.stop_gradient(
+        hexadecapole.topology_stable
+        & (symmetric_mass_ratio >= polar_min_mass_ratio)
+    )
 
     def multipole_path(_):
         return HybridMagnificationResult(
@@ -473,10 +498,15 @@ def binary_magnification_auto(
             polar_angular_chunk_size=polar_angular_chunk_size,
             polar_magnification_threshold=polar_magnification_threshold,
             polar_max_source_radius=polar_max_source_radius,
+            polar_allowed=polar_allowed,
+            polar_fallback_on_overflow=polar_fallback_on_overflow,
             moment_mode=moment_mode,
         )
+        valid_magnification = jnp.where(
+            result.support_valid, result.magnification, jnp.nan
+        )
         return HybridMagnificationResult(
-            magnification=result.magnification,
+            magnification=valid_magnification,
             method=jnp.where(result.used_polar, 2, 1).astype(jnp.int32),
             estimated_error=jnp.asarray(jnp.nan),
             support_valid=result.support_valid,

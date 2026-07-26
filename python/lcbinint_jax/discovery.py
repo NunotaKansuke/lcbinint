@@ -43,7 +43,10 @@ def binary_image_seed_points(
         sources
     )
     physical_counts = jnp.sum(images.physical, axis=1)
-    root_failure = jnp.any(physical_counts < 3)
+    valid_physical_count = (physical_counts == 3) | (physical_counts == 5)
+    root_failure = jnp.any(
+        ~valid_physical_count | ~jnp.all(images.root_converged, axis=1)
+    )
     return ImageSeedPoints(
         roots=jax.lax.stop_gradient(images.roots.reshape(-1)),
         physical=jax.lax.stop_gradient(images.physical.reshape(-1)),

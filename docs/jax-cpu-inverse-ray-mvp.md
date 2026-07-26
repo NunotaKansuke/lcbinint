@@ -408,6 +408,42 @@ self-consistency and topology checks are empirical guards, not a proof that an
 unsampled caustic cannot lie inside a source; the held-out dispatcher
 calibration remains required.
 
+## Stratified dispatcher pilot
+
+The first broad JAX dispatcher sweep is documented in
+[`jax-dispatcher-pilot-20260726`](../tests/diagnostics/results/jax-dispatcher-pilot-20260726/README.md).
+It covers 144 close/resonant/wide rows over \(q=10^{-5}\ldots1\), three source
+profiles, five caustic offsets, and a field control.  Native Cartesian
+resolution convergence plus native Cartesian/polar agreement trusted 141
+rows.
+
+The original overflow fallback exposed a serious domain error: polar was
+selected at 42 rows, including ordinary caustic crossings for which a
+lens-centred radial representation is unsuitable.  Twelve support-valid
+automatic results missed the common budget, eight of them polar.  Increasing
+polar band capacity did not improve accuracy.
+
+The calibrated hybrid policy is now fail-closed:
+
+- the hexadecapole guard remains the first choice and had no false accept in
+  the pilot;
+- polar preselection requires stable sampled image topology and symmetric mass
+  ratio at least \(5\times10^{-3}\), in addition to the existing tiny-source
+  and high-magnification checks;
+- Cartesian overflow no longer triggers an unconditional polar fallback in
+  the production hybrid API;
+- an unsupported hybrid result has `support_valid=False` and `NaN`
+  magnification rather than returning a plausible partial integral;
+- an extreme-planetary companion-matrix root fallback repairs physical limb
+  roots missed by the bounded Ehrlich--Aberth solve.
+
+The calibrated replay selected 69 multipole and 72 Cartesian rows.  Thirty-six
+were explicitly unsupported at the current capacity, while six support-valid
+rows exceeded the budget by only 1.01--1.16 times.  This is not full-domain
+coverage yet: capacity/resolution buckets and coarse/fine gradient convergence
+are the next required layer.  The separately validated elongated high-mag
+case still selects polar and passes.
+
 ## Current limitations
 
 - Binary lenses only.
@@ -415,8 +451,8 @@ calibration remains required.
   is not a numerical-accuracy or gradient-convergence guarantee; use the
   coarse/fine diagnostic for that decision.
 - Polar `support_valid` likewise checks band/root capacity, not quadrature
-  convergence. Its default angular resolution is intentionally conservative
-  in the automatic dispatcher.
+  convergence. The calibrated hybrid dispatcher therefore uses it only for a
+  narrow elongated-arc regime and never as an unconditional overflow fallback.
 - Resolution and capacity buckets are not calibrated yet.
 - Very small image components may still be missed by finite source-limb
   sampling; the planned halo and topology sweeps must validate this.

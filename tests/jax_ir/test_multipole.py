@@ -1,3 +1,5 @@
+import math
+
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -113,3 +115,48 @@ def test_hybrid_far_field_gradient_is_finite():
         jnp.asarray((0.3, 0.4, 1.4, 1.0e-3))
     )
     assert bool(jnp.all(jnp.isfinite(gradient)))
+
+
+def test_hybrid_does_not_silently_fallback_to_polar_on_overflow():
+    result = binary_magnification_auto(
+        0.653,
+        0.0,
+        1.2,
+        0.1,
+        0.02,
+        0.4,
+        0.0,
+        resolution=64,
+        tile_capacity=1,
+        moment_mode="linear",
+    )
+    assert int(result.method) == 1
+    assert not bool(result.support_valid)
+    assert math.isnan(float(result.magnification))
+
+
+def test_hybrid_keeps_calibrated_tiny_high_magnification_polar_path():
+    separation = 0.95
+    mass_ratio = 0.01
+    source_radius = 0.005
+    u0 = -0.001
+    alpha = 0.5
+    epoch = 0.004
+    source_x = epoch * math.cos(alpha) - u0 * math.sin(alpha)
+    source_y = epoch * math.sin(alpha) + u0 * math.cos(alpha)
+    result = binary_magnification_auto(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        0.4,
+        0.0,
+        polar_resolution=64,
+        polar_angular_bins=4096,
+        polar_radial_capacity=256,
+        moment_mode="linear",
+    )
+    assert int(result.method) == 2
+    assert bool(result.support_valid)
+    np.testing.assert_allclose(result.magnification, 95.43373464, rtol=1.0e-9)
