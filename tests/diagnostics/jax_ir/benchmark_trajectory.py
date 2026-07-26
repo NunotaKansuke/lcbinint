@@ -69,22 +69,30 @@ def positions(count):
     )
 
 
-def jax_curve(source_x, source_y, separation=SEPARATION, backend="jax"):
+def jax_curve(
+    source_x,
+    source_y,
+    separation=SEPARATION,
+    backend="jax",
+    profile="linear",
+):
+    limb_c = 0.0 if profile == "uniform" else LIMB_C
     return binary_magnification_trajectory(
         source_x,
         source_y,
         separation,
         MASS_RATIO,
         SOURCE_RADIUS,
-        LIMB_C,
+        limb_c,
         0.0,
-        moment_mode="linear",
+        moment_mode=profile,
         cartesian_backend=backend,
         root_backend=backend,
     )
 
 
-def microlux_curve(source_x, source_y, separation=SEPARATION):
+def microlux_curve(source_x, source_y, separation=SEPARATION, profile="linear"):
+    limb_c = 0.0 if profile == "uniform" else LIMB_C
     trajectory = to_lowmass(separation, MASS_RATIO, source_x + 1j * source_y)
     return extended_light_curve_from_trajectory_l(
         trajectory,
@@ -95,7 +103,7 @@ def microlux_curve(source_x, source_y, separation=SEPARATION):
         retol=1.0e-4,
         default_strategy=(30, 30, 60, 120, 240),
         analytic=True,
-        limb_darkening=LinearLimbDarkening(LIMB_C),
+        limb_darkening=LinearLimbDarkening(limb_c),
         n_annuli=80,
     )
 
@@ -117,24 +125,41 @@ def main():
     parser.add_argument("--epochs", type=int, default=64)
     parser.add_argument("--ad-epochs", type=int, default=16)
     parser.add_argument("--repeat", type=int, default=3)
+    parser.add_argument(
+        "--profile",
+        choices=("uniform", "linear"),
+        default="linear",
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
     source_x, source_y = positions(args.epochs)
     jax_result, jax_forward = timed_jax(
-        lambda: jax_curve(source_x, source_y), args.repeat
+        lambda: jax_curve(source_x, source_y, profile=args.profile), args.repeat
     )
     ffi_result, ffi_forward = timed_jax(
-        lambda: jax_curve(source_x, source_y, backend="ffi"), args.repeat
+        lambda: jax_curve(
+            source_x,
+            source_y,
+            backend="ffi",
+            profile=args.profile,
+        ),
+        args.repeat,
     )
     microlux_result, microlux_forward = timed_jax(
-        lambda: microlux_curve(source_x, source_y), args.repeat
+        lambda: microlux_curve(source_x, source_y, profile=args.profile),
+        args.repeat,
     )
 
     ad_x, ad_y = positions(args.ad_epochs)
     _, jax_jvp = timed_jax(
         lambda: jax.jvp(
-            lambda separation: jax_curve(ad_x, ad_y, separation).magnification,
+            lambda separation: jax_curve(
+                ad_x,
+                ad_y,
+                separation,
+                profile=args.profile,
+            ).magnification,
             (SEPARATION,),
             (1.0,),
         ),
@@ -143,7 +168,12 @@ def main():
     _, jax_gradient = timed_jax(
         lambda: jax.value_and_grad(
             lambda separation: jnp.nansum(
-                jax_curve(ad_x, ad_y, separation).magnification
+                jax_curve(
+                    ad_x,
+                    ad_y,
+                    separation,
+                    profile=args.profile,
+                ).magnification
             )
         )(SEPARATION),
         args.repeat,
@@ -151,7 +181,7 @@ def main():
     _, ffi_jvp = timed_jax(
         lambda: jax.jvp(
             lambda separation: jax_curve(
-                ad_x, ad_y, separation, backend="ffi"
+                ad_x, ad_y, separation, backend="ffi", profile=args.profile
             ).magnification,
             (SEPARATION,),
             (1.0,),
@@ -161,14 +191,25 @@ def main():
     _, ffi_gradient = timed_jax(
         lambda: jax.value_and_grad(
             lambda separation: jnp.nansum(
-                jax_curve(ad_x, ad_y, separation, backend="ffi").magnification
+                jax_curve(
+                    ad_x,
+                    ad_y,
+                    separation,
+                    backend="ffi",
+                    profile=args.profile,
+                ).magnification
             )
         )(SEPARATION),
         args.repeat,
     )
     _, microlux_jvp = timed_jax(
         lambda: jax.jvp(
-            lambda separation: microlux_curve(ad_x, ad_y, separation),
+            lambda separation: microlux_curve(
+                ad_x,
+                ad_y,
+                separation,
+                profile=args.profile,
+            ),
             (SEPARATION,),
             (1.0,),
         ),
@@ -176,25 +217,43 @@ def main():
     )
     _, microlux_gradient = timed_jax(
         lambda: jax.value_and_grad(
-            lambda separation: jnp.sum(microlux_curve(ad_x, ad_y, separation))
+            lambda separation: jnp.sum(
+                microlux_curve(
+                    ad_x,
+                    ad_y,
+                    separation,
+                    profile=args.profile,
+                )
+            )
         )(SEPARATION),
         1,
     )
 
     vbm = VBMicrolensing.VBMicrolensing()
     vbm.Tol = 1.0e-7
-    vbm.a1 = LIMB_C
+    limb_c = 0.0 if args.profile == "uniform" else LIMB_C
+    vbm.a1 = limb_c
 
     def vbm_curve():
         return np.asarray(
             [
-                vbm.BinaryMagDark(
-                    SEPARATION,
-                    MASS_RATIO,
-                    float(x),
-                    float(y),
-                    SOURCE_RADIUS,
-                    vbm.Tol,
+                (
+                    vbm.BinaryMag2(
+                        SEPARATION,
+                        MASS_RATIO,
+                        float(x),
+                        float(y),
+                        SOURCE_RADIUS,
+                    )
+                    if args.profile == "uniform"
+                    else vbm.BinaryMagDark(
+                        SEPARATION,
+                        MASS_RATIO,
+                        float(x),
+                        float(y),
+                        SOURCE_RADIUS,
+                        vbm.Tol,
+                    )
                 )
                 for x, y in zip(source_x, source_y)
             ]
@@ -207,7 +266,7 @@ def main():
         inverse_ray_grid="cartesian",
         coordinates="center_of_mass",
     )
-    limb_darkening = lcbinint.LimbDarkening(c=LIMB_C, d=0.0)
+    limb_darkening = lcbinint.LimbDarkening(c=limb_c, d=0.0)
 
     def native_curve():
         return np.asarray(
@@ -236,7 +295,7 @@ def main():
             "separation": SEPARATION,
             "mass_ratio": MASS_RATIO,
             "source_radius": SOURCE_RADIUS,
-            "limb_c": LIMB_C,
+            "limb_c": limb_c,
         },
         "timings": {
             "jax_forward": jax_forward,

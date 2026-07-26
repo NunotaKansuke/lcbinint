@@ -161,6 +161,45 @@ and intermediate-support overhead account for only roughly one percent here;
 the remaining native gap is primarily inside the cell traversal and moment
 evaluation.
 
+The first cell-hot-loop pass then removed that gap without requiring a
+machine-specific build.  Fixed fractional powers in the affine boundary
+formula are expanded into products and square roots, eliminating repeated
+general `pow` calls.  Moment mode and boundary subdivision are compile-time
+specializations.  Subcell offsets are precomputed, and each tile row first
+computes source classification into structure-of-arrays buffers under an
+OpenMP SIMD directive before the branchy integration pass.  The Jacobian path
+uses the scalar classification first and constructs five-lane Jets only for
+cells that contribute; fully interior uniform cells add constant area without
+a lens-map Jet.
+
+On a fixed CPU core, representative uniform/linear/two-coefficient epoch
+forward times changed from 4.72/6.09/30.29 ms to 3.13/3.83/14.06 ms.
+Value-plus-gradient changed from 14.70/19.22/74.86 ms to
+5.05/14.72/37.14 ms.  A separate `-march=native` experiment showed additional
+Jet headroom, but applying ISA target clones only to the hot template did not
+reproduce it because the Jet arithmetic helpers remained in the default
+translation-unit target.  The production implementation therefore remains a
+portable build rather than imposing AVX2 or AVX-512.
+
+On the 64-epoch mixed linear trajectory, optimized FFI forward/JVP/
+value-plus-gradient measured 97.94/93.39/103.12 ms, compared with 130.82 ms
+native forward, 3.01 s VBMicrolensing forward, and
+14.15/12.82/26.22 s for microLUX.  This is the first matched trajectory on
+which the differentiable JAX/FFI engine is faster than native `lcbinint`:
+1.34 times forward, while retaining zero accuracy-budget failures.
+
+The uniform trajectory measured 84.51 ms FFI, 127.75 ms native, 46.04 ms
+VBMicrolensing, and 14.15 s for the same 80-annulus microLUX configuration.
+FFI had zero accuracy-budget failures; native had two under the common budget.
+VBMicrolensing remains the fastest appropriate uniform-source comparator on
+this path.  The uniform JVP/value-plus-gradient FFI timings were
+35.48/49.63 ms.  The benchmark harness exposes `--profile uniform` and
+`--profile linear`.
+
+Repeating the eight-configuration held-out sweep after the arithmetic changes
+again produced zero value, JVP, gradient, discovery, point-source,
+hexadecapole, or fused/staged failures over all 84 support-valid rows.
+
 ### First forward-gate result
 
 The initial C++17/pybind prototype implements the real binary-lens map,

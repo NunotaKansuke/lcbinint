@@ -12,6 +12,7 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -137,14 +138,26 @@ Jet scalar_sqrt(const Jet& value)
 
 double scalar_pow(double value, double power)
 {
+    if (power == 0.0) return 1.0;
+    if (power == 1.0) return value;
+    if (power == 2.0) return value * value;
+    if (power == 0.5) return std::sqrt(value);
+    if (power == 1.5) return value * std::sqrt(value);
+    if (power == 2.5) return value * value * std::sqrt(value);
+    if (power == 0.25) return std::sqrt(std::sqrt(value));
+    if (power == 1.25) return value * std::sqrt(std::sqrt(value));
+    if (power == 2.25) {
+        return value * value * std::sqrt(std::sqrt(value));
+    }
     return std::pow(value, power);
 }
 
 Jet scalar_pow(const Jet& value, double power)
 {
-    const double powered = std::pow(value.value, power);
+    const double powered = scalar_pow(value.value, power);
     Jet result(powered);
-    const double scale = power * std::pow(value.value, power - 1.0);
+    const double scale =
+        power == 0.0 ? 0.0 : power * powered / value.value;
     for (std::size_t index = 0; index < kernel_derivative_count; ++index) {
         result.derivative[index] = scale * value.derivative[index];
     }
@@ -183,7 +196,7 @@ MomentMode parse_moment_mode(const std::string& value)
         "moment_mode must be 'uniform', 'linear', or 'two_coefficient'");
 }
 
-int moment_count(MomentMode mode)
+constexpr int moment_count(MomentMode mode)
 {
     return static_cast<int>(mode);
 }
@@ -291,52 +304,229 @@ Scalar affine_unit_square_moment(
         / (delta_x * delta_y * (power + 1.0) * (power + 2.0));
 }
 
-template <typename Scalar>
+template <MomentMode Mode, typename Scalar>
 void add_affine_moments(
     std::array<Scalar, 3>& result,
     const PhiDerivatives<Scalar>& values,
-    double cell_size,
-    MomentMode mode)
+    double cell_size)
 {
     const Scalar delta_x = values.gradient_x * cell_size;
     const Scalar delta_y = values.gradient_y * cell_size;
     const Scalar lower_left = values.phi - 0.5 * (delta_x + delta_y);
     const double area = cell_size * cell_size;
     constexpr std::array<double, 3> powers{0.0, 0.5, 0.25};
-    for (int index = 0; index < moment_count(mode); ++index) {
+    for (int index = 0; index < moment_count(Mode); ++index) {
         result[index] += area * affine_unit_square_moment(
             lower_left, delta_x, delta_y, powers[index]);
     }
 }
 
-template <typename Scalar>
+template <MomentMode Mode, typename Scalar>
 void add_interior_moments(
     std::array<Scalar, 3>& result,
     const PhiDerivatives<Scalar>& values,
-    double cell_size,
-    MomentMode mode)
+    double cell_size)
 {
     const double area = cell_size * cell_size;
     result[0] += area;
-    if (mode == MomentMode::uniform) return;
+    if constexpr (Mode != MomentMode::uniform) {
+        const Scalar sqrt_phi = scalar_sqrt(values.phi);
+        const Scalar delta_squared =
+            cell_size * cell_size
+            * (values.gradient_x * values.gradient_x
+               + values.gradient_y * values.gradient_y);
+        const Scalar laplacian_term =
+            cell_size * cell_size * values.laplacian;
+        result[1] += area * (
+            sqrt_phi + laplacian_term / (48.0 * sqrt_phi)
+            - delta_squared / (96.0 * values.phi * sqrt_phi));
+        if constexpr (Mode == MomentMode::two_coefficient) {
+            const Scalar fourth_root = scalar_sqrt(sqrt_phi);
+            result[2] += area * (
+                fourth_root
+                + laplacian_term / (96.0 * sqrt_phi * fourth_root)
+                - delta_squared
+                    / (128.0 * values.phi * sqrt_phi * fourth_root));
+        }
+    }
+}
 
-    const Scalar sqrt_phi = scalar_sqrt(values.phi);
-    const Scalar delta_squared =
-        cell_size * cell_size
-        * (values.gradient_x * values.gradient_x
-           + values.gradient_y * values.gradient_y);
-    const Scalar laplacian_term = cell_size * cell_size * values.laplacian;
-    result[1] += area * (
-        sqrt_phi + laplacian_term / (48.0 * sqrt_phi)
-        - delta_squared / (96.0 * values.phi * sqrt_phi));
-    if (mode == MomentMode::linear) return;
+template <MomentMode Mode, int BoundarySubdivision, typename Scalar>
+KernelResult<Scalar> fixed_support_kernel_for_mode(
+    const double* origins,
+    const bool* mask,
+    std::int64_t tile_count,
+    double cell_size,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& source_radius,
+    const Scalar& limb_d,
+    int tile_size)
+{
+    KernelResult<Scalar> result;
+    const Scalar inverse_source_radius_squared =
+        1.0 / (source_radius * source_radius);
+    const Scalar total_mass = 1.0 + mass_ratio;
+    const LensConstants<Scalar> lens{
+        -mass_ratio / total_mass * separation,
+        separation / total_mass,
+        1.0 / total_mass,
+        mass_ratio / total_mass,
+    };
+    const LensConstants<double> classification_lens{
+        scalar_value(lens.lens_1_x),
+        scalar_value(lens.lens_2_x),
+        scalar_value(lens.mass_1),
+        scalar_value(lens.mass_2),
+    };
+    const double classification_inverse_source_radius_squared =
+        scalar_value(inverse_source_radius_squared);
+    const double subcell_size = cell_size / BoundarySubdivision;
+    std::array<double, BoundarySubdivision> subcell_offsets{};
+    for (int subcell = 0; subcell < BoundarySubdivision; ++subcell) {
+        subcell_offsets[subcell] =
+            ((static_cast<double>(subcell) + 0.5) / BoundarySubdivision
+             - 0.5)
+            * cell_size;
+    }
+    std::vector<double> classification_phi(
+        static_cast<std::size_t>(tile_size));
+    std::vector<double> classification_gradient_x(
+        static_cast<std::size_t>(tile_size));
+    std::vector<double> classification_gradient_y(
+        static_cast<std::size_t>(tile_size));
+    std::vector<double> classification_laplacian(
+        static_cast<std::size_t>(tile_size));
 
-    const Scalar fourth_root = scalar_sqrt(sqrt_phi);
-    result[2] += area * (
-        fourth_root
-        + laplacian_term / (96.0 * sqrt_phi * fourth_root)
-        - delta_squared
-            / (128.0 * values.phi * sqrt_phi * fourth_root));
+    for (std::int64_t tile = 0; tile < tile_count; ++tile) {
+        if (mask != nullptr && !mask[tile]) continue;
+        for (int iy = 0; iy < tile_size; ++iy) {
+            const double image_y =
+                origins[2 * tile + 1]
+                + (static_cast<double>(iy) + 0.5) * cell_size;
+#ifdef LCBININT_HAS_OPENMP
+#pragma omp simd
+#endif
+            for (int ix = 0; ix < tile_size; ++ix) {
+                const double image_x =
+                    origins[2 * tile]
+                    + (static_cast<double>(ix) + 0.5) * cell_size;
+                const auto classification = phi_derivatives(
+                    image_x, image_y, scalar_value(source_x),
+                    scalar_value(source_y), classification_lens,
+                    classification_inverse_source_radius_squared);
+                classification_phi[static_cast<std::size_t>(ix)] =
+                    classification.phi;
+                classification_gradient_x[static_cast<std::size_t>(ix)] =
+                    classification.gradient_x;
+                classification_gradient_y[static_cast<std::size_t>(ix)] =
+                    classification.gradient_y;
+                classification_laplacian[static_cast<std::size_t>(ix)] =
+                    classification.laplacian;
+            }
+            for (int ix = 0; ix < tile_size; ++ix) {
+                const double image_x =
+                    origins[2 * tile]
+                    + (static_cast<double>(ix) + 0.5) * cell_size;
+                const PhiDerivatives<double> classification{
+                    classification_phi[static_cast<std::size_t>(ix)],
+                    classification_gradient_x[static_cast<std::size_t>(ix)],
+                    classification_gradient_y[static_cast<std::size_t>(ix)],
+                    classification_laplacian[static_cast<std::size_t>(ix)],
+                };
+                const double half_delta_x =
+                    0.5 * classification.gradient_x * cell_size;
+                const double half_delta_y =
+                    0.5 * classification.gradient_y * cell_size;
+                const double extent =
+                    std::abs(half_delta_x) + std::abs(half_delta_y);
+                const double phi_value = classification.phi;
+                const bool fully_inside = phi_value - extent > 0.0;
+                const bool fully_outside = phi_value + extent <= 0.0;
+                const bool geometric_boundary = !(fully_inside || fully_outside);
+                bool detailed = geometric_boundary;
+                if constexpr (Mode == MomentMode::two_coefficient) {
+                    if (scalar_value(limb_d) != 0.0 && fully_inside) {
+                        const double relative_variation =
+                            (extent
+                             + 0.125 * std::abs(classification.laplacian)
+                                          * cell_size * cell_size)
+                            / std::max(phi_value, 1.0e-30);
+                        detailed = relative_variation > 0.2;
+                    }
+                }
+
+                if (detailed) {
+                    ++result.boundary_cells;
+                    ++result.active_cells;
+                    for (int sy = 0; sy < BoundarySubdivision; ++sy) {
+                        const double offset_y = subcell_offsets[sy];
+                        for (int sx = 0; sx < BoundarySubdivision; ++sx) {
+                            const double offset_x = subcell_offsets[sx];
+                            const auto sub_values = phi_derivatives(
+                                image_x + offset_x, image_y + offset_y,
+                                source_x, source_y, lens,
+                                inverse_source_radius_squared);
+                            add_affine_moments<Mode>(
+                                result.moments, sub_values, subcell_size);
+                        }
+                    }
+                } else if (fully_inside) {
+                    ++result.active_cells;
+                    if constexpr (Mode == MomentMode::uniform) {
+                        result.moments[0] += cell_size * cell_size;
+                    } else if constexpr (std::is_same_v<Scalar, double>) {
+                        add_interior_moments<Mode>(
+                            result.moments, classification, cell_size);
+                    } else {
+                        const auto values = phi_derivatives(
+                            image_x, image_y, source_x, source_y, lens,
+                            inverse_source_radius_squared);
+                        add_interior_moments<Mode>(
+                            result.moments, values, cell_size);
+                    }
+                }
+            }
+        }
+    }
+    return result;
+}
+
+template <MomentMode Mode, typename Scalar>
+KernelResult<Scalar> dispatch_fixed_support_kernel_for_mode(
+    const double* origins,
+    const bool* mask,
+    std::int64_t tile_count,
+    double cell_size,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& source_radius,
+    const Scalar& limb_d,
+    int tile_size,
+    int boundary_subdivision)
+{
+    if (boundary_subdivision == 1) {
+        return fixed_support_kernel_for_mode<Mode, 1>(
+            origins, mask, tile_count, cell_size, source_x, source_y,
+            separation, mass_ratio, source_radius, limb_d, tile_size);
+    }
+    if (boundary_subdivision == 2) {
+        return fixed_support_kernel_for_mode<Mode, 2>(
+            origins, mask, tile_count, cell_size, source_x, source_y,
+            separation, mass_ratio, source_radius, limb_d, tile_size);
+    }
+    if (boundary_subdivision == 3) {
+        return fixed_support_kernel_for_mode<Mode, 3>(
+            origins, mask, tile_count, cell_size, source_x, source_y,
+            separation, mass_ratio, source_radius, limb_d, tile_size);
+    }
+    return fixed_support_kernel_for_mode<Mode, 4>(
+        origins, mask, tile_count, cell_size, source_x, source_y,
+        separation, mass_ratio, source_radius, limb_d, tile_size);
 }
 
 template <typename Scalar>
@@ -355,85 +545,23 @@ KernelResult<Scalar> fixed_support_kernel(
     MomentMode mode,
     int boundary_subdivision)
 {
-    KernelResult<Scalar> result;
-    const Scalar inverse_source_radius_squared =
-        1.0 / (source_radius * source_radius);
-    const Scalar total_mass = 1.0 + mass_ratio;
-    const LensConstants<Scalar> lens{
-        -mass_ratio / total_mass * separation,
-        separation / total_mass,
-        1.0 / total_mass,
-        mass_ratio / total_mass,
-    };
-    const double subcell_size = cell_size / boundary_subdivision;
-
-    for (std::int64_t tile = 0; tile < tile_count; ++tile) {
-        if (mask != nullptr && !mask[tile]) continue;
-        for (int iy = 0; iy < tile_size; ++iy) {
-            const double image_y =
-                origins[2 * tile + 1]
-                + (static_cast<double>(iy) + 0.5) * cell_size;
-            for (int ix = 0; ix < tile_size; ++ix) {
-                const double image_x =
-                    origins[2 * tile]
-                    + (static_cast<double>(ix) + 0.5) * cell_size;
-                const auto values = phi_derivatives(
-                    image_x, image_y, source_x, source_y, lens,
-                    inverse_source_radius_squared);
-                const double half_delta_x =
-                    0.5 * scalar_value(values.gradient_x) * cell_size;
-                const double half_delta_y =
-                    0.5 * scalar_value(values.gradient_y) * cell_size;
-                const double extent =
-                    std::abs(half_delta_x) + std::abs(half_delta_y);
-                const double phi_value = scalar_value(values.phi);
-                const bool fully_inside = phi_value - extent > 0.0;
-                const bool fully_outside = phi_value + extent <= 0.0;
-                const bool geometric_boundary = !(fully_inside || fully_outside);
-                bool detailed = geometric_boundary;
-                if (mode == MomentMode::two_coefficient
-                    && scalar_value(limb_d) != 0.0
-                    && fully_inside) {
-                    const double relative_variation =
-                        (extent
-                         + 0.125 * std::abs(scalar_value(values.laplacian))
-                                      * cell_size * cell_size)
-                        / std::max(phi_value, 1.0e-30);
-                    detailed = relative_variation > 0.2;
-                }
-
-                if (detailed) {
-                    ++result.boundary_cells;
-                    ++result.active_cells;
-                    for (int sy = 0; sy < boundary_subdivision; ++sy) {
-                        const double offset_y =
-                            ((static_cast<double>(sy) + 0.5)
-                                 / boundary_subdivision
-                             - 0.5)
-                            * cell_size;
-                        for (int sx = 0; sx < boundary_subdivision; ++sx) {
-                            const double offset_x =
-                                ((static_cast<double>(sx) + 0.5)
-                                     / boundary_subdivision
-                                 - 0.5)
-                                * cell_size;
-                            const auto sub_values = phi_derivatives(
-                                image_x + offset_x, image_y + offset_y,
-                                source_x, source_y, lens,
-                                inverse_source_radius_squared);
-                            add_affine_moments(
-                                result.moments, sub_values, subcell_size, mode);
-                        }
-                    }
-                } else if (fully_inside) {
-                    ++result.active_cells;
-                    add_interior_moments(
-                        result.moments, values, cell_size, mode);
-                }
-            }
-        }
+    if (mode == MomentMode::uniform) {
+        return dispatch_fixed_support_kernel_for_mode<MomentMode::uniform>(
+            origins, mask, tile_count, cell_size, source_x, source_y,
+            separation, mass_ratio, source_radius, limb_d, tile_size,
+            boundary_subdivision);
     }
-    return result;
+    if (mode == MomentMode::linear) {
+        return dispatch_fixed_support_kernel_for_mode<MomentMode::linear>(
+            origins, mask, tile_count, cell_size, source_x, source_y,
+            separation, mass_ratio, source_radius, limb_d, tile_size,
+            boundary_subdivision);
+    }
+    return dispatch_fixed_support_kernel_for_mode<
+        MomentMode::two_coefficient>(
+        origins, mask, tile_count, cell_size, source_x, source_y,
+        separation, mass_ratio, source_radius, limb_d, tile_size,
+        boundary_subdivision);
 }
 
 template <typename Scalar>

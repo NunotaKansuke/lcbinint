@@ -557,6 +557,31 @@ before fusion, while native measured 129.77 ms.  This localizes the remaining
 gap to C++ cell traversal and moment arithmetic rather than JAX intermediate
 arrays or typed-FFI call overhead.
 
+The subsequent portable CPU hot-loop pass eliminated most of that gap:
+
+- fixed quarter/half powers use products and square roots instead of general
+  `pow`;
+- moment mode and boundary subdivision are compile-time specializations;
+- subcell offsets are reused;
+- tile-row lens classification is separated into SIMD-friendly arrays;
+- the Jacobian path creates Jets only for contributing cells, and uniform
+  interior cells require no lens-map Jet.
+
+Representative uniform/linear/two-coefficient forward times improved from
+4.72/6.09/30.29 ms to 3.13/3.83/14.06 ms.  Value-plus-gradient improved from
+14.70/19.22/74.86 ms to 5.05/14.72/37.14 ms.
+
+The 64-epoch linear trajectory now measures 97.94 ms forward, 93.39 ms JVP,
+and 103.12 ms value-plus-gradient.  Native `lcbinint` forward is 130.82 ms,
+VBMicrolensing forward is 3.01 s, and microLUX measures
+14.15/12.82/26.22 s.  All 64 FFI values pass the common VBM error budget.
+
+With `--profile uniform`, FFI forward/JVP/value-plus-gradient measures
+84.51/35.48/49.63 ms.  Native forward is 127.75 ms and has two common-budget
+misses; VBMicrolensing is faster at 46.04 ms.  The 80-annulus microLUX
+configuration measures 14.15 s but is not an optimized uniform-source
+baseline.  FFI has zero uniform accuracy-budget failures.
+
 The two hex/Cartesian switch boundaries in a 32-point replay were value-safe:
 the four values adjacent to the boundaries used at most 0.43 of their error
 budgets.
