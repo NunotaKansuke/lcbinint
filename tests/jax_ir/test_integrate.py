@@ -4,6 +4,10 @@ import numpy as np
 import pytest
 
 from lcbinint_jax import binary_inverse_ray_fixed_support
+from lcbinint_jax.integrate import (
+    _phi_gradient_laplacian_complex,
+    _phi_gradient_laplacian_real,
+)
 
 
 def _covering_tiles(cell_size=0.05, tile_size=8, extent=2.0):
@@ -97,3 +101,32 @@ def test_masked_tiles_do_not_contribute():
     assert full.magnification > 0.0
     assert empty.magnification == 0.0
     np.testing.assert_array_equal(empty.moments, jnp.zeros(3))
+
+
+def test_analytic_phi_laplacian_matches_complex_autodiff():
+    arguments = (0.37, -0.42, 0.11, -0.07, 0.93, 0.013, 0.04)
+    real = _phi_gradient_laplacian_real(*arguments)
+    complex_autodiff = _phi_gradient_laplacian_complex(*arguments)
+    np.testing.assert_allclose(
+        real,
+        complex_autodiff,
+        rtol=2.0e-12,
+        atol=2.0e-12,
+    )
+
+
+def test_boundary_capacity_must_cover_a_whole_tile(support):
+    origins, mask = support
+    with pytest.raises(ValueError, match="boundary_capacity"):
+        binary_inverse_ray_fixed_support(
+            origins,
+            mask,
+            0.05,
+            0.2,
+            0.1,
+            1.2,
+            0.1,
+            0.2,
+            tile_size=8,
+            boundary_capacity=32,
+        )

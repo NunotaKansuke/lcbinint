@@ -521,27 +521,54 @@ forward times were:
 
 | Engine | 64-epoch forward |
 | --- | ---: |
-| native `lcbinint`, fixed Cartesian 64 | 137 ms |
-| JAX conditional trajectory, default 96/4096 | 405 ms |
-| VBMicrolensing | 3.25 s |
-| microLUX, 80 annuli | 4.25 s |
+| native `lcbinint`, fixed Cartesian 64 | 134 ms |
+| JAX conditional trajectory, default 96/4096 | 680 ms |
+| VBMicrolensing | 2.98 s |
+| microLUX, 80 annuli | 16.59 s |
 
-Thus this pilot is 10.5 times faster than microLUX and 2.95 times slower than
-native, at the matched requested value budget.  For a 16-epoch subset, JAX
-forward/JVP/value-plus-gradient took 105/130/459 ms; microLUX took
-1.09/16.3/32.6 s.  Compilation is excluded from all these warm timings.  The
-reproducible harness is
+Thus this pilot is 24.4 times faster than microLUX after the curved-boundary
+gradient correction described below, and 5.1 times slower than native.  On a
+16-epoch subset, JAX separation-JVP/value-plus-gradient took 359 ms/1.80 s;
+microLUX took 16.27/31.56 s.  Compilation is excluded from all these warm
+timings.  The reproducible harness is
 `tests/diagnostics/jax_ir/benchmark_trajectory.py`.
 
 The two hex/Cartesian switch boundaries in a 32-point replay were value-safe:
 the four values adjacent to the boundaries used at most 0.43 of their error
-budgets.  Source-coordinate gradients are less mature.  Against a VBM central
-difference, 29/32 default-bucket gradients passed the pilot budget; three
-near-caustic points failed, and increasing the raster to 128 or 192 did not
-make the hardest point converge.  This is not a dispatcher-boundary jump.
-Near fold entry/exit, the finite-source derivative and the discrete support
-need a dedicated convergence diagnostic before gradient validity can be
-claimed.
+budgets.
+
+The initial source-coordinate gradient replay appeared to pass only 29/32
+points.  The largest reported failure was a calibration error: its caustic
+distance was \(0.984\rho\), while the reference step was \(0.03\rho\), so the
+central difference straddled the narrow limb-contact layer.  The VBM estimate
+changed from 160.24 at that step to 149.58--149.67 for local steps
+\(10^{-5}\ldots3\times10^{-5}\); JAX AD gave 149.56.
+
+The other two misses exposed a real integration defect.  Boundary cells used
+only an affine reconstruction of
+\(\phi=1-|u(z)-u_0|^2/\rho^2\), and fully interior limb-darkening cells omitted
+the Laplacian term in their second-order moment.  Worse, a tile with no
+boundary cells fell back to a different midpoint rule.  The corrected kernel:
+
+- uses the harmonic lens-map identity
+  \(\Delta\phi=-2\|J_u\|_F^2/\rho^2\), requiring no extra lens-map call;
+- includes both \(f'(\phi)\Delta\phi\) and
+  \(f''(\phi)|\nabla\phi|^2\) in every interior brightness moment;
+- applies one consistent interior rule in boundary and boundary-free tiles;
+- evaluates only boundary cells on a fixed 4-by-4 subcell rule, retaining
+  their true curved lens map rather than repeatedly enlarging the full raster;
+- treats fully-inside cells with large relative variation as part of the
+  detailed band for the singular \(\phi^{1/4}\) square-root profile;
+- packs detailed cells in 8/16/32/64/128/256 static tiers, with capacity for
+  every cell in a tile; there is no overflow retry or lower-order fallback.
+
+With the corrected local reference, the same 32-point trajectory passes all
+32 gradient budgets; the maximum budget ratio is 0.88 and the median is 0.02.
+The 64-point value replay also has zero failures and a maximum budget ratio of
+0.10.  Replaying all 141 trusted rows from the broader dispatcher pilot also
+removed the six previous support-valid marginal misses; the remaining 21
+invalid rows are still explicitly failed support cases.  No resolution or
+source-plane fallback is involved in this correction.
 
 ## Current limitations
 
@@ -555,8 +582,8 @@ claimed.
 - The first 64/4096 to 128/16384 Cartesian retry is calibrated only on the
   pilot sweep.  A larger held-out trajectory sweep is still required before
   enabling it by default.
-- Trajectory values have a calibrated medium bucket, but near-caustic
-  gradients do not yet carry a per-epoch convergence flag.
+- The corrected trajectory-gradient evidence is still one resonant pilot; a
+  held-out close/resonant/wide gradient sweep remains required.
 - Very small image components may still be missed by finite source-limb
   sampling; the planned halo and topology sweeps must validate this.
 - The public API is experimental and may change.

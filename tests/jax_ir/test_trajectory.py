@@ -121,3 +121,53 @@ def test_expanded_cartesian_attempt_is_reported():
     np.testing.assert_array_equal(result.support_valid, (True,))
     np.testing.assert_array_equal(result.used_expanded_cartesian, (True,))
     np.testing.assert_array_equal(result.attempted_counts, (0, 1, 1, 1))
+
+
+def test_curved_boundary_gradients_match_local_vbm_references():
+    source_x = jnp.asarray((0.5096774193548388, 0.6387096774193548, 0.7161290322580645))
+    source_y = jnp.full(source_x.shape, 0.04)
+
+    def loss(active_x):
+        return jnp.sum(
+            binary_magnification_trajectory(
+                active_x,
+                source_y,
+                1.2,
+                0.1,
+                0.02,
+                0.4,
+                0.0,
+                source_plane_fallback=False,
+                moment_mode="linear",
+            ).magnification
+        )
+
+    gradient = jax.grad(loss)(source_x)
+    reference = jnp.asarray((149.61, 7.4339348, 0.1912601))
+    budget = 1.0e-3 + 5.0e-3 * jnp.maximum(jnp.abs(reference), 1.0)
+    assert bool(jnp.all(jnp.abs(gradient - reference) <= budget))
+
+
+def test_square_root_limb_gradient_uses_detailed_inside_band():
+    source_x = jnp.asarray((0.5096774193548388, 0.6387096774193548, 0.7161290322580645))
+    source_y = jnp.full(source_x.shape, 0.04)
+
+    def loss(active_x):
+        return jnp.sum(
+            binary_magnification_trajectory(
+                active_x,
+                source_y,
+                1.2,
+                0.1,
+                0.02,
+                0.3,
+                0.2,
+                source_plane_fallback=False,
+                moment_mode="two_coefficient",
+            ).magnification
+        )
+
+    gradient = jax.grad(loss)(source_x)
+    native_reference = jnp.asarray((149.9868, 7.429045, 0.1992056))
+    budget = 1.0e-3 + 5.0e-3 * jnp.maximum(jnp.abs(native_reference), 1.0)
+    assert bool(jnp.all(jnp.abs(gradient - native_reference) <= budget))
