@@ -25,6 +25,7 @@ import VBMicrolensing  # noqa: E402
 import lcbinint  # noqa: E402
 import microlux  # noqa: E402
 from lcbinint_jax import (  # noqa: E402
+    binary_magnification_auto,
     binary_inverse_ray_linear,
     binary_inverse_ray_uniform,
 )
@@ -140,6 +141,22 @@ def inverse_ray_value(parameters, profile, resolution, capacity):
         tile_capacity=capacity,
         limb_samples=32,
     ).magnification
+
+
+def hybrid_value(parameters, profile, resolution, capacity):
+    limb_c = 0.0 if profile == "uniform" else LIMB_C
+    return binary_magnification_auto(
+        *parameters,
+        limb_c,
+        0.0,
+        absolute_tolerance=1.0e-4,
+        relative_tolerance=1.0e-4,
+        resolution=resolution,
+        tile_size=16,
+        tile_capacity=capacity,
+        limb_samples=16,
+        moment_mode=profile,
+    )
 
 
 def native_function(parameters, profile, source_bins):
@@ -271,6 +288,18 @@ def main():
     )
     inverse_gradient = jax.jit(jax.value_and_grad(inverse))
 
+    def hybrid(active):
+        return hybrid_value(active, args.profile, resolution, capacity).magnification
+
+    hybrid_forward = jax.jit(hybrid)
+    hybrid_jvp = jax.jit(
+        lambda active, direction: jax.jvp(hybrid, (active,), (direction,))[1]
+    )
+    hybrid_gradient = jax.jit(jax.value_and_grad(hybrid))
+    hybrid_result = hybrid_value(parameters, args.profile, resolution, capacity)
+    jax.block_until_ready(hybrid_result)
+    hybrid_error = abs(float(hybrid_result.magnification) - reference)
+
     n_annuli = case["microlux_annuli"]
 
     def micro(active):
@@ -338,6 +367,23 @@ def main():
                 inverse_jvp, (parameters, DIRECTION), args.repeat
             ),
             "value_and_grad": timed_jax(inverse_gradient, (parameters,), args.repeat),
+        },
+        "jax_hybrid": {
+            "value": float(hybrid_result.magnification),
+            "absolute_error": hybrid_error,
+            "passes": hybrid_error <= budget,
+            "method": int(hybrid_result.method),
+            "method_names": {
+                "0": "hexadecapole",
+                "1": "cartesian",
+                "2": "polar",
+            },
+            "estimated_error": float(hybrid_result.estimated_error),
+            "forward": timed_jax(hybrid_forward, (parameters,), args.repeat),
+            "directional_jvp": timed_jax(
+                hybrid_jvp, (parameters, DIRECTION), args.repeat
+            ),
+            "value_and_grad": timed_jax(hybrid_gradient, (parameters,), args.repeat),
         },
         "microlux": {
             "tol": 1.0e-4,

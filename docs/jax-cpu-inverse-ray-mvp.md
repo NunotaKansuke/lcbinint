@@ -372,6 +372,42 @@ Far-field and uniform epochs still favor contour or point/multipole methods;
 that remaining gap belongs in the hybrid dispatcher rather than in additional
 inverse-ray rasterization.
 
+## Differentiable multipole fast path
+
+The CPU dispatcher now has the missing far-field route.  The
+`binary_hexadecapole` kernel evaluates the source centre and the same twelve
+ring samples used by native `lcbinint`, then forms its quadrupole and
+hexadecapole corrections including the linear and square-root limb-darkening
+factors.  Image roots are found by the existing bounded solver in the forward
+pass.  Their JVP is supplied by implicit differentiation of the two-dimensional
+lens equation, so reverse mode does not differentiate the root iterations.
+
+`binary_magnification_auto` first evaluates that expansion.  It accepts the
+result only when all thirteen samples have the same physical-image count, all
+roots are valid, the second- and fourth-order corrections remain hierarchically
+ordered, and four times the absolute hexadecapole correction fits the requested
+error budget.  Rejected epochs continue through the existing Cartesian/polar
+dispatcher.  The discrete decision is stopped-gradient; the selected physical
+magnification remains differentiable.
+
+On the planetary far-field benchmark
+\((x,y,s,q,\rho)=(0.3,0.4,1.4,10^{-3},0.01)\), \(c=0.4\), the expansion gives
+2.17750899, agreeing with the high-accuracy VBMicrolensing value
+2.1775089915.  One warm development-machine run measured:
+
+| Kernel | Forward | Directional JVP | Value + gradient |
+| --- | ---: | ---: | ---: |
+| direct hexadecapole | 0.65 ms | 0.78 ms | 1.09 ms |
+| full hybrid dispatcher | 1.34 ms | 1.18 ms | 2.38 ms |
+| Cartesian inverse ray | 3.39 ms | 4.48 ms | 17.38 ms |
+
+The earlier conservative four-engine run measured 7.91/10.73/36.16 ms for
+microLUX on this case.  The hybrid route therefore removes the known far-field
+loss without weakening the caustic inverse-ray path.  Its current
+self-consistency and topology checks are empirical guards, not a proof that an
+unsampled caustic cannot lie inside a source; the held-out dispatcher
+calibration remains required.
+
 ## Current limitations
 
 - Binary lenses only.

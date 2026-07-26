@@ -66,6 +66,17 @@ class AutoInverseRayResult(NamedTuple):
     used_polar: jax.Array
 
 
+class HybridMagnificationResult(NamedTuple):
+    """Result from the point/multipole/Cartesian/polar dispatcher."""
+
+    magnification: jax.Array
+    method: jax.Array
+    estimated_error: jax.Array
+    support_valid: jax.Array
+    used_multipole: jax.Array
+    used_polar: jax.Array
+
+
 class ConvergenceResult(NamedTuple):
     """Coarse/fine convergence diagnostics for normalized observables."""
 

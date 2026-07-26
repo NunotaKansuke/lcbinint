@@ -10,8 +10,13 @@ from .discovery import discover_binary_macro_tiles
 from .images import binary_images
 from .integrate import binary_inverse_ray_fixed_support
 from .lens import binary_lens_map_and_derivatives_real
+from .multipole import binary_hexadecapole
 from .polar import binary_inverse_ray_polar
-from .types import AutoInverseRayResult, InverseRayResult
+from .types import (
+    AutoInverseRayResult,
+    HybridMagnificationResult,
+    InverseRayResult,
+)
 
 
 def _binary_inverse_ray(
@@ -348,4 +353,137 @@ def binary_inverse_ray_auto(
         polar_path,
         cartesian_or_fallback,
         None,
+    )
+
+
+@partial(
+    jax.jit,
+    static_argnames=(
+        "tile_size",
+        "tile_capacity",
+        "limb_samples",
+        "kernel",
+        "polar_resolution",
+        "polar_angular_bins",
+        "polar_radial_capacity",
+        "polar_band_capacity",
+        "polar_limb_samples",
+        "polar_angular_chunk_size",
+        "moment_mode",
+    ),
+)
+def binary_magnification_auto(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    absolute_tolerance=1.0e-4,
+    relative_tolerance=1.0e-4,
+    multipole_safety_factor=4.0,
+    resolution=64,
+    tile_size=16,
+    tile_capacity=1024,
+    limb_samples=16,
+    kernel="real",
+    polar_resolution=128,
+    polar_angular_bins=4096,
+    polar_radial_capacity=256,
+    polar_band_capacity=4,
+    polar_limb_samples=32,
+    polar_angular_chunk_size=1024,
+    polar_magnification_threshold=80.0,
+    polar_max_source_radius=0.01,
+    moment_mode="two_coefficient",
+):
+    """Dispatch safely-far epochs to a differentiable hexadecapole expansion.
+
+    Method codes are 0 for hexadecapole, 1 for Cartesian inverse rays, and 2
+    for polar inverse rays. The multipole error check is deliberately
+    conservative but remains an empirical guard rather than a proof that no
+    unresolved caustic lies inside the source.
+    """
+
+    require_x64()
+    hexadecapole = binary_hexadecapole(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        limb_c,
+        limb_d,
+    )
+    budget = absolute_tolerance + relative_tolerance * jnp.maximum(
+        jnp.abs(hexadecapole.magnification), 1.0
+    )
+    correction_scale = jnp.maximum(
+        jnp.abs(hexadecapole.quadrupole_correction), budget
+    )
+    expansion_well_ordered = (
+        hexadecapole.estimated_error <= 0.25 * correction_scale
+    ) & (
+        jnp.abs(hexadecapole.quadrupole_correction)
+        <= 0.1 * jnp.maximum(jnp.abs(hexadecapole.magnification), 1.0)
+    )
+    accept_multipole = jax.lax.stop_gradient(
+        (source_radius >= 0.0)
+        & hexadecapole.topology_stable
+        & ~hexadecapole.root_failure
+        & jnp.isfinite(hexadecapole.magnification)
+        & expansion_well_ordered
+        & (
+            multipole_safety_factor * hexadecapole.estimated_error
+            <= budget
+        )
+    )
+
+    def multipole_path(_):
+        return HybridMagnificationResult(
+            magnification=hexadecapole.magnification,
+            method=jnp.asarray(0, dtype=jnp.int32),
+            estimated_error=hexadecapole.estimated_error,
+            support_valid=jnp.asarray(True),
+            used_multipole=jnp.asarray(True),
+            used_polar=jnp.asarray(False),
+        )
+
+    def inverse_ray_path(_):
+        result = binary_inverse_ray_auto(
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            resolution=resolution,
+            tile_size=tile_size,
+            tile_capacity=tile_capacity,
+            limb_samples=limb_samples,
+            kernel=kernel,
+            polar_resolution=polar_resolution,
+            polar_angular_bins=polar_angular_bins,
+            polar_radial_capacity=polar_radial_capacity,
+            polar_band_capacity=polar_band_capacity,
+            polar_limb_samples=polar_limb_samples,
+            polar_angular_chunk_size=polar_angular_chunk_size,
+            polar_magnification_threshold=polar_magnification_threshold,
+            polar_max_source_radius=polar_max_source_radius,
+            moment_mode=moment_mode,
+        )
+        return HybridMagnificationResult(
+            magnification=result.magnification,
+            method=jnp.where(result.used_polar, 2, 1).astype(jnp.int32),
+            estimated_error=jnp.asarray(jnp.nan),
+            support_valid=result.support_valid,
+            used_multipole=jnp.asarray(False),
+            used_polar=result.used_polar,
+        )
+
+    return jax.lax.cond(
+        accept_multipole, multipole_path, inverse_ray_path, None
     )
