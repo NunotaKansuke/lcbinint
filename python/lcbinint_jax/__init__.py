@@ -42,6 +42,14 @@ from .source_plane import (
     binary_source_plane_quadrature,
 )
 from .trajectory import binary_magnification_trajectory
+from .triple import (
+    TripleInverseRayResult,
+    TripleLensGeometry,
+    triple_inverse_ray_dense,
+    triple_lens_geometry,
+    triple_lens_map_and_derivatives_real,
+    triple_lens_map_real,
+)
 from .higher_order import (
     EarthEphemeris,
     BinarySourceMagnificationResult,
@@ -85,6 +93,8 @@ __all__ = [
     "PolarSupportResult",
     "SourcePlaneQuadratureResult",
     "TrajectoryMagnificationResult",
+    "TripleInverseRayResult",
+    "TripleLensGeometry",
     "TrajectoryGeometry",
     "BinarySourceMagnificationResult",
     "BinarySourceTrajectory",
@@ -132,5 +142,9 @@ __all__ = [
     "load_earth_ephemeris",
     "space_parallax_offsets",
     "terrestrial_parallax_offsets",
+    "triple_inverse_ray_dense",
+    "triple_lens_geometry",
+    "triple_lens_map_and_derivatives_real",
+    "triple_lens_map_real",
     "xallarap_offsets",
 ]

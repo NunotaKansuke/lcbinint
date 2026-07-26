@@ -720,9 +720,40 @@ same trajectory with circular lens motion. Geometry evolution was negligible
 in forward mode and added about five percent to this reverse-mode measurement;
 the dominant cost remains magnification integration.
 
+## Triple-lens inverse-ray milestone
+
+The first differentiable triple-lens inverse-ray path is implemented in
+`lcbinint_jax.triple`. It includes both native center-of-mass and VBM geometry
+conventions, a real-arithmetic three-lens map with analytic image-plane
+Jacobian, source-boundary cell moments, and a row-streamed Cartesian
+integrator. The complete lens map remains inside JAX, so derivatives propagate
+through source coordinates, both mass ratios, both separations, the tertiary
+angle, source radius, and brightness coefficients.
+
+This first kernel intentionally integrates one explicit dense square rather
+than hiding a degree-10 root/topology solver in the support decision. It
+reports invalid support when the square is smaller than a conservative
+preimage-radius bound or a contributing cell reaches its edge. Thus the
+correctness contract is explicit: enlarge `image_extent` whenever
+`support_valid` is false. The next triple-specific performance stage can
+replace the dense square with stopped-gradient root/caustic support without
+changing the differentiable lens-map and moment kernels.
+
+The zero-tertiary-mass map agrees with the binary map and all six first
+derivatives to \(3\times10^{-15}\). For the initial uniform-source triple
+reference
+\((s,q,q_2,s_2,\psi,\rho)=(1,0.1,0.03,0.7,0.8,0.2)\), a 512-by-512 square
+gives 3.14205 versus native `lcbinint` 3.13545 (0.21 percent), and the
+source-coordinate AD derivative agrees with a local finite difference to
+0.1 percent. This is a correctness MVP, not yet a production triple
+dispatcher or a speed claim.
+
 ## Current limitations
 
-- Binary lenses only.
+- The calibrated fast dispatcher and C++ trajectory FFI are binary-lens only.
+  Triple lenses currently use the dense differentiable correctness kernel
+  described above; degree-10 root support, caustic probes, adaptive tiling,
+  and a triple C++ FFI remain future performance work.
 - The current `support_valid` flag detects root and tile-capacity failures; it
   is not a numerical-accuracy or gradient-convergence guarantee; use the
   coarse/fine diagnostic for that decision.
