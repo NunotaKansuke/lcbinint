@@ -130,3 +130,47 @@ def test_boundary_capacity_must_cover_a_whole_tile(support):
             tile_size=8,
             boundary_capacity=32,
         )
+
+
+def test_adaptive_boundary_rule_tracks_full_four_by_four_rule(support):
+    parameters = jnp.asarray([0.2, 0.1, 1.2, 0.1, 0.2, 0.3, 0.2])
+    origins, mask = support
+    adaptive = binary_inverse_ray_fixed_support(
+        origins,
+        mask,
+        0.05,
+        *parameters,
+        tile_size=8,
+        boundary_subdivision=0,
+    )
+    full = binary_inverse_ray_fixed_support(
+        origins,
+        mask,
+        0.05,
+        *parameters,
+        tile_size=8,
+        boundary_subdivision=4,
+    )
+    np.testing.assert_allclose(
+        adaptive.magnification,
+        full.magnification,
+        rtol=3.0e-4,
+        atol=3.0e-4,
+    )
+
+
+def test_adaptive_boundary_threshold_must_be_positive(support):
+    origins, mask = support
+    with pytest.raises(ValueError, match="boundary_adaptive_threshold"):
+        binary_inverse_ray_fixed_support(
+            origins,
+            mask,
+            0.05,
+            0.2,
+            0.1,
+            1.2,
+            0.1,
+            0.2,
+            tile_size=8,
+            boundary_adaptive_threshold=0.0,
+        )

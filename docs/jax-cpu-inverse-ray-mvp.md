@@ -521,15 +521,16 @@ forward times were:
 
 | Engine | 64-epoch forward |
 | --- | ---: |
-| native `lcbinint`, fixed Cartesian 64 | 134 ms |
-| JAX conditional trajectory, default 96/4096 | 680 ms |
-| VBMicrolensing | 2.98 s |
-| microLUX, 80 annuli | 16.59 s |
+| native `lcbinint`, fixed Cartesian 64 | 135 ms |
+| JAX conditional trajectory, default 96/4096 | 588 ms |
+| VBMicrolensing | 3.12 s |
+| microLUX, 80 annuli | 16.42 s |
 
-Thus this pilot is 24.4 times faster than microLUX after the curved-boundary
-gradient correction described below, and 5.1 times slower than native.  On a
-16-epoch subset, JAX separation-JVP/value-plus-gradient took 359 ms/1.80 s;
-microLUX took 16.27/31.56 s.  Compilation is excluded from all these warm
+Thus this pilot is 27.9 times faster than microLUX after the curved-boundary
+gradient correction and profile-specific quadrature described below, and 4.4
+times slower than native.  On a 16-epoch subset, JAX
+separation-JVP/value-plus-gradient took 283 ms/1.15 s; microLUX took
+15.45/35.61 s.  Compilation is excluded from all these warm
 timings.  The reproducible harness is
 `tests/diagnostics/jax_ir/benchmark_trajectory.py`.
 
@@ -555,8 +556,9 @@ boundary cells fell back to a different midpoint rule.  The corrected kernel:
 - includes both \(f'(\phi)\Delta\phi\) and
   \(f''(\phi)|\nabla\phi|^2\) in every interior brightness moment;
 - applies one consistent interior rule in boundary and boundary-free tiles;
-- evaluates only boundary cells on a fixed 4-by-4 subcell rule, retaining
-  their true curved lens map rather than repeatedly enlarging the full raster;
+- evaluates only detailed cells on a true curved lens map, using a calibrated
+  3-by-3 subcell rule for uniform/linear profiles and retaining 4-by-4 when
+  the singular square-root term is active;
 - treats fully-inside cells with large relative variation as part of the
   detailed band for the singular \(\phi^{1/4}\) square-root profile;
 - packs detailed cells in 8/16/32/64/128/256 static tiers, with capacity for
@@ -569,6 +571,21 @@ The 64-point value replay also has zero failures and a maximum budget ratio of
 removed the six previous support-valid marginal misses; the remaining 21
 invalid rows are still explicitly failed support cases.  No resolution or
 source-plane fallback is involved in this correction.
+
+A subsequent boundary-kernel profile separated quadrature order from support
+resolution.  On the 96 trusted, support-valid Cartesian rows from the frozen
+pilot, replacing 4-by-4 by 2-by-2 introduced no new forward-accuracy failure,
+but the local caustic-gradient replay showed that linear profiles require
+3-by-3 and the square-root term still requires 4-by-4.  The production default
+therefore selects 3-by-3 for uniform/linear profiles and 4-by-4 only when
+`limb_d != 0`.  This selection is static in the automatic Cartesian
+dispatcher, so reverse mode compiles only the selected rule; the general
+fixed-support default remains 4-by-4 for exact agreement with its specialized
+entry points.  The fixed-support research API also exposes
+`boundary_subdivision=0`: it partitions detailed cells by a stopped-gradient
+curvature indicator and evaluates them directly at 2-by-2 or 4-by-4 order.
+That adaptive rule is faster for forward/JVP workloads, but is not the default
+because its extra packed branches made reverse-mode slower.
 
 ## Current limitations
 

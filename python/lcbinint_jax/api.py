@@ -335,6 +335,7 @@ def binary_inverse_ray_auto(
                 tile_size=tile_size,
                 kernel=kernel,
                 moment_mode=moment_mode,
+                boundary_subdivision=(4 if moment_mode == "two_coefficient" else 3),
             )
             return _auto_result(_cartesian_result(discovery, integrated), False)
 

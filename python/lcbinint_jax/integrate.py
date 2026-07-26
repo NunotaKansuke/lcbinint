@@ -108,6 +108,7 @@ def _phi_and_gradient_complex(*args):
         "moment_mode",
         "boundary_capacity",
         "boundary_subdivision",
+        "boundary_adaptive_threshold",
     ),
 )
 def binary_inverse_ray_fixed_support(
@@ -127,11 +128,15 @@ def binary_inverse_ray_fixed_support(
     moment_mode: str = "two_coefficient",
     boundary_capacity: int = 256,
     boundary_subdivision: int = 4,
+    boundary_adaptive_threshold: float = 0.08,
 ) -> FixedSupportResult:
     """Integrate caller-supplied, non-overlapping image-plane macro-tiles.
 
     ``tile_origins`` contains the lower-left physical coordinate of each tile.
     Numerical support and grid geometry are stopped-gradient by design.
+    ``boundary_subdivision=0`` uses 2x2 on low-curvature detailed cells and
+    4x4 where the stopped-gradient curvature indicator exceeds
+    ``boundary_adaptive_threshold``.
     """
 
     require_x64()
@@ -141,8 +146,10 @@ def binary_inverse_ray_fixed_support(
         raise ValueError(
             "moment_mode must be 'uniform', 'linear', or 'two_coefficient'"
         )
-    if boundary_subdivision not in (1, 2, 3, 4):
-        raise ValueError("boundary_subdivision must be 1, 2, 3, or 4")
+    if boundary_subdivision not in (0, 1, 2, 3, 4):
+        raise ValueError("boundary_subdivision must be 0, 1, 2, 3, or 4")
+    if boundary_adaptive_threshold <= 0.0:
+        raise ValueError("boundary_adaptive_threshold must be positive")
     if boundary_capacity < tile_size * tile_size:
         raise ValueError(
             "boundary_capacity must hold every cell in one tile "
@@ -252,84 +259,82 @@ def binary_inverse_ray_fixed_support(
                         jnp.zeros_like(interior_moments),
                     )
 
-                    def integrate_boundary_slots(slot_capacity):
+                    def boundary_moments(index, subdivision):
+                        if subdivision == 1:
+                            moments, _, _ = resolved_moments(
+                                phi[index],
+                                gradient_x[index],
+                                gradient_y[index],
+                                cell_size,
+                            )
+                            return moments
+
+                        subcell_size = cell_size / subdivision
+                        one_dimensional_subcell_offsets = (
+                            (
+                                jnp.arange(
+                                    subdivision,
+                                    dtype=cell_size.dtype,
+                                )
+                                + 0.5
+                            )
+                            / subdivision
+                            - 0.5
+                        ) * cell_size
+                        subcell_offset_x, subcell_offset_y = jnp.meshgrid(
+                            one_dimensional_subcell_offsets,
+                            one_dimensional_subcell_offsets,
+                            indexing="xy",
+                        )
+                        subcell_x = image_x[index] + subcell_offset_x.ravel()
+                        subcell_y = image_y[index] + subcell_offset_y.ravel()
+                        (
+                            sub_phi,
+                            sub_gradient_x,
+                            sub_gradient_y,
+                            _,
+                        ) = jax.vmap(
+                            lambda x, y: phi_kernel(
+                                x,
+                                y,
+                                source_x,
+                                source_y,
+                                separation,
+                                mass_ratio,
+                                source_radius,
+                            )
+                        )(subcell_x, subcell_y)
+                        subcell_moments, _, _ = jax.vmap(
+                            lambda value, dx, dy: resolved_moments(
+                                value,
+                                dx,
+                                dy,
+                                subcell_size,
+                            )
+                        )(
+                            sub_phi,
+                            sub_gradient_x,
+                            sub_gradient_y,
+                        )
+                        return jnp.sum(subcell_moments, axis=0)
+
+                    def integrate_boundary_slots(
+                        slot_capacity,
+                        selection,
+                        selection_count,
+                        subdivision,
+                    ):
                         boundary_indices = jnp.nonzero(
-                            detailed,
+                            selection,
                             size=slot_capacity,
                             fill_value=0,
                         )[0]
                         boundary_slot_mask = (
-                            jnp.arange(slot_capacity, dtype=jnp.int32) < boundary_count
+                            jnp.arange(slot_capacity, dtype=jnp.int32) < selection_count
                         )
-                        if boundary_subdivision == 1:
-                            packed_moments, _, _ = jax.vmap(
-                                lambda value, dx, dy: resolved_moments(
-                                    value, dx, dy, cell_size
-                                )
-                            )(
-                                phi[boundary_indices],
-                                gradient_x[boundary_indices],
-                                gradient_y[boundary_indices],
-                            )
-                        else:
-                            subcell_size = cell_size / boundary_subdivision
-                            one_dimensional_subcell_offsets = (
-                                (
-                                    jnp.arange(
-                                        boundary_subdivision,
-                                        dtype=cell_size.dtype,
-                                    )
-                                    + 0.5
-                                )
-                                / boundary_subdivision
-                                - 0.5
-                            ) * cell_size
-                            subcell_offset_x, subcell_offset_y = jnp.meshgrid(
-                                one_dimensional_subcell_offsets,
-                                one_dimensional_subcell_offsets,
-                                indexing="xy",
-                            )
-                            subcell_offset_x = subcell_offset_x.ravel()
-                            subcell_offset_y = subcell_offset_y.ravel()
-
-                            def subdivided_boundary_moments(index):
-                                subcell_x = image_x[index] + subcell_offset_x
-                                subcell_y = image_y[index] + subcell_offset_y
-                                (
-                                    sub_phi,
-                                    sub_gradient_x,
-                                    sub_gradient_y,
-                                    _,
-                                ) = jax.vmap(
-                                    lambda x, y: phi_kernel(
-                                        x,
-                                        y,
-                                        source_x,
-                                        source_y,
-                                        separation,
-                                        mass_ratio,
-                                        source_radius,
-                                    )
-                                )(
-                                    subcell_x, subcell_y
-                                )
-                                subcell_moments, _, _ = jax.vmap(
-                                    lambda value, dx, dy: resolved_moments(
-                                        value,
-                                        dx,
-                                        dy,
-                                        subcell_size,
-                                    )
-                                )(
-                                    sub_phi,
-                                    sub_gradient_x,
-                                    sub_gradient_y,
-                                )
-                                return jnp.sum(subcell_moments, axis=0)
-
-                            packed_moments = jax.vmap(subdivided_boundary_moments)(
-                                boundary_indices
-                            )
+                        packed_moments = jax.vmap(
+                            lambda index: boundary_moments(index, subdivision)
+                        )(boundary_indices)
                         packed_moments = jnp.where(
                             boundary_slot_mask[:, None],
                             packed_moments,
@@ -343,18 +348,76 @@ def binary_inverse_ray_fixed_support(
                         if tier < boundary_capacity
                     ) + (boundary_capacity,)
 
-                    def select_slot_tier(tiers):
+                    def select_slot_tier(
+                        tiers,
+                        selection,
+                        selection_count,
+                        subdivision,
+                    ):
                         tier = tiers[0]
                         if len(tiers) == 1:
-                            return integrate_boundary_slots(tier)
+                            return integrate_boundary_slots(
+                                tier,
+                                selection,
+                                selection_count,
+                                subdivision,
+                            )
                         return jax.lax.cond(
-                            boundary_count <= tier,
-                            lambda _: integrate_boundary_slots(tier),
-                            lambda _: select_slot_tier(tiers[1:]),
+                            selection_count <= tier,
+                            lambda _: integrate_boundary_slots(
+                                tier,
+                                selection,
+                                selection_count,
+                                subdivision,
+                            ),
+                            lambda _: select_slot_tier(
+                                tiers[1:],
+                                selection,
+                                selection_count,
+                                subdivision,
+                            ),
                             operand=None,
                         )
 
-                    packed_sum = select_slot_tier(slot_tiers)
+                    if boundary_subdivision == 0:
+                        curvature_ratio = (
+                            jnp.abs(laplacian) * cell_size * cell_size
+                        ) / jnp.maximum(extent, 1.0e-30)
+                        high_order = jax.lax.stop_gradient(
+                            detailed & (curvature_ratio > boundary_adaptive_threshold)
+                        )
+                        low_order = detailed & ~high_order
+                        low_order_count = jnp.sum(low_order, dtype=jnp.int32)
+                        high_order_count = jnp.sum(high_order, dtype=jnp.int32)
+                        packed_sum = jax.lax.cond(
+                            low_order_count > 0,
+                            lambda _: select_slot_tier(
+                                slot_tiers,
+                                low_order,
+                                low_order_count,
+                                2,
+                            ),
+                            lambda _: jnp.zeros(moment_count, dtype=phi.dtype),
+                            operand=None,
+                        )
+                        packed_sum = packed_sum + jax.lax.cond(
+                            high_order_count > 0,
+                            lambda _: select_slot_tier(
+                                slot_tiers,
+                                high_order,
+                                high_order_count,
+                                4,
+                            ),
+                            lambda _: jnp.zeros_like(packed_sum),
+                            operand=None,
+                        )
+                    else:
+                        packed_sum = select_slot_tier(
+                            slot_tiers,
+                            detailed,
+                            boundary_count,
+                            boundary_subdivision,
+                        )
                     return (
                         jnp.sum(interior_moments, axis=0) + packed_sum,
                         boundary_count,
