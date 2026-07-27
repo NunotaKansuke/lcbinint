@@ -4744,6 +4744,17 @@ FiniteSourceMagnifier::triple_caustic_branches(
         std::max(settings_.caustic_bins, 32)).branches;
 }
 
+double FiniteSourceMagnifier::triple_caustic_distance_for_source(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    double refine_within) const
+{
+    const auto& caustics = cached_triple_caustic_branches(
+        geometry, settings_.caustic_bins);
+    return magnification::triple_caustic_distance(
+        geometry, caustics, source, refine_within);
+}
+
 std::vector<std::vector<SourcePosition>>
 FiniteSourceMagnifier::triple_critical_curve_branches(
     const model::TripleLensGeometry& geometry) const

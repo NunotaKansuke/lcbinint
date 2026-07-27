@@ -9,9 +9,11 @@ from lcbinint_jax import (
     cpp_triple_hexadecapole_batch_ffi_available,
     cpp_triple_point_batch_ffi_available,
     triple_hexadecapole_batch_ffi,
+    triple_caustic_distance_batch_ffi,
     triple_inverse_ray_adaptive,
     triple_inverse_ray_batch,
     triple_inverse_ray_dense,
+    triple_inverse_ray_polar_batch_ffi,
     triple_lens_geometry,
     triple_lens_map_and_derivatives_real,
     triple_magnification_auto,
@@ -330,7 +332,7 @@ def test_triple_dispatcher_uses_point_hexadecapole_and_inverse_ray():
         0.03,
         moment_mode="uniform",
     )
-    np.testing.assert_array_equal(result.method, (0, 1, 2))
+    np.testing.assert_array_equal(result.method, (0, 1, 4))
     assert bool(jnp.all(jnp.isfinite(result.magnification)))
     assert bool(jnp.all(result.support_valid))
 
@@ -339,7 +341,7 @@ def test_triple_dispatcher_uses_point_hexadecapole_and_inverse_ray():
     not cpp_triple_cartesian_epoch_ffi_available(),
     reason="triple Cartesian FFI is unavailable",
 )
-def test_triple_dispatcher_rejects_high_magnification_multipole():
+def test_triple_dispatcher_uses_caustic_clear_high_magnification_polar():
     result = triple_magnification_auto(
         -0.046038516588439035,
         0.025585304221408988,
@@ -351,9 +353,90 @@ def test_triple_dispatcher_rejects_high_magnification_multipole():
         1.0e-4,
         moment_mode="uniform",
     )
-    assert int(result.method) == 2
+    assert int(result.method) == 3
     assert not bool(result.used_multipole)
     assert bool(result.support_valid)
+
+
+def test_triple_polar_matches_native_and_has_all_parameter_gradients():
+    parameters = jnp.asarray(
+        (
+            -0.046038516588439035,
+            0.025585304221408988,
+            1.0,
+            0.1,
+            1.0e-5,
+            1.0,
+            np.pi / 2.0,
+            1.0e-4,
+            0.5,
+            0.0,
+        )
+    )
+
+    def magnification(values):
+        return triple_inverse_ray_polar_batch_ffi(
+            values[:1],
+            values[1:2],
+            *values[2:],
+            resolution=64,
+            limb_samples=64,
+        ).magnification[0]
+
+    actual, gradient = jax.value_and_grad(magnification)(parameters)
+    assert float(actual) == pytest.approx(152.7134857937064, rel=1.0e-4)
+    reference_gradient = np.asarray(
+        (
+            -2.01793265e5,
+            5.84961956e4,
+            -1.84630516e4,
+            -9.65335234e4,
+            -1.01124116e5,
+            -5.67472490e-1,
+            -1.15738797,
+            2.07718742e4,
+            -2.15022440e-1,
+            -1.40940954e-1,
+        )
+    )
+    np.testing.assert_allclose(
+        gradient, reference_gradient, rtol=3.0e-3, atol=3.0e-4
+    )
+
+
+def test_triple_caustic_distance_routes_known_polar_case():
+    distance = triple_caustic_distance_batch_ffi(
+        jnp.asarray((-0.046038516588439035,)),
+        jnp.asarray((0.025585304221408988,)),
+        1.0,
+        0.1,
+        1.0e-5,
+        1.0,
+        np.pi / 2.0,
+        1.0e-4,
+    )[0]
+    assert float(distance / 1.0e-4) == pytest.approx(3.5509, rel=2.0e-3)
+
+
+def test_triple_dispatcher_handles_extreme_mass_ratio_caustic_anchor():
+    result = triple_magnification_auto(
+        -1.0615335967922759e-6,
+        -1.1148168901668208e-7,
+        0.3,
+        1.0e-5,
+        1.0e-6,
+        0.08,
+        0.0,
+        1.0e-5,
+        0.5,
+        0.0,
+    )
+    assert int(result.method) == 3
+    assert bool(result.support_valid)
+    assert not bool(result.discovery_overflow)
+    assert float(result.magnification) == pytest.approx(
+        212521.81362031004, rel=1.0e-4
+    )
 
 
 def test_triple_dispatcher_keeps_zero_radius_on_point_source_path():

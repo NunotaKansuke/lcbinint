@@ -153,6 +153,10 @@ public:
         const model::TripleLensGeometry& geometry) const;
     std::vector<std::vector<SourcePosition>> triple_critical_curve_branches(
         const model::TripleLensGeometry& geometry) const;
+    double triple_caustic_distance_for_source(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source,
+        double refine_within = std::numeric_limits<double>::infinity()) const;
 
 private:
     void ensure_binary_caustic_cache(

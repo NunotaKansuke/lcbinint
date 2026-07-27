@@ -43,8 +43,15 @@ _FFI_TRIPLE_POINT_BATCH_TARGET = "lcbinint_jax_triple_point_batch_f64_v1"
 _FFI_TRIPLE_POINT_BATCH_JACOBIAN_TARGET = (
     "lcbinint_jax_triple_point_batch_jacobian_f64_v1"
 )
+_FFI_TRIPLE_CAUSTIC_DISTANCE_BATCH_TARGET = (
+    "lcbinint_jax_triple_caustic_distance_batch_f64_v1"
+)
 _FFI_POLAR_EPOCH_TARGET = "lcbinint_jax_polar_epoch_f64_v1"
 _FFI_POLAR_EPOCH_JACOBIAN_TARGET = "lcbinint_jax_polar_epoch_jacobian_f64_v1"
+_FFI_TRIPLE_POLAR_BATCH_TARGET = "lcbinint_jax_triple_polar_batch_f64_v1"
+_FFI_TRIPLE_POLAR_BATCH_JACOBIAN_TARGET = (
+    "lcbinint_jax_triple_polar_batch_jacobian_f64_v1"
+)
 _FFI_TRAJECTORY_TARGET = "lcbinint_jax_trajectory_f64_v1"
 _FFI_TRAJECTORY_JACOBIAN_TARGET = "lcbinint_jax_trajectory_jacobian_f64_v1"
 _MOMENT_COUNTS = {
@@ -528,6 +535,22 @@ def _register_triple_point_batch_ffi():
 
 
 @lru_cache(maxsize=1)
+def _register_triple_caustic_distance_batch_ffi():
+    native = _native_module()
+    try:
+        capsule = native._jax_ir.triple_caustic_distance_batch_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the triple caustic-distance FFI"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_TRIPLE_CAUSTIC_DISTANCE_BATCH_TARGET,
+        capsule,
+        platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
 def _register_polar_epoch_ffi():
     native = _native_module()
     try:
@@ -542,6 +565,26 @@ def _register_polar_epoch_ffi():
     )
     jax.ffi.register_ffi_target(
         _FFI_POLAR_EPOCH_JACOBIAN_TARGET,
+        jacobian,
+        platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_triple_polar_batch_ffi():
+    native = _native_module()
+    try:
+        forward = native._jax_ir.triple_polar_batch_forward_ffi()
+        jacobian = native._jax_ir.triple_polar_batch_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the triple polar batch FFI"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_TRIPLE_POLAR_BATCH_TARGET, forward, platform="cpu"
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_TRIPLE_POLAR_BATCH_JACOBIAN_TARGET,
         jacobian,
         platform="cpu",
     )
@@ -1768,6 +1811,443 @@ def triple_point_source_batch_ffi(
         source_x,
         source_y,
         *scalars,
+    )
+
+
+def triple_caustic_distance_batch_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    *,
+    convention="center_of_mass",
+    caustic_bins=1400,
+    refine_factor=6.0,
+):
+    """Return stopped-gradient native triple caustic distances."""
+
+    require_x64()
+    if convention not in ("center_of_mass", "vbm"):
+        raise ValueError("convention must be 'center_of_mass' or 'vbm'")
+    if caustic_bins < 64 or refine_factor < 0.0:
+        raise ValueError("invalid caustic distance configuration")
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    if source_x.ndim != 1 or source_y.shape != source_x.shape:
+        raise ValueError("source_x and source_y must have the same 1-D shape")
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+            source_radius,
+        )
+    )
+    source_x = jax.lax.stop_gradient(source_x)
+    source_y = jax.lax.stop_gradient(source_y)
+    scalars = tuple(jax.lax.stop_gradient(value) for value in scalars)
+    _register_triple_caustic_distance_batch_ffi()
+    result = jax.ffi.ffi_call(
+        _FFI_TRIPLE_CAUSTIC_DISTANCE_BATCH_TARGET,
+        jax.ShapeDtypeStruct(source_x.shape, jnp.float64),
+        vmap_method="sequential",
+    )(
+        source_x,
+        source_y,
+        *scalars,
+        convention=np.int64(0 if convention == "center_of_mass" else 1),
+        caustic_bins=np.int64(caustic_bins),
+        refine_factor=np.float64(refine_factor),
+    )
+    return jax.lax.stop_gradient(result)
+
+
+def _triple_polar_batch_call(
+    target,
+    configuration,
+    arguments,
+    include_jacobian,
+):
+    *_, moment_count = configuration
+    batch_size = arguments[0].shape[0]
+    outputs = (
+        jax.ShapeDtypeStruct((batch_size,), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size, moment_count), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size,), jnp.int32),
+        jax.ShapeDtypeStruct((batch_size,), jnp.int32),
+        jax.ShapeDtypeStruct((batch_size,), jnp.int32),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+    )
+    if include_jacobian:
+        outputs += (
+            jax.ShapeDtypeStruct((batch_size, 10), jnp.float64),
+            jax.ShapeDtypeStruct(
+                (batch_size, moment_count, 10), jnp.float64
+            ),
+        )
+    (
+        resolution,
+        angular_bins,
+        radial_capacity,
+        band_capacity,
+        limb_samples,
+        padding_factor,
+        angular_padding_factor,
+        angular_chunk_size,
+        boundary_capacity,
+        boundary_subdivision,
+        convention,
+        _,
+    ) = configuration
+    return jax.ffi.ffi_call(
+        target, outputs, vmap_method="sequential"
+    )(
+        *arguments,
+        resolution=np.int64(resolution),
+        angular_bins=np.int64(angular_bins),
+        radial_capacity=np.int64(radial_capacity),
+        band_capacity=np.int64(band_capacity),
+        limb_samples=np.int64(limb_samples),
+        padding_factor=np.float64(padding_factor),
+        angular_padding_factor=np.float64(angular_padding_factor),
+        angular_chunk_size=np.int64(angular_chunk_size),
+        boundary_capacity=np.int64(boundary_capacity),
+        moment_mode=np.int64(moment_count),
+        boundary_subdivision=np.int64(boundary_subdivision),
+        convention=np.int64(convention),
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=tuple(range(12)))
+def _triple_polar_batch_transformable(
+    resolution,
+    angular_bins,
+    radial_capacity,
+    band_capacity,
+    limb_samples,
+    padding_factor,
+    angular_padding_factor,
+    angular_chunk_size,
+    boundary_capacity,
+    boundary_subdivision,
+    convention,
+    moment_count,
+    source_x,
+    source_y,
+    active,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    limb_c,
+    limb_d,
+):
+    return _FfiCartesianEpochResult(
+        *_triple_polar_batch_call(
+            _FFI_TRIPLE_POLAR_BATCH_TARGET,
+            (
+                resolution,
+                angular_bins,
+                radial_capacity,
+                band_capacity,
+                limb_samples,
+                padding_factor,
+                angular_padding_factor,
+                angular_chunk_size,
+                boundary_capacity,
+                boundary_subdivision,
+                convention,
+                moment_count,
+            ),
+            (
+                source_x,
+                source_y,
+                active,
+                separation,
+                mass_ratio,
+                tertiary_mass_ratio,
+                tertiary_separation,
+                tertiary_angle,
+                source_radius,
+                limb_c,
+                limb_d,
+            ),
+            False,
+        )
+    )
+
+
+@_triple_polar_batch_transformable.defjvp
+def _triple_polar_batch_jvp(*arguments):
+    *configuration, primals, tangents = arguments
+    primal = _FfiCartesianEpochResult(
+        *_triple_polar_batch_call(
+            _FFI_TRIPLE_POLAR_BATCH_TARGET,
+            tuple(configuration),
+            tuple(primals),
+            False,
+        )
+    )
+    convention = configuration[10]
+    moment_count = configuration[11]
+    differentiable_primals = primals[:2] + primals[3:]
+    differentiable_tangents = tangents[:2] + tangents[3:]
+    (_, _), (magnification_tangent, moments_tangent) = jax.jvp(
+        lambda *values: _triple_source_plane_moments_for_polar_gradient(
+            convention,
+            moment_count,
+            primals[2],
+            *values,
+        ),
+        differentiable_primals,
+        differentiable_tangents,
+    )
+    tangent = _FfiCartesianEpochResult(
+        magnification=magnification_tangent,
+        moments=moments_tangent,
+        boundary_cells=jnp.zeros_like(
+            primal.boundary_cells, dtype=jax.dtypes.float0
+        ),
+        active_cells=jnp.zeros_like(
+            primal.active_cells, dtype=jax.dtypes.float0
+        ),
+        tile_count=jnp.zeros_like(
+            primal.tile_count, dtype=jax.dtypes.float0
+        ),
+        overflow=jnp.zeros_like(
+            primal.overflow, dtype=jax.dtypes.float0
+        ),
+        root_failure=jnp.zeros_like(
+            primal.root_failure, dtype=jax.dtypes.float0
+        ),
+    )
+    return primal, tangent
+
+
+def _active_triple_source_plane_moments_for_polar_gradient(
+    convention,
+    moment_count,
+    active,
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    limb_c,
+    limb_d,
+):
+    """Smooth disk moments used by the caustic-clear polar JVP.
+
+    Polar flood support is discrete, so differentiating its membership gives
+    grid-motion noise.  Outside the dispatcher polar safety margin the
+    point-source field is smooth over the source disk.  A fixed equal-area
+    source-plane rule therefore supplies the physical shape derivative while
+    the faster image-plane flood supplies the primal value.
+    """
+
+    _register_triple_point_batch_ffi()
+    radial_bins = 64
+    angular_bins = 4 * radial_bins
+    radial_squared = (
+        jnp.arange(radial_bins, dtype=jnp.float64) + 0.5
+    ) / radial_bins
+    radius = jnp.sqrt(radial_squared)
+    angle = (
+        2.0
+        * np.pi
+        * (jnp.arange(angular_bins, dtype=jnp.float64) + 0.5)
+        / angular_bins
+    )
+    offsets_x = (radius[:, None] * jnp.cos(angle)[None, :]).reshape(-1)
+    offsets_y = (radius[:, None] * jnp.sin(angle)[None, :]).reshape(-1)
+    sample_x = (
+        source_x[:, None] + source_radius * offsets_x[None, :]
+    ).reshape(-1)
+    sample_y = (
+        source_y[:, None] + source_radius * offsets_y[None, :]
+    ).reshape(-1)
+    points = _triple_point_batch_transformable(
+        convention,
+        sample_x,
+        sample_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+    ).magnification.reshape((source_x.shape[0], radial_bins, angular_bins))
+    mu = jnp.sqrt(1.0 - radial_squared)[:, None]
+    mu_weight = mu * ((2.0 / 3.0) / jnp.mean(mu))
+    sqrt_mu_weight = jnp.sqrt(mu) * ((4.0 / 5.0) / jnp.mean(jnp.sqrt(mu)))
+    mean_uniform = jnp.mean(points, axis=(1, 2))
+    mean_mu = jnp.mean(points * mu_weight[None, :, :], axis=(1, 2))
+    mean_sqrt_mu = jnp.mean(
+        points * sqrt_mu_weight[None, :, :], axis=(1, 2)
+    )
+    area = np.pi * source_radius * source_radius
+    full_moments = area * jnp.stack(
+        (mean_uniform, mean_mu, mean_sqrt_mu), axis=1
+    )
+    moments = full_moments[:, :moment_count]
+    if moment_count == 1:
+        magnification = full_moments[:, 0] / area
+    elif moment_count == 2:
+        magnification = (
+            (1.0 - limb_c) * full_moments[:, 0]
+            + limb_c * full_moments[:, 1]
+        ) / (area * (1.0 - limb_c / 3.0))
+    else:
+        magnification = (
+            (1.0 - limb_c - limb_d) * full_moments[:, 0]
+            + limb_c * full_moments[:, 1]
+            + limb_d * full_moments[:, 2]
+        ) / (area * (1.0 - limb_c / 3.0 - limb_d / 5.0))
+    active = jax.lax.stop_gradient(active)
+    return (
+        jnp.where(active, magnification, 0.0),
+        jnp.where(active[:, None], moments, 0.0),
+    )
+
+
+def _triple_source_plane_moments_for_polar_gradient(
+    convention,
+    moment_count,
+    active,
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    limb_c,
+    limb_d,
+):
+    """Skip the analytic disk JVP entirely for an inactive masked call."""
+
+    return jax.lax.cond(
+        jnp.any(active),
+        lambda _: _active_triple_source_plane_moments_for_polar_gradient(
+            convention,
+            moment_count,
+            active,
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+            source_radius,
+            limb_c,
+            limb_d,
+        ),
+        lambda _: (
+            jnp.zeros_like(source_x),
+            jnp.zeros(
+                (source_x.shape[0], moment_count),
+                dtype=source_x.dtype,
+            ),
+        ),
+        operand=None,
+    )
+
+
+def triple_inverse_ray_polar_batch_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    active=None,
+    resolution=64,
+    angular_bins=0,
+    radial_capacity=512,
+    band_capacity=16,
+    limb_samples=64,
+    padding_factor=0.25,
+    angular_padding_factor=12.0,
+    angular_chunk_size=256,
+    boundary_capacity=8192,
+    boundary_subdivision=2,
+    convention="center_of_mass",
+    moment_mode="two_coefficient",
+):
+    """Evaluate masked differentiable triple polar inverse rays in C++."""
+
+    require_x64()
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    if source_x.ndim != 1 or source_y.shape != source_x.shape:
+        raise ValueError("source_x and source_y must have the same 1-D shape")
+    if active is None:
+        active = jnp.ones(source_x.shape, dtype=jnp.bool_)
+    active = jax.lax.stop_gradient(jnp.asarray(active, dtype=jnp.bool_))
+    if convention not in ("center_of_mass", "vbm"):
+        raise ValueError("convention must be 'center_of_mass' or 'vbm'")
+    if moment_mode not in _MOMENT_COUNTS:
+        raise ValueError("invalid moment_mode")
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
+    _register_triple_polar_batch_ffi()
+    result = _triple_polar_batch_transformable(
+        resolution,
+        angular_bins,
+        radial_capacity,
+        band_capacity,
+        limb_samples,
+        padding_factor,
+        angular_padding_factor,
+        angular_chunk_size,
+        boundary_capacity,
+        boundary_subdivision,
+        0 if convention == "center_of_mass" else 1,
+        _MOMENT_COUNTS[moment_mode],
+        source_x,
+        source_y,
+        active,
+        *scalars,
+    )
+    return InverseRayResult(
+        magnification=result.magnification,
+        moments=result.moments,
+        boundary_cells=result.boundary_cells,
+        active_cells=result.active_cells,
+        tile_count=result.tile_count,
+        discovery_overflow=result.overflow,
+        root_failure=result.root_failure,
+        support_valid=~(result.overflow | result.root_failure),
     )
 
 

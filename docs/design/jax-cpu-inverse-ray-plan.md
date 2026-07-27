@@ -1342,6 +1342,50 @@ conservative benchmark capacities, regular linear limb darkening now measures
 buckets reduce the JAX rows further, but must not be selected without explicit
 support and convergence checks.
 
+The triple-lens CPU path is now connected end to end.  Its production
+dispatcher uses method codes 0/1/2/3/4 for point source, hexadecapole,
+Cartesian inverse ray, polar inverse ray, and source-plane quadrature.  A
+native cached-caustic FFI supplies the stopped-gradient routing distance.
+The frozen native guards are retained for the ordinary population:
+point-source acceptance requires 20 source radii, hexadecapole requires five,
+and caustic-clear high magnification uses polar beyond three radii.
+Low-magnification outside-limb grazing rows use independent 64-order
+ring/chord agreement with the calibrated factor-40 safety margin, followed by
+bounded 160/256 and 400/512 chord escalation.
+
+The triple polar implementation no longer scans a rectangular band graph.  A
+C++ radial-run flood seeded by the source centre and 64 source-limb root sets
+integrates the three limb moments directly.  Angular resolution is selected
+from source radius, radial resolution, and maximum image radius.  On the
+frozen \(A\simeq153,\rho=10^{-4}\) case, the 64-bin automatic grid gives
+152.71070 versus native 152.71349, takes about 6--7 ms warm for the explicit
+forward call, and reports no support failure.
+
+Differentiating polar cell membership itself was not accurate: radial edge
+terms omit the azimuthal shape derivative, while adding discrete cap terms
+over-corrects the primal.  The accepted JVP instead uses the physical identity
+valid on the caustic-clear polar route: integrate analytic triple
+point-source derivatives over a fixed 64-by-256 equal-area source disk.  The
+image-plane flood remains the fast primal.  On the frozen case all ten
+derivatives \((x,y,s,q,q_2,s_2,\theta,\rho,c,d)\) agree with independent
+high-order source-plane values within 0.3%; warm explicit value-plus-gradient
+time is about 13--19 ms.
+
+A 144-row contact-band audit over six held-out triple geometries exposed two
+additional production constraints.  First, extreme mass hierarchies can
+return only the converged, physically relevant root subset because
+demagnified roots collapse at lens poles.  Discovery now follows the native
+point path and accepts that subset rather than globally invalidating the
+epoch.  Second, near-caustic Cartesian macro-tile support can exceed its
+bounded capacity.  Deep crossings with \(A\ge100,d<0.8\rho\), very high
+magnification \(A\ge10^4\), and the numerical \(A\ge10^8\) caustic limit use
+calibrated seed-complete polar grids.  Other Cartesian failures are offered a
+48/64 polar recovery only when the two values satisfy the requested error
+budget; otherwise non-convergence remains explicit.  In the audit, all
+remaining invalid rows were either deliberately reported source-plane
+512-order non-convergence or two rejected recovery candidates—no overflowing
+Cartesian value was silently accepted.
+
 ## 15. References
 
 - Miyazaki & Kawahara, “microJAX: A Differentiable Framework for Microlensing
