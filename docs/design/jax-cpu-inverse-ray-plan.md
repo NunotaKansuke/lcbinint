@@ -1,6 +1,6 @@
 # JAX CPU differentiable inverse-ray engine: implementation plan
 
-Status: implementation in progress
+Status: implementation complete; validation and calibration remain ongoing
 
 Planning branch: `feature/jax-cpu-inverse-ray-plan`
 
@@ -1385,6 +1385,180 @@ budget; otherwise non-convergence remains explicit.  In the audit, all
 remaining invalid rows were either deliberately reported source-plane
 512-order non-convergence or two rejected recovery candidates—no overflowing
 Cartesian value was silently accepted.
+
+The subsequent public-trajectory gradient audit found that the fixed
+source-plane JVP must not be reused for those deep-crossing polar rows.  Its
+point-source derivative omits the distributional caustic/topology boundary
+term even when the polar primal is accurate.  Crossing and recovery rows now
+differentiate the image-plane level set instead: the Jet kernel integrates
+affine boundary cells and a one-cell radial/azimuthal halo while retaining the
+fast calibrated polar primal.  A derivative-only 256/128 grid is selected
+when its estimated active-cell count fits the 30-million-cell budget.  The
+five capacity-limited rows in the 37-geometry held-out near-polar set use the
+valid primal-resolution Jacobian, with a 3:4 Richardson correction only for
+the consistently first-order source-radius component.  The result reports
+`gradient_resolution` and `gradient_extrapolated` so this rare regime remains
+observable.  Native finite differences on all five capacity-limited rows
+agree with the source-position derivative within 2.2%; the frozen extreme
+multi-parameter row agrees within 3.7% over the six independently checked
+parameters.
+
+The binary topology audit additionally exercises a smooth fold on both sides
+of image-pair birth/death and a resonant cusp crossing.  A source centre
+exactly on a caustic can contain four *deduplicated* physical roots: the
+critical pair is a repeated root.  Discovery now accepts three through five
+physical roots and ignores convergence of unused nonphysical polynomial
+slots, while still rejecting counts outside the binary-lens range.  This
+removes the former false `root_failure`/NaN at a finite-source caustic
+crossing.  At resolution 128, uniform and linear-limb fold normal derivatives
+at offsets \(-0.98\rho,0,0.98\rho,1.02\rho\) agree with native Cartesian
+finite differences within 0.3%; the cusp-centre derivative agrees within
+0.5%.  A held-out close/resonant/wide/planetary sweep has 0.26% median
+relative disagreement and below 1% disagreement after increasing the noisy
+planetary native reference resolution.
+
+There is one intentional mathematical boundary: when the *source limb* is
+exactly tangent to a caustic, the finite-source magnification generally has
+different one-sided derivatives.  No unique gradient exists at that exact
+parameter value, so neither an AD rule nor a symmetric finite difference can
+make it smooth without changing the physical model.  Centre crossings and
+all offsets on either side remain differentiable; HMC encounters the exact
+contact set with probability zero, although trajectories should not use an
+exact-contact gradient as a validation reference.
+
+### 14.13 End-to-end HMC audit
+
+The public `LightCurve(options=Options(jax=True))` path is now exercised as a
+reverse-mode scalar log density, through reversible leapfrog integration, and
+inside NumPyro NUTS. The regression test uses the public parameter dictionary,
+not a low-level integration shortcut. The heavier diagnostic is
+`tests/diagnostics/jax_ir/benchmark_hmc.py`; it standardizes `t0` and `u0`
+with local Fisher scales, records compilation separately from steady state,
+checks Hamiltonian error and reversibility, audits dispatcher changes, and
+reports divergences, acceptance, leapfrog counts, ESS, and split R-hat.
+
+On the recorded CPU run with 24 epochs and linear limb darkening, the smooth
+case (150 warmup plus 150 retained samples in each of two chains, dense mass)
+had zero divergences, split R-hat 1.004/1.006, and ESS 216/184. The audited
+fold-crossing case (100 plus 100 in each chain) also had zero divergences,
+split R-hat 1.009/1.026, and ESS 160/180. In both cases the injected `t0` and
+`u0` were inside one posterior standard deviation. Five-step leapfrog
+reversibility was at machine precision; maximum absolute energy error was
+0.00061 for the smooth curve and 0.0055 for the fold crossing. The exact
+source-limb tangent remains excluded for the mathematical reason above.
+
+Steady 24-epoch public likelihood/value-plus-gradient times were
+9.8/40.2 ms for the smooth case and 17.4/61.2 ms for the fold crossing.
+Native lcbinint forward-only times were 177 ms and 1.15 s respectively; VBM
+forward-only times were 10.9 ms and 44.4 ms. Thus VBM remains slightly faster
+for a forward-only caustic curve, while it does not supply the reverse-mode
+gradient needed by NUTS.
+
+The matched trajectory benchmark with 12 epochs measured the fused FFI at
+6.06 ms forward and 25.4 ms value-plus-gradient, versus microlux at 10.86 s
+and 24.80 s on this CPU (about 1790x and 977x respectively). Both met the same
+accuracy budget. This extreme gap is mostly microlux's 80-annulus
+limb-darkening integration rather than its uniform-source contour kernel. A
+separate true uniform-source run (`limb_darkening=None`) measured 3.81 ms
+versus 12.22 ms forward and 12.16 ms versus 34.99 ms value-plus-gradient:
+the fused FFI remains 3.2x/2.9x faster, while the comparison is no longer
+dominated by annulus quadrature.
+
+A deliberately tiny four-epoch, two-warmup/two-sample NUTS probe took 3.56 s
+with lcbinint and 68.3 s with microlux; neither run is long enough for
+convergence and both diverged, so it is retained only as a compile/runtime
+comparison, not a sampling-quality claim. Full JSON records are stored in
+`docs/assets/jax_ir_hmc_benchmark.json`,
+`docs/assets/jax_ir_hmc_smooth_dense.json`,
+`docs/assets/lcbinint_hmc_constrained.json`, and
+`docs/assets/microlux_hmc_constrained.json`; the matched per-evaluation record
+is `docs/assets/microlux_trajectory_benchmark.json` and its uniform-source
+counterpart is `docs/assets/microlux_uniform_trajectory_benchmark.json`.
+
+### 14.14 Higher-dimensional and Triple HMC audit
+
+`tests/diagnostics/jax_ir/benchmark_hmc_multidim.py` extends the inference
+audit to the transformed Binary parameters
+`(t0,u0,log_tE,alpha,log_s,log_q,log_rho)` and the corresponding ten Triple
+parameters with `log_q2`, `log_sep2`, and `ang`. It builds a regularized local
+Fisher whitening transform, but retains the public `LightCurve` call inside
+NumPyro. This is a diagnostic parameterization, not a prescribed scientific
+prior.
+
+The 24-epoch seven-dimensional Binary run used 100 warmup and 100 retained
+draws in each of two chains. It had zero divergences, maximum split R-hat
+1.028, ESS 86--241, mean acceptance 0.945, and a maximum truth displacement
+of 1.96 posterior standard deviations. Median/maximum leapfrog counts were
+31/63. A value-plus-gradient took 41.4 ms versus 177 ms for a native
+forward-only curve; the full run took 565 s. The sampler is therefore valid
+but posterior geometry, rather than the FFI evaluation alone, controls total
+runtime.
+
+For Triple lenses, releasing all ten parameters immediately is deliberately
+not presented as a converged scientific fit. A short 12-epoch run with only
+30 warmup and 30 retained draws per chain and a 15-step tree ceiling had 15
+divergences and poor R-hat. Separating the trajectory from the lens geometry
+identifies this as a strongly coupled inference problem rather than an
+inability to differentiate the Triple model:
+
+- the smooth four-parameter Triple trajectory run had zero divergences,
+  maximum R-hat 1.023, ESS 62--140, and maximum truth displacement 0.88
+  posterior standard deviations;
+- its gradient agreed with a stable discrete-primal difference within 0.77%,
+  four-step energy error was 0.00030, and reversibility was at machine
+  precision;
+- at the independently audited Triple caustic crossing, all ten public-curve
+  derivatives agree with high-accuracy native finite differences: nine are
+  within 1% and the source-radius derivative is within 4.3%;
+- a bounded caustic trajectory probe (10 warmup plus 10 retained draws) had
+  zero divergences, mean acceptance 0.924, and 5--7 leapfrog steps. Its
+  four trajectory derivatives agree with native differences within 0.67%.
+
+At the caustic, an eight-epoch value-plus-gradient takes about 0.30 s versus
+1.52 s for a native forward-only curve. The smooth 12-epoch figures are
+0.138 s and 0.525 s. These results establish that the gradients are usable by
+HMC; they do not claim that an uninitialized fully coupled ten-dimensional
+Triple posterior is cheap or automatically well conditioned.
+
+Finite differences of the discretized JAX primal require care. Numerical
+support, cell classification, and cell size are intentionally
+stopped-gradient. Differences smaller than the requested integration error
+can therefore disagree badly with the analytic physical derivative. The
+audit uses parameter-specific steps and an independent high-accuracy native
+curve: for example, the apparent smooth-Triple `s` error falls from 6.7% to
+0.12% at its stable step, while an excessively small `rho` difference is
+dominated by native integration noise.
+
+Recorded artifacts are
+`docs/assets/jax_ir_hmc_binary_7d.json`,
+`docs/assets/jax_ir_hmc_triple_10d_smooth.json`,
+`docs/assets/jax_ir_hmc_triple_4d_smooth.json`,
+`docs/assets/jax_ir_hmc_triple_6d_lens_gradient.json`,
+`docs/assets/jax_ir_hmc_triple_10d_caustic_gradient.json`, and
+`docs/assets/jax_ir_hmc_triple_4d_caustic_short.json`.
+
+### 14.15 Public higher-order completion
+
+The public `Options(jax=True)` adapter now carries the two remaining
+native-supported higher-order connections. A space `Site` exposes its
+validated, Cartesian AU ephemeris to the JAX geometry layer; spacecraft
+parallax is linearly interpolated with the same reduced/full-JD convention as
+the native engine and composes with annual parallax.
+
+Binary-source xallarap now routes through the existing two-body trajectory
+primitive instead of applying a single-source offset independently to both
+components. The public path supports circular/orbital elements, circular/
+Kepler velocity states, and both direct-xallarap and trajectory-offset
+coordinates. Annual, terrestrial, or space parallax and binary-lens orbital
+motion remain additive around the source orbit. The two component
+magnifications are evaluated independently and flux-weighted only afterward.
+
+Public regression coverage compares all six xallarap mode/coordinate
+combinations against native values, differentiates the source mass ratio,
+checks a composed space-parallax binary-source curve, and exercises the same
+connection with a triple lens. Higher-order evaluation remains intentionally
+limited to VBM-compatible coordinates; adding another coordinate convention
+is outside this phase.
 
 ## 15. References
 

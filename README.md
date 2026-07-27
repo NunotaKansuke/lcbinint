@@ -48,6 +48,11 @@ python -m pip install -U pip
 python -m pip install -e ".[test]"
 ```
 
+Install `.[jax]` for differentiable evaluation or `.[inference]` for the
+JAX/NumPyro inference diagnostics. See
+[Automatic differentiation with JAX](docs/python/AutomaticDifferentiation.md)
+for supported models, gradient semantics, caustic behavior, and HMC guidance.
+
 If GSL is installed in a custom prefix:
 
 ```sh
@@ -97,6 +102,45 @@ lc = lcbinint.LightCurve(
 
 mag = lc(times, params)
 ```
+
+Use the same public API with the differentiable CPU/JAX backend by selecting it
+in `Options`:
+
+```python
+import jax
+import jax.numpy as jnp
+import lcbinint
+
+jax.config.update("jax_enable_x64", True)
+
+times = jnp.linspace(-0.5, 0.5, 200)
+curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+
+def loss(u0):
+    active = dict(params)
+    active["u0"] = u0
+    return jnp.sum(curve(times, active))
+
+magnification = curve(times, params)
+value, derivative = jax.jit(jax.value_and_grad(loss))(params["u0"])
+```
+
+The same callable can be used directly inside a NumPyro model. For HMC/NUTS,
+enable JAX 64-bit mode before constructing the curve and standardize physical
+parameters (or use a suitable dense mass matrix); caustic-crossing likelihoods
+can have very different curvature along and normal to a fold.
+Binary seven-parameter and Triple ten-parameter gradient/HMC diagnostics are
+available under `tests/diagnostics/jax_ir`. For Triple fits, initializing the
+trajectory parameters before releasing all lens-geometry parameters is much
+more efficient than starting a fully coupled ten-dimensional NUTS run.
+
+`Options(jax=True)` covers single- and binary-source finite-source light
+curves for both binary and triple lenses, including the existing coordinate
+conventions and limb-darkening coefficients. Annual, terrestrial, and
+space-site parallax, binary-lens circular/Kepler orbital motion, and all
+single- or binary-source xallarap parameterizations use the same entry point.
+Parameters may be JAX tracers inside a dictionary. Higher-order trajectories
+currently require VBM-compatible coordinates.
 
 Physical model choices are separate from numerical options:
 

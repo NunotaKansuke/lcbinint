@@ -1,0 +1,185 @@
+{
+  "artifact": "matched CPU trajectory benchmark",
+  "configuration": {
+    "epochs": 12,
+    "ad_epochs": 6,
+    "repeat": 1,
+    "profile": "linear",
+    "output": "microlux_trajectory_benchmark.json",
+    "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+    "jax_backend": "cpu",
+    "jax_devices": [
+      "TFRT_CPU_0"
+    ],
+    "omp_num_threads": null,
+    "separation": 1.2,
+    "mass_ratio": 0.1,
+    "source_radius": 0.02,
+    "limb_c": 0.4
+  },
+  "timings": {
+    "jax_forward": {
+      "compile_and_first_seconds": 5.265943503007293,
+      "median_seconds": 0.10853316308930516,
+      "samples_seconds": [
+        0.10853316308930516
+      ]
+    },
+    "jax_jvp": {
+      "compile_and_first_seconds": 6.958384532015771,
+      "median_seconds": 0.08550094300881028,
+      "samples_seconds": [
+        0.08550094300881028
+      ]
+    },
+    "jax_value_and_grad": {
+      "compile_and_first_seconds": 14.455826680641621,
+      "median_seconds": 0.3673155349679291,
+      "samples_seconds": [
+        0.3673155349679291
+      ]
+    },
+    "ffi_forward": {
+      "compile_and_first_seconds": 0.3737829546444118,
+      "median_seconds": 0.0060593197122216225,
+      "samples_seconds": [
+        0.0060593197122216225
+      ]
+    },
+    "ffi_jvp": {
+      "compile_and_first_seconds": 0.42508214712142944,
+      "median_seconds": 0.021376745775341988,
+      "samples_seconds": [
+        0.021376745775341988
+      ]
+    },
+    "ffi_value_and_grad": {
+      "compile_and_first_seconds": 1.6355967898853123,
+      "median_seconds": 0.025385414715856314,
+      "samples_seconds": [
+        0.025385414715856314
+      ]
+    },
+    "ffi_scalar_forward": {
+      "compile_and_first_seconds": 0.2193942042067647,
+      "median_seconds": 0.01932950271293521,
+      "samples_seconds": [
+        0.01932950271293521
+      ]
+    },
+    "ffi_scalar_jvp": {
+      "compile_and_first_seconds": 0.3135890862904489,
+      "median_seconds": 0.02896329713985324,
+      "samples_seconds": [
+        0.02896329713985324
+      ]
+    },
+    "ffi_scalar_value_and_grad": {
+      "compile_and_first_seconds": 0.7609945009462535,
+      "median_seconds": 0.033610627986490726,
+      "samples_seconds": [
+        0.033610627986490726
+      ]
+    },
+    "microlux_forward": {
+      "compile_and_first_seconds": 13.438420786056668,
+      "median_seconds": 10.85545617993921,
+      "samples_seconds": [
+        10.85545617993921
+      ]
+    },
+    "microlux_jvp": {
+      "compile_and_first_seconds": 13.155573303811252,
+      "median_seconds": 11.861395741812885,
+      "samples_seconds": [
+        11.861395741812885
+      ]
+    },
+    "microlux_value_and_grad": {
+      "compile_and_first_seconds": 29.90457025403157,
+      "median_seconds": 24.801754717715085,
+      "samples_seconds": [
+        24.801754717715085
+      ]
+    },
+    "native_forward": {
+      "median_seconds": 0.02623821794986725,
+      "samples_seconds": [
+        0.02623821794986725
+      ]
+    },
+    "vbm_forward": {
+      "median_seconds": 0.5616815187968314,
+      "samples_seconds": [
+        0.5616815187968314
+      ]
+    }
+  },
+  "accuracy": {
+    "jax": {
+      "finite": 12,
+      "failures": 0,
+      "median_budget_ratio": 0.021792751913881345,
+      "max_budget_ratio": 0.0690523663355105,
+      "max_absolute_error": 3.85627966252855e-05
+    },
+    "ffi": {
+      "finite": 12,
+      "failures": 0,
+      "median_budget_ratio": 0.021792749842060685,
+      "max_budget_ratio": 0.06905237357030496,
+      "max_absolute_error": 3.856280066560913e-05
+    },
+    "ffi_scalar": {
+      "finite": 12,
+      "failures": 0,
+      "median_budget_ratio": 0.02179274984060707,
+      "max_budget_ratio": 0.06905237357030496,
+      "max_absolute_error": 3.856280066560913e-05
+    },
+    "microlux": {
+      "finite": 12,
+      "failures": 0,
+      "median_budget_ratio": 0.016151959591184123,
+      "max_budget_ratio": 0.08097352563703106,
+      "max_absolute_error": 3.370006742198228e-05
+    },
+    "native": {
+      "finite": 12,
+      "failures": 0,
+      "median_budget_ratio": 0.0008305026857516341,
+      "max_budget_ratio": 0.6852592682897432,
+      "max_absolute_error": 0.0003113269023700127
+    }
+  },
+  "jax_dispatch": {
+    "attempted_counts": [
+      6,
+      6,
+      0,
+      0
+    ],
+    "method_counts": {
+      "0": 6,
+      "1": 6,
+      "2": 0,
+      "3": 0
+    },
+    "invalid": 0
+  },
+  "ffi_dispatch": {
+    "attempted_counts": [
+      6,
+      6,
+      0,
+      0
+    ],
+    "method_counts": {
+      "0": 6,
+      "1": 6,
+      "2": 0,
+      "3": 0
+    },
+    "invalid": 0
+  }
+}

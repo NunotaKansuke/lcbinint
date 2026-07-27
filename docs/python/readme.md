@@ -61,6 +61,7 @@ plt.show()
 - [Binary source + xallarap](BinarySourceXallarap.md)
 - [Combining higher-order effects](CombinedEffects.md)
   - [Combination catalogue](HigherOrderCombinations.md)
+- [Automatic differentiation with JAX](AutomaticDifferentiation.md)
 
 `lcbinint` currently supports binary and triple lenses. Single-lens-only and
 arbitrary four-or-more-lens examples are not represented by a different model.

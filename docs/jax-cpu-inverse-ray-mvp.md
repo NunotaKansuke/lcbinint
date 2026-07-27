@@ -825,10 +825,10 @@ guarantees.
 
 ## Current limitations
 
-- The triple dispatcher currently has point, hex, and Cartesian branches, but
-  no triple polar branch. Very high magnification with tiny sources is
-  therefore accurate but can be substantially slower than a future polar or
-  source-plane implementation.
+- The triple dispatcher has point, hex, Cartesian, polar, and source-plane
+  branches. Near-caustic polar derivatives use a higher-resolution
+  image-plane boundary integral and can therefore cost substantially more
+  than the corresponding primal evaluation.
 - The 510-row calibration is broad enough to set the current default fast-path
   thresholds, but it does not prove a universal bound outside the sampled lens
   ratios, source radii, and limb profiles.

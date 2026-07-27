@@ -1,0 +1,122 @@
+{
+  "configuration": {
+    "case": "smooth",
+    "nuts_engine": "microlux",
+    "leapfrog_engine": "none",
+    "benchmark_engine": "microlux",
+    "epochs": 4,
+    "warmup": 2,
+    "samples": 2,
+    "chains": 1,
+    "target_accept": 0.9,
+    "max_tree_depth": 2,
+    "diagonal_mass": false,
+    "repeat": 1,
+    "seed": 421,
+    "output": "docs/assets/microlux_hmc_constrained.json",
+    "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+    "jax_version": "0.6.2",
+    "jax_backend": "cpu",
+    "jax_devices": [
+      "TFRT_CPU_0"
+    ],
+    "noise_sigma": 0.02
+  },
+  "cases": {
+    "smooth": {
+      "truth": {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.2,
+        "alpha": 0.3,
+        "s": 1.2,
+        "q": 0.1,
+        "rho": 0.01,
+        "limb_darkening_c": 0.4
+      },
+      "parameter_names": [
+        "t0",
+        "u0"
+      ],
+      "fisher_scales": [
+        0.00013281580546082474,
+        5.9814554882395837e-05
+      ],
+      "raw_curve_jacobian_norms": [
+        150.58448752094634,
+        334.3667781081532
+      ],
+      "epochs": 4,
+      "magnification_range": [
+        4.043630308319038,
+        4.703961109512341
+      ],
+      "accuracy_against_vbm": {
+        "lcbinint_jax_max_relative": 5.151492461748811e-05,
+        "lcbinint_native_max_relative": 5.1514924618586294e-05,
+        "microlux_max_relative": 4.9354090084478155e-05
+      },
+      "log_density_at_truth": {
+        "microlux": -0.6653400618273556
+      },
+      "timings": {
+        "microlux_log_density": {
+          "compile_and_first_seconds": 13.557038660626858,
+          "median_seconds": 0.24682375602424145,
+          "minimum_seconds": 0.24682375602424145,
+          "samples_seconds": [
+            0.24682375602424145
+          ]
+        },
+        "microlux_value_and_grad": {
+          "compile_and_first_seconds": 31.889570279046893,
+          "median_seconds": 0.9364814721047878,
+          "minimum_seconds": 0.9364814721047878,
+          "samples_seconds": [
+            0.9364814721047878
+          ]
+        },
+        "native_lcbinint_forward": {
+          "median_seconds": 0.020390257705003023,
+          "minimum_seconds": 0.020390257705003023,
+          "samples_seconds": [
+            0.020390257705003023
+          ]
+        },
+        "vbm_forward": {
+          "median_seconds": 0.0033258129842579365,
+          "minimum_seconds": 0.0033258129842579365,
+          "samples_seconds": [
+            0.0033258129842579365
+          ]
+        }
+      },
+      "leapfrog": {},
+      "dispatcher": null,
+      "nuts": {
+        "microlux": {
+          "elapsed_seconds_compile_warmup_sampling": 68.27499735029414,
+          "samples_per_second": 0.029293300294670515,
+          "effective_samples": [
+            NaN,
+            NaN
+          ],
+          "minimum_effective_samples_per_second": NaN,
+          "posterior_standardized_mean": [
+            -4.391445752662923,
+            4.579216451139432
+          ],
+          "posterior_standardized_sd": [
+            0.0,
+            0.0
+          ],
+          "divergences": 1,
+          "mean_accept_probability": 5.8974317506986364e-08,
+          "median_leapfrog_steps": 1.5,
+          "maximum_leapfrog_steps": 2,
+          "energy_variance": 0.025955987228996696
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,149 @@
+{
+  "configuration": {
+    "lens": "triple",
+    "case": "caustic",
+    "parameter_set": "trajectory",
+    "epochs": 8,
+    "warmup": 10,
+    "samples": 10,
+    "chains": 1,
+    "target_accept": 0.9,
+    "max_tree_depth": 3,
+    "dense_mass": false,
+    "repeat": 2,
+    "seed": 731,
+    "skip_nuts": false,
+    "output": "docs/assets/jax_ir_hmc_triple_4d_caustic_short.json",
+    "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+    "jax_version": "0.6.2",
+    "jax_backend": "cpu",
+    "noise_sigma": 0.02
+  },
+  "parameter_names": [
+    "t0",
+    "u0",
+    "log_tE",
+    "alpha"
+  ],
+  "truth": {
+    "t0": 0.04665563087,
+    "tE": 1.0,
+    "u0": 0.07266183991,
+    "alpha": 0.0,
+    "s": 0.9,
+    "q": 0.1,
+    "rho": 0.01,
+    "q2": 0.003,
+    "sep2": 1.5,
+    "ang": 1.0,
+    "limb_darkening_c": 0.45
+  },
+  "magnification_range": [
+    5.442364656900755,
+    24.786203260221896
+  ],
+  "fisher": {
+    "fisher_eigenvalues": [
+      12790.480261036684,
+      221535.1368926856,
+      387626682.86894226,
+      14451374624.436031
+    ],
+    "fisher_condition_number": 1129853.9483664962,
+    "raw_jacobian_norms": [
+      2293.003794368461,
+      789.8977378572732,
+      117.22310534194523,
+      200.36983454042456
+    ]
+  },
+  "gradient_audit": {
+    "value": -3.6351726999151555,
+    "finite": true,
+    "maximum_absolute_error": 37.10950883002993,
+    "maximum_relative_error": 1.0409700822899743
+  },
+  "native_gradient_audit": {
+    "jax_gradient": [
+      -3191.5740029945587,
+      69.55481291076154,
+      170.5014973628561,
+      248.96747790345205
+    ],
+    "native_finite_difference": [
+      -3191.9712887302153,
+      69.09747718950143,
+      170.64849830941853,
+      249.30222041705719
+    ],
+    "relative_error": [
+      0.00012446406929138336,
+      0.006618703603401529,
+      0.0008614253744904787,
+      0.001342717738514906
+    ],
+    "maximum_relative_error": 0.006618703603401529
+  },
+  "leapfrog_audit": {
+    "step_size": 0.02,
+    "steps": 4,
+    "energy_error": -0.011512814155270945,
+    "reversibility_max_abs": 2.7755575615628914e-17
+  },
+  "timings": {
+    "jax_forward": {
+      "compile_and_first_seconds": 0.3940444178879261,
+      "median_seconds": 0.13164973841048777,
+      "minimum_seconds": 0.12953767692670226,
+      "samples_seconds": [
+        0.12953767692670226,
+        0.13376179989427328
+      ]
+    },
+    "jax_value_and_grad": {
+      "compile_and_first_seconds": 0.8982929550111294,
+      "median_seconds": 0.3006132917944342,
+      "minimum_seconds": 0.28815078688785434,
+      "samples_seconds": [
+        0.31307579670101404,
+        0.28815078688785434
+      ]
+    },
+    "native_forward": {
+      "median_seconds": 1.5204155426472425,
+      "minimum_seconds": 1.520372174680233,
+      "samples_seconds": [
+        1.520372174680233,
+        1.520458910614252
+      ]
+    }
+  },
+  "nuts": {
+    "elapsed_seconds_compile_warmup_sampling": 39.03408478759229,
+    "draws_per_second": 0.2561863574979651,
+    "effective_samples": [
+      30.278157769596415,
+      3.975725144464913,
+      8.569656997817559,
+      9.035512131566588
+    ],
+    "minimum_effective_samples_per_second": 0.10185265431735371,
+    "posterior_standardized_mean": [
+      0.8095227323457586,
+      1.0676318603585047,
+      -0.019323037185881665,
+      -1.0936378356703893
+    ],
+    "posterior_standardized_sd": [
+      0.8121119767638441,
+      0.6283972213308008,
+      0.9989353879766129,
+      1.0081739992205934
+    ],
+    "truth_maximum_posterior_z_score": 1.6989761000176067,
+    "divergences": 0,
+    "mean_accept_probability": 0.9239610032648079,
+    "median_leapfrog_steps": 5.0,
+    "maximum_leapfrog_steps": 7
+  }
+}

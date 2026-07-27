@@ -15,6 +15,7 @@ copy/paste-ready calculations rather than an API inventory:
 - [Accuracy control](python/AccuracyControl.md)
 - [Coordinates](python/Coordinates.md)
 - [Combining higher-order effects](python/CombinedEffects.md)
+- [Automatic differentiation with JAX](python/AutomaticDifferentiation.md)
 
 The remaining pages document numerical behavior and the evidence behind the
 automatic finite-source choices:
@@ -23,7 +24,7 @@ automatic finite-source choices:
 - [Finite-source auto calibration](finite-source-auto-calibration.md)
 - [Finite-source safety validation](finite-source-safety-validation.md)
 
-Proposed designs:
+JAX implementation and validation:
 
 - [JAX CPU differentiable inverse-ray engine](design/jax-cpu-inverse-ray-plan.md)
 - [Experimental JAX CPU inverse-ray MVP](jax-cpu-inverse-ray-mvp.md)

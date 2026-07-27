@@ -1,0 +1,167 @@
+{
+  "configuration": {
+    "case": "smooth",
+    "nuts_engine": "lcbinint",
+    "leapfrog_engine": "none",
+    "benchmark_engine": "lcbinint",
+    "epochs": 4,
+    "warmup": 2,
+    "samples": 2,
+    "chains": 1,
+    "target_accept": 0.9,
+    "max_tree_depth": 2,
+    "diagonal_mass": false,
+    "repeat": 1,
+    "seed": 421,
+    "output": "docs/assets/lcbinint_hmc_constrained.json",
+    "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+    "jax_version": "0.6.2",
+    "jax_backend": "cpu",
+    "jax_devices": [
+      "TFRT_CPU_0"
+    ],
+    "noise_sigma": 0.02
+  },
+  "cases": {
+    "smooth": {
+      "truth": {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.2,
+        "alpha": 0.3,
+        "s": 1.2,
+        "q": 0.1,
+        "rho": 0.01,
+        "limb_darkening_c": 0.4
+      },
+      "parameter_names": [
+        "t0",
+        "u0"
+      ],
+      "fisher_scales": [
+        0.00013281580546082474,
+        5.9814554882395837e-05
+      ],
+      "raw_curve_jacobian_norms": [
+        150.58448752094634,
+        334.3667781081532
+      ],
+      "epochs": 4,
+      "magnification_range": [
+        4.043630308319038,
+        4.703961109512341
+      ],
+      "accuracy_against_vbm": {
+        "lcbinint_jax_max_relative": 5.151492461748811e-05,
+        "lcbinint_native_max_relative": 5.1514924618586294e-05,
+        "microlux_max_relative": null
+      },
+      "log_density_at_truth": {
+        "lcbinint": -0.6652976628886318
+      },
+      "timings": {
+        "lcbinint_log_density": {
+          "compile_and_first_seconds": 0.21020914893597364,
+          "median_seconds": 0.0074987877160310745,
+          "minimum_seconds": 0.0074987877160310745,
+          "samples_seconds": [
+            0.0074987877160310745
+          ]
+        },
+        "lcbinint_value_and_grad": {
+          "compile_and_first_seconds": 0.7977799470536411,
+          "median_seconds": 0.023659265134483576,
+          "minimum_seconds": 0.023659265134483576,
+          "samples_seconds": [
+            0.023659265134483576
+          ]
+        },
+        "native_lcbinint_forward": {
+          "median_seconds": 0.020321113988757133,
+          "minimum_seconds": 0.020321113988757133,
+          "samples_seconds": [
+            0.020321113988757133
+          ]
+        },
+        "vbm_forward": {
+          "median_seconds": 0.0033406950533390045,
+          "minimum_seconds": 0.0033406950533390045,
+          "samples_seconds": [
+            0.0033406950533390045
+          ]
+        }
+      },
+      "leapfrog": {},
+      "dispatcher": {
+        "grid_standardized_t0": [
+          -4.0,
+          -3.5,
+          -3.0,
+          -2.5,
+          -2.0,
+          -1.5,
+          -1.0,
+          -0.5,
+          0.0,
+          0.5,
+          1.0,
+          1.5,
+          2.0,
+          2.5,
+          3.0,
+          3.5,
+          4.0
+        ],
+        "method_boundary_intervals": [],
+        "maximum_adjacent_gradient_jump": 0.5639206953265221,
+        "gradient": [
+          4.28867676167355,
+          3.7370998450367976,
+          3.193769170117732,
+          2.6352463102930592,
+          2.082506240239746,
+          1.529812026182455,
+          0.9755668493604338,
+          0.42055901609122326,
+          -0.1355131810021223,
+          -0.6916025738212498,
+          -1.2499002986864154,
+          -1.8072852722295751,
+          -2.3665202884011443,
+          -2.926096199791274,
+          -3.483039078532644,
+          -4.044311043292407,
+          -4.6082317386189295
+        ],
+        "method_counts": {
+          "0": 51,
+          "1": 17
+        }
+      },
+      "nuts": {
+        "lcbinint": {
+          "elapsed_seconds_compile_warmup_sampling": 3.557686440180987,
+          "samples_per_second": 0.5621630893076276,
+          "effective_samples": [
+            NaN,
+            NaN
+          ],
+          "minimum_effective_samples_per_second": NaN,
+          "posterior_standardized_mean": [
+            -0.2845870254023157,
+            0.05807832751074553
+          ],
+          "posterior_standardized_sd": [
+            0.0,
+            0.0
+          ],
+          "divergences": 1,
+          "mean_accept_probability": 0.003819789273010025,
+          "median_leapfrog_steps": 1.5,
+          "maximum_leapfrog_steps": 2,
+          "energy_variance": 0.0018234867587296737
+        }
+      }
+    }
+  }
+}
