@@ -111,3 +111,129 @@ def test_jax_directional_derivative_matches_native_lcbinint_difference():
         rtol=5.0e-3,
         atol=5.0e-3,
     )
+
+
+@pytest.mark.parametrize("limb_c", (0.0, 0.5))
+@pytest.mark.parametrize("normal_offset", (-0.98, 0.0, 0.98, 1.02))
+def test_fold_image_birth_and_death_gradient_matches_native(
+    limb_c,
+    normal_offset,
+):
+    """Exercise both sides of an image-pair birth/death at a smooth fold."""
+
+    lcbinint = pytest.importorskip("lcbinint", exc_type=ImportError)
+    caustic = np.asarray([0.06611188225495068, 0.1549319030240759])
+    normal = np.asarray([-0.64645695, -0.76295047])
+    source_radius = 0.01
+    source = caustic + normal_offset * source_radius * normal
+
+    def jax_value(active_source):
+        return binary_inverse_ray(
+            active_source[0],
+            active_source[1],
+            0.9,
+            0.1,
+            source_radius,
+            limb_c,
+            0.0,
+            resolution=128,
+            tile_size=16,
+            tile_capacity=16384,
+            limb_samples=128,
+        )
+
+    result = jax_value(jnp.asarray(source))
+    gradient = jax.grad(lambda active_source: jax_value(active_source).magnification)(
+        jnp.asarray(source)
+    )
+    jax_normal_derivative = float(jnp.dot(gradient, normal))
+
+    native_options = lcbinint.Options(
+        nbin=256,
+        inverse_ray_grid="cartesian",
+        coordinates="center_of_mass",
+    )
+
+    def native_value(active_source):
+        return lcbinint.binary_ray_shooting(
+            float(active_source[0]),
+            float(active_source[1]),
+            s=0.9,
+            q=0.1,
+            rho=source_radius,
+            limb_darkening=lcbinint.LimbDarkening(c=limb_c, d=0.0),
+            options=native_options,
+        )
+
+    step = source_radius * 1.0e-3
+    native_normal_derivative = (
+        native_value(source + step * normal)
+        - native_value(source - step * normal)
+    ) / (2.0 * step)
+
+    assert bool(result.support_valid)
+    assert np.isfinite(float(result.magnification))
+    assert np.isfinite(jax_normal_derivative)
+    np.testing.assert_allclose(
+        jax_normal_derivative,
+        native_normal_derivative,
+        rtol=5.0e-3,
+        atol=1.0,
+    )
+
+
+def test_cusp_centre_gradient_matches_native():
+    """A source-centre cusp crossing remains smooth for a finite source."""
+
+    lcbinint = pytest.importorskip("lcbinint", exc_type=ImportError)
+    source = jnp.asarray([0.356921074, 0.0])
+    source_radius = 0.01
+
+    def jax_value(source_x):
+        return binary_inverse_ray(
+            source_x,
+            source[1],
+            0.9,
+            0.1,
+            source_radius,
+            0.0,
+            0.0,
+            resolution=192,
+            tile_size=16,
+            tile_capacity=16384,
+            limb_samples=128,
+        )
+
+    result = jax_value(source[0])
+    jax_derivative = float(
+        jax.grad(lambda source_x: jax_value(source_x).magnification)(source[0])
+    )
+    native_options = lcbinint.Options(
+        nbin=256,
+        inverse_ray_grid="cartesian",
+        coordinates="center_of_mass",
+    )
+
+    def native_value(source_x):
+        return lcbinint.binary_ray_shooting(
+            float(source_x),
+            float(source[1]),
+            s=0.9,
+            q=0.1,
+            rho=source_radius,
+            limb_darkening=lcbinint.LimbDarkening(),
+            options=native_options,
+        )
+
+    step = source_radius * 1.0e-3
+    native_derivative = (
+        native_value(source[0] + step) - native_value(source[0] - step)
+    ) / (2.0 * step)
+
+    assert bool(result.support_valid)
+    np.testing.assert_allclose(
+        jax_derivative,
+        native_derivative,
+        rtol=6.0e-3,
+        atol=1.0,
+    )

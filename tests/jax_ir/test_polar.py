@@ -162,6 +162,26 @@ def test_auto_uses_polar_when_cartesian_discovery_overflows():
     assert bool(result.support_valid)
 
 
+def test_polar_ffi_accepts_repeated_root_at_exact_fold():
+    result = binary_inverse_ray_polar_ffi(
+        0.06611188225495068,
+        0.1549319030240759,
+        0.9,
+        0.1,
+        0.01,
+        resolution=64,
+        angular_bins=2048,
+        radial_capacity=512,
+        band_capacity=8,
+        limb_samples=64,
+        boundary_capacity=8192,
+    )
+
+    assert bool(result.support_valid)
+    assert not bool(result.root_failure)
+    assert np.isfinite(float(result.magnification))
+
+
 def test_polar_high_magnification_matches_native_lcbinint():
     lcbinint = pytest.importorskip("lcbinint", exc_type=ImportError)
     separation = 0.95

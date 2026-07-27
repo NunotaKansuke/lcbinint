@@ -54,10 +54,13 @@ def binary_image_seed_points(
         sources
     )
     physical_counts = jnp.sum(images.physical, axis=1)
-    valid_physical_count = (physical_counts == 3) | (physical_counts == 5)
-    root_failure = jnp.any(
-        ~valid_physical_count | ~jnp.all(images.root_converged, axis=1)
-    )
+    # Exactly on a caustic the merging image pair is a repeated root, so the
+    # deduplicated physical set legitimately contains four images.  The
+    # finite-source limb samples still seed both adjacent image regions; do
+    # not invalidate the whole support because an unused polynomial slot did
+    # not converge at that measure-zero sample.
+    valid_physical_count = (physical_counts >= 3) & (physical_counts <= 5)
+    root_failure = jnp.any(~valid_physical_count)
     return ImageSeedPoints(
         roots=jax.lax.stop_gradient(images.roots.reshape(-1)),
         physical=jax.lax.stop_gradient(images.physical.reshape(-1)),

@@ -1320,6 +1320,8 @@ def binary_inverse_ray_polar_ffi(
     require_x64()
     if moment_mode not in _MOMENT_COUNTS:
         raise ValueError("invalid moment_mode")
+    if resolution < 2:
+        raise ValueError("resolution must be at least 2")
     # The FFI currently uses a fixed three-moment ABI. Zero coefficients make
     # the extra moments inert for uniform/linear callers.
     scalars = tuple(
@@ -1926,7 +1928,7 @@ def _triple_polar_batch_call(
     )
 
 
-@partial(jax.custom_jvp, nondiff_argnums=tuple(range(12)))
+@partial(jax.custom_jvp, nondiff_argnums=tuple(range(13)))
 def _triple_polar_batch_transformable(
     resolution,
     angular_bins,
@@ -1940,6 +1942,7 @@ def _triple_polar_batch_transformable(
     boundary_subdivision,
     convention,
     moment_count,
+    image_plane_gradient,
     source_x,
     source_y,
     active,
@@ -1952,23 +1955,24 @@ def _triple_polar_batch_transformable(
     limb_c,
     limb_d,
 ):
+    configuration = (
+        resolution,
+        angular_bins,
+        radial_capacity,
+        band_capacity,
+        limb_samples,
+        padding_factor,
+        angular_padding_factor,
+        angular_chunk_size,
+        boundary_capacity,
+        boundary_subdivision,
+        convention,
+        moment_count,
+    )
     return _FfiCartesianEpochResult(
         *_triple_polar_batch_call(
             _FFI_TRIPLE_POLAR_BATCH_TARGET,
-            (
-                resolution,
-                angular_bins,
-                radial_capacity,
-                band_capacity,
-                limb_samples,
-                padding_factor,
-                angular_padding_factor,
-                angular_chunk_size,
-                boundary_capacity,
-                boundary_subdivision,
-                convention,
-                moment_count,
-            ),
+            configuration,
             (
                 source_x,
                 source_y,
@@ -1990,28 +1994,189 @@ def _triple_polar_batch_transformable(
 @_triple_polar_batch_transformable.defjvp
 def _triple_polar_batch_jvp(*arguments):
     *configuration, primals, tangents = arguments
+    ffi_configuration = tuple(configuration[:12])
     primal = _FfiCartesianEpochResult(
         *_triple_polar_batch_call(
             _FFI_TRIPLE_POLAR_BATCH_TARGET,
-            tuple(configuration),
+            ffi_configuration,
             tuple(primals),
             False,
         )
     )
     convention = configuration[10]
     moment_count = configuration[11]
-    differentiable_primals = primals[:2] + primals[3:]
-    differentiable_tangents = tangents[:2] + tangents[3:]
-    (_, _), (magnification_tangent, moments_tangent) = jax.jvp(
-        lambda *values: _triple_source_plane_moments_for_polar_gradient(
-            convention,
-            moment_count,
-            primals[2],
-            *values,
-        ),
-        differentiable_primals,
-        differentiable_tangents,
-    )
+    image_plane_gradient = configuration[12]
+    if image_plane_gradient:
+        # A caustic crossing invalidates differentiation under the
+        # point-source source-plane integral.  Use the stopped-topology
+        # image-plane level-set Jacobian instead.  A finer derivative-only
+        # polar grid removes boundary-cell phase noise without changing the
+        # calibrated fast primal.
+        primal_resolution = ffi_configuration[0]
+        active_cells = jax.lax.stop_gradient(primal.active_cells)
+        active = jax.lax.stop_gradient(primals[2])
+        cell_budget = 30_000_000
+        high_scale = (256.0 / primal_resolution) ** 2
+        medium_scale = (128.0 / primal_resolution) ** 2
+        use_high = active & (active_cells * high_scale <= cell_budget)
+        use_medium = (
+            active
+            & ~use_high
+            & (active_cells * medium_scale <= cell_budget)
+        )
+        use_coarse = active & ~(use_high | use_medium)
+
+        def boundary_outputs(resolution, selected):
+            derivative_configuration = list(ffi_configuration)
+            derivative_configuration[0] = resolution
+            derivative_primals = list(primals)
+            derivative_primals[2] = selected
+            return _triple_polar_batch_call(
+                _FFI_TRIPLE_POLAR_BATCH_JACOBIAN_TARGET,
+                tuple(derivative_configuration),
+                tuple(derivative_primals),
+                True,
+            )
+
+        high_outputs = boundary_outputs(256, use_high)
+        medium_outputs = boundary_outputs(128, use_medium)
+        coarse_fine_outputs = boundary_outputs(
+            primal_resolution, use_coarse
+        )
+        coarse_resolution = max(
+            1,
+            min(
+                primal_resolution - 1,
+                int(round(0.75 * primal_resolution)),
+            ),
+        )
+        coarse_probe_resolution = max(
+            1,
+            min(
+                coarse_resolution - 1,
+                int(round(0.625 * primal_resolution)),
+            ),
+        )
+        coarse_mid_resolution = max(
+            coarse_resolution + 1,
+            min(
+                primal_resolution - 1,
+                int(round(0.875 * primal_resolution)),
+            ),
+        )
+        coarse_probe_outputs = boundary_outputs(
+            coarse_probe_resolution, use_coarse
+        )
+        coarse_lower_outputs = boundary_outputs(
+            coarse_resolution, use_coarse
+        )
+        coarse_mid_outputs = boundary_outputs(
+            coarse_mid_resolution, use_coarse
+        )
+        richardson_factor = (
+            coarse_resolution
+            / (primal_resolution - coarse_resolution)
+        )
+        magnification_difference_0 = (
+            coarse_lower_outputs[7] - coarse_probe_outputs[7]
+        )
+        magnification_difference_1 = (
+            coarse_mid_outputs[7] - coarse_lower_outputs[7]
+        )
+        magnification_difference_2 = (
+            coarse_fine_outputs[7] - coarse_mid_outputs[7]
+        )
+        magnification_monotonic = (
+            magnification_difference_0 * magnification_difference_1 > 0.0
+        ) & (
+            magnification_difference_1 * magnification_difference_2 > 0.0
+        )
+        magnification_extrapolated = (
+            coarse_fine_outputs[7]
+            + richardson_factor
+            * (coarse_fine_outputs[7] - coarse_lower_outputs[7])
+        )
+        coarse_magnification_jacobian = jnp.where(
+            magnification_monotonic,
+            magnification_extrapolated,
+            coarse_fine_outputs[7],
+        )
+        moments_difference_0 = (
+            coarse_lower_outputs[8] - coarse_probe_outputs[8]
+        )
+        moments_difference_1 = (
+            coarse_mid_outputs[8] - coarse_lower_outputs[8]
+        )
+        moments_difference_2 = (
+            coarse_fine_outputs[8] - coarse_mid_outputs[8]
+        )
+        moments_monotonic = (
+            moments_difference_0 * moments_difference_1 > 0.0
+        ) & (
+            moments_difference_1 * moments_difference_2 > 0.0
+        )
+        moments_extrapolated = (
+            coarse_fine_outputs[8]
+            + richardson_factor
+            * (coarse_fine_outputs[8] - coarse_lower_outputs[8])
+        )
+        coarse_moments_jacobian = jnp.where(
+            moments_monotonic,
+            moments_extrapolated,
+            coarse_fine_outputs[8],
+        )
+        magnification_jacobian = jnp.where(
+            use_high[:, None],
+            high_outputs[7],
+            jnp.where(
+                use_medium[:, None],
+                medium_outputs[7],
+                coarse_magnification_jacobian,
+            ),
+        )
+        moments_jacobian = jnp.where(
+            use_high[:, None, None],
+            high_outputs[8],
+            jnp.where(
+                use_medium[:, None, None],
+                medium_outputs[8],
+                coarse_moments_jacobian,
+            ),
+        )
+        parameter_tangent = jnp.stack(
+            (
+                tangents[0],
+                tangents[1],
+                jnp.full_like(primals[0], tangents[3]),
+                jnp.full_like(primals[0], tangents[4]),
+                jnp.full_like(primals[0], tangents[5]),
+                jnp.full_like(primals[0], tangents[6]),
+                jnp.full_like(primals[0], tangents[7]),
+                jnp.full_like(primals[0], tangents[8]),
+                jnp.full_like(primals[0], tangents[9]),
+                jnp.full_like(primals[0], tangents[10]),
+            ),
+            axis=1,
+        )
+        magnification_tangent = jnp.sum(
+            magnification_jacobian * parameter_tangent, axis=1
+        )
+        moments_tangent = jnp.einsum(
+            "nmq,nq->nm", moments_jacobian, parameter_tangent
+        )
+    else:
+        differentiable_primals = primals[:2] + primals[3:]
+        differentiable_tangents = tangents[:2] + tangents[3:]
+        (_, _), (magnification_tangent, moments_tangent) = jax.jvp(
+            lambda *values: _triple_source_plane_moments_for_polar_gradient(
+                convention,
+                moment_count,
+                primals[2],
+                *values,
+            ),
+            differentiable_primals,
+            differentiable_tangents,
+        )
     tangent = _FfiCartesianEpochResult(
         magnification=magnification_tangent,
         moments=moments_tangent,
@@ -2192,6 +2357,7 @@ def triple_inverse_ray_polar_batch_ffi(
     boundary_subdivision=2,
     convention="center_of_mass",
     moment_mode="two_coefficient",
+    gradient_backend="source_plane",
 ):
     """Evaluate masked differentiable triple polar inverse rays in C++."""
 
@@ -2207,6 +2373,12 @@ def triple_inverse_ray_polar_batch_ffi(
         raise ValueError("convention must be 'center_of_mass' or 'vbm'")
     if moment_mode not in _MOMENT_COUNTS:
         raise ValueError("invalid moment_mode")
+    if gradient_backend not in ("source_plane", "image_plane"):
+        raise ValueError(
+            "gradient_backend must be 'source_plane' or 'image_plane'"
+        )
+    if resolution < 2:
+        raise ValueError("resolution must be at least 2")
     scalars = tuple(
         jnp.asarray(value, dtype=jnp.float64)
         for value in (
@@ -2234,6 +2406,7 @@ def triple_inverse_ray_polar_batch_ffi(
         boundary_subdivision,
         0 if convention == "center_of_mass" else 1,
         _MOMENT_COUNTS[moment_mode],
+        gradient_backend == "image_plane",
         source_x,
         source_y,
         active,

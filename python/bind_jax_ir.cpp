@@ -2217,10 +2217,8 @@ CartesianDiscovery discover_cartesian_support(
         const auto images = solve_binary_images(
             sample_x, sample_y, separation, mass_ratio);
         std::int32_t physical_count = 0;
-        bool all_converged = true;
         for (std::size_t root = 0; root < binary_root_count; ++root) {
             physical_count += static_cast<std::int32_t>(images.physical[root]);
-            all_converged = all_converged && images.converged[root];
             if (!images.physical[root]) continue;
             const auto tile_x = static_cast<std::int32_t>(
                 std::floor(images.roots[root].real() / tile_width));
@@ -2232,9 +2230,8 @@ CartesianDiscovery discover_cartesian_support(
         }
         result.root_failure =
             result.root_failure
-            || (
-                (physical_count != 3 && physical_count != 5)
-                || !all_converged);
+            || physical_count < 3
+            || physical_count > 5;
     }
     result.seed_count = static_cast<std::int32_t>(result.queue.size());
 
@@ -2525,10 +2522,8 @@ PolarDiscovery discover_polar_support(
         const auto images = solve_binary_images(
             sample_x, sample_y, separation, mass_ratio);
         std::int32_t physical_count = 0;
-        bool all_converged = true;
         for (std::size_t root = 0; root < binary_root_count; ++root) {
             physical_count += static_cast<std::int32_t>(images.physical[root]);
-            all_converged = all_converged && images.converged[root];
             const double radius = std::abs(images.roots[root]);
             result.seeds.push_back(
                 {radius, std::arg(images.roots[root]), images.physical[root]});
@@ -2539,8 +2534,8 @@ PolarDiscovery discover_polar_support(
         }
         result.root_failure =
             result.root_failure
-            || !all_converged
-            || (physical_count != 3 && physical_count != 5);
+            || physical_count < 3
+            || physical_count > 5;
     }
     std::sort(
         intervals.begin(),
@@ -3030,6 +3025,79 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
         const Scalar dy = mapped.source_y - source_y;
         return dx * dx + dy * dy;
     };
+    // The production flood uses centre-inside radial runs.  That discrete
+    // support is sufficient for the fast primal after the radial end
+    // correction below, but differentiating it omits motion through the
+    // azimuthal run caps.  For the Jet-only Jacobian path, integrate every
+    // inside cell with the affine level-set rule and add the one-cell outside
+    // halo.  The halo supplies both radial and azimuthal boundary motion while
+    // keeping the discovered topology stopped-gradient.
+    std::unordered_set<std::uint64_t> derivative_boundary_candidates;
+    std::vector<std::vector<std::array<std::int32_t, 2>>>
+        derivative_runs_by_angle;
+    const auto boundary_key = [&](std::int32_t radial, std::int32_t angular) {
+        std::int64_t wrapped = angular % angular_bins;
+        if (wrapped < 0) wrapped += angular_bins;
+        return (
+            static_cast<std::uint64_t>(
+                static_cast<std::uint32_t>(wrapped))
+            << 32)
+            | static_cast<std::uint32_t>(radial);
+    };
+    const auto add_derivative_cell = [&](
+        std::int32_t radial, std::int32_t angular, bool centre_inside) {
+        std::int64_t wrapped = angular % angular_bins;
+        if (wrapped < 0) wrapped += angular_bins;
+        const double theta =
+            (static_cast<double>(wrapped) + 0.5) * dtheta;
+        const double cosine = std::cos(theta);
+        const double sine = std::sin(theta);
+        const double radius = (static_cast<double>(radial) + 0.5) * dr;
+        const auto values = triple_phi_derivatives(
+            radius * cosine, radius * sine,
+            source_x, source_y, lens, inverse_radius_squared);
+        const Scalar delta_r =
+            (values.gradient_x * cosine + values.gradient_y * sine) * dr;
+        const Scalar delta_theta =
+            radius
+            * (-values.gradient_x * sine + values.gradient_y * cosine)
+            * dtheta;
+        const double extent = 0.5 * (
+            std::abs(scalar_value(delta_r))
+            + std::abs(scalar_value(delta_theta)));
+        if (centre_inside) {
+            if (scalar_value(values.phi) > extent) {
+                add_polar_interior<Mode>(
+                    result.integration.moments, values,
+                    delta_r, delta_theta, radius * dr * dtheta);
+            } else {
+                add_polar_affine<Mode>(
+                    result.integration.moments, values,
+                    delta_r, delta_theta, radius * dr * dtheta);
+            }
+        } else if (scalar_value(values.phi) + extent > 0.0) {
+            add_polar_affine<Mode>(
+                result.integration.moments, values,
+                delta_r, delta_theta, radius * dr * dtheta);
+            ++result.integration.boundary_cells;
+        }
+    };
+    if constexpr (!std::is_same_v<Scalar, double>) {
+        derivative_runs_by_angle.resize(
+            static_cast<std::size_t>(angular_bins));
+        for (const auto& run : support.runs) {
+            derivative_runs_by_angle[
+                static_cast<std::size_t>(run.angular_index)]
+                .push_back({run.left, run.right});
+        }
+        for (auto& intervals : derivative_runs_by_angle) {
+            std::sort(
+                intervals.begin(), intervals.end(),
+                [](const auto& left, const auto& right) {
+                    return left[0] < right[0];
+                });
+        }
+    }
     for (const auto& run : support.runs) {
         const double theta =
             (static_cast<double>(run.angular_index) + 0.5) * dtheta;
@@ -3041,56 +3109,103 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
             std::int32_t radial = run.left;
             radial <= run.right;
             ++radial) {
-            const double radius =
-                (static_cast<double>(radial) + 0.5) * dr;
-            const auto values = triple_phi_derivatives(
-                radius * cosine, radius * sine,
-                source_x, source_y, lens, inverse_radius_squared);
-            const double area = radius * dr * dtheta;
-            result.integration.moments[0] += area;
-            if constexpr (Mode != MomentMode::uniform) {
-                const Scalar sqrt_phi = scalar_sqrt(values.phi);
-                result.integration.moments[1] += area * sqrt_phi;
-                if constexpr (Mode == MomentMode::two_coefficient) {
-                    result.integration.moments[2] +=
-                        area * scalar_sqrt(sqrt_phi);
+            if constexpr (std::is_same_v<Scalar, double>) {
+                const double radius =
+                    (static_cast<double>(radial) + 0.5) * dr;
+                const auto values = triple_phi_derivatives(
+                    radius * cosine, radius * sine,
+                    source_x, source_y, lens, inverse_radius_squared);
+                const double area = radius * dr * dtheta;
+                result.integration.moments[0] += area;
+                if constexpr (Mode != MomentMode::uniform) {
+                    const Scalar sqrt_phi = scalar_sqrt(values.phi);
+                    result.integration.moments[1] += area * sqrt_phi;
+                    if constexpr (Mode == MomentMode::two_coefficient) {
+                        result.integration.moments[2] +=
+                            area * scalar_sqrt(sqrt_phi);
+                    }
+                }
+                if (radial == run.left) {
+                    left_inside_distance_squared =
+                        source_radius * source_radius * (1.0 - values.phi);
+                }
+                if (radial == run.right) {
+                    right_inside_distance_squared =
+                        source_radius * source_radius * (1.0 - values.phi);
+                }
+            } else {
+                add_derivative_cell(radial, run.angular_index, true);
+            }
+        }
+        if constexpr (!std::is_same_v<Scalar, double>) {
+            if (run.left > 0) {
+                derivative_boundary_candidates.insert(
+                    boundary_key(run.left - 1, run.angular_index));
+            }
+            derivative_boundary_candidates.insert(
+                boundary_key(run.right + 1, run.angular_index));
+            for (const int direction : {-1, 1}) {
+                std::int64_t neighbor_angle =
+                    (run.angular_index + direction) % angular_bins;
+                if (neighbor_angle < 0) neighbor_angle += angular_bins;
+                const auto& neighbor_intervals =
+                    derivative_runs_by_angle[
+                        static_cast<std::size_t>(neighbor_angle)];
+                std::int32_t cursor = run.left;
+                for (const auto& interval : neighbor_intervals) {
+                    if (interval[1] < cursor) continue;
+                    if (interval[0] > run.right) break;
+                    const std::int32_t uncovered_right =
+                        std::min<std::int32_t>(
+                            run.right, interval[0] - 1);
+                    for (
+                        std::int32_t radial = cursor;
+                        radial <= uncovered_right;
+                        ++radial) {
+                        derivative_boundary_candidates.insert(
+                            boundary_key(radial, neighbor_angle));
+                    }
+                    cursor = std::max<std::int32_t>(
+                        cursor, interval[1] + 1);
+                    if (cursor > run.right) break;
+                }
+                for (
+                    std::int32_t radial = cursor;
+                    radial <= run.right;
+                    ++radial) {
+                    derivative_boundary_candidates.insert(
+                        boundary_key(radial, neighbor_angle));
                 }
             }
-            if (radial == run.left) {
-                left_inside_distance_squared =
-                    source_radius * source_radius * (1.0 - values.phi);
-            }
-            if (radial == run.right) {
-                right_inside_distance_squared =
-                    source_radius * source_radius * (1.0 - values.phi);
-            }
         }
-        if (run.left > 0 && run.left_outside_distance_squared >= 0.0) {
-            const Scalar outside = distance_squared(
-                run.left - 1, run.angular_index);
-            const Scalar inside_radius =
-                scalar_sqrt(left_inside_distance_squared);
-            const Scalar outside_radius = scalar_sqrt(outside);
-            const Scalar fraction =
-                (source_radius - inside_radius)
-                / (outside_radius - inside_radius);
-            result.integration.moments[0] +=
-                (fraction - 0.5)
-                * (static_cast<double>(run.left) * dr) * dr * dtheta;
-        }
-        if (run.right_outside_distance_squared >= 0.0) {
-            const Scalar outside = distance_squared(
-                run.right + 1, run.angular_index);
-            const Scalar inside_radius =
-                scalar_sqrt(right_inside_distance_squared);
-            const Scalar outside_radius = scalar_sqrt(outside);
-            const Scalar fraction =
-                (source_radius - inside_radius)
-                / (outside_radius - inside_radius);
-            result.integration.moments[0] +=
-                (fraction - 0.5)
-                * (static_cast<double>(run.right + 1) * dr)
-                * dr * dtheta;
+        if constexpr (std::is_same_v<Scalar, double>) {
+            if (run.left > 0 && run.left_outside_distance_squared >= 0.0) {
+                const Scalar outside = distance_squared(
+                    run.left - 1, run.angular_index);
+                const Scalar inside_radius =
+                    scalar_sqrt(left_inside_distance_squared);
+                const Scalar outside_radius = scalar_sqrt(outside);
+                const Scalar fraction =
+                    (source_radius - inside_radius)
+                    / (outside_radius - inside_radius);
+                result.integration.moments[0] +=
+                    (fraction - 0.5)
+                    * (static_cast<double>(run.left) * dr) * dr * dtheta;
+            }
+            if (run.right_outside_distance_squared >= 0.0) {
+                const Scalar outside = distance_squared(
+                    run.right + 1, run.angular_index);
+                const Scalar inside_radius =
+                    scalar_sqrt(right_inside_distance_squared);
+                const Scalar outside_radius = scalar_sqrt(outside);
+                const Scalar fraction =
+                    (source_radius - inside_radius)
+                    / (outside_radius - inside_radius);
+                result.integration.moments[0] +=
+                    (fraction - 0.5)
+                    * (static_cast<double>(run.right + 1) * dr)
+                    * dr * dtheta;
+            }
         }
         result.integration.active_cells +=
             static_cast<std::int64_t>(run.right) - run.left + 1;
@@ -3099,6 +3214,22 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
                 run.left_outside_distance_squared >= 0.0)
             + static_cast<std::int64_t>(
                 run.right_outside_distance_squared >= 0.0);
+    }
+    if constexpr (!std::is_same_v<Scalar, double>) {
+        for (const auto key : derivative_boundary_candidates) {
+            const auto radial =
+                static_cast<std::int32_t>(key & 0xffffffffU);
+            const auto angular =
+                static_cast<std::int32_t>(key >> 32);
+            const Scalar candidate_distance =
+                distance_squared(radial, angular);
+            if (
+                scalar_value(candidate_distance)
+                <= scalar_value(source_radius * source_radius)) {
+                continue;
+            }
+            add_derivative_cell(radial, angular, false);
+        }
     }
     return result;
 }

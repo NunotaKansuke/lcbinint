@@ -78,6 +78,8 @@ class TripleMagnificationResult(NamedTuple):
     used_multipole: jax.Array
     root_failure: jax.Array
     discovery_overflow: jax.Array
+    gradient_resolution: jax.Array
+    gradient_extrapolated: jax.Array
 
 
 def triple_lens_geometry(
@@ -1033,8 +1035,7 @@ def triple_magnification_batch(
         & jnp.isfinite(caustic_distance)
         & (caustic_distance < 3.0 * inverse_ray_radius)
     )
-    accept_polar_standard = accept_polar_far | accept_polar_near
-    accept_polar = accept_polar_standard | accept_polar_ultra
+    accept_polar = accept_polar_far | accept_polar_near | accept_polar_ultra
     polar_far = triple_inverse_ray_polar_batch_ffi(
         source_x,
         source_y,
@@ -1046,12 +1047,31 @@ def triple_magnification_batch(
         inverse_ray_radius,
         limb_c,
         limb_d,
-        active=accept_polar_standard,
+        active=accept_polar_far,
         resolution=polar_resolution,
         angular_bins=0,
         limb_samples=polar_limb_samples,
         convention=convention,
         moment_mode=moment_mode,
+    )
+    polar_near = triple_inverse_ray_polar_batch_ffi(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        inverse_ray_radius,
+        limb_c,
+        limb_d,
+        active=accept_polar_near,
+        resolution=polar_resolution,
+        angular_bins=0,
+        limb_samples=polar_limb_samples,
+        convention=convention,
+        moment_mode=moment_mode,
+        gradient_backend="image_plane",
     )
     polar_ultra = triple_inverse_ray_polar_batch_ffi(
         source_x,
@@ -1070,26 +1090,52 @@ def triple_magnification_batch(
         limb_samples=polar_limb_samples,
         convention=convention,
         moment_mode=moment_mode,
+        gradient_backend="image_plane",
     )
     polar_magnification = jnp.where(
-        accept_polar_standard,
+        accept_polar_far,
         polar_far.magnification,
-        polar_ultra.magnification,
+        jnp.where(
+            accept_polar_near,
+            polar_near.magnification,
+            polar_ultra.magnification,
+        ),
     )
     polar_support_valid = jnp.where(
-        accept_polar_standard,
+        accept_polar_far,
         polar_far.support_valid,
-        polar_ultra.support_valid,
+        jnp.where(
+            accept_polar_near,
+            polar_near.support_valid,
+            polar_ultra.support_valid,
+        ),
     )
     polar_root_failure = jnp.where(
-        accept_polar_standard,
+        accept_polar_far,
         polar_far.root_failure,
-        polar_ultra.root_failure,
+        jnp.where(
+            accept_polar_near,
+            polar_near.root_failure,
+            polar_ultra.root_failure,
+        ),
     )
     polar_overflow = jnp.where(
-        accept_polar_standard,
+        accept_polar_far,
         polar_far.discovery_overflow,
-        polar_ultra.discovery_overflow,
+        jnp.where(
+            accept_polar_near,
+            polar_near.discovery_overflow,
+            polar_ultra.discovery_overflow,
+        ),
+    )
+    polar_active_cells = jnp.where(
+        accept_polar_far,
+        polar_far.active_cells,
+        jnp.where(
+            accept_polar_near,
+            polar_near.active_cells,
+            polar_ultra.active_cells,
+        ),
     )
     grazing_candidate = jax.lax.stop_gradient(
         needs_finite_integration
@@ -1386,6 +1432,7 @@ def triple_magnification_batch(
         limb_samples=polar_limb_samples,
         convention=convention,
         moment_mode=moment_mode,
+        gradient_backend="image_plane",
     )
     polar_recovery_fine = triple_inverse_ray_polar_batch_ffi(
         source_x,
@@ -1404,6 +1451,7 @@ def triple_magnification_batch(
         limb_samples=polar_limb_samples,
         convention=convention,
         moment_mode=moment_mode,
+        gradient_backend="image_plane",
     )
     polar_recovery_error = jnp.abs(
         polar_recovery_fine.magnification
@@ -1422,6 +1470,51 @@ def triple_magnification_batch(
         & polar_recovery_fine.support_valid
         & jnp.isfinite(polar_recovery_error)
         & (polar_recovery_error <= polar_recovery_budget)
+    )
+    image_plane_polar_gradient = (
+        accept_polar_near | accept_polar_ultra | accept_polar_recovery
+    )
+    gradient_active_cells = jnp.where(
+        accept_polar_recovery,
+        polar_recovery_fine.active_cells,
+        polar_active_cells,
+    )
+    gradient_primal_resolution = jnp.where(
+        accept_polar_ultra,
+        jnp.asarray(32, dtype=jnp.int32),
+        jnp.where(
+            accept_polar_recovery,
+            jnp.asarray(64, dtype=jnp.int32),
+            jnp.asarray(polar_resolution, dtype=jnp.int32),
+        ),
+    )
+    gradient_high_fits = (
+        gradient_active_cells
+        * (256.0 / gradient_primal_resolution) ** 2
+        <= 30_000_000
+    )
+    gradient_medium_fits = (
+        gradient_active_cells
+        * (128.0 / gradient_primal_resolution) ** 2
+        <= 30_000_000
+    )
+    gradient_resolution = jnp.where(
+        image_plane_polar_gradient,
+        jnp.where(
+            gradient_high_fits,
+            jnp.asarray(256, dtype=jnp.int32),
+            jnp.where(
+                gradient_medium_fits,
+                jnp.asarray(128, dtype=jnp.int32),
+                gradient_primal_resolution,
+            ),
+        ),
+        jnp.asarray(0, dtype=jnp.int32),
+    )
+    gradient_extrapolated = (
+        image_plane_polar_gradient
+        & ~gradient_high_fits
+        & ~gradient_medium_fits
     )
     magnification = jnp.where(
         accept_point,
@@ -1530,6 +1623,8 @@ def triple_magnification_batch(
                 inverse_ray.discovery_overflow,
             ),
         ),
+        gradient_resolution=gradient_resolution,
+        gradient_extrapolated=gradient_extrapolated,
     )
 
 

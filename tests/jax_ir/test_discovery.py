@@ -14,6 +14,7 @@ from lcbinint_jax import (
     discover_binary_macro_tiles_ffi,
 )
 from lcbinint_jax.discovery import binary_image_seed_points
+from lcbinint_jax.cpp_backend import cpp_binary_image_roots_ffi_available
 
 
 def _require_compiled_ffi():
@@ -49,6 +50,30 @@ def test_source_centre_and_limb_seed_shapes_are_static():
     assert seeds.roots.shape == (17 * 5,)
     assert seeds.physical.shape == seeds.roots.shape
     assert int(jnp.sum(seeds.physical)) >= 17 * 3
+    assert not bool(seeds.root_failure)
+
+
+def test_exact_caustic_repeated_root_is_valid_finite_source_support():
+    if not cpp_binary_image_roots_ffi_available():
+        pytest.skip("lcbinint was built without binary image-root FFI support")
+
+    # A smooth fold of the s=0.9, q=0.1 caustic.  The source-centre solve has
+    # four deduplicated physical roots because the appearing/disappearing pair
+    # is a repeated root exactly on the caustic.  That is valid finite-source
+    # support: the limb solves seed both image regions.
+    seeds = binary_image_seed_points(
+        0.06611188225495068,
+        0.1549319030240759,
+        0.9,
+        0.1,
+        0.01,
+        limb_samples=64,
+        root_backend="ffi",
+    )
+    physical_counts = jnp.sum(seeds.physical.reshape(65, 5), axis=1)
+
+    assert int(physical_counts[0]) == 4
+    assert set(map(int, physical_counts.tolist())) == {3, 4, 5}
     assert not bool(seeds.root_failure)
 
 

@@ -404,6 +404,168 @@ def test_triple_polar_matches_native_and_has_all_parameter_gradients():
     )
 
 
+def test_triple_crossing_polar_uses_image_plane_boundary_gradient():
+    parameters = jnp.asarray(
+        (
+            -0.04665563087,
+            0.07266183991,
+            0.9,
+            0.1,
+            0.003,
+            1.5,
+            1.0,
+            0.01,
+            0.45,
+            0.0,
+        )
+    )
+
+    def magnification(values):
+        return triple_magnification_auto(
+            *values, moment_mode="linear"
+        ).magnification
+
+    result = triple_magnification_auto(
+        *parameters, moment_mode="linear"
+    )
+    actual, gradient = jax.value_and_grad(magnification)(parameters)
+    assert int(result.method) == 3
+    assert bool(result.support_valid)
+    assert int(result.gradient_resolution) == 256
+    assert not bool(result.gradient_extrapolated)
+    assert float(actual) == pytest.approx(20.49171, rel=2.0e-4)
+    # Independent resolution-256 Cartesian image-plane Jacobian.  The former
+    # fixed source-plane point-source JVP missed the caustic/topology boundary
+    # term here and was wrong by up to four orders of magnitude.
+    reference_gradient = np.asarray(
+        (
+            1098.873,
+            288.655,
+            73.107,
+            30.060,
+            2630.001,
+            7.537,
+            -17.589,
+            -702.800,
+            1.00928,
+            0.0,
+        )
+    )
+    np.testing.assert_allclose(
+        gradient, reference_gradient, rtol=1.5e-2, atol=2.0e-3
+    )
+
+
+def test_triple_extreme_polar_gradient_uses_capacity_safe_extrapolation():
+    parameters = jnp.asarray(
+        (
+            -7.367712711025054e-6,
+            -1.1825060697610411e-5,
+            0.3,
+            1.0e-5,
+            1.0e-6,
+            0.08,
+            0.0,
+            1.0e-5,
+            0.8,
+            0.0,
+        )
+    )
+
+    def magnification(values):
+        return triple_inverse_ray_polar_batch_ffi(
+            values[:1],
+            values[1:2],
+            *values[2:],
+            resolution=64,
+            moment_mode="linear",
+            gradient_backend="image_plane",
+        ).magnification[0]
+
+    actual, gradient = jax.value_and_grad(magnification)(parameters)
+    dispatched = triple_magnification_auto(
+        *parameters, moment_mode="linear"
+    )
+    assert float(actual) == pytest.approx(79478.09735, rel=2.0e-5)
+    assert int(dispatched.method) == 3
+    assert int(dispatched.gradient_resolution) == 64
+    assert bool(dispatched.gradient_extrapolated)
+    # Independent native polar finite differences.  A resolution-128
+    # derivative would exceed the 50M-cell support bound at this epoch; the
+    # production JVP instead extrapolates the valid 48/64 Jacobian pair.
+    indices = np.asarray((0, 1, 2, 3, 4, 7))
+    reference_gradient = np.asarray(
+        (
+            3.5779071955e9,
+            5.3756113189e9,
+            2.5986868166e4,
+            2.1680823340e8,
+            2.5844708737e8,
+            9.5006708611e8,
+        )
+    )
+    np.testing.assert_allclose(
+        np.asarray(gradient)[indices],
+        reference_gradient,
+        rtol=5.0e-2,
+        atol=1.0e-3,
+    )
+
+
+@pytest.mark.parametrize(
+    ("parameters", "reference_source_x_gradient"),
+    (
+        (
+            (
+                8.9854485232332e-6,
+                1.721829384078528e-5,
+                0.3,
+                1.0e-5,
+                1.0e-6,
+                0.08,
+                0.0,
+                1.0e-5,
+            ),
+            -1.4116476900e9,
+        ),
+        (
+            (
+                -3.0175997497641854e-5,
+                -1.2758675656857664e-5,
+                1.3,
+                1.0e-5,
+                1.0e-5,
+                0.08,
+                np.pi / 2.0,
+                1.0e-5,
+            ),
+            5.8951009015e8,
+        ),
+    ),
+)
+def test_triple_extreme_polar_held_out_source_gradient(
+    parameters, reference_source_x_gradient
+):
+    values = tuple(jnp.asarray(value) for value in parameters)
+
+    def magnification(source_x):
+        return triple_inverse_ray_polar_batch_ffi(
+            jnp.reshape(source_x, (1,)),
+            jnp.reshape(values[1], (1,)),
+            *values[2:],
+            0.0,
+            0.0,
+            resolution=64,
+            moment_mode="uniform",
+            gradient_backend="image_plane",
+        ).magnification[0]
+
+    gradient = jax.grad(magnification)(values[0])
+    assert float(gradient) == pytest.approx(
+        reference_source_x_gradient, rel=3.0e-2
+    )
+
+
 def test_triple_caustic_distance_routes_known_polar_case():
     distance = triple_caustic_distance_batch_ffi(
         jnp.asarray((-0.046038516588439035,)),
