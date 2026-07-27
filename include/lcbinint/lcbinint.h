@@ -86,6 +86,7 @@ typedef enum lcbi_xallarap_param_type {
 } lcbi_xallarap_param_type;
 
 typedef struct lcbi_options {
+    int jax;                       /* Python execution backend: 0 = native, 1 = JAX */
     int parallax_mode;
     int orbit_pair;
     int center_of_mass;

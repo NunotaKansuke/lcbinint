@@ -73,6 +73,7 @@ lcbi_params lcbi_default_params(void)
 lcbi_options lcbi_default_options(void)
 {
     lcbi_options options = {};
+    options.jax = 0;
     options.orbit_pair = 23;
     options.caustic_bins = 1400;
     options.source_bins = 50;

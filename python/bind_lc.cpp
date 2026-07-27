@@ -895,6 +895,7 @@ void register_lc_submodule(py::module_& parent)
     // --- Options: lcbi_options exposed directly ---
 	    py::class_<lcbi_options>(lc, "Options")
 	        .def(py::init([](
+	                bool   jax,
 	                std::string param_type,
 	                std::string coordinates,
 	                py::object source_bins,
@@ -918,6 +919,7 @@ void register_lc_submodule(py::module_& parent)
 	                double tol,
 	                double reltol) {
 	            auto o = lcbi_default_options();
+	            o.jax = jax ? 1 : 0;
 	            apply_param_type(o, coordinates.empty() ? param_type : coordinates);
 	            if (!nbin.is_none()) {
 	                apply_nbin(o, nbin);
@@ -957,6 +959,7 @@ void register_lc_submodule(py::module_& parent)
 	            }
 	            return o;
 	        }),
+	            py::arg("jax")                    = false,
 	            py::arg("param_type")             = "vbm",
 	            py::arg("coordinates")            = "",
 	            py::arg("source_bins")            = py::none(),
@@ -979,6 +982,9 @@ void register_lc_submodule(py::module_& parent)
 	            py::arg("finite_source_reltol")   = lcbi_default_options().finite_source_reltol,
 	            py::arg("tol")                    = 0.0,
 	            py::arg("reltol")                 = 0.0)
+	        .def_property("jax",
+	            [](const lcbi_options& o) { return o.jax != 0; },
+	            [](lcbi_options& o, bool value) { o.jax = value ? 1 : 0; })
 	        .def_property("source_bins",
 	            [](const lcbi_options& o) { return o.source_bins; },
 	            [](lcbi_options& o, int value) { apply_nbin(o, py::int_(value)); })
@@ -1062,7 +1068,8 @@ void register_lc_submodule(py::module_& parent)
             else                                                   pt = "lcbinint";
             const std::string bins = o.automatic_source_bins != 0
                 ? "'auto'" : std::to_string(o.source_bins);
-            return "<lc.Options param_type='" + pt + "' nbin=" + bins + ">";
+            return "<lc.Options backend='" + std::string(o.jax != 0 ? "jax" : "native")
+                + "' param_type='" + pt + "' nbin=" + bins + ">";
         });
 
     // --- LimbDarkening ---
@@ -1539,6 +1546,7 @@ LightCurves with a ground Site apply the terrestrial correction.)")
                 const std::string key = item.first.cast<std::string>();
                 // --- Options (numerics) ---
 	                if      (key == "source_bins")            apply_nbin(o, py::reinterpret_borrow<py::object>(item.second));
+	                else if (key == "jax")                    o.jax = item.second.cast<bool>() ? 1 : 0;
 	                else if (key == "nbin")                   apply_nbin(o, py::reinterpret_borrow<py::object>(item.second));
 	                else if (key == "caustic_bins")           o.caustic_bins           = item.second.cast<int>();
 	                else if (key == "param_type")             apply_param_type(o, item.second.cast<std::string>());

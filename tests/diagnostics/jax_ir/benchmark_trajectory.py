@@ -97,6 +97,9 @@ def jax_curve(
 def microlux_curve(source_x, source_y, separation=SEPARATION, profile="linear"):
     limb_c = 0.0 if profile == "uniform" else LIMB_C
     trajectory = to_lowmass(separation, MASS_RATIO, source_x + 1j * source_y)
+    limb_darkening = (
+        None if profile == "uniform" else LinearLimbDarkening(limb_c)
+    )
     return extended_light_curve_from_trajectory_l(
         trajectory,
         separation,
@@ -106,7 +109,7 @@ def microlux_curve(source_x, source_y, separation=SEPARATION, profile="linear"):
         retol=1.0e-4,
         default_strategy=(30, 30, 60, 120, 240),
         analytic=True,
-        limb_darkening=LinearLimbDarkening(limb_c),
+        limb_darkening=limb_darkening,
         n_annuli=80,
     )
 

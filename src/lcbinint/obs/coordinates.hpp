@@ -41,6 +41,9 @@ public:
     double lat_deg() const noexcept { return lat_deg_; }
     double lon_deg() const noexcept { return lon_deg_; }
     const std::vector<double>& times() const noexcept { return times_; }
+    const std::vector<std::array<double, 3>>& positions() const noexcept {
+        return positions_;
+    }
     bool space_position(double time, std::array<double, 3>& position) const noexcept;
 
 private:

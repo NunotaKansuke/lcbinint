@@ -42,10 +42,11 @@ if not hasattr(LimbDarkening, "quadratic"):
 
 class LightCurve:
     def __init__(self, *args, orbital_motion_mode=None, **kwargs):
-        self.limb_darkening = kwargs.get("limb_darkening", LimbDarkening.none())
         if orbital_motion_mode is not None:
             kwargs["orbital_motion"] = _orbital_motion_name(orbital_motion_mode)
         self._native = _NativeLightCurve(*args, **kwargs)
+        self.limb_darkening = LimbDarkening(self._native.ld_c, self._native.ld_d)
+        self._use_jax = bool(self._native.options.jax)
         self.lens = self._native.lens
 
     @property
@@ -70,7 +71,12 @@ class LightCurve:
         return merged
 
     def __call__(self, times, params=None, **kwargs):
-        return self._native(times, self._merge_params(params, **kwargs))
+        merged = self._merge_params(params, **kwargs)
+        if self._use_jax:
+            from .jax_backend import magnification
+
+            return magnification(self._native, self._native.options, times, merged)
+        return self._native(times, merged)
 
     def magnification(self, times, params=None, **kwargs):
         return self.__call__(times, params, **kwargs)

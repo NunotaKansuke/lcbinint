@@ -12,6 +12,7 @@ dependencies = ["numpy", "scipy"]
 [project.optional-dependencies]
 test = ["pytest", "VBMicrolensing"]
 jax = ["jax>=0.4.31"]
+inference = ["jax>=0.4.31", "numpyro>=0.15"]
 
 [tool.scikit-build]
 cmake.build-type = "Release"
