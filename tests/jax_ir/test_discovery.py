@@ -53,6 +53,24 @@ def test_source_centre_and_limb_seed_shapes_are_static():
     assert not bool(seeds.root_failure)
 
 
+def test_public_pure_inverse_ray_promotes_float32_inputs_to_float64():
+    parameters = tuple(
+        jnp.asarray(value, dtype=jnp.float32)
+        for value in (0.2, 0.1, 1.2, 0.1, 0.05, 0.4, 0.0)
+    )
+    result = binary_inverse_ray(
+        *parameters,
+        resolution=8,
+        tile_size=8,
+        tile_capacity=64,
+        limb_samples=8,
+        cartesian_backend="jax",
+        root_backend="jax",
+    )
+    assert result.magnification.dtype == jnp.float64
+    assert result.moments.dtype == jnp.float64
+
+
 def test_exact_caustic_repeated_root_is_valid_finite_source_support():
     if not cpp_binary_image_roots_ffi_available():
         pytest.skip("lcbinint was built without binary image-root FFI support")

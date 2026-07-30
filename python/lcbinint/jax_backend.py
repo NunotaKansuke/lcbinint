@@ -21,6 +21,108 @@ _DEFAULT_PARAMETERS = {
     "limb_darkening_d": 0.0,
 }
 
+_PARAMETER_ALIASES = {
+    "t_0": "t0",
+    "t_E": "tE",
+    "umin": "u0",
+    "theta": "alpha",
+    "sep": "s",
+    "rho1": "rho",
+    "omega_xa": "w1",
+    "inc_xa": "w2",
+    "phi_xa": "w3",
+}
+
+# ``params_from_dict`` is the native public mapping contract.  Keep this
+# explicit rather than silently ignoring a misspelled inference parameter.
+_VALID_PARAMETER_NAMES = frozenset({
+    "t0", "t_0", "tE", "t_E", "u0", "umin", "alpha", "theta",
+    "s", "sep", "q", "rho", "rho1", "piEN", "piEE", "q2", "sep2",
+    "ang", "ra", "dec", "tfix", "obs_lat", "obs_lon",
+    "limb_darkening_c", "limb_darkening_d", "g1", "g2", "g3",
+    "lom_szs", "lom_ar", "v_sep", "xi_1", "xi_2", "period_xa",
+    "ecc_xa", "peri_xa", "inc_xa", "w1", "omega_xa", "w2", "w3",
+    "phi_xa", "xa_szs", "xa_ar", "orbital_motion_mode", "t0_2",
+    "u0_2", "rho2", "flux_ratio", "source_mass_ratio",
+})
+
+
+def _normalize_parameters(parameters: Mapping[str, object]) -> dict[str, object]:
+    """Match the native mapping's canonical parameter aliases.
+
+    ``params_from_dict`` applies aliases in mapping iteration order.  Preserve
+    that precedence here while retaining the original binary-source keys such
+    as ``rho1`` for downstream binary-source handling.
+    """
+
+    unknown = next(
+        (name for name in parameters if name not in _VALID_PARAMETER_NAMES),
+        None,
+    )
+    if unknown is not None:
+        raise KeyError(f"lcbinint: unknown parameter '{unknown}'")
+
+    normalized = dict(parameters)
+    canonical_values: dict[str, object] = {}
+    for name, value in parameters.items():
+        canonical_values[_PARAMETER_ALIASES.get(name, name)] = value
+    normalized.update(canonical_values)
+    # Native ``inc_xa`` and ``w2`` share the same storage.  The JAX backend
+    # uses the former for element modes and the latter for velocity modes.
+    # Synchronize both names with the native mapping's insertion-order rule.
+    if "w2" in canonical_values:
+        normalized["inc_xa"] = canonical_values["w2"]
+    return normalized
+
+
+def _concrete_float(value: object) -> float | None:
+    """Return a host scalar when available, without forcing JAX tracers."""
+
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _validate_curve_parameters(native_curve, parameters: Mapping[str, object]):
+    """Mirror native validation and return a mask for dynamic ``q2`` values."""
+
+    model = native_curve.model
+    requires_reference_time = (
+        model.parallax
+        or native_curve.orbital_motion != "static"
+        or (native_curve.source == "binary" and model.xallarap != "none")
+    )
+    if requires_reference_time and native_curve.t_ref is None:
+        raise RuntimeError(
+            "LightCurve: t_ref must be set when using parallax, orbital motion, "
+            "or binary-source xallarap"
+        )
+
+    q2 = parameters.get("q2", 0.0)
+    concrete_q2 = _concrete_float(q2)
+    if native_curve.lens == "triple":
+        if "q2" not in parameters or (
+            concrete_q2 is not None and concrete_q2 <= 0.0
+        ):
+            raise RuntimeError(
+                "LightCurve: lens='triple' requires a positive q2 parameter"
+            )
+    elif concrete_q2 is not None and concrete_q2 > 0.0:
+        raise RuntimeError(
+            "LightCurve: lens='binary' cannot be used with a positive q2 parameter"
+        )
+
+    if concrete_q2 is None:
+        # q2 may be an AD tracer (notably in HMC), for which a Python ``if``
+        # is invalid.  Return a device-side mask instead of a host callback:
+        # invalid compiled inputs become NaN rather than a finite result for
+        # the wrong lens model, while valid q2 values remain differentiable.
+        if native_curve.lens == "triple":
+            return q2 > 0.0
+        return q2 <= 0.0
+    return None
+
 
 def _value(parameters: Mapping[str, object], name: str):
     return parameters.get(name, _DEFAULT_PARAMETERS[name])
@@ -467,19 +569,22 @@ def magnification(native_curve, options, time, parameters):
 
     if not isinstance(parameters, Mapping):
         raise TypeError("JAX light curves require a parameter mapping")
+    parameters = _normalize_parameters(parameters)
+    q2_valid = _validate_curve_parameters(native_curve, parameters)
     time = jnp.asarray(time)
-    if time.ndim != 1:
+    if time.ndim == 0:
+        time = jnp.reshape(time, (1,))
+    elif time.ndim != 1:
         raise ValueError("times must be a one-dimensional array")
     if native_curve.source == "single":
-        return _source_magnification(
+        result = _source_magnification(
             native_curve,
             options,
             time,
             parameters,
             _value(parameters, "rho"),
         )
-
-    if native_curve.model.xallarap == "none":
+    elif native_curve.model.xallarap == "none":
         required = ("rho1", "rho2", "flux_ratio", "t0_2", "u0_2")
         missing = tuple(name for name in required if name not in parameters)
         if missing:
@@ -503,11 +608,14 @@ def magnification(native_curve, options, time, parameters):
             u0_name="u0_2",
         )
         flux_ratio = parameters["flux_ratio"]
-        return (first + flux_ratio * second) / (1.0 + flux_ratio)
-
-    return _binary_source_magnification(
-        native_curve,
-        options,
-        time,
-        parameters,
-    )
+        result = (first + flux_ratio * second) / (1.0 + flux_ratio)
+    else:
+        result = _binary_source_magnification(
+            native_curve,
+            options,
+            time,
+            parameters,
+        )
+    if q2_valid is not None:
+        result = jnp.where(q2_valid, result, jnp.nan)
+    return result

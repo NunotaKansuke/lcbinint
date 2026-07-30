@@ -145,8 +145,10 @@ if(LCBININT_BUILD_PYTHON)
                 lcbinint_python PRIVATE LCBININT_HAS_JAX_FFI=1)
             message(STATUS "Building JAX CPU FFI handler")
         else()
-            message(WARNING
-                "JAX headers were not found; building without the experimental JAX FFI handler")
+            message(FATAL_ERROR
+                "JAX headers were not found while LCBININT_ENABLE_JAX_FFI is ON. "
+                "Install jax in the build environment or configure "
+                "-DLCBININT_ENABLE_JAX_FFI=OFF explicitly.")
         endif()
     endif()
     set_target_properties(lcbinint_python PROPERTIES OUTPUT_NAME _lcbinint)
@@ -155,10 +157,18 @@ if(LCBININT_BUILD_PYTHON)
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_CURRENT_SOURCE_DIR}/python/lcbinint
             ${CMAKE_CURRENT_BINARY_DIR}/lcbinint
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/python/lcbinint_jax
+            ${CMAKE_CURRENT_BINARY_DIR}/lcbinint_jax
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            ${CMAKE_CURRENT_BINARY_DIR}/lcbinint_jax/data
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/data/earth_orbital_parallax_table.txt
+            ${CMAKE_CURRENT_BINARY_DIR}/lcbinint_jax/data/earth_orbital_parallax_table.txt
         COMMAND ${CMAKE_COMMAND} -E copy
             $<TARGET_FILE:lcbinint_python>
             ${CMAKE_CURRENT_BINARY_DIR}/lcbinint/$<TARGET_FILE_NAME:lcbinint_python>
-        COMMENT "Copying lcbinint Python package to build dir")
+        COMMENT "Copying lcbinint Python packages to build dir")
     get_filename_component(LCBININT_GSL_LIBRARY_DIR "${GSL_LIBRARY}" DIRECTORY)
     if(LCBININT_GSL_LIBRARY_DIR)
         set_target_properties(lcbinint_python PROPERTIES
@@ -173,3 +183,6 @@ endif()
 install(TARGETS lcbinint_magnification lcbinint_lightcurve)
 install(DIRECTORY include/lcbinint DESTINATION include)
 install(FILES data/earth_orbital_parallax_table.txt DESTINATION share/lcbinint/data)
+# Install data beside the package too: importlib.resources then works from a
+# wheel without relying on a source-checkout-relative path.
+install(FILES data/earth_orbital_parallax_table.txt DESTINATION lcbinint_jax/data)

@@ -5,6 +5,20 @@ differentiable CPU backend. The public model API is unchanged: select JAX in
 `Options`, pass JAX arrays and tracers, and differentiate the returned
 magnification with ordinary JAX transformations.
 
+## Public options and dispatch
+
+`lcbinint.Options` is a Python proxy around the native numerical options. Its
+`jax` selector is deliberately Python-only, so it does not alter the public C
+ABI. It controls `LightCurve.__call__()` and `.magnification()`; batch helpers
+such as `.magnification_batch()` and `.light_curve_log_likelihood_batch()`
+remain native execution paths and do not accept JAX tracers.
+
+For a triple lens, `q2` must remain positive. Concrete invalid values raise
+the same validation error as the native path. When `q2` is a JAX tracer, the
+device-side validity mask returns `NaN` for invalid compiled inputs rather
+than silently evaluating a different finite model; valid `q2` values remain
+differentiable without a host callback.
+
 ## Installation and precision
 
 Install the JAX extra for differentiation, or the inference extra when using
@@ -66,6 +80,14 @@ value, derivative = jax.jit(jax.value_and_grad(loss))(params["u0"])
 
 The first call includes JAX compilation. Reuse the compiled function with the
 same time-array shape and model structure when measuring or fitting.
+
+The pure-JAX binary image-root rule and the CPU FFI custom derivative rules
+support first-order `jax.jvp`, `jax.grad`, and reverse mode. Nested
+differentiation through those rules (for example `jax.hessian` or
+`jax.grad(jax.grad(...))`) is intentionally rejected: the fixed-topology
+implicit and native Jacobians have no second-order rule. This restriction
+applies to finite-source dispatchers that select either backend; unrelated
+ordinary-JAX trajectory algebra may still support higher derivatives.
 
 ## Differentiating several physical parameters
 

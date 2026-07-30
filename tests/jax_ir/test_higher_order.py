@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 import lcbinint
+import lcbinint_jax.higher_order as higher_order
 from lcbinint_jax import (
     annual_parallax_offsets,
     binary_lens_trajectory,
@@ -35,6 +36,31 @@ _PARAMETERS = {
     "lom_szs": 0.2,
     "lom_ar": 1.4,
 }
+
+
+def test_load_earth_ephemeris_reads_packaged_resource(monkeypatch, tmp_path):
+    """Installed wheels load the table as package data, not via the checkout."""
+
+    packaged_data = tmp_path / "data"
+    packaged_data.mkdir()
+    (packaged_data / "earth_orbital_parallax_table.txt").write_text(
+        "$$SOE\n"
+        "7000.0, ignored, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0\n"
+        "7001.0, ignored, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0\n"
+        "$$EOE\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(higher_order.resources, "files", lambda package: tmp_path)
+
+    ephemeris = higher_order.load_earth_ephemeris()
+
+    np.testing.assert_array_equal(ephemeris.time, (7000.0, 7001.0))
+    np.testing.assert_array_equal(
+        ephemeris.position, ((1.0, 2.0, 3.0), (7.0, 8.0, 9.0))
+    )
+    np.testing.assert_array_equal(
+        ephemeris.velocity, ((4.0, 5.0, 6.0), (10.0, 11.0, 12.0))
+    )
 
 
 @pytest.mark.parametrize("mode", ("circular", "kepler"))

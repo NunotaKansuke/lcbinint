@@ -122,6 +122,56 @@ def test_point_source_implicit_gradient_matches_finite_difference():
     )
 
 
+def test_pure_root_rule_allows_first_order_and_rejects_nested_ad():
+    def magnification(source_x):
+        return binary_point_source_magnification(
+            source_x,
+            0.1,
+            1.2,
+            0.1,
+            root_backend="jax",
+        ).magnification
+
+    assert jnp.isfinite(jax.jit(jax.grad(magnification))(0.2))
+    for transform in (jax.hessian(magnification), jax.jit(jax.hessian(magnification))):
+        with pytest.raises(NotImplementedError, match="second and higher derivatives"):
+            transform(0.2)
+
+
+def test_ffi_and_auto_root_rules_reject_nested_ad_consistently():
+    _require_root_ffi()
+
+    for backend in ("ffi", "auto"):
+        def magnification(source_x):
+            return binary_point_source_magnification(
+                source_x,
+                0.1,
+                1.2,
+                0.1,
+                root_backend=backend,
+            ).magnification
+
+        for transform in (
+            jax.hessian(magnification),
+            jax.jit(jax.hessian(magnification)),
+        ):
+            with pytest.raises(
+                NotImplementedError, match="second and higher derivatives"
+            ):
+                transform(0.2)
+
+
+def test_pure_point_source_promotes_float32_inputs_to_float64():
+    result = binary_point_source_magnification(
+        jnp.asarray(0.2, dtype=jnp.float32),
+        jnp.asarray(0.1, dtype=jnp.float32),
+        jnp.asarray(1.2, dtype=jnp.float32),
+        jnp.asarray(0.1, dtype=jnp.float32),
+        root_backend="jax",
+    )
+    assert result.magnification.dtype == jnp.float64
+
+
 def test_hexadecapole_matches_native_formula_and_has_stable_gradient():
     parameters = (0.3, 0.4, 1.4, 1.0e-3, 0.01)
 

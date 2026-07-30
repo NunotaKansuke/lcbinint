@@ -7,6 +7,7 @@ three quantities.  JAX applies the remaining chain rule to physical event,
 parallax, lens-orbit, and xallarap parameters.
 """
 
+from importlib import resources
 from pathlib import Path
 from typing import NamedTuple
 
@@ -831,12 +832,31 @@ def load_earth_ephemeris(path=None):
     """Load the bundled Horizons Earth state table for JAX interpolation."""
 
     if path is None:
-        path = Path(__file__).resolve().parents[2] / "data" / (
-            "earth_orbital_parallax_table.txt"
+        # Traversable.joinpath accepted only one child argument on Python 3.9.
+        resource = (
+            resources.files("lcbinint_jax")
+            .joinpath("data")
+            .joinpath("earth_orbital_parallax_table.txt")
         )
+        try:
+            stream = resource.open(encoding="utf-8")
+            description = "the bundled Earth ephemeris"
+        except FileNotFoundError:
+            # The source tree deliberately keeps data outside the Python
+            # package. Retain that layout for editable/developer imports;
+            # installed wheels use the resource above.
+            source_path = Path(__file__).resolve().parents[2] / "data" / (
+                "earth_orbital_parallax_table.txt"
+            )
+            stream = source_path.open(encoding="utf-8")
+            description = str(source_path)
+    else:
+        source_path = Path(path)
+        stream = source_path.open(encoding="utf-8")
+        description = str(source_path)
     rows = []
     in_block = False
-    with Path(path).open(encoding="utf-8") as stream:
+    with stream:
         for line in stream:
             stripped = line.strip()
             if not in_block:
@@ -857,7 +877,7 @@ def load_earth_ephemeris(path=None):
                 rows.append(fields[:7])
     table = np.asarray(rows, dtype=np.float64)
     if table.ndim != 2 or table.shape[0] < 2:
-        raise ValueError(f"no usable Earth ephemeris rows in {path}")
+        raise ValueError(f"no usable Earth ephemeris rows in {description}")
     return EarthEphemeris(
         jnp.asarray(table[:, 0]),
         jnp.asarray(table[:, 1:4]),

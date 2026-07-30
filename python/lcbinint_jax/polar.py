@@ -5,7 +5,7 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 
-from ._config import require_x64
+from ._config import as_float64, require_x64
 from .cell_moments import _affine_unit_square_moment
 from .discovery import binary_image_seed_points
 from .integrate import _phi_and_gradient_complex, _phi_and_gradient_real
@@ -31,6 +31,10 @@ def discover_binary_polar_bands(
 ):
     """Merge physical centre/limb image radii into disjoint radial bands."""
 
+    source_x, source_y, separation, mass_ratio, source_radius = (
+        as_float64(value)
+        for value in (source_x, source_y, separation, mass_ratio, source_radius)
+    )
     seeds = binary_image_seed_points(
         source_x,
         source_y,
@@ -147,6 +151,18 @@ def binary_inverse_ray_polar(
     """Integrate image-informed radial bands on a polar image-plane grid."""
 
     require_x64()
+    source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d = (
+        as_float64(value)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
     if kernel not in ("real", "complex"):
         raise ValueError("kernel must be 'real' or 'complex'")
     if moment_mode not in ("uniform", "linear", "two_coefficient"):

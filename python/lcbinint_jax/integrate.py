@@ -5,7 +5,7 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 
-from ._config import require_x64
+from ._config import as_float64, require_x64
 from .cell_moments import (
     resolved_cell_moments,
     resolved_cell_moments_linear,
@@ -155,6 +155,31 @@ def binary_inverse_ray_fixed_support(
             "boundary_capacity must hold every cell in one tile "
             "(boundary_capacity >= tile_size**2)"
         )
+
+    (
+        tile_origins,
+        cell_size,
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        limb_c,
+        limb_d,
+    ) = (
+        as_float64(value)
+        for value in (
+            tile_origins,
+            cell_size,
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
 
     frozen_origins = jax.lax.stop_gradient(tile_origins)
     frozen_mask = jax.lax.stop_gradient(tile_mask)

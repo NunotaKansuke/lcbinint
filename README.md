@@ -37,6 +37,7 @@ Requirements:
 - Python >= 3.9
 - GSL development headers/libraries
 - `pybind11`, `numpy`, `scikit-build-core`
+- `jax` when building with the default `LCBININT_ENABLE_JAX_FFI=ON`
 
 Set `GSL_ROOT` if GSL is not installed system-wide.
 
@@ -65,6 +66,12 @@ You can also build directly with CMake:
 GSL_ROOT=/path/to/gsl cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ctest --test-dir build --output-on-failure
+```
+
+To build without the experimental JAX FFI handler, disable it explicitly:
+
+```sh
+GSL_ROOT=/path/to/gsl cmake -S . -B build -DLCBININT_ENABLE_JAX_FFI=OFF
 ```
 
 Run the Python regression tests against the in-tree build:

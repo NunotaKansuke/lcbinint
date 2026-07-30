@@ -72,6 +72,49 @@ def test_real_and_complex_hot_kernels_agree(support):
     assert int(real_result.active_cells) > int(real_result.boundary_cells)
 
 
+def test_pure_fixed_support_promotes_float32_inputs_to_float64():
+    origins = jnp.asarray(((0.0, 0.0),), dtype=jnp.float32)
+    result = binary_inverse_ray_fixed_support(
+        origins,
+        jnp.asarray((True,)),
+        jnp.asarray(0.05, dtype=jnp.float32),
+        jnp.asarray(0.2, dtype=jnp.float32),
+        jnp.asarray(0.1, dtype=jnp.float32),
+        jnp.asarray(1.2, dtype=jnp.float32),
+        jnp.asarray(0.1, dtype=jnp.float32),
+        jnp.asarray(0.2, dtype=jnp.float32),
+        jnp.asarray(0.4, dtype=jnp.float32),
+        jnp.asarray(0.1, dtype=jnp.float32),
+        tile_size=8,
+    )
+    assert result.magnification.dtype == jnp.float64
+    assert result.moments.dtype == jnp.float64
+
+
+def test_fixed_support_ffi_rejects_nested_ad_explicitly():
+    _require_compiled_ffi()
+    origins = jnp.asarray(((0.0, 0.0),))
+    mask = jnp.asarray((True,))
+
+    def magnification(source_x):
+        return binary_inverse_ray_fixed_support_ffi(
+            origins,
+            mask,
+            0.05,
+            source_x,
+            0.1,
+            1.2,
+            0.1,
+            0.2,
+            0.4,
+            0.1,
+            tile_size=8,
+        ).magnification
+
+    with pytest.raises(NotImplementedError, match="second and higher derivatives"):
+        jax.jit(jax.hessian(magnification))(0.2)
+
+
 def test_value_and_grad_matches_directional_finite_difference(support):
     parameters = jnp.asarray([0.2, 0.1, 1.2, 0.1, 0.2, 0.4, 0.1])
 

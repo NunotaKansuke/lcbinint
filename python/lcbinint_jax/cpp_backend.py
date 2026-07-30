@@ -12,7 +12,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from ._config import require_x64
+from ._config import reject_higher_order_ad, require_x64
 from .types import FixedSupportResult, InverseRayResult
 
 _FFI_FORWARD_TARGET = "lcbinint_jax_fixed_support_forward_f64_v1"
@@ -645,6 +645,7 @@ def _binary_image_roots_ffi_transformable(
 
 @_binary_image_roots_ffi_transformable.defjvp
 def _binary_image_roots_ffi_jvp(primals, tangents):
+    reject_higher_order_ad(primals)
     outputs = _binary_root_ffi_call(
         _FFI_BINARY_ROOT_JACOBIAN_TARGET,
         primals,
@@ -840,6 +841,7 @@ def _cartesian_epoch_ffi_jvp(
     primals,
     tangents,
 ):
+    reject_higher_order_ad(primals)
     (
         cell_size,
         source_x,
@@ -1069,6 +1071,7 @@ def _triple_cartesian_epoch_jvp(
     primals,
     tangents,
 ):
+    reject_higher_order_ad(primals)
     outputs = _triple_cartesian_epoch_ffi_call(
         _FFI_TRIPLE_CARTESIAN_EPOCH_JACOBIAN_TARGET,
         (
@@ -1272,6 +1275,7 @@ def _polar_epoch_transformable(
 @_polar_epoch_transformable.defjvp
 def _polar_epoch_jvp(*arguments):
     *configuration, primals, tangents = arguments
+    reject_higher_order_ad(primals)
     *kernel_configuration, moment_count = configuration
     outputs = _polar_epoch_call(
         _FFI_POLAR_EPOCH_JACOBIAN_TARGET,
@@ -1409,6 +1413,7 @@ def _hexadecapole_batch_transformable(
 
 @_hexadecapole_batch_transformable.defjvp
 def _hexadecapole_batch_jvp(primals, tangents):
+    reject_higher_order_ad(primals)
     source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d = primals
     (
         source_x_tangent,
@@ -1553,6 +1558,7 @@ def _triple_hexadecapole_batch_transformable(
 
 @_triple_hexadecapole_batch_transformable.defjvp
 def _triple_hexadecapole_batch_jvp(convention, primals, tangents):
+    reject_higher_order_ad(primals)
     (
         source_x,
         source_y,
@@ -1741,6 +1747,7 @@ def _triple_point_batch_transformable(
 
 @_triple_point_batch_transformable.defjvp
 def _triple_point_batch_jvp(convention, primals, tangents):
+    reject_higher_order_ad(primals)
     source_x, source_y, separation, mass_ratio, q2, s2, angle = primals
     outputs = _triple_point_batch_call(
         _FFI_TRIPLE_POINT_BATCH_JACOBIAN_TARGET,
@@ -1994,6 +2001,7 @@ def _triple_polar_batch_transformable(
 @_triple_polar_batch_transformable.defjvp
 def _triple_polar_batch_jvp(*arguments):
     *configuration, primals, tangents = arguments
+    reject_higher_order_ad(primals)
     ffi_configuration = tuple(configuration[:12])
     primal = _FfiCartesianEpochResult(
         *_triple_polar_batch_call(
@@ -2559,6 +2567,7 @@ def _trajectory_transformable(
 @_trajectory_transformable.defjvp
 def _trajectory_jvp(*arguments):
     *configuration, primals, tangents = arguments
+    reject_higher_order_ad(primals)
     outputs = _trajectory_call(
         _FFI_TRAJECTORY_JACOBIAN_TARGET,
         tuple(configuration),
@@ -2779,6 +2788,7 @@ def _cartesian_batch_ffi_jvp(
     primals,
     tangents,
 ):
+    reject_higher_order_ad(primals)
     (
         source_x,
         source_y,
@@ -3033,6 +3043,7 @@ def _triple_cartesian_batch_jvp(
     primals,
     tangents,
 ):
+    reject_higher_order_ad(primals)
     (
         source_x,
         source_y,
@@ -3366,6 +3377,7 @@ def _fixed_support_ffi_jvp(
     primals,
     tangents,
 ):
+    reject_higher_order_ad(primals)
     (
         origins,
         mask,

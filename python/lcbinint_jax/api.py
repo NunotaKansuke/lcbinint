@@ -5,7 +5,7 @@ from functools import partial
 import jax
 import jax.numpy as jnp
 
-from ._config import require_x64
+from ._config import as_float64, require_x64
 from .cpp_backend import (
     binary_inverse_ray_polar_ffi,
     binary_inverse_ray_cartesian_ffi,
@@ -63,6 +63,18 @@ def _binary_inverse_ray(
     cartesian_backend,
     root_backend,
 ):
+    source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d = (
+        as_float64(value)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
     cell_size = jax.lax.stop_gradient(source_radius / resolution)
     use_ffi = _use_ffi_cartesian_backend(cartesian_backend, kernel)
     use_fused_ffi = (
@@ -383,6 +395,18 @@ def binary_inverse_ray_auto(
     """
 
     require_x64()
+    source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d = (
+        as_float64(value)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
     if moment_mode not in ("uniform", "linear", "two_coefficient"):
         raise ValueError(
             "moment_mode must be 'uniform', 'linear', or 'two_coefficient'"
@@ -682,6 +706,18 @@ def binary_magnification_auto(
     """
 
     require_x64()
+    source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d = (
+        as_float64(value)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
     hexadecapole = binary_hexadecapole(
         source_x,
         source_y,

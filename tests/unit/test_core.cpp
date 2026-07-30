@@ -7,11 +7,16 @@
 
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <cstring>
 #include <limits>
 #include <vector>
 
 namespace {
+
+// The C ABI starts with parallax_mode.  Keep Python-only backend selection
+// out of this public structure so existing C callers retain their layout.
+static_assert(offsetof(lcbi_options, parallax_mode) == 0);
 
 bool close_to_zero(lcbinint::Complex value)
 {

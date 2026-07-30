@@ -6,7 +6,7 @@ from typing import NamedTuple
 import jax
 import jax.numpy as jnp
 
-from ._config import require_x64
+from ._config import as_float64, reject_higher_order_ad, require_x64
 from .cpp_backend import (
     binary_images_ffi,
     cpp_binary_image_roots_ffi_available,
@@ -45,6 +45,7 @@ def _differentiable_binary_image_roots(source, separation, mass_ratio):
 def _differentiable_binary_image_roots_jvp(primals, tangents):
     source, separation, mass_ratio = primals
     source_dot, separation_dot, mass_ratio_dot = tangents
+    reject_higher_order_ad(primals)
     solved = binary_images(source, separation, mass_ratio)
     roots = solved.roots
 
@@ -88,6 +89,9 @@ def binary_point_source_magnification(
     require_x64()
     if root_backend not in ("auto", "jax", "ffi"):
         raise ValueError("root_backend must be 'auto', 'jax', or 'ffi'")
+    source_x, source_y, separation, mass_ratio = (
+        as_float64(value) for value in (source_x, source_y, separation, mass_ratio)
+    )
     source = source_x + 1j * source_y
     use_ffi = root_backend == "ffi" or (
         root_backend == "auto" and cpp_binary_image_roots_ffi_available()
@@ -140,6 +144,18 @@ def binary_hexadecapole(
     """Thirteen-point finite-source expansion used by native ``lcbinint``."""
 
     require_x64()
+    source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d = (
+        as_float64(value)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
     dtype = jnp.result_type(source_x, source_y, separation, mass_ratio, source_radius)
     sqrt_half = jnp.asarray(jnp.sqrt(0.5), dtype=dtype)
     cardinal_x = jnp.asarray((1.0, 0.0, -1.0, 0.0), dtype=dtype)

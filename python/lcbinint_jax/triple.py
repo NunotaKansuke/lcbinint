@@ -6,7 +6,7 @@ from typing import NamedTuple
 import jax
 import jax.numpy as jnp
 
-from ._config import require_x64
+from ._config import as_float64, require_x64
 from .cell_moments import (
     resolved_cell_moments,
     resolved_cell_moments_linear,
@@ -101,11 +101,11 @@ def triple_lens_geometry(
     primary-secondary and primary-tertiary separations.
     """
 
-    q = jnp.asarray(mass_ratio)
-    q2 = jnp.asarray(tertiary_mass_ratio, dtype=q.dtype)
-    separation = jnp.asarray(separation, dtype=q.dtype)
-    tertiary_separation = jnp.asarray(tertiary_separation, dtype=q.dtype)
-    tertiary_angle = jnp.asarray(tertiary_angle, dtype=q.dtype)
+    q = as_float64(mass_ratio)
+    q2 = as_float64(tertiary_mass_ratio)
+    separation = as_float64(separation)
+    tertiary_separation = as_float64(tertiary_separation)
+    tertiary_angle = as_float64(tertiary_angle)
     total = 1.0 + q + q2
     masses = jnp.asarray((1.0 / total, q / total, q2 / total))
     if convention == "center_of_mass":
@@ -203,6 +203,30 @@ def discover_triple_macro_tiles(
 ):
     """Discover connected triple-image macro tiles from degree-10 roots."""
 
+    (
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        source_radius,
+        cell_size,
+    ) = (
+        as_float64(value)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+            source_radius,
+            cell_size,
+        )
+    )
     if tile_capacity <= 0:
         raise ValueError("tile_capacity must be positive")
     if limb_samples < 8:
@@ -427,6 +451,36 @@ def triple_inverse_ray_fixed_support(
     """Integrate a stopped-gradient, caller-supplied triple-image support."""
 
     require_x64()
+    (
+        tile_origins,
+        cell_size,
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        source_radius,
+        limb_c,
+        limb_d,
+    ) = (
+        as_float64(value)
+        for value in (
+            tile_origins,
+            cell_size,
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
     if convention not in ("center_of_mass", "vbm"):
         raise ValueError("convention must be 'center_of_mass' or 'vbm'")
     if moment_mode == "uniform":
@@ -1731,6 +1785,32 @@ def triple_inverse_ray_dense(
     """
 
     require_x64()
+    (
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        source_radius,
+        limb_c,
+        limb_d,
+    ) = (
+        as_float64(value)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
     if resolution < 16:
         raise ValueError("resolution must be at least 16")
     if image_extent <= 0.0:

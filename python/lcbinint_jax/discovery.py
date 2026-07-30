@@ -6,6 +6,7 @@ from typing import NamedTuple
 import jax
 import jax.numpy as jnp
 
+from ._config import as_float64
 from .cpp_backend import (
     binary_images_ffi,
     cpp_binary_image_roots_ffi_available,
@@ -35,6 +36,10 @@ def binary_image_seed_points(
 ) -> ImageSeedPoints:
     """Return physical centre and source-limb images as stopped-gradient seeds."""
 
+    source_x, source_y, separation, mass_ratio, source_radius = (
+        as_float64(value)
+        for value in (source_x, source_y, separation, mass_ratio, source_radius)
+    )
     if root_backend not in ("auto", "jax", "ffi"):
         raise ValueError("root_backend must be 'auto', 'jax', or 'ffi'")
     use_ffi = root_backend == "ffi" or (
@@ -117,6 +122,17 @@ def discover_binary_macro_tiles(
 ) -> DiscoveryResult:
     """Discover a one-tile halo around connected finite-source images."""
 
+    source_x, source_y, separation, mass_ratio, source_radius, cell_size = (
+        as_float64(value)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            cell_size,
+        )
+    )
     frozen_cell_size = jax.lax.stop_gradient(cell_size)
     tile_width = jax.lax.stop_gradient(frozen_cell_size * tile_size)
     seeds = binary_image_seed_points(

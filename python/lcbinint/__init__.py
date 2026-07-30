@@ -3,9 +3,58 @@ from ._lcbinint import *          # noqa: F401, F403
 from ._lcbinint import obs
 from . import image
 from .image import ImagePlane
-import numpy as _np
 
-Options = _native.Options
+_NativeOptions = _native.Options
+
+
+class Options:
+    """Public numerical options plus a Python-only JAX backend selector.
+
+    The selector deliberately lives outside ``lcbi_options`` so adding JAX
+    support does not change the layout of the public C ABI structure.
+    """
+
+    __slots__ = ("_native", "_jax")
+
+    def __init__(self, *args, jax=False, **kwargs):
+        self._native = _NativeOptions(*args, **kwargs)
+        self._jax = bool(jax)
+
+    @classmethod
+    def _from_native(cls, native, *, jax=False):
+        result = cls.__new__(cls)
+        object.__setattr__(result, "_native", native)
+        object.__setattr__(result, "_jax", bool(jax))
+        return result
+
+    @property
+    def jax(self):
+        return self._jax
+
+    def __getattr__(self, name):
+        native = object.__getattribute__(self, "_native")
+        return getattr(native, name)
+
+    def __setattr__(self, name, value):
+        if name == "jax":
+            object.__setattr__(self, "_jax", bool(value))
+        elif name in self.__slots__:
+            object.__setattr__(self, name, value)
+        else:
+            setattr(self._native, name, value)
+
+    def __repr__(self):
+        try:
+            native = repr(object.__getattribute__(self, "_native"))
+        except AttributeError:
+            return "<lc.Options (uninitialized)>"
+        return native.replace(
+            "<lc.Options ",
+            f"<lc.Options backend='{'jax' if self.jax else 'native'}' ",
+            1,
+        )
+
+
 Parameters = _native.Parameters
 # Compatibility name for the parameter container. Unlike the removed
 # function-style evaluators, this does not create an alternate evaluation API.
@@ -22,6 +71,7 @@ OrbitalMotionMode = _native.OrbitalMotionMode
 XallarapParamType = _native.XallarapParamType
 _binary_images = _native._binary_images
 _binary_safety_diagnostic = _native._binary_safety_diagnostic
+_native_binary_ray_shooting = _native.binary_ray_shooting
 
 _PARAMETER_FIELDS = {
     "t0": "t0", "tE": "tE", "u0": "u0", "alpha": "alpha",
@@ -44,10 +94,29 @@ class LightCurve:
     def __init__(self, *args, orbital_motion_mode=None, **kwargs):
         if orbital_motion_mode is not None:
             kwargs["orbital_motion"] = _orbital_motion_name(orbital_motion_mode)
-        self._native = _NativeLightCurve(*args, **kwargs)
+        jax_argument = kwargs.pop("jax", None)
+        jax = bool(jax_argument) if jax_argument is not None else False
+        positional = list(args)
+        if positional and isinstance(positional[0], Options):
+            options = positional[0]
+            positional[0] = options._native
+            if jax_argument is None:
+                jax = options.jax
+        elif isinstance(kwargs.get("options"), Options):
+            options = kwargs["options"]
+            kwargs["options"] = options._native
+            if jax_argument is None:
+                jax = options.jax
+        self._native = _NativeLightCurve(*positional, **kwargs)
         self.limb_darkening = LimbDarkening(self._native.ld_c, self._native.ld_d)
-        self._use_jax = bool(self._native.options.jax)
+        self._options = Options._from_native(
+            self._native.options, jax=jax
+        )
         self.lens = self._native.lens
+
+    @property
+    def options(self):
+        return self._options
 
     @property
     def parallax(self):
@@ -72,7 +141,7 @@ class LightCurve:
 
     def __call__(self, times, params=None, **kwargs):
         merged = self._merge_params(params, **kwargs)
-        if self._use_jax:
+        if self._options.jax:
             from .jax_backend import magnification
 
             return magnification(self._native, self._native.options, times, merged)
@@ -184,6 +253,16 @@ def _orbital_motion_name(mode):
     if mode == OrbitalMotionMode.KEPLER or int(mode) == int(OrbitalMotionMode.KEPLER):
         return "kepler"
     return "static"
+
+
+def binary_ray_shooting(*args, **kwargs):
+    """Native inverse-ray helper accepting the public :class:`Options`."""
+
+    options = kwargs.get("options")
+    if isinstance(options, Options):
+        kwargs = dict(kwargs)
+        kwargs["options"] = options._native
+    return _native_binary_ray_shooting(*args, **kwargs)
 
 
 __all__ = [

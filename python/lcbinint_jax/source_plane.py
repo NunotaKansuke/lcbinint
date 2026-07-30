@@ -7,7 +7,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 
-from ._config import require_x64
+from ._config import as_float64, require_x64
 from .cpp_backend import triple_point_source_batch_ffi
 from .multipole import binary_point_source_magnification
 
@@ -305,6 +305,18 @@ def binary_source_plane_quadrature(
     """
 
     require_x64()
+    source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d = (
+        as_float64(value)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
     if coarse_order < 1 or fine_order <= coarse_order:
         raise ValueError("require 1 <= coarse_order < fine_order")
     if angular_multiplier < 1:
@@ -423,6 +435,32 @@ def triple_source_plane_quadrature(
     """
 
     require_x64()
+    (
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
+        source_radius,
+        limb_c,
+        limb_d,
+    ) = (
+        as_float64(value)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
     if coarse_order < 1 or fine_order <= coarse_order:
         raise ValueError("require 1 <= coarse_order < fine_order")
     if angular_multiplier < 1:
