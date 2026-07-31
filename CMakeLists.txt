@@ -65,6 +65,7 @@ endif()
 # Leaf layer: finite/point-source magnification kernels + root solvers.
 # No dependency on model/, lc/, or obs/ (see .note/session-2026-07-18-final-review.md, A5).
 add_library(lcbinint_magnification
+    src/lcbinint/magnification/binary_component_certificate.cpp
     src/lcbinint/magnification/finite_source_magnifier.cpp
     src/lcbinint/magnification/point_source_magnifier.cpp
     src/lcbinint/math/polynomial_roots.cpp

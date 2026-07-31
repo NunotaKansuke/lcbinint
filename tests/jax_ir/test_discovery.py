@@ -183,7 +183,7 @@ def test_macro_tile_capacity_overflow_is_explicit():
     assert not bool(result.support_valid)
 
 
-def test_sixteen_limb_seeds_recover_component_missed_by_eight():
+def test_component_certificate_is_independent_of_limb_seed_count():
     parameters = (
         -0.32501429088718237,
         0.1657421063761565,
@@ -207,7 +207,7 @@ def test_sixteen_limb_seeds_recover_component_missed_by_eight():
     sixteen = value(16)
     thirty_two = value(32)
 
-    assert abs(float(eight / thirty_two - 1.0)) > 1.0e-2
+    np.testing.assert_allclose(eight, thirty_two, rtol=1.0e-12, atol=1.0e-12)
     np.testing.assert_allclose(sixteen, thirty_two, rtol=1.0e-12, atol=1.0e-12)
 
 
@@ -545,3 +545,95 @@ def test_masked_cartesian_batch_ffi_matches_scalar_values_and_gradient(
         rtol=0.0,
         atol=2.0e-12,
     )
+
+
+# Caustic nearly tangent to the source limb: the five-image cap is 8.2e-6 deep
+# against rho = 0.02 and subtends 0.088 rad of the limb, so an 8-, 16- or
+# 32-sample limb raster finds or misses it by luck.  The reference is
+# VBMicrolensing BinaryMag2 at Tol=1e-9.
+_TANGENT_CUSP = (0.653, 0.020, 1.2, 0.1, 0.020)
+_TANGENT_CUSP_REFERENCE = 3.960888498085
+
+
+def _tangent_cusp_magnification(resolution, limb_samples):
+    return binary_inverse_ray(
+        *_TANGENT_CUSP,
+        0.0,
+        0.0,
+        resolution=resolution,
+        tile_size=16,
+        tile_capacity=8192,
+        limb_samples=limb_samples,
+    )
+
+
+# Resolution 32 is excluded on purpose: one macro tile is then wider than the
+# cap is deep, so which tiles the flood marks active is decided by tile
+# granularity rather than by the support, and extra limb seeds still move the
+# answer.  From resolution 64 up the certificate alone fixes the component set.
+@pytest.mark.parametrize("resolution", (64, 128, 256))
+def test_tangent_cusp_support_is_independent_of_limb_samples(resolution):
+    results = [_tangent_cusp_magnification(resolution, n) for n in (8, 16, 32)]
+    for result in results:
+        assert bool(result.support_valid)
+    for result in results[1:]:
+        # Identical component set; only the moment summation order changes with
+        # the number of redundant limb seeds.
+        np.testing.assert_allclose(
+            result.magnification,
+            results[0].magnification,
+            rtol=1.0e-12,
+            atol=0.0,
+        )
+
+
+def test_tangent_cusp_converges_to_the_reference():
+    values = [
+        float(_tangent_cusp_magnification(resolution, 16).magnification)
+        for resolution in (64, 128, 256)
+    ]
+    errors = [
+        abs(value / _TANGENT_CUSP_REFERENCE - 1.0) for value in values
+    ]
+    assert errors == sorted(errors, reverse=True)
+    # Losing the extra image pair costs 3.1e-3 relative and does not shrink
+    # with resolution; staying inside 1e-3 at the finest resolution means the
+    # pair is integrated, not merely approached.
+    assert errors[-1] < 1.0e-3
+
+
+def test_tangent_cusp_value_and_jvp_share_one_support():
+    """The Jet kernel certifies from the primal values, so both paths agree.
+
+    ``discover_cartesian_support`` is handed ``scalar_value`` of each Jet, so
+    the derivative evaluation cannot select a different set of components from
+    the value evaluation.  Any drift would show up here as a limb-sample
+    dependence that the primal alone does not have.
+    """
+
+    def magnification(source_y, limb_samples):
+        return binary_inverse_ray(
+            _TANGENT_CUSP[0],
+            source_y,
+            *_TANGENT_CUSP[2:],
+            0.0,
+            0.0,
+            resolution=128,
+            tile_size=16,
+            tile_capacity=8192,
+            limb_samples=limb_samples,
+        ).magnification
+
+    reference = None
+    for limb_samples in (8, 16, 32):
+        value, gradient = jax.value_and_grad(magnification)(
+            _TANGENT_CUSP[1], limb_samples)
+        assert np.isfinite(float(value))
+        assert np.isfinite(float(gradient))
+        if reference is None:
+            reference = (float(value), float(gradient))
+            continue
+        np.testing.assert_allclose(
+            float(value), reference[0], rtol=1.0e-12, atol=0.0)
+        np.testing.assert_allclose(
+            float(gradient), reference[1], rtol=1.0e-9, atol=0.0)

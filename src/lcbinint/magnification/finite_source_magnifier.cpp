@@ -1,4 +1,5 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
+#include "lcbinint/magnification/binary_component_certificate.hpp"
 
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
@@ -2350,6 +2351,37 @@ SourcePosition refine_nearest_critical_source(
     return f1 < f2 ? nearest1 : nearest2;
 }
 
+std::vector<SourcePosition> selected_point_images(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source);
+
+// Roots the certified support probes and adds every resulting image to the
+// seed set.  Returns whether the support was proven; see
+// resolve_certified_probes for the rule.
+bool append_certified_component_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const BinaryDiskSupport& support,
+    std::vector<SourcePosition>& seeds)
+{
+    return resolve_certified_probes(support, [&](SourcePosition probe) {
+        if (selected_point_images(
+                point_magnifier, separation, mass_ratio, probe).size() <= 3) {
+            return false;
+        }
+        append_valid_probe_image_seeds(
+            point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+            probe, seeds);
+        return true;
+    });
+}
+
 std::vector<SourcePosition> augmented_image_seeds(
     const PointSourceMagnifier& point_magnifier,
     const BinaryLensMapper& mapper,
@@ -2359,8 +2391,12 @@ std::vector<SourcePosition> augmented_image_seeds(
     double source_radius,
     double hint_caustic_dist = std::numeric_limits<double>::infinity(),
     const std::vector<SourcePosition>* seed_hints = nullptr,
-    const std::vector<std::vector<SourcePosition>>* caustic_branches = nullptr)
+    const std::vector<std::vector<SourcePosition>>* caustic_branches = nullptr,
+    bool* support_proven = nullptr)
 {
+    if (support_proven != nullptr) {
+        *support_proven = true;
+    }
     std::vector<SourcePosition> seeds;
     seeds.reserve(seed_hints == nullptr ? 5 : std::max<std::size_t>(5, seed_hints->size()));
     if (seed_hints != nullptr) {
@@ -2379,6 +2415,20 @@ std::vector<SourcePosition> augmented_image_seeds(
     }
 
     if (caustic_branches != nullptr) {
+        // Completeness stage.  Every component of (disk \ caustic) owns a
+        // local extremum of the distance to the disk centre along the caustic,
+        // so rooting the certified probes reaches every image component
+        // regardless of how the probe rings below happen to fall.  Run it
+        // first: the rings are then pure redundancy rather than the criterion.
+        const auto support = certify_binary_disk_support(
+            *caustic_branches, source, source_radius);
+        const bool proven = append_certified_component_seeds(
+            point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+            support, seeds);
+        if (support_proven != nullptr) {
+            *support_proven = proven;
+        }
+
         // Cache-driven seeding: one pass over the cached caustic polylines
         // replaces the per-epoch critical-curve phase scans (up to ~2800
         // quartic root solves) with pure distance queries, and gates the
@@ -3631,12 +3681,14 @@ FiniteSourceResult fixed_inverse_ray_binary(
     const std::vector<SourcePosition>* seed_hints = nullptr)
 {
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    bool support_proven = true;
     auto seeds = augmented_image_seeds(
         point_magnifier, mapper, separation, mass_ratio, source, source_radius,
         caustic_distance, seed_hints,
         finite_magnifier != nullptr
             ? &finite_magnifier->binary_caustic_branches(separation, mass_ratio)
-            : nullptr);
+            : nullptr,
+        &support_proven);
     // Phase 3: find caustic crossings that fall in the gap between the last
     // phase sample and phi=2*pi (missed by uniform 1400-point sampling).
     if (finite_magnifier != nullptr) {
@@ -3697,9 +3749,17 @@ FiniteSourceResult fixed_inverse_ray_binary(
         if (underresolved) {
             error = std::max(error, 3.0e-3 * std::max(std::abs(value), 1.0));
         }
+        // The support certificate is resolution independent, so a finer grid
+        // cannot repair an unproven one.  Refusing convergence here is what
+        // keeps a silently missing component from being reported as an
+        // accurate value: the area indicator only measures the boundary of the
+        // components that were found.
+        if (!support_proven) {
+            error = std::numeric_limits<double>::infinity();
+        }
         return std::pair<double, bool> {
             error,
-            !underresolved && error <= target_error_for(value),
+            support_proven && !underresolved && error <= target_error_for(value),
         };
     };
 

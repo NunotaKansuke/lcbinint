@@ -1,6 +1,7 @@
 #include "bind_jax_ir.hpp"
 
 #include "lcbinint/math/polynomial_roots.hpp"
+#include "lcbinint/magnification/binary_component_certificate.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/model/triple_lens_geometry.hpp"
@@ -2223,9 +2224,24 @@ struct CartesianDiscovery {
     std::vector<std::array<std::int32_t, 2>> queue;
     bool overflow = false;
     bool root_failure = false;
+    // False when the caustic geometry certifies a component that no probe
+    // could reach; the value is then not trustworthy at any resolution.
+    bool support_proven = true;
+    std::uint64_t support_fingerprint = 0;
     std::int32_t active_count = 0;
     std::int32_t seed_count = 0;
 };
+
+// The caustic polyline depends only on (separation, mass_ratio) and is cached
+// inside the magnifier, so one instance per thread keeps the certificate off
+// the per-epoch cost.  Rebuilding it per call would re-run the whole
+// critical-curve phase scan for every light-curve point.
+const std::vector<std::vector<lcbinint::SourcePosition>>& cached_caustic_branches(
+    double separation, double mass_ratio)
+{
+    thread_local lcbinint::magnification::FiniteSourceMagnifier magnifier {{}};
+    return magnifier.binary_caustic_branches(separation, mass_ratio);
+}
 
 CartesianDiscovery discover_cartesian_support(
     double tile_width,
@@ -2288,6 +2304,44 @@ CartesianDiscovery discover_cartesian_support(
             || physical_count < 3
             || physical_count > 5;
     }
+    // The limb set above is useful redundancy but is not a completeness
+    // criterion: a component born in a cap of the source disk subtends an arc
+    // of the limb that shrinks to zero as the caustic approaches tangency, so
+    // no fixed limb_samples can be relied on to sample it.  The certificate is
+    // derived from the caustic geometry instead and is therefore independent
+    // of limb_samples and of the tile resolution.
+    const auto support = lcbinint::magnification::certify_binary_disk_support(
+        cached_caustic_branches(separation, mass_ratio),
+        {source_x, source_y}, source_radius);
+    result.support_fingerprint = support.fingerprint;
+    result.support_proven = lcbinint::magnification::resolve_certified_probes(
+        support, [&](lcbinint::SourcePosition probe) {
+            const auto images = solve_binary_images(
+                probe.x, probe.y, separation, mass_ratio);
+            std::int32_t physical_count = 0;
+            for (std::size_t root = 0; root < binary_root_count; ++root) {
+                physical_count += static_cast<std::int32_t>(images.physical[root]);
+            }
+            if (physical_count <= 3) return false;
+            for (std::size_t root = 0; root < binary_root_count; ++root) {
+                if (!images.physical[root]) continue;
+                const auto tile_x = static_cast<std::int32_t>(
+                    std::floor(images.roots[root].real() / tile_width));
+                const auto tile_y = static_cast<std::int32_t>(
+                    std::floor(images.roots[root].imag() / tile_width));
+                if (insert(tile_x, tile_y)) seeds.insert(tile_key(tile_x, tile_y));
+            }
+            result.root_failure = result.root_failure || physical_count > 5;
+            return true;
+        });
+    // A caustic arc separates a three-image region from a five-image one, so a
+    // certified extremum inside the disk with no five-image probe on either
+    // normal means a component exists that this support does not cover.  Fold
+    // that into root_failure here rather than at each consumer: every caller
+    // already treats root_failure as "the support could not be established",
+    // and a support that is known to be incomplete must never be reported as
+    // valid at any resolution.
+    result.root_failure = result.root_failure || !result.support_proven;
     result.seed_count = static_cast<std::int32_t>(result.queue.size());
 
     constexpr std::array<std::array<std::int32_t, 2>, 4> neighbours{{
