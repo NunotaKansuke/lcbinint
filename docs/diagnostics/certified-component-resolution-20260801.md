@@ -178,8 +178,12 @@ reference was that Tol=1e-7 value.
 Strictly monotone — the historical signature of the defect was a non-monotone
 sequence that dipped wherever the limb raster missed the cap.
 
-Adaptive precision (`finite_source_reltol` 1e-4 and 1e-5 agree to all digits):
-**3.960884165, -1.09e-06 relative, 1.25 s**.
+Adaptive precision at `finite_source_reltol = 1e-5`: **3.960884165, -1.09e-06
+relative, 1.25 s**.  (An earlier revision of this note claimed 1e-4 and 1e-5
+"agree to all digits".  They do not: 1e-4 stops at 400 bins and returns
+3.960763257, -3.16e-05 relative — inside the tolerance it was given, which is
+the contract, but not the same number.  See *Certifying the tolerance* below
+for why 1e-5 used to return a NaN instead.)
 
 Linear limb darkening `c = 0.5` converges to **3.836158013** the same way.  VBM
 is not usable as an external reference there: `BinaryMagDark` returns 3.9675 for
@@ -508,6 +512,77 @@ and had been passing on that accidental over-delivery.  It is now
 `test_adaptive_precision_meets_the_tolerance_it_is_given`, parameterised over
 1e-3/1e-4/1e-5, which pins the contract that actually exists — plus the
 certificate, so a loose tolerance cannot be met by losing the image pair.
+
+## Certifying the tolerance — the indicator is not the error
+
+Both acceptance tests that ask the adaptive loop for `finite_source_reltol =
+1e-5` failed from the day they were written: the binary one raised
+`RuntimeError: numerical error` at the `[1e-05]` parameter, the triple one at
+both 1e-4 and 1e-5.  The values were never wrong.  What was wrong was the thing
+deciding whether to hand them back.
+
+The convergence gate is `diagnostics.estimated_error`, the boundary-area
+indicator.  It counts the cells the source limb and the caustic cut, so it is
+`perimeter * cell_width / area` — **first order in the cell width, always**,
+however fast the integrated area actually converges.  Measured against the
+truth on the two acceptance geometries:
+
+| bins | binary value | binary true rel. | indicator | ratio |
+|-----:|-------------:|-----------------:|----------:|------:|
+| 50 | 3.9572411139 | 9.21e-04 | 1.867e-03 | 0.5 |
+| 400 | 3.9607632573 | 3.16e-05 | 2.664e-04 | 2.1 |
+| 4096 | 3.9608841648 | 1.09e-06 | 2.650e-05 | 6.1 |
+
+| bins | triple value | triple true rel. | indicator | ratio |
+|-----:|-------------:|-----------------:|----------:|------:|
+| 50 | 17.4985278858 | 1.13e-04 | 1.563e-02 | 7.9 |
+| 400 | 17.5004492993 | 2.82e-06 | 1.955e-03 | 39.6 |
+| 4096 | 17.5004986409 | ~1e-14 | 1.909e-04 | >1e6 |
+
+The ratio grows without bound because the value converges faster than first
+order and the indicator does not.  At the 4096-bin cap the indicator cannot
+certify better than 2e-4 absolute on the triple, so `reltol = 1e-5` (budget
+1.75e-4) fails closed on a value good to fourteen digits.  No amount of
+refinement fixes this; the ceiling is structural.
+
+Two changes, both in `finite_source_magnifier.cpp`.
+
+**1. A grid pair measures the coarse error, not the fine one.**  The retry loop
+already compared the refined value against the one before it, as
+`|A_fine - A_coarse|`.  For a first-order scheme that difference is about
+`(r - 1)` times the *fine*-grid error, with `r` the ratio of the two bin counts.
+Halving gives `r = 2` and needs no correction — which is why the plain
+difference was right for the `/2` check that used it.  But the automatic retry
+does not halve: on the binary tangency it jumps from 400 straight to 4096, and
+the raw difference `|A(4096) - A(400)| = 1.21e-04` was then charged to `A(4096)`,
+whose own error is 4.3e-06.  Ten times too pessimistic, and the more the loop
+refined the worse the estimate got.  `grid_pair_error_estimate` divides by
+`max(r - 1, 1)`, leaving every `r = 2` call site bit-identical.
+
+**2. When the ladder is exhausted, measure instead of bounding.**
+`reconcile_with_half_resolution` spends one half-resolution evaluation and lets
+the measured pair rule in both directions: a row the indicator passed still has
+to survive it (this is the pre-existing anti-aliasing check, unchanged), and a
+row the indicator rejected is admitted only if the measurement is inside the
+budget.  On the binary it runs after the retry ladder has run out of grid; the
+triple Cartesian route has no ladder at all, so it runs there directly.
+
+What this does **not** touch is the part that makes the branch fail closed.
+`support_proven` still forces an infinite error, and the `underresolved`
+resolvability guard still vetoes — neither is a statement about grid error, so
+neither is something a second grid can overrule.  The door still closes: the
+binary geometry at `reltol = 1e-6` returns NaN exactly as before.
+
+Result on the two geometries:
+
+| case | before | after |
+|:-----|-------:|------:|
+| binary, reltol 1e-5 | NaN (indicator 1.21e-04 vs budget 3.96e-05) | 3.960884165, estimate 2.65e-05 |
+| triple, reltol 1e-5 | NaN (indicator 1.91e-04 vs budget 1.75e-04) | 17.500498641, estimate 1.13e-06 |
+| binary, reltol 1e-6 | NaN | NaN |
+
+Cost is one extra evaluation at half resolution — 25 % — paid only by a row
+that carries an explicit tolerance and would otherwise have returned a NaN.
 
 ## Seed sets are built once per epoch
 

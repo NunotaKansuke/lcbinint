@@ -59,6 +59,75 @@ bool finite_source_error_within_budget(
         error_estimate <= finite_source_error_budget(settings, magnification);
 }
 
+// Two grids measure the discretization error, but the difference between them
+// is dominated by the coarser one: for a first-order scheme
+// |A_fine - A_coarse| is about (r - 1) times the fine-grid error, with r the
+// ratio of the two bin counts.  Halving needs no correction, which is why the
+// plain difference was right for the /2 comparison and far too pessimistic for
+// a pair the automatic retry produced by jumping straight from 400 to 4096
+// bins -- there it reported ten times the error it was measuring.
+double grid_pair_error_estimate(
+    double fine_magnification,
+    double coarse_magnification,
+    int fine_bins,
+    int coarse_bins)
+{
+    const double difference = std::abs(fine_magnification - coarse_magnification);
+    const double ratio = coarse_bins > 0
+        ? static_cast<double>(fine_bins) / static_cast<double>(coarse_bins)
+        : 2.0;
+    return difference / std::max(ratio - 1.0, 1.0);
+}
+
+// The boundary-area indicator counts the cells the source limb and the caustic
+// cut, so it decays like 1/source_bins however fast the area itself converges.
+// On the binary tangency it is 6x pessimistic by 4096 bins and on the triple
+// cusp 1000x, which is enough to report a value that is right to 1e-14 as
+// unconverged and hand back a NaN.  When an explicit tolerance is on the line,
+// spend one half-resolution evaluation and let the measured pair speak: a
+// would-be converged row still has to survive it, and a row the indicator
+// rejects is admitted only if the measurement is inside the budget.  What this
+// does not touch is the support certificate or the resolvability guard -- both
+// still veto, because neither is a statement about grid error.
+template <typename EvaluateAt>
+void reconcile_with_half_resolution(
+    const FiniteSourceSettings& settings,
+    const FiniteSourceSettings& active_settings,
+    double magnification,
+    EvaluateAt&& evaluate_at,
+    double& error_estimate,
+    bool& converged)
+{
+    if (!has_explicit_finite_source_tolerance(settings) ||
+        active_settings.source_bins <= 1) {
+        return;
+    }
+    FiniteSourceSettings coarse_settings = active_settings;
+    coarse_settings.source_bins = std::max(1, active_settings.source_bins / 2);
+    if (coarse_settings.polar_source_bins > 0) {
+        coarse_settings.polar_source_bins = coarse_settings.source_bins;
+    }
+    const double coarse_magnification = evaluate_at(coarse_settings);
+    if (!std::isfinite(coarse_magnification)) {
+        if (converged) {
+            error_estimate = std::numeric_limits<double>::infinity();
+            converged = false;
+        }
+        return;
+    }
+    const double measured = grid_pair_error_estimate(
+        magnification, coarse_magnification,
+        active_settings.source_bins, coarse_settings.source_bins);
+    if (converged) {
+        error_estimate = std::max(error_estimate, measured);
+        converged = finite_source_error_within_budget(
+            settings, magnification, error_estimate);
+    } else if (finite_source_error_within_budget(settings, magnification, measured)) {
+        error_estimate = measured;
+        converged = true;
+    }
+}
+
 double explicit_finite_source_relative_budget(
     const FiniteSourceSettings& settings,
     double magnification)
@@ -4161,10 +4230,13 @@ FiniteSourceResult fixed_inverse_ray_binary(
     auto target_error_for = [&](double value) {
         return finite_source_error_budget(settings, value);
     };
-    auto diagnose = [&](double value, const LegacyAreaDiagnostics& current_diagnostics) {
-        const bool underresolved = caustic_contact &&
+    auto is_underresolved = [&]() {
+        return caustic_contact &&
             q_small < 4.0 * source_radius /
                 static_cast<double>(std::max(active_settings.source_bins, 1));
+    };
+    auto diagnose = [&](double value, const LegacyAreaDiagnostics& current_diagnostics) {
+        const bool underresolved = is_underresolved();
         double error = current_diagnostics.estimated_error;
         if (underresolved) {
             error = std::max(error, 3.0e-3 * std::max(std::abs(value), 1.0));
@@ -4184,30 +4256,20 @@ FiniteSourceResult fixed_inverse_ray_binary(
     };
 
     auto [error_estimate, converged] = diagnose(magnification, diagnostics);
+    auto evaluate_at = [&](const FiniteSourceSettings& grid) {
+        return inverse_ray_cartesian_binary_mag(
+            point_magnifier, separation, mass_ratio, source, source_radius,
+            grid, finite_magnifier, &seeds);
+    };
     // The area indicator is essentially free, but rare lattice-aliasing rows
     // can make it optimistic.  For an explicit tolerance only, verify a
     // would-be converged result against one coarser grid.  Rows already known
-    // to miss the budget pay no extra pass, preserving the survey/default hot
-    // path and avoiding pointless work at a capped tight tolerance.
-    if (converged && has_explicit_finite_source_tolerance(settings) &&
-        active_settings.source_bins > 1) {
-        FiniteSourceSettings coarse_settings = active_settings;
-        coarse_settings.source_bins = std::max(1, active_settings.source_bins / 2);
-        if (coarse_settings.polar_source_bins > 0) {
-            coarse_settings.polar_source_bins = coarse_settings.source_bins;
-        }
-        const double coarse_magnification = inverse_ray_cartesian_binary_mag(
-            point_magnifier, separation, mass_ratio, source, source_radius,
-            coarse_settings, finite_magnifier, &seeds);
-        if (std::isfinite(coarse_magnification)) {
-            error_estimate = std::max(
-                error_estimate, std::abs(magnification - coarse_magnification));
-            converged = finite_source_error_within_budget(
-                settings, magnification, error_estimate);
-        } else {
-            error_estimate = std::numeric_limits<double>::infinity();
-            converged = false;
-        }
+    // to miss the budget pay no extra pass here; they still have the retry
+    // ladder ahead of them, and only spend the pass once it is exhausted.
+    if (converged) {
+        reconcile_with_half_resolution(
+            settings, active_settings, magnification, evaluate_at,
+            error_estimate, converged);
     }
     int refinement_level = 0;
     constexpr std::array<int, 14> kAutoRetryBuckets {{
@@ -4238,6 +4300,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
             break;
         }
 
+        const int previous_bins = active_settings.source_bins;
         active_settings.source_bins = retry_bins;
         if (active_settings.polar_source_bins <= 0) {
             active_settings.polar_source_bins = retry_bins;
@@ -4257,10 +4320,21 @@ FiniteSourceResult fixed_inverse_ray_binary(
         if (converged && has_explicit_finite_source_tolerance(settings)) {
             error_estimate = std::max(
                 error_estimate,
-                std::abs(magnification - previous_magnification));
+                grid_pair_error_estimate(
+                    magnification, previous_magnification,
+                    active_settings.source_bins, previous_bins));
             converged = finite_source_error_within_budget(
                 settings, magnification, error_estimate);
         }
+    }
+    // The retry ladder is exhausted here, so the indicator's 1/source_bins
+    // floor is all that stands between a correct value and a NaN.  Measure the
+    // grid error instead of bounding it.
+    if (!converged && support_proven && !is_underresolved() &&
+        std::isfinite(error_estimate)) {
+        reconcile_with_half_resolution(
+            settings, active_settings, magnification, evaluate_at,
+            error_estimate, converged);
     }
     if (refinement_level > 0) {
         decision.reason = "cartesian inverse-ray with auto grid retry";
@@ -5966,33 +6040,28 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
                 : std::numeric_limits<double>::infinity();
             bool converged = support_proven && finite_source_error_within_budget(
                 settings_, cartesian_magnification, error_estimate);
-            if (converged && has_explicit_finite_source_tolerance(settings_) &&
-                runtime_settings.source_bins > 1) {
-                FiniteSourceSettings coarse_settings = runtime_settings;
-                coarse_settings.source_bins =
-                    std::max(1, runtime_settings.source_bins / 2);
-                if (coarse_settings.polar_source_bins > 0) {
-                    coarse_settings.polar_source_bins = coarse_settings.source_bins;
-                }
-                const double coarse_magnification = inverse_ray_cartesian_triple_mag(
-                    point_magnifier,
-                    geometry,
-                    caustics,
-                    source,
-                    source_radius,
-                    coarse_settings,
-                    this,
-                    &shared_seeds);
-                if (std::isfinite(coarse_magnification)) {
-                    error_estimate = std::max(
-                        error_estimate,
-                        std::abs(cartesian_magnification - coarse_magnification));
-                    converged = finite_source_error_within_budget(
-                        settings_, cartesian_magnification, error_estimate);
-                } else {
-                    error_estimate = std::numeric_limits<double>::infinity();
-                    converged = false;
-                }
+            // The triple Cartesian route has no retry ladder: its grid is the
+            // one the caller allowed, so the indicator's 1/source_bins floor
+            // is the only thing between it and a NaN.  Let the measured pair
+            // rule in both directions, as it does on the binary side.
+            if (support_proven) {
+                reconcile_with_half_resolution(
+                    settings_,
+                    runtime_settings,
+                    cartesian_magnification,
+                    [&](const FiniteSourceSettings& grid) {
+                        return inverse_ray_cartesian_triple_mag(
+                            point_magnifier,
+                            geometry,
+                            caustics,
+                            source,
+                            source_radius,
+                            grid,
+                            this,
+                            &shared_seeds);
+                    },
+                    error_estimate,
+                    converged);
             }
             return apply_triple_tangent_floor({
                 cartesian_magnification,
