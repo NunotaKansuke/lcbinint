@@ -1,3 +1,13 @@
+"""Hand-picked geometries pinning the calibrated point-source safety margins.
+
+Each test here fixes one decision at one place: a specific cusp, ghost or
+planetary indicator must veto (or release) a specific fast path.  They pin the
+calibration, not the property it exists to deliver -- for that, see
+`test_smooth_route_clearance.py`, which asserts over a randomised near-caustic
+sample that no smooth expansion is ever chosen for a disk the caustic provably
+enters.
+"""
+
 import math
 
 import pytest

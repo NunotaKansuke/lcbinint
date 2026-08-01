@@ -269,6 +269,56 @@ used where a completeness criterion is needed — the frontier test should bound
 here.  The raster is what currently keeps it small, so removing the raster
 would expose it.
 
+### The smooth-route safety constants stay too
+
+`point_source`, `hexadecapole` and `source_plane_quadrature` expand about the
+disk centre, so all three are wrong by an amount unrelated to their own error
+estimate once a caustic passes through the disk.  The router keeps them out of
+that regime with calibrated proxies — `kQuadrupoleCuspSafety = 6`,
+`kGhostSafety = 3`, `kPlanetarySafety = 2`, `kPreflightPointSafety = 30`,
+`kMeasuredTopologyReleaseDistance = 10` rho, and a 20-rho rebuild window.  The
+certificate's `min_caustic_distance` / `caustic_touches_disk` are *proven*
+statements about the same question, so the obvious move was to replace the
+constants with them.  Measured, and there is nothing to replace.
+
+The certificate's bound is the polyline segment distance minus the local
+sagitta.  At realistic `caustic_bins` the sagitta term is already negligible,
+because it falls as `n^-2`:
+
+| `caustic_bins` | sagitta / distance |
+|---------------:|-------------------:|
+| 200 | 1.7e-03 .. 1.6e-02 |
+| 400 | 4.3e-04 .. 3.5e-03 |
+| 1400 | 3.5e-05 .. 2.0e-04 |
+| 4000 | 4.3e-06 .. 2.5e-05 |
+
+(three geometries: `s=1.05, q=1e-3` at 6.24 rho from the caustic;
+`s=1.2, q=0.1` at 1.00 rho; `s=1.0, q=1e-3` at 397 rho.)  Two to four orders
+below the 10-rho release threshold the constants govern — so making the release
+test "proven" via the polyline margin changes no decision.
+
+And the constants are not letting anything through.  Two sweeps, both using the
+certificate's own bound as the ground truth:
+
+| sweep | trials | smooth routes | violations |
+|-------|-------:|--------------:|-----------:|
+| uniform over the box | 4000 | 3952 | 0 |
+| 0..30 rho from a random caustic vertex | 5280 | 3684 | 0 |
+
+The near-caustic sweep is the one that matters — uniform sampling lands near
+the release boundary almost never — and it drew `s` and `q` log-uniformly over
+`0.4..2.5` and `1e-4..1`, `rho` over `3e-4..3e-2`, and routed
+`{inverse_ray_cartesian: 1491, hexadecapole: 2654, source_plane_quadrature:
+344, point_source: 686, inverse_ray_polar: 105}`.  Not one smooth route was
+chosen for a disk the caustic provably enters.
+
+What is left in those constants is Taylor-remainder calibration: how far from a
+caustic a quadrupole expansion is accurate *enough*, which is an analytic
+question about the remainder, not a geometric one, and caustic geometry cannot
+prove it.  So the routing code is unchanged and the property the constants
+exist to deliver is pinned instead, as a randomised near-caustic invariant test
+(`tests/regression/test_smooth_route_clearance.py`).
+
 ## Convergence order — what is left, and why it is not a defect
 
 The tangent case converges at **h^1.7**, not `h^2`.  Sweeping the source through
@@ -331,6 +381,11 @@ ownership invariants.
   on the triple lens (refinement to reference uniform and `c=0.5`, monotonicity
   across 32..256 bins, adaptive precision at both tolerances, three clear
   geometries that route through the Cartesian fill and must be untouched).
+- `tests/regression/test_smooth_route_clearance.py` — 2 tests: a fixed-seed
+  randomised sweep (binary 80x16, triple 24x10) placing the source 0..30 rho
+  from a random caustic vertex and asserting that no smooth-expansion route is
+  ever chosen for a disk whose certified clearance is below rho.  936 and 168
+  smooth routes respectively, 0 violations, 16 s.
 - `tests/jax_ir/test_discovery.py` —
   `test_component_certificate_is_independent_of_limb_seed_count` (was
   `test_sixteen_limb_seeds_recover_component_missed_by_eight`, which asserted
