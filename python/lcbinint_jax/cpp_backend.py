@@ -13,7 +13,7 @@ import jax.numpy as jnp
 import numpy as np
 
 from ._config import reject_higher_order_ad, require_x64
-from .types import FixedSupportResult, InverseRayResult
+from .types import BinaryRoutingDiagnostics, FixedSupportResult, InverseRayResult
 
 _FFI_FORWARD_TARGET = "lcbinint_jax_fixed_support_forward_f64_v1"
 _FFI_VALUE_JACOBIAN_TARGET = "lcbinint_jax_fixed_support_value_jacobian_f64_v1"
@@ -45,6 +45,12 @@ _FFI_TRIPLE_POINT_BATCH_JACOBIAN_TARGET = (
 )
 _FFI_TRIPLE_CAUSTIC_DISTANCE_BATCH_TARGET = (
     "lcbinint_jax_triple_caustic_distance_batch_f64_v1"
+)
+_FFI_BINARY_CAUSTIC_DISTANCE_BATCH_TARGET = (
+    "lcbinint_jax_binary_caustic_distance_batch_f64_v1"
+)
+_FFI_BINARY_ROUTING_DIAGNOSTICS_BATCH_TARGET = (
+    "lcbinint_jax_binary_routing_diagnostics_batch_f64_v1"
 )
 _FFI_POLAR_EPOCH_TARGET = "lcbinint_jax_polar_epoch_f64_v1"
 _FFI_POLAR_EPOCH_JACOBIAN_TARGET = "lcbinint_jax_polar_epoch_jacobian_f64_v1"
@@ -167,6 +173,30 @@ def cpp_binary_image_roots_ffi_available():
         return hasattr(jax_ir, "binary_image_roots_ffi") and hasattr(
             jax_ir, "binary_image_roots_jacobian_ffi"
         )
+    except (AttributeError, RuntimeError):
+        return False
+
+
+def cpp_binary_caustic_distance_batch_ffi_available():
+    """Return whether stopped binary caustic distances can run via CPU FFI."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        return hasattr(native._jax_ir, "binary_caustic_distance_batch_ffi")
+    except (AttributeError, RuntimeError):
+        return False
+
+
+def cpp_binary_routing_diagnostics_batch_ffi_available():
+    """Return whether native binary routing diagnostics can run via CPU FFI."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        return hasattr(native._jax_ir, "binary_routing_diagnostics_batch_ffi")
     except (AttributeError, RuntimeError):
         return False
 
@@ -545,6 +575,38 @@ def _register_triple_caustic_distance_batch_ffi():
         ) from error
     jax.ffi.register_ffi_target(
         _FFI_TRIPLE_CAUSTIC_DISTANCE_BATCH_TARGET,
+        capsule,
+        platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_binary_caustic_distance_batch_ffi():
+    native = _native_module()
+    try:
+        capsule = native._jax_ir.binary_caustic_distance_batch_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the binary caustic-distance FFI"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_BINARY_CAUSTIC_DISTANCE_BATCH_TARGET,
+        capsule,
+        platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_binary_routing_diagnostics_batch_ffi():
+    native = _native_module()
+    try:
+        capsule = native._jax_ir.binary_routing_diagnostics_batch_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the binary routing-diagnostics FFI"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_BINARY_ROUTING_DIAGNOSTICS_BATCH_TARGET,
         capsule,
         platform="cpu",
     )
@@ -1876,6 +1938,143 @@ def triple_caustic_distance_batch_ffi(
         refine_factor=np.float64(refine_factor),
     )
     return jax.lax.stop_gradient(result)
+
+
+def binary_caustic_distance_batch_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    *,
+    caustic_bins=1400,
+):
+    """Return stopped-gradient native binary caustic distances.
+
+    One call shares a scalar lens geometry across all source positions so the
+    native caustic cache is constructed only once.
+    """
+
+    require_x64()
+    if caustic_bins < 64:
+        raise ValueError("caustic_bins must be at least 64")
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    if source_x.ndim != 1 or source_y.shape != source_x.shape:
+        raise ValueError("source_x and source_y must have the same 1-D shape")
+    separation = jnp.asarray(separation, dtype=jnp.float64)
+    mass_ratio = jnp.asarray(mass_ratio, dtype=jnp.float64)
+    if separation.ndim != 0 or mass_ratio.ndim != 0:
+        raise ValueError("binary-lens parameters must be scalars")
+    source_x = jax.lax.stop_gradient(source_x)
+    source_y = jax.lax.stop_gradient(source_y)
+    separation = jax.lax.stop_gradient(separation)
+    mass_ratio = jax.lax.stop_gradient(mass_ratio)
+    _register_binary_caustic_distance_batch_ffi()
+    result = jax.ffi.ffi_call(
+        _FFI_BINARY_CAUSTIC_DISTANCE_BATCH_TARGET,
+        jax.ShapeDtypeStruct(source_x.shape, jnp.float64),
+        vmap_method="sequential",
+    )(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        caustic_bins=np.int64(caustic_bins),
+    )
+    return jax.lax.stop_gradient(result)
+
+
+def binary_routing_diagnostics_batch_ffi(
+    source_x,
+    source_y,
+    point_magnification,
+    separation,
+    mass_ratio,
+    source_radius,
+    *,
+    absolute_tolerance=1.0e-4,
+    relative_tolerance=1.0e-4,
+    caustic_bins=1400,
+    hex_threshold=3.0,
+    adaptive_hex_threshold=1.0e-3,
+    kinji_threshold=20.0,
+):
+    """Return stopped native point-safety and caustic-scan diagnostics."""
+
+    require_x64()
+    if caustic_bins < 64:
+        raise ValueError("caustic_bins must be at least 64")
+    if min(hex_threshold, adaptive_hex_threshold, kinji_threshold) < 0.0:
+        raise ValueError("routing thresholds must be nonnegative")
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    point_magnification = jnp.asarray(point_magnification, dtype=jnp.float64)
+    if (
+        source_x.ndim != 1
+        or source_y.shape != source_x.shape
+        or point_magnification.shape != source_x.shape
+    ):
+        raise ValueError(
+            "source_x, source_y, and point_magnification must share a 1-D shape"
+        )
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            separation,
+            mass_ratio,
+            source_radius,
+            absolute_tolerance,
+            relative_tolerance,
+        )
+    )
+    if any(value.ndim != 0 for value in scalars):
+        raise ValueError("lens, radius, and tolerance parameters must be scalars")
+    arguments = tuple(
+        jax.lax.stop_gradient(value)
+        for value in (source_x, source_y, point_magnification, *scalars)
+    )
+    batch_size = source_x.shape[0]
+    _register_binary_routing_diagnostics_batch_ffi()
+    floating, integer, flags = jax.ffi.ffi_call(
+        _FFI_BINARY_ROUTING_DIAGNOSTICS_BATCH_TARGET,
+        (
+            jax.ShapeDtypeStruct((batch_size, 9), jnp.float64),
+            jax.ShapeDtypeStruct((batch_size, 3), jnp.int32),
+            jax.ShapeDtypeStruct((batch_size, 8), jnp.bool_),
+        ),
+        vmap_method="sequential",
+    )(
+        *arguments,
+        caustic_bins=np.int64(caustic_bins),
+        hex_threshold=np.float64(hex_threshold),
+        adaptive_hex_threshold=np.float64(adaptive_hex_threshold),
+        kinji_threshold=np.float64(kinji_threshold),
+    )
+    floating, integer, flags = (
+        jax.lax.stop_gradient(value) for value in (floating, integer, flags)
+    )
+    return BinaryRoutingDiagnostics(
+        point_magnification=floating[:, 0],
+        point_error_estimate=floating[:, 1],
+        point_absolute_tolerance=floating[:, 2],
+        caustic_distance=floating[:, 3],
+        scan_min_distance=floating[:, 4],
+        quadrupole_indicator=floating[:, 5],
+        cusp_indicator=floating[:, 6],
+        ghost_indicator=floating[:, 7],
+        planetary_distance2=floating[:, 8],
+        image_count=integer[:, 0],
+        ghost_count=integer[:, 1],
+        safety_flags=integer[:, 2],
+        point_preflight_safe=flags[:, 0],
+        point_safe=flags[:, 1],
+        scan_performed=flags[:, 2],
+        any_vertex_inside=flags[:, 3],
+        has_crossing_probes=flags[:, 4],
+        chord_band=flags[:, 5],
+        tangent_band=flags[:, 6],
+        grazing_ring_band=flags[:, 7],
+    )
 
 
 def _triple_polar_batch_call(

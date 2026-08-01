@@ -828,8 +828,37 @@ def binary_source_magnification_light_curve(
     return BinarySourceMagnificationResult(total, source1, source2, flux_ratio)
 
 
-def load_earth_ephemeris(path=None):
-    """Load the bundled Horizons Earth state table for JAX interpolation."""
+def _limited_ephemeris_indices(times, t_lim, reference_time):
+    """Select contiguous interpolation windows before creating JAX arrays."""
+
+    def absolute_time(value):
+        return value + _RJD_ORIGIN if value < _RJD_ORIGIN else value
+
+    lower, upper = (absolute_time(float(value)) for value in t_lim)
+    windows = [(lower, upper)]
+    if reference_time is not None:
+        reference = absolute_time(float(reference_time))
+        windows.append((reference, reference))
+    selected = []
+    for window_lower, window_upper in windows:
+        if window_lower < times[0] or window_upper > times[-1]:
+            raise ValueError(
+                "Options.t_lim lies outside the available ephemeris table"
+            )
+        start = max(
+            0,
+            int(np.searchsorted(times, window_lower, side="right")) - 2,
+        )
+        stop = min(
+            times.size,
+            int(np.searchsorted(times, window_upper, side="left")) + 3,
+        )
+        selected.extend(range(start, stop))
+    return np.unique(np.asarray(selected, dtype=np.int64))
+
+
+def load_earth_ephemeris(path=None, *, t_lim=None, reference_time=None):
+    """Load an optional interpolation-safe window of the Earth state table."""
 
     if path is None:
         # Traversable.joinpath accepted only one child argument on Python 3.9.
@@ -878,6 +907,11 @@ def load_earth_ephemeris(path=None):
     table = np.asarray(rows, dtype=np.float64)
     if table.ndim != 2 or table.shape[0] < 2:
         raise ValueError(f"no usable Earth ephemeris rows in {description}")
+    if t_lim is not None:
+        indices = _limited_ephemeris_indices(
+            table[:, 0], t_lim, reference_time
+        )
+        table = table[indices]
     return EarthEphemeris(
         jnp.asarray(table[:, 0]),
         jnp.asarray(table[:, 1:4]),

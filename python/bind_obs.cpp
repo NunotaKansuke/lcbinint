@@ -208,6 +208,9 @@ The space table follows VBMicrolensing's geocentric satellite convention.)")
             }
             return result;
         })
+        .def("_limited_to", [](const Site& s, double lower, double upper) {
+            return std::make_shared<Site>(s.limited_to(lower, upper));
+        }, py::arg("lower"), py::arg("upper"))
         .def("__repr__", [](const Site& s) {
             char buf[64];
             std::snprintf(buf, sizeof(buf), "<Site lat=%.4f lon=%.4f [deg]>",

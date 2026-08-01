@@ -1,0 +1,51 @@
+{
+  "date": "2026-07-31",
+  "sweep": {
+    "rows": 180,
+    "trusted_rows": 174,
+    "accuracy_failures": 0,
+    "method_counts": {
+      "hexadecapole": 45,
+      "cartesian": 37,
+      "polar": 26,
+      "source_direct": 39,
+      "point_source": 27
+    },
+    "median_milliseconds": 31.921437999699265,
+    "method_median_milliseconds": {
+      "hexadecapole": 4.851909005083144,
+      "cartesian": 219.06022299663164,
+      "polar": 936.1669080099091,
+      "source_direct": 32.49464900000021,
+      "point_source": 5.2854389941785485
+    }
+  },
+  "positioning_core": {
+    "jobs": 8,
+    "successful": 8,
+    "timed_out": 0,
+    "accuracy_failures": 0,
+    "timeout_seconds": 240
+  },
+  "microlux": {
+    "jobs": 8,
+    "successful": 4,
+    "timed_out": 4,
+    "failed": 0,
+    "uniform_whole_job_lower_bound_seconds": 60,
+    "linear_whole_job_seconds_range": [
+      69.312,
+      74.082
+    ],
+    "linear_accuracy_failures": 0,
+    "n_annuli": 80
+  },
+  "point_route_gradient_checks": {
+    "rows": 5,
+    "failures": 0,
+    "absolute_error_range": [
+      6.074876712780508e-11,
+      2.277259758542982e-08
+    ]
+  }
+}

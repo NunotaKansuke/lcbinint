@@ -75,10 +75,11 @@ def test_exact_caustic_repeated_root_is_valid_finite_source_support():
     if not cpp_binary_image_roots_ffi_available():
         pytest.skip("lcbinint was built without binary image-root FFI support")
 
-    # A smooth fold of the s=0.9, q=0.1 caustic.  The source-centre solve has
-    # four deduplicated physical roots because the appearing/disappearing pair
-    # is a repeated root exactly on the caustic.  That is valid finite-source
-    # support: the limb solves seed both image regions.
+    # A smooth fold of the s=0.9, q=0.1 caustic.  The source-centre solve keeps
+    # five algebraic branch slots: the appearing/disappearing pair is a
+    # repeated root exactly on the caustic.  Keeping its multiplicity is
+    # required by algebraic root diagnostics even though there are only four distinct
+    # image coordinates at that point.
     seeds = binary_image_seed_points(
         0.06611188225495068,
         0.1549319030240759,
@@ -90,8 +91,8 @@ def test_exact_caustic_repeated_root_is_valid_finite_source_support():
     )
     physical_counts = jnp.sum(seeds.physical.reshape(65, 5), axis=1)
 
-    assert int(physical_counts[0]) == 4
-    assert set(map(int, physical_counts.tolist())) == {3, 4, 5}
+    assert int(physical_counts[0]) == 5
+    assert set(map(int, physical_counts.tolist())) == {3, 5}
     assert not bool(seeds.root_failure)
 
 
@@ -182,7 +183,7 @@ def test_macro_tile_capacity_overflow_is_explicit():
     assert not bool(result.support_valid)
 
 
-def test_sixteen_limb_seeds_recover_component_missed_by_eight():
+def test_component_certificate_is_independent_of_limb_seed_count():
     parameters = (
         -0.32501429088718237,
         0.1657421063761565,
@@ -206,7 +207,7 @@ def test_sixteen_limb_seeds_recover_component_missed_by_eight():
     sixteen = value(16)
     thirty_two = value(32)
 
-    assert abs(float(eight / thirty_two - 1.0)) > 1.0e-2
+    np.testing.assert_allclose(eight, thirty_two, rtol=1.0e-12, atol=1.0e-12)
     np.testing.assert_allclose(sixteen, thirty_two, rtol=1.0e-12, atol=1.0e-12)
 
 

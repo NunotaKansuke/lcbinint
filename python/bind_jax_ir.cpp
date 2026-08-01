@@ -1268,33 +1268,88 @@ BinaryRootResult solve_binary_images(
         result.residuals[index] = std::hypot(
             mapped.mapped_x - source_x,
             mapped.mapped_y - source_y);
-        result.physical[index] =
-            std::isfinite(result.residuals[index])
-            && result.residuals[index]
-                <= 1.0e-9 * (1.0 + std::abs(source));
+        result.physical[index] = false;
     }
-    for (std::size_t left = 0; left < binary_root_count; ++left) {
-        if (!result.physical[left]) continue;
-        for (std::size_t right = left + 1; right < binary_root_count; ++right) {
-            if (!result.physical[right]) continue;
-            const double duplicate_tolerance =
-                1.0e-8
-                * (
-                    1.0
-                    + std::max(
-                        std::abs(result.roots[left]),
-                        std::abs(result.roots[right])));
-            if (
-                std::abs(result.roots[left] - result.roots[right])
-                > duplicate_tolerance) {
-                continue;
-            }
-            if (result.residuals[right] < result.residuals[left]) {
-                result.physical[left] = false;
-                break;
-            }
-            result.physical[right] = false;
+
+    // Polynomial ghost roots can polish onto an already found physical image.
+    // Conversely, distinct physical images really do coalesce at folds and
+    // cusps, so coordinate-distance deduplication cannot distinguish the two
+    // cases.  Use the binary-lens parity invariant as part of the root
+    // classification: a five-image solution has two positive- and three
+    // negative-parity images; a three-image solution has one and two.
+    const double physical_tolerance = 1.0e-8 * (1.0 + std::abs(source));
+    std::array<bool, binary_root_count> candidate{};
+    std::array<int, binary_root_count> parity{};
+    std::size_t candidate_count = 0;
+    int positive_count = 0;
+    int negative_count = 0;
+    for (std::size_t index = 0; index < binary_root_count; ++index) {
+        candidate[index] =
+            result.converged[index]
+            && std::isfinite(result.residuals[index])
+            && result.residuals[index] <= physical_tolerance;
+        if (!candidate[index]) continue;
+        ++candidate_count;
+        const auto mapped = binary_lens_map_at_root(
+            result.roots[index], separation, mass_ratio);
+        const double determinant =
+            mapped.du_dx * mapped.dv_dy - mapped.du_dy * mapped.dv_dx;
+        parity[index] = determinant > 0.0 ? 1 : -1;
+        positive_count += static_cast<int>(parity[index] > 0);
+        negative_count += static_cast<int>(parity[index] < 0);
+    }
+
+    if (
+        candidate_count == 5
+        && positive_count == 2
+        && negative_count == 3) {
+        result.physical = candidate;
+        return result;
+    }
+
+    // Outside a caustic, choose the unique parity-compatible three-image
+    // subset.  Residual selects the positive image.  For the two negative
+    // images, residual divided by their separation rejects two ghost
+    // candidates that polished onto the same physical root without imposing
+    // an absolute distance cutoff that would fail at a cusp.
+    std::size_t positive_index = binary_root_count;
+    double positive_residual = std::numeric_limits<double>::infinity();
+    for (std::size_t index = 0; index < binary_root_count; ++index) {
+        if (
+            candidate[index]
+            && parity[index] > 0
+            && result.residuals[index] < positive_residual) {
+            positive_index = index;
+            positive_residual = result.residuals[index];
         }
+    }
+    std::size_t negative_1 = binary_root_count;
+    std::size_t negative_2 = binary_root_count;
+    double negative_score = std::numeric_limits<double>::infinity();
+    for (std::size_t first = 0; first < binary_root_count; ++first) {
+        if (!candidate[first] || parity[first] >= 0) continue;
+        for (std::size_t second = first + 1; second < binary_root_count; ++second) {
+            if (!candidate[second] || parity[second] >= 0) continue;
+            const double separation_between_roots = std::abs(
+                result.roots[first] - result.roots[second]);
+            const double score =
+                (result.residuals[first] + result.residuals[second]
+                 + 1.0e-30)
+                / std::max(separation_between_roots, 1.0e-15);
+            if (score < negative_score) {
+                negative_score = score;
+                negative_1 = first;
+                negative_2 = second;
+            }
+        }
+    }
+    if (
+        positive_index < binary_root_count
+        && negative_1 < binary_root_count
+        && negative_2 < binary_root_count) {
+        result.physical[positive_index] = true;
+        result.physical[negative_1] = true;
+        result.physical[negative_2] = true;
     }
     return result;
 }
@@ -2232,6 +2287,67 @@ CartesianDiscovery discover_cartesian_support(
             result.root_failure
             || physical_count < 3
             || physical_count > 5;
+    }
+
+    // A source-limb raster is not a component certificate: a caustic can cut
+    // an arbitrarily small cap from the disk without any fixed set of limb
+    // points entering it.  Obtain contact witnesses from the cached caustic
+    // geometry and probe a displacement proportional to the measured cap
+    // depth.  This is independent of limb_samples and is shared in meaning
+    // with the native tile path.
+    // Keep geometry cached per worker thread.  Ordinary trajectories retain
+    // their original per-epoch cost after the first geometry lookup.
+    static thread_local lcbinint::magnification::FiniteSourceMagnifier
+        caustic_magnifier(lcbinint::magnification::FiniteSourceSettings{});
+    const auto& caustics = caustic_magnifier.binary_caustic_branches(
+        separation, mass_ratio);
+    for (const auto& branch : caustics) {
+        if (branch.size() < 2) continue;
+        for (std::size_t index = 0; index < branch.size(); ++index) {
+            const auto& p0 = branch[index];
+            const auto& p1 = branch[(index + 1) % branch.size()];
+            const double dx = p1.x - p0.x;
+            const double dy = p1.y - p0.y;
+            const double length2 = dx * dx + dy * dy;
+            const double t = length2 > 0.0 ? std::clamp(
+                ((source_x - p0.x) * dx + (source_y - p0.y) * dy) / length2,
+                0.0, 1.0) : 0.0;
+            const double qx = p0.x + t * dx;
+            const double qy = p0.y + t * dy;
+            const double distance = std::hypot(source_x - qx, source_y - qy);
+            const double depth = source_radius - distance;
+            if (!(distance > 0.0 && depth > 0.0)) continue;
+            const double step = std::max(
+                64.0 * std::numeric_limits<double>::epsilon()
+                    * std::max(source_radius, 1.0), 0.25 * depth);
+            // The cached polyline has a bounded transverse error near a cusp,
+            // so test the local contact neighbourhood rather than treating its
+            // segment normal as exact.  Its scale remains cap-depth based.
+            for (int direction_index = 0; direction_index < 8; ++direction_index) {
+                const double angle = 2.0 * std::acos(-1.0)
+                    * static_cast<double>(direction_index) / 8.0;
+                const double probe_x = qx + step * std::cos(angle);
+                const double probe_y = qy + step * std::sin(angle);
+                const double probe_dx = probe_x - source_x;
+                const double probe_dy = probe_y - source_y;
+                if (probe_dx * probe_dx + probe_dy * probe_dy
+                    >= source_radius * source_radius) continue;
+                const auto images = solve_binary_images(
+                    probe_x, probe_y, separation, mass_ratio);
+                std::int32_t physical_count = 0;
+                for (std::size_t root = 0; root < binary_root_count; ++root) {
+                    if (!images.physical[root]) continue;
+                    ++physical_count;
+                    const auto tile_x = static_cast<std::int32_t>(
+                        std::floor(images.roots[root].real() / tile_width));
+                    const auto tile_y = static_cast<std::int32_t>(
+                        std::floor(images.roots[root].imag() / tile_width));
+                    if (insert(tile_x, tile_y)) seeds.insert(tile_key(tile_x, tile_y));
+                }
+                result.root_failure = result.root_failure
+                    || physical_count < 3 || physical_count > 5;
+            }
+        }
     }
     result.seed_count = static_cast<std::int32_t>(result.queue.size());
 
@@ -4922,6 +5038,150 @@ XLA_FFI_DEFINE_HANDLER(
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Ret<ffi::BufferR1<ffi::F64>>());
 
+ffi::Error binary_caustic_distance_batch_ffi_impl(
+    std::int64_t caustic_bins,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::ResultBufferR1<ffi::F64> distances)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        caustic_bins < 64
+        || source_y.dimensions()[0] != batch_size
+        || distances->dimensions()[0] != batch_size) {
+        return ffi::Error::InvalidArgument(
+            "invalid binary caustic-distance configuration");
+    }
+    lcbinint::magnification::FiniteSourceSettings settings;
+    settings.caustic_bins = static_cast<int>(caustic_bins);
+    // One local magnifier owns one mutable caustic cache.  Keep this loop
+    // sequential: sharing that cache across OpenMP workers is not safe.
+    const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        distances->typed_data()[index] =
+            magnifier.binary_caustic_distance_for_source(
+                *separation.typed_data(),
+                *mass_ratio.typed_data(),
+                {source_x.typed_data()[index], source_y.typed_data()[index]});
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    binary_caustic_distance_batch_ffi_handler,
+    binary_caustic_distance_batch_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<std::int64_t>("caustic_bins")
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>());
+
+ffi::Error binary_routing_diagnostics_batch_ffi_impl(
+    std::int64_t caustic_bins,
+    double hex_threshold,
+    double adaptive_hex_threshold,
+    double kinji_threshold,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::F64> point_magnification,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> absolute_tolerance,
+    ffi::BufferR0<ffi::F64> relative_tolerance,
+    ffi::ResultBufferR2<ffi::F64> floating_diagnostics,
+    ffi::ResultBufferR2<ffi::S32> integer_diagnostics,
+    ffi::ResultBufferR2<ffi::PRED> routing_flags)
+{
+    constexpr std::int64_t floating_count = 9;
+    constexpr std::int64_t integer_count = 3;
+    constexpr std::int64_t flag_count = 8;
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        caustic_bins < 64 || hex_threshold < 0.0
+        || adaptive_hex_threshold < 0.0 || kinji_threshold < 0.0
+        || source_y.dimensions()[0] != batch_size
+        || point_magnification.dimensions()[0] != batch_size
+        || floating_diagnostics->dimensions()[0] != batch_size
+        || floating_diagnostics->dimensions()[1] != floating_count
+        || integer_diagnostics->dimensions()[0] != batch_size
+        || integer_diagnostics->dimensions()[1] != integer_count
+        || routing_flags->dimensions()[0] != batch_size
+        || routing_flags->dimensions()[1] != flag_count) {
+        return ffi::Error::InvalidArgument(
+            "invalid binary routing-diagnostics configuration");
+    }
+    lcbinint::magnification::FiniteSourceSettings settings;
+    settings.caustic_bins = static_cast<int>(caustic_bins);
+    settings.hex_threshold = hex_threshold;
+    settings.adaptive_hex_threshold = adaptive_hex_threshold;
+    settings.kinji_threshold = kinji_threshold;
+    settings.finite_source_tol = *absolute_tolerance.typed_data();
+    settings.finite_source_reltol = *relative_tolerance.typed_data();
+    const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+    const lcbinint::magnification::PointSourceMagnifier point_magnifier;
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        const auto diagnostic =
+            magnifier.binary_routing_diagnostics_for_source(
+                *separation.typed_data(),
+                *mass_ratio.typed_data(),
+                {source_x.typed_data()[index], source_y.typed_data()[index]},
+                *source_radius.typed_data(),
+                point_magnification.typed_data()[index],
+                &point_magnifier);
+        double* floating =
+            floating_diagnostics->typed_data() + index * floating_count;
+        floating[0] = diagnostic.point_magnification;
+        floating[1] = diagnostic.point_error_estimate;
+        floating[2] = diagnostic.point_absolute_tolerance;
+        floating[3] = diagnostic.caustic_distance;
+        floating[4] = diagnostic.scan_min_distance;
+        floating[5] = diagnostic.quadrupole_indicator;
+        floating[6] = diagnostic.cusp_indicator;
+        floating[7] = diagnostic.ghost_indicator;
+        floating[8] = diagnostic.planetary_distance2;
+        std::int32_t* integers =
+            integer_diagnostics->typed_data() + index * integer_count;
+        integers[0] = diagnostic.image_count;
+        integers[1] = diagnostic.ghost_count;
+        integers[2] = diagnostic.safety_flags;
+        bool* flags = routing_flags->typed_data() + index * flag_count;
+        flags[0] = diagnostic.point_preflight_safe;
+        flags[1] = diagnostic.point_safe;
+        flags[2] = diagnostic.scan_performed;
+        flags[3] = diagnostic.any_vertex_inside;
+        flags[4] = diagnostic.has_crossing_probes;
+        flags[5] = diagnostic.chord_band;
+        flags[6] = diagnostic.tangent_band;
+        flags[7] = diagnostic.grazing_ring_band;
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    binary_routing_diagnostics_batch_ffi_handler,
+    binary_routing_diagnostics_batch_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<std::int64_t>("caustic_bins")
+        .Attr<double>("hex_threshold")
+        .Attr<double>("adaptive_hex_threshold")
+        .Attr<double>("kinji_threshold")
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::S32>>()
+        .Ret<ffi::BufferR2<ffi::PRED>>());
+
 ffi::Error polar_epoch_forward_ffi_impl(
     std::int64_t resolution,
     std::int64_t angular_bins,
@@ -6852,6 +7112,20 @@ py::capsule triple_caustic_distance_batch_ffi_capsule()
             triple_caustic_distance_batch_ffi_handler));
 }
 
+py::capsule binary_caustic_distance_batch_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(
+            binary_caustic_distance_batch_ffi_handler));
+}
+
+py::capsule binary_routing_diagnostics_batch_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(
+            binary_routing_diagnostics_batch_ffi_handler));
+}
+
 py::capsule polar_epoch_forward_ffi_capsule()
 {
     return py::capsule(
@@ -7000,6 +7274,14 @@ void register_jax_ir_submodule(py::module_& parent)
         "triple_caustic_distance_batch_ffi",
         &triple_caustic_distance_batch_ffi_capsule,
         "Return the batched triple caustic-distance FFI capsule.");
+    module.def(
+        "binary_caustic_distance_batch_ffi",
+        &binary_caustic_distance_batch_ffi_capsule,
+        "Return the batched binary caustic-distance FFI capsule.");
+    module.def(
+        "binary_routing_diagnostics_batch_ffi",
+        &binary_routing_diagnostics_batch_ffi_capsule,
+        "Return the batched binary native-routing diagnostics FFI capsule.");
     module.def(
         "polar_epoch_forward_ffi",
         &polar_epoch_forward_ffi_capsule,

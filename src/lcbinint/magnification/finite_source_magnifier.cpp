@@ -154,6 +154,36 @@ struct BinaryLensEvaluation {
     double jacobian = 0.0;
 };
 
+struct BinaryPhiEvaluation {
+    double distance2 = std::numeric_limits<double>::infinity();
+    double gradient_x = 0.0;
+    double gradient_y = 0.0;
+};
+
+BinaryPhiEvaluation binary_source_disk_phi(
+    const BinaryLensMapper& mapper, double x, double y,
+    SourcePosition source, double source_radius)
+{
+    const double a = mapper.separation.real();
+    const double xa = x - a;
+    const double y2 = y * y;
+    const double den1 = xa * xa + y2;
+    const double den2 = x * x + y2;
+    if (den1 < 1.0e-20 || den2 < 1.0e-20) return {};
+    const double inv1 = 1.0 / den1, inv2 = 1.0 / den2;
+    const double mx = x - mapper.m1 * xa * inv1 - mapper.m2 * x * inv2 - a * mapper.m1;
+    const double my = y - mapper.m1 * y * inv1 - mapper.m2 * y * inv2;
+    const double rx = mx - source.x, ry = my - source.y;
+    const double re = mapper.m1 * (xa * xa - y2) * inv1 * inv1
+                    + mapper.m2 * (x * x - y2) * inv2 * inv2;
+    const double cross = 2.0 * y * (mapper.m1 * xa * inv1 * inv1
+                                  + mapper.m2 * x * inv2 * inv2);
+    const double inv_rho2 = 1.0 / (source_radius * source_radius);
+    return {rx * rx + ry * ry,
+            -2.0 * inv_rho2 * (rx * (1.0 + re) + ry * cross),
+            -2.0 * inv_rho2 * (rx * cross + ry * (1.0 - re))};
+}
+
 struct TripleLensEvaluation {
     double mapped_distance2 = 0.0;
     double jacobian = 0.0;
@@ -3555,6 +3585,140 @@ double inverse_ray_cartesian_core(
     return magnification;
 }
 
+// Tile ownership is deliberately separate from the legacy row walk.  A row
+// walk assigns a cell to whichever seed reaches it first; that invariant is
+// invalid for a component born in an arbitrarily thin caustic cap.  Tiles are
+// instead a finite, deduplicated support set and each cell is evaluated once.
+double caustic_contact_tile_mag(
+    const PointSourceMagnifier& point_magnifier,
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const std::vector<SourcePosition>& initial_seeds,
+    const std::vector<std::vector<SourcePosition>>& caustics)
+{
+    const int bins = std::max(settings.source_bins, 1);
+    const double h = source_radius / static_cast<double>(bins);
+    constexpr int tile_side = 16;
+    const double width = h * tile_side;
+    std::vector<SourcePosition> witnesses = initial_seeds;
+
+    // Derive a witness from every geometrically intersecting caustic segment.
+    // The displacement is tied to the actual cap depth, not to rho or a
+    // source-limb sampling count.  Both normal sides are tested because a
+    // branch ordering does not encode the physical fold side.
+    for (const auto& branch : caustics) {
+        if (branch.size() < 2) continue;
+        for (std::size_t i = 0; i < branch.size(); ++i) {
+            const auto& p0 = branch[i];
+            const auto& p1 = branch[(i + 1) % branch.size()];
+            const double dx = p1.x - p0.x, dy = p1.y - p0.y;
+            const double l2 = dx * dx + dy * dy;
+            const double t = l2 > 0.0 ? std::clamp(
+                ((source.x - p0.x) * dx + (source.y - p0.y) * dy) / l2,
+                0.0, 1.0) : 0.0;
+            const SourcePosition q{p0.x + t * dx, p0.y + t * dy};
+            const double distance = std::hypot(source.x - q.x, source.y - q.y);
+            const double depth = source_radius - distance;
+            if (!(distance > 0.0 && depth > 0.0)) continue;
+            const double step = std::max(
+                64.0 * std::numeric_limits<double>::epsilon()
+                    * std::max(source_radius, 1.0), 0.25 * depth);
+            for (int direction_index = 0; direction_index < 8; ++direction_index) {
+                const double angle = 2.0 * kPi * direction_index / 8.0;
+                const SourcePosition probe{q.x + step * std::cos(angle),
+                                           q.y + step * std::sin(angle)};
+                if (distance_squared(probe, source) >= source_radius * source_radius) continue;
+                const auto images = selected_point_images(
+                    point_magnifier, separation, mass_ratio, probe);
+                if (images.size() > witnesses.size()) witnesses = images;
+            }
+        }
+    }
+    if (witnesses.empty()) return std::numeric_limits<double>::quiet_NaN();
+
+    struct Tile { int x; int y; };
+    std::vector<Tile> tiles;
+    std::unordered_set<std::uint64_t> visited, frontier;
+    const auto key = [](int x, int y) {
+        return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(x)) << 32)
+             | static_cast<std::uint32_t>(y);
+    };
+    const auto add = [&](int x, int y) {
+        const auto k = key(x, y);
+        if (visited.insert(k).second) tiles.push_back({x, y});
+    };
+    for (const auto& image : witnesses) {
+        const int x = static_cast<int>(std::floor(image.x / width));
+        const int y = static_cast<int>(std::floor(image.y / width));
+        add(x, y); frontier.insert(key(x, y));
+    }
+    constexpr std::array<std::array<int, 2>, 4> neighbour{{{{1,0}},{{-1,0}},{{0,1}},{{0,-1}}}};
+    const auto map_lipschitz = [&](double x, double y, double span) {
+        const double a = mapper.separation.real();
+        const auto min_r2 = [&](double cx) {
+            const double dx = std::max(std::abs(x - cx) - span, 0.0);
+            const double dy = std::max(std::abs(y) - span, 0.0);
+            return dx * dx + dy * dy;
+        };
+        const double r1 = min_r2(a);
+        const double r2 = min_r2(0.0);
+        if (r1 <= 1.0e-24 || r2 <= 1.0e-24) {
+            return std::numeric_limits<double>::infinity();
+        }
+        return 1.0 + 2.0 * mapper.m1 / r1 + 2.0 * mapper.m2 / r2;
+    };
+    for (std::size_t head = 0; head < tiles.size(); ++head) {
+        const auto tile = tiles[head];
+        bool active = frontier.count(key(tile.x, tile.y)) != 0;
+        if (!active) {
+            const double x = (static_cast<double>(tile.x) + 0.5) * width;
+            const double y = (static_cast<double>(tile.y) + 0.5) * width;
+            const auto mapped = map_binary_lens_real(mapper, x, y);
+            const double distance = std::hypot(mapped.x - source.x, mapped.y - source.y);
+            active = distance <= source_radius
+                + map_lipschitz(x, y, 0.5 * width) * 0.71 * width;
+        }
+        if (!active) continue;
+        for (const auto& d : neighbour) add(tile.x + d[0], tile.y + d[1]);
+    }
+
+    double weighted_area = 0.0;
+    constexpr int sub = 2;
+    for (const auto& tile : tiles) for (int iy = 0; iy < tile_side; ++iy)
+    for (int ix = 0; ix < tile_side; ++ix) {
+        const double x = (static_cast<double>(tile.x * tile_side + ix) + 0.5) * h;
+        const double y = (static_cast<double>(tile.y * tile_side + iy) + 0.5) * h;
+        const auto phi = binary_source_disk_phi(
+            mapper, x, y, source, source_radius);
+        const double d2 = phi.distance2;
+        const bool centre_inside = d2 < source_radius * source_radius;
+        const double extent = 0.5 * h * (
+            std::abs(phi.gradient_x) + std::abs(phi.gradient_y));
+        const double phi_value = 1.0 - d2 / (source_radius * source_radius);
+        const bool boundary = std::abs(phi_value) <= extent;
+        if (centre_inside && !boundary) {
+            weighted_area += h * h * source_surface_brightness(
+                d2 / (source_radius * source_radius), settings);
+            continue;
+        }
+        if (!boundary) continue;
+        for (int sy = 0; sy < sub; ++sy) for (int sx = 0; sx < sub; ++sx) {
+            const double px = x + (static_cast<double>(sx) + 0.5) / sub * h - 0.5 * h;
+            const double py = y + (static_cast<double>(sy) + 0.5) / sub * h - 0.5 * h;
+            const double pd2 = mapped_binary_lens_distance2(mapper, px, py, source);
+            if (pd2 <= source_radius * source_radius) {
+                weighted_area += h * h / (sub * sub) * source_surface_brightness(
+                    pd2 / (source_radius * source_radius), settings);
+            }
+        }
+    }
+    return weighted_area / source_flux(source_radius, settings);
+}
+
 double inverse_ray_cartesian_binary_mag(
     const PointSourceMagnifier& point_magnifier,
     double separation,
@@ -3581,6 +3745,44 @@ double inverse_ray_cartesian_binary_mag(
                 : nullptr) :
         std::vector<SourcePosition> {};
     const auto& raw_images = precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
+    // Keep the legacy walk for the ordinary, non-contact hot path.  At a
+    // caustic contact its seed ownership assumption is false; use the
+    // component-certified tile support instead.
+    if (finite_magnifier != nullptr) {
+        const auto& caustics = finite_magnifier->binary_caustic_branches(
+            separation, mass_ratio);
+        if (finite_magnifier->binary_caustic_distance_for_source(
+                separation, mass_ratio, source) < source_radius) {
+            const double tile_value = caustic_contact_tile_mag(
+                point_magnifier, mapper, separation, mass_ratio, source,
+                source_radius, settings, raw_images, caustics);
+            if (std::isfinite(tile_value)) {
+                // Do not let the legacy row-error indicator certify a tile
+                // result.  Its assumptions are unrelated to this ownership
+                // model.  The immediately coarser tile evaluation is an
+                // independent, fail-closed estimate; a non-finite estimate
+                // makes the caller continue refinement rather than adopting
+                // an unverified value.
+                if (diagnostics != nullptr) {
+                    *diagnostics = {};
+                    if (settings.source_bins > 1) {
+                        FiniteSourceSettings coarse = settings;
+                        coarse.source_bins = std::max(1, settings.source_bins / 2);
+                        const double coarse_value = caustic_contact_tile_mag(
+                            point_magnifier, mapper, separation, mass_ratio,
+                            source, source_radius, coarse, raw_images, caustics);
+                        diagnostics->estimated_error = std::isfinite(coarse_value)
+                            ? std::abs(tile_value - coarse_value)
+                            : std::numeric_limits<double>::infinity();
+                    } else {
+                        diagnostics->estimated_error =
+                            std::numeric_limits<double>::infinity();
+                    }
+                }
+                return tile_value;
+            }
+        }
+    }
     const double point_source_hint = std::abs(
         point_magnifier.binary_mag0(separation, mass_ratio, source).magnification);
     return inverse_ray_cartesian_core(
@@ -4845,6 +5047,170 @@ double FiniteSourceMagnifier::binary_caustic_distance(
         }
     }
     return distance;
+}
+
+double FiniteSourceMagnifier::binary_caustic_distance_for_source(
+    double separation,
+    double mass_ratio,
+    SourcePosition source) const
+{
+    return binary_caustic_distance(separation, mass_ratio, source);
+}
+
+BinaryRoutingDiagnostics
+FiniteSourceMagnifier::binary_routing_diagnostics_for_source(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double point_source_magnification,
+    const PointSourceMagnifier* point_magnifier_hint) const
+{
+    BinaryRoutingDiagnostics out;
+    out.point_magnification = point_source_magnification;
+    if (source_radius <= 0.0) {
+        out.point_error_estimate = 0.0;
+        out.point_preflight_safe = true;
+        out.point_safe = true;
+        return out;
+    }
+
+    PointSourceMagnifier local_point_magnifier;
+    const PointSourceMagnifier& point_magnifier =
+        point_magnifier_hint != nullptr ? *point_magnifier_hint : local_point_magnifier;
+    const auto safety = evaluate_point_source_safety(
+        point_magnifier,
+        separation,
+        mass_ratio,
+        source,
+        source_radius,
+        point_source_magnification,
+        settings_);
+    out.point_magnification = safety.diagnostic.magnification;
+    out.point_absolute_tolerance = safety.absolute_tolerance;
+    out.quadrupole_indicator = safety.diagnostic.quadrupole_indicator;
+    out.cusp_indicator = safety.diagnostic.cusp_indicator;
+    out.ghost_indicator = safety.diagnostic.ghost_indicator;
+    out.planetary_distance2 = safety.planetary_distance2;
+    out.image_count = safety.diagnostic.image_count;
+    out.ghost_count = safety.diagnostic.ghost_count;
+    out.safety_flags =
+        (safety.quadrupole_cusp_safe ? 1 : 0) |
+        (safety.ghost_safe ? 2 : 0) |
+        (safety.planetary_safe ? 4 : 0);
+    out.point_error_estimate =
+        (safety.diagnostic.quadrupole_indicator + safety.diagnostic.cusp_indicator) *
+        source_radius * source_radius;
+
+    double requested_relative = settings_.adaptive_hex_threshold > 0.0
+        ? settings_.adaptive_hex_threshold
+        : kDefaultFiniteSourceRelativeTolerance;
+    if (has_explicit_finite_source_tolerance(settings_)) {
+        requested_relative = explicit_finite_source_relative_budget(
+            settings_, point_source_magnification);
+    }
+    constexpr double kPreflightPointSafety = 30.0;
+    const double derivative_relative_error =
+        out.point_error_estimate /
+        std::max(std::abs(point_source_magnification), 1.0e-10);
+    out.point_preflight_safe =
+        settings_.hex_threshold > 0.0 &&
+        safety.point_source_safe() &&
+        kPreflightPointSafety * derivative_relative_error <= requested_relative;
+    if (out.point_preflight_safe) {
+        out.point_safe = finite_source_error_within_budget(
+            settings_, point_source_magnification, out.point_error_estimate);
+        return out;
+    }
+
+    const double bbox_margin = settings_.kinji_threshold * source_radius;
+    const double topology_margin =
+        binary_topology_boundary_margin(separation, mass_ratio);
+    const double caustic_reuse_tolerance = std::min(
+        0.25 * source_radius, 0.02 * topology_margin);
+    const double sampled_distance = binary_sampled_caustic_distance(
+        separation,
+        mass_ratio,
+        source,
+        bbox_margin,
+        caustic_reuse_tolerance);
+    const bool exact_caustic_geometry = caustic_cache_separation_ == separation;
+    if (safety.point_source_safe() &&
+        exact_caustic_geometry &&
+        (source.x < caustic_cache_min_x_ - bbox_margin ||
+         source.x > caustic_cache_max_x_ + bbox_margin ||
+         source.y < caustic_cache_min_y_ - bbox_margin ||
+         source.y > caustic_cache_max_y_ + bbox_margin)) {
+        out.point_safe = finite_source_error_within_budget(
+            settings_, point_source_magnification, out.point_error_estimate);
+        return out;
+    }
+
+    out.caustic_distance = binary_caustic_distance(
+        separation,
+        mass_ratio,
+        source,
+        sampled_distance,
+        caustic_reuse_tolerance);
+    constexpr double kMeasuredTopologyReleaseDistance = 10.0;
+    const bool measured_topology_safe =
+        std::isfinite(out.caustic_distance) &&
+        out.caustic_distance >=
+            kMeasuredTopologyReleaseDistance * source_radius;
+    const bool effective_topology_safe =
+        safety.topology_safe() || measured_topology_safe;
+    const bool effective_point_safe =
+        safety.quadrupole_cusp_safe && effective_topology_safe;
+    const bool near_caustic =
+        out.caustic_distance < settings_.hex_threshold * source_radius;
+    if (!near_caustic && effective_point_safe) {
+        double distance_safety = 1.0;
+        if (source_radius >= 1.0e-3 &&
+            std::isfinite(out.caustic_distance)) {
+            const double distance_ratio =
+                out.caustic_distance / source_radius;
+            const double t =
+                settings_.hex_threshold /
+                std::max(distance_ratio, settings_.hex_threshold);
+            distance_safety = std::max(1.0, 30.0 * t * t * t);
+        }
+        out.point_safe =
+            derivative_relative_error <=
+                requested_relative / distance_safety &&
+            finite_source_error_within_budget(
+                settings_, point_source_magnification, out.point_error_estimate);
+    }
+
+    constexpr double kGrazeQuadratureDistanceFactor = 2.0;
+    if (std::isfinite(out.caustic_distance) &&
+        out.caustic_distance <
+            kGrazeQuadratureDistanceFactor * source_radius) {
+        const auto scan = scan_caustic_branches(
+            binary_caustic_branches(separation, mass_ratio),
+            source,
+            source_radius);
+        out.scan_performed = true;
+        out.scan_min_distance = scan.min_distance;
+        out.any_vertex_inside = scan.any_vertex_inside;
+        out.has_crossing_probes = !scan.crossing_probes.empty();
+        const bool caustic_enters_disk =
+            out.any_vertex_inside || out.has_crossing_probes;
+        out.chord_band =
+            !caustic_enters_disk &&
+            scan.min_distance >= 0.95 * source_radius &&
+            scan.min_distance < 1.35 * source_radius;
+        out.tangent_band =
+            !caustic_enters_disk &&
+            !out.chord_band &&
+            std::abs(scan.min_distance - source_radius) <
+                0.35 * source_radius;
+        out.grazing_ring_band =
+            !caustic_enters_disk &&
+            scan.min_distance >= source_radius &&
+            !out.tangent_band &&
+            !out.chord_band;
+    }
+    return out;
 }
 
 double FiniteSourceMagnifier::binary_sampled_caustic_distance(

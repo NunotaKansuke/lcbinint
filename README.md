@@ -132,6 +132,13 @@ magnification = curve(times, params)
 value, derivative = jax.jit(jax.value_and_grad(loss))(params["u0"])
 ```
 
+The backend selector also applies to `magnification_batch()`,
+`light_curve_log_likelihood_batch()`, `info()`, trajectory/geometry helpers,
+and static `binary_source_components()`. The likelihood batch supports the
+native Gaussian and Student-t distributions and fit, sample, and Gaussian
+marginalize flux modes; its JAX arrays remain differentiable through both the
+magnification and analytic flux fit.
+
 The same callable can be used directly inside a NumPyro model. For HMC/NUTS,
 enable JAX 64-bit mode before constructing the curve and standardize physical
 parameters (or use a suitable dense mass matrix); caustic-crossing likelihoods
@@ -188,6 +195,22 @@ amplification = lcbinint.binary_ray_shooting(
 
 It corresponds to VBMicrolensing's `BinaryMag2`: `x` and `y` are
 center-of-mass source coordinates and `rho` must be positive.
+The signature is unchanged for differentiable execution:
+
+```python
+amplification = lcbinint.binary_ray_shooting(
+    x, y, s=1.2, q=0.05, rho=0.01,
+    options=lcbinint.Options(jax=True),
+)
+derivative = jax.grad(
+    lambda active_x: lcbinint.binary_ray_shooting(
+        active_x, y, s=1.2, q=0.05, rho=0.01, jax=True,
+    )
+)(x)
+```
+
+An explicit `jax=True` or `jax=False` takes precedence over
+`Options(jax=...)`, just as it does for `LightCurve`.
 
 For binary finite-source inverse-ray calculations, `nbin="auto"` selects the
 Cartesian/polar grid and an initial resolution per source position from
@@ -211,8 +234,10 @@ magnifications = lc.magnification_batch(times, rows)
 # shape: (len(rows), len(times))
 ```
 
-For single- and binary-source models this is one GIL-free native call and
-writes directly to a row-major output matrix.
+For native single- and binary-source models this is one GIL-free call and
+writes directly to a row-major output matrix. With `jax=True`, the same method
+returns a row-major JAX array and vmaps rows with a common parameter structure;
+its values remain differentiable.
 
 The moasarc adapter also uses `lcbinint`'s internal fused likelihood entry point.
 It streams one reusable epoch row through magnification, source/blend flux
@@ -227,6 +252,10 @@ Terrestrial parallax additionally requires `terrestrial=True` and an explicit
 ground `lcbinint.obs.Site("ground", lat, lon)`; merely passing non-zero `piEN`/`piEE`
 does not activate parallax. For a space observatory, pass `Site("space", table)`, with table columns
 `(JD, RA_deg, Dec_deg, distance_AU)`.
+For a known observation window, `Options(t_lim=(start, stop))` keeps only the
+interpolation-safe Earth and spacecraft ephemeris rows required by that
+interval. This substantially reduces JAX compiler constants while preserving
+the values and gradients inside the window; epochs outside it are rejected.
 
 ## Diagnostics
 

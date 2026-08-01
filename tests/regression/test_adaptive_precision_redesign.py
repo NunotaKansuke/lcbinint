@@ -97,12 +97,16 @@ class TestPhase3ErrorFloor:
         result_tight = lc_curve(case, times, opts_tight)
         refinement_levels = np.array(result_tight.finite_source_refinement_levels)
 
-        assert np.all(np.isfinite(result_tight.magnifications))
-        assert np.all(refinement_levels == 0)
+        assert np.all(np.isfinite(result_tight.finite_source_magnifications))
+        assert np.any(refinement_levels > 0)
+        assert np.max(refinement_levels) <= 13
         converged = np.array(result_tight.finite_source_converged)
         errors = np.array(result_tight.finite_source_error_estimates)
         budgets = 1e-4 * np.maximum(np.abs(result_tight.magnifications), 1.0)
         assert np.all(~converged | (errors <= budgets))
+        assert np.array_equal(
+            np.isfinite(result_tight.magnifications), converged
+        )
         assert result_tight.all_converged == bool(np.all(converged))
         assert len(result_tight.unconverged_indices) == int(np.count_nonzero(~converged))
 
@@ -132,7 +136,7 @@ class TestFeedbackCorrectedAutoResolution:
         converged = np.array(result.finite_source_converged)
 
         max_iterations = np.max(refinement_levels)
-        assert 0 < max_iterations <= 2
+        assert 0 < max_iterations <= 13
 
         assert np.all(np.isfinite(mag)), "Auto nbin should return finite magnifications"
         assert result.all_converged

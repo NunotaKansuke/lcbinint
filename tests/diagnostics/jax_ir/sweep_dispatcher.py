@@ -29,6 +29,7 @@ from lcbinint_jax import (  # noqa: E402
     binary_inverse_ray,
     binary_inverse_ray_polar,
     binary_magnification_auto,
+    binary_magnification_calibrated,
 )
 
 PROFILE_COEFFICIENTS = {
@@ -250,6 +251,8 @@ def jax_backends(
     limb_c: float,
     limb_d: float,
     moment_mode: str,
+    absolute_tolerance: float,
+    relative_tolerance: float,
     repeat: int,
 ) -> dict[str, Any]:
     parameters = (
@@ -318,8 +321,18 @@ def jax_backends(
             polar_angular_bins=4096,
             polar_radial_capacity=256,
             polar_limb_samples=32,
-            absolute_tolerance=1.0e-4,
-            relative_tolerance=1.0e-4,
+            absolute_tolerance=absolute_tolerance,
+            relative_tolerance=relative_tolerance,
+            moment_mode=moment_mode,
+        ),
+        repeat,
+    )
+    calibrated_result, calibrated_ms = timed_jax(
+        lambda: binary_magnification_calibrated(
+            *parameters,
+            absolute_tolerance=absolute_tolerance,
+            relative_tolerance=relative_tolerance,
+            maximum_source_bins=400,
             moment_mode=moment_mode,
         ),
         repeat,
@@ -361,6 +374,31 @@ def jax_backends(
             "used_source_plane": bool(auto_result.used_source_plane),
             "used_expanded_cartesian": bool(auto_result.used_expanded_cartesian),
         },
+        "calibrated": {
+            "value": float(calibrated_result.magnification),
+            "milliseconds": calibrated_ms,
+            "method": int(calibrated_result.method),
+            "estimated_error": float(calibrated_result.estimated_error),
+            "support_valid": bool(calibrated_result.support_valid),
+            "selected_source_bins": int(calibrated_result.selected_source_bins),
+            "comparison_resolution": int(
+                calibrated_result.comparison_resolution
+            ),
+            "executed_resolution": int(calibrated_result.executed_resolution),
+            "tile_capacity": int(calibrated_result.tile_capacity),
+            "caustic_distance": float(calibrated_result.caustic_distance),
+            "prefer_polar": bool(calibrated_result.prefer_polar),
+            "point_safe": bool(calibrated_result.point_safe),
+            "chord_band": bool(calibrated_result.chord_band),
+            "tangent_band": bool(calibrated_result.tangent_band),
+            "grazing_ring_band": bool(calibrated_result.grazing_ring_band),
+            "value_error": float(calibrated_result.value_error),
+            "value_budget": float(calibrated_result.value_budget),
+            "value_converged": bool(calibrated_result.value_converged),
+            "used_multipole": bool(calibrated_result.used_multipole),
+            "used_polar": bool(calibrated_result.used_polar),
+            "used_source_plane": bool(calibrated_result.used_source_plane),
+        },
     }
 
 
@@ -372,6 +410,8 @@ def gradient_check(
     limb_d: float,
     moment_mode: str,
     fine_bins: int,
+    absolute_tolerance: float,
+    relative_tolerance: float,
 ) -> dict[str, Any]:
     step = max(1.0e-5, 3.0e-2 * case.source_radius)
 
@@ -394,7 +434,23 @@ def gradient_check(
             moment_mode=moment_mode,
         ).magnification
 
-    jax_gradient = float(jax.grad(jax_function)(source_x))
+    def calibrated_function(active_x):
+        return binary_magnification_calibrated(
+            active_x,
+            source_y,
+            case.separation,
+            case.mass_ratio,
+            case.source_radius,
+            limb_c,
+            limb_d,
+            absolute_tolerance=absolute_tolerance,
+            relative_tolerance=relative_tolerance,
+            maximum_source_bins=400,
+            moment_mode=moment_mode,
+        ).magnification
+
+    jax_auto_gradient = float(jax.grad(jax_function)(source_x))
+    jax_calibrated_gradient = float(jax.grad(calibrated_function)(source_x))
 
     def native_gradient(bins):
         plus = native_value(
@@ -428,16 +484,26 @@ def gradient_check(
     budget = 1.0e-3 + 5.0e-3 * max(abs(reference_gradient), 1.0)
     reference_spread = float(np.ptp(native_gradients))
     reference_trusted = reference_spread <= 2.0 * budget
+    auto_error = abs(jax_auto_gradient - reference_gradient)
+    calibrated_error = abs(jax_calibrated_gradient - reference_gradient)
     return {
         "step": step,
-        "jax": jax_gradient,
+        "jax": jax_auto_gradient,
+        "jax_auto": jax_auto_gradient,
+        "jax_calibrated": jax_calibrated_gradient,
         "reference": reference_gradient,
         "reference_sequence": native_gradients.tolist(),
         "reference_spread": reference_spread,
-        "absolute_error": abs(jax_gradient - reference_gradient),
+        "absolute_error": auto_error,
+        "auto_absolute_error": auto_error,
+        "calibrated_absolute_error": calibrated_error,
         "budget": budget,
         "passes": bool(
-            reference_trusted and abs(jax_gradient - reference_gradient) <= budget
+            reference_trusted and calibrated_error <= budget
+        ),
+        "auto_passes": bool(reference_trusted and auto_error <= budget),
+        "calibrated_passes": bool(
+            reference_trusted and calibrated_error <= budget
         ),
         "reference_trusted": bool(reference_trusted),
     }
@@ -491,6 +557,7 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         1: "cartesian",
         2: "polar",
         3: "source_plane",
+        4: "point_source",
     }
     default_failures = [
         row
@@ -498,6 +565,18 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
         if (
             not row["jax"]["auto"]["support_valid"]
             or abs(row["jax"]["auto"]["value"] - row["reference"]["value"])
+            > row["reference"]["budget"]
+        )
+    ]
+    calibrated_failures = [
+        row
+        for row in trusted
+        if (
+            not row["jax"]["calibrated"]["support_valid"]
+            or not row["jax"]["calibrated"]["value_converged"]
+            or abs(
+                row["jax"]["calibrated"]["value"] - row["reference"]["value"]
+            )
             > row["reference"]["budget"]
         )
     ]
@@ -572,8 +651,36 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
             }
             for row in default_failures[:20]
         ],
+        "calibrated_failures": len(calibrated_failures),
+        "calibrated_failure_rows": [
+            {
+                "case_id": row["case"]["case_id"],
+                "point_id": row["point"]["point_id"],
+                "profile": row["profile"],
+                "method": method_names.get(
+                    row["jax"]["calibrated"]["method"], "unknown"
+                ),
+                "absolute_error": abs(
+                    row["jax"]["calibrated"]["value"]
+                    - row["reference"]["value"]
+                ),
+                "budget": row["reference"]["budget"],
+                "support_valid": row["jax"]["calibrated"]["support_valid"],
+                "value_converged": row["jax"]["calibrated"]["value_converged"],
+                "selected_source_bins": row["jax"]["calibrated"][
+                    "selected_source_bins"
+                ],
+            }
+            for row in calibrated_failures[:20]
+        ],
         "gradient_rows": len(gradients),
         "gradient_failures": sum(not item["passes"] for item in gradients),
+        "auto_gradient_failures": sum(
+            not item["auto_passes"] for item in gradients
+        ),
+        "calibrated_gradient_failures": sum(
+            not item["calibrated_passes"] for item in gradients
+        ),
         "best_candidates": calibration[:12],
     }
 
@@ -584,12 +691,48 @@ def run(args: argparse.Namespace) -> int:
     if unknown:
         raise ValueError(f"unknown profiles: {sorted(unknown)}")
     cases = make_cases(args.lens_cases, args.seed)
+    configuration = {
+        key: str(value) if isinstance(value, Path) else value
+        for key, value in vars(args).items()
+        if key not in {"output", "resume"}
+    }
     rows: list[dict[str, Any]] = []
+    if args.resume and args.output.exists():
+        previous = json.loads(args.output.read_text())
+        if previous.get("schema_version") != 2:
+            raise ValueError("resume requires a schema_version=2 sweep")
+        if previous.get("configuration") != configuration:
+            raise ValueError("resume configuration does not match the existing sweep")
+        rows = list(previous.get("rows", ()))
+    completed = {
+        (
+            row["case"]["case_id"],
+            row["point"]["point_id"],
+            row["profile"],
+        )
+        for row in rows
+    }
+
+    def persist() -> None:
+        output = {
+            "schema_version": 2,
+            "configuration": configuration,
+            "rows": rows,
+            "summary": summarize(rows),
+        }
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        temporary = args.output.with_name(f".{args.output.name}.tmp")
+        temporary.write_text(json.dumps(output, indent=2, allow_nan=True) + "\n")
+        temporary.replace(args.output)
+
     for case in cases:
         branches = caustic_branches(case, args.caustic_bins)
         points = source_points(case, branches, args.points_per_case, args.seed)
         for point in points:
             for profile_index, profile in enumerate(profiles):
+                row_key = (case.case_id, point["point_id"], profile)
+                if row_key in completed:
+                    continue
                 limb_c, limb_d, moment_mode = PROFILE_COEFFICIENTS[profile]
                 reference = reference_value(
                     case,
@@ -609,6 +752,8 @@ def run(args: argparse.Namespace) -> int:
                     limb_c,
                     limb_d,
                     moment_mode,
+                    args.absolute_tolerance,
+                    args.relative_tolerance,
                     args.repeat,
                 )
                 row = {
@@ -634,24 +779,19 @@ def run(args: argparse.Namespace) -> int:
                         limb_d,
                         moment_mode,
                         max(4 * args.native_fine_bins, 512),
+                        args.absolute_tolerance,
+                        args.relative_tolerance,
                     )
                 rows.append(row)
+                completed.add(row_key)
+                persist()
         print(
             f"processed case {case.case_id + 1}/{len(cases)} rows={len(rows)}",
             flush=True,
         )
 
-    output = {
-        "schema_version": 1,
-        "configuration": {
-            key: str(value) if isinstance(value, Path) else value
-            for key, value in vars(args).items()
-        },
-        "rows": rows,
-    }
-    output["summary"] = summarize(rows)
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(output, indent=2, allow_nan=True) + "\n")
+    persist()
+    output = json.loads(args.output.read_text())
     print(json.dumps(output["summary"], indent=2))
     return 0
 
@@ -675,6 +815,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--repeat", type=int, default=2)
     parser.add_argument("--seed", type=int, default=20260726)
+    parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
     if args.lens_cases <= 0 or args.points_per_case <= 1:
         parser.error("lens cases must be positive and points per case > 1")

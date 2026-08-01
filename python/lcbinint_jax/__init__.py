@@ -14,10 +14,14 @@ from .multipole import (
     binary_point_source_magnification,
 )
 from .convergence import binary_inverse_ray_convergence
+from .resolution import select_binary_resolution
+from .calibrated import binary_magnification_calibrated
 from .cpp_backend import (
     CppFixedSupportResult,
     TriplePointSourceResult,
     binary_images_ffi,
+    binary_caustic_distance_batch_ffi,
+    binary_routing_diagnostics_batch_ffi,
     binary_hexadecapole_batch_ffi,
     binary_inverse_ray_cartesian_batch_ffi,
     binary_inverse_ray_cartesian_ffi,
@@ -25,6 +29,8 @@ from .cpp_backend import (
     binary_inverse_ray_fixed_support_cpp,
     binary_inverse_ray_fixed_support_ffi,
     cpp_binary_image_roots_ffi_available,
+    cpp_binary_caustic_distance_batch_ffi_available,
+    cpp_binary_routing_diagnostics_batch_ffi_available,
     cpp_cartesian_batch_ffi_available,
     cpp_cartesian_epoch_ffi_available,
     cpp_fixed_support_ffi_available,
@@ -55,7 +61,10 @@ from .source_plane import (
     binary_source_plane_quadrature,
     triple_source_plane_quadrature,
 )
-from .trajectory import binary_magnification_trajectory
+from .trajectory import (
+    binary_magnification_native_pipeline_trajectory,
+    binary_magnification_trajectory,
+)
 from .triple import (
     TripleAdaptiveInverseRayResult,
     TripleDiscoveryResult,
@@ -93,6 +102,9 @@ from .higher_order import (
     xallarap_offsets,
 )
 from .types import (
+    BinaryResolutionSelection,
+    BinaryRoutingDiagnostics,
+    CalibratedMagnificationResult,
     ConvergenceResult,
     AutoInverseRayResult,
     DiscoveryResult,
@@ -105,6 +117,9 @@ from .types import (
 
 __all__ = [
     "AutoInverseRayResult",
+    "BinaryResolutionSelection",
+    "BinaryRoutingDiagnostics",
+    "CalibratedMagnificationResult",
     "ConvergenceResult",
     "CppFixedSupportResult",
     "DiscoveryResult",
@@ -136,13 +151,18 @@ __all__ = [
     "binary_hexadecapole",
     "binary_hexadecapole_batch_ffi",
     "binary_images_ffi",
+    "binary_caustic_distance_batch_ffi",
+    "binary_routing_diagnostics_batch_ffi",
     "binary_inverse_ray_cartesian_batch_ffi",
     "binary_inverse_ray_cartesian_ffi",
     "binary_magnification_auto",
+    "binary_magnification_calibrated",
     "binary_magnification_trajectory",
+    "binary_magnification_native_pipeline_trajectory",
     "circular_orbital_motion",
     "binary_point_source_magnification",
     "binary_source_plane_quadrature",
+    "select_binary_resolution",
     "binary_inverse_ray",
     "binary_inverse_ray_auto",
     "binary_inverse_ray_convergence",
@@ -155,6 +175,8 @@ __all__ = [
     "binary_inverse_ray_uniform",
     "combine_limb_darkening_moments",
     "cpp_binary_image_roots_ffi_available",
+    "cpp_binary_caustic_distance_batch_ffi_available",
+    "cpp_binary_routing_diagnostics_batch_ffi_available",
     "cpp_cartesian_batch_ffi_available",
     "cpp_cartesian_epoch_ffi_available",
     "cpp_fixed_support_ffi_available",

@@ -9,9 +9,22 @@ magnification with ordinary JAX transformations.
 
 `lcbinint.Options` is a Python proxy around the native numerical options. Its
 `jax` selector is deliberately Python-only, so it does not alter the public C
-ABI. It controls `LightCurve.__call__()` and `.magnification()`; batch helpers
-such as `.magnification_batch()` and `.light_curve_log_likelihood_batch()`
-remain native execution paths and do not accept JAX tracers.
+ABI. It controls `LightCurve.__call__()`, `.magnification()`, and
+`.magnification_batch()`. For a single-source binary curve it also controls
+`.info()`, `.source_trajectory()`, `.finite_source_geometry()`, and
+`.separation()`; unsupported diagnostic/model combinations fail explicitly
+rather than silently running native code. The low-level
+`binary_ray_shooting()` accepts either `jax=True` directly or
+`Options(jax=True)`. An explicit selector takes precedence over the option.
+
+The public package is always `lcbinint`; `lcbinint_jax` contains implementation
+and research kernels and is not a second user-facing model API.
+
+Native and JAX execution share parameter aliases, coordinate conventions,
+fixed/automatic `nbin`, Cartesian/polar grid selection, limb darkening,
+validation, and result shapes. JAX diagnostics are array-valued counterparts
+of native `LightCurveInfo`; method names and convergence properties remain
+available for ordinary diagnostic use.
 
 For a triple lens, `q2` must remain positive. Concrete invalid values raise
 the same validation error as the native path. When `q2` is a JAX tracer, the
@@ -80,6 +93,44 @@ value, derivative = jax.jit(jax.value_and_grad(loss))(params["u0"])
 
 The first call includes JAX compilation. Reuse the compiled function with the
 same time-array shape and model structure when measuring or fitting.
+
+If automatic finite-source integration cannot meet the requested tolerance,
+the ordinary curve returns `NaN` rather than an unaccepted last iterate. Use
+`curve.info(...)` to inspect `finite_source_error_estimates` and
+`finite_source_converged`; the raw diagnostic iterate is available separately
+as `finite_source_magnifications`. Setting either `tol` or `reltol` makes the
+other component's explicit zero meaningful, so `tol=0, reltol=1e-5` is a
+purely relative request in both native and JAX execution.
+
+The backend selection also covers the native batch likelihood interface:
+
+```python
+rows = (params, {**params, "u0": 0.21})
+result = curve.light_curve_log_likelihood_batch(
+    times,
+    observed_flux,
+    flux_error,
+    rows,
+    distribution="gaussian",
+    flux_mode="fit",
+)
+log_likelihood = result["log_likelihood"]
+```
+
+Gaussian and Student-t likelihoods and the native `fit` and `sample` flux
+modes are supported. Gaussian `marginalize` is also supported. The returned
+source and blend fluxes come from the same weighted two-column fit as the
+native path, and JAX differentiates through that solve. The result dictionary
+has the native keys and row-major shapes.
+
+For a static binary lens with automatic resolution, the public JAX path uses
+the native point-safety and caustic-band diagnostics. It routes epochs through
+point source, guarded hexadecapole, Cartesian, polar, or converged
+source-plane quadrature. Cartesian epochs use the native-calibrated 14
+resolution buckets and an adjacent-bucket value check. These masks and bucket
+choices are stopped-gradient; the selected magnification is differentiated.
+Dynamic-separation trajectories retain the fused trajectory dispatcher because
+the native caustic diagnostic cache describes one static lens geometry.
 
 The pure-JAX binary image-root rule and the CPU FFI custom derivative rules
 support first-order `jax.jvp`, `jax.grad`, and reverse mode. Nested
@@ -155,6 +206,12 @@ The differentiable public path supports:
 Higher-order trajectories currently require VBM-compatible coordinates.
 Triple-lens orbital motion is not part of the native physical model and is
 therefore not exposed by the JAX backend.
+
+For a static binary source, `binary_source_components()` returns
+differentiable component trajectories and magnifications with the same field
+layout as native. Binary-source xallarap remains differentiable through the
+combined `LightCurve`; exposing its individual component diagnostic object is
+the one unsupported component-helper combination.
 
 ## What is differentiated
 
@@ -244,6 +301,10 @@ value.block_until_ready()                    # timed steady-state call
 The CPU backend uses fused C++ FFI kernels for the expensive root, discovery,
 Cartesian, polar, multipole, source-plane, and trajectory operations. JAX
 retains model composition and applies the chain rule to physical parameters.
+For parallax fits, set `Options(t_lim=(start, stop), jax=True)` when the data
+window is known. Only interpolation-safe Earth and spacecraft ephemeris rows
+for that interval (plus the annual-parallax `t_ref` neighborhood) are embedded
+as compiler constants.
 
 ## Troubleshooting
 

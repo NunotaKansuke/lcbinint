@@ -5,10 +5,218 @@ import pytest
 
 from lcbinint_jax import (
     binary_magnification_auto,
+    binary_magnification_calibrated,
+    binary_magnification_native_pipeline_trajectory,
     binary_magnification_trajectory,
 )
 
 jax.config.update("jax_enable_x64", True)
+
+
+def test_native_pipeline_trajectory_adds_point_route_and_gradient():
+    source_x = jnp.asarray((0.2, 0.21))
+    source_y = jnp.asarray((0.1, 0.11))
+    result = binary_magnification_native_pipeline_trajectory(
+        source_x,
+        source_y,
+        1.0,
+        1.0e-3,
+        1.0e-4,
+        0.0,
+        0.0,
+    )
+    assert np.all(np.asarray(result.method) == 4)
+    assert np.all(np.asarray(result.support_valid))
+    gradient = jax.grad(
+        lambda q: jnp.sum(
+            binary_magnification_native_pipeline_trajectory(
+                source_x,
+                source_y,
+                1.0,
+                q,
+                1.0e-4,
+                0.0,
+                0.0,
+            ).magnification
+        )
+    )(1.0e-3)
+    assert jnp.isfinite(gradient)
+
+
+def test_native_pipeline_trajectory_adds_converged_grazing_source_route():
+    result = binary_magnification_native_pipeline_trajectory(
+        jnp.asarray((-0.0011744718711112381,)),
+        jnp.asarray((-0.0017214156233429664,)),
+        1.0,
+        1.0e-3,
+        1.0e-4,
+        0.0,
+        0.0,
+    )
+    assert int(result.method[0]) == 3
+    assert bool(result.used_source_plane[0])
+    assert bool(result.support_valid[0])
+    np.testing.assert_allclose(
+        result.magnification[0],
+        241.85340579542768,
+        rtol=0.0,
+        atol=0.0243,
+    )
+
+
+def test_native_pipeline_trajectory_uses_calibrated_inverse_ray_value():
+    result = binary_magnification_native_pipeline_trajectory(
+        jnp.asarray((0.2,)),
+        jnp.asarray((0.1,)),
+        1.2,
+        0.1,
+        0.2,
+        0.4,
+        0.0,
+        moment_mode="linear",
+    )
+    reference = binary_magnification_calibrated(
+        0.2,
+        0.1,
+        1.2,
+        0.1,
+        0.2,
+        0.4,
+        0.0,
+        moment_mode="linear",
+    )
+    assert int(result.method[0]) == 1
+    assert bool(result.support_valid[0])
+    np.testing.assert_allclose(
+        result.magnification[0],
+        reference.magnification,
+        rtol=0.0,
+        atol=1.0e-12,
+    )
+    trajectory_gradient = jax.grad(
+        lambda x: binary_magnification_native_pipeline_trajectory(
+            jnp.atleast_1d(x),
+            jnp.asarray((0.1,)),
+            1.2,
+            0.1,
+            0.2,
+            0.4,
+            0.0,
+            moment_mode="linear",
+        ).magnification[0]
+    )(0.2)
+    scalar_gradient = jax.grad(
+        lambda x: binary_magnification_calibrated(
+            x,
+            0.1,
+            1.2,
+            0.1,
+            0.2,
+            0.4,
+            0.0,
+            moment_mode="linear",
+        ).magnification
+    )(0.2)
+    np.testing.assert_allclose(trajectory_gradient, scalar_gradient, rtol=0.0, atol=0.0)
+
+
+def test_native_pipeline_tight_inverse_ray_value_fails_closed():
+    result = binary_magnification_native_pipeline_trajectory(
+        jnp.asarray((0.653,)),
+        jnp.asarray((0.02,)),
+        1.2,
+        0.1,
+        0.02,
+        0.4,
+        0.0,
+        absolute_tolerance=1.0e-4,
+        relative_tolerance=3.0e-5,
+        maximum_source_bins=400,
+        moment_mode="linear",
+    )
+
+    assert int(result.method[0]) == 1
+    assert bool(result.support_valid[0])
+    assert not bool(result.value_converged[0])
+    assert bool(jnp.isfinite(result.estimated_error[0]))
+
+
+def test_native_pipeline_loose_inverse_ray_bucket_converges():
+    result = binary_magnification_native_pipeline_trajectory(
+        jnp.asarray((0.653,)),
+        jnp.asarray((0.02,)),
+        1.2,
+        0.1,
+        0.02,
+        0.4,
+        0.0,
+        absolute_tolerance=1.0e-4,
+        relative_tolerance=1.0e-3,
+        maximum_source_bins=400,
+        moment_mode="linear",
+    )
+
+    assert bool(result.support_valid[0])
+    assert bool(result.value_converged[0])
+    np.testing.assert_allclose(
+        result.magnification[0], 3.85323542, rtol=0.0, atol=1.0e-8
+    )
+
+
+def test_native_pipeline_trajectory_uses_high_magnification_polar_value():
+    result = binary_magnification_native_pipeline_trajectory(
+        jnp.asarray((0.7276663,)),
+        jnp.asarray((0.0,)),
+        1.4,
+        1.0e-3,
+        0.005,
+        0.0,
+        0.0,
+        moment_mode="uniform",
+    )
+    reference = binary_magnification_calibrated(
+        0.7276663,
+        0.0,
+        1.4,
+        1.0e-3,
+        0.005,
+        0.0,
+        0.0,
+        moment_mode="uniform",
+    )
+    assert int(result.method[0]) == 2
+    assert bool(result.support_valid[0])
+    np.testing.assert_allclose(
+        result.magnification[0],
+        reference.magnification,
+        rtol=0.0,
+        atol=1.0e-12,
+    )
+    trajectory_gradient = jax.grad(
+        lambda x: binary_magnification_native_pipeline_trajectory(
+            jnp.atleast_1d(x),
+            jnp.asarray((0.0,)),
+            1.4,
+            1.0e-3,
+            0.005,
+            0.0,
+            0.0,
+            moment_mode="uniform",
+        ).magnification[0]
+    )(0.7276663)
+    scalar_gradient = jax.grad(
+        lambda x: binary_magnification_calibrated(
+            x,
+            0.0,
+            1.4,
+            1.0e-3,
+            0.005,
+            0.0,
+            0.0,
+            moment_mode="uniform",
+        ).magnification
+    )(0.7276663)
+    np.testing.assert_allclose(trajectory_gradient, scalar_gradient, rtol=0.0, atol=0.0)
 
 
 def _require_compiled_ffi():

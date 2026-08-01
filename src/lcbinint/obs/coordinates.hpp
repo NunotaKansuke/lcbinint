@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <vector>
 
 namespace lcbinint::obs {
@@ -44,6 +45,8 @@ public:
     const std::vector<std::array<double, 3>>& positions() const noexcept {
         return positions_;
     }
+    Site limited_to(
+        double lower_time, double upper_time, std::size_t padding = 2) const;
     bool space_position(double time, std::array<double, 3>& position) const noexcept;
 
 private:

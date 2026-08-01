@@ -1,8 +1,9 @@
-# Experimental JAX CPU inverse-ray MVP
+# JAX CPU inverse-ray engine
 
-The `lcbinint_jax` package is an experimental, standalone JAX implementation
-of binary-lens finite-source inverse-ray integration. It does not import the
-native `lcbinint` extension and does not require GSL.
+The `lcbinint_jax` package contains implementation kernels for the
+differentiable `lcbinint` public API. It combines JAX model composition with
+CPU FFI kernels for binary- and triple-lens finite-source integration; users
+select it through `lcbinint.Options(jax=True)`.
 
 Enable JAX 64-bit mode before evaluation:
 
@@ -682,6 +683,65 @@ point-source, hexadecapole, or integrated-trajectory failures. The maximum
 integrated value/JVP/gradient error consumes only
 0.000011/0.0036/0.015 of the corresponding budget.
 
+## Native-calibrated five-method binary routing
+
+The `binary_magnification_calibrated` research entry point established the
+scalar policy that now drives static automatic binary trajectories in the
+public `LightCurve` path. A batched
+native diagnostic FFI exposes the exact point-source safety test and caustic
+branch scan used by `lcbinint`: preflight/final point safety, refined caustic
+distance, inside/crossing state, and chord, tangent, and grazing-ring bands.
+Those values and all routing masks are stopped-gradient. The selected JAX
+point, hexadecapole, Cartesian, polar, or source-plane kernel retains its
+analytic derivative.
+
+Resolution uses the exact native regression, floors, and 14 buckets from 16
+through 400 source bins. Each bucket has a static Cartesian tile capacity.
+Polar radial capacity is the next power of two above
+`max(256, 8 * resolution)`. A 65,536 angular-bin floor is required even at
+the lower radial buckets: 32,768 angles allowed two radial resolutions to
+share a roughly 0.05 bias at a small-\(q\) grazing cusp. Image-plane
+acceptance compares an adjacent independent resolution; when the lower
+comparison is unsupported or switches method, the next higher bucket is used.
+
+The final method ordering and codes are:
+
+1. native-safe differentiable point source (`4`);
+2. native chord or grazing-ring band, using source-plane chord 48/96 (`3`);
+3. guarded hexadecapole (`0`);
+4. calibrated Cartesian (`1`) or polar (`2`) image-plane integration.
+
+A point-root failure disables the point route. A source-plane root or
+convergence failure falls back to the grid dispatcher. Support validity and
+coarse/fine convergence are reported separately, so no partial raster or
+shared-bias comparison is silently accepted.
+
+The frozen 180-row stress sweep trusted 174 native references across ten
+lenses, six source positions, and uniform, linear, and square-root profiles.
+All 174 passed the common error budget. It selected 45 hexadecapole, 37
+Cartesian, 26 polar, 39 source-direct, and 27 point-source rows. The median
+scalar time including geometry reconstruction was 31.92 ms, down from
+62.05 ms before point/source routing. Five point-route gradients agreed with
+native central differences to \(6.1\times10^{-11}\)--\(2.3\times10^{-8}\).
+
+The isolated final positioning run completed all eight JAX/native core jobs
+under a 240 s per-job limit with no accuracy failure. For microLUX, all four
+80-annulus linear-profile jobs completed and passed in 69.31--74.08 s per
+whole benchmark child; warm forward/JVP/gradient calls ranged from
+7.58--331.72, 12.83--399.81, and 25.50--519.46 ms. The four uniform jobs
+reached the 60 s whole-job limit and are retained as lower bounds; that common
+80-annulus configuration is not an optimized uniform-source baseline.
+Commands and the compact frozen summary are in
+[`jax-calibrated-dispatcher-20260731`](../tests/diagnostics/results/jax-calibrated-dispatcher-20260731/README.md).
+
+The supported user entry point is the ordinary `lcbinint` API with
+`Options(jax=True)`. It preserves the native signatures and result shapes for
+`LightCurve`, low-level `binary_ray_shooting`, magnification batches, batch
+likelihoods, and the supported diagnostic/geometry helpers. An explicit
+low-level `jax=` selector overrides the option. Dynamic-separation
+trajectories keep the fused dispatcher because the native routing diagnostic
+cache represents one static lens geometry.
+
 ## Higher-order trajectories
 
 The fused trajectory FFI now accepts an epoch-dependent separation array
@@ -846,7 +906,8 @@ guarantees.
   source radii require a new accuracy sweep.
 - Very small image components may still be missed by finite source-limb
   sampling; the planned halo and topology sweeps must validate this.
-- The public API is experimental and may change.
+- The fixed-shape JAX kernel internals may change; the supported surface is
+  the native-shaped `lcbinint` API selected with `Options(jax=True)`.
 - Root and support selection are deliberately stopped-gradient.
 
 Use
