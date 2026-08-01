@@ -104,6 +104,29 @@ struct FiniteSourceResult {
     double caustic_distance = std::numeric_limits<double>::infinity();
 };
 
+struct BinaryRoutingDiagnostics {
+    double point_magnification = 0.0;
+    double point_error_estimate = std::numeric_limits<double>::infinity();
+    double point_absolute_tolerance = 0.0;
+    double caustic_distance = std::numeric_limits<double>::infinity();
+    double scan_min_distance = std::numeric_limits<double>::infinity();
+    double quadrupole_indicator = 0.0;
+    double cusp_indicator = 0.0;
+    double ghost_indicator = 0.0;
+    double planetary_distance2 = std::numeric_limits<double>::infinity();
+    int image_count = 0;
+    int ghost_count = 0;
+    int safety_flags = 0;
+    bool point_preflight_safe = false;
+    bool point_safe = false;
+    bool scan_performed = false;
+    bool any_vertex_inside = false;
+    bool has_crossing_probes = false;
+    bool chord_band = false;
+    bool tangent_band = false;
+    bool grazing_ring_band = false;
+};
+
 struct HexadecapoleDiagnosticResult {
     double magnification = 0.0;
     double relative_error = 0.0;
@@ -157,6 +180,17 @@ public:
         const model::TripleLensGeometry& geometry,
         SourcePosition source,
         double refine_within = std::numeric_limits<double>::infinity()) const;
+    double binary_caustic_distance_for_source(
+        double separation,
+        double mass_ratio,
+        SourcePosition source) const;
+    BinaryRoutingDiagnostics binary_routing_diagnostics_for_source(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        double point_source_magnification,
+        const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
 
 private:
     void ensure_binary_caustic_cache(

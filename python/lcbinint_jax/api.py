@@ -38,6 +38,11 @@ def _use_ffi_cartesian_backend(cartesian_backend, kernel):
         if kernel != "real":
             raise ValueError("the FFI Cartesian backend requires kernel='real'")
         return True
+    if cartesian_backend == "jax":
+        # The public JAX result remains transformable through the registered
+        # JVP.  On CPU its support must nevertheless come from the certified
+        # component discovery, rather than the old fixed-limb JAX raster.
+        return kernel == "real" and cpp_fixed_support_ffi_available()
     return (
         cartesian_backend == "auto"
         and kernel == "real"
@@ -97,9 +102,17 @@ def _binary_inverse_ray(
             moment_mode=moment_mode,
             boundary_subdivision=subdivision,
         )
+    # Support discovery is topology, not a differentiable part of the cell
+    # quadrature.  On CPU use the certified C++ discovery whenever the root
+    # backend is not explicitly forced to JAX, even if the caller selected
+    # the JAX integration kernel.  This keeps the latter's AD path while
+    # avoiding a fixed limb raster as its component oracle.
+    certified_discovery = (
+        root_backend != "jax" and cpp_macro_tile_discovery_ffi_available()
+    )
     discovery_function = (
         discover_binary_macro_tiles_ffi
-        if use_ffi and cpp_macro_tile_discovery_ffi_available()
+        if certified_discovery
         else discover_binary_macro_tiles
     )
     discovery = discovery_function(
@@ -354,6 +367,7 @@ def binary_inverse_ray_linear(
         "polar_band_capacity",
         "polar_limb_samples",
         "polar_angular_chunk_size",
+        "polar_boundary_subdivision",
         "moment_mode",
         "cartesian_backend",
         "root_backend",
@@ -379,8 +393,10 @@ def binary_inverse_ray_auto(
     polar_band_capacity=4,
     polar_limb_samples=32,
     polar_angular_chunk_size=1024,
+    polar_boundary_subdivision=2,
     polar_magnification_threshold=80.0,
     polar_max_source_radius=0.01,
+    polar_force=False,
     polar_allowed=True,
     polar_fallback_on_overflow=True,
     moment_mode="two_coefficient",
@@ -420,6 +436,7 @@ def binary_inverse_ray_auto(
             "band_capacity": polar_band_capacity,
             "limb_samples": polar_limb_samples,
             "angular_chunk_size": polar_angular_chunk_size,
+            "boundary_subdivision": polar_boundary_subdivision,
             "moment_mode": moment_mode,
         }
         use_polar_ffi = (
@@ -562,7 +579,10 @@ def binary_inverse_ray_auto(
         root_backend,
     )
     preselect_polar = (
-        (point_magnification >= polar_magnification_threshold)
+        (
+            jnp.asarray(polar_force)
+            | (point_magnification >= polar_magnification_threshold)
+        )
         & (source_radius <= polar_max_source_radius)
         & (source_radius > 0.0)
         & jnp.asarray(polar_allowed)
@@ -583,6 +603,7 @@ def _multipole_dispatch_masks(
     relative_tolerance,
     multipole_safety_factor,
     polar_min_mass_ratio,
+    polar_require_topology_stable,
 ):
     budget = absolute_tolerance + relative_tolerance * jnp.maximum(
         jnp.abs(hexadecapole.magnification),
@@ -616,7 +637,11 @@ def _multipole_dispatch_masks(
         ),
     )
     polar_allowed = jax.lax.stop_gradient(
-        hexadecapole.topology_stable & (symmetric_mass_ratio >= polar_min_mass_ratio)
+        (
+            ~jnp.asarray(polar_require_topology_stable)
+            | hexadecapole.topology_stable
+        )
+        & (symmetric_mass_ratio >= polar_min_mass_ratio)
     )
     return accept_multipole, polar_allowed
 
@@ -634,6 +659,7 @@ def _multipole_dispatch_masks(
         "polar_band_capacity",
         "polar_limb_samples",
         "polar_angular_chunk_size",
+        "polar_boundary_subdivision",
         "moment_mode",
         "source_plane_fallback",
         "source_plane_rule",
@@ -673,9 +699,12 @@ def binary_magnification_auto(
     polar_band_capacity=4,
     polar_limb_samples=32,
     polar_angular_chunk_size=1024,
+    polar_boundary_subdivision=2,
     polar_magnification_threshold=80.0,
     polar_max_source_radius=0.01,
     polar_min_mass_ratio=5.0e-3,
+    polar_require_topology_stable=True,
+    polar_force=False,
     polar_fallback_on_overflow=False,
     source_plane_fallback=True,
     source_plane_rule="chord",
@@ -736,6 +765,7 @@ def binary_magnification_auto(
         relative_tolerance,
         multipole_safety_factor,
         polar_min_mass_ratio,
+        polar_require_topology_stable,
     )
 
     def multipole_path(_):
@@ -770,8 +800,10 @@ def binary_magnification_auto(
             polar_band_capacity=polar_band_capacity,
             polar_limb_samples=polar_limb_samples,
             polar_angular_chunk_size=polar_angular_chunk_size,
+            polar_boundary_subdivision=polar_boundary_subdivision,
             polar_magnification_threshold=polar_magnification_threshold,
             polar_max_source_radius=polar_max_source_radius,
+            polar_force=polar_force,
             polar_allowed=polar_allowed,
             polar_fallback_on_overflow=polar_fallback_on_overflow,
             moment_mode=moment_mode,

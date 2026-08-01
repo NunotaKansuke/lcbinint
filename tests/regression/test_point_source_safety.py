@@ -242,7 +242,7 @@ def test_forced_cartesian_high_magnification_does_not_truncate_image_area():
     # finite-source VBMicrolensing API is not used as the oracle because it is
     # pathological in this extreme-magnification case.
     assert info.finite_source_method_names == ["inverse_ray_cartesian"]
-    assert info.magnifications[0] == pytest.approx(9.0e3, rel=6.0e-3)
+    assert info.finite_source_magnifications[0] == pytest.approx(9.0e3, rel=6.0e-3)
 
 
 def test_forced_cartesian_fold_walk_uses_global_magnification_guard():
@@ -275,4 +275,4 @@ def test_forced_cartesian_fold_walk_uses_global_magnification_guard():
     # A seed-local walk guard used to stop normally progressing rows and turn
     # every tested Cartesian resolution into a numerical error.
     assert info.finite_source_method_names == ["inverse_ray_cartesian"]
-    assert info.magnifications[0] == pytest.approx(3954.0, rel=2.0e-3)
+    assert info.finite_source_magnifications[0] == pytest.approx(3954.0, rel=2.0e-3)

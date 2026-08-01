@@ -4847,6 +4847,170 @@ double FiniteSourceMagnifier::binary_caustic_distance(
     return distance;
 }
 
+double FiniteSourceMagnifier::binary_caustic_distance_for_source(
+    double separation,
+    double mass_ratio,
+    SourcePosition source) const
+{
+    return binary_caustic_distance(separation, mass_ratio, source);
+}
+
+BinaryRoutingDiagnostics
+FiniteSourceMagnifier::binary_routing_diagnostics_for_source(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double point_source_magnification,
+    const PointSourceMagnifier* point_magnifier_hint) const
+{
+    BinaryRoutingDiagnostics out;
+    out.point_magnification = point_source_magnification;
+    if (source_radius <= 0.0) {
+        out.point_error_estimate = 0.0;
+        out.point_preflight_safe = true;
+        out.point_safe = true;
+        return out;
+    }
+
+    PointSourceMagnifier local_point_magnifier;
+    const PointSourceMagnifier& point_magnifier =
+        point_magnifier_hint != nullptr ? *point_magnifier_hint : local_point_magnifier;
+    const auto safety = evaluate_point_source_safety(
+        point_magnifier,
+        separation,
+        mass_ratio,
+        source,
+        source_radius,
+        point_source_magnification,
+        settings_);
+    out.point_magnification = safety.diagnostic.magnification;
+    out.point_absolute_tolerance = safety.absolute_tolerance;
+    out.quadrupole_indicator = safety.diagnostic.quadrupole_indicator;
+    out.cusp_indicator = safety.diagnostic.cusp_indicator;
+    out.ghost_indicator = safety.diagnostic.ghost_indicator;
+    out.planetary_distance2 = safety.planetary_distance2;
+    out.image_count = safety.diagnostic.image_count;
+    out.ghost_count = safety.diagnostic.ghost_count;
+    out.safety_flags =
+        (safety.quadrupole_cusp_safe ? 1 : 0) |
+        (safety.ghost_safe ? 2 : 0) |
+        (safety.planetary_safe ? 4 : 0);
+    out.point_error_estimate =
+        (safety.diagnostic.quadrupole_indicator + safety.diagnostic.cusp_indicator) *
+        source_radius * source_radius;
+
+    double requested_relative = settings_.adaptive_hex_threshold > 0.0
+        ? settings_.adaptive_hex_threshold
+        : kDefaultFiniteSourceRelativeTolerance;
+    if (has_explicit_finite_source_tolerance(settings_)) {
+        requested_relative = explicit_finite_source_relative_budget(
+            settings_, point_source_magnification);
+    }
+    constexpr double kPreflightPointSafety = 30.0;
+    const double derivative_relative_error =
+        out.point_error_estimate /
+        std::max(std::abs(point_source_magnification), 1.0e-10);
+    out.point_preflight_safe =
+        settings_.hex_threshold > 0.0 &&
+        safety.point_source_safe() &&
+        kPreflightPointSafety * derivative_relative_error <= requested_relative;
+    if (out.point_preflight_safe) {
+        out.point_safe = finite_source_error_within_budget(
+            settings_, point_source_magnification, out.point_error_estimate);
+        return out;
+    }
+
+    const double bbox_margin = settings_.kinji_threshold * source_radius;
+    const double topology_margin =
+        binary_topology_boundary_margin(separation, mass_ratio);
+    const double caustic_reuse_tolerance = std::min(
+        0.25 * source_radius, 0.02 * topology_margin);
+    const double sampled_distance = binary_sampled_caustic_distance(
+        separation,
+        mass_ratio,
+        source,
+        bbox_margin,
+        caustic_reuse_tolerance);
+    const bool exact_caustic_geometry = caustic_cache_separation_ == separation;
+    if (safety.point_source_safe() &&
+        exact_caustic_geometry &&
+        (source.x < caustic_cache_min_x_ - bbox_margin ||
+         source.x > caustic_cache_max_x_ + bbox_margin ||
+         source.y < caustic_cache_min_y_ - bbox_margin ||
+         source.y > caustic_cache_max_y_ + bbox_margin)) {
+        out.point_safe = finite_source_error_within_budget(
+            settings_, point_source_magnification, out.point_error_estimate);
+        return out;
+    }
+
+    out.caustic_distance = binary_caustic_distance(
+        separation,
+        mass_ratio,
+        source,
+        sampled_distance,
+        caustic_reuse_tolerance);
+    constexpr double kMeasuredTopologyReleaseDistance = 10.0;
+    const bool measured_topology_safe =
+        std::isfinite(out.caustic_distance) &&
+        out.caustic_distance >=
+            kMeasuredTopologyReleaseDistance * source_radius;
+    const bool effective_topology_safe =
+        safety.topology_safe() || measured_topology_safe;
+    const bool effective_point_safe =
+        safety.quadrupole_cusp_safe && effective_topology_safe;
+    const bool near_caustic =
+        out.caustic_distance < settings_.hex_threshold * source_radius;
+    if (!near_caustic && effective_point_safe) {
+        double distance_safety = 1.0;
+        if (source_radius >= 1.0e-3 &&
+            std::isfinite(out.caustic_distance)) {
+            const double distance_ratio =
+                out.caustic_distance / source_radius;
+            const double t =
+                settings_.hex_threshold /
+                std::max(distance_ratio, settings_.hex_threshold);
+            distance_safety = std::max(1.0, 30.0 * t * t * t);
+        }
+        out.point_safe =
+            derivative_relative_error <=
+                requested_relative / distance_safety &&
+            finite_source_error_within_budget(
+                settings_, point_source_magnification, out.point_error_estimate);
+    }
+
+    constexpr double kGrazeQuadratureDistanceFactor = 2.0;
+    if (std::isfinite(out.caustic_distance) &&
+        out.caustic_distance <
+            kGrazeQuadratureDistanceFactor * source_radius) {
+        const auto scan = scan_caustic_branches(
+            binary_caustic_branches(separation, mass_ratio),
+            source,
+            source_radius);
+        out.scan_performed = true;
+        out.scan_min_distance = scan.min_distance;
+        out.any_vertex_inside = scan.any_vertex_inside;
+        out.has_crossing_probes = !scan.crossing_probes.empty();
+        const bool caustic_enters_disk =
+            out.any_vertex_inside || out.has_crossing_probes;
+        out.chord_band =
+            !caustic_enters_disk &&
+            scan.min_distance >= 0.95 * source_radius &&
+            scan.min_distance < 1.35 * source_radius;
+        out.tangent_band =
+            !caustic_enters_disk &&
+            !out.chord_band &&
+            std::abs(scan.min_distance - source_radius) <
+                0.35 * source_radius;
+        out.grazing_ring_band =
+            !caustic_enters_disk &&
+            scan.min_distance >= source_radius &&
+            !out.tangent_band &&
+            !out.chord_band;
+    }
+    return out;
+}
+
 double FiniteSourceMagnifier::binary_sampled_caustic_distance(
     double separation,
     double mass_ratio,

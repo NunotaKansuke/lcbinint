@@ -15,6 +15,7 @@
 #include <pybind11/stl.h>
 
 #include <cmath>
+#include <limits>
 #include <stdexcept>
 #include <optional>
 #include <vector>
@@ -557,7 +558,10 @@ PyLightCurveInfo compute_info(
     std::vector<lcbinint::MagnificationResult> results;
     {
         py::gil_scoped_release release;
-        results = lc.evaluate(tv, params);
+        // Diagnostics deliberately retain the finite last iterate when the
+        // solver exhausts its refinement capacity.  Ordinary magnification,
+        // likelihood, and C API paths fail closed on the same status.
+        results = lc.evaluate_diagnostic(tv, params);
     }
 
     PyLightCurveInfo info;
@@ -593,7 +597,10 @@ PyLightCurveInfo compute_info(
     info.caustic_distances.reserve(static_cast<std::size_t>(n));
     for (int i = 0; i < n; ++i) {
         const auto& result = results[static_cast<std::size_t>(i)];
-        info.magnifications.push_back(result.magnification);
+        info.magnifications.push_back(
+            result.status == lcbinint::EvaluationStatus::ok
+                ? result.magnification
+                : std::numeric_limits<double>::quiet_NaN());
         info.point_source_magnifications.push_back(result.point_source_magnification);
         info.finite_source_magnifications.push_back(result.finite_source_magnification);
         info.source_x.push_back(result.source.x);

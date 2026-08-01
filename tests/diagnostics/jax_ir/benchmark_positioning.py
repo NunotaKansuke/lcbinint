@@ -23,18 +23,12 @@ jax.config.update("jax_enable_x64", True)
 
 import VBMicrolensing  # noqa: E402
 import lcbinint  # noqa: E402
-import microlux  # noqa: E402
 from lcbinint_jax import (  # noqa: E402
     binary_magnification_auto,
+    binary_magnification_calibrated,
     binary_inverse_ray_linear,
     binary_inverse_ray_uniform,
 )
-from microlux.basic_function import to_lowmass  # noqa: E402
-from microlux.limb_darkening import LinearLimbDarkening  # noqa: E402
-from microlux.trajectory_model import (  # noqa: E402
-    extended_light_curve_from_trajectory_l,
-)
-
 LIMB_C = 0.4
 DIRECTION = jnp.asarray((0.2, -0.1, 0.05, 0.02, 0.0))
 JAX_CONFIGURATIONS = (
@@ -179,6 +173,52 @@ def native_function(parameters, profile, source_bins):
     )
 
 
+def native_auto_function(parameters, profile, atol, rtol):
+    options = lcbinint.Options(
+        nbin="auto",
+        inverse_ray_grid="auto",
+        coordinates="center_of_mass",
+        finite_source_tol=atol,
+        finite_source_reltol=rtol,
+    )
+    limb_c = 0.0 if profile == "uniform" else LIMB_C
+    limb_darkening = lcbinint.LimbDarkening(c=limb_c, d=0.0)
+    x, y, separation, mass_ratio, radius = map(float, parameters)
+
+    def evaluate():
+        return lcbinint.binary_ray_shooting(
+            x,
+            y,
+            s=separation,
+            q=mass_ratio,
+            rho=radius,
+            limb_darkening=limb_darkening,
+            options=options,
+        )
+
+    diagnostics_curve = lcbinint.LightCurve(
+        options=options,
+        limb_darkening=limb_darkening,
+    )
+    diagnostics = diagnostics_curve.info(
+        [x],
+        t0=0.0,
+        tE=1.0,
+        u0=y,
+        alpha=0.0,
+        s=separation,
+        q=mass_ratio,
+        rho=radius,
+    )
+    return evaluate, {
+        "value": float(diagnostics.magnifications[0]),
+        "method": diagnostics.finite_source_method_names[0],
+        "converged": bool(diagnostics.finite_source_converged[0]),
+        "error_estimate": float(diagnostics.finite_source_error_estimates[0]),
+        "caustic_distance": float(diagnostics.caustic_distances[0]),
+    }
+
+
 def vbm_function(parameters, profile, budget):
     x, y, separation, mass_ratio, radius = map(float, parameters)
     engine = VBMicrolensing.VBMicrolensing()
@@ -191,6 +231,12 @@ def vbm_function(parameters, profile, budget):
 
 
 def microlux_value(parameters, profile, analytic, n_annuli):
+    # The stress runner invokes this path in a dedicated process.  Keep the
+    # optional dependency local so its import cannot affect core-only work.
+    from microlux.basic_function import to_lowmass
+    from microlux.limb_darkening import LinearLimbDarkening
+    from microlux.trajectory_model import extended_light_curve_from_trajectory_l
+
     x, y, separation, mass_ratio, radius = parameters
     trajectory = to_lowmass(
         separation,
@@ -225,7 +271,196 @@ def checkout_commit(module):
 
 
 def select_first_passing(rows):
-    return next((row for row in rows if row["passes"]), None)
+    """Return the first resolution whose complete tested tail passes.
+
+    A single lucky grid-phase crossing does not establish convergence.  This
+    matches the native calibration definition of the minimum reliable nbin.
+    """
+
+    for index, row in enumerate(rows):
+        if all(candidate["passes"] for candidate in rows[index:]):
+            return row
+    return None
+
+
+def report_header(args, parameters, reference_engine, reference, budget):
+    """Fields shared by complete and engine-isolated benchmark reports."""
+
+    return {
+        "system": {
+            "platform": platform.platform(),
+            "processor": platform.processor(),
+            "python": platform.python_version(),
+            "jax": jax.__version__,
+            "jax_backend": jax.default_backend(),
+            "jax_devices": [str(device) for device in jax.devices()],
+            "xla_flags": os.environ.get("XLA_FLAGS", ""),
+            "omp_num_threads": os.environ.get("OMP_NUM_THREADS", ""),
+        },
+        "engine": args.engine,
+        "case": args.case,
+        "profile": args.profile,
+        "linear_limb_c": LIMB_C if args.profile == "linear" else None,
+        "parameters": list(map(float, parameters)),
+        "reference": {"engine": reference_engine, "value": reference},
+        "error_budget": budget,
+        "selection_rule": (
+            "first increasing-resolution/bin candidate whose complete tested "
+            "higher-resolution tail satisfies the common absolute error budget"
+        ),
+    }
+
+
+def write_report(report, output):
+    rendered = json.dumps(report, indent=2)
+    print(rendered)
+    if output is not None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(rendered + "\n")
+
+
+def isolated_microlux_report(args, case, parameters, reference_engine, reference, budget):
+    """Run only microLUX, for a timeout boundary owned by the stress runner."""
+
+    import microlux
+
+    n_annuli = case["microlux_annuli"]
+
+    def micro(active):
+        return microlux_value(active, args.profile, True, n_annuli)
+
+    def micro_fast(active):
+        return microlux_value(active, args.profile, False, n_annuli)
+
+    micro_forward = jax.jit(micro)
+    micro_forward_fast = jax.jit(micro_fast)
+    micro_jvp = jax.jit(
+        lambda active, direction: jax.jvp(micro, (active,), (direction,))[1]
+    )
+    micro_gradient = jax.jit(jax.value_and_grad(micro))
+    micro_forward_timing = timed_jax(micro_forward, (parameters,), args.repeat)
+    micro_value = micro_forward(parameters)
+    jax.block_until_ready(micro_value)
+    micro_error = abs(float(micro_value) - reference)
+
+    report = report_header(args, parameters, reference_engine, reference, budget)
+    report["system"].update(
+        {
+            "microlux_path": str(Path(microlux.__file__).resolve()),
+            "microlux_commit": checkout_commit(microlux),
+        }
+    )
+    report["microlux"] = {
+        "tol": 1.0e-4,
+        "retol": 1.0e-4,
+        "n_annuli": n_annuli if args.profile == "linear" else None,
+        "value": float(micro_value),
+        "absolute_error": micro_error,
+        "passes": micro_error <= budget,
+        "forward_analytic": micro_forward_timing,
+        "forward_only_nonanalytic": timed_jax(
+            micro_forward_fast, (parameters,), args.repeat
+        ),
+        "directional_jvp": timed_jax(micro_jvp, (parameters, DIRECTION), args.repeat),
+        "value_and_grad": timed_jax(micro_gradient, (parameters,), args.repeat),
+    }
+    return report
+
+
+def isolated_core_report(
+    args,
+    parameters,
+    reference_engine,
+    reference,
+    budget,
+    jax_calibration,
+    selected_jax,
+    native_calibration,
+    selected_native,
+    inverse_forward,
+    inverse_jvp,
+    inverse_gradient,
+    hybrid_result,
+    hybrid_error,
+    hybrid_forward,
+    hybrid_jvp,
+    hybrid_gradient,
+    calibrated_report,
+):
+    """Render JAX, native lcbinint, and VBM without importing microLUX."""
+
+    vbm = vbm_function(parameters, args.profile, budget)
+    vbm_value = vbm()
+    vbm_error = abs(vbm_value - reference)
+    native_report = {
+        "calibration": native_calibration,
+        "selected_source_bins": None,
+        "forward": None,
+    }
+    if selected_native is not None:
+        native = native_function(parameters, args.profile, selected_native["source_bins"])
+        native_report["selected_source_bins"] = selected_native["source_bins"]
+        native_report["forward"] = timed_python(native, args.repeat, args.inner)
+    native_auto, native_auto_report = native_auto_function(
+        parameters, args.profile, args.atol, args.rtol
+    )
+    native_auto_report["absolute_error"] = abs(
+        native_auto_report["value"] - reference
+    )
+    native_auto_report["passes"] = (
+        native_auto_report["absolute_error"] <= budget
+    )
+    native_auto_report["forward"] = timed_python(
+        native_auto, args.repeat, args.inner
+    )
+    native_report["automatic"] = native_auto_report
+
+    report = report_header(args, parameters, reference_engine, reference, budget)
+    report.update(
+        {
+            "jax_inverse_ray": {
+                "calibration": jax_calibration,
+                "selected_resolution": selected_jax["resolution"],
+                "selected_tile_capacity": selected_jax["tile_capacity"],
+                "forward": timed_jax(inverse_forward, (parameters,), args.repeat),
+                "directional_jvp": timed_jax(
+                    inverse_jvp, (parameters, DIRECTION), args.repeat
+                ),
+                "value_and_grad": timed_jax(
+                    inverse_gradient, (parameters,), args.repeat
+                ),
+            },
+            "jax_hybrid": {
+                "value": float(hybrid_result.magnification),
+                "absolute_error": hybrid_error,
+                "passes": hybrid_error <= budget,
+                "method": int(hybrid_result.method),
+                "method_names": {
+                    "0": "hexadecapole",
+                    "1": "cartesian",
+                    "2": "polar",
+                },
+                "estimated_error": float(hybrid_result.estimated_error),
+                "forward": timed_jax(hybrid_forward, (parameters,), args.repeat),
+                "directional_jvp": timed_jax(
+                    hybrid_jvp, (parameters, DIRECTION), args.repeat
+                ),
+                "value_and_grad": timed_jax(
+                    hybrid_gradient, (parameters,), args.repeat
+                ),
+            },
+            "jax_calibrated": calibrated_report,
+            "native_lcbinint": native_report,
+            "vbmicrolensing": {
+                "requested_accuracy": budget,
+                "value": vbm_value,
+                "absolute_error": vbm_error,
+                "passes": vbm_error <= budget,
+                "forward": timed_python(vbm, args.repeat, args.inner),
+            },
+        }
+    )
+    return report
 
 
 def main():
@@ -236,6 +471,21 @@ def main():
     parser.add_argument("--inner", type=int, default=5)
     parser.add_argument("--atol", type=float, default=1.0e-4)
     parser.add_argument("--rtol", type=float, default=1.0e-4)
+    parser.add_argument(
+        "--calibrated-max-source-bins",
+        type=int,
+        choices=(16, 24, 32, 40, 50, 64, 80, 100, 128, 160, 200, 256, 320, 400),
+        default=400,
+    )
+    parser.add_argument(
+        "--engine",
+        choices=("all", "core", "microlux"),
+        default="all",
+        help=(
+            "all entries (default), or isolate core JAX/native/VBM work from "
+            "microLUX"
+        ),
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
 
@@ -243,6 +493,14 @@ def main():
     parameters = jnp.asarray(case["parameters"])
     reference_engine, reference = reference_value(case, args.profile)
     budget = args.atol + args.rtol * max(abs(reference), 1.0)
+    if args.engine == "microlux":
+        write_report(
+            isolated_microlux_report(
+                args, case, parameters, reference_engine, reference, budget
+            ),
+            args.output,
+        )
+        return
 
     jax_calibration = []
     for resolution, capacity in JAX_CONFIGURATIONS:
@@ -300,6 +558,86 @@ def main():
     jax.block_until_ready(hybrid_result)
     hybrid_error = abs(float(hybrid_result.magnification) - reference)
 
+    def calibrated(active):
+        return binary_magnification_calibrated(
+            *active,
+            limb_c=LIMB_C if args.profile == "linear" else 0.0,
+            absolute_tolerance=args.atol,
+            relative_tolerance=args.rtol,
+            maximum_source_bins=args.calibrated_max_source_bins,
+            moment_mode=args.profile,
+        ).magnification
+
+    calibrated_forward = jax.jit(calibrated)
+    calibrated_jvp = jax.jit(
+        lambda active, direction: jax.jvp(
+            calibrated, (active,), (direction,)
+        )[1]
+    )
+    calibrated_gradient = jax.jit(jax.value_and_grad(calibrated))
+    calibrated_result = binary_magnification_calibrated(
+        *parameters,
+        limb_c=LIMB_C if args.profile == "linear" else 0.0,
+        absolute_tolerance=args.atol,
+        relative_tolerance=args.rtol,
+        maximum_source_bins=args.calibrated_max_source_bins,
+        moment_mode=args.profile,
+    )
+    jax.block_until_ready(calibrated_result)
+    calibrated_error = abs(float(calibrated_result.magnification) - reference)
+    calibrated_report = {
+        "value": float(calibrated_result.magnification),
+        "absolute_error": calibrated_error,
+        "passes": calibrated_error <= budget,
+        "method": int(calibrated_result.method),
+        "support_valid": bool(calibrated_result.support_valid),
+        "selected_source_bins": int(calibrated_result.selected_source_bins),
+        "comparison_resolution": int(calibrated_result.comparison_resolution),
+        "executed_resolution": int(calibrated_result.executed_resolution),
+        "tile_capacity": int(calibrated_result.tile_capacity),
+        "caustic_distance": float(calibrated_result.caustic_distance),
+        "prefer_polar": bool(calibrated_result.prefer_polar),
+        "point_safe": bool(calibrated_result.point_safe),
+        "chord_band": bool(calibrated_result.chord_band),
+        "tangent_band": bool(calibrated_result.tangent_band),
+        "grazing_ring_band": bool(calibrated_result.grazing_ring_band),
+        "value_error": float(calibrated_result.value_error),
+        "value_budget": float(calibrated_result.value_budget),
+        "value_converged": bool(calibrated_result.value_converged),
+        "forward": timed_jax(calibrated_forward, (parameters,), args.repeat),
+        "directional_jvp": timed_jax(
+            calibrated_jvp, (parameters, DIRECTION), args.repeat
+        ),
+        "value_and_grad": timed_jax(
+            calibrated_gradient, (parameters,), args.repeat
+        ),
+    }
+    if args.engine == "core":
+        write_report(
+            isolated_core_report(
+                args,
+                parameters,
+                reference_engine,
+                reference,
+                budget,
+                jax_calibration,
+                selected_jax,
+                native_calibration,
+                selected_native,
+                inverse_forward,
+                inverse_jvp,
+                inverse_gradient,
+                hybrid_result,
+                hybrid_error,
+                hybrid_forward,
+                hybrid_jvp,
+                hybrid_gradient,
+                calibrated_report,
+            ),
+            args.output,
+        )
+        return
+
     n_annuli = case["microlux_annuli"]
 
     def micro(active):
@@ -334,6 +672,21 @@ def main():
         )
         native_report["selected_source_bins"] = selected_native["source_bins"]
         native_report["forward"] = timed_python(native, args.repeat, args.inner)
+    native_auto, native_auto_report = native_auto_function(
+        parameters, args.profile, args.atol, args.rtol
+    )
+    native_auto_report["absolute_error"] = abs(
+        native_auto_report["value"] - reference
+    )
+    native_auto_report["passes"] = (
+        native_auto_report["absolute_error"] <= budget
+    )
+    native_auto_report["forward"] = timed_python(
+        native_auto, args.repeat, args.inner
+    )
+    native_report["automatic"] = native_auto_report
+
+    import microlux
 
     report = {
         "system": {
@@ -348,6 +701,7 @@ def main():
             "microlux_path": str(Path(microlux.__file__).resolve()),
             "microlux_commit": checkout_commit(microlux),
         },
+        "engine": args.engine,
         "case": args.case,
         "profile": args.profile,
         "linear_limb_c": LIMB_C if args.profile == "linear" else None,
@@ -355,8 +709,8 @@ def main():
         "reference": {"engine": reference_engine, "value": reference},
         "error_budget": budget,
         "selection_rule": (
-            "first increasing-resolution/bin candidate satisfying the common "
-            "absolute error budget"
+            "first increasing-resolution/bin candidate whose complete tested "
+            "higher-resolution tail satisfies the common absolute error budget"
         ),
         "jax_inverse_ray": {
             "calibration": jax_calibration,
@@ -385,6 +739,7 @@ def main():
             ),
             "value_and_grad": timed_jax(hybrid_gradient, (parameters,), args.repeat),
         },
+        "jax_calibrated": calibrated_report,
         "microlux": {
             "tol": 1.0e-4,
             "retol": 1.0e-4,

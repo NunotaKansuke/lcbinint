@@ -118,6 +118,27 @@ def test_public_jax_api_supports_static_binary_sources():
     )(parameters["flux_ratio"])
     assert jnp.isfinite(gradient)
 
+    components = jax_curve.binary_source_components(TIMES, parameters)
+    native_components = native.binary_source_components(
+        np.asarray(TIMES), parameters
+    )
+    assert isinstance(components.total, jax.Array)
+    np.testing.assert_allclose(
+        components.total, jax_curve(TIMES, parameters), rtol=0.0, atol=0.0
+    )
+    np.testing.assert_allclose(
+        components.source1.magnification,
+        native_components.source1.magnification,
+        rtol=8.0e-5,
+        atol=8.0e-4,
+    )
+    np.testing.assert_allclose(
+        components.source2.magnification,
+        native_components.source2.magnification,
+        rtol=8.0e-5,
+        atol=8.0e-4,
+    )
+
 
 def test_public_jax_api_composes_higher_order_effects_and_gradient():
     times = jnp.asarray((7497.0, 7500.0, 7504.0))

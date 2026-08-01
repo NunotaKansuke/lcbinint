@@ -1,4 +1,4 @@
-"""Compatibility namespace for the standalone :mod:`lcbinint_jax` package."""
+"""Compatibility namespace for the internal :mod:`lcbinint_jax` kernels."""
 
 from lcbinint_jax import (
     ConvergenceResult,

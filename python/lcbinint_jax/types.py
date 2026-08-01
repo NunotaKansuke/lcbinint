@@ -79,6 +79,64 @@ class HybridMagnificationResult(NamedTuple):
     used_expanded_cartesian: jax.Array
 
 
+class BinaryResolutionSelection(NamedTuple):
+    """Stopped-gradient native-calibrated binary inverse-ray selection."""
+
+    source_bins: jax.Array
+    prefer_polar: jax.Array
+
+
+class BinaryRoutingDiagnostics(NamedTuple):
+    """Stopped native point-safety and caustic-scan routing diagnostics."""
+
+    point_magnification: jax.Array
+    point_error_estimate: jax.Array
+    point_absolute_tolerance: jax.Array
+    caustic_distance: jax.Array
+    scan_min_distance: jax.Array
+    quadrupole_indicator: jax.Array
+    cusp_indicator: jax.Array
+    ghost_indicator: jax.Array
+    planetary_distance2: jax.Array
+    image_count: jax.Array
+    ghost_count: jax.Array
+    safety_flags: jax.Array
+    point_preflight_safe: jax.Array
+    point_safe: jax.Array
+    scan_performed: jax.Array
+    any_vertex_inside: jax.Array
+    has_crossing_probes: jax.Array
+    chord_band: jax.Array
+    tangent_band: jax.Array
+    grazing_ring_band: jax.Array
+
+
+class CalibratedMagnificationResult(NamedTuple):
+    """Hybrid result plus native-calibrated routing diagnostics."""
+
+    magnification: jax.Array
+    method: jax.Array
+    estimated_error: jax.Array
+    support_valid: jax.Array
+    used_multipole: jax.Array
+    used_polar: jax.Array
+    used_source_plane: jax.Array
+    used_expanded_cartesian: jax.Array
+    selected_source_bins: jax.Array
+    comparison_resolution: jax.Array
+    executed_resolution: jax.Array
+    tile_capacity: jax.Array
+    caustic_distance: jax.Array
+    prefer_polar: jax.Array
+    point_safe: jax.Array
+    chord_band: jax.Array
+    tangent_band: jax.Array
+    grazing_ring_band: jax.Array
+    value_error: jax.Array
+    value_budget: jax.Array
+    value_converged: jax.Array
+
+
 class TrajectoryMagnificationResult(NamedTuple):
     """Conditional hybrid results for a one-dimensional source trajectory."""
 
@@ -86,6 +144,7 @@ class TrajectoryMagnificationResult(NamedTuple):
     method: jax.Array
     estimated_error: jax.Array
     support_valid: jax.Array
+    value_converged: jax.Array
     used_multipole: jax.Array
     used_polar: jax.Array
     used_source_plane: jax.Array
