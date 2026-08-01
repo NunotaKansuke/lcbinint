@@ -195,12 +195,15 @@ def test_jax_auto_curve_fails_closed_when_requested_accuracy_is_unmet():
         "rho": 0.02,
         "limb_darkening_c": 0.4,
     }
+    # A resolution ladder on this cusp settles at 3.8649464 (2048 cells per
+    # source radius), and the bounded frontier now reaches 3.8649587 -- 3.2e-6
+    # relative -- so 1e-5 is genuinely met and only 1e-6 is out of reach.
     curve = lcbinint.LightCurve(
         options=lcbinint.Options(
             jax=True,
             coordinates="center_of_mass",
             tol=0.0,
-            reltol=1.0e-5,
+            reltol=1.0e-6,
         )
     )
     times = jnp.asarray((-0.02,))

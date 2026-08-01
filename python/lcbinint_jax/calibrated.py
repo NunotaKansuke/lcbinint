@@ -19,6 +19,13 @@ from .types import CalibratedMagnificationResult
 # Capacity follows the observed quadratic tile-count scaling.  It is a
 # conservative initial floor, not a proof that every geometry fits; overflow
 # remains fail-closed in the underlying dispatcher.
+#
+# The bounded frontier admits every tile whose image can reach the source disk
+# rather than only those a sample lands in, which costs 1.4--1.8x more tiles.
+# The 100--160 buckets are the ones that tipped over: on the resonant holdout
+# (s=0.9, q=1e-3, rho=3e-3) they need 32768, 32768 and 65536 where the sampled
+# frontier fitted in half that, and without the bump the dispatcher falls back
+# to the polar route it is meant to avoid there.
 _EXECUTION_BUCKETS = (
     (16, 256),
     (24, 1024),
@@ -27,9 +34,9 @@ _EXECUTION_BUCKETS = (
     (50, 4096),
     (64, 4096),
     (80, 8192),
-    (100, 16384),
-    (128, 16384),
-    (160, 32768),
+    (100, 32768),
+    (128, 32768),
+    (160, 65536),
     (200, 65536),
     (256, 65536),
     (320, 131072),

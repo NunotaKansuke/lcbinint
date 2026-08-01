@@ -12,7 +12,7 @@ from .cpp_backend import (
     cpp_binary_image_roots_ffi_available,
 )
 from .images import binary_images
-from .lens import binary_lens_map_real
+from .lens import binary_lens_map_real, binary_lens_positions_and_masses
 from .types import DiscoveryResult
 
 
@@ -83,19 +83,61 @@ def _tile_has_inside_probe(
     mass_ratio: jax.Array,
     source_radius: jax.Array,
 ) -> jax.Array:
-    fractions = jnp.asarray((0.0, 0.5, 1.0), dtype=tile_width.dtype)
-    offset_x, offset_y = jnp.meshgrid(fractions, fractions, indexing="xy")
-    origin = tile_index.astype(tile_width.dtype) * tile_width
-    image_x = origin[0] + tile_width * offset_x.ravel()
-    image_y = origin[1] + tile_width * offset_y.ravel()
-    mapped_x, mapped_y = binary_lens_map_real(image_x, image_y, separation, mass_ratio)
-    distance_squared = (mapped_x - source_x) * (mapped_x - source_x) + (
-        mapped_y - source_y
-    ) * (mapped_y - source_y)
-    inside = jnp.isfinite(distance_squared) & (
-        distance_squared <= source_radius * source_radius
+    """Whether the tile may map into the source disk, and so stays on the frontier.
+
+    Sampling nine points in the tile answers a different question -- whether one
+    of those nine happens to land in the disk -- and a thin image component that
+    merely passes between them fails all nine, which stops the flood fill on the
+    very component it was following.  Bound the map instead.  The tile is
+    convex, so for every ``z`` in it
+
+        |f(z) - zeta| >= |f(c) - zeta| - L |z - c| >= |f(c) - zeta| - L r
+
+    with ``c`` the centre and ``r`` the half-diagonal.  For
+    ``f(z) = z - sum_i m_i / conj(z - z_i)`` the differential is the identity
+    plus ``df/dconj(z) = sum_i m_i / conj(z - z_i)^2``, so
+
+        L = 1 + sum_i m_i / d_i^2,   d_i = dist(tile, z_i)
+
+    bounds it over the whole tile.  Rejecting only when the lower bound exceeds
+    the source radius can over-admit but never under-admit, which is the
+    direction that keeps the support honest.  A tile containing a lens has
+    ``d_i = 0`` and is admitted outright, as its neighbourhood of images
+    requires.
+    """
+
+    dtype = tile_width.dtype
+    lens_1_x, lens_2_x, mass_1, mass_2 = binary_lens_positions_and_masses(
+        separation, mass_ratio
     )
-    return jnp.any(inside)
+    half_width = 0.5 * tile_width
+    centre = tile_index.astype(dtype) * tile_width + half_width
+    centre_x = centre[0]
+    centre_y = centre[1]
+
+    # Both lenses sit on the real axis, so the tile-to-lens distance is the
+    # usual clamped box distance.
+    def lens_distance_squared(lens_x):
+        dx = jnp.maximum(0.0, jnp.abs(centre_x - lens_x) - half_width)
+        dy = jnp.maximum(0.0, jnp.abs(centre_y) - half_width)
+        return dx * dx + dy * dy
+
+    distance_1_squared = lens_distance_squared(lens_1_x)
+    distance_2_squared = lens_distance_squared(lens_2_x)
+    contains_lens = (distance_1_squared <= 0.0) | (distance_2_squared <= 0.0)
+
+    mapped_x, mapped_y = binary_lens_map_real(
+        centre_x, centre_y, separation, mass_ratio
+    )
+    distance = jnp.hypot(mapped_x - source_x, mapped_y - source_y)
+    lipschitz = (
+        1.0
+        + mass_1 / jnp.where(contains_lens, 1.0, distance_1_squared)
+        + mass_2 / jnp.where(contains_lens, 1.0, distance_2_squared)
+    )
+    half_diagonal = half_width * jnp.sqrt(jnp.asarray(2.0, dtype=dtype))
+    admissible = distance - lipschitz * half_diagonal <= source_radius
+    return contains_lens | ~jnp.isfinite(distance) | admissible
 
 
 @partial(

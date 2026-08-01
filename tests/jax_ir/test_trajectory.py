@@ -121,6 +121,10 @@ def test_native_pipeline_trajectory_uses_calibrated_inverse_ray_value():
 
 
 def test_native_pipeline_tight_inverse_ray_value_fails_closed():
+    # The bounded frontier reaches 3.8649626 here against a 3.8649464 ladder
+    # limit, so the coarse/fine pair honestly agrees to 8e-6 and anything
+    # looser than about 3e-6 is now met.  Ask for 1e-6, with no absolute floor
+    # to swamp it, to keep exercising the closed door.
     result = binary_magnification_native_pipeline_trajectory(
         jnp.asarray((0.653,)),
         jnp.asarray((0.02,)),
@@ -129,8 +133,8 @@ def test_native_pipeline_tight_inverse_ray_value_fails_closed():
         0.02,
         0.4,
         0.0,
-        absolute_tolerance=1.0e-4,
-        relative_tolerance=3.0e-5,
+        absolute_tolerance=0.0,
+        relative_tolerance=1.0e-6,
         maximum_source_bins=400,
         moment_mode="linear",
     )
@@ -159,7 +163,7 @@ def test_native_pipeline_loose_inverse_ray_bucket_converges():
     assert bool(result.support_valid[0])
     assert bool(result.value_converged[0])
     np.testing.assert_allclose(
-        result.magnification[0], 3.85323542, rtol=0.0, atol=1.0e-8
+        result.magnification[0], 3.8652407702, rtol=0.0, atol=1.0e-8
     )
 
 

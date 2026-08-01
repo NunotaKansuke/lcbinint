@@ -24,7 +24,7 @@ def test_calibrated_dispatcher_reports_native_resolution_and_has_finite_ad():
     assert int(result.selected_source_bins) == 128
     assert int(result.comparison_resolution) == 100
     assert int(result.executed_resolution) == 128
-    assert int(result.tile_capacity) == 16384
+    assert int(result.tile_capacity) == 32768
     assert not bool(result.prefer_polar)
     assert np.isfinite(float(magnitude))
     assert bool(jnp.all(jnp.isfinite(gradient)))
@@ -61,7 +61,10 @@ def test_calibrated_dispatcher_uses_inverse_ray_without_grid_overflow():
     )
     assert int(result.method) == 1
     assert int(result.executed_resolution) == 160
-    assert int(result.comparison_resolution) == 200
+    # The coarse bucket carries the comparison: with the bounded frontier and
+    # the capacities it needs, 128 no longer overflows into the polar route, so
+    # the dispatcher no longer has to reach past 160 for a second opinion.
+    assert int(result.comparison_resolution) == 128
     assert bool(result.support_valid)
     assert bool(result.value_converged)
     assert abs(float(result.magnification) - 67.80033446861006) < 6.9e-3
@@ -77,7 +80,11 @@ def test_calibrated_dispatcher_uses_inverse_ray_without_grid_overflow():
         maximum_source_bins=400,
         moment_mode="linear",
     )
-    assert int(cross_method.method) == 2
+    # The limb-darkened arm used to be pushed onto the polar route by the same
+    # overflow; with the capacities the bounded frontier needs it stays on the
+    # Cartesian one.  Polar routing is covered by the high-magnification test
+    # below, where no capacity in the table is enough.
+    assert int(cross_method.method) == 1
     assert bool(cross_method.support_valid)
     assert bool(cross_method.value_converged)
 

@@ -2170,6 +2170,35 @@ std::uint64_t tile_key(std::int32_t x, std::int32_t y)
         | static_cast<std::uint32_t>(y);
 }
 
+// Whether the tile may contain a point that maps into the source disk, and so
+// has to stay on the flood-fill frontier.
+//
+// Sampling nine points in the tile answers a different question -- whether one
+// of those nine happens to land in the disk -- and a thin image component that
+// merely passes between them fails all nine, which stops the expansion on the
+// component the walk was following.  That is the same defect class as the limb
+// raster the certificate replaced: a sample count used as a decision about a
+// set it does not cover.  It is silent, too; the walk still reports
+// `support_valid`.  Measured on the tangent cusp at resolution 128, tile_size
+// 2/4/8/16/32 gave 3.960953/3.960857/3.959864/3.955731/3.945949 against a
+// reference of 3.960888.
+//
+// Bound the map instead of sampling it.  The tile is convex, so for every `z`
+// in it
+//
+//     |f(z) - zeta| >= |f(c) - zeta| - L |z - c| >= |f(c) - zeta| - L r
+//
+// with `c` the centre and `r` the half-diagonal.  For
+// `f(z) = z - sum_i m_i / conj(z - z_i)` the differential is the identity plus
+// `df/dconj(z) = sum_i m_i / conj(z - z_i)^2`, so
+//
+//     L = 1 + sum_i m_i / d_i^2,   d_i = dist(tile, z_i)
+//
+// bounds it over the whole tile.  Rejecting only when the lower bound exceeds
+// the source radius can over-admit but never under-admit, which is the
+// direction that keeps the support honest.  A tile containing a lens has
+// `d_i = 0`; it is admitted outright, as its neighbourhood of images requires.
+// One lens-map evaluation replaces nine.
 bool tile_has_inside_probe(
     std::int32_t tile_x,
     std::int32_t tile_y,
@@ -2185,39 +2214,45 @@ bool tile_has_inside_probe(
     const double lens_2_x = separation / total_mass;
     const double mass_1 = 1.0 / total_mass;
     const double mass_2 = mass_ratio / total_mass;
-    const double source_radius_squared = source_radius * source_radius;
-    const double origin_x = static_cast<double>(tile_x) * tile_width;
-    const double origin_y = static_cast<double>(tile_y) * tile_width;
-    constexpr std::array<double, 3> fractions{0.0, 0.5, 1.0};
+    const double half_width = 0.5 * tile_width;
+    const double centre_x =
+        static_cast<double>(tile_x) * tile_width + half_width;
+    const double centre_y =
+        static_cast<double>(tile_y) * tile_width + half_width;
 
-    for (double fraction_y : fractions) {
-        const double image_y = origin_y + fraction_y * tile_width;
-        for (double fraction_x : fractions) {
-            const double image_x = origin_x + fraction_x * tile_width;
-            const double dx_1 = image_x - lens_1_x;
-            const double dx_2 = image_x - lens_2_x;
-            const double radius_1_squared =
-                dx_1 * dx_1 + image_y * image_y;
-            const double radius_2_squared =
-                dx_2 * dx_2 + image_y * image_y;
-            const double mapped_x =
-                image_x - mass_1 * dx_1 / radius_1_squared
-                - mass_2 * dx_2 / radius_2_squared;
-            const double mapped_y =
-                image_y - mass_1 * image_y / radius_1_squared
-                - mass_2 * image_y / radius_2_squared;
-            const double residual_x = mapped_x - source_x;
-            const double residual_y = mapped_y - source_y;
-            const double distance_squared =
-                residual_x * residual_x + residual_y * residual_y;
-            if (
-                std::isfinite(distance_squared)
-                && distance_squared <= source_radius_squared) {
-                return true;
-            }
-        }
+    // Both lenses sit on the real axis, so the distance from the tile to a lens
+    // is the usual clamped box distance.
+    const auto lens_distance_squared = [&](double lens_x) {
+        const double dx = std::max(0.0, std::abs(centre_x - lens_x) - half_width);
+        const double dy = std::max(0.0, std::abs(centre_y) - half_width);
+        return dx * dx + dy * dy;
+    };
+    const double lens_1_distance_squared = lens_distance_squared(lens_1_x);
+    const double lens_2_distance_squared = lens_distance_squared(lens_2_x);
+    if (lens_1_distance_squared <= 0.0 || lens_2_distance_squared <= 0.0) {
+        return true;
     }
-    return false;
+
+    const double dx_1 = centre_x - lens_1_x;
+    const double dx_2 = centre_x - lens_2_x;
+    const double radius_1_squared = dx_1 * dx_1 + centre_y * centre_y;
+    const double radius_2_squared = dx_2 * dx_2 + centre_y * centre_y;
+    const double mapped_x =
+        centre_x - mass_1 * dx_1 / radius_1_squared
+        - mass_2 * dx_2 / radius_2_squared;
+    const double mapped_y =
+        centre_y - mass_1 * centre_y / radius_1_squared
+        - mass_2 * centre_y / radius_2_squared;
+    const double distance =
+        std::hypot(mapped_x - source_x, mapped_y - source_y);
+    if (!std::isfinite(distance)) {
+        return true;
+    }
+
+    const double lipschitz =
+        1.0 + mass_1 / lens_1_distance_squared + mass_2 / lens_2_distance_squared;
+    const double half_diagonal = half_width * std::sqrt(2.0);
+    return distance - lipschitz * half_diagonal <= source_radius;
 }
 
 struct CartesianDiscovery {
@@ -2362,6 +2397,11 @@ CartesianDiscovery discover_cartesian_support(
     return result;
 }
 
+// The triple-lens frontier test, bounded exactly as the binary one above.  The
+// three lenses are not collinear here, so the tile-to-lens distance is the
+// clamped box distance in both coordinates.  `phi` is
+// `1 - |f(z) - zeta|^2 / rho^2`, so the distance the bound needs is
+// `rho * sqrt(1 - phi)`.
 bool triple_tile_has_inside_probe(
     std::int32_t tile_x,
     std::int32_t tile_y,
@@ -2371,24 +2411,35 @@ bool triple_tile_has_inside_probe(
     const TripleLensConstants<double>& lens,
     double source_radius)
 {
-    const double origin_x = static_cast<double>(tile_x) * tile_width;
-    const double origin_y = static_cast<double>(tile_y) * tile_width;
-    const double inverse_radius_squared =
-        1.0 / (source_radius * source_radius);
-    constexpr std::array<double, 3> fractions{0.0, 0.5, 1.0};
-    for (double fraction_y : fractions) {
-        for (double fraction_x : fractions) {
-            const double image_x = origin_x + fraction_x * tile_width;
-            const double image_y = origin_y + fraction_y * tile_width;
-            const auto values = triple_phi_derivatives(
-                image_x, image_y, source_x, source_y, lens,
-                inverse_radius_squared);
-            if (std::isfinite(values.phi) && values.phi >= 0.0) {
-                return true;
-            }
+    const double half_width = 0.5 * tile_width;
+    const double centre_x =
+        static_cast<double>(tile_x) * tile_width + half_width;
+    const double centre_y =
+        static_cast<double>(tile_y) * tile_width + half_width;
+
+    double lipschitz = 1.0;
+    for (std::size_t lens_index = 0; lens_index < 3; ++lens_index) {
+        const double dx = std::max(
+            0.0, std::abs(centre_x - lens.lens_x[lens_index]) - half_width);
+        const double dy = std::max(
+            0.0, std::abs(centre_y - lens.lens_y[lens_index]) - half_width);
+        const double distance_squared = dx * dx + dy * dy;
+        if (distance_squared <= 0.0) {
+            return true;
         }
+        lipschitz += lens.mass[lens_index] / distance_squared;
     }
-    return false;
+
+    const auto values = triple_phi_derivatives(
+        centre_x, centre_y, source_x, source_y, lens,
+        1.0 / (source_radius * source_radius));
+    if (!std::isfinite(values.phi)) {
+        return true;
+    }
+    const double distance =
+        source_radius * std::sqrt(std::max(0.0, 1.0 - values.phi));
+    const double half_diagonal = half_width * std::sqrt(2.0);
+    return distance - lipschitz * half_diagonal <= source_radius;
 }
 
 CartesianDiscovery discover_triple_cartesian_support(

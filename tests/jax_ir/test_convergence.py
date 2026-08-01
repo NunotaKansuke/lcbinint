@@ -29,23 +29,29 @@ def test_value_convergence_reports_all_normalized_observables():
 
 
 def test_directional_gradient_convergence_improves_with_resolution():
+    # The bounded frontier admits the tiles that hold the faint images hugging
+    # each lens; the sampled one used to miss them entirely.  Those images are
+    # a couple of cells across below resolution 128, so their area -- and far
+    # more so its derivative -- is quantization noise there.  Reporting that as
+    # unconverged is the honest answer, which is why the converged pair is
+    # 128/256 and not 64/128.
     low = binary_inverse_ray_convergence(
         PARAMETERS,
         direction=DIRECTION,
         coarse_resolution=16,
         fine_resolution=32,
-        coarse_tile_capacity=256,
-        fine_tile_capacity=512,
+        coarse_tile_capacity=512,
+        fine_tile_capacity=1024,
         gradient_atol=2.0e-3,
         gradient_rtol=2.0e-3,
     )
     high = binary_inverse_ray_convergence(
         PARAMETERS,
         direction=DIRECTION,
-        coarse_resolution=64,
-        fine_resolution=128,
-        coarse_tile_capacity=1024,
-        fine_tile_capacity=4096,
+        coarse_resolution=128,
+        fine_resolution=256,
+        coarse_tile_capacity=4096,
+        fine_tile_capacity=16384,
         gradient_atol=2.0e-3,
         gradient_rtol=2.0e-3,
     )

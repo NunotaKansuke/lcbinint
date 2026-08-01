@@ -326,17 +326,29 @@ def discover_triple_macro_tiles(
     neighbours = jnp.asarray(((1, 0), (-1, 0), (0, 1), (0, -1)), jnp.int32)
 
     def tile_has_inside_probe(tile_index):
-        fractions = jnp.asarray((0.0, 0.5, 1.0), dtype=dtype)
-        offset_x, offset_y = jnp.meshgrid(fractions, fractions, indexing="xy")
-        origin = tile_index.astype(dtype) * tile_width
-        image_x = origin[0] + tile_width * offset_x.ravel()
-        image_y = origin[1] + tile_width * offset_y.ravel()
-        mapped_x, mapped_y = triple_lens_map_real(image_x, image_y, geometry)
-        distance_squared = (mapped_x - source_x) ** 2 + (mapped_y - source_y) ** 2
-        return jnp.any(
-            jnp.isfinite(distance_squared)
-            & (distance_squared <= source_radius * source_radius)
+        """Bound ``min |f(z) - zeta|`` over the tile rather than sampling it.
+
+        See ``lcbinint_jax.discovery._tile_has_inside_probe`` for the argument;
+        the three lenses are not collinear here, so the tile-to-lens distance
+        clamps in both coordinates.
+        """
+
+        half_width = 0.5 * tile_width
+        centre = tile_index.astype(dtype) * tile_width + half_width
+        offset = jnp.maximum(
+            0.0, jnp.abs(centre[None, :] - geometry.positions) - half_width
         )
+        distances_squared = jnp.sum(offset * offset, axis=1)
+        contains_lens = jnp.any(distances_squared <= 0.0)
+
+        mapped_x, mapped_y = triple_lens_map_real(centre[0], centre[1], geometry)
+        distance = jnp.hypot(mapped_x - source_x, mapped_y - source_y)
+        lipschitz = 1.0 + jnp.sum(
+            geometry.masses / jnp.where(contains_lens, 1.0, distances_squared)
+        )
+        half_diagonal = half_width * jnp.sqrt(jnp.asarray(2.0, dtype=dtype))
+        admissible = distance - lipschitz * half_diagonal <= source_radius
+        return contains_lens | ~jnp.isfinite(distance) | admissible
 
     def condition(state):
         _, _, _, count, head, _ = state
