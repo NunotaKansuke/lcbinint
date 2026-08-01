@@ -228,9 +228,46 @@ everything else is inside run-to-run scatter and the far-from-caustic case is
 unchanged to the digit.  The certificate is not a per-epoch tax: it costs where
 there is a caustic inside the disk, and nothing where there is not.
 
-Note also that the JAX timings and values are now identical for
-`limb_samples` 8, 16 and 32 — the certificate has made the limb raster in
-`discover_cartesian_support` redundant, which is the next thing to remove.
+### The JAX limb raster stays
+
+The JAX values and timings are identical for `limb_samples` 8, 16 and 32, which
+looked like an invitation to delete the raster in `discover_cartesian_support`
+now that the certificate covers completeness.  Measured, and it should not be
+deleted, for two independent reasons.
+
+There is no speedup to take.  Across twelve geometries at resolution 128 and
+256, `limb_samples = 1` against `limb_samples = 32` is inside run-to-run
+scatter (e.g. tangent cusp 9.36 vs 9.48 ms, fold crossing 21.69 vs 21.75 ms).
+The raster is `limb_samples + 1` quintic solves; the fill is millions of cells.
+
+And it is not redundant.  It is a *completeness* criterion no longer, but it is
+still doing tile-graph work: the limb images trace the whole boundary of every
+image component, so they seed tiles all along it.  Dropping to
+`limb_samples = 1` costs 2.2e-04 relative on the tangent cusp at the default
+`tile_size = 16`.
+
+That loss is the visible end of a separate defect, of the same class as the one
+this document is about.  A tile joins the frontier only if one of nine sample
+points inside it maps into the source disk (`tile_has_inside_probe`), and the
+extra fold pair here is a 55:1 sliver, so a tile the sliver merely passes
+through can fail all nine and stop the expansion.  Tangent cusp at resolution
+128, `limb_samples = 8`, against the VBM reference 3.960888498085:
+
+| `tile_size` | value | rel. error |
+|------------:|------:|-----------:|
+| 2 | 3.960952993 | +1.6e-05 |
+| 4 | 3.960856754 | -8.0e-06 |
+| 8 | 3.959864455 | -2.6e-04 |
+| 16 (default) | 3.955731463 | -1.3e-03 |
+| 32 | 3.945948543 | -3.8e-03 |
+
+Monotone in `tile_size`, `support_valid` true throughout, and absent on
+geometries with no sliver (`cusp_inside` and a resonant crossing are
+`tile_size`-independent to all digits).  This is a fixed sample pattern being
+used where a completeness criterion is needed — the frontier test should bound
+`min |f(z) - zeta|` over the tile rather than sample it — and it is not fixed
+here.  The raster is what currently keeps it small, so removing the raster
+would expose it.
 
 ## Convergence order — what is left, and why it is not a defect
 
