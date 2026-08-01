@@ -1,7 +1,7 @@
 #include "bind_jax_ir.hpp"
 
 #include "lcbinint/math/polynomial_roots.hpp"
-#include "lcbinint/magnification/binary_component_certificate.hpp"
+#include "lcbinint/magnification/component_certificate.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/model/triple_lens_geometry.hpp"
@@ -2310,7 +2310,7 @@ CartesianDiscovery discover_cartesian_support(
     // no fixed limb_samples can be relied on to sample it.  The certificate is
     // derived from the caustic geometry instead and is therefore independent
     // of limb_samples and of the tile resolution.
-    const auto support = lcbinint::magnification::certify_binary_disk_support(
+    const auto support = lcbinint::magnification::certify_disk_support(
         cached_caustic_branches(separation, mass_ratio),
         {source_x, source_y}, source_radius);
     result.support_fingerprint = support.fingerprint;
@@ -2322,7 +2322,6 @@ CartesianDiscovery discover_cartesian_support(
             for (std::size_t root = 0; root < binary_root_count; ++root) {
                 physical_count += static_cast<std::int32_t>(images.physical[root]);
             }
-            if (physical_count <= 3) return false;
             for (std::size_t root = 0; root < binary_root_count; ++root) {
                 if (!images.physical[root]) continue;
                 const auto tile_x = static_cast<std::int32_t>(
@@ -2332,15 +2331,15 @@ CartesianDiscovery discover_cartesian_support(
                 if (insert(tile_x, tile_y)) seeds.insert(tile_key(tile_x, tile_y));
             }
             result.root_failure = result.root_failure || physical_count > 5;
-            return true;
+            return static_cast<int>(physical_count);
         });
-    // A caustic arc separates a three-image region from a five-image one, so a
-    // certified extremum inside the disk with no five-image probe on either
-    // normal means a component exists that this support does not cover.  Fold
-    // that into root_failure here rather than at each consumer: every caller
-    // already treats root_failure as "the support could not be established",
-    // and a support that is known to be incomplete must never be reported as
-    // valid at any resolution.
+    // An extremum inside the disk whose probes all saw the same image count
+    // means one of the two components the caustic arc separates is thinner
+    // than the finest probe offset, so a component exists that this support
+    // does not cover.  Fold that into root_failure here rather than at each
+    // consumer: every caller already treats root_failure as "the support could
+    // not be established", and a support that is known to be incomplete must
+    // never be reported as valid at any resolution.
     result.root_failure = result.root_failure || !result.support_proven;
     result.seed_count = static_cast<std::int32_t>(result.queue.size());
 

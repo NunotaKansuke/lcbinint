@@ -7,7 +7,7 @@ the magnification silently converged to a value that was short by the whole
 extra image pair (3.9485 instead of 3.9609, i.e. -3.1e-3 relative) while the
 error indicator still reported convergence.
 
-``certify_binary_disk_support`` replaces the raster with a geometric
+``certify_disk_support`` replaces the raster with a geometric
 completeness certificate: it probes both normals of every local extremum of the
 caustic-to-centre distance, which reaches every component of ``D \\ K`` for
 reasons that do not mention any grid or sample count.  These tests pin both

@@ -1,4 +1,4 @@
-#include "lcbinint/magnification/binary_component_certificate.hpp"
+#include "lcbinint/magnification/component_certificate.hpp"
 
 #include <algorithm>
 #include <array>
@@ -14,17 +14,18 @@ namespace {
 // The coarse entries land in the middle of a fat component; the fine tail
 // resolves a component whose thickness is a small fraction of that room, which
 // is what a caustic nearly tangent to the source limb produces.  Callers may
-// stop at the first offset of a given side that yields extra images: further
-// offsets on that side can only reach the same component or one that owns an
+// stop at the first offset of a given direction that yields extra images:
+// further offsets there can only reach the same component or one that owns an
 // extremum of its own.
 constexpr std::array<double, 8> kOffsetFractions {{
     0.5, 0.25, 0.75, 0.1, 0.03, 0.01, 0.003, 0.001,
 }};
 
 // Bound on how many distance extrema a physical caustic can contribute.  A
-// binary caustic has at most six cusps, so a correct polyline cannot produce
-// anywhere near this many; exceeding it means the polyline is degenerate and
-// the support must be reported as unproven rather than silently truncated.
+// binary caustic has at most six cusps and a triple caustic at most ten, so a
+// correct polyline cannot produce anywhere near this many; exceeding it means
+// the polyline is degenerate and the support must be reported as unproven
+// rather than silently truncated.
 constexpr std::size_t kMaxExtrema = 64;
 
 double distance2(SourcePosition a, SourcePosition b)
@@ -59,12 +60,12 @@ void mix(std::uint64_t& state, double value)
 
 } // namespace
 
-BinaryDiskSupport certify_binary_disk_support(
+DiskSupport certify_disk_support(
     const std::vector<std::vector<SourcePosition>>& caustic_branches,
     SourcePosition source,
     double source_radius)
 {
-    BinaryDiskSupport support;
+    DiskSupport support;
     if (!(source_radius > 0.0)) {
         return support;
     }
@@ -107,18 +108,19 @@ BinaryDiskSupport certify_binary_disk_support(
                 continue;
             }
 
-            const SourcePosition tangent {
+            const SourcePosition chord {
                 branch[next].x - branch[prev].x,
                 branch[next].y - branch[prev].y,
             };
-            const double tangent_length = std::hypot(tangent.x, tangent.y);
-            if (!(tangent_length > 0.0)) {
+            const double chord_length = std::hypot(chord.x, chord.y);
+            if (!(chord_length > 0.0)) {
                 continue;
             }
 
-            BinaryDiskExtremum extremum;
+            DiskExtremum extremum;
             extremum.position = branch[i];
-            extremum.normal = {-tangent.y / tangent_length, tangent.x / tangent_length};
+            extremum.tangent = {chord.x / chord_length, chord.y / chord_length};
+            extremum.normal = {-extremum.tangent.y, extremum.tangent.x};
             extremum.distance = radius[i];
             extremum.polyline_margin = margin;
             extremum.inside_disk = radius[i] < source_radius;
@@ -136,10 +138,10 @@ BinaryDiskSupport certify_binary_disk_support(
     // longer than the local sampling step, so merging within one step cannot
     // discard a component.
     std::sort(support.extrema.begin(), support.extrema.end(),
-              [](const BinaryDiskExtremum& a, const BinaryDiskExtremum& b) {
+              [](const DiskExtremum& a, const DiskExtremum& b) {
                   return a.distance < b.distance;
               });
-    std::vector<BinaryDiskExtremum> merged;
+    std::vector<DiskExtremum> merged;
     for (const auto& extremum : support.extrema) {
         bool duplicate = false;
         const double tolerance = std::max(extremum.polyline_margin, 1.0e-14);
@@ -161,9 +163,19 @@ BinaryDiskSupport certify_binary_disk_support(
 
     for (std::size_t index = 0; index < support.extrema.size(); ++index) {
         const auto& extremum = support.extrema[index];
-        for (const int sign : {1, -1}) {
-            const SourcePosition direction {
-                sign * extremum.normal.x, sign * extremum.normal.y};
+        const std::array<std::pair<ProbeDirection, SourcePosition>, kProbeDirections>
+            directions {{
+                {ProbeDirection::normal_plus, extremum.normal},
+                {ProbeDirection::normal_minus,
+                 {-extremum.normal.x, -extremum.normal.y}},
+                // A cusp's wedge opens along the tangent, so a normal probe
+                // never enters it.  See the header for why the four axis
+                // directions of the local frame are exhaustive.
+                {ProbeDirection::tangent_plus, extremum.tangent},
+                {ProbeDirection::tangent_minus,
+                 {-extremum.tangent.x, -extremum.tangent.y}},
+            }};
+        for (const auto& [label, direction] : directions) {
             SourcePosition origin = extremum.position;
             if (!extremum.inside_disk) {
                 // The chord says the extremum is outside, but only by less
@@ -193,7 +205,7 @@ BinaryDiskSupport certify_binary_disk_support(
                 };
                 if (!extremum.inside_disk) {
                     // Step off the limb towards the centre as well, so the
-                    // probe is strictly interior whichever way the normal
+                    // probe is strictly interior whichever way the direction
                     // points.
                     probe.x -= (probe.x - source.x) * (offset / source_radius);
                     probe.y -= (probe.y - source.y) * (offset / source_radius);
@@ -202,7 +214,7 @@ BinaryDiskSupport certify_binary_disk_support(
                     continue;
                 }
                 support.probes.push_back(
-                    {probe, static_cast<int>(index), sign * offset});
+                    {probe, static_cast<int>(index), label, offset});
             }
         }
     }

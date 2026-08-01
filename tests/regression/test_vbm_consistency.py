@@ -478,8 +478,32 @@ def test_lcbinint_auto_nbin_accepts_second_order_smooth_resonant_boundary():
     fixed = evaluate(40)
     reference = evaluate(200)
 
-    assert auto.all_converged
-    assert max(auto.finite_source_refinement_levels) == 0
+    # Epochs that clear the caustic by at least one source radius have a smooth
+    # image boundary, the second-order edge correction applies, and none of them
+    # may spend a refinement.  One epoch is not of that kind: at index 8
+    # (t = -0.1049) the caustic passes 0.016 rho from the disk centre, so the
+    # disk straddles it and the boundary is genuinely not smooth there.  The
+    # certified support seeds the fold pair, the scan reports a fold seed, and
+    # the error indicator correctly stops applying its smooth-boundary discount.
+    # That epoch is excluded below and checked on its own terms.
+    smooth = [
+        index
+        for index, distance in enumerate(auto.caustic_distances)
+        if distance >= params.rho
+    ]
+    crossing = [
+        index
+        for index, distance in enumerate(auto.caustic_distances)
+        if distance < 0.1 * params.rho
+    ]
+    assert len(smooth) == 38
+    assert crossing == [8]
+
+    for info in (auto, capped, fixed):
+        assert all(info.finite_source_converged[index] for index in smooth)
+        assert all(
+            info.finite_source_refinement_levels[index] == 0 for index in smooth
+        )
     assert any(
         method == "inverse_ray_cartesian" and level == 0
         for method, level in zip(
@@ -487,13 +511,24 @@ def test_lcbinint_auto_nbin_accepts_second_order_smooth_resonant_boundary():
             auto.finite_source_refinement_levels,
         )
     )
-    assert capped.all_converged
+
+    # Given room to refine, the crossing epoch converges after a single step.
+    # Capped at 40 bins it cannot, and says so rather than claiming success --
+    # even though 40 bins already resolve it to better than a part in a
+    # thousand, which is what the accuracy check below covers.
+    assert auto.all_converged
+    assert max(auto.finite_source_refinement_levels) == 1
+    assert list(capped.unconverged_indices) == crossing
+    assert list(fixed.unconverged_indices) == crossing
     assert max(capped.finite_source_refinement_levels) == 0
-    assert fixed.all_converged
     assert max(fixed.finite_source_refinement_levels) == 0
     assert max(
         abs(actual / expected - 1.0)
         for actual, expected in zip(auto.magnifications, reference.magnifications)
+    ) < 1.0e-3
+    assert max(
+        abs(actual / expected - 1.0)
+        for actual, expected in zip(fixed.magnifications, reference.magnifications)
     ) < 1.0e-3
 
 

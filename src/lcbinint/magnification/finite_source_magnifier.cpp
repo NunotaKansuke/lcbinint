@@ -1,5 +1,5 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
-#include "lcbinint/magnification/binary_component_certificate.hpp"
+#include "lcbinint/magnification/component_certificate.hpp"
 
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
@@ -1999,28 +1999,17 @@ bool append_valid_seed(
     return true;
 }
 
-void append_valid_probe_image_seeds(
-    const PointSourceMagnifier& point_magnifier,
+// Seed-set half of a probe, split out so a caller that already rooted the
+// probe (the certified stage does, to read off the image count) does not have
+// to solve the lens equation a second time.
+void append_probe_images_as_seeds(
     const BinaryLensMapper& mapper,
-    double separation,
-    double mass_ratio,
     SourcePosition source,
     double source_radius,
-    SourcePosition probe_source,
+    const std::vector<SourcePosition>& probe_images,
     std::vector<SourcePosition>& seeds)
 {
     const double source_radius2 = source_radius * source_radius;
-    if (source_radius <= 0.0 ||
-        distance_squared(probe_source, source) >= source_radius2 * (1.0 + 1.0e-10)) {
-        return;
-    }
-
-    const auto probe_images =
-        selected_point_images(point_magnifier, separation, mass_ratio, probe_source);
-    if (probe_images.size() <= 3) {
-        return;
-    }
-
     // Compare only against seeds that existed before this probe.  The two fold
     // images born at one caustic crossing can be much closer than rho, so they
     // must not suppress each other.
@@ -2048,6 +2037,30 @@ void append_valid_probe_image_seeds(
             seeds.push_back(img);
         }
     }
+}
+
+void append_valid_probe_image_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    SourcePosition probe_source,
+    std::vector<SourcePosition>& seeds)
+{
+    const double source_radius2 = source_radius * source_radius;
+    if (source_radius <= 0.0 ||
+        distance_squared(probe_source, source) >= source_radius2 * (1.0 + 1.0e-10)) {
+        return;
+    }
+
+    const auto probe_images =
+        selected_point_images(point_magnifier, separation, mass_ratio, probe_source);
+    if (probe_images.size() <= 3) {
+        return;
+    }
+    append_probe_images_as_seeds(mapper, source, source_radius, probe_images, seeds);
 }
 
 void append_caustic_probe_image_seeds(
@@ -2367,18 +2380,19 @@ bool append_certified_component_seeds(
     double mass_ratio,
     SourcePosition source,
     double source_radius,
-    const BinaryDiskSupport& support,
+    const DiskSupport& support,
     std::vector<SourcePosition>& seeds)
 {
+    const double source_radius2 = source_radius * source_radius;
     return resolve_certified_probes(support, [&](SourcePosition probe) {
-        if (selected_point_images(
-                point_magnifier, separation, mass_ratio, probe).size() <= 3) {
-            return false;
+        if (distance_squared(probe, source) >= source_radius2 * (1.0 + 1.0e-10)) {
+            return -1;
         }
-        append_valid_probe_image_seeds(
-            point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-            probe, seeds);
-        return true;
+        const auto probe_images =
+            selected_point_images(point_magnifier, separation, mass_ratio, probe);
+        append_probe_images_as_seeds(
+            mapper, source, source_radius, probe_images, seeds);
+        return static_cast<int>(probe_images.size());
     });
 }
 
@@ -2415,20 +2429,6 @@ std::vector<SourcePosition> augmented_image_seeds(
     }
 
     if (caustic_branches != nullptr) {
-        // Completeness stage.  Every component of (disk \ caustic) owns a
-        // local extremum of the distance to the disk centre along the caustic,
-        // so rooting the certified probes reaches every image component
-        // regardless of how the probe rings below happen to fall.  Run it
-        // first: the rings are then pure redundancy rather than the criterion.
-        const auto support = certify_binary_disk_support(
-            *caustic_branches, source, source_radius);
-        const bool proven = append_certified_component_seeds(
-            point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-            support, seeds);
-        if (support_proven != nullptr) {
-            *support_proven = proven;
-        }
-
         // Cache-driven seeding: one pass over the cached caustic polylines
         // replaces the per-epoch critical-curve phase scans (up to ~2800
         // quartic root solves) with pure distance queries, and gates the
@@ -2492,6 +2492,27 @@ std::vector<SourcePosition> augmented_image_seeds(
         if (scan.any_vertex_inside) {
             append_interior_probe_image_seeds(
                 point_magnifier, mapper, separation, mass_ratio, source, source_radius, seeds);
+        }
+
+        // Completeness stage.  Every component of (disk \ caustic) owns a
+        // local extremum of the distance to the disk centre along the caustic,
+        // so rooting the certified probes reaches every image component
+        // regardless of how the probe rings above happen to fall -- they were
+        // never a criterion: their fixed 0.02..0.35 rho steps cannot enter a
+        // cap shallower than 0.02 rho, which is what a caustic near tangency
+        // produces.  It runs last so that the rings keep first claim on the
+        // components they do reach.  A fill is confined to one side of the
+        // critical curve when its seed sits on a fold, and the ring probes hug
+        // the caustic while the certified ladder starts half a disk away from
+        // it, so letting the certified images in first would leave a fold pair
+        // traced by one unguarded scan across the seam.
+        const auto support = certify_disk_support(
+            *caustic_branches, source, source_radius);
+        const bool proven = append_certified_component_seeds(
+            point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+            support, seeds);
+        if (support_proven != nullptr) {
+            *support_proven = proven;
         }
         return seeds;
     }
@@ -3015,7 +3036,8 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
     double source_radius,
-    const TripleCausticBranches& caustics);
+    const TripleCausticBranches& caustics,
+    bool* support_proven = nullptr);
 
 double inverse_ray_polar_triple_mag(
     const PointSourceMagnifier& point_magnifier,
@@ -3040,21 +3062,16 @@ double inverse_ray_polar_triple_mag(
         mapper, image_positions, source, source_radius, settings, finite_magnifier);
 }
 
-void append_valid_triple_probe_image_seeds(
-    const PointSourceMagnifier& point_magnifier,
+// Seed-set half of a triple probe, split out so the certified stage can read
+// the image count off the same solve it seeds from.
+void append_triple_probe_images_as_seeds(
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
     double source_radius,
-    SourcePosition probe_source,
+    const std::vector<SourcePosition>& probe_images,
     std::vector<SourcePosition>& seeds)
 {
     const double source_radius2 = source_radius * source_radius;
-    if (source_radius <= 0.0 ||
-        distance_squared(probe_source, source) >= source_radius2 * (1.0 + 1.0e-10)) {
-        return;
-    }
-
-    const auto probe_images = selected_triple_point_images(point_magnifier, geometry, probe_source);
     const std::size_t n_seeds_before = seeds.size();
     const TripleLensMapper mapper = make_triple_lens_mapper(geometry);
     for (const auto& image : probe_images) {
@@ -3079,6 +3096,49 @@ void append_valid_triple_probe_image_seeds(
             seeds.push_back(image);
         }
     }
+}
+
+void append_valid_triple_probe_image_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    double source_radius,
+    SourcePosition probe_source,
+    std::vector<SourcePosition>& seeds)
+{
+    const double source_radius2 = source_radius * source_radius;
+    if (source_radius <= 0.0 ||
+        distance_squared(probe_source, source) >= source_radius2 * (1.0 + 1.0e-10)) {
+        return;
+    }
+    append_triple_probe_images_as_seeds(
+        geometry, source, source_radius,
+        selected_triple_point_images(point_magnifier, geometry, probe_source),
+        seeds);
+}
+
+// Triple counterpart of append_certified_component_seeds.  The certificate is
+// lens-agnostic, so the only thing that differs is which root solver reports
+// the image count.
+bool append_certified_triple_component_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    double source_radius,
+    const DiskSupport& support,
+    std::vector<SourcePosition>& seeds)
+{
+    const double source_radius2 = source_radius * source_radius;
+    return resolve_certified_probes(support, [&](SourcePosition probe) {
+        if (distance_squared(probe, source) >= source_radius2 * (1.0 + 1.0e-10)) {
+            return -1;
+        }
+        const auto probe_images =
+            selected_triple_point_images(point_magnifier, geometry, probe);
+        append_triple_probe_images_as_seeds(
+            geometry, source, source_radius, probe_images, seeds);
+        return static_cast<int>(probe_images.size());
+    });
 }
 
 void append_triple_caustic_probe_image_seeds(
@@ -3233,8 +3293,12 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
     double source_radius,
-    const TripleCausticBranches& caustics)
+    const TripleCausticBranches& caustics,
+    bool* support_proven)
 {
+    if (support_proven != nullptr) {
+        *support_proven = true;
+    }
     std::vector<SourcePosition> seeds =
         selected_triple_point_images(point_magnifier, geometry, source);
     if (source_radius <= 0.0) {
@@ -3301,6 +3365,17 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
 
     append_triple_boundary_probe_image_seeds(
         point_magnifier, geometry, source, source_radius, seeds);
+
+    // Completeness stage; see augmented_image_seeds for why it runs last.
+    {
+        const auto support =
+            certify_disk_support(caustics.branches, source, source_radius);
+        const bool proven = append_certified_triple_component_seeds(
+            point_magnifier, geometry, source, source_radius, support, seeds);
+        if (support_proven != nullptr) {
+            *support_proven = proven;
+        }
+    }
     return seeds;
 }
 
@@ -3311,6 +3386,14 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
 // source disk; otherwise the 8 lattice neighbours are tried and the seed is
 // dropped if none qualifies (it marked a sub-cell image the lattice cannot
 // resolve).  Seeds landing on the same cell are deduplicated.
+//
+// The snap must also keep the seed on its own side of the critical curve.  A
+// probe taken just off a caustic arc has an image just off the critical curve,
+// closer to it than one cell at any resolution the caller is likely to run; if
+// rounding carries that image across, the fold pair loses the seed for one of
+// its two members and the fill traces only one of them.  So the sign of the
+// Jacobian at the raw seed is preserved when a lattice cell can supply it, and
+// only a seed already on the curve (sign zero) is snapped freely.
 template <typename ImageMap>
 std::vector<SourcePosition> lattice_snapped_seeds(
     const ImageMap& mapper,
@@ -3323,12 +3406,21 @@ std::vector<SourcePosition> lattice_snapped_seeds(
     std::vector<SourcePosition> snapped;
     snapped.reserve(seeds.size());
     std::unordered_set<long long> taken;
-    const auto try_cell = [&](long long ix, long long iy) {
+    const auto jacobian_sign_at = [&](double x, double y) {
+        const double jacobian = lens_jacobian(mapper, x, y);
+        return jacobian > 0.0 ? 1 : jacobian < 0.0 ? -1 : 0;
+    };
+    // `required_sign` of 0 accepts either side.
+    const auto try_cell = [&](long long ix, long long iy, int required_sign) {
         const SourcePosition cell {
             static_cast<double>(ix) * incr,
             static_cast<double>(iy) * incr};
         if (mapped_lens_distance2(mapper, cell.x, cell.y, source) >
             source_radius2) {
+            return false;
+        }
+        if (required_sign != 0 &&
+            jacobian_sign_at(cell.x, cell.y) != required_sign) {
             return false;
         }
         const long long key = (ix << 32) ^ (iy & 0xffffffffLL);
@@ -3337,27 +3429,36 @@ std::vector<SourcePosition> lattice_snapped_seeds(
         }
         return true;
     };
+    const auto place = [&](long long ix, long long iy, int required_sign) {
+        if (try_cell(ix, iy, required_sign)) {
+            return true;
+        }
+        for (long long dyc = -1; dyc <= 1; ++dyc) {
+            for (long long dxc = -1; dxc <= 1; ++dxc) {
+                if ((dxc != 0 || dyc != 0) &&
+                    try_cell(ix + dxc, iy + dyc, required_sign)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
     for (const auto& seed : seeds) {
         const long long ix = std::llround(seed.x / incr);
         const long long iy = std::llround(seed.y / incr);
-        if (try_cell(ix, iy)) {
+        const int seed_sign = jacobian_sign_at(seed.x, seed.y);
+        if (place(ix, iy, seed_sign)) {
             continue;
         }
-        for (long long dyc = -1; dyc <= 1; ++dyc) {
-            bool placed = false;
-            for (long long dxc = -1; dxc <= 1; ++dxc) {
-                if ((dxc != 0 || dyc != 0) && try_cell(ix + dxc, iy + dyc)) {
-                    placed = true;
-                    break;
-                }
-            }
-            if (placed) {
-                break;
-            }
-        }
+        // No neighbour reproduces the side; keep the seed rather than lose it.
+        place(ix, iy, 0);
     }
     return snapped;
 }
+
+// |J| below which a seed counts as sitting on a fold and its fill is confined
+// to one side of the critical curve.
+constexpr double kFoldJacobianThreshold = 0.02;
 
 template <typename ImageMap>
 double inverse_ray_cartesian_core(
@@ -3424,11 +3525,11 @@ double inverse_ray_cartesian_core(
         // NOT restricted — their flood-fills stay naturally within their own image
         // region because the mapped source exits the disk before crossing any critical
         // curve.  Applying the guard to them would incorrectly limit their area.
-        constexpr double kFoldJacThreshold = 0.02;
         const double J_seed = lens_jacobian(mapper, seed.x, seed.y);
-        const int jac_sign = (std::abs(J_seed) < kFoldJacThreshold)
+        const int jac_sign = (std::abs(J_seed) < kFoldJacobianThreshold)
             ? (J_seed > 0.0 ? 1 : J_seed < 0.0 ? -1 : 0)
             : 0;
+
         if (diagnostics != nullptr) {
             ++diagnostics->processed_images;
             if (jac_sign != 0) {
@@ -3646,7 +3747,8 @@ double inverse_ray_cartesian_triple_mag(
     double source_radius,
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
-    LegacyAreaDiagnostics* diagnostics = nullptr)
+    LegacyAreaDiagnostics* diagnostics = nullptr,
+    bool* support_proven = nullptr)
 {
     if ((settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0) &&
         finite_magnifier != nullptr) {
@@ -3659,7 +3761,8 @@ double inverse_ray_cartesian_triple_mag(
         geometry,
         source,
         source_radius,
-        caustics);
+        caustics,
+        support_proven);
     const double point_source_hint = std::abs(
         point_magnifier.triple_mag0(geometry, source).magnification);
     return inverse_ray_cartesian_core(
@@ -5495,6 +5598,7 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
 
     {
         LegacyAreaDiagnostics diagnostics;
+        bool support_proven = true;
         double cartesian_magnification = inverse_ray_cartesian_triple_mag(
             point_magnifier,
             geometry,
@@ -5503,7 +5607,8 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             source_radius,
             runtime_settings,
             this,
-            &diagnostics);
+            &diagnostics,
+            &support_proven);
         if (std::isfinite(cartesian_magnification) && cartesian_magnification > 0.0) {
             FiniteSourceDecision decision {
                 FiniteSourceMethod::inverse_ray_cartesian,
@@ -5512,8 +5617,13 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
                     ? "triple polar used cartesian fallback for caustic-crossing"
                     : "triple finite-source cartesian image-plane inverse ray",
             };
-            double error_estimate = diagnostics.estimated_error;
-            bool converged = finite_source_error_within_budget(
+            // Fail closed: an unproven support means a component of the source
+            // disk was never entered, so the area is short by an unknown
+            // amount and no error estimate derived from it can be trusted.
+            double error_estimate = support_proven
+                ? diagnostics.estimated_error
+                : std::numeric_limits<double>::infinity();
+            bool converged = support_proven && finite_source_error_within_budget(
                 settings_, cartesian_magnification, error_estimate);
             if (converged && has_explicit_finite_source_tolerance(settings_) &&
                 runtime_settings.source_bins > 1) {
