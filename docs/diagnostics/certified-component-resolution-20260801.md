@@ -1,9 +1,10 @@
 # Certified component support — resolution of the 20260801 handoff
 
-Branch `codex/certified-component-tile-kernel`.  Supersedes
-`certified-component-tile-kernel-handoff-20260801.md`, which described the
-problem and an unfinished separate tile integrator.  The tile integrator has
-been removed; the fix is in the seeding, not in a second kernel.
+Branch `codex/certified-component-support`.  The earlier handoff note that
+described the problem alongside an unfinished separate tile integrator has been
+deleted with this branch: the tile integrator is gone, and the fix is in the
+seeding, not in a second kernel.  `codex/tile-approach-archive` keeps the
+abandoned integrator for reference.
 
 ## The defect
 
