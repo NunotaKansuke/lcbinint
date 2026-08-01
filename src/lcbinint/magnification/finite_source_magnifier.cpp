@@ -4223,24 +4223,11 @@ FiniteSourceResult fixed_inverse_ray_binary(
     // When they do not, use the measured shortfall to choose the next supported
     // grid bucket.  This avoids a broad conservative floor while ensuring that
     // "auto" actually tries to satisfy the same budget reported by converged.
-    const double q_abs = std::abs(mass_ratio);
-    const double q_small = q_abs < 1.0 ? q_abs : (q_abs > 0.0 ? 1.0 / q_abs : 1.0);
-    const bool caustic_contact =
-        std::isfinite(caustic_distance) && caustic_distance < 2.0 * source_radius;
     auto target_error_for = [&](double value) {
         return finite_source_error_budget(settings, value);
     };
-    auto is_underresolved = [&]() {
-        return caustic_contact &&
-            q_small < 4.0 * source_radius /
-                static_cast<double>(std::max(active_settings.source_bins, 1));
-    };
     auto diagnose = [&](double value, const LegacyAreaDiagnostics& current_diagnostics) {
-        const bool underresolved = is_underresolved();
         double error = current_diagnostics.estimated_error;
-        if (underresolved) {
-            error = std::max(error, 3.0e-3 * std::max(std::abs(value), 1.0));
-        }
         // The support certificate is resolution independent, so a finer grid
         // cannot repair an unproven one.  Refusing convergence here is what
         // keeps a silently missing component from being reported as an
@@ -4251,7 +4238,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
         }
         return std::pair<double, bool> {
             error,
-            support_proven && !underresolved && error <= target_error_for(value),
+            support_proven && error <= target_error_for(value),
         };
     };
 
@@ -4330,8 +4317,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
     // The retry ladder is exhausted here, so the indicator's 1/source_bins
     // floor is all that stands between a correct value and a NaN.  Measure the
     // grid error instead of bounding it.
-    if (!converged && support_proven && !is_underresolved() &&
-        std::isfinite(error_estimate)) {
+    if (!converged && support_proven && std::isfinite(error_estimate)) {
         reconcile_with_half_resolution(
             settings, active_settings, magnification, evaluate_at,
             error_estimate, converged);

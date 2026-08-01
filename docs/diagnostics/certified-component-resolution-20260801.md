@@ -568,10 +568,11 @@ budget.  On the binary it runs after the retry ladder has run out of grid; the
 triple Cartesian route has no ladder at all, so it runs there directly.
 
 What this does **not** touch is the part that makes the branch fail closed.
-`support_proven` still forces an infinite error, and the `underresolved`
-resolvability guard still vetoes — neither is a statement about grid error, so
-neither is something a second grid can overrule.  The door still closes: the
-binary geometry at `reltol = 1e-6` returns NaN exactly as before.
+`support_proven` still forces an infinite error, and at this stage the
+`underresolved` resolvability guard still vetoed — neither is a statement about
+grid error, so neither is something a second grid can overrule.  (The guard was
+removed later on measured grounds; see the next section.)  The door still
+closes: the binary geometry at `reltol = 1e-6` returns NaN exactly as before.
 
 Result on the two geometries:
 
@@ -583,6 +584,83 @@ Result on the two geometries:
 
 Cost is one extra evaluation at half resolution — 25 % — paid only by a row
 that carries an explicit tolerance and would otherwise have returned a NaN.
+
+## The resolvability guard was measuring nothing
+
+`fixed_inverse_ray_binary` carried a second veto beside the certificate: when a
+caustic touched the disk and the mass-ratio scale was thinner than four cells,
+
+```cpp
+caustic_contact && q_small < 4.0 * source_radius / active_settings.source_bins
+```
+
+it floored the error at `3e-3 * max(|A|, 1)` and refused convergence outright.
+The floor is three times any tolerance a caller is likely to ask for, so inside
+that band the answer was always a NaN.  That is what turned the `rho = 0.3`
+geometry into a NaN whose integrated value was already correct to 1.1e-05.
+
+The guard predates both the support certificate and the per-component
+refinement, so the question is whether it still catches anything those two do
+not.  That is measurable, and the answer is no.
+
+**Method.** 4000 trials at 400 bins plus 1500 each at 100 and 50 bins, drawn
+*inside* the band the guard judges: `s` log-uniform on [0.4, 2.5], `rho`
+log-uniform on [0.02, 1.0], `q` log-uniform on [1e-7, 4 rho / bins] so the
+predicate always fires, the disk centre placed within 1.8 rho of a random
+caustic vertex, and only trials the integrator actually routed through
+`inverse_ray_cartesian` with a caustic inside 2 rho kept.  Reference is
+`BinaryMag2` at `Tol = 1e-7`, budget `reltol = 1e-3`.
+
+**A frame trap worth recording.**  The first version of this sweep reported true
+errors up to 1.2e-01 and appeared to vindicate the guard.  It was measuring the
+wrong geometry: `BinaryMag2` takes the source position mirrored in `x` relative
+to the frame `coordinates="vbm"` reports, and with the sign corrected
+`BinaryMag2(s, q, -x, y, rho)` reproduces `BinaryLightCurve` to machine
+precision (3e-15 relative over five geometries) while the uncorrected call is
+off by up to 78 %.  Every number below uses the corrected reference.
+
+**What the band actually contains** — with the guard in place, so every row here
+was refused:
+
+| bins | trials | median rel. error | p90 | max | outside the 1e-3 budget |
+|-----:|-------:|------------------:|----:|----:|------------------------:|
+| 400 | 4000 | 3.5e-06 | 1.2e-05 | 3.9e-04 | 0 |
+| 100 | 1500 | 3.4e-05 | 1.1e-04 | 7.7e-04 | 0 |
+| 50 | 1500 | 1.1e-04 | 3.5e-04 | 1.9e-03 | 3 |
+
+The 3e-3 floor sits eight times above the worst error in 7000 trials, and the
+errors show no trend in `q * bins / rho` at all — flat across four decades of
+the very quantity the predicate thresholds.  The predicate is not correlated
+with the error it claims to bound.
+
+**Does anything escape without it.**  Same sweeps, guard compiled out:
+
+| bins | reported converged | violations (converged but outside budget) |
+|-----:|-------------------:|------------------------------------------:|
+| 400 | 978 / 1500 | 0 |
+| 100 | 1045 / 1500 | 0 |
+| 50 | 461 / 1500 | 0 |
+
+Zero in 4500 trials, and the three genuine budget misses at 50 bins are all in
+the refused set — the area indicator rejects them on its own, because it is a
+boundary count that scales like `1/bins` and therefore grows in exactly the
+regime the guard was trying to describe.  So the guard was refusing thousands of
+correct answers to catch nothing.
+
+It is deleted.  What replaces it is what was already doing the work:
+`support_proven` for completeness, the area indicator plus
+`reconcile_with_half_resolution` for grid error.
+
+| rho | before | after | vs VBM |
+|----:|-------:|------:|-------:|
+| 0.1 | NaN | 18.731955735 | 3.6e-05 |
+| 0.2 | NaN | 9.909347782 | 3.0e-05 |
+| 0.3 | NaN | 6.703727491 | 1.1e-05 |
+| 0.5 | NaN | 4.117084635 | 1.2e-04 |
+| 0.8 | NaN | 2.691283658 | 9.0e-05 |
+
+(`s = 1.0`, `q = 1e-3`, `u0 = -0.01`, `alpha = 0.5`, `nbin = "auto"`,
+`max_source_bins = 400`, `reltol = 1e-3`.)
 
 ## Seed sets are built once per epoch
 
