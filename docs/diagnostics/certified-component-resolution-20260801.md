@@ -321,6 +321,11 @@ exist to deliver is pinned instead, as a randomised near-caustic invariant test
 
 ## Convergence order — what is left, and why it is not a defect
 
+This section diagnoses the residual order on the **uniform** grid; the numbers
+in it are the state before per-component refinement, which is what the next
+section then removes 55-60 % of.  They are kept because the diagnosis is what
+motivated the fix.
+
 The tangent case converges at **h^1.7**, not `h^2`.  Sweeping the source through
 the tangency at fixed 256 bins shows this is confined to the exact tangency:
 
@@ -362,21 +367,177 @@ width by the midpoint rule in y; both degrade when a row is a couple of samples
 wide.  This is the uniform image-plane grid meeting a feature 0.03 `rho` across
 — a property of the discretisation, not a missing component, and it converges.
 
-The identified next step, if this ever needs to be cheaper: derive the cell size
-for a component from that component's own measured extent (`k = ceil(N_target *
-rows / cells)` from a base-resolution pass, refill at `h / k` with its own
-claimed-cell registry, scale the returned cell count by `k^-2`).  The sliver is
-0.3 % of the grid, so refining only it costs ~45 % more at `N_target = 128`
-where refining globally to the same accuracy costs ~10x.  Not implemented: the
-component is now correct and converging, and the change touches the claimed-cell
-ownership invariants.
+That next step is now implemented; the rest of this section is its result.
+
+## Per-component grid refinement
+
+The lattice spacing is `rho / bins`.  That number is derived from the *source*
+and says nothing about the images it has to resolve, which is why a 55:1 sliver
+is 2.1 cells across at 64 bins while the rest of the grid is comfortable.
+Refining globally costs `k^2` over the whole disk to fix a feature occupying
+0.3 % of it.
+
+The fill already knows enough to decide for itself.  `fill_image_component` was
+split out of `inverse_ray_cartesian_core` and now returns, alongside the area,
+the component's row span and mean row width in cells; `narrow_cells()` is the
+smaller of the two, because the row scan resolves x by sub-cell edge corrections
+and y by the midpoint rule over row widths, and both degrade once *either*
+direction is a few samples wide.  A component under `kComponentRefineTrigger =
+16` cells across is refilled on its own lattice at `k = ceil(32 / narrow)`, odd,
+capped at 32, with the refined cell count scaled by `k^-2` and its footprint
+projected back into the coarse registry.
+
+`k` is odd so that the two lattices partition the plane the same way: coarse
+`x = i * incr` and fine `x = j * incr / k` put the coarse cell centre exactly on
+fine cell `j = i * k`, and with `k` odd the coarse cell covers exactly the fine
+cells within `(k-1)/2` of it.  The projection is then `[ceil(lo/k),
+floor(hi/k)]` on rows `j % k == 0`, with no slack — in particular nothing
+claimed across a critical curve on a fold partner's side.  An earlier version
+used `llround(j/k)` and over-claimed by half a cell, which starved the fold
+partner and cost 2.7x at 512 bins.
+
+### Why the footprint has to come back, and why it has to be checked
+
+A component thinner than a cell reaches the coarse lattice **in pieces** — at 32
+bins the reference sliver breaks into four — and each piece is seeded
+separately.  Refined, every piece recovers the whole component, so without
+carrying the footprint back the component is counted once per piece: measured as
+a +6.2e-04 overshoot at 32 bins, with three pieces each returning the identical
+whole-component area 17.80674501.
+
+The converse failure is worse.  A coarse fill whose extent was decided by a
+neighbour's claims is not a description of a component at all; refilled alone on
+an empty lattice it is free to leave through that seam and trace the neighbour,
+whose area is already in the sum.  On the extreme-magnification geometry in
+`test_point_source_safety.py` (`rho = 1.4e-4`, `mu = 9000`, 40 bins) two seeds
+survived as 3-cell specks between the claims of a huge image; each refined at
+`k = 33` into 2.2e7 fine cells and re-banked the whole image, **doubling** the
+magnification to 17954.
+
+Both are the same statement — the counted area must remain a measure over a
+disjoint union of cells — and both are enforced there:
+
+- `claim_refined_footprint` returns false, and the refinement is discarded, if
+  the projected footprint meets a cell some other fill already owns.  This
+  needed the claimed-cell runs to carry an `owner`, which is also what tells a
+  fill whether its own extent was decided by a neighbour (`foreign_contact`).
+- the refined fill is given an explicit step budget, `8 * coarse_cells * k^2 +
+  4096`, and returns NaN if it exceeds it.  Unlike the existing `max_steps`
+  safety net this is an expected answer rather than a numerical failure, so it
+  is not reported as one.  It is what keeps the runaway above from costing 2.2e7
+  cells before being rejected.
+
+The parity guard is the third piece.  Components of `f^-1(D)` are disjoint and
+the lattice only puts two of them in contact where their images merge, i.e. on a
+critical curve; so a coarse fill that ended against another component's cells is
+one member of a fold pair, and `sign(J_seed)` is the boundary condition that
+holds the refined fill to its own side without the neighbour's claims to lean
+on.  It is applied whenever `foreign_contact` is set, regardless of
+`kFoldJacobianThreshold`: the evidence there is the contact, not the size of
+`|J|`.
+
+### Two variants that were tried and removed
+
+- Gating refinement on `!foreign_contact` alone.  Fixes the triple, but the
+  sliver's fold pair *is* in contact by construction, so the binary gain fell to
+  1.4-1.7x and the ladder was not monotone.
+- Transferring the foreign claims onto the fine lattice instead of the parity
+  guard.  Worse still (1.8x / 1.4x / 1.0x), slower, and still not monotone: a
+  foreign coarse cell blocks all `k^2` fine cells under it, which over-blocks
+  exactly at the fold interface the refinement exists to resolve.
+
+### Measured
+
+Tangent cusp, reference 3.960888498085, A/B on the same build:
+
+| bins | uniform | refined | gain | cost |
+|-----:|--------:|--------:|-----:|-----:|
+| 32 | -4.646e-03 | -2.176e-03 | 2.1x | 2.53 -> 2.75 ms |
+| 64 | -2.128e-03 | -6.966e-04 | 3.1x | 2.83 -> 3.28 ms |
+| 128 | -5.251e-04 | -2.302e-04 | 2.3x | 3.91 -> 4.66 ms |
+| 256 | -1.600e-04 | -6.401e-05 | 2.5x | 7.67 -> 9.37 ms |
+| 512 | -4.788e-05 | -2.102e-05 | 2.3x | 22.57 -> 25.59 ms |
+
+The ladder is monotone and stays below the reference throughout.  Interpolating
+the uniform ladder to equal error puts the refined grid at **~2.3x cheaper at
+fixed accuracy**.  Limb-darkened `c = 0.5` (converged reference 3.836158013)
+moves the same way: 128 bins 3.834896 -> 3.835601, 256 bins 3.835778 ->
+3.836007.
+
+The triple five-image cap, reference 17.500498641, improves at every resolution
+and stays monotone: 32 -2.807e-04, 48 -1.256e-04, 64 -7.062e-05, 96 -3.232e-05,
+128 -1.662e-05, 192 -8.882e-06, 256 -6.180e-06, 512 -1.463e-06.  It reaches the
+Cartesian core through its own seed set and image map, so it is the check that
+this is a property of the fill and not of the binary caller.
+
+Geometries with no thin component are **bit-identical** with the refinement on
+and off: `wide_equal_mass` 1.644285791543 / 1.644310999230, `close_binary`
+12.302093936985, `planetary` 17.450204716764, `caustic_crossing`
+5.366034638431, `far_from_caustic` 2.177131051261, `triple_clear_a`
+7.363689756306 / 7.363822519344.
+
+The gain **saturates**: raising the refinement target from 32 to 128 cells
+barely moves the error (128 bins, -2.302e-04 -> -2.259e-04) while the cost rises
+sharply (256 bins, 9.34 -> 14.18 ms).  So roughly 55-60 % of what was the
+`h^1.7` residual is the sliver's own discretisation and the rest is elsewhere.
+`kComponentRefineTarget = 32` is where the curve flattens.
+
+### Effect on the adaptive loop
+
+The adaptive error estimate is the raw difference between the calibrated grid
+and half of it.  A more accurate fill at a fixed resolution makes that
+difference smaller, and it makes it smaller *honestly* — the estimate remains an
+upper bound on the true error in every case measured.  On the tangent cusp:
+
+| `finite_source_reltol` | uniform | refined |
+|-----------------------:|--------:|--------:|
+| 1e-3 | -2.480e-04, 7.1 ms | -3.155e-04, 4.8 ms |
+| 1e-4 | -1.094e-06, 1247 ms | -3.162e-05, 21.6 ms |
+| 1e-5 | -1.094e-06, 1239 ms | -1.094e-06, 1243 ms |
+| 1e-6 | -1.094e-06, 1241 ms | -1.094e-06, 1243 ms |
+
+Every row honours the tolerance it was given.  The 1e-4 row is the whole point:
+the uniform grid missed its 1e-4 budget at 400 bins and escalated straight to
+the 4096 cap, delivering 1e-6 for 1.2 s of work; the refined grid meets the
+budget at 400 bins and stops, **58x faster**.  The regression suite as a whole
+went from 695 s to 246 s for the same reason.
+
+`test_adaptive_precision_reaches_the_reference` asserted 1e-5 at a 1e-4 request
+and had been passing on that accidental over-delivery.  It is now
+`test_adaptive_precision_meets_the_tolerance_it_is_given`, parameterised over
+1e-3/1e-4/1e-5, which pins the contract that actually exists — plus the
+certificate, so a loose tolerance cannot be met by losing the image pair.
+
+## Seed sets are built once per epoch
+
+`inverse_ray_cartesian_*_mag` and `inverse_ray_polar_*_mag` now take an optional
+precomputed seed set, and `triple_mag` builds one lazily per epoch and passes it
+to every resolution.  The seeds — point images, caustic probes, the boundary
+ring and the certified probes — are a function of the lens and the source disk
+only; nothing about them can depend on the grid, so re-deriving them at each rung
+of a retry ladder was pure repetition.  The binary path already did this; the
+triple did not.
+
+It is worth ~0.7 % on a 60-epoch triple caustic crossing at
+`finite_source_reltol = 1e-4` (12.31 s -> 12.24 s at `caustic_bins = 1400`) and
+nothing at fixed resolution (2.56 s either way), with bit-identical checksums.
+It is kept because it removes a real binary/triple asymmetry, not for the
+number.  The equivalent polar A/B was measured and is marginal.
 
 ## Tests
 
-- `tests/regression/test_binary_cusp_component.py` — 8 tests: refinement to
+- `tests/regression/test_binary_cusp_component.py` — 10 tests: refinement to
   reference (uniform and `c=0.5`), monotonicity across 32..256 bins, adaptive
-  precision to 1e-5 relative, the tangency sweep against VBM, and three clear
-  geometries that must be untouched.
+  precision at 1e-3/1e-4/1e-5 against the tolerance requested, the tangency
+  sweep against VBM, and three clear geometries that must be untouched.
+- `tests/regression/test_component_refinement.py` — 12 tests: the thin-component
+  refinement beats the uniform grid by at least 2x at each of 32..512 bins and
+  never overshoots the reference, the ladder stays monotone with decreasing
+  increments, the triple cap behaves the same way through its own caller, and
+  five geometries without a thin component are unchanged to 1e-12.  The
+  over-count guard itself is pinned by
+  `test_point_source_safety.py::test_forced_cartesian_high_magnification_does_not_truncate_image_area`,
+  which the missing check doubled.
 - `tests/regression/test_triple_cusp_component.py` — 7 tests: the same contract
   on the triple lens (refinement to reference uniform and `c=0.5`, monotonicity
   across 32..256 bins, adaptive precision at both tolerances, three clear

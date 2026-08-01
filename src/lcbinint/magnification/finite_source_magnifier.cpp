@@ -1436,17 +1436,31 @@ struct LegacyImageAreaScratch {
 // independent of the seed set and seed order by construction and replaces
 // the former row-bbox overlap heuristics.  Rows hold few merged intervals,
 // so linear scans dominate hash-map cost only in degenerate cases.
-struct ClaimedCellRuns {
-    std::unordered_map<int, std::vector<std::pair<int, int>>> rows;
+// `owner` records which fill first counted the run.  A fill that walks into a
+// run owned by *another* fill has been stopped by a neighbour rather than by
+// its own geometry -- the fold-pair case, where one member's territory ends
+// where the other's begins -- and that is what disqualifies it from being
+// re-integrated on a private lattice.  Adjacent runs are merged only when they
+// share an owner: merging across owners would erase the boundary between two
+// components, which is the one thing the refinement has to be able to see.
+struct ClaimedRun {
+    int lo;
+    int hi;
+    int owner;
+};
 
-    const std::pair<int, int>* find(int iy, int ix) const
+struct ClaimedCellRuns {
+    std::unordered_map<int, std::vector<ClaimedRun>> rows;
+    int owner = 0;  // stamped on runs claimed from now on
+
+    const ClaimedRun* find(int iy, int ix) const
     {
         const auto it = rows.find(iy);
         if (it == rows.end()) {
             return nullptr;
         }
         for (const auto& interval : it->second) {
-            if (ix >= interval.first && ix <= interval.second) {
+            if (ix >= interval.lo && ix <= interval.hi) {
                 return &interval;
             }
         }
@@ -1459,15 +1473,23 @@ struct ClaimedCellRuns {
             return;
         }
         auto& intervals = rows[iy];
-        intervals.push_back({lo, hi});
-        std::sort(intervals.begin(), intervals.end());
+        intervals.push_back({lo, hi, owner});
+        std::sort(
+            intervals.begin(), intervals.end(),
+            [](const ClaimedRun& left, const ClaimedRun& right) {
+                return left.lo < right.lo;
+            });
         std::size_t write = 0;
         for (std::size_t read = 0; read < intervals.size(); ++read) {
-            if (write == 0 || intervals[read].first > intervals[write - 1].second + 1) {
+            // Runs of different owners are left separate: merging them would
+            // erase the boundary between two components, and that boundary is
+            // what a refined re-integration has to respect.
+            if (write == 0 || intervals[read].lo > intervals[write - 1].hi + 1 ||
+                intervals[read].owner != intervals[write - 1].owner) {
                 intervals[write++] = intervals[read];
             } else {
-                intervals[write - 1].second =
-                    std::max(intervals[write - 1].second, intervals[read].second);
+                intervals[write - 1].hi =
+                    std::max(intervals[write - 1].hi, intervals[read].hi);
             }
         }
         intervals.resize(write);
@@ -1481,6 +1503,8 @@ struct LegacyAreaDiagnostics {
     int boundary_rows = 0;
     int gap_repairs = 0;
     int overlaps = 0;
+    int refined_components = 0;
+    int refinement_factor = 0;  // largest per-component factor applied
     double max_jump_cells = 0.0;
     double estimated_error = 0.0;
 };
@@ -2686,7 +2710,9 @@ double cartesian_image_area_impl(
     LegacyImageAreaScratch& scratch,
     int jacobian_sign = 0,
     ClaimedCellRuns* claimed = nullptr,
-    double magnification_hint = 0.0)
+    double magnification_hint = 0.0,
+    bool* foreign_contact = nullptr,
+    std::int64_t* step_budget = nullptr)
 {
     double countx = 0.0;
     double countall = 0.0;
@@ -2799,8 +2825,16 @@ double cartesian_image_area_impl(
         estimated_step_limit < static_cast<double>(std::numeric_limits<std::int64_t>::max())
             ? static_cast<std::int64_t>(std::ceil(estimated_step_limit))
             : std::numeric_limits<std::int64_t>::max());
+    // A caller that already knows how many cells the walk is supposed to cover
+    // -- the per-component refinement below does -- caps it here.  Unlike
+    // `max_steps`, which is a safety net for an otherwise healthy walk,
+    // exhausting the budget is an expected answer ("this is not the component
+    // you asked for"), so it is not reported as a numerical failure.
+    const std::int64_t effective_max_steps = step_budget != nullptr
+        ? std::min(max_steps, std::max<std::int64_t>(*step_budget, 1))
+        : max_steps;
 
-    while (++guard < max_steps) {
+    while (++guard < effective_max_steps) {
         const double dz2_last = dz2;
         const bool jac_ok_last = jac_ok_prev;
         const bool is_run_start = at_run_start;
@@ -2814,8 +2848,11 @@ double cartesian_image_area_impl(
                 // claim lands in the same row (claim_iy == cell_iy), its
                 // push_back into that row's interval vector can reallocate
                 // the very vector `interval` points into, dangling it.
-                const int interval_lo = interval->first;
-                const int interval_hi = interval->second;
+                const int interval_lo = interval->lo;
+                const int interval_hi = interval->hi;
+                if (foreign_contact != nullptr && interval->owner != claimed->owner) {
+                    *foreign_contact = true;
+                }
                 // The interval was counted (inside the disk) by an earlier
                 // fill; skip it and resume on the far side.  The seam is an
                 // interior junction, not a source boundary, so crossing
@@ -2966,8 +3003,11 @@ double cartesian_image_area_impl(
     }
 
     flush_claim();
-    if (guard >= max_steps) {
-        if (std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
+    if (step_budget != nullptr) {
+        *step_budget = std::max<std::int64_t>(*step_budget - guard, 0);
+    }
+    if (guard >= effective_max_steps) {
+        if (step_budget == nullptr && std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
             std::fprintf(
                 stderr,
                 "CARTESIAN_WALK_EXHAUSTED bins=%d guard=%lld max_steps=%lld "
@@ -3003,16 +3043,20 @@ double cartesian_image_area(
     LegacyImageAreaScratch& scratch,
     int jacobian_sign = 0,
     ClaimedCellRuns* claimed = nullptr,
-    double magnification_hint = 0.0)
+    double magnification_hint = 0.0,
+    bool* foreign_contact = nullptr,
+    std::int64_t* step_budget = nullptr)
 {
     if (settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0) {
         return cartesian_image_area_impl<false>(
             mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
-            scratch, jacobian_sign, claimed, magnification_hint);
+            scratch, jacobian_sign, claimed, magnification_hint, foreign_contact,
+            step_budget);
     }
     return cartesian_image_area_impl<true>(
         mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
-        scratch, jacobian_sign, claimed, magnification_hint);
+        scratch, jacobian_sign, claimed, magnification_hint, foreign_contact,
+        step_budget);
 }
 
 std::vector<SourcePosition> selected_triple_point_images(
@@ -3472,7 +3516,21 @@ struct ComponentFill {
     double area = 0.0;      // cells, weighted by surface brightness
     int rows = 0;           // rows the scan visited, gap repairs included
     int boundary_rows = 0;  // rows carrying a sub-cell edge correction
+    int rows_span = 0;      // distinct lattice rows the component spans
     double width = 0.0;     // mean row extent, in cells
+    // True when the fill was stopped by cells another fill had already
+    // counted, i.e. its extent was decided by a neighbour rather than by its
+    // own boundary.
+    bool foreign_contact = false;
+
+    // Cells across the component's narrow direction.  The row scan resolves x
+    // by sub-cell edge corrections and y by the midpoint rule over row widths,
+    // so both degrade once one of the two directions is a few samples wide;
+    // whichever is smaller is what limits this component.
+    double narrow_cells() const
+    {
+        return std::min(static_cast<double>(rows_span), width);
+    }
 };
 
 // Flood-fills the image component containing `seed` on the lattice of spacing
@@ -3496,10 +3554,12 @@ ComponentFill fill_image_component(
     int jac_sign,
     ClaimedCellRuns& claimed,
     double magnification_hint,
-    LegacyAreaDiagnostics* diagnostics)
+    LegacyAreaDiagnostics* diagnostics,
+    std::int64_t* step_budget = nullptr)
 {
     LegacyImageAreaScratch scratch;
     scratch.ensure(1);
+    bool foreign_contact = false;
     double area0 = 0.0;
     double dy = incr;
     int yi = 0;
@@ -3508,7 +3568,7 @@ ComponentFill fill_image_component(
     scratch.xmax[0] = seed.x;
     double areai = cartesian_image_area(
         mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch,
-        jac_sign, &claimed, magnification_hint);
+        jac_sign, &claimed, magnification_hint, &foreign_contact, step_budget);
 
     dy = -incr;
     scratch.ensure(static_cast<std::size_t>(yi));
@@ -3520,7 +3580,7 @@ ComponentFill fill_image_component(
     ++yi;
     areai += cartesian_image_area(
         mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch,
-        jac_sign, &claimed, magnification_hint);
+        jac_sign, &claimed, magnification_hint, &foreign_contact, step_budget);
 
     int nyi = yi;
     double areabound = 0.0;
@@ -3553,7 +3613,8 @@ ComponentFill fill_image_component(
                 ++yi;
                 area0 = cartesian_image_area(
                     mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                    yi, scratch, jac_sign, &claimed, magnification_hint);
+                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    step_budget);
                 areai += area0;
                 areabound += area0;
                 if (area0 <= 0.0) {
@@ -3575,7 +3636,8 @@ ComponentFill fill_image_component(
                 ++yi;
                 area0 = cartesian_image_area(
                     mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                    yi, scratch, jac_sign, &claimed, magnification_hint);
+                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    step_budget);
                 areai += area0;
                 areabound += area0;
                 if (area0 <= 0.0) {
@@ -3597,7 +3659,8 @@ ComponentFill fill_image_component(
                 ++yi;
                 area0 = cartesian_image_area(
                     mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                    yi, scratch, jac_sign, &claimed, magnification_hint);
+                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    step_budget);
                 areai += area0;
                 areabound += area0;
                 if (area0 <= 0.0) {
@@ -3619,7 +3682,8 @@ ComponentFill fill_image_component(
                 ++yi;
                 area0 = cartesian_image_area(
                     mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                    yi, scratch, jac_sign, &claimed, magnification_hint);
+                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    step_budget);
                 areai += area0;
                 areabound += area0;
                 if (area0 <= 0.0) {
@@ -3635,8 +3699,11 @@ ComponentFill fill_image_component(
     ComponentFill fill;
     fill.area = areai;
     fill.rows = nyi;
+    fill.foreign_contact = foreign_contact;
     double extent_cells = 0.0;
     int measured = 0;
+    long long iy_min = std::numeric_limits<long long>::max();
+    long long iy_max = std::numeric_limits<long long>::min();
     for (int row = 0; row < nyi; ++row) {
         scratch.ensure(static_cast<std::size_t>(row));
         if (scratch.ax[static_cast<std::size_t>(row)] > 0.0) {
@@ -3645,13 +3712,130 @@ ComponentFill fill_image_component(
         const double extent =
             scratch.xmax[static_cast<std::size_t>(row)] -
             scratch.xmin[static_cast<std::size_t>(row)];
-        if (std::isfinite(extent) && extent >= 0.0) {
-            extent_cells += extent / incr + 1.0;
-            ++measured;
+        if (!std::isfinite(extent) || extent < 0.0) {
+            continue;
+        }
+        extent_cells += extent / incr + 1.0;
+        ++measured;
+        const double row_y = scratch.y[static_cast<std::size_t>(row)];
+        if (std::isfinite(row_y)) {
+            const long long iy = std::llround(row_y / incr);
+            iy_min = std::min(iy_min, iy);
+            iy_max = std::max(iy_max, iy);
         }
     }
     fill.width = measured > 0 ? extent_cells / static_cast<double>(measured) : 0.0;
+    // Gap repairs revisit rows, so `rows` over-counts the vertical extent; the
+    // lattice row indices do not.
+    fill.rows_span = iy_max >= iy_min
+        ? static_cast<int>(std::min<long long>(iy_max - iy_min + 1, 1 << 24))
+        : 0;
     return fill;
+}
+
+// Per-component refinement.
+//
+// The uniform image-plane lattice is sized from the *source* (`rho / bins`),
+// which says nothing about the images it has to resolve.  A fold pair near a
+// tangency is a sliver — measured at 55:1 on the reference cusp geometry — so
+// at `bins = 64` it is 2.1 cells across and 115 along, and the row scan is
+// integrating a width it barely samples.  That is the whole of the residual
+// h^1.7 order at the tangency: not a missing component, a component the grid
+// cannot see across.
+//
+// Refining globally to fix it costs k^2 over the whole disk.  Refining the one
+// component costs k^2 over the sliver, which is a fraction of a percent of the
+// grid.  `narrow_cells` is the measurement that makes the choice, and it comes
+// out of the coarse fill itself.
+constexpr double kComponentRefineTrigger = 16.0;  // cells across
+constexpr double kComponentRefineTarget = 32.0;   // cells across, after refining
+constexpr int kComponentRefineMaxFactor = 32;
+// Refined cells are capped at this many `bins^2`, so a component that is thin
+// *and* long cannot take over the epoch it was meant to make cheaper.
+constexpr double kComponentRefineCellBudget = 8.0;
+
+int component_refinement_factor(const ComponentFill& fill, int source_bins)
+{
+    const double narrow = fill.narrow_cells();
+    if (!(narrow > 0.0) || narrow >= kComponentRefineTrigger) {
+        return 1;
+    }
+    int factor = std::min(
+        kComponentRefineMaxFactor,
+        static_cast<int>(std::ceil(kComponentRefineTarget / narrow)));
+    // Odd only: a coarse cell then covers exactly the fine cells within
+    // (k-1)/2 of its centre, so the two lattices partition the plane the same
+    // way and a claim can be carried from one to the other without slack.
+    factor += 1 - (factor & 1);
+    const double coarse_cells = fill.width * static_cast<double>(fill.rows_span);
+    const double budget = kComponentRefineCellBudget *
+        static_cast<double>(source_bins) * static_cast<double>(source_bins);
+    while (factor > 1 &&
+           coarse_cells * static_cast<double>(factor) * static_cast<double>(factor) > budget) {
+        factor -= 2;
+    }
+    return std::max(factor, 1);
+}
+
+// Carries a refined fill's footprint back to the coarse registry, and reports
+// whether it was admissible to do so.
+//
+// Two things are needed of the projection.  The first is that a component
+// thinner than a cell arrives at the coarse lattice in pieces -- at 32 bins the
+// reference sliver breaks into four -- and each piece is seeded separately.
+// Refined, every piece recovers the *whole* component, so without carrying the
+// footprint back the component is counted once per piece.  With `factor` odd
+// the coarse cell `i` covers exactly the fine cells within `(k-1)/2` of `i*k`,
+// so the coarse cell is claimed iff its own centre cell was filled: no slack,
+// and in particular nothing claimed across a critical curve on a fold
+// partner's side.
+//
+// The second is the check that makes the first safe.  Components of f^-1(D)
+// are disjoint, so a refined footprint that lands on cells another fill has
+// already counted is not a refinement of anything: the coarse fill's extent was
+// decided by cells it could not enter, and the refined walk, alone on an empty
+// lattice, left through that seam and re-traced its neighbour.  Its area is
+// already in the sum.  Rejecting it costs the refinement and never an
+// over-count; accepting it doubled a 9000x magnification.
+bool claim_refined_footprint(
+    const ClaimedCellRuns& refined, int factor, ClaimedCellRuns& claimed)
+{
+    const auto divide_floor = [factor](int value) {
+        return static_cast<int>(std::floor(
+            static_cast<double>(value) / static_cast<double>(factor)));
+    };
+    const auto divide_ceil = [factor](int value) {
+        return static_cast<int>(std::ceil(
+            static_cast<double>(value) / static_cast<double>(factor)));
+    };
+    for (const auto& row : refined.rows) {
+        if (row.first % factor != 0) {
+            continue;
+        }
+        const auto existing = claimed.rows.find(row.first / factor);
+        if (existing == claimed.rows.end()) {
+            continue;
+        }
+        for (const auto& run : row.second) {
+            const int lo = divide_ceil(run.lo);
+            const int hi = divide_floor(run.hi);
+            for (const auto& owned : existing->second) {
+                if (owned.owner != claimed.owner && owned.hi >= lo && owned.lo <= hi) {
+                    return false;
+                }
+            }
+        }
+    }
+    for (const auto& row : refined.rows) {
+        if (row.first % factor != 0) {
+            continue;
+        }
+        const int coarse_iy = row.first / factor;
+        for (const auto& run : row.second) {
+            claimed.claim(coarse_iy, divide_ceil(run.lo), divide_floor(run.hi));
+        }
+    }
+    return true;
 }
 
 template <typename ImageMap>
@@ -3724,6 +3908,10 @@ double inverse_ray_cartesian_core(
             }
         }
 
+        // Stamp this fill's claims so a later fill can tell whose territory it
+        // walked into; the refinement below is only sound for a component
+        // whose extent nobody else decided.
+        claimed.owner = static_cast<int>(image_index) + 1;
         const ComponentFill fill = fill_image_component(
             mapper, source, source_radius, settings, finite_magnifier, seed, incr,
             jac_sign, claimed, walk_magnification_hint, diagnostics);
@@ -3731,7 +3919,70 @@ double inverse_ray_cartesian_core(
         // The claimed-cell registry guarantees each cell is counted at most
         // once across fills, so no cross-seed overlap correction is needed:
         // redundant fills simply contribute zero.
-        area += fill.area;
+        double contribution = fill.area;
+
+        const int factor = std::isfinite(fill.area)
+            ? component_refinement_factor(fill, settings.source_bins)
+            : 1;
+        if (factor > 1) {
+            // Components of f^-1(D) are disjoint, and the lattice only puts two
+            // of them in contact where their images merge -- on a critical
+            // curve.  So a coarse fill that ended against another component's
+            // cells is one member of a fold pair, and the parity guard is the
+            // boundary condition that holds it to its own side without the
+            // neighbour's claims to lean on.  `kFoldJacobianThreshold` does not
+            // apply: the evidence here is the contact, not the size of |J|.
+            const int refined_sign = fill.foreign_contact && jac_sign == 0
+                ? (J_seed > 0.0 ? 1 : J_seed < 0.0 ? -1 : 0)
+                : jac_sign;
+            ClaimedCellRuns refined_claimed;
+            FiniteSourceSettings refined_settings = settings;
+            refined_settings.source_bins = settings.source_bins * factor;
+            const double refined_incr = incr / static_cast<double>(factor);
+            const auto refined_seeds = lattice_snapped_seeds(
+                mapper, source, source_radius, refined_incr, {seed});
+            // The refined walk is supposed to cover the coarse footprint, k^2
+            // finer, plus the few cells per row the scan overshoots by; the
+            // margin is generous because the cost of the budget being wrong is
+            // a refinement declined, not an answer.  It matters because the
+            // walk is alone on an empty lattice: without the neighbours' claims
+            // to stop it, a component whose coarse extent was decided by those
+            // claims is free to run away into the rest of the image.
+            std::int64_t refined_budget = static_cast<std::int64_t>(std::ceil(
+                8.0 * fill.width * static_cast<double>(fill.rows_span) *
+                    static_cast<double>(factor) * static_cast<double>(factor) +
+                4096.0));
+            if (!refined_seeds.empty()) {
+                const ComponentFill refined = fill_image_component(
+                    mapper, source, source_radius, refined_settings, finite_magnifier,
+                    refined_seeds.front(), refined_incr, refined_sign, refined_claimed,
+                    walk_magnification_hint, nullptr, &refined_budget);
+                // Cell counts scale with the lattice, the area they measure
+                // does not: k^-2 puts the refined count back in coarse cells.
+                const double rescaled =
+                    refined.area / (static_cast<double>(factor) * static_cast<double>(factor));
+                if (std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
+                    std::fprintf(stderr,
+                        "  COMPONENT bins=%d k=%d narrow=%.3g rows_span=%d width=%.3g "
+                        "coarse=%.10g refined=%.10g ratio=%.6g fine_rows_span=%d "
+                        "fine_width=%.4g seed=(%.17g,%.17g) jac=%d\n",
+                        settings.source_bins, factor, fill.narrow_cells(), fill.rows_span,
+                        fill.width, fill.area, rescaled, rescaled / fill.area,
+                        refined.rows_span, refined.width, seed.x, seed.y, jac_sign);
+                }
+                if (std::isfinite(rescaled) && rescaled > 0.0 &&
+                    claim_refined_footprint(refined_claimed, factor, claimed)) {
+                    contribution = rescaled;
+                    if (diagnostics != nullptr) {
+                        ++diagnostics->refined_components;
+                        diagnostics->refinement_factor =
+                            std::max(diagnostics->refinement_factor, factor);
+                    }
+                }
+            }
+        }
+
+        area += contribution;
 
         if (diagnostics != nullptr) {
             diagnostics->boundary_rows += fill.boundary_rows;
@@ -3756,10 +4007,11 @@ double inverse_ray_cartesian_core(
         if (std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
             std::fprintf(stderr,
                 "%s bins=%d seeds=%d processed=%d fold=%d rows=%d gaps=%d overlaps=%d "
-                "maxjump=%.3g mag=%.8g err=%.8g\n",
+                "refined=%d/%d maxjump=%.3g mag=%.8g err=%.8g\n",
                 diagnostics_label, settings.source_bins, diagnostics->seed_count,
                 diagnostics->processed_images, diagnostics->fold_seed_count,
                 diagnostics->boundary_rows, diagnostics->gap_repairs, diagnostics->overlaps,
+                diagnostics->refined_components, diagnostics->refinement_factor,
                 diagnostics->max_jump_cells, magnification, diagnostics->estimated_error);
         }
     }

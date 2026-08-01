@@ -126,15 +126,32 @@ def test_certified_component_is_not_a_resolution_artefact():
         )
 
 
-def test_adaptive_precision_reaches_the_reference():
+@pytest.mark.parametrize("reltol", (1.0e-3, 1.0e-4, 1.0e-5))
+def test_adaptive_precision_meets_the_tolerance_it_is_given(reltol):
+    """The requested tolerance is the contract, at every tolerance.
+
+    This used to assert 1e-5 at ``finite_source_reltol=1e-4``, which the
+    adaptive loop delivered by accident: its error estimate is the raw
+    difference between the calibrated grid and half of it, so on this geometry
+    it exceeded the 1e-4 budget at 400 bins and escalated straight to the 4096
+    cap -- 1.2 s of work for a 1e-4 request.  Per-component refinement cuts the
+    error at a fixed resolution by ~2.3x here, the difference the estimate is
+    built from falls with it, and the loop stops at 400 bins with a 3.2e-5
+    error in 22 ms.  Both answers honour the tolerance they were asked for;
+    only the second one is worth its cost, so the tolerance is what is pinned.
+    """
     lcbinint = pytest.importorskip("lcbinint")
     curve = _curve(
         lcbinint,
-        finite_source_reltol=1.0e-4,
+        finite_source_reltol=reltol,
         max_source_bins=4096,
     )
     value = _magnification(curve)
-    assert value == pytest.approx(UNIFORM_REFERENCE, rel=1.0e-5)
+    assert value == pytest.approx(UNIFORM_REFERENCE, rel=reltol)
+    # Meeting a loose tolerance by losing the extra image pair and landing near
+    # 3.9485 would satisfy 1e-3 on its own; the certificate has to hold too.
+    gap = UNIFORM_REFERENCE - UNIFORM_MISSING_COMPONENT
+    assert value > UNIFORM_MISSING_COMPONENT + 0.5 * gap
 
 
 def test_tangency_sweep_stays_accurate_on_both_sides():
