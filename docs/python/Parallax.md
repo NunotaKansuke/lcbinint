@@ -117,6 +117,37 @@ magnifications_ground = ground_curve(t, params)
 magnifications_satellite = space_curve(t, params)
 ```
 
+## Limiting ephemeris tables
+
+For inference over a known time interval, set `t_lim` on `Options`:
+
+```python
+windowed_options = lcbinint.Options(
+    jax=True,
+    t_lim=(float(t.min()), float(t.max())),
+)
+space_curve = lcbinint.LightCurve(
+    model=satellite_model,
+    site=lcbinint.obs.Site("space", satellite_table),
+    options=windowed_options,
+)
+```
+
+The limits use the same time convention as the epochs passed to
+`LightCurve`: reduced times such as `7500` remain reduced, while full Julian
+dates remain full Julian dates. The implementation retains the interpolation
+nodes immediately outside the requested interval. For annual parallax it also
+retains the light-time and `t_ref` neighborhoods, even when `t_ref` is outside
+the observation interval.
+
+With JAX, only those Earth and spacecraft ephemeris rows become compiler
+constants. Native space sites likewise retain only the required spacecraft
+rows. Evaluations on the closed interval are numerically unchanged. Concrete
+epochs outside it raise `ValueError`; dynamically traced JAX epochs return
+`NaN`. `t_lim=None` keeps the previous full-table behavior. The limit is fixed
+when constructing a `LightCurve`, so create another curve to use a different
+window.
+
 Plot the Earth and spacecraft observations together, then isolate the
 spacecraft contribution in a difference panel:
 

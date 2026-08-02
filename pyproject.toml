@@ -1,5 +1,8 @@
 [build-system]
-requires = ["scikit-build-core>=0.5", "pybind11>=2.10", "numpy"]
+# The extension registers JAX FFI handlers at build time. Keep JAX in the
+# isolated build environment as well as the optional runtime extra: otherwise
+# a normal PEP 517 wheel silently omits those handlers.
+requires = ["scikit-build-core>=0.5", "pybind11>=2.10", "numpy", "jax>=0.4.31"]
 build-backend = "scikit_build_core.build"
 
 [project]
@@ -11,9 +14,12 @@ dependencies = ["numpy", "scipy"]
 
 [project.optional-dependencies]
 test = ["pytest", "VBMicrolensing"]
+jax = ["jax>=0.4.31"]
+inference = ["jax>=0.4.31", "numpyro>=0.15"]
 
 [tool.scikit-build]
 cmake.build-type = "Release"
+wheel.packages = ["python/lcbinint", "python/lcbinint_jax"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

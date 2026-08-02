@@ -170,6 +170,33 @@ std::vector<MagnificationResult> LightCurve::evaluate_routed(
     results.reserve(times.size());
     model::LensModel lens_model(params, options, site_);
     for (double time : times) results.push_back(lens_model.magnification(time));
+    return results;
+}
+
+void LightCurve::fill_routed_magnification(
+    const std::vector<double>& times,
+    const model::LensParameters& params,
+    const model::ComputationOptions& options,
+    double* output) const
+{
+    const auto results = evaluate_routed(times, params, options);
+    for (std::size_t column = 0; column < results.size(); ++column) {
+        if (results[column].status == EvaluationStatus::unsupported) {
+            throw std::runtime_error("unsupported");
+        }
+        if (results[column].status == EvaluationStatus::numerical_error ||
+            !std::isfinite(results[column].magnification)) {
+            throw std::runtime_error("numerical error");
+        }
+        output[column] = results[column].magnification;
+    }
+}
+
+std::vector<MagnificationResult> LightCurve::evaluate(
+    const std::vector<double>& times,
+    const lcbi_params& params) const
+{
+    const auto results = evaluate_diagnostic(times, params);
     for (const auto& result : results) {
         if (result.status == EvaluationStatus::unsupported) {
             throw std::runtime_error("unsupported");
@@ -182,19 +209,7 @@ std::vector<MagnificationResult> LightCurve::evaluate_routed(
     return results;
 }
 
-void LightCurve::fill_routed_magnification(
-    const std::vector<double>& times,
-    const model::LensParameters& params,
-    const model::ComputationOptions& options,
-    double* output) const
-{
-    const auto results = evaluate_routed(times, params, options);
-    for (std::size_t column = 0; column < results.size(); ++column) {
-        output[column] = results[column].magnification;
-    }
-}
-
-std::vector<MagnificationResult> LightCurve::evaluate(
+std::vector<MagnificationResult> LightCurve::evaluate_diagnostic(
     const std::vector<double>& times,
     const lcbi_params& params) const
 {

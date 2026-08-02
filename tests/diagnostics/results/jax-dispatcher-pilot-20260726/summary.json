@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "rows": 144,
+  "trusted_rows": 141,
+  "profiles": ["uniform", "linear", "square_root"],
+  "baseline": {
+    "method_counts": {
+      "hexadecapole": 60,
+      "cartesian": 39,
+      "polar": 42
+    },
+    "invalid_support": 36,
+    "support_valid_accuracy_failures": 12
+  },
+  "calibrated_replay": {
+    "method_counts": {
+      "hexadecapole": 69,
+      "cartesian": 72,
+      "polar": 0
+    },
+    "invalid_support": 36,
+    "support_valid_accuracy_failures": 6,
+    "worst_accuracy_budget_ratio": 1.1601434584319192
+  },
+  "backend_calibration": {
+    "cartesian_64_1024": {
+      "failures_or_invalid": 66,
+      "invalid": 51,
+      "median_milliseconds": 9.743323549628258
+    },
+    "cartesian_64_4096": {
+      "failures_or_invalid": 56,
+      "invalid": 30,
+      "median_milliseconds": 14.291997998952866
+    },
+    "cartesian_128_16384": {
+      "failures_or_invalid": 32,
+      "invalid": 30,
+      "median_milliseconds": 68.77851206809282
+    },
+    "polar_64_4096_band4": {
+      "failures_or_invalid": 129,
+      "invalid": 42,
+      "median_milliseconds": 59.42447250708938
+    },
+    "polar_64_4096_band16": {
+      "failures_or_invalid": 129,
+      "invalid": 30,
+      "median_milliseconds": 195.9249780047685
+    }
+  },
+  "field_gradient_replay": {
+    "rows": 8,
+    "reference_method": "median of native Cartesian central differences at 512, 1024, and 2048 bins",
+    "passes": 8
+  }
+}

@@ -1,0 +1,134 @@
+{
+  "configuration": {
+    "lens": "triple",
+    "case": "smooth",
+    "parameter_set": "lens",
+    "epochs": 12,
+    "warmup": 100,
+    "samples": 100,
+    "chains": 2,
+    "target_accept": 0.9,
+    "max_tree_depth": 8,
+    "dense_mass": false,
+    "repeat": 2,
+    "seed": 731,
+    "skip_nuts": true,
+    "output": "docs/assets/jax_ir_hmc_triple_6d_lens_gradient.json",
+    "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+    "jax_version": "0.6.2",
+    "jax_backend": "cpu",
+    "noise_sigma": 0.02
+  },
+  "parameter_names": [
+    "log_s",
+    "log_q",
+    "log_rho",
+    "log_q2",
+    "log_sep2",
+    "ang"
+  ],
+  "truth": {
+    "t0": 0.0,
+    "tE": 1.0,
+    "u0": 0.25,
+    "alpha": 0.3,
+    "s": 1.0,
+    "q": 0.1,
+    "rho": 0.02,
+    "q2": 0.03,
+    "sep2": 0.7,
+    "ang": 0.8,
+    "limb_darkening_c": 0.4
+  },
+  "magnification_range": [
+    3.5673925262047264,
+    5.407267511802774
+  ],
+  "fisher": {
+    "fisher_eigenvalues": [
+      160.01260544752185,
+      1258.1698622238894,
+      6636.373402734781,
+      10698.0464534113,
+      165229.09573825705,
+      63011837.43510913
+    ],
+    "fisher_condition_number": 393792.9593664085,
+    "raw_jacobian_norms": [
+      155.08419370296002,
+      24.561154537350127,
+      2.1475629114902377,
+      12.633050423109344,
+      17.96584943264059,
+      11.703244675831682
+    ]
+  },
+  "gradient_audit": {
+    "value": -6.472521898818403,
+    "finite": true,
+    "maximum_absolute_error": 0.33352775155528586,
+    "maximum_relative_error": 0.33352775155528586
+  },
+  "native_gradient_audit": {
+    "jax_gradient": [
+      -227.71931452904158,
+      25.26940347773134,
+      1.6614187209892197,
+      -17.659119363056384,
+      -26.282680684779457,
+      21.408517448321223
+    ],
+    "native_finite_difference": [
+      -227.99572833719142,
+      25.5122570087174,
+      1.6760045749464325,
+      -17.647416077362976,
+      -26.18740351107718,
+      21.372042759644216
+    ],
+    "relative_error": [
+      0.00121236397471611,
+      0.009519092368153683,
+      0.008702753072614543,
+      0.0006631727637690626,
+      0.0036382825682575483,
+      0.0017066543000690822
+    ],
+    "maximum_relative_error": 0.009519092368153683
+  },
+  "leapfrog_audit": {
+    "step_size": 0.02,
+    "steps": 4,
+    "energy_error": -0.001583085257585104,
+    "reversibility_max_abs": 1.1102230246251565e-16
+  },
+  "timings": {
+    "jax_forward": {
+      "compile_and_first_seconds": 0.3425560970790684,
+      "median_seconds": 0.07168696890585124,
+      "minimum_seconds": 0.07059215987101197,
+      "samples_seconds": [
+        0.07059215987101197,
+        0.07278177794069052
+      ]
+    },
+    "jax_value_and_grad": {
+      "compile_and_first_seconds": 1.063239413779229,
+      "median_seconds": 0.13750799768604338,
+      "minimum_seconds": 0.12212762469425797,
+      "samples_seconds": [
+        0.1528883706778288,
+        0.12212762469425797
+      ]
+    },
+    "native_forward": {
+      "median_seconds": 0.5249640471301973,
+      "minimum_seconds": 0.5248091942630708,
+      "samples_seconds": [
+        0.5251188999973238,
+        0.5248091942630708
+      ]
+    }
+  },
+  "nuts": null
+}

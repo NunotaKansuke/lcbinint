@@ -183,6 +183,34 @@ The space table follows VBMicrolensing's geocentric satellite convention.)")
         })
         .def_property_readonly("lat_deg", &Site::lat_deg)
         .def_property_readonly("lon_deg", &Site::lon_deg)
+        .def_property_readonly("ephemeris_time", [](const Site& s) {
+            const auto& times = s.times();
+            py::array_t<double> result(times.size());
+            auto values = result.mutable_unchecked<1>();
+            for (py::ssize_t i = 0; i < values.shape(0); ++i) {
+                values(i) = times[static_cast<std::size_t>(i)];
+            }
+            return result;
+        })
+        .def_property_readonly("ephemeris_position", [](const Site& s) {
+            const auto& positions = s.positions();
+            py::array_t<double> result({
+                static_cast<py::ssize_t>(positions.size()),
+                static_cast<py::ssize_t>(3),
+            });
+            auto values = result.mutable_unchecked<2>();
+            for (py::ssize_t i = 0; i < values.shape(0); ++i) {
+                for (py::ssize_t axis = 0; axis < 3; ++axis) {
+                    values(i, axis) =
+                        positions[static_cast<std::size_t>(i)][
+                            static_cast<std::size_t>(axis)];
+                }
+            }
+            return result;
+        })
+        .def("_limited_to", [](const Site& s, double lower, double upper) {
+            return std::make_shared<Site>(s.limited_to(lower, upper));
+        }, py::arg("lower"), py::arg("upper"))
         .def("__repr__", [](const Site& s) {
             char buf[64];
             std::snprintf(buf, sizeof(buf), "<Site lat=%.4f lon=%.4f [deg]>",

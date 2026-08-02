@@ -99,12 +99,12 @@ void cmplx_roots_gen(complex *roots, complex *poly, int degree, bool polish_root
 	//very rough idea where some of the roots can be.
 	//
 
-	static complex poly2[MAXM];
-	static int i, j, n, iter;
-	static bool success;
+	complex poly2[MAXM];
+	int i, j, n, iter;
+	bool success;
 	complex coef, prev;
-	static int ismallest;
-	static double abssmall;
+	int ismallest;
+	double abssmall;
 
 	if (!use_roots_as_starting_points) {
 		for (int jj = 0; jj < degree; jj++) {
@@ -496,7 +496,7 @@ void cmplx_laguerre(complex *poly, int degree, complex *root, int &iter, bool &s
 	//For a summary of the method go to :
 	//http://en.wikipedia.org/wiki/Laguerre's_method
 	//
-	static int FRAC_JUMP_EVERY = 10;
+	const int FRAC_JUMP_EVERY = 10;
 	const int FRAC_JUMP_LEN = 10;
 	double FRAC_JUMPS[FRAC_JUMP_LEN] = { 0.64109297,
 		0.91577881, 0.25921289, 0.50487203,
@@ -506,7 +506,7 @@ void cmplx_laguerre(complex *poly, int degree, complex *root, int &iter, bool &s
 	double faq; //jump length
 	double FRAC_ERR = 2.0e-15; //Fractional Error for double precision
 	complex p, dp, d2p_half; //value of polynomial, 1st derivative, and 2nd derivative
-	static int i, j, k;
+	int i, j, k;
 	bool good_to_go;
 	complex denom, denom_sqrt, dx, newroot;
 	double ek, absroot, abs2p;

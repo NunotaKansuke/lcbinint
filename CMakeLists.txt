@@ -13,6 +13,7 @@ include(CTest)
 
 option(LCBININT_BUILD_PYTHON "Build pybind11 Python extension" ON)
 option(LCBININT_ENABLE_OPENMP "Parallelize independent parameter rows" ON)
+option(LCBININT_ENABLE_JAX_FFI "Build the experimental JAX CPU FFI handler" ON)
 option(LCBININT_BUILD_TESTS "Build lcbinint standalone tests" ${BUILD_TESTING})
 
 if(LCBININT_ENABLE_OPENMP)
@@ -64,6 +65,7 @@ endif()
 # Leaf layer: finite/point-source magnification kernels + root solvers.
 # No dependency on model/, lc/, or obs/ (see .note/session-2026-07-18-final-review.md, A5).
 add_library(lcbinint_magnification
+    src/lcbinint/magnification/component_certificate.cpp
     src/lcbinint/magnification/finite_source_magnifier.cpp
     src/lcbinint/magnification/point_source_magnifier.cpp
     src/lcbinint/math/polynomial_roots.cpp
@@ -125,25 +127,56 @@ if(LCBININT_BUILD_PYTHON)
     pybind11_add_module(lcbinint_python
         python/lcbinint_pybind.cpp
         python/bind_lc.cpp
-        python/bind_obs.cpp)
+        python/bind_obs.cpp
+        python/bind_jax_ir.cpp)
     target_link_libraries(lcbinint_python PRIVATE lcbinint_lightcurve)
+    if(LCBININT_ENABLE_JAX_FFI)
+        execute_process(
+            COMMAND ${Python3_EXECUTABLE} -c
+                "import jax.ffi; print(jax.ffi.include_dir())"
+            RESULT_VARIABLE LCBININT_JAX_INCLUDE_RESULT
+            OUTPUT_VARIABLE LCBININT_JAX_INCLUDE_DIR
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+            ERROR_QUIET)
+        if(LCBININT_JAX_INCLUDE_RESULT EQUAL 0
+                AND EXISTS "${LCBININT_JAX_INCLUDE_DIR}/xla/ffi/api/ffi.h")
+            target_include_directories(
+                lcbinint_python PRIVATE "${LCBININT_JAX_INCLUDE_DIR}")
+            target_compile_definitions(
+                lcbinint_python PRIVATE LCBININT_HAS_JAX_FFI=1)
+            message(STATUS "Building JAX CPU FFI handler")
+        else()
+            message(FATAL_ERROR
+                "JAX headers were not found while LCBININT_ENABLE_JAX_FFI is ON. "
+                "Install jax in the build environment or configure "
+                "-DLCBININT_ENABLE_JAX_FFI=OFF explicitly.")
+        endif()
+    endif()
     set_target_properties(lcbinint_python PROPERTIES OUTPUT_NAME _lcbinint)
     # Copy Python package files to build dir so `import lcbinint` works from build/
     add_custom_command(TARGET lcbinint_python POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_CURRENT_SOURCE_DIR}/python/lcbinint
             ${CMAKE_CURRENT_BINARY_DIR}/lcbinint
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/python/lcbinint_jax
+            ${CMAKE_CURRENT_BINARY_DIR}/lcbinint_jax
+        COMMAND ${CMAKE_COMMAND} -E make_directory
+            ${CMAKE_CURRENT_BINARY_DIR}/lcbinint_jax/data
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_SOURCE_DIR}/data/earth_orbital_parallax_table.txt
+            ${CMAKE_CURRENT_BINARY_DIR}/lcbinint_jax/data/earth_orbital_parallax_table.txt
         COMMAND ${CMAKE_COMMAND} -E copy
             $<TARGET_FILE:lcbinint_python>
             ${CMAKE_CURRENT_BINARY_DIR}/lcbinint/$<TARGET_FILE_NAME:lcbinint_python>
-        COMMENT "Copying lcbinint Python package to build dir")
+        COMMENT "Copying lcbinint Python packages to build dir")
     get_filename_component(LCBININT_GSL_LIBRARY_DIR "${GSL_LIBRARY}" DIRECTORY)
     if(LCBININT_GSL_LIBRARY_DIR)
         set_target_properties(lcbinint_python PROPERTIES
             BUILD_RPATH "${LCBININT_GSL_LIBRARY_DIR}"
             INSTALL_RPATH "${LCBININT_GSL_LIBRARY_DIR}")
     endif()
-    install(TARGETS lcbinint_python LIBRARY DESTINATION .)
+    install(TARGETS lcbinint_python LIBRARY DESTINATION lcbinint)
 else()
     message(STATUS "Python extension disabled")
 endif()
@@ -151,3 +184,6 @@ endif()
 install(TARGETS lcbinint_magnification lcbinint_lightcurve)
 install(DIRECTORY include/lcbinint DESTINATION include)
 install(FILES data/earth_orbital_parallax_table.txt DESTINATION share/lcbinint/data)
+# Install data beside the package too: importlib.resources then works from a
+# wheel without relying on a source-checkout-relative path.
+install(FILES data/earth_orbital_parallax_table.txt DESTINATION lcbinint_jax/data)

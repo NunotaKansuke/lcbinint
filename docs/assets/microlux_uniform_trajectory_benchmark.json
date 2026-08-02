@@ -1,0 +1,208 @@
+{
+  "configuration": {
+    "epochs": 12,
+    "ad_epochs": 6,
+    "repeat": 3,
+    "profile": "uniform",
+    "output": "docs/assets/microlux_uniform_trajectory_benchmark.json",
+    "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+    "jax_backend": "cpu",
+    "jax_devices": [
+      "TFRT_CPU_0"
+    ],
+    "omp_num_threads": null,
+    "separation": 1.2,
+    "mass_ratio": 0.1,
+    "source_radius": 0.02,
+    "limb_c": 0.0
+  },
+  "timings": {
+    "jax_forward": {
+      "compile_and_first_seconds": 4.841808774974197,
+      "median_seconds": 0.07059395173564553,
+      "samples_seconds": [
+        0.07059395173564553,
+        0.07047892920672894,
+        0.07063432596623898
+      ]
+    },
+    "jax_jvp": {
+      "compile_and_first_seconds": 5.5512432171963155,
+      "median_seconds": 0.037523250095546246,
+      "samples_seconds": [
+        0.037523250095546246,
+        0.03770336089655757,
+        0.037200469058007
+      ]
+    },
+    "jax_value_and_grad": {
+      "compile_and_first_seconds": 11.563868306111544,
+      "median_seconds": 0.1827397309243679,
+      "samples_seconds": [
+        0.18450286332517862,
+        0.17938454635441303,
+        0.1827397309243679
+      ]
+    },
+    "ffi_forward": {
+      "compile_and_first_seconds": 0.291181830689311,
+      "median_seconds": 0.0038142232224345207,
+      "samples_seconds": [
+        0.00401992117986083,
+        0.0038142232224345207,
+        0.003808035980910063
+      ]
+    },
+    "ffi_jvp": {
+      "compile_and_first_seconds": 0.8499042764306068,
+      "median_seconds": 0.009030214976519346,
+      "samples_seconds": [
+        0.009221725165843964,
+        0.009030214976519346,
+        0.008888467215001583
+      ]
+    },
+    "ffi_value_and_grad": {
+      "compile_and_first_seconds": 1.0258508962579072,
+      "median_seconds": 0.012162305880337954,
+      "samples_seconds": [
+        0.012975251767784357,
+        0.012162305880337954,
+        0.011714715044945478
+      ]
+    },
+    "ffi_scalar_forward": {
+      "compile_and_first_seconds": 0.2203996330499649,
+      "median_seconds": 0.015512865968048573,
+      "samples_seconds": [
+        0.015592138282954693,
+        0.015512865968048573,
+        0.015419705770909786
+      ]
+    },
+    "ffi_scalar_jvp": {
+      "compile_and_first_seconds": 0.2925672121345997,
+      "median_seconds": 0.012070355005562305,
+      "samples_seconds": [
+        0.012318877968937159,
+        0.012070355005562305,
+        0.012060340959578753
+      ]
+    },
+    "ffi_scalar_value_and_grad": {
+      "compile_and_first_seconds": 0.7520023388788104,
+      "median_seconds": 0.016577767673879862,
+      "samples_seconds": [
+        0.016448400914669037,
+        0.016577767673879862,
+        0.02006943989545107
+      ]
+    },
+    "microlux_forward": {
+      "compile_and_first_seconds": 12.308801970910281,
+      "median_seconds": 0.012217527721077204,
+      "samples_seconds": [
+        0.013117644935846329,
+        0.012217527721077204,
+        0.012154750991612673
+      ]
+    },
+    "microlux_jvp": {
+      "compile_and_first_seconds": 12.275340501219034,
+      "median_seconds": 0.01326705003157258,
+      "samples_seconds": [
+        0.01326705003157258
+      ]
+    },
+    "microlux_value_and_grad": {
+      "compile_and_first_seconds": 21.907215090934187,
+      "median_seconds": 0.03498836187645793,
+      "samples_seconds": [
+        0.03498836187645793
+      ]
+    },
+    "native_forward": {
+      "median_seconds": 0.024736260063946247,
+      "samples_seconds": [
+        0.024718589149415493,
+        0.024736260063946247,
+        0.025210720021277666
+      ]
+    },
+    "vbm_forward": {
+      "median_seconds": 0.008669058326631784,
+      "samples_seconds": [
+        0.008717705961316824,
+        0.008669058326631784,
+        0.008648957591503859
+      ]
+    }
+  },
+  "accuracy": {
+    "jax": {
+      "finite": 12,
+      "failures": 0,
+      "median_budget_ratio": 0.018096643003206687,
+      "max_budget_ratio": 0.03882601712497524,
+      "max_absolute_error": 2.194564530810794e-05
+    },
+    "ffi": {
+      "finite": 12,
+      "failures": 0,
+      "median_budget_ratio": 0.018096640026041166,
+      "max_budget_ratio": 0.03882602743621604,
+      "max_absolute_error": 2.1945651136334732e-05
+    },
+    "ffi_scalar": {
+      "finite": 12,
+      "failures": 0,
+      "median_budget_ratio": 0.018096640025314338,
+      "max_budget_ratio": 0.03882602743621604,
+      "max_absolute_error": 2.1945651136334732e-05
+    },
+    "microlux": {
+      "finite": 12,
+      "failures": 0,
+      "median_budget_ratio": 0.01478352187383259,
+      "max_budget_ratio": 0.08531942964284597,
+      "max_absolute_error": 3.158289363325295e-05
+    },
+    "native": {
+      "finite": 12,
+      "failures": 0,
+      "median_budget_ratio": 0.0009898112825321038,
+      "max_budget_ratio": 0.8712634980781044,
+      "max_absolute_error": 0.0004924646181754255
+    }
+  },
+  "jax_dispatch": {
+    "attempted_counts": [
+      6,
+      6,
+      0,
+      0
+    ],
+    "method_counts": {
+      "0": 6,
+      "1": 6,
+      "2": 0,
+      "3": 0
+    },
+    "invalid": 0
+  },
+  "ffi_dispatch": {
+    "attempted_counts": [
+      6,
+      6,
+      0,
+      0
+    ],
+    "method_counts": {
+      "0": 6,
+      "1": 6,
+      "2": 0,
+      "3": 0
+    },
+    "invalid": 0
+  }
+}

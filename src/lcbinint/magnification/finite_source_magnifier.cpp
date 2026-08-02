@@ -1,4 +1,5 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
+#include "lcbinint/magnification/component_certificate.hpp"
 
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
@@ -56,6 +57,75 @@ bool finite_source_error_within_budget(
 {
     return std::isfinite(error_estimate) &&
         error_estimate <= finite_source_error_budget(settings, magnification);
+}
+
+// Two grids measure the discretization error, but the difference between them
+// is dominated by the coarser one: for a first-order scheme
+// |A_fine - A_coarse| is about (r - 1) times the fine-grid error, with r the
+// ratio of the two bin counts.  Halving needs no correction, which is why the
+// plain difference was right for the /2 comparison and far too pessimistic for
+// a pair the automatic retry produced by jumping straight from 400 to 4096
+// bins -- there it reported ten times the error it was measuring.
+double grid_pair_error_estimate(
+    double fine_magnification,
+    double coarse_magnification,
+    int fine_bins,
+    int coarse_bins)
+{
+    const double difference = std::abs(fine_magnification - coarse_magnification);
+    const double ratio = coarse_bins > 0
+        ? static_cast<double>(fine_bins) / static_cast<double>(coarse_bins)
+        : 2.0;
+    return difference / std::max(ratio - 1.0, 1.0);
+}
+
+// The boundary-area indicator counts the cells the source limb and the caustic
+// cut, so it decays like 1/source_bins however fast the area itself converges.
+// On the binary tangency it is 6x pessimistic by 4096 bins and on the triple
+// cusp 1000x, which is enough to report a value that is right to 1e-14 as
+// unconverged and hand back a NaN.  When an explicit tolerance is on the line,
+// spend one half-resolution evaluation and let the measured pair speak: a
+// would-be converged row still has to survive it, and a row the indicator
+// rejects is admitted only if the measurement is inside the budget.  What this
+// does not touch is the support certificate or the resolvability guard -- both
+// still veto, because neither is a statement about grid error.
+template <typename EvaluateAt>
+void reconcile_with_half_resolution(
+    const FiniteSourceSettings& settings,
+    const FiniteSourceSettings& active_settings,
+    double magnification,
+    EvaluateAt&& evaluate_at,
+    double& error_estimate,
+    bool& converged)
+{
+    if (!has_explicit_finite_source_tolerance(settings) ||
+        active_settings.source_bins <= 1) {
+        return;
+    }
+    FiniteSourceSettings coarse_settings = active_settings;
+    coarse_settings.source_bins = std::max(1, active_settings.source_bins / 2);
+    if (coarse_settings.polar_source_bins > 0) {
+        coarse_settings.polar_source_bins = coarse_settings.source_bins;
+    }
+    const double coarse_magnification = evaluate_at(coarse_settings);
+    if (!std::isfinite(coarse_magnification)) {
+        if (converged) {
+            error_estimate = std::numeric_limits<double>::infinity();
+            converged = false;
+        }
+        return;
+    }
+    const double measured = grid_pair_error_estimate(
+        magnification, coarse_magnification,
+        active_settings.source_bins, coarse_settings.source_bins);
+    if (converged) {
+        error_estimate = std::max(error_estimate, measured);
+        converged = finite_source_error_within_budget(
+            settings, magnification, error_estimate);
+    } else if (finite_source_error_within_budget(settings, magnification, measured)) {
+        error_estimate = measured;
+        converged = true;
+    }
 }
 
 double explicit_finite_source_relative_budget(
@@ -1435,17 +1505,31 @@ struct LegacyImageAreaScratch {
 // independent of the seed set and seed order by construction and replaces
 // the former row-bbox overlap heuristics.  Rows hold few merged intervals,
 // so linear scans dominate hash-map cost only in degenerate cases.
-struct ClaimedCellRuns {
-    std::unordered_map<int, std::vector<std::pair<int, int>>> rows;
+// `owner` records which fill first counted the run.  A fill that walks into a
+// run owned by *another* fill has been stopped by a neighbour rather than by
+// its own geometry -- the fold-pair case, where one member's territory ends
+// where the other's begins -- and that is what disqualifies it from being
+// re-integrated on a private lattice.  Adjacent runs are merged only when they
+// share an owner: merging across owners would erase the boundary between two
+// components, which is the one thing the refinement has to be able to see.
+struct ClaimedRun {
+    int lo;
+    int hi;
+    int owner;
+};
 
-    const std::pair<int, int>* find(int iy, int ix) const
+struct ClaimedCellRuns {
+    std::unordered_map<int, std::vector<ClaimedRun>> rows;
+    int owner = 0;  // stamped on runs claimed from now on
+
+    const ClaimedRun* find(int iy, int ix) const
     {
         const auto it = rows.find(iy);
         if (it == rows.end()) {
             return nullptr;
         }
         for (const auto& interval : it->second) {
-            if (ix >= interval.first && ix <= interval.second) {
+            if (ix >= interval.lo && ix <= interval.hi) {
                 return &interval;
             }
         }
@@ -1458,15 +1542,23 @@ struct ClaimedCellRuns {
             return;
         }
         auto& intervals = rows[iy];
-        intervals.push_back({lo, hi});
-        std::sort(intervals.begin(), intervals.end());
+        intervals.push_back({lo, hi, owner});
+        std::sort(
+            intervals.begin(), intervals.end(),
+            [](const ClaimedRun& left, const ClaimedRun& right) {
+                return left.lo < right.lo;
+            });
         std::size_t write = 0;
         for (std::size_t read = 0; read < intervals.size(); ++read) {
-            if (write == 0 || intervals[read].first > intervals[write - 1].second + 1) {
+            // Runs of different owners are left separate: merging them would
+            // erase the boundary between two components, and that boundary is
+            // what a refined re-integration has to respect.
+            if (write == 0 || intervals[read].lo > intervals[write - 1].hi + 1 ||
+                intervals[read].owner != intervals[write - 1].owner) {
                 intervals[write++] = intervals[read];
             } else {
-                intervals[write - 1].second =
-                    std::max(intervals[write - 1].second, intervals[read].second);
+                intervals[write - 1].hi =
+                    std::max(intervals[write - 1].hi, intervals[read].hi);
             }
         }
         intervals.resize(write);
@@ -1480,6 +1572,8 @@ struct LegacyAreaDiagnostics {
     int boundary_rows = 0;
     int gap_repairs = 0;
     int overlaps = 0;
+    int refined_components = 0;
+    int refinement_factor = 0;  // largest per-component factor applied
     double max_jump_cells = 0.0;
     double estimated_error = 0.0;
 };
@@ -1998,28 +2092,17 @@ bool append_valid_seed(
     return true;
 }
 
-void append_valid_probe_image_seeds(
-    const PointSourceMagnifier& point_magnifier,
+// Seed-set half of a probe, split out so a caller that already rooted the
+// probe (the certified stage does, to read off the image count) does not have
+// to solve the lens equation a second time.
+void append_probe_images_as_seeds(
     const BinaryLensMapper& mapper,
-    double separation,
-    double mass_ratio,
     SourcePosition source,
     double source_radius,
-    SourcePosition probe_source,
+    const std::vector<SourcePosition>& probe_images,
     std::vector<SourcePosition>& seeds)
 {
     const double source_radius2 = source_radius * source_radius;
-    if (source_radius <= 0.0 ||
-        distance_squared(probe_source, source) >= source_radius2 * (1.0 + 1.0e-10)) {
-        return;
-    }
-
-    const auto probe_images =
-        selected_point_images(point_magnifier, separation, mass_ratio, probe_source);
-    if (probe_images.size() <= 3) {
-        return;
-    }
-
     // Compare only against seeds that existed before this probe.  The two fold
     // images born at one caustic crossing can be much closer than rho, so they
     // must not suppress each other.
@@ -2047,6 +2130,30 @@ void append_valid_probe_image_seeds(
             seeds.push_back(img);
         }
     }
+}
+
+void append_valid_probe_image_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    SourcePosition probe_source,
+    std::vector<SourcePosition>& seeds)
+{
+    const double source_radius2 = source_radius * source_radius;
+    if (source_radius <= 0.0 ||
+        distance_squared(probe_source, source) >= source_radius2 * (1.0 + 1.0e-10)) {
+        return;
+    }
+
+    const auto probe_images =
+        selected_point_images(point_magnifier, separation, mass_ratio, probe_source);
+    if (probe_images.size() <= 3) {
+        return;
+    }
+    append_probe_images_as_seeds(mapper, source, source_radius, probe_images, seeds);
 }
 
 void append_caustic_probe_image_seeds(
@@ -2350,6 +2457,38 @@ SourcePosition refine_nearest_critical_source(
     return f1 < f2 ? nearest1 : nearest2;
 }
 
+std::vector<SourcePosition> selected_point_images(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source);
+
+// Roots the certified support probes and adds every resulting image to the
+// seed set.  Returns whether the support was proven; see
+// resolve_certified_probes for the rule.
+bool append_certified_component_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const BinaryLensMapper& mapper,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const DiskSupport& support,
+    std::vector<SourcePosition>& seeds)
+{
+    const double source_radius2 = source_radius * source_radius;
+    return resolve_certified_probes(support, [&](SourcePosition probe) {
+        if (distance_squared(probe, source) >= source_radius2 * (1.0 + 1.0e-10)) {
+            return -1;
+        }
+        const auto probe_images =
+            selected_point_images(point_magnifier, separation, mass_ratio, probe);
+        append_probe_images_as_seeds(
+            mapper, source, source_radius, probe_images, seeds);
+        return static_cast<int>(probe_images.size());
+    });
+}
+
 std::vector<SourcePosition> augmented_image_seeds(
     const PointSourceMagnifier& point_magnifier,
     const BinaryLensMapper& mapper,
@@ -2359,8 +2498,12 @@ std::vector<SourcePosition> augmented_image_seeds(
     double source_radius,
     double hint_caustic_dist = std::numeric_limits<double>::infinity(),
     const std::vector<SourcePosition>* seed_hints = nullptr,
-    const std::vector<std::vector<SourcePosition>>* caustic_branches = nullptr)
+    const std::vector<std::vector<SourcePosition>>* caustic_branches = nullptr,
+    bool* support_proven = nullptr)
 {
+    if (support_proven != nullptr) {
+        *support_proven = true;
+    }
     std::vector<SourcePosition> seeds;
     seeds.reserve(seed_hints == nullptr ? 5 : std::max<std::size_t>(5, seed_hints->size()));
     if (seed_hints != nullptr) {
@@ -2442,6 +2585,27 @@ std::vector<SourcePosition> augmented_image_seeds(
         if (scan.any_vertex_inside) {
             append_interior_probe_image_seeds(
                 point_magnifier, mapper, separation, mass_ratio, source, source_radius, seeds);
+        }
+
+        // Completeness stage.  Every component of (disk \ caustic) owns a
+        // local extremum of the distance to the disk centre along the caustic,
+        // so rooting the certified probes reaches every image component
+        // regardless of how the probe rings above happen to fall -- they were
+        // never a criterion: their fixed 0.02..0.35 rho steps cannot enter a
+        // cap shallower than 0.02 rho, which is what a caustic near tangency
+        // produces.  It runs last so that the rings keep first claim on the
+        // components they do reach.  A fill is confined to one side of the
+        // critical curve when its seed sits on a fold, and the ring probes hug
+        // the caustic while the certified ladder starts half a disk away from
+        // it, so letting the certified images in first would leave a fold pair
+        // traced by one unguarded scan across the seam.
+        const auto support = certify_disk_support(
+            *caustic_branches, source, source_radius);
+        const bool proven = append_certified_component_seeds(
+            point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+            support, seeds);
+        if (support_proven != nullptr) {
+            *support_proven = proven;
         }
         return seeds;
     }
@@ -2615,7 +2779,9 @@ double cartesian_image_area_impl(
     LegacyImageAreaScratch& scratch,
     int jacobian_sign = 0,
     ClaimedCellRuns* claimed = nullptr,
-    double magnification_hint = 0.0)
+    double magnification_hint = 0.0,
+    bool* foreign_contact = nullptr,
+    std::int64_t* step_budget = nullptr)
 {
     double countx = 0.0;
     double countall = 0.0;
@@ -2728,8 +2894,16 @@ double cartesian_image_area_impl(
         estimated_step_limit < static_cast<double>(std::numeric_limits<std::int64_t>::max())
             ? static_cast<std::int64_t>(std::ceil(estimated_step_limit))
             : std::numeric_limits<std::int64_t>::max());
+    // A caller that already knows how many cells the walk is supposed to cover
+    // -- the per-component refinement below does -- caps it here.  Unlike
+    // `max_steps`, which is a safety net for an otherwise healthy walk,
+    // exhausting the budget is an expected answer ("this is not the component
+    // you asked for"), so it is not reported as a numerical failure.
+    const std::int64_t effective_max_steps = step_budget != nullptr
+        ? std::min(max_steps, std::max<std::int64_t>(*step_budget, 1))
+        : max_steps;
 
-    while (++guard < max_steps) {
+    while (++guard < effective_max_steps) {
         const double dz2_last = dz2;
         const bool jac_ok_last = jac_ok_prev;
         const bool is_run_start = at_run_start;
@@ -2743,8 +2917,11 @@ double cartesian_image_area_impl(
                 // claim lands in the same row (claim_iy == cell_iy), its
                 // push_back into that row's interval vector can reallocate
                 // the very vector `interval` points into, dangling it.
-                const int interval_lo = interval->first;
-                const int interval_hi = interval->second;
+                const int interval_lo = interval->lo;
+                const int interval_hi = interval->hi;
+                if (foreign_contact != nullptr && interval->owner != claimed->owner) {
+                    *foreign_contact = true;
+                }
                 // The interval was counted (inside the disk) by an earlier
                 // fill; skip it and resume on the far side.  The seam is an
                 // interior junction, not a source boundary, so crossing
@@ -2895,8 +3072,11 @@ double cartesian_image_area_impl(
     }
 
     flush_claim();
-    if (guard >= max_steps) {
-        if (std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
+    if (step_budget != nullptr) {
+        *step_budget = std::max<std::int64_t>(*step_budget - guard, 0);
+    }
+    if (guard >= effective_max_steps) {
+        if (step_budget == nullptr && std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
             std::fprintf(
                 stderr,
                 "CARTESIAN_WALK_EXHAUSTED bins=%d guard=%lld max_steps=%lld "
@@ -2932,16 +3112,20 @@ double cartesian_image_area(
     LegacyImageAreaScratch& scratch,
     int jacobian_sign = 0,
     ClaimedCellRuns* claimed = nullptr,
-    double magnification_hint = 0.0)
+    double magnification_hint = 0.0,
+    bool* foreign_contact = nullptr,
+    std::int64_t* step_budget = nullptr)
 {
     if (settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0) {
         return cartesian_image_area_impl<false>(
             mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
-            scratch, jacobian_sign, claimed, magnification_hint);
+            scratch, jacobian_sign, claimed, magnification_hint, foreign_contact,
+            step_budget);
     }
     return cartesian_image_area_impl<true>(
         mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
-        scratch, jacobian_sign, claimed, magnification_hint);
+        scratch, jacobian_sign, claimed, magnification_hint, foreign_contact,
+        step_budget);
 }
 
 std::vector<SourcePosition> selected_triple_point_images(
@@ -2965,7 +3149,8 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
     double source_radius,
-    const TripleCausticBranches& caustics);
+    const TripleCausticBranches& caustics,
+    bool* support_proven = nullptr);
 
 double inverse_ray_polar_triple_mag(
     const PointSourceMagnifier& point_magnifier,
@@ -2973,7 +3158,8 @@ double inverse_ray_polar_triple_mag(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
-    const FiniteSourceMagnifier* finite_magnifier)
+    const FiniteSourceMagnifier* finite_magnifier,
+    const std::vector<SourcePosition>* precomputed_seeds = nullptr)
 {
     // Centre images alone are not sufficient for a triple lens.  A tiny fold
     // component can intersect the finite source without producing a physical
@@ -2981,30 +3167,30 @@ double inverse_ray_polar_triple_mag(
     // an incomplete area at every resolution.  Reuse the same caustic and
     // boundary probe seeds as the Cartesian integrator so every finite-source
     // image component has an interior starting cell.
-    const auto& caustics = cached_triple_caustic_branches(
-        geometry, settings.caustic_bins);
-    const auto image_positions = augmented_triple_image_seeds(
-        point_magnifier, geometry, source, source_radius, caustics);
+    std::vector<SourcePosition> computed_images;
+    if (precomputed_seeds == nullptr) {
+        const auto& caustics = cached_triple_caustic_branches(
+            geometry, settings.caustic_bins);
+        computed_images = augmented_triple_image_seeds(
+            point_magnifier, geometry, source, source_radius, caustics);
+    }
+    const auto& image_positions =
+        precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
     const auto mapper = make_triple_lens_mapper(geometry);
     return inverse_ray_polar_core(
         mapper, image_positions, source, source_radius, settings, finite_magnifier);
 }
 
-void append_valid_triple_probe_image_seeds(
-    const PointSourceMagnifier& point_magnifier,
+// Seed-set half of a triple probe, split out so the certified stage can read
+// the image count off the same solve it seeds from.
+void append_triple_probe_images_as_seeds(
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
     double source_radius,
-    SourcePosition probe_source,
+    const std::vector<SourcePosition>& probe_images,
     std::vector<SourcePosition>& seeds)
 {
     const double source_radius2 = source_radius * source_radius;
-    if (source_radius <= 0.0 ||
-        distance_squared(probe_source, source) >= source_radius2 * (1.0 + 1.0e-10)) {
-        return;
-    }
-
-    const auto probe_images = selected_triple_point_images(point_magnifier, geometry, probe_source);
     const std::size_t n_seeds_before = seeds.size();
     const TripleLensMapper mapper = make_triple_lens_mapper(geometry);
     for (const auto& image : probe_images) {
@@ -3029,6 +3215,49 @@ void append_valid_triple_probe_image_seeds(
             seeds.push_back(image);
         }
     }
+}
+
+void append_valid_triple_probe_image_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    double source_radius,
+    SourcePosition probe_source,
+    std::vector<SourcePosition>& seeds)
+{
+    const double source_radius2 = source_radius * source_radius;
+    if (source_radius <= 0.0 ||
+        distance_squared(probe_source, source) >= source_radius2 * (1.0 + 1.0e-10)) {
+        return;
+    }
+    append_triple_probe_images_as_seeds(
+        geometry, source, source_radius,
+        selected_triple_point_images(point_magnifier, geometry, probe_source),
+        seeds);
+}
+
+// Triple counterpart of append_certified_component_seeds.  The certificate is
+// lens-agnostic, so the only thing that differs is which root solver reports
+// the image count.
+bool append_certified_triple_component_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    double source_radius,
+    const DiskSupport& support,
+    std::vector<SourcePosition>& seeds)
+{
+    const double source_radius2 = source_radius * source_radius;
+    return resolve_certified_probes(support, [&](SourcePosition probe) {
+        if (distance_squared(probe, source) >= source_radius2 * (1.0 + 1.0e-10)) {
+            return -1;
+        }
+        const auto probe_images =
+            selected_triple_point_images(point_magnifier, geometry, probe);
+        append_triple_probe_images_as_seeds(
+            geometry, source, source_radius, probe_images, seeds);
+        return static_cast<int>(probe_images.size());
+    });
 }
 
 void append_triple_caustic_probe_image_seeds(
@@ -3183,8 +3412,12 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
     double source_radius,
-    const TripleCausticBranches& caustics)
+    const TripleCausticBranches& caustics,
+    bool* support_proven)
 {
+    if (support_proven != nullptr) {
+        *support_proven = true;
+    }
     std::vector<SourcePosition> seeds =
         selected_triple_point_images(point_magnifier, geometry, source);
     if (source_radius <= 0.0) {
@@ -3251,6 +3484,17 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
 
     append_triple_boundary_probe_image_seeds(
         point_magnifier, geometry, source, source_radius, seeds);
+
+    // Completeness stage; see augmented_image_seeds for why it runs last.
+    {
+        const auto support =
+            certify_disk_support(caustics.branches, source, source_radius);
+        const bool proven = append_certified_triple_component_seeds(
+            point_magnifier, geometry, source, source_radius, support, seeds);
+        if (support_proven != nullptr) {
+            *support_proven = proven;
+        }
+    }
     return seeds;
 }
 
@@ -3261,6 +3505,14 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
 // source disk; otherwise the 8 lattice neighbours are tried and the seed is
 // dropped if none qualifies (it marked a sub-cell image the lattice cannot
 // resolve).  Seeds landing on the same cell are deduplicated.
+//
+// The snap must also keep the seed on its own side of the critical curve.  A
+// probe taken just off a caustic arc has an image just off the critical curve,
+// closer to it than one cell at any resolution the caller is likely to run; if
+// rounding carries that image across, the fold pair loses the seed for one of
+// its two members and the fill traces only one of them.  So the sign of the
+// Jacobian at the raw seed is preserved when a lattice cell can supply it, and
+// only a seed already on the curve (sign zero) is snapped freely.
 template <typename ImageMap>
 std::vector<SourcePosition> lattice_snapped_seeds(
     const ImageMap& mapper,
@@ -3273,12 +3525,21 @@ std::vector<SourcePosition> lattice_snapped_seeds(
     std::vector<SourcePosition> snapped;
     snapped.reserve(seeds.size());
     std::unordered_set<long long> taken;
-    const auto try_cell = [&](long long ix, long long iy) {
+    const auto jacobian_sign_at = [&](double x, double y) {
+        const double jacobian = lens_jacobian(mapper, x, y);
+        return jacobian > 0.0 ? 1 : jacobian < 0.0 ? -1 : 0;
+    };
+    // `required_sign` of 0 accepts either side.
+    const auto try_cell = [&](long long ix, long long iy, int required_sign) {
         const SourcePosition cell {
             static_cast<double>(ix) * incr,
             static_cast<double>(iy) * incr};
         if (mapped_lens_distance2(mapper, cell.x, cell.y, source) >
             source_radius2) {
+            return false;
+        }
+        if (required_sign != 0 &&
+            jacobian_sign_at(cell.x, cell.y) != required_sign) {
             return false;
         }
         const long long key = (ix << 32) ^ (iy & 0xffffffffLL);
@@ -3287,26 +3548,363 @@ std::vector<SourcePosition> lattice_snapped_seeds(
         }
         return true;
     };
+    const auto place = [&](long long ix, long long iy, int required_sign) {
+        if (try_cell(ix, iy, required_sign)) {
+            return true;
+        }
+        for (long long dyc = -1; dyc <= 1; ++dyc) {
+            for (long long dxc = -1; dxc <= 1; ++dxc) {
+                if ((dxc != 0 || dyc != 0) &&
+                    try_cell(ix + dxc, iy + dyc, required_sign)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    };
     for (const auto& seed : seeds) {
         const long long ix = std::llround(seed.x / incr);
         const long long iy = std::llround(seed.y / incr);
-        if (try_cell(ix, iy)) {
+        const int seed_sign = jacobian_sign_at(seed.x, seed.y);
+        if (place(ix, iy, seed_sign)) {
             continue;
         }
-        for (long long dyc = -1; dyc <= 1; ++dyc) {
-            bool placed = false;
-            for (long long dxc = -1; dxc <= 1; ++dxc) {
-                if ((dxc != 0 || dyc != 0) && try_cell(ix + dxc, iy + dyc)) {
-                    placed = true;
-                    break;
+        // No neighbour reproduces the side; keep the seed rather than lose it.
+        place(ix, iy, 0);
+    }
+    return snapped;
+}
+
+// |J| below which a seed counts as sitting on a fold and its fill is confined
+// to one side of the critical curve.
+constexpr double kFoldJacobianThreshold = 0.02;
+
+// What one flood-filled image component contributed, and how well the lattice
+// resolved it.
+struct ComponentFill {
+    double area = 0.0;      // cells, weighted by surface brightness
+    int rows = 0;           // rows the scan visited, gap repairs included
+    int boundary_rows = 0;  // rows carrying a sub-cell edge correction
+    int rows_span = 0;      // distinct lattice rows the component spans
+    double width = 0.0;     // mean row extent, in cells
+    // True when the fill was stopped by cells another fill had already
+    // counted, i.e. its extent was decided by a neighbour rather than by its
+    // own boundary.
+    bool foreign_contact = false;
+
+    // Cells across the component's narrow direction.  The row scan resolves x
+    // by sub-cell edge corrections and y by the midpoint rule over row widths,
+    // so both degrade once one of the two directions is a few samples wide;
+    // whichever is smaller is what limits this component.
+    double narrow_cells() const
+    {
+        return std::min(static_cast<double>(rows_span), width);
+    }
+};
+
+// Flood-fills the image component containing `seed` on the lattice of spacing
+// `incr`, including the row-gap repairs that reconnect a component the vertical
+// scan would otherwise leave in pieces.
+//
+// Split out of inverse_ray_cartesian_core so a component can be re-filled on a
+// finer lattice of its own.  Everything here is a function of `incr`: the scan
+// steps by +-incr and `cartesian_image_area` reads the walk guard off
+// settings.source_bins, so a caller refining by k passes incr/k together with
+// source_bins*k.
+template <typename ImageMap>
+ComponentFill fill_image_component(
+    const ImageMap& mapper,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    SourcePosition seed,
+    double incr,
+    int jac_sign,
+    ClaimedCellRuns& claimed,
+    double magnification_hint,
+    LegacyAreaDiagnostics* diagnostics,
+    std::int64_t* step_budget = nullptr)
+{
+    LegacyImageAreaScratch scratch;
+    scratch.ensure(1);
+    bool foreign_contact = false;
+    double area0 = 0.0;
+    double dy = incr;
+    int yi = 0;
+
+    scratch.xmin[0] = seed.x;
+    scratch.xmax[0] = seed.x;
+    double areai = cartesian_image_area(
+        mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch,
+        jac_sign, &claimed, magnification_hint, &foreign_contact, step_budget);
+
+    dy = -incr;
+    scratch.ensure(static_cast<std::size_t>(yi));
+    const SourcePosition lower_seed {scratch.xmax[0], seed.y + dy};
+    scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[0];
+    scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmax[0];
+    scratch.y[static_cast<std::size_t>(yi)] = scratch.y[0];
+    scratch.dys[static_cast<std::size_t>(yi)] = dy;
+    ++yi;
+    areai += cartesian_image_area(
+        mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch,
+        jac_sign, &claimed, magnification_hint, &foreign_contact, step_budget);
+
+    int nyi = yi;
+    double areabound = 0.0;
+    for (int row = 0; row < nyi; ++row) {
+        scratch.ensure(static_cast<std::size_t>(row + 1));
+        const double dxmax =
+            scratch.xmax[static_cast<std::size_t>(row + 1)] -
+            scratch.xmax[static_cast<std::size_t>(row)];
+        const double dxmin =
+            scratch.xmin[static_cast<std::size_t>(row + 1)] -
+            scratch.xmin[static_cast<std::size_t>(row)];
+        if (diagnostics != nullptr && scratch.ax[static_cast<std::size_t>(row + 1)] > 0.0) {
+            diagnostics->max_jump_cells = std::max(
+                diagnostics->max_jump_cells,
+                std::max(std::abs(dxmax), std::abs(dxmin)) / incr);
+        }
+        if (scratch.ax[static_cast<std::size_t>(row + 1)] > 0.0) {
+            if (dxmax > 1.1 * incr) {
+                if (diagnostics != nullptr) {
+                    ++diagnostics->gap_repairs;
+                }
+                const SourcePosition extra_seed {
+                    scratch.xmax[static_cast<std::size_t>(row + 1)],
+                    scratch.y[static_cast<std::size_t>(row)]};
+                scratch.ensure(static_cast<std::size_t>(yi));
+                scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row)];
+                scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row + 1)];
+                dy = -scratch.dys[static_cast<std::size_t>(row)];
+                scratch.dys[static_cast<std::size_t>(yi)] = dy;
+                ++yi;
+                area0 = cartesian_image_area(
+                    mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
+                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    step_budget);
+                areai += area0;
+                areabound += area0;
+                if (area0 <= 0.0) {
+                    --yi;
                 }
             }
-            if (placed) {
-                break;
+            if (dxmin > 1.1 * incr) {
+                if (diagnostics != nullptr) {
+                    ++diagnostics->gap_repairs;
+                }
+                const SourcePosition extra_seed {
+                    scratch.xmin[static_cast<std::size_t>(row + 1)] - incr,
+                    scratch.y[static_cast<std::size_t>(row + 1)]};
+                scratch.ensure(static_cast<std::size_t>(yi));
+                scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row)];
+                scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row + 1)];
+                dy = scratch.dys[static_cast<std::size_t>(row)];
+                scratch.dys[static_cast<std::size_t>(yi)] = dy;
+                ++yi;
+                area0 = cartesian_image_area(
+                    mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
+                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    step_budget);
+                areai += area0;
+                areabound += area0;
+                if (area0 <= 0.0) {
+                    --yi;
+                }
+            }
+            if (dxmin < -1.1 * incr) {
+                if (diagnostics != nullptr) {
+                    ++diagnostics->gap_repairs;
+                }
+                const SourcePosition extra_seed {
+                    scratch.xmin[static_cast<std::size_t>(row)] - incr,
+                    scratch.y[static_cast<std::size_t>(row)]};
+                scratch.ensure(static_cast<std::size_t>(yi));
+                scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row + 1)];
+                scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row)];
+                dy = -scratch.dys[static_cast<std::size_t>(row)];
+                scratch.dys[static_cast<std::size_t>(yi)] = dy;
+                ++yi;
+                area0 = cartesian_image_area(
+                    mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
+                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    step_budget);
+                areai += area0;
+                areabound += area0;
+                if (area0 <= 0.0) {
+                    --yi;
+                }
+            }
+            if (dxmax < -1.1 * incr) {
+                if (diagnostics != nullptr) {
+                    ++diagnostics->gap_repairs;
+                }
+                const SourcePosition extra_seed {
+                    scratch.xmax[static_cast<std::size_t>(row + 1)] + incr,
+                    scratch.y[static_cast<std::size_t>(row + 1)]};
+                scratch.ensure(static_cast<std::size_t>(yi));
+                scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row + 1)];
+                scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row)];
+                dy = scratch.dys[static_cast<std::size_t>(row)];
+                scratch.dys[static_cast<std::size_t>(yi)] = dy;
+                ++yi;
+                area0 = cartesian_image_area(
+                    mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
+                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    step_budget);
+                areai += area0;
+                areabound += area0;
+                if (area0 <= 0.0) {
+                    --yi;
+                }
+            }
+        }
+        if (row == nyi - 1 && areabound > 0.0 && yi > nyi) {
+            nyi = yi;
+        }
+    }
+
+    ComponentFill fill;
+    fill.area = areai;
+    fill.rows = nyi;
+    fill.foreign_contact = foreign_contact;
+    double extent_cells = 0.0;
+    int measured = 0;
+    long long iy_min = std::numeric_limits<long long>::max();
+    long long iy_max = std::numeric_limits<long long>::min();
+    for (int row = 0; row < nyi; ++row) {
+        scratch.ensure(static_cast<std::size_t>(row));
+        if (scratch.ax[static_cast<std::size_t>(row)] > 0.0) {
+            ++fill.boundary_rows;
+        }
+        const double extent =
+            scratch.xmax[static_cast<std::size_t>(row)] -
+            scratch.xmin[static_cast<std::size_t>(row)];
+        if (!std::isfinite(extent) || extent < 0.0) {
+            continue;
+        }
+        extent_cells += extent / incr + 1.0;
+        ++measured;
+        const double row_y = scratch.y[static_cast<std::size_t>(row)];
+        if (std::isfinite(row_y)) {
+            const long long iy = std::llround(row_y / incr);
+            iy_min = std::min(iy_min, iy);
+            iy_max = std::max(iy_max, iy);
+        }
+    }
+    fill.width = measured > 0 ? extent_cells / static_cast<double>(measured) : 0.0;
+    // Gap repairs revisit rows, so `rows` over-counts the vertical extent; the
+    // lattice row indices do not.
+    fill.rows_span = iy_max >= iy_min
+        ? static_cast<int>(std::min<long long>(iy_max - iy_min + 1, 1 << 24))
+        : 0;
+    return fill;
+}
+
+// Per-component refinement.
+//
+// The uniform image-plane lattice is sized from the *source* (`rho / bins`),
+// which says nothing about the images it has to resolve.  A fold pair near a
+// tangency is a sliver — measured at 55:1 on the reference cusp geometry — so
+// at `bins = 64` it is 2.1 cells across and 115 along, and the row scan is
+// integrating a width it barely samples.  That is the whole of the residual
+// h^1.7 order at the tangency: not a missing component, a component the grid
+// cannot see across.
+//
+// Refining globally to fix it costs k^2 over the whole disk.  Refining the one
+// component costs k^2 over the sliver, which is a fraction of a percent of the
+// grid.  `narrow_cells` is the measurement that makes the choice, and it comes
+// out of the coarse fill itself.
+constexpr double kComponentRefineTrigger = 16.0;  // cells across
+constexpr double kComponentRefineTarget = 32.0;   // cells across, after refining
+constexpr int kComponentRefineMaxFactor = 32;
+// Refined cells are capped at this many `bins^2`, so a component that is thin
+// *and* long cannot take over the epoch it was meant to make cheaper.
+constexpr double kComponentRefineCellBudget = 8.0;
+
+int component_refinement_factor(const ComponentFill& fill, int source_bins)
+{
+    const double narrow = fill.narrow_cells();
+    if (!(narrow > 0.0) || narrow >= kComponentRefineTrigger) {
+        return 1;
+    }
+    int factor = std::min(
+        kComponentRefineMaxFactor,
+        static_cast<int>(std::ceil(kComponentRefineTarget / narrow)));
+    // Odd only: a coarse cell then covers exactly the fine cells within
+    // (k-1)/2 of its centre, so the two lattices partition the plane the same
+    // way and a claim can be carried from one to the other without slack.
+    factor += 1 - (factor & 1);
+    const double coarse_cells = fill.width * static_cast<double>(fill.rows_span);
+    const double budget = kComponentRefineCellBudget *
+        static_cast<double>(source_bins) * static_cast<double>(source_bins);
+    while (factor > 1 &&
+           coarse_cells * static_cast<double>(factor) * static_cast<double>(factor) > budget) {
+        factor -= 2;
+    }
+    return std::max(factor, 1);
+}
+
+// Carries a refined fill's footprint back to the coarse registry, and reports
+// whether it was admissible to do so.
+//
+// Two things are needed of the projection.  The first is that a component
+// thinner than a cell arrives at the coarse lattice in pieces -- at 32 bins the
+// reference sliver breaks into four -- and each piece is seeded separately.
+// Refined, every piece recovers the *whole* component, so without carrying the
+// footprint back the component is counted once per piece.  With `factor` odd
+// the coarse cell `i` covers exactly the fine cells within `(k-1)/2` of `i*k`,
+// so the coarse cell is claimed iff its own centre cell was filled: no slack,
+// and in particular nothing claimed across a critical curve on a fold
+// partner's side.
+//
+// The second is the check that makes the first safe.  Components of f^-1(D)
+// are disjoint, so a refined footprint that lands on cells another fill has
+// already counted is not a refinement of anything: the coarse fill's extent was
+// decided by cells it could not enter, and the refined walk, alone on an empty
+// lattice, left through that seam and re-traced its neighbour.  Its area is
+// already in the sum.  Rejecting it costs the refinement and never an
+// over-count; accepting it doubled a 9000x magnification.
+bool claim_refined_footprint(
+    const ClaimedCellRuns& refined, int factor, ClaimedCellRuns& claimed)
+{
+    const auto divide_floor = [factor](int value) {
+        return static_cast<int>(std::floor(
+            static_cast<double>(value) / static_cast<double>(factor)));
+    };
+    const auto divide_ceil = [factor](int value) {
+        return static_cast<int>(std::ceil(
+            static_cast<double>(value) / static_cast<double>(factor)));
+    };
+    for (const auto& row : refined.rows) {
+        if (row.first % factor != 0) {
+            continue;
+        }
+        const auto existing = claimed.rows.find(row.first / factor);
+        if (existing == claimed.rows.end()) {
+            continue;
+        }
+        for (const auto& run : row.second) {
+            const int lo = divide_ceil(run.lo);
+            const int hi = divide_floor(run.hi);
+            for (const auto& owned : existing->second) {
+                if (owned.owner != claimed.owner && owned.hi >= lo && owned.lo <= hi) {
+                    return false;
+                }
             }
         }
     }
-    return snapped;
+    for (const auto& row : refined.rows) {
+        if (row.first % factor != 0) {
+            continue;
+        }
+        const int coarse_iy = row.first / factor;
+        for (const auto& run : row.second) {
+            claimed.claim(coarse_iy, divide_ceil(run.lo), divide_floor(run.hi));
+        }
+    }
+    return true;
 }
 
 template <typename ImageMap>
@@ -3355,13 +3953,6 @@ double inverse_ray_cartesian_core(
             continue;
         }
 
-        LegacyImageAreaScratch scratch;
-        scratch.ensure(1);
-        double area0 = 0.0;
-        double areai = 0.0;
-        double dy = incr;
-        int yi = 0;
-
         const SourcePosition seed = images[image_index];
         // Guard fold-image flood-fills against crossing the critical curve.
         // When the source disk straddles the caustic, both fold images (F+ and F-)
@@ -3374,156 +3965,96 @@ double inverse_ray_cartesian_core(
         // NOT restricted — their flood-fills stay naturally within their own image
         // region because the mapped source exits the disk before crossing any critical
         // curve.  Applying the guard to them would incorrectly limit their area.
-        constexpr double kFoldJacThreshold = 0.02;
         const double J_seed = lens_jacobian(mapper, seed.x, seed.y);
-        const int jac_sign = (std::abs(J_seed) < kFoldJacThreshold)
+        const int jac_sign = (std::abs(J_seed) < kFoldJacobianThreshold)
             ? (J_seed > 0.0 ? 1 : J_seed < 0.0 ? -1 : 0)
             : 0;
+
         if (diagnostics != nullptr) {
             ++diagnostics->processed_images;
             if (jac_sign != 0) {
                 ++diagnostics->fold_seed_count;
             }
         }
-        scratch.xmin[0] = seed.x;
-        scratch.xmax[0] = seed.x;
-        areai = cartesian_image_area(
-            mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch,
-            jac_sign, &claimed, walk_magnification_hint);
 
-        dy = -incr;
-        scratch.ensure(static_cast<std::size_t>(yi));
-        const SourcePosition lower_seed {scratch.xmax[0], seed.y + dy};
-        scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[0];
-        scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmax[0];
-        scratch.y[static_cast<std::size_t>(yi)] = scratch.y[0];
-        scratch.dys[static_cast<std::size_t>(yi)] = dy;
-        ++yi;
-        areai += cartesian_image_area(
-            mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch,
-            jac_sign, &claimed, walk_magnification_hint);
-
-        int nyi = yi;
-        double areabound = 0.0;
-        for (int row = 0; row < nyi; ++row) {
-            scratch.ensure(static_cast<std::size_t>(row + 1));
-            const double dxmax =
-                scratch.xmax[static_cast<std::size_t>(row + 1)] -
-                scratch.xmax[static_cast<std::size_t>(row)];
-            const double dxmin =
-                scratch.xmin[static_cast<std::size_t>(row + 1)] -
-                scratch.xmin[static_cast<std::size_t>(row)];
-            if (diagnostics != nullptr && scratch.ax[static_cast<std::size_t>(row + 1)] > 0.0) {
-                diagnostics->max_jump_cells = std::max(
-                    diagnostics->max_jump_cells,
-                    std::max(std::abs(dxmax), std::abs(dxmin)) / incr);
-            }
-            if (scratch.ax[static_cast<std::size_t>(row + 1)] > 0.0) {
-                if (dxmax > 1.1 * incr) {
-                    if (diagnostics != nullptr) {
-                        ++diagnostics->gap_repairs;
-                    }
-                    const SourcePosition extra_seed {
-                        scratch.xmax[static_cast<std::size_t>(row + 1)],
-                        scratch.y[static_cast<std::size_t>(row)]};
-                    scratch.ensure(static_cast<std::size_t>(yi));
-                    scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row)];
-                    scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row + 1)];
-                    dy = -scratch.dys[static_cast<std::size_t>(row)];
-                    scratch.dys[static_cast<std::size_t>(yi)] = dy;
-                    ++yi;
-                    area0 = cartesian_image_area(
-                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, &claimed, walk_magnification_hint);
-                    areai += area0;
-                    areabound += area0;
-                    if (area0 <= 0.0) {
-                        --yi;
-                    }
-                }
-                if (dxmin > 1.1 * incr) {
-                    if (diagnostics != nullptr) {
-                        ++diagnostics->gap_repairs;
-                    }
-                    const SourcePosition extra_seed {
-                        scratch.xmin[static_cast<std::size_t>(row + 1)] - incr,
-                        scratch.y[static_cast<std::size_t>(row + 1)]};
-                    scratch.ensure(static_cast<std::size_t>(yi));
-                    scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row)];
-                    scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row + 1)];
-                    dy = scratch.dys[static_cast<std::size_t>(row)];
-                    scratch.dys[static_cast<std::size_t>(yi)] = dy;
-                    ++yi;
-                    area0 = cartesian_image_area(
-                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, &claimed, walk_magnification_hint);
-                    areai += area0;
-                    areabound += area0;
-                    if (area0 <= 0.0) {
-                        --yi;
-                    }
-                }
-                if (dxmin < -1.1 * incr) {
-                    if (diagnostics != nullptr) {
-                        ++diagnostics->gap_repairs;
-                    }
-                    const SourcePosition extra_seed {
-                        scratch.xmin[static_cast<std::size_t>(row)] - incr,
-                        scratch.y[static_cast<std::size_t>(row)]};
-                    scratch.ensure(static_cast<std::size_t>(yi));
-                    scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row + 1)];
-                    scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmin[static_cast<std::size_t>(row)];
-                    dy = -scratch.dys[static_cast<std::size_t>(row)];
-                    scratch.dys[static_cast<std::size_t>(yi)] = dy;
-                    ++yi;
-                    area0 = cartesian_image_area(
-                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, &claimed, walk_magnification_hint);
-                    areai += area0;
-                    areabound += area0;
-                    if (area0 <= 0.0) {
-                        --yi;
-                    }
-                }
-                if (dxmax < -1.1 * incr) {
-                    if (diagnostics != nullptr) {
-                        ++diagnostics->gap_repairs;
-                    }
-                    const SourcePosition extra_seed {
-                        scratch.xmax[static_cast<std::size_t>(row + 1)] + incr,
-                        scratch.y[static_cast<std::size_t>(row + 1)]};
-                    scratch.ensure(static_cast<std::size_t>(yi));
-                    scratch.xmin[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row + 1)];
-                    scratch.xmax[static_cast<std::size_t>(yi)] = scratch.xmax[static_cast<std::size_t>(row)];
-                    dy = scratch.dys[static_cast<std::size_t>(row)];
-                    scratch.dys[static_cast<std::size_t>(yi)] = dy;
-                    ++yi;
-                    area0 = cartesian_image_area(
-                        mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                        yi, scratch, jac_sign, &claimed, walk_magnification_hint);
-                    areai += area0;
-                    areabound += area0;
-                    if (area0 <= 0.0) {
-                        --yi;
-                    }
-                }
-            }
-            if (row == nyi - 1 && areabound > 0.0 && yi > nyi) {
-                nyi = yi;
-            }
-        }
+        // Stamp this fill's claims so a later fill can tell whose territory it
+        // walked into; the refinement below is only sound for a component
+        // whose extent nobody else decided.
+        claimed.owner = static_cast<int>(image_index) + 1;
+        const ComponentFill fill = fill_image_component(
+            mapper, source, source_radius, settings, finite_magnifier, seed, incr,
+            jac_sign, claimed, walk_magnification_hint, diagnostics);
 
         // The claimed-cell registry guarantees each cell is counted at most
         // once across fills, so no cross-seed overlap correction is needed:
         // redundant fills simply contribute zero.
-        area += areai;
+        double contribution = fill.area;
 
-        if (diagnostics != nullptr) {
-            for (int row = 0; row < nyi; ++row) {
-                if (scratch.ax[static_cast<std::size_t>(row)] > 0.0) {
-                    ++diagnostics->boundary_rows;
+        const int factor = std::isfinite(fill.area)
+            ? component_refinement_factor(fill, settings.source_bins)
+            : 1;
+        if (factor > 1) {
+            // Components of f^-1(D) are disjoint, and the lattice only puts two
+            // of them in contact where their images merge -- on a critical
+            // curve.  So a coarse fill that ended against another component's
+            // cells is one member of a fold pair, and the parity guard is the
+            // boundary condition that holds it to its own side without the
+            // neighbour's claims to lean on.  `kFoldJacobianThreshold` does not
+            // apply: the evidence here is the contact, not the size of |J|.
+            const int refined_sign = fill.foreign_contact && jac_sign == 0
+                ? (J_seed > 0.0 ? 1 : J_seed < 0.0 ? -1 : 0)
+                : jac_sign;
+            ClaimedCellRuns refined_claimed;
+            FiniteSourceSettings refined_settings = settings;
+            refined_settings.source_bins = settings.source_bins * factor;
+            const double refined_incr = incr / static_cast<double>(factor);
+            const auto refined_seeds = lattice_snapped_seeds(
+                mapper, source, source_radius, refined_incr, {seed});
+            // The refined walk is supposed to cover the coarse footprint, k^2
+            // finer, plus the few cells per row the scan overshoots by; the
+            // margin is generous because the cost of the budget being wrong is
+            // a refinement declined, not an answer.  It matters because the
+            // walk is alone on an empty lattice: without the neighbours' claims
+            // to stop it, a component whose coarse extent was decided by those
+            // claims is free to run away into the rest of the image.
+            std::int64_t refined_budget = static_cast<std::int64_t>(std::ceil(
+                8.0 * fill.width * static_cast<double>(fill.rows_span) *
+                    static_cast<double>(factor) * static_cast<double>(factor) +
+                4096.0));
+            if (!refined_seeds.empty()) {
+                const ComponentFill refined = fill_image_component(
+                    mapper, source, source_radius, refined_settings, finite_magnifier,
+                    refined_seeds.front(), refined_incr, refined_sign, refined_claimed,
+                    walk_magnification_hint, nullptr, &refined_budget);
+                // Cell counts scale with the lattice, the area they measure
+                // does not: k^-2 puts the refined count back in coarse cells.
+                const double rescaled =
+                    refined.area / (static_cast<double>(factor) * static_cast<double>(factor));
+                if (std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
+                    std::fprintf(stderr,
+                        "  COMPONENT bins=%d k=%d narrow=%.3g rows_span=%d width=%.3g "
+                        "coarse=%.10g refined=%.10g ratio=%.6g fine_rows_span=%d "
+                        "fine_width=%.4g seed=(%.17g,%.17g) jac=%d\n",
+                        settings.source_bins, factor, fill.narrow_cells(), fill.rows_span,
+                        fill.width, fill.area, rescaled, rescaled / fill.area,
+                        refined.rows_span, refined.width, seed.x, seed.y, jac_sign);
+                }
+                if (std::isfinite(rescaled) && rescaled > 0.0 &&
+                    claim_refined_footprint(refined_claimed, factor, claimed)) {
+                    contribution = rescaled;
+                    if (diagnostics != nullptr) {
+                        ++diagnostics->refined_components;
+                        diagnostics->refinement_factor =
+                            std::max(diagnostics->refinement_factor, factor);
+                    }
                 }
             }
+        }
+
+        area += contribution;
+
+        if (diagnostics != nullptr) {
+            diagnostics->boundary_rows += fill.boundary_rows;
         }
     }
 
@@ -3545,10 +4076,11 @@ double inverse_ray_cartesian_core(
         if (std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
             std::fprintf(stderr,
                 "%s bins=%d seeds=%d processed=%d fold=%d rows=%d gaps=%d overlaps=%d "
-                "maxjump=%.3g mag=%.8g err=%.8g\n",
+                "refined=%d/%d maxjump=%.3g mag=%.8g err=%.8g\n",
                 diagnostics_label, settings.source_bins, diagnostics->seed_count,
                 diagnostics->processed_images, diagnostics->fold_seed_count,
                 diagnostics->boundary_rows, diagnostics->gap_repairs, diagnostics->overlaps,
+                diagnostics->refined_components, diagnostics->refinement_factor,
                 diagnostics->max_jump_cells, magnification, diagnostics->estimated_error);
         }
     }
@@ -3596,7 +4128,9 @@ double inverse_ray_cartesian_triple_mag(
     double source_radius,
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
-    LegacyAreaDiagnostics* diagnostics = nullptr)
+    const std::vector<SourcePosition>* precomputed_seeds = nullptr,
+    LegacyAreaDiagnostics* diagnostics = nullptr,
+    bool* support_proven = nullptr)
 {
     if ((settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0) &&
         finite_magnifier != nullptr) {
@@ -3604,12 +4138,17 @@ double inverse_ray_cartesian_triple_mag(
     }
 
     const TripleLensMapper mapper = make_triple_lens_mapper(geometry);
-    const auto raw_images = augmented_triple_image_seeds(
-        point_magnifier,
-        geometry,
-        source,
-        source_radius,
-        caustics);
+    auto computed_images = precomputed_seeds == nullptr ?
+        augmented_triple_image_seeds(
+            point_magnifier,
+            geometry,
+            source,
+            source_radius,
+            caustics,
+            support_proven) :
+        std::vector<SourcePosition> {};
+    const auto& raw_images =
+        precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
     const double point_source_hint = std::abs(
         point_magnifier.triple_mag0(geometry, source).magnification);
     return inverse_ray_cartesian_core(
@@ -3631,12 +4170,14 @@ FiniteSourceResult fixed_inverse_ray_binary(
     const std::vector<SourcePosition>* seed_hints = nullptr)
 {
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    bool support_proven = true;
     auto seeds = augmented_image_seeds(
         point_magnifier, mapper, separation, mass_ratio, source, source_radius,
         caustic_distance, seed_hints,
         finite_magnifier != nullptr
             ? &finite_magnifier->binary_caustic_branches(separation, mass_ratio)
-            : nullptr);
+            : nullptr,
+        &support_proven);
     // Phase 3: find caustic crossings that fall in the gap between the last
     // phase sample and phi=2*pi (missed by uniform 1400-point sampling).
     if (finite_magnifier != nullptr) {
@@ -3682,52 +4223,40 @@ FiniteSourceResult fixed_inverse_ray_binary(
     // When they do not, use the measured shortfall to choose the next supported
     // grid bucket.  This avoids a broad conservative floor while ensuring that
     // "auto" actually tries to satisfy the same budget reported by converged.
-    const double q_abs = std::abs(mass_ratio);
-    const double q_small = q_abs < 1.0 ? q_abs : (q_abs > 0.0 ? 1.0 / q_abs : 1.0);
-    const bool caustic_contact =
-        std::isfinite(caustic_distance) && caustic_distance < 2.0 * source_radius;
     auto target_error_for = [&](double value) {
         return finite_source_error_budget(settings, value);
     };
     auto diagnose = [&](double value, const LegacyAreaDiagnostics& current_diagnostics) {
-        const bool underresolved = caustic_contact &&
-            q_small < 4.0 * source_radius /
-                static_cast<double>(std::max(active_settings.source_bins, 1));
         double error = current_diagnostics.estimated_error;
-        if (underresolved) {
-            error = std::max(error, 3.0e-3 * std::max(std::abs(value), 1.0));
+        // The support certificate is resolution independent, so a finer grid
+        // cannot repair an unproven one.  Refusing convergence here is what
+        // keeps a silently missing component from being reported as an
+        // accurate value: the area indicator only measures the boundary of the
+        // components that were found.
+        if (!support_proven) {
+            error = std::numeric_limits<double>::infinity();
         }
         return std::pair<double, bool> {
             error,
-            !underresolved && error <= target_error_for(value),
+            support_proven && error <= target_error_for(value),
         };
     };
 
     auto [error_estimate, converged] = diagnose(magnification, diagnostics);
+    auto evaluate_at = [&](const FiniteSourceSettings& grid) {
+        return inverse_ray_cartesian_binary_mag(
+            point_magnifier, separation, mass_ratio, source, source_radius,
+            grid, finite_magnifier, &seeds);
+    };
     // The area indicator is essentially free, but rare lattice-aliasing rows
     // can make it optimistic.  For an explicit tolerance only, verify a
     // would-be converged result against one coarser grid.  Rows already known
-    // to miss the budget pay no extra pass, preserving the survey/default hot
-    // path and avoiding pointless work at a capped tight tolerance.
-    if (converged && has_explicit_finite_source_tolerance(settings) &&
-        active_settings.source_bins > 1) {
-        FiniteSourceSettings coarse_settings = active_settings;
-        coarse_settings.source_bins = std::max(1, active_settings.source_bins / 2);
-        if (coarse_settings.polar_source_bins > 0) {
-            coarse_settings.polar_source_bins = coarse_settings.source_bins;
-        }
-        const double coarse_magnification = inverse_ray_cartesian_binary_mag(
-            point_magnifier, separation, mass_ratio, source, source_radius,
-            coarse_settings, finite_magnifier, &seeds);
-        if (std::isfinite(coarse_magnification)) {
-            error_estimate = std::max(
-                error_estimate, std::abs(magnification - coarse_magnification));
-            converged = finite_source_error_within_budget(
-                settings, magnification, error_estimate);
-        } else {
-            error_estimate = std::numeric_limits<double>::infinity();
-            converged = false;
-        }
+    // to miss the budget pay no extra pass here; they still have the retry
+    // ladder ahead of them, and only spend the pass once it is exhausted.
+    if (converged) {
+        reconcile_with_half_resolution(
+            settings, active_settings, magnification, evaluate_at,
+            error_estimate, converged);
     }
     int refinement_level = 0;
     constexpr std::array<int, 14> kAutoRetryBuckets {{
@@ -3758,6 +4287,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
             break;
         }
 
+        const int previous_bins = active_settings.source_bins;
         active_settings.source_bins = retry_bins;
         if (active_settings.polar_source_bins <= 0) {
             active_settings.polar_source_bins = retry_bins;
@@ -3777,10 +4307,20 @@ FiniteSourceResult fixed_inverse_ray_binary(
         if (converged && has_explicit_finite_source_tolerance(settings)) {
             error_estimate = std::max(
                 error_estimate,
-                std::abs(magnification - previous_magnification));
+                grid_pair_error_estimate(
+                    magnification, previous_magnification,
+                    active_settings.source_bins, previous_bins));
             converged = finite_source_error_within_budget(
                 settings, magnification, error_estimate);
         }
+    }
+    // The retry ladder is exhausted here, so the indicator's 1/source_bins
+    // floor is all that stands between a correct value and a NaN.  Measure the
+    // grid error instead of bounding it.
+    if (!converged && support_proven && std::isfinite(error_estimate)) {
+        reconcile_with_half_resolution(
+            settings, active_settings, magnification, evaluate_at,
+            error_estimate, converged);
     }
     if (refinement_level > 0) {
         decision.reason = "cartesian inverse-ray with auto grid retry";
@@ -4744,6 +5284,17 @@ FiniteSourceMagnifier::triple_caustic_branches(
         std::max(settings_.caustic_bins, 32)).branches;
 }
 
+double FiniteSourceMagnifier::triple_caustic_distance_for_source(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    double refine_within) const
+{
+    const auto& caustics = cached_triple_caustic_branches(
+        geometry, settings_.caustic_bins);
+    return magnification::triple_caustic_distance(
+        geometry, caustics, source, refine_within);
+}
+
 std::vector<std::vector<SourcePosition>>
 FiniteSourceMagnifier::triple_critical_curve_branches(
     const model::TripleLensGeometry& geometry) const
@@ -4834,6 +5385,170 @@ double FiniteSourceMagnifier::binary_caustic_distance(
         }
     }
     return distance;
+}
+
+double FiniteSourceMagnifier::binary_caustic_distance_for_source(
+    double separation,
+    double mass_ratio,
+    SourcePosition source) const
+{
+    return binary_caustic_distance(separation, mass_ratio, source);
+}
+
+BinaryRoutingDiagnostics
+FiniteSourceMagnifier::binary_routing_diagnostics_for_source(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double point_source_magnification,
+    const PointSourceMagnifier* point_magnifier_hint) const
+{
+    BinaryRoutingDiagnostics out;
+    out.point_magnification = point_source_magnification;
+    if (source_radius <= 0.0) {
+        out.point_error_estimate = 0.0;
+        out.point_preflight_safe = true;
+        out.point_safe = true;
+        return out;
+    }
+
+    PointSourceMagnifier local_point_magnifier;
+    const PointSourceMagnifier& point_magnifier =
+        point_magnifier_hint != nullptr ? *point_magnifier_hint : local_point_magnifier;
+    const auto safety = evaluate_point_source_safety(
+        point_magnifier,
+        separation,
+        mass_ratio,
+        source,
+        source_radius,
+        point_source_magnification,
+        settings_);
+    out.point_magnification = safety.diagnostic.magnification;
+    out.point_absolute_tolerance = safety.absolute_tolerance;
+    out.quadrupole_indicator = safety.diagnostic.quadrupole_indicator;
+    out.cusp_indicator = safety.diagnostic.cusp_indicator;
+    out.ghost_indicator = safety.diagnostic.ghost_indicator;
+    out.planetary_distance2 = safety.planetary_distance2;
+    out.image_count = safety.diagnostic.image_count;
+    out.ghost_count = safety.diagnostic.ghost_count;
+    out.safety_flags =
+        (safety.quadrupole_cusp_safe ? 1 : 0) |
+        (safety.ghost_safe ? 2 : 0) |
+        (safety.planetary_safe ? 4 : 0);
+    out.point_error_estimate =
+        (safety.diagnostic.quadrupole_indicator + safety.diagnostic.cusp_indicator) *
+        source_radius * source_radius;
+
+    double requested_relative = settings_.adaptive_hex_threshold > 0.0
+        ? settings_.adaptive_hex_threshold
+        : kDefaultFiniteSourceRelativeTolerance;
+    if (has_explicit_finite_source_tolerance(settings_)) {
+        requested_relative = explicit_finite_source_relative_budget(
+            settings_, point_source_magnification);
+    }
+    constexpr double kPreflightPointSafety = 30.0;
+    const double derivative_relative_error =
+        out.point_error_estimate /
+        std::max(std::abs(point_source_magnification), 1.0e-10);
+    out.point_preflight_safe =
+        settings_.hex_threshold > 0.0 &&
+        safety.point_source_safe() &&
+        kPreflightPointSafety * derivative_relative_error <= requested_relative;
+    if (out.point_preflight_safe) {
+        out.point_safe = finite_source_error_within_budget(
+            settings_, point_source_magnification, out.point_error_estimate);
+        return out;
+    }
+
+    const double bbox_margin = settings_.kinji_threshold * source_radius;
+    const double topology_margin =
+        binary_topology_boundary_margin(separation, mass_ratio);
+    const double caustic_reuse_tolerance = std::min(
+        0.25 * source_radius, 0.02 * topology_margin);
+    const double sampled_distance = binary_sampled_caustic_distance(
+        separation,
+        mass_ratio,
+        source,
+        bbox_margin,
+        caustic_reuse_tolerance);
+    const bool exact_caustic_geometry = caustic_cache_separation_ == separation;
+    if (safety.point_source_safe() &&
+        exact_caustic_geometry &&
+        (source.x < caustic_cache_min_x_ - bbox_margin ||
+         source.x > caustic_cache_max_x_ + bbox_margin ||
+         source.y < caustic_cache_min_y_ - bbox_margin ||
+         source.y > caustic_cache_max_y_ + bbox_margin)) {
+        out.point_safe = finite_source_error_within_budget(
+            settings_, point_source_magnification, out.point_error_estimate);
+        return out;
+    }
+
+    out.caustic_distance = binary_caustic_distance(
+        separation,
+        mass_ratio,
+        source,
+        sampled_distance,
+        caustic_reuse_tolerance);
+    constexpr double kMeasuredTopologyReleaseDistance = 10.0;
+    const bool measured_topology_safe =
+        std::isfinite(out.caustic_distance) &&
+        out.caustic_distance >=
+            kMeasuredTopologyReleaseDistance * source_radius;
+    const bool effective_topology_safe =
+        safety.topology_safe() || measured_topology_safe;
+    const bool effective_point_safe =
+        safety.quadrupole_cusp_safe && effective_topology_safe;
+    const bool near_caustic =
+        out.caustic_distance < settings_.hex_threshold * source_radius;
+    if (!near_caustic && effective_point_safe) {
+        double distance_safety = 1.0;
+        if (source_radius >= 1.0e-3 &&
+            std::isfinite(out.caustic_distance)) {
+            const double distance_ratio =
+                out.caustic_distance / source_radius;
+            const double t =
+                settings_.hex_threshold /
+                std::max(distance_ratio, settings_.hex_threshold);
+            distance_safety = std::max(1.0, 30.0 * t * t * t);
+        }
+        out.point_safe =
+            derivative_relative_error <=
+                requested_relative / distance_safety &&
+            finite_source_error_within_budget(
+                settings_, point_source_magnification, out.point_error_estimate);
+    }
+
+    constexpr double kGrazeQuadratureDistanceFactor = 2.0;
+    if (std::isfinite(out.caustic_distance) &&
+        out.caustic_distance <
+            kGrazeQuadratureDistanceFactor * source_radius) {
+        const auto scan = scan_caustic_branches(
+            binary_caustic_branches(separation, mass_ratio),
+            source,
+            source_radius);
+        out.scan_performed = true;
+        out.scan_min_distance = scan.min_distance;
+        out.any_vertex_inside = scan.any_vertex_inside;
+        out.has_crossing_probes = !scan.crossing_probes.empty();
+        const bool caustic_enters_disk =
+            out.any_vertex_inside || out.has_crossing_probes;
+        out.chord_band =
+            !caustic_enters_disk &&
+            scan.min_distance >= 0.95 * source_radius &&
+            scan.min_distance < 1.35 * source_radius;
+        out.tangent_band =
+            !caustic_enters_disk &&
+            !out.chord_band &&
+            std::abs(scan.min_distance - source_radius) <
+                0.35 * source_radius;
+        out.grazing_ring_band =
+            !caustic_enters_disk &&
+            scan.min_distance >= source_radius &&
+            !out.tangent_band &&
+            !out.chord_band;
+    }
+    return out;
 }
 
 double FiniteSourceMagnifier::binary_sampled_caustic_distance(
@@ -5076,6 +5791,28 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
         std::isfinite(caustic_distance) &&
         caustic_distance < polar_fallback_distance;
 
+    // The seed set is a property of the epoch, not of the grid: it depends on
+    // the geometry, the source centre and rho, and augmented_triple_image_seeds
+    // never sees a resolution.  Every resolution an inverse-ray path tries must
+    // therefore share one computation -- otherwise the certified probes, which
+    // are degree-ten root solves, are repeated at each tolerance retry and each
+    // coarse comparison for an answer that cannot change.  The binary paths
+    // already thread their seeds this way.  Built on first use so an epoch that
+    // routes to the hexadecapole or to source-plane quadrature never pays for
+    // it.
+    std::vector<SourcePosition> epoch_seeds;
+    bool epoch_support_proven = true;
+    bool epoch_seeds_ready = false;
+    const auto seeds_for_epoch = [&]() -> const std::vector<SourcePosition>& {
+        if (!epoch_seeds_ready) {
+            epoch_seeds = augmented_triple_image_seeds(
+                point_magnifier, geometry, source, source_radius, caustics,
+                &epoch_support_proven);
+            epoch_seeds_ready = true;
+        }
+        return epoch_seeds;
+    };
+
     // Explicit polar and calibrated high-magnification auto polar take
     // precedence over the hexadecapole approximation.
     if ((settings_.finite_mode == 2 || auto_polar) && !polar_needs_cartesian_fallback) {
@@ -5088,7 +5825,8 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             polar_settings,
             [&](const FiniteSourceSettings& active) {
                 return inverse_ray_polar_triple_mag(
-                    point_magnifier, geometry, source, source_radius, active, this);
+                    point_magnifier, geometry, source, source_radius, active, this,
+                    &seeds_for_epoch());
             });
         FiniteSourceDecision decision {
             FiniteSourceMethod::inverse_ray_polar,
@@ -5260,6 +5998,8 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
 
     {
         LegacyAreaDiagnostics diagnostics;
+        const auto& shared_seeds = seeds_for_epoch();
+        const bool support_proven = epoch_support_proven;
         double cartesian_magnification = inverse_ray_cartesian_triple_mag(
             point_magnifier,
             geometry,
@@ -5268,6 +6008,7 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             source_radius,
             runtime_settings,
             this,
+            &shared_seeds,
             &diagnostics);
         if (std::isfinite(cartesian_magnification) && cartesian_magnification > 0.0) {
             FiniteSourceDecision decision {
@@ -5277,35 +6018,36 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
                     ? "triple polar used cartesian fallback for caustic-crossing"
                     : "triple finite-source cartesian image-plane inverse ray",
             };
-            double error_estimate = diagnostics.estimated_error;
-            bool converged = finite_source_error_within_budget(
+            // Fail closed: an unproven support means a component of the source
+            // disk was never entered, so the area is short by an unknown
+            // amount and no error estimate derived from it can be trusted.
+            double error_estimate = support_proven
+                ? diagnostics.estimated_error
+                : std::numeric_limits<double>::infinity();
+            bool converged = support_proven && finite_source_error_within_budget(
                 settings_, cartesian_magnification, error_estimate);
-            if (converged && has_explicit_finite_source_tolerance(settings_) &&
-                runtime_settings.source_bins > 1) {
-                FiniteSourceSettings coarse_settings = runtime_settings;
-                coarse_settings.source_bins =
-                    std::max(1, runtime_settings.source_bins / 2);
-                if (coarse_settings.polar_source_bins > 0) {
-                    coarse_settings.polar_source_bins = coarse_settings.source_bins;
-                }
-                const double coarse_magnification = inverse_ray_cartesian_triple_mag(
-                    point_magnifier,
-                    geometry,
-                    caustics,
-                    source,
-                    source_radius,
-                    coarse_settings,
-                    this);
-                if (std::isfinite(coarse_magnification)) {
-                    error_estimate = std::max(
-                        error_estimate,
-                        std::abs(cartesian_magnification - coarse_magnification));
-                    converged = finite_source_error_within_budget(
-                        settings_, cartesian_magnification, error_estimate);
-                } else {
-                    error_estimate = std::numeric_limits<double>::infinity();
-                    converged = false;
-                }
+            // The triple Cartesian route has no retry ladder: its grid is the
+            // one the caller allowed, so the indicator's 1/source_bins floor
+            // is the only thing between it and a NaN.  Let the measured pair
+            // rule in both directions, as it does on the binary side.
+            if (support_proven) {
+                reconcile_with_half_resolution(
+                    settings_,
+                    runtime_settings,
+                    cartesian_magnification,
+                    [&](const FiniteSourceSettings& grid) {
+                        return inverse_ray_cartesian_triple_mag(
+                            point_magnifier,
+                            geometry,
+                            caustics,
+                            source,
+                            source_radius,
+                            grid,
+                            this,
+                            &shared_seeds);
+                    },
+                    error_estimate,
+                    converged);
             }
             return apply_triple_tangent_floor({
                 cartesian_magnification,

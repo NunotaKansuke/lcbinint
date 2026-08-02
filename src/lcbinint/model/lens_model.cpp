@@ -110,6 +110,17 @@ magnification::FiniteSourceSettings finite_source_settings(
     return settings;
 }
 
+bool requires_finite_source_convergence(const ComputationOptions& options)
+{
+    // A fixed grid with no requested tolerance is an explicitly chosen
+    // approximation and remains available for legacy diagnostics.  Automatic
+    // integration, or any explicit tolerance, is an accuracy contract and
+    // must fail closed when that contract is not met.
+    return options.automatic_source_bins != 0
+        || options.finite_source_tol > 0.0
+        || options.finite_source_reltol > 0.0;
+}
+
 } // namespace
 
 LensModel::LensModel(
@@ -262,6 +273,7 @@ MagnificationResult LensModel::magnification(double time) const
         result.finite_source_converged = finite.converged;
         result.image_count = finite.image_count;
         result.status = std::isfinite(result.magnification)
+                && (finite.converged || !requires_finite_source_convergence(options_))
             ? EvaluationStatus::ok
             : EvaluationStatus::numerical_error;
         return result;
@@ -325,7 +337,9 @@ MagnificationResult LensModel::magnification(double time) const
         result.point_source_ghost_count = finite_result.point_source_ghost_count;
         result.point_source_safety_flags = finite_result.point_source_safety_flags;
         result.caustic_distance = finite_result.caustic_distance;
-        if (!std::isfinite(result.magnification)) {
+        if (!std::isfinite(result.magnification)
+            || (!finite_result.converged
+                && requires_finite_source_convergence(options_))) {
             result.status = EvaluationStatus::numerical_error;
             return result;
         }

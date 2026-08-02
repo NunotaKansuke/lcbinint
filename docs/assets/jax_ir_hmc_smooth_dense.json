@@ -1,0 +1,195 @@
+{
+  "configuration": {
+    "case": "smooth",
+    "nuts_engine": "lcbinint",
+    "leapfrog_engine": "lcbinint",
+    "benchmark_engine": "lcbinint",
+    "epochs": 24,
+    "warmup": 150,
+    "samples": 150,
+    "chains": 2,
+    "target_accept": 0.9,
+    "max_tree_depth": 8,
+    "diagonal_mass": false,
+    "repeat": 5,
+    "seed": 421,
+    "output": "docs/assets/jax_ir_hmc_smooth_dense.json",
+    "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+    "jax_version": "0.6.2",
+    "jax_backend": "cpu",
+    "jax_devices": [
+      "TFRT_CPU_0"
+    ],
+    "noise_sigma": 0.02
+  },
+  "cases": {
+    "smooth": {
+      "truth": {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.2,
+        "alpha": 0.3,
+        "s": 1.2,
+        "q": 0.1,
+        "rho": 0.01,
+        "limb_darkening_c": 0.4
+      },
+      "parameter_names": [
+        "t0",
+        "u0"
+      ],
+      "fisher_scales": [
+        9.739271928931892e-05,
+        4.550675000350613e-05
+      ],
+      "raw_curve_jacobian_norms": [
+        205.35415938625923,
+        439.4952396833233
+      ],
+      "epochs": 24,
+      "magnification_range": [
+        3.5157942431333735,
+        7.1466163886986225
+      ],
+      "accuracy_against_vbm": {
+        "lcbinint_jax_max_relative": 5.1514924615511476e-05,
+        "lcbinint_native_max_relative": 5.1514924616609665e-05,
+        "microlux_max_relative": null
+      },
+      "log_density_at_truth": {
+        "lcbinint": -13.115363696863575
+      },
+      "timings": {
+        "lcbinint_log_density": {
+          "compile_and_first_seconds": 0.21873551793396473,
+          "median_seconds": 0.009817519225180149,
+          "minimum_seconds": 0.009726432152092457,
+          "samples_seconds": [
+            0.010603234637528658,
+            0.009817519225180149,
+            0.009799622930586338,
+            0.009880186058580875,
+            0.009726432152092457
+          ]
+        },
+        "lcbinint_value_and_grad": {
+          "compile_and_first_seconds": 0.7931615230627358,
+          "median_seconds": 0.04019089508801699,
+          "minimum_seconds": 0.03863683110103011,
+          "samples_seconds": [
+            0.03863683110103011,
+            0.03892231127247214,
+            0.040230459067970514,
+            0.04019089508801699,
+            0.04142374312505126
+          ]
+        },
+        "native_lcbinint_forward": {
+          "median_seconds": 0.1771612111479044,
+          "minimum_seconds": 0.17704136483371258,
+          "samples_seconds": [
+            0.17717759497463703,
+            0.1771934158168733,
+            0.17706440202891827,
+            0.1771612111479044,
+            0.17704136483371258
+          ]
+        },
+        "vbm_forward": {
+          "median_seconds": 0.010902282781898975,
+          "minimum_seconds": 0.010874224826693535,
+          "samples_seconds": [
+            0.011016107629984617,
+            0.010940436273813248,
+            0.010874224826693535,
+            0.010892781894654036,
+            0.010902282781898975
+          ]
+        }
+      },
+      "leapfrog": {
+        "lcbinint": {
+          "step_size": 0.025,
+          "steps": 5,
+          "energy_error_max_abs": 0.0006120497024788563,
+          "energy_error_rms": 0.0002830491750731121,
+          "reversibility_max_abs": 1.1102230246251565e-16
+        }
+      },
+      "dispatcher": {
+        "grid_standardized_t0": [
+          -4.0,
+          -3.5,
+          -3.0,
+          -2.5,
+          -2.0,
+          -1.5,
+          -1.0,
+          -0.5,
+          0.0,
+          0.5,
+          1.0,
+          1.5,
+          2.0,
+          2.5,
+          3.0,
+          3.5,
+          4.0
+        ],
+        "method_boundary_intervals": [],
+        "maximum_adjacent_gradient_jump": 0.5598789500764312,
+        "gradient": [
+          6.106286311250614,
+          5.558272173749211,
+          5.016229633093098,
+          4.466213488129467,
+          3.922352087702089,
+          3.376374930465219,
+          2.8255511599115657,
+          2.2767820749168126,
+          1.7252334253497763,
+          1.1740182302044364,
+          0.620792157909295,
+          0.06705183556758895,
+          -0.48880982271025375,
+          -1.0437578317727387,
+          -1.600561518994331,
+          -2.158764808902572,
+          -2.7186437589790033
+        ],
+        "method_counts": {
+          "0": 289,
+          "1": 119
+        }
+      },
+      "nuts": {
+        "lcbinint": {
+          "elapsed_seconds_compile_warmup_sampling": 133.64713569404557,
+          "samples_per_second": 2.244717018752883,
+          "effective_samples": [
+            216.34174075670376,
+            183.83709714241647
+          ],
+          "minimum_effective_samples_per_second": 1.375540868779031,
+          "posterior_standardized_mean": [
+            0.692897086277715,
+            1.0120785518222337
+          ],
+          "posterior_standardized_sd": [
+            1.8993645516788267,
+            2.0307694612955562
+          ],
+          "divergences": 0,
+          "mean_accept_probability": 0.9307270883496975,
+          "median_leapfrog_steps": 3.0,
+          "maximum_leapfrog_steps": 7,
+          "energy_variance": 2.8387782672063766,
+          "split_rhat": [
+            1.0037156771057927,
+            1.005862028359216
+          ]
+        }
+      }
+    }
+  }
+}

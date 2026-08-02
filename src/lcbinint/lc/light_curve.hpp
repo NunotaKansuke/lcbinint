@@ -43,6 +43,14 @@ public:
         const lcbi_params& params
     ) const;
 
+    // Return raw numerical diagnostics, including a finite last iterate when
+    // the requested finite-source tolerance was not met.  Production
+    // magnification paths use evaluate() and fail closed on that state.
+    std::vector<MagnificationResult> evaluate_diagnostic(
+        const std::vector<double>& times,
+        const lcbi_params& params
+    ) const;
+
     // Root-solve-free, trajectory-resolved geometry for external finite-source
     // engines. Unlike the C API this preserves this LightCurve's sky/site and
     // physical model configuration.

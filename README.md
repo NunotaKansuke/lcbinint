@@ -37,6 +37,7 @@ Requirements:
 - Python >= 3.9
 - GSL development headers/libraries
 - `pybind11`, `numpy`, `scikit-build-core`
+- `jax` when building with the default `LCBININT_ENABLE_JAX_FFI=ON`
 
 Set `GSL_ROOT` if GSL is not installed system-wide.
 
@@ -47,6 +48,11 @@ cd lcbinint
 python -m pip install -U pip
 python -m pip install -e ".[test]"
 ```
+
+Install `.[jax]` for differentiable evaluation or `.[inference]` for the
+JAX/NumPyro inference diagnostics. See
+[Automatic differentiation with JAX](docs/python/AutomaticDifferentiation.md)
+for supported models, gradient semantics, caustic behavior, and HMC guidance.
 
 If GSL is installed in a custom prefix:
 
@@ -60,6 +66,12 @@ You can also build directly with CMake:
 GSL_ROOT=/path/to/gsl cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ctest --test-dir build --output-on-failure
+```
+
+To build without the experimental JAX FFI handler, disable it explicitly:
+
+```sh
+GSL_ROOT=/path/to/gsl cmake -S . -B build -DLCBININT_ENABLE_JAX_FFI=OFF
 ```
 
 Run the Python regression tests against the in-tree build:
@@ -97,6 +109,52 @@ lc = lcbinint.LightCurve(
 
 mag = lc(times, params)
 ```
+
+Use the same public API with the differentiable CPU/JAX backend by selecting it
+in `Options`:
+
+```python
+import jax
+import jax.numpy as jnp
+import lcbinint
+
+jax.config.update("jax_enable_x64", True)
+
+times = jnp.linspace(-0.5, 0.5, 200)
+curve = lcbinint.LightCurve(options=lcbinint.Options(jax=True))
+
+def loss(u0):
+    active = dict(params)
+    active["u0"] = u0
+    return jnp.sum(curve(times, active))
+
+magnification = curve(times, params)
+value, derivative = jax.jit(jax.value_and_grad(loss))(params["u0"])
+```
+
+The backend selector also applies to `magnification_batch()`,
+`light_curve_log_likelihood_batch()`, `info()`, trajectory/geometry helpers,
+and static `binary_source_components()`. The likelihood batch supports the
+native Gaussian and Student-t distributions and fit, sample, and Gaussian
+marginalize flux modes; its JAX arrays remain differentiable through both the
+magnification and analytic flux fit.
+
+The same callable can be used directly inside a NumPyro model. For HMC/NUTS,
+enable JAX 64-bit mode before constructing the curve and standardize physical
+parameters (or use a suitable dense mass matrix); caustic-crossing likelihoods
+can have very different curvature along and normal to a fold.
+Binary seven-parameter and Triple ten-parameter gradient/HMC diagnostics are
+available under `tests/diagnostics/jax_ir`. For Triple fits, initializing the
+trajectory parameters before releasing all lens-geometry parameters is much
+more efficient than starting a fully coupled ten-dimensional NUTS run.
+
+`Options(jax=True)` covers single- and binary-source finite-source light
+curves for both binary and triple lenses, including the existing coordinate
+conventions and limb-darkening coefficients. Annual, terrestrial, and
+space-site parallax, binary-lens circular/Kepler orbital motion, and all
+single- or binary-source xallarap parameterizations use the same entry point.
+Parameters may be JAX tracers inside a dictionary. Higher-order trajectories
+currently require VBM-compatible coordinates.
 
 Physical model choices are separate from numerical options:
 
@@ -137,6 +195,22 @@ amplification = lcbinint.binary_ray_shooting(
 
 It corresponds to VBMicrolensing's `BinaryMag2`: `x` and `y` are
 center-of-mass source coordinates and `rho` must be positive.
+The signature is unchanged for differentiable execution:
+
+```python
+amplification = lcbinint.binary_ray_shooting(
+    x, y, s=1.2, q=0.05, rho=0.01,
+    options=lcbinint.Options(jax=True),
+)
+derivative = jax.grad(
+    lambda active_x: lcbinint.binary_ray_shooting(
+        active_x, y, s=1.2, q=0.05, rho=0.01, jax=True,
+    )
+)(x)
+```
+
+An explicit `jax=True` or `jax=False` takes precedence over
+`Options(jax=...)`, just as it does for `LightCurve`.
 
 For binary finite-source inverse-ray calculations, `nbin="auto"` selects the
 Cartesian/polar grid and an initial resolution per source position from
@@ -160,8 +234,10 @@ magnifications = lc.magnification_batch(times, rows)
 # shape: (len(rows), len(times))
 ```
 
-For single- and binary-source models this is one GIL-free native call and
-writes directly to a row-major output matrix.
+For native single- and binary-source models this is one GIL-free call and
+writes directly to a row-major output matrix. With `jax=True`, the same method
+returns a row-major JAX array and vmaps rows with a common parameter structure;
+its values remain differentiable.
 
 The moasarc adapter also uses `lcbinint`'s internal fused likelihood entry point.
 It streams one reusable epoch row through magnification, source/blend flux
@@ -176,6 +252,10 @@ Terrestrial parallax additionally requires `terrestrial=True` and an explicit
 ground `lcbinint.obs.Site("ground", lat, lon)`; merely passing non-zero `piEN`/`piEE`
 does not activate parallax. For a space observatory, pass `Site("space", table)`, with table columns
 `(JD, RA_deg, Dec_deg, distance_AU)`.
+For a known observation window, `Options(t_lim=(start, stop))` keeps only the
+interpolation-safe Earth and spacecraft ephemeris rows required by that
+interval. This substantially reduces JAX compiler constants while preserving
+the values and gradients inside the window; epochs outside it are rejected.
 
 ## Diagnostics
 
