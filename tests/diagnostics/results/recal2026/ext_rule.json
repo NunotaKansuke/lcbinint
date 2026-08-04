@@ -1,0 +1,240 @@
+{
+  "ext_directory": "tests/diagnostics/results/recal2026/ext_discovery",
+  "speed_directory": "tests/diagnostics/results/recal2026/speed_discovery",
+  "ext_rows": 2880,
+  "speed_rows": 2880,
+  "rows_per_pass": {
+    "control-0": 2880,
+    "lcbinint_jax-0": 2880,
+    "lcbinint_jax-1": 2880,
+    "lcbinint_jax-2": 2880,
+    "microlux-0": 2880,
+    "microlux-1": 2880,
+    "microlux-2": 2880,
+    "microlux-3": 2880,
+    "microlux-4": 2880,
+    "microlux-5": 2880,
+    "microlux-6": 2880
+  },
+  "control_scale": {
+    "24": {
+      "n": 2785,
+      "median_speed_sweep_over_ext": 1.3119084205039988,
+      "p10": 0.9978893027525693,
+      "p90": 1.398284386389098
+    },
+    "50": {
+      "n": 2719,
+      "median_speed_sweep_over_ext": 1.3119813790910684,
+      "p10": 0.9983825462780362,
+      "p90": 1.3890201746708348
+    }
+  },
+  "head_to_head": [
+    {
+      "profile": "uniform",
+      "target": 0.01,
+      "engines": {
+        "microlux": {
+          "reached_target": 1334,
+          "compared_against_native": 1334,
+          "win_rate": 0.7533733133433284,
+          "median_ext_over_native": 0.5863030701663254,
+          "p10": 0.08320371832899648,
+          "p90": 1.3845361654120243,
+          "calibrated_n": 1334,
+          "calibrated_win_rate": 0.631184407796102,
+          "calibrated_median_ext_over_native": 0.7485509297045547,
+          "calibrated_p10": 0.10473410629428319,
+          "calibrated_p90": 1.8023235354506666,
+          "median_first_call_seconds": 0.01266120548825711
+        },
+        "lcbinint_jax": {
+          "reached_target": 1224,
+          "compared_against_native": 1224,
+          "win_rate": 0.0008169934640522876,
+          "median_ext_over_native": 48.706397042392624,
+          "p10": 7.555028099811563,
+          "p90": 184.0849565218971,
+          "calibrated_n": 1224,
+          "calibrated_win_rate": 0.0008169934640522876,
+          "calibrated_median_ext_over_native": 61.897526568195175,
+          "calibrated_p10": 9.651862008777469,
+          "calibrated_p90": 237.04176803709947,
+          "median_first_call_seconds": 0.9636469399847556
+        }
+      }
+    },
+    {
+      "profile": "uniform",
+      "target": 0.001,
+      "engines": {
+        "microlux": {
+          "reached_target": 1332,
+          "compared_against_native": 1332,
+          "win_rate": 0.7845345345345346,
+          "median_ext_over_native": 0.556551884808869,
+          "p10": 0.08332790639629577,
+          "p90": 1.2783210673294712,
+          "calibrated_n": 1332,
+          "calibrated_win_rate": 0.6448948948948949,
+          "calibrated_median_ext_over_native": 0.7060691371946195,
+          "calibrated_p10": 0.10201158428410179,
+          "calibrated_p90": 1.6618868893536312,
+          "median_first_call_seconds": 0.013177607994293794
+        },
+        "lcbinint_jax": {
+          "reached_target": 1220,
+          "compared_against_native": 1220,
+          "win_rate": 0.003278688524590164,
+          "median_ext_over_native": 43.29022850249525,
+          "p10": 7.358453891559793,
+          "p90": 183.2692349500872,
+          "calibrated_n": 1220,
+          "calibrated_win_rate": 0.001639344262295082,
+          "calibrated_median_ext_over_native": 55.54116376437271,
+          "calibrated_p10": 9.01573279457708,
+          "calibrated_p90": 235.31484471892185,
+          "median_first_call_seconds": 0.9626820609846618
+        }
+      }
+    },
+    {
+      "profile": "uniform",
+      "target": 0.0001,
+      "engines": {
+        "microlux": {
+          "reached_target": 769,
+          "compared_against_native": 768,
+          "win_rate": 0.8971354166666666,
+          "median_ext_over_native": 0.3662376360381794,
+          "p10": 0.07010259247101354,
+          "p90": 1.0087114226443363,
+          "calibrated_n": 768,
+          "calibrated_win_rate": 0.7916666666666666,
+          "calibrated_median_ext_over_native": 0.4564046163510588,
+          "calibrated_p10": 0.08399478656196828,
+          "calibrated_p90": 1.1775936656306158,
+          "median_first_call_seconds": 0.01405021402752027
+        },
+        "lcbinint_jax": {
+          "reached_target": 694,
+          "compared_against_native": 690,
+          "win_rate": 0.021739130434782608,
+          "median_ext_over_native": 35.208780370403545,
+          "p10": 6.490599147456706,
+          "p90": 198.34826348287677,
+          "calibrated_n": 690,
+          "calibrated_win_rate": 0.021739130434782608,
+          "calibrated_median_ext_over_native": 44.92191878422227,
+          "calibrated_p10": 8.17531924604413,
+          "calibrated_p90": 249.3648263665835,
+          "median_first_call_seconds": 1.2115625365113374
+        }
+      }
+    },
+    {
+      "profile": "linear",
+      "target": 0.01,
+      "engines": {
+        "microlux": {
+          "reached_target": 1319,
+          "compared_against_native": 1319,
+          "win_rate": 0.37225170583775585,
+          "median_ext_over_native": 2.3991183676158165,
+          "p10": 0.4735913233774212,
+          "p90": 10.221835325133153,
+          "calibrated_n": 1319,
+          "calibrated_win_rate": 0.28430629264594387,
+          "calibrated_median_ext_over_native": 3.075580669827909,
+          "calibrated_p10": 0.5734109488554384,
+          "calibrated_p90": 12.855560624591858,
+          "median_first_call_seconds": 0.08275189599953592
+        },
+        "lcbinint_jax": {
+          "reached_target": 1220,
+          "compared_against_native": 1220,
+          "win_rate": 0.000819672131147541,
+          "median_ext_over_native": 47.28109166522514,
+          "p10": 7.653481866071825,
+          "p90": 187.6245316525351,
+          "calibrated_n": 1220,
+          "calibrated_win_rate": 0.0,
+          "calibrated_median_ext_over_native": 59.24893364306948,
+          "calibrated_p10": 9.778964694253665,
+          "calibrated_p90": 239.59495502693142,
+          "median_first_call_seconds": 0.8769707394822035
+        }
+      }
+    },
+    {
+      "profile": "linear",
+      "target": 0.001,
+      "engines": {
+        "microlux": {
+          "reached_target": 1247,
+          "compared_against_native": 1247,
+          "win_rate": 0.37048917401764236,
+          "median_ext_over_native": 2.4443694750955816,
+          "p10": 0.47473120217616666,
+          "p90": 9.885167069468523,
+          "calibrated_n": 1247,
+          "calibrated_win_rate": 0.28869286287089013,
+          "calibrated_median_ext_over_native": 3.1083043970470667,
+          "calibrated_p10": 0.5687559079266257,
+          "calibrated_p90": 12.696370239824322,
+          "median_first_call_seconds": 0.07939024898223579
+        },
+        "lcbinint_jax": {
+          "reached_target": 1211,
+          "compared_against_native": 1211,
+          "win_rate": 0.0008257638315441783,
+          "median_ext_over_native": 44.959243655410454,
+          "p10": 7.858513184275901,
+          "p90": 187.33601357083515,
+          "calibrated_n": 1211,
+          "calibrated_win_rate": 0.0,
+          "calibrated_median_ext_over_native": 57.02829739094029,
+          "calibrated_p10": 9.855770512032134,
+          "calibrated_p90": 239.5944904952157,
+          "median_first_call_seconds": 0.9168508109869435
+        }
+      }
+    },
+    {
+      "profile": "linear",
+      "target": 0.0001,
+      "engines": {
+        "microlux": {
+          "reached_target": 589,
+          "compared_against_native": 588,
+          "win_rate": 0.5153061224489796,
+          "median_ext_over_native": 0.9345782886361335,
+          "p10": 0.47722194266068135,
+          "p90": 4.752246694149304,
+          "calibrated_n": 588,
+          "calibrated_win_rate": 0.37755102040816324,
+          "calibrated_median_ext_over_native": 1.1585115701388684,
+          "calibrated_p10": 0.5654967120953749,
+          "calibrated_p90": 5.807460958535408,
+          "median_first_call_seconds": 0.06692408700473607
+        },
+        "lcbinint_jax": {
+          "reached_target": 792,
+          "compared_against_native": 790,
+          "win_rate": 0.016455696202531647,
+          "median_ext_over_native": 33.43007806550093,
+          "p10": 6.870461602388,
+          "p90": 192.89046518934563,
+          "calibrated_n": 790,
+          "calibrated_win_rate": 0.016455696202531647,
+          "calibrated_median_ext_over_native": 43.1148291709869,
+          "calibrated_p10": 8.856708064058251,
+          "calibrated_p90": 251.0848198451928,
+          "median_first_call_seconds": 1.1398512050218415
+        }
+      }
+    }
+  ],
+  "calibrated_rows": 2785
+}

@@ -1,5 +1,14 @@
 # Calibration of automatic finite-source resolution and VBM-routing rule
 
+> **Status, August 2026.** The binary resolution rule described below is what the
+> runtime ships today, and this document remains its specification. It has since
+> been re-measured against the certified algorithm, and the measurement says the
+> shipping rule is heavily over-resolved — see
+> [Recalibration against the certified algorithm](#recalibration-against-the-certified-algorithm-august-2026)
+> below. That recalibration has **not** been applied to the runtime. Nothing in
+> the older sections has been retracted; they were correct for the algorithm they
+> were fitted to, which is the point the new campaign turns on.
+
 ## Scope and design constraint
 
 This calibration originally answered two separate questions for a binary lens
@@ -254,3 +263,61 @@ they are not claimed to have the same zero-violation validation result.  The
 calibration covers binary lenses and linear limb darkening over the ranges
 above.  Extrapolation outside those ranges is capped by the configured maximum
 bin count and should be validated as new data become available.
+
+## Recalibration against the certified algorithm (August 2026)
+
+The quantile model above was fitted before the component certificate existed.
+At that time a bin count was buying two things at once: quadrature accuracy, and
+enough resolution that the flood fill would not miss a disconnected image
+component.  The certificate now proves disk support and topology directly.  It
+does **not** prove that the quadrature error meets `reltol` — that remains the
+grid's job — so the question the recalibration asks is how much of the old bin
+count was paying for the part the certificate has taken over.
+
+The measurement is a fresh 160-case, 2880-row binary corpus (seed 20260803),
+timed per 24-epoch block rather than per epoch, with cost always read at
+*delivered* accuracy rather than at a requested tolerance.  Full method, tables,
+holdout coverage, and reproduction commands are in
+[`results/recal2026/README.md`](../tests/diagnostics/results/recal2026/README.md);
+the fitted artifacts are `nbin_rule.json`, `grid_switch_rule.json`, and
+`route_audit.json` beside it.
+
+Three findings bear on this document.
+
+**The resolution rule is over-resolved by one to two orders of magnitude.**
+Against the bins the corpus actually requires, the shipping rule spends 25× to
+278× the work depending on grid and tolerance.  A *constant* bin count per
+tolerance — no regression, no features — covers 99.3–100% of an independent
+holdout, the single exception being Cartesian at `1e-4`, where a rho-dependent
+linear rule is needed to reach 99.8%.  The seven-feature quantile model is
+therefore not carrying its own weight under the certified algorithm.  Adopting a
+constant would be a runtime change with a real correctness surface (the required
+counts are right-skewed, p99 is three to ten times the median), so it is recorded
+here as a measurement and not applied.
+
+**The Cartesian/polar boundary moves, and moves down.**  The frozen rule selects
+polar at `A_point >= 300`, or at `A_point >= 100` with `d_caustic/rho < 0.3`.
+Re-derived on measured corpus time against a per-block oracle, the optimum is a
+single condition, `A_point > 200`, joint-optimal across all six
+profile × tolerance cells and flat over the decade 100–500.  The second clause
+buys nothing measurable, and adding a rho condition does not improve the fit.
+Always-Cartesian costs 1.29–1.45× the oracle; `A_point > 200` costs 1.07–1.26×.
+
+**The fast-path boundaries hold, with two exceptions at `1e-4`.**  Routing was
+audited by grouping delivered error by the route the pipeline actually took.
+The point-source boundary misses on 0% of blocks at every accuracy and both
+profiles, and every pure inverse-ray route likewise.  Two routes miss at `1e-4`:
+hexadecapole on 7.6–8.8% of blocks (worst error 1.5× target) and
+`inverse_ray_polar + source_plane_quadrature` on 8.0–11.1% (worst 2.6× target).
+No cheap predicate separates either cleanly — the tightest bounding box in
+`(rho, A)` that catches every hexadecapole miss also rejects 31.5% of legitimate
+hits, which would move those blocks from 0.14 ms/epoch to roughly 80 ms/epoch.
+The recommendation is to scale the hexadecapole acceptance test with rho, which
+is a code change needing its own study, rather than to tighten the cut.
+
+The quadrature misses are the more interesting of the two: all of them sit at
+`A >= 39.8` with `d_caustic/rho` between 0.95 and 1.7 — the tangency regime,
+where the source limb grazes a fold.  This is the same regime the frozen
+VBM-routing rule excluded by hand as a tangent band, and it corroborates a
+separately flagged `d/rho = 1.001` disagreement.  It is the subject of its own
+study and is not resolved here.

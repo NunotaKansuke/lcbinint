@@ -1,0 +1,13 @@
+# Raw sweep output: ~200 MB of per-block JSON, and the logs beside it.  What the
+# campaign concluded is the rule files, the figures, and README.md; the blocks
+# are an intermediate and are reproducible from the commands README.md lists.
+discovery/
+discovery.pre-floor/
+holdout/
+holdout.pre-floor/
+probe/
+speed_discovery/
+ext_discovery/
+ext_discovery.failed-attempts/
+*.log
+*.err

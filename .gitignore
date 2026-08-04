@@ -19,3 +19,6 @@ venv/
 !docs/assets/binary_caustics_trajectory.png
 !docs/assets/triple_lightcurve_gradients.png
 !docs/assets/triple_caustics_trajectory.png
+
+# JAX persistent compilation cache used by the recalibration harness.
+/.jax-cache-recal2026/

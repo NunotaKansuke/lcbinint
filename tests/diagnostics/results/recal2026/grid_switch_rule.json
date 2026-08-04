@@ -1,0 +1,413 @@
+{
+ "directory": "tests/diagnostics/results/recal2026/speed_discovery",
+ "thresholds": [
+  10.0,
+  20.0,
+  30.0,
+  50.0,
+  100.0,
+  200.0,
+  500.0,
+  1000.0
+ ],
+ "uniform": {
+  "0.01": {
+   "blocks": 1350,
+   "oracle_seconds": 4.099322948595121,
+   "always_cartesian": 1.2904210196694126,
+   "always_polar": 1.5383774891518462,
+   "thresholds": [
+    {
+     "magnification": 10.0,
+     "point_source": 1.2408234933046083,
+     "point_source_share": 0.30444444444444446,
+     "finite_source": 1.2271964387926988,
+     "finite_source_share": 0.30592592592592593
+    },
+    {
+     "magnification": 20.0,
+     "point_source": 1.1946849573107037,
+     "point_source_share": 0.22666666666666666,
+     "finite_source": 1.1590535898394003,
+     "finite_source_share": 0.2288888888888889
+    },
+    {
+     "magnification": 30.0,
+     "point_source": 1.1822166496028104,
+     "point_source_share": 0.20296296296296296,
+     "finite_source": 1.1406079983191646,
+     "finite_source_share": 0.18814814814814815
+    },
+    {
+     "magnification": 50.0,
+     "point_source": 1.138749619078311,
+     "point_source_share": 0.1748148148148148,
+     "finite_source": 1.1182053116967277,
+     "finite_source_share": 0.16148148148148148
+    },
+    {
+     "magnification": 100.0,
+     "point_source": 1.1219717912967455,
+     "point_source_share": 0.13111111111111112,
+     "finite_source": 1.0712183015579453,
+     "finite_source_share": 0.12148148148148148
+    },
+    {
+     "magnification": 200.0,
+     "point_source": 1.096082279988414,
+     "point_source_share": 0.10444444444444445,
+     "finite_source": 1.0760363890005258,
+     "finite_source_share": 0.09407407407407407
+    },
+    {
+     "magnification": 500.0,
+     "point_source": 1.1092043987628697,
+     "point_source_share": 0.07777777777777778,
+     "finite_source": 1.0879869934209367,
+     "finite_source_share": 0.06814814814814815
+    },
+    {
+     "magnification": 1000.0,
+     "point_source": 1.17228280335503,
+     "point_source_share": 0.05185185185185185,
+     "finite_source": 1.1546061904024427,
+     "finite_source_share": 0.04148148148148148
+    }
+   ],
+   "best_point_source_threshold": 200.0,
+   "best_point_source_cost": 1.096082279988414
+  },
+  "0.001": {
+   "blocks": 1344,
+   "oracle_seconds": 4.951331460673828,
+   "always_cartesian": 1.3175221190932953,
+   "always_polar": 2.308929136400274,
+   "thresholds": [
+    {
+     "magnification": 10.0,
+     "point_source": 1.3665314067565535,
+     "point_source_share": 0.3020833333333333,
+     "finite_source": 1.317460862108965,
+     "finite_source_share": 0.30357142857142855
+    },
+    {
+     "magnification": 20.0,
+     "point_source": 1.2571835301976595,
+     "point_source_share": 0.22395833333333334,
+     "finite_source": 1.2375095233373437,
+     "finite_source_share": 0.2261904761904762
+    },
+    {
+     "magnification": 30.0,
+     "point_source": 1.2428186803296206,
+     "point_source_share": 0.20014880952380953,
+     "finite_source": 1.210036815097528,
+     "finite_source_share": 0.18526785714285715
+    },
+    {
+     "magnification": 50.0,
+     "point_source": 1.1901701126296391,
+     "point_source_share": 0.171875,
+     "finite_source": 1.1886357643544714,
+     "finite_source_share": 0.15848214285714285
+    },
+    {
+     "magnification": 100.0,
+     "point_source": 1.1635129363917267,
+     "point_source_share": 0.12797619047619047,
+     "finite_source": 1.0990919752907387,
+     "finite_source_share": 0.11830357142857142
+    },
+    {
+     "magnification": 200.0,
+     "point_source": 1.1246133166469845,
+     "point_source_share": 0.10119047619047619,
+     "finite_source": 1.0993267405114342,
+     "finite_source_share": 0.09077380952380952
+    },
+    {
+     "magnification": 500.0,
+     "point_source": 1.1296577429694743,
+     "point_source_share": 0.0744047619047619,
+     "finite_source": 1.103589718408063,
+     "finite_source_share": 0.06473214285714286
+    },
+    {
+     "magnification": 1000.0,
+     "point_source": 1.314600062196744,
+     "point_source_share": 0.04836309523809524,
+     "finite_source": 1.2271799019696927,
+     "finite_source_share": 0.03794642857142857
+    }
+   ],
+   "best_point_source_threshold": 200.0,
+   "best_point_source_cost": 1.1246133166469845
+  },
+  "0.0001": {
+   "blocks": 783,
+   "oracle_seconds": 8.216984595649894,
+   "always_cartesian": 1.3802197376126668,
+   "always_polar": 2.1371814168684966,
+   "thresholds": [
+    {
+     "magnification": 10.0,
+     "point_source": 1.6076127991774465,
+     "point_source_share": 0.41379310344827586,
+     "finite_source": 1.6086493382079303,
+     "finite_source_share": 0.43039591315453385
+    },
+    {
+     "magnification": 20.0,
+     "point_source": 1.47548826253763,
+     "point_source_share": 0.3103448275862069,
+     "finite_source": 1.4769782155063784,
+     "finite_source_share": 0.33077905491698595
+    },
+    {
+     "magnification": 30.0,
+     "point_source": 1.4320666439781322,
+     "point_source_share": 0.2796934865900383,
+     "finite_source": 1.3789223873851917,
+     "finite_source_share": 0.27586206896551724
+    },
+    {
+     "magnification": 50.0,
+     "point_source": 1.3419823681300254,
+     "point_source_share": 0.2413793103448276,
+     "finite_source": 1.3211031102826343,
+     "finite_source_share": 0.2388250319284802
+    },
+    {
+     "magnification": 100.0,
+     "point_source": 1.2948385380739973,
+     "point_source_share": 0.18135376756066413,
+     "finite_source": 1.200746408779726,
+     "finite_source_share": 0.17752234993614305
+    },
+    {
+     "magnification": 200.0,
+     "point_source": 1.2564493339408105,
+     "point_source_share": 0.14559386973180077,
+     "finite_source": 1.1894495901744364,
+     "finite_source_share": 0.13537675606641125
+    },
+    {
+     "magnification": 500.0,
+     "point_source": 1.2732987343088014,
+     "point_source_share": 0.10472541507024266,
+     "finite_source": 1.2042226409729657,
+     "finite_source_share": 0.09323116219667944
+    },
+    {
+     "magnification": 1000.0,
+     "point_source": 1.3278258064059882,
+     "point_source_share": 0.070242656449553,
+     "finite_source": 1.2216430690620463,
+     "finite_source_share": 0.05491698595146871
+    }
+   ],
+   "best_point_source_threshold": 200.0,
+   "best_point_source_cost": 1.2564493339408105
+  }
+ },
+ "linear": {
+  "0.01": {
+   "blocks": 1347,
+   "oracle_seconds": 4.149960255165448,
+   "always_cartesian": 1.3027879554202009,
+   "always_polar": 1.5134369233429452,
+   "thresholds": [
+    {
+     "magnification": 10.0,
+     "point_source": 1.2157042752893807,
+     "point_source_share": 0.3028953229398664,
+     "finite_source": 1.2008646317361682,
+     "finite_source_share": 0.30438010393466963
+    },
+    {
+     "magnification": 20.0,
+     "point_source": 1.1686791055451273,
+     "point_source_share": 0.22494432071269488,
+     "finite_source": 1.1236747471876791,
+     "finite_source_share": 0.22345953971789162
+    },
+    {
+     "magnification": 30.0,
+     "point_source": 1.1554489644308403,
+     "point_source_share": 0.2011878247958426,
+     "finite_source": 1.1088570381187608,
+     "finite_source_share": 0.18634001484780996
+    },
+    {
+     "magnification": 50.0,
+     "point_source": 1.1097421352579997,
+     "point_source_share": 0.17297698589458055,
+     "finite_source": 1.0874280425794622,
+     "finite_source_share": 0.1588715664439495
+    },
+    {
+     "magnification": 100.0,
+     "point_source": 1.0942416427939985,
+     "point_source_share": 0.1291759465478842,
+     "finite_source": 1.0515684503465814,
+     "finite_source_share": 0.11952487008166296
+    },
+    {
+     "magnification": 200.0,
+     "point_source": 1.0684260118028168,
+     "point_source_share": 0.10244988864142539,
+     "finite_source": 1.0471122017051568,
+     "finite_source_share": 0.09205642167780252
+    },
+    {
+     "magnification": 500.0,
+     "point_source": 1.0848217574713879,
+     "point_source_share": 0.0757238307349666,
+     "finite_source": 1.0619800684428615,
+     "finite_source_share": 0.06607275426874536
+    },
+    {
+     "magnification": 1000.0,
+     "point_source": 1.1359908789846194,
+     "point_source_share": 0.050482553823311065,
+     "finite_source": 1.1261873354698848,
+     "finite_source_share": 0.03934669636228656
+    }
+   ],
+   "best_point_source_threshold": 200.0,
+   "best_point_source_cost": 1.0684260118028168
+  },
+  "0.001": {
+   "blocks": 1342,
+   "oracle_seconds": 4.631228512904879,
+   "always_cartesian": 1.3687392966118483,
+   "always_polar": 2.088676943247037,
+   "thresholds": [
+    {
+     "magnification": 10.0,
+     "point_source": 1.3526061669518108,
+     "point_source_share": 0.30104321907600595,
+     "finite_source": 1.3654394780734487,
+     "finite_source_share": 0.3025335320417288
+    },
+    {
+     "magnification": 20.0,
+     "point_source": 1.286264099135128,
+     "point_source_share": 0.22280178837555886,
+     "finite_source": 1.2797219853472523,
+     "finite_source_share": 0.22131147540983606
+    },
+    {
+     "magnification": 30.0,
+     "point_source": 1.2715961406276408,
+     "point_source_share": 0.19895678092399405,
+     "finite_source": 1.2647197666204653,
+     "finite_source_share": 0.184053651266766
+    },
+    {
+     "magnification": 50.0,
+     "point_source": 1.2208160892128566,
+     "point_source_share": 0.1706408345752608,
+     "finite_source": 1.2425696893140834,
+     "finite_source_share": 0.15648286140089418
+    },
+    {
+     "magnification": 100.0,
+     "point_source": 1.1968795156199226,
+     "point_source_share": 0.12667660208643816,
+     "finite_source": 1.1538815938071456,
+     "finite_source_share": 0.11698956780923994
+    },
+    {
+     "magnification": 200.0,
+     "point_source": 1.1708272143627343,
+     "point_source_share": 0.09985096870342772,
+     "finite_source": 1.1528511621092272,
+     "finite_source_share": 0.08941877794336811
+    },
+    {
+     "magnification": 500.0,
+     "point_source": 1.1843350724909245,
+     "point_source_share": 0.07302533532041729,
+     "finite_source": 1.1588585910683917,
+     "finite_source_share": 0.06333830104321908
+    },
+    {
+     "magnification": 1000.0,
+     "point_source": 1.3679659103479145,
+     "point_source_share": 0.04769001490312966,
+     "finite_source": 1.3204932316067373,
+     "finite_source_share": 0.03651266766020864
+    }
+   ],
+   "best_point_source_threshold": 200.0,
+   "best_point_source_cost": 1.1708272143627343
+  },
+  "0.0001": {
+   "blocks": 894,
+   "oracle_seconds": 6.7161235251599765,
+   "always_cartesian": 1.444965454196627,
+   "always_polar": 2.7233996774995783,
+   "thresholds": [
+    {
+     "magnification": 10.0,
+     "point_source": 1.7531173535418374,
+     "point_source_share": 0.39149888143176736,
+     "finite_source": 1.7544048987886636,
+     "finite_source_share": 0.3970917225950783
+    },
+    {
+     "magnification": 20.0,
+     "point_source": 1.5764949552885104,
+     "point_source_share": 0.2897091722595078,
+     "finite_source": 1.4914568161150197,
+     "finite_source_share": 0.29642058165548096
+    },
+    {
+     "magnification": 30.0,
+     "point_source": 1.527117729854305,
+     "point_source_share": 0.25838926174496646,
+     "finite_source": 1.3887543464352048,
+     "finite_source_share": 0.24496644295302014
+    },
+    {
+     "magnification": 50.0,
+     "point_source": 1.3613516972000923,
+     "point_source_share": 0.21923937360178972,
+     "finite_source": 1.3276999435040797,
+     "finite_source_share": 0.2080536912751678
+    },
+    {
+     "magnification": 100.0,
+     "point_source": 1.2776276730561902,
+     "point_source_share": 0.1610738255033557,
+     "finite_source": 1.211842895590033,
+     "finite_source_share": 0.15212527964205816
+    },
+    {
+     "magnification": 200.0,
+     "point_source": 1.2233693246513686,
+     "point_source_share": 0.12751677852348994,
+     "finite_source": 1.1693425014246086,
+     "finite_source_share": 0.116331096196868
+    },
+    {
+     "magnification": 500.0,
+     "point_source": 1.2832623153275557,
+     "point_source_share": 0.0883668903803132,
+     "finite_source": 1.196939815525346,
+     "finite_source_share": 0.07829977628635347
+    },
+    {
+     "magnification": 1000.0,
+     "point_source": 1.3037522579430276,
+     "point_source_share": 0.0592841163310962,
+     "finite_source": 1.2376609079432839,
+     "finite_source_share": 0.042505592841163314
+    }
+   ],
+   "best_point_source_threshold": 200.0,
+   "best_point_source_cost": 1.2233693246513686
+  }
+ }
+}

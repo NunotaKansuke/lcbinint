@@ -1,0 +1,1166 @@
+{
+  "directory": "tests/diagnostics/results/recal2026/speed_discovery",
+  "blocks": 2880,
+  "by_route": {
+    "uniform@0.01": [
+      {
+        "route": "inverse_ray_cartesian",
+        "blocks": 460,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.000849859191130389,
+        "median_error": 0.0001517976006343085,
+        "median_milliseconds_per_epoch": 2.0028539389992757
+      },
+      {
+        "route": "point_source",
+        "blocks": 256,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0013464647363001158,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 0.001891313634890442
+      },
+      {
+        "route": "inverse_ray_cartesian+source_plane_quadrature",
+        "blocks": 228,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0028242738863541116,
+        "median_error": 9.763743710928114e-05,
+        "median_milliseconds_per_epoch": 6.187636708394469
+      },
+      {
+        "route": "source_plane_quadrature",
+        "blocks": 211,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.002895837802418606,
+        "median_error": 1.615927284846754e-07,
+        "median_milliseconds_per_epoch": 6.635214459189835
+      },
+      {
+        "route": "hexadecapole",
+        "blocks": 56,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 3.483810925032861e-05,
+        "median_error": 4.14515725398257e-06,
+        "median_milliseconds_per_epoch": 0.10936568772497898
+      },
+      {
+        "route": "inverse_ray_polar",
+        "blocks": 43,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.002408267842953344,
+        "median_error": 0.00011908110435603052,
+        "median_milliseconds_per_epoch": 56.17241166813377
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar",
+        "blocks": 37,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0005218482383363237,
+        "median_error": 8.62209662352524e-05,
+        "median_milliseconds_per_epoch": 7.3272924588915584
+      },
+      {
+        "route": "inverse_ray_polar+source_plane_quadrature",
+        "blocks": 29,
+        "miss_rate": 0.034482758620689655,
+        "misses": 1,
+        "worst_error": 0.01100293785556018,
+        "median_error": 0.0003136376543443947,
+        "median_milliseconds_per_epoch": 75.24346404291767,
+        "worst_case": {
+          "s": 3.3931720969553796,
+          "q": 0.0043102889938353125,
+          "rho": 3.817304925035743e-05,
+          "distance_factor": 0.95,
+          "magnification": 1415.8053648662064,
+          "error": 0.01100293785556018,
+          "over_target": 1.100293785556018
+        }
+      },
+      {
+        "route": "hexadecapole+inverse_ray_cartesian",
+        "blocks": 16,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0004312828382341813,
+        "median_error": 0.00016001939165624692,
+        "median_milliseconds_per_epoch": 0.4018025416977859
+      },
+      {
+        "route": "inverse_ray_cartesian+point_source",
+        "blocks": 7,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0008025251241043263,
+        "median_error": 0.0001436091711864923,
+        "median_milliseconds_per_epoch": 0.35350141843082383
+      },
+      {
+        "route": "hexadecapole+inverse_ray_polar",
+        "blocks": 4,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0011688666169180947,
+        "median_error": 0.0001964484720512091,
+        "median_milliseconds_per_epoch": 19.08116722794754
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar+source_plane_quadrature",
+        "blocks": 2,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.00025719134758159527,
+        "median_error": 0.00017772676750043933,
+        "median_milliseconds_per_epoch": 578.3756072924007
+      },
+      {
+        "route": "hexadecapole+point_source",
+        "blocks": 1,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0008524723485037623,
+        "median_error": 0.0008524723485037623,
+        "median_milliseconds_per_epoch": 0.10996541580728565
+      }
+    ],
+    "uniform@0.001": [
+      {
+        "route": "inverse_ray_cartesian",
+        "blocks": 466,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0007354588954738614,
+        "median_error": 0.0001455689505803494,
+        "median_milliseconds_per_epoch": 2.094333936838666
+      },
+      {
+        "route": "inverse_ray_cartesian+source_plane_quadrature",
+        "blocks": 228,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0009236894483373597,
+        "median_error": 8.965785384193372e-05,
+        "median_milliseconds_per_epoch": 6.477891000637706
+      },
+      {
+        "route": "source_plane_quadrature",
+        "blocks": 211,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 4.5400175415757026e-05,
+        "median_error": 1.467569058274609e-07,
+        "median_milliseconds_per_epoch": 6.639288459458233
+      },
+      {
+        "route": "point_source",
+        "blocks": 206,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.000100524109653648,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 0.0019120828559001288
+      },
+      {
+        "route": "hexadecapole",
+        "blocks": 103,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 3.71409590718689e-05,
+        "median_error": 7.605948837100803e-06,
+        "median_milliseconds_per_epoch": 0.11366895826843877
+      },
+      {
+        "route": "inverse_ray_polar",
+        "blocks": 43,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0004959239037768827,
+        "median_error": 7.096351391687629e-05,
+        "median_milliseconds_per_epoch": 64.4076155416163
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar",
+        "blocks": 37,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0005183476643208062,
+        "median_error": 7.769392276964051e-05,
+        "median_milliseconds_per_epoch": 8.245100999677865
+      },
+      {
+        "route": "inverse_ray_polar+source_plane_quadrature",
+        "blocks": 29,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0005698764980151497,
+        "median_error": 7.60809950249221e-05,
+        "median_milliseconds_per_epoch": 193.31178774882574
+      },
+      {
+        "route": "hexadecapole+inverse_ray_cartesian",
+        "blocks": 16,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0004564926228650328,
+        "median_error": 0.00020058305098236796,
+        "median_milliseconds_per_epoch": 0.37422947813562735
+      },
+      {
+        "route": "hexadecapole+inverse_ray_polar",
+        "blocks": 4,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.00014986334796927178,
+        "median_error": 7.77970388383573e-05,
+        "median_milliseconds_per_epoch": 54.98552366649771
+      },
+      {
+        "route": "inverse_ray_cartesian+point_source",
+        "blocks": 3,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.00041834401882201075,
+        "median_error": 0.00012846292894002753,
+        "median_milliseconds_per_epoch": 0.3789752906110759
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar+source_plane_quadrature",
+        "blocks": 2,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 3.067300050292949e-05,
+        "median_error": 1.5336500251464744e-05,
+        "median_milliseconds_per_epoch": 581.1032638121105
+      },
+      {
+        "route": "hexadecapole+point_source",
+        "blocks": 1,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.00018073016400410973,
+        "median_error": 0.00018073016400410973,
+        "median_milliseconds_per_epoch": 0.24179350051175183
+      }
+    ],
+    "uniform@0.0001": [
+      {
+        "route": "source_plane_quadrature",
+        "blocks": 212,
+        "miss_rate": 0.0047169811320754715,
+        "misses": 1,
+        "worst_error": 0.00020105716252012034,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 83.96397231263109,
+        "worst_case": {
+          "s": 1.05,
+          "q": 1e-06,
+          "rho": 0.020133555236025995,
+          "distance_factor": 1.35,
+          "magnification": 39.84485054444424,
+          "error": 0.00020105716252012034,
+          "over_target": 2.0105716252012034
+        }
+      },
+      {
+        "route": "inverse_ray_cartesian",
+        "blocks": 151,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 1.0419228416595862e-05,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 81.98257124846957
+      },
+      {
+        "route": "point_source",
+        "blocks": 143,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 0.001865291172483315
+      },
+      {
+        "route": "inverse_ray_cartesian+source_plane_quadrature",
+        "blocks": 98,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 7.010374865842879e-05,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 54.09844798001966
+      },
+      {
+        "route": "hexadecapole",
+        "blocks": 91,
+        "miss_rate": 0.08791208791208792,
+        "misses": 8,
+        "worst_error": 0.00015271358383950917,
+        "median_error": 1.9823453614948785e-05,
+        "median_milliseconds_per_epoch": 0.1367371684561173,
+        "worst_case": {
+          "s": 0.6,
+          "q": 1e-05,
+          "rho": 0.07400828044922851,
+          "distance_factor": NaN,
+          "magnification": 1.108527083670416,
+          "error": 0.00015271358383950917,
+          "over_target": 1.5271358383950917
+        }
+      },
+      {
+        "route": "inverse_ray_polar",
+        "blocks": 41,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 9.867455855660265e-05,
+        "median_error": 3.130897369433738e-06,
+        "median_milliseconds_per_epoch": 667.7549443338648
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar",
+        "blocks": 26,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 3.6811690852958476e-05,
+        "median_error": 3.601427402109408e-06,
+        "median_milliseconds_per_epoch": 213.80371502164053
+      },
+      {
+        "route": "inverse_ray_polar+source_plane_quadrature",
+        "blocks": 25,
+        "miss_rate": 0.08,
+        "misses": 2,
+        "worst_error": 0.0002619076494247009,
+        "median_error": 5.753870189342333e-06,
+        "median_milliseconds_per_epoch": 974.6246800010946,
+        "worst_case": {
+          "s": 1.2,
+          "q": 0.0001,
+          "rho": 0.0004053600464421101,
+          "distance_factor": 1.7,
+          "magnification": 1243.2376479353065,
+          "error": 0.0002619076494247009,
+          "over_target": 2.619076494247009
+        }
+      },
+      {
+        "route": "hexadecapole+inverse_ray_cartesian",
+        "blocks": 5,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 2.962038850482594e-05,
+        "median_error": 6.966768052423715e-06,
+        "median_milliseconds_per_epoch": 7.1078119581216015
+      },
+      {
+        "route": "hexadecapole+inverse_ray_polar",
+        "blocks": 3,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 1.7809336980414633e-05,
+        "median_error": 2.9480394891069464e-06,
+        "median_milliseconds_per_epoch": 382.97150150174275
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar+source_plane_quadrature",
+        "blocks": 2,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 3.159757911149372e-06,
+        "median_error": 1.579878955574686e-06,
+        "median_milliseconds_per_epoch": 680.7905072503975
+      }
+    ],
+    "linear@0.01": [
+      {
+        "route": "inverse_ray_cartesian",
+        "blocks": 460,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0008621170136743589,
+        "median_error": 0.00011748195760727144,
+        "median_milliseconds_per_epoch": 1.9908680612085543
+      },
+      {
+        "route": "point_source",
+        "blocks": 256,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0012383757083790459,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 0.0018933957714277008
+      },
+      {
+        "route": "inverse_ray_cartesian+source_plane_quadrature",
+        "blocks": 228,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.001975159773842305,
+        "median_error": 7.124704075858298e-05,
+        "median_milliseconds_per_epoch": 6.397568021687524
+      },
+      {
+        "route": "source_plane_quadrature",
+        "blocks": 211,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0018806547298608855,
+        "median_error": 1.747027552451587e-06,
+        "median_milliseconds_per_epoch": 6.649576833297033
+      },
+      {
+        "route": "hexadecapole",
+        "blocks": 56,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 2.7309146881950493e-05,
+        "median_error": 2.4998373114121456e-06,
+        "median_milliseconds_per_epoch": 0.10960535413081136
+      },
+      {
+        "route": "inverse_ray_polar",
+        "blocks": 40,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0027163373323510847,
+        "median_error": 7.329166704235133e-05,
+        "median_milliseconds_per_epoch": 59.86942120822884
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar",
+        "blocks": 37,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0005412307116437499,
+        "median_error": 7.154618280545636e-05,
+        "median_milliseconds_per_epoch": 8.939914041548036
+      },
+      {
+        "route": "inverse_ray_polar+source_plane_quadrature",
+        "blocks": 29,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.006917271712750088,
+        "median_error": 0.00018890928433685066,
+        "median_milliseconds_per_epoch": 81.54026183425837
+      },
+      {
+        "route": "hexadecapole+inverse_ray_cartesian",
+        "blocks": 16,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.00038912281577310054,
+        "median_error": 0.00013253248129583813,
+        "median_milliseconds_per_epoch": 0.38183577150145237
+      },
+      {
+        "route": "inverse_ray_cartesian+point_source",
+        "blocks": 7,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0006007148147908963,
+        "median_error": 0.00017797750881558136,
+        "median_milliseconds_per_epoch": 0.3664078758447431
+      },
+      {
+        "route": "hexadecapole+inverse_ray_polar",
+        "blocks": 4,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0007609909370621827,
+        "median_error": 0.00012315669776038194,
+        "median_milliseconds_per_epoch": 21.7065886038957
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar+source_plane_quadrature",
+        "blocks": 2,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0001689988726574818,
+        "median_error": 8.44994363287409e-05,
+        "median_milliseconds_per_epoch": 718.3612851670962
+      },
+      {
+        "route": "hexadecapole+point_source",
+        "blocks": 1,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0007840478552279377,
+        "median_error": 0.0007840478552279377,
+        "median_milliseconds_per_epoch": 0.10980691634661828
+      }
+    ],
+    "linear@0.001": [
+      {
+        "route": "inverse_ray_cartesian",
+        "blocks": 465,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0006937903760573278,
+        "median_error": 0.00010292540998954438,
+        "median_milliseconds_per_epoch": 2.201567915714501
+      },
+      {
+        "route": "inverse_ray_cartesian+source_plane_quadrature",
+        "blocks": 228,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0006565355908357874,
+        "median_error": 5.5203308730455046e-05,
+        "median_milliseconds_per_epoch": 6.697534687797694
+      },
+      {
+        "route": "source_plane_quadrature",
+        "blocks": 211,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 3.934169499154225e-05,
+        "median_error": 1.6686249655824413e-06,
+        "median_milliseconds_per_epoch": 6.648116124173005
+      },
+      {
+        "route": "point_source",
+        "blocks": 206,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 8.842966819178543e-05,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 0.0019107089125706505
+      },
+      {
+        "route": "hexadecapole",
+        "blocks": 103,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 2.7309146881950493e-05,
+        "median_error": 4.661580212817907e-06,
+        "median_milliseconds_per_epoch": 0.11434687379126747
+      },
+      {
+        "route": "inverse_ray_polar",
+        "blocks": 40,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.00033961326671328725,
+        "median_error": 6.506644682313648e-05,
+        "median_milliseconds_per_epoch": 61.569314915686846
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar",
+        "blocks": 37,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0005412307116437499,
+        "median_error": 5.395253779580301e-05,
+        "median_milliseconds_per_epoch": 8.952570666830676
+      },
+      {
+        "route": "inverse_ray_polar+source_plane_quadrature",
+        "blocks": 29,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.00041531856640136296,
+        "median_error": 8.278341203015145e-05,
+        "median_milliseconds_per_epoch": 157.79129595709188
+      },
+      {
+        "route": "hexadecapole+inverse_ray_cartesian",
+        "blocks": 17,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.00044276903090102753,
+        "median_error": 0.00011850624053382554,
+        "median_milliseconds_per_epoch": 0.41650291677797213
+      },
+      {
+        "route": "hexadecapole+inverse_ray_polar",
+        "blocks": 4,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.00015295148399647592,
+        "median_error": 7.260180902930849e-05,
+        "median_milliseconds_per_epoch": 37.429816665583836
+      },
+      {
+        "route": "inverse_ray_cartesian+point_source",
+        "blocks": 3,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0002903111779326239,
+        "median_error": 0.00018586008186172062,
+        "median_milliseconds_per_epoch": 0.4580535411757107
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar+source_plane_quadrature",
+        "blocks": 2,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 5.4084054017101514e-05,
+        "median_error": 2.7042027008550757e-05,
+        "median_milliseconds_per_epoch": 720.0347299998006
+      },
+      {
+        "route": "hexadecapole+point_source",
+        "blocks": 1,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.00016617193678989764,
+        "median_error": 0.00016617193678989764,
+        "median_milliseconds_per_epoch": 0.24145233328454196
+      }
+    ],
+    "linear@0.0001": [
+      {
+        "route": "source_plane_quadrature",
+        "blocks": 212,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 1.656950775763429e-05,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 83.94767462474798
+      },
+      {
+        "route": "inverse_ray_cartesian",
+        "blocks": 206,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 4.466783264102892e-05,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 80.0835873124015
+      },
+      {
+        "route": "point_source",
+        "blocks": 143,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 0.0,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 0.0018752907635644078
+      },
+      {
+        "route": "inverse_ray_cartesian+source_plane_quadrature",
+        "blocks": 133,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 6.513421987282641e-05,
+        "median_error": 0.0,
+        "median_milliseconds_per_epoch": 61.55451170828504
+      },
+      {
+        "route": "hexadecapole",
+        "blocks": 105,
+        "miss_rate": 0.0761904761904762,
+        "misses": 8,
+        "worst_error": 0.0001404898041574403,
+        "median_error": 8.99650877852241e-06,
+        "median_milliseconds_per_epoch": 0.12941354119296497,
+        "worst_case": {
+          "s": 0.6,
+          "q": 1e-05,
+          "rho": 0.07400828044922851,
+          "distance_factor": NaN,
+          "magnification": 1.108527083670416,
+          "error": 0.0001404898041574403,
+          "over_target": 1.404898041574403
+        }
+      },
+      {
+        "route": "inverse_ray_polar",
+        "blocks": 38,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 6.080349775849547e-05,
+        "median_error": 1.9382526625848383e-06,
+        "median_milliseconds_per_epoch": 724.3201582071681
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar",
+        "blocks": 31,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 2.7297095356552434e-05,
+        "median_error": 2.8064563195531004e-06,
+        "median_milliseconds_per_epoch": 226.69197220723922
+      },
+      {
+        "route": "inverse_ray_polar+source_plane_quadrature",
+        "blocks": 27,
+        "miss_rate": 0.1111111111111111,
+        "misses": 3,
+        "worst_error": 0.00018618899951581517,
+        "median_error": 6.031124564576658e-06,
+        "median_milliseconds_per_epoch": 1116.725001874632,
+        "worst_case": {
+          "s": 1.2,
+          "q": 0.0001,
+          "rho": 0.0004053600464421101,
+          "distance_factor": 1.7,
+          "magnification": 1223.8833266513707,
+          "error": 0.00018618899951581517,
+          "over_target": 1.8618899951581516
+        }
+      },
+      {
+        "route": "hexadecapole+inverse_ray_cartesian",
+        "blocks": 9,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 2.7309146881950493e-05,
+        "median_error": 3.0301144630266752e-06,
+        "median_milliseconds_per_epoch": 7.522728917441175
+      },
+      {
+        "route": "hexadecapole+inverse_ray_polar",
+        "blocks": 3,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 1.084872009361694e-05,
+        "median_error": 1.9871759388807965e-06,
+        "median_milliseconds_per_epoch": 276.6766913337051
+      },
+      {
+        "route": "inverse_ray_cartesian+inverse_ray_polar+source_plane_quadrature",
+        "blocks": 2,
+        "miss_rate": 0.0,
+        "misses": 0,
+        "worst_error": 6.79246017064753e-05,
+        "median_error": 3.498236455093886e-05,
+        "median_milliseconds_per_epoch": 852.6093920202886
+      }
+    ]
+  },
+  "separation": {
+    "hexadecapole@0.01": {
+      "route": "hexadecapole",
+      "target": 0.01,
+      "profile": null,
+      "chosen": 154,
+      "missed": 0
+    },
+    "hexadecapole@0.001": {
+      "route": "hexadecapole",
+      "target": 0.001,
+      "profile": null,
+      "chosen": 249,
+      "missed": 0
+    },
+    "hexadecapole@0.0001": {
+      "route": "hexadecapole",
+      "target": 0.0001,
+      "profile": null,
+      "chosen": 216,
+      "missed": 16,
+      "rho": {
+        "hits": {
+          "min": 2.9999999999999977e-05,
+          "median": 0.005477225575051659,
+          "max": 0.49041178462028484,
+          "n": 200
+        },
+        "misses": {
+          "min": 0.015171454797271066,
+          "median": 0.06825844612896553,
+          "max": 0.2720446295173433,
+          "n": 16
+        }
+      },
+      "magnification": {
+        "hits": {
+          "min": 1.0033895226601848,
+          "median": 2.9410898678925044,
+          "max": 1077.983975631662,
+          "n": 200
+        },
+        "misses": {
+          "min": 1.0116471881650662,
+          "median": 1.1227668643637443,
+          "max": 2.3638938893349932,
+          "n": 16
+        }
+      },
+      "distance_factor": {
+        "hits": {
+          "min": 3.0,
+          "median": 30.0,
+          "max": 30.0,
+          "n": 160
+        },
+        "misses": {
+          "min": 30.0,
+          "median": 30.0,
+          "max": 30.0,
+          "n": 6
+        }
+      },
+      "predicate": {
+        "rho_between": [
+          0.015171454797271066,
+          0.2720446295173433
+        ],
+        "magnification_between": [
+          1.0116471881650662,
+          2.3638938893349932
+        ],
+        "misses_caught": 16,
+        "hits_also_rejected": 63,
+        "hits_rejected_share": 0.315,
+        "rejected_median_milliseconds_per_epoch": 0.1522324989006544,
+        "route_median_milliseconds_per_epoch": 0.1410977298898312
+      },
+      "every_miss": [
+        {
+          "rho": 0.07400828044922851,
+          "magnification": 1.108527083670416,
+          "s": 0.6,
+          "q": 1e-05,
+          "distance_factor": NaN,
+          "error": 0.00015271358383950917,
+          "profile": "uniform"
+        },
+        {
+          "rho": 0.13989473678044423,
+          "magnification": 1.0392466276862031,
+          "s": 0.2648385230466818,
+          "q": 1.7228216757455783e-06,
+          "distance_factor": NaN,
+          "error": 0.00015122247019772248,
+          "profile": "uniform"
+        },
+        {
+          "rho": 0.07400828044922851,
+          "magnification": 1.1080142125923955,
+          "s": 0.9,
+          "q": 0.01,
+          "distance_factor": NaN,
+          "error": 0.00014828848467623082,
+          "profile": "uniform"
+        },
+        {
+          "rho": 0.06250861180870257,
+          "magnification": 1.1370066450570726,
+          "s": 0.6778973747945722,
+          "q": 0.00011613549354008831,
+          "distance_factor": 30.0,
+          "error": 0.00014163521004069323,
+          "profile": "uniform"
+        },
+        {
+          "rho": 0.07400828044922851,
+          "magnification": 1.108527083670416,
+          "s": 0.6,
+          "q": 1e-05,
+          "distance_factor": NaN,
+          "error": 0.0001404898041574403,
+          "profile": "linear"
+        },
+        {
+          "rho": 0.13989473678044423,
+          "magnification": 1.0392466276862031,
+          "s": 0.2648385230466818,
+          "q": 1.7228216757455783e-06,
+          "distance_factor": NaN,
+          "error": 0.00013910816121622444,
+          "profile": "linear"
+        },
+        {
+          "rho": 0.015171454797271066,
+          "magnification": 2.3638938893349932,
+          "s": 1.1401945296712697,
+          "q": 0.00016743153588227346,
+          "distance_factor": 30.0,
+          "error": 0.0001376626094083967,
+          "profile": "uniform"
+        },
+        {
+          "rho": 0.07400828044922851,
+          "magnification": 1.1080142125923955,
+          "s": 0.9,
+          "q": 0.01,
+          "distance_factor": NaN,
+          "error": 0.0001364189600863795,
+          "profile": "linear"
+        },
+        {
+          "rho": 0.2720446295173433,
+          "magnification": 1.0116471881650662,
+          "s": 1.2,
+          "q": 1.0,
+          "distance_factor": NaN,
+          "error": 0.00013438076918838722,
+          "profile": "uniform"
+        },
+        {
+          "rho": 0.05259139745574135,
+          "magnification": 1.1743066633439567,
+          "s": 0.4585892180146029,
+          "q": 0.00010389049790907328,
+          "distance_factor": NaN,
+          "error": 0.0001342077229364349,
+          "profile": "uniform"
+        },
+        {
+          "rho": 0.06250861180870257,
+          "magnification": 1.1370066450570726,
+          "s": 0.6778973747945722,
+          "q": 0.00011613549354008831,
+          "distance_factor": 30.0,
+          "error": 0.00013029952725205593,
+          "profile": "linear"
+        },
+        {
+          "rho": 0.015171454797271066,
+          "magnification": 2.3638938893349932,
+          "s": 1.1401945296712697,
+          "q": 0.00016743153588227346,
+          "distance_factor": 30.0,
+          "error": 0.0001266471094166548,
+          "profile": "linear"
+        },
+        {
+          "rho": 0.2720446295173433,
+          "magnification": 1.0116471881650662,
+          "s": 1.2,
+          "q": 1.0,
+          "distance_factor": NaN,
+          "error": 0.00012358376688964776,
+          "profile": "linear"
+        },
+        {
+          "rho": 0.05259139745574135,
+          "magnification": 1.1743066633439567,
+          "s": 0.4585892180146029,
+          "q": 0.00010389049790907328,
+          "distance_factor": NaN,
+          "error": 0.00012346739916101063,
+          "profile": "linear"
+        },
+        {
+          "rho": 0.0330640632878922,
+          "magnification": 1.3253263213540971,
+          "s": 1.1148125980414405,
+          "q": 0.011255901673516732,
+          "distance_factor": 30.0,
+          "error": 0.00011119823994059745,
+          "profile": "uniform"
+        },
+        {
+          "rho": 0.0330640632878922,
+          "magnification": 1.3253263213540971,
+          "s": 1.1148125980414405,
+          "q": 0.011255901673516732,
+          "distance_factor": 30.0,
+          "error": 0.00010230049021125617,
+          "profile": "linear"
+        }
+      ]
+    },
+    "source_plane_quadrature@0.01": {
+      "route": "source_plane_quadrature",
+      "target": 0.01,
+      "profile": null,
+      "chosen": 940,
+      "missed": 1,
+      "rho": {
+        "hits": {
+          "min": 2.9999999999999977e-05,
+          "median": 0.005477225575051659,
+          "max": 1.0,
+          "n": 939
+        },
+        "misses": {
+          "min": 3.817304925035743e-05,
+          "median": 3.817304925035743e-05,
+          "max": 3.817304925035743e-05,
+          "n": 1
+        }
+      },
+      "magnification": {
+        "hits": {
+          "min": 1.0053485248550373,
+          "median": 4.781577329039255,
+          "max": 27983.00843946579,
+          "n": 939
+        },
+        "misses": {
+          "min": 1415.8053648662064,
+          "median": 1415.8053648662064,
+          "max": 1415.8053648662064,
+          "n": 1
+        }
+      },
+      "distance_factor": {
+        "hits": {
+          "min": 0.8,
+          "median": 1.35,
+          "max": 10.0,
+          "n": 931
+        },
+        "misses": {
+          "min": 0.95,
+          "median": 0.95,
+          "max": 0.95,
+          "n": 1
+        }
+      },
+      "predicate": {
+        "rho_between": [
+          3.817304925035743e-05,
+          3.817304925035743e-05
+        ],
+        "magnification_between": [
+          1415.8053648662064,
+          1415.8053648662064
+        ],
+        "misses_caught": 1,
+        "hits_also_rejected": 0,
+        "hits_rejected_share": 0.0,
+        "rejected_median_milliseconds_per_epoch": null,
+        "route_median_milliseconds_per_epoch": 6.842655248571342
+      },
+      "every_miss": [
+        {
+          "rho": 3.817304925035743e-05,
+          "magnification": 1415.8053648662064,
+          "s": 3.3931720969553796,
+          "q": 0.0043102889938353125,
+          "distance_factor": 0.95,
+          "error": 0.01100293785556018,
+          "profile": "uniform"
+        }
+      ]
+    },
+    "source_plane_quadrature@0.001": {
+      "route": "source_plane_quadrature",
+      "target": 0.001,
+      "profile": null,
+      "chosen": 940,
+      "missed": 0
+    },
+    "source_plane_quadrature@0.0001": {
+      "route": "source_plane_quadrature",
+      "target": 0.0001,
+      "profile": null,
+      "chosen": 711,
+      "missed": 6,
+      "rho": {
+        "hits": {
+          "min": 2.9999999999999977e-05,
+          "median": 0.0037125747434785593,
+          "max": 1.0,
+          "n": 705
+        },
+        "misses": {
+          "min": 3.817304925035743e-05,
+          "median": 0.0004053600464421101,
+          "max": 0.020133555236025995,
+          "n": 6
+        }
+      },
+      "magnification": {
+        "hits": {
+          "min": 1.0053485248550373,
+          "median": 7.8253072558651375,
+          "max": 27983.00843946579,
+          "n": 705
+        },
+        "misses": {
+          "min": 39.84485054444424,
+          "median": 1290.3852539669472,
+          "max": 8769.897731808534,
+          "n": 6
+        }
+      },
+      "distance_factor": {
+        "hits": {
+          "min": 0.8,
+          "median": 1.35,
+          "max": 10.0,
+          "n": 701
+        },
+        "misses": {
+          "min": 0.95,
+          "median": 1.175,
+          "max": 1.7,
+          "n": 6
+        }
+      },
+      "predicate": {
+        "rho_between": [
+          3.817304925035743e-05,
+          0.020133555236025995
+        ],
+        "magnification_between": [
+          39.84485054444424,
+          8769.897731808534
+        ],
+        "misses_caught": 6,
+        "hits_also_rejected": 157,
+        "hits_rejected_share": 0.2226950354609929,
+        "rejected_median_milliseconds_per_epoch": 155.61653158268504,
+        "route_median_milliseconds_per_epoch": 85.49546441645361
+      },
+      "every_miss": [
+        {
+          "rho": 0.0004053600464421101,
+          "magnification": 1243.2376479353065,
+          "s": 1.2,
+          "q": 0.0001,
+          "distance_factor": 1.7,
+          "error": 0.0002619076494247009,
+          "profile": "uniform"
+        },
+        {
+          "rho": 0.020133555236025995,
+          "magnification": 39.84485054444424,
+          "s": 1.05,
+          "q": 1e-06,
+          "distance_factor": 1.35,
+          "error": 0.00020105716252012034,
+          "profile": "uniform"
+        },
+        {
+          "rho": 0.0004053600464421101,
+          "magnification": 1223.8833266513707,
+          "s": 1.2,
+          "q": 0.0001,
+          "distance_factor": 1.7,
+          "error": 0.00018618899951581517,
+          "profile": "linear"
+        },
+        {
+          "rho": 3.817304925035743e-05,
+          "magnification": 1337.5328599985878,
+          "s": 3.3931720969553796,
+          "q": 0.0043102889938353125,
+          "distance_factor": 0.95,
+          "error": 0.00014831473088424023,
+          "profile": "linear"
+        },
+        {
+          "rho": 0.0004053600464421101,
+          "magnification": 3079.421324674031,
+          "s": 1.2,
+          "q": 1e-06,
+          "distance_factor": 1.0,
+          "error": 0.00011576927439549703,
+          "profile": "linear"
+        },
+        {
+          "rho": 0.00015218003940733937,
+          "magnification": 8769.897731808534,
+          "s": 0.2568094904503828,
+          "q": 8.473559144195355e-05,
+          "distance_factor": 0.95,
+          "error": 0.0001022432171245544,
+          "profile": "uniform"
+        }
+      ]
+    }
+  }
+}
