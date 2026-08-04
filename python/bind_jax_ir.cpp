@@ -1273,12 +1273,31 @@ BinaryRootResult solve_binary_images(
     }
 
     // Polynomial ghost roots can polish onto an already found physical image.
-    // Conversely, distinct physical images really do coalesce at folds and
-    // cusps, so coordinate-distance deduplication cannot distinguish the two
-    // cases.  Use the binary-lens parity invariant as part of the root
-    // classification: a five-image solution has two positive- and three
-    // negative-parity images; a three-image solution has one and two.
+    // Distinct physical images really do coalesce at folds and cusps, so
+    // coordinate distance alone cannot distinguish the two cases -- but the
+    // images that merge at a fold or a cusp are always one positive- and one
+    // negative-parity image, so two *same-parity* candidates at the same place
+    // are never a physical degeneracy.  They are one image and a ghost that
+    // polished onto it.  That makes distance an exact test once it is applied
+    // per parity class, and it is applied in both places below, because either
+    // one alone leaves the other counting one image twice.
+    //
+    // The rest of the classification uses the binary-lens parity invariant: a
+    // five-image solution has two positive- and three negative-parity images;
+    // a three-image solution has one and two.
     const double physical_tolerance = 1.0e-8 * (1.0 + std::abs(source));
+    // Two polished roots this close are the same root.  The measured margin is
+    // wide: the ghosts land within 1e-15 of their host, and widening this to
+    // 1e-6 changes nothing over 3000 sampled positions, half of them crowded
+    // onto the central caustic where the five-image solutions live.
+    const double coincidence_tolerance = 1.0e-9;
+    const auto same_parity_coincidence =
+        [&](std::size_t first, std::size_t second, const auto& parities) {
+            return parities[first] == parities[second]
+                && std::abs(result.roots[first] - result.roots[second])
+                    <= coincidence_tolerance
+                        * (1.0 + std::abs(result.roots[first]));
+        };
     std::array<bool, binary_root_count> candidate{};
     std::array<int, binary_root_count> parity{};
     std::size_t candidate_count = 0;
@@ -1300,19 +1319,39 @@ BinaryRootResult solve_binary_images(
         negative_count += static_cast<int>(parity[index] < 0);
     }
 
+    // Two coincident ghosts can forge the five-image parity signature: a
+    // three-image solution whose faint negative and bright positive image each
+    // attracted one ghost presents as two positive and three negative
+    // candidates, and the count check alone accepts all five.
+    bool forged_five = false;
+    for (std::size_t first = 0; first < binary_root_count && !forged_five; ++first) {
+        if (!candidate[first]) continue;
+        for (std::size_t second = first + 1; second < binary_root_count; ++second) {
+            if (!candidate[second]) continue;
+            if (same_parity_coincidence(first, second, parity)) {
+                forged_five = true;
+                break;
+            }
+        }
+    }
+
     if (
         candidate_count == 5
         && positive_count == 2
-        && negative_count == 3) {
+        && negative_count == 3
+        && !forged_five) {
         result.physical = candidate;
         return result;
     }
 
     // Outside a caustic, choose the unique parity-compatible three-image
     // subset.  Residual selects the positive image.  For the two negative
-    // images, residual divided by their separation rejects two ghost
-    // candidates that polished onto the same physical root without imposing
-    // an absolute distance cutoff that would fail at a cusp.
+    // images, residual divided by their separation ranks the pairs, and a
+    // coincident pair is rejected outright: the ratio alone does not reject it,
+    // because two ghosts that polished onto the same image both reach residual
+    // exactly zero, and 1e-30 over the 1e-15 separation floor is then a finite
+    // score that beats the true pair's.  That is one image counted twice, and
+    // it was wrong on 5.7% of sampled point-source epochs, by up to 94%.
     std::size_t positive_index = binary_root_count;
     double positive_residual = std::numeric_limits<double>::infinity();
     for (std::size_t index = 0; index < binary_root_count; ++index) {
@@ -1331,6 +1370,7 @@ BinaryRootResult solve_binary_images(
         if (!candidate[first] || parity[first] >= 0) continue;
         for (std::size_t second = first + 1; second < binary_root_count; ++second) {
             if (!candidate[second] || parity[second] >= 0) continue;
+            if (same_parity_coincidence(first, second, parity)) continue;
             const double separation_between_roots = std::abs(
                 result.roots[first] - result.roots[second]);
             const double score =
