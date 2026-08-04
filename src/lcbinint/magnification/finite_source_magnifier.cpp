@@ -2,10 +2,12 @@
 #include "lcbinint/magnification/component_certificate.hpp"
 
 #include "lcbinint/magnification/point_source_magnifier.hpp"
+#include "lcbinint/magnification/probe_diagnostics.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -2148,8 +2150,20 @@ void append_valid_probe_image_seeds(
         return;
     }
 
+    // Every ring stage funnels through here, so this one point is where the
+    // pre-certificate seeding is charged; the certified ladder roots its own
+    // probes and is charged separately.
+    const bool stats = probe_stats_enabled();
+    const auto started = stats ? std::chrono::steady_clock::now()
+                               : std::chrono::steady_clock::time_point {};
     const auto probe_images =
         selected_point_images(point_magnifier, separation, mass_ratio, probe_source);
+    if (stats) {
+        auto& counters = probe_counters();
+        counters.ring_solves += 1;
+        counters.ring_seconds +=
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    }
     if (probe_images.size() <= 3) {
         return;
     }
@@ -2477,16 +2491,29 @@ bool append_certified_component_seeds(
     std::vector<SourcePosition>& seeds)
 {
     const double source_radius2 = source_radius * source_radius;
-    return resolve_certified_probes(support, [&](SourcePosition probe) {
+    const bool stats = probe_stats_enabled();
+    const bool proven = resolve_certified_probes(support, [&](SourcePosition probe) {
         if (distance_squared(probe, source) >= source_radius2 * (1.0 + 1.0e-10)) {
             return -1;
         }
+        const auto started = stats ? std::chrono::steady_clock::now()
+                                   : std::chrono::steady_clock::time_point {};
         const auto probe_images =
             selected_point_images(point_magnifier, separation, mass_ratio, probe);
+        if (stats) {
+            auto& counters = probe_counters();
+            counters.certified_solves += 1;
+            counters.certified_seconds += std::chrono::duration<double>(
+                std::chrono::steady_clock::now() - started).count();
+        }
         append_probe_images_as_seeds(
             mapper, source, source_radius, probe_images, seeds);
         return static_cast<int>(probe_images.size());
     });
+    if (stats && !proven) {
+        probe_counters().unproven += 1;
+    }
+    return proven;
 }
 
 std::vector<SourcePosition> augmented_image_seeds(
@@ -2525,67 +2552,79 @@ std::vector<SourcePosition> augmented_image_seeds(
         // Cache-driven seeding: one pass over the cached caustic polylines
         // replaces the per-epoch critical-curve phase scans (up to ~2800
         // quartic root solves) with pure distance queries, and gates the
-        // probe rings on the actual caustic geometry.  With the claimed-cell
-        // registry making the flood-fill area independent of the seed set,
-        // the exact probe points no longer have to match the historical
-        // phase-scan ones.
+        // probe rings on the actual caustic geometry.
+        //
+        // The claimed-cell registry does NOT make the filled area independent
+        // of the seed set, though it was once described that way here.  A seed
+        // whose |J| is below kFoldJacobianThreshold has its fill pinned to one
+        // side of the critical curve, and a pinned fill still claims every cell
+        // it counts, so whichever seed reaches a component first decides how
+        // much of it is ever counted.  Adding a seed can therefore lower the
+        // answer.  Which seeds exist, and in what order, is load-bearing.
         const auto scan = scan_caustic_branches(*caustic_branches, source, source_radius);
-        // First-crossing stage: probe inside vertices until one yields fold
-        // seeds.  first_contact_probes precede the transition vertices
-        // because the latter sit near the disk edge where probing is
-        // unreliable.
-        bool found_first_crossing = false;
-        for (const auto& probe : scan.first_contact_probes) {
-            const std::size_t before = seeds.size();
-            append_caustic_probe_image_seeds(
-                point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-                probe, seeds);
-            if (seeds.size() > before) {
-                found_first_crossing = true;
-                break;
-            }
-        }
-        std::size_t first_unprobed = 0;
-        for (; !found_first_crossing && first_unprobed < scan.crossing_probes.size();
-             ++first_unprobed) {
-            const std::size_t before = seeds.size();
-            append_caustic_probe_image_seeds(
-                point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-                scan.crossing_probes[first_unprobed], seeds);
-            if (seeds.size() > before) {
-                ++first_unprobed;
-                break;
-            }
-        }
-        if (scan.crossing_probes.empty() && scan.min_distance < source_radius) {
-            // Grazing contact: no sampled vertex inside the disk but a
-            // segment passes through it.
-            append_caustic_probe_image_seeds(
-                point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-                scan.nearest, seeds);
-        }
-        // Once fold seeds exist, cover the remaining crossings and (for large
-        // sources) the engulfed arcs.
-        if (seeds.size() >= 5) {
-            for (std::size_t i = first_unprobed; i < scan.crossing_probes.size(); ++i) {
-                append_caustic_probe_image_seeds(
-                    point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-                    scan.crossing_probes[i], seeds);
-            }
-            for (const auto& probe : scan.arc_probes) {
+        // The heuristic stages below are what the calibration harness ablates;
+        // by default every one of them runs, exactly as it always has.
+        const auto& policy = probe_policy();
+        if (policy.caustic_rings) {
+            // First-crossing stage: probe inside vertices until one yields fold
+            // seeds.  first_contact_probes precede the transition vertices
+            // because the latter sit near the disk edge where probing is
+            // unreliable.
+            bool found_first_crossing = false;
+            for (const auto& probe : scan.first_contact_probes) {
+                const std::size_t before = seeds.size();
                 append_caustic_probe_image_seeds(
                     point_magnifier, mapper, separation, mass_ratio, source, source_radius,
                     probe, seeds);
+                if (seeds.size() > before) {
+                    found_first_crossing = true;
+                    break;
+                }
+            }
+            std::size_t first_unprobed = 0;
+            for (; !found_first_crossing && first_unprobed < scan.crossing_probes.size();
+                 ++first_unprobed) {
+                const std::size_t before = seeds.size();
+                append_caustic_probe_image_seeds(
+                    point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                    scan.crossing_probes[first_unprobed], seeds);
+                if (seeds.size() > before) {
+                    ++first_unprobed;
+                    break;
+                }
+            }
+            if (scan.crossing_probes.empty() && scan.min_distance < source_radius) {
+                // Grazing contact: no sampled vertex inside the disk but a
+                // segment passes through it.
+                append_caustic_probe_image_seeds(
+                    point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                    scan.nearest, seeds);
+            }
+            // Once fold seeds exist, cover the remaining crossings and (for
+            // large sources) the engulfed arcs.
+            if (seeds.size() >= 5) {
+                for (std::size_t i = first_unprobed; i < scan.crossing_probes.size(); ++i) {
+                    append_caustic_probe_image_seeds(
+                        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                        scan.crossing_probes[i], seeds);
+                }
+                for (const auto& probe : scan.arc_probes) {
+                    append_caustic_probe_image_seeds(
+                        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+                        probe, seeds);
+                }
             }
         }
-        if (scan.min_distance < source_radius) {
+        if (policy.boundary_ring && scan.min_distance < source_radius) {
             append_boundary_probe_image_seeds(
                 point_magnifier, mapper, separation, mass_ratio, source, source_radius, seeds);
         }
-        if (scan.any_vertex_inside) {
-            append_interior_probe_image_seeds(
-                point_magnifier, mapper, separation, mass_ratio, source, source_radius, seeds);
-        }
+        // The interior rings (3 x 64 solves at 0.2/0.5/0.8 rho, for rho >= 0.02)
+        // used to run here.  Ablating them over 911 grid rows of the tangency
+        // corpus x nbin 16/50/128 reproduced every magnification bit for bit,
+        // for ~11% of the stage's root solves: the radii they sample are always
+        // reached by the boundary ring or the certified ladder first.  Kept in
+        // the uncached fallback below, which this measurement does not cover.
 
         // Completeness stage.  Every component of (disk \ caustic) owns a
         // local extremum of the distance to the disk centre along the caustic,

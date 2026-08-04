@@ -1,7 +1,10 @@
 #include "lcbinint/magnification/component_certificate.hpp"
 
+#include "lcbinint/magnification/probe_diagnostics.hpp"
+
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <limits>
@@ -51,6 +54,31 @@ double ray_exit_distance(
     return std::max(0.0, std::sqrt(discriminant) - projection);
 }
 
+// Charges the descriptor build to the calibration counters, whichever of the
+// function's several exits is taken.  Costs nothing when stats are off: the
+// clock is only read while `active`.
+struct CertifyTimer {
+    bool active = probe_stats_enabled();
+    std::chrono::steady_clock::time_point started =
+        active ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point {};
+    const DiskSupport& support;
+
+    explicit CertifyTimer(const DiskSupport& s) : support(s) {}
+
+    ~CertifyTimer()
+    {
+        if (!active) {
+            return;
+        }
+        auto& counters = probe_counters();
+        counters.certifications += 1;
+        counters.certified_extrema += static_cast<long long>(support.extrema.size());
+        counters.certified_offered += static_cast<long long>(support.probes.size());
+        counters.certify_seconds +=
+            std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
+    }
+};
+
 void mix(std::uint64_t& state, double value)
 {
     std::uint64_t bits = 0;
@@ -66,6 +94,7 @@ DiskSupport certify_disk_support(
     double source_radius)
 {
     DiskSupport support;
+    const CertifyTimer timer(support);
     if (!(source_radius > 0.0)) {
         return support;
     }
@@ -161,6 +190,14 @@ DiskSupport certify_disk_support(
     }
     support.extrema = std::move(merged);
 
+    // Which directions and how many offsets the ladder is allowed.  Both are
+    // the full set unless the calibration harness has narrowed them; see
+    // probe_diagnostics.hpp for why that knob exists and why it is not public.
+    const auto& policy = probe_policy();
+    const std::size_t offset_count = policy.offsets <= 0
+        ? kOffsetFractions.size()
+        : std::min(kOffsetFractions.size(), static_cast<std::size_t>(policy.offsets));
+
     for (std::size_t index = 0; index < support.extrema.size(); ++index) {
         const auto& extremum = support.extrema[index];
         const std::array<std::pair<ProbeDirection, SourcePosition>, kProbeDirections>
@@ -176,6 +213,11 @@ DiskSupport certify_disk_support(
                  {-extremum.tangent.x, -extremum.tangent.y}},
             }};
         for (const auto& [label, direction] : directions) {
+            const bool is_tangent = label == ProbeDirection::tangent_plus ||
+                                    label == ProbeDirection::tangent_minus;
+            if (is_tangent ? !policy.tangents : !policy.normals) {
+                continue;
+            }
             SourcePosition origin = extremum.position;
             if (!extremum.inside_disk) {
                 // The chord says the extremum is outside, but only by less
@@ -197,8 +239,8 @@ DiskSupport certify_disk_support(
             if (!(room > 0.0)) {
                 continue;
             }
-            for (const double fraction : kOffsetFractions) {
-                const double offset = fraction * room;
+            for (std::size_t step = 0; step < offset_count; ++step) {
+                const double offset = kOffsetFractions[step] * room;
                 SourcePosition probe {
                     origin.x + offset * direction.x,
                     origin.y + offset * direction.y,

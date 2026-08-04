@@ -68,6 +68,7 @@ add_library(lcbinint_magnification
     src/lcbinint/magnification/component_certificate.cpp
     src/lcbinint/magnification/finite_source_magnifier.cpp
     src/lcbinint/magnification/point_source_magnifier.cpp
+    src/lcbinint/magnification/probe_diagnostics.cpp
     src/lcbinint/math/polynomial_roots.cpp
     third_party/skowron_gould/SkowronGould.cpp)
 target_include_directories(lcbinint_magnification
