@@ -1,7 +1,6 @@
 #pragma once
 
 #include "lcbinint/model/triple_lens_geometry.hpp"
-#include "lcbinint/magnification/algebraic_boundary.hpp"
 #include "lcbinint/types.hpp"
 
 #include <cstddef>
@@ -192,26 +191,6 @@ public:
         double source_radius,
         double point_source_magnification,
         const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
-    // Isolated native experiment. It is deliberately not wired into binary_mag,
-    // the public C API, JAX, or automatic routing.
-    AlgebraicBoundaryResult experimental_algebraic_boundary_binary_mag(
-        double separation,
-        double mass_ratio,
-        SourcePosition source,
-        double source_radius,
-        const AlgebraicBoundarySettings& algebraic_settings = {}) const;
-    double experimental_raster_polar_binary_mag(
-        double separation,
-        double mass_ratio,
-        SourcePosition source,
-        double source_radius) const;
-    AlgebraicBoundaryResult experimental_algebraic_cartesian_binary_mag(
-        double separation,
-        double mass_ratio,
-        SourcePosition source,
-        double source_radius,
-        const AlgebraicBoundarySettings& algebraic_settings = {}) const;
-
 private:
     void ensure_binary_caustic_cache(
         double separation, double mass_ratio, double separation_tolerance = 0.0) const;

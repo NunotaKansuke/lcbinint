@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Choosing the replacement resolution rule, and reporting what it costs.
 
-The shipping selector is a linear model in seven geometric features, fitted in
-2026-07 when the grid density was what made the answer right.  The component
+The historical shipping selector was a linear model in seven geometric
+features, fitted in 2026-07 when the grid density was what made the answer
+right.  The component
 certificate changed that: correctness is now established per component and
 verified before the answer is returned, so resolution buys accuracy rather than
 validity.  This module asks what rule that leaves, and it is written to be able
 to answer "a much simpler one", because that is what the measurement says.
 
-Three candidates are compared on the same rows:
+Three historical candidates are compared on the same rows:
 
-* **shipping** -- today's rule, reimplemented in ``sweep_resolution`` and
-  evaluated against its own frozen ladder.
+* **shipping** -- the pre-recalibration rule, reimplemented in
+  ``sweep_resolution`` and evaluated against its own frozen ladder.
 * **constant** -- one bin count per target tolerance and grid, and nothing else.
 * **linear** -- constant plus a quantile regression on the same features the
   shipping rule uses, to test whether geometry still earns its place.

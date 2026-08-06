@@ -13,10 +13,15 @@ exactly what qualification. Those files remain the primary record for their own
 sections and carry detail this one omits; where they disagree with this file,
 this file is the later reading.
 
-**Nothing in this campaign has been applied to the runtime.** Every rule below
-is a measurement of what the corpus supports, not a description of what
-lcbinint currently does. `docs/finite-source-auto-calibration.md` remains the
-specification of the shipping rule and carries a status note to that effect.
+**This is the historical campaign record, not a statement that the current
+branch is unchanged.** The measurements and oracle tables below remain the
+evidence used to derive the policy. On `final-testing`, the native runtime now
+uses the one-shot table `Cartesian/polar = (16/50, 50/100, 200/200)` for
+`reltol = (1e-2, 1e-3, 1e-4)`, and switches to polar at `A_point >= 200`; the
+automatic Cartesian retry is fail-closed and the explicit fixed-grid
+half-resolution check is retained. The tangency fixes handle the grazing cases
+through source-plane chord quadrature before this grid switch. The historical
+campaign files below have not been overwritten by that branch.
 
 ---
 

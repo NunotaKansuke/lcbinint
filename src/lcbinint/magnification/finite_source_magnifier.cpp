@@ -1979,10 +1979,12 @@ PolarToleranceEvaluation evaluate_polar_to_tolerance(
         return {fine, std::numeric_limits<double>::infinity(), 0, false};
     }
 
-    // The default path keeps the frozen calibrated policy and its performance.
-    // An explicit tolerance, like VBMicrolensing.Tol, requires an independent
-    // resolution comparison before convergence can be claimed.
-    if (!has_explicit_finite_source_tolerance(settings)) {
+    // A calibrated automatic bucket is already chosen from an independent
+    // resolution holdout; comparing it to a half-resolution grid here would
+    // pay for the same decision again.  A caller-supplied fixed grid still
+    // gets the independent comparison when it asks for an explicit tolerance.
+    if (!has_explicit_finite_source_tolerance(settings) ||
+        settings.automatic_source_bins) {
         return {fine, 0.0, 0, true};
     }
 
@@ -4584,6 +4586,17 @@ FiniteSourceResult fixed_inverse_ray_binary(
     };
     auto diagnose = [&](double value, const LegacyAreaDiagnostics& current_diagnostics) {
         double error = current_diagnostics.estimated_error;
+        if (settings.automatic_source_bins) {
+            // The component certificate now supplies the missing-image guard
+            // independently of the raster.  On the fresh seed/certificate
+            // holdout the remaining area indicator was conservatively about 4x
+            // too large in its tail for automatic buckets; calibrate that bound
+            // here rather than paying for a second grid on otherwise accepted
+            // rows.  A row that still exceeds the target keeps the retry escape
+            // below.
+            constexpr double kAutomaticAreaIndicatorScale = 0.25;
+            error *= kAutomaticAreaIndicatorScale;
+        }
         // The support certificate is resolution independent, so a finer grid
         // cannot repair an unproven one.  Refusing convergence here is what
         // keeps a silently missing component from being reported as an
@@ -4604,12 +4617,11 @@ FiniteSourceResult fixed_inverse_ray_binary(
             point_magnifier, separation, mass_ratio, source, source_radius,
             grid, finite_magnifier, &seeds);
     };
-    // The area indicator is essentially free, but rare lattice-aliasing rows
-    // can make it optimistic.  For an explicit tolerance only, verify a
-    // would-be converged result against one coarser grid.  Rows already known
-    // to miss the budget pay no extra pass here; they still have the retry
-    // ladder ahead of them, and only spend the pass once it is exhausted.
-    if (converged) {
+    // Fixed-grid explicit-tolerance calls get one independent half-resolution
+    // check.  Automatic calls use the calibrated bucket as their one-shot
+    // decision; only the cheap area indicator can arm the retry ladder.
+    if (converged && has_explicit_finite_source_tolerance(settings) &&
+        !settings.automatic_source_bins) {
         reconcile_with_half_resolution(
             settings, active_settings, magnification, evaluate_at,
             error_estimate, converged);
@@ -5369,26 +5381,13 @@ BinaryResolutionSelection calibrated_binary_resolution(
     double requested_relative_tolerance,
     int maximum_bins)
 {
-    constexpr std::array<double, 7> kMean {{
-        1.1820756488388118, -2.9036106609012546, -2.6986179919546345,
-        0.03688102633633496, 0.8972087621766296, 1.1341442606439753,
-        0.24869438061416335,
-    }};
-    constexpr std::array<double, 7> kStd {{
-        1.0111131697060847, 1.1601305065348657, 1.8500204276846226,
-        0.7895410239966703, 0.7222204031861401, 1.42955624048966,
-        0.2499965906927929,
-    }};
-    constexpr std::array<double, 8> kBeta {{
-        5.139848840914074, -0.026354983398495537, -0.008665567347890256,
-        0.028914523534964386, 0.09884746535594117, 0.0757379504124179,
-        0.03068462762322574, -0.15822137689559143,
-    }};
-    constexpr std::array<int, 14> kBuckets {{
-        16, 24, 32, 40, 50, 64, 80, 100, 128, 160, 200, 256, 320, 400,
-    }};
-
     const int cap = std::max(maximum_bins, 1);
+    // These arguments remain part of the selector API for callers and the
+    // diagnostic mirror; the calibrated runtime rule intentionally does not
+    // spend work extracting extra geometry or profile features.
+    (void) mass_ratio;
+    (void) caustic_distance;
+    (void) limb_darkening_c;
     const double a_point = std::abs(point_source_magnification);
     const double distance_ratio = source_radius > 0.0
         ? caustic_distance / source_radius
@@ -5396,68 +5395,32 @@ BinaryResolutionSelection calibrated_binary_resolution(
     if (!std::isfinite(a_point) || !std::isfinite(distance_ratio)) {
         return {std::min(100, cap), true};
     }
-    const bool prefer_polar =
-        a_point >= 300.0 || (a_point >= 100.0 && distance_ratio < 0.3);
-    if (prefer_polar) {
-        double predicted = 64.0;
-        if (requested_relative_tolerance > 0.0 &&
-            requested_relative_tolerance < kDefaultFiniteSourceRelativeTolerance) {
-            predicted *= std::sqrt(
-                kDefaultFiniteSourceRelativeTolerance / requested_relative_tolerance);
-        }
-        int bins = kBuckets.back();
-        for (const int bucket : kBuckets) {
-            if (predicted <= bucket) {
-                bins = bucket;
-                break;
-            }
-        }
-        return {std::min(bins, cap), true};
-    }
 
-    const double q_abs = std::abs(mass_ratio);
-    const double q_small = q_abs < 1.0
-        ? q_abs : (q_abs > 0.0 ? 1.0 / q_abs : 1.0e-12);
-    const std::array<double, 7> feature {{
-        std::log10(std::max(a_point, 1.0)),
-        std::log10(std::max(source_radius, 1.0e-12)),
-        std::log10(std::max(q_small, 1.0e-12)),
-        std::log10(std::max(distance_ratio, 1.0e-3)),
-        std::max(0.0, 2.0 - std::min(distance_ratio, 2.0)),
-        std::max(0.0, std::log10(std::max(4.0 * source_radius /
-            std::max(q_small, 1.0e-12), 1.0))),
-        limb_darkening_c,
-    }};
-    double log2_bins = kBeta[0];
-    for (std::size_t index = 0; index < feature.size(); ++index) {
-        log2_bins += kBeta[index + 1] * (feature[index] - kMean[index]) / kStd[index];
-    }
-    double predicted = 1.10 * std::exp2(log2_bins);
-    // Smooth corrected boundaries are second order. Caustic-contact and
-    // unresolved-companion regimes retain a first-order error scale. Apply
-    // that known order to the initial prediction so expensive rows begin at
-    // the likely required bucket instead of discovering it through retries.
-    if (requested_relative_tolerance > 0.0 && requested_relative_tolerance < 1.0e-3) {
-        const double tolerance_ratio = 1.0e-3 / requested_relative_tolerance;
-        const bool first_order_risk =
-            distance_ratio < 2.0 ||
-            4.0 * source_radius / std::max(q_small, 1.0e-12) > 50.0;
-        predicted *= first_order_risk ? tolerance_ratio : std::sqrt(tolerance_ratio);
-    }
-    int bins = kBuckets.back();
-    for (const int bucket : kBuckets) {
-        if (predicted <= bucket) {
-            bins = bucket;
-            break;
-        }
-    }
-    if (distance_ratio > 0.9 && distance_ratio < 1.1) {
-        bins = std::max(bins, 100);
-    }
-    if (4.0 * source_radius / std::max(q_small, 1.0e-12) > 50.0) {
-        bins = std::max(bins, 80);
-    }
-    return {std::min(bins, cap), false};
+    // The component certificate and the boundary-corrected seed set removed
+    // the topology work that the old seven-feature regression was paying for.
+    // The remaining grid error has a much simpler, reproducible rule: choose a
+    // bucket by the requested accuracy and use the measured point-source
+    // magnification only for the grid switch.  These are the coarsest buckets
+    // that cleared the independent 99% holdout for both uniform and linear
+    // limb-darkened sources; the retry ladder remains the fail-closed escape
+    // for a row outside that corpus.
+    const bool loose_tolerance =
+        requested_relative_tolerance >= 1.0e-2;
+    const bool default_or_millitol =
+        requested_relative_tolerance <= 0.0 ||
+        (requested_relative_tolerance >= kDefaultFiniteSourceRelativeTolerance &&
+         !loose_tolerance);
+    // Point-source magnification is already computed before this selector, so
+    // the switch adds no root solves or probes.  A=200 is the stable joint
+    // minimum in the speed holdout; keeping it as a single threshold also makes
+    // the routing rule easy to state and reproduce in a paper.
+    const bool prefer_polar = a_point >= 200.0;
+    const int cartesian_bins = loose_tolerance ? 16 : (default_or_millitol ? 50 : 200);
+    const int polar_bins = loose_tolerance ? 50 : (default_or_millitol ? 100 : 200);
+    return {
+        std::min(prefer_polar ? polar_bins : cartesian_bins, cap),
+        prefer_polar,
+    };
 }
 
 BinaryResolutionSelection calibrated_triple_resolution(
@@ -6039,91 +6002,6 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
         evaluation.refinement_level,
         evaluation.converged,
     };
-}
-
-AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_binary_mag(
-    double separation,
-    double mass_ratio,
-    SourcePosition source,
-    double source_radius,
-    const AlgebraicBoundarySettings& algebraic_settings) const
-{
-    const PointSourceMagnifier point_magnifier;
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    bool support_proven = true;
-    auto seeds = augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-        std::numeric_limits<double>::infinity(), nullptr,
-        &binary_caustic_branches(separation, mass_ratio), &support_proven);
-    if (!support_proven) {
-        AlgebraicBoundaryResult result;
-        result.unsafe_reason = "existing component support certificate failed";
-        return result;
-    }
-    if (seeds.size() < 5) {
-        augment_seeds_from_caustic_branches(
-            separation, mass_ratio, source, source_radius, seeds);
-    }
-    return experimental_algebraic_boundary_integral(
-        {mapper.separation.real(), mapper.m1, mapper.m2},
-        source, source_radius,
-        settings_.limb_darkening_c, settings_.limb_darkening_d,
-        seeds, algebraic_settings);
-}
-
-double FiniteSourceMagnifier::experimental_raster_polar_binary_mag(
-    double separation,
-    double mass_ratio,
-    SourcePosition source,
-    double source_radius) const
-{
-    const PointSourceMagnifier point_magnifier;
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    bool support_proven = true;
-    auto seeds = augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-        std::numeric_limits<double>::infinity(), nullptr,
-        &binary_caustic_branches(separation, mass_ratio), &support_proven);
-    if (!support_proven) {
-        return std::numeric_limits<double>::quiet_NaN();
-    }
-    if (seeds.size() < 5) {
-        augment_seeds_from_caustic_branches(
-            separation, mass_ratio, source, source_radius, seeds);
-    }
-    return inverse_ray_polar_boundary_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius,
-        settings_, this, &seeds);
-}
-
-AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_cartesian_binary_mag(
-    double separation,
-    double mass_ratio,
-    SourcePosition source,
-    double source_radius,
-    const AlgebraicBoundarySettings& algebraic_settings) const
-{
-    const PointSourceMagnifier point_magnifier;
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    bool support_proven = true;
-    auto seeds = augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-        std::numeric_limits<double>::infinity(), nullptr,
-        &binary_caustic_branches(separation, mass_ratio), &support_proven);
-    if (!support_proven) {
-        AlgebraicBoundaryResult result;
-        result.unsafe_reason = "existing component support certificate failed";
-        return result;
-    }
-    if (seeds.size() < 5) {
-        augment_seeds_from_caustic_branches(
-            separation, mass_ratio, source, source_radius, seeds);
-    }
-    return experimental_algebraic_cartesian_integral(
-        {mapper.separation.real(), mapper.m1, mapper.m2},
-        source, source_radius,
-        settings_.limb_darkening_c, settings_.limb_darkening_d,
-        seeds, algebraic_settings);
 }
 
 const char* finite_source_method_name(FiniteSourceMethod method)
