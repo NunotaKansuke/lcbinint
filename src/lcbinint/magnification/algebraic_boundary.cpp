@@ -108,6 +108,36 @@ std::array<Complex, M + N - 1> convolve_fixed(
     return out;
 }
 
+std::array<Complex, 5> algebraic_boundary_quartic_fixed(
+    const AlgebraicBoundaryLens& lens,
+    SourcePosition source,
+    double source_radius,
+    double image_radius)
+{
+    const double a = lens.lens_position;
+    const double r = image_radius;
+    const Complex shifted_source(source.x + a * lens.m1, source.y);
+    const std::array<Complex, 3> numerator {
+        -shifted_source * (r * r),
+        r * (r * r - 1.0 + a * shifted_source),
+        a * (lens.m2 - r * r),
+    };
+    const std::array<Complex, 2> denominator {r * r, -a * r};
+    const std::array<Complex, 3> numerator_reverse {
+        std::conj(numerator[2]), std::conj(numerator[1]), std::conj(numerator[0]),
+    };
+    const std::array<Complex, 2> denominator_reverse {
+        std::conj(denominator[1]), std::conj(denominator[0]),
+    };
+    auto coefficients = convolve_fixed(numerator, numerator_reverse);
+    const auto denominator_product = convolve_fixed(denominator, denominator_reverse);
+    const double rho2 = source_radius * source_radius;
+    for (std::size_t i = 0; i < denominator_product.size(); ++i) {
+        coefficients[i + 1] -= rho2 * denominator_product[i];
+    }
+    return coefficients;
+}
+
 double circular_distance(double lhs, double rhs)
 {
     double delta = std::abs(lhs - rhs);
@@ -120,12 +150,358 @@ double wrap_angle(double angle)
     return angle < 0.0 ? angle + kTwoPi : angle;
 }
 
+double evaluate_real_polynomial(
+    const std::array<double, 5>& coefficients,
+    int degree,
+    double x)
+{
+    double value = coefficients[static_cast<std::size_t>(degree)];
+    for (int index = degree - 1; index >= 0; --index) {
+        value = value * x + coefficients[static_cast<std::size_t>(index)];
+    }
+    return value;
+}
+
+double evaluate_real_derivative(
+    const std::array<double, 5>& coefficients,
+    int degree,
+    double x)
+{
+    double value = degree * coefficients[static_cast<std::size_t>(degree)];
+    for (int index = degree - 1; index > 0; --index) {
+        value = value * x + index * coefficients[static_cast<std::size_t>(index)];
+    }
+    return value;
+}
+
+int real_quadratic_roots(double a, double b, double c, std::array<double, 3>* roots)
+{
+    const double scale = std::max({std::abs(a), std::abs(b), std::abs(c), 1.0});
+    if (std::abs(a) <= 8.0 * std::numeric_limits<double>::epsilon() * scale) {
+        if (std::abs(b) <= 8.0 * std::numeric_limits<double>::epsilon() * scale) return 0;
+        (*roots)[0] = -c / b;
+        return 1;
+    }
+    const double discriminant = b * b - 4.0 * a * c;
+    const double discriminant_scale = b * b + std::abs(4.0 * a * c) + 1.0;
+    if (discriminant < -32.0 * std::numeric_limits<double>::epsilon() *
+            discriminant_scale) {
+        return 0;
+    }
+    const double square_root = std::sqrt(std::max(0.0, discriminant));
+    const double q = -0.5 * (b + std::copysign(square_root, b));
+    if (q == 0.0) {
+        (*roots)[0] = -0.5 * b / a;
+        return 1;
+    }
+    (*roots)[0] = q / a;
+    (*roots)[1] = c / q;
+    if ((*roots)[1] < (*roots)[0]) std::swap((*roots)[0], (*roots)[1]);
+    const double duplicate_tolerance = 64.0 * std::numeric_limits<double>::epsilon() *
+        (1.0 + std::max(std::abs((*roots)[0]), std::abs((*roots)[1])));
+    return std::abs((*roots)[1] - (*roots)[0]) <= duplicate_tolerance ? 1 : 2;
+}
+
+int real_cubic_roots(double a, double b, double c, double d,
+                     std::array<double, 3>* roots)
+{
+    const double scale = std::max(
+        {std::abs(a), std::abs(b), std::abs(c), std::abs(d), 1.0});
+    if (std::abs(a) <= 8.0 * std::numeric_limits<double>::epsilon() * scale) {
+        return real_quadratic_roots(b, c, d, roots);
+    }
+    const double aa = b / a;
+    const double p = c / a - aa * aa / 3.0;
+    const double q = 2.0 * aa * aa * aa / 27.0 - aa * c / (3.0 * a) + d / a;
+    const double half_q = 0.5 * q;
+    const double third_p = p / 3.0;
+    const double discriminant = half_q * half_q + third_p * third_p * third_p;
+    const double tolerance = 128.0 * std::numeric_limits<double>::epsilon() *
+        (half_q * half_q + std::abs(third_p * third_p * third_p) + 1.0);
+    if (discriminant > tolerance) {
+        const double square_root = std::sqrt(discriminant);
+        (*roots)[0] = std::cbrt(-half_q + square_root) +
+            std::cbrt(-half_q - square_root) - aa / 3.0;
+        return 1;
+    }
+    if (std::abs(p) <= tolerance && std::abs(q) <= tolerance) {
+        (*roots)[0] = -aa / 3.0;
+        return 1;
+    }
+    if (p >= 0.0) {
+        (*roots)[0] = 2.0 * std::cbrt(-half_q) - aa / 3.0;
+        return 1;
+    }
+    const double radius = 2.0 * std::sqrt(-third_p);
+    const double cosine = std::clamp(
+        -half_q / std::sqrt(-(third_p * third_p * third_p)), -1.0, 1.0);
+    const double phase = std::acos(cosine);
+    for (int index = 0; index < 3; ++index) {
+        (*roots)[static_cast<std::size_t>(index)] =
+            radius * std::cos((phase + kTwoPi * index) / 3.0) - aa / 3.0;
+    }
+    std::sort(roots->begin(), roots->end());
+    return 3;
+}
+
+struct SelfInversiveTrigQuartic {
+    double a = 0.0;
+    double b = 0.0;
+    double c = 0.0;
+    double d = 0.0;
+    double e = 0.0;
+    double scale = 1.0;
+};
+
+template <typename Coefficients>
+bool self_inversive_trig_quartic(
+    const Coefficients& coefficients,
+    SelfInversiveTrigQuartic* result)
+{
+    if (coefficients.size() != 5) return false;
+    double coefficient_scale = 1.0;
+    for (const Complex coefficient : coefficients) {
+        coefficient_scale = std::max(coefficient_scale, std::abs(coefficient));
+    }
+    const double tolerance = 2.0e-12 * coefficient_scale;
+    if (std::abs(coefficients[0] - std::conj(coefficients[4])) > tolerance ||
+        std::abs(coefficients[1] - std::conj(coefficients[3])) > tolerance ||
+        std::abs(coefficients[2].imag()) > tolerance) {
+        return false;
+    }
+    result->a = coefficients[4].real();
+    result->b = coefficients[4].imag();
+    result->c = coefficients[3].real();
+    result->d = coefficients[3].imag();
+    result->e = coefficients[2].real();
+    result->scale = coefficient_scale;
+    return true;
+}
+
+std::array<double, 3> evaluate_trig_quartic(
+    const SelfInversiveTrigQuartic& q,
+    double theta)
+{
+    const double cosine = std::cos(theta);
+    const double sine = std::sin(theta);
+    const double cosine2 = cosine * cosine - sine * sine;
+    const double sine2 = 2.0 * sine * cosine;
+    return {{
+        q.e + 2.0 * (q.c * cosine - q.d * sine) +
+            2.0 * (q.a * cosine2 - q.b * sine2),
+        2.0 * (-q.c * sine - q.d * cosine) +
+            4.0 * (-q.a * sine2 - q.b * cosine2),
+        2.0 * (-q.c * cosine + q.d * sine) +
+            8.0 * (-q.a * cosine2 + q.b * sine2),
+    }};
+}
+
+template <typename Coefficients>
+bool self_inversive_unit_roots(
+    const Coefficients& complex_coefficients,
+    std::vector<Complex>* roots)
+{
+    SelfInversiveTrigQuartic trig;
+    if (!self_inversive_trig_quartic(complex_coefficients, &trig)) return false;
+    const double a = trig.a;
+    const double b = trig.b;
+    const double c = trig.c;
+    const double d = trig.d;
+    const double e = trig.e;
+    std::array<double, 5> coefficients {{
+        e + 2.0 * c + 2.0 * a,
+        -4.0 * d - 8.0 * b,
+        2.0 * e - 12.0 * a,
+        -4.0 * d + 8.0 * b,
+        e - 2.0 * c + 2.0 * a,
+    }};
+    double scale = 1.0;
+    for (double coefficient : coefficients) scale = std::max(scale, std::abs(coefficient));
+    int degree = 4;
+    const double degree_tolerance = 64.0 * std::numeric_limits<double>::epsilon() * scale;
+    const bool root_at_infinity = std::abs(coefficients[4]) <= degree_tolerance;
+    while (degree > 0 && std::abs(coefficients[static_cast<std::size_t>(degree)]) <=
+            degree_tolerance) {
+        --degree;
+    }
+    if (degree == 0) return false;
+
+    std::array<double, 3> critical_points {};
+    int critical_count = 0;
+    if (degree == 4) {
+        critical_count = real_cubic_roots(
+            4.0 * coefficients[4], 3.0 * coefficients[3],
+            2.0 * coefficients[2], coefficients[1], &critical_points);
+    } else if (degree == 3) {
+        critical_count = real_quadratic_roots(
+            3.0 * coefficients[3], 2.0 * coefficients[2],
+            coefficients[1], &critical_points);
+    } else if (degree == 2) {
+        if (coefficients[2] != 0.0) {
+            critical_points[0] = -coefficients[1] / (2.0 * coefficients[2]);
+            critical_count = 1;
+        }
+    }
+    std::sort(critical_points.begin(), critical_points.begin() + critical_count);
+    const double leading = std::abs(coefficients[static_cast<std::size_t>(degree)]);
+    double bound = 1.0;
+    for (int index = 0; index < degree; ++index) {
+        bound = std::max(bound, 1.0 +
+            std::abs(coefficients[static_cast<std::size_t>(index)]) / leading);
+    }
+    if (!std::isfinite(bound) || bound > 1.0e14) return false;
+
+    std::array<double, 5> partition {};
+    int partition_count = 0;
+    partition[partition_count++] = -bound;
+    for (int index = 0; index < critical_count; ++index) {
+        if (critical_points[static_cast<std::size_t>(index)] > -bound &&
+            critical_points[static_cast<std::size_t>(index)] < bound) {
+            partition[partition_count++] = critical_points[static_cast<std::size_t>(index)];
+        }
+    }
+    partition[partition_count++] = bound;
+
+    std::array<double, 4> real_roots {};
+    int root_count = 0;
+    const auto append_root = [&](double value) {
+        const double tolerance = 2.0e-11 * (1.0 + std::abs(value));
+        if (root_count > 0 && std::abs(real_roots[static_cast<std::size_t>(root_count - 1)] -
+                value) <= tolerance) {
+            return;
+        }
+        if (root_count < 4) real_roots[static_cast<std::size_t>(root_count++)] = value;
+    };
+    for (int index = 1; index + 1 < partition_count; ++index) {
+        const double x = partition[static_cast<std::size_t>(index)];
+        const double value = evaluate_real_polynomial(coefficients, degree, x);
+        double value_scale = 1.0;
+        double power = 1.0;
+        for (int coefficient_index = 0; coefficient_index <= degree; ++coefficient_index) {
+            value_scale += std::abs(coefficients[static_cast<std::size_t>(coefficient_index)]) *
+                power;
+            power *= std::abs(x);
+        }
+        if (std::abs(value) <= 2.0e-12 * value_scale) {
+            append_root(x);
+            append_root(x + 8.0e-12 * (1.0 + std::abs(x)));
+        }
+    }
+    for (int interval = 0; interval + 1 < partition_count; ++interval) {
+        double lower = partition[static_cast<std::size_t>(interval)];
+        double upper = partition[static_cast<std::size_t>(interval + 1)];
+        double lower_value = evaluate_real_polynomial(coefficients, degree, lower);
+        double upper_value = evaluate_real_polynomial(coefficients, degree, upper);
+        if (!std::isfinite(lower_value) || !std::isfinite(upper_value)) return false;
+        if (std::signbit(lower_value) == std::signbit(upper_value) ||
+            lower_value == 0.0 || upper_value == 0.0) {
+            continue;
+        }
+        double x = lower - lower_value * (upper - lower) / (upper_value - lower_value);
+        if (!(x > lower && x < upper) || !std::isfinite(x)) x = 0.5 * (lower + upper);
+        double root = x;
+        for (int iteration = 0; iteration < 40; ++iteration) {
+            const double value = evaluate_real_polynomial(coefficients, degree, x);
+            double value_scale = 1.0;
+            double power = 1.0;
+            for (int coefficient_index = 0; coefficient_index <= degree;
+                 ++coefficient_index) {
+                value_scale += std::abs(
+                    coefficients[static_cast<std::size_t>(coefficient_index)]) * power;
+                power *= std::abs(x);
+            }
+            if (std::abs(value) <= 8.0 * std::numeric_limits<double>::epsilon() *
+                    value_scale) {
+                root = x;
+                break;
+            }
+            if (std::signbit(value) == std::signbit(lower_value)) {
+                lower = x;
+                lower_value = value;
+            } else {
+                upper = x;
+                upper_value = value;
+            }
+            if (upper - lower <= 4.0e-14 * (1.0 + std::abs(x))) {
+                root = 0.5 * (lower + upper);
+                break;
+            }
+            const double derivative = evaluate_real_derivative(coefficients, degree, x);
+            double candidate = derivative != 0.0 ? x - value / derivative
+                                                 : 0.5 * (lower + upper);
+            if (!(candidate > lower && candidate < upper) || !std::isfinite(candidate)) {
+                candidate = 0.5 * (lower + upper);
+            }
+            x = candidate;
+            root = x;
+        }
+        append_root(root);
+    }
+    if (root_at_infinity && root_count < 4) {
+        roots->emplace_back(-1.0, 0.0);
+    }
+    for (int index = 0; index < root_count; ++index) {
+        double t = real_roots[static_cast<std::size_t>(index)];
+        for (int polish = 0; polish < 4; ++polish) {
+            const double value = evaluate_real_polynomial(coefficients, degree, t);
+            const double derivative = evaluate_real_derivative(coefficients, degree, t);
+            if (derivative == 0.0 || !std::isfinite(derivative)) break;
+            const double correction = value / derivative;
+            t -= correction;
+            if (!std::isfinite(t) || std::abs(correction) <=
+                    8.0 * std::numeric_limits<double>::epsilon() *
+                        (1.0 + std::abs(t))) {
+                break;
+            }
+        }
+        double cosine;
+        double sine;
+        if (std::abs(t) <= 1.0) {
+            const double denominator = 1.0 + t * t;
+            cosine = (1.0 - t * t) / denominator;
+            sine = 2.0 * t / denominator;
+        } else {
+            const double inverse = 1.0 / t;
+            const double denominator = 1.0 + inverse * inverse;
+            cosine = (inverse * inverse - 1.0) / denominator;
+            sine = 2.0 * inverse / denominator;
+        }
+        roots->emplace_back(cosine, sine);
+    }
+    if (roots->size() > 4 || (roots->size() % 2) != 0) return false;
+    for (const Complex root : *roots) {
+        double residual_scale = 1.0;
+        double power = 1.0;
+        for (const Complex coefficient : complex_coefficients) {
+            residual_scale += std::abs(coefficient) * power;
+            power *= std::abs(root);
+        }
+        Complex residual = complex_coefficients.back();
+        for (int index = static_cast<int>(complex_coefficients.size()) - 2;
+             index >= 0; --index) {
+            residual = residual * root +
+                complex_coefficients[static_cast<std::size_t>(index)];
+        }
+        if (std::abs(residual) > 2.0e-13 * residual_scale) {
+            roots->clear();
+            return false;
+        }
+    }
+    return true;
+}
+
 struct GaussKronrod15Rule {
     std::array<double, 15> nodes;
     std::array<double, 15> kronrod_weights;
     // Zero at Kronrod-only nodes, allowing both estimates to be accumulated
     // in one pass without a lookup or a second integrand evaluation.
     std::array<double, 15> gauss_weights;
+};
+
+struct GaussKronrod21Rule {
+    std::array<double, 21> nodes;
+    std::array<double, 21> kronrod_weights;
+    std::array<double, 21> gauss_weights;
 };
 
 const GaussKronrod15Rule& gauss_kronrod15()
@@ -157,6 +533,48 @@ const GaussKronrod15Rule& gauss_kronrod15()
         0.0, 0.2797053914892766,
         0.0, 0.1294849661688697,
         0.0,
+    }};
+    return rule;
+}
+
+const GaussKronrod21Rule& gauss_kronrod21()
+{
+    static const GaussKronrod21Rule rule {{
+        -0.9956571630258081, -0.9739065285171717,
+        -0.9301574913557082, -0.8650633666889845,
+        -0.7808177265864169, -0.6794095682990244,
+        -0.5627571346686047, -0.4333953941292472,
+        -0.2943928627014602, -0.1488743389816312,
+         0.0,
+         0.1488743389816312,  0.2943928627014602,
+         0.4333953941292472,  0.5627571346686047,
+         0.6794095682990244,  0.7808177265864169,
+         0.8650633666889845,  0.9301574913557082,
+         0.9739065285171717,  0.9956571630258081,
+    }, {
+        0.01169463886737187, 0.03255816230796473,
+        0.05475589657435199, 0.07503967481091995,
+        0.09312545458369761, 0.1093871588022976,
+        0.1234919762620659,  0.1347092173114733,
+        0.1427759385770601,  0.1477391049013385,
+        0.1494455540029169,
+        0.1477391049013385,  0.1427759385770601,
+        0.1347092173114733,  0.1234919762620659,
+        0.1093871588022976,  0.09312545458369761,
+        0.07503967481091995, 0.05475589657435199,
+        0.03255816230796473, 0.01169463886737187,
+    }, {
+        0.0, 0.06667134430868814,
+        0.0, 0.1494513491505806,
+        0.0, 0.2190863625159820,
+        0.0, 0.2692667193099964,
+        0.0, 0.2955242247147529,
+        0.0,
+        0.2955242247147529, 0.0,
+        0.2692667193099964, 0.0,
+        0.2190863625159820, 0.0,
+        0.1494513491505806, 0.0,
+        0.06667134430868814, 0.0,
     }};
     return rule;
 }
@@ -202,13 +620,14 @@ struct NestedMoments {
     Moments kronrod;
 };
 
+template <typename Rule>
 NestedMoments angular_moments_rule(
     const AlgebraicBoundaryLens& lens,
     SourcePosition source,
     double source_radius,
     double radius,
     const std::vector<std::pair<double, double>>& intervals,
-    const GaussKronrod15Rule& rule,
+    const Rule& rule,
     bool need_half,
     bool need_quarter,
     AlgebraicBoundaryDiagnostics* diagnostics)
@@ -328,12 +747,14 @@ IntegrandEvaluation evaluate_radial_integrand(
     } else {
         const auto nested = angular_moments_rule(
             lens, source, source_radius, radius, intervals.inside_intervals,
-            gauss_kronrod15(), c != 0.0, d != 0.0, diagnostics);
-        const auto high = angular_moments_high_rule(
-            lens, source, source_radius, radius, intervals.inside_intervals,
-            16, c != 0.0, d != 0.0, diagnostics);
-        result = {true, high,
-            std::abs(combined_flux(high - nested.kronrod, c, d)), {}};
+            gauss_kronrod21(), c != 0.0, d != 0.0, diagnostics);
+        // The embedded 10/21 pair already evaluates both estimates at the same
+        // nodes.  A separate 16-point Legendre pass duplicated every angular
+        // map evaluation and provided no nested error information.  Use the
+        // Kronrod member as the value and its embedded Gauss difference as the
+        // angular error, which is precisely what this rule is designed for.
+        result = {true, nested.kronrod,
+            std::abs(combined_flux(nested.kronrod - nested.gauss, c, d)), {}};
     }
     if (active_integrand_cache != nullptr) {
         active_integrand_cache->emplace(radius, result);
@@ -361,6 +782,90 @@ bool radius_has_image(
     return !result.inside_intervals.empty();
 }
 
+bool solve_radial_tangency(
+    const AlgebraicBoundaryLens& lens,
+    SourcePosition source,
+    double source_radius,
+    double bracket_lower,
+    double bracket_upper,
+    double initial_radius,
+    double initial_angle,
+    double* endpoint)
+{
+    double radius = std::clamp(initial_radius, bracket_lower, bracket_upper);
+    double angle = initial_angle;
+    for (int iteration = 0; iteration < 12; ++iteration) {
+        SelfInversiveTrigQuartic q;
+        if (!self_inversive_trig_quartic(
+                algebraic_boundary_quartic_fixed(
+                    lens, source, source_radius, radius), &q)) {
+            return false;
+        }
+        const auto value = evaluate_trig_quartic(q, angle);
+        const double step = std::max(
+            2.0e-7 * (1.0 + std::abs(radius)),
+            1.0e-5 * (bracket_upper - bracket_lower));
+        const double radius_minus = std::max(0.0, radius - step);
+        const double radius_plus = radius + step;
+        SelfInversiveTrigQuartic q_minus;
+        SelfInversiveTrigQuartic q_plus;
+        if (!self_inversive_trig_quartic(
+                algebraic_boundary_quartic_fixed(
+                    lens, source, source_radius, radius_minus), &q_minus) ||
+            !self_inversive_trig_quartic(
+                algebraic_boundary_quartic_fixed(
+                    lens, source, source_radius, radius_plus), &q_plus)) {
+            return false;
+        }
+        const auto minus = evaluate_trig_quartic(q_minus, angle);
+        const auto plus = evaluate_trig_quartic(q_plus, angle);
+        const double inverse_span = 1.0 / (radius_plus - radius_minus);
+        const double radial_derivative = (plus[0] - minus[0]) * inverse_span;
+        const double mixed_derivative = (plus[1] - minus[1]) * inverse_span;
+        const double determinant =
+            radial_derivative * value[2] - value[1] * mixed_derivative;
+        const double determinant_scale =
+            std::abs(radial_derivative * value[2]) +
+            std::abs(value[1] * mixed_derivative) + q.scale;
+        if (!std::isfinite(determinant) ||
+            std::abs(determinant) <= 1.0e-14 * determinant_scale) {
+            return false;
+        }
+        double radius_correction =
+            (value[1] * value[1] - value[0] * value[2]) / determinant;
+        double angle_correction =
+            (mixed_derivative * value[0] - radial_derivative * value[1]) /
+            determinant;
+        const double maximum_radius_step = 0.45 * (bracket_upper - bracket_lower);
+        radius_correction = std::clamp(
+            radius_correction, -maximum_radius_step, maximum_radius_step);
+        angle_correction = std::clamp(angle_correction, -0.75, 0.75);
+        radius += radius_correction;
+        angle += angle_correction;
+        if (!(radius > bracket_lower && radius < bracket_upper) ||
+            !std::isfinite(radius) || !std::isfinite(angle)) {
+            return false;
+        }
+        if (std::abs(radius_correction) <=
+                2.0e-12 * (1.0 + std::abs(radius)) &&
+            std::abs(angle_correction) <= 2.0e-11) {
+            SelfInversiveTrigQuartic final_q;
+            if (!self_inversive_trig_quartic(
+                    algebraic_boundary_quartic_fixed(
+                        lens, source, source_radius, radius), &final_q)) {
+                return false;
+            }
+            const auto final_value = evaluate_trig_quartic(final_q, angle);
+            if (std::abs(final_value[0]) <= 2.0e-9 * final_q.scale &&
+                std::abs(final_value[1]) <= 2.0e-8 * final_q.scale) {
+                *endpoint = radius;
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 struct BandSearchResult {
     bool success = false;
     std::vector<std::pair<double, double>> bands;
@@ -382,6 +887,7 @@ BandSearchResult find_radial_bands(
     // experimental tolerance; thirty spent almost half the root solves on
     // sub-picometre endpoint locations that quadrature cannot use.
     constexpr int bisection_iterations = 16;
+    constexpr int tangency_prefilter_iterations = 3;
     for (const auto& seed : seeds) {
         const double seed_radius = std::hypot(seed.x, seed.y);
         if (std::any_of(bands.begin(), bands.end(), [&](const auto& band) {
@@ -457,9 +963,81 @@ BandSearchResult find_radial_bands(
             // tangency.  A sub-nanometric image-radius bracket is already far
             // below the quadrature error and keeps the endpoint classifier on
             // the simple-root side of the event.
-            for (int iteration = 0; iteration < bisection_iterations; ++iteration) {
+            int completed_bisections = 0;
+            for (; completed_bisections < tangency_prefilter_iterations;
+                 ++completed_bisections) {
                 const double mid = 0.5 * (lo + hi);
                 reason.clear();
+                const bool inside = radius_has_image(
+                    lens, source, source_radius, mid, settings, diagnostics, &reason);
+                if (!reason.empty()) {
+                    return false;
+                }
+                if (direction < 0) {
+                    if (inside) hi = mid; else lo = mid;
+                } else {
+                    if (inside) lo = mid; else hi = mid;
+                }
+            }
+
+            // At a radial support endpoint two angular roots coalesce, so the
+            // endpoint is the simultaneous solution F(R, theta)=F_theta=0.
+            // A few boolean halvings give Newton the correct component; the
+            // algebraic tangency then replaces the remaining thirteen quartic
+            // solves.  Classification on both sides makes this only an
+            // acceleration: any ambiguous solve falls back to the original
+            // certified bisection path.
+            const double active_radius = direction < 0 ? hi : lo;
+            const double outside_radius = direction < 0 ? lo : hi;
+            const auto active_intervals = algebraic_boundary_intervals_at_radius(
+                lens, source, source_radius, active_radius, settings, diagnostics);
+            if (!active_intervals.success) {
+                reason = active_intervals.unsafe_reason;
+                return false;
+            }
+            bool have_candidate = false;
+            double selected_candidate = direction < 0 ? hi : lo;
+            for (const auto& interval : active_intervals.inside_intervals) {
+                double candidate = 0.0;
+                if (!solve_radial_tangency(
+                        lens, source, source_radius, lo, hi, active_radius,
+                        0.5 * (interval.first + interval.second), &candidate)) {
+                    continue;
+                }
+                if (!have_candidate ||
+                    (direction < 0 ? candidate < selected_candidate
+                                   : candidate > selected_candidate)) {
+                    selected_candidate = candidate;
+                    have_candidate = true;
+                }
+            }
+            if (have_candidate) {
+                reason.clear();
+                const bool active_side = radius_has_image(
+                    lens, source, source_radius,
+                    0.5 * (selected_candidate + active_radius), settings,
+                    diagnostics, &reason);
+                if (reason.empty()) {
+                    const bool outside_side = radius_has_image(
+                        lens, source, source_radius,
+                        0.5 * (selected_candidate + outside_radius), settings,
+                        diagnostics, &reason);
+                    if (reason.empty() && active_side && !outside_side) {
+                        if (diagnostics != nullptr) {
+                            ++diagnostics->tangency_solve_count;
+                        }
+                        *endpoint = selected_candidate;
+                        return true;
+                    }
+                }
+            }
+            if (diagnostics != nullptr) {
+                ++diagnostics->tangency_fallback_count;
+            }
+            reason.clear();
+            for (; completed_bisections < bisection_iterations;
+                 ++completed_bisections) {
+                const double mid = 0.5 * (lo + hi);
                 const bool inside = radius_has_image(
                     lens, source, source_radius, mid, settings, diagnostics, &reason);
                 if (!reason.empty()) {
@@ -796,32 +1374,8 @@ std::vector<Complex> algebraic_boundary_quartic(
     double source_radius,
     double image_radius)
 {
-    const double a = lens.lens_position;
-    const double r = image_radius;
-    const Complex shifted_source(source.x + a * lens.m1, source.y);
-
-    // (zeta-source) = A(u)/D(u), z=R*u, |u|=1.
-    const std::array<Complex, 3> numerator {
-        -shifted_source * (r * r),
-        r * (r * r - 1.0 + a * shifted_source),
-        a * (lens.m2 - r * r),
-    };
-    const std::array<Complex, 2> denominator {
-        r * r,
-        -a * r,
-    };
-    const std::array<Complex, 3> numerator_reverse {
-        std::conj(numerator[2]), std::conj(numerator[1]), std::conj(numerator[0]),
-    };
-    const std::array<Complex, 2> denominator_reverse {
-        std::conj(denominator[1]), std::conj(denominator[0]),
-    };
-    auto coefficients = convolve_fixed(numerator, numerator_reverse);
-    const auto denominator_product = convolve_fixed(denominator, denominator_reverse);
-    const double rho2 = source_radius * source_radius;
-    for (std::size_t i = 0; i < denominator_product.size(); ++i) {
-        coefficients[i + 1] -= rho2 * denominator_product[i];
-    }
+    const auto coefficients = algebraic_boundary_quartic_fixed(
+        lens, source, source_radius, image_radius);
     return {coefficients.begin(), coefficients.end()};
 }
 
@@ -841,7 +1395,7 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
         // At R=0 the angular parameterisation collapses to one point.
         return {false, false, "fixed-radius circle crosses a lens pole", {}, {}};
     }
-    auto coefficients = algebraic_boundary_quartic(
+    const auto coefficients = algebraic_boundary_quartic_fixed(
         lens, source, source_radius, image_radius);
     for (const auto coefficient : coefficients) {
         if (!finite_complex(coefficient)) {
@@ -851,58 +1405,89 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
     if (diagnostics != nullptr) {
         ++diagnostics->root_solve_count;
     }
-    const auto solved = solve_boundary_polynomial(
-        coefficients, image_radius, diagnostics);
-    if (solved.status != math::RootSolverStatus::ok) {
-        return {false, false, "quartic root solve failed", {}, {}};
+    std::vector<Complex> physical_roots;
+    physical_roots.reserve(4);
+    const bool used_real_quartic =
+        self_inversive_unit_roots(coefficients, &physical_roots);
+    if (used_real_quartic) {
+        if (diagnostics != nullptr) ++diagnostics->real_quartic_solve_count;
+    } else {
+        if (diagnostics != nullptr) ++diagnostics->real_quartic_fallback_count;
+        const std::vector<Complex> dynamic_coefficients(
+            coefficients.begin(), coefficients.end());
+        const auto solved = solve_boundary_polynomial(
+            dynamic_coefficients, image_radius, diagnostics);
+        if (solved.status != math::RootSolverStatus::ok) {
+            return {false, false, "quartic root solve failed", {}, {}};
+        }
+        physical_roots = solved.roots;
     }
 
-    std::vector<double> angles;
-    angles.reserve(4);
-    for (const auto root : solved.roots) {
-        if (!finite_complex(root)) {
-            if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
-            continue;
+    const auto extract_angles = [&](const std::vector<Complex>& roots) {
+        std::vector<double> angles;
+        angles.reserve(4);
+        for (const auto root : roots) {
+            if (!finite_complex(root)) {
+                if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
+                continue;
+            }
+            const double modulus = std::abs(root);
+            if (std::abs(modulus - 1.0) > settings.unit_circle_tolerance) continue;
+            if (!(modulus > 0.0)) {
+                if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
+                continue;
+            }
+            const Complex projected = root / modulus;
+            const double angle = wrap_angle(std::arg(projected));
+            const double phi = phi_value(
+                lens, source, source_radius, image_radius, angle, diagnostics);
+            const double residual = std::abs(phi) * source_radius;
+            if (!std::isfinite(residual) || residual >
+                    settings.boundary_residual_tolerance * (1.0 + source_radius)) {
+                if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
+                continue;
+            }
+            angles.push_back(angle);
         }
-        const double modulus = std::abs(root);
-        if (std::abs(modulus - 1.0) > settings.unit_circle_tolerance) {
-            continue;
+        std::sort(angles.begin(), angles.end());
+        std::vector<double> unique;
+        unique.reserve(angles.size());
+        constexpr double duplicate_tolerance = 1.0e-10;
+        for (const double angle : angles) {
+            if (!unique.empty() &&
+                circular_distance(angle, unique.back()) < duplicate_tolerance) {
+                if (diagnostics != nullptr) ++diagnostics->tangent_root_count;
+                unique.pop_back();
+                continue;
+            }
+            unique.push_back(angle);
         }
-        if (!(modulus > 0.0)) {
-            if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
-            continue;
-        }
-        const Complex projected = root / modulus;
-        const double angle = wrap_angle(std::arg(projected));
-        const double phi = phi_value(
-            lens, source, source_radius, image_radius, angle, diagnostics);
-        const double residual = std::abs(phi) * source_radius;
-        if (!std::isfinite(residual) ||
-            residual > settings.boundary_residual_tolerance * (1.0 + source_radius)) {
-            if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
-            continue;
-        }
-        angles.push_back(angle);
-    }
-    std::sort(angles.begin(), angles.end());
-    std::vector<double> unique;
-    unique.reserve(angles.size());
-    constexpr double duplicate_tolerance = 1.0e-10;
-    for (const double angle : angles) {
-        if (!unique.empty() && circular_distance(angle, unique.back()) < duplicate_tolerance) {
+        if (unique.size() > 1 &&
+            circular_distance(unique.front(), unique.back()) < duplicate_tolerance) {
             if (diagnostics != nullptr) ++diagnostics->tangent_root_count;
-            // A double tangency touches the boundary without changing sign.
-            // Cancel the pair.  Near-tangent simple roots farther apart than
-            // this tolerance remain two endpoints and retain their thin arc.
+            unique.erase(unique.begin());
             unique.pop_back();
-            continue;
         }
-        unique.push_back(angle);
-    }
-    if (unique.size() > 1 && circular_distance(unique.front(), unique.back()) < duplicate_tolerance) {
-        if (diagnostics != nullptr) ++diagnostics->tangent_root_count;
-        unique.erase(unique.begin());
-        unique.pop_back();
+        return unique;
+    };
+    std::vector<double> unique = extract_angles(physical_roots);
+    if ((unique.size() % 2) != 0 && used_real_quartic) {
+        // Polynomial residual alone can accept a numerically ill-conditioned
+        // tan(theta/2) root whose mapped lens residual is not physical.  An
+        // odd post-filter count is therefore a certification failure of the
+        // fast path, not a failed magnification: retry with Skowron--Gould.
+        if (diagnostics != nullptr) {
+            --diagnostics->real_quartic_solve_count;
+            ++diagnostics->real_quartic_fallback_count;
+        }
+        const std::vector<Complex> dynamic_coefficients(
+            coefficients.begin(), coefficients.end());
+        const auto solved = solve_boundary_polynomial(
+            dynamic_coefficients, image_radius, diagnostics);
+        if (solved.status != math::RootSolverStatus::ok) {
+            return {false, false, "quartic root solve failed", {}, {}};
+        }
+        unique = extract_angles(solved.roots);
     }
     if ((unique.size() % 2) != 0) {
         return {false, false, "odd physical boundary-root count", {}, {}};

@@ -279,7 +279,9 @@ bool test_magnification_profiles()
         }
         const auto continuation_is_accounted = [](const auto& diagnostics) {
             return diagnostics.cold_root_solve_count > 0 &&
-                diagnostics.warm_root_solve_count > 0 &&
+                (diagnostics.warm_root_solve_count > 0 ||
+                    diagnostics.real_quartic_solve_count > 0) &&
+                diagnostics.real_quartic_solve_count +
                 diagnostics.warm_root_solve_count +
                         diagnostics.cold_root_solve_count ==
                     diagnostics.root_solve_count + diagnostics.cold_retry_count;
@@ -287,6 +289,10 @@ bool test_magnification_profiles()
         if (!continuation_is_accounted(algebraic.diagnostics) ||
             !continuation_is_accounted(cartesian.diagnostics)) {
             std::cerr << "root-continuation diagnostics were inconsistent\n";
+            return false;
+        }
+        if (algebraic.diagnostics.tangency_solve_count == 0) {
+            std::cerr << "radial tangency fast path was not exercised\n";
             return false;
         }
 
@@ -368,6 +374,42 @@ bool test_redundant_seeds_preserve_integral()
     return true;
 }
 
+bool test_ill_conditioned_real_quartic_falls_back()
+{
+    constexpr double separation = 0.8;
+    constexpr double mass_ratio = 1.0e-6;
+    constexpr double centre_x = -0.45054318004640337;
+    constexpr double centre_y = -0.0014718037129124418;
+    constexpr double rho = 3.0e-5;
+    lcbinint::magnification::FiniteSourceSettings finite_settings;
+    finite_settings.limb_darkening_c = 0.5;
+    lcbinint::magnification::FiniteSourceMagnifier magnifier(finite_settings);
+    lcbinint::magnification::AlgebraicBoundarySettings settings;
+    settings.absolute_tolerance = 1.0e-3;
+    settings.relative_tolerance = 1.0e-3;
+    settings.unit_circle_tolerance = 2.0e-6;
+    settings.boundary_residual_tolerance = 2.0e-8;
+    int fallbacks = 0;
+    for (int index = 0; index < 24; ++index) {
+        const double fraction = static_cast<double>(index) / 23.0;
+        const lcbinint::SourcePosition source {
+            centre_x - (fraction - 0.5) * 0.4 * rho, centre_y};
+        const auto result = magnifier.experimental_algebraic_boundary_binary_mag(
+            separation, mass_ratio, source, rho, settings);
+        if (!result.success || !std::isfinite(result.magnification)) {
+            std::cerr << "ill-conditioned quartic fallback failed: "
+                      << result.unsafe_reason << '\n';
+            return false;
+        }
+        fallbacks += result.diagnostics.real_quartic_fallback_count;
+    }
+    if (fallbacks == 0) {
+        std::cerr << "ill-conditioned quartic did not exercise SG fallback\n";
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 int main()
@@ -379,6 +421,7 @@ int main()
     if (!test_interval_edge_cases()) return 5;
     if (!test_magnification_profiles()) return 6;
     if (!test_redundant_seeds_preserve_integral()) return 7;
+    if (!test_ill_conditioned_real_quartic_falls_back()) return 8;
     std::cout << "algebraic boundary tests passed\n";
     return 0;
 }

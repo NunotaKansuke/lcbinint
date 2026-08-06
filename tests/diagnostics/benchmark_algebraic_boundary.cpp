@@ -228,7 +228,9 @@ int main(int argc, char** argv)
                  "cartesian_algebraic_seconds,polar_raster_seconds,polar_alg_speedup,"
                  "cart_alg_speedup,polar_alg_success,cart_alg_success,polar_alg_unsafe,"
                  "cart_alg_unsafe,polar_root_solves,polar_warm_sg,polar_cold_sg,"
-                 "polar_cold_retries,cart_root_solves,cart_warm_sg,cart_cold_sg,"
+                 "polar_cold_retries,polar_real_quartic,polar_real_fallbacks,"
+                 "polar_tangency_solves,polar_tangency_fallbacks,"
+                 "cart_root_solves,cart_warm_sg,cart_cold_sg,"
                  "cart_cold_retries\n";
     for (const auto& test : cases) {
         for (const auto& profile : profiles) {
@@ -326,6 +328,10 @@ int main(int argc, char** argv)
                           << algebraic_result.diagnostics.warm_root_solve_count << ','
                           << algebraic_result.diagnostics.cold_root_solve_count << ','
                           << algebraic_result.diagnostics.cold_retry_count << ','
+                          << algebraic_result.diagnostics.real_quartic_solve_count << ','
+                          << algebraic_result.diagnostics.real_quartic_fallback_count << ','
+                          << algebraic_result.diagnostics.tangency_solve_count << ','
+                          << algebraic_result.diagnostics.tangency_fallback_count << ','
                           << cartesian_result.diagnostics.root_solve_count << ','
                           << cartesian_result.diagnostics.warm_root_solve_count << ','
                           << cartesian_result.diagnostics.cold_root_solve_count << ','

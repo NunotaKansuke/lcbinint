@@ -29,6 +29,10 @@ struct AlgebraicBoundaryDiagnostics {
     int cold_retry_count = 0;
     int newton_prediction_count = 0;
     int recovered_seed_support_count = 0;
+    int real_quartic_solve_count = 0;
+    int real_quartic_fallback_count = 0;
+    int tangency_solve_count = 0;
+    int tangency_fallback_count = 0;
 };
 
 struct AlgebraicBoundaryResult {
