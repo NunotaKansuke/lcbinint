@@ -45,6 +45,47 @@ jumps remain small. Fold or large-jump topology warnings retain their original
 first-order scale. This prevents smooth high-area images from turning the
 feedback step into a blanket resolution increase.
 
+## Unified finite-source error contract
+
+After the binary fast paths have been rejected, each adaptive finite-source
+integrator is judged against the same absolute error budget
+
+`B(A) = atol + reltol max(|A|, 1)`.
+
+An adaptive result is accepted exactly when its image-component support is
+certified and its method-specific error estimate `E` satisfies `E <= B`. The
+controller contains no route-specific retry thresholds. If a calculation of
+order `p` misses the budget, it requests
+
+`N_next = ceil(N (E/B)^(1/p))`
+
+and rounds upward to the next supported resolution bucket, capped by
+`max_source_bins`. Binary Cartesian, polar, and tangent-caustic source-plane
+quadrature therefore share the same acceptance and refinement rule; only their
+numerical error estimators differ:
+
+- Cartesian uses its embedded boundary-area indicator. The edge-corrected
+  smooth case has `p=2`; fold seeds or large row jumps use `p=1`. In automatic
+  mode the indicator carries the single 0.25 normalization measured on the
+  independent certified holdout; this replaces a second grid evaluation.
+- Polar uses the accumulated geometric magnitude of the radial edge correction
+  already located by the fine pass. Since that correction removes the leading
+  first-order boundary term, multiplying its normalized magnitude by `1/N`
+  estimates the remaining second-order term without another lens-map pass. The
+  scale is geometric so a zero-brightness source limb cannot produce a zero
+  error estimate.
+  A caller that explicitly supplies a tolerance additionally gets a nested-grid
+  Richardson check, and the larger estimate is retained.
+- Tangent-caustic source-plane quadrature already computes nested 48/96 rules.
+  Their difference is converted to a fine-rule estimate with first-order
+  Richardson scaling; a miss escalates once to 192 and is assessed identically.
+
+The support certificate is deliberately separate from quadrature error: grid
+refinement cannot recover an image component that was never seeded. A failed
+support certificate therefore reports non-convergence directly instead of
+arming a numerically pointless resolution ladder. Fixed integer `nbin` without
+an explicit tolerance remains a user-directed one-shot calculation.
+
 ## Triple-lens calibration
 
 The binary calibration below must not be applied to a triple lens.  Triple
