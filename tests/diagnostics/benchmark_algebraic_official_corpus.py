@@ -17,6 +17,7 @@ import os
 import statistics
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -24,11 +25,12 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from tests.diagnostics.recal2026.engines import time_vbm_block
 from tests.diagnostics.recal2026.speed_analysis import _usable, cheapest_meeting, load
 
 
-CORPUS = ROOT / "tests/diagnostics/results/recal2026/speed_discovery"
+CORPUS = Path(os.environ.get(
+    "LCBININT_RECAL_CORPUS",
+    ROOT / "tests/diagnostics/results/recal2026/speed_discovery"))
 EXECUTABLE = ROOT / "build/benchmark_algebraic_boundary"
 TARGET = 1.0e-4
 VBM_RELATIVE_LADDER = (1.0e-2, 1.0e-3, 1.0e-4, 1.0e-5, 1.0e-6, 1.0e-7)
@@ -91,14 +93,49 @@ def algebraic_ladder(row, repeats):
 
 
 def vbm_ladder(row, repeats):
+    """VBMicrolensing scalar magnification calls at the same 24 positions.
+
+    In VBMicrolensing 5.x ``a1`` and the profile live on the solver object;
+    the sixth ``BinaryMagDark`` argument is the absolute accuracy, not the
+    limb-darkening coefficient.  Its source frame is mirrored in both axes
+    relative to the corpus trajectory parameters returned by lcbinint.
+    """
+    import VBMicrolensing
+
     span = 0.4 * row["rho"]
-    times = np.linspace(row["x"] - 0.5 * span, row["x"] + 0.5 * span, EPOCHS)
+    source_x = -np.linspace(
+        row["x"] - 0.5 * span, row["x"] + 0.5 * span, EPOCHS)
+    source_y = -row["y"]
     entries = []
     for reltol in VBM_RELATIVE_LADDER:
-        seconds, values = time_vbm_block(
-            ABSOLUTE_FLOOR, reltol, row["s"], row["q"], row["rho"], times,
-            row["y"], 0.0, row["limb_darkening_c"], repeat=repeats)
-        entries.append({"knob": reltol, "seconds": seconds, "values": values})
+        solver = VBMicrolensing.VBMicrolensing()
+        solver.Tol = ABSOLUTE_FLOOR
+        solver.RelTol = reltol
+        profile_c = row["limb_darkening_c"]
+        if profile_c:
+            solver.a1 = profile_c
+            solver.SetLDprofile(solver.LDlinear)
+
+        def evaluate():
+            if profile_c:
+                return [solver.BinaryMagDark(
+                    row["s"], row["q"], x, source_y, row["rho"],
+                    ABSOLUTE_FLOOR) for x in source_x]
+            return [solver.BinaryMag2(
+                row["s"], row["q"], x, source_y, row["rho"])
+                for x in source_x]
+
+        values = evaluate()
+        samples = []
+        for _ in range(max(repeats, 1)):
+            started = time.perf_counter()
+            values = evaluate()
+            samples.append((time.perf_counter() - started) / EPOCHS)
+        entries.append({
+            "knob": reltol,
+            "seconds": float(np.median(samples)),
+            "values": np.asarray(values, dtype=float),
+        })
     return entries
 
 
