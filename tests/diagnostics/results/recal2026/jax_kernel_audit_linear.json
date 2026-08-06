@@ -1,0 +1,106 @@
+{
+  "configuration": {
+    "limb_c": 0.4,
+    "reltol": 0.001,
+    "repeat": 3,
+    "epochs": 24,
+    "resolutions": "16,32,64,128",
+    "block_lengths": "1,24,384",
+    "include_scalar": false,
+    "out": "tests/diagnostics/results/recal2026/jax_kernel_audit_linear.json"
+  },
+  "kernel": {
+    "16": {
+      "native_seconds_per_epoch": 0.0002487028347483526,
+      "ffi_seconds_per_epoch": 0.00086478425024931,
+      "ladder_seconds_per_epoch": 0.0019976057495417385,
+      "ffi_over_native": 3.4771789035872196,
+      "ladder_over_ffi": 2.309946959563435,
+      "ffi_native_value_gap": 0.001646806997305831,
+      "ladder_ffi_value_gap": 0.0
+    },
+    "32": {
+      "native_seconds_per_epoch": 0.0003652043330172698,
+      "ffi_seconds_per_epoch": 0.0014286134998352888,
+      "ladder_seconds_per_epoch": 0.00429618991620373,
+      "ffi_over_native": 3.9118196874398325,
+      "ladder_over_ffi": 3.0072443783423974,
+      "ffi_native_value_gap": 0.000774878285027805,
+      "ladder_ffi_value_gap": 0.0
+    },
+    "64": {
+      "native_seconds_per_epoch": 0.0007376906263137547,
+      "ffi_seconds_per_epoch": 0.00280500166748728,
+      "ladder_seconds_per_epoch": 0.008554579624615144,
+      "ffi_over_native": 3.8024092586127782,
+      "ladder_over_ffi": 3.0497591940037365,
+      "ffi_native_value_gap": 0.00017278083714681724,
+      "ladder_ffi_value_gap": 0.0
+    },
+    "128": {
+      "native_seconds_per_epoch": 0.002123238916586464,
+      "ffi_seconds_per_epoch": 0.006432677041933251,
+      "ladder_seconds_per_epoch": 0.0198022585415553,
+      "ffi_over_native": 3.0296529475237204,
+      "ladder_over_ffi": 3.078385314926989,
+      "ffi_native_value_gap": 4.30997578216666e-05,
+      "ladder_ffi_value_gap": 0.0
+    }
+  },
+  "blocks": {
+    "1": {
+      "native_seconds": 0.0013721589930355549,
+      "jax_seconds": 0.5956298239761963,
+      "jax_seconds_per_epoch": 0.5956298239761963,
+      "ratio": 434.082221520493,
+      "jax_first_call_seconds": 2.104833183984738,
+      "value_gap": 6.199128548244662e-15
+    },
+    "24": {
+      "native_seconds": 0.0021097579738125205,
+      "jax_seconds": 0.6444513140013441,
+      "jax_seconds_per_epoch": 0.026852138083389338,
+      "ratio": 305.46220087831364,
+      "jax_first_call_seconds": 1.9942965669906698,
+      "value_gap": 2.550964245168256e-14
+    },
+    "384": {
+      "native_seconds": 0.013033154013101012,
+      "jax_seconds": 0.6829117279849015,
+      "jax_seconds_per_epoch": 0.0017784159582940144,
+      "ratio": 52.39804020565047,
+      "jax_first_call_seconds": 2.164544486964587,
+      "value_gap": 7.290680929455832e-14
+    }
+  },
+  "jit": {
+    "1": {
+      "eager_seconds": 0.6054933029809035,
+      "jit_seconds": 0.0015237960033118725,
+      "speedup": 397.3585057743312,
+      "compile_seconds": 1.138667209947016,
+      "value_gap": 0.0
+    },
+    "24": {
+      "eager_seconds": 0.6504570830147713,
+      "jit_seconds": 0.0034629430156201124,
+      "speedup": 187.833608604239,
+      "compile_seconds": 1.3965456529986113,
+      "value_gap": 0.0
+    },
+    "96": {
+      "eager_seconds": 0.6616961369873025,
+      "jit_seconds": 0.009739788016304374,
+      "speedup": 67.9374269624375,
+      "compile_seconds": 1.3748765410273336,
+      "value_gap": 0.0
+    },
+    "384": {
+      "eager_seconds": 0.6858541989931837,
+      "jit_seconds": 0.03293034201487899,
+      "speedup": 20.827424102771015,
+      "compile_seconds": 1.3912300469819456,
+      "value_gap": 0.0
+    }
+  }
+}

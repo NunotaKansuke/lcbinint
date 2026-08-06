@@ -29,10 +29,18 @@ public:
     PolynomialRootResult solve(
         const std::vector<Complex>& coefficients,
         const PolynomialRootOptions& options = {}) const;
+    PolynomialRootResult solve_from_roots(
+        const std::vector<Complex>& coefficients,
+        std::vector<Complex> starting_roots,
+        const PolynomialRootOptions& options = {}) const;
 
     static Complex evaluate(const std::vector<Complex>& coefficients, Complex z);
 
 private:
+    PolynomialRootResult solve_impl(
+        const std::vector<Complex>& coefficients,
+        std::vector<Complex>* starting_roots,
+        const PolynomialRootOptions& options) const;
     PolynomialRootResult solve_linear(const std::vector<Complex>& coefficients) const;
     PolynomialRootResult solve_quadratic(const std::vector<Complex>& coefficients) const;
 };

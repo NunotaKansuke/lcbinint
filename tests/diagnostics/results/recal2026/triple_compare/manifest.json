@@ -1,0 +1,28 @@
+{
+ "seed": 20260805,
+ "cases": 32,
+ "tolerances": [
+  0.01,
+  0.001,
+  0.0001
+ ],
+ "block_epochs": 48,
+ "block_span": 0.6,
+ "reference_bins": 400,
+ "reference_contour_relative": 1e-09,
+ "reference_contour_preference": [
+  "Multipoly",
+  "Singlepoly",
+  "Nopoly"
+ ],
+ "vbm_methods": [
+  "Singlepoly",
+  "Multipoly",
+  "Nopoly"
+ ],
+ "spread_budget": 0.1,
+ "profiles": [
+  "uniform",
+  "linear"
+ ]
+}

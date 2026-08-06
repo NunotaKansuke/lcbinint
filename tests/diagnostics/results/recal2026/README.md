@@ -4,6 +4,37 @@ Re-derivation of lcbinint's binary-lens empirical rules against the certified
 algorithm, together with a speed comparison against VBMicrolensing, microlux,
 and lcbinint's own JAX backend.
 
+> **Start with [`REPORT_master.md`](REPORT_master.md).** It consolidates this
+> file, `REPORT_speed.md`, and the two tangency reports into one narrative, and
+> adds a section stating which claims the data supports and with what
+> qualification. The files below remain the primary record for their own
+> sections; where the master report differs, it is the later reading — in
+> particular its JAX numbers supersede Stage 4's here, which were taken before
+> the missing `jax.jit` was found.
+
+## The files in this directory
+
+| file | what it holds |
+|---|---|
+| **`REPORT_master.md`** | **the consolidated report — read this first.** Everything below, in one narrative, plus §7: claims, evidence, and the qualification each may not be quoted without. |
+| **`README.md`** (this file) | the resolution rules, the grid and route switching rules, the corpus construction, and the reproduction commands. Stages 1–5. |
+| **`REPORT_speed.md`** | the speed comparison, written up: **when lcbinint is faster than VBM and what limb darkening does to the answer**, plus microlux, the JAX backend, the triple lens, and where lcbinint's own time goes. |
+| **`REPORT_tangency_defects.md`** | **two new correctness defects** near `d/rho ≈ 1`, found while auditing the references this campaign rests on, and one known one restated. Read this before quoting any single-block number from either of the other two files. |
+
+Data: `discovery/` and `holdout/` (resolution ladder), `speed_discovery/`
+(binary timings), `ext_discovery/` (microlux and JAX), `triple_compare/`,
+`probe/`, `tangency_scan/`, `figures/`. Fitted rules:
+`nbin_rule.json`, `grid_switch_rule.json`, `speed_rule.json`, `route_audit.json`,
+`ext_rule.json`, `tangency_arbitration*.json`. The JAX kernel/wrapper
+decomposition of `REPORT_speed.md` §8.1–8.4 is in
+`jax_kernel_audit_{uniform,linear}.json`.
+
+The per-block sweep directories are working data and are intentionally not
+part of the source-controlled handoff. The committed evidence is the reports,
+the compact fitted and arbitration files, the figures, and the scripts needed
+to reproduce the measurements. The abandoned `ext_jitfix/` attempt is not part
+of the campaign record.
+
 The reason for redoing work that was already done once is the component
 certificate. It proves disk support and topology, which is what the old
 resolution rule was implicitly buying with bins. It does not prove that the
@@ -17,8 +48,9 @@ a constant bin count per tolerance covers 99.3–100% of the corpus.
 
 **Status.** Stages 1–5 are complete for the binary lens: all eleven Stage 4
 passes have run over the full corpus, and the figures are in `figures/`. The
-reduced triple-lens scope has not been run. Nothing here has been applied to the
-runtime; every rule below is a measurement.
+reduced triple-lens scope has since been run as well — 32 cases, all three VBM
+multi-lens methods, both profiles — and is reported in `REPORT_speed.md` §9.
+Nothing here has been applied to the runtime; every rule below is a measurement.
 
 ## Corpus and method
 
@@ -135,6 +167,12 @@ already computed when the decision is made:
 
 **Rule: `A_point > 200` → polar, else Cartesian.**
 
+This rule was derived on time alone. `REPORT_tangency_defects.md` then found a
+correctness reason to send a second band to polar as well — the Cartesian row
+scan cannot represent two intervals in one row, which is what the tangency band
+needs — so the rule as it should be *implemented* carries a second clause,
+`d/rho ∈ [0.88, 1.02] → polar`, whose cost is not measured here.
+
 | | always-Cartesian | `A_point > 200` | share sent polar |
 |---|---|---|---|
 | uniform 1e-2 | 1.290× | **1.096×** | 10.4% |
@@ -183,6 +221,11 @@ The quadrature misses are more interesting than their count. All six sit at
 `A ≥ 39.8` with `d/rho ∈ [0.95, 1.7]` — the tangency regime, where the source
 limb grazes a fold. This corroborates the previously flagged `d/rho = 1.001`
 disagreement with VBM and is the subject of a separate focused study.
+
+**That study is `REPORT_tangency_defects.md`, and it reclassifies these six.**
+They are not a route boundary set too loose: in that band the Cartesian grid and
+the reference built from it are both unreliable, and so — for a different reason
+— is the polar grid. The route audit's verdict on the other routes is unaffected.
 
 ## Stage 4 — microlux and the JAX backend
 
@@ -315,12 +358,45 @@ With that stated, the result is not close enough for the caveat to decide it:
 
 The JAX backend on CPU costs 43–62× the native path per epoch and wins on 0.0–2.2%
 of blocks. The double work described above is worth a factor of two on a third of
-the corpus and cannot account for a factor of fifty; the per-epoch cost of the
-XLA-compiled path is simply much higher here than the C++ one.
+the corpus and cannot account for a factor of fifty.
+
+**This table has since been superseded.** The missing `jax.jit` identified below
+was applied, along with four further fixes, and the full corpus re-measured
+(`ext_capfix/`): the backend costs **4.8–6.2×** the oracle grid and **5.5–5.8×**
+`lcbinint_auto`, and wins **~20%** of blocks. Its fail-closed rate also fell from
+9.3% to 2.6% at reltol 1e-2, because one of those four fixes removed a tile
+capacity that had capped the reachable magnification near A ~ 47 regardless of
+the tolerance requested. A later fix — the polar route had no way back to the
+Cartesian ladder — took that rate to **0.50%**; see `REPORT_master.md` §5.5.1,
+and §5.5.2 for the fail-*open* that the removed NaNs exposed, which is
+unresolved. The two corrections that
+follow are the diagnosis that produced the jit fix, and the first of them applies
+just as much to the post-fix numbers: quote 5.5–5.8×, not 4.8–6.2×.
+
+**Two corrections apply to this table, both in `REPORT_speed.md` §8. Read them
+before quoting it.**
+
+*The denominator is the wrong one.* This table divides by the oracle over 18
+forced-grid settings, while the thing being timed is a routed pipeline whose
+native counterpart is `lcbinint_auto`. Against `lcbinint_auto` the median is
+**23–32×**, not 43–62×. The sign and the win rates are unchanged; the factor is
+inflated by about 1.8.
+
+*It is not a statement about JAX.* Both backends run the same compiled C++
+Cartesian kernel, and both select the same method on every epoch. Measured
+kernel against kernel that kernel costs **3.1–3.9×** native — the figure
+`docs/jax-cpu-inverse-ray-mvp.md:284` recorded at design time. The remainder is a
+**~590 ms per-call constant** in
+`binary_magnification_native_pipeline_trajectory`, which carries no `jax.jit`
+and is therefore re-traced and dispatched primitive by primitive on every call.
+Wrapping it in `jax.jit` is 21–386× faster with bit-identical results. Over the
+24-epoch blocks used here that constant *is* the 23–32×; at 1536 epochs the same
+code reports 16.5×. Reproduce with
+`tests/diagnostics/recal2026/jax_kernel_audit.py`.
 
 Two things this does *not* say. The timings are warm — the first call is measured
-separately and excluded (the `first call` column), so none of the 43–62× is
-compilation. And the comparison is CPU-only and single-trajectory, which is the
+separately and excluded (the `first call` column), so none of the ratio is
+compilation, and adding compilation back makes JAX slower rather than faster. And the comparison is CPU-only and single-trajectory, which is the
 regime the JAX backend is least suited to: its reasons to exist are
 differentiability and batching across many trajectories on an accelerator, and
 neither appears on this axis. What the table establishes is that the JAX path is
@@ -354,6 +430,24 @@ python -m tests.diagnostics.recal2026.sweep_ext \
     --workers 24 --cores 40-63 --repeat 3 --blocks-per-worker 2
 python -m tests.diagnostics.recal2026.ext_analysis ext_discovery <speed_dir>
 
+# Stage 4, post-fix JAX re-measurement (ext_capfix): the three JAX tolerances,
+# each censoring the next, plus the control pass that calibrates cross-run load.
+# microlux is deliberately not re-run -- none of the five fixes touch it, and it
+# anchors through ext_discovery against the same speed_discovery Pareto plane.
+previous=""
+for setting in 0 1 2; do
+  censor=(); [ -n "$previous" ] && censor=(--censor-from "$previous")
+  PYTHONPATH=. OMP_NUM_THREADS=1 python -m tests.diagnostics.recal2026.sweep_ext \
+      --blocks <speed_dir> --output ext_capfix/lcbinint_jax-$setting \
+      --engine lcbinint_jax --setting $setting "${censor[@]}" \
+      --workers 8 --cores 0-23 --repeat 3 --blocks-per-worker 2 --seconds-cap 0.25
+  previous=ext_capfix/lcbinint_jax-$setting
+done
+PYTHONPATH=. OMP_NUM_THREADS=1 python -m tests.diagnostics.recal2026.sweep_ext \
+    --blocks <speed_dir> --output ext_capfix/control-0 \
+    --engine control --setting 0 \
+    --workers 8 --cores 0-23 --repeat 3 --blocks-per-worker 2 --seconds-cap 0.25
+
 # Stage 5: figures
 python -m tests.diagnostics.recal2026.figures \
     --blocks <speed_dir> --ext ext_discovery \
@@ -368,7 +462,12 @@ measurements and would otherwise contend for memory bandwidth and shared cache.
 * **The flood fill is not seed-order independent.** The claimed-cell registry
   depends on seed order and seed count. Probe rings currently mask a latent fill
   defect. This is a correctness item, not a performance one, and is a candidate
-  paper limitation.
+  paper limitation. `REPORT_tangency_defects.md` §5.
+* **Two further correctness defects live at `d/rho ≈ 1`**, and one of them
+  implicates the references this campaign's accuracy columns are read against.
+  Aggregates over ~1300 blocks are unaffected; individual blocks in
+  `d/rho ∈ [0.85, 1.05]` should not be quoted without arbitration.
+  `REPORT_tangency_defects.md` §3 and §4.
 * **Cross-run timing.** Stage 4 cannot run at Stage 2's concurrency, because each
   JAX worker holds its compiled executables. Both runs time the same two native
   Cartesian buckets so the scale factor between them is measured rather than
@@ -379,3 +478,17 @@ measurements and would otherwise contend for memory bandwidth and shared cache.
 * **`d/rho` is a corpus label, not a runtime quantity.** Rules stated in terms of
   it describe where an effect lives; they are not directly implementable as
   written.
+* **The JAX ratios measure a fixable wrapper, not the method**, and they depend
+  on the 24-epoch block length: the pipeline's dominant cost is a per-call
+  constant, so a longer block reports a smaller ratio for the same code. That
+  re-run has since happened (`ext_capfix/`, `REPORT_master.md` §5.5) and moved
+  the axis from 43–62× to 4.8–6.2×; the block-length dependence survives the fix,
+  because ~1.6× of the residual is still per-call. `REPORT_speed.md` §8.1–8.4.
+* **This is a shared, multi-user machine, and load has to be measured, not
+  assumed.** The `ext_capfix` passes ran on cores 0-23 while other users' jobs
+  held affinity `0-63`; a contention logger recorded a mean of 3.83 competing
+  processes on those cores, maximum 6. The control pass is what bounds the
+  damage: its per-row scale moved from 1.312 to 1.323 between `ext_discovery` and
+  `ext_capfix`, i.e. **0.8%**, against effects of 3–30×. Any future timing pass
+  here should log affinity and load *before* it starts, not diagnose them
+  afterwards — a loaded control pass biases ratios in the JAX backend's favour.

@@ -512,14 +512,13 @@ def test_lcbinint_auto_nbin_accepts_second_order_smooth_resonant_boundary():
         )
     )
 
-    # Given room to refine, the crossing epoch converges after a single step.
-    # Capped at 40 bins it cannot, and says so rather than claiming success --
-    # even though 40 bins already resolve it to better than a part in a
-    # thousand, which is what the accuracy check below covers.
+    # The multi-interval scanline fill resolves the crossing at both the
+    # automatic bucket and the 40-bin cap.  Their measured values remain inside
+    # the default part-in-a-thousand budget checked below.
     assert auto.all_converged
-    assert max(auto.finite_source_refinement_levels) == 1
-    assert list(capped.unconverged_indices) == crossing
-    assert list(fixed.unconverged_indices) == crossing
+    assert max(auto.finite_source_refinement_levels) == 0
+    assert capped.all_converged
+    assert fixed.all_converged
     assert max(capped.finite_source_refinement_levels) == 0
     assert max(fixed.finite_source_refinement_levels) == 0
     assert max(

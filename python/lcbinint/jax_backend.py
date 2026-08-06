@@ -576,6 +576,19 @@ def _moment_mode(limb_c, limb_d):
     return "uniform"
 
 
+def _static_moment_mode(limb_c, limb_d):
+    """Pick the moment kernel when the limb coefficients are concrete."""
+
+    try:
+        return _moment_mode(limb_c, limb_d)
+    except TypeError:
+        # A traced coefficient cannot select a static kernel, so keep the widest
+        # one.  Concrete settings take the cheaper kernel instead: the light
+        # curve path used to integrate two limb moments even for a uniform
+        # source, which costs about twice the Cartesian time it needs.
+        return "two_coefficient"
+
+
 def _jax_resolution_bucket(limit):
     """Clamp a native maximum to the largest compiled calibrated bucket."""
 
@@ -585,8 +598,14 @@ def _jax_resolution_bucket(limit):
 
 
 def _fixed_cartesian_capacity(resolution):
-    target = max(256, int(resolution) * int(resolution))
-    return 1 << (target - 1).bit_length()
+    # Defer to the calibrated ladder so the forced-grid entry point and the
+    # routed pipeline cap the reachable magnification at the same place; a
+    # capacity of one tile per resolution^2 stops the claimed-tile discovery
+    # near a total image area of 47 source areas, which a caustic-adjacent
+    # epoch clears easily.
+    from lcbinint_jax.trajectory import _tile_capacity
+
+    return _tile_capacity(int(resolution))
 
 
 def binary_ray_shooting(
@@ -760,6 +779,7 @@ def _magnification_from_geometry(
     mass_ratio = _value(parameters, "q")
     if options.param_type in ("vbm", "vbm_center_of_mass"):
         mass_ratio = 1.0 / mass_ratio
+    moment_mode = _static_moment_mode(limb_c, limb_d)
     grid = options.inverse_ray_grid
     polar_options = {}
     if grid == "cartesian":
@@ -794,6 +814,7 @@ def _magnification_from_geometry(
                 else resolution
             ),
             expanded_cartesian_fallback=False,
+            moment_mode=moment_mode,
             **polar_options,
         ).magnification
     result = binary_magnification_native_pipeline_trajectory(
@@ -808,6 +829,7 @@ def _magnification_from_geometry(
         relative_tolerance=relative_tolerance,
         maximum_source_bins=_jax_resolution_bucket(options.max_source_bins),
         expanded_cartesian_fallback=True,
+        moment_mode=moment_mode,
         **polar_options,
     )
     return jnp.where(
@@ -1364,6 +1386,7 @@ def info(native_curve, options, time, parameters):
     mass_ratio = _value(parameters, "q")
     if options.param_type in ("vbm", "vbm_center_of_mass"):
         mass_ratio = 1.0 / mass_ratio
+    moment_mode = _static_moment_mode(limb_c, limb_d)
     grid = options.inverse_ray_grid
     polar_options = {}
     if grid == "cartesian":
@@ -1391,6 +1414,7 @@ def info(native_curve, options, time, parameters):
             relative_tolerance=relative_tolerance,
             maximum_source_bins=_jax_resolution_bucket(options.max_source_bins),
             expanded_cartesian_fallback=True,
+            moment_mode=moment_mode,
             **polar_options,
         )
     else:
@@ -1413,6 +1437,7 @@ def info(native_curve, options, time, parameters):
                 else resolution
             ),
             expanded_cartesian_fallback=False,
+            moment_mode=moment_mode,
             **polar_options,
         )
 

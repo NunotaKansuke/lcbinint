@@ -2329,9 +2329,15 @@ CartesianDiscovery discover_cartesian_support(
     std::int64_t limb_samples)
 {
     CartesianDiscovery result;
-    result.queue.reserve(static_cast<std::size_t>(tile_capacity));
+    // `tile_capacity` is an overflow ceiling, not an expected size.  Reserving
+    // the whole ceiling made every epoch pay a multi-megabyte zeroed bucket
+    // array at the fine rungs, so grow from a modest floor the way the triple
+    // discovery already does.
+    const auto initial_capacity = static_cast<std::size_t>(
+        std::min<std::int64_t>(tile_capacity, 4096));
+    result.queue.reserve(initial_capacity);
     std::unordered_map<std::uint64_t, std::int32_t> visited;
-    visited.reserve(static_cast<std::size_t>(tile_capacity));
+    visited.reserve(initial_capacity);
     std::unordered_set<std::uint64_t> seeds;
     seeds.reserve(
         static_cast<std::size_t>((limb_samples + 1) * binary_root_count));

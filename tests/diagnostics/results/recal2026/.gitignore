@@ -9,5 +9,9 @@ probe/
 speed_discovery/
 ext_discovery/
 ext_discovery.failed-attempts/
+ext_capfix/
+ext_jitfix/
+speed_high_magnification/
+tangency_scan/
 *.log
 *.err

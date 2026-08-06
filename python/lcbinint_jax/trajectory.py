@@ -1,6 +1,6 @@
 """Differentiable trajectory dispatcher with scalar conditional epochs."""
 
-from functools import partial
+from functools import lru_cache, partial
 
 import jax
 import jax.numpy as jnp
@@ -22,21 +22,39 @@ from .resolution import select_binary_resolution
 from .source_plane import binary_source_plane_quadrature
 from .types import HybridMagnificationResult, TrajectoryMagnificationResult
 
-_CALIBRATED_EXECUTION_BUCKETS = (
-    (16, 256),
-    (24, 1024),
-    (32, 1024),
-    (40, 2048),
-    (50, 4096),
-    (64, 4096),
-    (80, 8192),
-    (100, 16384),
-    (128, 16384),
-    (160, 32768),
-    (200, 65536),
-    (256, 65536),
-    (320, 131072),
-    (400, 262144),
+# The capacity is an overflow ceiling on the claimed-tile queue, so it is really
+# a ceiling on the magnification the rung can represent, and picking it badly
+# makes the certificate fail closed rather than lose accuracy.  A tile of 16x16
+# cells carries about 150 filled cells once the image boundary is counted, and a
+# cell is (source_radius / resolution) on a side, so an image of A source areas
+# needs roughly `pi * A * resolution^2 / 150` tiles.  The original
+# `resolution^2` capped every rung at **A ~ 47** -- caustic-adjacent epochs at
+# A ~ 49 were refused by every rung at once, the certificate had no supported
+# pair, and the pipeline returned NaN where the native route converged.
+#
+# Inverting that relation, a capacity of `k * resolution^2` admits
+# `A ~ 48 * k`, independent of the resolution.  Take k = 512, i.e. A ~ 24000,
+# which clears the whole recal2026 corpus (its largest block is A ~ 1.9e4), and
+# cap the result at 4194304 tiles so a single epoch can never ask for more than
+# a few hundred megabytes.  The cap only binds from resolution 80 up, where it
+# still admits A ~ 1200 at the finest rung -- far above anything a
+# well-resolved source reaches.  The headroom itself is free: the discovery
+# reserves a 4096-tile floor and grows, so an epoch pays for the tiles it
+# actually claims, not for the ceiling.
+_MAXIMUM_TILE_CAPACITY = 4194304
+
+
+def _tile_capacity(resolution):
+    target = min(_MAXIMUM_TILE_CAPACITY, 512 * resolution * resolution)
+    return min(_MAXIMUM_TILE_CAPACITY, 1 << (target - 1).bit_length())
+
+
+_CALIBRATED_RESOLUTIONS = (
+    16, 24, 32, 40, 50, 64, 80, 100, 128, 160, 200, 256, 320, 400,
+)
+_CALIBRATED_EXECUTION_BUCKETS = tuple(
+    (resolution, _tile_capacity(resolution))
+    for resolution in _CALIBRATED_RESOLUTIONS
 )
 
 
@@ -457,6 +475,57 @@ def binary_magnification_trajectory(
     )
 
 
+@lru_cache(maxsize=None)
+def _native_pipeline_executable(
+    trajectory_options, caustic_bins, maximum_source_bins
+):
+    """One compiled pipeline per distinct set of structural options.
+
+    The pipeline's structural arguments -- the trajectory options, the caustic
+    resolution, and the bucket ceiling -- select the program rather than
+    parametrise it, so they are closed over here instead of being passed
+    through ``static_argnames``. ``trajectory_options`` arrives as a sorted
+    tuple of pairs so this cache can key on it.
+
+    Without this the pipeline is traced on every call: fourteen Cartesian FFI
+    calls, two ``lax.map`` bodies and a fourteen-way ``lax.switch`` dispatched
+    one primitive at a time. That cost is set by the size of the program and
+    not by the number of epochs, so it does not amortise over a light curve --
+    it was roughly 590 ms per call, against a native call of 1.4 ms.
+    """
+
+    options = dict(trajectory_options)
+
+    @jax.jit
+    def executable(
+        source_x,
+        source_y,
+        separation_array,
+        mass_ratio,
+        source_radius,
+        limb_c,
+        limb_d,
+        absolute_tolerance,
+        relative_tolerance,
+    ):
+        return _native_pipeline_trajectory(
+            source_x,
+            source_y,
+            separation_array,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            absolute_tolerance=absolute_tolerance,
+            relative_tolerance=relative_tolerance,
+            caustic_bins=caustic_bins,
+            maximum_source_bins=maximum_source_bins,
+            **options,
+        )
+
+    return executable
+
+
 def binary_magnification_native_pipeline_trajectory(
     source_x,
     source_y,
@@ -503,18 +572,74 @@ def binary_magnification_native_pipeline_trajectory(
             **trajectory_options,
         )
 
-    base = binary_magnification_trajectory(
+    try:
+        executable = _native_pipeline_executable(
+            tuple(sorted(trajectory_options.items())),
+            caustic_bins,
+            maximum_source_bins,
+        )
+    except TypeError:
+        # An unhashable option cannot key the executable cache. Tracing the
+        # pipeline per call is slow but correct, so keep it rather than
+        # refusing a call that used to work.
+        return _native_pipeline_trajectory(
+            source_x,
+            source_y,
+            separation_array,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            absolute_tolerance=absolute_tolerance,
+            relative_tolerance=relative_tolerance,
+            caustic_bins=caustic_bins,
+            maximum_source_bins=maximum_source_bins,
+            **trajectory_options,
+        )
+    return executable(
         source_x,
         source_y,
-        separation,
+        separation_array,
         mass_ratio,
         source_radius,
         limb_c,
         limb_d,
-        absolute_tolerance=absolute_tolerance,
-        relative_tolerance=relative_tolerance,
-        **trajectory_options,
+        absolute_tolerance,
+        relative_tolerance,
     )
+
+
+def _native_pipeline_trajectory(
+    source_x,
+    source_y,
+    separation_array,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+    *,
+    absolute_tolerance,
+    relative_tolerance,
+    caustic_bins,
+    maximum_source_bins,
+    **trajectory_options,
+):
+    """The traced body of the native-routed pipeline.
+
+    Callers reach this through the executable cache above; it is separate only
+    so that the shape and availability checks stay outside the trace.
+    """
+
+    # The five routes below partition the block: the point, source-plane,
+    # multipole, polar and Cartesian sets are mutually exclusive and their union
+    # is everything, so the fallback set is empty.  This used to run the whole
+    # standalone trajectory pipeline to fill that empty set, which meant a
+    # second complete magnification solve on every epoch of every call and cost
+    # more than the route it was backing up.  Keep only the placeholders the
+    # selects need; every one of them is masked away before it is returned.
+    unrouted_value = jnp.full(jnp.shape(source_x), jnp.nan, dtype=source_x.dtype)
+    unrouted_flag = jnp.zeros(jnp.shape(source_x), dtype=jnp.bool_)
+    unrouted_method = jnp.zeros(jnp.shape(source_x), dtype=jnp.int32)
 
     expansion = binary_hexadecapole_batch_ffi(
         source_x,
@@ -700,10 +825,19 @@ def binary_magnification_native_pipeline_trajectory(
                 & jnp.isfinite(initial_error)
                 & (initial_error <= initial_budget)
             )
-            upper_value, upper_valid = jax.lax.switch(
-                upper, tuple(polar_branches), position
+            # Only the epochs the coarser pair could not certify need the finer
+            # rung, and a polar rung is the most expensive thing in the routine.
+            retry_needed = ~initial_converged & (upper != selected_index)
+            upper_value, upper_valid = jax.lax.cond(
+                retry_needed,
+                lambda _: jax.lax.switch(upper, tuple(polar_branches), position),
+                lambda _: (
+                    jnp.asarray(jnp.nan, dtype=source_x.dtype),
+                    jnp.asarray(False),
+                ),
+                None,
             )
-            retry_with_upper = ~initial_converged & (upper != selected_index)
+            retry_with_upper = retry_needed
             value = jnp.where(retry_with_upper, upper_value, selected_value)
             valid = jnp.where(retry_with_upper, upper_valid, selected_valid)
             retry_error = jnp.abs(upper_value - selected_value)
@@ -738,15 +872,36 @@ def binary_magnification_native_pipeline_trajectory(
         ((source_x, source_y), bucket_index, polar_candidate),
     )
     accept_polar = jax.lax.stop_gradient(polar_candidate & polar_converged)
-    cartesian_results = []
-    for index, (resolution, tile_capacity) in enumerate(_CALIBRATED_EXECUTION_BUCKETS):
-        needed = cartesian_candidate & (
-            (bucket_index == index)
-            | (bucket_index == index - 1)
-            | (bucket_index == index + 1)
-        )
-        cartesian_results.append(
-            binary_inverse_ray_cartesian_batch_ffi(
+    # `prefer_polar` is a prediction from the resolution regression, and an
+    # epoch it claims has no other route: `cartesian_candidate` excluded every
+    # `prefer_polar` epoch, so a polar rung that cannot certify ended as NaN
+    # with the Cartesian ladder sitting unarmed beside it.  The prediction is
+    # wrong exactly where the source disk swallows the caustic -- the polar
+    # grid has no valid support there, and returns roughly half the true
+    # magnification with `support_valid` clear -- while the Cartesian rung at
+    # the same resolution certifies normally.  Hand those epochs to the
+    # Cartesian ladder, mirroring the Cartesian -> polar fallback that
+    # `binary_magnification_auto` already performs on discovery overflow.
+    #
+    # The rung they arrive on was chosen as a *polar* bin count, which is not
+    # the count the Cartesian regression would have picked, so the ladder may
+    # need an extra rung before two resolutions agree.  What it does not cost
+    # is accuracy: over the recal2026 blocks the Cartesian route matches the
+    # stored reference to ~1e-5 at every rung on exactly these geometries,
+    # measured in `polar_rungs.py`.  That is an empirical statement about this
+    # corpus, not a guarantee from the certificate -- agreement between two
+    # adjacent resolutions is evidence of convergence, and the polar route in
+    # this same region is the standing proof that it is not proof.
+    cartesian_candidate = jax.lax.stop_gradient(
+        cartesian_candidate | (polar_candidate & ~polar_converged)
+    )
+    def cartesian_ladder(armed):
+        values = []
+        supports = []
+        for index, (resolution, tile_capacity) in enumerate(
+            _CALIBRATED_EXECUTION_BUCKETS
+        ):
+            rung = binary_inverse_ray_cartesian_batch_ffi(
                 source_x,
                 source_y,
                 separation_array,
@@ -754,7 +909,7 @@ def binary_magnification_native_pipeline_trajectory(
                 source_radius,
                 limb_c,
                 limb_d,
-                active=needed,
+                active=armed(index),
                 cell_size=jax.lax.stop_gradient(source_radius / resolution),
                 tile_size=16,
                 tile_capacity=tile_capacity,
@@ -762,28 +917,60 @@ def binary_magnification_native_pipeline_trajectory(
                 moment_mode=moment_mode,
                 boundary_subdivision=boundary_subdivision,
             )
-        )
-    cartesian_values = jnp.stack(
-        tuple(item.magnification for item in cartesian_results)
-    )
-    cartesian_support = jnp.stack(
-        tuple(item.support_valid for item in cartesian_results)
-    )
+            values.append(rung.magnification)
+            supports.append(rung.support_valid)
+        return jnp.stack(tuple(values)), jnp.stack(tuple(supports))
 
     def gather_epoch(values, indices):
         return jnp.take_along_axis(values, indices[None, :], axis=0)[0]
 
+    lower_index = jnp.maximum(bucket_index - 1, 0)
+    upper_index = jnp.minimum(bucket_index + 1, len(_CALIBRATED_EXECUTION_BUCKETS) - 1)
+    # The certificate compares the selected rung against one neighbour, and it
+    # reads the finer neighbour only when the coarser pair cannot certify.
+    # Arming all three rungs up front therefore paid for a third grid solve on
+    # every Cartesian epoch; run the finer rung as a second masked ladder over
+    # the rows that actually asked for it.
+    cartesian_values, cartesian_support = cartesian_ladder(
+        lambda index: cartesian_candidate
+        & ((bucket_index == index) | (lower_index == index))
+    )
     selected_cartesian = gather_epoch(cartesian_values, bucket_index)
     selected_support = gather_epoch(cartesian_support, bucket_index)
-    lower_index = jnp.maximum(bucket_index - 1, 0)
+    lower_value = gather_epoch(cartesian_values, lower_index)
     lower_support = gather_epoch(cartesian_support, lower_index)
-    upper_index = jnp.minimum(bucket_index + 1, len(_CALIBRATED_EXECUTION_BUCKETS) - 1)
-    upper_value = gather_epoch(cartesian_values, upper_index)
-    upper_support = gather_epoch(cartesian_support, upper_index)
     use_upper = (bucket_index == 0) | ~lower_support
+    lower_error = jnp.abs(selected_cartesian - lower_value)
+    lower_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
+        jnp.abs(selected_cartesian), 1.0
+    )
+    lower_certified = (
+        cartesian_candidate
+        & ~use_upper
+        & selected_support
+        & lower_support
+        & jnp.isfinite(lower_error)
+        & (lower_error <= lower_budget)
+    )
+    at_top = upper_index == bucket_index
+    needs_upper = jax.lax.stop_gradient(
+        cartesian_candidate & ~lower_certified & ~at_top
+    )
+    upper_values, upper_supports = cartesian_ladder(
+        lambda index: needs_upper & (upper_index == index)
+    )
+    # At the top rung the finer neighbour is the selected rung itself, so read
+    # it from the first ladder rather than arming a rung that does not exist.
+    upper_value = jnp.where(
+        at_top, selected_cartesian, gather_epoch(upper_values, upper_index)
+    )
+    upper_support = jnp.where(
+        at_top, selected_support, gather_epoch(upper_supports, upper_index)
+    )
+    initial_selected_support = selected_support
     comparison_index = jnp.where(use_upper, upper_index, lower_index)
-    comparison_value = gather_epoch(cartesian_values, comparison_index)
-    comparison_support = gather_epoch(cartesian_support, comparison_index)
+    comparison_value = jnp.where(use_upper, upper_value, lower_value)
+    comparison_support = jnp.where(use_upper, upper_support, lower_support)
     initial_cartesian_error = jnp.abs(selected_cartesian - comparison_value)
     initial_cartesian_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
         jnp.abs(selected_cartesian), 1.0
@@ -817,7 +1004,7 @@ def binary_magnification_native_pipeline_trajectory(
         | (
             retry_cartesian
             & selected_support
-            & gather_epoch(cartesian_support, bucket_index)
+            & initial_selected_support
             & jnp.isfinite(retry_cartesian_error)
             & (retry_cartesian_error <= cartesian_budget)
         )
@@ -826,33 +1013,37 @@ def binary_magnification_native_pipeline_trajectory(
     # check misses the requested budget. Falling back to ``base`` here used a
     # lower-resolution value and could make a stricter tolerance less accurate.
     grid_magnification = jnp.where(
-        cartesian_candidate, selected_cartesian, base.magnification
+        cartesian_candidate, selected_cartesian, unrouted_value
     )
-    grid_error = jnp.where(cartesian_candidate, cartesian_error, base.estimated_error)
-    grid_support = jnp.where(cartesian_candidate, selected_support, base.support_valid)
+    grid_error = jnp.where(cartesian_candidate, cartesian_error, unrouted_value)
+    grid_support = jnp.where(cartesian_candidate, selected_support, unrouted_flag)
+    # `accept_polar`, not `polar_candidate`: an epoch whose polar rung failed to
+    # certify has been re-armed on the Cartesian ladder above, and reading its
+    # polar value here would hand back the unsupported number the fallback
+    # exists to discard.
     selected_magnification = jnp.where(
         accept_multipole,
         expansion.magnification,
-        jnp.where(polar_candidate, polar_value, grid_magnification),
+        jnp.where(accept_polar, polar_value, grid_magnification),
     )
     selected_method = jnp.where(
         accept_multipole,
         0,
         jnp.where(
-            polar_candidate,
+            accept_polar,
             2,
-            jnp.where(cartesian_candidate, 1, base.method),
+            jnp.where(cartesian_candidate, 1, unrouted_method),
         ),
     ).astype(jnp.int32)
     selected_error = jnp.where(
         accept_multipole,
         expansion.estimated_error,
-        jnp.where(polar_candidate, polar_error, grid_error),
+        jnp.where(accept_polar, polar_error, grid_error),
     )
     selected_support = (
         accept_multipole
-        | (polar_candidate & polar_support)
-        | (~polar_candidate & grid_support)
+        | (accept_polar & polar_support)
+        | (~accept_polar & grid_support)
     )
     magnification = jnp.where(
         point_route,
@@ -874,20 +1065,14 @@ def binary_magnification_native_pipeline_trajectory(
         point_route
         | accept_source
         | accept_multipole
-        | (polar_candidate & polar_converged)
+        | accept_polar
         | (cartesian_candidate & accept_cartesian)
     )
     used_multipole = accept_multipole
-    used_polar = polar_candidate
-    fallback_selected = (
-        ~point_route
-        & ~accept_source
-        & ~accept_multipole
-        & ~polar_candidate
-        & ~cartesian_candidate
-    )
-    used_source_plane = accept_source | (fallback_selected & base.used_source_plane)
-    used_expanded_cartesian = fallback_selected & base.used_expanded_cartesian
+    # An epoch that fell back reports the route that actually answered it.
+    used_polar = accept_polar
+    used_source_plane = accept_source
+    used_expanded_cartesian = jnp.zeros_like(accept_source)
     attempted_counts = jnp.stack(
         (
             jnp.sum(used_multipole, dtype=jnp.int32),

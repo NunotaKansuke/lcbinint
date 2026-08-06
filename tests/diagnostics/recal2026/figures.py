@@ -241,8 +241,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--blocks", required=True,
                         help="sweep_speed output directory")
-    parser.add_argument("--ext", default="",
-                        help="sweep_ext output directory, if it has finished")
+    parser.add_argument("--ext", action="append", default=[],
+                        help="sweep_ext output directory, if it has finished; "
+                             "repeatable, and each directory is calibrated by "
+                             "its own control pass rather than by a shared one")
     parser.add_argument("--grid-switch-rule", default="")
     parser.add_argument("--output", required=True)
     arguments = parser.parse_args()
@@ -251,28 +253,44 @@ def main():
     if arguments.ext:
         from .ext_analysis import _key, load_ext, row_scale
 
-        extra, _ = load_ext(arguments.ext)
-        # The two runs did not share a clock: sweep_ext ran at lower
-        # concurrency and its seconds are worth less than the stored ones.
-        # Drawing both on one axis without correcting would show microlux and
-        # the JAX backend as faster than they are by that factor, so the ext
-        # timings are put on the stored run's clock using each row's own
-        # control measurement.  A row with no control pairing is dropped
-        # rather than drawn uncorrected.
-        scales = row_scale(extra, rows)
         merged = {_key(row): row for row in rows}
-        for row in extra:
-            target = merged.get(_key(row))
-            scale = scales.get(_key(row))
-            if target is None or not scale:
-                continue
-            for entry in row.get("engines", []):
-                seconds = entry.get("seconds_per_epoch")
-                if seconds is None:
+        # More than one ext directory is the normal case once an engine has
+        # been re-measured: the JAX passes were rerun after the missing
+        # `jax.jit` was found, and taking them from the rerun while microlux
+        # stays in the original is what keeps each engine on its own best
+        # measurement.  The first directory to supply an engine wins, so pass
+        # the newest measurement first.
+        seen_engines = set()
+        for directory in arguments.ext:
+            extra, _ = load_ext(directory)
+            # The runs did not share a clock: sweep_ext runs at lower
+            # concurrency than sweep_speed and its seconds are worth less than
+            # the stored ones.  Drawing both on one axis without correcting
+            # would show the external engines as faster than they are, so each
+            # directory's timings are put on the stored run's clock using that
+            # row's own control measurement -- from the same directory, since a
+            # control measured in one run does not describe the load in
+            # another.  A row with no control pairing is dropped rather than
+            # drawn uncorrected.
+            scales = row_scale(extra, rows)
+            for row in extra:
+                target = merged.get(_key(row))
+                scale = scales.get(_key(row))
+                if target is None or not scale:
                     continue
-                entry = dict(entry)
-                entry["seconds_per_epoch"] = seconds * scale
-                target.setdefault("engines", []).append(entry)
+                for entry in row.get("engines", []):
+                    seconds = entry.get("seconds_per_epoch")
+                    if seconds is None:
+                        continue
+                    engine = entry.get("engine")
+                    if engine in seen_engines:
+                        continue
+                    entry = dict(entry)
+                    entry["seconds_per_epoch"] = seconds * scale
+                    target.setdefault("engines", []).append(entry)
+            seen_engines.update(
+                entry.get("engine")
+                for row in extra for entry in row.get("engines", []))
         rows = list(merged.values())
 
     output = Path(arguments.output)

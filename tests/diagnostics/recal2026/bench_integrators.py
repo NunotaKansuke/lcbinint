@@ -1,45 +1,28 @@
 #!/usr/bin/env python3
-"""Integration speed, and nothing else.
+"""Where does lcbinint's inverse ray beat VBM's contour, and by how much?
 
-Every engine here is pinned to its integrator.  That is the whole design.  A
-library's shipping entry point answers an easy position with a hexadecapole or
-a point source and never builds a grid or a contour, so timing it and calling
-the result "inverse-ray speed" times the absence of an inverse ray -- and the
-shortcuts do not fire at the same places for different libraries, so a mixture
-is not even a consistent mixture.  What is compared here is quadrature against
-quadrature:
+Integration against integration, and nothing else.  A library's shipping entry
+point answers an easy position with a hexadecapole or a point source and never
+builds a grid or a contour, so timing that and calling it "inverse-ray speed"
+times the absence of an inverse ray.  Worse, the shortcuts do not fire in the
+same places for the two libraries, so a mixture is not even a consistent
+mixture: it reads as a speed difference when it is a routing difference.
 
-* ``VBMicrolensing.BinaryMag`` and ``BinaryMagDark`` -- the contour, without the
-  quadrupole test that ``BinaryMag2`` applies first.
-* ``microlux.contour_integral`` -- the adaptive contour.  ``binary_mag`` is not
-  used: its own docstring says it "will dynamically choose full contour
-  integration or point source approximation based on the quadrupole test".
-* lcbinint's inverse ray, Cartesian and polar, with the point-source,
-  hexadecapole and adaptive-hexadecapole exits all zeroed.
-* the same inverse ray through the JAX backend, called as the integration
-  primitive rather than through the light-curve API, which routes.
+That is not hypothetical here.  ``engines.VbmEngine`` -- correct for what it
+was built for, a comparison against lcbinint's shipping automatic path -- calls
+``BinaryMag2`` for uniform sources, and ``BinaryMag2`` applies a quadrupole
+test before deciding whether to integrate.  Timed against lcbinint's
+``force_grid=True``, which cannot take any shortcut, that is a contour with an
+escape hatch versus a grid without one.  This module closes the hatch:
+``BinaryMag`` is the same contour with no test in front of it.
 
-Positions are placed on the caustic's own normal at controlled multiples of
-``rho``, because that is where an integrator is actually exercised and because
-it makes the distance to the caustic an axis rather than an accident.
+Uniform sources only.  The limb-darkened comparison is already fair in the main
+sweep, because ``BinaryMagDark`` has no quadrupole test to skip.
 
-Three conventions are established by measurement rather than by reading, in
-``--verify``, because each of them fails silently:
-
-* VBMicrolensing's limb darkening.  ``BinaryMagDark`` takes ``a1`` as a
-  positional argument; setting ``vbm.a1`` and calling ``BinaryMag`` instead
-  returns a uniform-source answer with no error and no warning.
-* microlux's quadrupole test.  ``contour_integral`` does not apply it, but the
-  limb-darkened path is only reachable through ``extended_light_curve``, which
-  does.  The test does not depend on the brightness profile, so checking that
-  the uniform contour and the uniform light-curve entry agree at every sampled
-  position establishes that it never fires for either profile.
-* the JAX Cartesian backend's ``cell_size``, which is a length and not a bin
-  count, so it has to be tied to ``nbin`` by matching an answer.
-
-Bin counts come from the campaign's own ``nbin_rule.json``: the 99%-coverage
-constant for each grid and tolerance.  Picking them here would be inventing a
-second rule alongside the one this campaign just established.
+Positions sit on the caustic's own normal at controlled multiples of ``rho``,
+because that is where an integrator is actually exercised and because it makes
+the distance to the caustic an axis rather than an accident.  Bin counts come
+from the campaign's own ``nbin_rule.json`` rather than being invented here.
 """
 
 from __future__ import annotations
@@ -52,52 +35,72 @@ import time
 
 import numpy as np
 
-from .engines import Evaluation, LcbinintEngine
+from .engines import LcbinintEngine, lcbinint_fixed
 
 LENS_S = 1.1
 LENS_Q = 1.0e-3
 
-PROFILES = (("uniform", 0.0), ("linear", 0.5))
-
 SOURCE_RADII = (1.0e-1, 3.0e-2, 1.0e-2, 3.0e-3, 1.0e-3)
 
-# Distance from the caustic, in source radii.  Zero would be a tangency and is
-# excluded deliberately: it is a measure-zero configuration whose cost is set
-# by how close the sampler happened to land, not by the geometry.
+# Distance from the caustic, in source radii.  Zero is excluded deliberately: a
+# tangency is a measure-zero configuration whose cost is set by how close the
+# sampler happened to land, not by the geometry.
 DISTANCE_FACTORS = (0.1, 0.3, 1.0, 3.0)
 
 TOLERANCES = (1.0e-2, 1.0e-3, 1.0e-4)
 
-# The 99%-coverage constants from nbin_rule.json, keyed (grid, tolerance).
-# Loaded rather than hard-coded when the file is present; these are the values
-# it held when this was written, kept as the fallback so the benchmark still
-# runs on a checkout without the results directory.
+GRIDS = ("cartesian", "polar")
+
+# VBM's contour takes an absolute accuracy.  Pinning it below anything
+# reachable leaves RelTol as the binding criterion, which is the convention the
+# rest of the campaign uses and the one that does not penalise VBM at high
+# magnification, where an absolute goal would demand far more than the relative
+# one the grids are being asked for.
+VBM_ABSOLUTE_FLOOR = 1.0e-12
+
+# The reference.  VBM rather than lcbinint, so that "lcbinint met its
+# tolerance" is not graded against lcbinint's own idea of the answer.
+REFERENCE_RELTOL = 1.0e-9
+
+# VBM and lcbinint disagree on the sign of x; frames.verify() measures this for
+# the main sweep and refuses to run if it stops being true.
+X_SIGN = -1.0
+
+# Positions are timed in blocks rather than one at a time, and the block is a
+# short segment of a light curve at fixed impact parameter -- the same 0.4-rho
+# span the main sweep uses.
+#
+# Not a stylistic choice.  A single evaluation carries about 1 ms of per-call
+# setup, measured as the offset in a block-size scan (rho=0.1, nbin=16: 1.93 ms
+# at N=1 falling to 0.87 ms/position by N=64; the cost is linear in N with an
+# offset, not superlinear).  VBM's contour has no such setup, so timing both
+# one position at a time would compare lcbinint's setup against VBM's
+# integration -- at 0.03 ms per contour the offset alone would decide every row.
+#
+# Repeating one position instead of using distinct ones does not work either:
+# an identical position is up to 63x cheaper than a neighbour 1e-6 rho away
+# whose magnification agrees to 3e-7, so a repeated block measures a cache.
+BLOCK = 16
+BLOCK_SPAN_IN_RADII = 0.4
+
+# Bins to try on each grid.  A ladder rather than the single constant from
+# nbin_rule.json, because that constant is the 99%-coverage value -- what you
+# would ship when you cannot inspect the position -- and spending it at every
+# position would hand VBM the comparison by handicap: VBM adapts its own
+# subdivision per point, so lcbinint has to be allowed to as well.  What is
+# compared is the cheapest setting of each engine that actually hit the target.
+NBIN_LADDER = (4, 8, 16, 32, 64, 128, 256, 400)
+
+NBIN_RULE_PATH = "tests/diagnostics/results/recal2026/nbin_rule.json"
+
+# The 99%-coverage constants from nbin_rule.json as it stood when this was
+# written, kept as a fallback so the benchmark still runs without the results
+# directory.  The file wins when it is present.
 NBIN_FALLBACK = {
     ("cartesian", 1.0e-2): 16, ("cartesian", 1.0e-3): 50,
     ("cartesian", 1.0e-4): 128,
     ("polar", 1.0e-2): 24, ("polar", 1.0e-3): 100, ("polar", 1.0e-4): 320,
 }
-
-NBIN_RULE_PATH = "tests/diagnostics/results/recal2026/nbin_rule.json"
-
-# microlux's sampling budget, paired with the tolerance so the knob measures
-# accuracy rather than how many points it was allowed.  Same reasoning, and the
-# same ladder, as engines_ext.MICROLUX_SETTINGS.
-MICROLUX_STRATEGY = {
-    1.0e-2: (30, 30, 60, 120, 240),
-    1.0e-3: (30, 30, 60, 120, 240),
-    1.0e-4: (60, 60, 120, 240, 480),
-}
-
-# VBM and microlux both take the source position mirrored in x relative to the
-# frame lcbinint reports.  frames.verify() and engines_ext establish this for
-# the light-curve entry points; --verify re-establishes it for these.
-X_SIGN = -1.0
-
-# Absolute accuracy for VBM's contour, set below anything reachable so the
-# relative criterion is what stops it -- the same convention the speed sweep
-# uses, and the one that does not penalise VBM at high magnification.
-VBM_ABSOLUTE_FLOOR = 1.0e-12
 
 
 def nbin_rule(path=NBIN_RULE_PATH):
@@ -108,23 +111,21 @@ def nbin_rule(path=NBIN_RULE_PATH):
     except OSError:
         return dict(NBIN_FALLBACK)
     out = {}
-    for grid, entry in payload["grids"].items():
-        for tolerance, values in entry["tolerances"].items():
-            out[(grid, float(tolerance))] = int(values["constant_bins"])
+    for grid, entry in payload.get("grids", {}).items():
+        for tolerance, values in entry.get("tolerances", {}).items():
+            if "constant_bins" in values:
+                out[(grid, float(tolerance))] = int(values["constant_bins"])
     return out or dict(NBIN_FALLBACK)
 
 
-# --------------------------------------------------------------------------
-# positions
-# --------------------------------------------------------------------------
-
-def caustic_positions(rho, factors=DISTANCE_FACTORS, per_factor=12, seed=20260804):
+def caustic_positions(rho, factors=DISTANCE_FACTORS, per_factor=10,
+                      seed=20260806):
     """Points at ``factor * rho`` along the caustic's outward normal.
 
     Sampled around the whole caustic rather than at a chosen fold or cusp: the
     cost of an integration varies along the curve -- a cusp has more images
     arriving and leaving than a fold does -- and picking one feature by hand
-    would make that variation invisible while looking like precision.
+    would hide that variation while looking like precision.
     """
     from .geometry import caustic_branches
 
@@ -142,314 +143,220 @@ def caustic_positions(rho, factors=DISTANCE_FACTORS, per_factor=12, seed=2026080
             if norm <= 0.0:
                 continue
             normal = np.array([-tangent[1] / norm, tangent[0] / norm])
-            # Both signs of the normal are offered because which one leaves the
-            # caustic depends on where on the branch the sample landed, and
-            # guessing would bias the set toward disk interiors.
+            # Both signs are offered because which one leaves the caustic
+            # depends on where on the branch the sample landed, and guessing
+            # would bias the set toward disk interiors.
             sign = 1.0 if rng.random() < 0.5 else -1.0
             position = point + sign * factor * rho * normal
             out.append({"x": float(position[0]), "y": float(position[1]),
-                        "rho": rho, "distance_factor": factor})
+                        "rho": float(rho), "distance_factor": float(factor)})
     return out
 
 
-# --------------------------------------------------------------------------
-# engines, each pinned to its integrator
-# --------------------------------------------------------------------------
-
-def _timed(call, repeat):
+def _timed(call, repeat=3):
     """Median of ``repeat`` warm calls, and the value.
 
-    One untimed call first: every engine here either builds a caustic cache, or
-    compiles, or both, and the first call would otherwise report that instead
-    of the integration.
+    One untimed call first: the engines here build caustic caches on demand,
+    and the first call would otherwise report that instead of the integration.
     """
     value = call()
     samples = []
-    for _ in range(max(repeat, 1)):
+    for _ in range(repeat):
         started = time.perf_counter()
         value = call()
         samples.append(time.perf_counter() - started)
     return float(np.median(samples)), value
 
 
-class LcbinintIntegrator:
-    """Native inverse ray on one grid, with every cheap exit disabled."""
-
-    def __init__(self, grid, nbin, profile_c, tolerance):
-        self.grid = grid
-        self.nbin = nbin
-        self._engine = LcbinintEngine(
-            grid=grid, nbin=nbin, profile_c=profile_c, reltol=tolerance,
-            max_source_bins=nbin, force_grid=True)
-
-    def __call__(self, rho, x, y, repeat):
-        seconds, evaluation = _timed(
-            lambda: self._engine(LENS_S, LENS_Q, rho, x, y, time_it=False),
-            repeat)
-        return {
-            "seconds": seconds,
-            "value": evaluation.magnification,
-            "method": evaluation.method,
-            "converged": evaluation.converged,
-            "self_reported_error": evaluation.error_estimate,
-            "point_magnification": evaluation.extra["point_magnification"],
-            "caustic_distance": evaluation.extra["caustic_distance"],
-        }
-
-
 class VbmContour:
-    """VBMicrolensing's contour, without the quadrupole test.
+    """VBM's contour with no quadrupole test in front of it.
 
-    ``BinaryMag`` and ``BinaryMagDark`` are the raw contour entry points;
-    ``BinaryMag2`` is the one that tries a multipole first.
-
-    The two do not take the same arguments, and the difference is a trap.
-    ``BinaryMag(s, q, y1, y2, rho, accuracy)`` ends in an absolute accuracy;
-    ``BinaryMagDark(s, q, y1, y2, rho, a1)`` ends in the limb-darkening
-    coefficient and reads its accuracy from ``Tol``/``RelTol`` instead.  Six
-    arguments either way, so passing an accuracy in the last slot out of habit
-    sets ``a1`` to it -- an accuracy of 1e-12 becomes a limb-darkening
-    coefficient of 1e-12, which is a uniform source, and nothing complains.
-    The installed docstring documents a seventh ``accuracy`` argument that the
-    binding does not accept, and describes ``a1`` as "source angular radius",
-    so it cannot be used to settle this; ``--verify`` settles it by measurement.
+    ``BinaryMag`` is the raw contour; ``BinaryMag2`` is the one that tries a
+    multipole first and skips the contour when it succeeds.  Only the first is
+    comparable against a grid that has been forbidden to take shortcuts.
     """
 
-    def __init__(self, profile_c, tolerance):
+    def __init__(self, reltol):
         import VBMicrolensing
 
-        self.profile_c = profile_c
         self._vbm = VBMicrolensing.VBMicrolensing()
         self._vbm.Tol = VBM_ABSOLUTE_FLOOR
-        self._vbm.RelTol = tolerance
+        self._vbm.RelTol = reltol
 
-    def __call__(self, rho, x, y, repeat):
-        y1 = X_SIGN * x
-        if self.profile_c:
-            call = lambda: self._vbm.BinaryMagDark(
-                LENS_S, LENS_Q, y1, y, rho, self.profile_c)
-        else:
-            call = lambda: self._vbm.BinaryMag(
-                LENS_S, LENS_Q, y1, y, rho, VBM_ABSOLUTE_FLOOR)
-        seconds, value = _timed(call, repeat)
-        return {"seconds": seconds, "value": float(value)}
+    def block(self, rho, xs, y, repeat=3):
+        """The same positions the grid is given, timed the same way."""
+        def call():
+            return [self._vbm.BinaryMag(LENS_S, LENS_Q, X_SIGN * x, y, rho,
+                                        VBM_ABSOLUTE_FLOOR) for x in xs]
+
+        seconds, values = _timed(call, repeat)
+        return seconds / len(xs), np.asarray(values, dtype=float)
 
 
-class MicroluxContour:
-    """microlux's adaptive contour, reached without the quadrupole test.
+def run(per_factor=10, repeat=3, block=BLOCK):
+    """Every engine setting on every block.  Returns one row per block."""
+    reference_engine = VbmContour(REFERENCE_RELTOL)
+    vbm = {tol: VbmContour(tol) for tol in TOLERANCES}
+    grids = {(grid, nbin): lcbinint_fixed(grid, nbin, 0.0)
+             for grid in GRIDS for nbin in NBIN_LADDER}
+    offsets = np.linspace(-0.5, 0.5, block) * BLOCK_SPAN_IN_RADII
 
-    Uniform sources go through ``contour_integral``, which does not apply the
-    test at all.  Limb darkening is only reachable through
-    ``extended_light_curve``, which does apply it before choosing a path -- so
-    ``--verify`` establishes that it never fires at these positions, and since
-    the test reads only ``rho, s, q`` and the position, that settles it for
-    both profiles.
+    rows = []
+    for rho in SOURCE_RADII:
+        for probe in caustic_positions(rho, per_factor=per_factor):
+            y = probe["y"]
+            xs = probe["x"] + offsets * rho
+            _, truth = reference_engine.block(rho, xs, y, repeat=1)
+            if not np.all(np.isfinite(truth)) or np.any(truth <= 0.0):
+                continue
+            row = dict(probe, reference=float(np.median(truth)))
+
+            for tol in TOLERANCES:
+                seconds, values = vbm[tol].block(rho, xs, y, repeat)
+                row[f"vbm/{tol:g}"] = {
+                    "seconds": seconds,
+                    "error": float(np.max(np.abs(values - truth) / truth))}
+
+            # The grid is given the block as a light curve, which is how it is
+            # actually used and what lets its setup amortise the way VBM has
+            # nothing to amortise.
+            for grid in GRIDS:
+                for nbin in NBIN_LADDER:
+                    engine = grids[(grid, nbin)]
+                    curve = engine._ensure()
+                    keywords = dict(t0=0.0, tE=1.0, u0=y, alpha=0.0,
+                                    s=LENS_S, q=LENS_Q, rho=rho,
+                                    limb_darkening_c=0.0)
+                    seconds, values = _timed(
+                        lambda: np.asarray(curve.magnification(xs, **keywords)),
+                        repeat)
+                    if not np.all(np.isfinite(values)):
+                        continue
+                    error = float(np.max(np.abs(values - truth) / truth))
+                    row[f"{grid}/{nbin}"] = {
+                        "seconds": seconds / len(xs), "error": error,
+                        "nbin": nbin}
+                    # Finer grids cost more and are only wanted for their
+                    # accuracy, so once the tightest target is met the rest of
+                    # the ladder cannot win any comparison and is not run.
+                    if error <= min(TOLERANCES):
+                        break
+
+            centre = engine(LENS_S, LENS_Q, rho, probe["x"], y, time_it=False)
+            row["point_magnification"] = centre.extra["point_magnification"]
+            row["caustic_distance"] = centre.extra["caustic_distance"]
+            rows.append(row)
+    return rows
+
+
+def cheapest_meeting(row, prefixes, target):
+    """Fastest setting of an engine that actually hit ``target``.
+
+    Comparing engines at equal *requested* tolerance would compare requests,
+    not results, and the two do not track each other: a grid that overshoots
+    its tolerance is paying for accuracy the comparison never credits it with,
+    and one that undershoots is being timed on a job it did not finish.
     """
-
-    def __init__(self, profile_c, tolerance):
-        import microlux
-        from microlux.model import to_lowmass
-
-        self._microlux = microlux
-        self._to_lowmass = to_lowmass
-        self.profile_c = profile_c
-        self.tolerance = tolerance
-        self.strategy = MICROLUX_STRATEGY[tolerance]
-
-    def _trajectory(self, x, y):
-        # microlux works in the MulensModel centre-of-mass frame and then
-        # converts to its own low-mass frame; the x mirror is the same one VBM
-        # needs.  A single complex position, shaped as the length-one
-        # trajectory the entry points expect.
-        import jax.numpy as jnp
-
-        centre = jnp.asarray([complex(X_SIGN * x, y)])
-        return self._to_lowmass(LENS_S, LENS_Q, centre)
-
-    def __call__(self, rho, x, y, repeat):
-        import jax
-
-        trajectory = self._trajectory(x, y)
-        if self.profile_c:
-            from microlux.limb_darkening import LinearLimbDarkening
-
-            profile = LinearLimbDarkening(self.profile_c)
-            call = lambda: np.asarray(jax.block_until_ready(
-                self._microlux.extended_light_curve(
-                    trajectory, LENS_S, LENS_Q, rho, self.tolerance,
-                    self.tolerance, default_strategy=self.strategy,
-                    limb_darkening=profile))).ravel()[0]
-        else:
-            call = lambda: float(np.asarray(jax.block_until_ready(
-                self._microlux.contour_integral(
-                    trajectory, self.tolerance, self.tolerance, rho,
-                    LENS_S, LENS_Q, self.strategy, True)[0])).ravel()[0])
-        seconds, value = _timed(call, repeat)
-        return {"seconds": seconds, "value": float(value)}
+    best = None
+    for key, entry in row.items():
+        if not isinstance(entry, dict) or "/" not in str(key):
+            continue
+        if key.split("/")[0] not in prefixes:
+            continue
+        if not math.isfinite(entry["error"]) or entry["error"] > target:
+            continue
+        if best is None or entry["seconds"] < best["seconds"]:
+            best = dict(entry, setting=key)
+    return best
 
 
-class JaxIntegrator:
-    """lcbinint's inverse ray through JAX, called as the integration primitive.
+def report(rows, targets=(1.0e-2, 1.0e-3, 1.0e-4)):
+    """Where the grid wins, split by the axes that were varied."""
+    lines = []
+    for target in targets:
+        lines.append(f"\n=== error target {target:g} "
+                     f"(uniform, s={LENS_S}, q={LENS_Q:g}) ===")
+        lines.append(f"{'rho':>8}{'d/rho':>7}{'n':>4}{'A_fs':>10}{'A_pt':>10}"
+                     f"{'vbm ms':>9}{'best ms':>9}{'grid':>10}{'speedup':>9}"
+                     f"{'win':>6}")
+        buckets = {}
+        for row in rows:
+            buckets.setdefault((row["rho"], row["distance_factor"]),
+                               []).append(row)
+        for key in sorted(buckets):
+            group = buckets[key]
+            ratios, vbm_ms, our_ms, winners, mags, points = [], [], [], [], [], []
+            for row in group:
+                best_vbm = cheapest_meeting(row, ("vbm",), target)
+                entry = cheapest_meeting(row, GRIDS, target)
+                if best_vbm is None or entry is None:
+                    continue
+                ratios.append(best_vbm["seconds"] / entry["seconds"])
+                vbm_ms.append(best_vbm["seconds"] * 1e3)
+                our_ms.append(entry["seconds"] * 1e3)
+                winners.append(entry["setting"])
+                mags.append(row["reference"])
+                points.append(row.get("point_magnification") or float("nan"))
+            if not ratios:
+                continue
+            speedup = float(np.median(ratios))
+            grid = max(set(winners), key=winners.count)
+            lines.append(
+                f"{key[0]:8.3g}{key[1]:7.2g}{len(ratios):4d}"
+                f"{np.median(mags):10.2f}{np.nanmedian(points):10.2f}"
+                f"{np.median(vbm_ms):9.3f}{np.median(our_ms):9.3f}"
+                f"{grid:>10}{speedup:9.2f}"
+                f"{np.mean(np.array(ratios) > 1.0):6.0%}")
 
-    Not ``binary_magnification_trajectory``: that is the routed path, and it
-    would put the hexadecapole and point-source exits back into a column headed
-    "inverse ray".  These are the grid kernels themselves.
-    """
-
-    def __init__(self, grid, nbin, profile_c, cell_size_factor):
-        import jax
-
-        self._jax = jax
-        self.grid = grid
-        self.nbin = nbin
-        self.profile_c = profile_c
-        self.cell_size_factor = cell_size_factor
-        self._compiled = None
-
-    def __call__(self, rho, x, y, repeat):
-        import lcbinint_jax as lj
-
-        if self.grid == "cartesian":
-            call = lambda: lj.binary_inverse_ray_cartesian_ffi(
-                np.float64(X_SIGN * x), np.float64(y), LENS_S, LENS_Q, rho,
-                self.profile_c, 0.0,
-                cell_size=self.cell_size_factor * rho / self.nbin)
-        else:
-            call = lambda: lj.binary_inverse_ray_polar_ffi(
-                np.float64(X_SIGN * x), np.float64(y), LENS_S, LENS_Q, rho,
-                self.profile_c, 0.0, resolution=self.nbin)
-
-        def run():
-            result = call()
-            return float(np.asarray(
-                self._jax.block_until_ready(result.magnification)).ravel()[0])
-
-        seconds, value = _timed(run, repeat)
-        return {"seconds": seconds, "value": value}
-
-
-# --------------------------------------------------------------------------
-# verification of the three silent conventions
-# --------------------------------------------------------------------------
-
-def verify(tolerance=1.0e-4):
-    """Pin the conventions that fail silently.  Returns a report and a verdict."""
-    report = {}
-    probe_rho = 1.0e-2
-    probes = caustic_positions(probe_rho, factors=(0.3, 1.0), per_factor=3)
-
-    # -- a converged answer to check the others against ---------------------
-    truth = {}
-    for profile, profile_c in PROFILES:
-        engine = LcbinintEngine(grid="cartesian", nbin=400, profile_c=profile_c,
-                                reltol=1.0e-7, max_source_bins=400,
-                                force_grid=True)
-        truth[profile] = [engine(LENS_S, LENS_Q, probe_rho, p["x"], p["y"],
-                                 time_it=False).magnification for p in probes]
-
-    # -- VBM: is a1 actually reaching the integrator? -----------------------
-    # The failure this catches is the quiet one: BinaryMagDark called with the
-    # wrong argument order, or a1 set on the object and never read, both give a
-    # uniform-source answer that looks perfectly reasonable on its own.
-    vbm_dark = VbmContour(0.5, tolerance)
-    vbm_uniform = VbmContour(0.0, tolerance)
-    dark_gap = max(
-        abs(vbm_dark(probe_rho, p["x"], p["y"], 1)["value"] - expected)
-        / max(expected, 1.0)
-        for p, expected in zip(probes, truth["linear"]))
-    uniform_gap = max(
-        abs(vbm_uniform(probe_rho, p["x"], p["y"], 1)["value"] - expected)
-        / max(expected, 1.0)
-        for p, expected in zip(probes, truth["uniform"]))
-    # If limb darkening were being dropped, the darkened call would land on the
-    # uniform answer instead; that separation is what makes the first number
-    # mean something.
-    confusion = min(
-        abs(vbm_dark(probe_rho, p["x"], p["y"], 1)["value"] - expected)
-        / max(expected, 1.0)
-        for p, expected in zip(probes, truth["uniform"]))
-    report["vbm"] = {
-        "linear_gap": dark_gap, "uniform_gap": uniform_gap,
-        "gap_if_darkening_were_dropped": confusion,
-        "ok": dark_gap < 1.0e-3 and uniform_gap < 1.0e-3
-              and confusion > 100.0 * dark_gap,
-    }
-
-    # -- microlux: does the quadrupole test ever fire at these positions? ---
-    # contour_integral does not apply the test; extended_light_curve does.  If
-    # the two agree at every probe then the test never fired, and because it
-    # reads only rho, s, q and the position it cannot fire for the limb-darkened
-    # profile either.
-    micro = MicroluxContour(0.0, tolerance)
-    import jax
-    import microlux
-    worst_route = 0.0
-    worst_truth = 0.0
-    for probe, expected in zip(probes, truth["uniform"]):
-        trajectory = micro._trajectory(probe["x"], probe["y"])
-        raw = float(np.asarray(microlux.contour_integral(
-            trajectory, tolerance, tolerance, probe_rho, LENS_S, LENS_Q,
-            micro.strategy, True)[0]).ravel()[0])
-        routed = float(np.asarray(jax.block_until_ready(
-            microlux.extended_light_curve(
-                trajectory, LENS_S, LENS_Q, probe_rho, tolerance, tolerance,
-                default_strategy=micro.strategy))).ravel()[0])
-        worst_route = max(worst_route, abs(raw - routed) / max(raw, 1.0))
-        worst_truth = max(worst_truth, abs(raw - expected) / max(expected, 1.0))
-    report["microlux"] = {
-        "contour_vs_routed": worst_route, "contour_vs_truth": worst_truth,
-        "ok": worst_route < 1.0e-9 and worst_truth < 1.0e-3,
-    }
-
-    # -- JAX: what is cell_size in units of rho and nbin? -------------------
-    # Tried as a factor on rho/nbin.  The right one reproduces the native grid's
-    # answer; the wrong ones are a different grid, so they miss by far more than
-    # the tolerance and the choice is not a close call.
-    import lcbinint_jax as lj
-    native = LcbinintEngine(grid="cartesian", nbin=64, profile_c=0.0,
-                            reltol=tolerance, max_source_bins=64,
-                            force_grid=True)
-    candidates = {}
-    for factor in (0.5, 1.0, 2.0):
-        gaps = []
-        for probe in probes:
-            expected = native(LENS_S, LENS_Q, probe_rho, probe["x"],
-                              probe["y"], time_it=False).magnification
-            got = float(np.asarray(lj.binary_inverse_ray_cartesian_ffi(
-                np.float64(X_SIGN * probe["x"]), np.float64(probe["y"]),
-                LENS_S, LENS_Q, probe_rho, 0.0, 0.0,
-                cell_size=factor * probe_rho / 64).magnification).ravel()[0])
-            gaps.append(abs(got - expected) / max(expected, 1.0))
-        candidates[factor] = float(np.median(gaps))
-    best = min(candidates, key=candidates.get)
-    others = [value for factor, value in candidates.items() if factor != best]
-    report["jax_cell_size"] = {
-        "candidates": candidates, "best_factor": best,
-        "ok": candidates[best] < 1.0e-2 and min(others) > 10.0 * candidates[best],
-    }
-
-    report["ok"] = all(section["ok"] for section in report.values()
-                       if isinstance(section, dict))
-    return report
+        # Which magnification predicts the speed ratio better?  Asked rather
+        # than assumed: the finite-source value is what the integrator actually
+        # has to resolve, but the point-source value is what a scheduler would
+        # have available before deciding.
+        pairs = []
+        for row in rows:
+            best_vbm = cheapest_meeting(row, ("vbm",), target)
+            entry = cheapest_meeting(row, GRIDS, target)
+            point = row.get("point_magnification")
+            if best_vbm is None or entry is None or point is None:
+                continue
+            pairs.append((row["reference"], point,
+                          best_vbm["seconds"] / entry["seconds"]))
+        if len(pairs) > 8:
+            array = np.array(pairs)
+            keep = np.all(np.isfinite(array), axis=1) & (array[:, 1] > 0)
+            array = array[keep]
+            finite = np.corrcoef(np.log(array[:, 0]), np.log(array[:, 2]))[0, 1]
+            pointwise = np.corrcoef(np.log(array[:, 1]), np.log(array[:, 2]))[0, 1]
+            lines.append(f"  log-log correlation with speedup:  "
+                         f"finite-source A {finite:+.3f}   "
+                         f"point-source A {pointwise:+.3f}   (n={len(array)})")
+    return "\n".join(lines)
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--verify", action="store_true")
     parser.add_argument("--cores", default="40")
+    parser.add_argument("--per-factor", type=int, default=10)
+    parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--output")
     arguments = parser.parse_args()
 
-    os.sched_setaffinity(0, {int(item) for item in arguments.cores.split(",")})
-    from .engines_ext import configure_jax
-    configure_jax(os.environ.get("RECAL_JAX_CACHE"))
+    cores = {int(item) for item in arguments.cores.split(",")}
+    os.sched_setaffinity(0, cores)
+    print(f"pinned to cores {sorted(cores)}, load before start: "
+          f"{os.getloadavg()[0]:.1f}", flush=True)
 
-    if arguments.verify:
-        report = verify()
-        print(json.dumps(report, indent=1, default=float))
-        raise SystemExit(0 if report["ok"] else 1)
+    started = time.perf_counter()
+    rows = run(per_factor=arguments.per_factor, repeat=arguments.repeat)
+    print(f"{len(rows)} positions in {time.perf_counter() - started:.0f} s",
+          flush=True)
+    print(report(rows))
 
-    raise SystemExit("sweep not implemented yet; run --verify first")
+    if arguments.output:
+        with open(arguments.output, "w") as stream:
+            json.dump({"lens": {"s": LENS_S, "q": LENS_Q},
+                       "profile": "uniform", "rows": rows}, stream, indent=1)
+        print(f"\nwrote {arguments.output}")
 
 
 if __name__ == "__main__":

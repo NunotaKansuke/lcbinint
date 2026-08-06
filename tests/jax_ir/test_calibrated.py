@@ -24,7 +24,7 @@ def test_calibrated_dispatcher_reports_native_resolution_and_has_finite_ad():
     assert int(result.selected_source_bins) == 128
     assert int(result.comparison_resolution) == 100
     assert int(result.executed_resolution) == 128
-    assert int(result.tile_capacity) == 32768
+    assert int(result.tile_capacity) == 4194304
     assert not bool(result.prefer_polar)
     assert np.isfinite(float(magnitude))
     assert bool(jnp.all(jnp.isfinite(gradient)))

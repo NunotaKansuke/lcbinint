@@ -37,6 +37,22 @@ PolynomialRootResult PolynomialRootSolver::solve(
     const std::vector<Complex>& coefficients,
     const PolynomialRootOptions& options) const
 {
+    return solve_impl(coefficients, nullptr, options);
+}
+
+PolynomialRootResult PolynomialRootSolver::solve_from_roots(
+    const std::vector<Complex>& coefficients,
+    std::vector<Complex> starting_roots,
+    const PolynomialRootOptions& options) const
+{
+    return solve_impl(coefficients, &starting_roots, options);
+}
+
+PolynomialRootResult PolynomialRootSolver::solve_impl(
+    const std::vector<Complex>& coefficients,
+    std::vector<Complex>* starting_roots,
+    const PolynomialRootOptions& options) const
+{
     const int degree = effective_degree(coefficients);
     if (degree < 1) {
         return {RootSolverStatus::invalid_polynomial, {}};
@@ -59,15 +75,31 @@ PolynomialRootResult PolynomialRootSolver::solve(
         sg_coefficients[static_cast<std::size_t>(i)] =
             to_sg_complex(coefficients[static_cast<std::size_t>(i)]);
     }
+    const bool use_starting_roots =
+        starting_roots != nullptr &&
+        starting_roots->size() == static_cast<std::size_t>(degree);
+    if (use_starting_roots) {
+        for (int i = 0; i < degree; ++i) {
+            const Complex root = (*starting_roots)[static_cast<std::size_t>(i)];
+            if (!std::isfinite(root.real()) || !std::isfinite(root.imag())) {
+                return {RootSolverStatus::invalid_polynomial, {}};
+            }
+            sg_roots[static_cast<std::size_t>(i)] = to_sg_complex(root);
+        }
+    }
 
     cmplx_roots_gen(
         sg_roots.data(),
         sg_coefficients.data(),
         degree,
         options.polish_roots,
-        options.use_roots_as_starting_points);
+        use_starting_roots && options.use_roots_as_starting_points);
 
     std::vector<Complex> roots;
+    if (starting_roots != nullptr) {
+        starting_roots->clear();
+        roots = std::move(*starting_roots);
+    }
     roots.reserve(static_cast<std::size_t>(degree));
     for (int i = 0; i < degree; ++i) {
         roots.push_back(from_sg_complex(sg_roots[static_cast<std::size_t>(i)]));

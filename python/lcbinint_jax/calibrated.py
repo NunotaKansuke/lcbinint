@@ -14,6 +14,7 @@ from .cpp_backend import (
 from .multipole import binary_point_source_magnification
 from .resolution import select_binary_resolution
 from .source_plane import binary_source_plane_quadrature
+from .trajectory import _CALIBRATED_EXECUTION_BUCKETS
 from .types import CalibratedMagnificationResult
 
 # Capacity follows the observed quadratic tile-count scaling.  It is a
@@ -26,22 +27,10 @@ from .types import CalibratedMagnificationResult
 # (s=0.9, q=1e-3, rho=3e-3) they need 32768, 32768 and 65536 where the sampled
 # frontier fitted in half that, and without the bump the dispatcher falls back
 # to the polar route it is meant to avoid there.
-_EXECUTION_BUCKETS = (
-    (16, 256),
-    (24, 1024),
-    (32, 1024),
-    (40, 2048),
-    (50, 4096),
-    (64, 4096),
-    (80, 8192),
-    (100, 32768),
-    (128, 32768),
-    (160, 65536),
-    (200, 65536),
-    (256, 65536),
-    (320, 131072),
-    (400, 262144),
-)
+# The Cartesian capacities come from the trajectory ladder rather than being
+# restated here; see the note on _CALIBRATED_EXECUTION_BUCKETS for why a
+# capacity of resolution^2 silently capped the reachable magnification near 47.
+_EXECUTION_BUCKETS = _CALIBRATED_EXECUTION_BUCKETS
 
 
 def _polar_angular_bins(resolution):
@@ -271,10 +260,23 @@ def binary_magnification_calibrated(
             None,
         )
         upper_index = jnp.minimum(bucket_index + 1, len(_EXECUTION_BUCKETS) - 1)
+        # At the bottom rung `coarse_index` clamps to `bucket_index`, so the
+        # "coarser" evaluation is the selected one, the two never disagree, and
+        # `comparison_index == bucket_index` forced `image_plane_converged`
+        # False however accurate the value was -- a fail-closed NaN with a
+        # measured error of exactly zero.  Reach upward instead, the way the
+        # trajectory ladder's `use_upper = (bucket_index == 0) | ~lower_support`
+        # already does: differencing against the finer neighbour estimates the
+        # discretisation error just as well as differencing against a coarser
+        # one would.
         use_upper_comparison = (
             image_plane_method
             & (bucket_index < len(_EXECUTION_BUCKETS) - 1)
-            & (~coarse.support_valid | (coarse.method != hybrid.method))
+            & (
+                (bucket_index == 0)
+                | ~coarse.support_valid
+                | (coarse.method != hybrid.method)
+            )
         )
         comparison = jax.lax.cond(
             use_upper_comparison,

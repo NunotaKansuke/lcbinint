@@ -587,9 +587,27 @@ def binary_inverse_ray_auto(
         & (source_radius > 0.0)
         & jnp.asarray(polar_allowed)
     )
+    def polar_or_cartesian(_):
+        polar = polar_path(None)
+        # The preselect is a prediction, and it is wrong in one place: where the
+        # caustic enters the source disk the polar grid finds no valid support,
+        # returning roughly half the magnification with `support_valid` clear,
+        # while the Cartesian grid at the same resolution integrates the epoch
+        # normally.  A preselected epoch had no second route -- the whole
+        # `cartesian_or_fallback` branch was unreachable once `preselect_polar`
+        # was set -- so it fell closed with a usable answer one branch away.
+        # Mirror the Cartesian -> polar overflow fallback in the opposite
+        # direction: this is the same recourse, for the same reason.
+        return jax.lax.cond(
+            polar.support_valid,
+            lambda _: polar,
+            cartesian_or_fallback,
+            None,
+        )
+
     return jax.lax.cond(
         preselect_polar,
-        polar_path,
+        polar_or_cartesian,
         cartesian_or_fallback,
         None,
     )

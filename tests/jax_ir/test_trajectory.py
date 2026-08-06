@@ -117,7 +117,14 @@ def test_native_pipeline_trajectory_uses_calibrated_inverse_ray_value():
             moment_mode="linear",
         ).magnification
     )(0.2)
-    np.testing.assert_allclose(trajectory_gradient, scalar_gradient, rtol=0.0, atol=0.0)
+    # The two gradients come from the same calibrated inverse-ray route, so
+    # they agree to rounding.  Not bit for bit: the trajectory pipeline is
+    # compiled as a single executable, and XLA is free to fuse and reassociate
+    # inside it, which moves the last couple of digits.  1e-11 is far tighter
+    # than any other route could land on.
+    np.testing.assert_allclose(
+        trajectory_gradient, scalar_gradient, rtol=1.0e-11, atol=0.0
+    )
 
 
 def test_native_pipeline_tight_inverse_ray_value_fails_closed():
@@ -220,7 +227,49 @@ def test_native_pipeline_trajectory_uses_high_magnification_polar_value():
             moment_mode="uniform",
         ).magnification
     )(0.7276663)
-    np.testing.assert_allclose(trajectory_gradient, scalar_gradient, rtol=0.0, atol=0.0)
+    # The two gradients come from the same calibrated inverse-ray route, so
+    # they agree to rounding.  Not bit for bit: the trajectory pipeline is
+    # compiled as a single executable, and XLA is free to fuse and reassociate
+    # inside it, which moves the last couple of digits.  1e-11 is far tighter
+    # than any other route could land on.
+    np.testing.assert_allclose(
+        trajectory_gradient, scalar_gradient, rtol=1.0e-11, atol=0.0
+    )
+
+
+def test_native_pipeline_unconverged_polar_epoch_falls_back_to_cartesian():
+    # `prefer_polar` is a prediction from the resolution regression, and this
+    # epoch is one it gets wrong: the caustic sits three quarters of a source
+    # radius from the centre, the polar grid finds no valid support there, and
+    # the pipeline used to have nothing else to offer -- `cartesian_candidate`
+    # excluded every `prefer_polar` epoch, so the answer was NaN with the
+    # Cartesian ladder sitting unarmed beside it.  The Cartesian route
+    # certifies the same epoch at 2.2e-5 against the sweep's stored reference
+    # of 7155.5028 (recal2026 case 0, uniform, epoch 0), which is what the
+    # value below is.  Without the fallback this returns NaN.
+    result = binary_magnification_native_pipeline_trajectory(
+        jnp.asarray((0.0027202005904869452,)),
+        jnp.asarray((0.0001923281189823918,)),
+        3.0,
+        1000.0,
+        2.9999999999999977e-05,
+        0.0,
+        0.0,
+        absolute_tolerance=0.0,
+        relative_tolerance=1.0e-2,
+        maximum_source_bins=400,
+        moment_mode="uniform",
+    )
+
+    assert bool(jnp.isfinite(result.magnification[0]))
+    assert bool(result.support_valid[0])
+    assert bool(result.value_converged[0])
+    # Routed away from polar, not merely rescued after it.
+    assert not bool(result.used_polar[0])
+    assert int(result.method[0]) == 1
+    np.testing.assert_allclose(
+        result.magnification[0], 7155.5027796525, rtol=1.0e-4, atol=0.0
+    )
 
 
 def _require_compiled_ffi():

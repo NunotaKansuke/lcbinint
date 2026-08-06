@@ -1,0 +1,975 @@
+{
+  "defect_c": {
+    "case": {
+      "s": 1.3,
+      "q": 0.0001,
+      "rho": 0.0015515122255040925,
+      "x": 0.0014470002051158422,
+      "y": 0.0006812879524093549,
+      "limb_darkening_c": 0.0
+    },
+    "seed_addition": {
+      "shallow": {
+        "value": 823.1636566989912,
+        "estimated_error": 0.4829447699507175,
+        "certified": true,
+        "converged": true,
+        "method": "inverse_ray_cartesian",
+        "image_count": 3,
+        "seconds": 0.5522964880219661
+      },
+      "deeper": {
+        "value": 822.0160163371643,
+        "estimated_error": 0.46477488822587554,
+        "certified": true,
+        "converged": true,
+        "method": "inverse_ray_cartesian",
+        "image_count": 3,
+        "seconds": 0.5565466969856061
+      },
+      "delta": -1.147640361826916
+    },
+    "seed_order": {
+      "forward": {
+        "value": 822.0160163371643,
+        "estimated_error": 0.46477935668741255,
+        "certified": true,
+        "converged": true,
+        "method": "inverse_ray_cartesian",
+        "image_count": 3,
+        "seconds": 0.5348915960057639
+      },
+      "reverse": {
+        "value": 822.0160163371643,
+        "estimated_error": 0.46477935668741255,
+        "certified": true,
+        "converged": true,
+        "method": "inverse_ray_cartesian",
+        "image_count": 3,
+        "seconds": 0.5179666469921358
+      },
+      "delta": 0.0
+    }
+  },
+  "defect_a": [
+    {
+      "index": 1,
+      "case": {
+        "s": 1.2,
+        "q": 1.0,
+        "rho": 0.2720446295173433,
+        "x": -0.10589387855867419,
+        "y": -0.6484311860766897,
+        "limb_darkening_c": 0.0,
+        "profile": "uniform",
+        "intended_distance_factor": 1.0,
+        "reference_value": 1.7308458285703203,
+        "reference_uncertainty_relative": 0.009503998090631153,
+        "source_block": "block-00052.json",
+        "epoch": 7
+      },
+      "arbiter": {
+        "value": 1.7593422182547689,
+        "self_gap": 1.8570229392677576e-05,
+        "party_spread": 0.01621882331833597
+      },
+      "measured": {
+        "cartesian": {
+          "value": 1.7308458285703203,
+          "estimated_error": 0.00025962687428554804,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_cartesian",
+          "image_count": 3,
+          "seconds": 0.009250924980733544,
+          "relative_gap_to_arbiter": 0.016197184032061933
+        },
+        "polar": {
+          "value": 1.7593181653409633,
+          "estimated_error": 0.0,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_polar",
+          "image_count": 3,
+          "seconds": 0.010143471998162568,
+          "relative_gap_to_arbiter": 1.3671537894113279e-05
+        }
+      }
+    },
+    {
+      "index": 2,
+      "case": {
+        "s": 1.2,
+        "q": 1.0,
+        "rho": 0.2720446295173433,
+        "x": -0.10589387855867419,
+        "y": -0.6484311860766897,
+        "limb_darkening_c": 0.5,
+        "profile": "linear",
+        "intended_distance_factor": 1.0,
+        "reference_value": 1.7083592569322104,
+        "reference_uncertainty_relative": 0.0070693146324328875,
+        "source_block": "block-00052.json",
+        "epoch": 7
+      },
+      "arbiter": {
+        "value": 1.728988250204105,
+        "self_gap": 2.370617345300242e-05,
+        "party_spread": 0.011955844032566953
+      },
+      "measured": {
+        "cartesian": {
+          "value": 1.7083592569322104,
+          "estimated_error": 0.0002562538885398315,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_cartesian",
+          "image_count": 3,
+          "seconds": 0.00990734901279211,
+          "relative_gap_to_arbiter": 0.011931251279156683
+        },
+        "polar": {
+          "value": 1.7289909905426677,
+          "estimated_error": 0.0,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_polar",
+          "image_count": 3,
+          "seconds": 0.011480443004984409,
+          "relative_gap_to_arbiter": 1.58493764339404e-06
+        }
+      }
+    },
+    {
+      "index": 3,
+      "case": {
+        "s": 0.22477902100877245,
+        "q": 0.0010760045744299105,
+        "rho": 0.00024531460796276813,
+        "x": 4.214638088071425,
+        "y": -0.28430476062804977,
+        "limb_darkening_c": 0.0,
+        "profile": "uniform",
+        "intended_distance_factor": 1.1,
+        "reference_value": 1.372320279596692,
+        "reference_uncertainty_relative": 0.0046864883304272974,
+        "source_block": "block-00111.json",
+        "epoch": 7
+      },
+      "arbiter": {
+        "value": 1.3808880927279237,
+        "self_gap": 0.0005863436884916227,
+        "party_spread": 0.006473896970692636
+      },
+      "measured": {
+        "cartesian": {
+          "value": 1.372320279596692,
+          "estimated_error": 0.0001738170922242362,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_cartesian",
+          "image_count": 3,
+          "seconds": 0.006140862999018282,
+          "relative_gap_to_arbiter": 0.006204567318924509
+        },
+        "polar": {
+          "value": 1.38114616943402,
+          "estimated_error": 0.0,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_polar",
+          "image_count": 3,
+          "seconds": 0.44747352798003703,
+          "relative_gap_to_arbiter": 0.00018689183247746482
+        }
+      }
+    },
+    {
+      "index": 4,
+      "case": {
+        "s": 0.2568094904503828,
+        "q": 8.473559144195355e-05,
+        "rho": 0.00015218003940733937,
+        "x": 3.636683832285731,
+        "y": 0.06940061932161315,
+        "limb_darkening_c": 0.0,
+        "profile": "uniform",
+        "intended_distance_factor": 1.35,
+        "reference_value": 1.3465673690942324,
+        "reference_uncertainty_relative": 0.004316039771298774,
+        "source_block": "block-00105.json",
+        "epoch": 0
+      },
+      "arbiter": {
+        "value": 1.354180495540745,
+        "self_gap": 0.0001503089115842504,
+        "party_spread": 0.005793226635581809
+      },
+      "measured": {
+        "cartesian": {
+          "value": 1.3465673690942324,
+          "estimated_error": 0.00017292184566934426,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_cartesian",
+          "image_count": 3,
+          "seconds": 0.006152873043902218,
+          "relative_gap_to_arbiter": 0.0056219436563902415
+        },
+        "polar": {
+          "value": 1.354393400930051,
+          "estimated_error": 0.0,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_polar",
+          "image_count": 3,
+          "seconds": 1.1216773310443386,
+          "relative_gap_to_arbiter": 0.00015722083577997067
+        }
+      }
+    },
+    {
+      "index": 5,
+      "case": {
+        "s": 1.2,
+        "q": 1.0,
+        "rho": 0.2720446295173433,
+        "x": -0.06804419097365251,
+        "y": -0.6484311860766897,
+        "limb_darkening_c": 0.0,
+        "profile": "uniform",
+        "intended_distance_factor": 1.0,
+        "reference_value": 1.6594202457163632,
+        "reference_uncertainty_relative": 0.003781151575295506,
+        "source_block": "block-00052.json",
+        "epoch": 15
+      },
+      "arbiter": {
+        "value": 1.669838053302327,
+        "self_gap": 0.00012186018418152745,
+        "party_spread": 0.0062625560774424854
+      },
+      "measured": {
+        "cartesian": {
+          "value": 1.6594202457163632,
+          "estimated_error": 0.00024891303685745445,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_cartesian",
+          "image_count": 3,
+          "seconds": 0.007284286024514586,
+          "relative_gap_to_arbiter": 0.006238813138412541
+        },
+        "polar": {
+          "value": 1.6698323103672574,
+          "estimated_error": 0.0,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_polar",
+          "image_count": 3,
+          "seconds": 0.009365930978674442,
+          "relative_gap_to_arbiter": 3.4392167899992823e-06
+        }
+      }
+    },
+    {
+      "index": 6,
+      "case": {
+        "s": 0.95,
+        "q": 1.0,
+        "rho": 0.020133555236025995,
+        "x": 0.15392446759456613,
+        "y": 0.570360342122212,
+        "limb_darkening_c": 0.0,
+        "profile": "uniform",
+        "intended_distance_factor": 0.8,
+        "reference_value": 1.6826032338400736,
+        "reference_uncertainty_relative": 0.0035738237796708087,
+        "source_block": "block-00086.json",
+        "epoch": 23
+      },
+      "arbiter": {
+        "value": 1.6928777315168602,
+        "self_gap": 0.0005797585242510763,
+        "party_spread": 0.006137660317154522
+      },
+      "measured": {
+        "cartesian": {
+          "value": 1.6826032338400736,
+          "estimated_error": 5.993532507957197e-05,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_cartesian",
+          "image_count": 3,
+          "seconds": 0.00751316302921623,
+          "relative_gap_to_arbiter": 0.006069249707467274
+        },
+        "polar": {
+          "value": 1.6927519619660063,
+          "estimated_error": 0.0,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_polar",
+          "image_count": 3,
+          "seconds": 0.006624953995924443,
+          "relative_gap_to_arbiter": 7.429334588810954e-05
+        }
+      }
+    },
+    {
+      "index": 7,
+      "case": {
+        "s": 0.22477902100877245,
+        "q": 0.0010760045744299105,
+        "rho": 0.00024531460796276813,
+        "x": 4.214638088071425,
+        "y": -0.28430476062804977,
+        "limb_darkening_c": 0.5,
+        "profile": "linear",
+        "intended_distance_factor": 1.1,
+        "reference_value": 1.3645793683421812,
+        "reference_uncertainty_relative": 0.0031956507894433483,
+        "source_block": "block-00111.json",
+        "epoch": 7
+      },
+      "arbiter": {
+        "value": 1.370349004522822,
+        "self_gap": 0.00042534012659581675,
+        "party_spread": 0.004402723362718541
+      },
+      "measured": {
+        "cartesian": {
+          "value": 1.3645793683421812,
+          "estimated_error": 0.00020858051066908342,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_cartesian",
+          "image_count": 3,
+          "seconds": 0.008049916999880224,
+          "relative_gap_to_arbiter": 0.004210340695398125
+        },
+        "polar": {
+          "value": 1.3705299157058934,
+          "estimated_error": 0.0,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_polar",
+          "image_count": 3,
+          "seconds": 0.5000542890047655,
+          "relative_gap_to_arbiter": 0.00013201832706442873
+        }
+      }
+    },
+    {
+      "index": 8,
+      "case": {
+        "s": 0.2568094904503828,
+        "q": 8.473559144195355e-05,
+        "rho": 0.00015218003940733937,
+        "x": 3.636683832285731,
+        "y": 0.06940061932161315,
+        "limb_darkening_c": 0.5,
+        "profile": "linear",
+        "intended_distance_factor": 1.35,
+        "reference_value": 1.33579011502472,
+        "reference_uncertainty_relative": 0.002934130695423579,
+        "source_block": "block-00105.json",
+        "epoch": 0
+      },
+      "arbiter": {
+        "value": 1.3408805707315639,
+        "self_gap": 0.00010221020695290624,
+        "party_spread": 0.003915757376710505
+      },
+      "measured": {
+        "cartesian": {
+          "value": 1.33579011502472,
+          "estimated_error": 0.0002075062148032131,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_cartesian",
+          "image_count": 3,
+          "seconds": 0.00810984498821199,
+          "relative_gap_to_arbiter": 0.0037963527982709006
+        },
+        "polar": {
+          "value": 1.34102558779809,
+          "estimated_error": 0.0,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_polar",
+          "image_count": 3,
+          "seconds": 1.2194516790332273,
+          "relative_gap_to_arbiter": 0.0001081506210854505
+        }
+      }
+    },
+    {
+      "index": 9,
+      "case": {
+        "s": 1.2,
+        "q": 1.0,
+        "rho": 0.2720446295173433,
+        "x": -0.06804419097365251,
+        "y": -0.6484311860766897,
+        "limb_darkening_c": 0.5,
+        "profile": "linear",
+        "intended_distance_factor": 1.0,
+        "reference_value": 1.649452050292243,
+        "reference_uncertainty_relative": 0.002584055243030143,
+        "source_block": "block-00052.json",
+        "epoch": 15
+      },
+      "arbiter": {
+        "value": 1.6564847462654935,
+        "self_gap": 8.705239372205342e-05,
+        "party_spread": 0.004262431633765281
+      },
+      "measured": {
+        "cartesian": {
+          "value": 1.649452050292243,
+          "estimated_error": 0.0002474178075438364,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_cartesian",
+          "image_count": 3,
+          "seconds": 0.009457295993342996,
+          "relative_gap_to_arbiter": 0.00424555432164743
+        },
+        "polar": {
+          "value": 1.656482468890612,
+          "estimated_error": 0.0,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_polar",
+          "image_count": 3,
+          "seconds": 0.01032274798490107,
+          "relative_gap_to_arbiter": 1.3748239376785675e-06
+        }
+      }
+    },
+    {
+      "index": 10,
+      "case": {
+        "s": 0.95,
+        "q": 1.0,
+        "rho": 0.020133555236025995,
+        "x": 0.15392446759456613,
+        "y": 0.570360342122212,
+        "limb_darkening_c": 0.5,
+        "profile": "linear",
+        "intended_distance_factor": 0.8,
+        "reference_value": 1.6788343246492827,
+        "reference_uncertainty_relative": 0.002291429320855817,
+        "source_block": "block-00086.json",
+        "epoch": 23
+      },
+      "arbiter": {
+        "value": 1.6854001833407917,
+        "self_gap": 0.0003899570379508041,
+        "party_spread": 0.003929979360720319
+      },
+      "measured": {
+        "cartesian": {
+          "value": 1.6788343246492827,
+          "estimated_error": 7.192239009548636e-05,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_cartesian",
+          "image_count": 3,
+          "seconds": 0.009985770971979946,
+          "relative_gap_to_arbiter": 0.003895726816935625
+        },
+        "polar": {
+          "value": 1.6853098398800161,
+          "estimated_error": 0.0,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_polar",
+          "image_count": 3,
+          "seconds": 0.0074184510158374906,
+          "relative_gap_to_arbiter": 5.360356648142949e-05
+        }
+      }
+    },
+    {
+      "index": 11,
+      "case": {
+        "s": 1.2,
+        "q": 0.001,
+        "rho": 0.07400828044922851,
+        "x": -0.3022633738212261,
+        "y": 0.07594428091356101,
+        "limb_darkening_c": 0.0,
+        "profile": "uniform",
+        "intended_distance_factor": 1.0,
+        "reference_value": 3.2538295003364723,
+        "reference_uncertainty_relative": 0.0011606802827680701,
+        "source_block": "block-00069.json",
+        "epoch": 15
+      },
+      "arbiter": {
+        "value": 3.2660734962673352,
+        "self_gap": 5.8774395387925895e-05,
+        "party_spread": 0.0037750688981928364
+      },
+      "measured": {
+        "cartesian": {
+          "value": 3.2538295003364723,
+          "estimated_error": 0.00015206219372555438,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_cartesian",
+          "image_count": 3,
+          "seconds": 0.012046253017615527,
+          "relative_gap_to_arbiter": 0.0037488427449217133
+        },
+        "polar": {
+          "value": 3.266118573099886,
+          "estimated_error": 0.0,
+          "certified": true,
+          "converged": true,
+          "method": "inverse_ray_polar",
+          "image_count": 3,
+          "seconds": 0.04249473800882697,
+          "relative_gap_to_arbiter": 1.3801536493937841e-05
+        }
+      }
+    }
+  ],
+  "defect_b": [
+    {
+      "index": 1,
+      "case": {
+        "s": 0.3,
+        "q": 0.01,
+        "rho": 0.020133555236025995,
+        "x": -0.019735930969284804,
+        "y": -0.01132640105806183,
+        "limb_darkening_c": 0.0,
+        "profile": "uniform",
+        "intended_distance_factor": 1.1,
+        "achieved_distance_factor": 1.0035425380622782,
+        "scan_outlier": "contour",
+        "scan_outlier_gap": 0.002260727085968885,
+        "scan_others_agree": 0.0,
+        "reference_value": 50.885765582246364,
+        "reference_uncertainty_relative": 0.002260727085968885,
+        "source_block": "case-00059.json",
+        "epoch": -1
+      },
+      "arbiter": {
+        "value": 50.77072259398449,
+        "self_gap": 1.2146268065553697e-06,
+        "party_spread": 0.002265847829375962
+      },
+      "measured": {
+        "cartesian": {
+          "value": 50.885765582246364,
+          "estimated_error": 0.10214635456500787,
+          "certified": true,
+          "converged": false,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.022055384994018823,
+          "relative_gap_to_arbiter": 0.0022659316705393394
+        },
+        "polar": {
+          "value": 50.885765582246364,
+          "estimated_error": 0.10214635456500787,
+          "certified": true,
+          "converged": false,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.021477319998666644,
+          "relative_gap_to_arbiter": 0.0022659316705393394
+        }
+      }
+    },
+    {
+      "index": 2,
+      "case": {
+        "s": 0.9,
+        "q": 1e-05,
+        "rho": 0.020133555236025995,
+        "x": 0.016337949578776136,
+        "y": -0.012102676529431795,
+        "limb_darkening_c": 0.0,
+        "profile": "uniform",
+        "intended_distance_factor": 1.01,
+        "achieved_distance_factor": 1.0035528730227805,
+        "scan_outlier": "contour",
+        "scan_outlier_gap": 0.0020955679986052987,
+        "scan_others_agree": 0.0,
+        "reference_value": 61.601342938920276,
+        "reference_uncertainty_relative": 0.0020955679986052987,
+        "source_block": "case-00041.json",
+        "epoch": -1
+      },
+      "arbiter": {
+        "value": 61.47203117731732,
+        "self_gap": 2.1706258604973734e-05,
+        "party_spread": 0.002099977261080577
+      },
+      "measured": {
+        "cartesian": {
+          "value": 61.601342938920276,
+          "estimated_error": 0.05125914785413954,
+          "certified": true,
+          "converged": true,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.0075469090370461345,
+          "relative_gap_to_arbiter": 0.0021035869341937607
+        },
+        "polar": {
+          "value": 61.601342938920276,
+          "estimated_error": 0.05125914785413954,
+          "certified": true,
+          "converged": true,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.007530339993536472,
+          "relative_gap_to_arbiter": 0.0021035869341937607
+        }
+      }
+    },
+    {
+      "index": 3,
+      "case": {
+        "s": 0.9,
+        "q": 1e-05,
+        "rho": 0.020133555236025995,
+        "x": 0.018092082266488452,
+        "y": -0.009294421283865402,
+        "limb_darkening_c": 0.0,
+        "profile": "uniform",
+        "intended_distance_factor": 1.01,
+        "achieved_distance_factor": 1.003861321399485,
+        "scan_outlier": "contour",
+        "scan_outlier_gap": 0.001895246802833126,
+        "scan_others_agree": 0.0,
+        "reference_value": 61.30809820209354,
+        "reference_uncertainty_relative": 0.001895246802833126,
+        "source_block": "case-00041.json",
+        "epoch": -1
+      },
+      "arbiter": {
+        "value": 61.42431137353129,
+        "self_gap": 1.738430635602141e-06,
+        "party_spread": 0.0018916596121711243
+      },
+      "measured": {
+        "cartesian": {
+          "value": 61.30809820209354,
+          "estimated_error": 0.2384017613210574,
+          "certified": true,
+          "converged": false,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.02138205902883783,
+          "relative_gap_to_arbiter": 0.0018919735335906028
+        },
+        "polar": {
+          "value": 61.30809820209354,
+          "estimated_error": 0.2384017613210574,
+          "certified": true,
+          "converged": false,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.021347523026634008,
+          "relative_gap_to_arbiter": 0.0018919735335906028
+        }
+      }
+    },
+    {
+      "index": 4,
+      "case": {
+        "s": 0.3,
+        "q": 0.01,
+        "rho": 0.020133555236025995,
+        "x": -0.019735930969284804,
+        "y": -0.01132640105806183,
+        "limb_darkening_c": 0.5,
+        "profile": "linear",
+        "intended_distance_factor": 1.1,
+        "achieved_distance_factor": 1.0035425380622782,
+        "scan_outlier": "contour",
+        "scan_outlier_gap": 0.0015219846721635103,
+        "scan_others_agree": 0.0,
+        "reference_value": 50.116353798212316,
+        "reference_uncertainty_relative": 0.0015219846721635103,
+        "source_block": "case-00059.json",
+        "epoch": -1
+      },
+      "arbiter": {
+        "value": 50.03999616542865,
+        "self_gap": 8.10029274692035e-07,
+        "party_spread": 0.0015243056081525844
+      },
+      "measured": {
+        "cartesian": {
+          "value": 50.116353798212316,
+          "estimated_error": 0.06706531795055781,
+          "certified": true,
+          "converged": false,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.021452572022099048,
+          "relative_gap_to_arbiter": 0.0015259320270776188
+        },
+        "polar": {
+          "value": 50.116353798212316,
+          "estimated_error": 0.06706531795055781,
+          "certified": true,
+          "converged": false,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.021426482999231666,
+          "relative_gap_to_arbiter": 0.0015259320270776188
+        }
+      }
+    },
+    {
+      "index": 5,
+      "case": {
+        "s": 0.9,
+        "q": 1e-05,
+        "rho": 0.020133555236025995,
+        "x": 0.016337949578776136,
+        "y": -0.012102676529431795,
+        "limb_darkening_c": 0.5,
+        "profile": "linear",
+        "intended_distance_factor": 1.01,
+        "achieved_distance_factor": 1.0035528730227805,
+        "scan_outlier": "contour",
+        "scan_outlier_gap": 0.0014735167700195345,
+        "scan_others_agree": 0.0,
+        "reference_value": 59.971177784551735,
+        "reference_uncertainty_relative": 0.0014735167700195345,
+        "source_block": "case-00041.json",
+        "epoch": -1
+      },
+      "arbiter": {
+        "value": 59.88242076220228,
+        "self_gap": 1.383112731533935e-05,
+        "party_spread": 0.0014757015600218519
+      },
+      "measured": {
+        "cartesian": {
+          "value": 59.971177784551735,
+          "estimated_error": 0.01774078316784511,
+          "certified": true,
+          "converged": true,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.007544867985416204,
+          "relative_gap_to_arbiter": 0.001482188281965352
+        },
+        "polar": {
+          "value": 59.971177784551735,
+          "estimated_error": 0.01774078316784511,
+          "certified": true,
+          "converged": true,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.00753141799941659,
+          "relative_gap_to_arbiter": 0.001482188281965352
+        }
+      }
+    },
+    {
+      "index": 6,
+      "case": {
+        "s": 0.9,
+        "q": 1e-05,
+        "rho": 0.020133555236025995,
+        "x": 0.018092082266488452,
+        "y": -0.009294421283865402,
+        "limb_darkening_c": 0.5,
+        "profile": "linear",
+        "intended_distance_factor": 1.01,
+        "achieved_distance_factor": 1.003861321399485,
+        "scan_outlier": "contour",
+        "scan_outlier_gap": 0.001333851414326215,
+        "scan_others_agree": 0.0,
+        "reference_value": 59.759162827272434,
+        "reference_uncertainty_relative": 0.001333851414326215,
+        "source_block": "case-00041.json",
+        "epoch": -1
+      },
+      "arbiter": {
+        "value": 59.83863403545975,
+        "self_gap": 1.3418336561125566e-06,
+        "party_spread": 0.0013320789076247494
+      },
+      "measured": {
+        "cartesian": {
+          "value": 59.759162827272434,
+          "estimated_error": 0.1611491488319956,
+          "certified": true,
+          "converged": false,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.021340654988307506,
+          "relative_gap_to_arbiter": 0.0013280919504315646
+        },
+        "polar": {
+          "value": 59.759162827272434,
+          "estimated_error": 0.1611491488319956,
+          "certified": true,
+          "converged": false,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.02134846500121057,
+          "relative_gap_to_arbiter": 0.0013280919504315646
+        }
+      }
+    },
+    {
+      "index": 7,
+      "case": {
+        "s": 1.5,
+        "q": 0.0001,
+        "rho": 0.07400828044922851,
+        "x": -0.07446932302873276,
+        "y": -0.005160248050643153,
+        "limb_darkening_c": 0.0,
+        "profile": "uniform",
+        "intended_distance_factor": 1.01,
+        "achieved_distance_factor": 1.0025724533664606,
+        "scan_outlier": "contour",
+        "scan_outlier_gap": 0.0009754382441014231,
+        "scan_others_agree": 0.0,
+        "reference_value": 16.767360607174872,
+        "reference_uncertainty_relative": 0.0009754382441014231,
+        "source_block": "case-00051.json",
+        "epoch": -1
+      },
+      "arbiter": {
+        "value": 16.751107348223535,
+        "self_gap": 3.484718815329706e-05,
+        "party_spread": 0.0009763843513223105
+      },
+      "measured": {
+        "cartesian": {
+          "value": 16.767360607174872,
+          "estimated_error": 0.03484681861377581,
+          "certified": true,
+          "converged": false,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.021030576957855374,
+          "relative_gap_to_arbiter": 0.0009702796724696069
+        },
+        "polar": {
+          "value": 16.767360607174872,
+          "estimated_error": 0.03484681861377581,
+          "certified": true,
+          "converged": false,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.02104522695299238,
+          "relative_gap_to_arbiter": 0.0009702796724696069
+        }
+      }
+    },
+    {
+      "index": 8,
+      "case": {
+        "s": 2.0,
+        "q": 0.0001,
+        "rho": 0.020133555236025995,
+        "x": -1.5241440620034215,
+        "y": 0.008031410786167476,
+        "limb_darkening_c": 0.0,
+        "profile": "uniform",
+        "intended_distance_factor": 1.35,
+        "achieved_distance_factor": 1.0054493772887843,
+        "scan_outlier": "contour",
+        "scan_outlier_gap": 0.0009567809656172377,
+        "scan_others_agree": 0.0,
+        "reference_value": 1.2417174452200972,
+        "reference_uncertainty_relative": 0.0009567809656172377,
+        "source_block": "case-00023.json",
+        "epoch": -1
+      },
+      "arbiter": {
+        "value": 1.2405323038322367,
+        "self_gap": 1.237899946559897e-05,
+        "party_spread": 0.001556906975837332
+      },
+      "measured": {
+        "cartesian": {
+          "value": 1.2417174452200972,
+          "estimated_error": 0.001131603914177326,
+          "certified": true,
+          "converged": true,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.008069525996688753,
+          "relative_gap_to_arbiter": 0.0009553490741026239
+        },
+        "polar": {
+          "value": 1.2417174452200972,
+          "estimated_error": 0.001131603914177326,
+          "certified": true,
+          "converged": true,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.00804410595446825,
+          "relative_gap_to_arbiter": 0.0009553490741026239
+        }
+      }
+    },
+    {
+      "index": 9,
+      "case": {
+        "s": 2.0,
+        "q": 0.0001,
+        "rho": 0.020133555236025995,
+        "x": 0.015616058949561307,
+        "y": -0.013163634767315784,
+        "limb_darkening_c": 0.5,
+        "profile": "linear",
+        "intended_distance_factor": 1.01,
+        "achieved_distance_factor": 1.006073078368533,
+        "scan_outlier": "contour",
+        "scan_outlier_gap": 0.0007636451454764777,
+        "scan_others_agree": 0.0,
+        "reference_value": 60.06519857055127,
+        "reference_uncertainty_relative": 0.0007636451454764777,
+        "source_block": "case-00023.json",
+        "epoch": -1
+      },
+      "arbiter": {
+        "value": 60.01906786977772,
+        "self_gap": 3.635769845611437e-08,
+        "party_spread": 0.0007967552195055806
+      },
+      "measured": {
+        "cartesian": {
+          "value": 60.06519857055127,
+          "estimated_error": 0.05735037141194255,
+          "certified": true,
+          "converged": true,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.007368089980445802,
+          "relative_gap_to_arbiter": 0.0007686007532411963
+        },
+        "polar": {
+          "value": 60.06519857055127,
+          "estimated_error": 0.05735037141194255,
+          "certified": true,
+          "converged": true,
+          "method": "source_plane_quadrature",
+          "image_count": 3,
+          "seconds": 0.007389139966107905,
+          "relative_gap_to_arbiter": 0.0007686007532411963
+        }
+      }
+    }
+  ],
+  "seconds": 6.56203521497082
+}

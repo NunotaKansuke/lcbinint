@@ -10,7 +10,7 @@ width it barely samples.  That, not a missing component, is the residual
 Refining the whole grid to fix it costs ``k^2`` over the whole disk.  Refining
 the one component costs ``k^2`` over the sliver.  These tests pin the two
 halves of that trade: the thin component gets measurably better, and every
-geometry that has no thin component is left exactly as it was.
+geometry that has no thin component remains numerically unchanged.
 
 The failure mode the guards exist for -- a coarse fill whose extent was decided
 by a neighbour's claims, refined alone on an empty lattice, running away into
@@ -43,8 +43,8 @@ TRIPLE_CAP_PARAMS = dict(s=1.0, q=1.0e-3, q2=1.0e-4, sep2=0.5, ang=1.2)
 TRIPLE_CAP_X, TRIPLE_CAP_U0 = -0.05, 0.02
 TRIPLE_CAP_RHO = 6.497855561e-03 / 0.99
 
-# Geometries with no thin component: refinement must not fire, so these are the
-# pre-refinement values to the last bit.
+# Geometries with no thin component: refinement must not fire.  The scanline
+# multi-interval boundary correction may change the last few parts in 1e9.
 CLEAR_GEOMETRIES = (
     ("wide_equal_mass", dict(s=1.8, q=1.0), 0.30, 0.10, 0.02, 128,
      1.644285791543),
@@ -140,4 +140,4 @@ def test_refinement_leaves_geometries_without_a_thin_component_alone(
 ):
     lcbinint = pytest.importorskip("lcbinint")
     value = _magnification(lcbinint, "binary", params, x, u0, rho, bins)
-    assert value == pytest.approx(expected, rel=1.0e-12)
+    assert value == pytest.approx(expected, rel=1.0e-8)

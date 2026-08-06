@@ -1,0 +1,227 @@
+{
+  "ext_directory": "tests/diagnostics/results/recal2026/ext_capfix",
+  "speed_directory": "tests/diagnostics/results/recal2026/speed_discovery",
+  "ext_rows": 2880,
+  "speed_rows": 2880,
+  "rows_per_pass": {
+    "control-0": 2880,
+    "lcbinint_jax-0": 2880,
+    "lcbinint_jax-1": 2880,
+    "lcbinint_jax-2": 2880
+  },
+  "control_scale": {
+    "24": {
+      "n": 2785,
+      "median_speed_sweep_over_ext": 1.3227718557516621,
+      "p10": 1.0212470493379477,
+      "p90": 1.4144070227180394
+    },
+    "50": {
+      "n": 2719,
+      "median_speed_sweep_over_ext": 1.3205285086613965,
+      "p10": 1.026178389556121,
+      "p90": 1.4045761895662232
+    }
+  },
+  "head_to_head": [
+    {
+      "profile": "uniform",
+      "target": 0.01,
+      "engines": {
+        "microlux": {
+          "reached_target": 0,
+          "compared_against_native": 0,
+          "win_rate": null,
+          "median_ext_over_native": null,
+          "p10": null,
+          "p90": null,
+          "calibrated_n": 0,
+          "calibrated_win_rate": null,
+          "calibrated_median_ext_over_native": null,
+          "calibrated_p10": null,
+          "calibrated_p90": null
+        },
+        "lcbinint_jax": {
+          "reached_target": 1297,
+          "compared_against_native": 1297,
+          "win_rate": 0.26754047802621433,
+          "median_ext_over_native": 4.759975354494667,
+          "p10": 0.5291096292265155,
+          "p90": 25.223151979657352,
+          "calibrated_n": 1297,
+          "calibrated_win_rate": 0.212798766383963,
+          "calibrated_median_ext_over_native": 6.209917866201327,
+          "calibrated_p10": 0.652231490598372,
+          "calibrated_p90": 32.75348851345754,
+          "median_first_call_seconds": 0.38308319402858615
+        }
+      }
+    },
+    {
+      "profile": "uniform",
+      "target": 0.001,
+      "engines": {
+        "microlux": {
+          "reached_target": 0,
+          "compared_against_native": 0,
+          "win_rate": null,
+          "median_ext_over_native": null,
+          "p10": null,
+          "p90": null,
+          "calibrated_n": 0,
+          "calibrated_win_rate": null,
+          "calibrated_median_ext_over_native": null,
+          "calibrated_p10": null,
+          "calibrated_p90": null
+        },
+        "lcbinint_jax": {
+          "reached_target": 1291,
+          "compared_against_native": 1291,
+          "win_rate": 0.2711076684740511,
+          "median_ext_over_native": 4.639993504345759,
+          "p10": 0.451893495435683,
+          "p90": 23.450687476171222,
+          "calibrated_n": 1291,
+          "calibrated_win_rate": 0.22230828814872192,
+          "calibrated_median_ext_over_native": 5.871533057967688,
+          "calibrated_p10": 0.572028809563372,
+          "calibrated_p90": 30.1677618332966,
+          "median_first_call_seconds": 0.3792428599554114
+        }
+      }
+    },
+    {
+      "profile": "uniform",
+      "target": 0.0001,
+      "engines": {
+        "microlux": {
+          "reached_target": 0,
+          "compared_against_native": 0,
+          "win_rate": null,
+          "median_ext_over_native": null,
+          "p10": null,
+          "p90": null,
+          "calibrated_n": 0,
+          "calibrated_win_rate": null,
+          "calibrated_median_ext_over_native": null,
+          "calibrated_p10": null,
+          "calibrated_p90": null
+        },
+        "lcbinint_jax": {
+          "reached_target": 748,
+          "compared_against_native": 744,
+          "win_rate": 0.27553763440860213,
+          "median_ext_over_native": 3.860981728593339,
+          "p10": 0.19544017740391426,
+          "p90": 20.45493908652141,
+          "calibrated_n": 744,
+          "calibrated_win_rate": 0.1881720430107527,
+          "calibrated_median_ext_over_native": 4.826450542627718,
+          "calibrated_p10": 0.23736702699427292,
+          "calibrated_p90": 25.823352481382503,
+          "median_first_call_seconds": 0.5629669515474234
+        }
+      }
+    },
+    {
+      "profile": "linear",
+      "target": 0.01,
+      "engines": {
+        "microlux": {
+          "reached_target": 0,
+          "compared_against_native": 0,
+          "win_rate": null,
+          "median_ext_over_native": null,
+          "p10": null,
+          "p90": null,
+          "calibrated_n": 0,
+          "calibrated_win_rate": null,
+          "calibrated_median_ext_over_native": null,
+          "calibrated_p10": null,
+          "calibrated_p90": null
+        },
+        "lcbinint_jax": {
+          "reached_target": 1296,
+          "compared_against_native": 1296,
+          "win_rate": 0.27391975308641975,
+          "median_ext_over_native": 4.596605488049756,
+          "p10": 0.500857087725548,
+          "p90": 25.46068403131074,
+          "calibrated_n": 1296,
+          "calibrated_win_rate": 0.2183641975308642,
+          "calibrated_median_ext_over_native": 5.9185354714509515,
+          "calibrated_p10": 0.6114111784731818,
+          "calibrated_p90": 32.59212278784965,
+          "median_first_call_seconds": 0.3805526709766127
+        }
+      }
+    },
+    {
+      "profile": "linear",
+      "target": 0.001,
+      "engines": {
+        "microlux": {
+          "reached_target": 0,
+          "compared_against_native": 0,
+          "win_rate": null,
+          "median_ext_over_native": null,
+          "p10": null,
+          "p90": null,
+          "calibrated_n": 0,
+          "calibrated_win_rate": null,
+          "calibrated_median_ext_over_native": null,
+          "calibrated_p10": null,
+          "calibrated_p90": null
+        },
+        "lcbinint_jax": {
+          "reached_target": 1284,
+          "compared_against_native": 1284,
+          "win_rate": 0.2764797507788162,
+          "median_ext_over_native": 4.838426283148594,
+          "p10": 0.45986003495435057,
+          "p90": 26.63447026467786,
+          "calibrated_n": 1284,
+          "calibrated_win_rate": 0.22429906542056074,
+          "calibrated_median_ext_over_native": 6.099218381251021,
+          "calibrated_p10": 0.5771755188952453,
+          "calibrated_p90": 33.480444206418056,
+          "median_first_call_seconds": 0.43783042853465304
+        }
+      }
+    },
+    {
+      "profile": "linear",
+      "target": 0.0001,
+      "engines": {
+        "microlux": {
+          "reached_target": 0,
+          "compared_against_native": 0,
+          "win_rate": null,
+          "median_ext_over_native": null,
+          "p10": null,
+          "p90": null,
+          "calibrated_n": 0,
+          "calibrated_win_rate": null,
+          "calibrated_median_ext_over_native": null,
+          "calibrated_p10": null,
+          "calibrated_p90": null
+        },
+        "lcbinint_jax": {
+          "reached_target": 851,
+          "compared_against_native": 849,
+          "win_rate": 0.270906949352179,
+          "median_ext_over_native": 4.179192155465138,
+          "p10": 0.2158996122890802,
+          "p90": 21.36812917505166,
+          "calibrated_n": 849,
+          "calibrated_win_rate": 0.19199057714958775,
+          "calibrated_median_ext_over_native": 5.202882218789125,
+          "calibrated_p10": 0.26163144404323035,
+          "calibrated_p90": 27.560107151701363,
+          "median_first_call_seconds": 0.5612978429999202
+        }
+      }
+    }
+  ],
+  "calibrated_rows": 2785
+}

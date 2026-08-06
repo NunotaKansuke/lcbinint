@@ -810,11 +810,13 @@ const std::pair<std::vector<double>, std::vector<double>>& gauss_legendre_rule(i
         .first->second;
 }
 
-// Tensor Gauss-Legendre chord quadrature of the point-source magnification
-// over the disk.  Unlike the midpoint rings this resolves the integrable
-// spike of a small caustic sliver crossing the limb (the tangent-band
-// configuration): the nodes cluster toward the limb and the rule integrates
-// the steep smooth structure away from the sliver at spectral accuracy.
+// Composite tensor Gauss-Legendre chord quadrature of the point-source
+// magnification over the disk.  A single high-order rule is not reliable here:
+// its nodes do not adapt to an off-centre fold spike, and orders 48/96/160 can
+// agree while remaining wrong by 1e-3 relative.  Fixed order-eight rules on a
+// panel ladder localise that integrable singularity; this is the same
+// discretisation as the independent tangency arbiter (the root solver is the
+// only code it shares).
 double binary_source_plane_chord_quadrature(
     const PointSourceMagnifier& point_magnifier,
     double separation,
@@ -822,42 +824,70 @@ double binary_source_plane_chord_quadrature(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
-    int order)
+    int panels)
 {
+    constexpr int order = 8;
+    const int panel_count = std::max(panels, 1);
     const auto& rule = gauss_legendre_rule(order);
     const auto& nodes = rule.first;
     const auto& weights = rule.second;
-    std::vector<SourcePosition> row_sources(nodes.size());
-    std::vector<double> row_magnifications(nodes.size());
+    const std::size_t row_size = static_cast<std::size_t>(panel_count * order);
+    std::vector<SourcePosition> row_sources(row_size);
+    std::vector<double> row_weights(row_size);
+    std::vector<double> row_magnifications(row_size);
     double weighted = 0.0;
     double brightness_norm = 0.0;
-    for (std::size_t j = 0; j < nodes.size(); ++j) {
-        const double eta = nodes[j];
-        const double half_chord = std::sqrt(std::max(0.0, 1.0 - eta * eta));
-        if (half_chord <= 0.0) {
-            continue;
-        }
-        const double y = source.y + source_radius * eta;
-        for (std::size_t k = 0; k < nodes.size(); ++k) {
-            row_sources[k] = {source.x + source_radius * half_chord * nodes[k], y};
-        }
-        point_magnifier.binary_mag0_batch(
-            separation, mass_ratio, row_sources.data(), row_magnifications.data(),
-            row_sources.size());
-        double row_acc = 0.0;
-        double row_norm = 0.0;
-        for (std::size_t k = 0; k < nodes.size(); ++k) {
-            if (!std::isfinite(row_magnifications[k])) {
-                return std::numeric_limits<double>::quiet_NaN();
+    const double panel_width = 2.0 / static_cast<double>(panel_count);
+    const double half_panel = 0.5 * panel_width;
+    for (int jy = 0; jy < panel_count; ++jy) {
+        const double eta_mid = -1.0 + (static_cast<double>(jy) + 0.5) * panel_width;
+        for (int ny = 0; ny < order; ++ny) {
+            const double eta = eta_mid + half_panel * nodes[static_cast<std::size_t>(ny)];
+            const double eta_weight = half_panel * weights[static_cast<std::size_t>(ny)];
+            const double half_chord = std::sqrt(std::max(0.0, 1.0 - eta * eta));
+            if (half_chord <= 0.0) {
+                continue;
             }
-            const double xi = half_chord * nodes[k];
-            const double normalized_radius2 = xi * xi + eta * eta;
-            const double brightness = source_surface_brightness(normalized_radius2, settings);
-            row_acc += weights[k] * brightness * row_magnifications[k];
-            row_norm += weights[k] * brightness;
+            const double y = source.y + source_radius * eta;
+            std::size_t k = 0;
+            for (int jx = 0; jx < panel_count; ++jx) {
+                const double xi_mid = -1.0 +
+                    (static_cast<double>(jx) + 0.5) * panel_width;
+                for (int nx = 0; nx < order; ++nx, ++k) {
+                    const double unit_xi = xi_mid +
+                        half_panel * nodes[static_cast<std::size_t>(nx)];
+                    const double xi = half_chord * unit_xi;
+                    row_sources[k] = {
+                        source.x + source_radius * xi,
+                        y,
+                    };
+                    row_weights[k] =
+                        half_panel * weights[static_cast<std::size_t>(nx)];
+                }
+            }
+            point_magnifier.binary_mag0_batch(
+                separation, mass_ratio, row_sources.data(), row_magnifications.data(),
+                row_sources.size());
+            double row_acc = 0.0;
+            double row_norm = 0.0;
+            k = 0;
+            for (int jx = 0; jx < panel_count; ++jx) {
+                for (int nx = 0; nx < order; ++nx, ++k) {
+                    if (!std::isfinite(row_magnifications[k])) {
+                        return std::numeric_limits<double>::quiet_NaN();
+                    }
+                    const double xi =
+                        (row_sources[k].x - source.x) / source_radius;
+                    const double normalized_radius2 = xi * xi + eta * eta;
+                    const double brightness =
+                        source_surface_brightness(normalized_radius2, settings);
+                    row_acc += row_weights[k] * brightness * row_magnifications[k];
+                    row_norm += row_weights[k] * brightness;
+                }
+            }
+            weighted += eta_weight * half_chord * row_acc;
+            brightness_norm += eta_weight * half_chord * row_norm;
         }
-        weighted += weights[j] * half_chord * row_acc;
-        brightness_norm += weights[j] * half_chord * row_norm;
     }
     if (brightness_norm <= 0.0 || !std::isfinite(brightness_norm)) {
         return std::numeric_limits<double>::quiet_NaN();
@@ -1576,6 +1606,7 @@ struct LegacyAreaDiagnostics {
     int overlaps = 0;
     int refined_components = 0;
     int refinement_factor = 0;  // largest per-component factor applied
+    int interval_count = 0;
     double max_jump_cells = 0.0;
     double estimated_error = 0.0;
 };
@@ -2105,32 +2136,18 @@ void append_probe_images_as_seeds(
     std::vector<SourcePosition>& seeds)
 {
     const double source_radius2 = source_radius * source_radius;
-    // Compare only against seeds that existed before this probe.  The two fold
-    // images born at one caustic crossing can be much closer than rho, so they
-    // must not suppress each other.
-    const std::size_t n_seeds_before = seeds.size();
+    // Preserve a true union.  Proximity deduplication used to replace an
+    // earlier representative when a later probe mapped closer to the source
+    // centre.  At finite grid spacing those representatives need not reach the
+    // same connected run, so adding probes could remove coverage.  Exact cell
+    // deduplication happens after snapping to the integration lattice.
     for (const auto& img : probe_images) {
         const SourcePosition mapped = map_binary_lens_real(mapper, img.x, img.y);
         const double mapped_distance2 = distance_squared(mapped, source);
         if (mapped_distance2 > source_radius2 * (1.0 + 1.0e-8)) {
             continue;
         }
-        bool is_dup = false;
-        for (std::size_t si = 0; si < n_seeds_before; ++si) {
-            if (distance_squared(img, seeds[si]) < 0.0625 * source_radius2) {
-                const SourcePosition existing_mapped =
-                    map_binary_lens_real(mapper, seeds[si].x, seeds[si].y);
-                const double existing_distance2 = distance_squared(existing_mapped, source);
-                if (mapped_distance2 + 1.0e-16 < existing_distance2) {
-                    seeds[si] = img;
-                }
-                is_dup = true;
-                break;
-            }
-        }
-        if (!is_dup) {
-            seeds.push_back(img);
-        }
+        seeds.push_back(img);
     }
 }
 
@@ -3651,7 +3668,7 @@ struct ComponentFill {
 // settings.source_bins, so a caller refining by k passes incr/k together with
 // source_bins*k.
 template <typename ImageMap>
-ComponentFill fill_image_component(
+ComponentFill fill_image_component_legacy(
     const ImageMap& mapper,
     SourcePosition source,
     double source_radius,
@@ -3841,6 +3858,268 @@ ComponentFill fill_image_component(
     return fill;
 }
 
+// Order-independent scanline flood fill.
+//
+// A row of an image component is a union of runs, not a bounding interval.
+// Starting from every run reached vertically, expand its exact horizontal run,
+// record it, and enqueue every overlapping cell on the two adjacent rows.  A
+// pinched component can therefore split into two runs and later join again
+// without filling the gap between them.  `local` is the component's private
+// multi-interval row scratch; `claimed` is only used to avoid counting a
+// component already completed by an earlier seed, never to decide its shape.
+template <typename ImageMap>
+ComponentFill fill_image_component_scanline(
+    const ImageMap& mapper,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    SourcePosition seed,
+    double incr,
+    int jac_sign,
+    ClaimedCellRuns& claimed,
+    double magnification_hint,
+    LegacyAreaDiagnostics* diagnostics,
+    std::int64_t* step_budget = nullptr)
+{
+    (void)magnification_hint;
+    const double radius2 = source_radius * source_radius;
+    const double inv_radius2 = 1.0 / radius2;
+    const double edge_brightness =
+        settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0
+        ? (finite_magnifier != nullptr
+              ? finite_magnifier->limb_darkening_table_brightness(1.0)
+              : source_surface_brightness(1.0, settings))
+        : 1.0;
+    struct CellState {
+        double mapped2;
+        bool parity_ok;
+        bool inside;
+    };
+    const auto cell = [&](int ix, int iy) {
+        const auto evaluation = evaluate_lens_cell(
+            mapper, static_cast<double>(ix) * incr,
+            static_cast<double>(iy) * incr, source);
+        const int sign = evaluation.jacobian > 0.0
+            ? 1 : evaluation.jacobian < 0.0 ? -1 : 0;
+        const bool parity_ok = jac_sign == 0 || sign != -jac_sign;
+        return CellState {
+            evaluation.mapped_distance2,
+            parity_ok,
+            parity_ok && evaluation.mapped_distance2 <= radius2,
+        };
+    };
+    const auto crossing_correction = [&](double inside2, const CellState& outside) {
+        if (!outside.parity_ok || !(outside.mapped2 > radius2) || !(inside2 <= radius2)) {
+            return 0.0;
+        }
+        const double r_in = std::sqrt(std::max(inside2, 0.0));
+        const double r_out = std::sqrt(std::max(outside.mapped2, 0.0));
+        const double dr = r_out - r_in;
+        const double fraction = dr > 0.0
+            ? std::clamp((source_radius - r_in) / dr, 0.0, 1.0)
+            : 0.5;
+        return (fraction - 0.5) * edge_brightness;
+    };
+
+    const int seed_ix = static_cast<int>(std::llround(seed.x / incr));
+    const int seed_iy = static_cast<int>(std::llround(seed.y / incr));
+    std::deque<std::pair<int, int>> frontier;
+    frontier.emplace_back(seed_ix, seed_iy);
+    ClaimedCellRuns local;
+    local.owner = 1;
+    ComponentFill fill;
+    long long inside_cells = 0;
+    int min_iy = std::numeric_limits<int>::max();
+    int max_iy = std::numeric_limits<int>::min();
+    std::int64_t remaining = step_budget != nullptr
+        ? std::max<std::int64_t>(*step_budget, 1)
+        : std::numeric_limits<std::int64_t>::max();
+
+    while (!frontier.empty()) {
+        const auto [start_ix, iy] = frontier.front();
+        frontier.pop_front();
+        if (local.find(iy, start_ix) != nullptr) {
+            continue;
+        }
+        const CellState start = cell(start_ix, iy);
+        if (!start.inside) {
+            continue;
+        }
+        int lo = start_ix;
+        int hi = start_ix;
+        CellState left_out = cell(lo - 1, iy);
+        while (left_out.inside) {
+            --lo;
+            left_out = cell(lo - 1, iy);
+        }
+        CellState right_out = cell(hi + 1, iy);
+        while (right_out.inside) {
+            ++hi;
+            right_out = cell(hi + 1, iy);
+        }
+        local.claim(iy, lo, hi);
+        ++fill.rows;
+        if (diagnostics != nullptr) {
+            ++diagnostics->interval_count;
+        }
+        min_iy = std::min(min_iy, iy);
+        max_iy = std::max(max_iy, iy);
+
+        double run_area = 0.0;
+        bool any_unclaimed = false;
+        double left_inside2 = start.mapped2;
+        double right_inside2 = start.mapped2;
+        for (int ix = lo; ix <= hi; ++ix) {
+            if (--remaining <= 0) {
+                fill.area = std::numeric_limits<double>::quiet_NaN();
+                if (step_budget != nullptr) {
+                    *step_budget = 0;
+                }
+                return fill;
+            }
+            const CellState current = cell(ix, iy);
+            if (ix == lo) {
+                left_inside2 = current.mapped2;
+            }
+            if (ix == hi) {
+                right_inside2 = current.mapped2;
+            }
+            ++inside_cells;
+            const ClaimedRun* existing = claimed.find(iy, ix);
+            if (existing != nullptr) {
+                if (existing->owner != claimed.owner) {
+                    fill.foreign_contact = true;
+                }
+            } else {
+                const double normalized2 = current.mapped2 * inv_radius2;
+                const double brightness =
+                    settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0
+                    ? (finite_magnifier != nullptr
+                          ? finite_magnifier->limb_darkening_table_brightness(normalized2)
+                          : source_surface_brightness(normalized2, settings))
+                    : 1.0;
+                run_area += brightness;
+                any_unclaimed = true;
+            }
+        }
+        if (any_unclaimed) {
+            const double correction =
+                crossing_correction(left_inside2, left_out) +
+                crossing_correction(right_inside2, right_out);
+            run_area += correction;
+            if (correction != 0.0) {
+                ++fill.boundary_rows;
+            }
+        }
+        fill.area += run_area;
+        claimed.claim(iy, lo, hi);
+
+        for (const int next_iy : {iy - 1, iy + 1}) {
+            int ix = lo;
+            while (ix <= hi) {
+                if (local.find(next_iy, ix) == nullptr && cell(ix, next_iy).inside) {
+                    frontier.emplace_back(ix, next_iy);
+                    // One seed is enough for this adjacent run; skip to its
+                    // right edge to avoid queueing every cell in a wide row.
+                    while (ix <= hi && cell(ix, next_iy).inside) {
+                        ++ix;
+                    }
+                } else {
+                    ++ix;
+                }
+            }
+        }
+    }
+
+    if (step_budget != nullptr) {
+        *step_budget = remaining;
+    }
+    fill.rows_span = max_iy >= min_iy ? max_iy - min_iy + 1 : 0;
+    const std::size_t distinct_rows = local.rows.size();
+    fill.width = distinct_rows > 0
+        ? static_cast<double>(inside_cells) / static_cast<double>(distinct_rows)
+        : 0.0;
+    return fill;
+}
+
+template <typename ImageMap>
+ComponentFill fill_image_component(
+    const ImageMap& mapper,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    SourcePosition seed,
+    double incr,
+    int jac_sign,
+    ClaimedCellRuns& claimed,
+    double magnification_hint,
+    LegacyAreaDiagnostics* diagnostics,
+    std::int64_t* step_budget = nullptr)
+{
+    if (std::getenv("LCBININT_DIAGNOSTIC_LEGACY_ROW_SCAN") != nullptr) {
+        return fill_image_component_legacy(
+            mapper, source, source_radius, settings, finite_magnifier, seed,
+            incr, jac_sign, claimed, magnification_hint, diagnostics, step_budget);
+    }
+    const double seed_jacobian = lens_jacobian(mapper, seed.x, seed.y);
+    const int scan_sign = seed_jacobian > 0.0
+        ? 1 : seed_jacobian < 0.0 ? -1 : 0;
+    if (std::getenv("LCBININT_DIAGNOSTIC_SCANLINE_ONLY") != nullptr) {
+        return fill_image_component_scanline(
+            mapper, source, source_radius, settings, finite_magnifier, seed, incr,
+            scan_sign, claimed, magnification_hint, diagnostics, step_budget);
+    }
+
+    // Preserve the shipped single-run result where it is the better-resolved
+    // component, while allowing the multi-run scan to recover pinched rows the
+    // legacy walk cannot represent.  Both candidates start from identical
+    // ownership state; only the selected footprint is committed.
+    ClaimedCellRuns legacy_claimed = claimed;
+    ClaimedCellRuns scan_claimed = claimed;
+    LegacyAreaDiagnostics legacy_diagnostics;
+    LegacyAreaDiagnostics scan_diagnostics;
+    LegacyAreaDiagnostics* legacy_diag = nullptr;
+    LegacyAreaDiagnostics* scan_diag = nullptr;
+    if (diagnostics != nullptr) {
+        legacy_diagnostics = *diagnostics;
+        scan_diagnostics = *diagnostics;
+        legacy_diag = &legacy_diagnostics;
+        scan_diag = &scan_diagnostics;
+    }
+    std::int64_t legacy_budget = step_budget != nullptr ? *step_budget : 0;
+    std::int64_t scan_budget = legacy_budget;
+    const ComponentFill legacy = fill_image_component_legacy(
+        mapper, source, source_radius, settings, finite_magnifier, seed, incr,
+        jac_sign, legacy_claimed, magnification_hint, legacy_diag,
+        step_budget != nullptr ? &legacy_budget : nullptr);
+    const ComponentFill scan = fill_image_component_scanline(
+        mapper, source, source_radius, settings, finite_magnifier, seed, incr,
+        scan_sign, scan_claimed, magnification_hint, scan_diag,
+        step_budget != nullptr ? &scan_budget : nullptr);
+    const bool use_scan = std::isfinite(scan.area) &&
+        (!std::isfinite(legacy.area) || scan.area > legacy.area);
+    if (use_scan) {
+        claimed = std::move(scan_claimed);
+        if (diagnostics != nullptr) {
+            *diagnostics = scan_diagnostics;
+        }
+        if (step_budget != nullptr) {
+            *step_budget = scan_budget;
+        }
+        return scan;
+    }
+    claimed = std::move(legacy_claimed);
+    if (diagnostics != nullptr) {
+        *diagnostics = legacy_diagnostics;
+    }
+    if (step_budget != nullptr) {
+        *step_budget = legacy_budget;
+    }
+    return legacy;
+}
+
 // Per-component refinement.
 //
 // The uniform image-plane lattice is sized from the *source* (`rho / bins`),
@@ -3963,8 +4242,46 @@ double inverse_ray_cartesian_core(
     }
     const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
     const double incr = source_radius / nbin;
-    const auto images =
-        lattice_snapped_seeds(mapper, source, source_radius, incr, raw_images);
+    auto images = lattice_snapped_seeds(
+        mapper, source, source_radius, incr, raw_images);
+    // Diagnostic-only perturbation used by the tangency correctness corpus.
+    // Keeping this below lattice snapping ensures the two runs have exactly
+    // the same seed cells and differ only in flood-fill order.  Production
+    // canonicalises the result below; the legacy diagnostic deliberately does
+    // not, so it can reproduce the former order dependence.
+    if (const char* order = std::getenv("LCBININT_DIAGNOSTIC_SEED_ORDER")) {
+        const std::string order_text(order);
+        if (order_text == "fold-first" || order_text == "fold-last") {
+            const bool fold_first = order_text == "fold-first";
+            std::stable_sort(images.begin(), images.end(), [&](const auto& lhs, const auto& rhs) {
+                const bool lhs_fold = std::abs(lens_jacobian(mapper, lhs.x, lhs.y)) <
+                    kFoldJacobianThreshold;
+                const bool rhs_fold = std::abs(lens_jacobian(mapper, rhs.x, rhs.y)) <
+                    kFoldJacobianThreshold;
+                return lhs_fold != rhs_fold && lhs_fold == fold_first;
+            });
+        } else if (order_text == "jacobian-ascending" ||
+                   order_text == "jacobian-descending") {
+            const bool ascending = order_text == "jacobian-ascending";
+            std::stable_sort(images.begin(), images.end(), [&](const auto& lhs, const auto& rhs) {
+                const double lhs_abs = std::abs(lens_jacobian(mapper, lhs.x, lhs.y));
+                const double rhs_abs = std::abs(lens_jacobian(mapper, rhs.x, rhs.y));
+                return ascending ? lhs_abs < rhs_abs : lhs_abs > rhs_abs;
+            });
+        } else if (order_text == "reverse") {
+            std::reverse(images.begin(), images.end());
+        }
+    }
+    if (std::getenv("LCBININT_DIAGNOSTIC_LEGACY_ROW_SCAN") == nullptr) {
+        std::stable_sort(images.begin(), images.end(), [&](const auto& lhs, const auto& rhs) {
+            const double lhs_abs = std::abs(lens_jacobian(mapper, lhs.x, lhs.y));
+            const double rhs_abs = std::abs(lens_jacobian(mapper, rhs.x, rhs.y));
+            if (lhs_abs != rhs_abs) {
+                return lhs_abs > rhs_abs;
+            }
+            return lhs.y != rhs.y ? lhs.y < rhs.y : lhs.x < rhs.x;
+        });
+    }
     if (images.empty()) {
         return std::nan("");
     }
@@ -3999,19 +4316,18 @@ double inverse_ray_cartesian_core(
         // critical curve from one fold image into the other, giving wrong (sometimes
         // negative) magnifications.
         //
-        // Fold images sit close to the critical curve and have |J| << 1.  Standard
-        // images (far from the critical curve) have |J| >> kFoldJacThreshold and are
-        // NOT restricted — their flood-fills stay naturally within their own image
-        // region because the mapped source exits the disk before crossing any critical
-        // curve.  Applying the guard to them would incorrectly limit their area.
+        // The legacy candidate keeps its established near-fold parity guard.
+        // The multi-run candidate always keeps the seed parity (inside
+        // fill_image_component), so its shape cannot depend on which neighbour
+        // claimed the opposite side of the critical curve first.
         const double J_seed = lens_jacobian(mapper, seed.x, seed.y);
-        const int jac_sign = (std::abs(J_seed) < kFoldJacobianThreshold)
+        const int jac_sign = std::abs(J_seed) < kFoldJacobianThreshold
             ? (J_seed > 0.0 ? 1 : J_seed < 0.0 ? -1 : 0)
             : 0;
 
         if (diagnostics != nullptr) {
             ++diagnostics->processed_images;
-            if (jac_sign != 0) {
+            if (std::abs(J_seed) < kFoldJacobianThreshold) {
                 ++diagnostics->fold_seed_count;
             }
         }
@@ -4114,11 +4430,12 @@ double inverse_ray_cartesian_core(
         }
         if (std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
             std::fprintf(stderr,
-                "%s bins=%d seeds=%d processed=%d fold=%d rows=%d gaps=%d overlaps=%d "
+                "%s bins=%d seeds=%d processed=%d fold=%d rows=%d intervals=%d gaps=%d overlaps=%d "
                 "refined=%d/%d maxjump=%.3g mag=%.8g err=%.8g\n",
                 diagnostics_label, settings.source_bins, diagnostics->seed_count,
                 diagnostics->processed_images, diagnostics->fold_seed_count,
-                diagnostics->boundary_rows, diagnostics->gap_repairs, diagnostics->overlaps,
+                diagnostics->boundary_rows, diagnostics->interval_count,
+                diagnostics->gap_repairs, diagnostics->overlaps,
                 diagnostics->refined_components, diagnostics->refinement_factor,
                 diagnostics->max_jump_cells, magnification, diagnostics->estimated_error);
         }
@@ -5724,6 +6041,91 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
     };
 }
 
+AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_binary_mag(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const AlgebraicBoundarySettings& algebraic_settings) const
+{
+    const PointSourceMagnifier point_magnifier;
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    bool support_proven = true;
+    auto seeds = augmented_image_seeds(
+        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+        std::numeric_limits<double>::infinity(), nullptr,
+        &binary_caustic_branches(separation, mass_ratio), &support_proven);
+    if (!support_proven) {
+        AlgebraicBoundaryResult result;
+        result.unsafe_reason = "existing component support certificate failed";
+        return result;
+    }
+    if (seeds.size() < 5) {
+        augment_seeds_from_caustic_branches(
+            separation, mass_ratio, source, source_radius, seeds);
+    }
+    return experimental_algebraic_boundary_integral(
+        {mapper.separation.real(), mapper.m1, mapper.m2},
+        source, source_radius,
+        settings_.limb_darkening_c, settings_.limb_darkening_d,
+        seeds, algebraic_settings);
+}
+
+double FiniteSourceMagnifier::experimental_raster_polar_binary_mag(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius) const
+{
+    const PointSourceMagnifier point_magnifier;
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    bool support_proven = true;
+    auto seeds = augmented_image_seeds(
+        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+        std::numeric_limits<double>::infinity(), nullptr,
+        &binary_caustic_branches(separation, mass_ratio), &support_proven);
+    if (!support_proven) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    if (seeds.size() < 5) {
+        augment_seeds_from_caustic_branches(
+            separation, mass_ratio, source, source_radius, seeds);
+    }
+    return inverse_ray_polar_boundary_binary(
+        point_magnifier, separation, mass_ratio, source, source_radius,
+        settings_, this, &seeds);
+}
+
+AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_cartesian_binary_mag(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const AlgebraicBoundarySettings& algebraic_settings) const
+{
+    const PointSourceMagnifier point_magnifier;
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    bool support_proven = true;
+    auto seeds = augmented_image_seeds(
+        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+        std::numeric_limits<double>::infinity(), nullptr,
+        &binary_caustic_branches(separation, mass_ratio), &support_proven);
+    if (!support_proven) {
+        AlgebraicBoundaryResult result;
+        result.unsafe_reason = "existing component support certificate failed";
+        return result;
+    }
+    if (seeds.size() < 5) {
+        augment_seeds_from_caustic_branches(
+            separation, mass_ratio, source, source_radius, seeds);
+    }
+    return experimental_algebraic_cartesian_integral(
+        {mapper.separation.real(), mapper.m1, mapper.m2},
+        source, source_radius,
+        settings_.limb_darkening_c, settings_.limb_darkening_d,
+        seeds, algebraic_settings);
+}
+
 const char* finite_source_method_name(FiniteSourceMethod method)
 {
     switch (method) {
@@ -6524,7 +6926,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             double fine = binary_source_plane_chord_quadrature(
                 point_magnifier, separation, mass_ratio, source, source_radius,
                 runtime_settings, 96);
-            int sample_count = 48 * 48 + 96 * 96;
+            int sample_count = (48 * 8) * (48 * 8) + (96 * 8) * (96 * 8);
             if (std::isfinite(fine) && std::isfinite(coarse) &&
                 std::abs(fine - coarse) > finite_source_error_budget(settings_, fine)) {
                 // The sliver spike converges slowly; one escalation usually
@@ -6532,8 +6934,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 coarse = fine;
                 fine = binary_source_plane_chord_quadrature(
                     point_magnifier, separation, mass_ratio, source, source_radius,
-                    runtime_settings, 160);
-                sample_count += 160 * 160;
+                    runtime_settings, 192);
+                sample_count += (192 * 8) * (192 * 8);
             }
             if (std::isfinite(fine) && std::isfinite(coarse)) {
                 const double error_estimate = std::abs(fine - coarse);
@@ -6549,27 +6951,39 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         }
         if (!caustic_enters_disk && scan.min_distance >= source_radius &&
             !tangent_band) {
-            const int fine_bins = std::max(runtime_settings.source_bins, 32);
-            const int coarse_bins = std::max(1, fine_bins / 2);
-            const auto coarse = binary_source_plane_quadrature(
+            // "Outside the disk" does not make the integrand smooth enough
+            // for midpoint rings: a fold just beyond the limb still produces
+            // a narrow off-centre spike.  Both inverse-ray grid requests used
+            // to reach this shared branch and return the same wrong value.
+            // Use the singularity-localising composite chord ladder here too.
+            double coarse = binary_source_plane_chord_quadrature(
                 point_magnifier, separation, mass_ratio, source, source_radius,
-                runtime_settings, coarse_bins);
-            const auto fine = binary_source_plane_quadrature(
+                runtime_settings, 48);
+            double fine = binary_source_plane_chord_quadrature(
                 point_magnifier, separation, mass_ratio, source, source_radius,
-                runtime_settings, fine_bins);
-            if (std::isfinite(fine.magnification)) {
-                const double error_estimate = std::isfinite(coarse.magnification)
-                    ? std::abs(fine.magnification - coarse.magnification)
+                runtime_settings, 96);
+            int sample_count = (48 * 8) * (48 * 8) + (96 * 8) * (96 * 8);
+            if (std::isfinite(fine) && std::isfinite(coarse) &&
+                std::abs(fine - coarse) > finite_source_error_budget(settings_, fine)) {
+                coarse = fine;
+                fine = binary_source_plane_chord_quadrature(
+                    point_magnifier, separation, mass_ratio, source, source_radius,
+                    runtime_settings, 192);
+                sample_count += (192 * 8) * (192 * 8);
+            }
+            if (std::isfinite(fine)) {
+                const double error_estimate = std::isfinite(coarse)
+                    ? std::abs(fine - coarse)
                     : std::numeric_limits<double>::infinity();
                 const bool converged = finite_source_error_within_budget(
-                    settings_, fine.magnification, error_estimate);
+                    settings_, fine, error_estimate);
                 FiniteSourceDecision decision {
                     FiniteSourceMethod::source_plane_quadrature,
-                    coarse.sample_count + fine.sample_count,
-                    "grazing-caustic source-plane quadrature",
+                    sample_count,
+                    "grazing-caustic composite chord quadrature",
                 };
                 return cache_and_return({
-                    fine.magnification,
+                    fine,
                     0,
                     decision,
                     error_estimate,
