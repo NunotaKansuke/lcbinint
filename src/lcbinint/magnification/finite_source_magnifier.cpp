@@ -6055,20 +6055,17 @@ AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_b
         point_magnifier, mapper, separation, mass_ratio, source, source_radius,
         std::numeric_limits<double>::infinity(), nullptr,
         &binary_caustic_branches(separation, mass_ratio), &support_proven);
-    if (!support_proven) {
-        AlgebraicBoundaryResult result;
-        result.unsafe_reason = "existing component support certificate failed";
-        return result;
-    }
-    if (seeds.size() < 5) {
+    if (!support_proven || seeds.size() < 5) {
         augment_seeds_from_caustic_branches(
             separation, mass_ratio, source, source_radius, seeds);
     }
-    return experimental_algebraic_boundary_integral(
+    auto result = experimental_algebraic_boundary_integral(
         {mapper.separation.real(), mapper.m1, mapper.m2},
         source, source_radius,
         settings_.limb_darkening_c, settings_.limb_darkening_d,
         seeds, algebraic_settings);
+    result.diagnostics.recovered_seed_support_count = support_proven ? 0 : 1;
+    return result;
 }
 
 double FiniteSourceMagnifier::experimental_raster_polar_binary_mag(
@@ -6110,20 +6107,17 @@ AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_cartesian_
         point_magnifier, mapper, separation, mass_ratio, source, source_radius,
         std::numeric_limits<double>::infinity(), nullptr,
         &binary_caustic_branches(separation, mass_ratio), &support_proven);
-    if (!support_proven) {
-        AlgebraicBoundaryResult result;
-        result.unsafe_reason = "existing component support certificate failed";
-        return result;
-    }
-    if (seeds.size() < 5) {
+    if (!support_proven || seeds.size() < 5) {
         augment_seeds_from_caustic_branches(
             separation, mass_ratio, source, source_radius, seeds);
     }
-    return experimental_algebraic_cartesian_integral(
+    auto result = experimental_algebraic_cartesian_integral(
         {mapper.separation.real(), mapper.m1, mapper.m2},
         source, source_radius,
         settings_.limb_darkening_c, settings_.limb_darkening_d,
         seeds, algebraic_settings);
+    result.diagnostics.recovered_seed_support_count = support_proven ? 0 : 1;
+    return result;
 }
 
 const char* finite_source_method_name(FiniteSourceMethod method)

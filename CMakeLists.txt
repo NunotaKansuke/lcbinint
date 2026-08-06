@@ -65,6 +65,7 @@ endif()
 # Leaf layer: finite/point-source magnification kernels + root solvers.
 # No dependency on model/, lc/, or obs/ (see .note/session-2026-07-18-final-review.md, A5).
 add_library(lcbinint_magnification
+    src/lcbinint/magnification/algebraic_boundary.cpp
     src/lcbinint/magnification/component_certificate.cpp
     src/lcbinint/magnification/finite_source_magnifier.cpp
     src/lcbinint/magnification/point_source_magnifier.cpp
@@ -106,10 +107,22 @@ if(LCBININT_BUILD_TESTS)
     add_executable(test_core tests/unit/test_core.cpp)
     target_link_libraries(test_core PRIVATE lcbinint_lightcurve)
     add_test(NAME unit_core COMMAND test_core)
+    add_executable(test_algebraic_boundary tests/unit/test_algebraic_boundary.cpp)
+    # The focused test calls magnification internals directly. Repeat the leaf
+    # library before lightcurve to satisfy the repository's existing static
+    # triple-geometry back-edge on linkers that do a single archive pass.
+    target_link_libraries(test_algebraic_boundary PRIVATE
+        lcbinint_magnification lcbinint_lightcurve)
+    add_test(NAME unit_algebraic_boundary COMMAND test_algebraic_boundary)
 endif()
 
 add_executable(benchmark_point_hex EXCLUDE_FROM_ALL tests/diagnostics/benchmark_point_hex.cpp)
 target_link_libraries(benchmark_point_hex PRIVATE lcbinint_lightcurve)
+
+add_executable(benchmark_algebraic_boundary EXCLUDE_FROM_ALL
+    tests/diagnostics/benchmark_algebraic_boundary.cpp)
+target_link_libraries(benchmark_algebraic_boundary PRIVATE
+    lcbinint_magnification lcbinint_lightcurve)
 
 if(LCBININT_BUILD_PYTHON)
     find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)

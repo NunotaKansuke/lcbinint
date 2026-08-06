@@ -15,6 +15,9 @@ enum class RootSolverStatus {
 struct PolynomialRootOptions {
     bool polish_roots = true;
     bool use_roots_as_starting_points = false;
+    // Polish each supplied root against the full polynomial without
+    // rediscovering and deflating the complete root set.
+    bool polish_only_starting_roots = false;
 };
 
 struct PolynomialRootResult {

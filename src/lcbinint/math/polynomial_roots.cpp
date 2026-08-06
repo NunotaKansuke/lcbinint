@@ -88,12 +88,29 @@ PolynomialRootResult PolynomialRootSolver::solve_impl(
         }
     }
 
-    cmplx_roots_gen(
-        sg_roots.data(),
-        sg_coefficients.data(),
-        degree,
-        options.polish_roots,
-        use_starting_roots && options.use_roots_as_starting_points);
+    bool polished_only = false;
+    if (use_starting_roots && options.polish_only_starting_roots) {
+        polished_only = true;
+        for (int i = 0; i < degree; ++i) {
+            int iterations = 0;
+            bool success = false;
+            cmplx_newton_spec(
+                sg_coefficients.data(), degree,
+                &sg_roots[static_cast<std::size_t>(i)], iterations, success);
+            if (!success) {
+                polished_only = false;
+                break;
+            }
+        }
+    }
+    if (!polished_only) {
+        cmplx_roots_gen(
+            sg_roots.data(),
+            sg_coefficients.data(),
+            degree,
+            options.polish_roots,
+            use_starting_roots && options.use_roots_as_starting_points);
+    }
 
     std::vector<Complex> roots;
     if (starting_roots != nullptr) {
