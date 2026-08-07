@@ -35,9 +35,11 @@ point-source magnification for the grid switch and a three-level tolerance
 table: Cartesian/polar buckets are `(16, 50)`, `(50, 100)`, and `(200, 200)`
 for `reltol >= 1e-2`, `1e-3 <= reltol < 1e-2` (or the default), and
 `0 < reltol < 1e-3`, respectively. Cartesian's cheap area indicator can arm a
-fail-closed retry to a finer supported bucket; automatic calls do not spend a
-second half-resolution evaluation. Fixed integer `nbin` calls never retry and
-retain their explicit half-resolution consistency check.
+fail-closed retry to a finer supported bucket. Automatic calls use the same
+embedded error controller whether or not a tolerance was explicitly supplied;
+an explicit tolerance changes the budget and may select a finer bucket. Fixed
+integer `nbin` calls never retry and are retained as a user-directed exception;
+an explicit tolerance may add a half-resolution consistency check there.
 
 The post-check is order-aware: the edge-corrected Cartesian scan uses a
 second-order boundary estimate when there are no fold seeds and row-to-row
@@ -73,9 +75,10 @@ numerical error estimators differ:
   first-order boundary term, multiplying its normalized magnitude by `1/N`
   estimates the remaining second-order term without another lens-map pass. The
   scale is geometric so a zero-brightness source limb cannot produce a zero
-  error estimate.
-  A caller that explicitly supplies a tolerance additionally gets a nested-grid
-  Richardson check, and the larger estimate is retained.
+  error estimate. This embedded estimator is used for automatic resolution
+  regardless of whether `tol` or `reltol` was supplied; an explicit tolerance
+  changes only `B`. The fixed-`nbin` compatibility path may additionally
+  compare against a half-resolution grid.
 - Tangent-caustic source-plane quadrature already computes nested 48/96 rules.
   Their difference is converted to a fine-rule estimate with first-order
   Richardson scaling; a miss escalates once to 192 and is assessed identically.

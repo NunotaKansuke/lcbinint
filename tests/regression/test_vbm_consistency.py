@@ -414,6 +414,18 @@ def test_lcbinint_auto_inverse_ray_uses_polar_only_for_high_magnification():
     high_budget = 1.0e-4 + 1.0e-3 * max(abs(high.magnifications[0]), 1.0)
     assert high.finite_source_error_estimates[0] <= high_budget
 
+    explicit_default = lcbinint.LightCurve(options=lcbinint.Options(
+        coordinates="vbm",
+        inverse_ray_grid="auto",
+        nbin="auto",
+        reltol=1.0e-3,
+        point_source_threshold=1.0e9,
+        hexadecapole_threshold=1.0e9,
+    )).info([0.004], **common)
+    assert explicit_default.magnifications == high.magnifications
+    assert explicit_default.finite_source_error_estimates == high.finite_source_error_estimates
+    assert explicit_default.finite_source_refinement_levels == high.finite_source_refinement_levels
+
     dark_limb = lcbinint.LightCurve(
         options=options,
         limb_darkening=lcbinint.LimbDarkening.linear(1.0),

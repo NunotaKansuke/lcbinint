@@ -145,12 +145,10 @@ double grid_pair_error_estimate(
 // cut, so it decays like 1/source_bins however fast the area itself converges.
 // On the binary tangency it is 6x pessimistic by 4096 bins and on the triple
 // cusp 1000x, which is enough to report a value that is right to 1e-14 as
-// unconverged and hand back a NaN.  When an explicit tolerance is on the line,
-// spend one half-resolution evaluation and let the measured pair speak: a
-// would-be converged row still has to survive it, and a row the indicator
-// rejects is admitted only if the measurement is inside the budget.  What this
-// does not touch is the support certificate or the resolvability guard -- both
-// still veto, because neither is a statement about grid error.
+// unconverged and hand back a NaN.  Automatic resolution uses the method's
+// embedded estimate; a failed automatic ladder may use this independent
+// half-resolution cross-check, and a fixed nbin with an explicit tolerance
+// may request it as a compatibility path.
 template <typename EvaluateAt>
 void reconcile_with_half_resolution(
     const FiniteSourceSettings& settings,
@@ -161,8 +159,7 @@ void reconcile_with_half_resolution(
     bool& converged,
     int convergence_order = 1)
 {
-    if (!has_explicit_finite_source_tolerance(settings) ||
-        active_settings.source_bins <= 1) {
+    if (active_settings.source_bins <= 1) {
         return;
     }
     FiniteSourceSettings coarse_settings = active_settings;
@@ -2083,10 +2080,11 @@ PolarToleranceEvaluation evaluate_polar_to_tolerance(
         return {fine, std::numeric_limits<double>::infinity(), 0, false};
     }
 
-    // Fixed calls without an explicit tolerance retain their historical
-    // one-shot behaviour.  Automatic polar uses the embedded boundary-error
-    // estimate from the fine pass; an explicitly requested tolerance also
-    // gets an independent nested-grid measurement.
+    // Automatic polar always uses the embedded boundary-error estimate from
+    // the fine pass.  The tolerance only changes the common budget below; it
+    // does not select a stricter estimator.  Fixed calls without a tolerance
+    // retain their historical one-shot behaviour, while fixed calls with an
+    // explicit tolerance keep the independent nested-grid compatibility check.
     if (!settings.automatic_source_bins &&
         !has_explicit_finite_source_tolerance(settings)) {
         return {fine, 0.0, 0, true};
@@ -2094,7 +2092,8 @@ PolarToleranceEvaluation evaluate_polar_to_tolerance(
 
     int fine_bins = active_polar_source_bins(active);
     double error_estimate = fine_diagnostics.estimated_error;
-    if (has_explicit_finite_source_tolerance(settings)) {
+    if (!settings.automatic_source_bins &&
+        has_explicit_finite_source_tolerance(settings)) {
         FiniteSourceSettings coarse_settings = active;
         const int coarse_bins = std::max(1, fine_bins / 2);
         coarse_settings.source_bins = coarse_bins;
@@ -2119,8 +2118,6 @@ PolarToleranceEvaluation evaluate_polar_to_tolerance(
             break;
         }
 
-        const int previous_bins = fine_bins;
-        const double previous = fine;
         active.source_bins = retry_bins;
         active.polar_source_bins = retry_bins;
         PolarAreaDiagnostics retry_diagnostics;
@@ -2131,12 +2128,6 @@ PolarToleranceEvaluation evaluate_polar_to_tolerance(
         fine = retry;
         fine_bins = retry_bins;
         error_estimate = retry_diagnostics.estimated_error;
-        if (has_explicit_finite_source_tolerance(settings)) {
-            error_estimate = std::max(
-                error_estimate,
-                grid_pair_error_estimate(
-                    fine, previous, fine_bins, previous_bins, 2));
-        }
         ++refinement_level;
         assessment = assess_finite_source_error(
             settings, fine, error_estimate, support_proven);
@@ -4720,9 +4711,10 @@ FiniteSourceResult fixed_inverse_ray_binary(
             point_magnifier, separation, mass_ratio, source, source_radius,
             grid, finite_magnifier, &seeds);
     };
-    // Fixed-grid explicit-tolerance calls get one independent half-resolution
-    // check.  Automatic calls use the calibrated bucket as their one-shot
-    // decision; only the cheap area indicator can arm the retry ladder.
+    // Fixed-grid explicit-tolerance calls retain one independent
+    // half-resolution check.  Automatic calls use the same calibrated area
+    // estimate and common budget regardless of whether tol/reltol was
+    // explicitly supplied.
     if (converged && has_explicit_finite_source_tolerance(settings) &&
         !settings.automatic_source_bins) {
         reconcile_with_half_resolution(
@@ -4744,7 +4736,6 @@ FiniteSourceResult fixed_inverse_ray_binary(
             break;
         }
 
-        const int previous_bins = active_settings.source_bins;
         active_settings.source_bins = retry_bins;
         if (active_settings.polar_source_bins <= 0) {
             active_settings.polar_source_bins = retry_bins;
@@ -4756,32 +4747,19 @@ FiniteSourceResult fixed_inverse_ray_binary(
         if (!std::isfinite(retry_magnification)) {
             break;
         }
-        const double previous_magnification = magnification;
         magnification = retry_magnification;
         diagnostics = retry_diagnostics;
         ++refinement_level;
         assessment = diagnose(magnification, diagnostics);
         error_estimate = assessment.estimate;
         converged = assessment.converged;
-        if (converged && has_explicit_finite_source_tolerance(settings)) {
-            error_estimate = std::max(
-                error_estimate,
-                grid_pair_error_estimate(
-                    magnification, previous_magnification,
-                    active_settings.source_bins, previous_bins,
-                    std::min(
-                        previous_order,
-                        cartesian_error_convergence_order(diagnostics))));
-            assessment = assess_finite_source_error(
-                settings, magnification, error_estimate, support_proven);
-            error_estimate = assessment.estimate;
-            converged = assessment.converged;
-        }
     }
     // The retry ladder is exhausted here, so the indicator's 1/source_bins
     // floor is all that stands between a correct value and a NaN.  Measure the
     // grid error instead of bounding it.
-    if (!converged && support_proven && std::isfinite(error_estimate)) {
+    if (!converged && support_proven && std::isfinite(error_estimate) &&
+        (settings.automatic_source_bins ||
+         has_explicit_finite_source_tolerance(settings))) {
         reconcile_with_half_resolution(
             settings, active_settings, magnification, evaluate_at,
             error_estimate, converged,
