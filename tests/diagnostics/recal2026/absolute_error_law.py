@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Calibrate an absolute-tolerance-only resolution law from stored ladders."""
+"""Calibrate an absolute-tolerance-only resolution law from stored ladders.
+
+The resulting law is one branch of the common ``max``-budget policy.  It is
+intentionally retained even though it is conservative: a caller that supplies
+``reltol=0`` still needs a reproducible absolute-only initial resolution.
+"""
 
 from __future__ import annotations
 

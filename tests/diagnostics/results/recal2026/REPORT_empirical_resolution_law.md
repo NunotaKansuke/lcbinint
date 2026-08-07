@@ -1,98 +1,178 @@
-# Empirical resolution law for finite-source magnification
+# Empirical Nbin law with a common max-budget policy
 
-August 2026 recalibration of the current certified binary-lens Cartesian and
-polar inverse-ray algorithms. This document is the paper-facing statement of
-the result. It is an offline calibration record; it does not yet change the
-C++ runtime selector.
+August 2026 recalibration of the current binary-lens Cartesian and polar
+inverse-ray ladders. This is the paper-facing handoff for the resolution
+calibration. It records the data split, the fitting procedure, the absolute
+and relative laws, the mixed-tolerance rule, the independent holdout result,
+and the reproducibility commands.
 
-## 1. The common principle
+The central result is simple:
 
-Every numerical route is judged against one error budget. For a magnification
-value \(A\), define
+> Every numerical route uses the same tolerance semantics. The route-specific
+> convergence law may differ, but absolute and relative tolerances are
+> alternative allowances and the less demanding branch is sufficient.
+
+The calibration is complete and the mixed rule passes the holdout test. The
+production C++ selector is intentionally not changed by this report; wiring
+this offline policy into `nbin="auto"` is a separate implementation step.
+Until that follow-up lands, the current runtime must not be described as
+already using this max-budget policy; this document is the final calibration
+and handoff record for the change.
+
+## 1. Policy
+
+For a magnification \(A\), define the scale
 
 \[
- S(A)=\max(|A|,1),\qquad
- B(A)=a_{\rm tol}+r_{\rm tol}S(A),\qquad
- \varepsilon(A)=\frac{B(A)}{S(A)}.
+ S(A)=\max(|A|,1).
 \]
 
-The dimensionless quantity \(\varepsilon\) is the common axis of the
-calibration. It makes the Cartesian and polar results comparable without
-pretending that their convergence constants are identical. The route may have
-its own estimator and its own resolution coordinate, but it should answer the
-same question: does its estimated error stay within \(B\)?
+The two allowed error branches are
 
-There are two different values of \(A\), and keeping them separate is
-important:
+\[
+ B_{\rm abs}=a_{\rm tol},\qquad
+ B_{\rm rel}=r_{\rm tol}S(A).
+\]
 
-* In this offline study, \(A=A_{\rm ref}\), the high-resolution reference used
-  to label the data.
-* At runtime, \(A=\hat A(N)\), the value produced by the current evaluation.
-  The runtime computes the budget from that value and uses the route-specific
-  embedded error estimate to decide whether to accept or refine.
+The effective acceptance budget is the larger allowance,
 
-The reference value is therefore a calibration instrument, not an additional
-runtime input.
+\[
+ B_{\rm eff}=\max(B_{\rm abs},B_{\rm rel}),
+ \qquad
+ \varepsilon_{\rm rel}=\max\left(\frac{a_{\rm tol}}{S(A)},r_{\rm tol}\right).
+\]
+
+Equivalently, the calculation is accepted when
+
+\[
+ E\le a_{\rm tol}\quad\text{or}\quad
+ E\le r_{\rm tol}S(A).
+\]
+
+This is the same logical structure as the VBMicrolensing stopping rule: the
+calculation continues only while both tests fail. It is not the additive
+budget \(a_{\rm tol}+r_{\rm tol}S(A)\), and it is not the stricter minimum of
+the two allowances.
+
+The resolution selector uses the corresponding two empirical branches:
+
+\[
+ N_{\rm abs,g}(a_{\rm tol})
+ =\left\lceil C^{\rm abs}_g
+ \left(\frac{a_{\rm tol}}{10^{-3}}\right)^{-\beta^{\rm abs}_g}\right\rceil_{\mathcal N},
+\]
+
+\[
+ N_{\rm rel,g}(r_{\rm tol})
+ =\left\lceil C^{\rm rel}_g
+ \left(\frac{r_{\rm tol}}{10^{-3}}\right)^{-\beta^{\rm rel}_g}\right\rceil_{\mathcal N},
+\]
+
+where \(g\in\{\text{Cartesian},\text{polar}\}\), and
+\(\lceil\cdot\rceil_{\mathcal N}\) rounds upward to the measured ladder
+
+\[
+ \mathcal N=\{4,6,8,10,12,16,24,32,40,50,64,80,100,128,160,200,256,320,400\}.
+\]
+
+For a mixed request, the adopted rule is
+
+\[
+ \boxed{N_{\rm mix,g}=\min\left(N_{\rm abs,g}(a_{\rm tol}),
+                                  N_{\rm rel,g}(r_{\rm tol})\right).}
+\]
+
+The `min` is not an arbitrary optimization. On a fixed resolution ladder,
+increasing the allowed error from either branch to \(B_{\rm eff}\) can only
+move the first persistent crossing earlier. Therefore the required mixed
+resolution is the minimum of the two pure-branch requirements. The empirical
+p99 laws still need an explicit mixed holdout check because each branch law is
+calibrated from a marginal distribution.
+
+Special cases are immediate: `atol=0` uses only the relative branch,
+`reltol=0` uses only the absolute branch, and both zero is invalid.
 
 ## 2. Data and convergence label
 
-The current algorithm was evaluated on 6,000 discovery rows and 2,200 rows from
-an independent holdout. Each row contains a Cartesian and a polar resolution
-ladder, with the offline ladder
+The campaign contains 6,000 discovery rows and 2,200 independent holdout rows.
+Each row has Cartesian and polar ladders evaluated at the same source position,
+with the resolutions listed above. The reference is the high-resolution result
+stored with its uncertainty.
 
-    4, 6, 8, 10, 12, 16, 24, 32, 40, 50, 64, 80, 100,
-    128, 160, 200, 256, 320, 400.
-
-For a target budget, the required resolution is the first bucket \(N\) such
-that the result at \(N\) and every finer measured bucket satisfy
+For each requested budget, the required resolution is the first ladder bucket
+for which the result and every finer measured bucket satisfy
 
 \[
- |A(N)-A_{\rm ref}|\le B(A_{\rm ref}).
+ |A(N)-A_{\rm ref}|\le B_{\rm eff}(A_{\rm ref}).
 \]
 
-This persistent-crossing rule rejects an isolated lucky crossing. A row is
-used only when the stored reference uncertainty is at most 10% of the target
-normalized budget. Discovery data determine the coefficients; holdout data are
-used only for the reported coverage.
+This persistent-crossing definition rejects an isolated lucky crossing. A row
+is used only when the reference uncertainty is at most 10% of the requested
+normalized budget. Discovery data determine the fit; the holdout is never used
+to choose coefficients or safety offsets.
 
-## 3. The fitted law
+The usable record counts are:
 
-The simplest law supported by the data is a grid-specific p99 power law in the
-single common variable \(\varepsilon\):
+| branch | discovery records | holdout records |
+|---|---:|---:|
+| relative | 99,678 | 37,050 |
+| absolute | 80,317 | 30,088 |
+
+The absolute branch is smaller at tight tolerances because a fixed absolute
+accuracy is harder to resolve relative to the uncertainty of high-
+magnification references. This is a data-availability qualification, not a
+change in the definition of the rule.
+
+## 3. Fitting procedure
+
+For each grid and each branch:
+
+1. Compute the required persistent-crossing bucket for every discovery row and
+   tolerance level.
+2. Summarize the required bucket distribution at each level by its p99.
+3. Fit the p99 values in base-two logarithms with a one-variable power law.
+4. Choose the smallest discovery-side upward offset that reaches 99% coverage
+   overall and at every available tolerance level.
+5. Round the continuous prediction upward to the next supported bucket.
+6. Apply the frozen law to the independent holdout.
+
+The logarithmic form is
 
 \[
- N_{99,g}(\varepsilon)=
- \left\lceil C_g\left(\frac{\varepsilon}{10^{-3}}\right)^{-\beta_g}
- \right\rceil_{\mathcal N},
+ \log_2N_{99}=\log_2C+\beta\log_2(10^{-3}/\tau),
 \]
 
-where \(\lceil\cdot\rceil_{\mathcal N}\) means rounding upward to the next
-measured bucket. The fitted form is linear in base-two logarithms:
+where \(\tau=a_{\rm tol}\) for the absolute branch and
+\(\tau=r_{\rm tol}\) for the relative branch. Base two is used because one
+step in the ladder is naturally a resolution refinement, and the slope has a
+direct interpretation: halving the requested tolerance multiplies the p99
+resolution by \(2^\beta\).
 
-\[
- \log_2 N_{99,g}
- =\log_2 C_g+\beta_g\log_2\left(\frac{10^{-3}}{\varepsilon}\right).
-\]
+No \(A_{\rm point}\), \(d/\rho\), cusp-distance, or topology hinge is included
+in the Nbin law. Those quantities remain available for route selection and
+diagnostics, but they did not produce a stable common reduction in validated
+work in this calibration. Adding them would make Cartesian and polar follow
+different exception rules without improving the holdout guarantee.
 
-The coefficients are:
+## 4. Fitted laws
 
-| grid | \(C_g\) | \(\beta_g\) | independent holdout coverage |
-|---|---:|---:|---:|
-| Cartesian | 45.32 | 0.4767 | 99.67% |
-| polar | 94.57 | 0.5952 | 99.81% |
+The discovery fits and their independent holdout coverage are:
 
-The exponent has a direct interpretation. Halving the normalized budget
-requires approximately \(2^{0.477}=1.39\) times as many Cartesian bins and
-\(2^{0.595}=1.51\) times as many polar bins at the p99 level. The common
-principle is therefore shared, while the two numerical paths retain their
-measured prefactor and exponent.
+| grid | \(C^{\rm rel}\) | \(\beta^{\rm rel}\) | relative coverage | \(C^{\rm abs}\) | \(\beta^{\rm abs}\) | absolute coverage |
+|---|---:|---:|---:|---:|---:|---:|
+| Cartesian | 45.32 | 0.4767 | 99.67% | 140.47 | 0.1103 | 99.67% |
+| polar | 94.57 | 0.5952 | 99.81% | 201.05 | 0.2286 | 99.75% |
 
-## 4. Paper-facing bucket table
+The relative branch is the efficient main calibration. At the common default
+\(r_{\rm tol}=10^{-3}\), the p99 initial buckets are Cartesian 50 and polar
+100. The absolute branch is intentionally conservative: at
+\(a_{\rm tol}=10^{-3}\), its p99 buckets are Cartesian 160 and polar 200.
+That difference is the measured cost of asking for an absolute error that does
+not relax as the magnification grows.
 
-The table below is the actual supported rule after upward bucket rounding. The
-coverage columns are measured on the independent holdout.
+### 4.1 Relative branch table
 
-| normalized budget \(\varepsilon\) | Cartesian \(N_{99}\) | Cartesian coverage | polar \(N_{99}\) | polar coverage |
+| \(r_{\rm tol}\) | Cartesian bucket | coverage | polar bucket | coverage |
 |---:|---:|---:|---:|---:|
 | \(1.0\times10^{-2}\) | 16 | 99.58% | 32 | 100.00% |
 | \(5.0\times10^{-3}\) | 24 | 99.58% | 40 | 99.86% |
@@ -104,136 +184,152 @@ coverage columns are measured on the independent holdout.
 | \(2.0\times10^{-4}\) | 100 | 99.44% | 256 | 99.54% |
 | \(1.0\times10^{-4}\) | 160 | 99.83% | 400 | 100.00% |
 
-For the common default \(a_{\rm tol}=0,\ r_{\rm tol}=10^{-3}\), this gives
-Cartesian \(N=50\) and polar \(N=100\) as the p99 initial values. These are
-population-level upper-quantile settings, not a claim that every individual
-case needs that many bins. The median work ratios of the resulting p99 rule
-relative to the measured requirement are about 16 for Cartesian and 64 for
-polar, because a one-shot p99 setting deliberately pays for the hard tail. A
-validated runtime estimator and upward retry can recover efficiency on easy
-cases.
+### 4.2 Absolute branch table
 
-## 5. Why no \(A_{\rm point}\) or \(d/\rho\) correction is included
+| \(a_{\rm tol}\) | Cartesian bucket | coverage | polar bucket | coverage |
+|---:|---:|---:|---:|---:|
+| \(1.0\times10^{-2}\) | 128 | 99.85% | 128 | 99.60% |
+| \(5.0\times10^{-3}\) | 128 | 99.45% | 160 | 99.75% |
+| \(3.0\times10^{-3}\) | 128 | 99.38% | 160 | 99.59% |
+| \(2.0\times10^{-3}\) | 160 | 100.00% | 200 | 99.89% |
+| \(1.0\times10^{-3}\) | 160 | 99.83% | 256 | 99.89% |
+| \(5.0\times10^{-4}\) | 160 | 99.58% | 256 | 99.76% |
+| \(3.0\times10^{-4}\) | 200 | 99.86% | 320 | 99.86% |
+| \(2.0\times10^{-4}\) | 200 | 99.46% | 400 | 99.54% |
+| \(1.0\times10^{-4}\) | 200 | 99.50% | 400 | 100.00% |
 
-Both variables remain useful diagnostics, and \(A_{\rm point}\) is still used
-for the separate Cartesian/polar route choice. They do not earn a term in the
-common Nbin law:
+The absolute table should be read as a safe initial estimate, not as an
+efficiency claim. Its median work versus the measured requirement is 256 for
+Cartesian and 178 for polar, compared with 16 and 64 for the relative branch.
+The large factor is accepted here because the absolute-only mode is a
+conservative fallback, not the normal default.
 
-\[
- \log_2N=a_g+b_g\log_2(10^{-3}/\varepsilon)
- +\gamma_g\max\left(0,\log_2(A_{\rm point}/A_{0,g})\right).
-\]
+## 5. Mixed-tolerance validation
 
-Discovery selected weak, grid-dependent candidates: \(\gamma=+0.068\) above
-\(A_0=4\) for Cartesian and \(\gamma=-0.119\) above \(A_0=64\) for polar.
-Holdout coverage was 99.77% and 99.85%, but the Cartesian median work ratio
-rose from 16 to 25 and the polar ratio did not improve from 64. A correction
-whose sign changes between methods and does not reduce validated work is not a
-good common rule. The production calibration therefore sets \(\gamma=0\).
-The same reasoning rejects \(d/\rho\) as an additional Nbin branch in this
-dataset.
+The mixed test used all \(9\times9=81\) positive pairs from the levels in the
+two tables. For each pair and each holdout row, the script did two independent
+things:
 
-## 6. What \(a_{\rm tol}\) does, and what it does not do
+* It measured the required bucket directly with the effective budget
+  \(\max(a_{\rm tol},r_{\rm tol}S(A_{\rm ref}))\).
+* It predicted `min(N_abs, N_rel)` using coefficients fixed before looking at
+  the holdout row.
 
-The absolute tolerance is an additive allowance in the same budget. It is not
-a minimum Nbin, a separate strictness mode, or a promise that an absolute-only
-request has a cheap universal initial rule. With \(r_{\rm tol}>0\), it simply
-changes the normalized target to
+The direct mixed required bucket agreed with
+\(\min(N_{\rm required,abs},N_{\rm required,rel})\) in every comparable case.
+The coverage result is:
 
-\[
- \varepsilon=r_{\rm tol}+\frac{a_{\rm tol}}{S(A)}.
-\]
-
-The relative law is the useful primary calibration because it removes the
-trivial magnification scale. A mixed \(a_{\rm tol}\) cross-check at
-\(a_{\rm tol}=10^{-4}\) gave \(C=44.7,\beta=0.538\) for Cartesian and
-\(C=92.5,\beta=0.507\) for polar, with 99.69% and 99.76% holdout coverage.
-This supports the normalization, but it is not a dedicated validation campaign
-for arbitrary absolute tolerances.
-
-The separate \(r_{\rm tol}=0\) experiment is a useful negative result. A raw
-absolute-only fit gave:
-
-| grid | \(C^{\rm abs}\) | \(\beta^{\rm abs}\) | holdout coverage | median predicted Nbin |
+| grid | mixed pairs | minimum coverage | median coverage | pairs at or above 99% |
 |---|---:|---:|---:|---:|
-| Cartesian | 140.5 | 0.110 | 99.67% | 160 |
-| polar | 201.0 | 0.229 | 99.75% | 200 |
+| Cartesian | 81 | 99.44% | 99.81% | 81/81 |
+| polar | 81 | 99.46% | 100.00% | 81/81 |
 
-The coverage is adequate, but the rule is much too conservative and the usable
-reference population shrinks as \(a_{\rm tol}\) becomes small. Therefore:
+The identity check covered 132,341 Cartesian and 132,137 polar row-pair cases;
+both had zero mismatches. Thus the less-demanding-branch rule is not merely a
+logical description of the tolerance budget: it is also the measured
+resolution composition on the independent holdout.
 
-1. Use the relative-budget law when \(r_{\rm tol}>0\).
-2. Evaluate the common runtime budget after the first pass and let the
-   method-specific estimator trigger an upward retry if needed.
-3. Treat the special \(r_{\rm tol}=0\) mode as requiring a measured first pass
-   or a future scale-aware calibration; do not force the raw absolute-only fit
-   into the common initial selector.
+The heatmap in the PDF shows all 162 coverage values. The worst cells are
+Cartesian at \(a_{\rm tol}=2\times10^{-4},r_{\rm tol}=2\times10^{-4}\),
+99.44%, and polar at \(a_{\rm tol}=3\times10^{-4},r_{\rm tol}=3\times10^{-4}\),
+99.46%. Both remain above the predeclared 99% target.
 
-## 7. The runtime estimator is a separate claim
+## 6. Figures
 
-The p99 law above is calibrated from the observed reference error
-\(\lvert A(N)-A_{\rm ref}\rvert\). It must not be confused with a proof that
-the runtime-reported estimator \(E\) is always an upper bound.
+[`figures/empirical-resolution-law.pdf`](figures/empirical-resolution-law.pdf)
+contains five pages:
 
-A separate audit of 2,046 rows from the holdout measured
+1. Relative-branch box-and-whisker distributions of required Nbin. The box is
+   Q1--Q3, the thick vertical bar is the central 68% interval (p16--p84), the
+   thin whisker is p5--p95, the red diamond is p99, and the open square is the
+   fitted supported bucket.
+2. The same figure for the absolute branch.
+3. A Cartesian/polar heatmap of all 81 mixed holdout coverages.
+4. A representative holdout convergence curve, showing \(A(N)\) and
+   \(|A(N)-A_{\rm ref}|\) against Nbin for both grids.
+5. The fitting recipe, equations, fitted constants, and minimum mixed
+   coverage in one page suitable for inclusion in a methods supplement.
 
-\[
- R=\frac{E}{\lvert A(N)-A_{\rm ref}\rvert}.
-\]
+The representative convergence case is holdout case 48 with the linear
+limb-darkening profile, \(s=3\), \(q=10^{-5}\), and
+\(\rho=1.49005\times10^{-3}\). At \(r_{\rm tol}=10^{-3}\), its measured
+required buckets are Cartesian 10 and polar 12. This is an illustration, not
+the calibration sample used to choose the law.
 
-On the reference-consistent subset at \(r_{\rm tol}=10^{-3}\), the
-method-stratified finite-\(R\) results were:
+## 7. What this result does and does not claim
 
-| method | median \(R\) | p05 \(R\) | p95 \(R\) | fraction with \(R<1\) |
-|---|---:|---:|---:|---:|
-| Cartesian inverse ray | 1.52 | 0.087 | 21.0 | 37.5% |
-| polar inverse ray | 1.78 | 0.184 | 11.4 | 34.1% |
-| source-plane quadrature | 2.83 | 2.64 | 4.40 | 1.1% |
+This report establishes an empirical p99 initial-resolution rule against the
+stored high-resolution reference. It does not establish that the runtime
+embedded estimator \(E\) is a certified upper bound for the true error. The
+separate estimator audit found route-dependent underestimation, so the
+resolution law and the estimator certificate must remain separate claims.
 
-The grid estimators are therefore useful convergence indicators, but this
-audit does not support calling them certified upper bounds. The resolution law
-and its independent holdout coverage are the established empirical result;
-turning the estimator into a standalone guarantee requires a separate
-calibration or an additional fail-closed reference check. This distinction is
-why the present commit records the law without silently changing runtime
-acceptance semantics.
+It also does not claim that a fixed p99 bucket is the fastest answer for every
+row. The rule deliberately pays for the hard tail; an eventual runtime
+implementation can use the common policy for acceptance and refine only when a
+route-specific indicator requires it, provided that the fail-closed behavior
+and the holdout coverage are preserved.
 
-## 8. Status and limits of the claim
+The study covers binary Cartesian and polar inverse-ray ladders. It does not
+fit source-plane quadrature here because its production resolution coordinate
+is not stored as the same complete \(A(N)\) ladder. That route should adopt the
+same budget semantics but receive its own calibrated resolution law.
 
-This result is established for the current binary Cartesian and polar
-image-plane ladders. It is not a license to mix in the old
-finite-source-auto-20260716 campaign, which used a different algorithm.
-Source-plane/chord quadrature is not yet fitted because its public diagnostic
-record does not preserve the complete production \(A(N)\) ladder. It should
-reuse the same budget definition and persistent-crossing criterion, with its
-own calibrated resolution coordinate and coefficients.
+Finally, \(A_{\rm ref}\) appears in the offline definition only because it is
+the independent accuracy label. At runtime, the same budget is evaluated from
+the current estimate or from the route's convergence state; the reference is
+not an extra runtime input.
 
-The current C++ branch still has its existing runtime one-shot selector and
-embedded error controller. This commit records and tests the new calibration;
-applying this p99 law to runtime nbin='auto' is a separate, reviewable change.
+## 8. Reproduction
 
-## 9. Reproduction
+From the repository root, after the calibrated discovery and holdout ladders
+are present:
 
-From the repository root:
+```sh
+PYTHONPATH=. python -m tests.diagnostics.recal2026.error_budget_law \
+  --discovery tests/diagnostics/results/recal2026/discovery \
+  --holdout tests/diagnostics/results/recal2026/holdout \
+  --output tests/diagnostics/results/recal2026/error_budget_law --no-plots
 
-    PYTHONPATH=. python -m tests.diagnostics.recal2026.error_budget_law \
-      --discovery tests/diagnostics/results/recal2026/discovery \
-      --holdout tests/diagnostics/results/recal2026/holdout \
-      --output tests/diagnostics/results/recal2026/error_budget_law --no-plots
+PYTHONPATH=. python -m tests.diagnostics.recal2026.absolute_error_law \
+  --discovery tests/diagnostics/results/recal2026/discovery \
+  --holdout tests/diagnostics/results/recal2026/holdout \
+  --output tests/diagnostics/results/recal2026/absolute_error_law
 
-    PYTHONPATH=. python -m tests.diagnostics.recal2026.absolute_error_law \
-      --discovery tests/diagnostics/results/recal2026/discovery \
-      --holdout tests/diagnostics/results/recal2026/holdout \
-      --output tests/diagnostics/results/recal2026/absolute_error_law
+PYTHONPATH=. python -m tests.diagnostics.recal2026.mixed_error_law \
+  --discovery tests/diagnostics/results/recal2026/discovery \
+  --holdout tests/diagnostics/results/recal2026/holdout \
+  --relative-report tests/diagnostics/results/recal2026/error_budget_law/error_budget_law.json \
+  --absolute-report tests/diagnostics/results/recal2026/absolute_error_law/absolute_error_law.json \
+  --output tests/diagnostics/results/recal2026/mixed_error_law.json
 
-    PYTHONPATH=. python -m tests.diagnostics.recal2026.error_budget_percentiles \
-      --output tests/diagnostics/results/recal2026/figures/empirical-resolution-law.pdf
+PYTHONPATH=. python -m tests.diagnostics.recal2026.error_budget_percentiles \
+  --output tests/diagnostics/results/recal2026/figures/empirical-resolution-law.pdf
 
-    pytest -q tests/diagnostics/recal2026/test_empirical_law.py
+pytest -q tests/diagnostics/recal2026/test_empirical_law.py
+```
 
-The machine-readable calibration record is
-tests/diagnostics/recal2026/empirical_law.py. The PDF contains the requested
-box-and-whisker distributions, a representative Nbin convergence example, and
-a one-page description of the fitting procedure. The larger per-case CSV
-outputs remain ignored because they are reproducible campaign data rather than
-source-controlled paper metadata.
+The compact machine-readable mixed result is
+[`mixed_error_law.json`](mixed_error_law.json). The law constants and selector
+functions are in
+[`empirical_law.py`](../../recal2026/empirical_law.py), and the
+regression tests are in
+[`test_empirical_law.py`](../../recal2026/test_empirical_law.py).
+The large per-row ladders and CSVs remain ignored working data; the report,
+source record, compact mixed result, PDF, and tests are the committed handoff.
+
+## 9. Paper-ready summary
+
+For a methods section, the result can be stated as follows:
+
+> We calibrated the required inverse-ray resolution from independent
+> high-resolution reference ladders using the first persistent tolerance
+> crossing and a discovery-side 99th-quantile power law. Absolute and relative
+> tolerance requests share a common acceptance policy,
+> \(B=\max(a_{\rm tol},r_{\rm tol}\max(|A|,1))\), while Cartesian and polar
+> integration retain separate empirical convergence constants. For a mixed
+> request, the initial resolution is the smaller of the absolute-only and
+> relative-only predictions. Across all 81 positive tolerance pairs, this rule
+> covered 99.44--100.00% of the independent holdout for Cartesian and
+> 99.46--100.00% for polar, exceeding the predeclared 99% target in every
+> cell.

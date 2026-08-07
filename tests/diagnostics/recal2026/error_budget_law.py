@@ -11,7 +11,8 @@ magnification levels.  With ``atol=0``, epsilon is exactly ``reltol``:
     log2(N_required) = alpha
         + beta log2(epsilon0 / epsilon).
 
-where ``B = atol + reltol*max(|A_ref|, 1)``.  The proposed ``A_point`` term is
+where ``B = max(atol, reltol*max(|A_ref|, 1))``.  The two tolerances are
+alternative allowances: passing either one is sufficient.  The proposed ``A_point`` term is
 also fitted as a diagnostic candidate, but is retained only if it improves
 holdout coverage at lower work.  All fits are judged on an independent
 holdout.
@@ -79,7 +80,10 @@ def _required(row, grid, atol, reltol):
     if not _finite(reference_value) or not _finite(uncertainty):
         return None
     scale = max(abs(reference_value), 1.0)
-    budget = atol + reltol * scale
+    # Match VBMicrolensing's stopping rule: continue only while both the
+    # absolute and relative tests fail.  The effective allowance is therefore
+    # the larger of the two, not their sum.
+    budget = max(atol, reltol * scale)
     # Reference uncertainty is stored as a relative quantity.  Require a
     # decade of margin before letting a row constrain the empirical law.
     if uncertainty > 0.1 * budget / scale:
@@ -112,7 +116,7 @@ def _records(rows, dataset_name, atol=0.0):
         if not _finite(point):
             point = 1.0
         for reltol in RELATIVE_LEVELS:
-            budget = atol + reltol * scale
+            budget = max(atol, reltol * scale)
             for grid in GRIDS:
                 required = _required(row, grid, atol, reltol)
                 if required is None:
@@ -474,7 +478,7 @@ def main():
     report = {
         "formula": {
             "target": "log2(N_required)",
-            "budget": "atol + reltol*max(abs(A_reference), 1)",
+            "budget": "max(atol, reltol*max(abs(A_reference), 1))",
             "normalized_budget":
                 "epsilon = budget/max(abs(A_reference), 1)",
             "baseline_normalized_budget": B0,

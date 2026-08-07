@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Make a boxplot and a representative convergence example as a PDF."""
+"""Make the paper-facing PDF for the two-branch empirical resolution law."""
 
 from __future__ import annotations
 
@@ -28,18 +28,30 @@ def _records(path):
         return list(csv.DictReader(handle))
 
 
-def _summary(records, report):
+def _model(report, grid, branch):
+    if branch == "relative":
+        selected = report["grids"][grid].get("selected")
+        if selected is None:
+            selected = report["grids"][grid]["budget_power"]
+        return selected["model"]
+    return report["grids"][grid]["model"]
+
+
+def _summary(records, report, branch):
     output = {}
+    tolerance_key = ("relative_tolerance" if branch == "relative"
+                     else "absolute_tolerance")
+    budget_field = ("relative_budget" if branch == "relative" else "budget")
     for grid in GRIDS:
         rows = [row for row in records
                 if row["dataset"] == "holdout" and row["grid"] == grid]
-        model = report["grids"][grid]["budget_power"]["model"]
+        model = _model(report, grid, branch)
         levels = []
         for level in LEVELS:
             values = np.asarray([
                 float(row["required_resolution"])
                 for row in rows
-                if abs(float(row["relative_tolerance"]) - level) < 1.0e-15
+                if abs(float(row[tolerance_key]) - level) < 1.0e-15
             ])
             raw = 2.0 ** (
                 model["intercept"]
@@ -61,15 +73,11 @@ def _summary(records, report):
                     bucket for bucket in BUCKETS if raw <= bucket)),
                 "rows": int(values.size),
             })
-        output[grid] = {
-            "levels": levels,
-            "model": model,
-            "holdout": report["grids"][grid]["budget_power"]["holdout"],
-        }
+        output[grid] = {"levels": levels, "model": model}
     return output
 
 
-def _plot_boxplots(summary):
+def _plot_boxplots(summary, title, axis_label):
     figure, axes = plt.subplots(1, 2, figsize=(11.0, 4.8), sharey=True)
     for axis, grid in zip(axes, GRIDS):
         values = summary[grid]["levels"]
@@ -93,18 +101,17 @@ def _plot_boxplots(summary):
             capprops={"color": colour, "linewidth": 1.1},
             medianprops={"color": "black", "linewidth": 1.8},
         )
-        # A wide bar shows the requested central 68% interval, which is not
-        # the same object as the standard Q1--Q3 box.
+        # The thick interval is the central 68%; it is intentionally distinct
+        # from the standard Q1--Q3 box.
         for position, item in zip(positions, values):
             axis.plot([position, position], [item["p16"], item["p84"]],
                       color=colour, linewidth=7, alpha=0.48,
                       solid_capstyle="round", zorder=1)
         axis.scatter(positions, [item["p99"] for item in values],
-                     color="#b42318", marker="D", s=28, zorder=4,
-                     label="p99")
+                     color="#b42318", marker="D", s=28, zorder=4)
         axis.scatter(positions, [item["fit_bucket"] for item in values],
                      facecolors="white", edgecolors="#30363d", marker="s",
-                     s=28, zorder=5, label="fitted bucket")
+                     s=28, zorder=5)
         axis.set_xticks(positions)
         axis.set_xticklabels([f"{item['epsilon']:.0e}" for item in values])
         axis.set_yscale("log")
@@ -114,10 +121,11 @@ def _plot_boxplots(summary):
         axis.get_yaxis().set_major_formatter(plt.ScalarFormatter())
         axis.grid(True, which="both", alpha=0.22)
         axis.set_title(grid)
-        axis.set_xlabel("normalized error budget $\\varepsilon$")
+        axis.set_xlabel(axis_label)
         axis.text(
             0.03, 0.04,
-            "box: Q1--Q3; whisker: p5--p95\nwide bar: p16--p84",
+            "box: Q1--Q3; whisker: p5--p95\n"
+            "wide bar: p16--p84",
             transform=axis.transAxes, fontsize=8.5,
             bbox={"facecolor": "white", "alpha": 0.78,
                   "edgecolor": "#c9d1d9"},
@@ -134,9 +142,39 @@ def _plot_boxplots(summary):
     ]
     figure.legend(handles=handles, loc="lower center", ncol=4,
                   frameon=False, bbox_to_anchor=(0.5, -0.02))
-    figure.suptitle("Required resolution: box-and-whisker distribution",
-                    y=0.99, fontsize=14)
+    figure.suptitle(title, y=0.99, fontsize=14)
     figure.tight_layout(rect=(0, 0.10, 1, 0.96))
+    return figure
+
+
+def _plot_mixed_heatmap(mixed):
+    figure, axes = plt.subplots(
+        1, 2, figsize=(11.0, 4.7), sharey=True, constrained_layout=True)
+    for axis, grid in zip(axes, GRIDS):
+        values = np.asarray(mixed["holdout"][grid]["coverage_matrix"])
+        image = axis.imshow(values, origin="upper", vmin=0.99, vmax=1.0,
+                            cmap="YlGnBu", aspect="auto")
+        axis.set_xticks(np.arange(len(LEVELS)))
+        axis.set_yticks(np.arange(len(LEVELS)))
+        labels = [f"{level:.0e}" for level in LEVELS]
+        axis.set_xticklabels(labels, rotation=45, ha="right")
+        axis.set_yticklabels(labels)
+        axis.set_xlabel("relative tolerance")
+        axis.set_title(grid)
+        for row in range(len(LEVELS)):
+            for column in range(len(LEVELS)):
+                axis.text(column, row, f"{values[row, column] * 100:.1f}",
+                          ha="center", va="center", fontsize=6.5,
+                          color="black" if values[row, column] < 0.997 else "white")
+        axis.grid(False)
+    axes[0].set_ylabel("absolute tolerance")
+    figure.colorbar(image, ax=axes.ravel().tolist(), fraction=0.025,
+                    pad=0.04, label="holdout coverage")
+    figure.suptitle(
+        "Mixed max-budget rule: holdout coverage (%)\n"
+        "Nmix = min(Nabsolute, Nrelative); every cell is a 99% pass",
+        y=1.02, fontsize=13,
+    )
     return figure
 
 
@@ -253,39 +291,46 @@ def _plot_example(example):
     return figure
 
 
-def _plot_method(summary):
-    figure = plt.figure(figsize=(11.0, 7.0))
-    figure.text(0.07, 0.94, "How the empirical law was constructed",
+def _plot_method(relative, absolute, mixed):
+    figure = plt.figure(figsize=(11.0, 7.2))
+    figure.text(0.07, 0.94, "A common empirical rule for both tolerance branches",
                 fontsize=15, weight="medium")
     figure.text(
         0.07, 0.87,
-        "1. For every case, increase Nbin and record the first persistent\n"
-        "   crossing of the common error budget against the high-resolution reference.\n\n"
-        "2. At each normalized budget, summarize the required-Nbin distribution:\n"
-        "   the box is Q1--Q3, whiskers are p5--p95, the wide bar is p16--p84,\n"
-        "   and p99 is the conservative tail used for calibration.\n\n"
-        "3. Fit the discovery p99 values in log2 space:\n"
-        "   log2(N99) = log2(C) + beta log2(1e-3 / epsilon).\n\n"
-        "4. Apply the continuous law to the independent holdout, then round upward\n"
-        "   to the next measured resolution bucket.",
+        "1. For every row, increase Nbin and record the first persistent crossing\n"
+        "   of the requested budget against the high-resolution reference.\n\n"
+        "2. Fit the discovery p99 in base-two logarithms, separately for the\n"
+        "   relative and absolute branches.  The grid only changes C and beta.\n\n"
+        "3. At runtime policy level, use B=max(Babs,Brel), hence\n"
+        "   epsilon=max(atol/max(|A|,1), reltol) and N=min(Nabs,Nrel).\n\n"
+        "4. The 9x9 mixed holdout matrix is a validation of this composition,\n"
+        "   not a second fit.  All 162 cells clear the 99% target.",
         fontsize=11, va="top", linespacing=1.45,
     )
-    table = [("grid", "C", "beta", "holdout coverage")]
+    table = [("grid", "Crel", "beta-rel", "Cabs", "beta-abs", "mixed min")]
     for grid in GRIDS:
-        model = summary[grid]["model"]
-        c_eff = 2.0 ** (model["intercept"] + model.get("safety_offset", 0.0))
-        table.append((grid, f"{c_eff:.1f}", f"{model['slope']:.3f}",
-                      f"{summary[grid]['holdout']['coverage'] * 100:.2f}%"))
-    axis = figure.add_axes((0.12, 0.12, 0.76, 0.20))
+        rel_model = relative[grid]["model"]
+        abs_model = absolute[grid]["model"]
+        rel_c = 2.0 ** (rel_model["intercept"] + rel_model.get("safety_offset", 0.0))
+        abs_c = 2.0 ** (abs_model["intercept"] + abs_model.get("safety_offset", 0.0))
+        table.append((
+            grid, f"{rel_c:.1f}", f"{rel_model['slope']:.3f}",
+            f"{abs_c:.1f}", f"{abs_model['slope']:.3f}",
+            f"{mixed['holdout'][grid]['summary']['minimum_coverage'] * 100:.2f}%",
+        ))
+    axis = figure.add_axes((0.08, 0.15, 0.84, 0.22))
     axis.axis("off")
     rendered = axis.table(cellText=table[1:], colLabels=table[0],
                           cellLoc="center", colLoc="center", loc="center")
     rendered.auto_set_font_size(False)
-    rendered.set_fontsize(11)
-    rendered.scale(1.0, 1.6)
-    figure.text(0.07, 0.06,
-                "The fit is a population-level p99 rule, not a claim that every case needs N99.",
-                fontsize=10, color="#57606a")
+    rendered.set_fontsize(10.5)
+    rendered.scale(1.0, 1.65)
+    figure.text(
+        0.07, 0.08,
+        "The fitted laws are population-level p99 rules; the runtime estimator is a separate claim.\n"
+        "This PDF documents calibration and validation, not a production C++ selector change.",
+        fontsize=10, color="#57606a",
+    )
     return figure
 
 
@@ -293,21 +338,40 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--records", default="tests/diagnostics/results/recal2026/error_budget_law/error_budget_records.csv")
     parser.add_argument("--report", default="tests/diagnostics/results/recal2026/error_budget_law/error_budget_law.json")
+    parser.add_argument("--absolute-records", default="tests/diagnostics/results/recal2026/absolute_error_law/absolute_error_records.csv")
+    parser.add_argument("--absolute-report", default="tests/diagnostics/results/recal2026/absolute_error_law/absolute_error_law.json")
+    parser.add_argument("--mixed-report", default="tests/diagnostics/results/recal2026/mixed_error_law.json")
     parser.add_argument("--holdout", default="tests/diagnostics/results/recal2026/holdout")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
     records = _records(Path(args.records))
+    absolute_records = _records(Path(args.absolute_records))
     report = json.loads(Path(args.report).read_text())
-    summary = _summary(records, report)
+    absolute_report = json.loads(Path(args.absolute_report).read_text())
+    mixed_report = json.loads(Path(args.mixed_report).read_text())
+    relative_summary = _summary(records, report, "relative")
+    absolute_summary = _summary(absolute_records, absolute_report, "absolute")
     example = _example_curves(_choose_example(analysis.load(args.holdout)))
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
     with PdfPages(output) as pdf:
-        pdf.savefig(_plot_boxplots(summary), bbox_inches="tight")
+        pdf.savefig(_plot_boxplots(
+            relative_summary,
+            "Relative branch: required resolution on the independent holdout",
+            "relative tolerance $r_{\\rm tol}$"), bbox_inches="tight")
+        plt.close("all")
+        pdf.savefig(_plot_boxplots(
+            absolute_summary,
+            "Absolute branch: required resolution on the independent holdout",
+            "absolute tolerance $a_{\\rm tol}$"), bbox_inches="tight")
+        plt.close("all")
+        pdf.savefig(_plot_mixed_heatmap(mixed_report), bbox_inches="tight")
         plt.close("all")
         pdf.savefig(_plot_example(example), bbox_inches="tight")
         plt.close("all")
-        pdf.savefig(_plot_method(summary), bbox_inches="tight")
+        pdf.savefig(_plot_method(
+            relative_summary, absolute_summary, mixed_report),
+            bbox_inches="tight")
         plt.close("all")
     print(output)
 
