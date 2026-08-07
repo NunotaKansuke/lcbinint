@@ -192,6 +192,21 @@ bool LensModel::finite_source_geometry(
 
 MagnificationResult LensModel::magnification(double time) const
 {
+    return magnification_impl(time, nullptr);
+}
+
+MagnificationResult LensModel::magnification(
+    double time, const MagnificationExecutionPlan& plan) const
+{
+    return magnification_impl(time, &plan);
+}
+
+MagnificationResult LensModel::magnification_impl(
+    double time, const MagnificationExecutionPlan* plan) const
+{
+    // A negative resolution is the per-epoch escape hatch used when warmup
+    // could not certify a reference.  Only that epoch re-enters normal auto.
+    if (plan != nullptr && plan->resolution < 0) plan = nullptr;
     SourcePosition source;
     const bool has_parallax = options_.parallax_mode != 0 &&
         (params_.piEN != 0.0 || params_.piEE != 0.0);
@@ -290,6 +305,15 @@ MagnificationResult LensModel::magnification(double time) const
         result.separation = orbit.separation;
         result.mass_ratio = effective_q;
 
+        if (plan == nullptr && params_.rho != 0.0 && options_.mode > 0 &&
+            options_.automatic_source_bins != 0 &&
+            !magnification::binary_auto_tolerance_supported(
+                options_.finite_source_tol,
+                options_.finite_source_reltol)) {
+            result.status = EvaluationStatus::unsupported_tolerance;
+            return result;
+        }
+
         if (supports_binary_point_source(params_, options_)) {
             const auto point =
                 point_magnifier_.binary_mag0(orbit.separation, effective_q, source_for_magnification);
@@ -306,21 +330,38 @@ MagnificationResult LensModel::magnification(double time) const
             point_magnifier_.binary_images(orbit.separation, effective_q, source_for_magnification);
         double point_source_magnification = 0.0;
         std::vector<SourcePosition> center_image_seeds;
-        center_image_seeds.reserve(point_images.size());
+        const bool plan_needs_image_seeds = plan == nullptr ||
+            plan->method == magnification::FiniteSourceMethod::inverse_ray_cartesian ||
+            plan->method == magnification::FiniteSourceMethod::inverse_ray_polar ||
+            plan->method == magnification::FiniteSourceMethod::inverse_ray_spine;
+        if (plan_needs_image_seeds) center_image_seeds.reserve(point_images.size());
         for (const auto& image : point_images) {
             point_source_magnification += 1.0 / std::abs(image.jacobian_determinant);
-            center_image_seeds.push_back(image.position);
+            if (plan_needs_image_seeds) center_image_seeds.push_back(image.position);
         }
         result.point_source_magnification = point_source_magnification;
         result.image_count = static_cast<int>(point_images.size());
 
-        const auto finite_result = finite_magnifier_.binary_mag(
-            orbit.separation,
-            effective_q,
-            source_for_magnification, std::abs(params_.rho), point_source_magnification,
-            &center_image_seeds,
-            true,
-            &point_magnifier_);
+        const auto finite_result = plan == nullptr
+            ? finite_magnifier_.binary_mag(
+                orbit.separation,
+                effective_q,
+                source_for_magnification,
+                std::abs(params_.rho),
+                point_source_magnification,
+                plan_needs_image_seeds ? &center_image_seeds : nullptr,
+                true,
+                &point_magnifier_)
+            : finite_magnifier_.binary_mag_preplanned(
+                orbit.separation,
+                effective_q,
+                source_for_magnification,
+                std::abs(params_.rho),
+                point_source_magnification,
+                plan->method,
+                plan->resolution,
+                &center_image_seeds,
+                &point_magnifier_);
         result.magnification = finite_result.magnification;
         result.finite_source_magnification = finite_result.magnification;
         result.finite_source_error_estimate = finite_result.error_estimate;

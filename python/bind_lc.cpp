@@ -40,6 +40,7 @@ struct PyLightCurveInfo {
     std::vector<double> finite_source_error_estimates;
     std::vector<int> finite_source_refinement_levels;
     std::vector<bool> finite_source_converged;
+    std::vector<std::string> statuses;
     std::vector<int> root_candidate_counts;
     std::vector<int> root_duplicate_counts;
     std::vector<int> root_polish_failure_counts;
@@ -282,6 +283,86 @@ py::array_t<double> compute(
         mags = lc.magnification(tv, params);
     }
     return vec_to_numpy(std::move(mags));
+}
+
+std::vector<lcbinint::model::MagnificationExecutionPlan> execution_plan_from(
+    const std::vector<int>& methods,
+    const std::vector<int>& resolutions)
+{
+    if (methods.size() != resolutions.size()) {
+        throw std::invalid_argument(
+            "warm-up methods and resolutions must have equal length");
+    }
+    std::vector<lcbinint::model::MagnificationExecutionPlan> plan;
+    plan.reserve(methods.size());
+    for (std::size_t i = 0; i < methods.size(); ++i) {
+        if (methods[i] < 0 || methods[i] > 5) {
+            throw std::invalid_argument("invalid warm-up finite-source method");
+        }
+        plan.push_back({
+            static_cast<lcbinint::magnification::FiniteSourceMethod>(methods[i]),
+            resolutions[i],
+        });
+    }
+    return plan;
+}
+
+py::array_t<double> compute_preplanned(
+    const lcbinint::lc::LightCurve& lc,
+    const TimesArray& times,
+    const lcbi_params& params,
+    const std::vector<int>& methods,
+    const std::vector<int>& resolutions)
+{
+    const std::vector<double> tv = times_from_array(times);
+    const auto plan = execution_plan_from(methods, resolutions);
+    std::vector<double> magnifications;
+    {
+        py::gil_scoped_release release;
+        magnifications = lc.magnification_preplanned(tv, params, plan);
+    }
+    return vec_to_numpy(std::move(magnifications));
+}
+
+py::dict compute_preplanned_diagnostic(
+    const lcbinint::lc::LightCurve& lc,
+    const TimesArray& times,
+    const lcbi_params& params,
+    const std::vector<int>& methods,
+    const std::vector<int>& resolutions)
+{
+    const std::vector<double> tv = times_from_array(times);
+    const auto plan = execution_plan_from(methods, resolutions);
+    std::vector<lcbinint::MagnificationResult> results;
+    std::vector<double> epoch_seconds;
+    {
+        py::gil_scoped_release release;
+        results = lc.evaluate_preplanned_diagnostic(
+            tv, params, plan, &epoch_seconds);
+    }
+    std::vector<double> magnifications;
+    std::vector<double> errors;
+    std::vector<int> converged;
+    std::vector<int> actual_methods;
+    magnifications.reserve(results.size());
+    errors.reserve(results.size());
+    converged.reserve(results.size());
+    actual_methods.reserve(results.size());
+    for (const auto& result : results) {
+        magnifications.push_back(result.finite_source_magnification);
+        errors.push_back(result.finite_source_error_estimate);
+        converged.push_back(
+            result.status == lcbinint::EvaluationStatus::ok &&
+            result.finite_source_converged);
+        actual_methods.push_back(result.finite_source_method);
+    }
+    py::dict output;
+    output["magnification"] = vec_to_numpy(std::move(magnifications));
+    output["error_estimate"] = vec_to_numpy(std::move(errors));
+    output["converged"] = py::cast(std::move(converged));
+    output["method"] = py::cast(std::move(actual_methods));
+    output["seconds"] = vec_to_numpy(std::move(epoch_seconds));
+    return output;
 }
 
 lcbi_params inference_params_from_object(const py::handle& item)
@@ -577,6 +658,7 @@ PyLightCurveInfo compute_info(
     info.finite_source_error_estimates.reserve(static_cast<std::size_t>(n));
     info.finite_source_refinement_levels.reserve(static_cast<std::size_t>(n));
     info.finite_source_converged.reserve(static_cast<std::size_t>(n));
+    info.statuses.reserve(static_cast<std::size_t>(n));
     info.root_candidate_counts.reserve(static_cast<std::size_t>(n));
     info.root_duplicate_counts.reserve(static_cast<std::size_t>(n));
     info.root_polish_failure_counts.reserve(static_cast<std::size_t>(n));
@@ -632,7 +714,10 @@ PyLightCurveInfo compute_info(
         info.separations.push_back(result.separation);
         info.mass_ratios.push_back(result.mass_ratio);
         info.caustic_distances.push_back(result.caustic_distance);
-        const bool converged = result.finite_source_converged;
+        info.statuses.push_back(lcbinint::evaluation_status_name(result.status));
+        const bool converged =
+            result.status != lcbinint::EvaluationStatus::unsupported_tolerance &&
+            result.finite_source_converged;
         info.finite_source_converged.push_back(converged);
         if (!converged) {
             info.all_converged = false;
@@ -1105,6 +1190,7 @@ void register_lc_submodule(py::module_& parent)
         .def_readonly("finite_source_error_estimates", &PyLightCurveInfo::finite_source_error_estimates)
         .def_readonly("finite_source_refinement_levels", &PyLightCurveInfo::finite_source_refinement_levels)
         .def_readonly("finite_source_converged", &PyLightCurveInfo::finite_source_converged)
+        .def_readonly("statuses", &PyLightCurveInfo::statuses)
         .def_readonly("root_candidate_counts", &PyLightCurveInfo::root_candidate_counts)
         .def_readonly("root_duplicate_counts", &PyLightCurveInfo::root_duplicate_counts)
         .def_readonly("root_polish_failure_counts", &PyLightCurveInfo::root_polish_failure_counts)
@@ -1690,6 +1776,51 @@ LightCurves with a ground Site apply the terrestrial correction.)")
                 return compute_dispatch(lc, times, params_from_dict(d), d);
             },
             py::arg("times"))
+
+        // Internal route-specialized path populated by Python warmup().
+        .def("_magnification_preplanned",
+            [&](const LC& lc, const TimesArray& times, py::dict d,
+                const std::vector<int>& methods,
+                const std::vector<int>& resolutions) {
+                return compute_preplanned(
+                    lc, times, params_from_dict(d), methods, resolutions);
+            },
+            py::arg("times"), py::arg("params"), py::arg("methods"),
+            py::arg("resolutions"))
+        .def("_evaluate_preplanned",
+            [&](const LC& lc, const TimesArray& times, py::dict d,
+                const std::vector<int>& methods,
+                const std::vector<int>& resolutions) {
+                return compute_preplanned_diagnostic(
+                    lc, times, params_from_dict(d), methods, resolutions);
+            },
+            py::arg("times"), py::arg("params"), py::arg("methods"),
+            py::arg("resolutions"))
+        .def("_binary_resolution_hint",
+            [](const LC&, int method, double point_magnification,
+                double absolute_tolerance, double relative_tolerance,
+                int maximum_bins) {
+                using Method = lcbinint::magnification::FiniteSourceMethod;
+                const auto selected_method = static_cast<Method>(method);
+                const int finite_mode =
+                    selected_method == Method::inverse_ray_cartesian ? 1
+                    : selected_method == Method::inverse_ray_polar ? 2
+                    : throw std::invalid_argument(
+                        "resolution hints require Cartesian or polar");
+                return lcbinint::magnification::calibrated_binary_resolution(
+                    0.0,
+                    0.0,
+                    std::numeric_limits<double>::infinity(),
+                    point_magnification,
+                    0.0,
+                    finite_mode,
+                    absolute_tolerance,
+                    relative_tolerance,
+                    maximum_bins).source_bins;
+            },
+            py::arg("method"), py::arg("point_magnification"),
+            py::arg("absolute_tolerance"), py::arg("relative_tolerance"),
+            py::arg("maximum_bins"))
 
         .def("binary_source_components", binary_source_components,
             py::arg("times"), py::arg("params"),

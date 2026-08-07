@@ -11,6 +11,12 @@
 
 namespace lcbinint::model {
 
+struct MagnificationExecutionPlan {
+    magnification::FiniteSourceMethod method =
+        magnification::FiniteSourceMethod::point_source;
+    int resolution = 0;
+};
+
 class LensModel {
 public:
     LensModel(
@@ -19,6 +25,8 @@ public:
         std::shared_ptr<const obs::Site> site = nullptr);
 
     MagnificationResult magnification(double time) const;
+    MagnificationResult magnification(
+        double time, const MagnificationExecutionPlan& plan) const;
 
     // Produce engine-neutral finite-source geometry after all trajectory and
     // orbital transformations.  This is intentionally separate from the
@@ -29,6 +37,8 @@ public:
         magnification::FiniteSourceGeometry& output) const;
 
 private:
+    MagnificationResult magnification_impl(
+        double time, const MagnificationExecutionPlan* plan) const;
     LensParameters params_;
     ComputationOptions options_;
     Trajectory trajectory_;

@@ -115,6 +115,10 @@ lcbi_status lcbi_magnification(
     if (magnification_result.status == lcbinint::EvaluationStatus::unsupported) {
         return LCBI_UNSUPPORTED;
     }
+    if (magnification_result.status ==
+        lcbinint::EvaluationStatus::unsupported_tolerance) {
+        return LCBI_UNSUPPORTED_TOLERANCE;
+    }
     if (magnification_result.status == lcbinint::EvaluationStatus::numerical_error ||
         !std::isfinite(result->magnification)) {
         return LCBI_NUMERICAL_ERROR;
@@ -150,6 +154,10 @@ lcbi_status lcbi_magnification_array(
         copy_result(magnification_result, results[i]);
         if (magnification_result.status == lcbinint::EvaluationStatus::unsupported) {
             return LCBI_UNSUPPORTED;
+        }
+        if (magnification_result.status ==
+            lcbinint::EvaluationStatus::unsupported_tolerance) {
+            return LCBI_UNSUPPORTED_TOLERANCE;
         }
         if (magnification_result.status == lcbinint::EvaluationStatus::numerical_error ||
             !std::isfinite(results[i].magnification)) {
@@ -228,6 +236,8 @@ const char *lcbi_status_string(lcbi_status status)
         return "numerical error";
     case LCBI_UNSUPPORTED:
         return "unsupported";
+    case LCBI_UNSUPPORTED_TOLERANCE:
+        return "unsupported_tolerance";
     default:
         return "unknown status";
     }

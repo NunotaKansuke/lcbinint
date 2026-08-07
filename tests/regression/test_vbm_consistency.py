@@ -1322,7 +1322,7 @@ def test_lcbinint_adaptive_does_not_accept_known_local_error_underestimates(
 
 
 def test_absolute_only_tolerance_does_not_inherit_default_relative_budget():
-    """tol alone is absolute-only, including the final Cartesian fallback."""
+    """An uncalibrated absolute-only auto request fails with its own status."""
     lcbinint = pytest.importorskip("lcbinint")
 
     params = lcbinint.LensParams(
@@ -1346,11 +1346,22 @@ def test_absolute_only_tolerance_does_not_inherit_default_relative_budget():
         ),
     ).light_curve([-0.11634042842617024])
 
-    assert curve.finite_source_method_names == ["inverse_ray_cartesian"]
-    assert curve.finite_source_refinement_levels == [1]
-    assert curve.finite_source_error_estimates[0] > 1.0e-5
+    assert curve.statuses == ["unsupported_tolerance"]
+    assert math.isnan(curve.magnifications[0])
     assert curve.finite_source_converged == [False]
     assert not curve.all_converged
+
+    fixed = _model(
+        lcbinint,
+        params,
+        lcbinint.Options(
+            nbin=400,
+            tol=1.0e-5,
+            reltol=0.0,
+            inverse_ray_grid="cartesian",
+        ),
+    ).light_curve([-0.11634042842617024])
+    assert fixed.statuses != ["unsupported_tolerance"]
 
 
 def test_tightening_absolute_tolerance_is_monotonic_and_order_independent():

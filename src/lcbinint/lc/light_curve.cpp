@@ -3,6 +3,7 @@
 #include "lcbinint/model/lens_model.hpp"
 #include "lcbinint/model/trajectory.hpp"
 
+#include <chrono>
 #include <algorithm>
 #include <cstddef>
 #include <exception>
@@ -184,6 +185,10 @@ void LightCurve::fill_routed_magnification(
         if (results[column].status == EvaluationStatus::unsupported) {
             throw std::runtime_error("unsupported");
         }
+        if (results[column].status == EvaluationStatus::unsupported_tolerance) {
+            throw std::runtime_error(
+                "unsupported_tolerance: outside empirical reference-quality domain");
+        }
         if (results[column].status == EvaluationStatus::numerical_error ||
             !std::isfinite(results[column].magnification)) {
             throw std::runtime_error("numerical error");
@@ -200,6 +205,10 @@ std::vector<MagnificationResult> LightCurve::evaluate(
     for (const auto& result : results) {
         if (result.status == EvaluationStatus::unsupported) {
             throw std::runtime_error("unsupported");
+        }
+        if (result.status == EvaluationStatus::unsupported_tolerance) {
+            throw std::runtime_error(
+                "unsupported_tolerance: outside empirical reference-quality domain");
         }
         if (result.status == EvaluationStatus::numerical_error ||
             !std::isfinite(result.magnification)) {
@@ -221,6 +230,42 @@ std::vector<MagnificationResult> LightCurve::evaluate_diagnostic(
     const auto runtime_opts = runtime_options();
     return evaluate_routed(
         times, cpp_params, model::from_c_options(&runtime_opts));
+}
+
+std::vector<MagnificationResult> LightCurve::evaluate_preplanned_diagnostic(
+    const std::vector<double>& times,
+    const lcbi_params& params,
+    const std::vector<model::MagnificationExecutionPlan>& plan,
+    std::vector<double>* epoch_seconds) const
+{
+    if (times.size() != plan.size()) {
+        throw std::invalid_argument(
+            "warm-up execution plan must contain one entry per time");
+    }
+    const lcbi_params p = apply_coords(params);
+    const auto cpp_params = model::from_c_params(p);
+    if (!cpp_params.is_valid()) {
+        throw std::runtime_error("invalid argument");
+    }
+    const auto runtime_opts = runtime_options();
+    model::LensModel lens_model(
+        cpp_params, model::from_c_options(&runtime_opts), site_);
+    std::vector<MagnificationResult> results;
+    results.reserve(times.size());
+    if (epoch_seconds != nullptr) {
+        epoch_seconds->clear();
+        epoch_seconds->reserve(times.size());
+    }
+    for (std::size_t i = 0; i < times.size(); ++i) {
+        const auto started = std::chrono::steady_clock::now();
+        results.push_back(lens_model.magnification(times[i], plan[i]));
+        if (epoch_seconds != nullptr) {
+            const auto elapsed = std::chrono::steady_clock::now() - started;
+            epoch_seconds->push_back(
+                std::chrono::duration<double>(elapsed).count());
+        }
+    }
+    return results;
 }
 
 std::vector<magnification::FiniteSourceGeometry> LightCurve::finite_source_geometry(
@@ -250,6 +295,25 @@ std::vector<double> LightCurve::magnification(
     for (const auto& result : results)
         mags.push_back(result.magnification);
     return mags;
+}
+
+std::vector<double> LightCurve::magnification_preplanned(
+    const std::vector<double>& times,
+    const lcbi_params& params,
+    const std::vector<model::MagnificationExecutionPlan>& plan) const
+{
+    const auto results = evaluate_preplanned_diagnostic(times, params, plan);
+    std::vector<double> magnifications;
+    magnifications.reserve(results.size());
+    for (const auto& result : results) {
+        if (result.status != EvaluationStatus::ok ||
+            !std::isfinite(result.magnification)) {
+            throw std::runtime_error(
+                "warm-up execution plan failed; rebuild or clear the plan");
+        }
+        magnifications.push_back(result.magnification);
+    }
+    return magnifications;
 }
 
 std::vector<double> LightCurve::magnification_batch(

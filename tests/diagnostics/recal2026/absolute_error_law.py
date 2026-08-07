@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Calibrate an absolute-tolerance-only resolution law from stored ladders.
+"""Legacy diagnostic fit for an absolute-tolerance-only law.
 
-The resulting scalar law is the reference-certified branch of the common
-``max``-budget policy.  Reference-limited rows are retained as lower-censored
-observations, so the campaign does not establish a population-wide absolute
-p99 at the tightest targets.  The Apoint-dependent candidate is recorded as a
-diagnostic rather than silently promoted to a production selector.
+The final adopted selector is frozen in ``final_apoint_validation.py`` and in
+the C++ runtime.  This module remains useful for reproducing the original
+nine-level exploratory scalar/Apoint fits. Reference-limited rows are retained
+as lower-censored observations, so the campaign does not establish a
+population-wide absolute p99 at the tightest targets.
 """
 
 from __future__ import annotations
@@ -115,11 +115,11 @@ def _predict_apoint(model, records):
 
 
 def _fit_apoint_grid(discovery, holdout, grid):
-    """Fit the diagnostic two-feature law on certified rows only.
+    """Fit the exploratory two-feature law on certified rows only.
 
-    This is deliberately a diagnostic candidate, not the shipped selector:
-    the point-magnification feature can explain conditional work, but it
-    cannot turn a reference-limited lower bound into an exact observation.
+    The final selector applies an independently frozen safety envelope to this
+    functional form; this helper intentionally preserves the historical
+    ladder-rounded diagnostic fit.
     """
     discovery_all = [row for row in discovery if row["grid"] == grid]
     holdout_all = [row for row in holdout if row["grid"] == grid]
