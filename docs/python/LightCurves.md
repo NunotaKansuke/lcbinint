@@ -61,6 +61,34 @@ plt.show()
 
 ![Binary-lens caustics and source trajectory](figures/BinaryLens_lightcurve_caustics.png)
 
+## Warm up a fixed binary light curve
+
+Repeated native evaluations of exactly the same binary-lens parameter vector
+and epoch array can retain a specialized execution plan:
+
+```python
+report = curve.warmup(t, params)
+magnifications = curve(t, params)  # automatically uses the retained plan
+```
+
+The report is diagnostic and does not need to be passed back to `curve`. For
+each epoch it records the retained method, measured resolution, calibration
+status, reference value, error budget, and Cartesian/polar timing. Point,
+hexadecapole, and source-plane decisions are retained from ordinary automatic
+evaluation. Inverse-ray epochs measure qualifying Cartesian and polar grids
+and retain the faster one.
+
+Plans are exact-keyed. The times, parameters, tolerances, numerical options,
+model configuration, and limb darkening must match the warm-up call. Any
+mismatch uses ordinary automatic evaluation; an epoch that could not be
+calibrated also falls back independently. Use `curve.clear_warmup()` to discard
+the plan. Warm-up currently supports native single-source binary-lens curves,
+not JAX, binary-source curves, or triple lenses.
+
+The production resolution law used as the search hint and its supported
+tolerance domain are documented in
+[Calibration of automatic finite-source resolution](../finite-source-auto-calibration.md).
+
 ## Triple Lens light curve
 
 ```python

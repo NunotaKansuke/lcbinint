@@ -37,7 +37,10 @@ constexpr double kEmpiricalResolutionBaselineTolerance = 1.0e-3;
 constexpr double kEmpiricalResolutionMinimumRelativeTolerance = 1.0e-4;
 constexpr double kEmpiricalResolutionMinimumAbsoluteTolerance = 1.0e-4;
 constexpr double kEmpiricalResolutionMaximumTolerance = 1.0e-2;
-// Final integer-ceil laws.  The relative constants include the smallest
+// Frozen production coefficients from
+// tests/diagnostics/results/recal2026/REPORT_empirical_resolution_law.md and
+// final_apoint_validation/final_apoint_validation.json.  The relative
+// constants include the smallest
 // discovery-side safety offset that gives >=99% exact-row coverage at every
 // calibration level.  The absolute constants use the conservative
 // discovery-side all-exact-row envelope; this is needed because the raw

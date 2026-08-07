@@ -220,6 +220,19 @@ grid bucket, up to `max_source_bins`. Fixed integer `nbin` never retries. The
 calibration experiment and frozen artifacts are documented in
 [`docs/finite-source-auto-calibration.md`](docs/finite-source-auto-calibration.md).
 
+For repeated native evaluations of one fixed binary parameter vector and the
+same epoch array, build and retain a specialized execution plan once:
+
+```python
+report = lc.warmup(times, params)
+mag = lc(times, params)  # automatically reuses the plan
+```
+
+The plan is exact-keyed; changed times, parameters, options, or limb darkening
+use ordinary automatic evaluation. See
+[`docs/python/LightCurves.md`](docs/python/LightCurves.md#warm-up-a-fixed-binary-light-curve)
+for the supported backend and report details.
+
 `LightCurve.info(...)` reports the selected method, convergence state, and
 numerical error diagnostics. `lcbinint` never imports or dispatches to an external
 solver. Numerical conventions and limits are summarized in

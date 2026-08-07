@@ -2,6 +2,8 @@
 
 > **Status, 8 August 2026.** The final binary rule is frozen and validated
 > against the independent holdout in
+> [`REPORT_empirical_resolution_law.md`](../tests/diagnostics/results/recal2026/REPORT_empirical_resolution_law.md),
+> with full evidence in
 > [`REPORT_final_apoint_calibration.md`](../tests/diagnostics/results/recal2026/final_apoint_validation/REPORT_final_apoint_calibration.md).
 > The older binary sections below are retained as an evidence trail only; they
 > describe rules fitted before the current certified implementation and are not
@@ -68,7 +70,7 @@ jumps remain small. Fold or large-jump topology warnings retain their original
 first-order scale. This prevents smooth high-area images from turning the
 feedback step into a blanket resolution increase.
 
-## Reference-certified LightCurve warm-up
+## Baseline-anchored LightCurve warm-up
 
 For repeated evaluation at one fixed parameter vector, the Python
 `LightCurve` can replace the generic automatic dispatcher with a retained,
@@ -86,18 +88,25 @@ epoch. Cartesian/polar resolution is the first persistent crossing of the
 requested max-budget against `A_ref`; a bracketed continuous estimate is
 rounded upward and then evaluated before it is retained.
 
-When inverse rays are required, warm-up derives a qualifying resolution for
-both Cartesian and polar. It then runs both complete candidate trajectories at
-those resolutions, records per-epoch native wall time over repeated trials,
-and retains the faster qualified grid at each epoch. The production plan does
-not reuse the global `A_point=200` grid heuristic.
+Warm-up first runs ordinary auto once over the complete epoch array. That
+accepted value is `A_ref`: the production empirical rule remains the accuracy
+authority, while warm-up specializes its execution. Point-source and
+hexadecapole routes are retained immediately. Source-plane quadrature retains
+the ordinary 96/192-panel decision. Only epochs routed to inverse rays enter
+the grid-resolution experiment.
 
-`A_ref` uses the recalibration campaign's construction: the finest
-support-certified Cartesian value, Cartesian 256/400 self-convergence, an
-independent polar 400 witness, and a self-converged VBMicrolensing contour
-witness. A row is usable only when its relative reference uncertainty is at
-most one tenth of the requested effective relative budget. Unusable rows keep
-an epoch-local normal-auto fallback instead of receiving a guessed plan.
+For each inverse-ray epoch and each grid, the empirical law supplies a search
+hint `Npred`. This hint calls the same native frozen selector used by ordinary
+auto, so the report coefficients are not duplicated in Python. The first
+native batch evaluates `ceil(Npred/4)`,
+`ceil(Npred/2)`, and `Npred` together. Additional increasing candidates are
+batched only when necessary. Three consecutive resolutions must agree with
+`A_ref` within the requested budget; a measured fail/pass bracket is
+interpolated, rounded upward, and verified. Cartesian and polar are both
+qualified this way, then timed at their own accepted resolutions. The faster
+measured grid is retained per epoch; the global `A_point=200` grid heuristic is
+not reused. Timing defaults to one production-shaped trajectory, with
+`grid_timing_repeats` available when repeated measurements are wanted.
 
 Matching calls enter a native route-specialized path. It bypasses point/hex
 safety routing, caustic-distance routing, Cartesian/polar selection, automatic
@@ -108,10 +117,9 @@ the ordinary fail-closed dispatcher.
 This first implementation is deliberately exact-keyed: times, parameters,
 tolerances, numerical options, model configuration, and limb darkening must
 match the warm-up call. A mismatch silently uses the ordinary automatic path.
-It currently supports the native binary backend with `coordinates="vbm"` and
-uniform or linear limb darkening; VBMicrolensing is required only while
-building the plan. `curve.warmup_profile` (also `curve.warmup_plan`) exposes the
-retained report, and `curve.clear_warmup()` removes it.
+It currently supports native single-source binary-lens curves. No external
+contour engine is required. `curve.warmup_profile` (also `curve.warmup_plan`)
+exposes the retained report, and `curve.clear_warmup()` removes it.
 
 ## Unified finite-source error contract
 

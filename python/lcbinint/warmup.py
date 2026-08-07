@@ -1,4 +1,4 @@
-"""Reference-certified, per-epoch execution plans for :class:`LightCurve`."""
+"""Baseline-anchored, per-epoch execution plans for :class:`LightCurve`."""
 
 from __future__ import annotations
 
@@ -25,17 +25,10 @@ METHOD_NAMES = (
     "source_plane_quadrature",
 )
 
-DEFAULT_LADDER = (
-    4, 6, 8, 10, 12, 16, 24, 32, 40, 50,
-    64, 80, 100, 128, 160, 200, 256, 320, 400,
-)
-# The campaign also offered 1e-10 as an escalation level.  It is not paid by
-# default here: 1e-6/1e-8 already demonstrates the 1e-5 reference floor needed
-# by the supported runtime domain, and a row that does not settle is honestly
-# reference-limited.  Callers may explicitly append 1e-10.
-DEFAULT_CONTOUR_LEVELS = (1.0e-4, 1.0e-6, 1.0e-8)
-DEFAULT_QUADRATURE_LADDER = (8, 12, 16, 24, 32, 48, 64, 96, 128, 192)
-REFERENCE_MARGIN = 0.1
+GRID_SEARCH_MINIMUM = 4
+GRID_SEARCH_GROWTH = 1.5
+GRID_CONFIRMATION_GROWTH = 1.25
+GRID_SEARCH_MAX_ROUNDS = 6
 
 
 @dataclass
@@ -47,7 +40,6 @@ class WarmupReport:
     resolutions: np.ndarray
     statuses: tuple[str, ...]
     reference: np.ndarray
-    reference_uncertainty: np.ndarray
     budget: np.ndarray
     cartesian_seconds: np.ndarray
     polar_seconds: np.ndarray
@@ -72,102 +64,6 @@ def _native_evaluate(curve, times, params, method, resolution):
         [int(method)] * count,
         [int(resolution)] * count,
     )
-
-
-def _contour_witness(geometry, levels):
-    try:
-        import VBMicrolensing
-    except ImportError as error:
-        raise ImportError(
-            "LightCurve.warmup() requires VBMicrolensing to certify A_ref"
-        ) from error
-
-    n = len(geometry.separation)
-    values = np.full((len(levels), n), np.nan, dtype=float)
-    for row, reltol in enumerate(levels):
-        engine = VBMicrolensing.VBMicrolensing()
-        engine.Tol = 1.0e-12
-        engine.RelTol = float(reltol)
-        for index in range(n):
-            c = float(geometry.limb_darkening_c[index])
-            d = float(geometry.limb_darkening_d[index])
-            if d != 0.0:
-                raise NotImplementedError(
-                    "VBMicrolensing warm-up reference currently supports "
-                    "uniform and linear limb darkening only"
-                )
-            try:
-                if c != 0.0:
-                    engine.a1 = c
-                    engine.SetLDprofile(engine.LDlinear)
-                    value = engine.BinaryMagDark(
-                        float(geometry.separation[index]),
-                        float(geometry.mass_ratio[index]),
-                        -float(geometry.source_x[index]),
-                        float(geometry.source_y[index]),
-                        float(geometry.source_radius[index]),
-                        engine.Tol,
-                    )
-                else:
-                    value = engine.BinaryMag2(
-                        float(geometry.separation[index]),
-                        float(geometry.mass_ratio[index]),
-                        -float(geometry.source_x[index]),
-                        float(geometry.source_y[index]),
-                        float(geometry.source_radius[index]),
-                    )
-                values[row, index] = float(value)
-            except Exception:
-                # The polar witness may still certify this row.  A failed VBM
-                # call is represented as an absent witness, not a global abort.
-                values[row, index] = np.nan
-    witness = values[-1]
-    if len(levels) < 2:
-        self_gap = np.full(n, np.inf)
-    else:
-        self_gap = np.abs(values[-1] - values[-2]) / np.maximum(
-            np.abs(values[-1]), 1.0
-        )
-    return witness, self_gap, values
-
-
-def _reference(curve, times, params, geometry, contour_levels):
-    cart256 = _native_evaluate(curve, times, params, CARTESIAN, 256)
-    cart400 = _native_evaluate(curve, times, params, CARTESIAN, 400)
-    polar256 = _native_evaluate(curve, times, params, POLAR, 256)
-    polar400 = _native_evaluate(curve, times, params, POLAR, 400)
-
-    reference = np.asarray(cart400["magnification"], dtype=float)
-    scale = np.maximum(np.abs(reference), 1.0)
-    cart_support = np.asarray(cart400["converged"], dtype=bool)
-    cart_previous_support = np.asarray(cart256["converged"], dtype=bool)
-    polar_support = np.asarray(polar400["converged"], dtype=bool)
-    ladder_gap = np.abs(
-        reference - np.asarray(cart256["magnification"], dtype=float)
-    ) / scale
-    ladder_gap[~cart_previous_support] = np.inf
-    polar_gap = np.abs(
-        reference - np.asarray(polar400["magnification"], dtype=float)
-    ) / scale
-    polar_gap[~polar_support] = np.inf
-
-    contour, contour_self_gap, contour_values = _contour_witness(
-        geometry, contour_levels
-    )
-    contour_gap = np.maximum(np.abs(reference - contour) / scale, contour_self_gap)
-    contour_gap[~np.isfinite(contour)] = np.inf
-    best_witness = np.minimum(polar_gap, contour_gap)
-    uncertainty = np.maximum(ladder_gap, best_witness)
-    uncertainty[~cart_support | ~np.isfinite(reference)] = np.inf
-    return {
-        "value": reference,
-        "uncertainty": uncertainty,
-        "cartesian": {256: cart256, 400: cart400},
-        "polar": {256: polar256, 400: polar400},
-        "polar_gap": polar_gap,
-        "contour_gap": contour_gap,
-        "contour_values": contour_values,
-    }
 
 
 def _inside(values, support, reference, budget):
@@ -197,72 +93,172 @@ def _interpolated_resolution(n_fail, error_fail, n_pass, error_pass, budget):
     return min(n_pass, max(n_fail + 1, int(math.ceil(estimate))))
 
 
-def _required_resolutions(
-    curve, times, params, indices, method, reference, budget, ladder, stored
+def _predicted_resolution(
+    curve, method, point_magnification, atol, reltol, cap
 ):
-    required = {int(index): None for index in indices}
-    active = set(int(index) for index in indices)
-    last_pass = {}
-    last_pass_error = {}
-    first_fail = {}
-    first_fail_error = {}
+    """Use the frozen native production law as a measured-search hint."""
 
-    for bins in reversed(ladder):
-        if not active:
-            break
-        selected = np.asarray(sorted(active), dtype=int)
-        if bins in stored:
-            full = stored[bins]
-            values = np.asarray(full["magnification"], dtype=float)[selected]
-            support = np.asarray(full["converged"], dtype=bool)[selected]
+    return max(
+        GRID_SEARCH_MINIMUM,
+        int(curve._native._binary_resolution_hint(
+            int(method),
+            float(point_magnification),
+            float(atol),
+            float(reltol),
+            int(cap),
+        )),
+    )
+
+
+def _persistent_pass_run(samples):
+    """Return the first run of three increasing passing grids."""
+
+    run = []
+    ordered = sorted(samples)
+    for bins in ordered:
+        if samples[bins]["pass"]:
+            run.append(bins)
         else:
-            measured = _native_evaluate(
-                curve, np.asarray(times)[selected], params, method, bins
-            )
-            values = np.asarray(measured["magnification"], dtype=float)
-            support = np.asarray(measured["converged"], dtype=bool)
-        errors = np.abs(values - reference[selected])
-        passes = _inside(values, support, reference[selected], budget[selected])
-        for offset, index in enumerate(selected):
-            index = int(index)
-            if passes[offset]:
-                last_pass[index] = bins
-                last_pass_error[index] = float(errors[offset])
-                continue
-            first_fail[index] = bins
-            first_fail_error[index] = float(errors[offset])
-            required[index] = last_pass.get(index)
-            active.remove(index)
+            run = []
+        if len(run) >= 3:
+            return tuple(run[:3])
+    return None
 
-    for index in active:
-        required[index] = last_pass.get(index)
 
-    # Convert the measured bracket into any positive integer, round upward,
-    # then actually evaluate that integer before accepting it.
-    candidates = {}
-    for index, upper in required.items():
-        if upper is None or index not in first_fail:
-            continue
-        candidate = _interpolated_resolution(
-            first_fail[index],
-            first_fail_error[index],
-            upper,
-            last_pass_error[index],
-            budget[index],
-        )
-        if candidate < upper:
-            candidates.setdefault(candidate, []).append(index)
-    for candidate, candidate_indices in candidates.items():
-        selected = np.asarray(candidate_indices, dtype=int)
-        measured = _native_evaluate(
-            curve, np.asarray(times)[selected], params, method, candidate
+def _candidate_batch(predicted, cap):
+    values = {
+        max(GRID_SEARCH_MINIMUM, int(math.ceil(predicted / 4.0))),
+        max(GRID_SEARCH_MINIMUM, int(math.ceil(predicted / 2.0))),
+        max(GRID_SEARCH_MINIMUM, int(predicted)),
+    }
+    return tuple(sorted(value for value in values if value <= cap))
+
+
+def _next_candidate_batch(samples, cap):
+    if not samples or max(samples) >= cap:
+        return ()
+    current = max(samples)
+    values = {
+        int(math.ceil(current * GRID_CONFIRMATION_GROWTH)),
+        int(math.ceil(current * GRID_SEARCH_GROWTH)),
+        int(math.ceil(current * 2.0)),
+    }
+    return tuple(sorted({
+        min(cap, max(current + 1, value))
+        for value in values
+        if min(cap, max(current + 1, value)) not in samples
+    }))
+
+
+def _evaluate_variable_resolutions(
+    curve, times, params, indices, method, resolutions
+):
+    indices = np.asarray(indices, dtype=int)
+    return curve._native._evaluate_preplanned(
+        np.asarray(times)[indices],
+        params,
+        [int(method)] * indices.size,
+        [int(value) for value in resolutions],
+    )
+
+
+def _required_resolutions(
+    curve,
+    times,
+    params,
+    indices,
+    method,
+    reference,
+    budget,
+    predicted,
+    cap,
+):
+    """Search from the empirical hint until three increasing grids pass."""
+
+    states = {
+        int(index): {
+            "samples": {},
+            "next": _candidate_batch(int(predicted[int(index)]), int(cap)),
+        }
+        for index in indices
+    }
+    required = {int(index): None for index in indices}
+
+    for _ in range(GRID_SEARCH_MAX_ROUNDS):
+        selected = []
+        resolutions = []
+        for index in sorted(states):
+            for bins in states[index]["next"]:
+                selected.append(index)
+                resolutions.append(bins)
+        if not selected:
+            break
+        selected = np.asarray(selected, dtype=int)
+        measured = _evaluate_variable_resolutions(
+            curve, times, params, selected, method, resolutions
         )
         values = np.asarray(measured["magnification"], dtype=float)
         support = np.asarray(measured["converged"], dtype=bool)
-        passes = _inside(values, support, reference[selected], budget[selected])
-        for offset, index in enumerate(selected):
+        passes = _inside(
+            values, support, reference[selected], budget[selected]
+        )
+        for offset, index_value in enumerate(selected):
+            index = int(index_value)
+            bins = int(resolutions[offset])
+            states[index]["samples"][bins] = {
+                "error": float(abs(values[offset] - reference[index])),
+                "pass": bool(passes[offset]),
+            }
+        for index in sorted(states):
+            if required[index] is not None or not states[index]["next"]:
+                continue
+            run = _persistent_pass_run(states[index]["samples"])
+            if run is not None:
+                required[index] = int(run[0])
+                states[index]["next"] = ()
+            else:
+                states[index]["next"] = _next_candidate_batch(
+                    states[index]["samples"], int(cap)
+                )
+
+    # Interpolate the measured fail/pass bracket, round upward, and verify the
+    # resulting integer.  The two already-passing grids above it provide the
+    # persistence confirmation.
+    candidate_by_index = {}
+    for index, upper in required.items():
+        if upper is None:
+            continue
+        samples = states[index]["samples"]
+        lower_failures = [
+            bins for bins in samples
+            if bins < upper and not samples[bins]["pass"]
+        ]
+        if not lower_failures:
+            continue
+        lower = max(lower_failures)
+        candidate = _interpolated_resolution(
+            lower,
+            samples[lower]["error"],
+            upper,
+            samples[upper]["error"],
+            budget[index],
+        )
+        if lower < candidate < upper:
+            candidate_by_index[index] = candidate
+    if candidate_by_index:
+        selected = np.asarray(sorted(candidate_by_index), dtype=int)
+        resolutions = [candidate_by_index[int(index)] for index in selected]
+        measured = _evaluate_variable_resolutions(
+            curve, times, params, selected, method, resolutions
+        )
+        values = np.asarray(measured["magnification"], dtype=float)
+        support = np.asarray(measured["converged"], dtype=bool)
+        passes = _inside(
+            values, support, reference[selected], budget[selected]
+        )
+        for offset, index_value in enumerate(selected):
             if passes[offset]:
-                required[int(index)] = candidate
+                required[int(index_value)] = int(resolutions[offset])
     return required
 
 
@@ -310,9 +306,7 @@ def build_warmup_report(
     *,
     parameter_fingerprint,
     configuration_fingerprint,
-    ladder=DEFAULT_LADDER,
-    contour_levels=DEFAULT_CONTOUR_LEVELS,
-    grid_timing_repeats=3,
+    grid_timing_repeats=1,
 ):
     started = time.perf_counter()
     times = np.asarray(times, dtype=float)
@@ -320,149 +314,115 @@ def build_warmup_report(
         times = times.reshape(1)
     if times.ndim != 1 or times.size == 0 or not np.all(np.isfinite(times)):
         raise ValueError("warm-up times must be a non-empty finite 1-D array")
-    ladder = tuple(sorted({int(value) for value in ladder if int(value) > 0}))
-    if not ladder or 256 not in ladder or 400 not in ladder:
-        raise ValueError("warm-up ladder must contain the 256 and 400 reference rungs")
-    contour_levels = tuple(float(value) for value in contour_levels)
-    if len(contour_levels) < 2 or any(value <= 0.0 for value in contour_levels):
-        raise ValueError("contour_levels must contain at least two positive values")
+    cap = int(curve.options.max_source_bins)
+    if cap < 1:
+        raise ValueError("max_source_bins must be positive")
     grid_timing_repeats = int(grid_timing_repeats)
     if grid_timing_repeats < 1:
         raise ValueError("grid_timing_repeats must be at least one")
-    if curve.lens != "binary":
+    if curve._native.model.lens != "binary":
         raise NotImplementedError("the first warm-up implementation supports binary lenses")
+    if curve._native.model.source != "single":
+        raise NotImplementedError("warm-up currently supports single-source curves")
     if curve.options.jax:
         raise NotImplementedError("warm-up execution plans currently require the native backend")
-    if curve.options.param_type != "vbm":
-        raise NotImplementedError(
-            "warm-up VBM cross-reference currently requires coordinates='vbm'"
-        )
 
-    geometry = curve.finite_source_geometry(times, params)
-    reference_data = _reference(
-        curve, times, params, geometry, contour_levels
+    count = times.size
+
+    # The ordinary dispatcher supplies both A_ref and the cheap first split.
+    # Only rows that already entered an inverse-ray route pay for calibration.
+    baseline = curve.info(times, params)
+    baseline_values = np.asarray(
+        baseline.finite_source_magnifications, dtype=float
     )
-    reference = reference_data["value"]
-    uncertainty = reference_data["uncertainty"]
+    baseline_methods = np.asarray(baseline.finite_source_methods, dtype=int)
+    baseline_refinement = np.asarray(
+        baseline.finite_source_refinement_levels, dtype=int
+    )
+    baseline_support = np.asarray(
+        baseline.finite_source_converged, dtype=bool
+    )
+
+    reference = baseline_values.copy()
+    grid_mask = np.isin(baseline_methods, (CARTESIAN, POLAR))
+    grid_indices = np.flatnonzero(grid_mask)
+
     scale = np.maximum(np.abs(reference), 1.0)
     atol = max(float(curve.options.finite_source_tol), 0.0)
     reltol = max(float(curve.options.finite_source_reltol), 0.0)
     if atol <= 0.0 and reltol <= 0.0:
-        atol = 1.0e-3
+        atol = 1.0e-4
         reltol = 1.0e-3
     budget = np.maximum(atol, reltol * scale)
     reference_usable = (
-        np.isfinite(reference)
-        & np.isfinite(uncertainty)
-        & (uncertainty <= REFERENCE_MARGIN * budget / scale)
+        grid_mask
+        & baseline_support
+        & np.isfinite(reference)
     )
 
-    count = times.size
     methods = np.full(count, POINT_SOURCE, dtype=int)
     resolutions = np.full(count, -1, dtype=int)
     statuses = np.full(count, "reference_limited", dtype=object)
     cartesian_seconds = np.full(count, np.nan)
     polar_seconds = np.full(count, np.nan)
 
-    # Run ordinary auto once.  Its accepted point/hex/quadrature decisions are
-    # retained only when the independently witnessed A_ref confirms them.
-    try:
-        baseline = curve.info(times, params)
-        baseline_values = np.asarray(
-            baseline.finite_source_magnifications, dtype=float
-        )
-        baseline_methods = np.asarray(baseline.finite_source_methods, dtype=int)
-        baseline_refinement = np.asarray(
-            baseline.finite_source_refinement_levels, dtype=int
-        )
-        baseline_support = np.asarray(
-            baseline.finite_source_converged, dtype=bool
-        )
-    except Exception:
-        baseline_values = np.full(count, np.nan)
-        baseline_methods = np.full(count, -1, dtype=int)
-        baseline_refinement = np.zeros(count, dtype=int)
-        baseline_support = np.zeros(count, dtype=bool)
-
-    baseline_pass = _inside(
-        baseline_values, baseline_support, reference, budget
-    )
-    for index in np.flatnonzero(reference_usable & baseline_pass):
+    # Point and hexadecapole are already self-checked by ordinary auto.  The
+    # source-plane route already reports whether its 96/192-panel refinement
+    # was required, so retain that decision without dragging it through an
+    # unrelated Cartesian/polar reference campaign.
+    simple_mask = np.isin(baseline_methods, (POINT_SOURCE, HEXADECAPOLE))
+    for index in np.flatnonzero(simple_mask & baseline_support & np.isfinite(baseline_values)):
         method = int(baseline_methods[index])
-        if method in (POINT_SOURCE, HEXADECAPOLE):
-            methods[index] = method
-            resolutions[index] = 0
-            statuses[index] = "calibrated"
+        methods[index] = method
+        resolutions[index] = 0
+        statuses[index] = "calibrated"
 
-    remaining = np.flatnonzero(reference_usable & (resolutions < 0))
+    quadrature_rows = np.flatnonzero(
+        (baseline_methods == SOURCE_PLANE)
+        & baseline_support
+        & np.isfinite(baseline_values)
+    )
+    for index in quadrature_rows:
+        methods[index] = SOURCE_PLANE
+        resolutions[index] = 192 if baseline_refinement[index] > 0 else 96
+        statuses[index] = "calibrated"
+
+    remaining = np.flatnonzero(
+        reference_usable
+        & (resolutions < 0)
+        & np.isin(baseline_methods, (CARTESIAN, POLAR))
+    )
     if remaining.size:
-        point = _native_evaluate(curve, times[remaining], params, POINT_SOURCE, 0)
+        point = _native_evaluate(
+            curve, times[remaining], params, POINT_SOURCE, 0
+        )
         point_values = np.asarray(point["magnification"], dtype=float)
-        point_pass = _inside(
-            point_values,
-            point["converged"],
-            reference[remaining],
-            budget[remaining],
-        )
-        for offset, index in enumerate(remaining):
-            if point_pass[offset]:
-                methods[index] = POINT_SOURCE
-                resolutions[index] = 0
-                statuses[index] = "calibrated"
-
-    remaining = np.flatnonzero(reference_usable & (resolutions < 0))
-    if remaining.size:
-        hex_result = _native_evaluate(
-            curve, times[remaining], params, HEXADECAPOLE, 0
-        )
-        hex_values = np.asarray(hex_result["magnification"], dtype=float)
-        hex_pass = _inside(
-            hex_values,
-            hex_result["converged"],
-            reference[remaining],
-            budget[remaining],
-        )
-        for offset, index in enumerate(remaining):
-            if hex_pass[offset]:
-                methods[index] = HEXADECAPOLE
-                resolutions[index] = 0
-                statuses[index] = "calibrated"
-
-    remaining = np.flatnonzero(reference_usable & (resolutions < 0))
-    quadrature_rows = remaining[baseline_methods[remaining] == SOURCE_PLANE]
-    for top in (96, 192):
-        selected = quadrature_rows[
-            np.where(
-                np.where(baseline_refinement[quadrature_rows] > 0, 192, 96)
-                == top
-            )[0]
-        ]
-        if not selected.size:
-            continue
-        panel_ladder = tuple(
-            value for value in DEFAULT_QUADRATURE_LADDER if value <= top
-        )
-        required = _required_resolutions(
-            curve,
-            times,
-            params,
-            selected,
-            SOURCE_PLANE,
-            reference,
-            budget,
-            panel_ladder,
-            {},
-        )
-        for index in selected:
-            panels = required[int(index)]
-            if panels is None:
-                continue
-            methods[index] = SOURCE_PLANE
-            resolutions[index] = panels
-            statuses[index] = "calibrated"
-
-    remaining = np.flatnonzero(reference_usable & (resolutions < 0))
-    if remaining.size:
+        point_by_index = {
+            int(index): float(point_values[offset])
+            for offset, index in enumerate(remaining)
+        }
+        predicted_cartesian = {
+            int(index): _predicted_resolution(
+                curve,
+                CARTESIAN,
+                point_by_index[int(index)],
+                atol,
+                reltol,
+                cap,
+            )
+            for index in remaining
+        }
+        predicted_polar = {
+            int(index): _predicted_resolution(
+                curve,
+                POLAR,
+                point_by_index[int(index)],
+                atol,
+                reltol,
+                cap,
+            )
+            for index in remaining
+        }
         required_cartesian = _required_resolutions(
             curve,
             times,
@@ -471,8 +431,8 @@ def build_warmup_report(
             CARTESIAN,
             reference,
             budget,
-            ladder,
-            reference_data["cartesian"],
+            predicted_cartesian,
+            cap,
         )
         required_polar = _required_resolutions(
             curve,
@@ -482,8 +442,8 @@ def build_warmup_report(
             POLAR,
             reference,
             budget,
-            ladder,
-            reference_data["polar"],
+            predicted_polar,
+            cap,
         )
         cartesian_timing = _time_grid_candidates(
             curve,
@@ -516,7 +476,7 @@ def build_warmup_report(
                 polar_seconds[index],
             )
             if method is None:
-                statuses[index] = "ladder_limited"
+                statuses[index] = "max_source_bins_limited"
                 continue
             methods[index] = method
             resolutions[index] = bins
@@ -532,7 +492,6 @@ def build_warmup_report(
         resolutions=resolutions,
         statuses=tuple(str(value) for value in statuses),
         reference=reference.copy(),
-        reference_uncertainty=uncertainty.copy(),
         budget=budget.copy(),
         cartesian_seconds=cartesian_seconds,
         polar_seconds=polar_seconds,

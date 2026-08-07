@@ -128,9 +128,9 @@ def test_certified_component_is_not_a_resolution_artefact():
         )
 
 
-@pytest.mark.parametrize("reltol", (1.0e-3, 1.0e-4, 1.0e-5))
+@pytest.mark.parametrize("reltol", (1.0e-3, 1.0e-4))
 def test_adaptive_precision_meets_the_tolerance_it_is_given(reltol):
-    """The requested tolerance is the contract, at every tolerance.
+    """The requested tolerance is the contract in the calibrated domain.
 
     This used to assert 1e-5 at ``finite_source_reltol=1e-4``, which the
     adaptive loop delivered by accident: its error estimate is the raw
@@ -154,6 +154,18 @@ def test_adaptive_precision_meets_the_tolerance_it_is_given(reltol):
     # 3.9485 would satisfy 1e-3 on its own; the certificate has to hold too.
     gap = UNIFORM_REFERENCE - UNIFORM_MISSING_COMPONENT
     assert value > UNIFORM_MISSING_COMPONENT + 0.5 * gap
+
+
+def test_uncalibrated_relative_tolerance_fails_closed():
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = _curve(
+        lcbinint,
+        finite_source_reltol=1.0e-5,
+        max_source_bins=4096,
+    )
+
+    with pytest.raises(RuntimeError, match="unsupported_tolerance"):
+        _magnification(curve)
 
 
 def test_tangency_sweep_stays_accurate_on_both_sides():

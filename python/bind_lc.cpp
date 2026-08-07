@@ -1796,6 +1796,31 @@ LightCurves with a ground Site apply the terrestrial correction.)")
             },
             py::arg("times"), py::arg("params"), py::arg("methods"),
             py::arg("resolutions"))
+        .def("_binary_resolution_hint",
+            [](const LC&, int method, double point_magnification,
+                double absolute_tolerance, double relative_tolerance,
+                int maximum_bins) {
+                using Method = lcbinint::magnification::FiniteSourceMethod;
+                const auto selected_method = static_cast<Method>(method);
+                const int finite_mode =
+                    selected_method == Method::inverse_ray_cartesian ? 1
+                    : selected_method == Method::inverse_ray_polar ? 2
+                    : throw std::invalid_argument(
+                        "resolution hints require Cartesian or polar");
+                return lcbinint::magnification::calibrated_binary_resolution(
+                    0.0,
+                    0.0,
+                    std::numeric_limits<double>::infinity(),
+                    point_magnification,
+                    0.0,
+                    finite_mode,
+                    absolute_tolerance,
+                    relative_tolerance,
+                    maximum_bins).source_bins;
+            },
+            py::arg("method"), py::arg("point_magnification"),
+            py::arg("absolute_tolerance"), py::arg("relative_tolerance"),
+            py::arg("maximum_bins"))
 
         .def("binary_source_components", binary_source_components,
             py::arg("times"), py::arg("params"),

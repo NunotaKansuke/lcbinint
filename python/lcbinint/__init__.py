@@ -269,9 +269,15 @@ class LightCurve:
     def _warmup_configuration_fingerprint(self):
         options = self._options
         model = self._native.model
+        sky = model.sky
+        sky_fingerprint = None if sky is None else (
+            float(sky.ra_deg),
+            float(sky.dec_deg),
+        )
         return (
-            self.lens,
-            self._native.source,
+            model.lens,
+            model.source,
+            bool(model.finite_source),
             float(self._native.ld_c),
             float(self._native.ld_d),
             options.param_type,
@@ -292,6 +298,7 @@ class LightCurve:
             model.source_orbit_coordinates,
             bool(model.parallax),
             bool(model.terrestrial),
+            sky_fingerprint,
             model.t_ref,
         )
 
@@ -308,26 +315,19 @@ class LightCurve:
         self._warmup_methods = None
 
     def warmup(self, times, params=None, **kwargs):
-        """Build and retain a reference-certified per-epoch execution plan.
+        """Build and retain a baseline-anchored per-epoch execution plan.
 
-        ``ladder``, ``contour_levels``, and ``grid_timing_repeats`` are
-        optional diagnostic controls;
+        ``grid_timing_repeats`` is an optional diagnostic control;
         every remaining keyword is merged into the physical parameter mapping.
         The returned report is informational: subsequent matching calls use
         the retained plan automatically.
         """
-        ladder = kwargs.pop("ladder", None)
-        contour_levels = kwargs.pop("contour_levels", None)
-        grid_timing_repeats = kwargs.pop("grid_timing_repeats", 3)
+        grid_timing_repeats = kwargs.pop("grid_timing_repeats", 1)
         self._validate_time_limit(times)
         merged = self._merge_params(params, **kwargs)
         parameter_fingerprint = _warmup_parameter_fingerprint(merged)
         configuration_fingerprint = self._warmup_configuration_fingerprint()
-        from .warmup import (
-            DEFAULT_CONTOUR_LEVELS,
-            DEFAULT_LADDER,
-            build_warmup_report,
-        )
+        from .warmup import build_warmup_report
 
         report, methods = build_warmup_report(
             self,
@@ -335,11 +335,6 @@ class LightCurve:
             merged,
             parameter_fingerprint=parameter_fingerprint,
             configuration_fingerprint=configuration_fingerprint,
-            ladder=DEFAULT_LADDER if ladder is None else ladder,
-            contour_levels=(
-                DEFAULT_CONTOUR_LEVELS
-                if contour_levels is None else contour_levels
-            ),
             grid_timing_repeats=grid_timing_repeats,
         )
         self._warmup_profile = report
