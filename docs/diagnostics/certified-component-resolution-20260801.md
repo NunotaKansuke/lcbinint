@@ -1,5 +1,10 @@
 # Certified component support — resolution of the 20260801 handoff
 
+> Historical implementation record. The production binary `nbin="auto"`
+> path now uses the recal2026 empirical law once and does not execute the retry
+> ladder discussed below. The component-support certificate developed here
+> remains active and fail-closed.
+
 Branch `codex/certified-component-support`.  The earlier handoff note that
 described the problem alongside an unfinished separate tile integrator has been
 deleted with this branch: the tile integrator is gone, and the fix is in the

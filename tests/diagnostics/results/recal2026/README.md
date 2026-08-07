@@ -71,9 +71,9 @@ relative targets used by this campaign, the one-shot buckets are:
 | default or `1e-3 <= reltol < 1e-2` | 50 | 100 |
 | `0 < reltol < 1e-3` | 200 | 200 |
 
-The automatic path performs one selected grid evaluation. Cartesian uses its
-cheap area indicator as a fail-closed retry trigger; explicit fixed-grid calls
-retain the half-resolution consistency check. The tangency fixes route the
+The automatic path performs one selected grid evaluation. Its cheap area
+indicator is diagnostic only and does not change `nbin`; explicit fixed-grid
+calls retain the half-resolution consistency check. The tangency fixes route the
 grazing source-plane cases through chord quadrature before this inverse-ray
  grid switch, so the old report's proposed second polar clause is not part of
 the current selector. This policy has been checked on the fresh 120-row

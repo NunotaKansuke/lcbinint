@@ -213,10 +213,10 @@ An explicit `jax=True` or `jax=False` takes precedence over
 `Options(jax=...)`, just as it does for `LightCurve`.
 
 For binary finite-source inverse-ray calculations, `nbin="auto"` selects the
-Cartesian/polar grid and an initial resolution per source position from
-calibrated geometry diagnostics. If the Cartesian area-error estimate misses
-the requested budget, only that position advances to the smallest suitable
-grid bucket, up to `max_source_bins`. Fixed integer `nbin` never retries. The
+Cartesian/polar grid and resolution per source position from the frozen
+empirical law, rounds the continuous prediction upward, and evaluates that
+grid once. The embedded area indicator remains diagnostic only; it does not
+change the selected `nbin`. Fixed integer `nbin` is also one-shot. The
 calibration experiment and frozen artifacts are documented in
 [`docs/finite-source-auto-calibration.md`](docs/finite-source-auto-calibration.md).
 

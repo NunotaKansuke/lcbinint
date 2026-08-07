@@ -171,10 +171,10 @@ double grid_pair_error_estimate(
 // cut, so it decays like 1/source_bins however fast the area itself converges.
 // On the binary tangency it is 6x pessimistic by 4096 bins and on the triple
 // cusp 1000x, which is enough to report a value that is right to 1e-14 as
-// unconverged and hand back a NaN.  Automatic resolution uses the method's
-// embedded estimate; a failed automatic ladder may use this independent
-// half-resolution cross-check, and a fixed nbin with an explicit tolerance
-// may request it as a compatibility path.
+// unconverged and hand back a NaN. Adaptive non-binary routes may use this
+// independent half-resolution cross-check after their ladder, and a fixed
+// nbin with an explicit tolerance may request it as a compatibility path.
+// The calibrated binary automatic path does neither.
 template <typename EvaluateAt>
 void reconcile_with_half_resolution(
     const FiniteSourceSettings& settings,
@@ -2095,7 +2095,8 @@ template <typename Evaluator>
 PolarToleranceEvaluation evaluate_polar_to_tolerance(
     const FiniteSourceSettings& settings,
     bool support_proven,
-    Evaluator&& evaluator)
+    Evaluator&& evaluator,
+    bool allow_automatic_retry = true)
 {
     FiniteSourceSettings active = settings;
     PolarAreaDiagnostics fine_diagnostics;
@@ -2107,11 +2108,11 @@ PolarToleranceEvaluation evaluate_polar_to_tolerance(
         return {fine, std::numeric_limits<double>::infinity(), 0, false};
     }
 
-    // Automatic polar always uses the embedded boundary-error estimate from
-    // the fine pass.  The tolerance only changes the common budget below; it
-    // does not select a stricter estimator.  Fixed calls without a tolerance
-    // retain their historical one-shot behaviour, while fixed calls with an
-    // explicit tolerance keep the independent nested-grid compatibility check.
+    // Polar diagnostics use the embedded boundary-error estimate from the fine
+    // pass. Callers that still own an adaptive ladder may opt into retries;
+    // calibrated binary auto deliberately opts out. Fixed calls without a
+    // tolerance retain their historical one-shot behaviour, while fixed calls
+    // with an explicit tolerance keep the nested-grid compatibility check.
     if (!settings.automatic_source_bins &&
         !has_explicit_finite_source_tolerance(settings)) {
         return {fine, 0.0, 0, true};
@@ -2137,7 +2138,8 @@ PolarToleranceEvaluation evaluate_polar_to_tolerance(
         settings, fine, error_estimate, support_proven);
     const int maximum_bins = std::max(settings.max_source_bins, 1);
     int refinement_level = 0;
-    while (settings.automatic_source_bins && !assessment.converged &&
+    while (allow_automatic_retry && settings.automatic_source_bins &&
+           !assessment.converged &&
            fine_bins < maximum_bins) {
         const int retry_bins = next_finite_source_resolution(
             fine_bins, maximum_bins, assessment.shortfall, 2);
@@ -4677,20 +4679,20 @@ FiniteSourceResult fixed_inverse_ray_binary(
                 return inverse_ray_polar_boundary_binary(
                     point_magnifier, separation, mass_ratio, source, source_radius,
                     active, finite_magnifier, &seeds, diagnostics);
-            });
+            },
+            false);
         if (!std::isfinite(evaluation.magnification)) {
             return {evaluation.magnification, 0, decision, std::nan(""), 0, false};
-        }
-        if (evaluation.refinement_level > 0) {
-            decision.reason = "polar inverse-ray with auto grid retry";
         }
         return {
             evaluation.magnification,
             0,
             decision,
             evaluation.error_estimate,
-            evaluation.refinement_level,
-            evaluation.converged,
+            0,
+            settings.automatic_source_bins
+                ? support_proven
+                : evaluation.converged,
         };
     }
 
@@ -4714,25 +4716,24 @@ FiniteSourceResult fixed_inverse_ray_binary(
         };
     }
 
-    // Fixed low nbin is diagnostic-only.  Automatic mode starts from its
-    // calibrated one-shot prediction, but that prediction and the independent
-    // Cartesian area-error indicator need not agree for every lens topology.
-    // When they do not, use the measured shortfall to choose the next supported
-    // grid bucket.  This avoids a broad conservative floor while ensuring that
-    // "auto" actually tries to satisfy the same budget reported by converged.
+    if (settings.automatic_source_bins) {
+        // The calibrated empirical law is the complete automatic-resolution
+        // decision.  Keep the cheap area indicator as a diagnostic, but do not
+        // let it trigger another grid or veto a supported one-shot result.
+        constexpr double kAutomaticAreaIndicatorScale = 0.25;
+        const double error_estimate = support_proven
+            ? kAutomaticAreaIndicatorScale * diagnostics.estimated_error
+            : std::numeric_limits<double>::infinity();
+        return {
+            magnification, 0, decision, error_estimate, 0, support_proven,
+        };
+    }
+
+    // Fixed low nbin is diagnostic-only.  With an explicit tolerance it keeps
+    // the independent half-resolution compatibility check below, but it never
+    // changes the caller's requested resolution.
     auto diagnose = [&](double value, const LegacyAreaDiagnostics& current_diagnostics) {
         double error = current_diagnostics.estimated_error;
-        if (settings.automatic_source_bins) {
-            // The component certificate now supplies the missing-image guard
-            // independently of the raster.  On the fresh seed/certificate
-            // holdout the remaining area indicator was conservatively about 4x
-            // too large in its tail for automatic buckets; calibrate that bound
-            // here rather than paying for a second grid on otherwise accepted
-            // rows.  A row that still exceeds the target keeps the retry escape
-            // below.
-            constexpr double kAutomaticAreaIndicatorScale = 0.25;
-            error *= kAutomaticAreaIndicatorScale;
-        }
         // The support certificate is resolution independent, so a finer grid
         // cannot repair an unproven one.  Refusing convergence here is what
         // keeps a silently missing component from being reported as an
@@ -4742,7 +4743,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
             settings, value, error, support_proven);
     };
 
-    auto assessment = diagnose(magnification, diagnostics);
+    const auto assessment = diagnose(magnification, diagnostics);
     double error_estimate = assessment.estimate;
     bool converged = assessment.converged;
     auto evaluate_at = [&](const FiniteSourceSettings& grid) {
@@ -4761,53 +4762,14 @@ FiniteSourceResult fixed_inverse_ray_binary(
             error_estimate, converged,
             cartesian_error_convergence_order(diagnostics));
     }
-    int refinement_level = 0;
-    const int maximum_bins = std::max(settings.max_source_bins, 1);
-    while (settings.automatic_source_bins && !converged &&
-           active_settings.source_bins < maximum_bins) {
-        const int previous_order = cartesian_error_convergence_order(diagnostics);
-        const int retry_bins = next_finite_source_resolution(
-            active_settings.source_bins,
-            maximum_bins,
-            assessment.shortfall,
-            previous_order);
-        if (retry_bins <= active_settings.source_bins) {
-            break;
-        }
-
-        active_settings.source_bins = retry_bins;
-        if (active_settings.polar_source_bins <= 0) {
-            active_settings.polar_source_bins = retry_bins;
-        }
-        LegacyAreaDiagnostics retry_diagnostics;
-        const double retry_magnification = inverse_ray_cartesian_binary_mag(
-            point_magnifier, separation, mass_ratio, source, source_radius,
-            active_settings, finite_magnifier, &seeds, &retry_diagnostics);
-        if (!std::isfinite(retry_magnification)) {
-            break;
-        }
-        magnification = retry_magnification;
-        diagnostics = retry_diagnostics;
-        ++refinement_level;
-        assessment = diagnose(magnification, diagnostics);
-        error_estimate = assessment.estimate;
-        converged = assessment.converged;
-    }
-    // The retry ladder is exhausted here, so the indicator's 1/source_bins
-    // floor is all that stands between a correct value and a NaN.  Measure the
-    // grid error instead of bounding it.
     if (!converged && support_proven && std::isfinite(error_estimate) &&
-        (settings.automatic_source_bins ||
-         has_explicit_finite_source_tolerance(settings))) {
+        has_explicit_finite_source_tolerance(settings)) {
         reconcile_with_half_resolution(
             settings, active_settings, magnification, evaluate_at,
             error_estimate, converged,
             cartesian_error_convergence_order(diagnostics));
     }
-    if (refinement_level > 0) {
-        decision.reason = "cartesian inverse-ray with auto grid retry";
-    }
-    return {magnification, 0, decision, error_estimate, refinement_level, converged};
+    return {magnification, 0, decision, error_estimate, 0, converged};
 }
 
 // ---------- image-spine kernel (finite_mode = 3) ----------

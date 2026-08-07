@@ -92,10 +92,10 @@ fixed_polar = lcbinint.Options(
 )
 ```
 
-`nbin="auto"` predicts a resolution for each epoch and may retry at a larger
-bucket when its error estimate misses the budget. A fixed integer is useful
-for reproducibility experiments but never retries. `max_source_bins` limits
-automatic refinement.
+`nbin="auto"` predicts one resolution for each binary-lens epoch from the
+calibrated law, rounds upward, and evaluates it once. Its embedded error
+indicator is diagnostic and does not trigger a larger grid. A fixed integer is
+useful for reproducibility experiments and is also one-shot.
 
 ## Option summary
 
@@ -103,7 +103,7 @@ automatic refinement.
 | --- | --- | --- |
 | `tol`, `reltol` | Absolute and relative finite-source error budget. | Set both for a scientific accuracy target. |
 | `nbin` | Automatic or fixed source-grid resolution. | `"auto"` |
-| `max_source_bins` | Ceiling for automatic refinement. | Leave at the calibrated default unless diagnostics require more. |
+| `max_source_bins` | Ceiling applied to the automatic resolution prediction. | Leave at the calibrated default unless diagnostics require more. |
 | `inverse_ray_grid` | `"auto"`, `"cartesian"`, or `"polar"`. | `"auto"` |
 | `polar_nbin` | Optional independent polar resolution. | `None` |
 | `caustic_bins` | Sampling used only for caustic/critical-curve visualization. | Increase for denser scatter plots. |

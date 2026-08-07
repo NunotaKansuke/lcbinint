@@ -59,16 +59,13 @@ is ignored when the other branch is supported. If no active branch is
 supported, automatic binary evaluation fails closed with the structured
 `unsupported_tolerance` status. In particular, absolute-only `atol <= 1e-4`
 is unsupported. A fixed integer `nbin` remains an expert override.
-Cartesian's cheap area indicator can still arm a fail-closed retry to a finer
-supported bucket. Fixed integer `nbin` calls never retry and remain a
-user-directed exception; an explicit tolerance may add a half-resolution
-consistency check there.
-
-The post-check is order-aware: the edge-corrected Cartesian scan uses a
-second-order boundary estimate when there are no fold seeds and row-to-row
-jumps remain small. Fold or large-jump topology warnings retain their original
-first-order scale. This prevents smooth high-area images from turning the
-feedback step into a blanket resolution increase.
+Automatic binary evaluation performs exactly one inverse-ray integration at
+the selected resolution. Its embedded area indicator remains available as a
+diagnostic but neither vetoes the calibrated result nor triggers a finer grid.
+The independent image-component support certificate still fails closed,
+because a missing image is a topology failure rather than a resolution-error
+estimate. Fixed integer `nbin` calls are likewise one-shot; an explicit
+tolerance may add a half-resolution consistency check there.
 
 ## Baseline-anchored LightCurve warm-up
 
@@ -110,9 +107,9 @@ not reused. Timing defaults to one production-shaped trajectory, with
 
 Matching calls enter a native route-specialized path. It bypasses point/hex
 safety routing, caustic-distance routing, Cartesian/polar selection, automatic
-grid retries, and fixed-grid half-resolution probes. The image-plane support
-certificate is retained. A planned support or numerical failure falls back to
-the ordinary fail-closed dispatcher.
+resolution selection, and fixed-grid half-resolution probes. The image-plane
+support certificate is retained. A planned support or numerical failure falls
+back to the ordinary fail-closed dispatcher.
 
 This first implementation is deliberately exact-keyed: times, parameters,
 tolerances, numerical options, model configuration, and limb darkening must
@@ -123,45 +120,36 @@ exposes the retained report, and `curve.clear_warmup()` removes it.
 
 ## Unified finite-source error contract
 
-After the binary fast paths have been rejected, each adaptive finite-source
-integrator is judged against the same absolute error budget
+Finite-source diagnostics use the common absolute error budget
 
 `B(A) = max(atol, reltol max(|A|, 1))`.
 
-An adaptive result is accepted exactly when its image-component support is
-certified and its method-specific error estimate `E` satisfies `E <= B`. The
-controller contains no route-specific retry thresholds. If a calculation of
-order `p` misses the budget, it requests
-
-`N_next = ceil(N (E/B)^(1/p))`
-
-and rounds upward to the next supported resolution bucket, capped by
-`max_source_bins`. Binary Cartesian, polar, and tangent-caustic source-plane
-quadrature therefore share the same acceptance and refinement rule; only their
-numerical error estimators differ:
+For automatic binary Cartesian/polar evaluation, the calibrated law is the
+accuracy authority and the method-specific estimate `E` is reported only for
+diagnostics. It does not alter `N` after the one-shot selection. Other routes
+retain their own documented checks:
 
 - Cartesian uses its embedded boundary-area indicator. The edge-corrected
   smooth case has `p=2`; fold seeds or large row jumps use `p=1`. In automatic
-  mode the indicator carries the single 0.25 normalization measured on the
-  independent certified holdout; this replaces a second grid evaluation.
+  mode the reported indicator carries the single 0.25 normalization measured
+  on the independent certified holdout.
 - Polar uses the accumulated geometric magnitude of the radial edge correction
   already located by the fine pass. Since that correction removes the leading
   first-order boundary term, multiplying its normalized magnitude by `1/N`
   estimates the remaining second-order term without another lens-map pass. The
   scale is geometric so a zero-brightness source limb cannot produce a zero
-  error estimate. This embedded estimator is used for automatic resolution
-  regardless of whether `tol` or `reltol` was supplied; an explicit tolerance
-  changes only `B`. The fixed-`nbin` compatibility path may additionally
-  compare against a half-resolution grid.
+  error estimate. Automatic binary evaluation reports this value without
+  retrying. The fixed-`nbin` compatibility path may additionally compare
+  against a half-resolution grid when a tolerance is explicit.
 - Tangent-caustic source-plane quadrature already computes nested 48/96 rules.
   Their difference is converted to a fine-rule estimate with first-order
   Richardson scaling; a miss escalates once to 192 and is assessed identically.
 
-The support certificate is deliberately separate from quadrature error: grid
-refinement cannot recover an image component that was never seeded. A failed
-support certificate therefore reports non-convergence directly instead of
-arming a numerically pointless resolution ladder. Fixed integer `nbin` without
-an explicit tolerance remains a user-directed one-shot calculation.
+The support certificate is deliberately separate from quadrature error: a
+calibrated resolution cannot recover an image component that was never seeded.
+A failed support certificate therefore reports non-convergence directly.
+Fixed integer `nbin` without an explicit tolerance remains a user-directed
+one-shot calculation.
 
 ## Triple-lens calibration
 
@@ -411,8 +399,8 @@ tolerance — no regression, no features — covers 99.3–100% of an independen
 holdout, the single exception being Cartesian at `1e-4`, where a rho-dependent
 linear rule is needed to reach 99.8%.  The seven-feature quantile model is
 therefore not carrying its own weight under the certified algorithm.  The
-The final rule at the top of this document applies the resulting one-shot law, with a fail-closed
-retry for the residual area-indicator shortfall.  The historical 2880-row files
+The final rule at the top of this document applies the resulting one-shot law;
+the residual area indicator is diagnostic only. The historical 2880-row files
 remain unchanged; the current implementation was additionally checked on a
 fresh 120-row seed/certificate probe and the native regression suite.
 

@@ -75,11 +75,11 @@ class TestPhase2GridSpacingRefinement:
             f"Median error {median_error:.2%} indicates systematic precision loss"
 
 
-class TestPhase3ErrorFloor:
-    """Phase 3: Error floor prevents accepting insufficient bins."""
+class TestPhase3EmpiricalResolution:
+    """Phase 3: The calibrated binary selector is one-shot."""
 
     def test_auto_nbin_preselects_for_tight_tolerance(self):
-        """The empirical p99 start handles the corpus with bounded retries."""
+        """The empirical law handles the corpus without grid retries."""
         case = Case(
             name="wide_caustic",
             separation=0.95, mass_ratio=0.01,
@@ -98,15 +98,10 @@ class TestPhase3ErrorFloor:
         refinement_levels = np.array(result_tight.finite_source_refinement_levels)
 
         assert np.all(np.isfinite(result_tight.finite_source_magnifications))
-        # A p99 initial selector is allowed to miss a hard tail; the existing
-        # fail-closed controller must catch that tail without making ordinary
-        # epochs pay the old 200-bin ceiling up front.
-        assert np.mean(refinement_levels == 0) >= 0.95
-        assert np.max(refinement_levels) <= 2
+        # The empirical selection is the complete nbin decision. Diagnostics
+        # and support certification must not arm a second resolution.
+        assert np.all(refinement_levels == 0)
         converged = np.array(result_tight.finite_source_converged)
-        errors = np.array(result_tight.finite_source_error_estimates)
-        budgets = 1e-4 * np.maximum(np.abs(result_tight.magnifications), 1.0)
-        assert np.all(~converged | (errors <= budgets))
         assert np.array_equal(
             np.isfinite(result_tight.magnifications), converged
         )
@@ -114,11 +109,11 @@ class TestPhase3ErrorFloor:
         assert len(result_tight.unconverged_indices) == int(np.count_nonzero(~converged))
 
 
-class TestFeedbackCorrectedAutoResolution:
-    """The calibrated selector uses bounded feedback from its error estimate."""
+class TestOneShotAutoResolution:
+    """The calibrated selector never uses error-indicator feedback."""
 
-    def test_refinement_iterations_are_bounded(self):
-        """Automatic resolution reports a bounded final refinement state."""
+    def test_refinement_iterations_are_zero(self):
+        """Automatic binary resolution performs exactly one selected grid."""
         case = Case(
             name="wide_caustic",
             separation=0.95, mass_ratio=0.01,
@@ -138,8 +133,7 @@ class TestFeedbackCorrectedAutoResolution:
         refinement_levels = np.array(result.finite_source_refinement_levels)
         converged = np.array(result.finite_source_converged)
 
-        max_iterations = np.max(refinement_levels)
-        assert 0 <= max_iterations <= 13
+        assert np.all(refinement_levels == 0)
 
         assert np.all(np.isfinite(mag)), "Auto nbin should return finite magnifications"
         assert result.all_converged
@@ -174,7 +168,7 @@ class TestRegressionNoPerformanceDegradation:
             f"Ordinary case accuracy degraded: {np.max(rel_err_fixed):.4%}"
 
     def test_adaptive_remains_accurate(self):
-        """Adaptive refinement still achieves tolerance targets."""
+        """Automatic empirical resolution still achieves tolerance targets."""
         case = Case(
             name="wide_caustic",
             separation=0.95, mass_ratio=0.01,
@@ -222,7 +216,7 @@ class TestEdgeCases:
         assert np.all(np.isfinite(mag)), "Tiny source with low bins should produce finite results"
 
     def test_high_magnification_convergence(self):
-        """High-magnification cases flag the hard points instead of guessing."""
+        """High-magnification cases still fail closed on support failures."""
         case = Case(
             name="high_mag",
             separation=0.5, mass_ratio=0.01,
@@ -240,13 +234,9 @@ class TestEdgeCases:
         mag = np.array(result.magnifications)
         converged = np.array(result.finite_source_converged)
 
-        # reltol=1e-4 with source_bins=20 is intentionally tight for this
-        # high-magnification caustic case. The important contract is that the
-        # unresolved budget-limited points are not reported as converged --
-        # and under the fail-closed contract that is the same statement as
-        # their not being reported at all.  One epoch here grazes the caustic
-        # at 1.04 rho and misses the budget on the 200-bin ceiling; the value
-        # the integrator did reach stays available and finite.
+        # The empirical grid is one-shot, but image-component support remains
+        # an independent fail-closed requirement. The raw integrated value is
+        # retained diagnostically even when public magnification is withheld.
         assert np.all(np.isfinite(result.finite_source_magnifications)), \
             "the integrated value must survive even when the budget is missed"
         assert np.array_equal(np.isfinite(mag), converged)

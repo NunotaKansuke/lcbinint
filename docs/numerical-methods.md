@@ -6,7 +6,7 @@ The finite-source decision pipeline is an independent `lcbinint` implementation,
 but its terminology and physical safeguards are grounded in the microlensing
 literature. In particular, the quadrupole/cusp/ghost-image point-source tests
 are informed by the decision tree described by [Bozza et al. (2018)](#references).
-The automatic grid-size calibration, tolerance budget, and retry policy below
+The automatic grid-size calibration, tolerance budget, and one-shot policy below
 are specific to `lcbinint` and are validated by this repository's regression
 and calibration data.
 
@@ -48,71 +48,46 @@ control and adaptive sampling background are given by [Bozza (2010)](#references
 Finite-source accuracy uses one combined absolute budget,
 
 ```text
-finite_source_tol + finite_source_reltol * max(|A|, 1).
+max(finite_source_tol, finite_source_reltol * max(|A|, 1)).
 ```
 
 If either term is explicitly positive, the other term is exactly zero unless
 the caller also sets it. In particular, `tol=1e-5, reltol=0` is absolute-only;
 it never inherits the survey default relative tolerance. When both terms are
-unset, the calibrated default is `1e-4 + 1e-3 * max(|A|, 1)`. This convention
-is shared by point-source and hexadecapole acceptance, Cartesian and polar
-inverse rays, source-plane quadrature, and `finite_source_converged`.
+unset, the calibrated default is
+`max(1e-4, 1e-3 * max(|A|, 1))`. This convention is shared by point-source and
+hexadecapole acceptance, Cartesian and polar inverse rays, source-plane
+quadrature, and `finite_source_converged` diagnostics.
 
-`Options(nbin="auto")` is the default. For each source position it makes one
-calibrated prediction from quantities already available on the hot path:
-point-source magnification, source radius, the smaller mass ratio, normalized
-caustic distance, companion-resolution risk, and linear limb darkening.
+`Options(nbin="auto")` is the default. For each binary-lens source position it
+makes one calibrated prediction. Point-source magnification selects Cartesian
+below `Apoint=200` and polar at or above it. Separate absolute- and
+relative-tolerance power laws are evaluated, the less demanding active branch
+is selected, and the continuous result is rounded upward to an integer and
+capped by `max_source_bins`.
 
-The prediction is rounded upward to a supported bucket and capped by
-`max_source_bins`. High-magnification positions may select the polar grid;
-ordinary positions use the Cartesian model. Cartesian integration checks its
-independent area-error estimate after the predicted grid is evaluated. If that
-estimate exceeds the same tolerance budget used by `finite_source_converged`,
-automatic mode increases to the smallest supported bucket implied by the
-measured shortfall and retries, up to `max_source_bins`. Fixed integer `nbin`
-never retries. A result that still cannot meet its budget at the cap is returned
-with `finite_source_converged=False`.
+The calibrated domains are `1e-4 <= reltol <= 1e-2` and
+`2e-4 <= tol <= 1e-2`. An unsupported branch is ignored when the other branch
+is supported; if neither is supported, automatic binary evaluation reports
+`unsupported_tolerance`. In particular, absolute-only `tol <= 1e-4` is not
+claimed by the empirical law.
 
-An explicit tolerance is converted to its equivalent relative budget at the
-current point-source magnification before the initial `nbin` prediction. Thus
-tight absolute-only requests increase the first grid up front instead of
-starting at the loose-default prediction. Smooth corrected Cartesian
-boundaries and polar grids use second-order (square-root) tolerance scaling;
-caustic-contact and unresolved-small-companion Cartesian rows use their
-observed first-order scaling. Tight triple-lens requests start at the configured
-ceiling because no independently validated tighter-tolerance triple regression
-exists. These choices avoid knowingly under-resolved preliminary passes.
+The selected inverse-ray grid is evaluated exactly once. Cartesian and polar
+still expose their embedded area-error estimates for diagnostics, but those
+estimates do not veto the empirical prediction and do not increase `nbin`.
+Image-component support certification remains mandatory because it detects a
+different failure mode: a component omitted before integration. A support or
+numerical failure is therefore still reported fail-closed.
 
-The predictor was calibrated at the loose default, so its tighter-tolerance
-scaling is conservative rather than independently fitted. The post-check
-remains authoritative, and a caller that needs VBMicrolensing-style fallback
-should switch engines whenever `finite_source_converged` is false rather than
-treating the requested value as proof of achieved accuracy.
+A fixed integer `nbin` is also one-shot. When combined with an explicit
+tolerance, its compatibility diagnostics may compare the selected grid with a
+half-resolution grid, but the requested integer is never changed. Triple-lens
+automatic resolution follows its separate calibration and is not governed by
+the binary empirical law described here.
 
-For polar inverse rays, an explicit tolerance activates an independent coarse/
-fine grid comparison. Automatic mode jumps directly to the bucket implied by
-the measured shortfall, up to `max_source_bins`; fixed `nbin` reports the
-coarse/fine error without retrying.
-
-The Cartesian area estimator follows the corrected scan's actual order. A
-no-fold boundary with only small row-to-row jumps receives the extra cell-width
-factor of a second-order edge rule. Fold seeds and large jumps retain the
-first-order topology-warning scale, and the independent small-companion and
-tangent-caustic guards remain active. Thus a large but smooth image boundary
-does not trigger a retry merely because it crosses many grid rows.
-
-For an explicit tolerance, a Cartesian result that the embedded estimator
-would accept is additionally compared with one coarser grid. This catches rare
-lattice-aliasing cases where the area indicator is optimistic. The comparison
-is deliberately conditional: default calculations and rows already known to
-miss their budget incur no second integration.
-
-The exact fitted coefficients and validation metrics are frozen under
-`tests/diagnostics/results/finite-source-auto-20260716/`. Independent validation
-had zero underpredictions across 3,655 evaluable rows at the calibrated target
-of relative `1e-3` plus absolute `1e-4`. Tighter requested tolerances use a
-conservative convergence-order scaling but do not inherit that exact
-zero-violation claim.
+The exact binary coefficients, domains, and validation evidence are frozen in
+`tests/diagnostics/results/recal2026/REPORT_empirical_resolution_law.md` and the
+final Apoint validation artifacts linked from that report.
 
 ## Finite-source geometry for external hosts
 

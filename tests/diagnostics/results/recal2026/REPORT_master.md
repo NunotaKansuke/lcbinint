@@ -16,23 +16,23 @@ this file is the later reading.
 **Current Nbin calibration.** The paper-facing empirical law for the current
 certified Cartesian/polar ladders is in
 [`REPORT_empirical_resolution_law.md`](REPORT_empirical_resolution_law.md),
-with its box-and-whisker PDF in `figures/empirical-resolution-law.pdf`. That
-calibration is recorded and tested on `final-testing`, but is not yet wired
-into the C++ runtime selector. The handoff is fail-closed: out-of-domain
-requests, in particular the presently uncertifiable absolute `1e-4` branch,
-must report an unsupported-tolerance status rather than silently using an
-extrapolated `Nbin`. The extrapolation remains in the offline artifacts for
-diagnostics and future reference refinement only.
+with its box-and-whisker PDF in `figures/empirical-resolution-law.pdf`. The
+frozen law is now the C++ runtime selector:
+it combines the supported absolute and relative branches, rounds upward, and
+performs one grid evaluation. Out-of-domain requests, in particular the
+uncertifiable absolute-only `1e-4` branch, report `unsupported_tolerance`
+rather than silently using an extrapolated `Nbin`.
 
 **This is the historical campaign record, not a statement that the current
 branch is unchanged.** The measurements and oracle tables below remain the
 evidence used to derive the policy. On `final-testing`, the native runtime now
-uses the one-shot table `Cartesian/polar = (16/50, 50/100, 200/200)` for
-`reltol = (1e-2, 1e-3, 1e-4)`, and switches to polar at `A_point >= 200`; the
-automatic Cartesian retry is fail-closed and the explicit fixed-grid
-half-resolution check is retained. The tangency fixes handle the grazing cases
-through source-plane chord quadrature before this grid switch. The historical
-campaign files below have not been overwritten by that branch.
+uses the continuous empirical laws in `REPORT_empirical_resolution_law.md`,
+switches to polar at `A_point >= 200`, and performs no error-indicator-driven
+`nbin` retry. The embedded indicator is diagnostic only; image-component
+support remains fail-closed, and the explicit fixed-grid half-resolution check
+is retained. The tangency fixes handle grazing cases through source-plane chord
+quadrature before this grid switch. Sections below that discuss the former
+retry ladder are retained as historical algorithm-development evidence.
 
 ---
 
