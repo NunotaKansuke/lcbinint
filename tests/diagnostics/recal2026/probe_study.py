@@ -7,8 +7,9 @@ Two questions, deliberately measured apart.
 the caustic geometry, not on the integration grid.  So their share of an
 evaluation is not a single number, it is a function of the resolution, and it
 grows as the resolution falls.  That matters now precisely because the
-component certificate let the resolution fall -- the campaign's new rule picks
-4 to 16 bins at a 1e-2 target where the shipping rule picked 100 -- so a charge
+component certificate let the resolution fall -- the current rule picks 16
+Cartesian bins (50 polar bins) at a 1e-2 target where the historical shipping
+rule picked 64 -- so a charge
 that was noise against a 200-bin grid need not be noise against a 6-bin one.
 Counts are reported alongside seconds because counts are immune to the harness:
 a per-call timing carries ~1.4 ms of setup, and a probe count does not.
@@ -43,11 +44,11 @@ lcbinint = probe_build.activate()
 
 from .probe_corpus import rows as corpus_rows  # noqa: E402
 
-# Resolutions to measure at.  The first three are the constants this campaign's
-# resolution study settled on for the Cartesian grid at 1e-2, 1e-3 and 1e-4;
+# Resolutions to measure at.  The first three are the current one-shot
+# Cartesian buckets at 1e-2, 1e-3 and 1e-4;
 # the last is far above any of them and is there as the internal reference,
 # where a seeding failure cannot hide behind a coarse grid.
-STUDY_BUCKETS = (16, 50, 128)
+STUDY_BUCKETS = (16, 50, 200)
 REFERENCE_BUCKET = 400
 
 COUNTER_KEYS = (

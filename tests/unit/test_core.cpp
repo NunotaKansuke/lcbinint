@@ -80,26 +80,38 @@ int main()
     const auto high_resolution =
         lcbinint::magnification::calibrated_binary_resolution(
             1.0e-3, 1.0e-3, 2.0e-4, 1000.0, 0.0, 1.0e-3, 400);
-    if (!high_resolution.prefer_polar || high_resolution.source_bins != 64) {
+    if (!high_resolution.prefer_polar || high_resolution.source_bins != 100) {
         return 44;
+    }
+    const auto loose_resolution =
+        lcbinint::magnification::calibrated_binary_resolution(
+            1.0e-3, 1.0e-3, 2.0e-4, 10.0, 0.0, 1.0e-2, 400);
+    if (loose_resolution.prefer_polar || loose_resolution.source_bins != 16) {
+        return 52;
+    }
+    const auto default_resolution =
+        lcbinint::magnification::calibrated_binary_resolution(
+            1.0e-3, 1.0e-3, 2.0e-4, 10.0, 0.0, 0.0, 400);
+    if (default_resolution.prefer_polar || default_resolution.source_bins != 50) {
+        return 53;
     }
     const auto tight_high_resolution =
         lcbinint::magnification::calibrated_binary_resolution(
             1.0e-3, 1.0e-3, 2.0e-4, 1000.0, 0.0, 1.0e-5, 400);
-    if (!tight_high_resolution.prefer_polar || tight_high_resolution.source_bins != 400) {
+    if (!tight_high_resolution.prefer_polar || tight_high_resolution.source_bins != 200) {
         return 50;
     }
     const auto tangent_resolution =
         lcbinint::magnification::calibrated_binary_resolution(
             0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 1.0e-3, 400);
-    if (tangent_resolution.prefer_polar || tangent_resolution.source_bins < 100) {
+    if (tangent_resolution.prefer_polar || tangent_resolution.source_bins != 50) {
         return 45;
     }
     const auto tight_tangent_resolution =
         lcbinint::magnification::calibrated_binary_resolution(
             0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 1.0e-5, 400);
     if (tight_tangent_resolution.prefer_polar ||
-        tight_tangent_resolution.source_bins != 400) {
+        tight_tangent_resolution.source_bins != 200) {
         return 51;
     }
     const auto triple_calibration_geometry =

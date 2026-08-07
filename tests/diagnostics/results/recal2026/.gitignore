@@ -13,5 +13,10 @@ ext_capfix/
 ext_jitfix/
 speed_high_magnification/
 tangency_scan/
+estimator_audit/
+resolution_curves/
+error_budget_law/
+error_budget_law_atol1e-4/
+absolute_error_law/
 *.log
 *.err

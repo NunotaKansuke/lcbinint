@@ -33,6 +33,9 @@ constexpr int kHexadecapoleEvaluations = 13;
 constexpr int kLimbDarkeningTableSize = 20000;
 constexpr double kDefaultFiniteSourceAbsoluteTolerance = 1.0e-4;
 constexpr double kDefaultFiniteSourceRelativeTolerance = 1.0e-3;
+constexpr std::array<int, 14> kFiniteSourceResolutionBuckets {{
+    16, 24, 32, 40, 50, 64, 80, 100, 128, 160, 200, 256, 320, 400,
+}};
 
 bool has_explicit_finite_source_tolerance(const FiniteSourceSettings& settings)
 {
@@ -61,36 +64,91 @@ bool finite_source_error_within_budget(
         error_estimate <= finite_source_error_budget(settings, magnification);
 }
 
-// Two grids measure the discretization error, but the difference between them
-// is dominated by the coarser one: for a first-order scheme
-// |A_fine - A_coarse| is about (r - 1) times the fine-grid error, with r the
-// ratio of the two bin counts.  Halving needs no correction, which is why the
-// plain difference was right for the /2 comparison and far too pessimistic for
-// a pair the automatic retry produced by jumping straight from 400 to 4096
-// bins -- there it reported ten times the error it was measuring.
+struct FiniteSourceErrorAssessment {
+    double budget = 0.0;
+    double estimate = std::numeric_limits<double>::infinity();
+    double shortfall = std::numeric_limits<double>::infinity();
+    bool support_valid = false;
+    bool converged = false;
+};
+
+FiniteSourceErrorAssessment assess_finite_source_error(
+    const FiniteSourceSettings& settings,
+    double magnification,
+    double error_estimate,
+    bool support_valid = true)
+{
+    const double budget = finite_source_error_budget(settings, magnification);
+    const bool finite = std::isfinite(error_estimate);
+    const double shortfall = budget > 0.0 && finite
+        ? std::max(error_estimate / budget, 0.0)
+        : std::numeric_limits<double>::infinity();
+    return {
+        budget,
+        support_valid && finite
+            ? error_estimate
+            : std::numeric_limits<double>::infinity(),
+        support_valid ? shortfall : std::numeric_limits<double>::infinity(),
+        support_valid,
+        support_valid && finite && error_estimate <= budget,
+    };
+}
+
+int next_finite_source_resolution(
+    int current_bins,
+    int maximum_bins,
+    double shortfall,
+    int convergence_order)
+{
+    const int cap = std::max(maximum_bins, 1);
+    if (current_bins >= cap) {
+        return current_bins;
+    }
+    const int order = std::max(convergence_order, 1);
+    const double growth = std::isfinite(shortfall)
+        ? std::pow(std::max(shortfall, 1.0), 1.0 / static_cast<double>(order))
+        : 2.0;
+    const int requested = std::max(
+        current_bins + 1,
+        static_cast<int>(std::ceil(static_cast<double>(current_bins) * growth)));
+    for (const int bucket : kFiniteSourceResolutionBuckets) {
+        if (bucket >= requested) {
+            return std::min(bucket, cap);
+        }
+    }
+    return cap;
+}
+
+// For A(h) = A(0) + C h^p + o(h^p), two nested grids give the Richardson
+// estimate |A_fine - A_coarse| / (r^p - 1) at the returned (fine) resolution,
+// where r is the fine/coarse resolution ratio.  The caller supplies the
+// convergence order p appropriate to its integration rule.
 double grid_pair_error_estimate(
     double fine_magnification,
     double coarse_magnification,
     int fine_bins,
-    int coarse_bins)
+    int coarse_bins,
+    int convergence_order = 1)
 {
     const double difference = std::abs(fine_magnification - coarse_magnification);
     const double ratio = coarse_bins > 0
         ? static_cast<double>(fine_bins) / static_cast<double>(coarse_bins)
         : 2.0;
-    return difference / std::max(ratio - 1.0, 1.0);
+    const double denominator =
+        std::pow(std::max(ratio, 1.0), std::max(convergence_order, 1)) - 1.0;
+    return denominator > std::numeric_limits<double>::epsilon()
+        ? difference / denominator
+        : std::numeric_limits<double>::infinity();
 }
 
 // The boundary-area indicator counts the cells the source limb and the caustic
 // cut, so it decays like 1/source_bins however fast the area itself converges.
 // On the binary tangency it is 6x pessimistic by 4096 bins and on the triple
 // cusp 1000x, which is enough to report a value that is right to 1e-14 as
-// unconverged and hand back a NaN.  When an explicit tolerance is on the line,
-// spend one half-resolution evaluation and let the measured pair speak: a
-// would-be converged row still has to survive it, and a row the indicator
-// rejects is admitted only if the measurement is inside the budget.  What this
-// does not touch is the support certificate or the resolvability guard -- both
-// still veto, because neither is a statement about grid error.
+// unconverged and hand back a NaN.  Automatic resolution uses the method's
+// embedded estimate; a failed automatic ladder may use this independent
+// half-resolution cross-check, and a fixed nbin with an explicit tolerance
+// may request it as a compatibility path.
 template <typename EvaluateAt>
 void reconcile_with_half_resolution(
     const FiniteSourceSettings& settings,
@@ -98,10 +156,10 @@ void reconcile_with_half_resolution(
     double magnification,
     EvaluateAt&& evaluate_at,
     double& error_estimate,
-    bool& converged)
+    bool& converged,
+    int convergence_order = 1)
 {
-    if (!has_explicit_finite_source_tolerance(settings) ||
-        active_settings.source_bins <= 1) {
+    if (active_settings.source_bins <= 1) {
         return;
     }
     FiniteSourceSettings coarse_settings = active_settings;
@@ -119,7 +177,8 @@ void reconcile_with_half_resolution(
     }
     const double measured = grid_pair_error_estimate(
         magnification, coarse_magnification,
-        active_settings.source_bins, coarse_settings.source_bins);
+        active_settings.source_bins, coarse_settings.source_bins,
+        convergence_order);
     if (converged) {
         error_estimate = std::max(error_estimate, measured);
         converged = finite_source_error_within_budget(
@@ -1511,6 +1570,10 @@ HexResult hexadecapole_triple(
 
 using PolarVisitedCellIntervals = std::vector<std::vector<std::pair<int, int>>>;
 
+struct PolarAreaDiagnostics {
+    double estimated_error = std::numeric_limits<double>::infinity();
+};
+
 struct LegacyImageAreaScratch {
     std::vector<double> xmin;
     std::vector<double> xmax;
@@ -1611,6 +1674,13 @@ struct LegacyAreaDiagnostics {
     double estimated_error = 0.0;
 };
 
+int cartesian_error_convergence_order(const LegacyAreaDiagnostics& diagnostics)
+{
+    return diagnostics.fold_seed_count == 0 && diagnostics.max_jump_cells <= 20.0
+        ? 2
+        : 1;
+}
+
 double high_magnification_floor_coefficient(
     const LegacyAreaDiagnostics& diagnostics,
     double magnification,
@@ -1684,9 +1754,7 @@ double cartesian_area_error_indicator(
         const double jump_weight = source_radius >= 2.0e-2 ? 0.2 : 4.0;
         uncertain_cells += jump_weight * std::log10(diagnostics.max_jump_cells / 10.0);
     }
-    const bool smooth_corrected_boundary =
-        diagnostics.fold_seed_count == 0 && diagnostics.max_jump_cells <= 20.0;
-    if (smooth_corrected_boundary) {
+    if (cartesian_error_convergence_order(diagnostics) == 2) {
         constexpr double kSmoothBoundarySafetyCells = 8.0;
         uncertain_cells *= std::min(
             1.0, kSmoothBoundarySafetyCells / static_cast<double>(bins));
@@ -1727,7 +1795,8 @@ double inverse_ray_polar_core(
     SourcePosition source,
     double source_radius,
     const FiniteSourceSettings& settings,
-    const FiniteSourceMagnifier* finite_magnifier)
+    const FiniteSourceMagnifier* finite_magnifier,
+    PolarAreaDiagnostics* diagnostics = nullptr)
 {
     if (image_positions.empty()) {
         return std::nan("");
@@ -1857,17 +1926,23 @@ double inverse_ray_polar_core(
             finite_magnifier->limb_darkening_table_brightness(1.0) :
             source_surface_brightness(1.0, settings));
     auto radial_edge_correction = [&](
-        double inside_dz2, double outside_dz2, double edge_radius) {
+        double inside_dz2,
+        double outside_dz2,
+        double edge_radius,
+        double* absolute_geometric_correction) {
         const double r_in = std::sqrt(inside_dz2);
         const double r_out = std::sqrt(outside_dz2);
         const double dr_mapped = r_out - r_in;
         const double t = dr_mapped > 0.0
             ? std::clamp((source_radius - r_in) / dr_mapped, 0.0, 1.0)
             : 0.5;
-        return (t - 0.5) * edge_brightness * edge_radius;
+        const double geometric_correction = (t - 0.5) * edge_radius;
+        *absolute_geometric_correction += std::abs(geometric_correction);
+        return geometric_correction * edge_brightness;
     };
 
     double total_count = 0.0;
+    double absolute_radial_geometry = 0.0;
     while (!queue.empty()) {
         const auto [ir, iphi] = queue.front();
         queue.pop_front();
@@ -1923,16 +1998,35 @@ double inverse_ray_polar_core(
             enqueue(current, iphi + 1);
         }
         if (left_outside_dz2 >= 0.0) {
-            total_count += radial_edge_correction(
-                left_inside_dz2, left_outside_dz2, static_cast<double>(left) * dr);
+            const double correction = radial_edge_correction(
+                left_inside_dz2,
+                left_outside_dz2,
+                static_cast<double>(left) * dr,
+                &absolute_radial_geometry);
+            total_count += correction;
         }
         if (right_outside_dz2 >= 0.0) {
-            total_count += radial_edge_correction(
-                right_inside_dz2, right_outside_dz2, static_cast<double>(right + 1) * dr);
+            const double correction = radial_edge_correction(
+                right_inside_dz2,
+                right_outside_dz2,
+                static_cast<double>(right + 1) * dr,
+                &absolute_radial_geometry);
+            total_count += correction;
         }
     }
 
     const double image_flux = total_count * dr * dphi;
+    if (diagnostics != nullptr) {
+        // The interpolation removes the O(h) radial boundary term.  Its
+        // accumulated absolute geometric magnitude therefore supplies the
+        // local scale for the remaining O(h^2) term; multiplying by
+        // h/rho = 1/N gives an embedded estimate without another lens-map
+        // pass.  Keeping this scale geometric prevents a dark source limb
+        // from collapsing the error estimate to zero.
+        diagnostics->estimated_error =
+            absolute_radial_geometry * dr * dphi /
+            (total_source_flux * static_cast<double>(source_bins));
+    }
     return image_flux / total_source_flux;
 }
 
@@ -1944,7 +2038,8 @@ double inverse_ray_polar_boundary_binary(
     double source_radius,
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
-    const std::vector<SourcePosition>* seed_positions = nullptr)
+    const std::vector<SourcePosition>* seed_positions = nullptr,
+    PolarAreaDiagnostics* diagnostics = nullptr)
 {
     std::vector<SourcePosition> image_positions;
     if (seed_positions != nullptr) {
@@ -1958,7 +2053,8 @@ double inverse_ray_polar_boundary_binary(
     }
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     return inverse_ray_polar_core(
-        mapper, image_positions, source, source_radius, settings, finite_magnifier);
+        mapper, image_positions, source, source_radius, settings, finite_magnifier,
+        diagnostics);
 }
 
 struct PolarToleranceEvaluation {
@@ -1971,74 +2067,77 @@ struct PolarToleranceEvaluation {
 template <typename Evaluator>
 PolarToleranceEvaluation evaluate_polar_to_tolerance(
     const FiniteSourceSettings& settings,
+    bool support_proven,
     Evaluator&& evaluator)
 {
     FiniteSourceSettings active = settings;
-    double fine = evaluator(active);
+    PolarAreaDiagnostics fine_diagnostics;
+    double fine = evaluator(active, &fine_diagnostics);
     if (!std::isfinite(fine)) {
         return {fine, std::numeric_limits<double>::infinity(), 0, false};
     }
+    if (!support_proven) {
+        return {fine, std::numeric_limits<double>::infinity(), 0, false};
+    }
 
-    // The default path keeps the frozen calibrated policy and its performance.
-    // An explicit tolerance, like VBMicrolensing.Tol, requires an independent
-    // resolution comparison before convergence can be claimed.
-    if (!has_explicit_finite_source_tolerance(settings)) {
+    // Automatic polar always uses the embedded boundary-error estimate from
+    // the fine pass.  The tolerance only changes the common budget below; it
+    // does not select a stricter estimator.  Fixed calls without a tolerance
+    // retain their historical one-shot behaviour, while fixed calls with an
+    // explicit tolerance keep the independent nested-grid compatibility check.
+    if (!settings.automatic_source_bins &&
+        !has_explicit_finite_source_tolerance(settings)) {
         return {fine, 0.0, 0, true};
     }
 
     int fine_bins = active_polar_source_bins(active);
-    FiniteSourceSettings coarse_settings = active;
-    const int coarse_bins = std::max(1, fine_bins / 2);
-    coarse_settings.source_bins = coarse_bins;
-    coarse_settings.polar_source_bins = coarse_bins;
-    double coarse = evaluator(coarse_settings);
-    double error_estimate = std::isfinite(coarse)
-        ? std::abs(fine - coarse)
-        : std::numeric_limits<double>::infinity();
-    bool converged = finite_source_error_within_budget(settings, fine, error_estimate);
-
-    constexpr std::array<int, 14> kRetryBuckets {{
-        16, 24, 32, 40, 50, 64, 80, 100, 128, 160, 200, 256, 320, 400,
-    }};
+    double error_estimate = fine_diagnostics.estimated_error;
+    if (!settings.automatic_source_bins &&
+        has_explicit_finite_source_tolerance(settings)) {
+        FiniteSourceSettings coarse_settings = active;
+        const int coarse_bins = std::max(1, fine_bins / 2);
+        coarse_settings.source_bins = coarse_bins;
+        coarse_settings.polar_source_bins = coarse_bins;
+        PolarAreaDiagnostics coarse_diagnostics;
+        const double coarse = evaluator(coarse_settings, &coarse_diagnostics);
+        error_estimate = std::isfinite(coarse)
+            ? std::max(
+                error_estimate,
+                grid_pair_error_estimate(fine, coarse, fine_bins, coarse_bins, 2))
+            : std::numeric_limits<double>::infinity();
+    }
+    auto assessment = assess_finite_source_error(
+        settings, fine, error_estimate, support_proven);
     const int maximum_bins = std::max(settings.max_source_bins, 1);
     int refinement_level = 0;
-    while (settings.automatic_source_bins && !converged && fine_bins < maximum_bins) {
-        const double target = finite_source_error_budget(settings, fine);
-        const double shortfall = target > 0.0 && std::isfinite(error_estimate)
-            ? std::max(error_estimate / target, 1.0)
-            : 4.0;
-        // The corrected polar boundary rule is normally second order.  Use
-        // the observed shortfall to select a bounded next grid, with a guard
-        // against repeatedly landing on a borderline bucket.
-        const int requested_bins = std::max(
-            fine_bins + 1,
-            static_cast<int>(std::ceil(
-                1.10 * static_cast<double>(fine_bins) * std::sqrt(shortfall))));
-        int retry_bins = maximum_bins;
-        for (const int bucket : kRetryBuckets) {
-            if (bucket >= requested_bins) {
-                retry_bins = std::min(bucket, maximum_bins);
-                break;
-            }
-        }
+    while (settings.automatic_source_bins && !assessment.converged &&
+           fine_bins < maximum_bins) {
+        const int retry_bins = next_finite_source_resolution(
+            fine_bins, maximum_bins, assessment.shortfall, 2);
         if (retry_bins <= fine_bins) {
             break;
         }
 
         active.source_bins = retry_bins;
         active.polar_source_bins = retry_bins;
-        const double retry = evaluator(active);
+        PolarAreaDiagnostics retry_diagnostics;
+        const double retry = evaluator(active, &retry_diagnostics);
         if (!std::isfinite(retry)) {
             break;
         }
-        coarse = fine;
         fine = retry;
         fine_bins = retry_bins;
-        error_estimate = std::abs(fine - coarse);
+        error_estimate = retry_diagnostics.estimated_error;
         ++refinement_level;
-        converged = finite_source_error_within_budget(settings, fine, error_estimate);
+        assessment = assess_finite_source_error(
+            settings, fine, error_estimate, support_proven);
     }
-    return {fine, error_estimate, refinement_level, converged};
+    return {
+        fine,
+        assessment.estimate,
+        refinement_level,
+        assessment.converged,
+    };
 }
 
 template <typename ImageMap>
@@ -3215,7 +3314,8 @@ double inverse_ray_polar_triple_mag(
     double source_radius,
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
-    const std::vector<SourcePosition>* precomputed_seeds = nullptr)
+    const std::vector<SourcePosition>* precomputed_seeds = nullptr,
+    PolarAreaDiagnostics* diagnostics = nullptr)
 {
     // Centre images alone are not sufficient for a triple lens.  A tiny fold
     // component can intersect the finite source without producing a physical
@@ -3234,7 +3334,8 @@ double inverse_ray_polar_triple_mag(
         precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
     const auto mapper = make_triple_lens_mapper(geometry);
     return inverse_ray_polar_core(
-        mapper, image_positions, source, source_radius, settings, finite_magnifier);
+        mapper, image_positions, source, source_radius, settings, finite_magnifier,
+        diagnostics);
 }
 
 // Seed-set half of a triple probe, split out so the certified stage can read
@@ -4543,10 +4644,11 @@ FiniteSourceResult fixed_inverse_ray_binary(
     if (decision.method == FiniteSourceMethod::inverse_ray_polar) {
         const auto evaluation = evaluate_polar_to_tolerance(
             settings,
-            [&](const FiniteSourceSettings& active) {
+            support_proven,
+            [&](const FiniteSourceSettings& active, PolarAreaDiagnostics* diagnostics) {
                 return inverse_ray_polar_boundary_binary(
                     point_magnifier, separation, mass_ratio, source, source_radius,
-                    active, finite_magnifier, &seeds);
+                    active, finite_magnifier, &seeds, diagnostics);
             });
         if (!std::isfinite(evaluation.magnification)) {
             return {evaluation.magnification, 0, decision, std::nan(""), 0, false};
@@ -4579,71 +4681,61 @@ FiniteSourceResult fixed_inverse_ray_binary(
     // When they do not, use the measured shortfall to choose the next supported
     // grid bucket.  This avoids a broad conservative floor while ensuring that
     // "auto" actually tries to satisfy the same budget reported by converged.
-    auto target_error_for = [&](double value) {
-        return finite_source_error_budget(settings, value);
-    };
     auto diagnose = [&](double value, const LegacyAreaDiagnostics& current_diagnostics) {
         double error = current_diagnostics.estimated_error;
+        if (settings.automatic_source_bins) {
+            // The component certificate now supplies the missing-image guard
+            // independently of the raster.  On the fresh seed/certificate
+            // holdout the remaining area indicator was conservatively about 4x
+            // too large in its tail for automatic buckets; calibrate that bound
+            // here rather than paying for a second grid on otherwise accepted
+            // rows.  A row that still exceeds the target keeps the retry escape
+            // below.
+            constexpr double kAutomaticAreaIndicatorScale = 0.25;
+            error *= kAutomaticAreaIndicatorScale;
+        }
         // The support certificate is resolution independent, so a finer grid
         // cannot repair an unproven one.  Refusing convergence here is what
         // keeps a silently missing component from being reported as an
         // accurate value: the area indicator only measures the boundary of the
         // components that were found.
-        if (!support_proven) {
-            error = std::numeric_limits<double>::infinity();
-        }
-        return std::pair<double, bool> {
-            error,
-            support_proven && error <= target_error_for(value),
-        };
+        return assess_finite_source_error(
+            settings, value, error, support_proven);
     };
 
-    auto [error_estimate, converged] = diagnose(magnification, diagnostics);
+    auto assessment = diagnose(magnification, diagnostics);
+    double error_estimate = assessment.estimate;
+    bool converged = assessment.converged;
     auto evaluate_at = [&](const FiniteSourceSettings& grid) {
         return inverse_ray_cartesian_binary_mag(
             point_magnifier, separation, mass_ratio, source, source_radius,
             grid, finite_magnifier, &seeds);
     };
-    // The area indicator is essentially free, but rare lattice-aliasing rows
-    // can make it optimistic.  For an explicit tolerance only, verify a
-    // would-be converged result against one coarser grid.  Rows already known
-    // to miss the budget pay no extra pass here; they still have the retry
-    // ladder ahead of them, and only spend the pass once it is exhausted.
-    if (converged) {
+    // Fixed-grid explicit-tolerance calls retain one independent
+    // half-resolution check.  Automatic calls use the same calibrated area
+    // estimate and common budget regardless of whether tol/reltol was
+    // explicitly supplied.
+    if (converged && has_explicit_finite_source_tolerance(settings) &&
+        !settings.automatic_source_bins) {
         reconcile_with_half_resolution(
             settings, active_settings, magnification, evaluate_at,
-            error_estimate, converged);
+            error_estimate, converged,
+            cartesian_error_convergence_order(diagnostics));
     }
     int refinement_level = 0;
-    constexpr std::array<int, 14> kAutoRetryBuckets {{
-        16, 24, 32, 40, 50, 64, 80, 100, 128, 160, 200, 256, 320, 400,
-    }};
     const int maximum_bins = std::max(settings.max_source_bins, 1);
     while (settings.automatic_source_bins && !converged &&
            active_settings.source_bins < maximum_bins) {
-        const double target = target_error_for(magnification);
-        const double shortfall = target > 0.0 && std::isfinite(error_estimate)
-            ? std::max(error_estimate / target, 1.0)
-            : 2.0;
-        // The boundary-area indicator is approximately first order in the
-        // cell width.  A small guard prevents repeated borderline retries;
-        // the next supported bucket still keeps the increase discrete.
-        const int requested_bins = std::max(
-            active_settings.source_bins + 1,
-            static_cast<int>(std::ceil(
-                1.05 * static_cast<double>(active_settings.source_bins) * shortfall)));
-        int retry_bins = maximum_bins;
-        for (const int bucket : kAutoRetryBuckets) {
-            if (bucket >= requested_bins) {
-                retry_bins = std::min(bucket, maximum_bins);
-                break;
-            }
-        }
+        const int previous_order = cartesian_error_convergence_order(diagnostics);
+        const int retry_bins = next_finite_source_resolution(
+            active_settings.source_bins,
+            maximum_bins,
+            assessment.shortfall,
+            previous_order);
         if (retry_bins <= active_settings.source_bins) {
             break;
         }
 
-        const int previous_bins = active_settings.source_bins;
         active_settings.source_bins = retry_bins;
         if (active_settings.polar_source_bins <= 0) {
             active_settings.polar_source_bins = retry_bins;
@@ -4655,28 +4747,23 @@ FiniteSourceResult fixed_inverse_ray_binary(
         if (!std::isfinite(retry_magnification)) {
             break;
         }
-        const double previous_magnification = magnification;
         magnification = retry_magnification;
         diagnostics = retry_diagnostics;
         ++refinement_level;
-        std::tie(error_estimate, converged) = diagnose(magnification, diagnostics);
-        if (converged && has_explicit_finite_source_tolerance(settings)) {
-            error_estimate = std::max(
-                error_estimate,
-                grid_pair_error_estimate(
-                    magnification, previous_magnification,
-                    active_settings.source_bins, previous_bins));
-            converged = finite_source_error_within_budget(
-                settings, magnification, error_estimate);
-        }
+        assessment = diagnose(magnification, diagnostics);
+        error_estimate = assessment.estimate;
+        converged = assessment.converged;
     }
     // The retry ladder is exhausted here, so the indicator's 1/source_bins
     // floor is all that stands between a correct value and a NaN.  Measure the
     // grid error instead of bounding it.
-    if (!converged && support_proven && std::isfinite(error_estimate)) {
+    if (!converged && support_proven && std::isfinite(error_estimate) &&
+        (settings.automatic_source_bins ||
+         has_explicit_finite_source_tolerance(settings))) {
         reconcile_with_half_resolution(
             settings, active_settings, magnification, evaluate_at,
-            error_estimate, converged);
+            error_estimate, converged,
+            cartesian_error_convergence_order(diagnostics));
     }
     if (refinement_level > 0) {
         decision.reason = "cartesian inverse-ray with auto grid retry";
@@ -5369,26 +5456,13 @@ BinaryResolutionSelection calibrated_binary_resolution(
     double requested_relative_tolerance,
     int maximum_bins)
 {
-    constexpr std::array<double, 7> kMean {{
-        1.1820756488388118, -2.9036106609012546, -2.6986179919546345,
-        0.03688102633633496, 0.8972087621766296, 1.1341442606439753,
-        0.24869438061416335,
-    }};
-    constexpr std::array<double, 7> kStd {{
-        1.0111131697060847, 1.1601305065348657, 1.8500204276846226,
-        0.7895410239966703, 0.7222204031861401, 1.42955624048966,
-        0.2499965906927929,
-    }};
-    constexpr std::array<double, 8> kBeta {{
-        5.139848840914074, -0.026354983398495537, -0.008665567347890256,
-        0.028914523534964386, 0.09884746535594117, 0.0757379504124179,
-        0.03068462762322574, -0.15822137689559143,
-    }};
-    constexpr std::array<int, 14> kBuckets {{
-        16, 24, 32, 40, 50, 64, 80, 100, 128, 160, 200, 256, 320, 400,
-    }};
-
     const int cap = std::max(maximum_bins, 1);
+    // These arguments remain part of the selector API for callers and the
+    // diagnostic mirror; the calibrated runtime rule intentionally does not
+    // spend work extracting extra geometry or profile features.
+    (void) mass_ratio;
+    (void) caustic_distance;
+    (void) limb_darkening_c;
     const double a_point = std::abs(point_source_magnification);
     const double distance_ratio = source_radius > 0.0
         ? caustic_distance / source_radius
@@ -5396,68 +5470,32 @@ BinaryResolutionSelection calibrated_binary_resolution(
     if (!std::isfinite(a_point) || !std::isfinite(distance_ratio)) {
         return {std::min(100, cap), true};
     }
-    const bool prefer_polar =
-        a_point >= 300.0 || (a_point >= 100.0 && distance_ratio < 0.3);
-    if (prefer_polar) {
-        double predicted = 64.0;
-        if (requested_relative_tolerance > 0.0 &&
-            requested_relative_tolerance < kDefaultFiniteSourceRelativeTolerance) {
-            predicted *= std::sqrt(
-                kDefaultFiniteSourceRelativeTolerance / requested_relative_tolerance);
-        }
-        int bins = kBuckets.back();
-        for (const int bucket : kBuckets) {
-            if (predicted <= bucket) {
-                bins = bucket;
-                break;
-            }
-        }
-        return {std::min(bins, cap), true};
-    }
 
-    const double q_abs = std::abs(mass_ratio);
-    const double q_small = q_abs < 1.0
-        ? q_abs : (q_abs > 0.0 ? 1.0 / q_abs : 1.0e-12);
-    const std::array<double, 7> feature {{
-        std::log10(std::max(a_point, 1.0)),
-        std::log10(std::max(source_radius, 1.0e-12)),
-        std::log10(std::max(q_small, 1.0e-12)),
-        std::log10(std::max(distance_ratio, 1.0e-3)),
-        std::max(0.0, 2.0 - std::min(distance_ratio, 2.0)),
-        std::max(0.0, std::log10(std::max(4.0 * source_radius /
-            std::max(q_small, 1.0e-12), 1.0))),
-        limb_darkening_c,
-    }};
-    double log2_bins = kBeta[0];
-    for (std::size_t index = 0; index < feature.size(); ++index) {
-        log2_bins += kBeta[index + 1] * (feature[index] - kMean[index]) / kStd[index];
-    }
-    double predicted = 1.10 * std::exp2(log2_bins);
-    // Smooth corrected boundaries are second order. Caustic-contact and
-    // unresolved-companion regimes retain a first-order error scale. Apply
-    // that known order to the initial prediction so expensive rows begin at
-    // the likely required bucket instead of discovering it through retries.
-    if (requested_relative_tolerance > 0.0 && requested_relative_tolerance < 1.0e-3) {
-        const double tolerance_ratio = 1.0e-3 / requested_relative_tolerance;
-        const bool first_order_risk =
-            distance_ratio < 2.0 ||
-            4.0 * source_radius / std::max(q_small, 1.0e-12) > 50.0;
-        predicted *= first_order_risk ? tolerance_ratio : std::sqrt(tolerance_ratio);
-    }
-    int bins = kBuckets.back();
-    for (const int bucket : kBuckets) {
-        if (predicted <= bucket) {
-            bins = bucket;
-            break;
-        }
-    }
-    if (distance_ratio > 0.9 && distance_ratio < 1.1) {
-        bins = std::max(bins, 100);
-    }
-    if (4.0 * source_radius / std::max(q_small, 1.0e-12) > 50.0) {
-        bins = std::max(bins, 80);
-    }
-    return {std::min(bins, cap), false};
+    // The component certificate and the boundary-corrected seed set removed
+    // the topology work that the old seven-feature regression was paying for.
+    // The remaining grid error has a much simpler, reproducible rule: choose a
+    // bucket by the requested accuracy and use the measured point-source
+    // magnification only for the grid switch.  These are the coarsest buckets
+    // that cleared the independent 99% holdout for both uniform and linear
+    // limb-darkened sources; the retry ladder remains the fail-closed escape
+    // for a row outside that corpus.
+    const bool loose_tolerance =
+        requested_relative_tolerance >= 1.0e-2;
+    const bool default_or_millitol =
+        requested_relative_tolerance <= 0.0 ||
+        (requested_relative_tolerance >= kDefaultFiniteSourceRelativeTolerance &&
+         !loose_tolerance);
+    // Point-source magnification is already computed before this selector, so
+    // the switch adds no root solves or probes.  A=200 is the stable joint
+    // minimum in the speed holdout; keeping it as a single threshold also makes
+    // the routing rule easy to state and reproduce in a paper.
+    const bool prefer_polar = a_point >= 200.0;
+    const int cartesian_bins = loose_tolerance ? 16 : (default_or_millitol ? 50 : 200);
+    const int polar_bins = loose_tolerance ? 50 : (default_or_millitol ? 100 : 200);
+    return {
+        std::min(prefer_polar ? polar_bins : cartesian_bins, cap),
+        prefer_polar,
+    };
 }
 
 BinaryResolutionSelection calibrated_triple_resolution(
@@ -5987,10 +6025,11 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
         "polar cached inverse-ray",
     };
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    bool support_proven = true;
     auto seeds = augmented_image_seeds(
         point_magnifier, mapper, separation, mass_ratio, source, source_radius,
         std::numeric_limits<double>::infinity(), nullptr,
-        &binary_caustic_branches(separation, mass_ratio));
+        &binary_caustic_branches(separation, mass_ratio), &support_proven);
     if (seeds.size() < 5) {
         augment_seeds_from_caustic_branches(separation, mass_ratio, source, source_radius, seeds);
     }
@@ -6023,10 +6062,11 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
     }
     const auto evaluation = evaluate_polar_to_tolerance(
         settings_,
-        [&](const FiniteSourceSettings& active) {
+        support_proven,
+        [&](const FiniteSourceSettings& active, PolarAreaDiagnostics* diagnostics) {
             return inverse_ray_polar_boundary_binary(
                 point_magnifier, separation, mass_ratio, source, source_radius,
-                active, this, &seeds);
+                active, this, &seeds, diagnostics);
         });
     if (!std::isfinite(evaluation.magnification)) {
         return {evaluation.magnification, 0, decision, std::nan(""), 0, false};
@@ -6039,91 +6079,6 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
         evaluation.refinement_level,
         evaluation.converged,
     };
-}
-
-AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_binary_mag(
-    double separation,
-    double mass_ratio,
-    SourcePosition source,
-    double source_radius,
-    const AlgebraicBoundarySettings& algebraic_settings) const
-{
-    const PointSourceMagnifier point_magnifier;
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    bool support_proven = true;
-    auto seeds = augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-        std::numeric_limits<double>::infinity(), nullptr,
-        &binary_caustic_branches(separation, mass_ratio), &support_proven);
-    if (!support_proven) {
-        AlgebraicBoundaryResult result;
-        result.unsafe_reason = "existing component support certificate failed";
-        return result;
-    }
-    if (seeds.size() < 5) {
-        augment_seeds_from_caustic_branches(
-            separation, mass_ratio, source, source_radius, seeds);
-    }
-    return experimental_algebraic_boundary_integral(
-        {mapper.separation.real(), mapper.m1, mapper.m2},
-        source, source_radius,
-        settings_.limb_darkening_c, settings_.limb_darkening_d,
-        seeds, algebraic_settings);
-}
-
-double FiniteSourceMagnifier::experimental_raster_polar_binary_mag(
-    double separation,
-    double mass_ratio,
-    SourcePosition source,
-    double source_radius) const
-{
-    const PointSourceMagnifier point_magnifier;
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    bool support_proven = true;
-    auto seeds = augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-        std::numeric_limits<double>::infinity(), nullptr,
-        &binary_caustic_branches(separation, mass_ratio), &support_proven);
-    if (!support_proven) {
-        return std::numeric_limits<double>::quiet_NaN();
-    }
-    if (seeds.size() < 5) {
-        augment_seeds_from_caustic_branches(
-            separation, mass_ratio, source, source_radius, seeds);
-    }
-    return inverse_ray_polar_boundary_binary(
-        point_magnifier, separation, mass_ratio, source, source_radius,
-        settings_, this, &seeds);
-}
-
-AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_cartesian_binary_mag(
-    double separation,
-    double mass_ratio,
-    SourcePosition source,
-    double source_radius,
-    const AlgebraicBoundarySettings& algebraic_settings) const
-{
-    const PointSourceMagnifier point_magnifier;
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    bool support_proven = true;
-    auto seeds = augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-        std::numeric_limits<double>::infinity(), nullptr,
-        &binary_caustic_branches(separation, mass_ratio), &support_proven);
-    if (!support_proven) {
-        AlgebraicBoundaryResult result;
-        result.unsafe_reason = "existing component support certificate failed";
-        return result;
-    }
-    if (seeds.size() < 5) {
-        augment_seeds_from_caustic_branches(
-            separation, mass_ratio, source, source_radius, seeds);
-    }
-    return experimental_algebraic_cartesian_integral(
-        {mapper.separation.real(), mapper.m1, mapper.m2},
-        source, source_radius,
-        settings_.limb_darkening_c, settings_.limb_darkening_d,
-        seeds, algebraic_settings);
 }
 
 const char* finite_source_method_name(FiniteSourceMethod method)
@@ -6262,12 +6217,14 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             polar_settings.polar_grid_ratio =
                 std::max(active_polar_grid_ratio(polar_settings), 12.0);
         }
+        const auto& shared_seeds = seeds_for_epoch();
         const auto evaluation = evaluate_polar_to_tolerance(
             polar_settings,
-            [&](const FiniteSourceSettings& active) {
+            epoch_support_proven,
+            [&](const FiniteSourceSettings& active, PolarAreaDiagnostics* diagnostics) {
                 return inverse_ray_polar_triple_mag(
                     point_magnifier, geometry, source, source_radius, active, this,
-                    &seeds_for_epoch());
+                    &shared_seeds, diagnostics);
             });
         FiniteSourceDecision decision {
             FiniteSourceMethod::inverse_ray_polar,
@@ -6927,8 +6884,13 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 point_magnifier, separation, mass_ratio, source, source_radius,
                 runtime_settings, 96);
             int sample_count = (48 * 8) * (48 * 8) + (96 * 8) * (96 * 8);
-            if (std::isfinite(fine) && std::isfinite(coarse) &&
-                std::abs(fine - coarse) > finite_source_error_budget(settings_, fine)) {
+            double error_estimate = std::isfinite(fine) && std::isfinite(coarse)
+                ? grid_pair_error_estimate(fine, coarse, 96, 48, 1)
+                : std::numeric_limits<double>::infinity();
+            auto assessment = assess_finite_source_error(
+                settings_, fine, error_estimate);
+            int refinement_level = 0;
+            if (std::isfinite(fine) && !assessment.converged) {
                 // The sliver spike converges slowly; one escalation usually
                 // brings the pairwise difference to a few 1e-4.
                 coarse = fine;
@@ -6936,17 +6898,22 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                     point_magnifier, separation, mass_ratio, source, source_radius,
                     runtime_settings, 192);
                 sample_count += (192 * 8) * (192 * 8);
+                refinement_level = 1;
+                error_estimate = std::isfinite(fine)
+                    ? grid_pair_error_estimate(fine, coarse, 192, 96, 1)
+                    : std::numeric_limits<double>::infinity();
+                assessment = assess_finite_source_error(
+                    settings_, fine, error_estimate);
             }
             if (std::isfinite(fine) && std::isfinite(coarse)) {
-                const double error_estimate = std::abs(fine - coarse);
-                const bool converged =
-                    finite_source_error_within_budget(settings_, fine, error_estimate);
                 FiniteSourceDecision decision {
                     FiniteSourceMethod::source_plane_quadrature,
                     sample_count,
                     "tangent-caustic chord quadrature",
                 };
-                return cache_and_return({fine, 0, decision, error_estimate, 0, converged});
+                return cache_and_return({
+                    fine, 0, decision, assessment.estimate,
+                    refinement_level, assessment.converged});
             }
         }
         if (!caustic_enters_disk && scan.min_distance >= source_radius &&
@@ -6963,20 +6930,26 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 point_magnifier, separation, mass_ratio, source, source_radius,
                 runtime_settings, 96);
             int sample_count = (48 * 8) * (48 * 8) + (96 * 8) * (96 * 8);
-            if (std::isfinite(fine) && std::isfinite(coarse) &&
-                std::abs(fine - coarse) > finite_source_error_budget(settings_, fine)) {
+            double error_estimate = std::isfinite(fine) && std::isfinite(coarse)
+                ? grid_pair_error_estimate(fine, coarse, 96, 48, 1)
+                : std::numeric_limits<double>::infinity();
+            auto assessment = assess_finite_source_error(
+                settings_, fine, error_estimate);
+            int refinement_level = 0;
+            if (std::isfinite(fine) && !assessment.converged) {
                 coarse = fine;
                 fine = binary_source_plane_chord_quadrature(
                     point_magnifier, separation, mass_ratio, source, source_radius,
                     runtime_settings, 192);
                 sample_count += (192 * 8) * (192 * 8);
+                refinement_level = 1;
+                error_estimate = std::isfinite(fine)
+                    ? grid_pair_error_estimate(fine, coarse, 192, 96, 1)
+                    : std::numeric_limits<double>::infinity();
+                assessment = assess_finite_source_error(
+                    settings_, fine, error_estimate);
             }
             if (std::isfinite(fine)) {
-                const double error_estimate = std::isfinite(coarse)
-                    ? std::abs(fine - coarse)
-                    : std::numeric_limits<double>::infinity();
-                const bool converged = finite_source_error_within_budget(
-                    settings_, fine, error_estimate);
                 FiniteSourceDecision decision {
                     FiniteSourceMethod::source_plane_quadrature,
                     sample_count,
@@ -6986,9 +6959,9 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                     fine,
                     0,
                     decision,
-                    error_estimate,
-                    0,
-                    converged});
+                    assessment.estimate,
+                    refinement_level,
+                    assessment.converged});
             }
         }
     }

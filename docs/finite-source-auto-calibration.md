@@ -1,13 +1,12 @@
 # Calibration of automatic finite-source resolution and VBM-routing rule
 
-> **Status, August 2026.** The binary resolution rule described below is what the
-> runtime ships today, and this document remains its specification. It has since
-> been re-measured against the certified algorithm, and the measurement says the
-> shipping rule is heavily over-resolved — see
+> **Status, August 2026.** The older binary resolution rule described below is
+> the historical specification. It was re-measured against the certified
+> algorithm, and the measurement says that rule is heavily over-resolved — see
 > [Recalibration against the certified algorithm](#recalibration-against-the-certified-algorithm-august-2026)
-> below. That recalibration has **not** been applied to the runtime. Nothing in
-> the older sections has been retracted; they were correct for the algorithm they
-> were fitted to, which is the point the new campaign turns on.
+> below. The resulting one-shot rule is applied on the `final-testing` branch;
+> the older sections are retained as the evidence trail and were correct for
+> the algorithm they were fitted to.
 
 ## Scope and design constraint
 
@@ -30,18 +29,65 @@ derived in this document; see its own router documentation for the ported
 rule and its runtime dispatch. The calibration methodology and results below
 are kept as the historical record of how that rule was derived.
 
-The binary runtime `nbin` rule starts with a calibrated preselection from
-quantities already computed at the source position. Cartesian integration then
-compares its independent area-error estimate with the requested tolerance. A
-mismatch increases only that evaluation to the smallest supported bucket
-implied by the measured shortfall, up to `max_source_bins`; fixed integer
-`nbin` never retries.
+The current binary runtime `nbin` rule makes one calibrated preselection from
+quantities already computed at the source position. It uses the measured
+point-source magnification for the grid switch and a three-level tolerance
+table: Cartesian/polar buckets are `(16, 50)`, `(50, 100)`, and `(200, 200)`
+for `reltol >= 1e-2`, `1e-3 <= reltol < 1e-2` (or the default), and
+`0 < reltol < 1e-3`, respectively. Cartesian's cheap area indicator can arm a
+fail-closed retry to a finer supported bucket. Automatic calls use the same
+embedded error controller whether or not a tolerance was explicitly supplied;
+an explicit tolerance changes the budget and may select a finer bucket. Fixed
+integer `nbin` calls never retry and are retained as a user-directed exception;
+an explicit tolerance may add a half-resolution consistency check there.
 
 The post-check is order-aware: the edge-corrected Cartesian scan uses a
 second-order boundary estimate when there are no fold seeds and row-to-row
 jumps remain small. Fold or large-jump topology warnings retain their original
 first-order scale. This prevents smooth high-area images from turning the
 feedback step into a blanket resolution increase.
+
+## Unified finite-source error contract
+
+After the binary fast paths have been rejected, each adaptive finite-source
+integrator is judged against the same absolute error budget
+
+`B(A) = atol + reltol max(|A|, 1)`.
+
+An adaptive result is accepted exactly when its image-component support is
+certified and its method-specific error estimate `E` satisfies `E <= B`. The
+controller contains no route-specific retry thresholds. If a calculation of
+order `p` misses the budget, it requests
+
+`N_next = ceil(N (E/B)^(1/p))`
+
+and rounds upward to the next supported resolution bucket, capped by
+`max_source_bins`. Binary Cartesian, polar, and tangent-caustic source-plane
+quadrature therefore share the same acceptance and refinement rule; only their
+numerical error estimators differ:
+
+- Cartesian uses its embedded boundary-area indicator. The edge-corrected
+  smooth case has `p=2`; fold seeds or large row jumps use `p=1`. In automatic
+  mode the indicator carries the single 0.25 normalization measured on the
+  independent certified holdout; this replaces a second grid evaluation.
+- Polar uses the accumulated geometric magnitude of the radial edge correction
+  already located by the fine pass. Since that correction removes the leading
+  first-order boundary term, multiplying its normalized magnitude by `1/N`
+  estimates the remaining second-order term without another lens-map pass. The
+  scale is geometric so a zero-brightness source limb cannot produce a zero
+  error estimate. This embedded estimator is used for automatic resolution
+  regardless of whether `tol` or `reltol` was supplied; an explicit tolerance
+  changes only `B`. The fixed-`nbin` compatibility path may additionally
+  compare against a half-resolution grid.
+- Tangent-caustic source-plane quadrature already computes nested 48/96 rules.
+  Their difference is converted to a fine-rule estimate with first-order
+  Richardson scaling; a miss escalates once to 192 and is assessed identically.
+
+The support certificate is deliberately separate from quadrature error: grid
+refinement cannot recover an image component that was never seeded. A failed
+support certificate therefore reports non-convergence directly instead of
+arming a numerically pointless resolution ladder. Fixed integer `nbin` without
+an explicit tolerance remains a user-directed one-shot calculation.
 
 ## Triple-lens calibration
 
@@ -146,7 +192,7 @@ For a trusted reference, the required `nbin` on a grid is the first tested bin
 for which that result and every higher finite result remain within tolerance.
 Thus isolated lucky crossings of the reference do not count as convergence.
 
-## Automatic `nbin` rule
+## Historical pre-certificate automatic `nbin` rule
 
 The Cartesian resolution model is an upper quantile regression for
 `log2(required_nbin)`.  It uses only hot-path quantities:
@@ -177,7 +223,7 @@ zero of 3,655 evaluable rows.  Median selected `nbin` is 50, mean is 57.51;
 the result preserves a familiar median while spending resolution only where
 the measured geometry requires it.
 
-## Cartesian/polar selection
+## Historical Cartesian/polar selection
 
 The frozen one-position rule selects polar integration when
 
@@ -290,18 +336,19 @@ Against the bins the corpus actually requires, the shipping rule spends 25× to
 tolerance — no regression, no features — covers 99.3–100% of an independent
 holdout, the single exception being Cartesian at `1e-4`, where a rho-dependent
 linear rule is needed to reach 99.8%.  The seven-feature quantile model is
-therefore not carrying its own weight under the certified algorithm.  Adopting a
-constant would be a runtime change with a real correctness surface (the required
-counts are right-skewed, p99 is three to ten times the median), so it is recorded
-here as a measurement and not applied.
+therefore not carrying its own weight under the certified algorithm.  The
+`final-testing` branch applies the resulting one-shot table, with a fail-closed
+retry for the residual area-indicator shortfall.  The historical 2880-row files
+remain unchanged; the current implementation was additionally checked on a
+fresh 120-row seed/certificate probe and the native regression suite.
 
 **The Cartesian/polar boundary moves, and moves down.**  The frozen rule selects
 polar at `A_point >= 300`, or at `A_point >= 100` with `d_caustic/rho < 0.3`.
 Re-derived on measured corpus time against a per-block oracle, the optimum is a
-single condition, `A_point > 200`, joint-optimal across all six
+single condition, `A_point >= 200`, joint-optimal across all six
 profile × tolerance cells and flat over the decade 100–500.  The second clause
 buys nothing measurable, and adding a rho condition does not improve the fit.
-Always-Cartesian costs 1.29–1.45× the oracle; `A_point > 200` costs 1.07–1.26×.
+Always-Cartesian costs 1.29–1.45× the oracle; `A_point >= 200` costs 1.07–1.26×.
 
 **The fast-path boundaries hold, with two exceptions at `1e-4`.**  Routing was
 audited by grouping delivered error by the route the pipeline actually took.
@@ -319,5 +366,7 @@ The quadrature misses are the more interesting of the two: all of them sit at
 `A >= 39.8` with `d_caustic/rho` between 0.95 and 1.7 — the tangency regime,
 where the source limb grazes a fold.  This is the same regime the frozen
 VBM-routing rule excluded by hand as a tangent band, and it corroborates a
-separately flagged `d/rho = 1.001` disagreement.  It is the subject of its own
-study and is not resolved here.
+separately flagged `d/rho = 1.001` disagreement.  The subsequent tangency fix
+routes grazing source-plane cases through composite chord quadrature before
+inverse-ray grid selection; the current grid switch therefore does not add a
+second tangent-band polar clause.

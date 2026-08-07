@@ -389,7 +389,7 @@ def test_lcbinint_auto_inverse_ray_uses_polar_only_for_high_magnification():
     options = lcbinint.Options(
         coordinates="vbm",
         inverse_ray_grid="auto",
-        source_bins=50,
+        nbin="auto",
         point_source_threshold=1.0e9,
         hexadecapole_threshold=1.0e9,
     )
@@ -409,10 +409,33 @@ def test_lcbinint_auto_inverse_ray_uses_polar_only_for_high_magnification():
 
     assert high.finite_source_method_names == ["inverse_ray_polar"]
     assert low.finite_source_method_names == ["inverse_ray_cartesian"]
+    assert high.finite_source_error_estimates[0] > 0.0
+    assert high.finite_source_converged == [True]
+    high_budget = 1.0e-4 + 1.0e-3 * max(abs(high.magnifications[0]), 1.0)
+    assert high.finite_source_error_estimates[0] <= high_budget
+
+    explicit_default = lcbinint.LightCurve(options=lcbinint.Options(
+        coordinates="vbm",
+        inverse_ray_grid="auto",
+        nbin="auto",
+        reltol=1.0e-3,
+        point_source_threshold=1.0e9,
+        hexadecapole_threshold=1.0e9,
+    )).info([0.004], **common)
+    assert explicit_default.magnifications == high.magnifications
+    assert explicit_default.finite_source_error_estimates == high.finite_source_error_estimates
+    assert explicit_default.finite_source_refinement_levels == high.finite_source_refinement_levels
+
+    dark_limb = lcbinint.LightCurve(
+        options=options,
+        limb_darkening=lcbinint.LimbDarkening.linear(1.0),
+    ).info([0.004], **common)
+    assert dark_limb.finite_source_method_names == ["inverse_ray_polar"]
+    assert dark_limb.finite_source_error_estimates[0] > 0.0
 
 
 def test_lcbinint_auto_nbin_reproduces_independent_validation_row():
-    """Auto corrects a preselection that disagrees with the area-error budget."""
+    """Auto accepts an independently accurate calibrated preselection."""
     lcbinint = pytest.importorskip("lcbinint")
     source_x = 0.008845738870878478
     source_y = 0.001678002323850983
@@ -439,7 +462,7 @@ def test_lcbinint_auto_nbin_reproduces_independent_validation_row():
     ).info([source_x], **params)
 
     assert auto.finite_source_method_names == ["inverse_ray_cartesian"]
-    assert auto.finite_source_refinement_levels == [1]
+    assert auto.finite_source_refinement_levels == [0]
     assert auto.finite_source_converged == [True]
     assert fixed.finite_source_refinement_levels == [0]
     assert fixed.finite_source_converged == [False]
@@ -1324,7 +1347,7 @@ def test_absolute_only_tolerance_does_not_inherit_default_relative_budget():
     ).light_curve([-0.11634042842617024])
 
     assert curve.finite_source_method_names == ["inverse_ray_cartesian"]
-    assert curve.finite_source_refinement_levels == [0]
+    assert curve.finite_source_refinement_levels == [1]
     assert curve.finite_source_error_estimates[0] > 1.0e-5
     assert curve.finite_source_converged == [False]
     assert not curve.all_converged

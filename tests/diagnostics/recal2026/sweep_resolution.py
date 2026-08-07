@@ -45,71 +45,26 @@ SHIPPING_BUCKETS = tuple(b for b in BUCKETS if b >= SHIPPING_BUCKET_FLOOR)
 
 def current_rule_bucket(q, rho, caustic_distance, point_magnification,
                         limb_darkening_c, relative_tolerance, maximum_bins=400):
-    """The bucket today's shipping selector would choose.
+    """The bucket the current one-shot selector would choose.
 
     Reimplemented here from ``calibrated_binary_resolution`` so the old and new
     rules can be compared offline from the stored table, without a second
     sweep.  It is a pure function of quantities this sweep already records; the
     analysis step checks it against the native selector on a sample.
     """
-    mean = (
-        1.1820756488388118, -2.9036106609012546, -2.6986179919546345,
-        0.03688102633633496, 0.8972087621766296, 1.1341442606439753,
-        0.24869438061416335,
-    )
-    std = (
-        1.0111131697060847, 1.1601305065348657, 1.8500204276846264,
-        0.7895410239966703, 0.7222204031861401, 1.42955624048966,
-        0.2499965906927929,
-    )
-    beta = (
-        5.139848840914074, -0.026354983398495537, -0.008665567347890256,
-        0.028914523534964386, 0.09884746535594117, 0.0757379504124179,
-        0.03068462762322574, -0.15822137689559143,
-    )
     cap = max(maximum_bins, 1)
     a_point = abs(point_magnification)
     ratio = caustic_distance / rho if rho > 0.0 else float("inf")
     if not (math.isfinite(a_point) and math.isfinite(ratio)):
         return min(100, cap), True
-    if a_point >= 300.0 or (a_point >= 100.0 and ratio < 0.3):
-        predicted = 64.0
-        if 0.0 < relative_tolerance < 1.0e-3:
-            predicted *= math.sqrt(1.0e-3 / relative_tolerance)
-        for bucket in SHIPPING_BUCKETS:
-            if predicted <= bucket:
-                return min(bucket, cap), True
-        return min(SHIPPING_BUCKETS[-1], cap), True
-
-    q_abs = abs(q)
-    q_small = q_abs if q_abs < 1.0 else (1.0 / q_abs if q_abs > 0.0 else 1.0e-12)
-    feature = (
-        math.log10(max(a_point, 1.0)),
-        math.log10(max(rho, 1.0e-12)),
-        math.log10(max(q_small, 1.0e-12)),
-        math.log10(max(ratio, 1.0e-3)),
-        max(0.0, 2.0 - min(ratio, 2.0)),
-        max(0.0, math.log10(max(4.0 * rho / max(q_small, 1.0e-12), 1.0))),
-        limb_darkening_c,
-    )
-    log2_bins = beta[0]
-    for index, value in enumerate(feature):
-        log2_bins += beta[index + 1] * (value - mean[index]) / std[index]
-    predicted = 1.10 * (2.0 ** log2_bins)
+    prefer_polar = a_point >= 200.0
     if 0.0 < relative_tolerance < 1.0e-3:
-        tolerance_ratio = 1.0e-3 / relative_tolerance
-        first_order = ratio < 2.0 or 4.0 * rho / max(q_small, 1.0e-12) > 50.0
-        predicted *= tolerance_ratio if first_order else math.sqrt(tolerance_ratio)
-    bins = SHIPPING_BUCKETS[-1]
-    for bucket in SHIPPING_BUCKETS:
-        if predicted <= bucket:
-            bins = bucket
-            break
-    if 0.9 < ratio < 1.1:
-        bins = max(bins, 100)
-    if 4.0 * rho / max(q_small, 1.0e-12) > 50.0:
-        bins = max(bins, 80)
-    return min(bins, cap), False
+        bins = 200
+    elif relative_tolerance >= 1.0e-2:
+        bins = 50 if prefer_polar else 16
+    else:
+        bins = 100 if prefer_polar else 50
+    return min(bins, cap), prefer_polar
 
 
 def evaluate_row(case, position, profile_name, profile_c, ladder_budget):

@@ -4,7 +4,12 @@ Re-derivation of lcbinint's binary-lens empirical rules against the certified
 algorithm, together with a speed comparison against VBMicrolensing, microlux,
 and lcbinint's own JAX backend.
 
-> **Start with [`REPORT_master.md`](REPORT_master.md).** It consolidates this
+> **For the current Nbin calibration, start with
+> [`REPORT_empirical_resolution_law.md`](REPORT_empirical_resolution_law.md).**
+> It is the paper-facing result for the current certified Cartesian/polar
+> algorithms, including the absolute branch and the validated mixed
+> `min(N_abs, N_rel)` rule. For the wider campaign record, start with
+> [`REPORT_master.md`](REPORT_master.md). It consolidates this
 > file, `REPORT_speed.md`, and the two tangency reports into one narrative, and
 > adds a section stating which claims the data supports and with what
 > qualification. The files below remain the primary record for their own
@@ -16,6 +21,7 @@ and lcbinint's own JAX backend.
 
 | file | what it holds |
 |---|---|
+| **`REPORT_empirical_resolution_law.md`** | **the current paper-facing Nbin result**: common max-budget semantics, relative and absolute Cartesian/polar laws, 81-cell mixed holdout validation, figures, and limitations. |
 | **`REPORT_master.md`** | **the consolidated report — read this first.** Everything below, in one narrative, plus §7: claims, evidence, and the qualification each may not be quoted without. |
 | **`README.md`** (this file) | the resolution rules, the grid and route switching rules, the corpus construction, and the reproduction commands. Stages 1–5. |
 | **`REPORT_speed.md`** | the speed comparison, written up: **when lcbinint is faster than VBM and what limb darkening does to the answer**, plus microlux, the JAX backend, the triple lens, and where lcbinint's own time goes. |
@@ -42,15 +48,37 @@ quadrature error meets `reltol` — that remains the grid's job — so the quest
 this campaign asks is how much of the old bin count was paying for the part the
 certificate now covers.
 
-The answer, stated once here and supported below, is: most of it. The shipping
-rule spends between 25 and 280 times the work the corpus actually requires, and
-a constant bin count per tolerance covers 99.3–100% of the corpus.
+The answer, stated once here and supported below, is: most of it. The historical
+shipping rule spends between 25 and 280 times the work the corpus actually
+requires, and a constant bin count per tolerance covers 99.3–100% of the
+corpus.
 
-**Status.** Stages 1–5 are complete for the binary lens: all eleven Stage 4
+**Historical campaign status.** Stages 1–5 are complete for the binary lens: all eleven Stage 4
 passes have run over the full corpus, and the figures are in `figures/`. The
 reduced triple-lens scope has since been run as well — 32 cases, all three VBM
 multi-lens methods, both profiles — and is reported in `REPORT_speed.md` §9.
-Nothing here has been applied to the runtime; every rule below is a measurement.
+The tables below are the historical offline ladder/oracle measurements; they
+are not, by themselves, the current automatic settings.
+
+**Current native runtime policy (`final-testing`).** The selector now uses the
+measured point-source magnification only for the grid switch, with
+`A_point >= 200` selecting polar and lower values selecting Cartesian. For the
+relative targets used by this campaign, the one-shot buckets are:
+
+| target | Cartesian | polar |
+|---|---:|---:|
+| `>= 1e-2` | 16 | 50 |
+| default or `1e-3 <= reltol < 1e-2` | 50 | 100 |
+| `0 < reltol < 1e-3` | 200 | 200 |
+
+The automatic path performs one selected grid evaluation. Cartesian uses its
+cheap area indicator as a fail-closed retry trigger; explicit fixed-grid calls
+retain the half-resolution consistency check. The tangency fixes route the
+grazing source-plane cases through chord quadrature before this inverse-ray
+ grid switch, so the old report's proposed second polar clause is not part of
+the current selector. This policy has been checked on the fresh 120-row
+seed/certificate probe and the native regression suite; the historical 2880-row
+campaign files have not been overwritten by this branch.
 
 ## Corpus and method
 
@@ -90,7 +118,7 @@ Bins actually required for the corpus, against what the shipping rule spends:
 | polar | 1e-3 | 16 | 100 | 64 | 25× |
 | polar | 1e-4 | 32 | 320 | 400 | 156× |
 
-A constant bin count per tolerance, validated on an independent holdout:
+A constant bin count per tolerance, validated on the historical independent holdout:
 
 | grid | tolerance | constant bins | holdout coverage |
 |---|---|---|---|
@@ -165,15 +193,13 @@ top magnification quartile, with the other three within 4% of the oracle.
 Re-derived on the *point-source* magnification, which the multipole stage has
 already computed when the decision is made:
 
-**Rule: `A_point > 200` → polar, else Cartesian.**
+**Rule: `A_point >= 200` → polar, else Cartesian.**
 
-This rule was derived on time alone. `REPORT_tangency_defects.md` then found a
-correctness reason to send a second band to polar as well — the Cartesian row
-scan cannot represent two intervals in one row, which is what the tangency band
-needs — so the rule as it should be *implemented* carries a second clause,
-`d/rho ∈ [0.88, 1.02] → polar`, whose cost is not measured here.
+This rule was derived on time alone. The later tangency fixes now handle the
+grazing source-plane cases before inverse-ray grid selection, so this branch
+does not add a second `d/rho` clause to the polar switch.
 
-| | always-Cartesian | `A_point > 200` | share sent polar |
+| | always-Cartesian | `A_point >= 200` | share sent polar |
 |---|---|---|---|
 | uniform 1e-2 | 1.290× | **1.096×** | 10.4% |
 | uniform 1e-3 | 1.318× | **1.125×** | 10.1% |
