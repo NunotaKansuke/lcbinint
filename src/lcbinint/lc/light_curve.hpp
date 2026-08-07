@@ -51,6 +51,13 @@ public:
         const lcbi_params& params
     ) const;
 
+    std::vector<MagnificationResult> evaluate_preplanned_diagnostic(
+        const std::vector<double>& times,
+        const lcbi_params& params,
+        const std::vector<model::MagnificationExecutionPlan>& plan,
+        std::vector<double>* epoch_seconds = nullptr
+    ) const;
+
     // Root-solve-free, trajectory-resolved geometry for external finite-source
     // engines. Unlike the C API this preserves this LightCurve's sky/site and
     // physical model configuration.
@@ -63,6 +70,12 @@ public:
     std::vector<double> magnification(
         const std::vector<double>& times,
         const lcbi_params&         params
+    ) const;
+
+    std::vector<double> magnification_preplanned(
+        const std::vector<double>& times,
+        const lcbi_params& params,
+        const std::vector<model::MagnificationExecutionPlan>& plan
     ) const;
 
     // Evaluate independent parameter rows into row-major [parameter, time]

@@ -79,40 +79,75 @@ int main()
     }
     const auto high_resolution =
         lcbinint::magnification::calibrated_binary_resolution(
-            1.0e-3, 1.0e-3, 2.0e-4, 1000.0, 0.0, 1.0e-3, 400);
-    if (!high_resolution.prefer_polar || high_resolution.source_bins != 100) {
+            1.0e-3, 1.0e-3, 2.0e-4, 1000.0, 0.0, 4, 0.0, 1.0e-3, 400);
+    if (!high_resolution.prefer_polar || high_resolution.source_bins != 106) {
         return 44;
     }
     const auto loose_resolution =
         lcbinint::magnification::calibrated_binary_resolution(
-            1.0e-3, 1.0e-3, 2.0e-4, 10.0, 0.0, 1.0e-2, 400);
-    if (loose_resolution.prefer_polar || loose_resolution.source_bins != 16) {
+            1.0e-3, 1.0e-3, 2.0e-4, 10.0, 0.0, 4, 0.0, 1.0e-2, 400);
+    if (loose_resolution.prefer_polar || loose_resolution.source_bins != 17) {
         return 52;
     }
     const auto default_resolution =
         lcbinint::magnification::calibrated_binary_resolution(
-            1.0e-3, 1.0e-3, 2.0e-4, 10.0, 0.0, 0.0, 400);
+            1.0e-3, 1.0e-3, 2.0e-4, 10.0, 0.0, 4, 0.0, 0.0, 400);
     if (default_resolution.prefer_polar || default_resolution.source_bins != 50) {
         return 53;
     }
     const auto tight_high_resolution =
         lcbinint::magnification::calibrated_binary_resolution(
-            1.0e-3, 1.0e-3, 2.0e-4, 1000.0, 0.0, 1.0e-5, 400);
-    if (!tight_high_resolution.prefer_polar || tight_high_resolution.source_bins != 200) {
+            1.0e-3, 1.0e-3, 2.0e-4, 1000.0, 0.0, 4, 0.0, 1.0e-5, 400);
+    if (!tight_high_resolution.prefer_polar || tight_high_resolution.source_bins != 400) {
         return 50;
     }
     const auto tangent_resolution =
         lcbinint::magnification::calibrated_binary_resolution(
-            0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 1.0e-3, 400);
+            0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 4, 0.0, 1.0e-3, 400);
     if (tangent_resolution.prefer_polar || tangent_resolution.source_bins != 50) {
         return 45;
     }
     const auto tight_tangent_resolution =
         lcbinint::magnification::calibrated_binary_resolution(
-            0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 1.0e-5, 400);
+            0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 4, 0.0, 1.0e-5, 400);
     if (tight_tangent_resolution.prefer_polar ||
-        tight_tangent_resolution.source_bins != 200) {
+        tight_tangent_resolution.source_bins != 400) {
         return 51;
+    }
+    const auto absolute_resolution =
+        lcbinint::magnification::calibrated_binary_resolution(
+            0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 4, 1.0e-3, 0.0, 400);
+    if (absolute_resolution.prefer_polar || absolute_resolution.source_bins != 303) {
+        return 54;
+    }
+    const auto mixed_resolution =
+        lcbinint::magnification::calibrated_binary_resolution(
+            0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 4, 1.0e-2, 1.0e-4, 400);
+    if (mixed_resolution.prefer_polar || mixed_resolution.source_bins != 114) {
+        return 55;
+    }
+    if (!lcbinint::magnification::binary_auto_tolerance_supported(0.0, 0.0) ||
+        !lcbinint::magnification::binary_auto_tolerance_supported(2.0e-4, 0.0) ||
+        !lcbinint::magnification::binary_auto_tolerance_supported(0.0, 1.0e-4) ||
+        !lcbinint::magnification::binary_auto_tolerance_supported(1.0e-5, 1.0e-3) ||
+        lcbinint::magnification::binary_auto_tolerance_supported(1.0e-4, 0.0) ||
+        lcbinint::magnification::binary_auto_tolerance_supported(1.0e-5, 0.0) ||
+        lcbinint::magnification::binary_auto_tolerance_supported(0.0, 1.0e-5)) {
+        return 59;
+    }
+    const auto forced_polar_resolution =
+        lcbinint::magnification::calibrated_binary_resolution(
+            0.1, 1.0e-3, 1.0e-3, 10.0, 0.0, 2, 0.0, 1.0e-3, 400);
+    if (forced_polar_resolution.prefer_polar ||
+        forced_polar_resolution.source_bins != 106) {
+        return 56;
+    }
+    const auto forced_cartesian_resolution =
+        lcbinint::magnification::calibrated_binary_resolution(
+            0.1, 1.0e-3, 1.0e-3, 1000.0, 0.0, 1, 0.0, 1.0e-3, 400);
+    if (!forced_cartesian_resolution.prefer_polar ||
+        forced_cartesian_resolution.source_bins != 50) {
+        return 57;
     }
     const auto triple_calibration_geometry =
         lcbinint::model::make_triple_lens_geometry(1.0, 1.0e-3, 1.0e-4, 0.5, 1.2);
@@ -177,6 +212,26 @@ int main()
     }
     if (std::strcmp(lcbi_status_string(LCBI_UNSUPPORTED), "unsupported") != 0) {
         return 23;
+    }
+    if (std::strcmp(
+            lcbi_status_string(LCBI_UNSUPPORTED_TOLERANCE),
+            "unsupported_tolerance") != 0) {
+        return 58;
+    }
+    lcbi_params unsupported_tolerance_params = lcbi_default_params();
+    unsupported_tolerance_params.q = 0.1;
+    unsupported_tolerance_params.sep = 1.0;
+    unsupported_tolerance_params.rho = 1.0e-2;
+    lcbi_options unsupported_tolerance_options = lcbi_default_options();
+    unsupported_tolerance_options.finite_source_tol = 1.0e-4;
+    unsupported_tolerance_options.finite_source_reltol = 0.0;
+    lcbi_result unsupported_tolerance_result = {};
+    if (lcbi_magnification(
+            0.0,
+            &unsupported_tolerance_params,
+            &unsupported_tolerance_options,
+            &unsupported_tolerance_result) != LCBI_UNSUPPORTED_TOLERANCE) {
+        return 60;
     }
     if (!lcbinint::model::kepler_orbit_is_valid(
             0.004, 0.011, 0.006, 0.2, 1.4)) {

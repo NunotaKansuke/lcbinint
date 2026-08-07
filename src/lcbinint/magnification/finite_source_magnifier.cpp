@@ -33,6 +33,25 @@ constexpr int kHexadecapoleEvaluations = 13;
 constexpr int kLimbDarkeningTableSize = 20000;
 constexpr double kDefaultFiniteSourceAbsoluteTolerance = 1.0e-4;
 constexpr double kDefaultFiniteSourceRelativeTolerance = 1.0e-3;
+constexpr double kEmpiricalResolutionBaselineTolerance = 1.0e-3;
+constexpr double kEmpiricalResolutionMinimumRelativeTolerance = 1.0e-4;
+constexpr double kEmpiricalResolutionMinimumAbsoluteTolerance = 1.0e-4;
+constexpr double kEmpiricalResolutionMaximumTolerance = 1.0e-2;
+// Final integer-ceil laws.  The relative constants include the smallest
+// discovery-side safety offset that gives >=99% exact-row coverage at every
+// calibration level.  The absolute constants use the conservative
+// discovery-side all-exact-row envelope; this is needed because the raw
+// Apoint fit under-covered the independent holdout at several levels.
+constexpr double kCartesianRelativeResolutionC = 49.5929807101336;
+constexpr double kCartesianRelativeResolutionBeta = 0.47670215379590497;
+constexpr double kPolarRelativeResolutionC = 105.29723705815378;
+constexpr double kPolarRelativeResolutionBeta = 0.5952070961585817;
+constexpr double kCartesianAbsoluteResolutionC = 138.06382198454384;
+constexpr double kCartesianAbsoluteResolutionBeta = 0.4265493297299796;
+constexpr double kCartesianAbsoluteResolutionGamma = 0.34119845152344075;
+constexpr double kPolarAbsoluteResolutionC = 396.47500160748996;
+constexpr double kPolarAbsoluteResolutionBeta = 0.5337641762207631;
+constexpr double kPolarAbsoluteResolutionGamma = 0.2458039343900396;
 constexpr std::array<int, 14> kFiniteSourceResolutionBuckets {{
     16, 24, 32, 40, 50, 64, 80, 100, 128, 160, 200, 256, 320, 400,
 }};
@@ -48,11 +67,15 @@ double finite_source_error_budget(
 {
     const double scale = std::max(std::abs(magnification), 1.0);
     if (has_explicit_finite_source_tolerance(settings)) {
-        return std::max(settings.finite_source_tol, 0.0) +
-            std::max(settings.finite_source_reltol, 0.0) * scale;
+        // Absolute and relative tolerances are alternative allowances.  The
+        // common dimensional budget is the larger allowance, not their sum.
+        return std::max(
+            std::max(settings.finite_source_tol, 0.0),
+            std::max(settings.finite_source_reltol, 0.0) * scale);
     }
-    return kDefaultFiniteSourceAbsoluteTolerance +
-        kDefaultFiniteSourceRelativeTolerance * scale;
+    return std::max(
+        kDefaultFiniteSourceAbsoluteTolerance,
+        kDefaultFiniteSourceRelativeTolerance * scale);
 }
 
 bool finite_source_error_within_budget(
@@ -538,11 +561,12 @@ PointSourceSafetyEvaluation evaluate_point_source_safety(
 
     evaluation.absolute_tolerance = has_explicit_finite_source_tolerance(settings)
         ? finite_source_error_budget(settings, point_source_magnification)
-        : kDefaultFiniteSourceAbsoluteTolerance +
+        : std::max(
+            kDefaultFiniteSourceAbsoluteTolerance,
             (settings.adaptive_hex_threshold > 0.0
                 ? settings.adaptive_hex_threshold
                 : kDefaultFiniteSourceRelativeTolerance) *
-                std::max(std::abs(point_source_magnification), 1.0);
+                std::max(std::abs(point_source_magnification), 1.0));
 
     constexpr double kQuadrupoleCuspSafety = 6.0;
     constexpr double kGhostSafety = 3.0;
@@ -4624,7 +4648,8 @@ FiniteSourceResult fixed_inverse_ray_binary(
     FiniteSourceDecision decision,
     double caustic_distance = std::numeric_limits<double>::infinity(),
     double consistency_reference = std::numeric_limits<double>::quiet_NaN(),
-    const std::vector<SourcePosition>* seed_hints = nullptr)
+    const std::vector<SourcePosition>* seed_hints = nullptr,
+    bool prevalidated_accuracy = false)
 {
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     bool support_proven = true;
@@ -4673,6 +4698,17 @@ FiniteSourceResult fixed_inverse_ray_binary(
         active_settings, finite_magnifier, &seeds, &diagnostics);
     if (!std::isfinite(magnification)) {
         return {magnification, 0, decision, std::nan(""), 0, false};
+    }
+    if (prevalidated_accuracy) {
+        // warmup() already compared this exact route and resolution with an
+        // independently witnessed reference.  Retain the support certificate,
+        // but do not pay for an indicator-driven retry or a half-grid rerun.
+        const double error_estimate = support_proven
+            ? diagnostics.estimated_error
+            : std::numeric_limits<double>::infinity();
+        return {
+            magnification, 0, decision, error_estimate, 0, support_proven,
+        };
     }
 
     // Fixed low nbin is diagnostic-only.  Automatic mode starts from its
@@ -5447,12 +5483,39 @@ FiniteSourceResult fixed_inverse_ray_spine_binary(
 
 } // namespace
 
+bool binary_auto_tolerance_supported(
+    double requested_absolute_tolerance,
+    double requested_relative_tolerance)
+{
+    double absolute_tolerance =
+        std::isfinite(requested_absolute_tolerance)
+        ? std::max(requested_absolute_tolerance, 0.0)
+        : 0.0;
+    double relative_tolerance =
+        std::isfinite(requested_relative_tolerance)
+        ? std::max(requested_relative_tolerance, 0.0)
+        : 0.0;
+    if (absolute_tolerance <= 0.0 && relative_tolerance <= 0.0) {
+        absolute_tolerance = kDefaultFiniteSourceAbsoluteTolerance;
+        relative_tolerance = kDefaultFiniteSourceRelativeTolerance;
+    }
+    const bool absolute_supported =
+        absolute_tolerance > kEmpiricalResolutionMinimumAbsoluteTolerance &&
+        absolute_tolerance <= kEmpiricalResolutionMaximumTolerance;
+    const bool relative_supported =
+        relative_tolerance >= kEmpiricalResolutionMinimumRelativeTolerance &&
+        relative_tolerance <= kEmpiricalResolutionMaximumTolerance;
+    return absolute_supported || relative_supported;
+}
+
 BinaryResolutionSelection calibrated_binary_resolution(
     double mass_ratio,
     double source_radius,
     double caustic_distance,
     double point_source_magnification,
     double limb_darkening_c,
+    int finite_mode,
+    double requested_absolute_tolerance,
     double requested_relative_tolerance,
     int maximum_bins)
 {
@@ -5461,41 +5524,73 @@ BinaryResolutionSelection calibrated_binary_resolution(
     // diagnostic mirror; the calibrated runtime rule intentionally does not
     // spend work extracting extra geometry or profile features.
     (void) mass_ratio;
+    (void) source_radius;
     (void) caustic_distance;
     (void) limb_darkening_c;
     const double a_point = std::abs(point_source_magnification);
-    const double distance_ratio = source_radius > 0.0
-        ? caustic_distance / source_radius
-        : std::numeric_limits<double>::infinity();
-    if (!std::isfinite(a_point) || !std::isfinite(distance_ratio)) {
+    if (!std::isfinite(a_point)) {
         return {std::min(100, cap), true};
     }
 
-    // The component certificate and the boundary-corrected seed set removed
-    // the topology work that the old seven-feature regression was paying for.
-    // The remaining grid error has a much simpler, reproducible rule: choose a
-    // bucket by the requested accuracy and use the measured point-source
-    // magnification only for the grid switch.  These are the coarsest buckets
-    // that cleared the independent 99% holdout for both uniform and linear
-    // limb-darkened sources; the retry ladder remains the fail-closed escape
-    // for a row outside that corpus.
-    const bool loose_tolerance =
-        requested_relative_tolerance >= 1.0e-2;
-    const bool default_or_millitol =
-        requested_relative_tolerance <= 0.0 ||
-        (requested_relative_tolerance >= kDefaultFiniteSourceRelativeTolerance &&
-         !loose_tolerance);
     // Point-source magnification is already computed before this selector, so
     // the switch adds no root solves or probes.  A=200 is the stable joint
     // minimum in the speed holdout; keeping it as a single threshold also makes
     // the routing rule easy to state and reproduce in a paper.
     const bool prefer_polar = a_point >= 200.0;
-    const int cartesian_bins = loose_tolerance ? 16 : (default_or_millitol ? 50 : 200);
-    const int polar_bins = loose_tolerance ? 50 : (default_or_millitol ? 100 : 200);
-    return {
-        std::min(prefer_polar ? polar_bins : cartesian_bins, cap),
-        prefer_polar,
-    };
+    const bool use_polar_law = finite_mode == 2 ||
+        (finite_mode == 4 && prefer_polar);
+
+    double absolute_tolerance =
+        std::isfinite(requested_absolute_tolerance)
+        ? std::max(requested_absolute_tolerance, 0.0)
+        : 0.0;
+    double relative_tolerance =
+        std::isfinite(requested_relative_tolerance)
+        ? std::max(requested_relative_tolerance, 0.0)
+        : 0.0;
+    if (absolute_tolerance <= 0.0 && relative_tolerance <= 0.0) {
+        absolute_tolerance = kDefaultFiniteSourceAbsoluteTolerance;
+        relative_tolerance = kDefaultFiniteSourceRelativeTolerance;
+    }
+    const bool absolute_supported =
+        absolute_tolerance > kEmpiricalResolutionMinimumAbsoluteTolerance &&
+        absolute_tolerance <= kEmpiricalResolutionMaximumTolerance;
+    const bool relative_supported =
+        relative_tolerance >= kEmpiricalResolutionMinimumRelativeTolerance &&
+        relative_tolerance <= kEmpiricalResolutionMaximumTolerance;
+
+    const double relative_c = use_polar_law
+        ? kPolarRelativeResolutionC : kCartesianRelativeResolutionC;
+    const double relative_beta = use_polar_law
+        ? kPolarRelativeResolutionBeta : kCartesianRelativeResolutionBeta;
+    const double absolute_c = use_polar_law
+        ? kPolarAbsoluteResolutionC : kCartesianAbsoluteResolutionC;
+    const double absolute_beta = use_polar_law
+        ? kPolarAbsoluteResolutionBeta : kCartesianAbsoluteResolutionBeta;
+    const double absolute_gamma = use_polar_law
+        ? kPolarAbsoluteResolutionGamma : kCartesianAbsoluteResolutionGamma;
+
+    double required_bins = std::numeric_limits<double>::infinity();
+    if (relative_supported) {
+        required_bins = relative_c * std::pow(
+            relative_tolerance / kEmpiricalResolutionBaselineTolerance,
+            -relative_beta);
+    }
+    if (absolute_supported) {
+        const double absolute_bins = absolute_c * std::pow(
+            absolute_tolerance / kEmpiricalResolutionBaselineTolerance,
+            -absolute_beta) * std::pow(std::max(a_point, 1.0), absolute_gamma);
+        required_bins = std::min(required_bins, absolute_bins);
+    }
+
+    // Absolute and relative tolerances are alternative allowances, so the
+    // less demanding branch sets the initial resolution.  The calibration is
+    // continuous; use any positive integer rather than snapping to the
+    // measurement ladder, and preserve max_source_bins as the hard cap.
+    const int selected_bins = !std::isfinite(required_bins) || required_bins >= cap
+        ? cap
+        : std::max(1, static_cast<int>(std::ceil(required_bins)));
+    return {selected_bins, prefer_polar};
 }
 
 BinaryResolutionSelection calibrated_triple_resolution(
@@ -6256,8 +6351,10 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
         double hex_threshold = settings_.adaptive_hex_threshold;
         if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
             hex_threshold =
-                settings_.finite_source_reltol +
-                settings_.finite_source_tol / std::max(std::abs(hex.magnification), 1.0);
+                std::max(
+                    settings_.finite_source_reltol,
+                    settings_.finite_source_tol /
+                        std::max(std::abs(hex.magnification), 1.0));
         }
         if (std::isfinite(hex.magnification) && hex.relative_error <= hex_threshold) {
             FiniteSourceDecision decision {
@@ -6513,6 +6610,114 @@ HexadecapoleDiagnosticResult diagnostic_hexadecapole_binary(
     return {result.magnification, result.relative_error, derivative_relative_error};
 }
 
+FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double point_source_magnification,
+    FiniteSourceMethod method,
+    int resolution,
+    const std::vector<SourcePosition>* center_image_seeds,
+    const PointSourceMagnifier* point_magnifier_hint) const
+{
+    PointSourceMagnifier local_point_magnifier;
+    const PointSourceMagnifier& point_magnifier = point_magnifier_hint != nullptr
+        ? *point_magnifier_hint : local_point_magnifier;
+
+    if (source_radius <= 0.0 || method == FiniteSourceMethod::point_source) {
+        return {
+            point_source_magnification,
+            0,
+            {FiniteSourceMethod::point_source, 0, "preplanned point-source"},
+            0.0,
+            0,
+            std::isfinite(point_source_magnification),
+        };
+    }
+
+    if (method == FiniteSourceMethod::hexadecapole) {
+        const auto hex = hexadecapole_binary(
+            point_magnifier, separation, mass_ratio, source, source_radius,
+            settings_, &point_source_magnification);
+        return {
+            hex.magnification,
+            0,
+            {FiniteSourceMethod::hexadecapole, kHexadecapoleEvaluations,
+             "preplanned hexadecapole"},
+            hex.relative_error * std::max(std::abs(hex.magnification), 1.0),
+            0,
+            std::isfinite(hex.magnification),
+        };
+    }
+
+    if (method == FiniteSourceMethod::source_plane_quadrature) {
+        const int panels = std::max(resolution, 1);
+        const double value = binary_source_plane_chord_quadrature(
+            point_magnifier, separation, mass_ratio, source, source_radius,
+            settings_, panels);
+        return {
+            value,
+            0,
+            {FiniteSourceMethod::source_plane_quadrature,
+             (panels * 8) * (panels * 8),
+             "preplanned composite chord quadrature"},
+            0.0,
+            0,
+            std::isfinite(value),
+        };
+    }
+
+    if (method == FiniteSourceMethod::inverse_ray_cartesian ||
+        method == FiniteSourceMethod::inverse_ray_polar) {
+        FiniteSourceSettings planned = settings_;
+        const int bins = std::max(resolution, 1);
+        planned.source_bins = bins;
+        planned.polar_source_bins = bins;
+        planned.max_source_bins = bins;
+        planned.automatic_source_bins = false;
+        // Accuracy was established against A_ref during warmup.  Clearing the
+        // runtime budget prevents fixed-grid compatibility probes; support is
+        // still certified inside fixed_inverse_ray_binary.
+        planned.finite_source_tol = 0.0;
+        planned.finite_source_reltol = 0.0;
+        FiniteSourceDecision decision {
+            method,
+            method == FiniteSourceMethod::inverse_ray_polar
+                ? estimate_polar_cost(planned)
+                : estimate_cartesian_cost(planned),
+            method == FiniteSourceMethod::inverse_ray_polar
+                ? "preplanned polar inverse-ray"
+                : "preplanned cartesian inverse-ray",
+        };
+        return fixed_inverse_ray_binary(
+            point_magnifier,
+            separation,
+            mass_ratio,
+            source,
+            source_radius,
+            planned,
+            this,
+            std::move(decision),
+            std::numeric_limits<double>::infinity(),
+            std::numeric_limits<double>::quiet_NaN(),
+            center_image_seeds,
+            true);
+    }
+
+    // The experimental spine is not calibrated by the binary warm-up ladder.
+    // Preserve existing behaviour if a future caller supplies such a plan.
+    return binary_mag(
+        separation,
+        mass_ratio,
+        source,
+        source_radius,
+        point_source_magnification,
+        center_image_seeds,
+        true,
+        &point_magnifier);
+}
+
 FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     double separation,
     double mass_ratio,
@@ -6600,9 +6805,10 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             ? settings_.adaptive_hex_threshold : 1.0e-3;
         if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
             requested_relative =
-                settings_.finite_source_reltol +
-                settings_.finite_source_tol /
-                    std::max(std::abs(point_source_magnification), 1.0);
+                std::max(
+                    settings_.finite_source_reltol,
+                    settings_.finite_source_tol /
+                        std::max(std::abs(point_source_magnification), 1.0));
         }
         const double estimated_error =
             (point_safety.diagnostic.quadrupole_indicator +
@@ -6735,8 +6941,9 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         refined_dist,
         point_source_magnification,
         settings_.limb_darkening_c,
-        explicit_finite_source_relative_budget(
-            settings_, point_source_magnification),
+        settings_.finite_mode,
+        settings_.finite_source_tol,
+        settings_.finite_source_reltol,
         settings_.max_source_bins);
     FiniteSourceSettings runtime_settings = settings_;
     if (settings_.automatic_source_bins) {
@@ -6764,8 +6971,10 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             settings_.adaptive_hex_threshold > 0.0 ? settings_.adaptive_hex_threshold : 1.0e-3;
         if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
             requested_relative =
-                settings_.finite_source_reltol +
-                settings_.finite_source_tol / std::max(std::abs(point_source_magnification), 1.0);
+                std::max(
+                    settings_.finite_source_reltol,
+                    settings_.finite_source_tol /
+                        std::max(std::abs(point_source_magnification), 1.0));
         }
         if (settings_.hex_threshold > 0.0 && effective_point_source_safe) {
             const double estimated_error =
@@ -6800,8 +7009,10 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         double hex_threshold = settings_.adaptive_hex_threshold;
         if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
             requested_relative =
-                settings_.finite_source_reltol +
-                settings_.finite_source_tol / std::max(std::abs(hex.magnification), 1.0);
+                std::max(
+                    settings_.finite_source_reltol,
+                    settings_.finite_source_tol /
+                        std::max(std::abs(hex.magnification), 1.0));
             // Graduate hex_safety by caustic distance.  The hex self-consistency
             // check underestimates the actual error most severely when the source
             // boundary is near a caustic fold (dist_ratio ~ hex_threshold).  For

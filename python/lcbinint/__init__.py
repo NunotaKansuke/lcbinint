@@ -3,6 +3,7 @@ from ._lcbinint import *          # noqa: F401, F403
 from ._lcbinint import obs
 from . import image
 from .image import ImagePlane
+from .warmup import WarmupReport
 
 _NativeOptions = _native.Options
 
@@ -134,6 +135,39 @@ _PARAMETER_FIELDS = {
     "limb_darkening_d": "limb_darkening_d",
 }
 
+
+def _warmup_value_fingerprint(value):
+    def scalar(item):
+        if isinstance(item, float):
+            import math
+
+            if math.isnan(item):
+                return ("float", "nan")
+            if math.isinf(item):
+                return ("float", "+inf" if item > 0.0 else "-inf")
+        return item
+
+    try:
+        import numpy as np
+
+        array = np.asarray(value)
+        if array.ndim == 0:
+            return scalar(array.item())
+        return (
+            str(array.dtype),
+            tuple(array.shape),
+            tuple(scalar(item) for item in array.ravel().tolist()),
+        )
+    except Exception:
+        return repr(value)
+
+
+def _warmup_parameter_fingerprint(values):
+    return tuple(
+        sorted((str(key), _warmup_value_fingerprint(value))
+               for key, value in values.items())
+    )
+
 if not hasattr(LimbDarkening, "quadratic"):
     LimbDarkening.quadratic = staticmethod(lambda c, d: LimbDarkening(c, d))
 
@@ -180,6 +214,8 @@ class LightCurve:
         self._options = Options._from_native(
             self._native.options, jax=jax, t_lim=t_lim
         )
+        self._warmup_profile = None
+        self._warmup_methods = None
         self.lens = self._native.lens
         if jax and self._native.model.parallax:
             # Materialize the ephemeris outside any later JAX trace.
@@ -230,6 +266,106 @@ class LightCurve:
                 f"times must lie within Options.t_lim=[{lower}, {upper}]"
             )
 
+    def _warmup_configuration_fingerprint(self):
+        options = self._options
+        model = self._native.model
+        return (
+            self.lens,
+            self._native.source,
+            float(self._native.ld_c),
+            float(self._native.ld_d),
+            options.param_type,
+            options.inverse_ray_grid,
+            int(options.caustic_bins),
+            float(options.grid_ratio),
+            options.polar_source_bins,
+            options.polar_grid_ratio,
+            int(options.max_source_bins),
+            float(options.finite_source_tol),
+            float(options.finite_source_reltol),
+            float(options.point_source_threshold),
+            float(options.hexadecapole_threshold),
+            float(options.adaptive_hex_threshold),
+            bool(options.jax),
+            model.orbital_motion,
+            model.xallarap,
+            model.source_orbit_coordinates,
+            bool(model.parallax),
+            bool(model.terrestrial),
+            model.t_ref,
+        )
+
+    @property
+    def warmup_profile(self):
+        return self._warmup_profile
+
+    @property
+    def warmup_plan(self):
+        return self._warmup_profile
+
+    def clear_warmup(self):
+        self._warmup_profile = None
+        self._warmup_methods = None
+
+    def warmup(self, times, params=None, **kwargs):
+        """Build and retain a reference-certified per-epoch execution plan.
+
+        ``ladder``, ``contour_levels``, and ``grid_timing_repeats`` are
+        optional diagnostic controls;
+        every remaining keyword is merged into the physical parameter mapping.
+        The returned report is informational: subsequent matching calls use
+        the retained plan automatically.
+        """
+        ladder = kwargs.pop("ladder", None)
+        contour_levels = kwargs.pop("contour_levels", None)
+        grid_timing_repeats = kwargs.pop("grid_timing_repeats", 3)
+        self._validate_time_limit(times)
+        merged = self._merge_params(params, **kwargs)
+        parameter_fingerprint = _warmup_parameter_fingerprint(merged)
+        configuration_fingerprint = self._warmup_configuration_fingerprint()
+        from .warmup import (
+            DEFAULT_CONTOUR_LEVELS,
+            DEFAULT_LADDER,
+            build_warmup_report,
+        )
+
+        report, methods = build_warmup_report(
+            self,
+            times,
+            merged,
+            parameter_fingerprint=parameter_fingerprint,
+            configuration_fingerprint=configuration_fingerprint,
+            ladder=DEFAULT_LADDER if ladder is None else ladder,
+            contour_levels=(
+                DEFAULT_CONTOUR_LEVELS
+                if contour_levels is None else contour_levels
+            ),
+            grid_timing_repeats=grid_timing_repeats,
+        )
+        self._warmup_profile = report
+        self._warmup_methods = methods
+        return report
+
+    def _matching_warmup(self, times, merged):
+        profile = self._warmup_profile
+        if profile is None or self._warmup_methods is None:
+            return False
+        try:
+            import numpy as np
+
+            concrete_times = np.asarray(times, dtype=float)
+            if concrete_times.ndim == 0:
+                concrete_times = concrete_times.reshape(1)
+            return (
+                np.array_equal(concrete_times, profile.times)
+                and _warmup_parameter_fingerprint(merged)
+                == profile.parameter_fingerprint
+                and self._warmup_configuration_fingerprint()
+                == profile.configuration_fingerprint
+            )
+        except Exception:
+            return False
+
     def __call__(self, times, params=None, **kwargs):
         self._validate_time_limit(times)
         merged = self._merge_params(params, **kwargs)
@@ -237,6 +373,18 @@ class LightCurve:
             from .jax_backend import magnification
 
             return magnification(self._native, self._options, times, merged)
+        if self._matching_warmup(times, merged):
+            try:
+                return self._native._magnification_preplanned(
+                    times,
+                    merged,
+                    self._warmup_methods.tolist(),
+                    self._warmup_profile.resolutions.tolist(),
+                )
+            except RuntimeError:
+                # A support or numerical failure invalidates the optimization
+                # for this call; normal auto remains the fail-closed authority.
+                pass
         return self._native(times, merged)
 
     def magnification(self, times, params=None, **kwargs):

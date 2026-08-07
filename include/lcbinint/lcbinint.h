@@ -9,7 +9,8 @@ typedef enum lcbi_status {
     LCBI_OK = 0,
     LCBI_INVALID_ARGUMENT = 1,
     LCBI_NUMERICAL_ERROR = 2,
-    LCBI_UNSUPPORTED = 3
+    LCBI_UNSUPPORTED = 3,
+    LCBI_UNSUPPORTED_TOLERANCE = 4
 } lcbi_status;
 
 typedef enum lcbi_orbital_motion_mode {

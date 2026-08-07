@@ -1,12 +1,11 @@
 # Calibration of automatic finite-source resolution and VBM-routing rule
 
-> **Status, August 2026.** The older binary resolution rule described below is
-> the historical specification. It was re-measured against the certified
-> algorithm, and the measurement says that rule is heavily over-resolved — see
-> [Recalibration against the certified algorithm](#recalibration-against-the-certified-algorithm-august-2026)
-> below. The resulting one-shot rule is applied on the `final-testing` branch;
-> the older sections are retained as the evidence trail and were correct for
-> the algorithm they were fitted to.
+> **Status, 8 August 2026.** The final binary rule is frozen and validated
+> against the independent holdout in
+> [`REPORT_final_apoint_calibration.md`](../tests/diagnostics/results/recal2026/final_apoint_validation/REPORT_final_apoint_calibration.md).
+> The older binary sections below are retained as an evidence trail only; they
+> describe rules fitted before the current certified implementation and are not
+> the production specification.
 
 ## Scope and design constraint
 
@@ -29,17 +28,39 @@ derived in this document; see its own router documentation for the ported
 rule and its runtime dispatch. The calibration methodology and results below
 are kept as the historical record of how that rule was derived.
 
-The current binary runtime `nbin` rule makes one calibrated preselection from
-quantities already computed at the source position. It uses the measured
-point-source magnification for the grid switch and a three-level tolerance
-table: Cartesian/polar buckets are `(16, 50)`, `(50, 100)`, and `(200, 200)`
-for `reltol >= 1e-2`, `1e-3 <= reltol < 1e-2` (or the default), and
-`0 < reltol < 1e-3`, respectively. Cartesian's cheap area indicator can arm a
-fail-closed retry to a finer supported bucket. Automatic calls use the same
-embedded error controller whether or not a tolerance was explicitly supplied;
-an explicit tolerance changes the budget and may select a finer bucket. Fixed
-integer `nbin` calls never retry and are retained as a user-directed exception;
-an explicit tolerance may add a half-resolution consistency check there.
+The final binary runtime `nbin` rule makes one calibrated preselection from
+quantities already computed at the source position. It retains the measured
+point-source magnification switch at `Apoint=200` and evaluates separate
+Cartesian/polar p99 power laws for the active tolerance branches:
+
+`Nrel = Crel (reltol / 1e-3)^(-beta_rel)`
+
+`Nabs = Cabs (atol / 1e-3)^(-beta_abs) max(Apoint, 1)^gamma`.
+
+The frozen constants are:
+
+| grid | `Crel` | `beta_rel` | `Cabs` | `beta_abs` | `gamma` |
+|---|---:|---:|---:|---:|---:|
+| Cartesian | 49.59298071 | 0.4767022 | 138.06382198 | 0.4265493 | 0.3411985 |
+| polar | 105.29723706 | 0.5952071 | 396.47500161 | 0.5337642 | 0.2458039 |
+
+Absolute and relative tolerances are alternative allowances, so a mixed
+request selects `ceil(min(Nabs, Nrel))`. Pure requests use their sole active
+branch. The continuous prediction is rounded upward to any positive integer,
+rather than to the measurement ladder, and is capped by `max_source_bins`.
+When both tolerances are zero, the existing default pair `atol=1e-4` and
+`reltol=1e-3` is used. Coefficients and calibration evidence are recorded in
+[`REPORT_final_apoint_calibration.md`](../tests/diagnostics/results/recal2026/final_apoint_validation/REPORT_final_apoint_calibration.md).
+The calibrated relative domain is `1e-4 <= reltol <= 1e-2`; the calibrated
+absolute domain is `2e-4 <= atol <= 1e-2`. An active branch outside its domain
+is ignored when the other branch is supported. If no active branch is
+supported, automatic binary evaluation fails closed with the structured
+`unsupported_tolerance` status. In particular, absolute-only `atol <= 1e-4`
+is unsupported. A fixed integer `nbin` remains an expert override.
+Cartesian's cheap area indicator can still arm a fail-closed retry to a finer
+supported bucket. Fixed integer `nbin` calls never retry and remain a
+user-directed exception; an explicit tolerance may add a half-resolution
+consistency check there.
 
 The post-check is order-aware: the edge-corrected Cartesian scan uses a
 second-order boundary estimate when there are no fold seeds and row-to-row
@@ -47,12 +68,57 @@ jumps remain small. Fold or large-jump topology warnings retain their original
 first-order scale. This prevents smooth high-area images from turning the
 feedback step into a blanket resolution increase.
 
+## Reference-certified LightCurve warm-up
+
+For repeated evaluation at one fixed parameter vector, the Python
+`LightCurve` can replace the generic automatic dispatcher with a retained,
+per-epoch execution plan:
+
+```python
+report = curve.warmup(times, initial_params)
+model = curve(times, initial_params)  # the retained plan is used automatically
+```
+
+The return value is diagnostic; it is not passed back into `curve`. The plan
+stores the accepted route (`point_source`, `hexadecapole`, composite chord
+quadrature, Cartesian, or polar) and the measured integer resolution for every
+epoch. Cartesian/polar resolution is the first persistent crossing of the
+requested max-budget against `A_ref`; a bracketed continuous estimate is
+rounded upward and then evaluated before it is retained.
+
+When inverse rays are required, warm-up derives a qualifying resolution for
+both Cartesian and polar. It then runs both complete candidate trajectories at
+those resolutions, records per-epoch native wall time over repeated trials,
+and retains the faster qualified grid at each epoch. The production plan does
+not reuse the global `A_point=200` grid heuristic.
+
+`A_ref` uses the recalibration campaign's construction: the finest
+support-certified Cartesian value, Cartesian 256/400 self-convergence, an
+independent polar 400 witness, and a self-converged VBMicrolensing contour
+witness. A row is usable only when its relative reference uncertainty is at
+most one tenth of the requested effective relative budget. Unusable rows keep
+an epoch-local normal-auto fallback instead of receiving a guessed plan.
+
+Matching calls enter a native route-specialized path. It bypasses point/hex
+safety routing, caustic-distance routing, Cartesian/polar selection, automatic
+grid retries, and fixed-grid half-resolution probes. The image-plane support
+certificate is retained. A planned support or numerical failure falls back to
+the ordinary fail-closed dispatcher.
+
+This first implementation is deliberately exact-keyed: times, parameters,
+tolerances, numerical options, model configuration, and limb darkening must
+match the warm-up call. A mismatch silently uses the ordinary automatic path.
+It currently supports the native binary backend with `coordinates="vbm"` and
+uniform or linear limb darkening; VBMicrolensing is required only while
+building the plan. `curve.warmup_profile` (also `curve.warmup_plan`) exposes the
+retained report, and `curve.clear_warmup()` removes it.
+
 ## Unified finite-source error contract
 
 After the binary fast paths have been rejected, each adaptive finite-source
 integrator is judged against the same absolute error budget
 
-`B(A) = atol + reltol max(|A|, 1)`.
+`B(A) = max(atol, reltol max(|A|, 1))`.
 
 An adaptive result is accepted exactly when its image-component support is
 certified and its method-specific error estimate `E` satisfies `E <= B`. The
@@ -337,7 +403,7 @@ tolerance — no regression, no features — covers 99.3–100% of an independen
 holdout, the single exception being Cartesian at `1e-4`, where a rho-dependent
 linear rule is needed to reach 99.8%.  The seven-feature quantile model is
 therefore not carrying its own weight under the certified algorithm.  The
-`final-testing` branch applies the resulting one-shot table, with a fail-closed
+The final rule at the top of this document applies the resulting one-shot law, with a fail-closed
 retry for the residual area-indicator shortfall.  The historical 2880-row files
 remain unchanged; the current implementation was additionally checked on a
 fresh 120-row seed/certificate probe and the native regression suite.

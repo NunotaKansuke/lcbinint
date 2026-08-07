@@ -61,12 +61,18 @@ struct BinaryResolutionSelection {
 
 // Internal calibration helpers.  They operate per source position and do not
 // call or depend on any external finite-source implementation.
+bool binary_auto_tolerance_supported(
+    double requested_absolute_tolerance,
+    double requested_relative_tolerance);
+
 BinaryResolutionSelection calibrated_binary_resolution(
     double mass_ratio,
     double source_radius,
     double caustic_distance,
     double point_source_magnification,
     double limb_darkening_c,
+    int finite_mode,
+    double requested_absolute_tolerance,
     double requested_relative_tolerance,
     int maximum_bins);
 
@@ -147,6 +153,19 @@ public:
         double point_source_magnification,
         const std::vector<SourcePosition>* center_image_seeds = nullptr,
         bool point_source_magnification_is_exact = false,
+        const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
+    // Execute a route selected and reference-validated by LightCurve.warmup().
+    // The caller must use the plan only with the exact configuration that
+    // produced it; this entry deliberately skips the normal routing cascade.
+    FiniteSourceResult binary_mag_preplanned(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        double point_source_magnification,
+        FiniteSourceMethod method,
+        int resolution,
+        const std::vector<SourcePosition>* center_image_seeds = nullptr,
         const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
     FiniteSourceResult triple_mag(
         const model::TripleLensGeometry& geometry,

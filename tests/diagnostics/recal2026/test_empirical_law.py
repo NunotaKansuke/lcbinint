@@ -23,9 +23,11 @@ from .empirical_law import (
     normalized_budget,
     supported_table,
 )
-from .engines import BUCKETS
 from .error_budget_law import _required_outcome
-from .absolute_error_law import _records as absolute_records
+from .absolute_error_law import (
+    ABSOLUTE_LEVELS as DIAGNOSTIC_ABSOLUTE_LEVELS,
+    _records as absolute_records,
+)
 
 
 def test_mixed_budget_normalization_has_one_common_definition():
@@ -41,7 +43,8 @@ def test_relative_law_is_monotone_and_uses_supported_buckets(grid):
     selected = [bucket_resolution(epsilon, grid) for epsilon in RELATIVE_LEVELS]
 
     assert all(left >= right for left, right in zip(raw[1:], raw[:-1]))
-    assert all(bucket in BUCKETS for bucket in selected)
+    assert all(isinstance(bucket, int) and 1 <= bucket <= 400
+               for bucket in selected)
     assert selected == sorted(selected)
     assert continuous_resolution(B0, grid) == pytest.approx(
         RELATIVE_LAW[grid]["C"])
@@ -76,18 +79,19 @@ def test_absolute_law_is_monotone_and_independently_covered(grid):
 @pytest.mark.parametrize("grid", ("cartesian", "polar"))
 @pytest.mark.parametrize("magnification", (0.2, 1.0, 10.0, 1000.0))
 def test_mixed_selector_uses_the_less_demanding_branch(grid, magnification):
-    absolute = branch_resolution(1.0e-4, 1.0e-3, magnification,
-                                  grid, "absolute")
-    relative = branch_resolution(1.0e-4, 1.0e-3, magnification,
+    absolute = branch_resolution(2.0e-4, 1.0e-3, magnification,
+                                 grid, "absolute")
+    relative = branch_resolution(2.0e-4, 1.0e-3, magnification,
                                  grid, "relative")
-    assert mixed_bucket_resolution(1.0e-4, 1.0e-3, magnification, grid) == min(
+    assert mixed_bucket_resolution(2.0e-4, 1.0e-3, magnification, grid) == min(
         absolute, relative)
 
 
 @pytest.mark.parametrize("grid", ("cartesian", "polar"))
 def test_absolute_branch_remains_dimensional(grid):
-    assert branch_resolution(1.0e-2, 0.0, 0.2, grid, "absolute") == \
-        branch_resolution(1.0e-2, 0.0, 1000.0, grid, "absolute")
+    low = branch_resolution(1.0e-2, 0.0, 0.2, grid, "absolute")
+    high = branch_resolution(1.0e-2, 0.0, 1000.0, grid, "absolute")
+    assert high > low
 
 
 def test_mixed_holdout_record_clears_the_coverage_target():
@@ -149,7 +153,7 @@ def test_absolute_record_builder_keeps_reference_limited_rows():
         }},
     }
     records = absolute_records([row], "holdout")
-    assert len(records) == 2 * len(ABSOLUTE_LEVELS)
+    assert len(records) == 2 * len(DIAGNOSTIC_ABSOLUTE_LEVELS)
     assert all(record["censored"] for record in records)
     assert all(record["required_resolution"] == 4
                for record in records)

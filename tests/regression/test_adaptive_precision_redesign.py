@@ -79,7 +79,7 @@ class TestPhase3ErrorFloor:
     """Phase 3: Error floor prevents accepting insufficient bins."""
 
     def test_auto_nbin_preselects_for_tight_tolerance(self):
-        """A known tight regime starts at the required ceiling without probes."""
+        """The empirical p99 start handles the corpus with bounded retries."""
         case = Case(
             name="wide_caustic",
             separation=0.95, mass_ratio=0.01,
@@ -98,12 +98,11 @@ class TestPhase3ErrorFloor:
         refinement_levels = np.array(result_tight.finite_source_refinement_levels)
 
         assert np.all(np.isfinite(result_tight.finite_source_magnifications))
-        # "Preselects" is the claim under test: the calibrated selector reaches
-        # the bins this regime needs in one shot, so every epoch here comes back
-        # at refinement level 0.  The assertion used to demand the opposite --
-        # that some epoch had to climb the retry ladder -- which contradicts the
-        # name of the test and has not held since the selector was calibrated.
-        assert np.all(refinement_levels == 0)
+        # A p99 initial selector is allowed to miss a hard tail; the existing
+        # fail-closed controller must catch that tail without making ordinary
+        # epochs pay the old 200-bin ceiling up front.
+        assert np.mean(refinement_levels == 0) >= 0.95
+        assert np.max(refinement_levels) <= 2
         converged = np.array(result_tight.finite_source_converged)
         errors = np.array(result_tight.finite_source_error_estimates)
         budgets = 1e-4 * np.maximum(np.abs(result_tight.magnifications), 1.0)

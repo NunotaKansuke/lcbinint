@@ -10,8 +10,24 @@ using Complex = std::complex<double>;
 enum class EvaluationStatus {
     ok,
     unsupported,
+    unsupported_tolerance,
     numerical_error,
 };
+
+constexpr const char* evaluation_status_name(EvaluationStatus status)
+{
+    switch (status) {
+    case EvaluationStatus::ok:
+        return "ok";
+    case EvaluationStatus::unsupported:
+        return "unsupported";
+    case EvaluationStatus::unsupported_tolerance:
+        return "unsupported_tolerance";
+    case EvaluationStatus::numerical_error:
+        return "numerical_error";
+    }
+    return "unknown";
+}
 
 struct SourcePosition {
     double x = 0.0;

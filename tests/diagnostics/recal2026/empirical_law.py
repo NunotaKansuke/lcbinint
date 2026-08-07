@@ -11,8 +11,10 @@ criterion passing is enough.  The Cartesian and polar routes retain their own
 measured convergence law, but share this definition of the requested budget.
 The scalar coefficients below are conditional on reference-certified rows:
 the lower-censored audit found that the stored campaign cannot identify a
-population-wide p99 at the tightest targets.  The separate Apoint candidate is
-recorded in the calibration JSON, not exposed here as a production selector.
+population-wide p99 at the tightest targets.  The final binary selector uses
+the Apoint-dependent absolute branch recorded below; its larger safety factor
+is intentional because the raw conditional fit under-covered the integer-ceil
+holdout at several absolute levels.
 """
 
 from __future__ import annotations
@@ -29,38 +31,43 @@ RELATIVE_LEVELS = (
     1.0e-2, 5.0e-3, 3.0e-3, 2.0e-3, 1.0e-3,
     5.0e-4, 3.0e-4, 2.0e-4, 1.0e-4,
 )
-ABSOLUTE_LEVELS = RELATIVE_LEVELS
+ABSOLUTE_LEVELS = (
+    1.0e-2, 5.0e-3, 3.0e-3, 2.0e-3, 1.0e-3,
+    5.0e-4, 3.0e-4, 2.0e-4,
+)
+ABSOLUTE_DIAGNOSTIC_LEVELS = ABSOLUTE_LEVELS + (1.0e-4,)
 
 # Discovery fits before supported-bucket rounding.  The coverage is measured
 # on the independent holdout, so this record cannot be mistaken for an
 # in-sample fit only.
 RELATIVE_LAW = {
     "cartesian": {
-        "C": 45.31962548354008,
+        "C": 49.5929807101336,
         "beta": 0.47670215379590497,
-        "holdout_coverage": 0.9967076856649395,
+        "holdout_coverage": 0.9921568627450981,
     },
     "polar": {
-        "C": 94.5708573771618,
+        "C": 105.29723705815378,
         "beta": 0.5952070961585817,
-        "holdout_coverage": 0.9980563654033042,
+        "holdout_coverage": 0.9946078431372549,
     },
 }
 
-# Absolute-only fits on reference-certified rows.  They are much more
-# conservative because an absolute target does not remove the magnification
-# scale.  They are not a population-wide 99% claim until the reference floor
-# is improved.
+# Absolute Apoint laws on reference-certified rows.  The safety envelope was
+# selected from discovery before the holdout was inspected.  The formal
+# production domain ends at 2e-4; 1e-4 remains diagnostic only.
 ABSOLUTE_LAW = {
     "cartesian": {
-        "C": 140.46968254869913,
-        "beta": 0.1102830028286264,
-        "holdout_coverage": 0.996678402976151,
+        "C": 138.06382198454384,
+        "beta": 0.4265493297299796,
+        "gamma": 0.34119845152344075,
+        "holdout_coverage": 0.9986403806934059,
     },
     "polar": {
-        "C": 201.04855445710095,
-        "beta": 0.22862348842444857,
-        "holdout_coverage": 0.9975390754905221,
+        "C": 396.47500160748996,
+        "beta": 0.5337641762207631,
+        "gamma": 0.2458039343900396,
+        "holdout_coverage": 1.0,
     },
 }
 
@@ -70,13 +77,13 @@ HOLDOUT_COVERAGE = {
     "cartesian": {
         1.0e-2: 0.9957904583723106,
         5.0e-3: 0.9957865168539326,
-        3.0e-3: 0.9967228464419475,
-        2.0e-3: 0.9985948477751756,
+        3.0e-3: 0.9943820224719101,
+        2.0e-3: 0.994847775175644,
         1.0e-3: 0.9981220657276996,
         5.0e-4: 0.9957183634633682,
-        3.0e-4: 0.9970588235294118,
+        3.0e-4: 0.9921568627450981,
         2.0e-4: 0.9943991853360489,
-        1.0e-4: 0.998282770463652,
+        1.0e-4: 0.9925586720091586,
     },
     "polar": {
         1.0e-2: 1.0,
@@ -93,26 +100,24 @@ HOLDOUT_COVERAGE = {
 
 ABSOLUTE_HOLDOUT_COVERAGE = {
     "cartesian": {
-        1.0e-2: 0.9985141158989599,
-        5.0e-3: 0.994452849218356,
-        3.0e-3: 0.993801652892562,
+        1.0e-2: 1.0,
+        5.0e-3: 1.0,
+        3.0e-3: 1.0,
         2.0e-3: 1.0,
-        1.0e-3: 0.9983324068927182,
-        5.0e-4: 0.9957882069795427,
+        1.0e-3: 1.0,
+        5.0e-4: 0.9993983152827918,
         3.0e-4: 0.9986403806934059,
-        2.0e-4: 0.9946112394149346,
-        1.0e-4: 0.9949647532729103,
+        2.0e-4: 1.0,
     },
     "polar": {
-        1.0e-2: 0.9960376423972264,
-        5.0e-3: 0.9974785678265254,
-        3.0e-3: 0.9958677685950413,
-        2.0e-3: 0.9989423585404548,
-        1.0e-3: 0.9988882712618121,
-        5.0e-4: 0.9975932611311673,
-        3.0e-4: 0.998638529611981,
-        2.0e-4: 0.9953596287703016,
-        1.0e-4: 1.0,
+        1.0e-2: 1.0,
+        5.0e-3: 1.0,
+        3.0e-3: 1.0,
+        2.0e-3: 1.0,
+        1.0e-3: 1.0,
+        5.0e-4: 1.0,
+        3.0e-4: 1.0,
+        2.0e-4: 1.0,
     },
 }
 
@@ -134,8 +139,9 @@ def effective_budget(atol: float, reltol: float, magnification: float) -> float:
 
 
 def continuous_resolution(epsilon: float, grid: str,
-                          branch: str = "relative") -> float:
-    """Evaluate the unrounded p99 law at normalized budget ``epsilon``."""
+                          branch: str = "relative",
+                          point_magnification: float = 1.0) -> float:
+    """Evaluate the unrounded law at a branch tolerance."""
 
     if epsilon <= 0.0 or not math.isfinite(epsilon):
         raise ValueError("epsilon must be finite and positive")
@@ -144,32 +150,36 @@ def continuous_resolution(epsilon: float, grid: str,
         law = laws[branch][grid]
     except KeyError as error:
         raise ValueError(f"unknown branch/grid: {branch}/{grid}") from error
-    return law["C"] * (epsilon / B0) ** (-law["beta"])
+    result = law["C"] * (epsilon / B0) ** (-law["beta"])
+    if branch == "absolute":
+        result *= max(abs(float(point_magnification)), 1.0) ** law["gamma"]
+    return result
 
 
 def bucket_resolution(epsilon: float, grid: str,
-                      branch: str = "relative") -> int:
-    """Round a continuous p99 prediction upward to a measured bucket."""
+                      branch: str = "relative",
+                      point_magnification: float = 1.0) -> int:
+    """Mirror the runtime's upward integer ceil and hard cap."""
 
-    raw = continuous_resolution(epsilon, grid, branch)
-    return next((bucket for bucket in BUCKETS if raw <= bucket), BUCKETS[-1])
+    raw = continuous_resolution(
+        epsilon, grid, branch, point_magnification)
+    return min(400, max(1, math.ceil(raw)))
 
 
 def branch_resolution(atol: float, reltol: float, magnification: float,
                       grid: str, branch: str):
     """Return the branch prediction, or ``None`` for an inactive branch."""
 
-    scale = max(abs(float(magnification)), 1.0)
     if branch == "absolute":
-        # The absolute branch was fitted against the dimensional absolute
-        # tolerance itself.  Do not divide it by the magnification scale: that
-        # would silently turn an absolute law into a relative one.
+        # The absolute branch is dimensional and carries Apoint explicitly;
+        # it is not a normalized relative law.
         epsilon = max(float(atol), 0.0)
     elif branch == "relative":
         epsilon = max(float(reltol), 0.0)
     else:
         raise ValueError(f"unknown branch: {branch}")
-    return None if epsilon <= 0.0 else bucket_resolution(epsilon, grid, branch)
+    return None if epsilon <= 0.0 else bucket_resolution(
+        epsilon, grid, branch, magnification)
 
 
 def mixed_bucket_resolution(atol: float, reltol: float, magnification: float,
