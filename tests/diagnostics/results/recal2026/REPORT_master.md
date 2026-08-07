@@ -13,6 +13,13 @@ exactly what qualification. Those files remain the primary record for their own
 sections and carry detail this one omits; where they disagree with this file,
 this file is the later reading.
 
+**Current Nbin calibration.** The paper-facing empirical law for the current
+certified Cartesian/polar ladders is in
+[`REPORT_empirical_resolution_law.md`](REPORT_empirical_resolution_law.md),
+with its box-and-whisker PDF in `figures/empirical-resolution-law.pdf`. That
+calibration is recorded and tested on `final-testing`, but is not yet wired
+into the C++ runtime selector.
+
 **This is the historical campaign record, not a statement that the current
 branch is unchanged.** The measurements and oracle tables below remain the
 evidence used to derive the policy. On `final-testing`, the native runtime now

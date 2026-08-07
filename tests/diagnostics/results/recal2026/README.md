@@ -4,7 +4,11 @@ Re-derivation of lcbinint's binary-lens empirical rules against the certified
 algorithm, together with a speed comparison against VBMicrolensing, microlux,
 and lcbinint's own JAX backend.
 
-> **Start with [`REPORT_master.md`](REPORT_master.md).** It consolidates this
+> **For the current Nbin calibration, start with
+> [`REPORT_empirical_resolution_law.md`](REPORT_empirical_resolution_law.md).**
+> It is the paper-facing result for the current certified Cartesian/polar
+> algorithms. For the wider campaign record, start with
+> [`REPORT_master.md`](REPORT_master.md). It consolidates this
 > file, `REPORT_speed.md`, and the two tangency reports into one narrative, and
 > adds a section stating which claims the data supports and with what
 > qualification. The files below remain the primary record for their own
@@ -16,6 +20,7 @@ and lcbinint's own JAX backend.
 
 | file | what it holds |
 |---|---|
+| **`REPORT_empirical_resolution_law.md`** | **the current paper-facing Nbin result**: common error budget, fitted Cartesian/polar law, holdout coverage, absolute-tolerance cross-check, and limitations. |
 | **`REPORT_master.md`** | **the consolidated report — read this first.** Everything below, in one narrative, plus §7: claims, evidence, and the qualification each may not be quoted without. |
 | **`README.md`** (this file) | the resolution rules, the grid and route switching rules, the corpus construction, and the reproduction commands. Stages 1–5. |
 | **`REPORT_speed.md`** | the speed comparison, written up: **when lcbinint is faster than VBM and what limb darkening does to the answer**, plus microlux, the JAX backend, the triple lens, and where lcbinint's own time goes. |
