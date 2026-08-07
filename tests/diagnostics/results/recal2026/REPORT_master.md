@@ -18,7 +18,11 @@ certified Cartesian/polar ladders is in
 [`REPORT_empirical_resolution_law.md`](REPORT_empirical_resolution_law.md),
 with its box-and-whisker PDF in `figures/empirical-resolution-law.pdf`. That
 calibration is recorded and tested on `final-testing`, but is not yet wired
-into the C++ runtime selector.
+into the C++ runtime selector. The handoff is fail-closed: out-of-domain
+requests, in particular the presently uncertifiable absolute `1e-4` branch,
+must report an unsupported-tolerance status rather than silently using an
+extrapolated `Nbin`. The extrapolation remains in the offline artifacts for
+diagnostics and future reference refinement only.
 
 **This is the historical campaign record, not a statement that the current
 branch is unchanged.** The measurements and oracle tables below remain the

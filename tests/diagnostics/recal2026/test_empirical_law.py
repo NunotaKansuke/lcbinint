@@ -24,6 +24,8 @@ from .empirical_law import (
     supported_table,
 )
 from .engines import BUCKETS
+from .error_budget_law import _required_outcome
+from .absolute_error_law import _records as absolute_records
 
 
 def test_mixed_budget_normalization_has_one_common_definition():
@@ -98,3 +100,58 @@ def test_mixed_holdout_record_clears_the_coverage_target():
         assert summary["pairs_meeting_target"] == 81
         assert summary["minimum_coverage"] >= 0.99
         assert summary["identity_mismatches"] == 0
+
+
+def test_reference_limited_row_is_retained_as_a_lower_censored_requirement():
+    row = {
+        "reference": {"value": 2.0, "uncertainty": 1.0e-2},
+        "cartesian": {4: {
+            "magnification": 2.0,
+            "support_proven": True,
+        }},
+    }
+    outcome = _required_outcome(row, "cartesian", 1.0e-3, 0.0)
+    assert outcome["status"] == "lower_censored"
+    assert outcome["reason"] == "reference_uncertainty"
+    assert outcome["required"] is None
+    assert outcome["lower_bound"] == 4
+
+
+def test_certified_row_keeps_an_exact_persistent_crossing():
+    row = {
+        "reference": {"value": 2.0, "uncertainty": 1.0e-8},
+        "cartesian": {4: {
+            "magnification": 2.0,
+            "support_proven": True,
+        }},
+    }
+    outcome = _required_outcome(row, "cartesian", 1.0e-3, 0.0)
+    assert outcome == {
+        "status": "observed",
+        "required": 4,
+        "lower_bound": 4,
+        "reason": None,
+    }
+
+
+def test_absolute_record_builder_keeps_reference_limited_rows():
+    row = {
+        "case_id": 7,
+        "reference": {"value": 2.0, "uncertainty": 1.0e-2},
+        "point_magnification": 2.0,
+        "cartesian": {4: {
+            "magnification": 2.0,
+            "support_proven": True,
+        }},
+        "polar": {4: {
+            "magnification": 2.0,
+            "support_proven": True,
+        }},
+    }
+    records = absolute_records([row], "holdout")
+    assert len(records) == 2 * len(ABSOLUTE_LEVELS)
+    assert all(record["censored"] for record in records)
+    assert all(record["required_resolution"] == 4
+               for record in records)
+    assert all(record["censor_reason"] == "reference_uncertainty"
+               for record in records)

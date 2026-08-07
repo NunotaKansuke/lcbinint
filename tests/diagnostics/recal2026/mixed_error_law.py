@@ -157,6 +157,10 @@ def main():
                 "max(atol/max(abs(A_reference), 1), reltol)",
             "resolution_selection": "min(N_absolute, N_relative)",
             "target_coverage": TARGET_COVERAGE,
+            "reference_censoring": (
+                "Coverage and identity checks use reference-certified "
+                "comparable rows; reference-limited rows are lower-censored "
+                "at the finest ladder bucket in the one-dimensional audits."),
         },
         "inputs": {
             "discovery": str(args.discovery),

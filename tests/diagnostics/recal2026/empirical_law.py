@@ -9,6 +9,10 @@ integration route:
 The two tolerances are alternative allowances, as in VBMicrolensing: either
 criterion passing is enough.  The Cartesian and polar routes retain their own
 measured convergence law, but share this definition of the requested budget.
+The scalar coefficients below are conditional on reference-certified rows:
+the lower-censored audit found that the stored campaign cannot identify a
+population-wide p99 at the tightest targets.  The separate Apoint candidate is
+recorded in the calibration JSON, not exposed here as a production selector.
 """
 
 from __future__ import annotations
@@ -43,9 +47,10 @@ RELATIVE_LAW = {
     },
 }
 
-# Absolute-only fits.  They are much more conservative because an absolute
-# target does not remove the magnification scale, but they are required for a
-# well-defined ``reltol=0`` branch.
+# Absolute-only fits on reference-certified rows.  They are much more
+# conservative because an absolute target does not remove the magnification
+# scale.  They are not a population-wide 99% claim until the reference floor
+# is improved.
 ABSOLUTE_LAW = {
     "cartesian": {
         "C": 140.46968254869913,

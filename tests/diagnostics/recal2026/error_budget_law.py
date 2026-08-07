@@ -73,23 +73,49 @@ def _ladder_entries(ladder):
             yield bucket, entry
 
 
-def _required(row, grid, atol, reltol):
+def _required_outcome(row, grid, atol, reltol):
+    """Return an exact requirement or an explicit lower-censored outcome.
+
+    A reference that is too uncertain cannot certify a finite required bucket.
+    It must not disappear from a population-level calibration: the only safe
+    statement available from the stored ladder is that the requirement is at
+    least the finest measured bucket.  The caller must keep the ``censored``
+    flag separate from the numeric lower bound.
+    """
     reference = row.get("reference") or {}
     reference_value = _float(reference.get("value"))
     uncertainty = _float(reference.get("uncertainty"))
     if not _finite(reference_value) or not _finite(uncertainty):
-        return None
+        return {
+            "status": "invalid",
+            "required": None,
+            "lower_bound": None,
+            "reason": "invalid_reference",
+        }
     scale = max(abs(reference_value), 1.0)
+    measured = list(_ladder_entries(row.get(grid) or {}))
+    if not measured:
+        return {
+            "status": "invalid",
+            "required": None,
+            "lower_bound": None,
+            "reason": "empty_ladder",
+        }
+    finest_measured = measured[-1][0]
     # Match VBMicrolensing's stopping rule: continue only while both the
     # absolute and relative tests fail.  The effective allowance is therefore
     # the larger of the two, not their sum.
     budget = max(atol, reltol * scale)
     # Reference uncertainty is stored as a relative quantity.  Require a
-    # decade of margin before letting a row constrain the empirical law.
+    # decade of margin before treating a crossing as an exact observation.
     if uncertainty > 0.1 * budget / scale:
-        return None
+        return {
+            "status": "lower_censored",
+            "required": None,
+            "lower_bound": finest_measured,
+            "reason": "reference_uncertainty",
+        }
 
-    measured = list(_ladder_entries(row.get(grid) or {}))
     inside = {}
     for bucket, entry in measured:
         value = _float(entry.get("magnification"))
@@ -100,8 +126,30 @@ def _required(row, grid, atol, reltol):
         )
     for index, bucket in enumerate(measured):
         if all(inside[later_bucket] for later_bucket, _ in measured[index:]):
-            return bucket[0]
-    return None
+            return {
+                "status": "observed",
+                "required": bucket[0],
+                "lower_bound": bucket[0],
+                "reason": None,
+            }
+    return {
+        "status": "lower_censored",
+        "required": None,
+        "lower_bound": finest_measured,
+        "reason": "ladder_limit",
+    }
+
+
+def _required(row, grid, atol, reltol):
+    """Return only an exact bucket; preserve the old ``None`` API.
+
+    Existing relative/mixed calibration code intentionally remains restricted
+    to certifiable observations.  Population-level absolute calibration uses
+    :func:`_required_outcome` so that reference-limited rows are represented as
+    lower-censored data instead of silently dropped.
+    """
+    outcome = _required_outcome(row, grid, atol, reltol)
+    return outcome["required"] if outcome["status"] == "observed" else None
 
 
 def _records(rows, dataset_name, atol=0.0):
@@ -118,9 +166,10 @@ def _records(rows, dataset_name, atol=0.0):
         for reltol in RELATIVE_LEVELS:
             budget = max(atol, reltol * scale)
             for grid in GRIDS:
-                required = _required(row, grid, atol, reltol)
-                if required is None:
+                outcome = _required_outcome(row, grid, atol, reltol)
+                if outcome["status"] == "invalid":
                     continue
+                censored = outcome["status"] != "observed"
                 records.append({
                     "dataset": dataset_name,
                     "row_index": row_index,
@@ -133,7 +182,12 @@ def _records(rows, dataset_name, atol=0.0):
                     "budget": budget,
                     "relative_budget": budget / scale,
                     "point_magnification": point,
-                    "required_resolution": required,
+                    "required_resolution": (
+                        outcome["required"] if not censored
+                        else outcome["lower_bound"]),
+                    "required_lower_bound": outcome["lower_bound"],
+                    "censored": censored,
+                    "censor_reason": outcome["reason"],
                     "log2_budget_ratio": math.log2(B0 / (budget / scale)),
                     "log2_point_magnification": math.log2(max(point, 1.0)),
                 })
@@ -237,8 +291,13 @@ def _score(prediction, records):
     if required.size == 0:
         return {"rows": 0}
     ratios = prediction / required
+    censored_rows = sum(
+        1 for row in records if bool(row.get("censored", False)))
     return {
         "rows": int(required.size),
+        "exact_rows": int(required.size - censored_rows),
+        "censored_rows": int(censored_rows),
+        "censored_fraction": float(censored_rows / required.size),
         "coverage": float(np.mean(prediction >= required)),
         "median_required": float(np.median(required)),
         "median_predicted": float(np.median(prediction)),
@@ -312,7 +371,9 @@ def _budget_power_prediction(model, records):
 def _fit_budget_power(discovery, holdout, grid):
     discovery = [row for row in discovery if row["grid"] == grid]
     holdout = [row for row in holdout if row["grid"] == grid]
-    groups = _budget_groups(discovery)
+    discovery_exact = [row for row in discovery if not row["censored"]]
+    holdout_exact = [row for row in holdout if not row["censored"]]
+    groups = _budget_groups(discovery_exact)
     x = np.asarray([
         math.log2(B0 / group["median_relative_budget"])
         for group in groups
@@ -330,10 +391,11 @@ def _fit_budget_power(discovery, holdout, grid):
     }
     for offset in np.linspace(0.0, 2.0, 401):
         model["safety_offset"] = float(offset)
-        score = _score(_budget_power_prediction(model, discovery), discovery)
+        score = _score(
+            _budget_power_prediction(model, discovery_exact), discovery_exact)
         level_coverages = []
         for level in RELATIVE_LEVELS:
-            subset = [row for row in discovery
+            subset = [row for row in discovery_exact
                       if row["relative_tolerance"] == level]
             if subset:
                 level_coverages.append(_score(
@@ -346,28 +408,75 @@ def _fit_budget_power(discovery, holdout, grid):
     model["epsilon0"] = B0
     model["groups"] = groups
     model["fit_method"] = "discovery_p99_by_log_budget_bin_then_OLS"
-    discovery_score = _score(_budget_power_prediction(model, discovery), discovery)
-    holdout_score = _score(_budget_power_prediction(model, holdout), holdout)
+    discovery_score = _score(
+        _budget_power_prediction(model, discovery_exact), discovery_exact)
+    holdout_score = _score(
+        _budget_power_prediction(model, holdout_exact), holdout_exact)
+    discovery_lower_bound_score = _score(
+        _budget_power_prediction(model, discovery), discovery)
+    holdout_lower_bound_score = _score(
+        _budget_power_prediction(model, holdout), holdout)
     per_level = {}
+    per_level_lower_bound = {}
     for level in RELATIVE_LEVELS:
-        subset = [row for row in holdout
+        subset = [row for row in holdout_exact
                   if row["relative_tolerance"] == level]
         if subset:
             per_level[str(level)] = _score(
                 _budget_power_prediction(model, subset), subset)
+        lower_subset = [row for row in holdout
+                        if row["relative_tolerance"] == level]
+        if lower_subset:
+            per_level_lower_bound[str(level)] = _score(
+                _budget_power_prediction(model, lower_subset), lower_subset)
+    lower_bound_groups = []
+    for level in RELATIVE_LEVELS:
+        subset = [row for row in discovery
+                  if row["relative_tolerance"] == level]
+        if not subset:
+            continue
+        exact_subset = [row for row in subset if not row["censored"]]
+        values = [row["required_resolution"] for row in subset]
+        lower_bound_groups.append({
+            "relative_tolerance": level,
+            "rows": len(subset),
+            "observed_rows": len(exact_subset),
+            "censored_rows": len(subset) - len(exact_subset),
+            "censored_fraction": (len(subset) - len(exact_subset)) / len(subset),
+            "required_p50_lower_bound": float(np.percentile(values, 50.0)),
+            "required_p99_lower_bound": float(np.percentile(values, 99.0)),
+        })
     return {
         "model": model,
         "discovery": discovery_score,
         "holdout": holdout_score,
+        "discovery_lower_bound": discovery_lower_bound_score,
+        "holdout_lower_bound": holdout_lower_bound_score,
         "holdout_by_relative_tolerance": per_level,
+        "holdout_lower_bound_by_relative_tolerance": per_level_lower_bound,
         "discovery_rows": len(discovery),
         "holdout_rows": len(holdout),
+        "discovery_exact_rows": len(discovery_exact),
+        "holdout_exact_rows": len(holdout_exact),
+        "discovery_censored_rows": len(discovery) - len(discovery_exact),
+        "holdout_censored_rows": len(holdout) - len(holdout_exact),
+        "lower_bound_groups": lower_bound_groups,
+        "lower_bound_p99_identifiable_at_99pct": all(
+            group["censored_fraction"] < 1.0 - TARGET_COVERAGE
+            for group in lower_bound_groups),
+        "interpretation": (
+            "conditional_exact_fit_only"
+            if any(group["censored_fraction"] >= 1.0 - TARGET_COVERAGE
+                   for group in lower_bound_groups)
+            else "population_fit"),
     }
 
 
 def _fit_apoint_candidates(discovery, holdout, grid):
     discovery = [row for row in discovery if row["grid"] == grid]
     holdout = [row for row in holdout if row["grid"] == grid]
+    discovery = [row for row in discovery if not row["censored"]]
+    holdout = [row for row in holdout if not row["censored"]]
     candidates = []
     for threshold in APOINT_THRESHOLDS:
         candidate = _fit_candidate(discovery, threshold)
@@ -491,8 +600,11 @@ def main():
             "holdout": str(arguments.holdout),
             "discovery_rows": len(discovery_rows),
             "holdout_rows": len(holdout_rows),
-            "usable_discovery_records": len(discovery),
-            "usable_holdout_records": len(holdout),
+            "records_discovery": len(discovery),
+            "records_holdout": len(holdout),
+            "censoring": (
+                "Reference-limited rows are retained as lower-censored at the "
+                "finest ladder bucket; the fitted law uses exact rows only."),
         },
         "grids": {},
     }

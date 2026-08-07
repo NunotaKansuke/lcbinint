@@ -48,10 +48,19 @@ def _summary(records, report, branch):
         model = _model(report, grid, branch)
         levels = []
         for level in LEVELS:
-            values = np.asarray([
-                float(row["required_resolution"])
-                for row in rows
+            level_rows = [
+                row for row in rows
                 if abs(float(row[tolerance_key]) - level) < 1.0e-15
+            ]
+            values = np.asarray([
+                float(row["required_resolution"]) for row in level_rows
+            ])
+            censored = [
+                row for row in level_rows
+                if str(row.get("censored", "False")).lower() == "true"
+            ]
+            censored_values = np.asarray([
+                float(row["required_resolution"]) for row in censored
             ])
             raw = 2.0 ** (
                 model["intercept"]
@@ -72,8 +81,17 @@ def _summary(records, report, branch):
                 "fit_bucket": float(next(
                     bucket for bucket in BUCKETS if raw <= bucket)),
                 "rows": int(values.size),
+                "observed_rows": int(values.size - len(censored)),
+                "censored_rows": int(len(censored)),
+                "censored_p99_lower_bound": (
+                    float(np.percentile(censored_values, 99.0))
+                    if censored_values.size else None),
             })
-        output[grid] = {"levels": levels, "model": model}
+        output[grid] = {
+            "levels": levels,
+            "model": model,
+            "has_censoring": any(item["censored_rows"] for item in levels),
+        }
     return output
 
 
@@ -112,8 +130,20 @@ def _plot_boxplots(summary, title, axis_label):
         axis.scatter(positions, [item["fit_bucket"] for item in values],
                      facecolors="white", edgecolors="#30363d", marker="s",
                      s=28, zorder=5)
+        for position, item in zip(positions, values):
+            if item["censored_rows"]:
+                axis.scatter(
+                    position, item["censored_p99_lower_bound"], marker="^", s=38,
+                    facecolors="#7c3aed", edgecolors="white", linewidth=0.7,
+                    zorder=6,
+                )
         axis.set_xticks(positions)
-        axis.set_xticklabels([f"{item['epsilon']:.0e}" for item in values])
+        axis.set_xticklabels([
+            f"{item['epsilon']:.0e}\n"
+            f"n={item['rows']}\n"
+            f"c={item['censored_rows']}"
+            for item in values
+        ], fontsize=7.5)
         axis.set_yscale("log")
         axis.set_xlim(-0.6, len(values) - 0.4)
         axis.set_ylim(3.5, 500)
@@ -125,7 +155,9 @@ def _plot_boxplots(summary, title, axis_label):
         axis.text(
             0.03, 0.04,
             "box: Q1--Q3; whisker: p5--p95\n"
-            "wide bar: p16--p84",
+            "wide bar: p16--p84"
+            + ("\ntriangle: p99 lower bound of censored rows"
+               if any(item["censored_rows"] for item in values) else ""),
             transform=axis.transAxes, fontsize=8.5,
             bbox={"facecolor": "white", "alpha": 0.78,
                   "edgecolor": "#c9d1d9"},
@@ -140,6 +172,12 @@ def _plot_boxplots(summary, title, axis_label):
         plt.Line2D([], [], color="#30363d", marker="s", markerfacecolor="white",
                    linestyle="none", markersize=5, label="fitted bucket"),
     ]
+    if any(summary[grid]["has_censoring"] for grid in GRIDS):
+        handles.append(plt.Line2D(
+            [], [], color="#7c3aed", marker="^", markerfacecolor="#7c3aed",
+            markeredgecolor="white", linestyle="none", markersize=6,
+            label="censored-row p99 lower bound",
+        ))
     figure.legend(handles=handles, loc="lower center", ncol=4,
                   frameon=False, bbox_to_anchor=(0.5, -0.02))
     figure.suptitle(title, y=0.99, fontsize=14)
@@ -299,12 +337,14 @@ def _plot_method(relative, absolute, mixed):
         0.07, 0.87,
         "1. For every row, increase Nbin and record the first persistent crossing\n"
         "   of the requested budget against the high-resolution reference.\n\n"
-        "2. Fit the discovery p99 in base-two logarithms, separately for the\n"
-        "   relative and absolute branches.  The grid only changes C and beta.\n\n"
+        "2. Fit the discovery p99 in base-two logarithms on exact,\n"
+        "   reference-certified rows.  Lower-censored rows are retained as\n"
+        "   Nbin >= N_finest and are reported separately.\n\n"
         "3. At runtime policy level, use B=max(Babs,Brel), hence\n"
         "   epsilon=max(atol/max(|A|,1), reltol) and N=min(Nabs,Nrel).\n\n"
-        "4. The 9x9 mixed holdout matrix is a validation of this composition,\n"
-        "   not a second fit.  All 162 cells clear the 99% target.",
+        "4. The 9x9 mixed holdout matrix is a validation of this composition\n"
+        "   on comparable rows, not a second fit.  The Apoint diagnostic is\n"
+        "   shown separately because it cannot remove reference censoring.",
         fontsize=11, va="top", linespacing=1.45,
     )
     table = [("grid", "Crel", "beta-rel", "Cabs", "beta-abs", "mixed min")]
@@ -327,7 +367,8 @@ def _plot_method(relative, absolute, mixed):
     rendered.scale(1.0, 1.65)
     figure.text(
         0.07, 0.08,
-        "The fitted laws are population-level p99 rules; the runtime estimator is a separate claim.\n"
+        "The scalar fits are conditional on reference-certified rows; the runtime estimator is a separate claim.\n"
+        "The Apoint-bin lower-bound diagnostic is in absolute-apoint-boxplots.pdf.\n"
         "This PDF documents calibration and validation, not a production C++ selector change.",
         fontsize=10, color="#57606a",
     )
@@ -357,12 +398,12 @@ def main():
     with PdfPages(output) as pdf:
         pdf.savefig(_plot_boxplots(
             relative_summary,
-            "Relative branch: required resolution on the independent holdout",
+            "Relative branch: lower-bound required resolution on the independent holdout",
             "relative tolerance $r_{\\rm tol}$"), bbox_inches="tight")
         plt.close("all")
         pdf.savefig(_plot_boxplots(
             absolute_summary,
-            "Absolute branch: required resolution on the independent holdout",
+            "Absolute branch: lower-bound required resolution on the independent holdout",
             "absolute tolerance $a_{\\rm tol}$"), bbox_inches="tight")
         plt.close("all")
         pdf.savefig(_plot_mixed_heatmap(mixed_report), bbox_inches="tight")
