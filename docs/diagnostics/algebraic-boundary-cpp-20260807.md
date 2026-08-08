@@ -256,3 +256,71 @@ It is not ready for automatic routing. Uniform performance remains behind
 VBM, the independent-reference uniform gate is incomplete, and the requested
 `1e-4` setting is not yet a reliable measured-`1e-4` guarantee across the
 expanded geometry suite.
+
+## 2026-08-09 pure-grid handoff reproduction
+
+The handoff at
+`tests/diagnostics/recal2026/HANDOFF_pure_grid_vbm_speed_comparison_20260809.md`
+compares only finite-source work and defines
+
+```text
+R = t_VBM / t_LCB-in
+```
+
+The new comparison uses exactly the same important choices: the recorded pure
+`lcbinint_auto` grid-route filter, `q >= 1e-4`, intended `d/rho < 2.01`, the
+ten factors from `0` through `2`, reference epochs `(0, 7, 15, 23)`, VBM's
+`BinaryMag`/`BinaryMagDark` calls, `a1=0.5` for linear LD, and the sixth
+`BinaryMagDark` argument fixed at `1e-12`. The C++ batch executable measures a
+whole experimental algebraic call, including seed generation, support
+completion, radial bands, and integration. The first call per source warms the
+object; two subsequent calls are timed and the median is kept.
+
+The full stratified run used `case-count=160` per factor and produced the
+following point counts. `measured` means both a qualifying algebraic result and
+a qualifying VBM result were available; unresolved points remain visible in
+the table instead of being silently counted as wins.
+
+| profile | target | points | measured | algebraic wins | win rate / all | median R | p10--p90 R |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| uniform | `1e-2` | 1132 | 1108 | 0 | 0.0% | 0.0598 | 0.0166--0.1317 |
+| uniform | `1e-3` | 1132 | 1099 | 0 | 0.0% | 0.0919 | 0.0263--0.1932 |
+| uniform | `1e-4` | 512 | 507 | 0 | 0.0% | 0.1986 | 0.0806--0.3852 |
+| linear LD | `1e-2` | 1124 | 1117 | 58 | 5.2% | 0.3047 | 0.0934--0.7932 |
+| linear LD | `1e-3` | 1124 | 1111 | 626 | 55.7% | 1.1353 | 0.3490--2.6748 |
+| linear LD | `1e-4` | 648 | 633 | 612 | 94.4% | 5.2034 | 1.8544--11.8643 |
+
+Among measured points only, the linear-LD win rates are 5.2%, 56.3%, and
+96.7% for `1e-2`, `1e-3`, and `1e-4`. The difference between the two
+denominators is entirely unresolved algebraic or VBM points, not a timeout win.
+For this run there were 28 polar unsafe calls at the first two targets and 21
+at `1e-4`; Cartesian itself had no unsafe calls. The common polar reasons were
+certified seed support not active, a seed not lying on an active radius, and a
+small number of odd physical-root certifications. The Cartesian method was
+therefore used as the faster qualifying algebraic candidate where appropriate.
+
+Relative to the handoff's previous production-grid medians, the new algebraic
+median `R` is approximately 2.3--2.5 times larger for uniform `1e-2`/`1e-3`,
+5.5 times larger for uniform `1e-4`, 2.3 times larger for linear `1e-2`, 2.1
+times larger for linear `1e-3`, and 3.5 times larger for linear `1e-4`. This is
+an indicative improvement because unresolved points make the measured subsets
+slightly different; it is not a paired per-point speedup claim.
+
+The handoff reproduction is implemented by:
+
+- `tests/diagnostics/benchmark_algebraic_batch.cpp`, a native batch runner;
+- `tests/diagnostics/recal2026/benchmark_algebraic_vs_vbm_dark.py`, which
+  applies the corpus filter, runs the batch runner, performs the VBM ladder,
+  and writes per-point JSON plus summaries;
+- CMake target `benchmark_algebraic_batch`.
+
+Example command:
+
+```bash
+LCBININT_RECAL_CORPUS=tests/diagnostics/results/recal2026/speed_discovery \
+python tests/diagnostics/recal2026/benchmark_algebraic_vs_vbm_dark.py \
+  --executable build/benchmark_algebraic_batch \
+  --case-count 160 --profiles uniform linear \
+  --targets 1e-2 1e-3 1e-4 --repeats 2 \
+  --output /tmp/algebraic-vbm-full.json
+```
