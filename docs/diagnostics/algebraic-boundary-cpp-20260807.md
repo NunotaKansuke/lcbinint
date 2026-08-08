@@ -283,15 +283,15 @@ the table instead of being silently counted as wins.
 
 | profile | target | points | measured | algebraic wins | win rate / all | median R | p10--p90 R |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| uniform | `1e-2` | 1132 | 1108 | 0 | 0.0% | 0.0598 | 0.0166--0.1317 |
-| uniform | `1e-3` | 1132 | 1099 | 0 | 0.0% | 0.0919 | 0.0263--0.1932 |
-| uniform | `1e-4` | 512 | 507 | 0 | 0.0% | 0.1986 | 0.0806--0.3852 |
-| linear LD | `1e-2` | 1124 | 1117 | 58 | 5.2% | 0.3047 | 0.0934--0.7932 |
-| linear LD | `1e-3` | 1124 | 1111 | 626 | 55.7% | 1.1353 | 0.3490--2.6748 |
-| linear LD | `1e-4` | 648 | 633 | 612 | 94.4% | 5.2034 | 1.8544--11.8643 |
+| uniform | `1e-2` | 1132 | 1108 | 0 | 0.0% | 0.0591 | 0.0166--0.1299 |
+| uniform | `1e-3` | 1132 | 1099 | 0 | 0.0% | 0.0941 | 0.0266--0.1951 |
+| uniform | `1e-4` | 512 | 507 | 0 | 0.0% | 0.1927 | 0.0821--0.3833 |
+| linear LD | `1e-2` | 1124 | 1117 | 57 | 5.1% | 0.3045 | 0.0938--0.7894 |
+| linear LD | `1e-3` | 1124 | 1111 | 632 | 56.2% | 1.1509 | 0.3405--2.6546 |
+| linear LD | `1e-4` | 648 | 633 | 615 | 94.9% | 5.1345 | 1.8817--11.7944 |
 
-Among measured points only, the linear-LD win rates are 5.2%, 56.3%, and
-96.7% for `1e-2`, `1e-3`, and `1e-4`. The difference between the two
+Among measured points only, the linear-LD win rates are 5.1%, 56.9%, and
+97.2% for `1e-2`, `1e-3`, and `1e-4`. The difference between the two
 denominators is entirely unresolved algebraic or VBM points, not a timeout win.
 For this run there were 28 polar unsafe calls at the first two targets and 21
 at `1e-4`; Cartesian itself had no unsafe calls. The common polar reasons were
@@ -300,9 +300,10 @@ small number of odd physical-root certifications. The Cartesian method was
 therefore used as the faster qualifying algebraic candidate where appropriate.
 
 Relative to the handoff's previous production-grid medians, the new algebraic
-median `R` is approximately 2.3--2.5 times larger for uniform `1e-2`/`1e-3`,
-5.5 times larger for uniform `1e-4`, 2.3 times larger for linear `1e-2`, 2.1
-times larger for linear `1e-3`, and 3.5 times larger for linear `1e-4`. This is
+median `R` is approximately 2.5 times larger for uniform `1e-2`, 2.4 times
+larger for uniform `1e-3`, 5.4 times larger for uniform `1e-4`, 2.3 times
+larger for linear `1e-2`, 2.2 times larger for linear `1e-3`, and 3.4 times
+larger for linear `1e-4`. This is
 an indicative improvement because unresolved points make the measured subsets
 slightly different; it is not a paired per-point speedup claim.
 
@@ -324,3 +325,53 @@ python tests/diagnostics/recal2026/benchmark_algebraic_vs_vbm_dark.py \
   --targets 1e-2 1e-3 1e-4 --repeats 2 \
   --output /tmp/algebraic-vbm-full.json
 ```
+
+## Review assessment (2026-08-09)
+
+The review of the original pure-grid comparison is relevant to this branch,
+but not every item transfers unchanged.
+
+**Fixed-cost dominance transfers directly.** The new algebraic call also has
+substantial fixed work before the brightness quadrature: image seed creation,
+component-support certification, root solving at band probes, radial-band
+construction, and only then the radial/angular integral. The batch benchmark
+includes all of that work, so its `R` values are valid end-to-end finite-source
+comparisons, but they must not be interpreted as a law for the variable
+quadrature work alone. The next useful profile is a breakdown of seed/support,
+boundary-root, band, and radial-integral time. The diagnostic output already
+records root and tangency counts, but not those component wall times.
+
+**The timing asymmetry also transfers.** Algebraic time is measured around the
+native C++ experimental method; VBM time is measured around the Python binding
+call. Python/native wrapper overhead is therefore included on the VBM side and
+not on the algebraic side. This is small relative to the millisecond-scale
+algebraic calls, but it is material when VBM is tens of microseconds. The
+reported ratios should be read with this scope explicitly in mind.
+
+**The reference bias transfers, and is more important for this experiment.**
+The corpus reference is the certified LCB-in Cartesian value. Both algebraic
+methods are selected against that same value, so the comparison is not an
+independent truth benchmark. The corpus floor keeps the witness discrepancy
+below `0.1 * target`, but near a 50% win boundary that can still affect a few
+classifications. The linear `1e-4` result should therefore be described as a
+comparison under the corpus reference, not as proof of a neutral ground truth.
+
+**The VBM tolerance finding transfers.** The new harness uses exactly the same
+candidate ladder as the handoff (`target` down to `1e-7`), and the full run has
+the same selected-tolerance pattern: nearly every linear `1e-4` point is
+accepted at `RelTol=1e-4`, with only a very small number requiring one tighter
+step. The large linear speedup is not caused by systematically timing VBM at a
+ten-times tighter tolerance.
+
+**The reviewed timeout bug does not transfer directly.** The new harness does
+not call the reviewed `_time_vbm_candidate` implementation; its VBM point loop
+is separate, and the full run had one unresolved VBM point but no timeout win.
+The native algebraic batch runner currently has a process-level timeout rather
+than the handoff's per-reference-epoch watchdog. That is sufficient for the
+completed run, but a future production-scale sweep should add per-point
+censoring before treating timeout status as a comparison result.
+
+Consequently, the new branch supports the handoff's main empirical conclusion
+—uniform loses and linear LD becomes competitive as the target tightens—but
+the review is correct that the next optimization target should be fixed-cost
+breakdown, not an `A_finite`-only routing rule.

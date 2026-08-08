@@ -187,8 +187,14 @@ def vbm_point(row, epoch, profile_c, target, repeats):
         epoch / (BLOCK_EPOCHS - 1) - 0.5) * BLOCK_SPAN_IN_RADII * rho
     reference = float(row["references"][str(epoch)]["value"])
     pending = None
-    for reltol in (target, target * 0.1, target * 0.01,
-                   target * 0.001, target * 0.0001, target * 0.00001):
+    reltol = float(target)
+    # Match bench_grid_vs_vbm_dark.py exactly: the ladder stops at 1e-7.
+    # Do not silently extend a target=1e-4 comparison to 1e-8 or 1e-9.
+    candidates = []
+    while reltol >= 1.0e-7 - 1.0e-15:
+        candidates.append(reltol)
+        reltol /= 10.0
+    for reltol in candidates:
         vbm = new_vbm(profile_c, reltol)
         value = vbm_one(vbm, row, x, profile_c)
         error = abs(value - reference) / max(abs(reference), 1.0)
