@@ -18,13 +18,22 @@ using lcbinint::magnification::AlgebraicBoundarySettings;
 using lcbinint::magnification::FiniteSourceMagnifier;
 using lcbinint::magnification::FiniteSourceSettings;
 
+struct TimedResult {
+    AlgebraicBoundaryResult result;
+    double seconds = 0.0;
+    double warmup_seconds = 0.0;
+};
+
 template <typename Evaluate>
-std::pair<AlgebraicBoundaryResult, double> timed(
+TimedResult timed(
     Evaluate&& evaluate, int repeats)
 {
     // The first call warms the finite-source object's caustic cache and the
     // process-local allocator state. Only subsequent calls are reported.
+    const auto warmup_started = Clock::now();
     AlgebraicBoundaryResult result = evaluate();
+    const double warmup_seconds = std::chrono::duration<double>(
+        Clock::now() - warmup_started).count();
     std::vector<double> samples;
     samples.reserve(static_cast<std::size_t>(repeats));
     for (int repeat = 0; repeat < repeats; ++repeat) {
@@ -34,7 +43,7 @@ std::pair<AlgebraicBoundaryResult, double> timed(
             Clock::now() - started).count());
     }
     std::sort(samples.begin(), samples.end());
-    return {result, samples[samples.size() / 2]};
+    return {result, samples[samples.size() / 2], warmup_seconds};
 }
 
 std::string safe_reason(const std::string& reason)
@@ -54,7 +63,8 @@ void print_result(
     int job,
     int epoch,
     const AlgebraicBoundaryResult& result,
-    double seconds)
+    double seconds,
+    double warmup_seconds)
 {
     std::cout << job << '\t' << epoch << '\t' << method << '\t'
               << (result.success ? 1 : 0) << '\t'
@@ -65,7 +75,8 @@ void print_result(
               << result.diagnostics.real_quartic_fallback_count << '\t'
               << result.diagnostics.tangency_solve_count << '\t'
               << result.diagnostics.tangency_fallback_count << '\t'
-              << safe_reason(result.unsafe_reason) << '\n';
+              << safe_reason(result.unsafe_reason) << '\t'
+              << warmup_seconds << '\n';
 }
 
 } // namespace
@@ -92,7 +103,10 @@ int main(int argc, char** argv)
     FiniteSourceSettings finite_settings;
     finite_settings.limb_darkening_c = limb_c;
     finite_settings.limb_darkening_d = limb_d;
-    FiniteSourceMagnifier magnifier(finite_settings);
+    // Keep method caches independent so the reported warm-up cost for
+    // Cartesian is not accidentally hidden by a preceding polar call.
+    FiniteSourceMagnifier polar_magnifier(finite_settings);
+    FiniteSourceMagnifier cartesian_magnifier(finite_settings);
     AlgebraicBoundarySettings settings;
     settings.absolute_tolerance = target;
     settings.relative_tolerance = target;
@@ -110,17 +124,19 @@ int main(int argc, char** argv)
     while (std::cin >> job >> epoch >> separation >> mass_ratio >>
            source_x >> source_y >> source_radius) {
         const auto polar = timed([&] {
-            return magnifier.experimental_algebraic_boundary_binary_mag(
+            return polar_magnifier.experimental_algebraic_boundary_binary_mag(
                 separation, mass_ratio,
                 SourcePosition {source_x, source_y}, source_radius, settings);
         }, repeats);
         const auto cartesian = timed([&] {
-            return magnifier.experimental_algebraic_cartesian_binary_mag(
+            return cartesian_magnifier.experimental_algebraic_cartesian_binary_mag(
                 separation, mass_ratio,
                 SourcePosition {source_x, source_y}, source_radius, settings);
         }, repeats);
-        print_result("polar", job, epoch, polar.first, polar.second);
-        print_result("cartesian", job, epoch, cartesian.first, cartesian.second);
+        print_result("polar", job, epoch, polar.result, polar.seconds,
+                     polar.warmup_seconds);
+        print_result("cartesian", job, epoch, cartesian.result,
+                     cartesian.seconds, cartesian.warmup_seconds);
     }
     if (!std::cin.eof()) {
         std::cerr << "malformed input row\n";

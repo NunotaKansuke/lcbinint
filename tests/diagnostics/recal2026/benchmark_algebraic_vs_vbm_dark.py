@@ -141,7 +141,7 @@ def run_algebraic(executable, rows, profile_c, target, repeats, timeout):
     records = {}
     for line in completed.stdout.splitlines():
         fields = line.split("\t")
-        if len(fields) < 12:
+        if len(fields) < 13:
             raise RuntimeError(f"malformed algebraic output: {line!r}")
         job, epoch, method = int(fields[0]), int(fields[1]), fields[2]
         records[(job, epoch, method)] = {
@@ -154,6 +154,7 @@ def run_algebraic(executable, rows, profile_c, target, repeats, timeout):
             "tangency_solves": int(fields[9]),
             "tangency_fallbacks": int(fields[10]),
             "unsafe": fields[11],
+            "warmup_seconds": float(fields[12]),
         }
     return records
 
@@ -181,12 +182,11 @@ def vbm_one(vbm, row, x, profile_c):
         float(row["rho"]), VBM_ABSOLUTE_FLOOR))
 
 
-def vbm_point(row, epoch, profile_c, target, repeats):
-    rho = float(row["rho"])
-    x = float(row["x"]) + (
-        epoch / (BLOCK_EPOCHS - 1) - 0.5) * BLOCK_SPAN_IN_RADII * rho
-    reference = float(row["references"][str(epoch)]["value"])
-    pending = None
+def vbm_row(row, profile_c, target, repeats):
+    """Time a VBM tolerance ladder with one object shared by all epochs."""
+
+    pending = list(REFERENCE_INDICES)
+    selected = {}
     reltol = float(target)
     # Match bench_grid_vs_vbm_dark.py exactly: the ladder stops at 1e-7.
     # Do not silently extend a target=1e-4 comparison to 1e-8 or 1e-9.
@@ -195,24 +195,36 @@ def vbm_point(row, epoch, profile_c, target, repeats):
         candidates.append(reltol)
         reltol /= 10.0
     for reltol in candidates:
+        if not pending:
+            break
         vbm = new_vbm(profile_c, reltol)
-        value = vbm_one(vbm, row, x, profile_c)
-        error = abs(value - reference) / max(abs(reference), 1.0)
-        if not finite(error) or error > target:
-            continue
-        samples = []
-        for _ in range(repeats):
-            started = time.perf_counter()
+        still_pending = []
+        for epoch in pending:
+            rho = float(row["rho"])
+            x = float(row["x"]) + (
+                epoch / (BLOCK_EPOCHS - 1) - 0.5) * BLOCK_SPAN_IN_RADII * rho
+            reference = float(row["references"][str(epoch)]["value"])
             value = vbm_one(vbm, row, x, profile_c)
-            samples.append(time.perf_counter() - started)
-        return {
-            "success": True,
-            "value": value,
-            "seconds": statistics.median(samples),
-            "reltol": reltol,
-            "error": abs(value - reference) / max(abs(reference), 1.0),
-        }
-    return {"success": False, "error": None}
+            error = abs(value - reference) / max(abs(reference), 1.0)
+            if not finite(error) or error > target:
+                still_pending.append(epoch)
+                continue
+            samples = []
+            for _ in range(repeats):
+                started = time.perf_counter()
+                value = vbm_one(vbm, row, x, profile_c)
+                samples.append(time.perf_counter() - started)
+            selected[epoch] = {
+                "success": True,
+                "value": value,
+                "seconds": statistics.median(samples),
+                "reltol": reltol,
+                "error": abs(value - reference) / max(abs(reference), 1.0),
+            }
+        pending = still_pending
+    for epoch in pending:
+        selected[epoch] = {"success": False, "error": None}
+    return selected
 
 
 def relative_error(value, reference):
@@ -259,6 +271,7 @@ def main():
                 args.repeats, args.timeout)
             for job, row in enumerate(selected):
                 ref = references(row)
+                vbm_results = vbm_row(row, profile_c, target, args.repeats)
                 for ref_pos, epoch in enumerate(REFERENCE_INDICES):
                     candidates = []
                     for method in ("polar", "cartesian"):
@@ -267,7 +280,7 @@ def main():
                                 result["value"], ref[ref_pos]) <= target:
                             candidates.append((result["seconds"], method, result))
                     algebraic = min(candidates, default=None)
-                    vbm = vbm_point(row, epoch, profile_c, target, args.repeats)
+                    vbm = vbm_results[epoch]
                     ratio = None
                     if algebraic is not None and vbm.get("success"):
                         ratio = vbm["seconds"] / algebraic[0]
@@ -281,6 +294,12 @@ def main():
                         "epoch": epoch,
                         "algebraic_method": None if algebraic is None else algebraic[1],
                         "algebraic_seconds": None if algebraic is None else algebraic[0],
+                        # This is deliberately not part of the speed ratio.  The
+                        # native runner performs one untimed warm-up call per
+                        # source row, then reports the median of steady calls.
+                        "algebraic_warmup_seconds": (
+                            None if algebraic is None
+                            else algebraic[2]["warmup_seconds"]),
                         "vbm_seconds": vbm.get("seconds"),
                         "vbm_reltol": vbm.get("reltol"),
                         "ratio_vbm_over_algebraic": ratio,
@@ -298,6 +317,13 @@ def main():
                       if row["profile"] == profile and row["target"] == target]
             ratios = [row["ratio_vbm_over_algebraic"] for row in subset
                       if row["ratio_vbm_over_algebraic"] is not None]
+            steady = [row["algebraic_seconds"] for row in subset
+                      if finite(row["algebraic_seconds"])]
+            warmups = [row["algebraic_warmup_seconds"] for row in subset
+                       if finite(row["algebraic_warmup_seconds"])]
+            cold_warmups = [row["algebraic_warmup_seconds"] for row in subset
+                            if row["epoch"] == 0
+                            and finite(row["algebraic_warmup_seconds"])]
             summary[profile][str(target)] = {
                 "points": len(subset),
                 "measured_points": len(ratios),
@@ -306,6 +332,15 @@ def main():
                     None if not ratios else float(np.median(ratios))),
                 "p10_ratio": None if not ratios else float(np.percentile(ratios, 10)),
                 "p90_ratio": None if not ratios else float(np.percentile(ratios, 90)),
+                # Milliseconds are easier to read in the diagnostic JSON.  The
+                # ratio above is always built from steady-state samples only.
+                "steady_algebraic_median_ms": (
+                    None if not steady else 1.0e3 * float(np.median(steady))),
+                "warmup_median_ms": (
+                    None if not warmups else 1.0e3 * float(np.median(warmups))),
+                "first_epoch_warmup_median_ms": (
+                    None if not cold_warmups
+                    else 1.0e3 * float(np.median(cold_warmups))),
             }
     payload = {
         "input": str(args.input),

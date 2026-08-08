@@ -8,10 +8,12 @@ Implementation commits: `ae42f7f`, `2f65d98`, `2d8107c`
 
 This is an experimental, native C++ value kernel for a binary lens. It does
 not change the public C API, FFI, JAX implementation, automatic dispatcher, or
-the existing Cartesian and polar production kernels. A call measures a whole
-single-source-position evaluation, including point-image seed generation,
-component-support certification and completion, radial-band discovery, and
-the integral. It is not an integration-only microbenchmark.
+the existing Cartesian and polar production kernels. A steady-state sample
+measures one complete single-source-position finite-source evaluation,
+including point-image seed generation, component-support certification and
+completion, radial-band discovery, and the integral. Construction of the
+`LensModel`/`FiniteSourceMagnifier` and the first caustic-cache build are
+outside that timed sample; they are recorded separately as warm-up cost.
 
 The polar algebraic kernel is the optimized path described below. The branch
 also contains an algebraic Cartesian sextic implementation, but it continues
@@ -264,7 +266,7 @@ The handoff at
 compares only finite-source work and defines
 
 ```text
-R = t_VBM / t_LCB-in
+R_steady = t_VBM / t_LCB-in
 ```
 
 The new comparison uses exactly the same important choices: the recorded pure
@@ -273,25 +275,39 @@ ten factors from `0` through `2`, reference epochs `(0, 7, 15, 23)`, VBM's
 `BinaryMag`/`BinaryMagDark` calls, `a1=0.5` for linear LD, and the sixth
 `BinaryMagDark` argument fixed at `1e-12`. The C++ batch executable measures a
 whole experimental algebraic call, including seed generation, support
-completion, radial bands, and integration. The first call per source warms the
-object; two subsequent calls are timed and the median is kept.
+completion, radial bands, and integration. For each source row it performs
+one untimed warm-up call, records it as `warmup_seconds`, and then times two
+repeated calls, keeping their median as `seconds`. The VBM accuracy-check call
+is also outside its timer and repeated calls use the same VBM object.
+
+Thus the ratio in the table is the requested pure steady one-epoch quantity:
+
+```text
+R_steady = t_VBM(reused object, repeated call)
+           / t_algebraic(reused object, repeated call)
+```
+
+`warmup_seconds` is retained in the per-point JSON and summarized separately;
+it is not included in `R_steady`. The first epoch per geometry is the useful
+diagnostic for the one-time caustic-cache construction, while later warm-ups
+show ordinary allocator/cache effects.
 
 The full stratified run used `case-count=160` per factor and produced the
 following point counts. `measured` means both a qualifying algebraic result and
 a qualifying VBM result were available; unresolved points remain visible in
 the table instead of being silently counted as wins.
 
-| profile | target | points | measured | algebraic wins | win rate / all | median R | p10--p90 R |
+| profile | target | points | measured | algebraic wins | win rate / all | median `R_steady` | p10--p90 `R_steady` |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| uniform | `1e-2` | 1132 | 1108 | 0 | 0.0% | 0.0591 | 0.0166--0.1299 |
-| uniform | `1e-3` | 1132 | 1099 | 0 | 0.0% | 0.0941 | 0.0266--0.1951 |
-| uniform | `1e-4` | 512 | 507 | 0 | 0.0% | 0.1927 | 0.0821--0.3833 |
-| linear LD | `1e-2` | 1124 | 1117 | 57 | 5.1% | 0.3045 | 0.0938--0.7894 |
-| linear LD | `1e-3` | 1124 | 1111 | 632 | 56.2% | 1.1509 | 0.3405--2.6546 |
-| linear LD | `1e-4` | 648 | 633 | 615 | 94.9% | 5.1345 | 1.8817--11.7944 |
+| uniform | `1e-2` | 1132 | 1108 | 0 | 0.0% | 0.0581 | 0.0160--0.1276 |
+| uniform | `1e-3` | 1132 | 1099 | 0 | 0.0% | 0.0923 | 0.0258--0.1905 |
+| uniform | `1e-4` | 512 | 507 | 0 | 0.0% | 0.1938 | 0.0793--0.3754 |
+| linear LD | `1e-2` | 1124 | 1117 | 60 | 5.4% | 0.3136 | 0.0934--0.7942 |
+| linear LD | `1e-3` | 1124 | 1111 | 625 | 56.3% | 1.1422 | 0.3394--2.5698 |
+| linear LD | `1e-4` | 648 | 633 | 613 | 96.8% | 5.3159 | 1.8961--11.9508 |
 
-Among measured points only, the linear-LD win rates are 5.1%, 56.9%, and
-97.2% for `1e-2`, `1e-3`, and `1e-4`. The difference between the two
+Among measured points only, the linear-LD win rates are 5.4%, 56.3%, and
+96.8% for `1e-2`, `1e-3`, and `1e-4`. The difference between the two
 denominators is entirely unresolved algebraic or VBM points, not a timeout win.
 For this run there were 28 polar unsafe calls at the first two targets and 21
 at `1e-4`; Cartesian itself had no unsafe calls. The common polar reasons were
@@ -299,13 +315,20 @@ certified seed support not active, a seed not lying on an active radius, and a
 small number of odd physical-root certifications. The Cartesian method was
 therefore used as the faster qualifying algebraic candidate where appropriate.
 
-Relative to the handoff's previous production-grid medians, the new algebraic
-median `R` is approximately 2.5 times larger for uniform `1e-2`, 2.4 times
-larger for uniform `1e-3`, 5.4 times larger for uniform `1e-4`, 2.3 times
-larger for linear `1e-2`, 2.2 times larger for linear `1e-3`, and 3.4 times
-larger for linear `1e-4`. This is
-an indicative improvement because unresolved points make the measured subsets
-slightly different; it is not a paired per-point speedup claim.
+The measured algebraic steady-call median and the separate first-epoch
+warm-up median were, respectively, `0.983 ms` and `2.252 ms` (uniform
+`1e-2`), `1.139 ms` and `2.464 ms` (uniform `1e-3`), `1.107 ms` and
+`2.411 ms` (uniform `1e-4`), `1.067 ms` and `2.306 ms` (linear `1e-2`),
+`1.316 ms` and `2.616 ms` (linear `1e-3`), and `1.489 ms` and `2.757 ms`
+(linear `1e-4`). Only the steady-call medians enter `R_steady`.
+
+The handoff's earlier production-grid table measured a different quantity: it
+reconstructed a `LensModel` for each epoch and therefore charged the old
+side's one-time caustic-cache construction repeatedly. Its medians must not be
+compared numerically with the `R_steady` table above. A fair old-grid
+comparison needs the same warm-object/repeated-call harness; until that is
+run, this table is intentionally a comparison of the new steady algebraic
+call against steady VBM only, not a claim about the old production grid.
 
 The handoff reproduction is implemented by:
 
@@ -331,15 +354,15 @@ python tests/diagnostics/recal2026/benchmark_algebraic_vs_vbm_dark.py \
 The review of the original pure-grid comparison is relevant to this branch,
 but not every item transfers unchanged.
 
-**Fixed-cost dominance transfers directly.** The new algebraic call also has
-substantial fixed work before the brightness quadrature: image seed creation,
-component-support certification, root solving at band probes, radial-band
-construction, and only then the radial/angular integral. The batch benchmark
-includes all of that work, so its `R` values are valid end-to-end finite-source
-comparisons, but they must not be interpreted as a law for the variable
-quadrature work alone. The next useful profile is a breakdown of seed/support,
-boundary-root, band, and radial-integral time. The diagnostic output already
-records root and tangency counts, but not those component wall times.
+**Fixed-cost dominance transfers directly, but model overhead does not.** The
+new algebraic call still has substantial per-source work before the brightness
+quadrature: image seed creation, component-support certification, root solving
+at band probes, and radial-band construction. The batch benchmark includes
+that finite-source algorithmic work, while excluding `LensModel` construction
+and the first caustic-cache build from `R_steady`. The next useful profile is a
+breakdown of seed/support, boundary-root, band, and radial-integral time. The
+diagnostic output already records root and tangency counts, but not those
+component wall times.
 
 **The timing asymmetry also transfers.** Algebraic time is measured around the
 native C++ experimental method; VBM time is measured around the Python binding
