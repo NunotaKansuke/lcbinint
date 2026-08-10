@@ -153,14 +153,14 @@ def _write_report(payload, points, output):
     lines = [
         "# Pure-kernel rho and d/rho speed relation",
         "",
-        "`R = t_VBM / t_LCB-in`; therefore `R > 1` means LCB-in is faster.",
+        "`R = t_VBM / t_LCB-in`; therefore `R > 1` means lcbinint is faster.",
         "The plotted d/rho is the refined actual caustic distance, not merely",
         "the requested sampling factor. Only external epsilon values 1e-3 and",
         "1e-4 are included.",
         "",
         "## Overall",
         "",
-        "| profile | epsilon | n | LCB-in wins | win rate | median R |",
+        "| profile | epsilon | n | lcbinint wins | win rate | median R |",
         "|---|---:|---:|---:|---:|---:|",
     ]
     for profile in PROFILES:
@@ -175,7 +175,7 @@ def _write_report(payload, points, output):
         "",
         "## Rho bands",
         "",
-        "| profile | epsilon | rho band | n | LCB-in wins | win rate | median R |",
+        "| profile | epsilon | rho band | n | lcbinint wins | win rate | median R |",
         "|---|---:|---|---:|---:|---:|---:|",
     ]
     for profile in PROFILES:
@@ -192,7 +192,7 @@ def _write_report(payload, points, output):
         "",
         "## Actual d/rho bands",
         "",
-        "| profile | epsilon | actual d/rho | n | LCB-in wins | win rate | median R |",
+        "| profile | epsilon | actual d/rho | n | lcbinint wins | win rate | median R |",
         "|---|---:|---|---:|---:|---:|---:|",
     ]
     for profile in PROFILES:
@@ -287,7 +287,7 @@ def _figures(points, output):
         axis.grid(True, which="major", alpha=0.25)
         axis.set_title(rf"$\epsilon={target:g}$")
         axis.set_xlabel(r"$\rho$")
-    axes[0].set_ylabel(r"$R=t_{VBM}/t_{LCB-in}$")
+    axes[0].set_ylabel(r"$R=t_{VBM}/t_{lcbinint}$")
     axes[0].legend(frameon=False, fontsize=8, loc="lower left")
     scalar = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
     scalar.set_array([])

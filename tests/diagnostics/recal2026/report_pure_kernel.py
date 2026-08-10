@@ -85,15 +85,15 @@ def _markdown(payload, summaries, bands, include_figure):
         "",
         "## Timing definition",
         "",
-        "- LCB-in uses the stored minimum Nbin from the warm-up/speed-discovery",
+        "- lcbinint uses the stored minimum Nbin from the warm-up/speed-discovery",
         "  corpus for each requested epsilon; no Nbin search is mixed into the",
         "  timing run.",
-        "- For LCB-in, two identical epochs are evaluated inside one native",
+        "- For lcbinint, two identical epochs are evaluated inside one native",
         "  `_evaluate_preplanned` call. The first epoch builds the LensModel and",
         "  caustic cache; only the second epoch's native `seconds` value is used.",
         "- VBM is warmed once at `RelTol=target`, then the direct finite-source",
         "  call wall time is measured.",
-        "- `R = t_VBM / t_LCB-in`; `R > 1` means LCB-in is faster.",
+        "- `R = t_VBM / t_LCB-in`; `R > 1` means lcbinint is faster.",
         "",
         "## Conditions",
         "",
@@ -105,7 +105,7 @@ def _markdown(payload, summaries, bands, include_figure):
         "",
         "## Overall result",
         "",
-        "| profile | target | jobs | points | measured | LCB-in wins | VBM wins | unresolved | LCB-in win rate | median R | p10 | p90 | median Nbin |",
+        "| profile | target | jobs | points | measured | lcbinint wins | VBM wins | unresolved | lcbinint win rate | median R | p10 | p90 | median Nbin |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for profile in PROFILES:
@@ -127,7 +127,7 @@ def _markdown(payload, summaries, bands, include_figure):
         "",
         "## By d/rho",
         "",
-        "| profile | target | region | measured | LCB-in wins | VBM wins | unresolved | win rate | median R |",
+        "| profile | target | region | measured | lcbinint wins | VBM wins | unresolved | win rate | median R |",
         "|---|---:|---|---:|---:|---:|---:|---:|---:|",
     ]
     for profile in PROFILES:

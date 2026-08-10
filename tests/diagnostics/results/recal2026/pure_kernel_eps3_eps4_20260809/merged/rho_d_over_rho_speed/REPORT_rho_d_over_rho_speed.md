@@ -1,13 +1,13 @@
 # Pure-kernel rho and d/rho speed relation
 
-`R = t_VBM / t_LCB-in`; therefore `R > 1` means LCB-in is faster.
+`R = t_VBM / t_LCB-in`; therefore `R > 1` means lcbinint is faster.
 The plotted d/rho is the refined actual caustic distance, not merely
 the requested sampling factor. Only external epsilon values 1e-3 and
 1e-4 are included.
 
 ## Overall
 
-| profile | epsilon | n | LCB-in wins | win rate | median R |
+| profile | epsilon | n | lcbinint wins | win rate | median R |
 |---|---:|---:|---:|---:|---:|
 | uniform | `0.001` | 1132 | 0 | 0.0% | 0.091 |
 | uniform | `0.0001` | 512 | 0 | 0.0% | 0.038 |
@@ -16,7 +16,7 @@ the requested sampling factor. Only external epsilon values 1e-3 and
 
 ## Rho bands
 
-| profile | epsilon | rho band | n | LCB-in wins | win rate | median R |
+| profile | epsilon | rho band | n | lcbinint wins | win rate | median R |
 |---|---:|---|---:|---:|---:|---:|
 | uniform | `0.001` | $3\times10^{-5}\leq\rho<10^{-3}$ | 228 | 0 | 0.0% | 0.074 |
 | uniform | `0.001` | $10^{-3}\leq\rho<10^{-2}$ | 288 | 0 | 0.0% | 0.106 |
@@ -37,7 +37,7 @@ the requested sampling factor. Only external epsilon values 1e-3 and
 
 ## Actual d/rho bands
 
-| profile | epsilon | actual d/rho | n | LCB-in wins | win rate | median R |
+| profile | epsilon | actual d/rho | n | lcbinint wins | win rate | median R |
 |---|---:|---|---:|---:|---:|---:|
 | uniform | `0.001` | 0–0.3 | 548 | 0 | 0.0% | 0.092 |
 | uniform | `0.001` | 0.3–0.8 | 496 | 0 | 0.0% | 0.095 |

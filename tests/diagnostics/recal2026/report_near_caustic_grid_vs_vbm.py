@@ -158,7 +158,7 @@ def _markdown(payload, summaries, routes, conditioned):
             "`lcbinint_auto` route was exactly `grid`, meaning its methods",
             "were `inverse_ray_cartesian` and/or `inverse_ray_polar` with",
             "no point-source, hexadecapole, or source-plane shortcut.",
-            "Within those blocks, the explicit LCB-in grid is compared",
+            "Within those blocks, the explicit lcbinint grid is compared",
             "against direct VBMicrolensing finite-source integration.",
         ]
     else:

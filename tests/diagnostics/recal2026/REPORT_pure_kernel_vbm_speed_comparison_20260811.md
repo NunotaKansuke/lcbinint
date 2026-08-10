@@ -8,19 +8,19 @@ Timing mode: `pure_kernel_cache_warm`
 ## Executive conclusion
 
 The defensible paper-level conclusion is not a universal speed advantage for
-LCB-in. It is profile- and tolerance-dependent:
+lcbinint. It is profile- and tolerance-dependent:
 
 - For a uniform source, VBM is faster in every measured case in this corpus.
-- For linear limb darkening with `c=0.5`, LCB-in wins about 62--67% of the
+- For linear limb darkening with `c=0.5`, lcbinint wins about 62--67% of the
   measured epochs at external tolerances `1e-3` and `1e-4`, respectively.
-- The clearest operational predictor is the Nbin required by the LCB-in
+- The clearest operational predictor is the Nbin required by the lcbinint
   calculation. `d/rho` gives a trend, but does not define a reliable
   one-dimensional crossover law by itself.
 - These are cache-warm, one-epoch integrator results. They are not a claim
   about the total cost of a fresh `LightCurve` construction or a complete
   production light curve.
 
-The result should therefore be stated as: **LCB-in is competitive, and often
+The result should therefore be stated as: **lcbinint is competitive, and often
 faster, for sufficiently demanding linearly limb-darkened finite-source
 integrals when the certified grid remains at low-to-moderate Nbin; VBM remains
 the clear choice for uniform sources in this test.**
@@ -33,24 +33,24 @@ The speed ratio is
 R = t_VBM / t_LCB-in
 ```
 
-Thus `R > 1` means that LCB-in is faster. The comparison is restricted to
+Thus `R > 1` means that lcbinint is faster. The comparison is restricted to
 epochs for which the production route is a finite-source grid route. Point
 source, hexadecapole, and source-plane quadrature shortcuts are excluded.
 
-For each epoch, Cartesian and polar LCB-in grids were both evaluated. The
+For each epoch, Cartesian and polar lcbinint grids were both evaluated. The
 faster grid satisfying the certified resolution requirement was retained. The
 Nbin value was read from the existing warm-up/speed-discovery corpus; Nbin
 search was not included in the timing.
 
 ## Timing protocol
 
-The LCB-in worker evaluates two identical epochs through the native
+The lcbinint worker evaluates two identical epochs through the native
 `_evaluate_preplanned` path. The first epoch constructs the `LensModel` and
 caustic cache. Only the second epoch's native integration time is recorded.
 VBM is warmed once and then its direct finite-source call is timed at the
 requested external tolerance.
 
-Consequently, the following are outside the reported LCB-in time:
+Consequently, the following are outside the reported lcbinint time:
 
 - `LensModel` construction;
 - first-use caustic-cache construction;
@@ -79,7 +79,7 @@ The raw merged result is [`results.json`](../results/recal2026/pure_kernel_eps3_
 
 ## Main results
 
-| profile | target | measured | LCB-in win rate | median `R` | p10--p90 `R` | median Nbin |
+| profile | target | measured | lcbinint win rate | median `R` | p10--p90 `R` | median Nbin |
 |---|---:|---:|---:|---:|---:|---:|
 | uniform | `1e-3` | 1,132 | 0.0% | 0.091 | 0.018--0.195 | 24 |
 | uniform | `1e-4` | 512 | 0.0% | 0.038 | 0.006--0.102 | 50 |
@@ -96,7 +96,7 @@ The refined `actual d/rho` used in the plots is the nearest caustic distance
 computed from the lens geometry divided by `rho`. It is not the requested
 sampling-factor label and it is computed after timing as a geometry annotation.
 
-For linear LD, smaller actual `d/rho` is associated with a higher LCB-in win
+For linear LD, smaller actual `d/rho` is associated with a higher lcbinint win
 rate, but the separation is broad. At `1e-4`, the win rates are 82.3% for
 `0 <= d/rho < 0.3`, 49.6% for `0.3 <= d/rho < 0.8`, and 30.8% for
 `0.8 <= d/rho < 1.05`. This is a trend, not a usable `d/rho`-only decision
@@ -105,7 +105,7 @@ boundary.
 The stronger practical split is the selected Nbin. For linear LD at `1e-4`,
 the median speed ratio changes from approximately 2.96--4.93 for Nbin up to
 24, to 1.53 for Nbin 24--50, and to 0.97 for Nbin 50--101. In other words,
-once the LCB-in grid has to become large, its kernel cost catches up with and
+once the lcbinint grid has to become large, its kernel cost catches up with and
 then exceeds VBM.
 
 The full stratification and figures are in
@@ -119,13 +119,13 @@ The full stratification and figures are in
 The speed ratio is controlled by two costs, not one geometric scalar:
 
 ```text
-geometry and source profile -> required Nbin -> LCB-in integration cost
+geometry and source profile -> required Nbin -> lcbinint integration cost
 local binary geometry       -> VBM adaptive integration cost
 ```
 
 The ratio of those two costs produces scatter even at similar `d/rho`. The
 source profile is essential: limb darkening makes the VBM calculation more
-expensive while the LCB-in grid remains competitive at the tested resolutions.
+expensive while the lcbinint grid remains competitive at the tested resolutions.
 For a uniform source, that advantage is absent in this corpus.
 
 The data do not support a claim that `A_finite` or `d/rho` alone determines the
@@ -161,11 +161,11 @@ The measurement used the native extension at
 This is a controlled kernel comparison, not an end-to-end inference benchmark.
 The result does not include Nbin discovery, does not include the one-time
 caustic-cache construction, and does not include Python/API overhead on the
-LCB-in side. The measured corpus is broad in binary geometry but is not an
+lcbinint side. The measured corpus is broad in binary geometry but is not an
 independent parameter holdout. The current result is therefore suitable as a
 paper diagnostic and mechanism study, not as a universal runtime law.
 
 The previous cache-cold and exploratory speed directories are deliberately not
-used as primary evidence here because they mix a one-time LCB-in setup cost
+used as primary evidence here because they mix a one-time lcbinint setup cost
 into each scalar epoch. They should remain historical audit material rather
 than being combined with this table.

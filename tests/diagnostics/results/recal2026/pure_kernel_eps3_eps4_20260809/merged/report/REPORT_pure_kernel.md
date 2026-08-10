@@ -5,15 +5,15 @@ This is the cache-warm integrator comparison. It is deliberately not a
 
 ## Timing definition
 
-- LCB-in uses the stored minimum Nbin from the warm-up/speed-discovery
+- lcbinint uses the stored minimum Nbin from the warm-up/speed-discovery
   corpus for each requested epsilon; no Nbin search is mixed into the
   timing run.
-- For LCB-in, two identical epochs are evaluated inside one native
+- For lcbinint, two identical epochs are evaluated inside one native
   `_evaluate_preplanned` call. The first epoch builds the LensModel and
   caustic cache; only the second epoch's native `seconds` value is used.
 - VBM is warmed once at `RelTol=target`, then the direct finite-source
   call wall time is measured.
-- `R = t_VBM / t_LCB-in`; `R > 1` means LCB-in is faster.
+- `R = t_VBM / t_LCB-in`; `R > 1` means lcbinint is faster.
 
 ## Conditions
 
@@ -25,7 +25,7 @@ This is the cache-warm integrator comparison. It is deliberately not a
 
 ## Overall result
 
-| profile | target | jobs | points | measured | LCB-in wins | VBM wins | unresolved | LCB-in win rate | median R | p10 | p90 | median Nbin |
+| profile | target | jobs | points | measured | lcbinint wins | VBM wins | unresolved | lcbinint win rate | median R | p10 | p90 | median Nbin |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
 | uniform | `0.001` | 283 | 1132 | 1132 | 0 | 1132 | 0 | 0.0% | 0.091 | 0.018 | 0.195 | 24 |
 | uniform | `0.0001` | 128 | 512 | 512 | 0 | 512 | 0 | 0.0% | 0.038 | 0.006 | 0.102 | 50 |
@@ -34,7 +34,7 @@ This is the cache-warm integrator comparison. It is deliberately not a
 
 ## By d/rho
 
-| profile | target | region | measured | LCB-in wins | VBM wins | unresolved | win rate | median R |
+| profile | target | region | measured | lcbinint wins | VBM wins | unresolved | win rate | median R |
 |---|---:|---|---:|---:|---:|---:|---:|---:|
 | uniform | `0.001` | inner | 692 | 0 | 692 | 0 | 0.0% | 0.085 |
 | uniform | `0.001` | tangent | 312 | 0 | 312 | 0 | 0.0% | 0.093 |
