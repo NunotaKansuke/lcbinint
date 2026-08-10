@@ -34,6 +34,15 @@ is retained. The tangency fixes handle grazing cases through source-plane chord
 quadrature before this grid switch. Sections below that discuss the former
 retry ladder are retained as historical algorithm-development evidence.
 
+**Corrected one-epoch kernel comparison.** The later cache-warm comparison is
+reported separately in
+[`REPORT_pure_kernel_vbm_speed_comparison_20260811.md`](../../recal2026/REPORT_pure_kernel_vbm_speed_comparison_20260811.md).
+It removes the one-time `LensModel`/caustic-cache construction from the LCB-in
+per-epoch timing and uses only external tolerances `1e-3` and `1e-4`. Do not
+combine its ratios with the historical block-level tables below: the former is
+an integrator-kernel result, while the latter includes a different cache and
+route protocol.
+
 ---
 
 ## Contents

@@ -17,6 +17,11 @@ and lcbinint's own JAX backend.
 > particular its JAX numbers supersede Stage 4's here, which were taken before
 > the missing `jax.jit` was found.
 
+> **For the corrected one-epoch speed comparison, start with
+> [`REPORT_pure_kernel_vbm_speed_comparison_20260811.md`](../../recal2026/REPORT_pure_kernel_vbm_speed_comparison_20260811.md).**
+> It uses cache-warm native kernel timing and keeps the older cache-cold
+> exploratory comparisons separate.
+
 ## The files in this directory
 
 | file | what it holds |
