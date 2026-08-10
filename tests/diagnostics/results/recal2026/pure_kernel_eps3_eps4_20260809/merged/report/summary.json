@@ -1,0 +1,112 @@
+{
+  "uniform": {
+    "0.001": {
+      "jobs": 283,
+      "points": 1132,
+      "measured": 1132,
+      "grid_wins": 0,
+      "vbm_wins": 1132,
+      "unresolved": 0,
+      "grid_win_rate": 0.0,
+      "ratio": {
+        "count": 1132,
+        "win_rate": 0.0,
+        "median": 0.09117987198514825,
+        "p10": 0.018330328466937728,
+        "p90": 0.19476344210982377
+      },
+      "nbin": {
+        "count": 1132,
+        "win_rate": 1.0,
+        "median": 24.0,
+        "p10": 16.0,
+        "p90": 32.0
+      },
+      "status_counts": {
+        "measured": 1132
+      }
+    },
+    "0.0001": {
+      "jobs": 128,
+      "points": 512,
+      "measured": 512,
+      "grid_wins": 0,
+      "vbm_wins": 512,
+      "unresolved": 0,
+      "grid_win_rate": 0.0,
+      "ratio": {
+        "count": 512,
+        "win_rate": 0.0,
+        "median": 0.03782426541998361,
+        "p10": 0.006030906830241181,
+        "p90": 0.10201477080450348
+      },
+      "nbin": {
+        "count": 512,
+        "win_rate": 1.0,
+        "median": 50.0,
+        "p10": 24.80000000000001,
+        "p90": 100.0
+      },
+      "status_counts": {
+        "measured": 512
+      }
+    }
+  },
+  "linear": {
+    "0.001": {
+      "jobs": 281,
+      "points": 1124,
+      "measured": 1122,
+      "grid_wins": 693,
+      "vbm_wins": 429,
+      "unresolved": 2,
+      "grid_win_rate": 0.6176470588235294,
+      "ratio": {
+        "count": 1122,
+        "win_rate": 0.6176470588235294,
+        "median": 1.3512129162657498,
+        "p10": 0.1947315619994254,
+        "p90": 3.0356449651284776
+      },
+      "nbin": {
+        "count": 1124,
+        "win_rate": 1.0,
+        "median": 16.0,
+        "p10": 16.0,
+        "p90": 32.0
+      },
+      "status_counts": {
+        "measured": 1122,
+        "vbm_unresolved": 2
+      }
+    },
+    "0.0001": {
+      "jobs": 162,
+      "points": 648,
+      "measured": 646,
+      "grid_wins": 431,
+      "vbm_wins": 215,
+      "unresolved": 2,
+      "grid_win_rate": 0.6671826625386997,
+      "ratio": {
+        "count": 646,
+        "win_rate": 0.6671826625386997,
+        "median": 1.576388130346977,
+        "p10": 0.349569841295163,
+        "p90": 6.5599726756843495
+      },
+      "nbin": {
+        "count": 648,
+        "win_rate": 1.0,
+        "median": 50.0,
+        "p10": 24.0,
+        "p90": 64.0
+      },
+      "status_counts": {
+        "measured": 646,
+        "vbm_unresolved": 2
+      }
+    }
+  }
+}

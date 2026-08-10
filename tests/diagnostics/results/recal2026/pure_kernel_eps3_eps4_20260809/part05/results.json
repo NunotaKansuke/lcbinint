@@ -1,0 +1,6316 @@
+{
+  "input": "tests/diagnostics/results/recal2026/speed_discovery",
+  "case_count": 160,
+  "factors": [
+    1.7,
+    2.0
+  ],
+  "seed": 20260809,
+  "repeats": 2,
+  "search_missing": false,
+  "point_timeout": 300.0,
+  "job_timeout": 0.0,
+  "targets": [
+    0.001,
+    0.0001
+  ],
+  "profiles": [
+    "uniform",
+    "linear"
+  ],
+  "route_filter": "grid",
+  "timing_mode": "pure_kernel_cache_warm",
+  "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+  "filters": {
+    "rho_min": null,
+    "rho_max": null,
+    "q_min": 0.0001,
+    "q_max": null,
+    "d_max": 2.01,
+    "magnification_min": null,
+    "magnification_max": null
+  },
+  "reference_indices": [
+    0,
+    7,
+    15,
+    23
+  ],
+  "results": [
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 52,
+      "s": 1.2,
+      "q": 1.0,
+      "rho": 0.2720446295173433,
+      "x": 0.18208879106311907,
+      "y": 0.24585300045929626,
+      "d_over_rho": 1.7,
+      "point_magnification": 3.709264600568293,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.001,
+      "reference": [
+        3.7093497156083135,
+        3.7103441253587075,
+        3.709179485528273,
+        3.707821438227058
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            32,
+            32,
+            32,
+            32
+          ],
+          "required": [
+            32,
+            32,
+            32,
+            32
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0009260935,
+            0.000960688,
+            0.0010647665000000001,
+            0.00113693
+          ],
+          "errors": [
+            8.218741781541666e-07,
+            0.0005065647023014271,
+            2.6278208558593086e-05,
+            0.00010996774481287717
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0006017329999999999,
+            0.0006372805,
+            0.0007076775,
+            0.0007114510000000001
+          ],
+          "errors": [
+            0.000920258163425725,
+            0.0010201748969806803,
+            0.00034960043727663053,
+            0.0003359879173890962
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.00012218949268572032,
+          0.00012747899745590985,
+          0.00011817649647127837,
+          0.00010632049816194922
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          1.999881415774655e-06,
+          5.115421618793856e-07,
+          0.0002106813138205616,
+          0.00016019170194882444
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "cartesian",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        24,
+        32,
+        24,
+        24
+      ],
+      "chosen_seconds": [
+        0.0006017329999999999,
+        0.000960688,
+        0.0007076775,
+        0.0007114510000000001
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.203062641878907,
+        0.13269552389111747,
+        0.16699202174900057,
+        0.14944177204325976
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 2.1700825415352627e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 52,
+      "s": 1.2,
+      "q": 1.0,
+      "rho": 0.2720446295173433,
+      "x": 0.18208879106311907,
+      "y": 0.24585300045929626,
+      "d_over_rho": 1.7,
+      "point_magnification": 3.7639334852427333,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference": [
+        3.7521985052591402,
+        3.7664272484511887,
+        3.7700978403466223,
+        3.761439722034278
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.00083481,
+            0.0009368265,
+            0.0011448915,
+            0.0010992425
+          ],
+          "errors": [
+            2.4578558635782782e-05,
+            0.0007070178515668231,
+            0.0005635183438668321,
+            8.8084435885992e-06
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0006786335000000001,
+            0.0006425145,
+            0.0007228785,
+            0.0007222735
+          ],
+          "errors": [
+            0.0006567086096769945,
+            0.0006529727946578453,
+            9.358667872437917e-05,
+            0.000188571888035947
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.0011593554954743013,
+          0.00143026901059784,
+          0.0017215200059581548,
+          0.0018524019978940487
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          9.298182558824516e-05,
+          5.134991306340936e-05,
+          0.0002789264150202789,
+          0.00017986076604643747
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "chosen_seconds": [
+        0.0006786335000000001,
+        0.0006425145,
+        0.0007228785,
+        0.0007222735
+      ],
+      "ratios_vbm_over_lcbinint": [
+        1.708367617387443,
+        2.2260493896991274,
+        2.3814790534760055,
+        2.564682212339299
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 1.3597902763937954e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 101,
+      "s": 0.983683560126039,
+      "q": 0.0026211986156817885,
+      "rho": 0.006349299710141454,
+      "x": 0.002775272299548124,
+      "y": 0.010836288140141549,
+      "d_over_rho": 1.7,
+      "point_magnification": 123.19025723936969,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.001,
+      "reference": [
+        123.51766323884586,
+        123.97828210208151,
+        122.86285123989352,
+        120.41111727666258
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256
+          ],
+          "seconds": [
+            0.0029937945,
+            0.0031309470000000002,
+            0.0032175679999999996,
+            0.0029601634999999998
+          ],
+          "errors": [
+            0.0001882599270122307,
+            0.00046443787506305565,
+            0.00043952704890535003,
+            0.00024089283647608562
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0024276175,
+            0.0024410424999999998,
+            0.0024569954999999997,
+            0.002452471
+          ],
+          "errors": [
+            0.00035076229323965723,
+            0.0004666180002801317,
+            0.0004136371264429913,
+            0.0004360276173640829
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.00019834500562865287,
+          0.0001894324814202264,
+          0.00018717051716521382,
+          0.0001922149967867881
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          8.790253620549262e-06,
+          3.681376551839407e-07,
+          0.00010394136499340288,
+          2.53786742697728e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "chosen_seconds": [
+        0.0024276175,
+        0.0024410424999999998,
+        0.0024569954999999997,
+        0.002452471
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.0817035655858688,
+        0.07760310663178802,
+        0.07617861618599377,
+        0.0783760528816806
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 2.326548008395238e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 101,
+      "s": 0.983683560126039,
+      "q": 0.0026211986156817885,
+      "rho": 0.006349299710141454,
+      "x": 0.002775272299548124,
+      "y": 0.010836288140141549,
+      "d_over_rho": 1.7,
+      "point_magnification": 122.8327605348995,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference": [
+        122.37922043475064,
+        123.61944689996567,
+        123.28630063504838,
+        121.44336301816669
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256
+          ],
+          "seconds": [
+            0.0033430545,
+            0.0033322145,
+            0.003447656,
+            0.0033005969999999997
+          ],
+          "errors": [
+            0.00011106856111251374,
+            0.0002848974190882863,
+            0.0002886569825938539,
+            0.00010923476342511382
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256
+          ],
+          "seconds": [
+            0.0014229815,
+            0.001429507,
+            0.001448072,
+            0.001424717
+          ],
+          "errors": [
+            0.0007360665462189238,
+            0.0006444446366447141,
+            0.0008171265381098884,
+            0.0008081478620479925
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.0015024330059532076,
+          0.0015369985048891976,
+          0.0017600814899196848,
+          0.0017083764978451654
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          0.00014947862181974243,
+          3.098055098447324e-05,
+          1.7233832963320676e-05,
+          0.00010659111139719771
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.0014229815,
+        0.001429507,
+        0.001448072,
+        0.001424717
+      ],
+      "ratios_vbm_over_lcbinint": [
+        1.055834531898839,
+        1.075194808342455,
+        1.215465453319783,
+        1.199098837063898
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 1.4215052248931773e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 107,
+      "s": 2.4522215814099573,
+      "q": 0.006682514147145457,
+      "rho": 0.022075113359830235,
+      "x": -2.007944474241123,
+      "y": 0.011271096078887004,
+      "d_over_rho": 1.7,
+      "point_magnification": 4.27938316752968,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.001,
+      "reference": [
+        4.810340915126345,
+        4.431448662298872,
+        4.127317672760489,
+        3.865327401650096
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.000854538,
+            0.0008997785,
+            0.00084471,
+            0.000801028
+          ],
+          "errors": [
+            0.0005815541983209737,
+            0.0005397633980605156,
+            0.0002486819963683709,
+            0.00019345677254855776
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.001965688,
+            0.001740474,
+            0.0015898695,
+            0.001473683
+          ],
+          "errors": [
+            0.00015316341251814385,
+            4.8899410567118545e-05,
+            6.441352401673328e-05,
+            0.00014995443895388525
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.00013357149146031588,
+          0.00010738147830124944,
+          9.890500223264098e-05,
+          9.787498856894672e-05
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          2.2134267517200095e-05,
+          1.452180619169876e-05,
+          9.731218607675424e-07,
+          6.191665040531105e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "cartesian",
+        "cartesian",
+        "cartesian",
+        "cartesian"
+      ],
+      "chosen_nbin": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "chosen_seconds": [
+        0.000854538,
+        0.0008997785,
+        0.00084471,
+        0.000801028
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.15630842801644385,
+        0.11934212509106346,
+        0.11708752380419431,
+        0.12218672576857079
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 9.875250633827194e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 107,
+      "s": 2.4522215814099573,
+      "q": 0.006682514147145457,
+      "rho": 0.022075113359830235,
+      "x": -2.007944474241123,
+      "y": 0.011271096078887004,
+      "d_over_rho": 1.7,
+      "point_magnification": 4.27938316752968,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.0001,
+      "reference": [
+        4.810340915126345,
+        4.431448662298872,
+        4.127317672760489,
+        3.865327401650096
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "required": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0014785525,
+            0.0022192640000000003,
+            0.002071891,
+            0.001982432
+          ],
+          "errors": [
+            4.231278013827409e-06,
+            7.091330062207769e-06,
+            4.275054906294298e-05,
+            6.06921266847702e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "required": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.008568355,
+            0.0076619965000000005,
+            0.0070102005,
+            0.0064759464999999995
+          ],
+          "errors": [
+            5.463622947114712e-06,
+            2.353074531860056e-05,
+            3.3561974446717326e-05,
+            3.5117671964658676e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.00022238798555918038,
+          0.00018392849597148597,
+          0.0001681600115261972,
+          0.000164277502335608
+        ],
+        "selected_reltol": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          2.1947650387399124e-05,
+          2.0140256954356077e-06,
+          1.2830888740500822e-05,
+          1.692899408042629e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "cartesian",
+        "cartesian",
+        "cartesian",
+        "cartesian"
+      ],
+      "chosen_nbin": [
+        64,
+        64,
+        64,
+        64
+      ],
+      "chosen_seconds": [
+        0.0014785525,
+        0.0022192640000000003,
+        0.002071891,
+        0.001982432
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.1504092587575892,
+        0.0828781505812224,
+        0.08116257637404534,
+        0.08286665183754499
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 9.875250633827194e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 107,
+      "s": 2.4522215814099573,
+      "q": 0.006682514147145457,
+      "rho": 0.022075113359830235,
+      "x": -2.007944474241123,
+      "y": 0.011271096078887004,
+      "d_over_rho": 1.7,
+      "point_magnification": 4.285582746608226,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference": [
+        4.792661351165759,
+        4.436991281276611,
+        4.1341742119398415,
+        3.8697620285611514
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0008154225000000001,
+            0.0007920605,
+            0.0007613225,
+            0.0007067894999999999
+          ],
+          "errors": [
+            0.0005273238259913598,
+            0.000853613990900782,
+            0.0002322644546611736,
+            0.0004696846675491987
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.002210115,
+            0.001880522,
+            0.0018163525,
+            0.0015965135
+          ],
+          "errors": [
+            3.7397196726346044e-05,
+            0.00010811584139023077,
+            0.00018129895692006447,
+            0.0001436929074416263
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.002625041001010686,
+          0.0017481539980508387,
+          0.0017074015049729496,
+          0.0013126465055393055
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          9.746719550042074e-06,
+          5.8234700916677514e-05,
+          8.618280864493103e-05,
+          0.0001331354935803801
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "cartesian",
+        "cartesian",
+        "cartesian",
+        "cartesian"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.0008154225000000001,
+        0.0007920605,
+        0.0007613225,
+        0.0007067894999999999
+      ],
+      "ratios_vbm_over_lcbinint": [
+        3.219240333705148,
+        2.2070965514008574,
+        2.2426783721392045,
+        1.8571958207348944
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 9.332263997138664e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 107,
+      "s": 2.4522215814099573,
+      "q": 0.006682514147145457,
+      "rho": 0.022075113359830235,
+      "x": -2.007944474241123,
+      "y": 0.011271096078887004,
+      "d_over_rho": 1.7,
+      "point_magnification": 4.285582746608226,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.0001,
+      "reference": [
+        4.792661351165759,
+        4.436991281276611,
+        4.1341742119398415,
+        3.8697620285611514
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "required": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0016209905,
+            0.0023828545,
+            0.0022705325,
+            0.002349408
+          ],
+          "errors": [
+            8.67000222374486e-06,
+            6.173284888710515e-07,
+            1.0957307565642002e-05,
+            3.510806808799471e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.006274964,
+            0.005670173000000001,
+            0.0052103265,
+            0.0048075595
+          ],
+          "errors": [
+            6.111547191170329e-05,
+            4.118354102560096e-05,
+            1.6076249856817853e-05,
+            5.603585729096349e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.008095142984529957,
+          0.006710043016937561,
+          0.006371244991896674,
+          0.005918444017879665
+        ],
+        "selected_reltol": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          1.8607247680378228e-05,
+          1.166576674240047e-05,
+          3.0024837137880337e-05,
+          3.355231591208337e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "cartesian",
+        "cartesian",
+        "cartesian",
+        "cartesian"
+      ],
+      "chosen_nbin": [
+        64,
+        64,
+        64,
+        64
+      ],
+      "chosen_seconds": [
+        0.0016209905,
+        0.0023828545,
+        0.0022705325,
+        0.002349408
+      ],
+      "ratios_vbm_over_lcbinint": [
+        4.993948443578144,
+        2.8159684181042364,
+        2.8060576062649063,
+        2.5191214203236156
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 9.332263997138664e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 125,
+      "s": 0.4028082317049909,
+      "q": 0.005313675050885894,
+      "rho": 0.0028299667498495164,
+      "x": 2.0599449578662896,
+      "y": 0.327341167922442,
+      "d_over_rho": 1.7,
+      "point_magnification": 1.7031008683265236,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.001,
+      "reference": [
+        1.6903538788500085,
+        1.7024214472461052,
+        1.7061715034967793,
+        1.7037802894069418
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0004618895,
+            0.000458435,
+            0.0004619445,
+            0.000467768
+          ],
+          "errors": [
+            0.0009550611221793432,
+            0.00036792638702057485,
+            0.0004057644958561137,
+            0.0005258148541201873
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            32,
+            32,
+            32,
+            32
+          ],
+          "required": [
+            32,
+            32,
+            32,
+            32
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0015336655,
+            0.0013534649999999999,
+            0.0013407,
+            0.0014994535000000002
+          ],
+          "errors": [
+            0.0003105595101441417,
+            8.806706369497454e-05,
+            0.0003920439165241029,
+            0.0013936722678773608
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          7.721048314124346e-05,
+          7.089950668159872e-05,
+          7.113850733730942e-05,
+          6.551499245688319e-05
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          2.5980762629251232e-05,
+          0.0001543467547833398,
+          2.7622763033164587e-05,
+          3.5051679536499045e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "cartesian",
+        "cartesian",
+        "cartesian",
+        "cartesian"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.0004618895,
+        0.000458435,
+        0.0004619445,
+        0.000467768
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.16716223932616667,
+        0.15465552735196642,
+        0.15399795286513732,
+        0.14005873094543275
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 2.1352829489589193e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 125,
+      "s": 0.4028082317049909,
+      "q": 0.005313675050885894,
+      "rho": 0.0028299667498495164,
+      "x": 2.0599449578662896,
+      "y": 0.327341167922442,
+      "d_over_rho": 1.7,
+      "point_magnification": 1.6609195714272122,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference": [
+        1.636023912016641,
+        1.654619341788551,
+        1.6672198010658734,
+        1.673446688821221
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.00046235549999999997,
+            0.000477365,
+            0.00045722000000000004,
+            0.00047840649999999997
+          ],
+          "errors": [
+            0.0006562880215291976,
+            0.000836560455591386,
+            0.00039211367447311406,
+            0.00032435163470542766
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            32,
+            32,
+            32,
+            32
+          ],
+          "required": [
+            32,
+            32,
+            32,
+            32
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.001589821,
+            0.0014739495,
+            0.0014573705,
+            0.0015931195
+          ],
+          "errors": [
+            0.00041472014564592483,
+            0.0001506224541770081,
+            0.00033958474738591637,
+            0.001025175431621576
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.0009547449881210923,
+          0.0009870335052255541,
+          0.0006534515123348683,
+          0.0006258825014811009
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          3.619739473239159e-05,
+          0.00012199513235289232,
+          8.010597870433073e-05,
+          2.680277064016038e-06
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "cartesian",
+        "cartesian",
+        "cartesian",
+        "cartesian"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.00046235549999999997,
+        0.000477365,
+        0.00045722000000000004,
+        0.00047840649999999997
+      ],
+      "ratios_vbm_over_lcbinint": [
+        2.0649586478826194,
+        2.0676704518042883,
+        1.4291840084311016,
+        1.3082650454814075
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 1.2052257043576754e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 10,
+      "s": 0.3,
+      "q": 0.001,
+      "rho": 0.00011027602365547681,
+      "x": 3.0271449435890827,
+      "y": 0.2013293386051097,
+      "d_over_rho": 2.0,
+      "point_magnification": 3.2240887106681866,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.001,
+      "reference": [
+        2.992973864397535,
+        3.144136300584843,
+        3.3040411207515303,
+        3.449212690247785
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.000543191,
+            0.000564223,
+            0.00040320250000000003,
+            0.0005542545000000001
+          ],
+          "errors": [
+            0.00015034757301823988,
+            8.116300730810892e-05,
+            0.0006082089710514166,
+            0.000436059233586461
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160
+          ],
+          "seconds": [
+            0.015168099,
+            0.0116574045,
+            0.0117556215,
+            0.014104842
+          ],
+          "errors": [
+            0.0005596175683894087,
+            0.0005315727803018076,
+            0.00048392970296166215,
+            0.0004287166257144276
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          6.303148984443396e-05,
+          6.334600038826466e-05,
+          6.208400009199977e-05,
+          6.715698691550642e-05
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          1.0568167717386394e-05,
+          8.681072238221265e-05,
+          7.146591992001585e-05,
+          1.6083031211519173e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "cartesian",
+        "cartesian",
+        "cartesian",
+        "cartesian"
+      ],
+      "chosen_nbin": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "chosen_seconds": [
+        0.000543191,
+        0.000564223,
+        0.00040320250000000003,
+        0.0005542545000000001
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.1160392750329699,
+        0.11227121260257851,
+        0.15397722011148185,
+        0.12116633588993218
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 2.783347350447044e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 10,
+      "s": 0.3,
+      "q": 0.001,
+      "rho": 0.00011027602365547681,
+      "x": 3.0271449435890827,
+      "y": 0.2013293386051097,
+      "d_over_rho": 2.0,
+      "point_magnification": 3.2711998375616567,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference": [
+        3.0158591957866325,
+        3.1840565685526205,
+        3.3583431065706932,
+        3.510772825267723
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.000378916,
+            0.000379899,
+            0.0003869745,
+            0.00038162
+          ],
+          "errors": [
+            0.000931486262127286,
+            0.0003735947490114334,
+            0.00026785950834425044,
+            7.006572380832053e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160
+          ],
+          "seconds": [
+            0.0161687195,
+            0.0127782865,
+            0.0130313565,
+            0.013205982
+          ],
+          "errors": [
+            0.0006034968919527997,
+            0.000594605157867603,
+            0.0005378786229735,
+            0.00041922484194271113
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.0006466239865403622,
+          0.0008570124919060618,
+          0.0007534509932156652,
+          0.0009322569967480376
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          7.212431538841687e-05,
+          1.0626842859276684e-06,
+          0.00020526719558377094,
+          8.848899917724433e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "cartesian",
+        "cartesian",
+        "cartesian",
+        "cartesian"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.000378916,
+        0.000379899,
+        0.0003869745,
+        0.00038162
+      ],
+      "ratios_vbm_over_lcbinint": [
+        1.7065101144854329,
+        2.255895624642502,
+        1.947030083934898,
+        2.4428934457000095
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 1.5747688591778836e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 24,
+      "s": 0.9,
+      "q": 0.1,
+      "rho": 0.07400828044922851,
+      "x": -0.0765146899583948,
+      "y": -0.07472342809285086,
+      "d_over_rho": 2.0,
+      "point_magnification": 8.914866567492567,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.001,
+      "reference": [
+        8.354577792844594,
+        8.69676362045453,
+        9.132969514530604,
+        9.633307114625877
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0005267315,
+            0.00054465,
+            0.000566644,
+            0.0005549859999999999
+          ],
+          "errors": [
+            0.00046425775931594696,
+            0.0009980182239021933,
+            0.0005347189134496465,
+            0.0006318661788130888
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.00027567399999999995,
+            0.00031581800000000004,
+            0.0002905015,
+            0.000281971
+          ],
+          "errors": [
+            0.0011953493363894999,
+            0.0005963181297037011,
+            0.0011513669389650255,
+            0.000989313734385649
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          9.987701196223497e-05,
+          9.726299322210252e-05,
+          9.056500857695937e-05,
+          0.00010383699554949999
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          0.00011193014140086692,
+          2.5062806044665406e-05,
+          2.1639386484976734e-05,
+          5.095256512824749e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "cartesian",
+        "polar",
+        "cartesian",
+        "polar"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.0005267315,
+        0.00031581800000000004,
+        0.000566644,
+        0.000281971
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.1896165540929961,
+        0.30797165843017976,
+        0.1598269964509628,
+        0.36825416638413166
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 8.601564481915378e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 24,
+      "s": 0.9,
+      "q": 0.1,
+      "rho": 0.07400828044922851,
+      "x": -0.0765146899583948,
+      "y": -0.07472342809285086,
+      "d_over_rho": 2.0,
+      "point_magnification": 8.914866567492567,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.0001,
+      "reference": [
+        8.354577792844594,
+        8.69676362045453,
+        9.132969514530604,
+        9.633307114625877
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "required": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0032389065,
+            0.0033543995,
+            0.0035075385,
+            0.0036521655000000004
+          ],
+          "errors": [
+            2.6998423923792173e-05,
+            7.362129709105543e-05,
+            6.589853556409531e-05,
+            2.7685383508821078e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "required": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.001482626,
+            0.0017436115000000001,
+            0.0014309555,
+            0.001446743
+          ],
+          "errors": [
+            3.686202558004332e-05,
+            5.097869836522027e-05,
+            9.024405240641312e-05,
+            4.527087028532763e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.00015670301218051463,
+          0.00016502549988217652,
+          0.00016453798161819577,
+          0.00016983249224722385
+        ],
+        "selected_reltol": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          5.7974861815195934e-06,
+          1.3069808019379e-05,
+          6.009041079495764e-06,
+          2.2686328227505542e-06
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        64,
+        64,
+        64,
+        64
+      ],
+      "chosen_seconds": [
+        0.001482626,
+        0.0017436115000000001,
+        0.0014309555,
+        0.001446743
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.10569288018725871,
+        0.09464579688891506,
+        0.11498469492461211,
+        0.117389537911864
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 8.601564481915378e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 24,
+      "s": 0.9,
+      "q": 0.1,
+      "rho": 0.07400828044922851,
+      "x": -0.0765146899583948,
+      "y": -0.07472342809285086,
+      "d_over_rho": 2.0,
+      "point_magnification": 8.892194089646818,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference": [
+        8.373306410608391,
+        8.690756530531106,
+        9.093631648762528,
+        9.556202427766861
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.000567749,
+            0.0005712455,
+            0.00058423,
+            0.0005977479999999999
+          ],
+          "errors": [
+            0.00023447340700675592,
+            0.0004939218822915259,
+            0.0003609514053192691,
+            0.00033364455170144995
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.000291287,
+            0.0002937435,
+            0.000293705,
+            0.00029118600000000003
+          ],
+          "errors": [
+            0.0005888675419906843,
+            0.0003466523826638938,
+            0.0006785791589765355,
+            0.0003783686599622284
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.0007071595027809963,
+          0.0007484980160370469,
+          0.0006636030011577532,
+          0.0007506785041186959
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          0.000124972389041094,
+          3.972770678015037e-05,
+          7.735059160482025e-05,
+          0.00011377942527627066
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.000291287,
+        0.0002937435,
+        0.000293705,
+        0.00029118600000000003
+      ],
+      "ratios_vbm_over_lcbinint": [
+        2.4277070476231217,
+        2.548134736724547,
+        2.2594201704354817,
+        2.5780034209017457
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 5.000013883806756e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 24,
+      "s": 0.9,
+      "q": 0.1,
+      "rho": 0.07400828044922851,
+      "x": -0.0765146899583948,
+      "y": -0.07472342809285086,
+      "d_over_rho": 2.0,
+      "point_magnification": 8.892194089646818,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.0001,
+      "reference": [
+        8.373306410608391,
+        8.690756530531106,
+        9.093631648762528,
+        9.556202427766861
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0023834835,
+            0.002451234,
+            0.002555989,
+            0.0026601884999999997
+          ],
+          "errors": [
+            8.611387855737052e-05,
+            6.41782731222796e-05,
+            1.1648595008982588e-05,
+            5.6762602066887905e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0010720130000000001,
+            0.0010780265,
+            0.0010835745,
+            0.0010944610000000001
+          ],
+          "errors": [
+            4.521836845942476e-05,
+            6.292561960496609e-05,
+            1.710516890751441e-05,
+            8.293546649733546e-06
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.0025587769923731685,
+          0.0026527714944677427,
+          0.002491137507604435,
+          0.0026497539947740734
+        ],
+        "selected_reltol": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          3.991932554645177e-06,
+          2.61850051559797e-05,
+          1.7152991057451028e-05,
+          3.992164923451799e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        50,
+        50,
+        50,
+        50
+      ],
+      "chosen_seconds": [
+        0.0010720130000000001,
+        0.0010780265,
+        0.0010835745,
+        0.0010944610000000001
+      ],
+      "ratios_vbm_over_lcbinint": [
+        2.386889890675923,
+        2.4607664973613756,
+        2.298999752766824,
+        2.4210583974888764
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 5.000013883806756e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 32,
+      "s": 0.95,
+      "q": 0.001,
+      "rho": 0.020133555236025995,
+      "x": 0.14900388131536452,
+      "y": -0.016333937913438814,
+      "d_over_rho": 2.0,
+      "point_magnification": 6.2182196988373875,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.001,
+      "reference": [
+        6.398286129943892,
+        6.282075022425152,
+        6.154364375249623,
+        6.031824272416107
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.001017211,
+            0.0010039749999999998,
+            0.0009260830000000001,
+            0.0010556419999999999
+          ],
+          "errors": [
+            0.000523486707935878,
+            0.0004431700379274765,
+            0.0006192602414794457,
+            0.0006227755828697881
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0007167594999999999,
+            0.0007111505,
+            0.0006525274999999999,
+            0.0007700585000000001
+          ],
+          "errors": [
+            0.0002359912373512415,
+            0.00044946722099129427,
+            0.0005833266260506925,
+            0.0008587719354922111
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.00011323048966005445,
+          8.096901001408696e-05,
+          7.805399945937097e-05,
+          7.590849418193102e-05
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          3.3861982188952084e-05,
+          4.558874881792582e-05,
+          0.00013164537103365026,
+          5.860955633383218e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.0007167594999999999,
+        0.0007111505,
+        0.0006525274999999999,
+        0.0007700585000000001
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.15797556873686983,
+        0.11385636375716106,
+        0.11961794630781228,
+        0.09857497083913887
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 3.7458488096129115e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 32,
+      "s": 0.95,
+      "q": 0.001,
+      "rho": 0.020133555236025995,
+      "x": 0.14900388131536452,
+      "y": -0.016333937913438814,
+      "d_over_rho": 2.0,
+      "point_magnification": 6.2182196988373875,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.0001,
+      "reference": [
+        6.398286129943892,
+        6.282075022425152,
+        6.154364375249623,
+        6.031824272416107
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "required": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0033031055,
+            0.0032647045,
+            0.0031449875,
+            0.0032122914999999997
+          ],
+          "errors": [
+            7.835382333502552e-05,
+            8.43711174836666e-05,
+            6.177972232360527e-05,
+            7.042616998084588e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            100,
+            100,
+            100,
+            100
+          ],
+          "required": [
+            100,
+            100,
+            100,
+            100
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.008597918,
+            0.008340786999999999,
+            0.0080852045,
+            0.008013358
+          ],
+          "errors": [
+            2.3133118100533447e-06,
+            5.128456486586322e-07,
+            4.647209097329309e-05,
+            1.3625970032507453e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.00014321548223961145,
+          0.00014490449393633753,
+          0.00014634501712862402,
+          0.00012980149767827243
+        ],
+        "selected_reltol": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          4.66804096505198e-06,
+          9.883687274289917e-06,
+          1.1844752543185853e-05,
+          1.6419067039637987e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "cartesian",
+        "cartesian",
+        "cartesian",
+        "cartesian"
+      ],
+      "chosen_nbin": [
+        64,
+        64,
+        64,
+        64
+      ],
+      "chosen_seconds": [
+        0.0033031055,
+        0.0032647045,
+        0.0031449875,
+        0.0032122914999999997
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.043357828637205637,
+        0.04438517909854859,
+        0.04653278180871117,
+        0.04040775803761036
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 3.7458488096129115e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 32,
+      "s": 0.95,
+      "q": 0.001,
+      "rho": 0.020133555236025995,
+      "x": 0.14900388131536452,
+      "y": -0.016333937913438814,
+      "d_over_rho": 2.0,
+      "point_magnification": 6.2063516847142735,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference": [
+        6.386541286505585,
+        6.270262818999347,
+        6.1424405504292,
+        6.01977520713295
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.001070263,
+            0.0011562285,
+            0.0009784135,
+            0.0011073575
+          ],
+          "errors": [
+            0.00030245948117848956,
+            0.0003599606321305274,
+            0.00038015393886366264,
+            0.00041534005551426397
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0007532415,
+            0.0007459925,
+            0.000680052,
+            0.0007987355
+          ],
+          "errors": [
+            0.0001759605152906963,
+            9.77921878426999e-05,
+            0.0005674381153896374,
+            0.0005661713337507762
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.0009111774998018518,
+          0.0008284699870273471,
+          0.0008253624982899055,
+          0.0007307510095415637
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          2.4199471653941946e-05,
+          6.511476053481159e-05,
+          9.255713115308845e-05,
+          4.375977547251976e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.0007532415,
+        0.0007459925,
+        0.000680052,
+        0.0007987355
+      ],
+      "ratios_vbm_over_lcbinint": [
+        1.209675117212543,
+        1.110560745620562,
+        1.213675569353381,
+        0.9148848517958243
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 2.0032364907783277e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 32,
+      "s": 0.95,
+      "q": 0.001,
+      "rho": 0.020133555236025995,
+      "x": 0.14900388131536452,
+      "y": -0.016333937913438814,
+      "d_over_rho": 2.0,
+      "point_magnification": 6.2063516847142735,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.0001,
+      "reference": [
+        6.386541286505585,
+        6.270262818999347,
+        6.1424405504292,
+        6.01977520713295
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "required": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.003673978,
+            0.0035347075,
+            0.003421745,
+            0.0034735325000000003
+          ],
+          "errors": [
+            5.573808905500232e-05,
+            6.366081361842855e-05,
+            4.49849578558328e-05,
+            4.606719243404446e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "required": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0044151805,
+            0.004331356999999999,
+            0.004159265,
+            0.004193609
+          ],
+          "errors": [
+            5.523711963837649e-05,
+            2.739059534829237e-05,
+            8.998004844412117e-06,
+            5.54047861314061e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.003375162501470186,
+          0.003088615500018932,
+          0.0028490929980762303,
+          0.0028779134881915525
+        ],
+        "selected_reltol": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          1.6561445144143554e-05,
+          7.71207879369527e-06,
+          2.3357138184292054e-06,
+          6.570355571436297e-06
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "cartesian",
+        "cartesian",
+        "cartesian",
+        "cartesian"
+      ],
+      "chosen_nbin": [
+        64,
+        64,
+        64,
+        64
+      ],
+      "chosen_seconds": [
+        0.003673978,
+        0.0035347075,
+        0.003421745,
+        0.0034735325000000003
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.9186670419556638,
+        0.8737966295708859,
+        0.8326432852466301,
+        0.8285264318648385
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 2.0032364907783277e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 53,
+      "s": 2.0,
+      "q": 0.0001,
+      "rho": 1.0,
+      "x": -0.19390760014401745,
+      "y": 2.002069001278702,
+      "d_over_rho": 2.0,
+      "point_magnification": 1.0750346348399988,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.001,
+      "reference": [
+        1.0719422483930345,
+        1.0741999054651263,
+        1.0758693642148716,
+        1.0764256960201275
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "required": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0005258565000000001,
+            0.0005246855,
+            0.000521642,
+            0.0005176965
+          ],
+          "errors": [
+            0.00028487018072754643,
+            5.934579196882825e-05,
+            0.00027465124672399957,
+            0.000606367777759025
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0001587955,
+            0.0001574155,
+            0.00015594049999999998,
+            0.0001720065
+          ],
+          "errors": [
+            1.3381358012108965e-05,
+            0.0008769756513572205,
+            0.0004046050231959352,
+            0.00045474300550276526
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          4.7488007112406194e-05,
+          5.44715003343299e-05,
+          5.6958990171551704e-05,
+          4.918049671687186e-05
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          1.3015410884361003e-05,
+          6.715338041745737e-06,
+          1.0802548204355514e-05,
+          3.5347273642150455e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        50,
+        50,
+        50,
+        50
+      ],
+      "chosen_seconds": [
+        0.0001587955,
+        0.0001574155,
+        0.00015594049999999998,
+        0.0001720065
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.29905134032391467,
+        0.34603644707369924,
+        0.3652610461782007,
+        0.2859223152431557
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 7.741942881434178e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 53,
+      "s": 2.0,
+      "q": 0.0001,
+      "rho": 1.0,
+      "x": -0.19390760014401745,
+      "y": 2.002069001278702,
+      "d_over_rho": 2.0,
+      "point_magnification": 1.0736845339090877,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference": [
+        1.0706613784148005,
+        1.0728731864664096,
+        1.0744958813517658,
+        1.0750297150346448
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "required": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0005770770000000001,
+            0.000574208,
+            0.000569808,
+            0.000560662
+          ],
+          "errors": [
+            0.00019198540720615894,
+            2.141040170082685e-05,
+            0.00018916229639762125,
+            0.00044388973210529977
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0001699915,
+            0.0001672055,
+            0.000164253,
+            0.00016404750000000002
+          ],
+          "errors": [
+            1.3868816003070942e-05,
+            0.0005704773023044771,
+            0.00027649902059547355,
+            0.00031616810322236097
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.00012829049956053495,
+          0.00012867248733527958,
+          0.00012699000944849104,
+          0.00012520200107246637
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          0.00014521091564385745,
+          0.00016389428838809524,
+          0.00015791626354514125,
+          0.00014395356818504645
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        50,
+        50,
+        50,
+        50
+      ],
+      "chosen_seconds": [
+        0.0001699915,
+        0.0001672055,
+        0.000164253,
+        0.00016404750000000002
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.7546877318015016,
+        0.7695469786297674,
+        0.7731366212397401,
+        0.7632057853515986
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 4.805506265652554e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 75,
+      "s": 1.05,
+      "q": 0.0001,
+      "rho": 0.0014900498023478462,
+      "x": 0.002867919039190792,
+      "y": -0.0010624791857803688,
+      "d_over_rho": 2.0,
+      "point_magnification": 330.7170881682893,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.001,
+      "reference": [
+        366.3187260579621,
+        342.62006342009545,
+        318.81411291648317,
+        297.9094140030324
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160
+          ],
+          "seconds": [
+            0.021327501,
+            0.0190461545,
+            0.018071577499999998,
+            0.0175850355
+          ],
+          "errors": [
+            0.00031235451031332397,
+            0.0003313382608887644,
+            0.00034839357018715076,
+            0.00036227820385839225
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160
+          ],
+          "seconds": [
+            0.013623954,
+            0.0126359525,
+            0.012400169999999999,
+            0.011744965
+          ],
+          "errors": [
+            0.0005111854822643729,
+            0.0004840463061120057,
+            0.0003950045715285751,
+            0.0004108453262062339
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.0002370595175307244,
+          0.00023119898105505854,
+          0.00022727149189449847,
+          0.0002272790006827563
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          5.412677875623652e-06,
+          4.5659310374175245e-05,
+          4.289196345561081e-05,
+          3.119343277930947e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        24,
+        24,
+        24,
+        24
+      ],
+      "chosen_seconds": [
+        0.013623954,
+        0.0126359525,
+        0.012400169999999999,
+        0.011744965
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.017400199496469555,
+        0.018296917549750092,
+        0.018328094848255993,
+        0.01935118586413466
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 2.731415027833071e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 75,
+      "s": 1.05,
+      "q": 0.0001,
+      "rho": 0.0014900498023478462,
+      "x": 0.002867919039190792,
+      "y": -0.0010624791857803688,
+      "d_over_rho": 2.0,
+      "point_magnification": 330.7170881682893,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.0001,
+      "reference": [
+        366.3187260579621,
+        342.62006342009545,
+        318.81411291648317,
+        297.9094140030324
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "required": [
+            64,
+            64,
+            64,
+            64
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160
+          ],
+          "seconds": [
+            0.120692312,
+            0.10874694300000001,
+            0.10606366049999999,
+            0.096278859
+          ],
+          "errors": [
+            4.249599223555232e-05,
+            4.4812178548104e-05,
+            4.7921335859532925e-05,
+            5.020034042573332e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160
+          ],
+          "seconds": [
+            0.049612869500000004,
+            0.0468430675,
+            0.046227458,
+            0.045425289
+          ],
+          "errors": [
+            8.913223659552358e-05,
+            7.941368224639128e-05,
+            7.629811326798689e-05,
+            9.552309457808946e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.00040777500544209033,
+          0.00040025750058703125,
+          0.0003834745002677664,
+          0.00038676000258419663
+        ],
+        "selected_reltol": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          3.2460884282796755e-06,
+          2.871205758499234e-06,
+          3.4463077651579196e-06,
+          1.182458022393503e-06
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        50,
+        50,
+        50,
+        50
+      ],
+      "chosen_seconds": [
+        0.049612869500000004,
+        0.0468430675,
+        0.046227458,
+        0.045425289
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.008219137686484558,
+        0.00854464752093853,
+        0.008295383671491657,
+        0.008514200153667632
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 2.731415027833071e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 75,
+      "s": 1.05,
+      "q": 0.0001,
+      "rho": 0.0014900498023478462,
+      "x": 0.002867919039190792,
+      "y": -0.0010624791857803688,
+      "d_over_rho": 2.0,
+      "point_magnification": 333.8870908099345,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference": [
+        369.81547915386375,
+        345.911992260085,
+        321.86218935978394,
+        300.71384523448575
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160
+          ],
+          "seconds": [
+            0.0117751835,
+            0.01143933,
+            0.011491175,
+            0.010071812
+          ],
+          "errors": [
+            0.00042624294346520994,
+            0.0004559865325365696,
+            0.0004914625046079914,
+            0.0005157316974264008
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100
+          ],
+          "seconds": [
+            0.007236632,
+            0.0069327675,
+            0.007369845,
+            0.00664563
+          ],
+          "errors": [
+            0.0007360809251827095,
+            0.0006567469935967734,
+            0.000710156542402631,
+            0.0006215116550706218
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.0027709039859473705,
+          0.0029547654994530603,
+          0.0031411625095643103,
+          0.003099553010542877
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          3.9758876842353155e-05,
+          5.187036844869924e-06,
+          5.225684443112187e-06,
+          2.3009780246402006e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.007236632,
+        0.0069327675,
+        0.007369845,
+        0.00664563
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.3828996674070715,
+        0.4262028835458654,
+        0.4262182596193421,
+        0.46640469158573034
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 1.710687761631844e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 75,
+      "s": 1.05,
+      "q": 0.0001,
+      "rho": 0.0014900498023478462,
+      "x": 0.002867919039190792,
+      "y": -0.0010624791857803688,
+      "d_over_rho": 2.0,
+      "point_magnification": 333.8870908099345,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.0001,
+      "reference": [
+        369.81547915386375,
+        345.911992260085,
+        321.86218935978394,
+        300.71384523448575
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160
+          ],
+          "seconds": [
+            0.0848589285,
+            0.078742024,
+            0.0727060625,
+            0.06854181749999999
+          ],
+          "errors": [
+            4.3804698465665326e-05,
+            4.696558919030246e-05,
+            4.513112370393851e-05,
+            4.922717169735715e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100
+          ],
+          "seconds": [
+            0.055666734999999995,
+            0.053993911,
+            0.052564454,
+            0.050835324
+          ],
+          "errors": [
+            5.2001383068880956e-05,
+            4.5877232239588584e-05,
+            4.32227139875181e-05,
+            5.8122817025181915e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.013306817505508661,
+          0.013918227487010881,
+          0.012816303496947512,
+          0.01352847198722884
+        ],
+        "selected_reltol": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          4.911886020451156e-06,
+          4.794318067117069e-06,
+          9.800949332039142e-07,
+          2.549173757547436e-06
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        50,
+        50,
+        50,
+        50
+      ],
+      "chosen_seconds": [
+        0.055666734999999995,
+        0.053993911,
+        0.052564454,
+        0.050835324
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.23904433240980744,
+        0.25777401987070137,
+        0.24382072906050756,
+        0.2661234535896504
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 1.710687761631844e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 87,
+      "s": 1.0,
+      "q": 1.0,
+      "rho": 0.07400828044922851,
+      "x": -0.19664248789131483,
+      "y": 0.09204175609327282,
+      "d_over_rho": 2.0,
+      "point_magnification": 7.008447785316731,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.001,
+      "reference": [
+        6.876540100914988,
+        6.975135630605144,
+        7.041759940028318,
+        7.053470559336155
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "required": [
+            24,
+            24,
+            24,
+            24
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0007253515,
+            0.0006957630000000001,
+            0.0007225475,
+            0.0006801295
+          ],
+          "errors": [
+            4.509463684202374e-05,
+            0.00030767595348744903,
+            9.237362300528765e-05,
+            0.000228913171136053
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.00028896,
+            0.0002856805,
+            0.0002779975,
+            0.000267592
+          ],
+          "errors": [
+            0.0006918997904355766,
+            0.000176994792624187,
+            0.00022737284203743285,
+            0.0007758730801211873
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          9.397098619956523e-05,
+          9.271000453736633e-05,
+          9.091450192499906e-05,
+          8.9284498244524e-05
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          4.224235484516965e-05,
+          9.986893578698409e-05,
+          7.565340151569473e-06,
+          6.79004929087504e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.00028896,
+        0.0002856805,
+        0.0002779975,
+        0.000267592
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.3252041327504334,
+        0.3245233907717409,
+        0.3270335234129769,
+        0.3336590714390715
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 1.2116944974752954e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 87,
+      "s": 1.0,
+      "q": 1.0,
+      "rho": 0.07400828044922851,
+      "x": -0.19664248789131483,
+      "y": 0.09204175609327282,
+      "d_over_rho": 2.0,
+      "point_magnification": 7.152013940598103,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference": [
+        7.034495547447983,
+        7.137401339491126,
+        7.189832781594939,
+        7.166626541705078
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0005232175,
+            0.000566654,
+            0.000571095,
+            0.0005003690000000001
+          ],
+          "errors": [
+            0.0009059093311745374,
+            0.00019968515612858384,
+            0.0002002147153067427,
+            0.0002901838096987786
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "required": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.000295588,
+            0.00028658549999999996,
+            0.0002847115,
+            0.0002744685
+          ],
+          "errors": [
+            0.0006847230040573743,
+            0.00013180217849790608,
+            0.0001684093905112248,
+            0.0005554607213101027
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.0012471415102481842,
+          0.0013791589881293476,
+          0.0011788499978138134,
+          0.0010240490082651377
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          5.5313794722081536e-05,
+          6.419806806017662e-06,
+          0.00010489639803571823,
+          0.00016160432492754608
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "chosen_seconds": [
+        0.000295588,
+        0.00028658549999999996,
+        0.0002847115,
+        0.0002744685
+      ],
+      "ratios_vbm_over_lcbinint": [
+        4.21918856735789,
+        4.8123823017192,
+        4.140507137273392,
+        3.731025630500905
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 6.652984000026573e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 87,
+      "s": 1.0,
+      "q": 1.0,
+      "rho": 0.07400828044922851,
+      "x": -0.19664248789131483,
+      "y": 0.09204175609327282,
+      "d_over_rho": 2.0,
+      "point_magnification": 7.152013940598103,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.0001,
+      "reference": [
+        7.034495547447983,
+        7.137401339491126,
+        7.189832781594939,
+        7.166626541705078
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0016924875,
+            0.0017232355,
+            0.001703226,
+            0.001789178
+          ],
+          "errors": [
+            5.849432446230992e-05,
+            3.344036005738156e-05,
+            1.9134656331417807e-05,
+            7.10530669948909e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.000799062,
+            0.0007829155,
+            0.000784904,
+            0.0007793660000000001
+          ],
+          "errors": [
+            3.852015945687576e-05,
+            5.825382276053576e-05,
+            7.320147776651779e-05,
+            3.7997017111067706e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.006064811997930519,
+          0.005654306500218809,
+          0.005453910504002124,
+          0.004673840492614545
+        ],
+        "selected_reltol": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          7.551654292948442e-06,
+          4.391285341021941e-06,
+          2.8757285205664566e-06,
+          1.9408911009027894e-05
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        50,
+        50,
+        50,
+        50
+      ],
+      "chosen_seconds": [
+        0.000799062,
+        0.0007829155,
+        0.000784904,
+        0.0007793660000000001
+      ],
+      "ratios_vbm_over_lcbinint": [
+        7.589914171779561,
+        7.222115924667233,
+        6.948506446650959,
+        5.996977662118368
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 6.652984000026573e-06
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 159,
+      "s": 0.8653363123137114,
+      "q": 0.8934568734352817,
+      "rho": 0.03168202135470877,
+      "x": -0.045357981294213943,
+      "y": -0.8104291271389233,
+      "d_over_rho": 2.0,
+      "point_magnification": 2.7476750305554667,
+      "profile": "uniform",
+      "limb_darkening_c": 0.0,
+      "target": 0.001,
+      "reference": [
+        2.8663327244233763,
+        2.7883047454533765,
+        2.707045315657557,
+        2.633196312826996
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0009292084999999999,
+            0.0009154075,
+            0.0009233025,
+            0.0009042284999999999
+          ],
+          "errors": [
+            0.00034960435997900325,
+            0.00041605874237740127,
+            0.00018098317621902487,
+            0.00017031800296421829
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.000454501,
+            0.000441806,
+            0.00043309049999999997,
+            0.000427528
+          ],
+          "errors": [
+            7.516445502017279e-05,
+            0.0002972707788954951,
+            0.0003778361733356048,
+            0.0003005838287397786
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          6.85709819663316e-05,
+          5.965252057649195e-05,
+          6.197350739967078e-05,
+          5.988900375086814e-05
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          0.00010601135132442616,
+          0.0001461151256022833,
+          0.00017144956724119936,
+          0.00022671634795323119
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        50,
+        50,
+        50,
+        50
+      ],
+      "chosen_seconds": [
+        0.000454501,
+        0.000441806,
+        0.00043309049999999997,
+        0.000427528
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.15087091550146556,
+        0.1350197158401922,
+        0.1430959750898964,
+        0.14008206187867964
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 4.429868682031505e-05
+    },
+    {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 159,
+      "s": 0.8653363123137114,
+      "q": 0.8934568734352817,
+      "rho": 0.03168202135470877,
+      "x": -0.045357981294213943,
+      "y": -0.8104291271389233,
+      "d_over_rho": 2.0,
+      "point_magnification": 2.698061870336043,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference": [
+        2.821291452508468,
+        2.740161177693958,
+        2.655962562978128,
+        2.5798452140111583
+      ],
+      "grid": {
+        "cartesian": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "required": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.0010182855,
+            0.001014754,
+            0.000967083,
+            0.0009584394999999999
+          ],
+          "errors": [
+            0.00018934158248328834,
+            0.0002733373908932461,
+            0.0001454501652792522,
+            0.00012184316621423092
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "source": "speed_discovery_saved_minimum",
+          "predicted": [
+            32,
+            32,
+            32,
+            32
+          ],
+          "required": [
+            32,
+            32,
+            32,
+            32
+          ],
+          "candidate_ladder": [
+            16,
+            24,
+            32,
+            50,
+            64,
+            100,
+            160,
+            256,
+            400
+          ],
+          "seconds": [
+            0.00034602099999999996,
+            0.0004064655,
+            0.0003510205,
+            0.000333779
+          ],
+          "errors": [
+            0.0005501635762859025,
+            0.0003726676882728668,
+            0.0006173008256367144,
+            0.0007856319335250768
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.0006271484890021384,
+          0.0007129385048756376,
+          0.0006813524960307404,
+          0.0007253274961840361
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "errors": [
+          0.00010425576920754772,
+          0.00014169321514746346,
+          0.00015590441614692354,
+          0.00020300986226764374
+        ],
+        "pass": [
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        32,
+        32,
+        32,
+        32
+      ],
+      "chosen_seconds": [
+        0.00034602099999999996,
+        0.0004064655,
+        0.0003510205,
+        0.000333779
+      ],
+      "ratios_vbm_over_lcbinint": [
+        1.812457882620241,
+        1.753995123511436,
+        1.941061835507443,
+        2.1730770844901452
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "reference_floor": 2.8902343457015645e-05
+    }
+  ],
+  "summary": {
+    "linear": {
+      "0.001": {
+        "rows": 11,
+        "grid_counts": {
+          "cartesian": 12,
+          "polar": 32
+        },
+        "nbin": {
+          "count": 44,
+          "median": 16.0,
+          "p10": 16.0,
+          "p90": 32.0
+        },
+        "ratio_vbm_over_lcbinint": {
+          "count": 44,
+          "win_rate": 0.7954545454545454,
+          "median": 1.8348268516775676,
+          "p10": 0.7572431478665307,
+          "p90": 3.0268692598641294
+        },
+        "comparison": {
+          "total_points": 44,
+          "status_counts": {
+            "measured": 44
+          },
+          "classified_points": 44,
+          "grid_wins": 35,
+          "vbm_wins": 9,
+          "grid_win_rate_among_classified": 0.7954545454545454,
+          "grid_win_rate_with_both_timeout_unresolved": 0.7954545454545454
+        }
+      },
+      "0.0001": {
+        "rows": 5,
+        "grid_counts": {
+          "cartesian": 8,
+          "polar": 12
+        },
+        "nbin": {
+          "count": 20,
+          "median": 50.0,
+          "p10": 50.0,
+          "p90": 64.0
+        },
+        "ratio_vbm_over_lcbinint": {
+          "count": 20,
+          "win_rate": 0.6,
+          "median": 2.4039741440823996,
+          "p10": 0.256378690789682,
+          "p90": 6.975867394452587
+        },
+        "comparison": {
+          "total_points": 20,
+          "status_counts": {
+            "measured": 20
+          },
+          "classified_points": 20,
+          "grid_wins": 12,
+          "vbm_wins": 8,
+          "grid_win_rate_among_classified": 0.6,
+          "grid_win_rate_with_both_timeout_unresolved": 0.6
+        }
+      }
+    },
+    "uniform": {
+      "0.001": {
+        "rows": 11,
+        "grid_counts": {
+          "cartesian": 15,
+          "polar": 29
+        },
+        "nbin": {
+          "count": 44,
+          "median": 24.0,
+          "p10": 16.0,
+          "p90": 50.0
+        },
+        "ratio_vbm_over_lcbinint": {
+          "count": 44,
+          "win_rate": 0.0,
+          "median": 0.14626887356657808,
+          "p10": 0.07660596331973205,
+          "p90": 0.3264847062142139
+        },
+        "comparison": {
+          "total_points": 44,
+          "status_counts": {
+            "measured": 44
+          },
+          "classified_points": 44,
+          "grid_wins": 0,
+          "vbm_wins": 44,
+          "grid_win_rate_among_classified": 0.0,
+          "grid_win_rate_with_both_timeout_unresolved": 0.0
+        }
+      },
+      "0.0001": {
+        "rows": 4,
+        "grid_counts": {
+          "cartesian": 8,
+          "polar": 8
+        },
+        "nbin": {
+          "count": 16,
+          "median": 64.0,
+          "p10": 50.0,
+          "p90": 64.0
+        },
+        "ratio_vbm_over_lcbinint": {
+          "count": 16,
+          "win_rate": 0.0,
+          "median": 0.06384767909137826,
+          "p10": 0.008404791912579646,
+          "p90": 0.11618711641823806
+        },
+        "comparison": {
+          "total_points": 16,
+          "status_counts": {
+            "measured": 16
+          },
+          "classified_points": 16,
+          "grid_wins": 0,
+          "vbm_wins": 16,
+          "grid_win_rate_among_classified": 0.0,
+          "grid_win_rate_with_both_timeout_unresolved": 0.0
+        }
+      }
+    }
+  },
+  "elapsed_seconds": 10.307522497023456
+}
