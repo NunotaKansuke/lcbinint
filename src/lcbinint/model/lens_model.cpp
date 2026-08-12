@@ -201,6 +201,107 @@ MagnificationResult LensModel::magnification(
     return magnification_impl(time, &plan);
 }
 
+MagnificationResult LensModel::magnification_source(
+    SourcePosition source, const MagnificationExecutionPlan& plan) const
+{
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    MagnificationResult result;
+    result.magnification = nan;
+    result.point_source_magnification = nan;
+    result.finite_source_magnification = nan;
+    result.source = source;
+    result.image_count = 0;
+
+    // This entry point is intentionally narrow: the caller supplies a source
+    // position in the already-transformed, static binary-lens frame.  Keeping
+    // dynamic trajectories and triples on the ordinary time-based path makes
+    // it impossible to accidentally benchmark a direct XY call with a stale
+    // orbital or parallax state.
+    const bool has_parallax = options_.parallax_mode != 0 &&
+        (params_.piEN != 0.0 || params_.piEE != 0.0);
+    const bool has_xallarap = options_.xallarap_param_type != LCBI_XALLARAP_NONE &&
+        params_.has_xallarap();
+    if (params_.is_triple() || params_.orbital_motion_mode != LCBI_ORBIT_STATIC ||
+        has_parallax || has_xallarap ||
+        has_unsupported_dynamic_effects(params_, options_)) {
+        result.status = EvaluationStatus::unsupported;
+        return result;
+    }
+    if (!std::isfinite(source.x) || !std::isfinite(source.y) ||
+        !std::isfinite(params_.sep)) {
+        result.status = EvaluationStatus::numerical_error;
+        return result;
+    }
+
+    const double effective_q = (options_.vbm_compatible != 0 && params_.q != 0.0)
+        ? 1.0 / params_.q
+        : params_.q;
+    result.separation = params_.sep;
+    result.mass_ratio = effective_q;
+
+    if (supports_binary_point_source(params_, options_)) {
+        const auto point = point_magnifier_.binary_mag0(
+            params_.sep, effective_q, source);
+        result.point_source_magnification = point.magnification;
+        result.image_count = point.image_count;
+        result.magnification = point.magnification;
+        result.status = std::isfinite(result.magnification)
+            ? EvaluationStatus::ok
+            : EvaluationStatus::numerical_error;
+        return result;
+    }
+
+    const auto point_images = point_magnifier_.binary_images(
+        params_.sep, effective_q, source);
+    double point_source_magnification = 0.0;
+    std::vector<SourcePosition> center_image_seeds;
+    const bool plan_needs_image_seeds =
+        plan.method == magnification::FiniteSourceMethod::inverse_ray_cartesian ||
+        plan.method == magnification::FiniteSourceMethod::inverse_ray_polar ||
+        plan.method == magnification::FiniteSourceMethod::inverse_ray_spine;
+    if (plan_needs_image_seeds) center_image_seeds.reserve(point_images.size());
+    for (const auto& image : point_images) {
+        point_source_magnification += 1.0 / std::abs(image.jacobian_determinant);
+        if (plan_needs_image_seeds) center_image_seeds.push_back(image.position);
+    }
+    result.point_source_magnification = point_source_magnification;
+    result.image_count = static_cast<int>(point_images.size());
+
+    const auto finite_result = finite_magnifier_.binary_mag_preplanned(
+        params_.sep,
+        effective_q,
+        source,
+        std::abs(params_.rho),
+        point_source_magnification,
+        plan.method,
+        plan.resolution,
+        &center_image_seeds,
+        &point_magnifier_);
+    result.magnification = finite_result.magnification;
+    result.finite_source_magnification = finite_result.magnification;
+    result.finite_source_error_estimate = finite_result.error_estimate;
+    result.finite_source_method = static_cast<int>(finite_result.decision.method);
+    result.finite_source_refinement_level = finite_result.refinement_level;
+    result.finite_source_converged = finite_result.converged;
+    result.point_source_quadrupole_indicator =
+        finite_result.point_source_quadrupole_indicator;
+    result.point_source_cusp_indicator = finite_result.point_source_cusp_indicator;
+    result.point_source_ghost_indicator = finite_result.point_source_ghost_indicator;
+    result.point_source_planetary_distance2 =
+        finite_result.point_source_planetary_distance2;
+    result.point_source_safety_tolerance = finite_result.point_source_safety_tolerance;
+    result.point_source_ghost_count = finite_result.point_source_ghost_count;
+    result.point_source_safety_flags = finite_result.point_source_safety_flags;
+    result.caustic_distance = finite_result.caustic_distance;
+    if (!std::isfinite(result.magnification) ||
+        (!finite_result.converged && requires_finite_source_convergence(options_))) {
+        result.status = EvaluationStatus::numerical_error;
+        return result;
+    }
+    result.status = EvaluationStatus::ok;
+    return result;
+}
+
 MagnificationResult LensModel::magnification_impl(
     double time, const MagnificationExecutionPlan* plan) const
 {

@@ -365,6 +365,49 @@ py::dict compute_preplanned_diagnostic(
     return output;
 }
 
+py::dict compute_preplanned_xy_diagnostic(
+    const lcbinint::lc::LightCurve& lc,
+    const TimesArray& source_x,
+    const TimesArray& source_y,
+    const lcbi_params& params,
+    const std::vector<int>& methods,
+    const std::vector<int>& resolutions)
+{
+    const std::vector<double> xv = times_from_array(source_x);
+    const std::vector<double> yv = times_from_array(source_y);
+    const auto plan = execution_plan_from(methods, resolutions);
+    std::vector<lcbinint::MagnificationResult> results;
+    std::vector<double> epoch_seconds;
+    {
+        py::gil_scoped_release release;
+        results = lc.evaluate_preplanned_xy_diagnostic(
+            xv, yv, params, plan, &epoch_seconds);
+    }
+    std::vector<double> magnifications;
+    std::vector<double> errors;
+    std::vector<int> converged;
+    std::vector<int> actual_methods;
+    magnifications.reserve(results.size());
+    errors.reserve(results.size());
+    converged.reserve(results.size());
+    actual_methods.reserve(results.size());
+    for (const auto& result : results) {
+        magnifications.push_back(result.finite_source_magnification);
+        errors.push_back(result.finite_source_error_estimate);
+        converged.push_back(
+            result.status == lcbinint::EvaluationStatus::ok &&
+            result.finite_source_converged);
+        actual_methods.push_back(result.finite_source_method);
+    }
+    py::dict output;
+    output["magnification"] = vec_to_numpy(std::move(magnifications));
+    output["error_estimate"] = vec_to_numpy(std::move(errors));
+    output["converged"] = py::cast(std::move(converged));
+    output["method"] = py::cast(std::move(actual_methods));
+    output["seconds"] = vec_to_numpy(std::move(epoch_seconds));
+    return output;
+}
+
 lcbi_params inference_params_from_object(const py::handle& item)
 {
     const auto object = py::reinterpret_borrow<py::object>(item);
@@ -1796,6 +1839,15 @@ LightCurves with a ground Site apply the terrestrial correction.)")
             },
             py::arg("times"), py::arg("params"), py::arg("methods"),
             py::arg("resolutions"))
+        .def("_evaluate_preplanned_xy",
+            [&](const LC& lc, const TimesArray& source_x, const TimesArray& source_y,
+                py::dict d, const std::vector<int>& methods,
+                const std::vector<int>& resolutions) {
+                return compute_preplanned_xy_diagnostic(
+                    lc, source_x, source_y, params_from_dict(d), methods, resolutions);
+            },
+            py::arg("source_x"), py::arg("source_y"), py::arg("params"),
+            py::arg("methods"), py::arg("resolutions"))
         .def("_binary_resolution_hint",
             [](const LC&, int method, double point_magnification,
                 double absolute_tolerance, double relative_tolerance,

@@ -58,6 +58,18 @@ public:
         std::vector<double>* epoch_seconds = nullptr
     ) const;
 
+    // Diagnostic benchmark path for source coordinates supplied directly in
+    // the internal lens frame.  It shares the LensModel construction and
+    // preplanned execution machinery with evaluate_preplanned_diagnostic, but
+    // does not reconstruct (x, y) from a time-domain trajectory per epoch.
+    std::vector<MagnificationResult> evaluate_preplanned_xy_diagnostic(
+        const std::vector<double>& source_x,
+        const std::vector<double>& source_y,
+        const lcbi_params& params,
+        const std::vector<model::MagnificationExecutionPlan>& plan,
+        std::vector<double>* epoch_seconds = nullptr
+    ) const;
+
     // Root-solve-free, trajectory-resolved geometry for external finite-source
     // engines. Unlike the C API this preserves this LightCurve's sky/site and
     // physical model configuration.

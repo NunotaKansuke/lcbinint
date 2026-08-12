@@ -4582,7 +4582,9 @@ double inverse_ray_cartesian_binary_mag(
     const FiniteSourceSettings& settings,
     const FiniteSourceMagnifier* finite_magnifier,
     const std::vector<SourcePosition>* precomputed_seeds = nullptr,
-    LegacyAreaDiagnostics* diagnostics = nullptr)
+    LegacyAreaDiagnostics* diagnostics = nullptr,
+    double point_source_magnification_hint =
+        std::numeric_limits<double>::quiet_NaN())
 {
     if ((settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0) &&
         finite_magnifier != nullptr) {
@@ -4599,8 +4601,15 @@ double inverse_ray_cartesian_binary_mag(
                 : nullptr) :
         std::vector<SourcePosition> {};
     const auto& raw_images = precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
-    const double point_source_hint = std::abs(
-        point_magnifier.binary_mag0(separation, mass_ratio, source).magnification);
+    // The normal automatic path has no point-image result available and keeps
+    // the historical fallback solve.  A preplanned epoch has already solved
+    // the point images to build its seeds and point-source magnification; in
+    // that case use the supplied value instead of solving the same point
+    // lens a second time just to size the walk guard.
+    const double point_source_hint = std::isfinite(point_source_magnification_hint)
+        ? std::abs(point_source_magnification_hint)
+        : std::abs(
+              point_magnifier.binary_mag0(separation, mass_ratio, source).magnification);
     return inverse_ray_cartesian_core(
         mapper, raw_images, source, source_radius, settings, finite_magnifier,
         point_source_hint, diagnostics, "AREA_DIAGNOSTICS");
@@ -4654,7 +4663,9 @@ FiniteSourceResult fixed_inverse_ray_binary(
     double caustic_distance = std::numeric_limits<double>::infinity(),
     double consistency_reference = std::numeric_limits<double>::quiet_NaN(),
     const std::vector<SourcePosition>* seed_hints = nullptr,
-    bool prevalidated_accuracy = false)
+    bool prevalidated_accuracy = false,
+    double point_source_magnification_hint =
+        std::numeric_limits<double>::quiet_NaN())
 {
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     bool support_proven = true;
@@ -4700,7 +4711,8 @@ FiniteSourceResult fixed_inverse_ray_binary(
     LegacyAreaDiagnostics diagnostics;
     double magnification = inverse_ray_cartesian_binary_mag(
         point_magnifier, separation, mass_ratio, source, source_radius,
-        active_settings, finite_magnifier, &seeds, &diagnostics);
+        active_settings, finite_magnifier, &seeds, &diagnostics,
+        point_source_magnification_hint);
     if (!std::isfinite(magnification)) {
         return {magnification, 0, decision, std::nan(""), 0, false};
     }
@@ -4749,7 +4761,8 @@ FiniteSourceResult fixed_inverse_ray_binary(
     auto evaluate_at = [&](const FiniteSourceSettings& grid) {
         return inverse_ray_cartesian_binary_mag(
             point_magnifier, separation, mass_ratio, source, source_radius,
-            grid, finite_magnifier, &seeds);
+            grid, finite_magnifier, &seeds, nullptr,
+            point_source_magnification_hint);
     };
     // Fixed-grid explicit-tolerance calls retain one independent
     // half-resolution check.  Automatic calls use the same calibrated area
@@ -6667,7 +6680,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
             std::numeric_limits<double>::infinity(),
             std::numeric_limits<double>::quiet_NaN(),
             center_image_seeds,
-            true);
+            true,
+            point_source_magnification);
     }
 
     // The experimental spine is not calibrated by the binary warm-up ladder.

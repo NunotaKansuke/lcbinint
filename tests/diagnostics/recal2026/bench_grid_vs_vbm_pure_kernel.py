@@ -2,21 +2,33 @@
 """Compare one warmed finite-source integration epoch at a time.
 
 This is the cache-warm kernel benchmark requested after the block-level
-review.  The first of two identical lcbinint epochs constructs the LensModel
-and its caustic cache; only the second epoch's native C++ timing is recorded.
-Thus LensModel construction, caustic-cache construction, and Python/pybind
-call overhead are outside the lcbinint timing.  VBM is warmed on the same
-epoch before its direct call is timed.
+review.  The first of two identical lcbinint source positions constructs the
+LensModel and its caustic cache; only the second position's native C++ timing
+is recorded.  The lcbinint kernel receives source ``(x, y)`` directly in the
+internal lens frame, so source trajectory reconstruction is not part of the
+timed epoch.  LensModel construction, caustic-cache construction, and
+Python/pybind call overhead are outside the lcbinint timing.  VBM is warmed on
+the same source position before its direct call is timed.
 
-The Nbin used here is read from the already-certified speed-discovery corpus:
-it is the smallest stored Cartesian/polar knob whose recorded worst error
-meets the requested target.  This benchmark does not repeat Nbin discovery.
-``--search-missing`` is an explicit fallback for corpus rows without such a
-stored value.
+Nbin discovery is independent of VBMicrolensing: lcbinint increases Nbin until
+three increasing grid values self-converge within the requested tolerance.
+VBMicrolensing is evaluated once at that tolerance and is used only for the
+final agreement flag and the separate timing measurement.  The historical
+``--search-missing`` option is retained for command-line compatibility but no
+longer controls the resolution search.
 
 This intentionally measures a pure per-epoch kernel, not the total cost of a
 LightCurve call.  ``bench_grid_vs_vbm_dark.py`` remains the historical
 single-epoch cold-LensModel benchmark; this file is the corrected companion.
+
+The two kernels are explicit here: lcbinint uses only the preplanned
+Cartesian or polar inverse-ray path, while VBM uses ``BinaryMag`` for a
+uniform source and ``BinaryMagDark`` for linear limb darkening.  This
+benchmark never calls VBM's ``BinaryMag2`` or ``BinaryLightCurve`` automatic
+dispatcher, because those APIs can take a point-source shortcut.  For
+preplanned lcbinint epochs, the point-source magnification already obtained
+while constructing image seeds is reused as the walk hint; the duplicate
+point-source solve is not included in the timed kernel.
 """
 
 from __future__ import annotations
@@ -60,8 +72,8 @@ def _load_build_lcbinint(build_dir):
     module._lcbinint = extension
     extension_spec.loader.exec_module(extension)
     root_spec.loader.exec_module(module)
-    if not hasattr(module.LightCurve()._native, "_evaluate_preplanned"):
-        raise RuntimeError("selected build lacks _evaluate_preplanned")
+    if not hasattr(module.LightCurve()._native, "_evaluate_preplanned_xy"):
+        raise RuntimeError("selected build lacks _evaluate_preplanned_xy")
     return module, extensions[0]
 
 
@@ -80,14 +92,49 @@ TARGETS = (1.0e-3, 1.0e-4)
 REFERENCE_INDICES = base.REFERENCE_INDICES
 MAX_SOURCE_BINS = base.MAX_SOURCE_BINS
 BLOCK_EPOCHS = base.BLOCK_EPOCHS
+SELF_CONFIRMATION_POINTS = 3
 
 
-def _evaluate(curve, times, params, method, resolutions):
-    return curve._native._evaluate_preplanned(
-        np.asarray(times, dtype=float),
+def _evaluate(curve, source_x, params, method, resolutions, source_y=None):
+    """Evaluate preplanned epochs from direct internal-frame source (x, y)."""
+
+    source_x = np.asarray(source_x, dtype=float)
+    if source_y is None:
+        source_y = np.full(source_x.shape, float(params["u0"]), dtype=float)
+    return curve._native._evaluate_preplanned_xy(
+        source_x,
+        np.asarray(source_y, dtype=float),
         params,
-        [int(method)] * len(times),
+        [int(method)] * len(source_x),
         [int(value) for value in resolutions],
+    )
+
+
+def _forced_vbm_one(vbm, row, x, profile_c):
+    """Use VBM's direct finite-source API, never its automatic dispatcher."""
+
+    if profile_c:
+        # BinaryMagDark performs the limb-darkened annular contour integral.
+        return float(
+            vbm.BinaryMagDark(
+                float(row["s"]),
+                float(row["q"]),
+                -float(x),
+                float(row["y"]),
+                float(row["rho"]),
+                base.VBM_ABSOLUTE_FLOOR,
+            )
+        )
+    # BinaryMag performs the uniform-source boundary contour integral.
+    return float(
+        vbm.BinaryMag(
+            float(row["s"]),
+            float(row["q"]),
+            -float(x),
+            float(row["y"]),
+            float(row["rho"]),
+            base.VBM_ABSOLUTE_FLOOR,
+        )
     )
 
 
@@ -122,7 +169,16 @@ def _pure_grid_worker(
                     params,
                     method,
                     [int(bins), int(bins)],
+                    source_y=[float(params["u0"]), float(params["u0"])],
                 )
+                actual_methods = result.get("method", [])
+                if len(actual_methods) < 2 or any(
+                    int(value) != int(method) for value in actual_methods[:2]
+                ):
+                    raise RuntimeError(
+                        "preplanned kernel changed method; expected explicit "
+                        f"inverse-ray method {int(method)}"
+                    )
                 native_seconds = np.asarray(result.get("seconds", []), dtype=float)
                 if native_seconds.size < 2 or not np.isfinite(native_seconds[1]):
                     raise RuntimeError("pure-kernel timing did not return epoch 2")
@@ -262,11 +318,11 @@ def _pure_vbm_worker(
         vbm = base._new_vbm(profile_c, reltol)
         for local_index, x in enumerate(times):
             index = int(indices[local_index])
-            value = base._vbm_one(vbm, row, x, profile_c)
+            value = _forced_vbm_one(vbm, row, x, profile_c)
             samples = []
             for _ in range(repeats):
                 started = time.perf_counter()
-                value = base._vbm_one(vbm, row, x, profile_c)
+                value = _forced_vbm_one(vbm, row, x, profile_c)
                 samples.append(time.perf_counter() - started)
             connection.send({
                 "kind": "point",
@@ -387,49 +443,319 @@ def _time_pure_vbm(row, times, profile_c, target, reference, repeats, point_time
     }
 
 
-def _required_search(curve, row, times_ref, params, reference, target, method,
-                     search_missing):
-    # The previous speed corpus already contains the certified minimum knob
-    # for each method and target.  Re-running the ladder here would turn a
-    # pure timing benchmark back into an Nbin-search benchmark, and can be
-    # especially expensive at high magnification.
-    stored = base._existing_required(row, target, method)
-    ladder = base._existing_ladder(row, method)
-    if stored is not None:
-        count = int(reference.size)
-        return {
-            "source": "speed_discovery_saved_minimum",
-            "predicted": [int(stored)] * count,
-            "required": [int(stored)] * count,
-            "candidate_ladder": ladder,
-        }
-    if search_missing:
-        return base._required_grid(
-            curve,
-            row,
-            times_ref,
-            params,
-            reference,
-            target,
-            method,
-            search_missing,
-            use_existing=False,
+def _vbm_reference_worker(row, times, indices, profile_c, reltol, connection):
+    """Evaluate each VBM reference epoch exactly once at ``reltol``."""
+
+    try:
+        vbm = base._new_vbm(profile_c, reltol)
+        for local_index, x in enumerate(times):
+            value = _forced_vbm_one(vbm, row, float(x), profile_c)
+            connection.send({
+                "kind": "point",
+                "index": int(indices[local_index]),
+                "value": float(value),
+            })
+        connection.send({"kind": "done"})
+    except BaseException as error:  # noqa: BLE001
+        try:
+            connection.send({
+                "kind": "error",
+                "error": f"{type(error).__name__}: {error}",
+            })
+        except (BrokenPipeError, EOFError):
+            pass
+    finally:
+        connection.close()
+
+
+def _vbm_reference_once(row, times, profile_c, reltol, point_timeout):
+    """Obtain one independent VBM value per reference epoch.
+
+    This is intentionally separate from the repeated VBM timing pass.  The
+    returned values are not a high-precision shared corpus reference; they are
+    exactly the requested VBM calculation at the target ``RelTol``.
+    """
+
+    count = int(np.asarray(times).size)
+    values = [None] * count
+    statuses = ["unrequested"] * count
+    context = mp.get_context("fork")
+    remaining = list(range(count))
+    while remaining:
+        receive, send = context.Pipe(duplex=False)
+        process = context.Process(
+            target=_vbm_reference_worker,
+            args=(
+                row,
+                np.asarray(times)[remaining],
+                remaining,
+                profile_c,
+                reltol,
+                send,
+            ),
         )
-    count = int(reference.size)
+        process.start()
+        send.close()
+        position = 0
+        original_remaining = list(remaining)
+        finished = False
+        while position < len(original_remaining):
+            point_index = original_remaining[position]
+            deadline = (
+                None
+                if point_timeout is None or point_timeout <= 0.0
+                else time.perf_counter() + float(point_timeout)
+            )
+            message = None
+            while message is None:
+                wait = 0.25
+                if deadline is not None:
+                    wait = min(wait, max(0.0, deadline - time.perf_counter()))
+                    if wait == 0.0:
+                        break
+                if receive.poll(wait):
+                    message = receive.recv()
+                    break
+                if not process.is_alive():
+                    break
+            if message is None:
+                statuses[point_index] = "timeout"
+                process.terminate()
+                process.join(5.0)
+                remaining = original_remaining[position + 1:]
+                break
+            kind = message.get("kind")
+            if kind == "point":
+                index = int(message["index"])
+                values[index] = float(message["value"])
+                statuses[index] = "completed"
+                position += 1
+                continue
+            if kind == "error":
+                statuses[point_index] = "error"
+                process.terminate()
+                process.join(5.0)
+                remaining = original_remaining[position + 1:]
+                break
+            if kind == "done":
+                finished = True
+                remaining = []
+                break
+        if not finished and position >= len(original_remaining):
+            finished = True
+            remaining = []
+        if process.is_alive():
+            process.join(1.0)
+        receive.close()
+        if finished:
+            break
+    return {"values": values, "statuses": statuses, "reltol": float(reltol)}
+
+
+def _self_convergence_run(samples, target):
+    """Return the first three-grid self-converged run.
+
+    ``samples`` maps an integer Nbin to a measured magnification.  The VBM
+    value is deliberately absent: three consecutive increasing grid values
+    must lie within the requested relative spread.  Returning the first grid
+    in the run implements the requested minimum-Nbin rule.
+    """
+
+    ordered = sorted(samples)
+    points = int(SELF_CONFIRMATION_POINTS)
+    for end in range(points - 1, len(ordered)):
+        run = ordered[end - points + 1:end + 1]
+        values = np.asarray([samples[bins] for bins in run], dtype=float)
+        if not np.all(np.isfinite(values)):
+            continue
+        scale = max(float(np.max(np.abs(values))), 1.0)
+        spread = float(np.max(values) - np.min(values)) / scale
+        if spread <= float(target):
+            return tuple(run)
+    return None
+
+
+def _required_resolutions_self(
+    curve, profile_c, target, times, params, method, predicted, cap,
+    point_timeout,
+):
+    """Find Nbin from lcbinint self-convergence only.
+
+    The point-source resolution hint only determines where the measured ladder
+    starts.  It is not an accuracy certificate.  Candidate grids are then
+    increased until three increasing Nbin values agree with one another within
+    ``target``.  No VBM value or native support certificate is used here.
+    """
+
+    indices = np.arange(int(np.asarray(times).size), dtype=int)
+    states = {
+        int(index): {
+            "samples": {},
+            "next": warmup._candidate_batch(
+                int(predicted[int(index)]), int(cap)
+            ),
+            "run": None,
+            "terminal_status": None,
+        }
+        for index in indices
+    }
+    required = {int(index): None for index in indices}
+
+    for _ in range(warmup.GRID_SEARCH_MAX_ROUNDS):
+        selected = []
+        resolutions = []
+        for index in sorted(states):
+            for bins in states[index]["next"]:
+                selected.append(index)
+                resolutions.append(bins)
+        if not selected:
+            break
+        selected = np.asarray(selected, dtype=int)
+        measured = _time_pure_grid(
+            profile_c,
+            target,
+            np.asarray(times)[selected],
+            params,
+            method,
+            resolutions,
+            repeats=1,
+            point_timeout=point_timeout,
+        )
+        values = [
+            np.nan if value is None else float(value)
+            for value in measured["magnification"]
+        ]
+        statuses = measured["statuses"]
+        for offset, index_value in enumerate(selected):
+            index = int(index_value)
+            bins = int(resolutions[offset])
+            if statuses[offset] != "completed" or not np.isfinite(values[offset]):
+                states[index]["terminal_status"] = statuses[offset]
+                states[index]["next"] = ()
+                continue
+            states[index]["samples"][bins] = float(values[offset])
+
+        for index in sorted(states):
+            if (
+                required[index] is not None
+                or states[index]["terminal_status"] is not None
+                or not states[index]["next"]
+            ):
+                continue
+            run = _self_convergence_run(
+                states[index]["samples"], float(target)
+            )
+            if run is not None:
+                states[index]["run"] = run
+                required[index] = int(run[0])
+                states[index]["next"] = ()
+            else:
+                states[index]["next"] = warmup._next_candidate_batch(
+                    states[index]["samples"], int(cap)
+                )
+
+    sample_records = {}
+    for index, state in states.items():
+        ordered = sorted(state["samples"])
+        values = [float(state["samples"][bins]) for bins in ordered]
+        self_errors = [None]
+        for previous, current in zip(values, values[1:]):
+            scale = max(abs(current), 1.0)
+            self_errors.append(abs(current - previous) / scale)
+        sample_records[str(index)] = {
+            "nbin": ordered,
+            "magnification": values,
+            "successive_relative_change": self_errors,
+            "confirmation_run": (
+                None if state["run"] is None else list(state["run"])
+            ),
+            "status": "self_converged" if state["run"] is not None else (
+                "self_unresolved" if state["terminal_status"] is None
+                else f"self_{state['terminal_status']}"
+            ),
+        }
     return {
-        "source": "unreached_in_speed_discovery",
-        "predicted": [None] * count,
-        "required": [None] * count,
-        "candidate_ladder": ladder,
+        "required": required,
+        "samples": sample_records,
+        "source": "self_convergence_search",
+        "confirmation_points": SELF_CONFIRMATION_POINTS,
+        "point_timeout": point_timeout,
     }
 
 
-def measure(row, target, repeats, search_missing, point_timeout):
+def _required_search(curve, row, times_ref, params, reference, target, method,
+                     search_missing, profile_c, point_timeout):
+    # ``reference`` and ``search_missing`` remain in the signature for
+    # compatibility with older diagnostic callers, but neither is used for
+    # the Nbin decision.  The only reference-free hint is point-source
+    # magnification, followed by the self-convergence ladder above.
+    indices = np.arange(int(np.asarray(times_ref).size), dtype=int)
+    point = _evaluate(
+        curve, times_ref, params, warmup.POINT_SOURCE, [0] * indices.size
+    )
+    point_values = np.asarray(point["magnification"], dtype=float)
+    cap = int(MAX_SOURCE_BINS)
+    predicted = {
+        int(index): warmup._predicted_resolution(
+            curve,
+            method,
+            point_values[index],
+            0.0,
+            target,
+            cap,
+        )
+        for index in indices
+    }
+    search = _required_resolutions_self(
+        curve,
+        profile_c,
+        target,
+        times_ref,
+        params,
+        method,
+        predicted,
+        cap,
+        point_timeout,
+    )
+    required = search["required"]
+    return {
+        **search,
+        "predicted": [int(predicted[int(index)]) for index in indices],
+        "required": [
+            None if required[int(index)] is None
+            else int(required[int(index)])
+            for index in indices
+        ],
+    }
+
+
+def _relative_errors(values, reference):
+    values = list(values)
+    reference = list(reference)
+    errors = []
+    for value, ref in zip(values, reference):
+        if value is None or not np.isfinite(value) or not np.isfinite(ref):
+            errors.append(None)
+            continue
+        errors.append(float(abs(float(value) - float(ref)) /
+                        max(abs(float(ref)), 1.0)))
+    return errors
+
+
+def measure(
+    row, target, repeats, search_missing, point_timeout, search_point_timeout,
+):
     profile_c = float(row["limb_darkening_c"])
     times_full = base._times(row)
     times_ref = times_full[list(REFERENCE_INDICES)]
     params = base._params(row)
-    reference = base._reference(row)
+    vbm_reference = _vbm_reference_once(
+        row, times_ref, profile_c, target, point_timeout
+    )
+    reference = np.asarray([
+        np.nan if value is None else float(value)
+        for value in vbm_reference["values"]
+    ], dtype=float)
     curve = base._curve(profile_c, target)
 
     grid = {}
@@ -446,6 +772,8 @@ def measure(row, target, repeats, search_missing, point_timeout):
             target,
             method,
             search_missing,
+            profile_c,
+            search_point_timeout,
         )
         required = search["required"]
         timed = _time_pure_grid(
@@ -459,17 +787,13 @@ def measure(row, target, repeats, search_missing, point_timeout):
             point_timeout,
         )
         values = timed["magnification"]
-        errors = [
-            None if value is None else float(
-                abs(float(value) - reference[index]) /
-                max(abs(reference[index]), 1.0)
-            )
-            for index, value in enumerate(values)
-        ]
+        errors = _relative_errors(values, reference)
         grid[name] = {
             **search,
+            "kernel_mode": f"forced_inverse_ray_{name}",
             "seconds": timed["seconds"],
             "errors": errors,
+            "vbm_reference_errors": errors,
             "converged": timed["converged"],
             "statuses": timed["statuses"],
         }
@@ -483,18 +807,14 @@ def measure(row, target, repeats, search_missing, point_timeout):
         repeats,
         point_timeout,
     )
-    vbm_pass = [
-        status == "completed"
-        and error is not None
-        and error <= target
-        for status, error in zip(vbm_timed["statuses"], vbm_timed["errors"])
-    ]
 
     chosen_grid = []
     chosen_nbin = []
     chosen_seconds = []
     ratios = []
     ratio_status = []
+    chosen_vbm_errors = []
+    vbm_mismatch = []
     for index in range(reference.size):
         candidates = []
         for name in ("cartesian", "polar"):
@@ -503,9 +823,6 @@ def measure(row, target, repeats, search_missing, point_timeout):
                 candidate["required"][index] is not None
                 and candidate["seconds"][index] is not None
                 and candidate["statuses"][index] == "completed"
-                and candidate["converged"][index]
-                and candidate["errors"][index] is not None
-                and candidate["errors"][index] <= target
             ):
                 candidates.append((
                     float(candidate["seconds"][index]),
@@ -518,12 +835,19 @@ def measure(row, target, repeats, search_missing, point_timeout):
             chosen_seconds.append(None)
             ratios.append(None)
             ratio_status.append("grid_unresolved")
+            chosen_vbm_errors.append(None)
+            vbm_mismatch.append(None)
             continue
         best = min(candidates, key=lambda value: value[0])
         chosen_seconds.append(best[0])
         chosen_grid.append(best[1])
         chosen_nbin.append(best[2])
-        if not vbm_pass[index] or vbm_timed["seconds"][index] is None:
+        chosen_error = grid[best[1]]["errors"][index]
+        chosen_vbm_errors.append(chosen_error)
+        vbm_mismatch.append(
+            None if chosen_error is None else bool(chosen_error > target)
+        )
+        if vbm_timed["seconds"][index] is None:
             ratios.append(None)
             ratio_status.append("vbm_unresolved")
         else:
@@ -532,7 +856,15 @@ def measure(row, target, repeats, search_missing, point_timeout):
 
     return {
         "status": "completed",
-        "timing_mode": "pure_kernel_cache_warm",
+        "timing_mode": "pure_kernel_cache_warm_direct_xy",
+        "coordinate_mode": "direct_internal_source_xy",
+        "point_source_hint_mode": "reuse_preplanned_point_magnification",
+        "comparison_mode": "forced_inverse_ray_vs_forced_vbm_contour",
+        "lcbinint_kernel_mode": "forced_inverse_ray_cartesian_or_polar",
+        "vbm_kernel_mode": (
+            "BinaryMagDark_annular_contour" if profile_c
+            else "BinaryMag_uniform_contour"
+        ),
         "build_extension": str(BUILD_EXTENSION),
         "case_id": int(row["case_id"]),
         "s": float(row["s"]),
@@ -545,37 +877,54 @@ def measure(row, target, repeats, search_missing, point_timeout):
         "profile": row["profile"],
         "limb_darkening_c": profile_c,
         "target": float(target),
+        "reference_mode": "single_vbm_call_at_target_reltol",
         "reference": reference.tolist(),
+        "reference_status": vbm_reference["statuses"],
         "grid": grid,
         "vbm": {
             "selected_seconds": vbm_timed["seconds"],
             "selected_reltol": [float(target)] * int(reference.size),
             "selected_status": vbm_timed["statuses"],
-            "errors": vbm_timed["errors"],
-            "pass": vbm_pass,
+            "timing_values": vbm_timed["values"],
+            "timing_reference_errors": vbm_timed["errors"],
+            "reference_values": reference.tolist(),
+            "reference_status": vbm_reference["statuses"],
         },
         "chosen_grid": chosen_grid,
         "chosen_nbin": chosen_nbin,
         "chosen_seconds": chosen_seconds,
+        "chosen_vbm_errors": chosen_vbm_errors,
+        "vbm_mismatch": vbm_mismatch,
         "ratios_vbm_over_lcbinint": ratios,
         "ratio_status": ratio_status,
         "vbm_status": vbm_timed["statuses"],
         "vbm_lower_bound_seconds": [None] * int(reference.size),
-        "reference_floor": float(row["reference_floor"]),
+        "resolution_mode": "lcbinint_self_convergence_three_points",
+        "resolution_cap": int(MAX_SOURCE_BINS),
     }
 
 
-def _timed_measure(row, target, repeats, search_missing, point_timeout,
-                   job_timeout):
+def _timed_measure(
+    row, target, repeats, search_missing, point_timeout,
+    search_point_timeout, job_timeout,
+):
     if job_timeout is None or job_timeout <= 0.0:
-        return measure(row, target, repeats, search_missing, point_timeout)
+        return measure(
+            row, target, repeats, search_missing, point_timeout,
+            search_point_timeout,
+        )
     context = mp.get_context("fork")
     receive, send = context.Pipe(duplex=False)
 
     def worker():
         try:
             send_result = measure(
-                row, target, repeats, search_missing, point_timeout
+                row,
+                target,
+                repeats,
+                search_missing,
+                point_timeout,
+                search_point_timeout,
             )
             send.send(send_result)
         except BaseException as error:  # noqa: BLE001
@@ -630,6 +979,8 @@ def _timed_measure(row, target, repeats, search_missing, point_timeout,
 
 
 def main():
+    global MAX_SOURCE_BINS
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--input", type=Path,
@@ -637,6 +988,9 @@ def main():
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--case-count", type=int, default=8)
+    parser.add_argument("--case-ids", type=int, nargs="+")
+    parser.add_argument("--case-id-min", type=int)
+    parser.add_argument("--case-id-max", type=int)
     parser.add_argument("--factors", type=float, nargs="+",
                         default=list(base.DEFAULT_FACTORS))
     parser.add_argument("--profiles", nargs="+", choices=("uniform", "linear"),
@@ -652,8 +1006,19 @@ def main():
     parser.add_argument("--seed", type=int, default=20260809)
     parser.add_argument("--repeats", type=int, default=2)
     parser.add_argument("--point-timeout", type=float, default=300.0)
+    parser.add_argument(
+        "--search-point-timeout", type=float, default=60.0,
+        help="per-candidate timeout during the self-convergence ladder",
+    )
     parser.add_argument("--job-timeout", type=float, default=1800.0)
-    parser.add_argument("--search-missing", action="store_true")
+    parser.add_argument(
+        "--search-missing", action="store_true",
+        help="deprecated compatibility flag; self-convergence search is always run",
+    )
+    parser.add_argument(
+        "--max-source-bins", type=int, default=MAX_SOURCE_BINS,
+        help="maximum source-bin count used by the self-convergence search",
+    )
     parser.add_argument("--targets", type=float, nargs="+",
                         default=list(TARGETS))
     parser.add_argument("--build-dir", type=Path, default=BUILD_DIR)
@@ -666,9 +1031,20 @@ def main():
             "this run was loaded from the repository build; invoke a fresh "
             "process with the requested --build-dir"
         )
+    if args.max_source_bins < 4:
+        raise SystemExit("--max-source-bins must be at least 4")
+    MAX_SOURCE_BINS = int(args.max_source_bins)
+    base.MAX_SOURCE_BINS = MAX_SOURCE_BINS
     rows = base._select_rows(
         base._load_rows(args.input), args.case_count, args.factors, args.seed
     )
+    if args.case_id_min is not None:
+        rows = [row for row in rows if int(row["case_id"]) >= args.case_id_min]
+    if args.case_id_max is not None:
+        rows = [row for row in rows if int(row["case_id"]) < args.case_id_max]
+    if args.case_ids is not None:
+        wanted_case_ids = {int(value) for value in args.case_ids}
+        rows = [row for row in rows if int(row["case_id"]) in wanted_case_ids]
     rows = base._filter_rows(
         rows,
         profiles=set(args.profiles) if args.profiles else None,
@@ -688,8 +1064,6 @@ def main():
         for target in args.targets:
             if args.route_filter == "grid" and not base._pure_grid_route(row, target):
                 continue
-            if not base._usable(row, target):
-                continue
             selected.append((row, target))
     print(
         f"selected {len(rows)} blocks, {len(selected)} jobs; "
@@ -707,7 +1081,7 @@ def main():
         )
         result = _timed_measure(
             row, target, args.repeats, args.search_missing,
-            args.point_timeout, args.job_timeout,
+            args.point_timeout, args.search_point_timeout, args.job_timeout,
         )
         results.append(result)
         if result.get("status") != "completed":
@@ -716,16 +1090,29 @@ def main():
     payload = {
         "input": str(args.input),
         "case_count": args.case_count,
+        "case_ids": args.case_ids,
+        "case_id_min": args.case_id_min,
+        "case_id_max": args.case_id_max,
         "factors": list(args.factors),
         "seed": args.seed,
         "repeats": args.repeats,
         "search_missing": args.search_missing,
+        "max_source_bins": MAX_SOURCE_BINS,
+        "resolution_mode": "lcbinint_self_convergence_three_points",
+        "self_confirmation_points": SELF_CONFIRMATION_POINTS,
+        "reference_mode": "single_vbm_call_at_target_reltol",
         "point_timeout": args.point_timeout,
+        "search_point_timeout": args.search_point_timeout,
         "job_timeout": args.job_timeout,
         "targets": list(args.targets),
         "profiles": list(args.profiles),
         "route_filter": args.route_filter,
-        "timing_mode": "pure_kernel_cache_warm",
+        "timing_mode": "pure_kernel_cache_warm_direct_xy",
+        "coordinate_mode": "direct_internal_source_xy",
+        "point_source_hint_mode": "reuse_preplanned_point_magnification",
+        "comparison_mode": "forced_inverse_ray_vs_forced_vbm_contour",
+        "lcbinint_kernel_mode": "forced_inverse_ray_cartesian_or_polar",
+        "vbm_kernel_mode": "BinaryMag_or_BinaryMagDark_direct",
         "build_extension": str(BUILD_EXTENSION),
         "filters": {
             "rho_min": args.rho_min,

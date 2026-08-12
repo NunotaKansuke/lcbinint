@@ -5,6 +5,15 @@ Primary dataset: [`pure_kernel_eps3_eps4_20260809`](../results/recal2026/pure_ke
 Benchmark commit: `ed621f8d56d2358e0bf730edb69929f0dcede61b`
 Timing mode: `pure_kernel_cache_warm`
 
+Implementation note (2026-08-12): the benchmark harness has since gained a
+direct-source timing path, `_evaluate_preplanned_xy(source_x, source_y, ...)`,
+which bypasses per-epoch trajectory reconstruction.  The preplanned Cartesian
+kernel also reuses the point-source magnification already obtained while
+building image seeds instead of repeating the point-lens solve for its walk
+hint.  The dataset and summary tables below predate that change and are kept
+as the historical 2026-08-09 measurement; they should not be relabeled as a
+direct-XY rerun.
+
 ## Executive conclusion
 
 The defensible paper-level conclusion is not a universal speed advantage for

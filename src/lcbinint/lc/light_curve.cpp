@@ -268,6 +268,44 @@ std::vector<MagnificationResult> LightCurve::evaluate_preplanned_diagnostic(
     return results;
 }
 
+std::vector<MagnificationResult> LightCurve::evaluate_preplanned_xy_diagnostic(
+    const std::vector<double>& source_x,
+    const std::vector<double>& source_y,
+    const lcbi_params& params,
+    const std::vector<model::MagnificationExecutionPlan>& plan,
+    std::vector<double>* epoch_seconds) const
+{
+    if (source_x.size() != source_y.size() || source_x.size() != plan.size()) {
+        throw std::invalid_argument(
+            "direct source XY and warm-up execution plan must have equal length");
+    }
+    const lcbi_params p = apply_coords(params);
+    const auto cpp_params = model::from_c_params(p);
+    if (!cpp_params.is_valid()) {
+        throw std::runtime_error("invalid argument");
+    }
+    const auto runtime_opts = runtime_options();
+    model::LensModel lens_model(
+        cpp_params, model::from_c_options(&runtime_opts), site_);
+    std::vector<MagnificationResult> results;
+    results.reserve(source_x.size());
+    if (epoch_seconds != nullptr) {
+        epoch_seconds->clear();
+        epoch_seconds->reserve(source_x.size());
+    }
+    for (std::size_t i = 0; i < source_x.size(); ++i) {
+        const auto started = std::chrono::steady_clock::now();
+        results.push_back(lens_model.magnification_source(
+            {source_x[i], source_y[i]}, plan[i]));
+        if (epoch_seconds != nullptr) {
+            const auto elapsed = std::chrono::steady_clock::now() - started;
+            epoch_seconds->push_back(
+                std::chrono::duration<double>(elapsed).count());
+        }
+    }
+    return results;
+}
+
 std::vector<magnification::FiniteSourceGeometry> LightCurve::finite_source_geometry(
     const std::vector<double>& times, const lcbi_params& params) const
 {

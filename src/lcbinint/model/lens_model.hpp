@@ -28,6 +28,12 @@ public:
     MagnificationResult magnification(
         double time, const MagnificationExecutionPlan& plan) const;
 
+    // Evaluate a preplanned static-binary epoch from source coordinates that
+    // are already in the internal lens frame.  This deliberately bypasses
+    // the trajectory/orbit coordinate path used by magnification(time,...).
+    MagnificationResult magnification_source(
+        SourcePosition source, const MagnificationExecutionPlan& plan) const;
+
     // Produce engine-neutral finite-source geometry after all trajectory and
     // orbital transformations.  This is intentionally separate from the
     // magnification result so an external caller can consume a whole
