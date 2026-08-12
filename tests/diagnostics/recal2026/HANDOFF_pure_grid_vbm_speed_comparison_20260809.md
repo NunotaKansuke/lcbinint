@@ -380,12 +380,18 @@ Cartesian/Polar の実測時間が短い方を採用した。VBM は指定 `RelT
 速度比は `R=t_VBM/t_lcbinint` で、`R>1` が `lcbinint` の勝ちである。最終集計は
 次の通り。
 
-| profile | `epsilon_rel` | measured | lcbinint wins | VBM wins | unresolved | win rate | median `R` |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| uniform | `1e-3` | 3200 | 2 | 3198 | 0 | 0.1% | 0.199 |
-| uniform | `1e-4` | 3199 | 0 | 3199 | 1 | 0.0% | 0.105 |
-| linear LD | `1e-3` | 3200 | 1740 | 1460 | 0 | 54.4% | 1.132 |
-| linear LD | `1e-4` | 3198 | 1899 | 1299 | 2 | 59.4% | 1.432 |
+カウントの定義は、800 positions、1,600 profile rows、3,200
+profile-tolerance jobs（`800 x 2 profiles x 2 tolerances`）である。各 job は4 epoch
+を持つため、overall table の各行は3,200 nominal epoch measurements、4行合計は
+12,800 nominal measurementsとなる。実測値は自己収束未確定の3 epochを明示的に
+unresolvedとして残したため12,797である。
+
+| profile | `epsilon_rel` | measured epochs | lcbinint wins | VBM wins | unresolved epochs | win rate | p10 `R` | p25 `R` | p50 `R` (median) | p75 `R` | p90 `R` |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| uniform | `1e-3` | 3200 | 2 | 3198 | 0 | 0.1% | 0.037 | 0.080 | 0.199 | 0.368 | 0.507 |
+| uniform | `1e-4` | 3199 | 0 | 3199 | 1 | 0.0% | 0.012 | 0.047 | 0.105 | 0.185 | 0.280 |
+| linear LD | `1e-3` | 3200 | 1740 | 1460 | 0 | 54.4% | 0.197 | 0.459 | 1.132 | 2.038 | 3.100 |
+| linear LD | `1e-4` | 3198 | 1899 | 1299 | 2 | 59.4% | 0.143 | 0.479 | 1.432 | 3.058 | 5.368 |
 
 linear LD では measured `d/rho` が `[0,0.4)` のときの勝率が `67.8%` (`1e-3`)、
 `71.9%` (`1e-4`) で、`[1.6,2]` ではそれぞれ `38.8%`, `45.6%` に下がる。一方、
@@ -400,6 +406,8 @@ uniform は全層でほぼ VBM 優位だった。この結果から、単独の 
 
 - [`REPORT_controlled_pure_kernel_20260813.md`](../results/recal2026/REPORT_controlled_pure_kernel_20260813.md)
 - [`controlled_parameter_vs_R_2x3_profiles_20260813.pdf`](../results/recal2026/figures/controlled_parameter_vs_R_2x3_profiles_20260813.pdf)
+- [`controlled_speed_ratio_violin_20260813.pdf`](../results/recal2026/figures/controlled_speed_ratio_violin_20260813.pdf)
+- [`plot_controlled_pure_kernel_violin.py`](plot_controlled_pure_kernel_violin.py)
 
 35 MB の raw merged JSON はリポジトリへ入れず、ローカル diagnostics workspace に保持
 している。

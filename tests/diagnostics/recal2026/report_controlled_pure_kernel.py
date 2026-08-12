@@ -125,6 +125,9 @@ def _stats(values):
         "win_rate": float(np.mean(values > 1.0)),
         "median": float(np.median(values)),
         "p10": float(np.percentile(values, 10)),
+        "p25": float(np.percentile(values, 25)),
+        "p50": float(np.percentile(values, 50)),
+        "p75": float(np.percentile(values, 75)),
         "p90": float(np.percentile(values, 90)),
     }
 
@@ -292,8 +295,13 @@ def _make_report(merged, corpus_payload):
         "  `[3e-5, 1]`, respectively.",
         "- For every configuration, one source position is accepted in each",
         "  measured `d/rho` bin: `[0,0.4)`, `[0.4,0.8)`, `[0.8,1.2)`,",
-        "  `[1.2,1.6)`, and `[1.6,2]`. This gives 800 positions and 1600",
-        "  profile rows.",
+        "  `[1.2,1.6)`, and `[1.6,2]`. This gives 800 positions and 1,600",
+        "  profile rows (800 uniform and 800 linear-LD rows).",
+        "- Each profile row is run at both requested tolerances, giving 3,200",
+        "  profile-tolerance jobs. Each job contains four reference epochs, so",
+        "  one profile/tolerance row in the table has 3,200 nominal epoch",
+        "  measurements. Across both profiles and both tolerances the nominal",
+        "  total is 12,800 epoch measurements.",
         "- Each position is evaluated for a uniform source and linear limb",
         "  darkening with `c=0.5`.",
         "- The requested relative tolerances are `1e-3` and `1e-4`.",
@@ -334,9 +342,12 @@ def _make_report(merged, corpus_payload):
         "## Overall timing summary",
         "",
         "`R = t_VBM / t_lcbinint`; `R > 1` means lcbinint is faster.",
+        "Each row below is one source profile and one requested tolerance:",
+        "800 jobs times four reference epochs gives 3,200 nominal measured",
+        "epochs per row; all four rows together give 12,800 nominal epochs.",
         "",
-        "| profile | target | jobs | measured points | lcbinint wins | VBM wins | unresolved points | timeout jobs | cross-engine abs(Delta) > epsilon | win rate | median R | p10 | p90 | median Nbin |",
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| profile | target | jobs | measured epochs | lcbinint wins | VBM wins | unresolved epochs | timeout jobs | cross-engine abs(Delta) > epsilon | win rate | p10 R | p25 R | p50 R | p75 R | p90 R | median Nbin |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for profile in PROFILES:
         for target in TARGETS:
@@ -348,8 +359,10 @@ def _make_report(merged, corpus_payload):
                 f"{item['grid_wins']} | {item['vbm_wins']} | {item['unresolved']} | "
                 f"{item['timeout_jobs']} | {item['vbm_mismatch']}/{item['vbm_mismatch_points']} | "
                 f"{ratio.get('win_rate', float('nan')):.1%} | "
-                f"{ratio.get('median', float('nan')):.3f} | "
                 f"{ratio.get('p10', float('nan')):.3f} | "
+                f"{ratio.get('p25', float('nan')):.3f} | "
+                f"{ratio.get('p50', ratio.get('median', float('nan'))):.3f} | "
+                f"{ratio.get('p75', float('nan')):.3f} | "
                 f"{ratio.get('p90', float('nan')):.3f} | "
                 f"{nbin.get('median', float('nan')):.0f} |"
             )
@@ -357,8 +370,8 @@ def _make_report(merged, corpus_payload):
         "",
         "## Equal-width d/rho strata",
         "",
-        "| profile | target | d/rho bin | jobs | measured | lcbinint wins | VBM wins | unresolved points | timeout jobs | cross-engine abs(Delta) > epsilon | win rate | median R |",
-        "|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "| profile | target | d/rho bin | jobs | measured epochs | lcbinint wins | VBM wins | unresolved epochs | timeout jobs | cross-engine abs(Delta) > epsilon | win rate | p10 R | p25 R | p50 R | p75 R | p90 R |",
+        "|---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for profile in PROFILES:
         for target in TARGETS:
@@ -373,7 +386,11 @@ def _make_report(merged, corpus_payload):
                     f"{item['unresolved']} | {item['timeout_jobs']} | "
                     f"{item['vbm_mismatch']}/{item['vbm_mismatch_points']} | "
                     f"{ratio.get('win_rate', float('nan')):.1%} | "
-                    f"{ratio.get('median', float('nan')):.3f} |"
+                    f"{ratio.get('p10', float('nan')):.3f} | "
+                    f"{ratio.get('p25', float('nan')):.3f} | "
+                    f"{ratio.get('p50', ratio.get('median', float('nan'))):.3f} | "
+                    f"{ratio.get('p75', float('nan')):.3f} | "
+                    f"{ratio.get('p90', float('nan')):.3f} |"
                 )
     lines += [
         "",
