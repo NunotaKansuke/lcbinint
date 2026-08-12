@@ -1129,12 +1129,7 @@ PointSourceResult PointSourceMagnifier::triple_mag0(
     const model::TripleLensGeometry& geometry,
     SourcePosition source) const
 {
-    const auto candidates = triple_image_candidates(geometry, source);
-    // Populate cache so triple_mag0_with_derivatives can reuse these candidates.
-    triple_candidate_cache_valid_ = true;
-    triple_candidate_cache_geometry_ = geometry;
-    triple_candidate_cache_source_ = source;
-    triple_candidate_cache_ = candidates;
+    const auto& candidates = triple_image_candidates_cached(geometry, source);
     double magnification = 0.0;
     int image_count = 0;
     for (const auto& candidate : candidates) {
@@ -1200,6 +1195,12 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
     const model::TripleLensGeometry& geometry,
     SourcePosition source) const
 {
+    // A direct solve replaces the shared diagnostics below without replacing
+    // the one-entry candidate cache.  Invalidate it up front so a later cache
+    // lookup can never combine candidates from one source with diagnostics
+    // from another.  The cached entry point marks the new pair valid only
+    // after both have been produced.
+    triple_candidate_cache_valid_ = false;
     const auto coefficients = triple_polynomial_coefficients(geometry, source);
     constexpr int kTripleDegree = 10;
     PointSourceResult diagnostics;
@@ -1399,6 +1400,25 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
         std::max(final_diagnostics.root_max_residual, diagnostics.root_max_residual);
     triple_candidate_cache_diagnostics_ = final_diagnostics;
     return images;
+}
+
+const std::vector<TripleImageCandidate>&
+PointSourceMagnifier::triple_image_candidates_cached(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source) const
+{
+    const bool cache_hit =
+        triple_candidate_cache_valid_ &&
+        triple_candidate_cache_source_.x == source.x &&
+        triple_candidate_cache_source_.y == source.y &&
+        triple_geometry_equals(triple_candidate_cache_geometry_, geometry);
+    if (!cache_hit) {
+        triple_candidate_cache_ = triple_image_candidates(geometry, source);
+        triple_candidate_cache_valid_ = true;
+        triple_candidate_cache_geometry_ = geometry;
+        triple_candidate_cache_source_ = source;
+    }
+    return triple_candidate_cache_;
 }
 
 SourcePosition PointSourceMagnifier::triple_lens_equation(

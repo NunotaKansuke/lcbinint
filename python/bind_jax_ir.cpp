@@ -321,7 +321,7 @@ constexpr int moment_count(MomentMode mode)
     return static_cast<int>(mode);
 }
 
-template <typename Scalar>
+template <bool ComputeLaplacian = true, typename Scalar>
 PhiDerivatives<Scalar> phi_derivatives(
     double image_x,
     double image_y,
@@ -362,6 +362,12 @@ PhiDerivatives<Scalar> phi_derivatives(
     const Scalar residual_x = mapped_x - source_x;
     const Scalar residual_y = mapped_y - source_y;
 
+    Scalar laplacian = 0.0;
+    if constexpr (ComputeLaplacian) {
+        laplacian = -2.0 * inverse_source_radius_squared
+            * (du_dx * du_dx + du_dy * du_dy
+               + dv_dx * dv_dx + dv_dy * dv_dy);
+    }
     return {
         1.0 - (residual_x * residual_x + residual_y * residual_y)
                   * inverse_source_radius_squared,
@@ -369,9 +375,7 @@ PhiDerivatives<Scalar> phi_derivatives(
             * (residual_x * du_dx + residual_y * dv_dx),
         -2.0 * inverse_source_radius_squared
             * (residual_x * du_dy + residual_y * dv_dy),
-        -2.0 * inverse_source_radius_squared
-            * (du_dx * du_dx + du_dy * du_dy
-               + dv_dx * dv_dx + dv_dy * dv_dy),
+        laplacian,
     };
 }
 
@@ -419,7 +423,7 @@ TripleLensConstants<Scalar> make_triple_lens_constants(
     return result;
 }
 
-template <typename Scalar>
+template <bool ComputeLaplacian = true, typename Scalar>
 PhiDerivatives<Scalar> triple_phi_derivatives(
     double image_x,
     double image_y,
@@ -454,6 +458,12 @@ PhiDerivatives<Scalar> triple_phi_derivatives(
     const Scalar dv_dy = 1.0 - shear_real;
     const Scalar residual_x = mapped_x - source_x;
     const Scalar residual_y = mapped_y - source_y;
+    Scalar laplacian = 0.0;
+    if constexpr (ComputeLaplacian) {
+        laplacian = -2.0 * inverse_source_radius_squared
+            * (du_dx * du_dx + du_dy * du_dy
+               + dv_dx * dv_dx + dv_dy * dv_dy);
+    }
     return {
         1.0 - (residual_x * residual_x + residual_y * residual_y)
                   * inverse_source_radius_squared,
@@ -461,9 +471,7 @@ PhiDerivatives<Scalar> triple_phi_derivatives(
             * (residual_x * du_dx + residual_y * dv_dx),
         -2.0 * inverse_source_radius_squared
             * (residual_x * du_dy + residual_y * dv_dy),
-        -2.0 * inverse_source_radius_squared
-            * (du_dx * du_dx + du_dy * du_dy
-               + dv_dx * dv_dx + dv_dy * dv_dy),
+        laplacian,
     };
 }
 
@@ -625,7 +633,8 @@ KernelResult<Scalar> fixed_support_kernel_for_mode(
                 const double image_x =
                     origins[2 * tile]
                     + (static_cast<double>(ix) + 0.5) * cell_size;
-                const auto classification = phi_derivatives(
+                const auto classification = phi_derivatives<
+                    Mode != MomentMode::uniform>(
                     image_x, image_y, scalar_value(source_x),
                     scalar_value(source_y), classification_lens,
                     classification_inverse_source_radius_squared);
@@ -677,7 +686,7 @@ KernelResult<Scalar> fixed_support_kernel_for_mode(
                         const double offset_y = subcell_offsets[sy];
                         for (int sx = 0; sx < BoundarySubdivision; ++sx) {
                             const double offset_x = subcell_offsets[sx];
-                            const auto sub_values = phi_derivatives(
+                            const auto sub_values = phi_derivatives<false>(
                                 image_x + offset_x, image_y + offset_y,
                                 source_x, source_y, lens,
                                 inverse_source_radius_squared);
@@ -817,20 +826,51 @@ KernelResult<Scalar> triple_fixed_support_kernel_for_mode(
             ((static_cast<double>(subcell) + 0.5) / BoundarySubdivision
              - 0.5) * cell_size;
     }
+    std::vector<double> classification_phi(
+        static_cast<std::size_t>(tile_size));
+    std::vector<double> classification_gradient_x(
+        static_cast<std::size_t>(tile_size));
+    std::vector<double> classification_gradient_y(
+        static_cast<std::size_t>(tile_size));
+    std::vector<double> classification_laplacian(
+        static_cast<std::size_t>(tile_size));
 
     for (std::int64_t tile = 0; tile < tile_count; ++tile) {
         for (int iy = 0; iy < tile_size; ++iy) {
             const double image_y =
                 origins[2 * tile + 1]
                 + (static_cast<double>(iy) + 0.5) * cell_size;
+#ifdef LCBININT_HAS_OPENMP
+#pragma omp simd
+#endif
             for (int ix = 0; ix < tile_size; ++ix) {
                 const double image_x =
                     origins[2 * tile]
                     + (static_cast<double>(ix) + 0.5) * cell_size;
-                const auto classification = triple_phi_derivatives(
+                const auto classification = triple_phi_derivatives<
+                    Mode != MomentMode::uniform>(
                     image_x, image_y, scalar_value(source_x),
                     scalar_value(source_y), classification_lens,
                     classification_inverse_radius_squared);
+                classification_phi[static_cast<std::size_t>(ix)] =
+                    classification.phi;
+                classification_gradient_x[static_cast<std::size_t>(ix)] =
+                    classification.gradient_x;
+                classification_gradient_y[static_cast<std::size_t>(ix)] =
+                    classification.gradient_y;
+                classification_laplacian[static_cast<std::size_t>(ix)] =
+                    classification.laplacian;
+            }
+            for (int ix = 0; ix < tile_size; ++ix) {
+                const double image_x =
+                    origins[2 * tile]
+                    + (static_cast<double>(ix) + 0.5) * cell_size;
+                const PhiDerivatives<double> classification{
+                    classification_phi[static_cast<std::size_t>(ix)],
+                    classification_gradient_x[static_cast<std::size_t>(ix)],
+                    classification_gradient_y[static_cast<std::size_t>(ix)],
+                    classification_laplacian[static_cast<std::size_t>(ix)],
+                };
                 const double extent = 0.5 * cell_size * (
                     std::abs(classification.gradient_x)
                     + std::abs(classification.gradient_y));
@@ -854,7 +894,7 @@ KernelResult<Scalar> triple_fixed_support_kernel_for_mode(
                     ++result.active_cells;
                     for (int sy = 0; sy < BoundarySubdivision; ++sy) {
                         for (int sx = 0; sx < BoundarySubdivision; ++sx) {
-                            const auto values = triple_phi_derivatives(
+                            const auto values = triple_phi_derivatives<false>(
                                 image_x + subcell_offsets[sx],
                                 image_y + subcell_offsets[sy],
                                 source_x, source_y, lens,
@@ -1884,6 +1924,37 @@ struct TripleMapValues {
 };
 
 template <typename Scalar>
+struct TripleMappedSource {
+    Scalar source_x;
+    Scalar source_y;
+};
+
+// Support discovery and radial boundary probes need only the lens-mapped
+// source coordinate.  Reusing `triple_map_values` there also accumulated the
+// full shear/Jacobian at every flood cell and then discarded it.  Keep this
+// small mapper separate so the differentiable integration path can still ask
+// for the complete map when its derivatives are actually consumed.
+template <typename Scalar>
+TripleMappedSource<Scalar> triple_map_source(
+    const Scalar& image_x,
+    const Scalar& image_y,
+    const TripleLensConstants<Scalar>& lens)
+{
+    Scalar source_x = image_x;
+    Scalar source_y = image_y;
+    for (std::size_t index = 0; index < 3; ++index) {
+        const Scalar dx = image_x - lens.lens_x[index];
+        const Scalar dy = image_y - lens.lens_y[index];
+        const Scalar inverse_radius_squared = 1.0 / (dx * dx + dy * dy);
+        source_x =
+            source_x - lens.mass[index] * dx * inverse_radius_squared;
+        source_y =
+            source_y - lens.mass[index] * dy * inverse_radius_squared;
+    }
+    return {source_x, source_y};
+}
+
+template <typename Scalar>
 TripleMapValues<Scalar> triple_map_values(
     const Scalar& image_x,
     const Scalar& image_y,
@@ -2296,6 +2367,10 @@ bool tile_has_inside_probe(
 }
 
 struct CartesianDiscovery {
+    // During the flood fill this is the full visited queue, including the
+    // one-tile inactive frontier.  `compact_active_tiles` turns it into the
+    // active support consumed by the integration kernel after preserving the
+    // visited count used by public diagnostics.
     std::vector<std::array<std::int32_t, 2>> queue;
     bool overflow = false;
     bool root_failure = false;
@@ -2303,9 +2378,28 @@ struct CartesianDiscovery {
     // could reach; the value is then not trustworthy at any resolution.
     bool support_proven = true;
     std::uint64_t support_fingerprint = 0;
+    std::int32_t visited_count = 0;
     std::int32_t active_count = 0;
     std::int32_t seed_count = 0;
 };
+
+void compact_active_tiles(
+    CartesianDiscovery& discovery,
+    const std::vector<std::uint8_t>& active)
+{
+    discovery.visited_count =
+        static_cast<std::int32_t>(discovery.queue.size());
+    std::size_t destination = 0;
+    for (std::size_t source = 0; source < discovery.queue.size(); ++source) {
+        if (!active[source]) continue;
+        if (destination != source) {
+            discovery.queue[destination] = discovery.queue[source];
+        }
+        ++destination;
+    }
+    discovery.queue.resize(destination);
+    discovery.active_count = static_cast<std::int32_t>(destination);
+}
 
 // The caustic polyline depends only on (separation, mass_ratio) and is cached
 // inside the magnifier, so one instance per thread keeps the certificate off
@@ -2318,43 +2412,27 @@ const std::vector<std::vector<lcbinint::SourcePosition>>& cached_caustic_branche
     return magnifier.binary_caustic_branches(separation, mass_ratio);
 }
 
-CartesianDiscovery discover_cartesian_support(
-    double tile_width,
+struct CartesianSeedSupport {
+    // Image coordinates are independent of the Cartesian resolution.  Keep
+    // them in solver/probe order so every rung quantises exactly the same seed
+    // stream the standalone discovery would have inserted.
+    std::vector<lcbinint::Complex> image_coordinates;
+    bool root_failure = false;
+    bool support_proven = true;
+    std::uint64_t support_fingerprint = 0;
+};
+
+CartesianSeedSupport prepare_cartesian_seed_support(
     double source_x,
     double source_y,
     double separation,
     double mass_ratio,
     double source_radius,
-    std::int64_t tile_capacity,
     std::int64_t limb_samples)
 {
-    CartesianDiscovery result;
-    // `tile_capacity` is an overflow ceiling, not an expected size.  Reserving
-    // the whole ceiling made every epoch pay a multi-megabyte zeroed bucket
-    // array at the fine rungs, so grow from a modest floor the way the triple
-    // discovery already does.
-    const auto initial_capacity = static_cast<std::size_t>(
-        std::min<std::int64_t>(tile_capacity, 4096));
-    result.queue.reserve(initial_capacity);
-    std::unordered_map<std::uint64_t, std::int32_t> visited;
-    visited.reserve(initial_capacity);
-    std::unordered_set<std::uint64_t> seeds;
-    seeds.reserve(
+    CartesianSeedSupport prepared;
+    prepared.image_coordinates.reserve(
         static_cast<std::size_t>((limb_samples + 1) * binary_root_count));
-
-    const auto insert = [&](std::int32_t x, std::int32_t y) {
-        const std::uint64_t key = tile_key(x, y);
-        if (visited.find(key) != visited.end()) return true;
-        if (result.queue.size() >= static_cast<std::size_t>(tile_capacity)) {
-            result.overflow = true;
-            return false;
-        }
-        visited.emplace(
-            key, static_cast<std::int32_t>(result.queue.size()));
-        result.queue.push_back({x, y});
-        return true;
-    };
-
     const double two_pi = 2.0 * std::acos(-1.0);
     for (std::int64_t sample = 0; sample <= limb_samples; ++sample) {
         double sample_x = source_x;
@@ -2372,16 +2450,10 @@ CartesianDiscovery discover_cartesian_support(
         for (std::size_t root = 0; root < binary_root_count; ++root) {
             physical_count += static_cast<std::int32_t>(images.physical[root]);
             if (!images.physical[root]) continue;
-            const auto tile_x = static_cast<std::int32_t>(
-                std::floor(images.roots[root].real() / tile_width));
-            const auto tile_y = static_cast<std::int32_t>(
-                std::floor(images.roots[root].imag() / tile_width));
-            if (insert(tile_x, tile_y)) {
-                seeds.insert(tile_key(tile_x, tile_y));
-            }
+            prepared.image_coordinates.push_back(images.roots[root]);
         }
-        result.root_failure =
-            result.root_failure
+        prepared.root_failure =
+            prepared.root_failure
             || physical_count < 3
             || physical_count > 5;
     }
@@ -2394,8 +2466,8 @@ CartesianDiscovery discover_cartesian_support(
     const auto support = lcbinint::magnification::certify_disk_support(
         cached_caustic_branches(separation, mass_ratio),
         {source_x, source_y}, source_radius);
-    result.support_fingerprint = support.fingerprint;
-    result.support_proven = lcbinint::magnification::resolve_certified_probes(
+    prepared.support_fingerprint = support.fingerprint;
+    prepared.support_proven = lcbinint::magnification::resolve_certified_probes(
         support, [&](lcbinint::SourcePosition probe) {
             const auto images = solve_binary_images(
                 probe.x, probe.y, separation, mass_ratio);
@@ -2405,13 +2477,10 @@ CartesianDiscovery discover_cartesian_support(
             }
             for (std::size_t root = 0; root < binary_root_count; ++root) {
                 if (!images.physical[root]) continue;
-                const auto tile_x = static_cast<std::int32_t>(
-                    std::floor(images.roots[root].real() / tile_width));
-                const auto tile_y = static_cast<std::int32_t>(
-                    std::floor(images.roots[root].imag() / tile_width));
-                if (insert(tile_x, tile_y)) seeds.insert(tile_key(tile_x, tile_y));
+                prepared.image_coordinates.push_back(images.roots[root]);
             }
-            result.root_failure = result.root_failure || physical_count > 5;
+            prepared.root_failure =
+                prepared.root_failure || physical_count > 5;
             return static_cast<int>(physical_count);
         });
     // An extremum inside the disk whose probes all saw the same image count
@@ -2421,12 +2490,64 @@ CartesianDiscovery discover_cartesian_support(
     // consumer: every caller already treats root_failure as "the support could
     // not be established", and a support that is known to be incomplete must
     // never be reported as valid at any resolution.
-    result.root_failure = result.root_failure || !result.support_proven;
+    prepared.root_failure =
+        prepared.root_failure || !prepared.support_proven;
+    return prepared;
+}
+
+CartesianDiscovery discover_cartesian_support_from_prepared(
+    double tile_width,
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double source_radius,
+    std::int64_t tile_capacity,
+    const CartesianSeedSupport& prepared)
+{
+    CartesianDiscovery result;
+    // `tile_capacity` is an overflow ceiling, not an expected size.  Reserving
+    // the whole ceiling made every epoch pay a multi-megabyte zeroed bucket
+    // array at the fine rungs, so grow from a modest floor the way the triple
+    // discovery already does.
+    const auto initial_capacity = static_cast<std::size_t>(
+        std::min<std::int64_t>(tile_capacity, 4096));
+    result.queue.reserve(initial_capacity);
+    std::unordered_map<std::uint64_t, std::int32_t> visited;
+    visited.reserve(initial_capacity);
+    std::unordered_set<std::uint64_t> seeds;
+    seeds.reserve(prepared.image_coordinates.size());
+
+    const auto insert = [&](std::int32_t x, std::int32_t y) {
+        const std::uint64_t key = tile_key(x, y);
+        if (visited.find(key) != visited.end()) return true;
+        if (result.queue.size() >= static_cast<std::size_t>(tile_capacity)) {
+            result.overflow = true;
+            return false;
+        }
+        visited.emplace(
+            key, static_cast<std::int32_t>(result.queue.size()));
+        result.queue.push_back({x, y});
+        return true;
+    };
+
+    for (const auto& image : prepared.image_coordinates) {
+        const auto tile_x = static_cast<std::int32_t>(
+            std::floor(image.real() / tile_width));
+        const auto tile_y = static_cast<std::int32_t>(
+            std::floor(image.imag() / tile_width));
+        if (insert(tile_x, tile_y)) seeds.insert(tile_key(tile_x, tile_y));
+    }
+    result.root_failure = prepared.root_failure;
+    result.support_proven = prepared.support_proven;
+    result.support_fingerprint = prepared.support_fingerprint;
     result.seed_count = static_cast<std::int32_t>(result.queue.size());
 
     constexpr std::array<std::array<std::int32_t, 2>, 4> neighbours{{
         {1, 0}, {-1, 0}, {0, 1}, {0, -1}
     }};
+    std::vector<std::uint8_t> active_tiles;
+    active_tiles.reserve(initial_capacity);
     for (std::size_t head = 0; head < result.queue.size(); ++head) {
         const auto tile = result.queue[head];
         const bool active =
@@ -2434,13 +2555,32 @@ CartesianDiscovery discover_cartesian_support(
             || tile_has_inside_probe(
                 tile[0], tile[1], tile_width, source_x, source_y,
                 separation, mass_ratio, source_radius);
-        result.active_count += static_cast<std::int32_t>(active);
+        active_tiles.push_back(static_cast<std::uint8_t>(active));
         if (!active) continue;
         for (const auto& neighbour : neighbours) {
             insert(tile[0] + neighbour[0], tile[1] + neighbour[1]);
         }
     }
+    compact_active_tiles(result, active_tiles);
     return result;
+}
+
+CartesianDiscovery discover_cartesian_support(
+    double tile_width,
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double source_radius,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples)
+{
+    const auto prepared = prepare_cartesian_seed_support(
+        source_x, source_y, separation, mass_ratio, source_radius,
+        limb_samples);
+    return discover_cartesian_support_from_prepared(
+        tile_width, source_x, source_y, separation, mass_ratio,
+        source_radius, tile_capacity, prepared);
 }
 
 // The triple-lens frontier test, bounded exactly as the binary one above.  The
@@ -2476,7 +2616,7 @@ bool triple_tile_has_inside_probe(
         lipschitz += lens.mass[lens_index] / distance_squared;
     }
 
-    const auto values = triple_phi_derivatives(
+    const auto values = triple_phi_derivatives<false>(
         centre_x, centre_y, source_x, source_y, lens,
         1.0 / (source_radius * source_radius));
     if (!std::isfinite(values.phi)) {
@@ -2571,6 +2711,8 @@ CartesianDiscovery discover_triple_cartesian_support(
     constexpr std::array<std::array<std::int32_t, 2>, 4> neighbours{{
         {1, 0}, {-1, 0}, {0, 1}, {0, -1}
     }};
+    std::vector<std::uint8_t> active_tiles;
+    active_tiles.reserve(initial_capacity);
     for (std::size_t head = 0; head < result.queue.size(); ++head) {
         const auto tile = result.queue[head];
         const bool active =
@@ -2578,12 +2720,13 @@ CartesianDiscovery discover_triple_cartesian_support(
             || triple_tile_has_inside_probe(
                 tile[0], tile[1], tile_width, source_x, source_y,
                 classification_lens, source_radius);
-        result.active_count += static_cast<std::int32_t>(active);
+        active_tiles.push_back(static_cast<std::uint8_t>(active));
         if (!active) continue;
         for (const auto& neighbour : neighbours) {
             insert(tile[0] + neighbour[0], tile[1] + neighbour[1]);
         }
     }
+    compact_active_tiles(result, active_tiles);
     return result;
 }
 
@@ -2594,6 +2737,49 @@ struct CartesianEpochResult {
     bool overflow = false;
     bool root_failure = false;
 };
+
+template <typename Scalar>
+CartesianEpochResult<Scalar> cartesian_epoch_kernel_from_prepared(
+    double cell_size,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& source_radius,
+    const Scalar& limb_d,
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    MomentMode mode,
+    std::int64_t boundary_subdivision,
+    const CartesianSeedSupport& prepared)
+{
+    const double tile_width =
+        cell_size * static_cast<double>(tile_size);
+    const auto discovery = discover_cartesian_support_from_prepared(
+        tile_width,
+        scalar_value(source_x), scalar_value(source_y),
+        scalar_value(separation), scalar_value(mass_ratio),
+        scalar_value(source_radius), tile_capacity, prepared);
+    std::vector<double> origins(2 * discovery.queue.size());
+    for (std::size_t index = 0; index < discovery.queue.size(); ++index) {
+        origins[2 * index] =
+            discovery.queue[index][0] * tile_width;
+        origins[2 * index + 1] =
+            discovery.queue[index][1] * tile_width;
+    }
+    CartesianEpochResult<Scalar> result;
+    result.integration = fixed_support_kernel(
+        origins.data(), nullptr,
+        static_cast<std::int64_t>(discovery.queue.size()), cell_size,
+        source_x, source_y, separation, mass_ratio, source_radius, limb_d,
+        static_cast<int>(tile_size), mode,
+        static_cast<int>(boundary_subdivision));
+    result.tile_count =
+        discovery.visited_count;
+    result.overflow = discovery.overflow;
+    result.root_failure = discovery.root_failure;
+    return result;
+}
 
 template <typename Scalar>
 CartesianEpochResult<Scalar> cartesian_epoch_kernel(
@@ -2610,32 +2796,14 @@ CartesianEpochResult<Scalar> cartesian_epoch_kernel(
     MomentMode mode,
     std::int64_t boundary_subdivision)
 {
-    const double tile_width =
-        cell_size * static_cast<double>(tile_size);
-    const auto discovery = discover_cartesian_support(
-        tile_width,
+    const auto prepared = prepare_cartesian_seed_support(
         scalar_value(source_x), scalar_value(source_y),
         scalar_value(separation), scalar_value(mass_ratio),
-        scalar_value(source_radius), tile_capacity, limb_samples);
-    std::vector<double> origins(2 * discovery.queue.size());
-    for (std::size_t index = 0; index < discovery.queue.size(); ++index) {
-        origins[2 * index] =
-            discovery.queue[index][0] * tile_width;
-        origins[2 * index + 1] =
-            discovery.queue[index][1] * tile_width;
-    }
-    CartesianEpochResult<Scalar> result;
-    result.integration = fixed_support_kernel(
-        origins.data(), nullptr,
-        static_cast<std::int64_t>(discovery.queue.size()), cell_size,
-        source_x, source_y, separation, mass_ratio, source_radius, limb_d,
-        static_cast<int>(tile_size), mode,
-        static_cast<int>(boundary_subdivision));
-    result.tile_count =
-        static_cast<std::int32_t>(discovery.queue.size());
-    result.overflow = discovery.overflow;
-    result.root_failure = discovery.root_failure;
-    return result;
+        scalar_value(source_radius), limb_samples);
+    return cartesian_epoch_kernel_from_prepared(
+        cell_size, source_x, source_y, separation, mass_ratio,
+        source_radius, limb_d, tile_size, tile_capacity, mode,
+        boundary_subdivision, prepared);
 }
 
 template <typename Scalar>
@@ -2678,7 +2846,7 @@ CartesianEpochResult<Scalar> triple_cartesian_epoch_kernel(
         source_radius, limb_d, static_cast<int>(tile_size), convention,
         mode, static_cast<int>(boundary_subdivision));
     result.tile_count =
-        static_cast<std::int32_t>(discovery.queue.size());
+        discovery.visited_count;
     result.overflow = discovery.overflow;
     result.root_failure = discovery.root_failure;
     return result;
@@ -2925,17 +3093,21 @@ struct PolarFloodRun {
     std::int32_t angular_index = 0;
     std::int32_t left = 0;
     std::int32_t right = 0;
+    double left_inside_distance_squared = -1.0;
+    double right_inside_distance_squared = -1.0;
     double left_outside_distance_squared = -1.0;
     double right_outside_distance_squared = -1.0;
 };
 
 struct TriplePolarFloodSupport {
     std::vector<PolarFloodRun> runs;
+    std::array<double, 3> moments{};
     bool overflow = false;
     bool root_failure = false;
     std::int64_t cell_count = 0;
 };
 
+template <MomentMode Mode, bool AccumulateMoments>
 TriplePolarFloodSupport discover_triple_polar_flood_support(
     double source_x,
     double source_y,
@@ -2963,12 +3135,19 @@ TriplePolarFloodSupport discover_triple_polar_flood_support(
         separation, mass_ratio, tertiary_mass_ratio,
         tertiary_separation, tertiary_angle, convention);
     const double source_radius_squared = source_radius * source_radius;
+    const double inverse_source_radius_squared =
+        1.0 / source_radius_squared;
     const double two_pi = 2.0 * std::acos(-1.0);
     const double dtheta = two_pi / angular_bins;
     using Interval = std::array<std::int32_t, 2>;
     std::vector<std::vector<Interval>> visited(
         static_cast<std::size_t>(angular_bins));
-    std::deque<std::array<std::int32_t, 2>> queue;
+    struct PolarFrontier {
+        std::int32_t left = 0;
+        std::int32_t right = -1;
+        std::int32_t angular = 0;
+    };
+    std::deque<PolarFrontier> queue;
     const auto wrap_angle = [&](std::int32_t index) {
         std::int64_t wrapped = index % angular_bins;
         if (wrapped < 0) wrapped += angular_bins;
@@ -2982,6 +3161,17 @@ TriplePolarFloodSupport discover_triple_polar_flood_support(
             if (radial >= interval[0] && radial <= interval[1]) return true;
         }
         return false;
+    };
+    const auto first_unvisited_at_or_after = [&visited, &wrap_angle](
+        std::int32_t radial, std::int32_t angular) {
+        const auto& intervals = visited[
+            static_cast<std::size_t>(wrap_angle(angular))];
+        for (const auto& interval : intervals) {
+            if (interval[1] < radial) continue;
+            if (interval[0] > radial) break;
+            radial = interval[1] + 1;
+        }
+        return radial;
     };
     const auto add_visited = [&](
         std::int32_t angular, std::int32_t left, std::int32_t right) {
@@ -3012,16 +3202,18 @@ TriplePolarFloodSupport discover_triple_polar_flood_support(
         const double theta =
             (static_cast<double>(wrap_angle(angular)) + 0.5) * dtheta;
         const double radius = (static_cast<double>(radial) + 0.5) * dr;
-        const auto mapped = triple_map_values(
+        const auto mapped = triple_map_source(
             radius * std::cos(theta), radius * std::sin(theta), lens);
         const double dx = mapped.source_x - source_x;
         const double dy = mapped.source_y - source_y;
         return dx * dx + dy * dy;
     };
-    const auto enqueue = [&](
-        std::int32_t radial, std::int32_t angular) {
-        if (!cell_visited(radial, angular)) {
-            queue.push_back({radial, wrap_angle(angular)});
+    const auto enqueue_run = [&first_unvisited_at_or_after, &queue, &wrap_angle](
+        std::int32_t left, std::int32_t right, std::int32_t angular) {
+        left = std::max<std::int32_t>(left, 0);
+        left = first_unvisited_at_or_after(left, angular);
+        if (left <= right) {
+            queue.push_back({left, right, wrap_angle(angular)});
         }
     };
     for (const auto& seed : seeds.seeds) {
@@ -3042,63 +3234,130 @@ TriplePolarFloodSupport discover_triple_polar_flood_support(
                     mapped_distance_squared(
                         candidate_radial, candidate_angular)
                     <= source_radius_squared * (1.0 + 1.0e-10)) {
-                    enqueue(candidate_radial, candidate_angular);
+                    enqueue_run(
+                        candidate_radial, candidate_radial,
+                        candidate_angular);
                     found = true;
                     break;
                 }
             }
         }
     }
+    std::vector<double> left_inside_distances;
+    std::vector<double> right_inside_distances;
+    left_inside_distances.reserve(
+        static_cast<std::size_t>(std::max(1.0, source_radius / dr)));
+    right_inside_distances.reserve(left_inside_distances.capacity());
+    const auto accumulate_inside = [&](
+        std::int32_t radial, double distance_squared) {
+        if constexpr (AccumulateMoments) {
+            const double radius = (static_cast<double>(radial) + 0.5) * dr;
+            const double area = radius * dr * dtheta;
+            result.moments[0] += area;
+            if constexpr (Mode != MomentMode::uniform) {
+                const double phi =
+                    1.0
+                    - distance_squared * inverse_source_radius_squared;
+                const double sqrt_phi = std::sqrt(phi);
+                result.moments[1] += area * sqrt_phi;
+                if constexpr (Mode == MomentMode::two_coefficient) {
+                    result.moments[2] += area * std::sqrt(sqrt_phi);
+                }
+            }
+        }
+    };
     while (!queue.empty()) {
-        const auto cell = queue.front();
+        const auto frontier = queue.front();
         queue.pop_front();
-        const std::int32_t radial = cell[0];
-        const std::int32_t angular = cell[1];
-        if (
-            cell_visited(radial, angular)
-            || mapped_distance_squared(radial, angular)
-                > source_radius_squared) {
-            continue;
-        }
-        std::int32_t left = radial;
-        double left_outside = -1.0;
-        while (left > 0 && !cell_visited(left - 1, angular)) {
-            const double distance =
-                mapped_distance_squared(left - 1, angular);
-            if (distance > source_radius_squared) {
-                left_outside = distance;
+        const std::int32_t angular = frontier.angular;
+        const double theta =
+            (static_cast<double>(angular) + 0.5) * dtheta;
+        const double cosine = std::cos(theta);
+        const double sine = std::sin(theta);
+        const auto column_distance_squared = [&](std::int32_t radial) {
+            if (radial < 0) {
+                return std::numeric_limits<double>::infinity();
+            }
+            const double radius =
+                (static_cast<double>(radial) + 0.5) * dr;
+            const auto mapped = triple_map_source(
+                radius * cosine, radius * sine, lens);
+            const double dx = mapped.source_x - source_x;
+            const double dy = mapped.source_y - source_y;
+            return dx * dx + dy * dy;
+        };
+        std::int64_t frontier_radial = frontier.left;
+        while (frontier_radial <= frontier.right) {
+            frontier_radial = first_unvisited_at_or_after(
+                static_cast<std::int32_t>(frontier_radial), angular);
+            if (frontier_radial > frontier.right) break;
+            const double start_distance = column_distance_squared(
+                static_cast<std::int32_t>(frontier_radial));
+            if (start_distance > source_radius_squared) {
+                ++frontier_radial;
+                continue;
+            }
+            const std::int32_t radial =
+                static_cast<std::int32_t>(frontier_radial);
+            left_inside_distances.clear();
+            std::int32_t left = radial;
+            double left_outside = -1.0;
+            while (left > 0 && !cell_visited(left - 1, angular)) {
+                const double distance = column_distance_squared(left - 1);
+                if (distance > source_radius_squared) {
+                    left_outside = distance;
+                    break;
+                }
+                --left;
+                left_inside_distances.push_back(distance);
+            }
+            right_inside_distances.clear();
+            std::int32_t right = radial;
+            double right_outside = -1.0;
+            while (!cell_visited(right + 1, angular)) {
+                const double distance = column_distance_squared(right + 1);
+                if (distance > source_radius_squared) {
+                    right_outside = distance;
+                    break;
+                }
+                ++right;
+                right_inside_distances.push_back(distance);
+            }
+            const std::int64_t run_size =
+                static_cast<std::int64_t>(right) - left + 1;
+            if (result.cell_count + run_size > cell_capacity) {
+                result.overflow = true;
                 break;
             }
-            --left;
-        }
-        std::int32_t right = radial;
-        double right_outside = -1.0;
-        while (!cell_visited(right + 1, angular)) {
-            const double distance =
-                mapped_distance_squared(right + 1, angular);
-            if (distance > source_radius_squared) {
-                right_outside = distance;
-                break;
-            }
-            ++right;
-        }
-        const std::int64_t run_size =
-            static_cast<std::int64_t>(right) - left + 1;
-        if (result.cell_count + run_size > cell_capacity) {
-            result.overflow = true;
-            break;
-        }
-        add_visited(angular, left, right);
-        result.runs.push_back(
-            {angular, left, right, left_outside, right_outside});
-        result.cell_count += run_size;
-        for (
+            add_visited(angular, left, right);
+            const double left_inside = left_inside_distances.empty()
+                ? start_distance
+                : left_inside_distances.back();
+            const double right_inside = right_inside_distances.empty()
+                ? start_distance
+                : right_inside_distances.back();
+            result.runs.push_back({
+                angular, left, right, left_inside, right_inside,
+                left_outside, right_outside});
+            result.cell_count += run_size;
             std::int32_t current = left;
-            current <= right;
-            ++current) {
-            enqueue(current, angular - 1);
-            enqueue(current, angular + 1);
+            for (auto iterator = left_inside_distances.rbegin();
+                 iterator != left_inside_distances.rend();
+                 ++iterator, ++current) {
+                accumulate_inside(current, *iterator);
+            }
+            accumulate_inside(radial, start_distance);
+            current = radial + 1;
+            for (const double distance : right_inside_distances) {
+                accumulate_inside(current++, distance);
+            }
+            enqueue_run(left, right, angular - 1);
+            enqueue_run(left, right, angular + 1);
+            frontier_radial = std::max<std::int64_t>(
+                frontier_radial + 1,
+                static_cast<std::int64_t>(right) + 1);
         }
+        if (result.overflow) break;
     }
     return result;
 }
@@ -3199,7 +3458,8 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
     }
     const double dtheta = 2.0 * std::acos(-1.0) / angular_bins;
     constexpr std::int64_t cell_capacity = 50'000'000;
-    const auto support = discover_triple_polar_flood_support(
+    const auto support = discover_triple_polar_flood_support<
+        Mode, std::is_same_v<Scalar, double>>(
         scalar_value(source_x), scalar_value(source_y),
         scalar_value(separation), scalar_value(mass_ratio),
         scalar_value(tertiary_mass_ratio),
@@ -3210,6 +3470,9 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
     result.tile_count = static_cast<std::int32_t>(support.runs.size());
     result.overflow = support.overflow;
     result.root_failure = support.root_failure;
+    if constexpr (std::is_same_v<Scalar, double>) {
+        result.integration.moments = support.moments;
+    }
     const auto lens = make_triple_lens_constants(
         separation, mass_ratio, tertiary_mass_ratio,
         tertiary_separation, tertiary_angle, convention);
@@ -3222,7 +3485,7 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
         const double theta =
             (static_cast<double>(wrapped) + 0.5) * dtheta;
         const double radius = (static_cast<double>(radial) + 0.5) * dr;
-        const auto mapped = triple_map_values(
+        const auto mapped = triple_map_source(
             Scalar(radius * std::cos(theta)),
             Scalar(radius * std::sin(theta)),
             lens);
@@ -3258,7 +3521,7 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
         const double cosine = std::cos(theta);
         const double sine = std::sin(theta);
         const double radius = (static_cast<double>(radial) + 0.5) * dr;
-        const auto values = triple_phi_derivatives(
+        const auto values = triple_phi_derivatives<false>(
             radius * cosine, radius * sine,
             source_x, source_y, lens, inverse_radius_squared);
         const Scalar delta_r =
@@ -3304,41 +3567,15 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
         }
     }
     for (const auto& run : support.runs) {
-        const double theta =
-            (static_cast<double>(run.angular_index) + 0.5) * dtheta;
-        const double cosine = std::cos(theta);
-        const double sine = std::sin(theta);
-        Scalar left_inside_distance_squared;
-        Scalar right_inside_distance_squared;
-        for (
-            std::int32_t radial = run.left;
-            radial <= run.right;
-            ++radial) {
-            if constexpr (std::is_same_v<Scalar, double>) {
-                const double radius =
-                    (static_cast<double>(radial) + 0.5) * dr;
-                const auto values = triple_phi_derivatives(
-                    radius * cosine, radius * sine,
-                    source_x, source_y, lens, inverse_radius_squared);
-                const double area = radius * dr * dtheta;
-                result.integration.moments[0] += area;
-                if constexpr (Mode != MomentMode::uniform) {
-                    const Scalar sqrt_phi = scalar_sqrt(values.phi);
-                    result.integration.moments[1] += area * sqrt_phi;
-                    if constexpr (Mode == MomentMode::two_coefficient) {
-                        result.integration.moments[2] +=
-                            area * scalar_sqrt(sqrt_phi);
-                    }
-                }
-                if (radial == run.left) {
-                    left_inside_distance_squared =
-                        source_radius * source_radius * (1.0 - values.phi);
-                }
-                if (radial == run.right) {
-                    right_inside_distance_squared =
-                        source_radius * source_radius * (1.0 - values.phi);
-                }
-            } else {
+        const Scalar left_inside_distance_squared =
+            run.left_inside_distance_squared;
+        const Scalar right_inside_distance_squared =
+            run.right_inside_distance_squared;
+        if constexpr (!std::is_same_v<Scalar, double>) {
+            for (
+                std::int32_t radial = run.left;
+                radial <= run.right;
+                ++radial) {
                 add_derivative_cell(radial, run.angular_index, true);
             }
         }
@@ -3385,8 +3622,8 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
         }
         if constexpr (std::is_same_v<Scalar, double>) {
             if (run.left > 0 && run.left_outside_distance_squared >= 0.0) {
-                const Scalar outside = distance_squared(
-                    run.left - 1, run.angular_index);
+                const Scalar outside =
+                    run.left_outside_distance_squared;
                 const Scalar inside_radius =
                     scalar_sqrt(left_inside_distance_squared);
                 const Scalar outside_radius = scalar_sqrt(outside);
@@ -3398,8 +3635,8 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
                     * (static_cast<double>(run.left) * dr) * dr * dtheta;
             }
             if (run.right_outside_distance_squared >= 0.0) {
-                const Scalar outside = distance_squared(
-                    run.right + 1, run.angular_index);
+                const Scalar outside =
+                    run.right_outside_distance_squared;
                 const Scalar inside_radius =
                     scalar_sqrt(right_inside_distance_squared);
                 const Scalar outside_radius = scalar_sqrt(outside);
@@ -3533,7 +3770,7 @@ CartesianEpochResult<Scalar> polar_epoch_kernel_for_mode(
                     if (!(radius < local_upper)) continue;
                     const double image_x = radius * cosine;
                     const double image_y = radius * sine;
-                    const auto classification = phi_derivatives(
+                    const auto classification = phi_derivatives<false>(
                         image_x, image_y, scalar_value(source_x),
                         scalar_value(source_y), classification_lens,
                         classification_inverse_radius_squared);
@@ -3557,23 +3794,30 @@ CartesianEpochResult<Scalar> polar_epoch_kernel_for_mode(
                     if (!(inside || boundary)) continue;
                     ++result.integration.active_cells;
                     if (inside) {
-                        const auto values = phi_derivatives(
-                            image_x, image_y, source_x, source_y, lens,
-                            inverse_source_radius_squared);
-                        const Scalar active_delta_r =
-                            (values.gradient_x * cosine
-                             + values.gradient_y * sine)
-                            * dr;
-                        const Scalar active_delta_theta =
-                            radius
-                            * (
-                                -values.gradient_x * sine
-                                + values.gradient_y * cosine)
-                            * dtheta;
-                        add_polar_interior<Mode>(
-                            result.integration.moments, values,
-                            active_delta_r, active_delta_theta,
-                            radius * dr * dtheta);
+                        if constexpr (std::is_same_v<Scalar, double>) {
+                            add_polar_interior<Mode>(
+                                result.integration.moments, classification,
+                                delta_r, delta_theta,
+                                radius * dr * dtheta);
+                        } else {
+                            const auto values = phi_derivatives<false>(
+                                image_x, image_y, source_x, source_y, lens,
+                                inverse_source_radius_squared);
+                            const Scalar active_delta_r =
+                                (values.gradient_x * cosine
+                                 + values.gradient_y * sine)
+                                * dr;
+                            const Scalar active_delta_theta =
+                                radius
+                                * (
+                                    -values.gradient_x * sine
+                                    + values.gradient_y * cosine)
+                                * dtheta;
+                            add_polar_interior<Mode>(
+                                result.integration.moments, values,
+                                active_delta_r, active_delta_theta,
+                                radius * dr * dtheta);
+                        }
                         continue;
                     }
                     ++result.integration.boundary_cells;
@@ -3598,7 +3842,7 @@ CartesianEpochResult<Scalar> polar_epoch_kernel_for_mode(
                                     * dtheta;
                             const double sub_cosine = std::cos(sub_theta);
                             const double sub_sine = std::sin(sub_theta);
-                            const auto values = phi_derivatives(
+                            const auto values = phi_derivatives<false>(
                                 sub_radius * sub_cosine,
                                 sub_radius * sub_sine,
                                 source_x, source_y, lens,
@@ -3755,7 +3999,7 @@ CartesianEpochResult<Scalar> triple_polar_epoch_kernel_for_mode(
                     if (!(radius < local_upper)) continue;
                     const double image_x = radius * cosine;
                     const double image_y = radius * sine;
-                    const auto classification = triple_phi_derivatives(
+                    const auto classification = triple_phi_derivatives<false>(
                         image_x, image_y, scalar_value(source_x),
                         scalar_value(source_y), classification_lens,
                         classification_inverse_radius_squared);
@@ -3778,7 +4022,7 @@ CartesianEpochResult<Scalar> triple_polar_epoch_kernel_for_mode(
                     if (!(inside || boundary)) continue;
                     ++result.integration.active_cells;
                     if (inside) {
-                        const auto values = triple_phi_derivatives(
+                        const auto values = triple_phi_derivatives<false>(
                             image_x, image_y, source_x, source_y, lens,
                             inverse_source_radius_squared);
                         const Scalar active_delta_r =
@@ -3819,7 +4063,7 @@ CartesianEpochResult<Scalar> triple_polar_epoch_kernel_for_mode(
                                     * dtheta;
                             const double sub_cosine = std::cos(sub_theta);
                             const double sub_sine = std::sin(sub_theta);
-                            const auto values = triple_phi_derivatives(
+                            const auto values = triple_phi_derivatives<false>(
                                 sub_radius * sub_cosine,
                                 sub_radius * sub_sine,
                                 source_x, source_y, lens,
@@ -6732,6 +6976,417 @@ XLA_FFI_DEFINE_HANDLER(
 #undef LCBININT_TRAJECTORY_KERNEL_ARGUMENTS
 #undef LCBININT_TRAJECTORY_ARGUMENTS
 
+struct CartesianLadderRung {
+    double magnification = 0.0;
+    bool support_valid = false;
+    std::array<double, parameter_count> jacobian{};
+};
+
+struct CartesianLadderDecision {
+    double magnification = 0.0;
+    double estimated_error = std::numeric_limits<double>::infinity();
+    bool support_valid = false;
+    bool converged = false;
+    std::array<double, parameter_count> magnification_jacobian{};
+    std::array<double, parameter_count> error_jacobian{};
+};
+
+template <bool WithJacobian>
+CartesianLadderRung evaluate_cartesian_ladder_rung(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double source_radius,
+    double limb_c,
+    double limb_d,
+    std::int32_t resolution,
+    std::int32_t tile_capacity,
+    std::int64_t tile_size,
+    MomentMode mode,
+    std::int64_t boundary_subdivision,
+    const CartesianSeedSupport& prepared)
+{
+    CartesianLadderRung rung;
+    if constexpr (WithJacobian) {
+        const Jet x = Jet::variable(source_x, 0);
+        const Jet y = Jet::variable(source_y, 1);
+        const Jet s = Jet::variable(separation, 2);
+        const Jet q = Jet::variable(mass_ratio, 3);
+        const Jet rho = Jet::variable(source_radius, 4);
+        const auto result = cartesian_epoch_kernel_from_prepared(
+            source_radius / static_cast<double>(resolution),
+            x, y, s, q, rho, Jet(limb_d), tile_size, tile_capacity,
+            mode, boundary_subdivision, prepared);
+        const Jet magnification = combine_magnification(
+            result.integration.moments, rho, Jet(limb_c), Jet(limb_d), mode);
+        rung.magnification = magnification.value;
+        for (
+            std::size_t parameter = 0;
+            parameter < kernel_derivative_count;
+            ++parameter) {
+            rung.jacobian[parameter] = magnification.derivative[parameter];
+        }
+        const auto limb_derivatives = limb_coefficient_derivatives(
+            result.integration.moments, source_radius, limb_c, limb_d, mode);
+        rung.jacobian[5] = limb_derivatives[0];
+        rung.jacobian[6] = limb_derivatives[1];
+        rung.support_valid = !(result.overflow || result.root_failure);
+    } else {
+        const auto result = cartesian_epoch_kernel_from_prepared(
+            source_radius / static_cast<double>(resolution),
+            source_x, source_y, separation, mass_ratio, source_radius,
+            limb_d, tile_size, tile_capacity, mode,
+            boundary_subdivision, prepared);
+        rung.magnification = combine_magnification(
+            result.integration.moments, source_radius, limb_c, limb_d, mode);
+        rung.support_valid = !(result.overflow || result.root_failure);
+    }
+    return rung;
+}
+
+template <bool WithJacobian>
+CartesianLadderDecision cartesian_ladder_epoch_kernel(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double source_radius,
+    double limb_c,
+    double limb_d,
+    double absolute_tolerance,
+    double relative_tolerance,
+    std::int32_t selected_index,
+    const std::int32_t* resolutions,
+    const std::int32_t* tile_capacities,
+    std::int64_t bucket_count,
+    std::int64_t tile_size,
+    std::int64_t limb_samples,
+    MomentMode mode,
+    std::int64_t boundary_subdivision)
+{
+    const auto prepared = prepare_cartesian_seed_support(
+        source_x, source_y, separation, mass_ratio, source_radius,
+        limb_samples);
+    const auto evaluate = [&](std::int32_t index) {
+        return evaluate_cartesian_ladder_rung<WithJacobian>(
+            source_x, source_y, separation, mass_ratio, source_radius,
+            limb_c, limb_d, resolutions[index], tile_capacities[index],
+            tile_size, mode, boundary_subdivision, prepared);
+    };
+    const auto absolute_difference = [](
+        const CartesianLadderRung& left,
+        const CartesianLadderRung& right) {
+        CartesianLadderRung difference;
+        const double signed_difference =
+            left.magnification - right.magnification;
+        difference.magnification = std::abs(signed_difference);
+        // jnp.abs uses the +1 subgradient at exactly zero.  Matching it keeps
+        // the fused custom JVP bit-for-bit consistent at equal rungs.
+        const double sign = signed_difference < 0.0 ? -1.0 : 1.0;
+        if constexpr (WithJacobian) {
+            for (std::size_t parameter = 0; parameter < parameter_count;
+                 ++parameter) {
+                difference.jacobian[parameter] = sign * (
+                    left.jacobian[parameter] - right.jacobian[parameter]);
+            }
+        }
+        return difference;
+    };
+
+    const std::int32_t lower_index = std::max(selected_index - 1, 0);
+    const std::int32_t upper_index = std::min(
+        selected_index + 1, static_cast<std::int32_t>(bucket_count - 1));
+    const CartesianLadderRung selected = evaluate(selected_index);
+    const CartesianLadderRung lower = lower_index == selected_index
+        ? selected
+        : evaluate(lower_index);
+    const bool use_upper =
+        selected_index == 0 || !lower.support_valid;
+    const auto lower_error = absolute_difference(selected, lower);
+    const double lower_budget =
+        absolute_tolerance
+        + relative_tolerance * std::max(std::abs(selected.magnification), 1.0);
+    const bool lower_certified =
+        !use_upper
+        && selected.support_valid
+        && lower.support_valid
+        && std::isfinite(lower_error.magnification)
+        && lower_error.magnification <= lower_budget;
+    const bool at_top = upper_index == selected_index;
+    const bool needs_upper = !lower_certified && !at_top;
+    const CartesianLadderRung upper = at_top
+        ? selected
+        : (needs_upper ? evaluate(upper_index) : CartesianLadderRung{});
+    const std::int32_t comparison_index =
+        use_upper ? upper_index : lower_index;
+    const CartesianLadderRung& comparison = use_upper ? upper : lower;
+    const auto initial_error = absolute_difference(selected, comparison);
+    const double initial_budget =
+        absolute_tolerance
+        + relative_tolerance * std::max(std::abs(selected.magnification), 1.0);
+    const bool initial_converged =
+        comparison_index != selected_index
+        && selected.support_valid
+        && comparison.support_valid
+        && std::isfinite(initial_error.magnification)
+        && initial_error.magnification <= initial_budget;
+    const bool retry = !initial_converged && upper_index != selected_index;
+    const auto retry_error = absolute_difference(upper, selected);
+
+    CartesianLadderDecision decision;
+    const CartesianLadderRung& chosen = retry ? upper : selected;
+    const CartesianLadderRung& error = retry ? retry_error : initial_error;
+    decision.magnification = chosen.magnification;
+    decision.estimated_error = error.magnification;
+    decision.support_valid = chosen.support_valid;
+    const double retry_budget =
+        absolute_tolerance
+        + relative_tolerance * std::max(std::abs(chosen.magnification), 1.0);
+    decision.converged = initial_converged || (
+        retry
+        && selected.support_valid
+        && upper.support_valid
+        && std::isfinite(retry_error.magnification)
+        && retry_error.magnification <= retry_budget);
+    if constexpr (WithJacobian) {
+        decision.magnification_jacobian = chosen.jacobian;
+        decision.error_jacobian = error.jacobian;
+    }
+    return decision;
+}
+
+ffi::Error validate_cartesian_ladder_arguments(
+    std::int64_t tile_size,
+    std::int64_t limb_samples,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR1<ffi::F64>& source_x,
+    ffi::BufferR1<ffi::F64>& source_y,
+    ffi::BufferR1<ffi::PRED>& active,
+    ffi::BufferR1<ffi::S32>& selected_index,
+    ffi::BufferR1<ffi::S32>& resolutions,
+    ffi::BufferR1<ffi::S32>& tile_capacities,
+    ffi::ResultBufferR1<ffi::F64>& magnification,
+    ffi::ResultBufferR1<ffi::F64>& estimated_error,
+    ffi::ResultBufferR1<ffi::PRED>& support_valid,
+    ffi::ResultBufferR1<ffi::PRED>& converged)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    const std::int64_t bucket_count = resolutions.dimensions()[0];
+    if (
+        source_y.dimensions()[0] != batch_size
+        || active.dimensions()[0] != batch_size
+        || selected_index.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || estimated_error->dimensions()[0] != batch_size
+        || support_valid->dimensions()[0] != batch_size
+        || converged->dimensions()[0] != batch_size
+        || tile_capacities.dimensions()[0] != bucket_count
+        || bucket_count <= 0) {
+        return ffi::Error::InvalidArgument(
+            "Cartesian ladder arrays have incompatible shapes");
+    }
+    if (
+        tile_size <= 0 || limb_samples <= 0
+        || mode_value < 1 || mode_value > 3
+        || boundary_subdivision < 1 || boundary_subdivision > 4) {
+        return ffi::Error::InvalidArgument(
+            "invalid Cartesian ladder static configuration");
+    }
+    for (std::int64_t index = 0; index < bucket_count; ++index) {
+        if (
+            resolutions.typed_data()[index] <= 0
+            || tile_capacities.typed_data()[index] <= 0) {
+            return ffi::Error::InvalidArgument(
+                "Cartesian ladder buckets must be positive");
+        }
+    }
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        if (
+            selected_index.typed_data()[index] < 0
+            || selected_index.typed_data()[index] >= bucket_count) {
+            return ffi::Error::InvalidArgument(
+                "Cartesian ladder selected index is out of range");
+        }
+    }
+    return ffi::Error::Success();
+}
+
+#define LCBININT_CARTESIAN_LADDER_ARGUMENTS \
+    std::int64_t tile_size, \
+    std::int64_t limb_samples, \
+    std::int64_t mode_value, \
+    std::int64_t boundary_subdivision, \
+    ffi::BufferR1<ffi::F64> source_x, \
+    ffi::BufferR1<ffi::F64> source_y, \
+    ffi::BufferR1<ffi::PRED> active, \
+    ffi::BufferR1<ffi::S32> selected_index, \
+    ffi::BufferR1<ffi::S32> resolutions, \
+    ffi::BufferR1<ffi::S32> tile_capacities, \
+    ffi::BufferR0<ffi::F64> separation, \
+    ffi::BufferR0<ffi::F64> mass_ratio, \
+    ffi::BufferR0<ffi::F64> source_radius, \
+    ffi::BufferR0<ffi::F64> limb_c, \
+    ffi::BufferR0<ffi::F64> limb_d, \
+    ffi::BufferR0<ffi::F64> absolute_tolerance, \
+    ffi::BufferR0<ffi::F64> relative_tolerance, \
+    ffi::ResultBufferR1<ffi::F64> magnification, \
+    ffi::ResultBufferR1<ffi::F64> estimated_error, \
+    ffi::ResultBufferR1<ffi::PRED> support_valid, \
+    ffi::ResultBufferR1<ffi::PRED> converged
+
+#define LCBININT_CARTESIAN_LADDER_VALIDATE \
+    validate_cartesian_ladder_arguments( \
+        tile_size, limb_samples, mode_value, boundary_subdivision, \
+        source_x, source_y, active, selected_index, resolutions, \
+        tile_capacities, magnification, estimated_error, support_valid, \
+        converged)
+
+#define LCBININT_CARTESIAN_LADDER_KERNEL(index, with_jacobian) \
+    cartesian_ladder_epoch_kernel<with_jacobian>( \
+        source_x.typed_data()[index], source_y.typed_data()[index], \
+        *separation.typed_data(), *mass_ratio.typed_data(), \
+        *source_radius.typed_data(), *limb_c.typed_data(), \
+        *limb_d.typed_data(), *absolute_tolerance.typed_data(), \
+        *relative_tolerance.typed_data(), selected_index.typed_data()[index], \
+        resolutions.typed_data(), tile_capacities.typed_data(), \
+        resolutions.dimensions()[0], tile_size, limb_samples, \
+        static_cast<MomentMode>(mode_value), boundary_subdivision)
+
+ffi::Error cartesian_ladder_forward_ffi_impl(
+    LCBININT_CARTESIAN_LADDER_ARGUMENTS)
+{
+    auto validation = LCBININT_CARTESIAN_LADDER_VALIDATE;
+    if (validation.failure()) return validation;
+    if (!(*source_radius.typed_data() > 0.0)) {
+        return ffi::Error::InvalidArgument("source_radius must be positive");
+    }
+    const std::int64_t batch_size = source_x.dimensions()[0];
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1, std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(dynamic, 1) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        if (!active.typed_data()[index]) {
+            magnification->typed_data()[index] = 0.0;
+            estimated_error->typed_data()[index] =
+                std::numeric_limits<double>::infinity();
+            support_valid->typed_data()[index] = false;
+            converged->typed_data()[index] = false;
+            continue;
+        }
+        const auto result = LCBININT_CARTESIAN_LADDER_KERNEL(index, false);
+        magnification->typed_data()[index] = result.magnification;
+        estimated_error->typed_data()[index] = result.estimated_error;
+        support_valid->typed_data()[index] = result.support_valid;
+        converged->typed_data()[index] = result.converged;
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error cartesian_ladder_jacobian_ffi_impl(
+    LCBININT_CARTESIAN_LADDER_ARGUMENTS,
+    ffi::ResultBufferR2<ffi::F64> magnification_jacobian,
+    ffi::ResultBufferR2<ffi::F64> error_jacobian)
+{
+    auto validation = LCBININT_CARTESIAN_LADDER_VALIDATE;
+    if (validation.failure()) return validation;
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        magnification_jacobian->dimensions()[0] != batch_size
+        || magnification_jacobian->dimensions()[1] != parameter_count
+        || error_jacobian->dimensions()[0] != batch_size
+        || error_jacobian->dimensions()[1] != parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "Cartesian ladder Jacobians must have shape (N, 7)");
+    }
+    if (!(*source_radius.typed_data() > 0.0)) {
+        return ffi::Error::InvalidArgument("source_radius must be positive");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
+        1, std::min(
+            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(dynamic, 1) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        double* output_magnification_jacobian =
+            magnification_jacobian->typed_data() + index * parameter_count;
+        double* output_error_jacobian =
+            error_jacobian->typed_data() + index * parameter_count;
+        if (!active.typed_data()[index]) {
+            magnification->typed_data()[index] = 0.0;
+            estimated_error->typed_data()[index] =
+                std::numeric_limits<double>::infinity();
+            support_valid->typed_data()[index] = false;
+            converged->typed_data()[index] = false;
+            std::fill(
+                output_magnification_jacobian,
+                output_magnification_jacobian + parameter_count, 0.0);
+            std::fill(
+                output_error_jacobian,
+                output_error_jacobian + parameter_count, 0.0);
+            continue;
+        }
+        const auto result = LCBININT_CARTESIAN_LADDER_KERNEL(index, true);
+        magnification->typed_data()[index] = result.magnification;
+        estimated_error->typed_data()[index] = result.estimated_error;
+        support_valid->typed_data()[index] = result.support_valid;
+        converged->typed_data()[index] = result.converged;
+        std::copy(
+            result.magnification_jacobian.begin(),
+            result.magnification_jacobian.end(),
+            output_magnification_jacobian);
+        std::copy(
+            result.error_jacobian.begin(), result.error_jacobian.end(),
+            output_error_jacobian);
+    }
+    return ffi::Error::Success();
+}
+
+#define LCBININT_CARTESIAN_LADDER_BINDING \
+    ffi::Ffi::Bind() \
+        .Attr<std::int64_t>("tile_size") \
+        .Attr<std::int64_t>("limb_samples") \
+        .Attr<std::int64_t>("moment_mode") \
+        .Attr<std::int64_t>("boundary_subdivision") \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::PRED>>() \
+        .Arg<ffi::BufferR1<ffi::S32>>() \
+        .Arg<ffi::BufferR1<ffi::S32>>() \
+        .Arg<ffi::BufferR1<ffi::S32>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+
+XLA_FFI_DEFINE_HANDLER(
+    cartesian_ladder_forward_ffi_handler,
+    cartesian_ladder_forward_ffi_impl,
+    LCBININT_CARTESIAN_LADDER_BINDING);
+XLA_FFI_DEFINE_HANDLER(
+    cartesian_ladder_jacobian_ffi_handler,
+    cartesian_ladder_jacobian_ffi_impl,
+    LCBININT_CARTESIAN_LADDER_BINDING
+        .Ret<ffi::BufferR2<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::F64>>());
+
+#undef LCBININT_CARTESIAN_LADDER_BINDING
+#undef LCBININT_CARTESIAN_LADDER_KERNEL
+#undef LCBININT_CARTESIAN_LADDER_VALIDATE
+#undef LCBININT_CARTESIAN_LADDER_ARGUMENTS
+
 ffi::Error validate_cartesian_batch_arguments(
     std::int64_t tile_size,
     std::int64_t tile_capacity,
@@ -7156,6 +7811,18 @@ py::capsule cartesian_batch_value_jacobian_ffi_capsule()
             cartesian_batch_value_jacobian_ffi_handler));
 }
 
+py::capsule cartesian_ladder_forward_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(cartesian_ladder_forward_ffi_handler));
+}
+
+py::capsule cartesian_ladder_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(cartesian_ladder_jacobian_ffi_handler));
+}
+
 py::capsule hexadecapole_batch_ffi_capsule()
 {
     return py::capsule(
@@ -7335,6 +8002,14 @@ void register_jax_ir_submodule(py::module_& parent)
         "cartesian_batch_value_jacobian_ffi",
         &cartesian_batch_value_jacobian_ffi_capsule,
         "Return the masked Cartesian batch value/Jacobian FFI capsule.");
+    module.def(
+        "cartesian_ladder_forward_ffi",
+        &cartesian_ladder_forward_ffi_capsule,
+        "Return the adaptive multi-resolution Cartesian FFI capsule.");
+    module.def(
+        "cartesian_ladder_jacobian_ffi",
+        &cartesian_ladder_jacobian_ffi_capsule,
+        "Return the adaptive Cartesian value/error Jacobian FFI capsule.");
     module.def(
         "hexadecapole_batch_ffi",
         &hexadecapole_batch_ffi_capsule,

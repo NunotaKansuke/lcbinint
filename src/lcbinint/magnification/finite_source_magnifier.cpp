@@ -15,6 +15,7 @@
 #include <deque>
 #include <iterator>
 #include <limits>
+#include <memory>
 #include <numeric>
 #include <queue>
 #include <set>
@@ -230,6 +231,7 @@ struct BinaryLensMapper {
     Complex separation;
     double m1 = 0.0;
     double m2 = 0.0;
+    double source_origin_shift = 0.0;
 };
 
 struct TripleLensMapper {
@@ -246,7 +248,7 @@ BinaryLensMapper make_binary_lens_mapper(double separation, double mass_ratio)
     const Complex lens_separation = q_input < 1.0 ? Complex(-s, 0.0) : Complex(s, 0.0);
     const double m1 = 1.0 / (1.0 + q);
     const double m2 = q * m1;
-    return {lens_separation, m1, m2};
+    return {lens_separation, m1, m2, lens_separation.real() * m1};
 }
 
 TripleLensMapper make_triple_lens_mapper(const model::TripleLensGeometry& geometry)
@@ -268,10 +270,20 @@ double mapped_binary_lens_distance2(
 {
     const double a = mapper.separation.real();
     const double xa = x - a;
-    const double den1 = xa * xa + y * y;
-    const double den2 = x * x + y * y;
-    const double mapped_x = x - mapper.m1 * xa / den1 - mapper.m2 * x / den2 - a * mapper.m1;
-    const double mapped_y = y - mapper.m1 * y / den1 - mapper.m2 * y / den2;
+    const double y2 = y * y;
+    const double den1 = xa * xa + y2;
+    const double den2 = x * x + y2;
+    // Both mapped coordinates use the same two lens denominators.  Spell out
+    // their reciprocals so the hot inverse-ray loop performs two divisions per
+    // cell instead of relying on the compiler to discover common divisions
+    // across the x/y expressions (GCC does not do so under strict FP rules).
+    const double inv_den1 = 1.0 / den1;
+    const double inv_den2 = 1.0 / den2;
+    const double mapped_x =
+        x - mapper.m1 * xa * inv_den1 - mapper.m2 * x * inv_den2 -
+        mapper.source_origin_shift;
+    const double mapped_y =
+        y - mapper.m1 * y * inv_den1 - mapper.m2 * y * inv_den2;
     const double dx = mapped_x - source.x;
     const double dy = mapped_y - source.y;
     return dx * dx + dy * dy;
@@ -288,8 +300,9 @@ SourcePosition map_triple_lens_real(
         const double dx = x - mapper.lens_x[i];
         const double dy = y - mapper.lens_y[i];
         const double den = dx * dx + dy * dy;
-        mapped_x -= mapper.mass[i] * dx / den;
-        mapped_y -= mapper.mass[i] * dy / den;
+        const double mass_over_den = mapper.mass[i] / den;
+        mapped_x -= mass_over_den * dx;
+        mapped_y -= mass_over_den * dy;
     }
     return {mapped_x, mapped_y};
 }
@@ -304,6 +317,235 @@ double mapped_triple_lens_distance2(
     const double dx = mapped.x - source.x;
     const double dy = mapped.y - source.y;
     return dx * dx + dy * dy;
+}
+
+struct BoundaryRootEvaluation {
+    double residual = std::numeric_limits<double>::infinity();
+    double derivative_x = 0.0;
+};
+
+BoundaryRootEvaluation boundary_root_evaluation(
+    const BinaryLensMapper& mapper,
+    double x,
+    double y,
+    SourcePosition source,
+    double source_radius2)
+{
+    const double a = mapper.separation.real();
+    const double xa = x - a;
+    const double y2 = y * y;
+    const double den1 = xa * xa + y2;
+    const double den2 = x * x + y2;
+    if (den1 < 1.0e-20 || den2 < 1.0e-20) {
+        return {};
+    }
+    const double inv_den1 = 1.0 / den1;
+    const double inv_den2 = 1.0 / den2;
+    const double mapped_x =
+        x - mapper.m1 * xa * inv_den1 - mapper.m2 * x * inv_den2 -
+        mapper.source_origin_shift;
+    const double mapped_y =
+        y - mapper.m1 * y * inv_den1 - mapper.m2 * y * inv_den2;
+    const double dx = mapped_x - source.x;
+    const double dy = mapped_y - source.y;
+    const double inv_den1sq = inv_den1 * inv_den1;
+    const double inv_den2sq = inv_den2 * inv_den2;
+    const double mapped_dx =
+        1.0 + mapper.m1 * (xa * xa - y2) * inv_den1sq +
+        mapper.m2 * (x * x - y2) * inv_den2sq;
+    const double mapped_dy =
+        2.0 * y * (mapper.m1 * xa * inv_den1sq +
+                   mapper.m2 * x * inv_den2sq);
+    return {
+        dx * dx + dy * dy - source_radius2,
+        2.0 * (dx * mapped_dx + dy * mapped_dy),
+    };
+}
+
+BoundaryRootEvaluation boundary_root_evaluation(
+    const TripleLensMapper& mapper,
+    double x,
+    double y,
+    SourcePosition source,
+    double source_radius2)
+{
+    double mapped_x = x;
+    double mapped_y = y;
+    double mapped_dx = 1.0;
+    double mapped_dy = 0.0;
+    for (std::size_t i = 0; i < mapper.mass.size(); ++i) {
+        const double dx_lens = x - mapper.lens_x[i];
+        const double dy_lens = y - mapper.lens_y[i];
+        const double den = dx_lens * dx_lens + dy_lens * dy_lens;
+        if (den < 1.0e-20) {
+            return {};
+        }
+        const double inv_den = 1.0 / den;
+        const double inv_densq = inv_den * inv_den;
+        const double mass = mapper.mass[i];
+        mapped_x -= mass * dx_lens * inv_den;
+        mapped_y -= mass * dy_lens * inv_den;
+        mapped_dx += mass *
+            (dx_lens * dx_lens - dy_lens * dy_lens) * inv_densq;
+        mapped_dy += 2.0 * mass * dx_lens * dy_lens * inv_densq;
+    }
+    const double dx = mapped_x - source.x;
+    const double dy = mapped_y - source.y;
+    return {
+        dx * dx + dy * dy - source_radius2,
+        2.0 * (dx * mapped_dx + dy * mapped_dy),
+    };
+}
+
+double boundary_root_residual(
+    const BinaryLensMapper& mapper,
+    double x,
+    double y,
+    SourcePosition source,
+    double source_radius2)
+{
+    return mapped_binary_lens_distance2(mapper, x, y, source) - source_radius2;
+}
+
+double boundary_root_residual(
+    const TripleLensMapper& mapper,
+    double x,
+    double y,
+    SourcePosition source,
+    double source_radius2)
+{
+    return mapped_triple_lens_distance2(mapper, x, y, source) - source_radius2;
+}
+
+// Locate a source-limb crossing within a known inside/outside image-plane
+// cell.  A converged Newton step is accepted only after two residual-only
+// probes explicitly bracket it to the requested width; otherwise the bounded
+// bisection tail supplies the same guarantee where the derivative is locally
+// ill-conditioned.
+template <typename ImageMap>
+double refine_boundary_crossing_fraction(
+    const ImageMap& mapper,
+    SourcePosition source,
+    double source_radius2,
+    double inside_x,
+    double outside_x,
+    double y,
+    double initial)
+{
+    double inside_fraction = 0.0;
+    double outside_fraction = 1.0;
+    double fraction = std::clamp(initial, 0.0, 1.0);
+    constexpr double kMaximumBoundaryBracket = 1.0 / 4096.0;
+    constexpr int kBoundaryNewtonIterations = 3;
+    bool convergence_probed = false;
+    for (int iteration = 0; iteration < kBoundaryNewtonIterations; ++iteration) {
+        const double x = inside_x + fraction * (outside_x - inside_x);
+        const auto evaluation = boundary_root_evaluation(
+            mapper, x, y, source, source_radius2);
+        if (evaluation.residual == 0.0) {
+            return fraction;
+        }
+        if (evaluation.residual <= 0.0) {
+            inside_fraction = fraction;
+        } else {
+            outside_fraction = fraction;
+        }
+        if (outside_fraction - inside_fraction <= kMaximumBoundaryBracket) {
+            return 0.5 * (inside_fraction + outside_fraction);
+        }
+        const double fraction_derivative =
+            evaluation.derivative_x * (outside_x - inside_x);
+        double next = std::numeric_limits<double>::quiet_NaN();
+        if (std::isfinite(fraction_derivative) &&
+            std::abs(fraction_derivative) > 1.0e-30) {
+            next = fraction - evaluation.residual / fraction_derivative;
+        }
+        if (!(next > inside_fraction && next < outside_fraction)) {
+            next = 0.5 * (inside_fraction + outside_fraction);
+        }
+        if (!convergence_probed &&
+            std::abs(next - fraction) <= kMaximumBoundaryBracket) {
+            convergence_probed = true;
+            const double half_width = 0.5 * kMaximumBoundaryBracket;
+            const double local_inside = std::max(inside_fraction, next - half_width);
+            const double local_outside = std::min(outside_fraction, next + half_width);
+            if (local_outside - local_inside <= kMaximumBoundaryBracket) {
+                const double inside_x_probe =
+                    inside_x + local_inside * (outside_x - inside_x);
+                const double outside_x_probe =
+                    inside_x + local_outside * (outside_x - inside_x);
+                const double inside_residual = boundary_root_residual(
+                    mapper, inside_x_probe, y, source, source_radius2);
+                const double outside_residual = boundary_root_residual(
+                    mapper, outside_x_probe, y, source, source_radius2);
+                if (inside_residual <= 0.0 && outside_residual > 0.0) {
+                    return 0.5 * (local_inside + local_outside);
+                }
+            }
+        }
+        fraction = next;
+    }
+    for (int iteration = 0;
+         iteration < 12 &&
+             outside_fraction - inside_fraction > kMaximumBoundaryBracket;
+         ++iteration) {
+        const double midpoint = 0.5 * (inside_fraction + outside_fraction);
+        const double x = inside_x + midpoint * (outside_x - inside_x);
+        const double residual = boundary_root_residual(
+            mapper, x, y, source, source_radius2);
+        if (residual <= 0.0) {
+            inside_fraction = midpoint;
+        } else {
+            outside_fraction = midpoint;
+        }
+    }
+    return 0.5 * (inside_fraction + outside_fraction);
+}
+
+// Correct a polar run edge along its known radial inside/outside segment.
+// Endpoint interpolation supplies the first secant estimate; one extra
+// lens-map probe updates the bracket and removes its leading curvature error
+// without paying for a full boundary root solve in every angular column.
+template <typename ImageMap>
+double refine_polar_boundary_crossing_fraction(
+    const ImageMap& mapper,
+    SourcePosition source,
+    double source_radius2,
+    SourcePosition inside,
+    SourcePosition outside,
+    double inside_residual,
+    double outside_residual,
+    double initial)
+{
+    const double fraction = std::clamp(initial, 0.0, 1.0);
+    const SourcePosition probe {
+        inside.x + fraction * (outside.x - inside.x),
+        inside.y + fraction * (outside.y - inside.y),
+    };
+    const double residual = boundary_root_residual(
+        mapper, probe.x, probe.y, source, source_radius2);
+    if (residual == 0.0) {
+        return fraction;
+    }
+    double inside_fraction = 0.0;
+    double outside_fraction = 1.0;
+    double inside_value = inside_residual;
+    double outside_value = outside_residual;
+    if (residual <= 0.0) {
+        inside_fraction = fraction;
+        inside_value = residual;
+    } else {
+        outside_fraction = fraction;
+        outside_value = residual;
+    }
+    const double denominator = outside_value - inside_value;
+    const double corrected = denominator > 0.0
+        ? inside_fraction - inside_value *
+            (outside_fraction - inside_fraction) / denominator
+        : fraction;
+    return corrected > inside_fraction && corrected < outside_fraction
+        ? corrected
+        : fraction;
 }
 
 struct BinaryLensEvaluation {
@@ -331,7 +573,8 @@ BinaryLensEvaluation evaluate_binary_lens_cell(
     const double inv_den2 = 1.0 / den2;
 
     const double mapped_x =
-        x - mapper.m1 * xa * inv_den1 - mapper.m2 * x * inv_den2 - a * mapper.m1;
+        x - mapper.m1 * xa * inv_den1 - mapper.m2 * x * inv_den2 -
+        mapper.source_origin_shift;
     const double mapped_y =
         y - mapper.m1 * y * inv_den1 - mapper.m2 * y * inv_den2;
     const double dx = mapped_x - source.x;
@@ -388,6 +631,46 @@ TripleLensEvaluation evaluate_triple_lens_cell(
     return {dx * dx + dy * dy, jacobian};
 }
 
+// Boundary-seed deduplication used to call map_triple_lens_real and
+// triple_jacobian separately.  Fuse those traversals while retaining their
+// exact arithmetic forms: mass / den for the map and 1 / (den * den) for the
+// Jacobian.  The distinction matters only at roundoff-sized dedup thresholds,
+// but keeping it makes this optimization seed/order preserving.
+TripleLensEvaluation evaluate_triple_lens_cell_strict(
+    const TripleLensMapper& mapper,
+    double x,
+    double y,
+    SourcePosition source)
+{
+    double mapped_x = x;
+    double mapped_y = y;
+    double re_f = 0.0;
+    double im_f = 0.0;
+    bool jacobian_valid = true;
+    for (std::size_t i = 0; i < mapper.mass.size(); ++i) {
+        const double dx_lens = x - mapper.lens_x[i];
+        const double dy_lens = y - mapper.lens_y[i];
+        const double den = dx_lens * dx_lens + dy_lens * dy_lens;
+        const double mass_over_den = mapper.mass[i] / den;
+        mapped_x -= mass_over_den * dx_lens;
+        mapped_y -= mass_over_den * dy_lens;
+        if (den < 1.0e-20) {
+            jacobian_valid = false;
+            continue;
+        }
+        const double inv_densq = 1.0 / (den * den);
+        re_f += mapper.mass[i] *
+            (dx_lens * dx_lens - dy_lens * dy_lens) * inv_densq;
+        im_f += -2.0 * mapper.mass[i] * dx_lens * dy_lens * inv_densq;
+    }
+    const double dx = mapped_x - source.x;
+    const double dy = mapped_y - source.y;
+    const double jacobian = jacobian_valid
+        ? 1.0 - re_f * re_f - im_f * im_f
+        : 0.0;
+    return {dx * dx + dy * dy, jacobian};
+}
+
 // Jacobian determinant J = 1 - |m1/(z-a)^2 + m2/z^2|^2 at image position (x,y).
 // J > 0: standard-parity image; J < 0: flipped-parity image.
 // Returns 0.0 when image is too close to a lens (degenerate).
@@ -398,11 +681,12 @@ double binary_jacobian(const BinaryLensMapper& mapper, double x, double y)
     const double den1 = xa * xa + y * y;
     const double den2 = x * x + y * y;
     if (den1 < 1.0e-20 || den2 < 1.0e-20) return 0.0;
-    const double den1sq = den1 * den1;
-    const double den2sq = den2 * den2;
-    const double re_f = mapper.m1 * (xa * xa - y * y) / den1sq
-                      + mapper.m2 * (x * x - y * y) / den2sq;
-    const double im_f = -2.0 * y * (mapper.m1 * xa / den1sq + mapper.m2 * x / den2sq);
+    const double inv_den1sq = 1.0 / (den1 * den1);
+    const double inv_den2sq = 1.0 / (den2 * den2);
+    const double re_f = mapper.m1 * (xa * xa - y * y) * inv_den1sq
+                      + mapper.m2 * (x * x - y * y) * inv_den2sq;
+    const double im_f = -2.0 * y *
+        (mapper.m1 * xa * inv_den1sq + mapper.m2 * x * inv_den2sq);
     return 1.0 - re_f * re_f - im_f * im_f;
 }
 
@@ -490,11 +774,13 @@ SourcePosition map_binary_lens_real(
 {
     const double a = mapper.separation.real();
     const double xa = x - a;
-    const double den1 = xa * xa + y * y;
-    const double den2 = x * x + y * y;
+    const double y2 = y * y;
+    const double inv_den1 = 1.0 / (xa * xa + y2);
+    const double inv_den2 = 1.0 / (x * x + y2);
     return {
-        x - mapper.m1 * xa / den1 - mapper.m2 * x / den2 - a * mapper.m1,
-        y - mapper.m1 * y / den1 - mapper.m2 * y / den2,
+        x - mapper.m1 * xa * inv_den1 - mapper.m2 * x * inv_den2 -
+            mapper.source_origin_shift,
+        y - mapper.m1 * y * inv_den1 - mapper.m2 * y * inv_den2,
     };
 }
 
@@ -684,6 +970,15 @@ double source_surface_brightness(double normalized_radius2, const FiniteSourceSe
     const double mu = std::sqrt(std::max(0.0, 1.0 - bounded_radius2));
     return 1.0 - settings.limb_darkening_c * (1.0 - mu) -
            settings.limb_darkening_d * (1.0 - std::sqrt(mu));
+}
+
+// Correction left after midpoint-counting the inside cell when the geometric
+// source limb crosses a fraction `delta` of the way toward its outside
+// neighbour.  The limb value is the proper local weight for this thin strip;
+// locating the crossing accurately is the Bennett-inspired improvement below.
+double limb_boundary_strip_correction(double delta, double limb_brightness)
+{
+    return (std::clamp(delta, 0.0, 1.0) - 0.5) * limb_brightness;
 }
 
 double source_flux(double source_radius, const FiniteSourceSettings& settings)
@@ -1595,7 +1890,163 @@ HexResult hexadecapole_triple(
     return {magnification, rel_err};
 }
 
-using PolarVisitedCellIntervals = std::vector<std::vector<std::pair<int, int>>>;
+// A polar grid can have millions of possible angular columns when rho is
+// small, even though each connected image visits contiguous angular arcs.
+// Allocate the direct-index table lazily in fixed pages: lookup stays O(1)
+// without hashing, while unvisited parts of the circle construct no Columns.
+class PolarVisitedCellIntervals {
+public:
+    using Interval = std::pair<int, int>;
+
+    struct Column {
+        Interval first {1, 0};
+        std::vector<Interval> overflow;
+
+        bool contains(int ir) const
+        {
+            if (first.first > first.second || ir < first.first) {
+                return false;
+            }
+            if (ir <= first.second) {
+                return true;
+            }
+            for (const auto& interval : overflow) {
+                if (ir < interval.first) {
+                    return false;
+                }
+                if (ir <= interval.second) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        std::int64_t first_unvisited_at_or_after(std::int64_t ir) const
+        {
+            if (first.first > first.second || ir < first.first) {
+                return ir;
+            }
+            if (ir <= first.second) {
+                ir = static_cast<std::int64_t>(first.second) + 1;
+            }
+            for (const auto& interval : overflow) {
+                if (ir < interval.first) {
+                    return ir;
+                }
+                if (ir <= interval.second) {
+                    ir = static_cast<std::int64_t>(interval.second) + 1;
+                }
+            }
+            return ir;
+        }
+
+        void add(int left, int right)
+        {
+            if (right < left) {
+                return;
+            }
+            if (first.first > first.second) {
+                first = {left, right};
+                return;
+            }
+            if (static_cast<std::int64_t>(right) + 1 < first.first) {
+                overflow.insert(overflow.begin(), first);
+                first = {left, right};
+                return;
+            }
+            if (static_cast<std::int64_t>(left) <=
+                static_cast<std::int64_t>(first.second) + 1) {
+                first.first = std::min(first.first, left);
+                first.second = std::max(first.second, right);
+                std::size_t merged = 0;
+                while (merged < overflow.size() &&
+                       static_cast<std::int64_t>(overflow[merged].first) <=
+                           static_cast<std::int64_t>(first.second) + 1) {
+                    first.second = std::max(first.second, overflow[merged].second);
+                    ++merged;
+                }
+                if (merged != 0) {
+                    overflow.erase(
+                        overflow.begin(),
+                        overflow.begin() + static_cast<std::ptrdiff_t>(merged));
+                }
+                return;
+            }
+
+            auto it = std::lower_bound(
+                overflow.begin(), overflow.end(), left,
+                [](const Interval& interval, int value) {
+                    return interval.first < value;
+                });
+            if (it != overflow.begin() &&
+                static_cast<std::int64_t>(std::prev(it)->second) + 1 >= left) {
+                --it;
+                it->second = std::max(it->second, right);
+            } else {
+                it = overflow.insert(it, {left, right});
+            }
+            while (std::next(it) != overflow.end() &&
+                   static_cast<std::int64_t>(std::next(it)->first) <=
+                       static_cast<std::int64_t>(it->second) + 1) {
+                it->second = std::max(it->second, std::next(it)->second);
+                overflow.erase(std::next(it));
+            }
+        }
+    };
+
+    explicit PolarVisitedCellIntervals(int phi_bins)
+        : pages_((static_cast<std::size_t>(phi_bins) + kColumnsPerPage - 1) /
+                 kColumnsPerPage)
+    {}
+
+    const Column* find(int iphi) const
+    {
+        const std::size_t index = static_cast<std::size_t>(iphi);
+        const auto& page = pages_[index / kColumnsPerPage];
+        return page == nullptr
+            ? nullptr
+            : &page->columns[index % kColumnsPerPage];
+    }
+
+    Column& get_or_create(int iphi)
+    {
+        const std::size_t index = static_cast<std::size_t>(iphi);
+        auto& page = pages_[index / kColumnsPerPage];
+        if (page == nullptr) {
+            page = std::make_unique<Page>();
+        }
+        return page->columns[index % kColumnsPerPage];
+    }
+
+    void direction(int iphi, double dphi, double& cosine, double& sine)
+    {
+        const std::size_t index = static_cast<std::size_t>(iphi);
+        auto& page = pages_[index / kColumnsPerPage];
+        if (page == nullptr) {
+            page = std::make_unique<Page>();
+        }
+        const std::size_t offset = index % kColumnsPerPage;
+        const std::uint64_t bit = std::uint64_t {1} << offset;
+        if ((page->direction_mask & bit) == 0) {
+            const double phi = (static_cast<double>(iphi) + 0.5) * dphi;
+            page->cosine[offset] = std::cos(phi);
+            page->sine[offset] = std::sin(phi);
+            page->direction_mask |= bit;
+        }
+        cosine = page->cosine[offset];
+        sine = page->sine[offset];
+    }
+
+private:
+    static constexpr std::size_t kColumnsPerPage = 64;
+    struct Page {
+        std::array<Column, kColumnsPerPage> columns;
+        std::array<double, kColumnsPerPage> cosine {};
+        std::array<double, kColumnsPerPage> sine {};
+        std::uint64_t direction_mask = 0;
+    };
+    std::vector<std::unique_ptr<Page>> pages_;
+};
 
 struct PolarAreaDiagnostics {
     double estimated_error = std::numeric_limits<double>::infinity();
@@ -1607,6 +2058,18 @@ struct LegacyImageAreaScratch {
     std::vector<double> ax;
     std::vector<double> y;
     std::vector<double> dys;
+
+    void reset()
+    {
+        // clear() preserves capacity.  Values must nevertheless be discarded:
+        // several gap-detection entries rely on resize value-initialising a
+        // row that the current component has not visited yet.
+        xmin.clear();
+        xmax.clear();
+        ax.clear();
+        y.clear();
+        dys.clear();
+    }
 
     void ensure(std::size_t index)
     {
@@ -1635,22 +2098,32 @@ struct LegacyImageAreaScratch {
 // share an owner: merging across owners would erase the boundary between two
 // components, which is the one thing the refinement has to be able to see.
 struct ClaimedRun {
-    int lo;
-    int hi;
+    std::int64_t lo;
+    std::int64_t hi;
     int owner;
 };
 
 struct ClaimedCellRuns {
-    std::unordered_map<int, std::vector<ClaimedRun>> rows;
+    using Row = std::vector<ClaimedRun>;
+
+    std::unordered_map<std::int64_t, Row> rows;
     int owner = 0;  // stamped on runs claimed from now on
 
-    const ClaimedRun* find(int iy, int ix) const
+    const Row* find_row(std::int64_t iy) const
     {
         const auto it = rows.find(iy);
-        if (it == rows.end()) {
+        return it == rows.end() ? nullptr : &it->second;
+    }
+
+    static const ClaimedRun* find_in_row(const Row* row, std::int64_t ix)
+    {
+        if (row == nullptr) {
             return nullptr;
         }
-        for (const auto& interval : it->second) {
+        for (const auto& interval : *row) {
+            if (ix < interval.lo) {
+                return nullptr;
+            }
             if (ix >= interval.lo && ix <= interval.hi) {
                 return &interval;
             }
@@ -1658,32 +2131,83 @@ struct ClaimedCellRuns {
         return nullptr;
     }
 
-    void claim(int iy, int lo, int hi)
+    const ClaimedRun* find(std::int64_t iy, std::int64_t ix) const
+    {
+        return find_in_row(find_row(iy), ix);
+    }
+
+    void claim(std::int64_t iy, std::int64_t lo, std::int64_t hi)
     {
         if (hi < lo) {
             return;
         }
         auto& intervals = rows[iy];
-        intervals.push_back({lo, hi, owner});
-        std::sort(
-            intervals.begin(), intervals.end(),
-            [](const ClaimedRun& left, const ClaimedRun& right) {
-                return left.lo < right.lo;
+        // Rows are maintained in increasing-lo order.  A new claim can only
+        // change its immediate same-owner neighbours, because earlier claims
+        // have already been merged.  Inserting locally avoids sorting and
+        // rescanning the complete row for every contiguous run.
+        auto inserted = std::lower_bound(
+            intervals.begin(), intervals.end(), lo,
+            [](const ClaimedRun& run, std::int64_t value) {
+                return run.lo < value;
             });
-        std::size_t write = 0;
-        for (std::size_t read = 0; read < intervals.size(); ++read) {
-            // Runs of different owners are left separate: merging them would
-            // erase the boundary between two components, and that boundary is
-            // what a refined re-integration has to respect.
-            if (write == 0 || intervals[read].lo > intervals[write - 1].hi + 1 ||
-                intervals[read].owner != intervals[write - 1].owner) {
-                intervals[write++] = intervals[read];
-            } else {
-                intervals[write - 1].hi =
-                    std::max(intervals[write - 1].hi, intervals[read].hi);
+        inserted = intervals.insert(inserted, {lo, hi, owner});
+
+        if (inserted != intervals.begin()) {
+            auto previous = inserted - 1;
+            if (previous->owner == inserted->owner &&
+                inserted->lo <= previous->hi + 1) {
+                previous->hi = std::max(previous->hi, inserted->hi);
+                inserted = intervals.erase(inserted);
+                inserted = previous;
             }
         }
-        intervals.resize(write);
+        auto next = inserted + 1;
+        while (next != intervals.end() &&
+               next->owner == inserted->owner &&
+               next->lo <= inserted->hi + 1) {
+            inserted->hi = std::max(inserted->hi, next->hi);
+            next = intervals.erase(next);
+        }
+    }
+};
+
+// Lattice coordinates can be much larger than source_bins when rho is tiny
+// or an image lies far from the origin.  Keep them 64-bit throughout, but stay
+// well inside double's exact-integer range so x and x +/- one cell remain
+// distinguishable after converting the index back to an image coordinate.
+// More extreme inputs fail closed instead of silently sampling one coordinate
+// under several different cell identities.
+constexpr double kMaximumLatticeIndexMagnitude = 0x1p51;
+
+bool rounded_lattice_index(double scaled, std::int64_t& index)
+{
+    if (!std::isfinite(scaled) ||
+        !(scaled > -kMaximumLatticeIndexMagnitude &&
+          scaled < kMaximumLatticeIndexMagnitude)) {
+        return false;
+    }
+    index = static_cast<std::int64_t>(std::llround(scaled));
+    return true;
+}
+
+struct LatticeCellIndex {
+    std::int64_t x;
+    std::int64_t y;
+
+    bool operator==(const LatticeCellIndex& other) const
+    {
+        return x == other.x && y == other.y;
+    }
+};
+
+struct LatticeCellIndexHash {
+    std::size_t operator()(const LatticeCellIndex& cell) const noexcept
+    {
+        const std::size_t hx = std::hash<std::int64_t> {}(cell.x);
+        const std::size_t hy = std::hash<std::int64_t> {}(cell.y);
+        return hx ^ (hy + static_cast<std::size_t>(0x9e3779b9U) +
+                     (hx << 6) + (hx >> 2));
     }
 };
 
@@ -1855,51 +2379,47 @@ double inverse_ray_polar_core(
         return std::nan("");
     }
 
-    PolarVisitedCellIntervals visited(static_cast<std::size_t>(phi_bins));
-    std::deque<std::pair<int, int>> queue;
+    PolarVisitedCellIntervals visited(phi_bins);
+    struct PolarFrontier {
+        int left = 0;
+        int right = -1;
+        int iphi = 0;
+    };
+    std::deque<PolarFrontier> queue;
     const double source_radius2 = source_radius * source_radius;
     const double inv_source_radius2 = 1.0 / source_radius2;
-    auto wrap_phi_index = [&](int iphi) {
-        iphi %= phi_bins;
-        if (iphi < 0) {
-            iphi += phi_bins;
-        }
-        return iphi;
-    };
-    auto cell_visited = [&](int ir, int iphi) {
+    // Frontier columns use canonical phi indices.  A frontier carries a whole
+    // adjacent radial interval instead of one queue entry per inside cell.
+    // The receiving column still tests every unvisited cell in that interval,
+    // so disconnected runs and topology remain fully discoverable while the
+    // common long-arc case avoids a queue push followed by a visited discard
+    // for almost every cell.
+    auto cell_visited_normalized = [&](int ir, int iphi) {
         if (ir < 0) {
             return true;
         }
-        iphi = wrap_phi_index(iphi);
-        for (const auto& interval : visited[static_cast<std::size_t>(iphi)]) {
-            if (ir >= interval.first && ir <= interval.second) {
-                return true;
-            }
-        }
-        return false;
+        const auto* intervals = visited.find(iphi);
+        return intervals != nullptr && intervals->contains(ir);
     };
     auto add_visited_run = [&](int iphi, int left, int right) {
-        iphi = wrap_phi_index(iphi);
         if (right < left) {
             return;
         }
-        auto& intervals = visited[static_cast<std::size_t>(iphi)];
-        intervals.push_back({left, right});
-        std::sort(intervals.begin(), intervals.end());
-        std::size_t write = 0;
-        for (std::size_t read = 0; read < intervals.size(); ++read) {
-            if (write == 0 || intervals[read].first > intervals[write - 1].second + 1) {
-                intervals[write++] = intervals[read];
-            } else {
-                intervals[write - 1].second =
-                    std::max(intervals[write - 1].second, intervals[read].second);
-            }
-        }
-        intervals.resize(write);
+        visited.get_or_create(iphi).add(left, right);
     };
-    auto enqueue = [&](int ir, int iphi) {
-        if (!cell_visited(ir, iphi)) {
-            queue.push_back({ir, wrap_phi_index(iphi)});
+    auto enqueue_run_normalized = [&](int left, int right, int iphi) {
+        left = std::max(left, 0);
+        const auto* intervals = visited.find(iphi);
+        if (intervals != nullptr) {
+            const std::int64_t first_unvisited =
+                intervals->first_unvisited_at_or_after(left);
+            if (first_unvisited > right) {
+                return;
+            }
+            left = static_cast<int>(first_unvisited);
+        }
+        if (right >= left) {
+            queue.push_back({left, right, iphi});
         }
     };
     // Cells in one radial run share the same phi column, so the column unit
@@ -1908,9 +2428,7 @@ double inverse_ray_polar_core(
     double column_cos = 1.0;
     double column_sin = 0.0;
     auto set_column = [&](int iphi) {
-        const double phi = (static_cast<double>(iphi) + 0.5) * dphi;
-        column_cos = std::cos(phi);
-        column_sin = std::sin(phi);
+        visited.direction(iphi, dphi, column_cos, column_sin);
     };
     auto cell_inside = [&](int ir, double* dz2_out = nullptr) {
         if (ir < 0) {
@@ -1936,12 +2454,13 @@ double inverse_ray_polar_core(
         }
         const int ir = std::max(0, static_cast<int>(std::floor(grid_radius / dr)));
         const int iphi = std::clamp(static_cast<int>(image_phi / dphi), 0, phi_bins - 1);
-        enqueue(ir, iphi);
+        enqueue_run_normalized(ir, ir, iphi);
     }
 
-    // Second-order radial boundary correction: linearly interpolate the mapped
-    // distance between the last inside cell of a radial run and its outside
-    // neighbour to locate the source-edge crossing at fraction t of the cell.
+    // Second-order radial boundary correction: use the mapped distances at the
+    // last inside cell and its outside neighbour for an initial source-edge
+    // crossing, then take one bracketed secant correction for lens-map
+    // curvature.
     // Midpoint counting covered the run out to the cell face, so the residual
     // strip is (t - 0.5) cells with area ~ dr * edge_radius * dphi.  t is
     // confined to [0, 1] by r_in <= rho < r_out, bounding the correction even
@@ -1952,99 +2471,161 @@ double inverse_ray_polar_core(
         (finite_magnifier != nullptr ?
             finite_magnifier->limb_darkening_table_brightness(1.0) :
             source_surface_brightness(1.0, settings));
+    const double* brightness_table = !uniform_source && finite_magnifier != nullptr
+        ? finite_magnifier->limb_darkening_table_data()
+        : nullptr;
+    const auto brightness_at = [&](double dz2) {
+        if (uniform_source) {
+            return 1.0;
+        }
+        const double normalized_radius2 = dz2 * inv_source_radius2;
+        if (brightness_table != nullptr) {
+            const int index = static_cast<int>(
+                normalized_radius2 *
+                static_cast<double>(kLimbDarkeningTableSize) + 0.5);
+            return brightness_table[std::clamp(
+                index, 0, kLimbDarkeningTableSize)];
+        }
+        return source_surface_brightness(normalized_radius2, settings);
+    };
     auto radial_edge_correction = [&](
         double inside_dz2,
         double outside_dz2,
-        double edge_radius,
+        double inside_radius,
+        double outside_radius,
+        double face_radius,
         double* absolute_geometric_correction) {
         const double r_in = std::sqrt(inside_dz2);
         const double r_out = std::sqrt(outside_dz2);
         const double dr_mapped = r_out - r_in;
-        const double t = dr_mapped > 0.0
+        const double initial_delta = dr_mapped > 0.0
             ? std::clamp((source_radius - r_in) / dr_mapped, 0.0, 1.0)
             : 0.5;
-        const double geometric_correction = (t - 0.5) * edge_radius;
+        const double delta = refine_polar_boundary_crossing_fraction(
+            mapper,
+            source,
+            source_radius2,
+            {inside_radius * column_cos, inside_radius * column_sin},
+            {outside_radius * column_cos, outside_radius * column_sin},
+            inside_dz2 - source_radius2,
+            outside_dz2 - source_radius2,
+            initial_delta);
+        const double geometric_correction = (delta - 0.5) * face_radius;
         *absolute_geometric_correction += std::abs(geometric_correction);
         return geometric_correction * edge_brightness;
     };
 
     double total_count = 0.0;
     double absolute_radial_geometry = 0.0;
+    // Expansion already maps every inside cell in a radial run to locate its
+    // ends.  Retain those distances for the brightness pass; remapping the
+    // same run used to double the dominant lens-equation work.  The two
+    // buffers are reused across runs and preserve the original left-to-right
+    // accumulation order.
+    std::vector<double> left_inside_distances;
+    std::vector<double> right_inside_distances;
+    left_inside_distances.reserve(static_cast<std::size_t>(source_bins));
+    right_inside_distances.reserve(static_cast<std::size_t>(source_bins));
     while (!queue.empty()) {
-        const auto [ir, iphi] = queue.front();
+        const auto frontier = queue.front();
         queue.pop_front();
-        if (cell_visited(ir, iphi)) {
-            continue;
-        }
+        const int iphi = frontier.iphi;
         set_column(iphi);
-        if (!cell_inside(ir)) {
-            continue;
-        }
-
-        int left = ir;
-        double left_outside_dz2 = -1.0;
-        while (left > 0 && !cell_visited(left - 1, iphi)) {
-            double neighbor_dz2 = 0.0;
-            if (!cell_inside(left - 1, &neighbor_dz2)) {
-                left_outside_dz2 = neighbor_dz2;
+        std::int64_t frontier_ir = frontier.left;
+        while (frontier_ir <= frontier.right) {
+            const auto* intervals = visited.find(iphi);
+            if (intervals != nullptr) {
+                frontier_ir = intervals->first_unvisited_at_or_after(frontier_ir);
+            }
+            if (frontier_ir > frontier.right) {
                 break;
             }
-            --left;
-        }
-        int right = ir;
-        double right_outside_dz2 = -1.0;
-        while (!cell_visited(right + 1, iphi)) {
-            double neighbor_dz2 = 0.0;
-            if (!cell_inside(right + 1, &neighbor_dz2)) {
-                right_outside_dz2 = neighbor_dz2;
-                break;
+            double start_dz2 = 0.0;
+            if (!cell_inside(static_cast<int>(frontier_ir), &start_dz2)) {
+                ++frontier_ir;
+                continue;
             }
-            ++right;
-        }
+            const int ir = static_cast<int>(frontier_ir);
 
-        add_visited_run(iphi, left, right);
-        double left_inside_dz2 = 0.0;
-        double right_inside_dz2 = 0.0;
-        for (int current = left; current <= right; ++current) {
-            double dz2 = 0.0;
-            cell_inside(current, &dz2);
-            if (current == left) {
-                left_inside_dz2 = dz2;
+            left_inside_distances.clear();
+            int left = ir;
+            double left_outside_dz2 = -1.0;
+            while (left > 0 && !cell_visited_normalized(left - 1, iphi)) {
+                double neighbor_dz2 = 0.0;
+                if (!cell_inside(left - 1, &neighbor_dz2)) {
+                    left_outside_dz2 = neighbor_dz2;
+                    break;
+                }
+                --left;
+                left_inside_distances.push_back(neighbor_dz2);
             }
-            if (current == right) {
-                right_inside_dz2 = dz2;
+            right_inside_distances.clear();
+            int right = ir;
+            double right_outside_dz2 = -1.0;
+            while (!cell_visited_normalized(right + 1, iphi)) {
+                double neighbor_dz2 = 0.0;
+                if (!cell_inside(right + 1, &neighbor_dz2)) {
+                    right_outside_dz2 = neighbor_dz2;
+                    break;
+                }
+                ++right;
+                right_inside_distances.push_back(neighbor_dz2);
             }
-            const double radius = (static_cast<double>(current) + 0.5) * dr;
-            const double brightness =
-                uniform_source ? 1.0 :
-                    (finite_magnifier != nullptr ?
-                        finite_magnifier->limb_darkening_table_brightness(dz2 * inv_source_radius2) :
-                        source_surface_brightness(dz2 * inv_source_radius2, settings));
-            total_count += brightness * radius;
-            enqueue(current, iphi - 1);
-            enqueue(current, iphi + 1);
-        }
-        if (left_outside_dz2 >= 0.0) {
-            const double correction = radial_edge_correction(
-                left_inside_dz2,
-                left_outside_dz2,
-                static_cast<double>(left) * dr,
-                &absolute_radial_geometry);
-            total_count += correction;
-        }
-        if (right_outside_dz2 >= 0.0) {
-            const double correction = radial_edge_correction(
-                right_inside_dz2,
-                right_outside_dz2,
-                static_cast<double>(right + 1) * dr,
-                &absolute_radial_geometry);
-            total_count += correction;
+
+            add_visited_run(iphi, left, right);
+            const double left_inside_dz2 = left_inside_distances.empty()
+                ? start_dz2
+                : left_inside_distances.back();
+            const double right_inside_dz2 = right_inside_distances.empty()
+                ? start_dz2
+                : right_inside_distances.back();
+            const auto accumulate_cell = [&](int current, double dz2) {
+                const double radius = (static_cast<double>(current) + 0.5) * dr;
+                total_count += brightness_at(dz2) * radius;
+            };
+            int current = left;
+            for (auto it = left_inside_distances.rbegin();
+                 it != left_inside_distances.rend(); ++it, ++current) {
+                accumulate_cell(current, *it);
+            }
+            accumulate_cell(ir, start_dz2);
+            current = ir + 1;
+            for (const double dz2 : right_inside_distances) {
+                accumulate_cell(current++, dz2);
+            }
+            const int previous_phi = iphi == 0 ? phi_bins - 1 : iphi - 1;
+            const int next_phi = iphi + 1 == phi_bins ? 0 : iphi + 1;
+            enqueue_run_normalized(left, right, previous_phi);
+            enqueue_run_normalized(left, right, next_phi);
+            if (left_outside_dz2 >= 0.0) {
+                const double correction = radial_edge_correction(
+                    left_inside_dz2,
+                    left_outside_dz2,
+                    (static_cast<double>(left) + 0.5) * dr,
+                    (static_cast<double>(left) - 0.5) * dr,
+                    static_cast<double>(left) * dr,
+                    &absolute_radial_geometry);
+                total_count += correction;
+            }
+            if (right_outside_dz2 >= 0.0) {
+                const double correction = radial_edge_correction(
+                    right_inside_dz2,
+                    right_outside_dz2,
+                    (static_cast<double>(right) + 0.5) * dr,
+                    (static_cast<double>(right) + 1.5) * dr,
+                    static_cast<double>(right + 1) * dr,
+                    &absolute_radial_geometry);
+                total_count += correction;
+            }
+            frontier_ir = std::max(
+                frontier_ir + 1,
+                static_cast<std::int64_t>(right) + 1);
         }
     }
 
     const double image_flux = total_count * dr * dphi;
     if (diagnostics != nullptr) {
-        // The interpolation removes the O(h) radial boundary term.  Its
+        // The boundary correction removes the O(h) radial boundary term.  Its
         // accumulated absolute geometric magnitude therefore supplies the
         // local scale for the remaining O(h^2) term; multiplying by
         // h/rho = 1/N gives an embedded estimate without another lens-map
@@ -2434,12 +3015,18 @@ struct CausticBranchScan {
     // only probed once a first crossing has established fold seeds.
     std::vector<SourcePosition> arc_probes;
     bool any_vertex_inside = false;
+    // Raw certificate descriptor accumulated during this same compulsory
+    // branch walk.  Keeping it here removes a second O(Ncaustic) traversal in
+    // inverse-ray seeding while `finalize_disk_support` preserves the exact
+    // historical sort/merge/probe rules.
+    DiskSupport support;
 };
 
 CausticBranchScan scan_caustic_branches(
     const std::vector<std::vector<SourcePosition>>& branches,
     SourcePosition source,
-    double source_radius)
+    double source_radius,
+    bool build_support = false)
 {
     constexpr std::size_t max_probes = 64;
     // Retain a defensive long-segment rejection for ill-conditioned root
@@ -2447,16 +3034,26 @@ CausticBranchScan scan_caustic_branches(
     // the closing segment is treated exactly like every other segment.
     constexpr double kPhantomLengthRatio2 = 625.0;  // 25x either neighbour
     CausticBranchScan scan;
+    double min_distance2 = std::numeric_limits<double>::infinity();
     const double source_radius2 = source_radius * source_radius;
     std::vector<double> segment_length2;
+    std::vector<double> vertex_radius;
     for (const auto& branch : branches) {
         if (branch.size() < 2) {
             continue;
         }
         segment_length2.assign(branch.size(), 0.0);
+        if (build_support && branch.size() >= 3) {
+            vertex_radius.assign(branch.size(), 0.0);
+        }
         for (std::size_t i = 0; i < branch.size(); ++i) {
             const std::size_t previous = i == 0 ? branch.size() - 1 : i - 1;
             segment_length2[i] = distance_squared(branch[previous], branch[i]);
+            if (build_support && branch.size() >= 3) {
+                vertex_radius[i] = std::sqrt(distance_squared(branch[i], source));
+                scan.support.min_caustic_distance = std::min(
+                    scan.support.min_caustic_distance, vertex_radius[i]);
+            }
         }
         auto is_phantom_segment = [&](std::size_t i) {
             const double prev = segment_length2[
@@ -2473,9 +3070,9 @@ CausticBranchScan scan_caustic_branches(
             const SourcePosition p1 = branch[i];
             if (!is_phantom_segment(i)) {
                 const SourcePosition candidate = closest_point_on_segment(source, p0, p1);
-                const double distance = std::sqrt(distance_squared(candidate, source));
-                if (distance < scan.min_distance) {
-                    scan.min_distance = distance;
+                const double candidate_distance2 = distance_squared(candidate, source);
+                if (candidate_distance2 < min_distance2) {
+                    min_distance2 = candidate_distance2;
                     scan.nearest = candidate;
                     scan.nearest_segment_start = p0;
                     scan.nearest_segment_end = p1;
@@ -2495,8 +3092,56 @@ CausticBranchScan scan_caustic_branches(
                 scan.arc_probes.push_back(p1);
             }
             prev_inside = inside;
+
+            // certify_disk_support historically ignores degenerate branches
+            // with fewer than three vertices.  It is also intentionally
+            // optional here: most callers need only the segment scan, and
+            // making them pay for radial extrema would turn the fusion into a
+            // regression outside augmented inverse-ray seeding.
+            if (!build_support || branch.size() < 3) {
+                continue;
+            }
+
+            const std::size_t previous =
+                i == 0 ? branch.size() - 1 : i - 1;
+            const std::size_t next = (i + 1) % branch.size();
+            const bool radial_minimum =
+                vertex_radius[i] <= vertex_radius[previous] &&
+                vertex_radius[i] < vertex_radius[next];
+            const bool radial_maximum =
+                vertex_radius[i] >= vertex_radius[previous] &&
+                vertex_radius[i] > vertex_radius[next];
+            if (!radial_minimum && !radial_maximum) {
+                continue;
+            }
+            const SourcePosition curvature {
+                branch[previous].x - 2.0 * p1.x + branch[next].x,
+                branch[previous].y - 2.0 * p1.y + branch[next].y,
+            };
+            const double margin = std::hypot(curvature.x, curvature.y);
+            if (vertex_radius[i] >= source_radius + margin) {
+                continue;
+            }
+            const SourcePosition chord {
+                branch[next].x - branch[previous].x,
+                branch[next].y - branch[previous].y,
+            };
+            const double chord_length = std::hypot(chord.x, chord.y);
+            if (!(chord_length > 0.0)) {
+                continue;
+            }
+            DiskExtremum extremum;
+            extremum.position = p1;
+            extremum.tangent = {
+                chord.x / chord_length, chord.y / chord_length};
+            extremum.normal = {-extremum.tangent.y, extremum.tangent.x};
+            extremum.distance = vertex_radius[i];
+            extremum.polyline_margin = margin;
+            extremum.inside_disk = vertex_radius[i] < source_radius;
+            scan.support.extrema.push_back(extremum);
         }
     }
+    scan.min_distance = std::sqrt(min_distance2);
     return scan;
 }
 
@@ -2671,7 +3316,8 @@ std::vector<SourcePosition> augmented_image_seeds(
     double hint_caustic_dist = std::numeric_limits<double>::infinity(),
     const std::vector<SourcePosition>* seed_hints = nullptr,
     const std::vector<std::vector<SourcePosition>>* caustic_branches = nullptr,
-    bool* support_proven = nullptr)
+    bool* support_proven = nullptr,
+    std::size_t* initial_seed_count = nullptr)
 {
     if (support_proven != nullptr) {
         *support_proven = true;
@@ -2689,10 +3335,15 @@ std::vector<SourcePosition> augmented_image_seeds(
             seeds.push_back(image.position);
         }
     }
+    if (initial_seed_count != nullptr) {
+        // With no seed hints this is exactly the centre-image count.  Exposing
+        // it lets callers that only need that count reuse the root solve which
+        // built the seed set instead of solving the same lens equation again.
+        *initial_seed_count = seeds.size();
+    }
     if (source_radius <= 0.0) {
         return seeds;
     }
-
     if (caustic_branches != nullptr) {
         // Cache-driven seeding: one pass over the cached caustic polylines
         // replaces the per-epoch critical-curve phase scans (up to ~2800
@@ -2706,7 +3357,13 @@ std::vector<SourcePosition> augmented_image_seeds(
         // it counts, so whichever seed reaches a component first decides how
         // much of it is ever counted.  Adding a seed can therefore lower the
         // answer.  Which seeds exist, and in what order, is load-bearing.
-        const auto scan = scan_caustic_branches(*caustic_branches, source, source_radius);
+        // This scan uses the nearest point on every polyline segment, not just
+        // its vertices.  That distinction is required for coarse configurable
+        // caustic caches: a segment can enter the source disk while both ends
+        // remain outside.  Keep it as the authoritative distance and seeding
+        // pass until the support certificate carries equivalent segment data.
+        auto scan = scan_caustic_branches(
+            *caustic_branches, source, source_radius, true);
         // The heuristic stages below are what the calibration harness ablates;
         // by default every one of them runs, exactly as it always has.
         const auto& policy = probe_policy();
@@ -2783,8 +3440,8 @@ std::vector<SourcePosition> augmented_image_seeds(
         // the caustic while the certified ladder starts half a disk away from
         // it, so letting the certified images in first would leave a fold pair
         // traced by one unguarded scan across the seam.
-        const auto support = certify_disk_support(
-            *caustic_branches, source, source_radius);
+        const auto support = finalize_disk_support(
+            std::move(scan.support), source, source_radius);
         const bool proven = append_certified_component_seeds(
             point_magnifier, mapper, separation, mass_ratio, source, source_radius,
             support, seeds);
@@ -2950,7 +3607,7 @@ std::vector<SourcePosition> selected_point_images(
     return images;
 }
 
-template <bool UseLimbDarkening, typename ImageMap>
+template <bool UseLimbDarkening, bool GuardJacobian, typename ImageMap>
 double cartesian_image_area_impl(
     const ImageMap& mapper,
     SourcePosition source,
@@ -2961,8 +3618,8 @@ double cartesian_image_area_impl(
     double dy,
     int& yi,
     LegacyImageAreaScratch& scratch,
-    int jacobian_sign = 0,
-    ClaimedCellRuns* claimed = nullptr,
+    int jacobian_sign,
+    ClaimedCellRuns& claimed,
     double magnification_hint = 0.0,
     bool* foreign_contact = nullptr,
     std::int64_t* step_budget = nullptr)
@@ -2979,26 +3636,34 @@ double cartesian_image_area_impl(
     // incrementally alongside image.x/image.y (per-cell llround calls were a
     // measurable fraction of the scan cost).  Seeds are lattice-snapped by
     // the caller, so the increments stay exact.
-    int cell_ix = static_cast<int>(std::llround(seed.x * inv_incr));
-    int cell_iy = static_cast<int>(std::llround(seed.y * inv_incr));
-    int row_start_ix = cell_ix;
+    std::int64_t cell_ix = 0;
+    std::int64_t cell_iy = 0;
+    if (!rounded_lattice_index(seed.x * inv_incr, cell_ix) ||
+        !rounded_lattice_index(seed.y * inv_incr, cell_iy)) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    std::int64_t row_start_ix = cell_ix;
     int ix_step = 1;
     const int iy_step = dy > 0.0 ? 1 : -1;
+    const ClaimedCellRuns::Row* claimed_row = claimed.find_row(cell_iy);
     // Pending contiguous stretch of counted cells, flushed to the claimed
     // registry whenever adjacency breaks.  Flushing continuously (rather
     // than at function exit) also terminates self-wrapping fills: a fill
     // that loops around a ring-shaped image runs into its own claims.
     bool claim_active = false;
-    int claim_iy = 0;
-    int claim_lo = 0;
-    int claim_hi = 0;
+    std::int64_t claim_iy = 0;
+    std::int64_t claim_lo = 0;
+    std::int64_t claim_hi = 0;
     const auto flush_claim = [&]() {
         if (claim_active) {
-            claimed->claim(claim_iy, claim_lo, claim_hi);
+            claimed.claim(claim_iy, claim_lo, claim_hi);
+            if (claim_iy == cell_iy) {
+                claimed_row = claimed.find_row(cell_iy);
+            }
             claim_active = false;
         }
     };
-    const auto add_claim_cell = [&](int ix, int iy) {
+    const auto add_claim_cell = [&](std::int64_t ix, std::int64_t iy) {
         if (claim_active && claim_iy == iy &&
             (ix == claim_hi + 1 || ix == claim_lo - 1 ||
              (ix >= claim_lo && ix <= claim_hi))) {
@@ -3014,13 +3679,23 @@ double cartesian_image_area_impl(
     };
     const double source_radius2 = source_radius * source_radius;
     const double inv_source_radius2 = 1.0 / source_radius2;
+    // The crossing location is purely geometric: use the same accurately
+    // bracketed source-limb root for uniform, linear, and two-coefficient
+    // brightness profiles.  Only the strip weight below depends on the
+    // profile.
+    const bool bennett_root_enabled =
+        std::getenv("LCBININT_DIAGNOSTIC_DISABLE_BENNETT_LIMB") == nullptr;
     // Surface brightness at the source edge, weighting the sub-cell boundary
     // correction strips (which always sit adjacent to the limb).
     double edge_brightness = 1.0;
+    const double* brightness_table = nullptr;
     if constexpr (UseLimbDarkening) {
         edge_brightness = finite_magnifier != nullptr ?
             finite_magnifier->limb_darkening_table_brightness(1.0) :
             source_surface_brightness(1.0, settings);
+        if (finite_magnifier != nullptr) {
+            brightness_table = finite_magnifier->limb_darkening_table_data();
+        }
     }
     // Second-order boundary correction state.  Each row is scanned rightward
     // from x0 and then leftward from x0 - incr, so the sample spatially
@@ -3051,6 +3726,15 @@ double cartesian_image_area_impl(
         return dr_mapped > 0.0
             ? std::clamp((source_radius - r_in) / dr_mapped, 0.0, 1.0)
             : 0.5;
+    };
+    const auto refined_crossing_fraction = [&]
+        (double inside_x, double outside_x, double y, double initial) {
+        if (!bennett_root_enabled) {
+            return initial;
+        }
+        return refine_boundary_crossing_fraction(
+            mapper, source, source_radius2,
+            inside_x, outside_x, y, initial);
     };
     std::int64_t guard = 0;
     const auto seed_evaluation =
@@ -3086,7 +3770,7 @@ double cartesian_image_area_impl(
     const std::int64_t effective_max_steps = step_budget != nullptr
         ? std::min(max_steps, std::max<std::int64_t>(*step_budget, 1))
         : max_steps;
-
+    scratch.ensure(static_cast<std::size_t>(yi));
     while (++guard < effective_max_steps) {
         const double dz2_last = dz2;
         const bool jac_ok_last = jac_ok_prev;
@@ -3094,16 +3778,16 @@ double cartesian_image_area_impl(
         const bool is_first_left = first_left_pending;
         at_run_start = false;
         first_left_pending = false;
-        if (claimed != nullptr) {
-            const auto* interval = claimed->find(cell_iy, cell_ix);
-            if (interval != nullptr) {
+        const auto* interval = ClaimedCellRuns::find_in_row(
+            claimed_row, cell_ix);
+        if (interval != nullptr) {
                 // Copy the bounds out before flush_claim(): if the pending
                 // claim lands in the same row (claim_iy == cell_iy), its
                 // push_back into that row's interval vector can reallocate
                 // the very vector `interval` points into, dangling it.
-                const int interval_lo = interval->lo;
-                const int interval_hi = interval->hi;
-                if (foreign_contact != nullptr && interval->owner != claimed->owner) {
+                const std::int64_t interval_lo = interval->lo;
+                const std::int64_t interval_hi = interval->hi;
+                if (foreign_contact != nullptr && interval->owner != claimed.owner) {
                     *foreign_contact = true;
                 }
                 // The interval was counted (inside the disk) by an earlier
@@ -3120,12 +3804,12 @@ double cartesian_image_area_impl(
                 image.x += dx;
                 cell_ix += ix_step;
                 continue;
-            }
         }
         double mapped_distance2 = 0.0;
         bool jac_ok = true;
-        if (jacobian_sign == 0) {
-            mapped_distance2 = mapped_lens_distance2(mapper, image.x, image.y, source);
+        if constexpr (!GuardJacobian) {
+            mapped_distance2 = mapped_lens_distance2(
+                mapper, image.x, image.y, source);
         } else {
             // When a Jacobian-sign guard is active, treat pixels on the wrong side of the
             // critical curve as outside even if the mapped source is inside the disk.  This
@@ -3133,7 +3817,8 @@ double cartesian_image_area_impl(
             // the adjacent fold image on the opposite parity, which would otherwise cause
             // wildly wrong (sometimes negative) magnifications.  The mapped source and
             // Jacobian share the same lens denominators, so compute them together.
-            const auto eval = evaluate_lens_cell(mapper, image.x, image.y, source);
+            const auto eval = evaluate_lens_cell(
+                mapper, image.x, image.y, source);
             mapped_distance2 = eval.mapped_distance2;
             const int eval_sign = eval.jacobian > 0.0 ? 1 : eval.jacobian < 0.0 ? -1 : 0;
             jac_ok = eval_sign != -jacobian_sign;
@@ -3141,26 +3826,36 @@ double cartesian_image_area_impl(
         dz2 = (jac_ok) ? mapped_distance2 : source_radius2 + 1.0;
         jac_ok_prev = jac_ok;
 
-        scratch.ensure(static_cast<std::size_t>(yi));
         if (dz2 <= source_radius2) {
             // Entering the disk while scanning left with nothing counted yet:
             // the previous (adjacent) sample is the outside side of the row's
             // right edge, so correct that crossing here.
-            double entry_correction = 0.0;
-            if (dx == -incr && countx == 0.0) {
+            const bool entering_from_right = dx == -incr && countx == 0.0;
+            if (entering_from_right) {
                 scratch.xmax[static_cast<std::size_t>(yi)] = image.x - dx;
-                if (jac_ok_last && dz2_last > source_radius2) {
-                    const double t = crossing_fraction(mapped_distance2, dz2_last);
-                    entry_correction = (t - 0.5) * edge_brightness;
-                    countx += entry_correction;
-                }
             }
             const double normalized_radius2 = mapped_distance2 * inv_source_radius2;
             double brightness = 1.0;
             if constexpr (UseLimbDarkening) {
-                brightness = finite_magnifier != nullptr ?
-                    finite_magnifier->limb_darkening_table_brightness(normalized_radius2) :
-                    source_surface_brightness(normalized_radius2, settings);
+                if (brightness_table != nullptr) {
+                    const int index = static_cast<int>(
+                        normalized_radius2 *
+                        static_cast<double>(kLimbDarkeningTableSize) + 0.5);
+                    brightness = brightness_table[std::clamp(
+                        index, 0, kLimbDarkeningTableSize)];
+                } else {
+                    brightness = source_surface_brightness(
+                        normalized_radius2, settings);
+                }
+            }
+            if (entering_from_right && jac_ok_last && dz2_last > source_radius2) {
+                const double initial_delta =
+                    crossing_fraction(mapped_distance2, dz2_last);
+                const double delta = refined_crossing_fraction(
+                    image.x, image.x + incr, image.y, initial_delta);
+                const double correction = limb_boundary_strip_correction(
+                    delta, edge_brightness);
+                countx += correction;
             }
             countx += brightness;
             if (dx > 0.0) {
@@ -3168,9 +3863,7 @@ double cartesian_image_area_impl(
             } else {
                 last_left_inside_x = image.x;
             }
-            if (claimed != nullptr) {
-                add_claim_cell(cell_ix, cell_iy);
-            }
+            add_claim_cell(cell_ix, cell_iy);
             if (is_run_start && dx == incr) {
                 dz2_row_start = mapped_distance2;
             }
@@ -3184,16 +3877,25 @@ double cartesian_image_area_impl(
             // (t - 0.5) cells.
             double edge_correction = 0.0;
             if (jac_ok && dz2_last <= source_radius2) {
-                const double t = crossing_fraction(dz2_last, mapped_distance2);
-                edge_correction = (t - 0.5) * edge_brightness;
+                const double initial_delta =
+                    crossing_fraction(dz2_last, mapped_distance2);
+                const double inside_x = image.x - dx;
+                const double delta = refined_crossing_fraction(
+                    inside_x, image.x, image.y, initial_delta);
+                edge_correction = limb_boundary_strip_correction(
+                    delta, edge_brightness);
                 countx += edge_correction;
             } else if (jac_ok && is_first_left && dz2_row_start >= 0.0) {
                 // First sample left of the turnaround is outside while the
                 // row-start sample was inside: the crossing between them is
                 // not visible through dz2_last (which holds the right-edge
                 // exit sample), so use the remembered row-start distance.
-                const double t = crossing_fraction(dz2_row_start, mapped_distance2);
-                edge_correction = (t - 0.5) * edge_brightness;
+                const double initial_delta =
+                    crossing_fraction(dz2_row_start, mapped_distance2);
+                const double delta = refined_crossing_fraction(
+                    x0, image.x, image.y, initial_delta);
+                edge_correction = limb_boundary_strip_correction(
+                    delta, edge_brightness);
                 countx += edge_correction;
             }
             if (dx == incr) {
@@ -3239,11 +3941,15 @@ double cartesian_image_area_impl(
                 dx = incr;
                 ix_step = 1;
                 x0 = scratch.xmax[static_cast<std::size_t>(yi - 1)];
-                row_start_ix = static_cast<int>(std::llround(x0 * inv_incr));
+                if (!rounded_lattice_index(x0 * inv_incr, row_start_ix)) {
+                    flush_claim();
+                    return std::numeric_limits<double>::quiet_NaN();
+                }
                 image.x = x0 - dx;
                 cell_ix = row_start_ix - 1;
                 image.y += dy;
                 cell_iy += iy_step;
+                claimed_row = claimed.find_row(cell_iy);
                 countx = 0.0;
                 at_run_start = true;
                 dz2_row_start = -1.0;
@@ -3294,38 +4000,44 @@ double cartesian_image_area(
     double dy,
     int& yi,
     LegacyImageAreaScratch& scratch,
-    int jacobian_sign = 0,
-    ClaimedCellRuns* claimed = nullptr,
+    int jacobian_sign,
+    ClaimedCellRuns& claimed,
     double magnification_hint = 0.0,
     bool* foreign_contact = nullptr,
     std::int64_t* step_budget = nullptr)
 {
-    if (settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0) {
-        return cartesian_image_area_impl<false>(
+    const bool use_limb_darkening =
+        settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0;
+    if (jacobian_sign == 0) {
+        if (!use_limb_darkening) {
+            return cartesian_image_area_impl<false, false>(
+                mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
+                scratch, jacobian_sign, claimed, magnification_hint, foreign_contact,
+                step_budget);
+        }
+        return cartesian_image_area_impl<true, false>(
             mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
             scratch, jacobian_sign, claimed, magnification_hint, foreign_contact,
             step_budget);
     }
-    return cartesian_image_area_impl<true>(
+    if (!use_limb_darkening) {
+        return cartesian_image_area_impl<false, true>(
+            mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
+            scratch, jacobian_sign, claimed, magnification_hint, foreign_contact,
+            step_budget);
+    }
+    return cartesian_image_area_impl<true, true>(
         mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi,
         scratch, jacobian_sign, claimed, magnification_hint, foreign_contact,
         step_budget);
 }
 
-std::vector<SourcePosition> selected_triple_point_images(
+const std::vector<TripleImageCandidate>& selected_triple_point_candidates(
     const PointSourceMagnifier& point_magnifier,
     const model::TripleLensGeometry& geometry,
     SourcePosition source)
 {
-    std::vector<SourcePosition> images;
-    const auto candidates = point_magnifier.triple_image_candidates(geometry, source);
-    images.reserve(candidates.size());
-    for (const auto& candidate : candidates) {
-        if (candidate.physical) {
-            images.push_back(candidate.position);
-        }
-    }
-    return images;
+    return point_magnifier.triple_image_candidates_cached(geometry, source);
 }
 
 std::vector<SourcePosition> augmented_triple_image_seeds(
@@ -3370,16 +4082,19 @@ double inverse_ray_polar_triple_mag(
 // Seed-set half of a triple probe, split out so the certified stage can read
 // the image count off the same solve it seeds from.
 void append_triple_probe_images_as_seeds(
-    const model::TripleLensGeometry& geometry,
+    const TripleLensMapper& mapper,
     SourcePosition source,
     double source_radius,
-    const std::vector<SourcePosition>& probe_images,
+    const std::vector<TripleImageCandidate>& probe_images,
     std::vector<SourcePosition>& seeds)
 {
     const double source_radius2 = source_radius * source_radius;
     const std::size_t n_seeds_before = seeds.size();
-    const TripleLensMapper mapper = make_triple_lens_mapper(geometry);
-    for (const auto& image : probe_images) {
+    for (const auto& candidate : probe_images) {
+        if (!candidate.physical) {
+            continue;
+        }
+        const SourcePosition image = candidate.position;
         const double mapped_distance2 =
             mapped_triple_lens_distance2(mapper, image.x, image.y, source);
         if (mapped_distance2 > source_radius2 * (1.0 + 1.0e-8)) {
@@ -3405,6 +4120,7 @@ void append_triple_probe_images_as_seeds(
 
 void append_valid_triple_probe_image_seeds(
     const PointSourceMagnifier& point_magnifier,
+    const TripleLensMapper& mapper,
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
     double source_radius,
@@ -3417,8 +4133,8 @@ void append_valid_triple_probe_image_seeds(
         return;
     }
     append_triple_probe_images_as_seeds(
-        geometry, source, source_radius,
-        selected_triple_point_images(point_magnifier, geometry, probe_source),
+        mapper, source, source_radius,
+        selected_triple_point_candidates(point_magnifier, geometry, probe_source),
         seeds);
 }
 
@@ -3427,6 +4143,7 @@ void append_valid_triple_probe_image_seeds(
 // the image count.
 bool append_certified_triple_component_seeds(
     const PointSourceMagnifier& point_magnifier,
+    const TripleLensMapper& mapper,
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
     double source_radius,
@@ -3438,16 +4155,19 @@ bool append_certified_triple_component_seeds(
         if (distance_squared(probe, source) >= source_radius2 * (1.0 + 1.0e-10)) {
             return -1;
         }
-        const auto probe_images =
-            selected_triple_point_images(point_magnifier, geometry, probe);
+        const auto& probe_images =
+            selected_triple_point_candidates(point_magnifier, geometry, probe);
         append_triple_probe_images_as_seeds(
-            geometry, source, source_radius, probe_images, seeds);
-        return static_cast<int>(probe_images.size());
+            mapper, source, source_radius, probe_images, seeds);
+        return static_cast<int>(std::count_if(
+            probe_images.begin(), probe_images.end(),
+            [](const auto& candidate) { return candidate.physical; }));
     });
 }
 
 void append_triple_caustic_probe_image_seeds(
     const PointSourceMagnifier& point_magnifier,
+    const TripleLensMapper& mapper,
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
     double source_radius,
@@ -3476,13 +4196,15 @@ void append_triple_caustic_probe_image_seeds(
         };
         for (const auto& probe_source : probes) {
             append_valid_triple_probe_image_seeds(
-                point_magnifier, geometry, source, source_radius, probe_source, seeds);
+                point_magnifier, mapper, geometry, source, source_radius,
+                probe_source, seeds);
         }
     }
 }
 
 void append_triple_boundary_probe_image_seeds(
     const PointSourceMagnifier& point_magnifier,
+    const TripleLensMapper& mapper,
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
     double source_radius,
@@ -3516,19 +4238,22 @@ void append_triple_boundary_probe_image_seeds(
     // Track where boundary-added seeds start so we can use the adaptive radius
     // only for same-phase comparisons.
     const std::size_t n_pre_boundary = seeds.size();
-    const TripleLensMapper mapper = make_triple_lens_mapper(geometry);
-
     for (int i = 0; i < samples; ++i) {
         const double phi = kProbeAngStep * static_cast<double>(i);
         const SourcePosition probe_source {
             source.x + probe_radius * std::cos(phi),
             source.y + probe_radius * std::sin(phi),
         };
-        const auto probe_images =
-            selected_triple_point_images(point_magnifier, geometry, probe_source);
-        for (const auto& image : probe_images) {
-            const double mapped2 =
-                mapped_triple_lens_distance2(mapper, image.x, image.y, source);
+        const auto& probe_images =
+            selected_triple_point_candidates(point_magnifier, geometry, probe_source);
+        for (const auto& candidate : probe_images) {
+            if (!candidate.physical) {
+                continue;
+            }
+            const SourcePosition image = candidate.position;
+            const auto evaluation =
+                evaluate_triple_lens_cell_strict(mapper, image.x, image.y, source);
+            const double mapped2 = evaluation.mapped_distance2;
             if (mapped2 > source_radius2 * (1.0 + 1.0e-8)) {
                 continue;
             }
@@ -3537,7 +4262,7 @@ void append_triple_boundary_probe_image_seeds(
             // component at image-plane separation ~(kProbeAngStep * rho) / |J|.
             // Using kAdaptiveSafety times that as the boundary dedup radius ensures
             // they are merged into one seed rather than spawning many redundant ones.
-            const double abs_J = std::abs(triple_jacobian(mapper, image.x, image.y));
+            const double abs_J = std::abs(evaluation.jacobian);
             double dedup_boundary2;
             if (abs_J > 1.0e-9) {
                 const double d = kAdaptiveSafety * kProbeAngStep * source_radius / abs_J;
@@ -3604,36 +4329,116 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
     if (support_proven != nullptr) {
         *support_proven = true;
     }
-    std::vector<SourcePosition> seeds =
-        selected_triple_point_images(point_magnifier, geometry, source);
+    const TripleLensMapper mapper = make_triple_lens_mapper(geometry);
+    const auto& centre_candidates =
+        selected_triple_point_candidates(point_magnifier, geometry, source);
+    std::vector<SourcePosition> seeds;
+    seeds.reserve(centre_candidates.size());
+    for (const auto& candidate : centre_candidates) {
+        if (candidate.physical) {
+            seeds.push_back(candidate.position);
+        }
+    }
     if (source_radius <= 0.0) {
         return seeds;
     }
 
     const double source_radius2 = source_radius * source_radius;
     const double seed_distance2 = 1.35 * source_radius2;
+    const double caustic_probe_distance2 =
+        (1.15 * source_radius) * (1.15 * source_radius);
     struct CausticSeedCandidate {
         SourcePosition point;
         double distance2;
     };
     std::vector<CausticSeedCandidate> caustic_candidates;
+    DiskSupport raw_support;
+    std::vector<double> vertex_radius;
+    const bool certificate_stats = probe_stats_enabled();
     for (const auto& branch : caustics.branches) {
         if (branch.size() < 2) {
             continue;
         }
+        // Gather the certificate's raw radial extrema during the caustic-seed
+        // walk.  The former certify_disk_support call repeated this complete
+        // O(Ncaustic) traversal immediately below; finalize_disk_support keeps
+        // its exact sort/merge/probe and fingerprint rules unchanged.
+        if (branch.size() >= 3) {
+            const auto certificate_started = certificate_stats
+                ? std::chrono::steady_clock::now()
+                : std::chrono::steady_clock::time_point {};
+            const std::size_t count = branch.size();
+            vertex_radius.assign(count, 0.0);
+            for (std::size_t i = 0; i < count; ++i) {
+                vertex_radius[i] = std::sqrt(distance_squared(branch[i], source));
+                raw_support.min_caustic_distance = std::min(
+                    raw_support.min_caustic_distance, vertex_radius[i]);
+            }
+            for (std::size_t i = 0; i < count; ++i) {
+                const std::size_t previous = (i + count - 1) % count;
+                const std::size_t next = (i + 1) % count;
+                const bool minimum =
+                    vertex_radius[i] <= vertex_radius[previous] &&
+                    vertex_radius[i] < vertex_radius[next];
+                const bool maximum =
+                    vertex_radius[i] >= vertex_radius[previous] &&
+                    vertex_radius[i] > vertex_radius[next];
+                if (!minimum && !maximum) {
+                    continue;
+                }
+                const SourcePosition curvature {
+                    branch[previous].x - 2.0 * branch[i].x + branch[next].x,
+                    branch[previous].y - 2.0 * branch[i].y + branch[next].y,
+                };
+                const double margin = std::hypot(curvature.x, curvature.y);
+                if (vertex_radius[i] >= source_radius + margin) {
+                    continue;
+                }
+                const SourcePosition chord {
+                    branch[next].x - branch[previous].x,
+                    branch[next].y - branch[previous].y,
+                };
+                const double chord_length = std::hypot(chord.x, chord.y);
+                if (!(chord_length > 0.0)) {
+                    continue;
+                }
+                DiskExtremum extremum;
+                extremum.position = branch[i];
+                extremum.tangent = {
+                    chord.x / chord_length, chord.y / chord_length};
+                extremum.normal = {-extremum.tangent.y, extremum.tangent.x};
+                extremum.distance = vertex_radius[i];
+                extremum.polyline_margin = margin;
+                extremum.inside_disk = vertex_radius[i] < source_radius;
+                raw_support.extrema.push_back(extremum);
+            }
+            if (certificate_stats) {
+                probe_counters().certify_seconds +=
+                    std::chrono::duration<double>(
+                        std::chrono::steady_clock::now() - certificate_started)
+                        .count();
+            }
+        }
         for (std::size_t i = 1; i <= branch.size(); ++i) {
             const SourcePosition start = branch[i - 1];
             const SourcePosition end = (i == branch.size()) ? branch.front() : branch[i];
-            if (point_segment_distance(source, start, end) <= 1.15 * source_radius) {
-                const SourcePosition caustic_point =
-                    closest_point_on_segment(source, start, end);
+            const SourcePosition caustic_point =
+                closest_point_on_segment(source, start, end);
+            // Reuse one squared distance for both the threshold and candidate
+            // ordering.  This walk covers every cached caustic segment per
+            // finite-source epoch; taking a square root and then recomputing
+            // the squared value for accepted points was pure fixed overhead.
+            const double caustic_distance2 =
+                distance_squared(caustic_point, source);
+            if (caustic_distance2 <= caustic_probe_distance2) {
                 caustic_candidates.push_back({
                     caustic_point,
-                    distance_squared(caustic_point, source),
+                    caustic_distance2,
                 });
             }
-            if (distance_squared(start, source) <= seed_distance2) {
-                caustic_candidates.push_back({start, distance_squared(start, source)});
+            const double start_distance2 = distance_squared(start, source);
+            if (start_distance2 <= seed_distance2) {
+                caustic_candidates.push_back({start, start_distance2});
             }
         }
     }
@@ -3660,7 +4465,8 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
             continue;
         }
         append_triple_caustic_probe_image_seeds(
-            point_magnifier, geometry, source, source_radius, candidate.point, seeds);
+            point_magnifier, mapper, geometry, source, source_radius,
+            candidate.point, seeds);
         caustic_candidates[used_caustic_candidates++] = candidate;
         if (used_caustic_candidates >= max_caustic_seed_candidates ||
             seeds.size() >= max_triple_seeds) {
@@ -3669,14 +4475,14 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
     }
 
     append_triple_boundary_probe_image_seeds(
-        point_magnifier, geometry, source, source_radius, seeds);
+        point_magnifier, mapper, geometry, source, source_radius, seeds);
 
     // Completeness stage; see augmented_image_seeds for why it runs last.
     {
-        const auto support =
-            certify_disk_support(caustics.branches, source, source_radius);
+        const auto support = finalize_disk_support(
+            std::move(raw_support), source, source_radius);
         const bool proven = append_certified_triple_component_seeds(
-            point_magnifier, geometry, source, source_radius, support, seeds);
+            point_magnifier, mapper, geometry, source, source_radius, support, seeds);
         if (support_proven != nullptr) {
             *support_proven = proven;
         }
@@ -3710,36 +4516,44 @@ std::vector<SourcePosition> lattice_snapped_seeds(
     const double source_radius2 = source_radius * source_radius;
     std::vector<SourcePosition> snapped;
     snapped.reserve(seeds.size());
-    std::unordered_set<long long> taken;
+    std::unordered_set<LatticeCellIndex, LatticeCellIndexHash> taken;
+    taken.reserve(seeds.size());
     const auto jacobian_sign_at = [&](double x, double y) {
         const double jacobian = lens_jacobian(mapper, x, y);
         return jacobian > 0.0 ? 1 : jacobian < 0.0 ? -1 : 0;
     };
     // `required_sign` of 0 accepts either side.
-    const auto try_cell = [&](long long ix, long long iy, int required_sign) {
+    const auto try_cell = [&]
+        (std::int64_t ix, std::int64_t iy, int required_sign) {
         const SourcePosition cell {
             static_cast<double>(ix) * incr,
             static_cast<double>(iy) * incr};
-        if (mapped_lens_distance2(mapper, cell.x, cell.y, source) >
-            source_radius2) {
-            return false;
+        if (required_sign == 0) {
+            if (mapped_lens_distance2(mapper, cell.x, cell.y, source) >
+                source_radius2) {
+                return false;
+            }
+        } else {
+            const auto evaluation = evaluate_lens_cell(
+                mapper, cell.x, cell.y, source);
+            if (evaluation.mapped_distance2 > source_radius2 ||
+                (evaluation.jacobian > 0.0 ? 1 :
+                 evaluation.jacobian < 0.0 ? -1 : 0) != required_sign) {
+                return false;
+            }
         }
-        if (required_sign != 0 &&
-            jacobian_sign_at(cell.x, cell.y) != required_sign) {
-            return false;
-        }
-        const long long key = (ix << 32) ^ (iy & 0xffffffffLL);
-        if (taken.insert(key).second) {
+        if (taken.insert({ix, iy}).second) {
             snapped.push_back(cell);
         }
         return true;
     };
-    const auto place = [&](long long ix, long long iy, int required_sign) {
+    const auto place = [&]
+        (std::int64_t ix, std::int64_t iy, int required_sign) {
         if (try_cell(ix, iy, required_sign)) {
             return true;
         }
-        for (long long dyc = -1; dyc <= 1; ++dyc) {
-            for (long long dxc = -1; dxc <= 1; ++dxc) {
+        for (std::int64_t dyc = -1; dyc <= 1; ++dyc) {
+            for (std::int64_t dxc = -1; dxc <= 1; ++dxc) {
                 if ((dxc != 0 || dyc != 0) &&
                     try_cell(ix + dxc, iy + dyc, required_sign)) {
                     return true;
@@ -3749,8 +4563,12 @@ std::vector<SourcePosition> lattice_snapped_seeds(
         return false;
     };
     for (const auto& seed : seeds) {
-        const long long ix = std::llround(seed.x / incr);
-        const long long iy = std::llround(seed.y / incr);
+        std::int64_t ix = 0;
+        std::int64_t iy = 0;
+        if (!rounded_lattice_index(seed.x / incr, ix) ||
+            !rounded_lattice_index(seed.y / incr, iy)) {
+            return {};
+        }
         const int seed_sign = jacobian_sign_at(seed.x, seed.y);
         if (place(ix, iy, seed_sign)) {
             continue;
@@ -3798,7 +4616,7 @@ struct ComponentFill {
 // settings.source_bins, so a caller refining by k passes incr/k together with
 // source_bins*k.
 template <typename ImageMap>
-ComponentFill fill_image_component_legacy(
+ComponentFill fill_image_component(
     const ImageMap& mapper,
     SourcePosition source,
     double source_radius,
@@ -3806,13 +4624,14 @@ ComponentFill fill_image_component_legacy(
     const FiniteSourceMagnifier* finite_magnifier,
     SourcePosition seed,
     double incr,
+    LegacyImageAreaScratch& scratch,
     int jac_sign,
     ClaimedCellRuns& claimed,
     double magnification_hint,
     LegacyAreaDiagnostics* diagnostics,
     std::int64_t* step_budget = nullptr)
 {
-    LegacyImageAreaScratch scratch;
+    scratch.reset();
     scratch.ensure(1);
     bool foreign_contact = false;
     double area0 = 0.0;
@@ -3823,7 +4642,7 @@ ComponentFill fill_image_component_legacy(
     scratch.xmax[0] = seed.x;
     double areai = cartesian_image_area(
         mapper, source, source_radius, settings, finite_magnifier, seed, dy, yi, scratch,
-        jac_sign, &claimed, magnification_hint, &foreign_contact, step_budget);
+        jac_sign, claimed, magnification_hint, &foreign_contact, step_budget);
 
     dy = -incr;
     scratch.ensure(static_cast<std::size_t>(yi));
@@ -3835,7 +4654,7 @@ ComponentFill fill_image_component_legacy(
     ++yi;
     areai += cartesian_image_area(
         mapper, source, source_radius, settings, finite_magnifier, lower_seed, dy, yi, scratch,
-        jac_sign, &claimed, magnification_hint, &foreign_contact, step_budget);
+        jac_sign, claimed, magnification_hint, &foreign_contact, step_budget);
 
     int nyi = yi;
     double areabound = 0.0;
@@ -3868,7 +4687,7 @@ ComponentFill fill_image_component_legacy(
                 ++yi;
                 area0 = cartesian_image_area(
                     mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    yi, scratch, jac_sign, claimed, magnification_hint, &foreign_contact,
                     step_budget);
                 areai += area0;
                 areabound += area0;
@@ -3891,7 +4710,7 @@ ComponentFill fill_image_component_legacy(
                 ++yi;
                 area0 = cartesian_image_area(
                     mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    yi, scratch, jac_sign, claimed, magnification_hint, &foreign_contact,
                     step_budget);
                 areai += area0;
                 areabound += area0;
@@ -3914,7 +4733,7 @@ ComponentFill fill_image_component_legacy(
                 ++yi;
                 area0 = cartesian_image_area(
                     mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    yi, scratch, jac_sign, claimed, magnification_hint, &foreign_contact,
                     step_budget);
                 areai += area0;
                 areabound += area0;
@@ -3937,7 +4756,7 @@ ComponentFill fill_image_component_legacy(
                 ++yi;
                 area0 = cartesian_image_area(
                     mapper, source, source_radius, settings, finite_magnifier, extra_seed, dy,
-                    yi, scratch, jac_sign, &claimed, magnification_hint, &foreign_contact,
+                    yi, scratch, jac_sign, claimed, magnification_hint, &foreign_contact,
                     step_budget);
                 areai += area0;
                 areabound += area0;
@@ -3957,8 +4776,8 @@ ComponentFill fill_image_component_legacy(
     fill.foreign_contact = foreign_contact;
     double extent_cells = 0.0;
     int measured = 0;
-    long long iy_min = std::numeric_limits<long long>::max();
-    long long iy_max = std::numeric_limits<long long>::min();
+    std::int64_t iy_min = std::numeric_limits<std::int64_t>::max();
+    std::int64_t iy_max = std::numeric_limits<std::int64_t>::min();
     for (int row = 0; row < nyi; ++row) {
         scratch.ensure(static_cast<std::size_t>(row));
         if (scratch.ax[static_cast<std::size_t>(row)] > 0.0) {
@@ -3974,280 +4793,23 @@ ComponentFill fill_image_component_legacy(
         ++measured;
         const double row_y = scratch.y[static_cast<std::size_t>(row)];
         if (std::isfinite(row_y)) {
-            const long long iy = std::llround(row_y / incr);
-            iy_min = std::min(iy_min, iy);
-            iy_max = std::max(iy_max, iy);
+            std::int64_t iy = 0;
+            if (rounded_lattice_index(row_y / incr, iy)) {
+                iy_min = std::min(iy_min, iy);
+                iy_max = std::max(iy_max, iy);
+            }
         }
     }
     fill.width = measured > 0 ? extent_cells / static_cast<double>(measured) : 0.0;
     // Gap repairs revisit rows, so `rows` over-counts the vertical extent; the
     // lattice row indices do not.
-    fill.rows_span = iy_max >= iy_min
-        ? static_cast<int>(std::min<long long>(iy_max - iy_min + 1, 1 << 24))
-        : 0;
+    const long double row_span = iy_max >= iy_min
+        ? static_cast<long double>(iy_max) -
+            static_cast<long double>(iy_min) + 1.0L
+        : 0.0L;
+    fill.rows_span = static_cast<int>(std::min<long double>(
+        row_span, static_cast<long double>(1 << 24)));
     return fill;
-}
-
-// Order-independent scanline flood fill.
-//
-// A row of an image component is a union of runs, not a bounding interval.
-// Starting from every run reached vertically, expand its exact horizontal run,
-// record it, and enqueue every overlapping cell on the two adjacent rows.  A
-// pinched component can therefore split into two runs and later join again
-// without filling the gap between them.  `local` is the component's private
-// multi-interval row scratch; `claimed` is only used to avoid counting a
-// component already completed by an earlier seed, never to decide its shape.
-template <typename ImageMap>
-ComponentFill fill_image_component_scanline(
-    const ImageMap& mapper,
-    SourcePosition source,
-    double source_radius,
-    const FiniteSourceSettings& settings,
-    const FiniteSourceMagnifier* finite_magnifier,
-    SourcePosition seed,
-    double incr,
-    int jac_sign,
-    ClaimedCellRuns& claimed,
-    double magnification_hint,
-    LegacyAreaDiagnostics* diagnostics,
-    std::int64_t* step_budget = nullptr)
-{
-    (void)magnification_hint;
-    const double radius2 = source_radius * source_radius;
-    const double inv_radius2 = 1.0 / radius2;
-    const double edge_brightness =
-        settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0
-        ? (finite_magnifier != nullptr
-              ? finite_magnifier->limb_darkening_table_brightness(1.0)
-              : source_surface_brightness(1.0, settings))
-        : 1.0;
-    struct CellState {
-        double mapped2;
-        bool parity_ok;
-        bool inside;
-    };
-    const auto cell = [&](int ix, int iy) {
-        const auto evaluation = evaluate_lens_cell(
-            mapper, static_cast<double>(ix) * incr,
-            static_cast<double>(iy) * incr, source);
-        const int sign = evaluation.jacobian > 0.0
-            ? 1 : evaluation.jacobian < 0.0 ? -1 : 0;
-        const bool parity_ok = jac_sign == 0 || sign != -jac_sign;
-        return CellState {
-            evaluation.mapped_distance2,
-            parity_ok,
-            parity_ok && evaluation.mapped_distance2 <= radius2,
-        };
-    };
-    const auto crossing_correction = [&](double inside2, const CellState& outside) {
-        if (!outside.parity_ok || !(outside.mapped2 > radius2) || !(inside2 <= radius2)) {
-            return 0.0;
-        }
-        const double r_in = std::sqrt(std::max(inside2, 0.0));
-        const double r_out = std::sqrt(std::max(outside.mapped2, 0.0));
-        const double dr = r_out - r_in;
-        const double fraction = dr > 0.0
-            ? std::clamp((source_radius - r_in) / dr, 0.0, 1.0)
-            : 0.5;
-        return (fraction - 0.5) * edge_brightness;
-    };
-
-    const int seed_ix = static_cast<int>(std::llround(seed.x / incr));
-    const int seed_iy = static_cast<int>(std::llround(seed.y / incr));
-    std::deque<std::pair<int, int>> frontier;
-    frontier.emplace_back(seed_ix, seed_iy);
-    ClaimedCellRuns local;
-    local.owner = 1;
-    ComponentFill fill;
-    long long inside_cells = 0;
-    int min_iy = std::numeric_limits<int>::max();
-    int max_iy = std::numeric_limits<int>::min();
-    std::int64_t remaining = step_budget != nullptr
-        ? std::max<std::int64_t>(*step_budget, 1)
-        : std::numeric_limits<std::int64_t>::max();
-
-    while (!frontier.empty()) {
-        const auto [start_ix, iy] = frontier.front();
-        frontier.pop_front();
-        if (local.find(iy, start_ix) != nullptr) {
-            continue;
-        }
-        const CellState start = cell(start_ix, iy);
-        if (!start.inside) {
-            continue;
-        }
-        int lo = start_ix;
-        int hi = start_ix;
-        CellState left_out = cell(lo - 1, iy);
-        while (left_out.inside) {
-            --lo;
-            left_out = cell(lo - 1, iy);
-        }
-        CellState right_out = cell(hi + 1, iy);
-        while (right_out.inside) {
-            ++hi;
-            right_out = cell(hi + 1, iy);
-        }
-        local.claim(iy, lo, hi);
-        ++fill.rows;
-        if (diagnostics != nullptr) {
-            ++diagnostics->interval_count;
-        }
-        min_iy = std::min(min_iy, iy);
-        max_iy = std::max(max_iy, iy);
-
-        double run_area = 0.0;
-        bool any_unclaimed = false;
-        double left_inside2 = start.mapped2;
-        double right_inside2 = start.mapped2;
-        for (int ix = lo; ix <= hi; ++ix) {
-            if (--remaining <= 0) {
-                fill.area = std::numeric_limits<double>::quiet_NaN();
-                if (step_budget != nullptr) {
-                    *step_budget = 0;
-                }
-                return fill;
-            }
-            const CellState current = cell(ix, iy);
-            if (ix == lo) {
-                left_inside2 = current.mapped2;
-            }
-            if (ix == hi) {
-                right_inside2 = current.mapped2;
-            }
-            ++inside_cells;
-            const ClaimedRun* existing = claimed.find(iy, ix);
-            if (existing != nullptr) {
-                if (existing->owner != claimed.owner) {
-                    fill.foreign_contact = true;
-                }
-            } else {
-                const double normalized2 = current.mapped2 * inv_radius2;
-                const double brightness =
-                    settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0
-                    ? (finite_magnifier != nullptr
-                          ? finite_magnifier->limb_darkening_table_brightness(normalized2)
-                          : source_surface_brightness(normalized2, settings))
-                    : 1.0;
-                run_area += brightness;
-                any_unclaimed = true;
-            }
-        }
-        if (any_unclaimed) {
-            const double correction =
-                crossing_correction(left_inside2, left_out) +
-                crossing_correction(right_inside2, right_out);
-            run_area += correction;
-            if (correction != 0.0) {
-                ++fill.boundary_rows;
-            }
-        }
-        fill.area += run_area;
-        claimed.claim(iy, lo, hi);
-
-        for (const int next_iy : {iy - 1, iy + 1}) {
-            int ix = lo;
-            while (ix <= hi) {
-                if (local.find(next_iy, ix) == nullptr && cell(ix, next_iy).inside) {
-                    frontier.emplace_back(ix, next_iy);
-                    // One seed is enough for this adjacent run; skip to its
-                    // right edge to avoid queueing every cell in a wide row.
-                    while (ix <= hi && cell(ix, next_iy).inside) {
-                        ++ix;
-                    }
-                } else {
-                    ++ix;
-                }
-            }
-        }
-    }
-
-    if (step_budget != nullptr) {
-        *step_budget = remaining;
-    }
-    fill.rows_span = max_iy >= min_iy ? max_iy - min_iy + 1 : 0;
-    const std::size_t distinct_rows = local.rows.size();
-    fill.width = distinct_rows > 0
-        ? static_cast<double>(inside_cells) / static_cast<double>(distinct_rows)
-        : 0.0;
-    return fill;
-}
-
-template <typename ImageMap>
-ComponentFill fill_image_component(
-    const ImageMap& mapper,
-    SourcePosition source,
-    double source_radius,
-    const FiniteSourceSettings& settings,
-    const FiniteSourceMagnifier* finite_magnifier,
-    SourcePosition seed,
-    double incr,
-    int jac_sign,
-    ClaimedCellRuns& claimed,
-    double magnification_hint,
-    LegacyAreaDiagnostics* diagnostics,
-    std::int64_t* step_budget = nullptr)
-{
-    if (std::getenv("LCBININT_DIAGNOSTIC_LEGACY_ROW_SCAN") != nullptr) {
-        return fill_image_component_legacy(
-            mapper, source, source_radius, settings, finite_magnifier, seed,
-            incr, jac_sign, claimed, magnification_hint, diagnostics, step_budget);
-    }
-    const double seed_jacobian = lens_jacobian(mapper, seed.x, seed.y);
-    const int scan_sign = seed_jacobian > 0.0
-        ? 1 : seed_jacobian < 0.0 ? -1 : 0;
-    if (std::getenv("LCBININT_DIAGNOSTIC_SCANLINE_ONLY") != nullptr) {
-        return fill_image_component_scanline(
-            mapper, source, source_radius, settings, finite_magnifier, seed, incr,
-            scan_sign, claimed, magnification_hint, diagnostics, step_budget);
-    }
-
-    // Preserve the shipped single-run result where it is the better-resolved
-    // component, while allowing the multi-run scan to recover pinched rows the
-    // legacy walk cannot represent.  Both candidates start from identical
-    // ownership state; only the selected footprint is committed.
-    ClaimedCellRuns legacy_claimed = claimed;
-    ClaimedCellRuns scan_claimed = claimed;
-    LegacyAreaDiagnostics legacy_diagnostics;
-    LegacyAreaDiagnostics scan_diagnostics;
-    LegacyAreaDiagnostics* legacy_diag = nullptr;
-    LegacyAreaDiagnostics* scan_diag = nullptr;
-    if (diagnostics != nullptr) {
-        legacy_diagnostics = *diagnostics;
-        scan_diagnostics = *diagnostics;
-        legacy_diag = &legacy_diagnostics;
-        scan_diag = &scan_diagnostics;
-    }
-    std::int64_t legacy_budget = step_budget != nullptr ? *step_budget : 0;
-    std::int64_t scan_budget = legacy_budget;
-    const ComponentFill legacy = fill_image_component_legacy(
-        mapper, source, source_radius, settings, finite_magnifier, seed, incr,
-        jac_sign, legacy_claimed, magnification_hint, legacy_diag,
-        step_budget != nullptr ? &legacy_budget : nullptr);
-    const ComponentFill scan = fill_image_component_scanline(
-        mapper, source, source_radius, settings, finite_magnifier, seed, incr,
-        scan_sign, scan_claimed, magnification_hint, scan_diag,
-        step_budget != nullptr ? &scan_budget : nullptr);
-    const bool use_scan = std::isfinite(scan.area) &&
-        (!std::isfinite(legacy.area) || scan.area > legacy.area);
-    if (use_scan) {
-        claimed = std::move(scan_claimed);
-        if (diagnostics != nullptr) {
-            *diagnostics = scan_diagnostics;
-        }
-        if (step_budget != nullptr) {
-            *step_budget = scan_budget;
-        }
-        return scan;
-    }
-    claimed = std::move(legacy_claimed);
-    if (diagnostics != nullptr) {
-        *diagnostics = legacy_diagnostics;
-    }
-    if (step_budget != nullptr) {
-        *step_budget = legacy_budget;
-    }
-    return legacy;
 }
 
 // Per-component refinement.
@@ -4317,13 +4879,15 @@ int component_refinement_factor(const ComponentFill& fill, int source_bins)
 bool claim_refined_footprint(
     const ClaimedCellRuns& refined, int factor, ClaimedCellRuns& claimed)
 {
-    const auto divide_floor = [factor](int value) {
-        return static_cast<int>(std::floor(
-            static_cast<double>(value) / static_cast<double>(factor)));
+    const auto divide_floor = [factor](std::int64_t value) {
+        const std::int64_t quotient = value / factor;
+        const std::int64_t remainder = value % factor;
+        return quotient - (remainder < 0 ? 1 : 0);
     };
-    const auto divide_ceil = [factor](int value) {
-        return static_cast<int>(std::ceil(
-            static_cast<double>(value) / static_cast<double>(factor)));
+    const auto divide_ceil = [factor](std::int64_t value) {
+        const std::int64_t quotient = value / factor;
+        const std::int64_t remainder = value % factor;
+        return quotient + (remainder > 0 ? 1 : 0);
     };
     for (const auto& row : refined.rows) {
         if (row.first % factor != 0) {
@@ -4334,8 +4898,8 @@ bool claim_refined_footprint(
             continue;
         }
         for (const auto& run : row.second) {
-            const int lo = divide_ceil(run.lo);
-            const int hi = divide_floor(run.hi);
+            const std::int64_t lo = divide_ceil(run.lo);
+            const std::int64_t hi = divide_floor(run.hi);
             for (const auto& owned : existing->second) {
                 if (owned.owner != claimed.owner && owned.hi >= lo && owned.lo <= hi) {
                     return false;
@@ -4347,7 +4911,7 @@ bool claim_refined_footprint(
         if (row.first % factor != 0) {
             continue;
         }
-        const int coarse_iy = row.first / factor;
+        const std::int64_t coarse_iy = row.first / factor;
         for (const auto& run : row.second) {
             claimed.claim(coarse_iy, divide_ceil(run.lo), divide_floor(run.hi));
         }
@@ -4374,6 +4938,16 @@ double inverse_ray_cartesian_core(
     const double incr = source_radius / nbin;
     auto images = lattice_snapped_seeds(
         mapper, source, source_radius, incr, raw_images);
+    struct EvaluatedSeed {
+        SourcePosition position;
+        double jacobian;
+    };
+    std::vector<EvaluatedSeed> evaluated_images;
+    evaluated_images.reserve(images.size());
+    for (const auto& image : images) {
+        evaluated_images.push_back({
+            image, lens_jacobian(mapper, image.x, image.y)});
+    }
     // Diagnostic-only perturbation used by the tangency correctness corpus.
     // Keeping this below lattice snapping ensures the two runs have exactly
     // the same seed cells and differ only in flood-fill order.  Production
@@ -4383,41 +4957,49 @@ double inverse_ray_cartesian_core(
         const std::string order_text(order);
         if (order_text == "fold-first" || order_text == "fold-last") {
             const bool fold_first = order_text == "fold-first";
-            std::stable_sort(images.begin(), images.end(), [&](const auto& lhs, const auto& rhs) {
-                const bool lhs_fold = std::abs(lens_jacobian(mapper, lhs.x, lhs.y)) <
-                    kFoldJacobianThreshold;
-                const bool rhs_fold = std::abs(lens_jacobian(mapper, rhs.x, rhs.y)) <
-                    kFoldJacobianThreshold;
+            std::stable_sort(
+                evaluated_images.begin(), evaluated_images.end(),
+                [&](const auto& lhs, const auto& rhs) {
+                const bool lhs_fold =
+                    std::abs(lhs.jacobian) < kFoldJacobianThreshold;
+                const bool rhs_fold =
+                    std::abs(rhs.jacobian) < kFoldJacobianThreshold;
                 return lhs_fold != rhs_fold && lhs_fold == fold_first;
             });
         } else if (order_text == "jacobian-ascending" ||
                    order_text == "jacobian-descending") {
             const bool ascending = order_text == "jacobian-ascending";
-            std::stable_sort(images.begin(), images.end(), [&](const auto& lhs, const auto& rhs) {
-                const double lhs_abs = std::abs(lens_jacobian(mapper, lhs.x, lhs.y));
-                const double rhs_abs = std::abs(lens_jacobian(mapper, rhs.x, rhs.y));
+            std::stable_sort(
+                evaluated_images.begin(), evaluated_images.end(),
+                [&](const auto& lhs, const auto& rhs) {
+                const double lhs_abs = std::abs(lhs.jacobian);
+                const double rhs_abs = std::abs(rhs.jacobian);
                 return ascending ? lhs_abs < rhs_abs : lhs_abs > rhs_abs;
             });
         } else if (order_text == "reverse") {
-            std::reverse(images.begin(), images.end());
+            std::reverse(evaluated_images.begin(), evaluated_images.end());
         }
     }
-    if (std::getenv("LCBININT_DIAGNOSTIC_LEGACY_ROW_SCAN") == nullptr) {
-        std::stable_sort(images.begin(), images.end(), [&](const auto& lhs, const auto& rhs) {
-            const double lhs_abs = std::abs(lens_jacobian(mapper, lhs.x, lhs.y));
-            const double rhs_abs = std::abs(lens_jacobian(mapper, rhs.x, rhs.y));
+    if (std::getenv("LCBININT_DIAGNOSTIC_UNSORTED_SEEDS") == nullptr) {
+        std::stable_sort(
+            evaluated_images.begin(), evaluated_images.end(),
+            [&](const auto& lhs, const auto& rhs) {
+            const double lhs_abs = std::abs(lhs.jacobian);
+            const double rhs_abs = std::abs(rhs.jacobian);
             if (lhs_abs != rhs_abs) {
                 return lhs_abs > rhs_abs;
             }
-            return lhs.y != rhs.y ? lhs.y < rhs.y : lhs.x < rhs.x;
+            return lhs.position.y != rhs.position.y
+                ? lhs.position.y < rhs.position.y
+                : lhs.position.x < rhs.position.x;
         });
     }
-    if (images.empty()) {
+    if (evaluated_images.empty()) {
         return std::nan("");
     }
     double walk_magnification_hint = point_source_magnification_hint;
-    for (const auto& image : images) {
-        const double jacobian = lens_jacobian(mapper, image.x, image.y);
+    for (const auto& image : evaluated_images) {
+        const double jacobian = image.jacobian;
         if (std::isfinite(jacobian) && std::abs(jacobian) > 1.0e-15) {
             walk_magnification_hint = std::max(
                 walk_magnification_hint, 1.0 / std::abs(jacobian));
@@ -4425,32 +5007,40 @@ double inverse_ray_cartesian_core(
     }
     if (diagnostics != nullptr) {
         *diagnostics = {};
-        diagnostics->seed_count = static_cast<int>(images.size());
+        diagnostics->seed_count = static_cast<int>(evaluated_images.size());
     }
     double area = 0.0;
     ClaimedCellRuns claimed;
+    // Components are filled serially, and every entry read by a fill is first
+    // written by that fill.  Retaining the largest allocation across fills
+    // avoids rebuilding five growable row arrays for every seed/refinement.
+    LegacyImageAreaScratch scratch;
 
-    for (std::size_t image_index = 0; image_index < images.size(); ++image_index) {
+    for (std::size_t image_index = 0;
+         image_index < evaluated_images.size(); ++image_index) {
+        const SourcePosition seed = evaluated_images[image_index].position;
+        std::int64_t seed_ix = 0;
+        std::int64_t seed_iy = 0;
+        if (!rounded_lattice_index(seed.x / incr, seed_ix) ||
+            !rounded_lattice_index(seed.y / incr, seed_iy)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         // A seed on an already-counted cell lies inside a component another
         // fill has traced; its fill could only wander already-claimed rows.
-        if (claimed.find(
-                static_cast<int>(std::llround(images[image_index].y / incr)),
-                static_cast<int>(std::llround(images[image_index].x / incr))) != nullptr) {
+        if (claimed.find(seed_iy, seed_ix) != nullptr) {
             continue;
         }
-
-        const SourcePosition seed = images[image_index];
         // Guard fold-image flood-fills against crossing the critical curve.
         // When the source disk straddles the caustic, both fold images (F+ and F-)
         // map into the source disk; without this guard the x-scan bleeds across the
         // critical curve from one fold image into the other, giving wrong (sometimes
         // negative) magnifications.
         //
-        // The legacy candidate keeps its established near-fold parity guard.
-        // The multi-run candidate always keeps the seed parity (inside
-        // fill_image_component), so its shape cannot depend on which neighbour
-        // claimed the opposite side of the critical curve first.
-        const double J_seed = lens_jacobian(mapper, seed.x, seed.y);
+        // Only seeds sufficiently near a fold need this per-cell parity guard.
+        // The canonical high-|J| seed ordering above makes the unguarded
+        // component ownership independent of the order in which probes were
+        // discovered.
+        const double J_seed = evaluated_images[image_index].jacobian;
         const int jac_sign = std::abs(J_seed) < kFoldJacobianThreshold
             ? (J_seed > 0.0 ? 1 : J_seed < 0.0 ? -1 : 0)
             : 0;
@@ -4468,7 +5058,7 @@ double inverse_ray_cartesian_core(
         claimed.owner = static_cast<int>(image_index) + 1;
         const ComponentFill fill = fill_image_component(
             mapper, source, source_radius, settings, finite_magnifier, seed, incr,
-            jac_sign, claimed, walk_magnification_hint, diagnostics);
+            scratch, jac_sign, claimed, walk_magnification_hint, diagnostics);
 
         // The claimed-cell registry guarantees each cell is counted at most
         // once across fills, so no cross-seed overlap correction is needed:
@@ -4509,7 +5099,7 @@ double inverse_ray_cartesian_core(
             if (!refined_seeds.empty()) {
                 const ComponentFill refined = fill_image_component(
                     mapper, source, source_radius, refined_settings, finite_magnifier,
-                    refined_seeds.front(), refined_incr, refined_sign, refined_claimed,
+                    refined_seeds.front(), refined_incr, scratch, refined_sign, refined_claimed,
                     walk_magnification_hint, nullptr, &refined_budget);
                 // Cell counts scale with the lattice, the area they measure
                 // does not: k^-2 puts the refined count back in coarse cells.
@@ -4625,7 +5215,9 @@ double inverse_ray_cartesian_triple_mag(
     const FiniteSourceMagnifier* finite_magnifier,
     const std::vector<SourcePosition>* precomputed_seeds = nullptr,
     LegacyAreaDiagnostics* diagnostics = nullptr,
-    bool* support_proven = nullptr)
+    bool* support_proven = nullptr,
+    double point_source_magnification_hint =
+        std::numeric_limits<double>::quiet_NaN())
 {
     if ((settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0) &&
         finite_magnifier != nullptr) {
@@ -4644,8 +5236,9 @@ double inverse_ray_cartesian_triple_mag(
         std::vector<SourcePosition> {};
     const auto& raw_images =
         precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
-    const double point_source_hint = std::abs(
-        point_magnifier.triple_mag0(geometry, source).magnification);
+    const double point_source_hint = std::isfinite(point_source_magnification_hint)
+        ? std::abs(point_source_magnification_hint)
+        : std::abs(point_magnifier.triple_mag0(geometry, source).magnification);
     return inverse_ray_cartesian_core(
         mapper, raw_images, source, source_radius, settings, finite_magnifier,
         point_source_hint, diagnostics, "TRIPLE_AREA_DIAGNOSTICS");
@@ -4768,14 +5361,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
     // half-resolution check.  Automatic calls use the same calibrated area
     // estimate and common budget regardless of whether tol/reltol was
     // explicitly supplied.
-    if (converged && has_explicit_finite_source_tolerance(settings) &&
-        !settings.automatic_source_bins) {
-        reconcile_with_half_resolution(
-            settings, active_settings, magnification, evaluate_at,
-            error_estimate, converged,
-            cartesian_error_convergence_order(diagnostics));
-    }
-    if (!converged && support_proven && std::isfinite(error_estimate) &&
+    if (support_proven && std::isfinite(error_estimate) &&
         has_explicit_finite_source_tolerance(settings)) {
         reconcile_with_half_resolution(
             settings, active_settings, magnification, evaluate_at,
@@ -5580,16 +6166,34 @@ BinaryResolutionSelection calibrated_triple_resolution(
     double requested_relative_tolerance,
     int maximum_bins)
 {
-    // The calibrated distance proxy used by the exploratory regression is not
-    // bit-identical to triple_caustic_distance().  Direct holdout execution
-    // exposed bucket mismatches, so auto uses the largest converged fixed-grid
-    // bucket rather than extrapolating that proxy.  This is one branch and no
-    // refinement/probe is performed at runtime.
+    // Triple Cartesian boundary error follows one continuous resolution law.
+    // The earlier selector discarded the requested tolerance almost entirely:
+    // 1e-2 and 1e-3 both ran 256 bins, while every tighter request jumped to
+    // the cap.  That made tolerance inert and over-integrated the loose cases
+    // by roughly an order of magnitude in cells.  Use the same general form as
+    // the binary calibration, but without a geometry/regime branch: the
+    // measured boundary-corrected triple grid follows one continuous power
+    // law.  A 32-bin floor is retained because the loose holdout contains
+    // local structure that a 16-bin grid can alias.  The caller still verifies
+    // Cartesian grids against a nested half-resolution result, and either grid
+    // can grow to the hard cap from its embedded error estimate.
     const int cap = std::max(maximum_bins, 1);
-    const int bins = requested_relative_tolerance > 0.0 &&
-            requested_relative_tolerance < kDefaultFiniteSourceRelativeTolerance
+    const double tolerance = requested_relative_tolerance > 0.0
+        ? requested_relative_tolerance
+        : kDefaultFiniteSourceRelativeTolerance;
+    // This selects 32/128/400 bins at 1e-3/1e-4/1e-5 without snapping to a
+    // case-specific ladder.  The former 80/319 law over-resolved the measured
+    // 1e-3/1e-4 population while almost every nested check stopped at level
+    // zero.  The measured 0.6 exponent preserves the tighter-tolerance tail.
+    constexpr double kTripleResolutionAtBaseline = 32.0;
+    constexpr double kTripleResolutionExponent = 0.6;
+    const double required = kTripleResolutionAtBaseline * std::pow(
+        tolerance / kEmpiricalResolutionBaselineTolerance,
+        -kTripleResolutionExponent);
+    const double required_with_floor = std::max(required, 32.0);
+    const int bins = !std::isfinite(required_with_floor) || required_with_floor >= cap
         ? cap
-        : std::min(256, cap);
+        : std::max(1, static_cast<int>(std::ceil(required_with_floor)));
     return {bins, false};
 
 }
@@ -6099,19 +6703,20 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
     };
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     bool support_proven = true;
+    std::size_t centre_image_count = 0;
     auto seeds = augmented_image_seeds(
         point_magnifier, mapper, separation, mass_ratio, source, source_radius,
         std::numeric_limits<double>::infinity(), nullptr,
-        &binary_caustic_branches(separation, mass_ratio), &support_proven);
+        &binary_caustic_branches(separation, mass_ratio), &support_proven,
+        &centre_image_count);
     if (seeds.size() < 5) {
         augment_seeds_from_caustic_branches(separation, mass_ratio, source, source_radius, seeds);
     }
-    const auto point_images = point_magnifier.binary_images(separation, mass_ratio, source);
     const double sampled_caustic_distance = binary_sampled_caustic_distance(
         separation, mass_ratio, source, source_radius);
     const double polar_fallback_distance =
         std::max(settings_.hex_threshold, 1.0) * source_radius;
-    if (seeds.size() > point_images.size() ||
+    if (seeds.size() > centre_image_count ||
         (std::isfinite(sampled_caustic_distance) && sampled_caustic_distance < polar_fallback_distance) ||
         (std::isfinite(caustic_distance) && caustic_distance < polar_fallback_distance)) {
         LegacyAreaDiagnostics diagnostics;
@@ -6473,24 +7078,38 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
         LegacyAreaDiagnostics diagnostics;
         const auto& shared_seeds = seeds_for_epoch();
         const bool support_proven = epoch_support_proven;
-        double cartesian_magnification = inverse_ray_cartesian_triple_mag(
-            point_magnifier,
-            geometry,
-            caustics,
-            source,
-            source_radius,
-            runtime_settings,
-            this,
-            &shared_seeds,
-            &diagnostics);
+        FiniteSourceSettings active_settings = runtime_settings;
+        // Fixed-grid calls keep their requested resolution.  Automatic calls
+        // start no lower than the conservative baseline grid; the previous
+        // 1e-2 experiment at 16 bins exposed unresolved local triple structure
+        // that a same-grid error indicator cannot see, whereas 32 bins met the
+        // loose holdout budget.
+        if (settings_.automatic_source_bins) {
+            const int automatic_cap = std::max(settings_.max_source_bins, 1);
+            active_settings.source_bins = std::min(
+                automatic_cap, std::max(active_settings.source_bins, 32));
+            if (active_settings.polar_source_bins > 0) {
+                active_settings.polar_source_bins = active_settings.source_bins;
+            }
+        }
+        const auto evaluate_cartesian = [&]
+            (const FiniteSourceSettings& grid, LegacyAreaDiagnostics* active_diagnostics) {
+            return inverse_ray_cartesian_triple_mag(
+                point_magnifier,
+                geometry,
+                caustics,
+                source,
+                source_radius,
+                grid,
+                this,
+                &shared_seeds,
+                active_diagnostics,
+                nullptr,
+                point_source_magnification);
+        };
+        double cartesian_magnification =
+            evaluate_cartesian(active_settings, &diagnostics);
         if (std::isfinite(cartesian_magnification) && cartesian_magnification > 0.0) {
-            FiniteSourceDecision decision {
-                FiniteSourceMethod::inverse_ray_cartesian,
-                estimate_cartesian_cost(runtime_settings),
-                polar_needs_cartesian_fallback
-                    ? "triple polar used cartesian fallback for caustic-crossing"
-                    : "triple finite-source cartesian image-plane inverse ray",
-            };
             // Fail closed: an unproven support means a component of the source
             // disk was never entered, so the area is short by an unknown
             // amount and no error estimate derived from it can be trusted.
@@ -6499,35 +7118,93 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
                 : std::numeric_limits<double>::infinity();
             bool converged = support_proven && finite_source_error_within_budget(
                 settings_, cartesian_magnification, error_estimate);
-            // The triple Cartesian route has no retry ladder: its grid is the
-            // one the caller allowed, so the indicator's 1/source_bins floor
-            // is the only thing between it and a NaN.  Let the measured pair
-            // rule in both directions, as it does on the binary side.
-            if (support_proven) {
+            int refinement_level = 0;
+            const int maximum_bins = std::max(settings_.max_source_bins, 1);
+            const bool needs_pair_check = settings_.automatic_source_bins ||
+                has_explicit_finite_source_tolerance(settings_);
+            int reusable_source_bins = 0;
+            int reusable_polar_source_bins = 0;
+            double reusable_magnification =
+                std::numeric_limits<double>::quiet_NaN();
+            while (support_proven && needs_pair_check) {
+                // The geometric area indicator and an independent nested grid
+                // guard different failure modes.  Let the measured pair rule
+                // in both directions, then grow only when the common error
+                // budget still is not met.  Fixed-nbin calls retain their one
+                // diagnostic comparison and never change the requested grid.
                 reconcile_with_half_resolution(
                     settings_,
-                    runtime_settings,
+                    active_settings,
                     cartesian_magnification,
                     [&](const FiniteSourceSettings& grid) {
-                        return inverse_ray_cartesian_triple_mag(
-                            point_magnifier,
-                            geometry,
-                            caustics,
-                            source,
-                            source_radius,
-                            grid,
-                            this,
-                            &shared_seeds);
+                        if (grid.source_bins == reusable_source_bins &&
+                            grid.polar_source_bins == reusable_polar_source_bins) {
+                            return reusable_magnification;
+                        }
+                        return evaluate_cartesian(grid, nullptr);
                     },
                     error_estimate,
                     converged);
+                if (converged || !settings_.automatic_source_bins ||
+                    active_settings.source_bins >= maximum_bins) {
+                    break;
+                }
+                const auto assessment = assess_finite_source_error(
+                    settings_, cartesian_magnification, error_estimate,
+                    support_proven);
+                const int retry_bins = next_finite_source_resolution(
+                    active_settings.source_bins,
+                    maximum_bins,
+                    assessment.shortfall,
+                    cartesian_error_convergence_order(diagnostics));
+                if (retry_bins <= active_settings.source_bins) {
+                    break;
+                }
+                const int previous_source_bins = active_settings.source_bins;
+                const int previous_polar_source_bins =
+                    active_settings.polar_source_bins;
+                const double previous_magnification = cartesian_magnification;
+                active_settings.source_bins = retry_bins;
+                if (active_settings.polar_source_bins > 0) {
+                    active_settings.polar_source_bins = retry_bins;
+                }
+                LegacyAreaDiagnostics retry_diagnostics;
+                const double retry_magnification =
+                    evaluate_cartesian(active_settings, &retry_diagnostics);
+                if (!std::isfinite(retry_magnification) ||
+                    retry_magnification <= 0.0) {
+                    active_settings.source_bins = previous_source_bins;
+                    active_settings.polar_source_bins =
+                        previous_polar_source_bins;
+                    break;
+                }
+                cartesian_magnification = retry_magnification;
+                diagnostics = retry_diagnostics;
+                // A doubling retry asks for this previous fine grid as the
+                // next half-resolution comparison.  Carry its already-computed
+                // value forward; non-doubling retries simply miss this exact
+                // key and keep the historical evaluation path.
+                reusable_source_bins = previous_source_bins;
+                reusable_polar_source_bins = previous_polar_source_bins;
+                reusable_magnification = previous_magnification;
+                error_estimate = diagnostics.estimated_error;
+                converged = finite_source_error_within_budget(
+                    settings_, cartesian_magnification, error_estimate);
+                ++refinement_level;
             }
+            FiniteSourceDecision decision {
+                FiniteSourceMethod::inverse_ray_cartesian,
+                estimate_cartesian_cost(active_settings),
+                polar_needs_cartesian_fallback
+                    ? "triple polar used cartesian fallback for caustic-crossing"
+                    : "triple finite-source cartesian image-plane inverse ray",
+            };
             return apply_triple_tangent_floor({
                 cartesian_magnification,
                 diagnostics.seed_count,
                 decision,
                 error_estimate,
-                0,
+                refinement_level,
                 converged,
             });
         }

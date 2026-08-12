@@ -18,6 +18,7 @@ jax.config.update("jax_enable_x64", True)
 import VBMicrolensing  # noqa: E402
 import microlux  # noqa: E402
 from lcbinint_jax import binary_inverse_ray_linear  # noqa: E402
+from lcbinint_jax.trajectory import _tile_capacity  # noqa: E402
 from microlux.basic_function import to_lowmass  # noqa: E402
 from microlux.limb_darkening import LinearLimbDarkening  # noqa: E402
 from microlux.trajectory_model import (  # noqa: E402
@@ -29,23 +30,13 @@ LIMB_C = 0.4
 CASES = {
     "regular": {
         "parameters": (0.2, 0.1, 1.2, 0.1, 0.2),
-        "jax_configurations": (
-            (16, 128),
-            (32, 256),
-            (64, 512),
-            (128, 2048),
-        ),
+        "jax_resolutions": (16, 32, 64, 96, 128),
         "microlux_annuli": 10,
         "reference": "vbmicrolensing",
     },
     "resonant_cusp": {
         "parameters": (0.653, 0.0, 1.2, 0.1, 0.02),
-        "jax_configurations": (
-            (16, 256),
-            (32, 512),
-            (64, 1024),
-            (128, 4096),
-        ),
+        "jax_resolutions": (16, 32, 64, 96, 128),
         "microlux_annuli": 80,
         "reference": "native-consensus",
         "reference_value": 9.124999559851442,
@@ -95,7 +86,7 @@ def reference_magnification(case, parameters):
     )
 
 
-def inverse_ray_value(parameters, resolution, capacity):
+def inverse_ray_result(parameters, resolution, capacity):
     x, y, separation, mass_ratio, radius = parameters
     return binary_inverse_ray_linear(
         x,
@@ -108,7 +99,11 @@ def inverse_ray_value(parameters, resolution, capacity):
         tile_size=16,
         tile_capacity=capacity,
         limb_samples=32,
-    ).magnification
+    )
+
+
+def inverse_ray_value(parameters, resolution, capacity):
+    return inverse_ray_result(parameters, resolution, capacity).magnification
 
 
 def microlux_value(parameters, analytic, n_annuli):
@@ -159,21 +154,29 @@ def main():
     budget = args.atol + args.rtol * max(abs(reference), 1.0)
     calibration = []
     selected = None
-    for resolution, capacity in case["jax_configurations"]:
-        value_function = jax.jit(
+    for resolution in case["jax_resolutions"]:
+        # The capacity is a correctness ceiling, not a tuning knob: use the
+        # same magnification-independent policy as the public trajectory
+        # pipeline.  The C++ FFI allocates only active tiles, so this headroom
+        # does not make a regular case pay for the ceiling.
+        capacity = _tile_capacity(resolution)
+        result_function = jax.jit(
             lambda parameters, resolution=resolution, capacity=capacity: (
-                inverse_ray_value(parameters, resolution, capacity)
+                inverse_ray_result(parameters, resolution, capacity)
             )
         )
-        value = value_function(parameters)
-        jax.block_until_ready(value)
+        result = result_function(parameters)
+        jax.block_until_ready(result)
+        value = result.magnification
+        support_valid = bool(result.support_valid)
         row = {
             "resolution": resolution,
             "tile_capacity": capacity,
             "value": float(value),
+            "support_valid": support_valid,
             "absolute_error": abs(float(value) - reference),
         }
-        row["passes"] = row["absolute_error"] <= budget
+        row["passes"] = support_valid and row["absolute_error"] <= budget
         calibration.append(row)
         if selected is None and row["passes"]:
             selected = row

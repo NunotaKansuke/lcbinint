@@ -9,12 +9,14 @@ from ._config import require_x64
 from .api import _multipole_dispatch_masks, binary_magnification_auto
 from .cpp_backend import (
     binary_hexadecapole_batch_ffi,
+    binary_inverse_ray_cartesian_ladder_ffi,
     binary_inverse_ray_polar_ffi,
     binary_magnification_trajectory_ffi,
     binary_routing_diagnostics_batch_ffi,
     binary_inverse_ray_cartesian_batch_ffi,
     cpp_binary_routing_diagnostics_batch_ffi_available,
     cpp_cartesian_batch_ffi_available,
+    cpp_cartesian_ladder_ffi_available,
     cpp_trajectory_ffi_available,
 )
 from .multipole import binary_hexadecapole
@@ -895,120 +897,158 @@ def _native_pipeline_trajectory(
     cartesian_candidate = jax.lax.stop_gradient(
         cartesian_candidate | (polar_candidate & ~polar_converged)
     )
-    def cartesian_ladder(armed):
-        values = []
-        supports = []
-        for index, (resolution, tile_capacity) in enumerate(
-            _CALIBRATED_EXECUTION_BUCKETS
-        ):
-            rung = binary_inverse_ray_cartesian_batch_ffi(
-                source_x,
-                source_y,
-                separation_array,
-                mass_ratio,
-                source_radius,
-                limb_c,
-                limb_d,
-                active=armed(index),
-                cell_size=jax.lax.stop_gradient(source_radius / resolution),
-                tile_size=16,
-                tile_capacity=tile_capacity,
-                limb_samples=32,
-                moment_mode=moment_mode,
-                boundary_subdivision=boundary_subdivision,
-            )
-            values.append(rung.magnification)
-            supports.append(rung.support_valid)
-        return jnp.stack(tuple(values)), jnp.stack(tuple(supports))
-
-    def gather_epoch(values, indices):
-        return jnp.take_along_axis(values, indices[None, :], axis=0)[0]
-
-    lower_index = jnp.maximum(bucket_index - 1, 0)
-    upper_index = jnp.minimum(bucket_index + 1, len(_CALIBRATED_EXECUTION_BUCKETS) - 1)
-    # The certificate compares the selected rung against one neighbour, and it
-    # reads the finer neighbour only when the coarser pair cannot certify.
-    # Arming all three rungs up front therefore paid for a third grid solve on
-    # every Cartesian epoch; run the finer rung as a second masked ladder over
-    # the rows that actually asked for it.
-    cartesian_values, cartesian_support = cartesian_ladder(
-        lambda index: cartesian_candidate
-        & ((bucket_index == index) | (lower_index == index))
-    )
-    selected_cartesian = gather_epoch(cartesian_values, bucket_index)
-    selected_support = gather_epoch(cartesian_support, bucket_index)
-    lower_value = gather_epoch(cartesian_values, lower_index)
-    lower_support = gather_epoch(cartesian_support, lower_index)
-    use_upper = (bucket_index == 0) | ~lower_support
-    lower_error = jnp.abs(selected_cartesian - lower_value)
-    lower_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
-        jnp.abs(selected_cartesian), 1.0
-    )
-    lower_certified = (
-        cartesian_candidate
-        & ~use_upper
-        & selected_support
-        & lower_support
-        & jnp.isfinite(lower_error)
-        & (lower_error <= lower_budget)
-    )
-    at_top = upper_index == bucket_index
-    needs_upper = jax.lax.stop_gradient(
-        cartesian_candidate & ~lower_certified & ~at_top
-    )
-    upper_values, upper_supports = cartesian_ladder(
-        lambda index: needs_upper & (upper_index == index)
-    )
-    # At the top rung the finer neighbour is the selected rung itself, so read
-    # it from the first ladder rather than arming a rung that does not exist.
-    upper_value = jnp.where(
-        at_top, selected_cartesian, gather_epoch(upper_values, upper_index)
-    )
-    upper_support = jnp.where(
-        at_top, selected_support, gather_epoch(upper_supports, upper_index)
-    )
-    initial_selected_support = selected_support
-    comparison_index = jnp.where(use_upper, upper_index, lower_index)
-    comparison_value = jnp.where(use_upper, upper_value, lower_value)
-    comparison_support = jnp.where(use_upper, upper_support, lower_support)
-    initial_cartesian_error = jnp.abs(selected_cartesian - comparison_value)
-    initial_cartesian_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
-        jnp.abs(selected_cartesian), 1.0
-    )
-    initial_cartesian_converged = (
-        cartesian_candidate
-        & (comparison_index != bucket_index)
-        & selected_support
-        & comparison_support
-        & jnp.isfinite(initial_cartesian_error)
-        & (initial_cartesian_error <= initial_cartesian_budget)
-    )
-    retry_cartesian = jax.lax.stop_gradient(
-        cartesian_candidate
-        & ~initial_cartesian_converged
-        & (upper_index != bucket_index)
-    )
-    retry_cartesian_error = jnp.abs(upper_value - selected_cartesian)
-    selected_cartesian = jnp.where(retry_cartesian, upper_value, selected_cartesian)
-    selected_support = jnp.where(retry_cartesian, upper_support, selected_support)
-    cartesian_error = jnp.where(
-        retry_cartesian,
-        retry_cartesian_error,
-        initial_cartesian_error,
-    )
-    cartesian_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
-        jnp.abs(selected_cartesian), 1.0
-    )
-    accept_cartesian = jax.lax.stop_gradient(
-        initial_cartesian_converged
-        | (
-            retry_cartesian
-            & selected_support
-            & initial_selected_support
-            & jnp.isfinite(retry_cartesian_error)
-            & (retry_cartesian_error <= cartesian_budget)
+    use_fused_cartesian_ladder = cpp_cartesian_ladder_ffi_available()
+    if use_fused_cartesian_ladder:
+        bucket_capacities = jnp.asarray(
+            tuple(item[1] for item in _CALIBRATED_EXECUTION_BUCKETS),
+            dtype=jnp.int32,
         )
-    )
+        fused_cartesian = binary_inverse_ray_cartesian_ladder_ffi(
+            source_x,
+            source_y,
+            separation_array,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            active=cartesian_candidate,
+            selected_index=bucket_index,
+            resolutions=bucket_resolutions,
+            tile_capacities=bucket_capacities,
+            absolute_tolerance=absolute_tolerance,
+            relative_tolerance=relative_tolerance,
+            tile_size=16,
+            limb_samples=32,
+            moment_mode=moment_mode,
+            boundary_subdivision=boundary_subdivision,
+        )
+        selected_cartesian = fused_cartesian.magnification
+        cartesian_error = fused_cartesian.estimated_error
+        selected_support = fused_cartesian.support_valid
+        accept_cartesian = jax.lax.stop_gradient(
+            cartesian_candidate & fused_cartesian.converged
+        )
+    else:
+        def cartesian_ladder(armed):
+            values = []
+            supports = []
+            for index, (resolution, tile_capacity) in enumerate(
+                _CALIBRATED_EXECUTION_BUCKETS
+            ):
+                rung = binary_inverse_ray_cartesian_batch_ffi(
+                    source_x,
+                    source_y,
+                    separation_array,
+                    mass_ratio,
+                    source_radius,
+                    limb_c,
+                    limb_d,
+                    active=armed(index),
+                    cell_size=jax.lax.stop_gradient(source_radius / resolution),
+                    tile_size=16,
+                    tile_capacity=tile_capacity,
+                    limb_samples=32,
+                    moment_mode=moment_mode,
+                    boundary_subdivision=boundary_subdivision,
+                )
+                values.append(rung.magnification)
+                supports.append(rung.support_valid)
+            return jnp.stack(tuple(values)), jnp.stack(tuple(supports))
+
+        def gather_epoch(values, indices):
+            return jnp.take_along_axis(values, indices[None, :], axis=0)[0]
+
+        lower_index = jnp.maximum(bucket_index - 1, 0)
+        upper_index = jnp.minimum(
+            bucket_index + 1, len(_CALIBRATED_EXECUTION_BUCKETS) - 1
+        )
+        # The certificate compares the selected rung against one neighbour, and it
+        # reads the finer neighbour only when the coarser pair cannot certify.
+        # Arming all three rungs up front therefore paid for a third grid solve on
+        # every Cartesian epoch; run the finer rung as a second masked ladder over
+        # the rows that actually asked for it.
+        cartesian_values, cartesian_support = cartesian_ladder(
+            lambda index: cartesian_candidate
+            & ((bucket_index == index) | (lower_index == index))
+        )
+        selected_cartesian = gather_epoch(cartesian_values, bucket_index)
+        selected_support = gather_epoch(cartesian_support, bucket_index)
+        lower_value = gather_epoch(cartesian_values, lower_index)
+        lower_support = gather_epoch(cartesian_support, lower_index)
+        use_upper = (bucket_index == 0) | ~lower_support
+        lower_error = jnp.abs(selected_cartesian - lower_value)
+        lower_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
+            jnp.abs(selected_cartesian), 1.0
+        )
+        lower_certified = (
+            cartesian_candidate
+            & ~use_upper
+            & selected_support
+            & lower_support
+            & jnp.isfinite(lower_error)
+            & (lower_error <= lower_budget)
+        )
+        at_top = upper_index == bucket_index
+        needs_upper = jax.lax.stop_gradient(
+            cartesian_candidate & ~lower_certified & ~at_top
+        )
+        upper_values, upper_supports = cartesian_ladder(
+            lambda index: needs_upper & (upper_index == index)
+        )
+        # At the top rung the finer neighbour is the selected rung itself, so read
+        # it from the first ladder rather than arming a rung that does not exist.
+        upper_value = jnp.where(
+            at_top, selected_cartesian, gather_epoch(upper_values, upper_index)
+        )
+        upper_support = jnp.where(
+            at_top, selected_support, gather_epoch(upper_supports, upper_index)
+        )
+        initial_selected_support = selected_support
+        comparison_index = jnp.where(use_upper, upper_index, lower_index)
+        comparison_value = jnp.where(use_upper, upper_value, lower_value)
+        comparison_support = jnp.where(use_upper, upper_support, lower_support)
+        initial_cartesian_error = jnp.abs(selected_cartesian - comparison_value)
+        initial_cartesian_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
+            jnp.abs(selected_cartesian), 1.0
+        )
+        initial_cartesian_converged = (
+            cartesian_candidate
+            & (comparison_index != bucket_index)
+            & selected_support
+            & comparison_support
+            & jnp.isfinite(initial_cartesian_error)
+            & (initial_cartesian_error <= initial_cartesian_budget)
+        )
+        retry_cartesian = jax.lax.stop_gradient(
+            cartesian_candidate
+            & ~initial_cartesian_converged
+            & (upper_index != bucket_index)
+        )
+        retry_cartesian_error = jnp.abs(upper_value - selected_cartesian)
+        selected_cartesian = jnp.where(
+            retry_cartesian, upper_value, selected_cartesian
+        )
+        selected_support = jnp.where(
+            retry_cartesian, upper_support, selected_support
+        )
+        cartesian_error = jnp.where(
+            retry_cartesian,
+            retry_cartesian_error,
+            initial_cartesian_error,
+        )
+        cartesian_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
+            jnp.abs(selected_cartesian), 1.0
+        )
+        accept_cartesian = jax.lax.stop_gradient(
+            initial_cartesian_converged
+            | (
+                retry_cartesian
+                & selected_support
+                & initial_selected_support
+                & jnp.isfinite(retry_cartesian_error)
+                & (retry_cartesian_error <= cartesian_budget)
+            )
+        )
     # Preserve the selected calibrated value even if the adjacent-resolution
     # check misses the requested budget. Falling back to ``base`` here used a
     # lower-resolution value and could make a stricter tolerance less accurate.

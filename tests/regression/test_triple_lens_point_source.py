@@ -162,7 +162,7 @@ def test_triple_lens_finite_source_cartesian_inverse_ray():
 
 
 def test_triple_lens_auto_nbin_uses_calibrated_cartesian_resolution():
-    """Triple ``nbin='auto'`` selects the validated fixed-grid bucket."""
+    """Triple ``nbin='auto'`` meets its budget without a fixed 256-bin rule."""
     params = {
         "t0": 0.0,
         "tE": 1.0,
@@ -185,13 +185,48 @@ def test_triple_lens_auto_nbin_uses_calibrated_cartesian_resolution():
     automatic = lcbinint.LightCurve(
         lens="triple", options=lcbinint.Options(nbin="auto", **common_options)
     ).info(np.array([0.0]), params)
-    # The triple distance proxy is not used for runtime extrapolation.
-    fixed = lcbinint.LightCurve(
-        lens="triple", options=lcbinint.Options(nbin=256, **common_options)
+    reference = lcbinint.LightCurve(
+        lens="triple", options=lcbinint.Options(nbin=400, **common_options)
     ).info(np.array([0.0]), params)
 
     assert automatic.finite_source_method_names == ["inverse_ray_cartesian"]
-    assert automatic.magnifications == pytest.approx(fixed.magnifications, rel=0.0, abs=0.0)
+    assert automatic.all_converged
+    assert automatic.magnifications == pytest.approx(
+        reference.magnifications, rel=1.0e-3, abs=0.0
+    )
+
+
+def test_triple_lens_auto_respects_a_small_max_source_bins_cap():
+    params = {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.0,
+        "alpha": 0.0,
+        "s": 1.0,
+        "q": 1.0e-3,
+        "q2": 1.0e-4,
+        "sep2": 0.5,
+        "ang": 1.2,
+        "rho": 1.0e-3,
+    }
+    common = dict(
+        mode=1,
+        point_source_threshold=20.0,
+        hexadecapole_threshold=0.0,
+        adaptive_hex_threshold=0.0,
+        max_source_bins=16,
+    )
+    automatic = lcbinint.LightCurve(
+        lens="triple", options=lcbinint.Options(nbin="auto", **common)
+    ).info(np.array([0.0]), params)
+    fixed = lcbinint.LightCurve(
+        lens="triple", options=lcbinint.Options(nbin=16, **common)
+    ).info(np.array([0.0]), params)
+
+    assert automatic.finite_source_magnifications == pytest.approx(
+        fixed.finite_source_magnifications, rel=0.0, abs=0.0
+    )
+    assert not automatic.all_converged
 
 
 def test_triple_lens_finite_source_uses_hexadecapole_between_point_and_ir():

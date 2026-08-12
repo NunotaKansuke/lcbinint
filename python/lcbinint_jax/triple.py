@@ -823,7 +823,7 @@ def triple_inverse_ray_adaptive(
     )
     integrated = triple_inverse_ray_fixed_support(
         discovery.tile_origins,
-        discovery.tile_mask,
+        discovery.active_mask,
         cell_size,
         source_x,
         source_y,

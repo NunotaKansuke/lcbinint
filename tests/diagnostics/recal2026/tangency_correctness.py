@@ -108,9 +108,9 @@ def _subprocess_c(policy, order=None, case=C_CASE, legacy=False):
         env.pop("LCBININT_DIAGNOSTIC_SEED_ORDER", None)
     env["LCBININT_DIAGNOSTIC_CASE"] = json.dumps(case)
     if legacy:
-        env["LCBININT_DIAGNOSTIC_LEGACY_ROW_SCAN"] = "1"
+        env["LCBININT_DIAGNOSTIC_UNSORTED_SEEDS"] = "1"
     else:
-        env.pop("LCBININT_DIAGNOSTIC_LEGACY_ROW_SCAN", None)
+        env.pop("LCBININT_DIAGNOSTIC_UNSORTED_SEEDS", None)
     command = [sys.executable, "-m", MODULE, "--single-c"]
     completed = subprocess.run(
         command, cwd=ROOT, env=env, check=True, text=True,

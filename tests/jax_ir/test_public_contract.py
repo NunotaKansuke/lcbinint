@@ -1,11 +1,14 @@
 """Regression tests for the public JAX LightCurve contract."""
 
+from types import SimpleNamespace
+
 import jax
 import jax.numpy as jnp
 import numpy as np
 import pytest
 
 import lcbinint
+import lcbinint_jax
 from lcbinint.jax_backend import _normalize_parameters
 
 PARAMETERS = {
@@ -477,6 +480,48 @@ def test_jitted_triple_q2_remains_differentiable_while_checked_at_runtime():
         0.0
     )
     assert jnp.all(jnp.isnan(invalid))
+
+
+@pytest.mark.parametrize(
+    "limb_c,limb_d,expected_mode",
+    (
+        (0.0, 0.0, "uniform"),
+        (0.4, 0.0, "linear"),
+        (0.3, 0.2, "two_coefficient"),
+    ),
+)
+def test_public_jax_triple_uses_smallest_static_moment_kernel(
+    monkeypatch, limb_c, limb_d, expected_mode
+):
+    selected_modes = []
+
+    def fake_triple_magnification_batch(source_x, *args, **kwargs):
+        selected_modes.append(kwargs["moment_mode"])
+        return SimpleNamespace(
+            magnification=jnp.full_like(jnp.asarray(source_x), 7.25)
+        )
+
+    monkeypatch.setattr(
+        lcbinint_jax,
+        "triple_magnification_batch",
+        fake_triple_magnification_batch,
+    )
+    curve = lcbinint.LightCurve(
+        lens="triple",
+        limb_darkening=lcbinint.LimbDarkening(limb_c, limb_d),
+        options=lcbinint.Options(jax=True),
+    )
+    parameters = {
+        **PARAMETERS,
+        "q2": 0.01,
+        "sep2": 1.3,
+        "ang": 0.5,
+    }
+
+    actual = curve(jnp.asarray((0.0, 0.5)), parameters)
+
+    np.testing.assert_array_equal(actual, jnp.asarray((7.25, 7.25)))
+    assert selected_modes == [expected_mode]
 
 
 def test_jax_higher_order_model_requires_t_ref():

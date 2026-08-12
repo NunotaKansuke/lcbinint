@@ -84,7 +84,12 @@ def test_shared_model_changes_invalidate_warmup_plan():
 
 
 def test_max_source_bins_limited_epochs_fall_back_to_normal_auto():
-    curve = _curve(max_source_bins=4)
+    # Four cells are below the minimum useful automatic grid and correctly
+    # fail closed in the production API.  Eight cells are still deliberately
+    # too small for warm-up's three-pass certification, while normal auto can
+    # return its bounded result; this exercises the per-epoch fallback without
+    # making the baseline itself an intentional numerical-error case.
+    curve = _curve(max_source_bins=8)
     reference = _baseline_reference(curve)
 
     report = curve.warmup(TIMES, PARAMETERS)

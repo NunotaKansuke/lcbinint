@@ -8,11 +8,13 @@ from lcbinint_jax import (
     cpp_triple_cartesian_epoch_ffi_available,
     cpp_triple_hexadecapole_batch_ffi_available,
     cpp_triple_point_batch_ffi_available,
+    discover_triple_macro_tiles,
     triple_hexadecapole_batch_ffi,
     triple_caustic_distance_batch_ffi,
     triple_inverse_ray_adaptive,
     triple_inverse_ray_batch,
     triple_inverse_ray_dense,
+    triple_inverse_ray_fixed_support,
     triple_inverse_ray_polar_batch_ffi,
     triple_lens_geometry,
     triple_lens_map_and_derivatives_real,
@@ -133,6 +135,123 @@ def test_dense_triple_inverse_ray_rejects_insufficient_support():
         moment_mode="uniform",
     )
     assert not bool(result.support_valid)
+
+
+def test_pure_jax_triple_integrates_only_active_tiles_exactly():
+    parameters = (0.2, 0.3, 1.0, 0.1, 0.03, 0.7, 0.8, 0.1)
+    resolution = 16
+    cell_size = parameters[-1] / resolution
+    discovery_options = {
+        "tile_size": 8,
+        "tile_capacity": 512,
+        "limb_samples": 8,
+    }
+    discovery = discover_triple_macro_tiles(
+        *parameters, cell_size, **discovery_options
+    )
+    integration_options = {
+        "moment_mode": "uniform",
+        "boundary_subdivision": 3,
+    }
+    active = triple_inverse_ray_fixed_support(
+        discovery.tile_origins,
+        discovery.active_mask,
+        cell_size,
+        *parameters,
+        0.0,
+        0.0,
+        tile_size=8,
+        **integration_options,
+    )
+    frontier = triple_inverse_ray_fixed_support(
+        discovery.tile_origins,
+        discovery.tile_mask,
+        cell_size,
+        *parameters,
+        0.0,
+        0.0,
+        tile_size=8,
+        **integration_options,
+    )
+    actual = triple_inverse_ray_adaptive(
+        *parameters,
+        0.0,
+        0.0,
+        resolution=resolution,
+        use_ffi=False,
+        **discovery_options,
+        **integration_options,
+    )
+
+    for field in active._fields:
+        np.testing.assert_array_equal(
+            getattr(active, field), getattr(frontier, field)
+        )
+    np.testing.assert_array_equal(actual.magnification, active.magnification)
+    np.testing.assert_array_equal(actual.moments, active.moments)
+    np.testing.assert_array_equal(actual.boundary_cells, active.boundary_cells)
+    np.testing.assert_array_equal(
+        actual.contributing_cells, active.contributing_cells
+    )
+    assert int(actual.visited_tiles) == int(discovery.visited_count)
+    assert int(actual.active_tiles) == int(discovery.active_count)
+    assert int(actual.visited_tiles) > int(actual.active_tiles)
+
+
+@pytest.mark.skipif(
+    not cpp_triple_cartesian_epoch_ffi_available(),
+    reason="triple Cartesian FFI is unavailable",
+)
+def test_fused_triple_cartesian_skips_only_inactive_frontier_tiles():
+    parameters = (0.2, 0.3, 1.0, 0.1, 0.03, 0.7, 0.8, 0.1)
+    resolution = 16
+    cell_size = parameters[-1] / resolution
+    options = {
+        "tile_size": 8,
+        "tile_capacity": 512,
+        "limb_samples": 8,
+        "moment_mode": "uniform",
+        "boundary_subdivision": 3,
+    }
+    discovery = discover_triple_macro_tiles(
+        *parameters,
+        cell_size,
+        tile_size=options["tile_size"],
+        tile_capacity=options["tile_capacity"],
+        limb_samples=options["limb_samples"],
+    )
+    frontier = triple_inverse_ray_fixed_support(
+        discovery.tile_origins,
+        discovery.tile_mask,
+        cell_size,
+        *parameters,
+        0.0,
+        0.0,
+        tile_size=options["tile_size"],
+        moment_mode=options["moment_mode"],
+        boundary_subdivision=options["boundary_subdivision"],
+    )
+    fused = triple_inverse_ray_adaptive(
+        *parameters,
+        0.0,
+        0.0,
+        resolution=resolution,
+        use_ffi=True,
+        **options,
+    )
+
+    np.testing.assert_allclose(
+        fused.magnification, frontier.magnification, rtol=0.0, atol=3.0e-13
+    )
+    np.testing.assert_allclose(
+        fused.moments, frontier.moments, rtol=0.0, atol=3.0e-14
+    )
+    np.testing.assert_array_equal(fused.boundary_cells, frontier.boundary_cells)
+    np.testing.assert_array_equal(
+        fused.contributing_cells, frontier.contributing_cells
+    )
+    assert int(fused.visited_tiles) == int(discovery.visited_count)
+    assert int(discovery.visited_count) > int(discovery.active_count)
 
 
 @pytest.mark.skipif(

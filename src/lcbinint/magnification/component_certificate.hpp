@@ -92,6 +92,14 @@ DiskSupport certify_disk_support(
     SourcePosition source,
     double source_radius);
 
+// Complete the sort/merge/probe half of the certificate when a caller has
+// already found the raw radial extrema while performing another mandatory
+// walk over the same caustic polylines.
+DiskSupport finalize_disk_support(
+    DiskSupport support,
+    SourcePosition source,
+    double source_radius);
+
 // Walks the certified probes and reports whether the support was proven.
 //
 // `probe` is called with a source-plane position and must return the number of

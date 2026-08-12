@@ -130,7 +130,7 @@ def _binary_inverse_ray(
     if use_ffi:
         integrated = binary_inverse_ray_fixed_support_ffi(
             discovery.tile_origins,
-            discovery.tile_mask,
+            discovery.active_mask,
             cell_size,
             source_x,
             source_y,
@@ -145,7 +145,7 @@ def _binary_inverse_ray(
     else:
         integrated = binary_inverse_ray_fixed_support(
             discovery.tile_origins,
-            discovery.tile_mask,
+            discovery.active_mask,
             cell_size,
             source_x,
             source_y,
@@ -532,7 +532,7 @@ def binary_inverse_ray_auto(
             if use_ffi:
                 integrated = binary_inverse_ray_fixed_support_ffi(
                     discovery.tile_origins,
-                    discovery.tile_mask,
+                    discovery.active_mask,
                     cell_size,
                     source_x,
                     source_y,
@@ -548,7 +548,7 @@ def binary_inverse_ray_auto(
             else:
                 integrated = binary_inverse_ray_fixed_support(
                     discovery.tile_origins,
-                    discovery.tile_mask,
+                    discovery.active_mask,
                     cell_size,
                     source_x,
                     source_y,

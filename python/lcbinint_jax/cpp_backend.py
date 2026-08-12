@@ -33,6 +33,10 @@ _FFI_TRIPLE_CARTESIAN_BATCH_JACOBIAN_TARGET = (
 )
 _FFI_CARTESIAN_BATCH_TARGET = "lcbinint_jax_cartesian_batch_f64_v1"
 _FFI_CARTESIAN_BATCH_JACOBIAN_TARGET = "lcbinint_jax_cartesian_batch_jacobian_f64_v1"
+_FFI_CARTESIAN_LADDER_TARGET = "lcbinint_jax_cartesian_ladder_f64_v1"
+_FFI_CARTESIAN_LADDER_JACOBIAN_TARGET = (
+    "lcbinint_jax_cartesian_ladder_jacobian_f64_v1"
+)
 _FFI_HEX_BATCH_TARGET = "lcbinint_jax_hexadecapole_batch_f64_v1"
 _FFI_HEX_BATCH_JACOBIAN_TARGET = "lcbinint_jax_hexadecapole_batch_jacobian_f64_v1"
 _FFI_TRIPLE_HEX_BATCH_TARGET = "lcbinint_jax_triple_hexadecapole_batch_f64_v1"
@@ -123,6 +127,15 @@ class FfiTrajectoryResult(NamedTuple):
     used_multipole: jax.Array
     used_polar: jax.Array
     needs_fallback: jax.Array
+
+
+class CartesianLadderResult(NamedTuple):
+    """Adaptive adjacent-resolution Cartesian result for each active epoch."""
+
+    magnification: jax.Array
+    estimated_error: jax.Array
+    support_valid: jax.Array
+    converged: jax.Array
 
 
 def _native_module():
@@ -268,6 +281,21 @@ def cpp_cartesian_batch_ffi_available():
         jax_ir = native._jax_ir
         return hasattr(jax_ir, "cartesian_batch_forward_ffi") and hasattr(
             jax_ir, "cartesian_batch_value_jacobian_ffi"
+        )
+    except (AttributeError, RuntimeError):
+        return False
+
+
+def cpp_cartesian_ladder_ffi_available():
+    """Return whether the fused adaptive Cartesian ladder FFI is available."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        jax_ir = native._jax_ir
+        return hasattr(jax_ir, "cartesian_ladder_forward_ffi") and hasattr(
+            jax_ir, "cartesian_ladder_jacobian_ffi"
         )
     except (AttributeError, RuntimeError):
         return False
@@ -502,6 +530,26 @@ def _register_cartesian_batch_ffi():
     jax.ffi.register_ffi_target(
         _FFI_CARTESIAN_BATCH_JACOBIAN_TARGET,
         jacobian_capsule,
+        platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_cartesian_ladder_ffi():
+    native = _native_module()
+    try:
+        forward = native._jax_ir.cartesian_ladder_forward_ffi()
+        jacobian = native._jax_ir.cartesian_ladder_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the adaptive Cartesian ladder FFI"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_CARTESIAN_LADDER_TARGET, forward, platform="cpu"
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_CARTESIAN_LADDER_JACOBIAN_TARGET,
+        jacobian,
         platform="cpu",
     )
 
@@ -3132,6 +3180,278 @@ def binary_inverse_ray_cartesian_batch_ffi(
         discovery_overflow=result.overflow,
         root_failure=result.root_failure,
         support_valid=support_valid,
+    )
+
+
+def _cartesian_ladder_output_specifications(batch_size, include_jacobian):
+    outputs = (
+        jax.ShapeDtypeStruct((batch_size,), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size,), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+    )
+    if include_jacobian:
+        return outputs + (
+            jax.ShapeDtypeStruct((batch_size, 7), jnp.float64),
+            jax.ShapeDtypeStruct((batch_size, 7), jnp.float64),
+        )
+    return outputs
+
+
+def _cartesian_ladder_ffi_call(
+    target,
+    tile_size,
+    limb_samples,
+    moment_count,
+    boundary_subdivision,
+    source_x,
+    source_y,
+    active,
+    selected_index,
+    resolutions,
+    tile_capacities,
+    scalars,
+    *,
+    include_jacobian,
+):
+    return jax.ffi.ffi_call(
+        target,
+        _cartesian_ladder_output_specifications(
+            source_x.shape[0], include_jacobian
+        ),
+        vmap_method="sequential",
+    )(
+        source_x,
+        source_y,
+        active,
+        selected_index,
+        resolutions,
+        tile_capacities,
+        *scalars,
+        tile_size=np.int64(tile_size),
+        limb_samples=np.int64(limb_samples),
+        moment_mode=np.int64(moment_count),
+        boundary_subdivision=np.int64(boundary_subdivision),
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=(0, 1, 2, 3))
+def _cartesian_ladder_ffi_transformable(
+    tile_size,
+    limb_samples,
+    moment_count,
+    boundary_subdivision,
+    source_x,
+    source_y,
+    active,
+    selected_index,
+    resolutions,
+    tile_capacities,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+    absolute_tolerance,
+    relative_tolerance,
+):
+    outputs = _cartesian_ladder_ffi_call(
+        _FFI_CARTESIAN_LADDER_TARGET,
+        tile_size,
+        limb_samples,
+        moment_count,
+        boundary_subdivision,
+        source_x,
+        source_y,
+        active,
+        selected_index,
+        resolutions,
+        tile_capacities,
+        (
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            absolute_tolerance,
+            relative_tolerance,
+        ),
+        include_jacobian=False,
+    )
+    return CartesianLadderResult(*outputs)
+
+
+@_cartesian_ladder_ffi_transformable.defjvp
+def _cartesian_ladder_ffi_jvp(
+    tile_size,
+    limb_samples,
+    moment_count,
+    boundary_subdivision,
+    primals,
+    tangents,
+):
+    reject_higher_order_ad(primals)
+    (
+        source_x,
+        source_y,
+        active,
+        selected_index,
+        resolutions,
+        tile_capacities,
+        separation,
+        mass_ratio,
+        source_radius,
+        limb_c,
+        limb_d,
+        absolute_tolerance,
+        relative_tolerance,
+    ) = primals
+    (
+        source_x_tangent,
+        source_y_tangent,
+        _,
+        _,
+        _,
+        _,
+        separation_tangent,
+        mass_ratio_tangent,
+        source_radius_tangent,
+        limb_c_tangent,
+        limb_d_tangent,
+        _,
+        _,
+    ) = tangents
+    outputs = _cartesian_ladder_ffi_call(
+        _FFI_CARTESIAN_LADDER_JACOBIAN_TARGET,
+        tile_size,
+        limb_samples,
+        moment_count,
+        boundary_subdivision,
+        source_x,
+        source_y,
+        active,
+        selected_index,
+        resolutions,
+        tile_capacities,
+        (
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            absolute_tolerance,
+            relative_tolerance,
+        ),
+        include_jacobian=True,
+    )
+    primal_result = CartesianLadderResult(*outputs[:4])
+    parameter_tangent = jnp.stack(
+        (
+            source_x_tangent,
+            source_y_tangent,
+            jnp.full_like(source_x, separation_tangent),
+            jnp.full_like(source_x, mass_ratio_tangent),
+            jnp.full_like(source_x, source_radius_tangent),
+            jnp.full_like(source_x, limb_c_tangent),
+            jnp.full_like(source_x, limb_d_tangent),
+        ),
+        axis=1,
+    )
+    tangent_result = CartesianLadderResult(
+        magnification=jnp.sum(outputs[4] * parameter_tangent, axis=1),
+        estimated_error=jnp.sum(outputs[5] * parameter_tangent, axis=1),
+        support_valid=jnp.zeros_like(
+            primal_result.support_valid, dtype=jax.dtypes.float0
+        ),
+        converged=jnp.zeros_like(
+            primal_result.converged, dtype=jax.dtypes.float0
+        ),
+    )
+    return primal_result, tangent_result
+
+
+def binary_inverse_ray_cartesian_ladder_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    active,
+    selected_index,
+    resolutions,
+    tile_capacities,
+    absolute_tolerance,
+    relative_tolerance,
+    tile_size=16,
+    limb_samples=32,
+    moment_mode="two_coefficient",
+    boundary_subdivision=4,
+):
+    """Evaluate an adaptive adjacent-resolution ladder in one CPU FFI.
+
+    Root and component-certificate probes are prepared once per active epoch
+    and reused by the selected and comparison grids.  The returned value and
+    convergence flags match the standalone selected/lower/conditional-upper
+    sequence.
+    """
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("the Cartesian ladder FFI is CPU-only")
+    if moment_mode not in _MOMENT_COUNTS:
+        raise ValueError(
+            "moment_mode must be 'uniform', 'linear', or 'two_coefficient'"
+        )
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    active = jax.lax.stop_gradient(jnp.asarray(active, dtype=jnp.bool_))
+    selected_index = jax.lax.stop_gradient(
+        jnp.asarray(selected_index, dtype=jnp.int32)
+    )
+    if source_x.ndim != 1 or source_y.shape != source_x.shape:
+        raise ValueError("source_x and source_y must have the same 1-D shape")
+    if active.shape != source_x.shape or selected_index.shape != source_x.shape:
+        raise ValueError("active and selected_index must match source_x")
+    resolutions = jax.lax.stop_gradient(jnp.asarray(resolutions, dtype=jnp.int32))
+    tile_capacities = jax.lax.stop_gradient(
+        jnp.asarray(tile_capacities, dtype=jnp.int32)
+    )
+    if (
+        resolutions.ndim != 1
+        or tile_capacities.shape != resolutions.shape
+        or resolutions.shape[0] == 0
+    ):
+        raise ValueError("resolutions and tile_capacities must be nonempty 1-D peers")
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            absolute_tolerance,
+            relative_tolerance,
+        )
+    )
+    if any(value.ndim != 0 for value in scalars):
+        raise ValueError("lens, source, and tolerance parameters must be scalars")
+    _register_cartesian_ladder_ffi()
+    return _cartesian_ladder_ffi_transformable(
+        tile_size,
+        limb_samples,
+        _MOMENT_COUNTS[moment_mode],
+        boundary_subdivision,
+        source_x,
+        source_y,
+        active,
+        selected_index,
+        resolutions,
+        tile_capacities,
+        *scalars,
     )
 
 

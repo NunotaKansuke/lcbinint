@@ -753,6 +753,7 @@ def _magnification_from_geometry(
     absolute_tolerance, relative_tolerance = _integration_tolerances(
         options, native_curve.lens
     )
+    moment_mode = _static_moment_mode(limb_c, limb_d)
 
     if native_curve.lens == "triple":
         convention = (
@@ -774,12 +775,12 @@ def _magnification_from_geometry(
             absolute_tolerance=absolute_tolerance,
             relative_tolerance=relative_tolerance,
             convention=convention,
+            moment_mode=moment_mode,
         ).magnification
 
     mass_ratio = _value(parameters, "q")
     if options.param_type in ("vbm", "vbm_center_of_mass"):
         mass_ratio = 1.0 / mass_ratio
-    moment_mode = _static_moment_mode(limb_c, limb_d)
     grid = options.inverse_ray_grid
     polar_options = {}
     if grid == "cartesian":

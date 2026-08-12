@@ -101,6 +101,14 @@ public:
     std::vector<TripleImageCandidate> triple_image_candidates(
         const model::TripleLensGeometry& geometry,
         SourcePosition source) const;
+    // Reuse the exact candidate set retained by triple_mag0 when a finite-
+    // source caller immediately asks for centre-image seeds.  Probe sources
+    // still take the ordinary solve path and refresh the one-entry cache.
+    // The reference remains valid until the next triple candidate solve on
+    // this magnifier.
+    const std::vector<TripleImageCandidate>& triple_image_candidates_cached(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source) const;
     SourcePosition triple_lens_equation(
         const model::TripleLensGeometry& geometry,
         SourcePosition image) const;

@@ -5,8 +5,10 @@ import pytest
 
 from lcbinint_jax import (
     binary_inverse_ray,
+    binary_inverse_ray_auto,
     binary_inverse_ray_cartesian_batch_ffi,
     binary_inverse_ray_cartesian_ffi,
+    binary_inverse_ray_fixed_support,
     binary_inverse_ray_fixed_support_ffi,
     binary_inverse_ray_linear,
     binary_inverse_ray_uniform,
@@ -14,7 +16,10 @@ from lcbinint_jax import (
     discover_binary_macro_tiles_ffi,
 )
 from lcbinint_jax.discovery import binary_image_seed_points
-from lcbinint_jax.cpp_backend import cpp_binary_image_roots_ffi_available
+from lcbinint_jax.cpp_backend import (
+    binary_inverse_ray_cartesian_ladder_ffi,
+    cpp_binary_image_roots_ffi_available,
+)
 
 
 def _require_compiled_ffi():
@@ -43,6 +48,13 @@ def _require_cartesian_batch_ffi():
 
     if not hasattr(_native._jax_ir, "cartesian_batch_forward_ffi"):
         pytest.skip("lcbinint was built without Cartesian batch FFI support")
+
+
+def _require_cartesian_ladder_ffi():
+    from lcbinint import _native
+
+    if not hasattr(_native._jax_ir, "cartesian_ladder_forward_ffi"):
+        pytest.skip("lcbinint was built without Cartesian ladder FFI support")
 
 
 def test_source_centre_and_limb_seed_shapes_are_static():
@@ -115,6 +127,143 @@ def test_macro_tile_discovery_builds_halo_without_overflow():
     assert not bool(discovery.root_failure)
     assert int(discovery.visited_count) > int(discovery.active_count)
     assert int(discovery.active_count) > 0
+
+
+def test_pure_jax_binary_integrates_only_active_tiles_exactly():
+    parameters = (0.2, 0.1, 1.2, 0.1, 0.2)
+    resolution = 16
+    cell_size = parameters[4] / resolution
+    options = {
+        "tile_size": 8,
+        "tile_capacity": 512,
+        "limb_samples": 8,
+        "root_backend": "jax",
+    }
+    discovery = discover_binary_macro_tiles(
+        *parameters, cell_size, **options
+    )
+    integration_options = {
+        "tile_size": 8,
+        "kernel": "complex",
+        "moment_mode": "uniform",
+        "boundary_subdivision": 4,
+    }
+    active = binary_inverse_ray_fixed_support(
+        discovery.tile_origins,
+        discovery.active_mask,
+        cell_size,
+        *parameters,
+        0.0,
+        0.0,
+        **integration_options,
+    )
+    frontier = binary_inverse_ray_fixed_support(
+        discovery.tile_origins,
+        discovery.tile_mask,
+        cell_size,
+        *parameters,
+        0.0,
+        0.0,
+        **integration_options,
+    )
+    actual = binary_inverse_ray_uniform(
+        *parameters,
+        resolution=resolution,
+        kernel="complex",
+        cartesian_backend="jax",
+        **options,
+    )
+
+    # The visited-only halo is certified not to contribute. Removing it from
+    # quadrature must therefore preserve every numerical diagnostic exactly.
+    for field in active._fields:
+        np.testing.assert_array_equal(
+            getattr(active, field), getattr(frontier, field)
+        )
+    np.testing.assert_array_equal(actual.magnification, active.magnification)
+    np.testing.assert_array_equal(actual.moments, active.moments)
+    np.testing.assert_array_equal(actual.boundary_cells, active.boundary_cells)
+    np.testing.assert_array_equal(actual.active_cells, active.active_cells)
+
+    # Public discovery diagnostics retain their existing meanings even though
+    # only active tiles enter the integration scan.
+    assert int(actual.tile_count) == int(discovery.visited_count)
+    assert int(discovery.visited_count) > int(discovery.active_count)
+
+
+def test_staged_ffi_binary_integrates_only_active_tiles_exactly():
+    _require_compiled_ffi()
+    parameters = (0.2, 0.1, 1.2, 0.1, 0.2)
+    limb_c, limb_d = 0.3, 0.2
+    resolution = 16
+    cell_size = parameters[4] / resolution
+    discovery_options = {
+        "tile_size": 8,
+        "tile_capacity": 512,
+        "limb_samples": 8,
+        "root_backend": "jax",
+    }
+    discovery = discover_binary_macro_tiles(
+        *parameters, cell_size, **discovery_options
+    )
+    integration_options = {
+        "tile_size": 8,
+        "moment_mode": "two_coefficient",
+        "boundary_subdivision": 4,
+    }
+    active = binary_inverse_ray_fixed_support_ffi(
+        discovery.tile_origins,
+        discovery.active_mask,
+        cell_size,
+        *parameters,
+        limb_c,
+        limb_d,
+        **integration_options,
+    )
+    frontier = binary_inverse_ray_fixed_support_ffi(
+        discovery.tile_origins,
+        discovery.tile_mask,
+        cell_size,
+        *parameters,
+        limb_c,
+        limb_d,
+        **integration_options,
+    )
+    direct = binary_inverse_ray(
+        *parameters,
+        limb_c,
+        limb_d,
+        resolution=resolution,
+        cartesian_backend="ffi",
+        **discovery_options,
+    )
+    automatic = binary_inverse_ray_auto(
+        *parameters,
+        limb_c,
+        limb_d,
+        resolution=resolution,
+        polar_force=False,
+        polar_magnification_threshold=jnp.inf,
+        polar_fallback_on_overflow=False,
+        cartesian_backend="ffi",
+        **discovery_options,
+    )
+
+    for field in active._fields:
+        np.testing.assert_array_equal(
+            getattr(active, field), getattr(frontier, field)
+        )
+    for actual in (direct, automatic):
+        np.testing.assert_array_equal(actual.magnification, active.magnification)
+        np.testing.assert_array_equal(actual.moments, active.moments)
+        np.testing.assert_array_equal(
+            actual.boundary_cells, active.boundary_cells
+        )
+        np.testing.assert_array_equal(actual.active_cells, active.active_cells)
+    assert int(direct.tile_count) == int(discovery.visited_count)
+    assert int(automatic.support_count) == int(discovery.visited_count)
+    assert not bool(automatic.used_polar)
+    assert int(discovery.visited_count) > int(discovery.active_count)
 
 
 @pytest.mark.parametrize("tile_capacity", (32, 512))
@@ -422,7 +571,11 @@ def test_fused_cartesian_epoch_matches_staged_ffi_value_and_gradient(
             moment_mode=moment_mode,
             boundary_subdivision=boundary_subdivision,
         )
-        return result.magnification
+        return result.magnification, (
+            result.moments,
+            result.boundary_cells,
+            result.active_cells,
+        )
 
     def fused(active):
         result = binary_inverse_ray_cartesian_ffi(
@@ -443,7 +596,9 @@ def test_fused_cartesian_epoch_matches_staged_ffi_value_and_gradient(
             result.root_failure,
         )
 
-    staged_value, staged_gradient = jax.value_and_grad(staged)(parameters)
+    (staged_value, staged_aux), staged_gradient = jax.value_and_grad(
+        staged, has_aux=True
+    )(parameters)
     (fused_value, fused_aux), fused_gradient = jax.value_and_grad(fused, has_aux=True)(
         parameters
     )
@@ -454,6 +609,8 @@ def test_fused_cartesian_epoch_matches_staged_ffi_value_and_gradient(
         rtol=0.0,
         atol=2.0e-12,
     )
+    np.testing.assert_allclose(fused_aux[0], staged_aux[0], rtol=0.0, atol=0.0)
+    np.testing.assert_array_equal(fused_aux[1:3], staged_aux[1:3])
     assert int(fused_aux[3]) == int(discovery.visited_count)
     assert not bool(fused_aux[4])
     assert not bool(fused_aux[5])
@@ -544,6 +701,123 @@ def test_masked_cartesian_batch_ffi_matches_scalar_values_and_gradient(
         scalar_gradient,
         rtol=0.0,
         atol=2.0e-12,
+    )
+
+
+def test_cartesian_ladder_ffi_matches_standalone_rungs_and_jvp():
+    _require_cartesian_ladder_ffi()
+    source_x = jnp.asarray((0.12, 0.18, 0.24, 0.30))
+    source_y = jnp.asarray((0.015, -0.01, 0.02, 0.01))
+    active = jnp.asarray((True, True, True, False))
+    selected_index = jnp.asarray((0, 1, 2, 1), dtype=jnp.int32)
+    resolutions = (8, 12, 16)
+    # The first rung deliberately overflows.  This covers selected index zero
+    # as well as a middle index whose lower comparison support is invalid.
+    capacities = (1, 4096, 4096)
+    absolute_tolerance = 1.0
+    relative_tolerance = 0.0
+
+    def standalone(parameters):
+        separation, mass_ratio, source_radius, limb_c, limb_d = parameters
+        values = []
+        supports = []
+        for resolution, capacity in zip(resolutions, capacities):
+            result = binary_inverse_ray_cartesian_batch_ffi(
+                source_x,
+                source_y,
+                separation,
+                mass_ratio,
+                source_radius,
+                limb_c,
+                limb_d,
+                active=active,
+                cell_size=source_radius / resolution,
+                tile_size=16,
+                tile_capacity=capacity,
+                limb_samples=8,
+                moment_mode="linear",
+                boundary_subdivision=3,
+            )
+            values.append(result.magnification)
+            supports.append(result.support_valid)
+        values = jnp.stack(values)
+        supports = jnp.stack(supports)
+        selected = jnp.take_along_axis(values, selected_index[None, :], axis=0)[0]
+        selected_support = jnp.take_along_axis(
+            supports, selected_index[None, :], axis=0
+        )[0]
+        lower_index = jnp.maximum(selected_index - 1, 0)
+        upper_index = jnp.minimum(selected_index + 1, len(resolutions) - 1)
+        lower = jnp.take_along_axis(values, lower_index[None, :], axis=0)[0]
+        lower_support = jnp.take_along_axis(
+            supports, lower_index[None, :], axis=0
+        )[0]
+        use_upper = (selected_index == 0) | ~lower_support
+        upper = jnp.take_along_axis(values, upper_index[None, :], axis=0)[0]
+        upper_support = jnp.take_along_axis(
+            supports, upper_index[None, :], axis=0
+        )[0]
+        comparison_index = jnp.where(use_upper, upper_index, lower_index)
+        comparison = jnp.where(use_upper, upper, lower)
+        comparison_support = jnp.where(use_upper, upper_support, lower_support)
+        initial_error = jnp.abs(selected - comparison)
+        initial_converged = (
+            active
+            & (comparison_index != selected_index)
+            & selected_support
+            & comparison_support
+            & jnp.isfinite(initial_error)
+            & (initial_error <= absolute_tolerance)
+        )
+        retry = active & ~initial_converged & (upper_index != selected_index)
+        retry_error = jnp.abs(upper - selected)
+        value = jnp.where(retry, upper, selected)
+        support = jnp.where(retry, upper_support, selected_support)
+        error = jnp.where(retry, retry_error, initial_error)
+        converged = initial_converged | (
+            retry
+            & selected_support
+            & upper_support
+            & jnp.isfinite(retry_error)
+            & (retry_error <= absolute_tolerance)
+        )
+        return (
+            jnp.where(active, value, 0.0),
+            jnp.where(active, error, jnp.inf),
+            active & support,
+            converged,
+        )
+
+    def fused(parameters):
+        return binary_inverse_ray_cartesian_ladder_ffi(
+            source_x,
+            source_y,
+            *parameters,
+            active=active,
+            selected_index=selected_index,
+            resolutions=jnp.asarray(resolutions, dtype=jnp.int32),
+            tile_capacities=jnp.asarray(capacities, dtype=jnp.int32),
+            absolute_tolerance=absolute_tolerance,
+            relative_tolerance=relative_tolerance,
+            tile_size=16,
+            limb_samples=8,
+            moment_mode="linear",
+            boundary_subdivision=3,
+        )
+
+    parameters = jnp.asarray((1.2, 0.1, 0.02, 0.4, 0.0))
+    tangent = jnp.asarray((0.03, -0.01, 0.002, 0.05, 0.0))
+    expected, expected_jvp = jax.jvp(standalone, (parameters,), (tangent,))
+    actual, actual_jvp = jax.jvp(fused, (parameters,), (tangent,))
+    np.testing.assert_allclose(actual.magnification, expected[0], rtol=0.0, atol=0.0)
+    np.testing.assert_allclose(actual.estimated_error, expected[1], rtol=0.0, atol=0.0)
+    np.testing.assert_array_equal(actual.support_valid, expected[2])
+    np.testing.assert_array_equal(actual.converged, expected[3])
+    np.testing.assert_allclose(
+        actual_jvp.magnification, expected_jvp[0], rtol=0.0, atol=3.0e-12
+    )
+    np.testing.assert_allclose(
+        actual_jvp.estimated_error, expected_jvp[1], rtol=0.0, atol=3.0e-12
     )
 
 

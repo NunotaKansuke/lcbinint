@@ -1,26 +1,33 @@
-# 引き継ぎ資料：純グリッド LCB-in と VBM の速度比較
+# 引き継ぎ資料：純グリッド lcbinint と VBM の速度比較
 
 作成日：2026-08-09
-最終更新日：2026-08-12
+最終更新日：2026-08-13
 対象ブランチ：`master`
-対象データ：`near_caustic_pure_grid_large_equal_timeout_20260809`
+対象データ：`controlled_pure_kernel_20260813`
 
 ## 1. このテストの目的
 
-有限光源の積分処理だけを取り出し、次の二つを同じ精度条件で比較する。
+有限光源の積分処理だけを取り出し、次の二つへ同じ公称 tolerance
+を独立に要求して比較する。
 
 - `lcbinint` の有限光源グリッド積分（Cartesian と Polar の両方）
 - VBMicrolensing の直接有限光源積分
 
 本テストは本番ディスパッチ全体の比較ではない。point-source、hexadecapole、source-plane quadrature などのショートカットは比較から外し、`lcbinint_auto` が純粋な有限光源 grid route に入るサンプルだけを対象にしている。
 
+ここでいう「同じ公称 tolerance」は、両実装を共通の正解値へ合わせるという意味ではない。
+lcbinint は自身の grid 自己収束、VBMicrolensing は自身の `RelTol` という独立した
+停止規則で計算し、その kernel time を比較する。両者の値の差は診断情報として保持するが、
+速度勝敗から点を除外する条件にも、どちらか一方を不正確と判定する根拠にも使わない。
+精度そのものを裁定する場合は、各実装の高解像度自己収束列や別の独立計算を追加で調べる。
+
 ## 2. 速度比の定義
 
 ```text
-R = t_VBM / t_LCB-in
+R = t_VBM / t_lcbinint
 ```
 
-- `R > 1`：LCB-in の方が速い
+- `R > 1`：lcbinint の方が速い
 - `R < 1`：VBM の方が速い
 
 各 reference epoch では Cartesian と Polar を両方測定し、精度条件を満たす方のうち実測時間が短い方を `lcbinint` 側の代表値に採用している。
@@ -56,7 +63,7 @@ vbm.BinaryMagDark(s, q, -x, y, rho, 1e-12)
 
 ## 5. 主要結果
 
-| profile | target | points | LCB-in wins | 勝率 | median R |
+| profile | target | points | lcbinint wins | 勝率 | median R |
 |---|---:|---:|---:|---:|---:|
 | uniform | `1e-2` | 1132 | 0 | 0.0% | 0.024 |
 | uniform | `1e-3` | 1132 | 0 | 0.0% | 0.040 |
@@ -65,7 +72,7 @@ vbm.BinaryMagDark(s, q, -x, y, rho, 1e-12)
 | linear LD | `1e-3` | 1124 | 160 | 14.2% | 0.532 |
 | linear LD | `1e-4` | 647 | 435 | 67.2% | 1.506 |
 
-Uniform source では、この積分単体比較の範囲では VBM が一貫して速い。LCB-in が勝つのは主に linear LD かつ厳しい精度要求の領域である。
+Uniform source では、この積分単体比較の範囲では VBM が一貫して速い。lcbinint が勝つのは主に linear LD かつ厳しい精度要求の領域である。
 
 ## 6. A_finite との関係
 
@@ -73,25 +80,25 @@ Uniform source では、この積分単体比較の範囲では VBM が一貫し
 
 Linear LD、`epsilon=1e-4`、`A_finite >= 1000` の内訳は次の通り。
 
-| 実測 d/rho | points | LCB-in wins | 勝率 | median R |
+| 実測 d/rho | points | lcbinint wins | 勝率 | median R |
 |---|---:|---:|---:|---:|
 | `0–0.1` | 4 | 4 | 100.0% | 2.983 |
 | `0.1–0.3` | 9 | 5 | 55.6% | 1.414 |
 | `0.3–0.8` | 6 | 0 | 0.0% | 0.082 |
 
-したがって「高増光率なら常に LCB-in が勝つ」ではなく、少なくともこのサンプルでは、
+したがって「高増光率なら常に lcbinint が勝つ」ではなく、少なくともこのサンプルでは、
 
 ```text
 高 A_finite + 十分小さい実測 d/rho
 ```
 
-が LCB-in の勝ち領域に対応している。ただし高 `A_finite` のサンプル数自体は19点なので、境界を固定則にするには holdout が必要である。
+が lcbinint の勝ち領域に対応している。ただし高 `A_finite` のサンプル数自体は19点なので、境界を固定則にするには holdout が必要である。
 
 ## 7. rho との関係
 
 同じ Linear LD、`epsilon=1e-4` で source radius ごとに集計すると、rho も大きく効いている。
 
-| rho | points | LCB-in 勝率 | median R |
+| rho | points | lcbinint 勝率 | median R |
 |---|---:|---:|---:|
 | `3e-5–1e-4` | 40 | 50.0% | 0.920 |
 | `1e-4–3e-4` | 52 | 34.6% | 0.573 |
@@ -204,7 +211,7 @@ python merge_benchmark_parts.py \
 4. 固定された経験則をすぐ実装せず、まず warmup の実測 grid 選択を holdout で検証する。
 5. `d/rho` の intended 値と actual 値を benchmark raw result に最初から保存するよう、次回 harness を改善する。
 
-このテストから安全に言えるのは、LCB-in の優位性は高増光率だけでは決まらず、source profile、要求精度、実測 caustic distance、source radius の組み合わせで決まる、というところまでである。
+このテストから安全に言えるのは、lcbinint の優位性は高増光率だけでは決まらず、source profile、要求精度、実測 caustic distance、source radius の組み合わせで決まる、というところまでである。
 
 ## 12. 2026-08-12：direct-XY 計時経路の整理
 
@@ -241,9 +248,8 @@ python -m py_compile \
   tests/diagnostics/recal2026/report_pure_kernel.py
 ```
 
-今回の direct-XY 実装後に大規模コーパス全体を再計時したわけではない。既存の
-大規模結果は過去の計時記録として保持し、新経路の全件再計時は必要になった時に
-別 run として保存する。
+この時点では direct-XY 実装後に大規模コーパス全体を再計時していなかった。
+その後の制御済み 160 構成 rerun は §16 に記録する。
 
 ## 13. ブランチ整理方針
 
@@ -255,3 +261,145 @@ python -m py_compile \
 - `backup/full-featured`：推論機能の退避ブランチ。今回の速度比較には混ぜない。
 - `final-testing` と `codex/warmup-execution-plan`：master に完全マージ済みのため、
   整理時に削除可能。
+
+## 14. 2026-08-13：high-`A_finite` 監査と polar frontier 最適化
+
+`optimize_irs` の160構成再測定で見えた high-`A_finite` の負けは、主として
+VBM の外部 timeout や polar routing の失敗ではない。Linear LD の
+`A_finite >= 1000` では VBM の全145点が完走し、VBM 5.5 の内部計数でも今回の
+`epsilon=1e-3,1e-4` では `maxannuli=100` 到達は0点だった。uniform も
+`NPSmax=10000` 到達は0点だった。
+
+VBMに異常が全く無いわけではない。case 88、`d/rho=0.2`、Linear LDでは
+`epsilon=1e-3` が `minannuli=1` のまま約0.3 msで停止して `A=563.61` を返す一方、
+`epsilon=1e-4` は69 annuliで `A=590.51`、`minannuli=2` を強制した
+`epsilon=1e-3` は `A=590.46` となった。またcase 10のtight条件にはfresh callと
+warm後で `1e-4` を超えて値が変わる6点がある。ただし、これらは少数の実在する
+VBM精度問題であり、high-`A_finite` 全域の速度差やtimeout傾向を説明しない。
+
+主要因は計算量の違いである。inverse ray は polar でも像面内のほぼ
+`O(A_finite Nbin^2)` セルを訪問する。VBM は source limb/caustic の輪郭複雑度に
+依存するため、source が caustic の外側にあり輪郭が滑らかな high-mag arc は
+非常に安い。Linear LD、`epsilon=1e-3`、`A_finite >= 100` では intended
+`d/rho=0.2,0.6,1.0,1.4,1.8` に対する VBM 中央値が概ね
+`5.00,3.07,1.60,0.64,0.47 ms` と外側ほど短くなる。polar 選択率は逆に上がるので、
+polar は Cartesian に対して機能しているが、面積スケーリングを消せていない。
+
+一方、polar flood fill には一般的な重複処理が残っていた。旧実装は長い radial
+run の各inside cellから左右の角度列へ1件ずつqueueし、隣列の最初のcellがrun全体を
+埋めた後、残りのqueue entryをvisitedとして破棄していた。現在は同じ4近傍 flood
+fill のfrontierをradial区間1件として渡す。受信列は区間中の全未訪問cellを検査する
+ので、複数のdisjoint runや別成分を取りこぼす特例則ではない。
+
+同時に polar のradial source-limb crossingを、inside/outside endpointの線形補間
+だけでなく、追加1回のlens-map評価によるbracketed secantで補正した。これは
+Bennett型のsub-cell boundary correctionをpolar方向へ一般化したもので、積分方式は
+inverse rayのままである。
+
+小規模A/Bの結果：
+
+- 保存済み旧結果と同じgrid/Nbinを使ったLinear LD 24点で、polar kernelは中央値
+  `1.65x` 高速化（min `1.19x`, p90 `1.98x`）。
+- uniform 12点では中央値およそ `1.7--2.0x`。
+- case 92、`d/rho=1.8`、Linear LD、`epsilon=1e-3` は同じpolar/Nbin=27のまま
+  `19.07 -> 9.89 ms`。
+- 同じcaseの `epsilon=1e-4` では、旧実装で4/4点ともNbin=400確認時に
+  `self_timeout` だったpolarが4/4点で自己収束し、2/4点でCartesianより速い候補に
+  なった。ただしVBMには依然負ける。これは純inverse-rayの面積コストによる限界で
+  あり、timeoutをVBM勝利の説明には使えない。
+
+確認済み：`ctest`、polar関連regression 12件、triple polarのfocused regression。
+この節の時点では全160構成の再測定は未実施だったが、後述の §16 で制御済み
+rerun を完了している。
+
+## 15. 2026-08-13：native triple と JAX binary/triple の同系統最適化
+
+native triple は binary と同じ `inverse_ray_polar_core` を使うため、前節の
+interval-frontier、写像距離の再利用、polar radial boundary correction はそのまま
+適用される。旧buildとの固定解像度比較では、高倍率8点、`Nbin=32` の中央値が
+約 `1.25x`、`A_point` が約 `1.96e4` の `Nbin=64` 点が約 `1.48x` 速くなった。
+
+triple 固有では、caustic polyline の全 segment を歩く seed 生成が、最近点までの
+距離に平方根を取り、採用後に二乗距離を再計算していた。閾値比較と候補順序を最初
+から同じ二乗距離で行うようにし、start vertex の距離も1回だけ計算するようにした。
+固定 `Nbin=1,8,32,128` および凍結24点の値は変更前と bitwise 一致した。速度差は
+seed 支配の `Nbin=1` で約 `1.06x`、実用的な `Nbin=32,128` で約 `1.02x` だった。
+
+自動 triple 解像度は、case/regime 分岐を増やさず、連続則
+`N = 32 (epsilon/1e-3)^(-0.6)` と `N>=32` にした。以前の初期値は
+`epsilon=1e-3` で80、`1e-4` で319だったが、nested half-grid check の大部分が
+refinement level 0 で終了しており、通常コーパスを大幅に過積分していた。現在は
+概ね32/128から開始し、既存のembedded errorとnested checkが必要な点だけ増やす。
+
+inverse-ray を使う24構成、uniform/Linear LD各48 epochの `epsilon=1e-3` 監査では、
+保存済み独立3-witness基準に対する最大相対差が uniform `8.35e-4`、Linear LD
+`7.17e-4` で、全構成が要求内だった。代表3構成の48-epoch blockを旧初期解像度と
+同じ固定80/319に対して直接比較すると、method列を変えず、`epsilon=1e-3` で
+`1.40--3.23x`、`1e-4` で `4.02--5.46x` 速かった。新旧高解像度値の最大相対差は
+それぞれ `1.17e-4`、`8.76e-6` だった。
+
+`epsilon=1e-4` は保存済み3-witness自体のspreadが要求値を超える点があるため、古い
+中央値との差だけでは判定しなかった。保存結果との差が大きい側から5構成を選び、
+現行autoの全inverse-ray epochを同じgridの現行固定`Nbin=400` tailと比較したところ、
+uniform/Linear LDの全10 blockが要求内で、最大相対差は `9.53e-5` だった。
+
+caustic-clear disk で64個のtriple boundary probeを省く案も試したが、連続像成分の
+証明とは別に、細い像弧上の polar lattice cellを見つける役割があった。
+`d/rho=3.55`, `Nbin=64` の反例で値が `1.16e-3` 動いたため、案は完全に撤回した。
+この短絡は現在のsourceには残っていない。
+
+JAX C++ backendにも同じ一般的な削減を入れた。triple polar はcell queueから
+radial interval-frontierへ変更し、flood中の写像距離をLD積分と境界補正に再利用、
+support探索で不要なJacobian/shearを計算しない。binary polarではdouble経路の
+classificationを再利用し、binary/triple共通で使わないLaplacianをcompile-timeに
+省略した。triple Cartesianのセル分類もrow SIMD化した。
+
+single-thread/cache-warmの旧extension比較は次の通り。
+
+- triple polar far uniform：`6.25 -> 2.28 ms` (`2.74x`)
+- triple polar extreme Linear LD：`2.10 s -> 0.515 s` (`4.08x`)
+- triple Cartesian 16 epoch：`89.4 -> 75.2 ms` (約 `1.19x`)
+- binary polar high-`A` Linear LD、`Nbin=27`：`18.04 -> 14.22 ms` (`1.27x`)
+- binary polar high-`A` Linear LD、`Nbin=53`：`32.93 -> 27.98 ms` (`1.18x`)
+
+同一入力のJAX値は旧extensionと17桁表示で一致した。focused確認は native
+`ctest`、triple auto/polar tests、JAX polar 7件、discovery/fused/ladder 6件、
+triple polar/active-support 8件、public moment-mode 3件で通過した。全規模テストは
+この節の変更単独では実施していないが、最終状態のリポジトリ全体 pytest は
+`483 passed, 3 skipped` で完了している。
+
+## 16. 2026-08-13：controlled balanced log-uniform rerun
+
+論文用の比較条件を揃えるため、独立対数一様な `s`, `q`, `rho` と、測定した
+`d/rho` の等幅5層を使う160構成の純 kernel rerun を完了した。各構成から5位置を
+採用し、uniform と linear limb darkening (`c=0.5`)、`epsilon_rel=1e-3,1e-4` を
+評価した。`lcbinint` は VBM と基準値を共有せず、3点自己収束で最小 `Nbin` を決め、
+Cartesian/Polar の実測時間が短い方を採用した。VBM は指定 `RelTol` の一回計算で、
+両者の値の不一致は診断フラグに留め、勝敗から点を除外していない。
+
+速度比は `R=t_VBM/t_lcbinint` で、`R>1` が `lcbinint` の勝ちである。最終集計は
+次の通り。
+
+| profile | `epsilon_rel` | measured | lcbinint wins | VBM wins | unresolved | win rate | median `R` |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| uniform | `1e-3` | 3200 | 2 | 3198 | 0 | 0.1% | 0.199 |
+| uniform | `1e-4` | 3199 | 0 | 3199 | 1 | 0.0% | 0.105 |
+| linear LD | `1e-3` | 3200 | 1740 | 1460 | 0 | 54.4% | 1.132 |
+| linear LD | `1e-4` | 3198 | 1899 | 1299 | 2 | 59.4% | 1.432 |
+
+linear LD では measured `d/rho` が `[0,0.4)` のときの勝率が `67.8%` (`1e-3`)、
+`71.9%` (`1e-4`) で、`[1.6,2]` ではそれぞれ `38.8%`, `45.6%` に下がる。一方、
+uniform は全層でほぼ VBM 優位だった。この結果から、単独の `A_finite` や `rho` だけ
+ではなく、source profile、要求精度、実測 `d/rho` の組み合わせが支配的だと整理する。
+
+測定は Intel Xeon Gold 6530（2 socket、各32 physical core）上で、各サンプルを
+1 worker、`OMP_NUM_THREADS=1` として実施した。全最終測定に job-level timeout はなく、
+自己収束未確定の3点は結果から黙って落とさず unresolved として保持した。
+
+論文用の要約と最終図は次に保存した。
+
+- [`REPORT_controlled_pure_kernel_20260813.md`](../results/recal2026/REPORT_controlled_pure_kernel_20260813.md)
+- [`controlled_parameter_vs_R_2x3_profiles_20260813.pdf`](../results/recal2026/figures/controlled_parameter_vs_R_2x3_profiles_20260813.pdf)
+
+35 MB の raw merged JSON はリポジトリへ入れず、ローカル diagnostics workspace に保持
+している。

@@ -76,8 +76,9 @@ BinaryResolutionSelection calibrated_binary_resolution(
     double requested_relative_tolerance,
     int maximum_bins);
 
-// Conservative triple-lens auto resolution selector.  It uses a fixed,
-// bounded resolution; "auto" never performs probes or hidden refinement.
+// Conservative triple-lens auto resolution selector.  It supplies a
+// continuous, bounded initial grid; the finite-source caller independently
+// checks a nested grid and may grow it up to maximum_bins.
 BinaryResolutionSelection calibrated_triple_resolution(
     const model::TripleLensGeometry& geometry,
     double source_radius,
@@ -181,6 +182,10 @@ public:
         double source_radius,
         std::vector<SourcePosition>& seeds) const;
     double limb_darkening_table_brightness(double normalized_radius2) const;
+    const double* limb_darkening_table_data() const
+    {
+        return limb_darkening_table_.data();
+    }
     // Phase-ordered physical caustic curves for (separation, mass_ratio),
     // reconstructed from the root monodromy and built once per lens geometry.
     // Seed generation walks these instead of re-solving the critical-curve

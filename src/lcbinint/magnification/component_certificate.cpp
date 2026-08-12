@@ -54,22 +54,20 @@ double ray_exit_distance(
     return std::max(0.0, std::sqrt(discriminant) - projection);
 }
 
-// Charges the descriptor build to the calibration counters, whichever of the
-// function's several exits is taken.  Costs nothing when stats are off: the
-// clock is only read while `active`.
+// Charges the descriptor build to the calibration counters.  Recording is
+// explicit so it happens before DiskSupport is moved into the return value.
+// Costs nothing when stats are off: the clock is only read while `active`.
 struct CertifyTimer {
     bool active = probe_stats_enabled();
     std::chrono::steady_clock::time_point started =
         active ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point {};
-    const DiskSupport& support;
 
-    explicit CertifyTimer(const DiskSupport& s) : support(s) {}
-
-    ~CertifyTimer()
+    void record(const DiskSupport& support)
     {
         if (!active) {
             return;
         }
+        active = false;
         auto& counters = probe_counters();
         counters.certifications += 1;
         counters.certified_extrema += static_cast<long long>(support.extrema.size());
@@ -78,6 +76,12 @@ struct CertifyTimer {
             std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
     }
 };
+
+DiskSupport finalize_disk_support_impl(
+    DiskSupport support,
+    SourcePosition source,
+    double source_radius,
+    CertifyTimer& timer);
 
 void mix(std::uint64_t& state, double value)
 {
@@ -94,8 +98,9 @@ DiskSupport certify_disk_support(
     double source_radius)
 {
     DiskSupport support;
-    const CertifyTimer timer(support);
+    CertifyTimer timer;
     if (!(source_radius > 0.0)) {
+        timer.record(support);
         return support;
     }
 
@@ -157,7 +162,30 @@ DiskSupport certify_disk_support(
         }
     }
 
-    if (support.extrema.empty()) {
+    return finalize_disk_support_impl(
+        std::move(support), source, source_radius, timer);
+}
+
+DiskSupport finalize_disk_support(
+    DiskSupport support,
+    SourcePosition source,
+    double source_radius)
+{
+    CertifyTimer timer;
+    return finalize_disk_support_impl(
+        std::move(support), source, source_radius, timer);
+}
+
+namespace {
+
+DiskSupport finalize_disk_support_impl(
+    DiskSupport support,
+    SourcePosition source,
+    double source_radius,
+    CertifyTimer& timer)
+{
+    if (!(source_radius > 0.0) || support.extrema.empty()) {
+        timer.record(support);
         return support;
     }
     support.caustic_touches_disk = true;
@@ -270,7 +298,10 @@ DiskSupport certify_disk_support(
         mix(fingerprint, extremum.inside_disk ? 1.0 : 0.0);
     }
     support.fingerprint = fingerprint;
+    timer.record(support);
     return support;
 }
+
+} // namespace
 
 } // namespace lcbinint::magnification

@@ -22,7 +22,8 @@ where it doubled a 9000x magnification.
 import pytest
 
 
-# VBMicrolensing BinaryMag2 at Tol=1e-9/1e-10.
+# Cross-engine checkpoint: tight VBMicrolensing and high-resolution inverse-ray
+# ladders agree at the precision needed by these assertions.
 CUSP_REFERENCE = 3.960888498085
 CUSP_PARAMS = dict(s=1.2, q=0.1)
 CUSP_X, CUSP_U0, CUSP_RHO = 0.653, 0.020, 0.020
@@ -43,11 +44,12 @@ TRIPLE_CAP_PARAMS = dict(s=1.0, q=1.0e-3, q2=1.0e-4, sep2=0.5, ang=1.2)
 TRIPLE_CAP_X, TRIPLE_CAP_U0 = -0.05, 0.02
 TRIPLE_CAP_RHO = 6.497855561e-03 / 0.99
 
-# Geometries with no thin component: refinement must not fire.  The scanline
-# multi-interval boundary correction may change the last few parts in 1e9.
+# Geometries with no thin component: refinement must not fire.  Expected values
+# include the accurate sub-cell horizontal boundary location used by the
+# Cartesian row walk.
 CLEAR_GEOMETRIES = (
     ("wide_equal_mass", dict(s=1.8, q=1.0), 0.30, 0.10, 0.02, 128,
-     1.644285791543),
+     1.644318018080),
     ("close_binary", dict(s=0.6, q=0.5), 0.05, 0.02, 0.01, 128,
      12.302093936985),
     ("planetary", dict(s=1.05, q=1.0e-3), 0.05, 0.02, 0.005, 128,
@@ -123,10 +125,12 @@ def test_thin_component_refinement_holds_on_the_triple_cap():
                        TRIPLE_CAP_U0, TRIPLE_CAP_RHO, bins)
         for bins in bins_ladder
     ]
-    for coarse, fine in zip(values, values[1:]):
-        assert fine > coarse
-    for bins, value in zip(bins_ladder, values):
-        assert value < TRIPLE_CAP_REFERENCE
+    errors = [abs(value - TRIPLE_CAP_REFERENCE) for value in values]
+    # Accurate sub-cell boundary roots can make the remaining quadrature error
+    # cross zero, so value monotonicity is no longer the convergence test.  The
+    # finer grids must stay decisively closer to the independent reference.
+    assert all(error < 0.15 * errors[0] for error in errors[1:])
+    assert errors[-1] < 0.1 * errors[0]
     assert values[-1] == pytest.approx(TRIPLE_CAP_REFERENCE, rel=1.0e-5)
 
 
