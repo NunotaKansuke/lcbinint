@@ -76,7 +76,9 @@ void print_result(
               << result.diagnostics.tangency_solve_count << '\t'
               << result.diagnostics.tangency_fallback_count << '\t'
               << safe_reason(result.unsafe_reason) << '\t'
-              << warmup_seconds << '\n';
+              << warmup_seconds << '\t'
+              << result.diagnostics.real_sextic_solve_count << '\t'
+              << result.diagnostics.real_sextic_fallback_count << '\n';
 }
 
 } // namespace

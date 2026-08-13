@@ -31,6 +31,8 @@ struct AlgebraicBoundaryDiagnostics {
     int recovered_seed_support_count = 0;
     int real_quartic_solve_count = 0;
     int real_quartic_fallback_count = 0;
+    int real_sextic_solve_count = 0;
+    int real_sextic_fallback_count = 0;
     int tangency_solve_count = 0;
     int tangency_fallback_count = 0;
 };

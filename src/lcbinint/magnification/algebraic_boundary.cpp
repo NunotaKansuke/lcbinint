@@ -96,18 +96,6 @@ double phi_value(
     return 1.0 - (dx * dx + dy * dy) / (source_radius * source_radius);
 }
 
-template <std::size_t M, std::size_t N>
-std::array<Complex, M + N - 1> convolve_fixed(
-    const std::array<Complex, M>& lhs,
-    const std::array<Complex, N>& rhs)
-{
-    std::array<Complex, M + N - 1> out {};
-    for (std::size_t i = 0; i < M; ++i) {
-        for (std::size_t j = 0; j < N; ++j) out[i + j] += lhs[i] * rhs[j];
-    }
-    return out;
-}
-
 std::array<Complex, 5> algebraic_boundary_quartic_fixed(
     const AlgebraicBoundaryLens& lens,
     SourcePosition source,
@@ -116,26 +104,103 @@ std::array<Complex, 5> algebraic_boundary_quartic_fixed(
 {
     const double a = lens.lens_position;
     const double r = image_radius;
+    const double r2 = r * r;
     const Complex shifted_source(source.x + a * lens.m1, source.y);
-    const std::array<Complex, 3> numerator {
-        -shifted_source * (r * r),
-        r * (r * r - 1.0 + a * shifted_source),
-        a * (lens.m2 - r * r),
-    };
-    const std::array<Complex, 2> denominator {r * r, -a * r};
-    const std::array<Complex, 3> numerator_reverse {
-        std::conj(numerator[2]), std::conj(numerator[1]), std::conj(numerator[0]),
-    };
-    const std::array<Complex, 2> denominator_reverse {
-        std::conj(denominator[1]), std::conj(denominator[0]),
-    };
-    auto coefficients = convolve_fixed(numerator, numerator_reverse);
-    const auto denominator_product = convolve_fixed(denominator, denominator_reverse);
+    const Complex n0 = -shifted_source * r2;
+    const Complex n1 = r * (r2 - 1.0 + a * shifted_source);
+    const double n2 = a * (lens.m2 - r2);
     const double rho2 = source_radius * source_radius;
-    for (std::size_t i = 0; i < denominator_product.size(); ++i) {
-        coefficients[i + 1] -= rho2 * denominator_product[i];
-    }
+    const double radial_denominator_edge = rho2 * a * r2 * r;
+    const Complex p0 = n0 * n2;
+    const Complex p1 = n0 * std::conj(n1) + n1 * n2 + radial_denominator_edge;
+    const double p2 = std::norm(n0) + std::norm(n1) + n2 * n2 -
+        rho2 * (r2 * r2 + a * a * r2);
+    // The polynomial is Hermitian-palindromic by construction.  Building
+    // only its independent half avoids the generic convolution's duplicate
+    // complex products on every radial quadrature node.
+    return {p0, p1, Complex(p2, 0.0), std::conj(p1), std::conj(p0)};
+}
+
+std::array<double, 7> algebraic_cartesian_boundary_sextic_real_fixed(
+    const AlgebraicBoundaryLens& lens,
+    SourcePosition source,
+    double source_radius,
+    double image_x)
+{
+    const Complex imaginary(0.0, 1.0);
+    const Complex shifted_source(
+        source.x + lens.lens_position * lens.m1, source.y);
+    const double denominator0 = image_x * (image_x - lens.lens_position);
+    const double denominator1 = 2.0 * image_x - lens.lens_position;
+    const Complex shifted_z0 = image_x - shifted_source;
+    std::array<Complex, 4> numerator {
+        shifted_z0 * denominator0 -
+            lens.m1 * image_x -
+            lens.m2 * (image_x - lens.lens_position),
+        shifted_z0 * (-imaginary * denominator1) +
+            imaginary * denominator0 +
+            imaginary * (lens.m1 + lens.m2),
+        -shifted_z0 + denominator1,
+        -imaginary,
+    };
+    const auto twice_real_product = [](Complex lhs, Complex rhs) {
+        return 2.0 * std::real(lhs * std::conj(rhs));
+    };
+    std::array<double, 7> coefficients {
+        std::norm(numerator[0]),
+        twice_real_product(numerator[0], numerator[1]),
+        std::norm(numerator[1]) +
+            twice_real_product(numerator[0], numerator[2]),
+        twice_real_product(numerator[0], numerator[3]) +
+            twice_real_product(numerator[1], numerator[2]),
+        std::norm(numerator[2]) +
+            twice_real_product(numerator[1], numerator[3]),
+        twice_real_product(numerator[2], numerator[3]),
+        std::norm(numerator[3]),
+    };
+    const double rho2 = source_radius * source_radius;
+    coefficients[0] -= rho2 * denominator0 * denominator0;
+    coefficients[2] -= rho2 *
+        (denominator1 * denominator1 - 2.0 * denominator0);
+    coefficients[4] -= rho2;
     return coefficients;
+}
+
+std::array<Complex, 7> algebraic_cartesian_boundary_sextic_fixed(
+    const AlgebraicBoundaryLens& lens,
+    SourcePosition source,
+    double source_radius,
+    double image_x)
+{
+    const auto real_coefficients = algebraic_cartesian_boundary_sextic_real_fixed(
+        lens, source, source_radius, image_x);
+    std::array<Complex, 7> coefficients;
+    std::transform(
+        real_coefficients.begin(), real_coefficients.end(), coefficients.begin(),
+        [](double value) { return Complex(value, 0.0); });
+    return coefficients;
+}
+
+bool real_cartesian_boundary_coefficients(
+    const AlgebraicBoundaryLens& lens,
+    SourcePosition source,
+    double source_radius,
+    double image_x,
+    std::array<double, 7>* real_coefficients,
+    std::array<Complex, 7>* complex_coefficients = nullptr)
+{
+    *real_coefficients = algebraic_cartesian_boundary_sextic_real_fixed(
+        lens, source, source_radius, image_x);
+    for (const double coefficient : *real_coefficients) {
+        if (!std::isfinite(coefficient)) return false;
+    }
+    if (complex_coefficients != nullptr) {
+        std::transform(
+            real_coefficients->begin(), real_coefficients->end(),
+            complex_coefficients->begin(),
+            [](double value) { return Complex(value, 0.0); });
+    }
+    return true;
 }
 
 double circular_distance(double lhs, double rhs)
@@ -242,6 +307,188 @@ int real_cubic_roots(double a, double b, double c, double d,
     }
     std::sort(roots->begin(), roots->end());
     return 3;
+}
+
+struct RealPolynomialRoots {
+    std::array<double, 6> values {};
+    int count = 0;
+};
+
+double evaluate_real_polynomial(
+    const std::array<double, 7>& coefficients,
+    int degree,
+    double x)
+{
+    double value = coefficients[static_cast<std::size_t>(degree)];
+    for (int index = degree - 1; index >= 0; --index) {
+        value = value * x + coefficients[static_cast<std::size_t>(index)];
+    }
+    return value;
+}
+
+double evaluate_real_derivative(
+    const std::array<double, 7>& coefficients,
+    int degree,
+    double x)
+{
+    double value = degree * coefficients[static_cast<std::size_t>(degree)];
+    for (int index = degree - 1; index > 0; --index) {
+        value = value * x + index * coefficients[static_cast<std::size_t>(index)];
+    }
+    return value;
+}
+
+double real_polynomial_scale(
+    const std::array<double, 7>& coefficients,
+    int degree,
+    double x)
+{
+    const double magnitude = std::abs(x);
+    double scale = std::abs(coefficients[static_cast<std::size_t>(degree)]);
+    for (int index = degree - 1; index >= 0; --index) {
+        scale = scale * magnitude +
+            std::abs(coefficients[static_cast<std::size_t>(index)]);
+    }
+    return std::max(scale, 1.0e-300);
+}
+
+bool isolate_real_polynomial_roots(
+    const std::array<double, 7>& coefficients,
+    int degree,
+    RealPolynomialRoots* roots)
+{
+    roots->count = 0;
+    double coefficient_scale = 0.0;
+    for (int index = 0; index <= degree; ++index) {
+        coefficient_scale = std::max(
+            coefficient_scale,
+            std::abs(coefficients[static_cast<std::size_t>(index)]));
+    }
+    if (!(coefficient_scale > 0.0) || !std::isfinite(coefficient_scale) ||
+        std::abs(coefficients[static_cast<std::size_t>(degree)]) <=
+            64.0 * std::numeric_limits<double>::epsilon() * coefficient_scale) {
+        return false;
+    }
+    if (degree == 1) {
+        const double root = -coefficients[0] / coefficients[1];
+        if (!std::isfinite(root)) return false;
+        roots->values[0] = root;
+        roots->count = 1;
+        return true;
+    }
+
+    std::array<double, 7> derivative {};
+    for (int index = 1; index <= degree; ++index) {
+        derivative[static_cast<std::size_t>(index - 1)] =
+            static_cast<double>(index) *
+            coefficients[static_cast<std::size_t>(index)];
+    }
+    RealPolynomialRoots critical_points;
+    if (!isolate_real_polynomial_roots(
+            derivative, degree - 1, &critical_points)) {
+        return false;
+    }
+
+    const double leading =
+        std::abs(coefficients[static_cast<std::size_t>(degree)]);
+    double bound = 1.0;
+    for (int index = 0; index < degree; ++index) {
+        bound = std::max(
+            bound,
+            1.0 + std::abs(coefficients[static_cast<std::size_t>(index)]) /
+                leading);
+    }
+    if (!std::isfinite(bound) || bound > 1.0e14) return false;
+
+    std::array<double, 8> partition {};
+    int partition_count = 0;
+    partition[static_cast<std::size_t>(partition_count++)] = -bound;
+    for (int index = 0; index < critical_points.count; ++index) {
+        const double critical =
+            critical_points.values[static_cast<std::size_t>(index)];
+        if (!(critical > -bound && critical < bound)) continue;
+        const double value = evaluate_real_polynomial(coefficients, degree, critical);
+        const double scale = real_polynomial_scale(coefficients, degree, critical);
+        // An even-multiplicity root does not delimit an inside interval, but
+        // a numerically unresolved tangency can hide a very close pair of
+        // crossings.  Let the certified complex solver handle that rare case.
+        if (!std::isfinite(value) ||
+            std::abs(value) <= 256.0 * std::numeric_limits<double>::epsilon() * scale) {
+            return false;
+        }
+        partition[static_cast<std::size_t>(partition_count++)] = critical;
+    }
+    partition[static_cast<std::size_t>(partition_count++)] = bound;
+
+    const auto append_root = [&](double root) {
+        if (!std::isfinite(root) || roots->count >= degree) return false;
+        if (roots->count > 0) {
+            const double previous =
+                roots->values[static_cast<std::size_t>(roots->count - 1)];
+            const double tolerance = 256.0 * std::numeric_limits<double>::epsilon() *
+                (1.0 + std::max(std::abs(previous), std::abs(root)));
+            if (root - previous <= tolerance) return false;
+        }
+        roots->values[static_cast<std::size_t>(roots->count++)] = root;
+        return true;
+    };
+
+    for (int interval = 0; interval + 1 < partition_count; ++interval) {
+        double lower = partition[static_cast<std::size_t>(interval)];
+        double upper = partition[static_cast<std::size_t>(interval + 1)];
+        double lower_value = evaluate_real_polynomial(coefficients, degree, lower);
+        double upper_value = evaluate_real_polynomial(coefficients, degree, upper);
+        if (!std::isfinite(lower_value) || !std::isfinite(upper_value)) return false;
+        if (std::signbit(lower_value) == std::signbit(upper_value)) continue;
+
+        double x = lower - lower_value * (upper - lower) /
+            (upper_value - lower_value);
+        if (!(x > lower && x < upper) || !std::isfinite(x)) {
+            x = 0.5 * (lower + upper);
+        }
+        double root = x;
+        for (int iteration = 0; iteration < 48; ++iteration) {
+            const double value = evaluate_real_polynomial(coefficients, degree, x);
+            const double scale = real_polynomial_scale(coefficients, degree, x);
+            if (!std::isfinite(value) || !std::isfinite(scale)) return false;
+            if (std::abs(value) <=
+                    16.0 * std::numeric_limits<double>::epsilon() * scale) {
+                root = x;
+                break;
+            }
+            if (std::signbit(value) == std::signbit(lower_value)) {
+                lower = x;
+                lower_value = value;
+            } else {
+                upper = x;
+                upper_value = value;
+            }
+            if (upper - lower <= 8.0 * std::numeric_limits<double>::epsilon() *
+                    (1.0 + std::abs(x))) {
+                root = 0.5 * (lower + upper);
+                break;
+            }
+            const double slope =
+                evaluate_real_derivative(coefficients, degree, x);
+            double candidate = slope != 0.0 ? x - value / slope
+                                            : 0.5 * (lower + upper);
+            if (!(candidate > lower && candidate < upper) ||
+                !std::isfinite(candidate)) {
+                candidate = 0.5 * (lower + upper);
+            }
+            x = candidate;
+            root = x;
+        }
+        const double residual =
+            std::abs(evaluate_real_polynomial(coefficients, degree, root));
+        const double residual_scale =
+            real_polynomial_scale(coefficients, degree, root);
+        if (!std::isfinite(residual) ||
+            residual > 2.0e-12 * residual_scale || !append_root(root)) {
+            return false;
+        }
+    }
+    return true;
 }
 
 struct SelfInversiveTrigQuartic {
@@ -469,13 +716,15 @@ bool self_inversive_unit_roots(
         roots->emplace_back(cosine, sine);
     }
     if (roots->size() > 4 || (roots->size() % 2) != 0) return false;
+    double residual_scale = 1.0;
+    for (const Complex coefficient : complex_coefficients) {
+        residual_scale += std::abs(coefficient);
+    }
+    // Roots produced by the tan(theta/2) map lie on the unit circle by
+    // construction, so their polynomial scale is shared.  Recomputing five
+    // coefficient moduli and four powers for every root was pure overhead.
+    residual_scale *= 1.0 + 2.0e-13;
     for (const Complex root : *roots) {
-        double residual_scale = 1.0;
-        double power = 1.0;
-        for (const Complex coefficient : complex_coefficients) {
-            residual_scale += std::abs(coefficient) * power;
-            power *= std::abs(root);
-        }
         Complex residual = complex_coefficients.back();
         for (int index = static_cast<int>(complex_coefficients.size()) - 2;
              index >= 0; --index) {
@@ -503,6 +752,24 @@ struct GaussKronrod21Rule {
     std::array<double, 21> kronrod_weights;
     std::array<double, 21> gauss_weights;
 };
+
+template <std::size_t N>
+struct SineMappedNodes {
+    std::array<double, N> coordinates {};
+    std::array<double, N> jacobians {};
+};
+
+template <std::size_t N>
+SineMappedNodes<N> make_sine_mapped_nodes(const std::array<double, N>& nodes)
+{
+    SineMappedNodes<N> mapped;
+    for (std::size_t i = 0; i < N; ++i) {
+        const double phase = 0.5 * kPi * nodes[i];
+        mapped.coordinates[i] = std::sin(phase);
+        mapped.jacobians[i] = 0.5 * kPi * std::cos(phase);
+    }
+    return mapped;
+}
 
 const GaussKronrod15Rule& gauss_kronrod15()
 {
@@ -579,40 +846,51 @@ const GaussKronrod21Rule& gauss_kronrod21()
     return rule;
 }
 
-const std::pair<std::vector<double>, std::vector<double>>& gauss_legendre_rule(int n)
+const SineMappedNodes<15>& sine_mapped_gauss_kronrod15()
 {
-    thread_local std::unordered_map<
-        int, std::pair<std::vector<double>, std::vector<double>>> cache;
-    const auto cached = cache.find(n);
-    if (cached != cache.end()) return cached->second;
-    std::vector<double> nodes(static_cast<std::size_t>(n));
-    std::vector<double> weights(static_cast<std::size_t>(n));
-    for (int i = 0; i < n; ++i) {
-        double x = std::cos(kPi * (static_cast<double>(i) + 0.75) /
-                            (static_cast<double>(n) + 0.5));
-        double derivative = 0.0;
-        for (int iteration = 0; iteration < 100; ++iteration) {
-            double p0 = 1.0;
-            double p1 = x;
-            for (int degree = 2; degree <= n; ++degree) {
-                const double p2 =
-                    ((2.0 * degree - 1.0) * x * p1 -
-                     (degree - 1.0) * p0) / static_cast<double>(degree);
-                p0 = p1;
-                p1 = p2;
-            }
-            derivative = static_cast<double>(n) * (x * p1 - p0) /
-                (x * x - 1.0);
-            const double correction = p1 / derivative;
-            x -= correction;
-            if (std::abs(correction) < 1.0e-15) break;
-        }
-        nodes[static_cast<std::size_t>(i)] = x;
-        weights[static_cast<std::size_t>(i)] =
-            2.0 / ((1.0 - x * x) * derivative * derivative);
-    }
-    return cache.emplace(n, std::make_pair(std::move(nodes), std::move(weights)))
-        .first->second;
+    static const auto mapped = make_sine_mapped_nodes(gauss_kronrod15().nodes);
+    return mapped;
+}
+
+const SineMappedNodes<21>& sine_mapped_gauss_kronrod21()
+{
+    static const auto mapped = make_sine_mapped_nodes(gauss_kronrod21().nodes);
+    return mapped;
+}
+
+struct GaussLegendre16Rule {
+    std::array<double, 16> nodes {{
+        -0.9894009349916499, -0.9445750230732326,
+        -0.8656312023878318, -0.7554044083550030,
+        -0.6178762444026438, -0.4580167776572274,
+        -0.2816035507792589, -0.09501250983763744,
+         0.09501250983763744, 0.2816035507792589,
+         0.4580167776572274, 0.6178762444026438,
+         0.7554044083550030, 0.8656312023878318,
+         0.9445750230732326, 0.9894009349916499,
+    }};
+    std::array<double, 16> weights {{
+        0.02715245941175409, 0.06225352393864789,
+        0.09515851168249278, 0.1246289712555339,
+        0.1495959888165767, 0.1691565193950025,
+        0.1826034150449236, 0.1894506104550685,
+        0.1894506104550685, 0.1826034150449236,
+        0.1691565193950025, 0.1495959888165767,
+        0.1246289712555339, 0.09515851168249278,
+        0.06225352393864789, 0.02715245941175409,
+    }};
+};
+
+const GaussLegendre16Rule& gauss_legendre16()
+{
+    static const GaussLegendre16Rule rule;
+    return rule;
+}
+
+const SineMappedNodes<16>& sine_mapped_gauss_legendre16()
+{
+    static const auto mapped = make_sine_mapped_nodes(gauss_legendre16().nodes);
+    return mapped;
 }
 
 struct NestedMoments {
@@ -620,19 +898,19 @@ struct NestedMoments {
     Moments kronrod;
 };
 
-template <typename Rule>
 NestedMoments angular_moments_rule(
     const AlgebraicBoundaryLens& lens,
     SourcePosition source,
     double source_radius,
     double radius,
     const std::vector<std::pair<double, double>>& intervals,
-    const Rule& rule,
+    const GaussKronrod21Rule& rule,
     bool need_half,
     bool need_quarter,
     AlgebraicBoundaryDiagnostics* diagnostics)
 {
     NestedMoments result;
+    const auto& mapped_rule = sine_mapped_gauss_kronrod21();
     for (const auto& interval : intervals) {
         const double midpoint = 0.5 * (interval.first + interval.second);
         const double half_width = 0.5 * (interval.second - interval.first);
@@ -642,11 +920,11 @@ NestedMoments angular_moments_rule(
             // Sine-map the Legendre coordinate.  Near x=+-1 the distance to
             // the boundary is quadratic and the Jacobian vanishes linearly,
             // smoothing both Phi^(1/2) and the harder Phi^(1/4) endpoint.
-            const double phase = 0.5 * kPi * rule.nodes[i];
-            const double angle = midpoint + half_width * std::sin(phase);
+            const double angle = midpoint + half_width * mapped_rule.coordinates[i];
             const double phi = std::max(
                 0.0, phi_value(lens, source, source_radius, radius, angle, diagnostics));
-            const double common = radius * half_width * 0.5 * kPi * std::cos(phase);
+            const double common =
+                radius * half_width * mapped_rule.jacobians[i];
             const double half = std::sqrt(phi);
             const double kronrod_weight = common * rule.kronrod_weights[i];
             const double gauss_weight = common * rule.gauss_weights[i];
@@ -659,38 +937,6 @@ NestedMoments angular_moments_rule(
                 result.kronrod.mquarter += kronrod_weight * quarter;
                 result.gauss.mquarter += gauss_weight * quarter;
             }
-        }
-    }
-    return result;
-}
-
-Moments angular_moments_high_rule(
-    const AlgebraicBoundaryLens& lens,
-    SourcePosition source,
-    double source_radius,
-    double radius,
-    const std::vector<std::pair<double, double>>& intervals,
-    int order,
-    bool need_half,
-    bool need_quarter,
-    AlgebraicBoundaryDiagnostics* diagnostics)
-{
-    Moments result;
-    const auto& [nodes, weights] = gauss_legendre_rule(order);
-    for (const auto& interval : intervals) {
-        const double midpoint = 0.5 * (interval.first + interval.second);
-        const double half_width = 0.5 * (interval.second - interval.first);
-        result.m0 += radius * 2.0 * half_width;
-        for (std::size_t i = 0; i < nodes.size(); ++i) {
-            const double phase = 0.5 * kPi * nodes[i];
-            const double angle = midpoint + half_width * std::sin(phase);
-            const double phi = std::max(
-                0.0, phi_value(lens, source, source_radius, radius, angle, diagnostics));
-            const double weighted_area = radius * half_width * 0.5 * kPi *
-                std::cos(phase) * weights[i];
-            const double half = std::sqrt(phi);
-            if (need_half) result.mhalf += weighted_area * half;
-            if (need_quarter) result.mquarter += weighted_area * std::sqrt(half);
         }
     }
     return result;
@@ -1111,16 +1357,17 @@ RadialIntegralResult integrate_outer_adaptive(
     const auto evaluate_panel = [&](double panel_lower, double panel_upper, int depth,
                                     Panel* panel, std::string* reason) {
         const auto& rule = gauss_kronrod15();
+        const auto& mapped_rule = sine_mapped_gauss_kronrod15();
         Moments gauss;
         Moments kronrod;
         double inner_error = 0.0;
         const double midpoint = 0.5 * (panel_lower + panel_upper);
         const double half_width = 0.5 * (panel_upper - panel_lower);
         for (std::size_t i = 0; i < rule.nodes.size(); ++i) {
-            const double phase = 0.5 * kPi * rule.nodes[i];
-            const double coordinate = midpoint + half_width * std::sin(phase);
+            const double coordinate =
+                midpoint + half_width * mapped_rule.coordinates[i];
             const double transformed_weight =
-                half_width * 0.5 * kPi * std::cos(phase);
+                half_width * mapped_rule.jacobians[i];
             const auto evaluated = evaluate(coordinate);
             if (!evaluated.success) {
                 *reason = evaluated.unsafe_reason;
@@ -1431,14 +1678,16 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
                 if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
                 continue;
             }
-            const double modulus = std::abs(root);
-            if (std::abs(modulus - 1.0) > settings.unit_circle_tolerance) continue;
-            if (!(modulus > 0.0)) {
-                if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
-                continue;
+            if (!used_real_quartic) {
+                const double modulus = std::abs(root);
+                if (std::abs(modulus - 1.0) > settings.unit_circle_tolerance) continue;
+                if (!(modulus > 0.0)) {
+                    if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
+                    continue;
+                }
             }
-            const Complex projected = root / modulus;
-            const double angle = wrap_angle(std::arg(projected));
+            // Projection onto the unit circle cannot change the argument.
+            const double angle = wrap_angle(std::atan2(root.imag(), root.real()));
             const double phi = phi_value(
                 lens, source, source_radius, image_radius, angle, diagnostics);
             const double residual = std::abs(phi) * source_radius;
@@ -1495,9 +1744,10 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
 
     AlgebraicBoundaryIntervals result;
     result.success = true;
-    result.boundary_angles = unique;
-    result.inside_intervals.reserve(unique.size() / 2);
-    if (unique.empty()) {
+    result.boundary_angles = std::move(unique);
+    const auto& boundary_angles = result.boundary_angles;
+    result.inside_intervals.reserve(boundary_angles.size() / 2);
+    if (boundary_angles.empty()) {
         const double phi = phi_value(
             lens, source, source_radius, image_radius, 0.371, diagnostics);
         if (phi > 0.0) {
@@ -1506,9 +1756,10 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
         }
         return result;
     }
-    for (std::size_t i = 0; i < unique.size(); ++i) {
-        const double lower = unique[i];
-        const double upper = i + 1 < unique.size() ? unique[i + 1] : unique[0] + kTwoPi;
+    for (std::size_t i = 0; i < boundary_angles.size(); ++i) {
+        const double lower = boundary_angles[i];
+        const double upper = i + 1 < boundary_angles.size()
+            ? boundary_angles[i + 1] : boundary_angles[0] + kTwoPi;
         const double middle = 0.5 * (lower + upper);
         if (phi_value(
                 lens, source, source_radius, image_radius, middle, diagnostics) > 0.0) {
@@ -1619,32 +1870,8 @@ std::vector<Complex> algebraic_cartesian_boundary_sextic(
     double source_radius,
     double image_x)
 {
-    const Complex imaginary(0.0, 1.0);
-    const Complex shifted_source(source.x + lens.lens_position * lens.m1, source.y);
-    const std::array<Complex, 2> zbar {image_x, -imaginary};
-    const std::array<Complex, 2> zbar_minus_a {
-        image_x - lens.lens_position, -imaginary};
-    const auto denominator = convolve_fixed(zbar_minus_a, zbar);
-    const std::array<Complex, 2> shifted_z {image_x - shifted_source, imaginary};
-    auto numerator = convolve_fixed(shifted_z, denominator);
-    for (std::size_t i = 0; i < zbar.size(); ++i) {
-        numerator[i] -= lens.m1 * zbar[i];
-        numerator[i] -= lens.m2 * zbar_minus_a[i];
-    }
-    std::array<Complex, 4> numerator_conjugate;
-    std::array<Complex, 3> denominator_conjugate;
-    std::transform(
-        numerator.begin(), numerator.end(), numerator_conjugate.begin(),
-        [](Complex value) { return std::conj(value); });
-    std::transform(
-        denominator.begin(), denominator.end(), denominator_conjugate.begin(),
-        [](Complex value) { return std::conj(value); });
-    auto coefficients = convolve_fixed(numerator, numerator_conjugate);
-    const auto denominator_norm = convolve_fixed(denominator, denominator_conjugate);
-    const double rho2 = source_radius * source_radius;
-    for (std::size_t i = 0; i < denominator_norm.size(); ++i) {
-        coefficients[i] -= rho2 * denominator_norm[i];
-    }
+    const auto coefficients = algebraic_cartesian_boundary_sextic_fixed(
+        lens, source, source_radius, image_x);
     return {coefficients.begin(), coefficients.end()};
 }
 
@@ -1660,60 +1887,97 @@ AlgebraicCartesianIntervals algebraic_cartesian_intervals_at_x(
         !std::isfinite(image_x)) {
         return {false, "invalid source radius or scan coordinate", {}, {}};
     }
-    auto coefficients = algebraic_cartesian_boundary_sextic(
-        lens, source, source_radius, image_x);
-    for (auto& coefficient : coefficients) {
-        if (!finite_complex(coefficient)) {
-            return {false, "non-finite sextic coefficient", {}, {}};
-        }
-        const double scale = 1.0 + std::abs(coefficient.real());
-        if (std::abs(coefficient.imag()) > 2.0e-12 * scale) {
-            return {false, "fixed-x boundary polynomial was not real", {}, {}};
-        }
-        coefficient = Complex(coefficient.real(), 0.0);
+    std::array<Complex, 7> fixed_coefficients;
+    std::array<double, 7> real_coefficients {};
+    if (!real_cartesian_boundary_coefficients(
+            lens, source, source_radius, image_x, &real_coefficients,
+            &fixed_coefficients)) {
+        return {false, "fixed-x boundary polynomial was not finite and real", {}, {}};
     }
     if (diagnostics != nullptr) ++diagnostics->root_solve_count;
-    const auto solved = solve_boundary_polynomial(coefficients, image_x, diagnostics);
-    if (solved.status != math::RootSolverStatus::ok) {
-        return {false, "sextic root solve failed", {}, {}};
+    RealPolynomialRoots real_roots;
+    bool used_real_sextic =
+        isolate_real_polynomial_roots(real_coefficients, 6, &real_roots);
+    std::vector<Complex> physical_roots;
+    physical_roots.reserve(6);
+    if (used_real_sextic) {
+        if (diagnostics != nullptr) ++diagnostics->real_sextic_solve_count;
+        for (int i = 0; i < real_roots.count; ++i) {
+            physical_roots.emplace_back(
+                real_roots.values[static_cast<std::size_t>(i)], 0.0);
+        }
+    } else {
+        if (diagnostics != nullptr) ++diagnostics->real_sextic_fallback_count;
+        const std::vector<Complex> coefficients(
+            fixed_coefficients.begin(), fixed_coefficients.end());
+        const auto solved = solve_boundary_polynomial(
+            coefficients, image_x, diagnostics);
+        if (solved.status != math::RootSolverStatus::ok) {
+            return {false, "sextic root solve failed", {}, {}};
+        }
+        physical_roots = solved.roots;
     }
 
-    std::vector<double> coordinates;
-    coordinates.reserve(6);
-    for (const auto root : solved.roots) {
-        if (!finite_complex(root)) {
-            if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
-            continue;
+    const auto extract_coordinates = [&](const std::vector<Complex>& roots) {
+        std::vector<double> coordinates;
+        coordinates.reserve(6);
+        for (const auto root : roots) {
+            if (!finite_complex(root)) {
+                if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
+                continue;
+            }
+            const double real_tolerance = settings.unit_circle_tolerance *
+                (1.0 + std::abs(root.real()));
+            if (std::abs(root.imag()) > real_tolerance) continue;
+            const double y = root.real();
+            if (diagnostics != nullptr) ++diagnostics->lens_evaluation_count;
+            const auto mapped = map_lens(lens, image_x, y);
+            const double dx = mapped.x - source.x;
+            const double dy = mapped.y - source.y;
+            const double residual = std::abs(
+                1.0 - (dx * dx + dy * dy) / (source_radius * source_radius)) *
+                source_radius;
+            if (!std::isfinite(residual) || residual >
+                    settings.boundary_residual_tolerance * (1.0 + source_radius)) {
+                if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
+                continue;
+            }
+            coordinates.push_back(y);
         }
-        const double real_tolerance = settings.unit_circle_tolerance *
-            (1.0 + std::abs(root.real()));
-        if (std::abs(root.imag()) > real_tolerance) continue;
-        const double y = root.real();
-        if (diagnostics != nullptr) ++diagnostics->lens_evaluation_count;
-        const auto mapped = map_lens(lens, image_x, y);
-        const double dx = mapped.x - source.x;
-        const double dy = mapped.y - source.y;
-        const double residual = std::abs(
-            1.0 - (dx * dx + dy * dy) / (source_radius * source_radius)) *
-            source_radius;
-        if (!std::isfinite(residual) ||
-            residual > settings.boundary_residual_tolerance * (1.0 + source_radius)) {
-            if (diagnostics != nullptr) ++diagnostics->rejected_root_count;
-            continue;
+        std::sort(coordinates.begin(), coordinates.end());
+        std::vector<double> unique;
+        unique.reserve(coordinates.size());
+        for (const double coordinate : coordinates) {
+            const double duplicate_tolerance =
+                1.0e-10 * (1.0 + std::abs(coordinate));
+            if (!unique.empty() &&
+                coordinate - unique.back() < duplicate_tolerance) {
+                if (diagnostics != nullptr) ++diagnostics->tangent_root_count;
+                unique.pop_back();
+            } else {
+                unique.push_back(coordinate);
+            }
         }
-        coordinates.push_back(y);
-    }
-    std::sort(coordinates.begin(), coordinates.end());
-    std::vector<double> unique;
-    unique.reserve(coordinates.size());
-    for (const double coordinate : coordinates) {
-        const double duplicate_tolerance = 1.0e-10 * (1.0 + std::abs(coordinate));
-        if (!unique.empty() && coordinate - unique.back() < duplicate_tolerance) {
-            if (diagnostics != nullptr) ++diagnostics->tangent_root_count;
-            unique.pop_back();
-        } else {
-            unique.push_back(coordinate);
+        return unique;
+    };
+    std::vector<double> unique = extract_coordinates(physical_roots);
+    if ((unique.size() % 2) != 0 && used_real_sextic) {
+        // The lens-map residual is the final physical certification.  If it
+        // rejects one root from the real isolator, retry the established
+        // complex solver instead of returning an incomplete interval set.
+        if (diagnostics != nullptr) {
+            --diagnostics->real_sextic_solve_count;
+            ++diagnostics->real_sextic_fallback_count;
         }
+        const std::vector<Complex> coefficients(
+            fixed_coefficients.begin(), fixed_coefficients.end());
+        const auto solved = solve_boundary_polynomial(
+            coefficients, image_x, diagnostics);
+        if (solved.status != math::RootSolverStatus::ok) {
+            return {false, "sextic root solve failed", {}, {}};
+        }
+        unique = extract_coordinates(solved.roots);
+        used_real_sextic = false;
     }
     if ((unique.size() % 2) != 0) {
         return {false, "odd physical fixed-x boundary-root count", {}, {}};
@@ -1721,11 +1985,12 @@ AlgebraicCartesianIntervals algebraic_cartesian_intervals_at_x(
 
     AlgebraicCartesianIntervals result;
     result.success = true;
-    result.boundary_coordinates = unique;
-    result.inside_intervals.reserve(unique.size() / 2);
-    for (std::size_t i = 0; i + 1 < unique.size(); ++i) {
-        const double lower = unique[i];
-        const double upper = unique[i + 1];
+    result.boundary_coordinates = std::move(unique);
+    const auto& boundary_coordinates = result.boundary_coordinates;
+    result.inside_intervals.reserve(boundary_coordinates.size() / 2);
+    for (std::size_t i = 0; i + 1 < boundary_coordinates.size(); ++i) {
+        const double lower = boundary_coordinates[i];
+        const double upper = boundary_coordinates[i + 1];
         const double middle = 0.5 * (lower + upper);
         if (diagnostics != nullptr) ++diagnostics->lens_evaluation_count;
         const auto mapped = map_lens(lens, image_x, middle);
@@ -1746,20 +2011,21 @@ NestedMoments cartesian_inner_moments_rule(
     double source_radius,
     double image_x,
     const std::vector<std::pair<double, double>>& intervals,
-    const GaussKronrod15Rule& rule,
+    const GaussKronrod21Rule& rule,
     bool need_half,
     bool need_quarter,
     AlgebraicBoundaryDiagnostics* diagnostics)
 {
     NestedMoments result;
+    const auto& mapped_rule = sine_mapped_gauss_kronrod21();
     for (const auto& interval : intervals) {
         const double midpoint = 0.5 * (interval.first + interval.second);
         const double half_width = 0.5 * (interval.second - interval.first);
         result.gauss.m0 += 2.0 * half_width;
         result.kronrod.m0 += 2.0 * half_width;
         for (std::size_t i = 0; i < rule.nodes.size(); ++i) {
-            const double phase = 0.5 * kPi * rule.nodes[i];
-            const double image_y = midpoint + half_width * std::sin(phase);
+            const double image_y =
+                midpoint + half_width * mapped_rule.coordinates[i];
             if (diagnostics != nullptr) ++diagnostics->lens_evaluation_count;
             const auto mapped = map_lens(lens, image_x, image_y);
             const double dx = mapped.x - source.x;
@@ -1767,7 +2033,7 @@ NestedMoments cartesian_inner_moments_rule(
             const double phi = std::max(
                 0.0, 1.0 - (dx * dx + dy * dy) /
                     (source_radius * source_radius));
-            const double common = half_width * 0.5 * kPi * std::cos(phase);
+            const double common = half_width * mapped_rule.jacobians[i];
             const double half = std::sqrt(phi);
             const double kronrod_weight = common * rule.kronrod_weights[i];
             const double gauss_weight = common * rule.gauss_weights[i];
@@ -1791,20 +2057,20 @@ Moments cartesian_inner_moments_high_rule(
     double source_radius,
     double image_x,
     const std::vector<std::pair<double, double>>& intervals,
-    int order,
     bool need_half,
     bool need_quarter,
     AlgebraicBoundaryDiagnostics* diagnostics)
 {
     Moments result;
-    const auto& [nodes, weights] = gauss_legendre_rule(order);
+    const auto& rule = gauss_legendre16();
+    const auto& mapped_rule = sine_mapped_gauss_legendre16();
     for (const auto& interval : intervals) {
         const double midpoint = 0.5 * (interval.first + interval.second);
         const double half_width = 0.5 * (interval.second - interval.first);
         result.m0 += 2.0 * half_width;
-        for (std::size_t i = 0; i < nodes.size(); ++i) {
-            const double phase = 0.5 * kPi * nodes[i];
-            const double image_y = midpoint + half_width * std::sin(phase);
+        for (std::size_t i = 0; i < rule.nodes.size(); ++i) {
+            const double image_y =
+                midpoint + half_width * mapped_rule.coordinates[i];
             if (diagnostics != nullptr) ++diagnostics->lens_evaluation_count;
             const auto mapped = map_lens(lens, image_x, image_y);
             const double dx = mapped.x - source.x;
@@ -1812,8 +2078,8 @@ Moments cartesian_inner_moments_high_rule(
             const double phi = std::max(
                 0.0, 1.0 - (dx * dx + dy * dy) /
                     (source_radius * source_radius));
-            const double weighted_area = half_width * 0.5 * kPi *
-                std::cos(phase) * weights[i];
+            const double weighted_area = half_width * mapped_rule.jacobians[i] *
+                rule.weights[i];
             const double half = std::sqrt(phi);
             if (need_half) result.mhalf += weighted_area * half;
             if (need_quarter) result.mquarter += weighted_area * std::sqrt(half);
@@ -1850,10 +2116,10 @@ IntegrandEvaluation evaluate_cartesian_integrand(
     } else {
         const auto nested = cartesian_inner_moments_rule(
             lens, source, source_radius, image_x, intervals.inside_intervals,
-            gauss_kronrod15(), c != 0.0, d != 0.0, diagnostics);
+            gauss_kronrod21(), c != 0.0, d != 0.0, diagnostics);
         const auto high = cartesian_inner_moments_high_rule(
             lens, source, source_radius, image_x, intervals.inside_intervals,
-            16, c != 0.0, d != 0.0, diagnostics);
+            c != 0.0, d != 0.0, diagnostics);
         result = {true, high,
             std::abs(combined_flux(high - nested.kronrod, c, d)), {}};
     }

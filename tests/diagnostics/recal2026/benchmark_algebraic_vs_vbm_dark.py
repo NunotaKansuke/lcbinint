@@ -155,6 +155,8 @@ def run_algebraic(executable, rows, profile_c, target, repeats, timeout):
             "tangency_fallbacks": int(fields[10]),
             "unsafe": fields[11],
             "warmup_seconds": float(fields[12]),
+            "real_sextic": int(fields[13]) if len(fields) > 13 else 0,
+            "real_sextic_fallbacks": int(fields[14]) if len(fields) > 14 else 0,
         }
     return records
 

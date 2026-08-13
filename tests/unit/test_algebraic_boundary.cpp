@@ -212,6 +212,111 @@ bool test_cartesian_intervals_cover_dense_crossings()
     return true;
 }
 
+bool test_real_sextic_matches_certified_solver()
+{
+    struct Case {
+        double separation;
+        double mass_ratio;
+        lcbinint::SourcePosition source;
+        double rho;
+    };
+    const std::vector<Case> cases {
+        {1.1, 1.0e-3, {0.08, 0.03}, 1.0e-2},
+        {1.1, 1.0e-3, {0.002, 0.0007}, 1.0e-3},
+        {1.1, 1.0e-3, {0.0015, -0.0004}, 3.0e-4},
+        {0.7, 0.3, {-0.6, 0.4}, 3.0e-2},
+        {1.0, 0.2, {0.10, 0.05}, 1.0e-2},
+        {2.0, 0.1, {0.10, 0.05}, 1.0e-2},
+        {1.8, 1.0, {0.30, 0.10}, 2.0e-2},
+        {1.2, 0.1, {0.653, 0.020}, 2.0e-2},
+        {1.3, 1.0e-4, {0.0014470002051158422, 0.0006812879524093549},
+            0.0015515122255040925},
+        {0.8, 1.0e-6, {-0.45054318004640337, -0.0014718037129124418},
+            3.0e-5},
+    };
+    lcbinint::magnification::AlgebraicBoundarySettings settings;
+    settings.unit_circle_tolerance = 2.0e-6;
+    settings.boundary_residual_tolerance = 2.0e-8;
+    lcbinint::magnification::PointSourceMagnifier point;
+    lcbinint::math::PolynomialRootSolver solver;
+    int fast_solves = 0;
+    int fallbacks = 0;
+    for (const auto& item : cases) {
+        const auto lens = native_lens(item.separation, item.mass_ratio);
+        const auto images = point.binary_images(
+            item.separation, item.mass_ratio, item.source);
+        for (const auto& image : images) {
+            for (const double offset : {-1.7, -0.8, 0.0, 0.8, 1.7}) {
+                const double image_x = image.position.x + offset * item.rho;
+                lcbinint::magnification::AlgebraicBoundaryDiagnostics diagnostics;
+                const auto intervals =
+                    lcbinint::magnification::algebraic_cartesian_intervals_at_x(
+                        lens, item.source, item.rho, image_x, settings, &diagnostics);
+                if (!intervals.success) {
+                    std::cerr << "real-sextic interval solve failed: "
+                              << intervals.unsafe_reason << '\n';
+                    return false;
+                }
+                fast_solves += diagnostics.real_sextic_solve_count;
+                fallbacks += diagnostics.real_sextic_fallback_count;
+
+                const auto coefficients =
+                    lcbinint::magnification::algebraic_cartesian_boundary_sextic(
+                        lens, item.source, item.rho, image_x);
+                const auto solved = solver.solve(coefficients);
+                if (solved.status != lcbinint::math::RootSolverStatus::ok) return false;
+                std::vector<double> reference;
+                for (const auto root : solved.roots) {
+                    const double real_tolerance = settings.unit_circle_tolerance *
+                        (1.0 + std::abs(root.real()));
+                    if (!std::isfinite(root.real()) || !std::isfinite(root.imag()) ||
+                        std::abs(root.imag()) > real_tolerance) {
+                        continue;
+                    }
+                    const auto mapped = map_lens(lens, image_x, root.real());
+                    const double dx = mapped.x - item.source.x;
+                    const double dy = mapped.y - item.source.y;
+                    const double residual = std::abs(
+                        1.0 - (dx * dx + dy * dy) / (item.rho * item.rho)) * item.rho;
+                    if (std::isfinite(residual) && residual <=
+                            settings.boundary_residual_tolerance * (1.0 + item.rho)) {
+                        reference.push_back(root.real());
+                    }
+                }
+                std::sort(reference.begin(), reference.end());
+                std::vector<double> unique_reference;
+                for (const double coordinate : reference) {
+                    const double tolerance = 1.0e-10 * (1.0 + std::abs(coordinate));
+                    if (!unique_reference.empty() &&
+                        coordinate - unique_reference.back() < tolerance) {
+                        unique_reference.pop_back();
+                    } else {
+                        unique_reference.push_back(coordinate);
+                    }
+                }
+                if (unique_reference.size() != intervals.boundary_coordinates.size()) {
+                    std::cerr << "real-sextic root count disagreed with SG reference\n";
+                    return false;
+                }
+                for (std::size_t i = 0; i < unique_reference.size(); ++i) {
+                    const double tolerance = 2.0e-8 *
+                        (1.0 + std::abs(unique_reference[i]));
+                    if (std::abs(unique_reference[i] -
+                            intervals.boundary_coordinates[i]) > tolerance) {
+                        std::cerr << "real-sextic root disagreed with SG reference\n";
+                        return false;
+                    }
+                }
+            }
+        }
+    }
+    if (fast_solves == 0 || fast_solves <= fallbacks) {
+        std::cerr << "real-sextic corpus did not predominantly use the fast path\n";
+        return false;
+    }
+    return true;
+}
+
 bool test_interval_edge_cases()
 {
     const auto lens = native_lens(1.1, 1.0e-3);
@@ -278,10 +383,9 @@ bool test_magnification_profiles()
             return false;
         }
         const auto continuation_is_accounted = [](const auto& diagnostics) {
-            return diagnostics.cold_root_solve_count > 0 &&
-                (diagnostics.warm_root_solve_count > 0 ||
-                    diagnostics.real_quartic_solve_count > 0) &&
+            return diagnostics.root_solve_count > 0 &&
                 diagnostics.real_quartic_solve_count +
+                diagnostics.real_sextic_solve_count +
                 diagnostics.warm_root_solve_count +
                         diagnostics.cold_root_solve_count ==
                     diagnostics.root_solve_count + diagnostics.cold_retry_count;
@@ -289,6 +393,10 @@ bool test_magnification_profiles()
         if (!continuation_is_accounted(algebraic.diagnostics) ||
             !continuation_is_accounted(cartesian.diagnostics)) {
             std::cerr << "root-continuation diagnostics were inconsistent\n";
+            return false;
+        }
+        if (cartesian.diagnostics.real_sextic_solve_count == 0) {
+            std::cerr << "real-sextic fast path was not exercised\n";
             return false;
         }
         if (algebraic.diagnostics.tangency_solve_count == 0) {
@@ -418,10 +526,11 @@ int main()
     if (!test_cartesian_sextic_identity()) return 2;
     if (!test_intervals_cover_dense_crossings()) return 3;
     if (!test_cartesian_intervals_cover_dense_crossings()) return 4;
-    if (!test_interval_edge_cases()) return 5;
-    if (!test_magnification_profiles()) return 6;
-    if (!test_redundant_seeds_preserve_integral()) return 7;
-    if (!test_ill_conditioned_real_quartic_falls_back()) return 8;
+    if (!test_real_sextic_matches_certified_solver()) return 5;
+    if (!test_interval_edge_cases()) return 6;
+    if (!test_magnification_profiles()) return 7;
+    if (!test_redundant_seeds_preserve_integral()) return 8;
+    if (!test_ill_conditioned_real_quartic_falls_back()) return 9;
     std::cout << "algebraic boundary tests passed\n";
     return 0;
 }
