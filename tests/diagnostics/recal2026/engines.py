@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 import lcbinint
+from lcbinint import warmup
 
 from .frames import position_from_trajectory
 
@@ -175,6 +176,99 @@ def lcbinint_fixed(grid, nbin, profile_c, *, force_grid=True, **kwargs):
     return LcbinintEngine(
         grid=grid, nbin=nbin, profile_c=profile_c,
         max_source_bins=nbin, force_grid=force_grid, **kwargs)
+
+
+class LcbinintForcedInverseRayEngine:
+    """A diagnostic engine that cannot enter the automatic source-plane route.
+
+    ``LcbinintEngine`` intentionally exercises the public automatic API.  A
+    correctness test for an image-plane change must still submit an explicit
+    native execution plan (method 2 or 3) through the direct-XY diagnostic
+    entry point, so the measured method cannot change with dispatcher policy.
+    The duplicate source position keeps the reported time on the cache-warm
+    second epoch, matching the pure-kernel benchmark.
+    """
+
+    def __init__(self, *, grid, nbin, profile_c, caustic_bins=1400):
+        if grid not in ("cartesian", "polar"):
+            raise ValueError("forced inverse-ray grid must be cartesian or polar")
+        self.grid = grid
+        self.nbin = int(nbin)
+        self.profile_c = float(profile_c)
+        self.method = warmup.CARTESIAN if grid == "cartesian" else warmup.POLAR
+        limb = (
+            lcbinint.LimbDarkening.linear(self.profile_c)
+            if self.profile_c
+            else lcbinint.LimbDarkening.none()
+        )
+        options = lcbinint.Options(
+            coordinates="vbm",
+            nbin=self.nbin,
+            max_source_bins=self.nbin,
+            caustic_bins=int(caustic_bins),
+            point_source_threshold=0.0,
+            hexadecapole_threshold=0.0,
+            adaptive_hex_threshold=0.0,
+        )
+        self._curve = lcbinint.LightCurve(
+            lens="binary", options=options, limb_darkening=limb)
+
+    @property
+    def name(self):
+        return f"lcbinint:forced_{self.grid}:{self.nbin}"
+
+    def reset(self):
+        # The direct diagnostic call constructs its LensModel per invocation;
+        # retain the LightCurve object so the API shape matches other engines.
+        pass
+
+    def __call__(self, s, q, rho, x, y, *, time_it=True):
+        params = {
+            "t0": 0.0,
+            "tE": 1.0,
+            "u0": float(y),
+            "alpha": 0.0,
+            "s": float(s),
+            "q": float(q),
+            "rho": float(rho),
+        }
+        source_x = np.asarray([float(x), float(x)], dtype=float)
+        source_y = np.asarray([float(y), float(y)], dtype=float)
+        result = self._curve._native._evaluate_preplanned_xy(
+            source_x,
+            source_y,
+            params,
+            [self.method, self.method],
+            [self.nbin, self.nbin],
+        )
+        methods = [int(value) for value in result["method"]]
+        if methods[:2] != [self.method, self.method]:
+            raise RuntimeError(
+                "forced inverse-ray diagnostic changed method: "
+                f"expected {self.method}, got {methods}"
+            )
+        values = np.asarray(result["magnification"], dtype=float)
+        errors = np.asarray(result["error_estimate"], dtype=float)
+        converged = list(result["converged"])
+        seconds = np.asarray(result["seconds"], dtype=float)
+        if values.size < 2 or errors.size < 2 or seconds.size < 2:
+            raise RuntimeError("forced inverse-ray diagnostic returned no second epoch")
+        return Evaluation(
+            magnification=float(values[1]),
+            error_estimate=float(errors[1]),
+            converged=bool(converged[1]),
+            method=warmup.METHOD_NAMES[self.method],
+            seconds=float(seconds[1]) if time_it else float("nan"),
+            support_proven=math.isfinite(float(errors[1])),
+            extra={"image_count": None, "forced_method": self.method},
+        )
+
+
+def lcbinint_forced_ir(grid, nbin, profile_c, **kwargs):
+    """Construct an IR-only diagnostic engine; source-plane is impossible."""
+
+    return LcbinintForcedInverseRayEngine(
+        grid=grid, nbin=nbin, profile_c=profile_c, **kwargs)
 
 
 def lcbinint_auto(reltol, profile_c, max_source_bins=400, **kwargs):

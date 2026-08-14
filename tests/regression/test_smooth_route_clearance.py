@@ -1,6 +1,6 @@
 """The smooth-expansion routes must never be chosen inside a caustic.
 
-`point_source`, `hexadecapole` and `source_plane_quadrature` all expand the
+`point_source` and `hexadecapole` both expand the
 magnification about the disk centre.  Every one of them is wrong by an amount
 that has nothing to do with its own error estimate if a caustic passes through
 the disk, because an image pair is created or destroyed inside the integration
@@ -65,7 +65,7 @@ def _clearance(branches, px, py):
 
 
 SMOOTH_ROUTES = frozenset(
-    {"point_source", "hexadecapole", "source_plane_quadrature"})
+    {"point_source", "hexadecapole"})
 
 
 def _sweep(lcbinint, rng, geometries, per_geometry, draw_lens, lens="binary"):

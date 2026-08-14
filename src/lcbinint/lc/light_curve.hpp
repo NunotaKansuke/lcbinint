@@ -153,6 +153,12 @@ private:
         const model::LensParameters& params,
         const model::ComputationOptions& options,
         double* output) const;
+    void fill_preplanned_magnification(
+        const std::vector<double>& times,
+        const model::LensParameters& params,
+        const model::ComputationOptions& options,
+        const std::vector<model::MagnificationExecutionPlan>& plan,
+        double* output) const;
 
     lcbi_options opts_;
     double       ld_c_;

@@ -378,7 +378,6 @@ def test_lcbinint_polar_high_magnification_curve_matches_vbm_without_cartesian_f
     assert "inverse_ray_cartesian" not in set(curve.finite_source_method_names)
     assert set(curve.finite_source_method_names) <= {
         "inverse_ray_polar",
-        "source_plane_quadrature",
     }
     assert float(relative_error.max()) < 1.5e-3
 
@@ -1008,6 +1007,71 @@ def test_lcbinint_cartesian_ir_seeds_grazing_caustic_limb_images():
     assert math.isfinite(adaptive)
     assert abs(fixed / reference - 1.0) < 3.0e-3
     assert abs(adaptive / reference - 1.0) < 1.0e-3
+
+
+@pytest.mark.parametrize("grid", ["cartesian", "polar"])
+def test_explicit_binary_grid_does_not_fall_back_to_source_plane(grid):
+    """An explicit image-plane request must actually execute that grid.
+
+    An explicit image-plane request must not be intercepted by any automatic
+    fallback: otherwise a fixed-grid accuracy or speed test silently measures
+    a different integrator.  This is a small, high-magnification grazing case
+    where the old route was reproducibly selected.
+    """
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = lcbinint.LightCurve(options=lcbinint.Options(
+        coordinates="vbm",
+        inverse_ray_grid=grid,
+        nbin=64,
+        max_source_bins=64,
+        point_source_threshold=0.0,
+        hexadecapole_threshold=0.0,
+        adaptive_hex_threshold=0.0,
+    ))
+    info = curve.info(
+        -0.019735930969284804,
+        t0=0.0,
+        tE=1.0,
+        u0=-0.01132640105806183,
+        alpha=0.0,
+        s=0.3,
+        q=0.01,
+        rho=0.020133555236025995,
+    )
+    assert info.finite_source_method_names == [f"inverse_ray_{grid}"]
+
+
+def test_binary_auto_uses_inverse_ray_for_grazing_source():
+    """Automatic binary routing must use the calibrated IR path.
+
+    Source-plane quadrature remains an explicit diagnostic/preplanned method,
+    but it is not a production binary fallback.  Keeping this assertion on a
+    formerly source-plane-routed grazing point prevents a speed comparison
+    from silently switching integrators again.
+    """
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = lcbinint.LightCurve(options=lcbinint.Options(
+        coordinates="vbm",
+        inverse_ray_grid="auto",
+        nbin="auto",
+        reltol=1.0e-3,
+        max_source_bins=400,
+        caustic_bins=1400,
+    ))
+    info = curve.info(
+        [0.006015037593984918],
+        t0=0.0,
+        tE=1.0,
+        u0=-0.01,
+        alpha=0.3,
+        s=0.8,
+        q=0.01,
+        rho=5.0e-3,
+    )
+    assert info.finite_source_method_names[0] in {
+        "inverse_ray_cartesian",
+        "inverse_ray_polar",
+    }
 
 
 def test_lcbinint_cartesian_ir_keeps_same_parity_fold_branch_seed():

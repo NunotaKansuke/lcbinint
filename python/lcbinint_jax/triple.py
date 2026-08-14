@@ -961,9 +961,9 @@ def triple_magnification_batch(
     Multipoles are deliberately disabled above
     ``multipole_max_magnification``.  Near a caustic the local series can look
     well ordered while still missing a nearby singularity.  Caustic-clear
-    high-magnification rows use polar inverse rays; smooth outside-grazing
-    rows use independent ring/chord source-plane agreement; all other finite
-    rows use Cartesian inverse rays.
+    high-magnification rows use polar inverse rays; all other finite rows use
+    Cartesian inverse rays. Failed image-plane support is reported as
+    unsupported rather than falling back to source-plane quadrature.
     """
 
     require_x64()
@@ -1203,14 +1203,10 @@ def triple_magnification_batch(
             polar_ultra.active_cells,
         ),
     )
-    grazing_candidate = jax.lax.stop_gradient(
-        needs_finite_integration
-        & ~accept_polar
-        & (point_magnitude < 100.0)
-        & jnp.isfinite(caustic_distance)
-        & (caustic_distance >= inverse_ray_radius)
-        & (caustic_distance < 2.0 * inverse_ray_radius)
-    )
+    # Source-plane quadrature is intentionally excluded from the automatic
+    # triple dispatcher.  Grazing rows continue to the image-plane Cartesian
+    # route below (or remain unsupported if its certificate fails).
+    grazing_candidate = jnp.zeros_like(needs_finite_integration)
 
     def source_plane_rule(
         source_x_value,

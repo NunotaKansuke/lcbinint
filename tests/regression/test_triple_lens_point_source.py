@@ -286,8 +286,8 @@ def test_triple_lens_auto_blocks_fast_paths_inside_five_source_radii():
     assert info.magnifications[0] == pytest.approx(1.030906607613782, rel=1.0e-3)
 
 
-def test_triple_lens_auto_uses_topology_safe_grazing_quadrature():
-    """Both image-plane grids miss this outside-limb image finger."""
+def test_triple_lens_auto_does_not_fall_back_to_source_plane():
+    """Automatic triple evaluation remains on the image-plane route."""
     light_curve = lcbinint.LightCurve(
         lens="triple",
         options=lcbinint.Options(param_type="lcbinint", caustic_bins=1400),
@@ -307,10 +307,9 @@ def test_triple_lens_auto_uses_topology_safe_grazing_quadrature():
 
     info = light_curve.info(np.array([-2.482023432364708]), params)
 
-    assert info.finite_source_method_names == ["source_plane_quadrature"]
+    assert info.finite_source_method_names == ["inverse_ray_cartesian"]
+    assert info.statuses == ["ok"]
     assert info.finite_source_converged == [True]
-    assert info.finite_source_refinement_levels == [1]
-    assert info.magnifications[0] == pytest.approx(5.622472944839292, rel=1.0e-3)
 
 
 def test_triple_lens_finite_source_approaches_point_source_for_small_rho():

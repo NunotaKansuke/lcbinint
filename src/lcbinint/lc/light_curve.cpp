@@ -180,20 +180,52 @@ void LightCurve::fill_routed_magnification(
     const model::ComputationOptions& options,
     double* output) const
 {
-    const auto results = evaluate_routed(times, params, options);
-    for (std::size_t column = 0; column < results.size(); ++column) {
-        if (results[column].status == EvaluationStatus::unsupported) {
+    // The production light-curve and inference paths only need the scalar
+    // magnification.  Do not route through evaluate_routed() here: that would
+    // materialize one full MagnificationResult per epoch and then immediately
+    // copy one field out of it.  Keep the LensModel lifetime identical so its
+    // per-curve caches are still shared across all epochs.
+    model::LensModel lens_model(params, options, site_);
+    for (std::size_t column = 0; column < times.size(); ++column) {
+        const auto result = lens_model.magnification(times[column]);
+        if (result.status == EvaluationStatus::unsupported) {
             throw std::runtime_error("unsupported");
         }
-        if (results[column].status == EvaluationStatus::unsupported_tolerance) {
+        if (result.status == EvaluationStatus::unsupported_tolerance) {
             throw std::runtime_error(
                 "unsupported_tolerance: outside empirical reference-quality domain");
         }
-        if (results[column].status == EvaluationStatus::numerical_error ||
-            !std::isfinite(results[column].magnification)) {
+        if (result.status == EvaluationStatus::numerical_error ||
+            !std::isfinite(result.magnification)) {
             throw std::runtime_error("numerical error");
         }
-        output[column] = results[column].magnification;
+        output[column] = result.magnification;
+    }
+}
+
+void LightCurve::fill_preplanned_magnification(
+    const std::vector<double>& times,
+    const model::LensParameters& params,
+    const model::ComputationOptions& options,
+    const std::vector<model::MagnificationExecutionPlan>& plan,
+    double* output) const
+{
+    if (times.size() != plan.size()) {
+        throw std::invalid_argument(
+            "warm-up execution plan must contain one entry per time");
+    }
+    // Warm-up is an inference fast path too: retain the one LensModel and
+    // write only the scalar values needed by the public API.  The diagnostic
+    // counterpart remains separate because it must expose method/error fields.
+    model::LensModel lens_model(params, options, site_);
+    for (std::size_t column = 0; column < times.size(); ++column) {
+        const auto result = lens_model.magnification(times[column], plan[column]);
+        if (result.status != EvaluationStatus::ok ||
+            !std::isfinite(result.magnification)) {
+            throw std::runtime_error(
+                "warm-up execution plan failed; rebuild or clear the plan");
+        }
+        output[column] = result.magnification;
     }
 }
 
@@ -327,11 +359,15 @@ std::vector<double> LightCurve::magnification(
     const std::vector<double>& times,
     const lcbi_params&         params) const
 {
-    const auto results = evaluate(times, params);
-    std::vector<double> mags;
-    mags.reserve(results.size());
-    for (const auto& result : results)
-        mags.push_back(result.magnification);
+    const lcbi_params p = apply_coords(params);
+    const auto cpp_params = model::from_c_params(p);
+    if (!cpp_params.is_valid()) {
+        throw std::runtime_error("invalid argument");
+    }
+    const auto runtime_opts = runtime_options();
+    std::vector<double> mags(times.size());
+    fill_routed_magnification(
+        times, cpp_params, model::from_c_options(&runtime_opts), mags.data());
     return mags;
 }
 
@@ -340,17 +376,16 @@ std::vector<double> LightCurve::magnification_preplanned(
     const lcbi_params& params,
     const std::vector<model::MagnificationExecutionPlan>& plan) const
 {
-    const auto results = evaluate_preplanned_diagnostic(times, params, plan);
-    std::vector<double> magnifications;
-    magnifications.reserve(results.size());
-    for (const auto& result : results) {
-        if (result.status != EvaluationStatus::ok ||
-            !std::isfinite(result.magnification)) {
-            throw std::runtime_error(
-                "warm-up execution plan failed; rebuild or clear the plan");
-        }
-        magnifications.push_back(result.magnification);
+    const lcbi_params p = apply_coords(params);
+    const auto cpp_params = model::from_c_params(p);
+    if (!cpp_params.is_valid()) {
+        throw std::runtime_error("invalid argument");
     }
+    const auto runtime_opts = runtime_options();
+    std::vector<double> magnifications(times.size());
+    fill_preplanned_magnification(
+        times, cpp_params, model::from_c_options(&runtime_opts), plan,
+        magnifications.data());
     return magnifications;
 }
 
@@ -589,14 +624,14 @@ std::vector<double> LightCurve::magnification_binary(
     double                     flux_ratio,
     const lcbi_params&         params2) const
 {
-    const auto r1 = evaluate(times, params1);
-    const auto r2 = evaluate(times, params2);
+    const auto r1 = magnification(times, params1);
+    const auto r2 = magnification(times, params2);
 
     const int n = static_cast<int>(times.size());
     std::vector<double> mags(n);
     const double denom = 1.0 + flux_ratio;
     for (int i = 0; i < n; ++i)
-        mags[i] = (r1[i].magnification + flux_ratio * r2[i].magnification) / denom;
+        mags[i] = (r1[i] + flux_ratio * r2[i]) / denom;
     return mags;
 }
 

@@ -23,7 +23,6 @@ from .multipole import (
     binary_point_source_magnification,
 )
 from .polar import binary_inverse_ray_polar
-from .source_plane import binary_source_plane_quadrature
 from .types import (
     AutoInverseRayResult,
     HybridMagnificationResult,
@@ -724,7 +723,7 @@ def binary_magnification_auto(
     polar_require_topology_stable=True,
     polar_force=False,
     polar_fallback_on_overflow=False,
-    source_plane_fallback=True,
+    source_plane_fallback=False,
     source_plane_rule="chord",
     source_plane_coarse_order=16,
     source_plane_fine_order=32,
@@ -739,17 +738,15 @@ def binary_magnification_auto(
     cartesian_backend="auto",
     root_backend="auto",
 ):
-    """Dispatch safely-far epochs to a differentiable hexadecapole expansion.
+    """Dispatch finite sources through image-plane routes only.
 
-    Method codes are 0 for hexadecapole, 1 for Cartesian inverse rays, 2 for
-    polar inverse rays, and 3 for source-plane quadrature. Source-plane
-    quadrature is attempted only when fixed-capacity image support is invalid,
-    and is accepted only when its independent coarse/fine check converges.
-    ``expanded_cartesian_fallback=True`` adds a costly coarse/fine Cartesian
-    retry after source-plane rejection; it is disabled by default so trajectory
-    callers can bucket only failed epochs into that executable.
-    The multipole error check remains an empirical guard rather than a proof
-    that no unresolved caustic lies inside the source.
+    Method codes are 0 for hexadecapole, 1 for Cartesian inverse rays, and 2
+    for polar inverse rays.  A failed image-plane support certificate is
+    returned as a non-converged result; this dispatcher never falls back to a
+    source-plane quadrature.  The source-plane keyword arguments remain in the
+    signature for compatibility with older callers, but are intentionally
+    ignored. ``expanded_cartesian_fallback`` is an image-plane retry and may
+    still be used explicitly.
     """
 
     require_x64()
@@ -841,8 +838,8 @@ def binary_magnification_auto(
                 used_expanded_cartesian=jnp.asarray(False),
             )
 
-        def source_plane_result(_):
-            source_plane = binary_source_plane_quadrature(
+        def expanded_cartesian_result(_):
+            coarse = _binary_inverse_ray(
                 source_x,
                 source_y,
                 separation,
@@ -850,108 +847,51 @@ def binary_magnification_auto(
                 source_radius,
                 limb_c,
                 limb_d,
-                rule=source_plane_rule,
-                coarse_order=source_plane_coarse_order,
-                fine_order=source_plane_fine_order,
-                angular_multiplier=source_plane_angular_multiplier,
-                absolute_tolerance=absolute_tolerance,
-                relative_tolerance=relative_tolerance,
+                resolution=expanded_coarse_resolution,
+                tile_size=tile_size,
+                tile_capacity=expanded_coarse_tile_capacity,
+                limb_samples=expanded_limb_samples,
+                kernel=kernel,
+                moment_mode=moment_mode,
+                cartesian_backend=cartesian_backend,
                 root_backend=root_backend,
             )
-            valid = source_plane.converged
-
-            def accepted_source_plane(_):
-                return HybridMagnificationResult(
-                    magnification=source_plane.magnification,
-                    method=jnp.asarray(3, dtype=jnp.int32),
-                    estimated_error=source_plane.estimated_error,
-                    support_valid=jnp.asarray(True),
-                    used_multipole=jnp.asarray(False),
-                    used_polar=jnp.asarray(False),
-                    used_source_plane=jnp.asarray(True),
-                    used_expanded_cartesian=jnp.asarray(False),
-                )
-
-            def rejected_source_plane(_):
-                return HybridMagnificationResult(
-                    magnification=jnp.asarray(jnp.nan),
-                    method=jnp.asarray(3, dtype=jnp.int32),
-                    estimated_error=source_plane.estimated_error,
-                    support_valid=jnp.asarray(False),
-                    used_multipole=jnp.asarray(False),
-                    used_polar=jnp.asarray(False),
-                    used_source_plane=jnp.asarray(True),
-                    used_expanded_cartesian=jnp.asarray(False),
-                )
-
-            def expanded_cartesian_result(_):
-                coarse = _binary_inverse_ray(
-                    source_x,
-                    source_y,
-                    separation,
-                    mass_ratio,
-                    source_radius,
-                    limb_c,
-                    limb_d,
-                    resolution=expanded_coarse_resolution,
-                    tile_size=tile_size,
-                    tile_capacity=expanded_coarse_tile_capacity,
-                    limb_samples=expanded_limb_samples,
-                    kernel=kernel,
-                    moment_mode=moment_mode,
-                    cartesian_backend=cartesian_backend,
-                    root_backend=root_backend,
-                )
-                fine = _binary_inverse_ray(
-                    source_x,
-                    source_y,
-                    separation,
-                    mass_ratio,
-                    source_radius,
-                    limb_c,
-                    limb_d,
-                    resolution=expanded_fine_resolution,
-                    tile_size=tile_size,
-                    tile_capacity=expanded_fine_tile_capacity,
-                    limb_samples=expanded_limb_samples,
-                    kernel=kernel,
-                    moment_mode=moment_mode,
-                    cartesian_backend=cartesian_backend,
-                    root_backend=root_backend,
-                )
-                error = jnp.abs(fine.magnification - coarse.magnification)
-                retry_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
-                    jnp.abs(fine.magnification), 1.0
-                )
-                retry_valid = (
-                    coarse.support_valid
-                    & fine.support_valid
-                    & jnp.isfinite(error)
-                    & (error <= retry_budget)
-                )
-                return HybridMagnificationResult(
-                    magnification=jnp.where(retry_valid, fine.magnification, jnp.nan),
-                    method=jnp.asarray(1, dtype=jnp.int32),
-                    estimated_error=error,
-                    support_valid=retry_valid,
-                    used_multipole=jnp.asarray(False),
-                    used_polar=jnp.asarray(False),
-                    used_source_plane=jnp.asarray(False),
-                    used_expanded_cartesian=jnp.asarray(True),
-                )
-
-            if expanded_cartesian_fallback:
-                return jax.lax.cond(
-                    valid,
-                    accepted_source_plane,
-                    expanded_cartesian_result,
-                    None,
-                )
-            return jax.lax.cond(
-                valid,
-                accepted_source_plane,
-                rejected_source_plane,
-                None,
+            fine = _binary_inverse_ray(
+                source_x,
+                source_y,
+                separation,
+                mass_ratio,
+                source_radius,
+                limb_c,
+                limb_d,
+                resolution=expanded_fine_resolution,
+                tile_size=tile_size,
+                tile_capacity=expanded_fine_tile_capacity,
+                limb_samples=expanded_limb_samples,
+                kernel=kernel,
+                moment_mode=moment_mode,
+                cartesian_backend=cartesian_backend,
+                root_backend=root_backend,
+            )
+            error = jnp.abs(fine.magnification - coarse.magnification)
+            retry_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
+                jnp.abs(fine.magnification), 1.0
+            )
+            retry_valid = (
+                coarse.support_valid
+                & fine.support_valid
+                & jnp.isfinite(error)
+                & (error <= retry_budget)
+            )
+            return HybridMagnificationResult(
+                magnification=jnp.where(retry_valid, fine.magnification, jnp.nan),
+                method=jnp.asarray(1, dtype=jnp.int32),
+                estimated_error=error,
+                support_valid=retry_valid,
+                used_multipole=jnp.asarray(False),
+                used_polar=jnp.asarray(False),
+                used_source_plane=jnp.asarray(False),
+                used_expanded_cartesian=jnp.asarray(True),
             )
 
         def invalid_image_plane_result(_):
@@ -966,11 +906,11 @@ def binary_magnification_auto(
                 used_expanded_cartesian=jnp.asarray(False),
             )
 
-        if source_plane_fallback:
+        if expanded_cartesian_fallback:
             return jax.lax.cond(
                 result.support_valid,
                 image_plane_result,
-                source_plane_result,
+                expanded_cartesian_result,
                 None,
             )
         return jax.lax.cond(

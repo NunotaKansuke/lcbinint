@@ -13,7 +13,6 @@ from .cpp_backend import (
 )
 from .multipole import binary_point_source_magnification
 from .resolution import select_binary_resolution
-from .source_plane import binary_source_plane_quadrature
 from .trajectory import _CALIBRATED_EXECUTION_BUCKETS
 from .types import CalibratedMagnificationResult
 
@@ -122,7 +121,6 @@ def binary_magnification_calibrated(
     caustic_distance = routing.caustic_distance[0]
     point_safe = routing.point_safe[0]
     point_route = point_safe & ~point_solution.root_failure
-    source_direct = routing.chord_band[0] | routing.grazing_ring_band[0]
     explicit_tolerance = (absolute_tolerance > 0.0) | (relative_tolerance > 0.0)
     requested_relative_tolerance = jnp.where(
         explicit_tolerance,
@@ -326,66 +324,11 @@ def binary_magnification_calibrated(
             ),
         )
 
-    def source_candidate(_):
-        source = binary_source_plane_quadrature(
-            source_x,
-            source_y,
-            separation,
-            mass_ratio,
-            source_radius,
-            limb_c,
-            limb_d,
-            rule="chord",
-            coarse_order=48,
-            fine_order=96,
-            absolute_tolerance=absolute_tolerance,
-            relative_tolerance=relative_tolerance,
-            root_backend=root_backend,
-        )
-        return (
-            source.magnification,
-            source.estimated_error,
-            source.converged,
-        )
-
-    def no_source_candidate(_):
-        return (
-            jnp.asarray(jnp.nan, dtype=jnp.float64),
-            jnp.asarray(jnp.inf, dtype=jnp.float64),
-            jnp.asarray(False),
-        )
-
     def nonpoint_path(_):
-        source_magnification, source_error, source_converged = jax.lax.cond(
-            source_direct,
-            source_candidate,
-            no_source_candidate,
-            None,
-        )
-        value_budget = absolute_tolerance + relative_tolerance * jnp.maximum(
-            jnp.abs(source_magnification), 1.0
-        )
-        return jax.lax.cond(
-            source_direct & source_converged,
-            lambda _: result(
-                magnification=source_magnification,
-                method=jnp.asarray(3, dtype=jnp.int32),
-                estimated_error=source_error,
-                support_valid=jnp.asarray(True),
-                used_multipole=jnp.asarray(False),
-                used_polar=jnp.asarray(False),
-                used_source_plane=jnp.asarray(True),
-                used_expanded_cartesian=jnp.asarray(False),
-                comparison_resolution=jnp.asarray(48, dtype=jnp.int32),
-                executed_resolution=jnp.asarray(96, dtype=jnp.int32),
-                tile_capacity=jnp.asarray(0, dtype=jnp.int32),
-                value_error=source_error,
-                value_budget=value_budget,
-                value_converged=jnp.asarray(True),
-            ),
-            grid_path,
-            None,
-        )
+        # The calibrated dispatcher is image-plane only.  Grazing/chord bands
+        # proceed directly to the Cartesian/polar ladder; there is no hidden
+        # source-plane candidate.
+        return grid_path(None)
 
 
     def point_path(_):

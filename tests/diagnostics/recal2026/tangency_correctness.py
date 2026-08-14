@@ -24,7 +24,7 @@ os.environ.setdefault("LCBININT_PROBE_BUILD", str(ROOT / "build"))
 from . import probe_build  # noqa: E402
 
 probe_build.activate()
-from .engines import lcbinint_fixed  # noqa: E402
+from .engines import lcbinint_forced_ir  # noqa: E402
 C_CASE = {
     "s": 1.3,
     "q": 1.0e-4,
@@ -48,7 +48,10 @@ def relative_gap(value, reference):
 
 
 def evaluate(case, grid, nbin):
-    engine = lcbinint_fixed(grid, nbin, case.get("limb_darkening_c", 0.0))
+    # This is an image-plane regression.  Use the explicit preplanned IR entry
+    # point so the diagnostic remains independent of dispatcher policy.
+    engine = lcbinint_forced_ir(
+        grid, nbin, case.get("limb_darkening_c", 0.0))
     result = engine(case["s"], case["q"], case["rho"], case["x"], case["y"])
     return {
         "value": result.magnification,
@@ -224,7 +227,9 @@ def main():
                 for grid in ("cartesian", "polar"):
                     measured = row["measured"][grid]
                     assert measured["certified"]
-                    assert measured["method"] == "source_plane_quadrature"
+                    assert measured["method"] in {
+                        "inverse_ray_cartesian", "inverse_ray_polar",
+                    }
                     assert measured["relative_gap_to_arbiter"] <= 1.0e-4
     payload["seconds"] = time.perf_counter() - started
     rendered = json.dumps(payload, indent=2)

@@ -266,14 +266,14 @@ def test_hybrid_does_not_silently_fallback_to_polar_on_overflow():
         tile_capacity=1,
         moment_mode="linear",
     )
-    assert int(result.method) == 3
+    assert int(result.method) == 1
     assert not bool(result.support_valid)
-    assert bool(result.used_source_plane)
+    assert not bool(result.used_source_plane)
     assert not bool(result.used_polar)
     assert math.isnan(float(result.magnification))
 
 
-def test_hybrid_source_plane_fallback_rescues_smooth_overflow():
+def test_hybrid_source_plane_fallback_is_disabled_for_smooth_overflow():
     result = binary_magnification_auto(
         -0.12659234106123154,
         -0.0033574016897174154,
@@ -285,10 +285,10 @@ def test_hybrid_source_plane_fallback_rescues_smooth_overflow():
         tile_capacity=1,
         moment_mode="linear",
     )
-    assert int(result.method) == 3
-    assert bool(result.support_valid)
-    assert bool(result.used_source_plane)
-    np.testing.assert_allclose(result.magnification, 22.46300856034185, rtol=1.0e-4)
+    assert int(result.method) == 1
+    assert not bool(result.support_valid)
+    assert not bool(result.used_source_plane)
+    assert math.isnan(float(result.magnification))
 
 
 def test_hybrid_expanded_cartesian_retry_rescues_source_plane_rejection():

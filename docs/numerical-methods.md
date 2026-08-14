@@ -33,8 +33,10 @@ The absolute fourth-order contribution divided by `|A|` is the local
 self-consistency indicator. A caustic-distance guard and the independent
 quadrupole/cusp/ghost topology checks prevent a small fourth-order term from
 being trusted when cancellation or a topology change makes the expansion
-unsafe. Rejected positions continue to source-plane quadrature or inverse-ray
-integration.
+unsafe. Rejected positions continue to inverse-ray integration in the native
+binary path. Source-plane quadrature remains available to explicit preplanned
+calls and to the separate triple/JAX dispatchers; it is not an automatic
+native binary fallback.
 
 The ghost-image guard is especially important near an exterior fold approach:
 the physical image count has not yet changed, while the non-physical pair of

@@ -43,7 +43,7 @@ def test_native_pipeline_trajectory_adds_point_route_and_gradient():
     assert jnp.isfinite(gradient)
 
 
-def test_native_pipeline_trajectory_adds_converged_grazing_source_route():
+def test_native_pipeline_trajectory_keeps_grazing_source_on_image_plane():
     result = binary_magnification_native_pipeline_trajectory(
         jnp.asarray((-0.0011744718711112381,)),
         jnp.asarray((-0.0017214156233429664,)),
@@ -53,8 +53,8 @@ def test_native_pipeline_trajectory_adds_converged_grazing_source_route():
         0.0,
         0.0,
     )
-    assert int(result.method[0]) == 3
-    assert bool(result.used_source_plane[0])
+    assert int(result.method[0]) == 1
+    assert not bool(result.used_source_plane[0])
     assert bool(result.support_valid[0])
     np.testing.assert_allclose(
         result.magnification[0],
@@ -356,7 +356,7 @@ def test_mixed_trajectory_gradient_matches_finite_difference():
     )
 
 
-def test_source_plane_bucket_rescues_only_converged_epoch():
+def test_source_plane_bucket_does_not_rescue_failed_image_plane_epochs():
     result = binary_magnification_trajectory(
         jnp.asarray((0.3, -0.12659234106123154, 0.04532088349390295)),
         jnp.asarray((0.4, -0.0033574016897174154, 1.5733427409150726)),
@@ -368,11 +368,12 @@ def test_source_plane_bucket_rescues_only_converged_epoch():
         tile_capacity=1,
         moment_mode="linear",
     )
-    np.testing.assert_array_equal(result.method, (0, 3, 3))
-    np.testing.assert_array_equal(result.support_valid, (True, True, False))
-    np.testing.assert_allclose(result.magnification[1], 22.46300856034185, rtol=1.0e-4)
+    np.testing.assert_array_equal(result.method, (0, 1, 1))
+    np.testing.assert_array_equal(result.support_valid, (True, False, False))
+    assert bool(jnp.isnan(result.magnification[1]))
     assert bool(jnp.isnan(result.magnification[2]))
-    np.testing.assert_array_equal(result.attempted_counts, (1, 2, 2, 0))
+    np.testing.assert_array_equal(result.used_source_plane, (False, False, False))
+    np.testing.assert_array_equal(result.attempted_counts, (1, 2, 0, 0))
 
 
 def test_expanded_cartesian_attempt_is_reported():

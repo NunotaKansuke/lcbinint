@@ -143,7 +143,7 @@ def test_calibrated_dispatcher_routes_native_safe_point_source():
     assert np.isfinite(float(derivative))
 
 
-def test_calibrated_dispatcher_routes_grazing_source_to_source_plane():
+def test_calibrated_dispatcher_keeps_grazing_source_on_image_plane():
     result = binary_magnification_calibrated(
         -0.0011744718711112381,
         -0.0017214156233429664,
@@ -153,15 +153,15 @@ def test_calibrated_dispatcher_routes_grazing_source_to_source_plane():
         maximum_source_bins=400,
         moment_mode="uniform",
     )
-    assert int(result.method) == 3
-    assert bool(result.used_source_plane)
+    assert int(result.method) == 1
+    assert not bool(result.used_source_plane)
     assert bool(result.chord_band)
     assert bool(result.support_valid)
     assert bool(result.value_converged)
     assert abs(float(result.magnification) - 241.85340579542768) < 2.43e-2
 
 
-def test_calibrated_source_direct_root_failure_uses_source_plane():
+def test_calibrated_source_direct_root_failure_stays_image_plane():
     result = binary_magnification_calibrated(
         -0.03322385260958629,
         -0.0017355510794855819,
@@ -172,8 +172,8 @@ def test_calibrated_source_direct_root_failure_uses_source_plane():
         moment_mode="uniform",
     )
     assert bool(result.chord_band)
-    assert int(result.method) == 3
-    assert bool(result.used_source_plane)
+    assert int(result.method) == 1
+    assert not bool(result.used_source_plane)
     assert bool(result.support_valid)
     assert bool(result.value_converged)
     assert abs(float(result.magnification) - 32.75951274809496) < 3.38e-3

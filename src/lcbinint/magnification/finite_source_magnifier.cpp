@@ -6972,96 +6972,10 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
             scan.min_distance < 1.35 * source_radius;
         tangent_band = !caustic_enters_disk && !chord_band &&
             std::abs(scan.min_distance - source_radius) < 0.35 * source_radius;
-        // Near a triple cusp, a large centre magnification produces angular
-        // structure that low-order source-plane rules can alias while two
-        // successive orders still agree.  Cartesian/polar tails agree in this
-        // regime, so keep quadrature for the measured smooth (A_point < 100)
-        // grazing population only.
-        const bool quadrature_topology_safe =
-            std::abs(point_source_magnification) < 100.0;
-
-        auto target_error = [&](double magnification) {
-            return finite_source_error_budget(settings_, magnification);
-        };
-
-        if (quadrature_topology_safe && !caustic_enters_disk &&
-            scan.min_distance >= source_radius) {
-            // Two structurally different low-order rules prevent the false
-            // convergence seen when successive radial rings alias the same
-            // narrow triple-caustic feature.  Most smooth grazing rows stop
-            // here; only disagreement pays for high-order chord escalation.
-            const auto ring = triple_source_plane_quadrature(
-                point_magnifier, geometry, source, source_radius,
-                runtime_settings, 64);
-            double chord = triple_source_plane_chord_quadrature(
-                point_magnifier, geometry, source, source_radius,
-                runtime_settings, 64);
-            int sample_count = ring.sample_count + 64 * 64;
-            // Discovery calibration found the two low-order rules can share a
-            // small correlated bias.  A 40x acceptance margin was the widest
-            // boundary with zero violations against independent 160/256
-            // chord tails; larger disagreements take the escalated path.
-            constexpr double kTripleLowOrderTopologySafety = 40.0;
-            if (std::isfinite(ring.magnification) && std::isfinite(chord) &&
-                kTripleLowOrderTopologySafety *
-                    std::abs(ring.magnification - chord) <= target_error(chord)) {
-                return {
-                    chord, ring.image_count,
-                    {FiniteSourceMethod::source_plane_quadrature, sample_count,
-                     "triple grazing topology cross-check passed"},
-                    std::abs(ring.magnification - chord), 0, true,
-                };
-            }
-
-            double coarse = triple_source_plane_chord_quadrature(
-                point_magnifier, geometry, source, source_radius,
-                runtime_settings, 160);
-            double fine = triple_source_plane_chord_quadrature(
-                point_magnifier, geometry, source, source_radius,
-                runtime_settings, 256);
-            sample_count += 160 * 160 + 256 * 256;
-            int refinement_level = 1;
-            if (std::isfinite(fine) && std::isfinite(coarse) &&
-                std::abs(fine - coarse) > target_error(fine)) {
-                coarse = fine;
-                fine = triple_source_plane_chord_quadrature(
-                    point_magnifier, geometry, source, source_radius,
-                    runtime_settings, 400);
-                sample_count += 400 * 400;
-                refinement_level = 2;
-            }
-            if (refinement_level == 2 &&
-                std::isfinite(fine) && std::isfinite(coarse)) {
-                coarse = fine;
-                fine = triple_source_plane_chord_quadrature(
-                    point_magnifier, geometry, source, source_radius,
-                    runtime_settings, 512);
-                sample_count += 512 * 512;
-                refinement_level = 3;
-            }
-            if (std::isfinite(fine) && std::isfinite(coarse)) {
-                const double error_estimate = std::abs(fine - coarse);
-                if (error_estimate <= target_error(fine)) {
-                    return {
-                        fine, ring.image_count,
-                        {FiniteSourceMethod::source_plane_quadrature, sample_count,
-                         "triple grazing topology escalated chord quadrature"},
-                        error_estimate, refinement_level, true,
-                    };
-                }
-                // At the bounded 512-order ceiling this is still the best
-                // available grazing estimate.  Returning Cartesian here
-                // reintroduces the known missing-finger bias; preserve the
-                // value and report non-convergence explicitly instead.
-                return {
-                    fine, ring.image_count,
-                    {FiniteSourceMethod::source_plane_quadrature, sample_count,
-                     "triple grazing topology reached quadrature ceiling"},
-                    error_estimate, refinement_level, false,
-                };
-            }
-            tangent_band = true;
-        }
+        // The topology scan is retained only for the inverse-ray fail-closed
+        // error floor.  Automatic triple evaluation deliberately does not
+        // consume a source-plane value; source-plane quadrature is reserved
+        // for explicit preplanned diagnostic calls.
     }
 
     const auto apply_triple_tangent_floor = [&](FiniteSourceResult result) {
@@ -7210,40 +7124,21 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
         }
     }
 
-    const int coarse_bins = std::max(1, runtime_settings.source_bins / 2);
-    const int fine_bins = std::max(runtime_settings.source_bins, 1);
-    const auto coarse = triple_source_plane_quadrature(
-        point_magnifier, geometry, source, source_radius, runtime_settings, coarse_bins);
-    const auto fine = triple_source_plane_quadrature(
-        point_magnifier, geometry, source, source_radius, runtime_settings, fine_bins);
-    if (!std::isfinite(fine.magnification)) {
-        return {
-            std::numeric_limits<double>::quiet_NaN(),
-            0,
-            {FiniteSourceMethod::source_plane_quadrature, fine.sample_count, "numerical error"},
-            std::numeric_limits<double>::infinity(),
-            0,
-            false,
-        };
-    }
-
-    const double error_estimate = std::isfinite(coarse.magnification)
-        ? std::abs(fine.magnification - coarse.magnification)
-        : std::numeric_limits<double>::infinity();
-    const bool converged =
-        finite_source_error_within_budget(settings_, fine.magnification, error_estimate);
+    // All automatic image-plane attempts failed to return a finite result.
+    // Do not silently switch integrators here: report the inverse-ray failure
+    // and let the caller handle the non-converged result explicitly.
     FiniteSourceDecision decision {
-        FiniteSourceMethod::source_plane_quadrature,
-        coarse.sample_count + fine.sample_count,
-        "triple finite-source source-plane quadrature",
+        FiniteSourceMethod::inverse_ray_cartesian,
+        estimate_cartesian_cost(runtime_settings),
+        "triple inverse-ray failed; source-plane fallback disabled",
     };
     return apply_triple_tangent_floor({
-        fine.magnification,
-        fine.image_count,
+        std::numeric_limits<double>::quiet_NaN(),
+        0,
         decision,
-        error_estimate,
-        1,
-        converged,
+        std::numeric_limits<double>::infinity(),
+        0,
+        false,
     });
 }
 
@@ -7699,25 +7594,14 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         rejected_hex_magnification = hex.magnification;
     }
 
-    // Grazing-caustic regime: the caustic passes within a few source radii
-    // but never enters the disk.  There are no fold images, yet the limb
-    // images facing the caustic stretch into fingers thinner than any
-    // realistic inverse-ray cell, which the flood-fill scans truncate — a
-    // deficit that does not converge away with source_bins.  The point-source
-    // magnification is smooth over the disk here (no caustic inside), so
-    // source-plane ring quadrature is both robust and accurate; use it
-    // instead of inverse rays.
-    // Grazing-caustic regime: the caustic passes within a couple of source
-    // radii of the centre but stays outside the disk.  There are no fold
-    // images, yet the limb images facing the caustic stretch into fingers
-    // thinner than any realistic inverse-ray cell, which the flood-fill scans
-    // truncate — a deficit that does not converge away with source_bins.  The
-    // point-source magnification is smooth over the disk here, so source-plane
-    // ring quadrature is both robust and accurate; use it instead of inverse
-    // rays.  The min_distance >= rho requirement keeps genuinely tangent
-    // configurations (where a crossing sliver may hide below the polyline
-    // resolution) on the inverse-ray path; those are flagged as unconverged
-    // below.
+    // Grazing-caustic diagnostics.  Binary automatic evaluation deliberately
+    // stays on the same calibrated inverse-ray path as the explicit Cartesian
+    // and polar modes.  The scan is retained only to mark a genuinely tangent
+    // limb, where the inverse-ray result must fail closed rather than silently
+    // claim a precision that the caustic polyline cannot certify.  The
+    // source-plane routine remains available to explicit preplanned callers
+    // and to the separate triple-lens implementation, but it is not an
+    // automatic binary fallback.
     constexpr double kGrazeQuadratureDistanceFactor = 2.0;
     bool tangent_band = false;
     if (std::isfinite(refined_dist) &&
@@ -7727,110 +7611,17 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         const bool caustic_enters_disk =
             scan.any_vertex_inside || !scan.crossing_probes.empty();
         // Split the near-limb regimes by how deep the nearest polyline chord
-        // dips into the disk.  A shallow dip (or none) marks at most a tiny
-        // crossing sliver, which the chord quadrature integrates; a deep dip
-        // is a genuine crossing hidden by the polyline sag, which inverse
-        // rays with fold seeds handle better and which is flagged with the
-        // error floor below.
+        // dips into the disk.  The shallow band stays on the ordinary seeded
+        // inverse-ray path; a deeper dip is a genuine crossing hidden by the
+        // polyline sag and is handled conservatively by the error floor below.
         const bool chord_band = !caustic_enters_disk &&
             scan.min_distance >= 0.95 * source_radius &&
             scan.min_distance < 1.35 * source_radius;
         tangent_band = !caustic_enters_disk && !chord_band &&
             std::abs(scan.min_distance - source_radius) < 0.35 * source_radius;
-        if (chord_band) {
-            // A tangent caustic can hide a crossing sliver at the limb below
-            // both the grid and the polyline resolution; inverse rays miss
-            // its flux and midpoint rings under-sample its spike.  Tensor
-            // Gauss-Legendre chord quadrature resolves it; two orders provide
-            // the error estimate, and disagreement falls back to inverse
-            // rays with the error floor below.
-            double coarse = binary_source_plane_chord_quadrature(
-                point_magnifier, separation, mass_ratio, source, source_radius,
-                runtime_settings, 48);
-            double fine = binary_source_plane_chord_quadrature(
-                point_magnifier, separation, mass_ratio, source, source_radius,
-                runtime_settings, 96);
-            int sample_count = (48 * 8) * (48 * 8) + (96 * 8) * (96 * 8);
-            double error_estimate = std::isfinite(fine) && std::isfinite(coarse)
-                ? grid_pair_error_estimate(fine, coarse, 96, 48, 1)
-                : std::numeric_limits<double>::infinity();
-            auto assessment = assess_finite_source_error(
-                settings_, fine, error_estimate);
-            int refinement_level = 0;
-            if (std::isfinite(fine) && !assessment.converged) {
-                // The sliver spike converges slowly; one escalation usually
-                // brings the pairwise difference to a few 1e-4.
-                coarse = fine;
-                fine = binary_source_plane_chord_quadrature(
-                    point_magnifier, separation, mass_ratio, source, source_radius,
-                    runtime_settings, 192);
-                sample_count += (192 * 8) * (192 * 8);
-                refinement_level = 1;
-                error_estimate = std::isfinite(fine)
-                    ? grid_pair_error_estimate(fine, coarse, 192, 96, 1)
-                    : std::numeric_limits<double>::infinity();
-                assessment = assess_finite_source_error(
-                    settings_, fine, error_estimate);
-            }
-            if (std::isfinite(fine) && std::isfinite(coarse)) {
-                FiniteSourceDecision decision {
-                    FiniteSourceMethod::source_plane_quadrature,
-                    sample_count,
-                    "tangent-caustic chord quadrature",
-                };
-                return cache_and_return({
-                    fine, 0, decision, assessment.estimate,
-                    refinement_level, assessment.converged});
-            }
-        }
-        if (!caustic_enters_disk && scan.min_distance >= source_radius &&
-            !tangent_band) {
-            // "Outside the disk" does not make the integrand smooth enough
-            // for midpoint rings: a fold just beyond the limb still produces
-            // a narrow off-centre spike.  Both inverse-ray grid requests used
-            // to reach this shared branch and return the same wrong value.
-            // Use the singularity-localising composite chord ladder here too.
-            double coarse = binary_source_plane_chord_quadrature(
-                point_magnifier, separation, mass_ratio, source, source_radius,
-                runtime_settings, 48);
-            double fine = binary_source_plane_chord_quadrature(
-                point_magnifier, separation, mass_ratio, source, source_radius,
-                runtime_settings, 96);
-            int sample_count = (48 * 8) * (48 * 8) + (96 * 8) * (96 * 8);
-            double error_estimate = std::isfinite(fine) && std::isfinite(coarse)
-                ? grid_pair_error_estimate(fine, coarse, 96, 48, 1)
-                : std::numeric_limits<double>::infinity();
-            auto assessment = assess_finite_source_error(
-                settings_, fine, error_estimate);
-            int refinement_level = 0;
-            if (std::isfinite(fine) && !assessment.converged) {
-                coarse = fine;
-                fine = binary_source_plane_chord_quadrature(
-                    point_magnifier, separation, mass_ratio, source, source_radius,
-                    runtime_settings, 192);
-                sample_count += (192 * 8) * (192 * 8);
-                refinement_level = 1;
-                error_estimate = std::isfinite(fine)
-                    ? grid_pair_error_estimate(fine, coarse, 192, 96, 1)
-                    : std::numeric_limits<double>::infinity();
-                assessment = assess_finite_source_error(
-                    settings_, fine, error_estimate);
-            }
-            if (std::isfinite(fine)) {
-                FiniteSourceDecision decision {
-                    FiniteSourceMethod::source_plane_quadrature,
-                    sample_count,
-                    "grazing-caustic composite chord quadrature",
-                };
-                return cache_and_return({
-                    fine,
-                    0,
-                    decision,
-                    assessment.estimate,
-                    refinement_level,
-                    assessment.converged});
-            }
-        }
+        // The scan above supplies the fail-closed tangent flag for the
+        // inverse-ray result.  Binary automatic mode never consumes a
+        // source-plane value here.
     }
 
     // A caustic tangent to the source limb can hide a crossing sliver below

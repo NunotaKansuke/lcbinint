@@ -21,7 +21,6 @@ from .cpp_backend import (
 )
 from .multipole import binary_hexadecapole
 from .resolution import select_binary_resolution
-from .source_plane import binary_source_plane_quadrature
 from .types import HybridMagnificationResult, TrajectoryMagnificationResult
 
 # The capacity is an overflow ceiling on the claimed-tile queue, so it is really
@@ -383,7 +382,7 @@ def binary_magnification_trajectory(
     polar_min_mass_ratio=5.0e-3,
     polar_fallback_on_overflow=False,
     moment_mode="two_coefficient",
-    source_plane_fallback=True,
+    source_plane_fallback=False,
     source_plane_rule="chord",
     source_plane_coarse_order=16,
     source_plane_fine_order=32,
@@ -548,9 +547,9 @@ def binary_magnification_native_pipeline_trajectory(
     The fused trajectory remains the image-plane engine. For a static binary
     lens, one native diagnostic batch adds the exact point-source safety and
     caustic-band decisions used by ``lcbinint``. Point and converged chord
-    48/96 source-plane epochs replace the fused result. Dynamic-separation
-    trajectories retain the fused route because this diagnostic FFI shares
-    one static caustic cache.
+    Source-plane quadrature is not part of this production trajectory route.
+    Dynamic-separation trajectories retain the fused route because this
+    diagnostic FFI shares one static caustic cache.
     """
 
     require_x64()
@@ -632,13 +631,8 @@ def _native_pipeline_trajectory(
     so that the shape and availability checks stay outside the trace.
     """
 
-    # The five routes below partition the block: the point, source-plane,
-    # multipole, polar and Cartesian sets are mutually exclusive and their union
-    # is everything, so the fallback set is empty.  This used to run the whole
-    # standalone trajectory pipeline to fill that empty set, which meant a
-    # second complete magnification solve on every epoch of every call and cost
-    # more than the route it was backing up.  Keep only the placeholders the
-    # selects need; every one of them is masked away before it is returned.
+    # The point, multipole, polar and Cartesian sets are mutually exclusive.
+    # There is deliberately no source-plane fallback bucket.
     unrouted_value = jnp.full(jnp.shape(source_x), jnp.nan, dtype=source_x.dtype)
     unrouted_flag = jnp.zeros(jnp.shape(source_x), dtype=jnp.bool_)
     unrouted_method = jnp.zeros(jnp.shape(source_x), dtype=jnp.int32)
@@ -664,50 +658,10 @@ def _native_pipeline_trajectory(
         caustic_bins=caustic_bins,
     )
     point_route = jax.lax.stop_gradient(routing.point_safe & ~expansion.root_failure)
-    source_route = jax.lax.stop_gradient(
-        ~point_route & (routing.chord_band | routing.grazing_ring_band)
-    )
-
-    def source_epoch(operand):
-        position, active = operand
-
-        def evaluate(_):
-            candidate = binary_source_plane_quadrature(
-                position[0],
-                position[1],
-                separation_array,
-                mass_ratio,
-                source_radius,
-                limb_c,
-                limb_d,
-                rule="chord",
-                coarse_order=48,
-                fine_order=96,
-                absolute_tolerance=absolute_tolerance,
-                relative_tolerance=relative_tolerance,
-            )
-            return (
-                candidate.magnification,
-                candidate.estimated_error,
-                candidate.converged,
-            )
-
-        return jax.lax.cond(
-            active,
-            evaluate,
-            lambda _: (
-                jnp.asarray(jnp.nan, dtype=source_x.dtype),
-                jnp.asarray(jnp.inf, dtype=source_x.dtype),
-                jnp.asarray(False),
-            ),
-            None,
-        )
-
-    source_value, source_error, source_converged = jax.lax.map(
-        source_epoch,
-        ((source_x, source_y), source_route),
-    )
-    accept_source = jax.lax.stop_gradient(source_route & source_converged)
+    source_route = jnp.zeros_like(point_route)
+    source_value = jnp.full_like(source_x, jnp.nan)
+    source_error = jnp.full_like(source_x, jnp.inf)
+    accept_source = jnp.zeros_like(point_route)
 
     if maximum_source_bins not in {
         resolution for resolution, _ in _CALIBRATED_EXECUTION_BUCKETS

@@ -451,7 +451,10 @@ def test_triple_dispatcher_uses_point_hexadecapole_and_inverse_ray():
         0.03,
         moment_mode="uniform",
     )
-    np.testing.assert_array_equal(result.method, (0, 1, 4))
+    # The automatic triple dispatcher is image-plane only.  Failed Cartesian
+    # support is reported as method 2 rather than being rescued by the
+    # source-plane quadrature route.
+    np.testing.assert_array_equal(result.method, (0, 1, 2))
     assert bool(jnp.all(jnp.isfinite(result.magnification)))
     assert bool(jnp.all(result.support_valid))
 
