@@ -216,7 +216,7 @@ class LightCurve:
         )
         self._warmup_profile = None
         self._warmup_methods = None
-        self._warmup_values = None
+        self._warmup_drift_warned = False
         self.lens = self._native.lens
         if jax and self._native.model.parallax:
             # Materialize the ephemeris outside any later JAX trace.
@@ -314,13 +314,14 @@ class LightCurve:
     def clear_warmup(self):
         self._warmup_profile = None
         self._warmup_methods = None
-        self._warmup_values = None
+        self._warmup_drift_warned = False
 
     def warmup(self, times, params=None, **kwargs):
         """Prepare the selected backend for repeated evaluation.
 
-        Native execution retains a baseline-anchored per-epoch plan and exact
-        result. JAX execution compiles and synchronously executes the actual
+        Native execution retains a baseline-anchored per-epoch plan for reuse
+        across nearby parameter proposals. JAX execution compiles and
+        synchronously executes the actual
         XLA path for this shape, dtype, and static configuration; it deliberately
         does not memoize values because doing so would sever JAX gradients.
         ``grid_timing_repeats`` applies only to native plan calibration.
@@ -330,6 +331,9 @@ class LightCurve:
         merged = self._merge_params(params, **kwargs)
         parameter_fingerprint = _warmup_parameter_fingerprint(merged)
         configuration_fingerprint = self._warmup_configuration_fingerprint()
+        # A failed replacement warmup must not leave an older proposal
+        # neighbourhood active under the caller's feet.
+        self.clear_warmup()
         if self._options.jax:
             from .warmup import build_jax_warmup_report
 
@@ -344,7 +348,7 @@ class LightCurve:
 
             self._warmup_profile = report
             self._warmup_methods = np.zeros(report.times.size, dtype=np.int64)
-            self._warmup_values = None
+            self._warmup_drift_warned = False
             return report
         from .warmup import build_warmup_report
 
@@ -356,25 +360,13 @@ class LightCurve:
             configuration_fingerprint=configuration_fingerprint,
             grid_timing_repeats=grid_timing_repeats,
         )
-        # A retained plan is valid only for the exact time, parameter, and
-        # configuration fingerprints checked by _matching_warmup(). Compute
-        # that deterministic result once now and retain it as immutable data.
-        # This is stronger than retaining image seeds alone: repeated exact
-        # calls need neither trajectory reconstruction, caustic scans, root
-        # solves, support certification, nor another inverse-ray traversal.
-        values = self._native._magnification_preplanned(
-            times,
-            merged,
-            methods.tolist(),
-            report.resolutions.tolist(),
-        )
-        import numpy as np
-
-        values = np.asarray(values, dtype=float).copy()
-        values.setflags(write=False)
+        if not report.all_calibrated:
+            raise RuntimeError(
+                "warmup could not calibrate every epoch; no partial plan was retained"
+            )
         self._warmup_profile = report
         self._warmup_methods = methods
-        self._warmup_values = values
+        self._warmup_drift_warned = False
         return report
 
     def _matching_warmup(self, times, merged):
@@ -389,13 +381,38 @@ class LightCurve:
                 concrete_times = concrete_times.reshape(1)
             return (
                 np.array_equal(concrete_times, profile.times)
-                and _warmup_parameter_fingerprint(merged)
-                == profile.parameter_fingerprint
                 and self._warmup_configuration_fingerprint()
                 == profile.configuration_fingerprint
             )
         except Exception:
             return False
+
+    def warmup_drift(self, times, params=None, **kwargs):
+        """Compare concrete proposal geometry with the retained warmup plan."""
+        from .warmup import compare_warmup_geometry
+
+        merged = self._merge_params(params, **kwargs)
+        profile = self._warmup_profile
+        geometry = None if profile is None else profile.geometry
+        return compare_warmup_geometry(self, times, merged, geometry)
+
+    def _warn_if_warmup_drift(self, times, merged):
+        report = self.warmup_drift(times, merged)
+        if not report.warn:
+            self._warmup_drift_warned = False
+            return report
+        if not self._warmup_drift_warned:
+            import warnings
+
+            warnings.warn(
+                "warmup geometry has moved outside its calibrated neighbourhood: "
+                + "; ".join(report.reasons)
+                + ". The retained epoch methods/resolutions are still being used.",
+                RuntimeWarning,
+                stacklevel=3,
+            )
+            self._warmup_drift_warned = True
+        return report
 
     def __call__(self, times, params=None, **kwargs):
         self._validate_time_limit(times)
@@ -403,23 +420,17 @@ class LightCurve:
         if self._options.jax:
             from .jax_backend import magnification
 
+            if self._matching_warmup(times, merged):
+                self._warn_if_warmup_drift(times, merged)
             return magnification(self._native, self._options, times, merged)
         if self._matching_warmup(times, merged):
-            if self._warmup_values is not None:
-                # Return independent storage so a caller cannot mutate the
-                # retained exact-result cache through the public array.
-                return self._warmup_values.copy()
-            try:
-                return self._native._magnification_preplanned(
-                    times,
-                    merged,
-                    self._warmup_methods.tolist(),
-                    self._warmup_profile.resolutions.tolist(),
-                )
-            except RuntimeError:
-                # A support or numerical failure invalidates the optimization
-                # for this call; normal auto remains the fail-closed authority.
-                pass
+            self._warn_if_warmup_drift(times, merged)
+            return self._native._magnification_preplanned(
+                times,
+                merged,
+                self._warmup_methods.tolist(),
+                self._warmup_profile.resolutions.tolist(),
+            )
         return self._native(times, merged)
 
     def magnification(self, times, params=None, **kwargs):

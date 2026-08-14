@@ -156,8 +156,8 @@ public:
         bool point_source_magnification_is_exact = false,
         const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
     // Execute a route selected and reference-validated by LightCurve.warmup().
-    // The caller must use the plan only with the exact configuration that
-    // produced it; this entry deliberately skips the normal routing cascade.
+    // The caller may reuse the plan across a nearby inference neighbourhood;
+    // this entry deliberately skips the normal routing cascade.
     FiniteSourceResult binary_mag_preplanned(
         double separation,
         double mass_ratio,

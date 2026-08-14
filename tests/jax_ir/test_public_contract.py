@@ -34,7 +34,8 @@ def test_jax_warmup_compiles_public_path_without_memoizing_values():
     assert type(report).__name__ == "JaxWarmupReport"
     assert report.all_calibrated
     assert report.methods == ("jax_compiled",) * times.size
-    assert curve._warmup_values is None
+    assert not hasattr(curve, "_warmup_values")
+    assert report.geometry is not None
     assert isinstance(values, jax.Array)
     np.testing.assert_allclose(values, report.reference, rtol=0.0, atol=0.0)
     derivative = jax.grad(

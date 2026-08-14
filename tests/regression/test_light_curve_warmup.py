@@ -1,4 +1,5 @@
 import importlib
+import warnings
 
 import numpy as np
 
@@ -46,22 +47,49 @@ def test_warmup_retains_and_automatically_uses_execution_plan():
         np.abs(actual - reference),
         report.budget + np.finfo(float).eps,
     )
-    assert curve._warmup_values is not None
-    actual[0] = np.nan
-    assert np.all(np.isfinite(curve(TIMES, PARAMETERS)))
+    assert not hasattr(curve, "_warmup_values")
+    assert report.geometry is not None
 
 
-def test_warmup_is_not_reused_for_different_parameters():
+def test_warmup_plan_is_reused_for_nearby_parameters_without_warning():
     curve = _curve()
-    curve.warmup(TIMES, PARAMETERS)
+    report = curve.warmup(TIMES, PARAMETERS)
 
     changed = dict(PARAMETERS, u0=0.011)
-    expected = _curve()(TIMES, changed)
-    np.testing.assert_allclose(curve(TIMES, changed), expected, rtol=0.0, atol=0.0)
+    expected = curve._native._magnification_preplanned(
+        TIMES,
+        changed,
+        curve._warmup_methods.tolist(),
+        report.resolutions.tolist(),
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        actual = curve(TIMES, changed)
+    assert caught == []
+    np.testing.assert_allclose(actual, expected, rtol=0.0, atol=0.0)
 
     curve.clear_warmup()
     assert curve.warmup_profile is None
-    assert curve._warmup_values is None
+    assert not hasattr(curve, "_warmup_values")
+
+
+def test_large_geometry_drift_warns_but_keeps_the_plan():
+    curve = _curve()
+    report = curve.warmup(TIMES, PARAMETERS)
+    changed = dict(PARAMETERS, s=3.0)
+
+    drift = curve.warmup_drift(TIMES, changed)
+    assert drift.warn
+    assert drift.topology_changed
+    with np.testing.assert_warns(RuntimeWarning):
+        actual = curve(TIMES, changed)
+    expected = curve._native._magnification_preplanned(
+        TIMES,
+        changed,
+        curve._warmup_methods.tolist(),
+        report.resolutions.tolist(),
+    )
+    np.testing.assert_allclose(actual, expected, rtol=0.0, atol=0.0)
 
 
 def test_shared_model_changes_invalidate_warmup_plan():
@@ -87,23 +115,18 @@ def test_shared_model_changes_invalidate_warmup_plan():
     )
 
 
-def test_max_source_bins_limited_epochs_fall_back_to_normal_auto():
+def test_incomplete_warmup_is_rejected_instead_of_retaining_fallback_rows():
     # Four cells are below the minimum useful automatic grid and correctly
     # fail closed in the production API.  Eight cells are still deliberately
     # too small for warm-up's three-pass certification, while normal auto can
     # return its bounded result; this exercises the per-epoch fallback without
     # making the baseline itself an intentional numerical-error case.
     curve = _curve(max_source_bins=8)
-    reference = _baseline_reference(curve)
-
-    report = curve.warmup(TIMES, PARAMETERS)
-
-    assert report.methods == ("auto_fallback",) * TIMES.size
-    assert report.statuses == ("max_source_bins_limited",) * TIMES.size
-    np.testing.assert_array_equal(report.resolutions, -np.ones(TIMES.size, dtype=int))
-    np.testing.assert_allclose(
-        curve(TIMES, PARAMETERS), reference, rtol=0.0, atol=0.0
-    )
+    with np.testing.assert_raises_regex(
+        RuntimeError, "could not calibrate every epoch"
+    ):
+        curve.warmup(TIMES, PARAMETERS)
+    assert curve.warmup_profile is None
 
 
 def test_native_preplanned_route_skips_auto_and_preserves_requested_method():
@@ -134,6 +157,14 @@ def test_grid_choice_uses_measured_time_and_only_qualified_candidates():
     assert choose(None, 64, np.nan, 0.003) == (3, 64)
     assert choose(32, None, 0.003, np.nan) == (2, 32)
     assert choose(None, None, np.nan, np.nan) == (None, None)
+
+
+def test_binary_topology_uses_the_analytic_equal_mass_boundaries():
+    topology = warmup_module._binary_topology(
+        np.asarray([0.7, 1.0, 2.1]),
+        np.ones(3),
+    )
+    assert topology.tolist() == ["close", "resonant", "wide"]
 
 
 def test_grid_search_requires_three_increasing_passes():

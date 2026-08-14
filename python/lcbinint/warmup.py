@@ -29,6 +29,9 @@ GRID_SEARCH_MINIMUM = 4
 GRID_SEARCH_GROWTH = 1.5
 GRID_CONFIRMATION_GROWTH = 1.25
 GRID_SEARCH_MAX_ROUNDS = 6
+WARMUP_SOURCE_DRIFT_LIMIT = 0.5
+WARMUP_LENS_LOG_DRIFT_LIMIT = 0.1
+WARMUP_RADIUS_RATIO_LIMIT = 1.5
 
 
 @dataclass
@@ -46,6 +49,7 @@ class WarmupReport:
     elapsed_seconds: float
     parameter_fingerprint: tuple
     configuration_fingerprint: tuple
+    geometry: object = None
 
     @property
     def calibrated(self):
@@ -67,6 +71,141 @@ class JaxWarmupReport(WarmupReport):
     @property
     def all_calibrated(self):
         return True
+
+
+@dataclass(frozen=True)
+class WarmupGeometry:
+    """Root-free lens/source geometry retained for proposal drift checks."""
+
+    source_x: np.ndarray
+    source_y: np.ndarray
+    separation: np.ndarray
+    mass_ratio: np.ndarray
+    source_radius: np.ndarray
+    caustic_distance: np.ndarray
+    topology: np.ndarray
+
+
+@dataclass(frozen=True)
+class WarmupDriftReport:
+    """Difference between a proposal and the geometry used for warmup."""
+
+    available: bool
+    warn: bool
+    reasons: tuple[str, ...]
+    topology_changed: bool = False
+    maximum_source_drift: float = 0.0
+    maximum_lens_drift: float = 0.0
+    maximum_radius_drift: float = 0.0
+
+
+def _binary_topology(separation, mass_ratio):
+    separation = np.asarray(separation, dtype=float)
+    mass_ratio = np.asarray(mass_ratio, dtype=float)
+    mass_product = mass_ratio / np.square(1.0 + mass_ratio)
+    with np.errstate(divide="ignore", invalid="ignore", over="ignore"):
+        close_rhs = np.power(1.0 - np.power(separation, 4), 3) / (
+            27.0 * np.power(separation, 8)
+        )
+        wide_boundary = np.sqrt(
+            np.power(1.0 + np.cbrt(mass_ratio), 3) / (1.0 + mass_ratio)
+        )
+    topology = np.full(separation.shape, "resonant", dtype="<U8")
+    topology[(separation < 1.0) & (close_rhs > mass_product)] = "close"
+    topology[separation > wide_boundary] = "wide"
+    return topology
+
+
+def _geometry_array(value, *names):
+    for name in names:
+        if hasattr(value, name):
+            return np.asarray(getattr(value, name), dtype=float)
+    raise AttributeError(f"geometry has none of {names!r}")
+
+
+def build_warmup_geometry(curve, times, params, diagnostics):
+    """Capture the geometry that makes an epoch plan locally reusable."""
+
+    geometry = curve.finite_source_geometry(times, params)
+    source_x = _geometry_array(geometry, "source_x")
+    source_y = _geometry_array(geometry, "source_y")
+    separation = _geometry_array(geometry, "separation", "separations")
+    mass_ratio = _geometry_array(geometry, "mass_ratio", "mass_ratios")
+    source_radius = _geometry_array(geometry, "source_radius")
+    caustic_distance = _geometry_array(
+        diagnostics, "caustic_distances", "caustic_distance"
+    )
+    return WarmupGeometry(
+        source_x=source_x.copy(),
+        source_y=source_y.copy(),
+        separation=separation.copy(),
+        mass_ratio=mass_ratio.copy(),
+        source_radius=source_radius.copy(),
+        caustic_distance=caustic_distance.copy(),
+        topology=_binary_topology(separation, mass_ratio),
+    )
+
+
+def compare_warmup_geometry(curve, times, params, warm):
+    """Return a conservative, root-free warning decision for a proposal."""
+
+    if warm is None:
+        return WarmupDriftReport(False, False, ("no geometry snapshot",))
+    try:
+        geometry = curve.finite_source_geometry(times, params)
+        source_x = _geometry_array(geometry, "source_x")
+        source_y = _geometry_array(geometry, "source_y")
+        separation = _geometry_array(geometry, "separation", "separations")
+        mass_ratio = _geometry_array(geometry, "mass_ratio", "mass_ratios")
+        source_radius = _geometry_array(geometry, "source_radius")
+    except Exception:
+        # Traced JAX proposals cannot be converted to host NumPy here.  Their
+        # compiled execution remains valid; concrete callers can explicitly
+        # inspect drift before entering a trace.
+        return WarmupDriftReport(False, False, ("geometry is not concrete",))
+    if source_x.shape != warm.source_x.shape:
+        return WarmupDriftReport(True, True, ("epoch shape changed",))
+
+    topology = _binary_topology(separation, mass_ratio)
+    topology_changed = bool(np.any(topology != warm.topology))
+    clearance_scale = np.maximum.reduce((
+        np.abs(warm.caustic_distance),
+        np.abs(warm.source_radius),
+        np.full(warm.source_radius.shape, 1.0e-12),
+    ))
+    source_drift = np.hypot(
+        source_x - warm.source_x, source_y - warm.source_y
+    ) / clearance_scale
+    with np.errstate(divide="ignore", invalid="ignore"):
+        lens_drift = np.hypot(
+            np.log(separation / warm.separation),
+            0.5 * np.log(mass_ratio / warm.mass_ratio),
+        )
+        radius_drift = np.abs(np.log(
+            np.maximum(source_radius, 1.0e-300)
+            / np.maximum(warm.source_radius, 1.0e-300)
+        ))
+    maximum_source_drift = float(np.max(np.nan_to_num(source_drift, nan=np.inf)))
+    maximum_lens_drift = float(np.max(np.nan_to_num(lens_drift, nan=np.inf)))
+    maximum_radius_drift = float(np.max(np.nan_to_num(radius_drift, nan=np.inf)))
+    reasons = []
+    if topology_changed:
+        reasons.append("binary-caustic topology changed")
+    if maximum_source_drift > WARMUP_SOURCE_DRIFT_LIMIT:
+        reasons.append("source moved by more than half its warm caustic-clearance scale")
+    if maximum_lens_drift > WARMUP_LENS_LOG_DRIFT_LIMIT:
+        reasons.append("lens geometry moved by more than 0.1 in log-(s,q) distance")
+    if maximum_radius_drift > np.log(WARMUP_RADIUS_RATIO_LIMIT):
+        reasons.append("source radius changed by more than a factor of 1.5")
+    return WarmupDriftReport(
+        True,
+        bool(reasons),
+        tuple(reasons),
+        topology_changed,
+        maximum_source_drift,
+        maximum_lens_drift,
+        maximum_radius_drift,
+    )
 
 
 def build_jax_warmup_report(
@@ -95,6 +234,10 @@ def build_jax_warmup_report(
         values.block_until_ready()
     elapsed = time.perf_counter() - start
     reference = np.asarray(values, dtype=float).copy()
+    diagnostics = curve._native.info(concrete_times, params)
+    geometry = build_warmup_geometry(
+        curve, concrete_times, params, diagnostics
+    )
     count = concrete_times.size
     return JaxWarmupReport(
         times=concrete_times.copy(),
@@ -108,6 +251,7 @@ def build_jax_warmup_report(
         elapsed_seconds=elapsed,
         parameter_fingerprint=parameter_fingerprint,
         configuration_fingerprint=configuration_fingerprint,
+        geometry=geometry,
     )
 
 
@@ -541,6 +685,7 @@ def build_warmup_report(
         METHOD_NAMES[method] if resolution >= 0 else "auto_fallback"
         for method, resolution in zip(methods, resolutions)
     )
+    geometry = build_warmup_geometry(curve, times, params, baseline)
     return WarmupReport(
         times=times.copy(),
         methods=method_names,
@@ -553,4 +698,5 @@ def build_warmup_report(
         elapsed_seconds=time.perf_counter() - started,
         parameter_fingerprint=parameter_fingerprint,
         configuration_fingerprint=configuration_fingerprint,
+        geometry=geometry,
     ), methods
