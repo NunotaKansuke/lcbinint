@@ -22,6 +22,27 @@ PARAMETERS = {
 }
 
 
+def test_jax_warmup_compiles_public_path_without_memoizing_values():
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(jax=True, nbin=16)
+    )
+    times = np.linspace(-0.1, 0.1, 3)
+
+    report = curve.warmup(times, PARAMETERS)
+    values = curve(times, PARAMETERS)
+
+    assert type(report).__name__ == "JaxWarmupReport"
+    assert report.all_calibrated
+    assert report.methods == ("jax_compiled",) * times.size
+    assert curve._warmup_values is None
+    assert isinstance(values, jax.Array)
+    np.testing.assert_allclose(values, report.reference, rtol=0.0, atol=0.0)
+    derivative = jax.grad(
+        lambda u0: jnp.sum(curve(times, {**PARAMETERS, "u0": u0}))
+    )(PARAMETERS["u0"])
+    assert jnp.isfinite(derivative)
+
+
 def test_options_keep_positional_api_and_jax_selector_outside_c_options():
     options = lcbinint.Options("center_of_mass")
     assert options.param_type == "center_of_mass"

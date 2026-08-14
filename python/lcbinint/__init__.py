@@ -317,18 +317,35 @@ class LightCurve:
         self._warmup_values = None
 
     def warmup(self, times, params=None, **kwargs):
-        """Build and retain a baseline-anchored per-epoch execution plan.
+        """Prepare the selected backend for repeated evaluation.
 
-        ``grid_timing_repeats`` is an optional diagnostic control;
-        every remaining keyword is merged into the physical parameter mapping.
-        The returned report is informational: subsequent matching calls use
-        the retained plan automatically.
+        Native execution retains a baseline-anchored per-epoch plan and exact
+        result. JAX execution compiles and synchronously executes the actual
+        XLA path for this shape, dtype, and static configuration; it deliberately
+        does not memoize values because doing so would sever JAX gradients.
+        ``grid_timing_repeats`` applies only to native plan calibration.
         """
         grid_timing_repeats = kwargs.pop("grid_timing_repeats", 1)
         self._validate_time_limit(times)
         merged = self._merge_params(params, **kwargs)
         parameter_fingerprint = _warmup_parameter_fingerprint(merged)
         configuration_fingerprint = self._warmup_configuration_fingerprint()
+        if self._options.jax:
+            from .warmup import build_jax_warmup_report
+
+            report = build_jax_warmup_report(
+                self,
+                times,
+                merged,
+                parameter_fingerprint=parameter_fingerprint,
+                configuration_fingerprint=configuration_fingerprint,
+            )
+            import numpy as np
+
+            self._warmup_profile = report
+            self._warmup_methods = np.zeros(report.times.size, dtype=np.int64)
+            self._warmup_values = None
+            return report
         from .warmup import build_warmup_report
 
         report, methods = build_warmup_report(

@@ -16,7 +16,9 @@
 #include <cstdint>
 #include <deque>
 #include <limits>
+#include <mutex>
 #include <set>
+#include <shared_mutex>
 #include <stdexcept>
 #include <string>
 #include <type_traits>
@@ -1190,6 +1192,16 @@ struct BinaryRootResult {
     std::array<double, binary_root_count> residuals{};
 };
 
+struct BinaryRootContinuation {
+    bool valid = false;
+    double source_x = 0.0;
+    double source_y = 0.0;
+    double separation = 0.0;
+    double mass_ratio = 0.0;
+    std::array<lcbinint::Complex, binary_root_count> polynomial_roots{};
+    std::array<bool, binary_root_count> physical{};
+};
+
 struct LensMapAtRoot {
     double mapped_x;
     double mapped_y;
@@ -1241,11 +1253,114 @@ LensMapAtRoot binary_lens_map_at_root(
     };
 }
 
-BinaryRootResult solve_binary_images(
+bool binary_polynomial_roots_are_usable(
+    const std::vector<lcbinint::Complex>& coefficients,
+    const std::vector<lcbinint::Complex>& roots)
+{
+    if (coefficients.size() != roots.size() + 1 || roots.empty()) {
+        return false;
+    }
+    constexpr double residual_tolerance = 1.0e-8;
+    for (const auto& root : roots) {
+        if (!std::isfinite(root.real()) || !std::isfinite(root.imag())) {
+            return false;
+        }
+        lcbinint::Complex value = 0.0;
+        double scale = 0.0;
+        const double radius = std::abs(root);
+        for (auto it = coefficients.rbegin(); it != coefficients.rend(); ++it) {
+            value = value * root + *it;
+            scale = scale * radius + std::abs(*it);
+        }
+        if (std::abs(value) > residual_tolerance * std::max(scale, 1.0)) {
+            return false;
+        }
+    }
+
+    std::vector<lcbinint::Complex> reconstructed(roots.size() + 1, 0.0);
+    reconstructed[0] = 1.0;
+    for (std::size_t index = 0; index < roots.size(); ++index) {
+        for (std::size_t coefficient = index + 1; coefficient > 0; --coefficient) {
+            reconstructed[coefficient] =
+                reconstructed[coefficient - 1]
+                - roots[index] * reconstructed[coefficient];
+        }
+        reconstructed[0] *= -roots[index];
+    }
+    const auto leading = coefficients.back();
+    if (!(std::abs(leading) > 0.0) ||
+        !std::isfinite(leading.real()) || !std::isfinite(leading.imag())) {
+        return false;
+    }
+    constexpr double coefficient_tolerance = 1.0e-7;
+    for (std::size_t index = 0; index < reconstructed.size(); ++index) {
+        const auto expected = coefficients[index] / leading;
+        if (std::abs(reconstructed[index] - expected) >
+            coefficient_tolerance * std::max(std::abs(expected), 1.0)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::vector<lcbinint::Complex> predicted_binary_roots(
+    const BinaryRootContinuation& continuation,
     double source_x,
     double source_y,
     double separation,
     double mass_ratio)
+{
+    std::vector<lcbinint::Complex> roots(
+        continuation.polynomial_roots.begin(),
+        continuation.polynomial_roots.end());
+    if (continuation.separation != separation ||
+        continuation.mass_ratio != mass_ratio) {
+        return roots;
+    }
+    const lcbinint::Complex delta_source {
+        source_x - continuation.source_x,
+        source_y - continuation.source_y,
+    };
+    const double source_step = std::abs(delta_source);
+    if (!(source_step > 0.0) || source_step > 0.25) {
+        return roots;
+    }
+
+    const double total_mass = 1.0 + mass_ratio;
+    const double lens_1_x = -mass_ratio / total_mass * separation;
+    const double lens_2_x = separation / total_mass;
+    const double mass_1 = 1.0 / total_mass;
+    const double mass_2 = mass_ratio / total_mass;
+    constexpr double minimum_abs_jacobian = 1.0e-4;
+    constexpr double maximum_image_step = 0.5;
+    for (std::size_t index = 0; index < roots.size(); ++index) {
+        if (!continuation.physical[index]) continue;
+        const auto zbar = std::conj(roots[index]);
+        const auto offset_1 = zbar - lens_1_x;
+        const auto offset_2 = zbar - lens_2_x;
+        if (std::abs(offset_1) == 0.0 || std::abs(offset_2) == 0.0) continue;
+        const auto kappa =
+            mass_1 / (offset_1 * offset_1)
+            + mass_2 / (offset_2 * offset_2);
+        const double jacobian = 1.0 - std::norm(kappa);
+        if (!std::isfinite(jacobian) ||
+            std::abs(jacobian) < minimum_abs_jacobian) continue;
+        const auto delta_image =
+            (delta_source - kappa * std::conj(delta_source)) / jacobian;
+        if (!std::isfinite(delta_image.real()) ||
+            !std::isfinite(delta_image.imag()) ||
+            std::abs(delta_image) > maximum_image_step) continue;
+        roots[index] += delta_image;
+    }
+    return roots;
+}
+
+BinaryRootResult solve_binary_images(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    BinaryRootContinuation* continuation = nullptr)
 {
     const lcbinint::Complex source{source_x, source_y};
     const auto coefficients = binary_lens_polynomial(
@@ -1263,11 +1378,79 @@ BinaryRootResult solve_binary_images(
         coefficients.begin(),
         coefficients.begin()
             + static_cast<std::ptrdiff_t>(coefficient_count));
-    const auto solved =
-        lcbinint::math::PolynomialRootSolver().solve(active_coefficients);
+    lcbinint::math::PolynomialRootSolver solver;
+    auto solved = continuation != nullptr && continuation->valid && !use_quartic
+        ? solver.solve_from_roots(
+            active_coefficients,
+            predicted_binary_roots(
+                *continuation, source_x, source_y, separation, mass_ratio),
+            {true, true})
+        : solver.solve(active_coefficients);
+    if (solved.status != lcbinint::math::RootSolverStatus::ok ||
+        !binary_polynomial_roots_are_usable(active_coefficients, solved.roots)) {
+        solved = solver.solve(active_coefficients);
+    }
     BinaryRootResult result;
     result.residuals.fill(std::numeric_limits<double>::infinity());
-    if (solved.status != lcbinint::math::RootSolverStatus::ok) return result;
+    if (solved.status != lcbinint::math::RootSolverStatus::ok) {
+        if (continuation != nullptr) continuation->valid = false;
+        return result;
+    }
+    const auto polynomial_roots = solved.roots;
+
+    const auto retain_continuation = [&]() {
+        if (continuation == nullptr || use_quartic ||
+            polynomial_roots.size() != binary_root_count) return;
+        continuation->valid = true;
+        continuation->source_x = source_x;
+        continuation->source_y = source_y;
+        continuation->separation = separation;
+        continuation->mass_ratio = mass_ratio;
+        std::copy(
+            polynomial_roots.begin(), polynomial_roots.end(),
+            continuation->polynomial_roots.begin());
+        continuation->physical = result.physical;
+    };
+
+    const auto canonicalise_result_order = [&]() {
+        // SG does not promise a root ordering, and warm continuation can
+        // therefore return the same physical image set in a different order
+        // from a cold solve.  Discovery is a breadth-first traversal seeded
+        // in this order, so an arbitrary root permutation changes the tile
+        // summation order and can leak out as a one-ulp moment difference.
+        // Put physical images first in coordinate order; this keeps the FFI
+        // result and every discovery consumer independent of the SG start.
+        std::array<std::size_t, binary_root_count> order{};
+        std::iota(order.begin(), order.end(), 0);
+        std::stable_sort(
+            order.begin(), order.end(), [&](std::size_t left, std::size_t right) {
+                if (result.physical[left] != result.physical[right]) {
+                    return result.physical[left] > result.physical[right];
+                }
+                const auto left_root = result.roots[left];
+                const auto right_root = result.roots[right];
+                const bool left_finite =
+                    std::isfinite(left_root.real())
+                    && std::isfinite(left_root.imag());
+                const bool right_finite =
+                    std::isfinite(right_root.real())
+                    && std::isfinite(right_root.imag());
+                if (left_finite != right_finite) return left_finite;
+                if (!left_finite) return false;
+                if (left_root.real() != right_root.real()) {
+                    return left_root.real() < right_root.real();
+                }
+                return left_root.imag() < right_root.imag();
+            });
+        const auto unordered = result;
+        for (std::size_t index = 0; index < binary_root_count; ++index) {
+            const auto source_index = order[index];
+            result.roots[index] = unordered.roots[source_index];
+            result.converged[index] = unordered.converged[source_index];
+            result.physical[index] = unordered.physical[source_index];
+            result.residuals[index] = unordered.residuals[source_index];
+        }
+    };
 
     for (
         std::size_t index = 0;
@@ -1297,7 +1480,10 @@ BinaryRootResult solve_binary_images(
                 / determinant;
             const double step_scale =
                 std::max(1.0, std::hypot(delta_x, delta_y) / 0.5);
-            root -= lcbinint::Complex(delta_x, delta_y) / step_scale;
+            const auto next =
+                root - lcbinint::Complex(delta_x, delta_y) / step_scale;
+            if (next == root) break;
+            root = next;
             converged =
                 std::isfinite(root.real()) && std::isfinite(root.imag());
         }
@@ -1381,6 +1567,8 @@ BinaryRootResult solve_binary_images(
         && negative_count == 3
         && !forged_five) {
         result.physical = candidate;
+        retain_continuation();
+        canonicalise_result_order();
         return result;
     }
 
@@ -1432,6 +1620,8 @@ BinaryRootResult solve_binary_images(
         result.physical[negative_1] = true;
         result.physical[negative_2] = true;
     }
+    retain_continuation();
+    canonicalise_result_order();
     return result;
 }
 
@@ -1738,13 +1928,14 @@ Jet binary_point_magnification_jet(
     const Jet& separation,
     const Jet& mass_ratio,
     std::int32_t& image_count,
-    bool& root_failure)
+    bool& root_failure,
+    BinaryRootContinuation* continuation = nullptr)
 {
     const double x = source_x.value;
     const double y = source_y.value;
     const double s = separation.value;
     const double q = mass_ratio.value;
-    const auto images = solve_binary_images(x, y, s, q);
+    const auto images = solve_binary_images(x, y, s, q, continuation);
     std::int32_t physical_count = 0;
     bool all_converged = true;
     Jet magnification(0.0);
@@ -1837,12 +2028,13 @@ HexadecapoleKernelResult hexadecapole_kernel(
     std::array<Jet, 13> samples;
     std::array<std::int32_t, 13> image_counts{};
     HexadecapoleKernelResult result;
+    BinaryRootContinuation continuation;
     for (std::size_t sample = 0; sample < samples.size(); ++sample) {
         samples[sample] = binary_point_magnification_jet(
             centre_x + unit_x[sample] * active_radius,
             centre_y + unit_y[sample] * active_radius,
             active_separation, active_mass_ratio, image_counts[sample],
-            result.root_failure);
+            result.root_failure, &continuation);
     }
     const Jet a0 = samples[0];
     const Jet a1_plus =
@@ -2431,6 +2623,7 @@ CartesianSeedSupport prepare_cartesian_seed_support(
     std::int64_t limb_samples)
 {
     CartesianSeedSupport prepared;
+    BinaryRootContinuation continuation;
     prepared.image_coordinates.reserve(
         static_cast<std::size_t>((limb_samples + 1) * binary_root_count));
     const double two_pi = 2.0 * std::acos(-1.0);
@@ -2445,7 +2638,7 @@ CartesianSeedSupport prepare_cartesian_seed_support(
             sample_y += source_radius * std::sin(angle);
         }
         const auto images = solve_binary_images(
-            sample_x, sample_y, separation, mass_ratio);
+            sample_x, sample_y, separation, mass_ratio, &continuation);
         std::int32_t physical_count = 0;
         for (std::size_t root = 0; root < binary_root_count; ++root) {
             physical_count += static_cast<std::int32_t>(images.physical[root]);
@@ -2470,7 +2663,7 @@ CartesianSeedSupport prepare_cartesian_seed_support(
     prepared.support_proven = lcbinint::magnification::resolve_certified_probes(
         support, [&](lcbinint::SourcePosition probe) {
             const auto images = solve_binary_images(
-                probe.x, probe.y, separation, mass_ratio);
+                probe.x, probe.y, separation, mass_ratio, &continuation);
             std::int32_t physical_count = 0;
             for (std::size_t root = 0; root < binary_root_count; ++root) {
                 physical_count += static_cast<std::int32_t>(images.physical[root]);
@@ -2493,6 +2686,63 @@ CartesianSeedSupport prepare_cartesian_seed_support(
     prepared.root_failure =
         prepared.root_failure || !prepared.support_proven;
     return prepared;
+}
+
+CartesianSeedSupport cached_cartesian_seed_support(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double source_radius,
+    std::int64_t limb_samples)
+{
+    struct Entry {
+        double source_x;
+        double source_y;
+        double separation;
+        double mass_ratio;
+        double source_radius;
+        std::int64_t limb_samples;
+        CartesianSeedSupport support;
+    };
+    constexpr std::size_t maximum_entries = 2048;
+    static std::deque<Entry> entries;
+    static std::shared_mutex mutex;
+    {
+        std::shared_lock lock(mutex);
+        for (const auto& entry : entries) {
+            if (entry.source_x == source_x && entry.source_y == source_y &&
+                entry.separation == separation &&
+                entry.mass_ratio == mass_ratio &&
+                entry.source_radius == source_radius &&
+                entry.limb_samples == limb_samples) {
+                return entry.support;
+            }
+        }
+    }
+
+    auto support = prepare_cartesian_seed_support(
+        source_x, source_y, separation, mass_ratio, source_radius,
+        limb_samples);
+    {
+        std::unique_lock lock(mutex);
+        // Another FFI worker may have populated the same exact epoch while
+        // this thread was solving probes. Reuse that canonical ordering.
+        for (const auto& entry : entries) {
+            if (entry.source_x == source_x && entry.source_y == source_y &&
+                entry.separation == separation &&
+                entry.mass_ratio == mass_ratio &&
+                entry.source_radius == source_radius &&
+                entry.limb_samples == limb_samples) {
+                return entry.support;
+            }
+        }
+        if (entries.size() >= maximum_entries) entries.pop_front();
+        entries.push_back({
+            source_x, source_y, separation, mass_ratio, source_radius,
+            limb_samples, support});
+    }
+    return support;
 }
 
 CartesianDiscovery discover_cartesian_support_from_prepared(
@@ -2575,7 +2825,7 @@ CartesianDiscovery discover_cartesian_support(
     std::int64_t tile_capacity,
     std::int64_t limb_samples)
 {
-    const auto prepared = prepare_cartesian_seed_support(
+    const auto prepared = cached_cartesian_seed_support(
         source_x, source_y, separation, mass_ratio, source_radius,
         limb_samples);
     return discover_cartesian_support_from_prepared(
@@ -2796,7 +3046,7 @@ CartesianEpochResult<Scalar> cartesian_epoch_kernel(
     MomentMode mode,
     std::int64_t boundary_subdivision)
 {
-    const auto prepared = prepare_cartesian_seed_support(
+    const auto prepared = cached_cartesian_seed_support(
         scalar_value(source_x), scalar_value(source_y),
         scalar_value(separation), scalar_value(mass_ratio),
         scalar_value(source_radius), limb_samples);
@@ -2876,6 +3126,7 @@ PolarDiscovery discover_polar_support(
     double padding_factor)
 {
     PolarDiscovery result;
+    BinaryRootContinuation continuation;
     result.seeds.reserve(
         static_cast<std::size_t>((limb_samples + 1) * binary_root_count));
     std::vector<std::array<double, 2>> intervals;
@@ -2893,7 +3144,7 @@ PolarDiscovery discover_polar_support(
             sample_y += source_radius * std::sin(angle);
         }
         const auto images = solve_binary_images(
-            sample_x, sample_y, separation, mass_ratio);
+            sample_x, sample_y, separation, mass_ratio, &continuation);
         std::int32_t physical_count = 0;
         for (std::size_t root = 0; root < binary_root_count; ++root) {
             physical_count += static_cast<std::int32_t>(images.physical[root]);
@@ -2931,6 +3182,68 @@ PolarDiscovery discover_polar_support(
         }
     }
     return result;
+}
+
+PolarDiscovery cached_polar_support(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double source_radius,
+    std::int64_t limb_samples,
+    std::int64_t band_capacity,
+    double padding_factor)
+{
+    struct Entry {
+        double source_x;
+        double source_y;
+        double separation;
+        double mass_ratio;
+        double source_radius;
+        std::int64_t limb_samples;
+        std::int64_t band_capacity;
+        double padding_factor;
+        PolarDiscovery support;
+    };
+    constexpr std::size_t maximum_entries = 2048;
+    static std::deque<Entry> entries;
+    static std::shared_mutex mutex;
+    {
+        std::shared_lock lock(mutex);
+        for (const auto& entry : entries) {
+            if (entry.source_x == source_x && entry.source_y == source_y &&
+                entry.separation == separation &&
+                entry.mass_ratio == mass_ratio &&
+                entry.source_radius == source_radius &&
+                entry.limb_samples == limb_samples &&
+                entry.band_capacity == band_capacity &&
+                entry.padding_factor == padding_factor) {
+                return entry.support;
+            }
+        }
+    }
+    auto support = discover_polar_support(
+        source_x, source_y, separation, mass_ratio, source_radius,
+        limb_samples, band_capacity, padding_factor);
+    {
+        std::unique_lock lock(mutex);
+        for (const auto& entry : entries) {
+            if (entry.source_x == source_x && entry.source_y == source_y &&
+                entry.separation == separation &&
+                entry.mass_ratio == mass_ratio &&
+                entry.source_radius == source_radius &&
+                entry.limb_samples == limb_samples &&
+                entry.band_capacity == band_capacity &&
+                entry.padding_factor == padding_factor) {
+                return entry.support;
+            }
+        }
+        if (entries.size() >= maximum_entries) entries.pop_front();
+        entries.push_back({
+            source_x, source_y, separation, mass_ratio, source_radius,
+            limb_samples, band_capacity, padding_factor, support});
+    }
+    return support;
 }
 
 PolarDiscovery discover_triple_polar_support(
@@ -3693,7 +4006,7 @@ CartesianEpochResult<Scalar> polar_epoch_kernel_for_mode(
     std::int64_t angular_chunk_size,
     std::int64_t boundary_capacity)
 {
-    const auto support = discover_polar_support(
+    const auto support = cached_polar_support(
         scalar_value(source_x), scalar_value(source_y),
         scalar_value(separation), scalar_value(mass_ratio),
         scalar_value(source_radius), limb_samples, band_capacity,
@@ -7065,7 +7378,7 @@ CartesianLadderDecision cartesian_ladder_epoch_kernel(
     MomentMode mode,
     std::int64_t boundary_subdivision)
 {
-    const auto prepared = prepare_cartesian_seed_support(
+    const auto prepared = cached_cartesian_seed_support(
         source_x, source_y, separation, mass_ratio, source_radius,
         limb_samples);
     const auto evaluate = [&](std::int32_t index) {

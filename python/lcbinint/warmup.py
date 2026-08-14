@@ -56,6 +56,61 @@ class WarmupReport:
         return bool(np.all(self.calibrated))
 
 
+@dataclass
+class JaxWarmupReport(WarmupReport):
+    """Concrete XLA compilation/execution completed by ``LightCurve.warmup``."""
+
+    @property
+    def calibrated(self):
+        return np.ones(self.times.shape, dtype=bool)
+
+    @property
+    def all_calibrated(self):
+        return True
+
+
+def build_jax_warmup_report(
+    curve,
+    times,
+    params,
+    *,
+    parameter_fingerprint,
+    configuration_fingerprint,
+):
+    """Compile and synchronously execute the actual public JAX path once."""
+
+    from .jax_backend import magnification
+
+    concrete_times = np.asarray(times, dtype=float)
+    if concrete_times.ndim == 0:
+        concrete_times = concrete_times.reshape(1)
+    start = time.perf_counter()
+    values = magnification(
+        curve._native,
+        curve._options,
+        concrete_times,
+        params,
+    )
+    if hasattr(values, "block_until_ready"):
+        values.block_until_ready()
+    elapsed = time.perf_counter() - start
+    reference = np.asarray(values, dtype=float).copy()
+    count = concrete_times.size
+    return JaxWarmupReport(
+        times=concrete_times.copy(),
+        methods=("jax_compiled",) * count,
+        resolutions=np.zeros(count, dtype=np.int64),
+        statuses=("compiled",) * count,
+        reference=reference,
+        budget=np.zeros(count, dtype=float),
+        cartesian_seconds=np.zeros(count, dtype=float),
+        polar_seconds=np.zeros(count, dtype=float),
+        elapsed_seconds=elapsed,
+        parameter_fingerprint=parameter_fingerprint,
+        configuration_fingerprint=configuration_fingerprint,
+    )
+
+
 def _native_evaluate(curve, times, params, method, resolution):
     count = int(np.asarray(times).size)
     return curve._native._evaluate_preplanned(
