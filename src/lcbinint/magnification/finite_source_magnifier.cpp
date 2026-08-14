@@ -5260,21 +5260,28 @@ FiniteSourceResult fixed_inverse_ray_binary(
     double point_source_magnification_hint =
         std::numeric_limits<double>::quiet_NaN())
 {
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     bool support_proven = true;
-    auto seeds = augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-        caustic_distance, seed_hints,
-        finite_magnifier != nullptr
-            ? &finite_magnifier->binary_caustic_branches(separation, mass_ratio)
-            : nullptr,
-        &support_proven);
-    // Phase 3: find caustic crossings that fall in the gap between the last
-    // phase sample and phi=2*pi (missed by uniform 1400-point sampling).
-    if (finite_magnifier != nullptr) {
-        finite_magnifier->augment_seeds_from_caustic_branches(
-            separation, mass_ratio, source, source_radius, seeds);
-    }
+    auto seeds = finite_magnifier != nullptr
+        ? finite_magnifier->cached_binary_image_seeds(
+            point_magnifier,
+            separation,
+            mass_ratio,
+            source,
+            source_radius,
+            caustic_distance,
+            seed_hints,
+            &support_proven)
+        : augmented_image_seeds(
+            point_magnifier,
+            make_binary_lens_mapper(separation, mass_ratio),
+            separation,
+            mass_ratio,
+            source,
+            source_radius,
+            caustic_distance,
+            seed_hints,
+            nullptr,
+            &support_proven);
     if (decision.method == FiniteSourceMethod::inverse_ray_polar) {
         const auto evaluation = evaluate_polar_to_tolerance(
             settings,
@@ -6201,6 +6208,68 @@ BinaryResolutionSelection calibrated_triple_resolution(
 FiniteSourceMagnifier::FiniteSourceMagnifier(FiniteSourceSettings settings)
     : settings_(settings)
 {
+}
+
+std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double caustic_distance,
+    const std::vector<SourcePosition>* center_image_seeds,
+    bool* support_proven) const
+{
+    for (const auto& entry : binary_seed_cache_) {
+        const bool center_seeds_match =
+            entry.has_center_image_seeds == (center_image_seeds != nullptr);
+        if (entry.separation == separation &&
+            entry.mass_ratio == mass_ratio &&
+            entry.source.x == source.x && entry.source.y == source.y &&
+            entry.source_radius == source_radius &&
+            entry.caustic_distance == caustic_distance &&
+            center_seeds_match) {
+            if (support_proven != nullptr) {
+                *support_proven = entry.support_proven;
+            }
+            return entry.seeds;
+        }
+    }
+
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    bool proven = true;
+    auto seeds = augmented_image_seeds(
+        point_magnifier,
+        mapper,
+        separation,
+        mass_ratio,
+        source,
+        source_radius,
+        caustic_distance,
+        center_image_seeds,
+        &binary_caustic_branches(separation, mass_ratio),
+        &proven);
+    augment_seeds_from_caustic_branches(
+        separation, mass_ratio, source, source_radius, seeds);
+
+    constexpr std::size_t maximum_entries = 1024;
+    if (binary_seed_cache_.size() >= maximum_entries) {
+        binary_seed_cache_.erase(binary_seed_cache_.begin());
+    }
+    binary_seed_cache_.push_back({
+        separation,
+        mass_ratio,
+        source,
+        source_radius,
+        caustic_distance,
+        center_image_seeds != nullptr,
+        seeds,
+        proven,
+    });
+    if (support_proven != nullptr) {
+        *support_proven = proven;
+    }
+    return seeds;
 }
 
 void FiniteSourceMagnifier::ensure_limb_darkening_table() const

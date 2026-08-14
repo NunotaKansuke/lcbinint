@@ -181,6 +181,19 @@ public:
         SourcePosition source,
         double source_radius,
         std::vector<SourcePosition>& seeds) const;
+    // Retain the complete, phase-ordered image seed set for an exact binary
+    // epoch. Repeated LightCurve calls commonly revisit the same trajectory;
+    // those calls can skip all centre, caustic, boundary, and certificate
+    // probes while preserving the original seed order.
+    std::vector<SourcePosition> cached_binary_image_seeds(
+        const PointSourceMagnifier& point_magnifier,
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        double caustic_distance,
+        const std::vector<SourcePosition>* center_image_seeds,
+        bool* support_proven) const;
     double limb_darkening_table_brightness(double normalized_radius2) const;
     const double* limb_darkening_table_data() const
     {
@@ -255,6 +268,17 @@ private:
     struct CausticSegRef { int branch; int pos; };
     mutable std::vector<std::vector<CausticSegRef>> caustic_cache_branch_grid_;
     mutable double caustic_cache_max_seg_len_ = 0.0;
+    struct BinarySeedCacheEntry {
+        double separation;
+        double mass_ratio;
+        SourcePosition source;
+        double source_radius;
+        double caustic_distance;
+        bool has_center_image_seeds;
+        std::vector<SourcePosition> seeds;
+        bool support_proven;
+    };
+    mutable std::vector<BinarySeedCacheEntry> binary_seed_cache_;
     mutable bool result_cache_valid_ = false;
     mutable double result_cache_separation_ = 0.0;
     mutable double result_cache_mass_ratio_ = 0.0;

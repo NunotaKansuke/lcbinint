@@ -1,5 +1,7 @@
 import math
 from dataclasses import dataclass
+import importlib
+import importlib.util
 from pathlib import Path
 import statistics
 import sys
@@ -10,18 +12,47 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 
-for build_dir in ("build",):
+
+def load_lcbinint():
+    """Load the in-tree build even when an editable install is active."""
+
     build_path = next(
-        (root / build_dir
+        (root / "build"
          for root in (Path.cwd(), *Path.cwd().parents)
-         if (root / build_dir).is_dir()),
+         if (root / "build").is_dir()),
         None,
     )
-    if build_path is not None:
-        sys.path.insert(0, str(build_path))
-        break
+    if build_path is None:
+        return importlib.import_module("lcbinint")
 
-import lcbinint
+    package = build_path / "lcbinint"
+    root = package / "__init__.py"
+    extensions = sorted(package.glob("_lcbinint*.so"))
+    if not root.is_file() or not extensions:
+        raise FileNotFoundError(
+            f"in-tree build is incomplete: expected {root} and _lcbinint*.so"
+        )
+
+    sys.modules.pop("lcbinint._lcbinint", None)
+    sys.modules.pop("lcbinint", None)
+    root_spec = importlib.util.spec_from_file_location(
+        "lcbinint",
+        root,
+        submodule_search_locations=[str(package)],
+    )
+    module = importlib.util.module_from_spec(root_spec)
+    sys.modules["lcbinint"] = module
+    extension_spec = importlib.util.spec_from_file_location(
+        "lcbinint._lcbinint", extensions[0]
+    )
+    extension = importlib.util.module_from_spec(extension_spec)
+    sys.modules["lcbinint._lcbinint"] = extension
+    extension_spec.loader.exec_module(extension)
+    root_spec.loader.exec_module(module)
+    return module
+
+
+lcbinint = load_lcbinint()
 
 
 @dataclass(frozen=True)

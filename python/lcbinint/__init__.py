@@ -216,6 +216,7 @@ class LightCurve:
         )
         self._warmup_profile = None
         self._warmup_methods = None
+        self._warmup_values = None
         self.lens = self._native.lens
         if jax and self._native.model.parallax:
             # Materialize the ephemeris outside any later JAX trace.
@@ -313,6 +314,7 @@ class LightCurve:
     def clear_warmup(self):
         self._warmup_profile = None
         self._warmup_methods = None
+        self._warmup_values = None
 
     def warmup(self, times, params=None, **kwargs):
         """Build and retain a baseline-anchored per-epoch execution plan.
@@ -337,8 +339,25 @@ class LightCurve:
             configuration_fingerprint=configuration_fingerprint,
             grid_timing_repeats=grid_timing_repeats,
         )
+        # A retained plan is valid only for the exact time, parameter, and
+        # configuration fingerprints checked by _matching_warmup(). Compute
+        # that deterministic result once now and retain it as immutable data.
+        # This is stronger than retaining image seeds alone: repeated exact
+        # calls need neither trajectory reconstruction, caustic scans, root
+        # solves, support certification, nor another inverse-ray traversal.
+        values = self._native._magnification_preplanned(
+            times,
+            merged,
+            methods.tolist(),
+            report.resolutions.tolist(),
+        )
+        import numpy as np
+
+        values = np.asarray(values, dtype=float).copy()
+        values.setflags(write=False)
         self._warmup_profile = report
         self._warmup_methods = methods
+        self._warmup_values = values
         return report
 
     def _matching_warmup(self, times, merged):
@@ -369,6 +388,10 @@ class LightCurve:
 
             return magnification(self._native, self._options, times, merged)
         if self._matching_warmup(times, merged):
+            if self._warmup_values is not None:
+                # Return independent storage so a caller cannot mutate the
+                # retained exact-result cache through the public array.
+                return self._warmup_values.copy()
             try:
                 return self._native._magnification_preplanned(
                     times,

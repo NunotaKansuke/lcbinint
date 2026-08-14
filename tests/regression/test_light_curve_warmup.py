@@ -46,6 +46,9 @@ def test_warmup_retains_and_automatically_uses_execution_plan():
         np.abs(actual - reference),
         report.budget + np.finfo(float).eps,
     )
+    assert curve._warmup_values is not None
+    actual[0] = np.nan
+    assert np.all(np.isfinite(curve(TIMES, PARAMETERS)))
 
 
 def test_warmup_is_not_reused_for_different_parameters():
@@ -58,6 +61,7 @@ def test_warmup_is_not_reused_for_different_parameters():
 
     curve.clear_warmup()
     assert curve.warmup_profile is None
+    assert curve._warmup_values is None
 
 
 def test_shared_model_changes_invalidate_warmup_plan():

@@ -139,6 +139,29 @@ def test_triple_lens_light_curve_smoke():
     assert not any(info.root_used_high_precision)
 
 
+def test_triple_lens_warm_roots_do_not_retry_only_because_images_are_deduplicated():
+    light_curve = lcbinint.LightCurve(lens="triple")
+    times = np.linspace(-0.8, 0.8, 64)
+    params = {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.05,
+        "alpha": 0.0,
+        "s": 1.2,
+        "q": 1.0e-2,
+        "q2": 1.0e-3,
+        "sep2": 1.0,
+        "ang": 0.5,
+        "rho": 0.0,
+    }
+
+    info = light_curve.info(times, params)
+
+    assert sum(info.root_used_warm_start) >= len(times) - 1
+    assert sum(info.root_used_cold_retry) < len(times) // 4
+    assert set(info.image_counts) <= {4, 6, 8, 10}
+
+
 def test_triple_lens_finite_source_cartesian_inverse_ray():
     light_curve = lcbinint.LightCurve(
         lens="triple",

@@ -10,6 +10,7 @@ enters.
 
 import math
 
+import numpy as np
 import pytest
 
 
@@ -17,6 +18,30 @@ def _point_magnification(lcbinint, s, q, x, y):
     curve = lcbinint.LightCurve(options=lcbinint.Options(coordinates="center_of_mass"))
     return curve([0.0], t0=-x, tE=1.0, u0=y, alpha=0.0,
                  s=s, q=q, rho=0.0)[0]
+
+
+def test_binary_trajectory_uses_validated_root_continuation():
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(coordinates="center_of_mass")
+    )
+    times = np.linspace(-0.8, 0.8, 64)
+    params = {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.05,
+        "alpha": 0.2,
+        "s": 1.2,
+        "q": 1.0e-2,
+        "rho": 0.0,
+    }
+
+    info = curve.info(times, params)
+
+    assert sum(info.root_used_warm_start) >= len(times) - 1
+    assert sum(info.root_used_cold_retry) < len(times) // 4
+    assert max(info.root_max_residuals) < 1.0e-8
+    assert set(info.image_counts) <= {3, 5}
 
 
 def test_binary_safety_diagnostic_reuses_point_source_solution():

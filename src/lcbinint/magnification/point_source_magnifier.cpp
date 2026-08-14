@@ -765,6 +765,143 @@ double triple_jacobian_determinant(
     return 1.0 - std::norm(derivative);
 }
 
+template <std::size_t Degree, typename Coefficients>
+bool polynomial_roots_are_usable(
+    const Coefficients& coefficients,
+    const std::array<Complex, Degree>& roots)
+{
+    if (coefficients.size() != Degree + 1) {
+        return false;
+    }
+    constexpr double residual_tolerance = 1.0e-8;
+    for (std::size_t i = 0; i < Degree; ++i) {
+        const Complex z = roots[i];
+        if (!std::isfinite(z.real()) || !std::isfinite(z.imag())) {
+            return false;
+        }
+        Complex value = 0.0;
+        double scale = 0.0;
+        const double radius = std::abs(z);
+        for (auto it = coefficients.rbegin(); it != coefficients.rend(); ++it) {
+            value = value * z + *it;
+            scale = scale * radius + std::abs(*it);
+        }
+        if (std::abs(value) > residual_tolerance * std::max(scale, 1.0)) {
+            return false;
+        }
+    }
+
+    // Individual residuals do not prove completeness: the solver could
+    // return one valid root twice and omit another. Reconstruct the monic
+    // polynomial from the complete root set and compare every coefficient.
+    // Unlike a pair-distance test this permits genuinely close or repeated
+    // roots near a caustic while still detecting a missing-root warm start.
+    std::array<Complex, Degree + 1> reconstructed {};
+    reconstructed[0] = 1.0;
+    for (std::size_t i = 0; i < Degree; ++i) {
+        const Complex root = roots[i];
+        for (std::size_t k = i + 1; k > 0; --k) {
+            reconstructed[k] = reconstructed[k - 1] - root * reconstructed[k];
+        }
+        reconstructed[0] *= -root;
+    }
+    const Complex leading = coefficients[Degree];
+    if (!(std::isfinite(leading.real()) && std::isfinite(leading.imag())) ||
+        std::abs(leading) == 0.0) {
+        return false;
+    }
+    constexpr double coefficient_tolerance = 1.0e-7;
+    for (std::size_t k = 0; k <= Degree; ++k) {
+        const Complex expected = coefficients[k] / leading;
+        if (std::abs(reconstructed[k] - expected) >
+            coefficient_tolerance * std::max(std::abs(expected), 1.0)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+template <std::size_t CoefficientCount, std::size_t Degree>
+bool polynomial_roots_are_usable(
+    const std::array<::complex, CoefficientCount>& coefficients,
+    const std::array<::complex, Degree>& roots)
+{
+    std::array<Complex, CoefficientCount> converted_coefficients;
+    std::array<Complex, Degree> converted_roots;
+    for (std::size_t i = 0; i < CoefficientCount; ++i) {
+        converted_coefficients[i] = {coefficients[i].re, coefficients[i].im};
+    }
+    for (std::size_t i = 0; i < Degree; ++i) {
+        converted_roots[i] = {roots[i].re, roots[i].im};
+    }
+    return polynomial_roots_are_usable(
+        converted_coefficients, converted_roots);
+}
+
+void apply_binary_image_predictor(
+    const FastBinaryGeometry& previous_geometry,
+    const FastBinaryGeometry& next_geometry,
+    std::array<::complex, 5>& roots)
+{
+    // The analytic predictor assumes fixed lens positions and masses. Dynamic
+    // geometries still use the retained roots as zero-order continuation
+    // seeds and are protected by the ordinary validation/cold fallback.
+    if (previous_geometry.a != next_geometry.a ||
+        previous_geometry.m1 != next_geometry.m1 ||
+        previous_geometry.m2 != next_geometry.m2) {
+        return;
+    }
+    const Complex delta_source {
+        next_geometry.y.re - previous_geometry.y.re,
+        next_geometry.y.im - previous_geometry.y.im,
+    };
+    const double source_step = std::abs(delta_source);
+    // Do not extrapolate across the end-to-start jump of a repeated light
+    // curve. The predictor is intended for locally contiguous trajectory and
+    // probe samples; zero-order continuation remains the safer large-step
+    // seed.
+    if (!(source_step > 0.0) || source_step > 0.25) {
+        return;
+    }
+
+    const auto physical = select_physical_roots(previous_geometry, roots);
+    constexpr double minimum_abs_jacobian = 1.0e-4;
+    constexpr double maximum_image_step = 0.5;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        // The two rejected roots of a three-image binary solution are roots of
+        // the eliminated polynomial, not physical lens-equation images. The
+        // local inverse lens Jacobian therefore applies only to physical roots.
+        if (!physical.physical[i]) {
+            continue;
+        }
+        const Complex z {roots[i].re, roots[i].im};
+        const Complex zbar = std::conj(z);
+        const Complex primary = zbar - previous_geometry.a;
+        if (std::abs(primary) == 0.0 || std::abs(zbar) == 0.0) {
+            continue;
+        }
+        const Complex kappa =
+            previous_geometry.m1 / (primary * primary) +
+            previous_geometry.m2 / (zbar * zbar);
+        const double jacobian = 1.0 - std::norm(kappa);
+        if (!std::isfinite(jacobian) ||
+            std::abs(jacobian) < minimum_abs_jacobian) {
+            continue;
+        }
+        const Complex delta_image =
+            (delta_source - kappa * std::conj(delta_source)) / jacobian;
+        if (!std::isfinite(delta_image.real()) ||
+            !std::isfinite(delta_image.imag()) ||
+            std::abs(delta_image) > maximum_image_step) {
+            continue;
+        }
+        roots[i] = {
+            roots[i].re + delta_image.real(),
+            roots[i].im + delta_image.imag(),
+        };
+    }
+}
+
 } // namespace
 
 PointSourceResult PointSourceMagnifier::binary_mag0(
@@ -893,18 +1030,29 @@ PointSourceResult PointSourceMagnifier::binary_mag0_impl(
     std::array<::complex, 6> coefficients;
     std::array<::complex, 5> roots;
     binary_polynomial_coefficients(geometry, coefficients);
+    // Continuation remains useful for slowly changing orbital separation as
+    // well as a static trajectory. The polynomial/Vieta and lens-residual
+    // checks below make a geometry jump fail closed to the cold solver.
     const bool can_polish_from_cache =
         use_root_cache &&
-        root_cache_valid_ &&
-        root_cache_separation_ == separation &&
-        root_cache_mass_ratio_ == mass_ratio;
+        root_cache_valid_;
+    bool used_cold_retry = false;
     if (can_polish_from_cache) {
         for (std::size_t i = 0; i < roots.size(); ++i) {
             roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
         }
+        apply_binary_image_predictor(
+            make_fast_vbm_geometry(
+                root_cache_separation_,
+                root_cache_mass_ratio_,
+                root_cache_source_),
+            geometry,
+            roots);
         cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, true);
-        if (max_physical_residual_squared(geometry, roots) > 1.0e-18) {
+        if (!polynomial_roots_are_usable(coefficients, roots) ||
+            max_physical_residual_squared(geometry, roots) > 1.0e-18) {
             cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+            used_cold_retry = true;
         }
     } else {
         cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
@@ -919,7 +1067,13 @@ PointSourceResult PointSourceMagnifier::binary_mag0_impl(
         }
     }
 
-    return point_source_result_from_roots(geometry, roots);
+    auto result = point_source_result_from_roots(geometry, roots);
+    result.root_candidate_count = static_cast<int>(roots.size());
+    result.root_used_warm_start = can_polish_from_cache ? 1 : 0;
+    result.root_used_cold_retry = used_cold_retry ? 1 : 0;
+    result.root_max_residual = std::sqrt(
+        max_physical_residual_squared(geometry, roots));
+    return result;
 }
 
 void PointSourceMagnifier::binary_mag0_batch(
@@ -943,6 +1097,7 @@ void PointSourceMagnifier::binary_mag0_batch(
     std::array<::complex, 6> coefficients;
     std::array<::complex, 5> roots;
     bool warm = false;
+    FastBinaryGeometry previous_geometry;
     for (std::size_t i = 0; i < count; ++i) {
         const FastBinaryGeometry geometry = make_fast_vbm_geometry(constants, sources[i]);
         binary_polynomial_coefficients(geometry, coefficients);
@@ -950,8 +1105,10 @@ void PointSourceMagnifier::binary_mag0_batch(
         // quadrature), so the previous sample's roots are excellent starting
         // points; fall back to a cold solve when polishing drifts.
         if (warm) {
+            apply_binary_image_predictor(previous_geometry, geometry, roots);
             cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, true);
-            if (max_physical_residual_squared(geometry, roots) > 1.0e-18) {
+            if (!polynomial_roots_are_usable(coefficients, roots) ||
+                max_physical_residual_squared(geometry, roots) > 1.0e-18) {
                 cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
             }
         } else {
@@ -959,6 +1116,7 @@ void PointSourceMagnifier::binary_mag0_batch(
             warm = true;
         }
         magnifications[i] = point_source_result_from_roots(geometry, roots).magnification;
+        previous_geometry = geometry;
     }
 }
 
@@ -991,7 +1149,30 @@ std::vector<BinaryImageCandidate> PointSourceMagnifier::binary_image_candidates(
     std::array<::complex, 6> coefficients;
     std::array<::complex, 5> roots;
     binary_polynomial_coefficients(geometry, coefficients);
-    cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+    // Use the previous centre/probe solve as a continuation seed even when a
+    // dynamic binary changed separation; validation below decides whether it
+    // was close enough and retries cold otherwise.
+    const bool can_polish_from_cache =
+        root_cache_valid_;
+    if (can_polish_from_cache) {
+        for (std::size_t i = 0; i < roots.size(); ++i) {
+            roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
+        }
+        apply_binary_image_predictor(
+            make_fast_vbm_geometry(
+                root_cache_separation_,
+                root_cache_mass_ratio_,
+                root_cache_source_),
+            geometry,
+            roots);
+        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, true);
+        if (!polynomial_roots_are_usable(coefficients, roots) ||
+            max_physical_residual_squared(geometry, roots) > 1.0e-18) {
+            cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+        }
+    } else {
+        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
+    }
     root_cache_valid_ = true;
     root_cache_separation_ = separation;
     root_cache_mass_ratio_ = mass_ratio;
@@ -1262,9 +1443,11 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
         // Full-degree fast path: solve directly with fixed-size buffers and
         // warm-start from the previous solve of the same geometry (probe and
         // light-curve sweeps move the source continuously, so the previous
-        // roots are excellent starting points).  If polished roots collapse
-        // onto each other under a warm start, one image may have been lost to
-        // duplicate convergence: redo the solve cold.
+        // roots are excellent starting points). Validate the polynomial roots
+        // before lens-equation polishing and retry cold only when the warm
+        // solve itself is incomplete. The physical lens equation normally has
+        // 4, 6, 8, or 10 images, so counting deduplicated physical candidates
+        // against the polynomial degree would retry every healthy warm solve.
         thread_local std::array<::complex, kTripleDegree> warm_roots;
         thread_local model::TripleLensGeometry warm_geometry;
         thread_local bool warm_valid = false;
@@ -1293,12 +1476,11 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
             warm_valid && same_triple_basis_geometry(warm_geometry, geometry);
         diagnostics.root_used_warm_start = warm ? 1 : 0;
         run_solve(warm);
-        collect_candidates(roots.data(), roots.size(), false);
-        if (warm && images.size() < static_cast<std::size_t>(kTripleDegree)) {
+        if (warm && !polynomial_roots_are_usable(coefficients, roots)) {
             run_solve(false);
             diagnostics.root_used_cold_retry = 1;
-            collect_candidates(roots.data(), roots.size(), false);
         }
+        collect_candidates(roots.data(), roots.size(), false);
         warm_geometry = geometry;
         warm_valid = true;
     } else {

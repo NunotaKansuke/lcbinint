@@ -121,6 +121,71 @@ bool requires_finite_source_convergence(const ComputationOptions& options)
         || options.finite_source_reltol > 0.0;
 }
 
+bool same_finite_source_settings(
+    const magnification::FiniteSourceSettings& lhs,
+    const magnification::FiniteSourceSettings& rhs)
+{
+    return lhs.source_bins == rhs.source_bins &&
+        lhs.caustic_bins == rhs.caustic_bins &&
+        lhs.grid_ratio == rhs.grid_ratio &&
+        lhs.polar_source_bins == rhs.polar_source_bins &&
+        lhs.polar_grid_ratio == rhs.polar_grid_ratio &&
+        lhs.finite_mode == rhs.finite_mode &&
+        lhs.kinji_threshold == rhs.kinji_threshold &&
+        lhs.hex_threshold == rhs.hex_threshold &&
+        lhs.adaptive_hex_threshold == rhs.adaptive_hex_threshold &&
+        lhs.limb_darkening_c == rhs.limb_darkening_c &&
+        lhs.limb_darkening_d == rhs.limb_darkening_d &&
+        lhs.automatic_source_bins == rhs.automatic_source_bins &&
+        lhs.max_source_bins == rhs.max_source_bins &&
+        lhs.finite_source_tol == rhs.finite_source_tol &&
+        lhs.finite_source_reltol == rhs.finite_source_reltol;
+}
+
+std::shared_ptr<magnification::FiniteSourceMagnifier>
+cached_finite_source_magnifier(
+    const magnification::FiniteSourceSettings& settings)
+{
+    // LensModel is intentionally rebuilt for every public call because its
+    // trajectory and physical parameters are call-specific. The expensive
+    // finite-source geometry state is not: binary caustic branches, their
+    // spatial index, and the limb-darkening table are keyed by settings and
+    // lens geometry inside FiniteSourceMagnifier. Keep a small per-thread pool
+    // so repeated LightCurve calls can retain those caches without sharing
+    // mutable state between Python threads while the GIL is released.
+    struct Entry {
+        magnification::FiniteSourceSettings settings;
+        std::shared_ptr<magnification::FiniteSourceMagnifier> magnifier;
+    };
+    constexpr std::size_t maximum_entries = 4;
+    thread_local std::vector<Entry> entries;
+    for (auto& entry : entries) {
+        if (same_finite_source_settings(entry.settings, settings)) {
+            return entry.magnifier;
+        }
+    }
+    if (entries.size() >= maximum_entries) {
+        entries.erase(entries.begin());
+    }
+    auto magnifier =
+        std::make_shared<magnification::FiniteSourceMagnifier>(settings);
+    entries.push_back({settings, magnifier});
+    return magnifier;
+}
+
+std::shared_ptr<magnification::PointSourceMagnifier>
+cached_point_source_magnifier()
+{
+    // PointSourceMagnifier owns the continuation roots used by binary and
+    // triple solves. LensModel is rebuilt for every public call, so retaining
+    // it per worker thread is what lets a repeated trajectory start from the
+    // roots produced by the preceding call without sharing mutable solver
+    // state between threads.
+    thread_local auto magnifier =
+        std::make_shared<magnification::PointSourceMagnifier>();
+    return magnifier;
+}
+
 } // namespace
 
 LensModel::LensModel(
@@ -133,7 +198,9 @@ LensModel::LensModel(
     , site_(std::move(site))
     , cos_theta_(std::cos(params_.theta))
     , sin_theta_(std::sin(params_.theta))
-    , finite_magnifier_(finite_source_settings(params_, options_))
+    , finite_magnifier_(cached_finite_source_magnifier(
+          finite_source_settings(params_, options_)))
+    , point_magnifier_(cached_point_source_magnifier())
 {
 }
 
@@ -240,10 +307,14 @@ MagnificationResult LensModel::magnification_source(
     result.mass_ratio = effective_q;
 
     if (supports_binary_point_source(params_, options_)) {
-        const auto point = point_magnifier_.binary_mag0(
+        const auto point = point_magnifier_->binary_mag0_cached(
             params_.sep, effective_q, source);
         result.point_source_magnification = point.magnification;
         result.image_count = point.image_count;
+        result.root_candidate_count = point.root_candidate_count;
+        result.root_used_warm_start = point.root_used_warm_start;
+        result.root_used_cold_retry = point.root_used_cold_retry;
+        result.root_max_residual = point.root_max_residual;
         result.magnification = point.magnification;
         result.status = std::isfinite(result.magnification)
             ? EvaluationStatus::ok
@@ -251,7 +322,7 @@ MagnificationResult LensModel::magnification_source(
         return result;
     }
 
-    const auto point_images = point_magnifier_.binary_images(
+    const auto point_images = point_magnifier_->binary_images(
         params_.sep, effective_q, source);
     double point_source_magnification = 0.0;
     std::vector<SourcePosition> center_image_seeds;
@@ -267,7 +338,7 @@ MagnificationResult LensModel::magnification_source(
     result.point_source_magnification = point_source_magnification;
     result.image_count = static_cast<int>(point_images.size());
 
-    const auto finite_result = finite_magnifier_.binary_mag_preplanned(
+    const auto finite_result = finite_magnifier_->binary_mag_preplanned(
         params_.sep,
         effective_q,
         source,
@@ -276,7 +347,7 @@ MagnificationResult LensModel::magnification_source(
         plan.method,
         plan.resolution,
         &center_image_seeds,
-        &point_magnifier_);
+        point_magnifier_.get());
     result.magnification = finite_result.magnification;
     result.finite_source_magnification = finite_result.magnification;
     result.finite_source_error_estimate = finite_result.error_estimate;
@@ -355,7 +426,7 @@ MagnificationResult LensModel::magnification_impl(
                 params_.sep, params_.q, params_.sep2, params_.ang, params_.q2)
             : make_triple_lens_geometry(
                 params_.sep, params_.q, params_.q2, params_.sep2, params_.ang);
-        const auto point = point_magnifier_.triple_mag0(geometry, source);
+        const auto point = point_magnifier_->triple_mag0(geometry, source);
         result.point_source_magnification = point.magnification;
         result.image_count = point.image_count;
         result.root_candidate_count = point.root_candidate_count;
@@ -375,12 +446,12 @@ MagnificationResult LensModel::magnification_impl(
             return result;
         }
 
-        const auto finite = finite_magnifier_.triple_mag(
+        const auto finite = finite_magnifier_->triple_mag(
             geometry,
             source,
             std::abs(params_.rho),
             point.magnification,
-            &point_magnifier_);
+            point_magnifier_.get());
         result.magnification = finite.magnification;
         result.finite_source_magnification = finite.magnification;
         result.finite_source_error_estimate = finite.error_estimate;
@@ -417,9 +488,14 @@ MagnificationResult LensModel::magnification_impl(
 
         if (supports_binary_point_source(params_, options_)) {
             const auto point =
-                point_magnifier_.binary_mag0(orbit.separation, effective_q, source_for_magnification);
+                point_magnifier_->binary_mag0_cached(
+                    orbit.separation, effective_q, source_for_magnification);
             result.point_source_magnification = point.magnification;
             result.image_count = point.image_count;
+            result.root_candidate_count = point.root_candidate_count;
+            result.root_used_warm_start = point.root_used_warm_start;
+            result.root_used_cold_retry = point.root_used_cold_retry;
+            result.root_max_residual = point.root_max_residual;
             result.magnification = point.magnification;
             result.status = std::isfinite(result.magnification)
                 ? EvaluationStatus::ok
@@ -428,7 +504,8 @@ MagnificationResult LensModel::magnification_impl(
         }
 
         const auto point_images =
-            point_magnifier_.binary_images(orbit.separation, effective_q, source_for_magnification);
+            point_magnifier_->binary_images(
+                orbit.separation, effective_q, source_for_magnification);
         double point_source_magnification = 0.0;
         std::vector<SourcePosition> center_image_seeds;
         const bool plan_needs_image_seeds = plan == nullptr ||
@@ -444,7 +521,7 @@ MagnificationResult LensModel::magnification_impl(
         result.image_count = static_cast<int>(point_images.size());
 
         const auto finite_result = plan == nullptr
-            ? finite_magnifier_.binary_mag(
+            ? finite_magnifier_->binary_mag(
                 orbit.separation,
                 effective_q,
                 source_for_magnification,
@@ -452,8 +529,8 @@ MagnificationResult LensModel::magnification_impl(
                 point_source_magnification,
                 plan_needs_image_seeds ? &center_image_seeds : nullptr,
                 true,
-                &point_magnifier_)
-            : finite_magnifier_.binary_mag_preplanned(
+                point_magnifier_.get())
+            : finite_magnifier_->binary_mag_preplanned(
                 orbit.separation,
                 effective_q,
                 source_for_magnification,
@@ -462,7 +539,7 @@ MagnificationResult LensModel::magnification_impl(
                 plan->method,
                 plan->resolution,
                 &center_image_seeds,
-                &point_magnifier_);
+                point_magnifier_.get());
         result.magnification = finite_result.magnification;
         result.finite_source_magnification = finite_result.magnification;
         result.finite_source_error_estimate = finite_result.error_estimate;
