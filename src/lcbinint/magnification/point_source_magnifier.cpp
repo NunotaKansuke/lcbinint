@@ -655,6 +655,72 @@ Polynomial triple_polynomial_coefficients(
     return coefficients;
 }
 
+template <std::size_t Degree>
+bool continue_triple_polynomial_roots(
+    const Polynomial& coefficients,
+    std::array<Complex, Degree>& roots)
+{
+    // The deflation solver's warm-start mode chooses the next root from the
+    // smallest seed and changes the seed ordering while it deflates.  That
+    // ordering is not stable near close roots, so continue the whole root set
+    // simultaneously instead of letting one seed decide another root's
+    // basin.  The Vieta/residual check below remains the completeness guard.
+    if (coefficients.size() != Degree + 1) return false;
+    std::array<Complex, Degree> current;
+    std::array<Complex, Degree> next;
+    for (std::size_t i = 0; i < Degree; ++i) {
+        current[i] = roots[i];
+        if (!std::isfinite(current[i].real()) ||
+            !std::isfinite(current[i].imag())) {
+            return false;
+        }
+    }
+    constexpr int maximum_iterations = 24;
+    constexpr double convergence_tolerance = 1.0e-9;
+    for (int iteration = 0; iteration < maximum_iterations; ++iteration) {
+        double maximum_update = 0.0;
+        for (std::size_t i = 0; i < Degree; ++i) {
+            const Complex z = current[i];
+            Complex value = coefficients.back();
+            Complex derivative = 0.0;
+            for (std::size_t index = coefficients.size() - 1; index > 0; --index) {
+                derivative = derivative * z + value;
+                value = value * z + coefficients[index - 1];
+            }
+            Complex root_repulsion = 0.0;
+            for (std::size_t j = 0; j < Degree; ++j) {
+                if (j == i) continue;
+                const Complex separation = z - current[j];
+                if (std::abs(separation) < 1.0e-18) return false;
+                root_repulsion += 1.0 / separation;
+            }
+            const Complex denominator = derivative - value * root_repulsion;
+            if (!std::isfinite(denominator.real()) ||
+                !std::isfinite(denominator.imag()) ||
+                std::abs(denominator) == 0.0) {
+                return false;
+            }
+            const Complex step = value / denominator;
+            if (!std::isfinite(step.real()) || !std::isfinite(step.imag())) {
+                return false;
+            }
+            next[i] = z - step;
+            maximum_update = std::max(maximum_update, std::abs(step));
+        }
+        current = next;
+        if (maximum_update <= convergence_tolerance) break;
+    }
+    for (std::size_t i = 0; i < Degree; ++i) {
+        roots[i] = current[i];
+    }
+    for (const auto& root : current) {
+        if (!std::isfinite(root.real()) || !std::isfinite(root.imag())) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static SourcePosition polish_triple_image_root(
     const model::TripleLensGeometry& geometry,
     SourcePosition source,
@@ -1448,41 +1514,65 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
         // solve itself is incomplete. The physical lens equation normally has
         // 4, 6, 8, or 10 images, so counting deduplicated physical candidates
         // against the polynomial degree would retry every healthy warm solve.
-        thread_local std::array<::complex, kTripleDegree> warm_roots;
-        thread_local model::TripleLensGeometry warm_geometry;
-        thread_local bool warm_valid = false;
-
         std::array<::complex, kTripleDegree + 1> sg_coefficients;
         for (int k = 0; k <= kTripleDegree; ++k) {
             sg_coefficients[static_cast<std::size_t>(k)] = {
                 coefficients[static_cast<std::size_t>(k)].real(),
                 coefficients[static_cast<std::size_t>(k)].imag()};
         }
+        std::array<::complex, kTripleDegree> sg_roots;
         std::array<Complex, kTripleDegree> roots;
+        bool continuation_failed = false;
         const auto run_solve = [&](bool use_starting_points) {
-            cmplx_roots_gen(
-                warm_roots.data(), sg_coefficients.data(), kTripleDegree, true,
-                use_starting_points);
+            if (use_starting_points) {
+                continuation_failed = !continue_triple_polynomial_roots(
+                    coefficients, triple_warm_roots_);
+                if (continuation_failed) {
+                    cmplx_roots_gen(
+                        sg_roots.data(), sg_coefficients.data(),
+                        kTripleDegree, true, false);
+                    for (int k = 0; k < kTripleDegree; ++k) {
+                        triple_warm_roots_[static_cast<std::size_t>(k)] = {
+                            sg_roots[static_cast<std::size_t>(k)].re,
+                            sg_roots[static_cast<std::size_t>(k)].im};
+                    }
+                }
+            } else {
+                cmplx_roots_gen(
+                    sg_roots.data(), sg_coefficients.data(), kTripleDegree,
+                    true, false);
+                for (int k = 0; k < kTripleDegree; ++k) {
+                    triple_warm_roots_[static_cast<std::size_t>(k)] = {
+                        sg_roots[static_cast<std::size_t>(k)].re,
+                        sg_roots[static_cast<std::size_t>(k)].im};
+                }
+            }
             solved_roots.clear();
             solved_roots.reserve(static_cast<std::size_t>(kTripleDegree));
             for (int k = 0; k < kTripleDegree; ++k) {
-                roots[static_cast<std::size_t>(k)] = {
-                    warm_roots[static_cast<std::size_t>(k)].re,
-                    warm_roots[static_cast<std::size_t>(k)].im};
+                roots[static_cast<std::size_t>(k)] =
+                    triple_warm_roots_[static_cast<std::size_t>(k)];
                 solved_roots.push_back(roots[static_cast<std::size_t>(k)]);
             }
         };
         const bool warm =
-            warm_valid && same_triple_basis_geometry(warm_geometry, geometry);
+            triple_warm_valid_ &&
+            same_triple_basis_geometry(triple_warm_geometry_, geometry);
         diagnostics.root_used_warm_start = warm ? 1 : 0;
         run_solve(warm);
-        if (warm && !polynomial_roots_are_usable(coefficients, roots)) {
-            run_solve(false);
-            diagnostics.root_used_cold_retry = 1;
+        const bool polynomial_roots_valid =
+            polynomial_roots_are_usable(coefficients, roots);
+        if (warm && (continuation_failed || !polynomial_roots_valid)) {
+            if (continuation_failed) {
+                diagnostics.root_used_cold_retry = 1;
+            } else {
+                run_solve(false);
+                diagnostics.root_used_cold_retry = 1;
+            }
         }
         collect_candidates(roots.data(), roots.size(), false);
-        warm_geometry = geometry;
-        warm_valid = true;
+        triple_warm_geometry_ = geometry;
+        triple_warm_valid_ = true;
     } else {
         const auto roots = math::PolynomialRootSolver().solve(coefficients);
         if (roots.status != math::RootSolverStatus::ok) {

@@ -52,7 +52,7 @@ private:
     double cos_theta_ = 1.0;
     double sin_theta_ = 0.0;
     std::shared_ptr<magnification::FiniteSourceMagnifier> finite_magnifier_;
-    std::shared_ptr<magnification::PointSourceMagnifier> point_magnifier_;
+    mutable magnification::PointSourceMagnifier point_magnifier_;
 };
 
 } // namespace lcbinint::model

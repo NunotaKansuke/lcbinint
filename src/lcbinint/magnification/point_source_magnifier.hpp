@@ -131,6 +131,9 @@ private:
     mutable SourcePosition triple_candidate_cache_source_ {};
     mutable std::vector<TripleImageCandidate> triple_candidate_cache_;
     mutable PointSourceResult triple_candidate_cache_diagnostics_ {};
+    mutable bool triple_warm_valid_ = false;
+    mutable model::TripleLensGeometry triple_warm_geometry_ {};
+    mutable std::array<Complex, 10> triple_warm_roots_ {};
 };
 
 } // namespace lcbinint::magnification

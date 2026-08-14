@@ -173,19 +173,6 @@ cached_finite_source_magnifier(
     return magnifier;
 }
 
-std::shared_ptr<magnification::PointSourceMagnifier>
-cached_point_source_magnifier()
-{
-    // PointSourceMagnifier owns the continuation roots used by binary and
-    // triple solves. LensModel is rebuilt for every public call, so retaining
-    // it per worker thread is what lets a repeated trajectory start from the
-    // roots produced by the preceding call without sharing mutable solver
-    // state between threads.
-    thread_local auto magnifier =
-        std::make_shared<magnification::PointSourceMagnifier>();
-    return magnifier;
-}
-
 } // namespace
 
 LensModel::LensModel(
@@ -200,7 +187,6 @@ LensModel::LensModel(
     , sin_theta_(std::sin(params_.theta))
     , finite_magnifier_(cached_finite_source_magnifier(
           finite_source_settings(params_, options_)))
-    , point_magnifier_(cached_point_source_magnifier())
 {
 }
 
@@ -307,7 +293,7 @@ MagnificationResult LensModel::magnification_source(
     result.mass_ratio = effective_q;
 
     if (supports_binary_point_source(params_, options_)) {
-        const auto point = point_magnifier_->binary_mag0_cached(
+        const auto point = point_magnifier_.binary_mag0_cached(
             params_.sep, effective_q, source);
         result.point_source_magnification = point.magnification;
         result.image_count = point.image_count;
@@ -322,7 +308,7 @@ MagnificationResult LensModel::magnification_source(
         return result;
     }
 
-    const auto point_images = point_magnifier_->binary_images(
+    const auto point_images = point_magnifier_.binary_images(
         params_.sep, effective_q, source);
     double point_source_magnification = 0.0;
     std::vector<SourcePosition> center_image_seeds;
@@ -347,7 +333,7 @@ MagnificationResult LensModel::magnification_source(
         plan.method,
         plan.resolution,
         &center_image_seeds,
-        point_magnifier_.get());
+        &point_magnifier_);
     result.magnification = finite_result.magnification;
     result.finite_source_magnification = finite_result.magnification;
     result.finite_source_error_estimate = finite_result.error_estimate;
@@ -426,7 +412,7 @@ MagnificationResult LensModel::magnification_impl(
                 params_.sep, params_.q, params_.sep2, params_.ang, params_.q2)
             : make_triple_lens_geometry(
                 params_.sep, params_.q, params_.q2, params_.sep2, params_.ang);
-        const auto point = point_magnifier_->triple_mag0(geometry, source);
+        const auto point = point_magnifier_.triple_mag0(geometry, source);
         result.point_source_magnification = point.magnification;
         result.image_count = point.image_count;
         result.root_candidate_count = point.root_candidate_count;
@@ -451,7 +437,7 @@ MagnificationResult LensModel::magnification_impl(
             source,
             std::abs(params_.rho),
             point.magnification,
-            point_magnifier_.get());
+            &point_magnifier_);
         result.magnification = finite.magnification;
         result.finite_source_magnification = finite.magnification;
         result.finite_source_error_estimate = finite.error_estimate;
@@ -488,7 +474,7 @@ MagnificationResult LensModel::magnification_impl(
 
         if (supports_binary_point_source(params_, options_)) {
             const auto point =
-                point_magnifier_->binary_mag0_cached(
+                point_magnifier_.binary_mag0_cached(
                     orbit.separation, effective_q, source_for_magnification);
             result.point_source_magnification = point.magnification;
             result.image_count = point.image_count;
@@ -504,7 +490,7 @@ MagnificationResult LensModel::magnification_impl(
         }
 
         const auto point_images =
-            point_magnifier_->binary_images(
+            point_magnifier_.binary_images(
                 orbit.separation, effective_q, source_for_magnification);
         double point_source_magnification = 0.0;
         std::vector<SourcePosition> center_image_seeds;
@@ -529,7 +515,7 @@ MagnificationResult LensModel::magnification_impl(
                 point_source_magnification,
                 plan_needs_image_seeds ? &center_image_seeds : nullptr,
                 true,
-                point_magnifier_.get())
+                &point_magnifier_)
             : finite_magnifier_->binary_mag_preplanned(
                 orbit.separation,
                 effective_q,
@@ -539,7 +525,7 @@ MagnificationResult LensModel::magnification_impl(
                 plan->method,
                 plan->resolution,
                 &center_image_seeds,
-                point_magnifier_.get());
+                &point_magnifier_);
         result.magnification = finite_result.magnification;
         result.finite_source_magnification = finite_result.magnification;
         result.finite_source_error_estimate = finite_result.error_estimate;
