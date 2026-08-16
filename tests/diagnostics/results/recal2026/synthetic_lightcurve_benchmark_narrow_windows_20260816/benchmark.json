@@ -1,0 +1,2243 @@
+{
+  "benchmark": "synthetic_lightcurve_warmup",
+  "tolerance": 0.001,
+  "limb_darkening_coefficient": 0.5,
+  "n_times": 240,
+  "repeats_after_first": 5,
+  "triple_warmup_probe": "NotImplementedError: the first warm-up implementation supports binary lenses",
+  "records": [
+    {
+      "lens": "binary",
+      "case": "resonant_high_mag",
+      "profile": "C0_uniform",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.95,
+        "q": 0.01,
+        "rho": 0.005,
+        "u0": -0.001,
+        "alpha": 0.5,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -0.4,
+        0.4
+      ],
+      "no_warmup": {
+        "cold_ms": 166.91515897400677,
+        "steady_median_ms": 157.6686130138114,
+        "steady_samples_ms": [
+          157.6686130138114,
+          154.9551070202142,
+          154.8151159659028,
+          191.7799049988389,
+          162.40250691771507
+        ],
+        "steady_median_ms_per_epoch": 0.6569525542242142,
+        "total_ms_for_measured_calls": 988.5364068904892,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 33.50770298857242,
+        "steady_median_ms": 33.3521879510954,
+        "steady_samples_ms": [
+          33.43090403359383,
+          33.408346003852785,
+          33.3521879510954,
+          33.22153107728809,
+          32.21647208556533
+        ],
+        "steady_median_ms_per_epoch": 0.13896744979623085,
+        "total_ms_for_measured_calls": 3123.2731031486765,
+        "extra_ms": 2924.1359590087086
+      },
+      "vbm": {
+        "cold_ms": 11.82961999438703,
+        "steady_median_ms": 12.131035909987986,
+        "steady_samples_ms": [
+          13.886390021070838,
+          11.932939058169723,
+          12.131035909987986,
+          12.171330978162587,
+          12.124740984290838
+        ],
+        "steady_median_ms_per_epoch": 0.050545982958283275,
+        "total_ms_for_measured_calls": 74.076056946069,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 59,
+          "hexadecapole": 93,
+          "inverse_ray_cartesian": 86,
+          "inverse_ray_polar": 2
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.07242012949876653,
+          "max_relative": 0.0003818251452873833,
+          "p99_relative": 0.0002324202106979582,
+          "median_relative": 1.138382793714431e-05,
+          "rms_relative": 6.35071364325594e-05
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.06245762510692998,
+          "max_relative": 0.000942992427934829,
+          "p99_relative": 0.0008491151329390672,
+          "median_relative": 1.57659963568298e-05,
+          "rms_relative": 0.0001712803806842481
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.03075153049542223,
+          "max_relative": 0.0009497289075127233,
+          "p99_relative": 0.0008346263572488593,
+          "median_relative": 0.0,
+          "rms_relative": 0.00016068058016653484
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 2923.9689400419593,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 59,
+          "hexadecapole": 93,
+          "inverse_ray_polar": 57,
+          "inverse_ray_cartesian": 31
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 27
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "resonant_high_mag",
+      "profile": "C1_linear_ld",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.95,
+        "q": 0.01,
+        "rho": 0.005,
+        "u0": -0.001,
+        "alpha": 0.5,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -0.4,
+        0.4
+      ],
+      "no_warmup": {
+        "cold_ms": 240.11994409374893,
+        "steady_median_ms": 207.3603350436315,
+        "steady_samples_ms": [
+          207.3603350436315,
+          218.76788802910596,
+          195.09758206550032,
+          205.71012201253325,
+          215.083476039581
+        ],
+        "steady_median_ms_per_epoch": 0.8640013960151313,
+        "total_ms_for_measured_calls": 1282.139347284101,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 35.54422501474619,
+        "steady_median_ms": 31.209236942231655,
+        "steady_samples_ms": [
+          35.48208996653557,
+          33.644221955910325,
+          31.209236942231655,
+          25.48490301705897,
+          24.08690203446895
+        ],
+        "steady_median_ms_per_epoch": 0.13003848725929856,
+        "total_ms_for_measured_calls": 3622.2064149333164,
+        "extra_ms": 3436.7548360023648
+      },
+      "vbm": {
+        "cold_ms": 45.9828139282763,
+        "steady_median_ms": 59.60610695183277,
+        "steady_samples_ms": [
+          59.60610695183277,
+          61.45280506461859,
+          61.94493407383561,
+          59.13673504255712,
+          47.03353997319937
+        ],
+        "steady_median_ms_per_epoch": 0.2483587789659699,
+        "total_ms_for_measured_calls": 335.15693503431976,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 59,
+          "hexadecapole": 93,
+          "inverse_ray_cartesian": 86,
+          "inverse_ray_polar": 2
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.09821007604935517,
+          "max_relative": 0.0005569174528520114,
+          "p99_relative": 0.0005075841342112609,
+          "median_relative": 4.503713417481993e-05,
+          "rms_relative": 0.00013391843713682277
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.09684514673983813,
+          "max_relative": 0.0012125552735814627,
+          "p99_relative": 0.0006231360118840951,
+          "median_relative": 4.547024423818974e-05,
+          "rms_relative": 0.00019833335554101357
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.019218800989222018,
+          "max_relative": 0.0007610788581294014,
+          "p99_relative": 0.0006118202164188051,
+          "median_relative": 0.0,
+          "rms_relative": 0.00014179211983582002
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 3436.5908070467412,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 59,
+          "hexadecapole": 93,
+          "inverse_ray_polar": 62,
+          "inverse_ray_cartesian": 26
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 27
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "resonant_large_source",
+      "profile": "C0_uniform",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.95,
+        "q": 0.01,
+        "rho": 0.02,
+        "u0": -0.01,
+        "alpha": 0.5,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -0.4,
+        0.4
+      ],
+      "no_warmup": {
+        "cold_ms": 283.36045891046524,
+        "steady_median_ms": 235.89589295443147,
+        "steady_samples_ms": [
+          214.8394389078021,
+          235.89589295443147,
+          241.42201291397214,
+          199.32599493768066,
+          252.1155229769647
+        ],
+        "steady_median_ms_per_epoch": 0.9828995539767978,
+        "total_ms_for_measured_calls": 1426.9593216013163,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 36.439370014704764,
+        "steady_median_ms": 47.17938997782767,
+        "steady_samples_ms": [
+          44.10772293340415,
+          47.24016401451081,
+          47.20220097806305,
+          47.17938997782767,
+          45.69779604207724
+        ],
+        "steady_median_ms_per_epoch": 0.19658079157428196,
+        "total_ms_for_measured_calls": 4085.9938130015507,
+        "extra_ms": 3818.127169040963
+      },
+      "vbm": {
+        "cold_ms": 19.082835991866887,
+        "steady_median_ms": 15.866128029301763,
+        "steady_samples_ms": [
+          15.607035020366311,
+          15.645963954739273,
+          16.049048048444092,
+          15.912665985524654,
+          15.866128029301763
+        ],
+        "steady_median_ms_per_epoch": 0.06610886678875734,
+        "total_ms_for_measured_calls": 98.16367703024298,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "hexadecapole": 54,
+          "inverse_ray_cartesian": 186
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.025381119430022636,
+          "max_relative": 0.0004111267932884494,
+          "p99_relative": 0.00029046829148380156,
+          "median_relative": 2.5304497265093357e-05,
+          "rms_relative": 8.761465825581285e-05
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.024870549043235712,
+          "max_relative": 0.0010075035454195568,
+          "p99_relative": 0.0009069140479168928,
+          "median_relative": 9.7469961077083e-05,
+          "rms_relative": 0.00025667406726767226
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.02820033463488869,
+          "max_relative": 0.0009724829947918126,
+          "p99_relative": 0.0008815695786433336,
+          "median_relative": 7.223495275183275e-05,
+          "rms_relative": 0.00024434872181377355
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 3817.9661789909005,
+        "all_calibrated": true,
+        "methods": {
+          "hexadecapole": 54,
+          "inverse_ray_polar": 144,
+          "inverse_ray_cartesian": 42
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 27
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "resonant_large_source",
+      "profile": "C1_linear_ld",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.95,
+        "q": 0.01,
+        "rho": 0.02,
+        "u0": -0.01,
+        "alpha": 0.5,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -0.4,
+        0.4
+      ],
+      "no_warmup": {
+        "cold_ms": 324.02017107233405,
+        "steady_median_ms": 285.39148601703346,
+        "steady_samples_ms": [
+          285.14544595964253,
+          267.1113139949739,
+          291.9773680623621,
+          285.39148601703346,
+          292.7152350312099
+        ],
+        "steady_median_ms_per_epoch": 1.1891311917376395,
+        "total_ms_for_measured_calls": 1746.361020137556,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 37.12067496962845,
+        "steady_median_ms": 51.22542299795896,
+        "steady_samples_ms": [
+          39.51198002323508,
+          42.31536702718586,
+          51.22542299795896,
+          51.335262949578464,
+          51.41889804508537
+        ],
+        "steady_median_ms_per_epoch": 0.21343926249149567,
+        "total_ms_for_measured_calls": 4517.668362008408,
+        "extra_ms": 4244.7407559957355
+      },
+      "vbm": {
+        "cold_ms": 129.1425470262766,
+        "steady_median_ms": 142.2556060133502,
+        "steady_samples_ms": [
+          128.98566108196974,
+          151.32311696652323,
+          129.4781860196963,
+          142.2556060133502,
+          146.01925504393876
+        ],
+        "steady_median_ms_per_epoch": 0.5927316917222925,
+        "total_ms_for_measured_calls": 827.2043721517548,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "hexadecapole": 54,
+          "inverse_ray_cartesian": 186
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.04160769907593931,
+          "max_relative": 0.0005578322204228198,
+          "p99_relative": 0.0005139085422063677,
+          "median_relative": 9.169126571198163e-05,
+          "rms_relative": 0.00017838707621111474
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.0402754895886801,
+          "max_relative": 0.0013872866617587539,
+          "p99_relative": 0.0008604666331799961,
+          "median_relative": 0.00011583898701524212,
+          "rms_relative": 0.0002741523012481708
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.025582272497601366,
+          "max_relative": 0.0009661482509580138,
+          "p99_relative": 0.000726545499456855,
+          "median_relative": 6.757749870106416e-05,
+          "rms_relative": 0.00020029447255780328
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 4244.580458034761,
+        "all_calibrated": true,
+        "methods": {
+          "hexadecapole": 54,
+          "inverse_ray_polar": 152,
+          "inverse_ray_cartesian": 34
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 27
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "close_binary",
+      "profile": "C0_uniform",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.65,
+        "q": 0.005,
+        "rho": 0.003,
+        "u0": 0.03,
+        "alpha": 1.1,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -0.5,
+        0.5
+      ],
+      "no_warmup": {
+        "cold_ms": 22.656733985058963,
+        "steady_median_ms": 19.9175140587613,
+        "steady_samples_ms": [
+          19.9175140587613,
+          21.344848908483982,
+          18.17661093082279,
+          17.236214014701545,
+          22.069973056204617
+        ],
+        "steady_median_ms_per_epoch": 0.08298964191150542,
+        "total_ms_for_measured_calls": 121.4018949540332,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 3.8323450135067105,
+        "steady_median_ms": 4.783347016200423,
+        "steady_samples_ms": [
+          3.7563530495390296,
+          3.742479020729661,
+          4.783347016200423,
+          5.5312629556283355,
+          5.517859943211079
+        ],
+        "steady_median_ms_per_epoch": 0.019930612567501765,
+        "total_ms_for_measured_calls": 312.5481120077893,
+        "extra_ms": 285.3844650089741
+      },
+      "vbm": {
+        "cold_ms": 7.187469047494233,
+        "steady_median_ms": 7.206029025837779,
+        "steady_samples_ms": [
+          7.143641938455403,
+          7.206029025837779,
+          7.222064072266221,
+          7.210326031781733,
+          7.185511058196425
+        ],
+        "steady_median_ms_per_epoch": 0.030025120940990746,
+        "total_ms_for_measured_calls": 43.155041174031794,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 176,
+          "hexadecapole": 59,
+          "inverse_ray_cartesian": 5
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.000774437935397998,
+          "max_relative": 7.548197079794334e-05,
+          "p99_relative": 6.658043593360389e-05,
+          "median_relative": 9.660955458534014e-16,
+          "rms_relative": 2.045424198731861e-05
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.002850375029627372,
+          "max_relative": 9.10144470557512e-05,
+          "p99_relative": 7.010433147361867e-05,
+          "median_relative": 9.660955458534014e-16,
+          "rms_relative": 2.1647530717980008e-05
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.0026742729486741723,
+          "max_relative": 8.539186591813628e-05,
+          "p99_relative": 3.1136586609399715e-05,
+          "median_relative": 0.0,
+          "rms_relative": 6.847010679102371e-06
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 285.2448479970917,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 176,
+          "hexadecapole": 59,
+          "inverse_ray_polar": 4,
+          "inverse_ray_cartesian": 1
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 27
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "close_binary",
+      "profile": "C1_linear_ld",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.65,
+        "q": 0.005,
+        "rho": 0.003,
+        "u0": 0.03,
+        "alpha": 1.1,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -0.5,
+        0.5
+      ],
+      "no_warmup": {
+        "cold_ms": 31.214436050504446,
+        "steady_median_ms": 28.9664960000664,
+        "steady_samples_ms": [
+          28.9664960000664,
+          29.04613595455885,
+          29.166928958147764,
+          27.76394598186016,
+          23.45480106305331
+        ],
+        "steady_median_ms_per_epoch": 0.12069373333361,
+        "total_ms_for_measured_calls": 169.61274400819093,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 4.506306955590844,
+        "steady_median_ms": 4.372203955426812,
+        "steady_samples_ms": [
+          5.268634995445609,
+          4.5296900207176805,
+          4.345639958046377,
+          4.372203955426812,
+          4.043946973979473
+        ],
+        "steady_median_ms_per_epoch": 0.01821751648094505,
+        "total_ms_for_measured_calls": 365.20146392285824,
+        "extra_ms": 338.13504106365144
+      },
+      "vbm": {
+        "cold_ms": 5.531820002943277,
+        "steady_median_ms": 6.091346964240074,
+        "steady_samples_ms": [
+          6.0027140425518155,
+          7.399967988021672,
+          6.923476932570338,
+          6.091346964240074,
+          5.493307951837778
+        ],
+        "steady_median_ms_per_epoch": 0.02538061235100031,
+        "total_ms_for_measured_calls": 37.442633882164955,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 176,
+          "hexadecapole": 59,
+          "inverse_ray_cartesian": 5
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.013660476055001425,
+          "max_relative": 0.00031289031144443575,
+          "p99_relative": 0.00024710584285285583,
+          "median_relative": 9.660955458534014e-16,
+          "rms_relative": 5.352235131310244e-05
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.01589747971824096,
+          "max_relative": 0.00034332910277490324,
+          "p99_relative": 0.0002981746271993862,
+          "median_relative": 9.660955458534014e-16,
+          "rms_relative": 5.852290939927595e-05
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.003173610605458066,
+          "max_relative": 8.819375507715521e-05,
+          "p99_relative": 4.322982031651428e-05,
+          "median_relative": 0.0,
+          "rms_relative": 8.16048847895877e-06
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 337.97565300483257,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 176,
+          "hexadecapole": 59,
+          "inverse_ray_polar": 3,
+          "inverse_ray_cartesian": 2
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 27
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "close_secondary_caustics",
+      "profile": "C0_uniform",
+      "n_times": 400,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.65,
+        "q": 0.02,
+        "rho": 0.004,
+        "u0": 0.214,
+        "alpha": 3.75,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -1.2,
+        1.2
+      ],
+      "no_warmup": {
+        "cold_ms": 16.88793394714594,
+        "steady_median_ms": 18.759355996735394,
+        "steady_samples_ms": [
+          13.612872920930386,
+          17.891647992655635,
+          18.886297941207886,
+          18.759355996735394,
+          18.854464986361563
+        ],
+        "steady_median_ms_per_epoch": 0.046898389991838485,
+        "total_ms_for_measured_calls": 104.8925737850368,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 5.011041997931898,
+        "steady_median_ms": 4.910046001896262,
+        "steady_samples_ms": [
+          4.935616045258939,
+          4.901339998468757,
+          4.910046001896262,
+          4.92401490919292,
+          4.909074050374329
+        ],
+        "steady_median_ms_per_epoch": 0.012275115004740655,
+        "total_ms_for_measured_calls": 709.6984989475459,
+        "extra_ms": 680.1073659444228
+      },
+      "vbm": {
+        "cold_ms": 8.999626035802066,
+        "steady_median_ms": 8.916871971450746,
+        "steady_samples_ms": [
+          8.911197073757648,
+          8.917803992517292,
+          8.916871971450746,
+          8.93878098577261,
+          8.529209066182375
+        ],
+        "steady_median_ms_per_epoch": 0.022292179928626865,
+        "total_ms_for_measured_calls": 53.21348912548274,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 295,
+          "hexadecapole": 88,
+          "inverse_ray_cartesian": 17
+        },
+        "converged_epochs": 400,
+        "total_epochs": 400
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 400,
+          "max_abs": 0.0012742614153076204,
+          "max_relative": 0.0003229773692626777,
+          "p99_relative": 0.00015761288681689263,
+          "median_relative": 6.468038657089328e-16,
+          "rms_relative": 3.2764585362994296e-05
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 400,
+          "max_abs": 0.003366529469518653,
+          "max_relative": 0.0006696780119679663,
+          "p99_relative": 0.0005145541932638964,
+          "median_relative": 6.468038657089328e-16,
+          "rms_relative": 8.025441106531015e-05
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 400,
+          "max_abs": 0.003091890952171994,
+          "max_relative": 0.0005925428542831072,
+          "p99_relative": 0.0005181308424016834,
+          "median_relative": 0.0,
+          "rms_relative": 7.215169714736118e-05
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 679.9356290139258,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 295,
+          "hexadecapole": 88,
+          "inverse_ray_cartesian": 17
+        },
+        "statuses": {
+          "calibrated": 400
+        },
+        "resolution_min": 0,
+        "resolution_max": 25
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "close_secondary_caustics",
+      "profile": "C1_linear_ld",
+      "n_times": 400,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.65,
+        "q": 0.02,
+        "rho": 0.004,
+        "u0": 0.214,
+        "alpha": 3.75,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -1.2,
+        1.2
+      ],
+      "no_warmup": {
+        "cold_ms": 21.92368998657912,
+        "steady_median_ms": 13.881204067729414,
+        "steady_samples_ms": [
+          14.423699001781642,
+          13.881204067729414,
+          13.86917696800083,
+          13.81883304566145,
+          19.194931956008077
+        ],
+        "steady_median_ms_per_epoch": 0.034703010169323534,
+        "total_ms_for_measured_calls": 97.11153502576053,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 4.5729519333690405,
+        "steady_median_ms": 3.7483229534700513,
+        "steady_samples_ms": [
+          4.093690076842904,
+          3.6292910808697343,
+          3.7416410632431507,
+          3.7483229534700513,
+          4.656382952816784
+        ],
+        "steady_median_ms_per_epoch": 0.009370807383675128,
+        "total_ms_for_measured_calls": 591.3885571062565,
+        "extra_ms": 566.9462770456448
+      },
+      "vbm": {
+        "cold_ms": 20.888755097985268,
+        "steady_median_ms": 20.809010020457208,
+        "steady_samples_ms": [
+          20.806309999898076,
+          20.81121993251145,
+          20.79990995116532,
+          20.809010020457208,
+          20.821399055421352
+        ],
+        "steady_median_ms_per_epoch": 0.05202252505114302,
+        "total_ms_for_measured_calls": 124.93660405743867,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 295,
+          "hexadecapole": 88,
+          "inverse_ray_cartesian": 17
+        },
+        "converged_epochs": 400,
+        "total_epochs": 400
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 400,
+          "max_abs": 0.0026704357771176745,
+          "max_relative": 0.000520218331817696,
+          "p99_relative": 0.00025621207210201275,
+          "median_relative": 6.468038657089328e-16,
+          "rms_relative": 5.006068629759274e-05
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 400,
+          "max_abs": 0.0026108782773208716,
+          "max_relative": 0.000983074699016804,
+          "p99_relative": 0.00047113612593470725,
+          "median_relative": 6.468038657089328e-16,
+          "rms_relative": 8.114678446612047e-05
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 400,
+          "max_abs": 0.0019004577756707164,
+          "max_relative": 0.0010110794782506112,
+          "p99_relative": 0.0003024715619338515,
+          "median_relative": 0.0,
+          "rms_relative": 7.569726631138378e-05
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 566.7204469209537,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 295,
+          "hexadecapole": 88,
+          "inverse_ray_polar": 1,
+          "inverse_ray_cartesian": 16
+        },
+        "statuses": {
+          "calibrated": 400
+        },
+        "resolution_min": 0,
+        "resolution_max": 27
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "wide_planet",
+      "profile": "C0_uniform",
+      "n_times": 600,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 2.5,
+        "q": 0.01,
+        "rho": 0.002,
+        "u0": 0.294,
+        "alpha": 3.0,
+        "t0": -2.07,
+        "tE": 1.0
+      },
+      "time_range": [
+        -2.8,
+        0.8
+      ],
+      "no_warmup": {
+        "cold_ms": 15.418351045809686,
+        "steady_median_ms": 11.919082957319915,
+        "steady_samples_ms": [
+          11.917237075977027,
+          11.921611963771284,
+          11.919082957319915,
+          11.939840042032301,
+          11.747734970413148
+        ],
+        "steady_median_ms_per_epoch": 0.01986513826219986,
+        "total_ms_for_measured_calls": 74.86385805532336,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 4.1484159883111715,
+        "steady_median_ms": 4.051250987686217,
+        "steady_samples_ms": [
+          4.057884914800525,
+          4.041790962219238,
+          4.051250987686217,
+          4.046759917400777,
+          4.057359998114407
+        ],
+        "steady_median_ms_per_epoch": 0.006752084979477028,
+        "total_ms_for_measured_calls": 820.5972597934306,
+        "extra_ms": 796.1937970248982
+      },
+      "vbm": {
+        "cold_ms": 3.4009639639407396,
+        "steady_median_ms": 3.349588019773364,
+        "steady_samples_ms": [
+          3.356382017955184,
+          3.35142994299531,
+          3.349588019773364,
+          3.343589953146875,
+          3.3459789119660854
+        ],
+        "steady_median_ms_per_epoch": 0.0055826466996222734,
+        "total_ms_for_measured_calls": 20.147932809777558,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 562,
+          "hexadecapole": 27,
+          "inverse_ray_cartesian": 11
+        },
+        "converged_epochs": 600,
+        "total_epochs": 600
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 600,
+          "max_abs": 0.0008649052472211594,
+          "max_relative": 9.220236246858811e-05,
+          "p99_relative": 4.195874686944337e-05,
+          "median_relative": 6.616844063735856e-16,
+          "rms_relative": 8.344641321592654e-06
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 600,
+          "max_abs": 0.003681232778642851,
+          "max_relative": 0.0005933649220329841,
+          "p99_relative": 0.0001024969612327957,
+          "median_relative": 6.616844063735856e-16,
+          "rms_relative": 3.649049672742013e-05
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 600,
+          "max_abs": 0.0034086144525105055,
+          "max_relative": 0.0006079545132956269,
+          "p99_relative": 0.000147240701165963,
+          "median_relative": 0.0,
+          "rms_relative": 3.66576567654492e-05
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 796.0311819333583,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 562,
+          "hexadecapole": 27,
+          "inverse_ray_cartesian": 11
+        },
+        "statuses": {
+          "calibrated": 600
+        },
+        "resolution_min": 0,
+        "resolution_max": 13
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "wide_planet",
+      "profile": "C1_linear_ld",
+      "n_times": 600,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 2.5,
+        "q": 0.01,
+        "rho": 0.002,
+        "u0": 0.294,
+        "alpha": 3.0,
+        "t0": -2.07,
+        "tE": 1.0
+      },
+      "time_range": [
+        -2.8,
+        0.8
+      ],
+      "no_warmup": {
+        "cold_ms": 17.126551014371216,
+        "steady_median_ms": 13.629673048853874,
+        "steady_samples_ms": [
+          13.64880905020982,
+          13.641830068081617,
+          13.629673048853874,
+          13.623910956084728,
+          13.603948056697845
+        ],
+        "steady_median_ms_per_epoch": 0.02271612174808979,
+        "total_ms_for_measured_calls": 85.2747221942991,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 4.3627070263028145,
+        "steady_median_ms": 4.182527074590325,
+        "steady_samples_ms": [
+          4.2074930388480425,
+          4.203301039524376,
+          4.172350978478789,
+          4.17927501257509,
+          4.182527074590325
+        ],
+        "steady_median_ms_per_epoch": 0.006970878457650542,
+        "total_ms_for_measured_calls": 971.4849551673979,
+        "extra_ms": 946.1773009970784
+      },
+      "vbm": {
+        "cold_ms": 8.157773059792817,
+        "steady_median_ms": 5.712426034733653,
+        "steady_samples_ms": [
+          6.551033002324402,
+          5.966425989754498,
+          5.698977969586849,
+          5.712426034733653,
+          5.68614702206105
+        ],
+        "steady_median_ms_per_epoch": 0.009520710057889422,
+        "total_ms_for_measured_calls": 37.77278307825327,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 562,
+          "hexadecapole": 27,
+          "inverse_ray_cartesian": 11
+        },
+        "converged_epochs": 600,
+        "total_epochs": 600
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 600,
+          "max_abs": 0.002743666413625334,
+          "max_relative": 0.00037929451258764655,
+          "p99_relative": 0.00028011259558390826,
+          "median_relative": 6.616844063735856e-16,
+          "rms_relative": 4.5757488160754254e-05
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 600,
+          "max_abs": 0.005931825500818277,
+          "max_relative": 0.0006631168270861291,
+          "p99_relative": 0.00036091573979877574,
+          "median_relative": 6.616844063735856e-16,
+          "rms_relative": 6.102884550010172e-05
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 600,
+          "max_abs": 0.0035520230280425835,
+          "max_relative": 0.00038541410672660807,
+          "p99_relative": 0.00013658175028475112,
+          "median_relative": 0.0,
+          "rms_relative": 2.690533732174805e-05
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 945.9961189422756,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 562,
+          "hexadecapole": 27,
+          "inverse_ray_cartesian": 11
+        },
+        "statuses": {
+          "calibrated": 600
+        },
+        "resolution_min": 0,
+        "resolution_max": 13
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "small_q",
+      "profile": "C0_uniform",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 1.1,
+        "q": 0.0001,
+        "rho": 0.001,
+        "u0": 0.02,
+        "alpha": 0.3,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -2.0,
+        2.0
+      ],
+      "no_warmup": {
+        "cold_ms": 2.352215931750834,
+        "steady_median_ms": 0.966568011790514,
+        "steady_samples_ms": [
+          0.9757080115377903,
+          0.9706499986350536,
+          0.966568011790514,
+          0.9602330392226577,
+          0.9619980119168758
+        ],
+        "steady_median_ms_per_epoch": 0.004027366715793808,
+        "total_ms_for_measured_calls": 7.187373004853725,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 0.7227779133245349,
+        "steady_median_ms": 0.6717350333929062,
+        "steady_samples_ms": [
+          0.6890930235385895,
+          0.6805439479649067,
+          0.6717350333929062,
+          0.6646650144830346,
+          0.6680939113721251
+        ],
+        "steady_median_ms_per_epoch": 0.0027988959724704423,
+        "total_ms_for_measured_calls": 5.6173078482970595,
+        "extra_ms": 1.5203990042209625
+      },
+      "vbm": {
+        "cold_ms": 1.322504016570747,
+        "steady_median_ms": 1.2947889044880867,
+        "steady_samples_ms": [
+          1.3157499488443136,
+          1.2947260402143002,
+          1.2874880339950323,
+          1.299864030443132,
+          1.2947889044880867
+        ],
+        "steady_median_ms_per_epoch": 0.005394953768700361,
+        "total_ms_for_measured_calls": 7.815120974555612,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 228,
+          "hexadecapole": 12
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.000389577395234042,
+          "max_relative": 3.0203766667076407e-05,
+          "p99_relative": 1.8695786993742252e-05,
+          "median_relative": 2.061904139213765e-16,
+          "rms_relative": 4.696576491766868e-06
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.000389577395234042,
+          "max_relative": 3.0203766667076407e-05,
+          "p99_relative": 1.8695786993742252e-05,
+          "median_relative": 2.061904139213765e-16,
+          "rms_relative": 4.696576491766868e-06
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.0,
+          "max_relative": 0.0,
+          "p99_relative": 0.0,
+          "median_relative": 0.0,
+          "rms_relative": 0.0
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 1.443154993467033,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 228,
+          "hexadecapole": 12
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 0
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "small_q",
+      "profile": "C1_linear_ld",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 1.1,
+        "q": 0.0001,
+        "rho": 0.001,
+        "u0": 0.02,
+        "alpha": 0.3,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -2.0,
+        2.0
+      ],
+      "no_warmup": {
+        "cold_ms": 2.62360495980829,
+        "steady_median_ms": 0.9617109317332506,
+        "steady_samples_ms": [
+          0.9794459911063313,
+          0.9625890525057912,
+          0.9582269703969359,
+          0.959989964030683,
+          0.9617109317332506
+        ],
+        "steady_median_ms_per_epoch": 0.004007128882221878,
+        "total_ms_for_measured_calls": 7.445567869581282,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 0.729776918888092,
+        "steady_median_ms": 0.6956399884074926,
+        "steady_samples_ms": [
+          0.712790060788393,
+          0.6956399884074926,
+          0.7190449396148324,
+          0.6928590591996908,
+          0.6620979402214289
+        ],
+        "steady_median_ms_per_epoch": 0.002898499951697886,
+        "total_ms_for_measured_calls": 5.688845878466964,
+        "extra_ms": 1.476636971347034
+      },
+      "vbm": {
+        "cold_ms": 1.3961499789729714,
+        "steady_median_ms": 1.3466959353536367,
+        "steady_samples_ms": [
+          1.3466959353536367,
+          1.3351620873436332,
+          1.3557460624724627,
+          1.3388650259003043,
+          1.416947110556066
+        ],
+        "steady_median_ms_per_epoch": 0.005611233063973486,
+        "total_ms_for_measured_calls": 8.189566200599074,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 228,
+          "hexadecapole": 12
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.0038037074054351194,
+          "max_relative": 0.00027714437951289035,
+          "p99_relative": 2.8561717025937736e-05,
+          "median_relative": 2.061904139213765e-16,
+          "rms_relative": 2.337071689274163e-05
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.0038037074054351194,
+          "max_relative": 0.00027714437951289035,
+          "p99_relative": 2.8561717025937736e-05,
+          "median_relative": 2.061904139213765e-16,
+          "rms_relative": 2.337071689274163e-05
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.0,
+          "max_relative": 0.0,
+          "p99_relative": 0.0,
+          "median_relative": 0.0,
+          "rms_relative": 0.0
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 1.4118320541456342,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 228,
+          "hexadecapole": 12
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 0
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "high_q",
+      "profile": "C0_uniform",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 1.0,
+        "q": 0.1,
+        "rho": 0.01,
+        "u0": 0.05,
+        "alpha": 1.3,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -1.0,
+        1.0
+      ],
+      "no_warmup": {
+        "cold_ms": 20.335622946731746,
+        "steady_median_ms": 15.352735994383693,
+        "steady_samples_ms": [
+          15.434322995133698,
+          15.352735994383693,
+          15.304598957300186,
+          15.347899054177105,
+          15.377799049019814
+        ],
+        "steady_median_ms_per_epoch": 0.06396973330993205,
+        "total_ms_for_measured_calls": 97.15297899674624,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 5.6652260245755315,
+        "steady_median_ms": 5.536571028642356,
+        "steady_samples_ms": [
+          5.546912900172174,
+          5.527121014893055,
+          5.541399004869163,
+          5.528998910449445,
+          5.536571028642356
+        ],
+        "steady_median_ms_per_epoch": 0.023069045952676486,
+        "total_ms_for_measured_calls": 352.59817889891565,
+        "extra_ms": 319.2519500153139
+      },
+      "vbm": {
+        "cold_ms": 10.452070040628314,
+        "steady_median_ms": 10.327458963729441,
+        "steady_samples_ms": [
+          10.327458963729441,
+          10.342285968363285,
+          10.345418006181717,
+          9.928060928359628,
+          10.138125973753631
+        ],
+        "steady_median_ms_per_epoch": 0.04303107901553934,
+        "total_ms_for_measured_calls": 61.533419881016016,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 111,
+          "hexadecapole": 107,
+          "inverse_ray_cartesian": 22
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.00406134276683634,
+          "max_relative": 0.001077871578616377,
+          "p99_relative": 0.0005239228527254325,
+          "median_relative": 4.431087761534617e-06,
+          "rms_relative": 0.00011270506215955921
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.0058626647366892826,
+          "max_relative": 0.0009651526207388344,
+          "p99_relative": 0.0008430571064871501,
+          "median_relative": 4.431087761534617e-06,
+          "rms_relative": 0.00015556211622602052
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.008581653566052339,
+          "max_relative": 0.0015569528498522469,
+          "p99_relative": 0.0010366743054020674,
+          "median_relative": 0.0,
+          "rms_relative": 0.0001921942105311878
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 319.1407510312274,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 111,
+          "hexadecapole": 107,
+          "inverse_ray_polar": 9,
+          "inverse_ray_cartesian": 13
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 53
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "high_q",
+      "profile": "C1_linear_ld",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 1.0,
+        "q": 0.1,
+        "rho": 0.01,
+        "u0": 0.05,
+        "alpha": 1.3,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -1.0,
+        1.0
+      ],
+      "no_warmup": {
+        "cold_ms": 19.689361099153757,
+        "steady_median_ms": 12.066304101608694,
+        "steady_samples_ms": [
+          12.531250016763806,
+          12.066304101608694,
+          12.370979995466769,
+          12.003973009996116,
+          11.992802959866822
+        ],
+        "steady_median_ms_per_epoch": 0.05027626709003622,
+        "total_ms_for_measured_calls": 80.65467118285596,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 3.925453987903893,
+        "steady_median_ms": 3.820347017608583,
+        "steady_samples_ms": [
+          3.847567946650088,
+          3.820347017608583,
+          3.813575953245163,
+          3.7964381044730544,
+          4.088246962055564
+        ],
+        "steady_median_ms_per_epoch": 0.015918112573369097,
+        "total_ms_for_measured_calls": 310.84888393525034,
+        "extra_ms": 287.557253963314
+      },
+      "vbm": {
+        "cold_ms": 16.68625697493553,
+        "steady_median_ms": 16.50701300241053,
+        "steady_samples_ms": [
+          16.54483994934708,
+          16.54729596339166,
+          16.461424063891172,
+          16.50701300241053,
+          16.464458080008626
+        ],
+        "steady_median_ms_per_epoch": 0.06877922084337722,
+        "total_ms_for_measured_calls": 99.2112880339846,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 111,
+          "hexadecapole": 107,
+          "inverse_ray_cartesian": 22
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.00386094538191184,
+          "max_relative": 0.0007014172064150237,
+          "p99_relative": 0.0003838668424177825,
+          "median_relative": 2.011187611257427e-05,
+          "rms_relative": 0.00010106478349955412
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.0029000686846623047,
+          "max_relative": 0.0009623595314094381,
+          "p99_relative": 0.0007291598002730365,
+          "median_relative": 2.0064705034558485e-05,
+          "rms_relative": 0.00014803932848079826
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.005120329078984298,
+          "max_relative": 0.0010657801015120812,
+          "p99_relative": 0.0008044697806418524,
+          "median_relative": 0.0,
+          "rms_relative": 0.00014149826427352496
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 287.3859879327938,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 111,
+          "hexadecapole": 107,
+          "inverse_ray_polar": 11,
+          "inverse_ray_cartesian": 11
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 27
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "cusp_small_source",
+      "profile": "C0_uniform",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.9,
+        "q": 0.02,
+        "rho": 0.002,
+        "u0": 0.005,
+        "alpha": 1.2,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -0.5,
+        0.5
+      ],
+      "no_warmup": {
+        "cold_ms": 44.08657003659755,
+        "steady_median_ms": 30.99321899935603,
+        "steady_samples_ms": [
+          40.07213399745524,
+          39.14397198241204,
+          30.99321899935603,
+          27.20997598953545,
+          30.10150499176234
+        ],
+        "steady_median_ms_per_epoch": 0.1291384124973168,
+        "total_ms_for_measured_calls": 211.60737599711865,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 6.592085934244096,
+        "steady_median_ms": 7.542939041741192,
+        "steady_samples_ms": [
+          7.619883981533349,
+          7.540675927884877,
+          7.528409943915904,
+          7.542939041741192,
+          7.56468903273344
+        ],
+        "steady_median_ms_per_epoch": 0.03142891267392164,
+        "total_ms_for_measured_calls": 588.5646698297933,
+        "extra_ms": 544.1759859677404
+      },
+      "vbm": {
+        "cold_ms": 7.680526003241539,
+        "steady_median_ms": 7.599874050356448,
+        "steady_samples_ms": [
+          7.621369091793895,
+          7.599874050356448,
+          7.629122002981603,
+          7.587963016703725,
+          7.549155969172716
+        ],
+        "steady_median_ms_per_epoch": 0.0316661418764852,
+        "total_ms_for_measured_calls": 45.668010134249926,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 162,
+          "hexadecapole": 65,
+          "inverse_ray_cartesian": 13
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.0040936058959175625,
+          "max_relative": 0.0002498691563803781,
+          "p99_relative": 8.097971335850365e-05,
+          "median_relative": 1.8914239784717973e-15,
+          "rms_relative": 2.1974037494354718e-05
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.03160095848367206,
+          "max_relative": 0.0006803775683963346,
+          "p99_relative": 0.00039685895089089466,
+          "median_relative": 1.8914239784717973e-15,
+          "rms_relative": 7.50821469073738e-05
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.03569456437958962,
+          "max_relative": 0.0007673060353016333,
+          "p99_relative": 0.00043052720882055334,
+          "median_relative": 0.0,
+          "rms_relative": 8.077913867039585e-05
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 543.9998710062355,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 162,
+          "hexadecapole": 65,
+          "inverse_ray_polar": 6,
+          "inverse_ray_cartesian": 7
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 27
+      }
+    },
+    {
+      "lens": "binary",
+      "case": "cusp_small_source",
+      "profile": "C1_linear_ld",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.9,
+        "q": 0.02,
+        "rho": 0.002,
+        "u0": 0.005,
+        "alpha": 1.2,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -0.5,
+        0.5
+      ],
+      "no_warmup": {
+        "cold_ms": 53.28424309846014,
+        "steady_median_ms": 42.315804050303996,
+        "steady_samples_ms": [
+          49.221856985241175,
+          47.52383497543633,
+          41.34823300410062,
+          34.061772050336,
+          42.315804050303996
+        ],
+        "steady_median_ms_per_epoch": 0.17631585020959997,
+        "total_ms_for_measured_calls": 267.75574416387826,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "cold_ms": 8.282757946290076,
+        "steady_median_ms": 8.122650906443596,
+        "steady_samples_ms": [
+          8.139924961142242,
+          8.117394987493753,
+          8.122650906443596,
+          8.135485928505659,
+          8.118337020277977
+        ],
+        "steady_median_ms_per_epoch": 0.033844378776848316,
+        "total_ms_for_measured_calls": 714.4888817565516,
+        "extra_ms": 665.5723300063983
+      },
+      "vbm": {
+        "cold_ms": 10.316833038814366,
+        "steady_median_ms": 10.217947070486844,
+        "steady_samples_ms": [
+          10.19950199406594,
+          10.262966970913112,
+          10.248282924294472,
+          10.217947070486844,
+          9.928282932378352
+        ],
+        "steady_median_ms_per_epoch": 0.042574779460361846,
+        "total_ms_for_measured_calls": 61.173814930953085,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "point_source": 162,
+          "hexadecapole": 65,
+          "inverse_ray_cartesian": 13
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.028494858743776774,
+          "max_relative": 0.00047026778303655873,
+          "p99_relative": 0.0004353684122805854,
+          "median_relative": 1.8914239784717973e-15,
+          "rms_relative": 9.019870881726301e-05
+        },
+        "warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.03353750442018111,
+          "max_relative": 0.000907354714463805,
+          "p99_relative": 0.0005370626028997696,
+          "median_relative": 1.8914239784717973e-15,
+          "rms_relative": 0.00010449666197148935
+        },
+        "warmup_vs_no_warmup": {
+          "finite_epochs": 240,
+          "max_abs": 0.02628564717445414,
+          "max_relative": 0.0005652295591246287,
+          "p99_relative": 0.0003008207757566999,
+          "median_relative": 0.0,
+          "rms_relative": 5.6488370909814424e-05
+        }
+      },
+      "warmup_plan": {
+        "supported": true,
+        "elapsed_ms": 665.3946029255167,
+        "all_calibrated": true,
+        "methods": {
+          "point_source": 162,
+          "hexadecapole": 65,
+          "inverse_ray_polar": 6,
+          "inverse_ray_cartesian": 7
+        },
+        "statuses": {
+          "calibrated": 240
+        },
+        "resolution_min": 0,
+        "resolution_max": 27
+      }
+    },
+    {
+      "lens": "triple",
+      "case": "triple_default",
+      "profile": "C0_uniform",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 1.2,
+        "q": 0.01,
+        "q2": 0.001,
+        "sep2": 1.0,
+        "ang": 0.5,
+        "u0": 0.05,
+        "alpha": 0.0,
+        "rho": 0.005,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -0.8,
+        0.8
+      ],
+      "no_warmup": {
+        "cold_ms": 445.0193749507889,
+        "steady_median_ms": 460.089229978621,
+        "steady_samples_ms": [
+          461.9761479552835,
+          451.8898680107668,
+          461.4216419868171,
+          426.1396770598367,
+          460.089229978621
+        ],
+        "steady_median_ms_per_epoch": 1.9170384582442541,
+        "total_ms_for_measured_calls": 2706.535939942114,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "supported": false,
+        "reason": "LightCurve.warmup currently supports binary lenses only"
+      },
+      "vbm": {
+        "cold_ms": 59.08730498049408,
+        "steady_median_ms": 48.042068956419826,
+        "steady_samples_ms": [
+          45.62746803276241,
+          40.27061094529927,
+          48.042068956419826,
+          59.13693201728165,
+          59.11273998208344
+        ],
+        "steady_median_ms_per_epoch": 0.20017528731841594,
+        "total_ms_for_measured_calls": 311.2771249143407,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "hexadecapole": 182,
+          "inverse_ray_cartesian": 58
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.0044991451338880495,
+          "max_relative": 0.00042448087541988933,
+          "p99_relative": 0.00031197912258475673,
+          "median_relative": 1.4959406998131422e-05,
+          "rms_relative": 6.830717253275114e-05
+        }
+      }
+    },
+    {
+      "lens": "triple",
+      "case": "triple_default",
+      "profile": "C1_linear_ld",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 1.2,
+        "q": 0.01,
+        "q2": 0.001,
+        "sep2": 1.0,
+        "ang": 0.5,
+        "u0": 0.05,
+        "alpha": 0.0,
+        "rho": 0.005,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -0.8,
+        0.8
+      ],
+      "no_warmup": {
+        "cold_ms": 451.052904012613,
+        "steady_median_ms": 449.8019970487803,
+        "steady_samples_ms": [
+          473.3038879930973,
+          444.234058028087,
+          445.29028004035354,
+          464.8683969862759,
+          449.8019970487803
+        ],
+        "steady_median_ms_per_epoch": 1.8741749877032514,
+        "total_ms_for_measured_calls": 2728.551524109207,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "supported": false,
+        "reason": "LightCurve.warmup currently supports binary lenses only"
+      },
+      "vbm": {
+        "cold_ms": 115.64739793539047,
+        "steady_median_ms": 103.25647401623428,
+        "steady_samples_ms": [
+          93.52034598123282,
+          103.25647401623428,
+          114.1683750320226,
+          107.45512903667986,
+          86.13369101658463
+        ],
+        "steady_median_ms_per_epoch": 0.4302353084009762,
+        "total_ms_for_measured_calls": 620.1814130181447,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "hexadecapole": 182,
+          "inverse_ray_cartesian": 58
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.006351924229942796,
+          "max_relative": 0.0007024264542251974,
+          "p99_relative": 0.0004120933410893127,
+          "median_relative": 2.136807615118629e-05,
+          "rms_relative": 0.00011752735388889151
+        }
+      }
+    },
+    {
+      "lens": "triple",
+      "case": "triple_close",
+      "profile": "C0_uniform",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.9,
+        "q": 0.02,
+        "q2": 0.005,
+        "sep2": 0.7,
+        "ang": 1.1,
+        "u0": 0.02,
+        "alpha": 0.8,
+        "rho": 0.003,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -1.0,
+        1.0
+      ],
+      "no_warmup": {
+        "cold_ms": 116.85605300590396,
+        "steady_median_ms": 105.54543207399547,
+        "steady_samples_ms": [
+          117.4379379954189,
+          92.30228397063911,
+          99.3319449480623,
+          117.57546593435109,
+          105.54543207399547
+        ],
+        "steady_median_ms_per_epoch": 0.4397726336416478,
+        "total_ms_for_measured_calls": 649.0491179283708,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "supported": false,
+        "reason": "LightCurve.warmup currently supports binary lenses only"
+      },
+      "vbm": {
+        "cold_ms": 46.535513014532626,
+        "steady_median_ms": 57.45839502196759,
+        "steady_samples_ms": [
+          57.45839502196759,
+          57.64230992645025,
+          57.59499594569206,
+          55.479967035353184,
+          40.43176700361073
+        ],
+        "steady_median_ms_per_epoch": 0.2394099792581983,
+        "total_ms_for_measured_calls": 315.14294794760644,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "hexadecapole": 216,
+          "inverse_ray_cartesian": 24
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.003725167671859708,
+          "max_relative": 0.00017874358930075544,
+          "p99_relative": 9.580593686354428e-05,
+          "median_relative": 1.5727012978965715e-05,
+          "rms_relative": 2.5638845671550196e-05
+        }
+      }
+    },
+    {
+      "lens": "triple",
+      "case": "triple_close",
+      "profile": "C1_linear_ld",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 0.9,
+        "q": 0.02,
+        "q2": 0.005,
+        "sep2": 0.7,
+        "ang": 1.1,
+        "u0": 0.02,
+        "alpha": 0.8,
+        "rho": 0.003,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -1.0,
+        1.0
+      ],
+      "no_warmup": {
+        "cold_ms": 116.13987106829882,
+        "steady_median_ms": 104.70556595828384,
+        "steady_samples_ms": [
+          106.62907804362476,
+          103.77536702435464,
+          117.3101490130648,
+          104.70556595828384,
+          87.94304099865258
+        ],
+        "steady_median_ms_per_epoch": 0.4362731914928493,
+        "total_ms_for_measured_calls": 636.5030721062794,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "supported": false,
+        "reason": "LightCurve.warmup currently supports binary lenses only"
+      },
+      "vbm": {
+        "cold_ms": 70.16771694179624,
+        "steady_median_ms": 68.02576093468815,
+        "steady_samples_ms": [
+          72.38803093787283,
+          68.02576093468815,
+          56.71307200100273,
+          50.23150402121246,
+          70.04862301982939
+        ],
+        "steady_median_ms_per_epoch": 0.28344067056120065,
+        "total_ms_for_measured_calls": 387.5747078564018,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "hexadecapole": 216,
+          "inverse_ray_cartesian": 24
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.03012147657046782,
+          "max_relative": 0.004760912931170329,
+          "p99_relative": 0.0004287002198567855,
+          "median_relative": 1.5922676283385627e-05,
+          "rms_relative": 0.00031753177557960625
+        }
+      }
+    },
+    {
+      "lens": "triple",
+      "case": "triple_wide",
+      "profile": "C0_uniform",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 1.8,
+        "q": 0.005,
+        "q2": 0.001,
+        "sep2": 1.3,
+        "ang": 0.4,
+        "u0": 0.08,
+        "alpha": 1.2,
+        "rho": 0.004,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -1.5,
+        1.5
+      ],
+      "no_warmup": {
+        "cold_ms": 168.06029400322586,
+        "steady_median_ms": 169.68151496257633,
+        "steady_samples_ms": [
+          181.09665799420327,
+          169.68151496257633,
+          175.31654599588364,
+          147.3472740035504,
+          159.63315509725362
+        ],
+        "steady_median_ms_per_epoch": 0.7070063123440681,
+        "total_ms_for_measured_calls": 1001.1354420566931,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "supported": false,
+        "reason": "LightCurve.warmup currently supports binary lenses only"
+      },
+      "vbm": {
+        "cold_ms": 47.657836927101016,
+        "steady_median_ms": 44.06853404361755,
+        "steady_samples_ms": [
+          40.43293301947415,
+          38.555136998184025,
+          44.06853404361755,
+          52.36700491514057,
+          52.42084397468716
+        ],
+        "steady_median_ms_per_epoch": 0.18361889184840643,
+        "total_ms_for_measured_calls": 275.50228987820446,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "hexadecapole": 240
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.00014146187825048173,
+          "max_relative": 1.608696386068758e-05,
+          "p99_relative": 1.6061922329247646e-05,
+          "median_relative": 1.5740728791117124e-05,
+          "rms_relative": 1.4714029622681671e-05
+        }
+      }
+    },
+    {
+      "lens": "triple",
+      "case": "triple_wide",
+      "profile": "C1_linear_ld",
+      "n_times": 240,
+      "repeats_after_first": 5,
+      "parameters": {
+        "s": 1.8,
+        "q": 0.005,
+        "q2": 0.001,
+        "sep2": 1.3,
+        "ang": 0.4,
+        "u0": 0.08,
+        "alpha": 1.2,
+        "rho": 0.004,
+        "t0": 0.0,
+        "tE": 1.0
+      },
+      "time_range": [
+        -1.5,
+        1.5
+      ],
+      "no_warmup": {
+        "cold_ms": 155.99292994011194,
+        "steady_median_ms": 173.93115698359907,
+        "steady_samples_ms": [
+          177.22608800977468,
+          150.15572600532323,
+          173.93115698359907,
+          143.24458700139076,
+          185.30808691866696
+        ],
+        "steady_median_ms_per_epoch": 0.7247131540983295,
+        "total_ms_for_measured_calls": 985.8585748588666,
+        "extra_ms": 0.0
+      },
+      "warmup": {
+        "supported": false,
+        "reason": "LightCurve.warmup currently supports binary lenses only"
+      },
+      "vbm": {
+        "cold_ms": 44.585338910110295,
+        "steady_median_ms": 50.635936902835965,
+        "steady_samples_ms": [
+          39.31920893955976,
+          37.581490934826434,
+          50.635936902835965,
+          55.144138052128255,
+          55.15799601562321
+        ],
+        "steady_median_ms_per_epoch": 0.2109830704284832,
+        "total_ms_for_measured_calls": 282.4241097550839,
+        "extra_ms": 0.0
+      },
+      "routes": {
+        "methods": {
+          "hexadecapole": 240
+        },
+        "converged_epochs": 240,
+        "total_epochs": 240
+      },
+      "accuracy": {
+        "no_warmup_vs_vbm": {
+          "finite_epochs": 240,
+          "max_abs": 0.0012918226525364673,
+          "max_relative": 0.0001364412207519029,
+          "p99_relative": 7.829917882913584e-05,
+          "median_relative": 1.5899092165394408e-05,
+          "rms_relative": 2.2170269640235283e-05
+        }
+      }
+    }
+  ]
+}
