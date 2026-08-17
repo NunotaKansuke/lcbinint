@@ -132,6 +132,7 @@ def evaluate_vbm(limb_darkening_gamma: float):
     vbm = VBMicrolensing.VBMicrolensing()
     configure_vbm_triple_method(vbm)
     vbm.Tol = 1.0e-3
+    vbm.RelTol = 1.0e-3
     vbm.a1 = limb_darkening_gamma
     vbm.a2 = 0.0
     vbm_arr = _vbm_array(PARAMS)
@@ -208,27 +209,60 @@ def main():
         lc_ld, lc_ld_time, lc_ld_samples,
         vbm_ld, vbm_ld_time, vbm_ld_samples,
     )
-    fig = plt.figure(figsize=(8.0, 5.2), constrained_layout=True)
-    grid = fig.add_gridspec(2, 1, height_ratios=[2.0, 1.0])
-    ax_mag = fig.add_subplot(grid[0])
-    ax_res = fig.add_subplot(grid[1], sharex=ax_mag)
-
-    ax_mag.plot(TIMES, lc_no_ld, label="lcbinint no LD", lw=1.8)
-    ax_mag.plot(TIMES, lc_ld, label="lcbinint LD", lw=1.8)
-    if np.all(np.isfinite(vbm_no_ld)):
-        ax_mag.plot(TIMES, vbm_no_ld, "--", label="VBM no LD", lw=1.2)
-        ax_mag.plot(TIMES, vbm_ld, "--", label="VBM LD", lw=1.2)
-    ax_mag.set_ylabel("magnification")
-    ax_mag.legend(loc="best", fontsize=8)
-
-    if np.all(np.isfinite(vbm_no_ld)):
-        ax_res.semilogy(TIMES, relative_error(vbm_no_ld, lc_no_ld), label="no LD")
-        ax_res.semilogy(TIMES, relative_error(vbm_ld, lc_ld), label="LD")
-        ax_res.legend(loc="best", fontsize=8)
-    else:
-        ax_res.text(0.5, 0.5, "VBM is not installed", ha="center", va="center")
-    ax_res.set_ylabel("relative error")
-    ax_res.set_xlabel("time")
+    fig, axes = plt.subplots(
+        2,
+        2,
+        figsize=(10.0, 6.5),
+        sharex="col",
+        gridspec_kw={"height_ratios": [2.0, 1.0]},
+    )
+    lc_color = "tab:blue"
+    vbm_color = "tab:orange"
+    error_color = "C0"
+    profiles = [
+        ("C0: uniform", lc_no_ld, vbm_no_ld, axes[0, 0], axes[1, 0]),
+        ("C1: linear LD ($c=0.5$)", lc_ld, vbm_ld, axes[0, 1], axes[1, 1]),
+    ]
+    for label, lc_values, vbm_values, ax_mag, ax_res in profiles:
+        ax_mag.scatter(
+            TIMES,
+            lc_values,
+            color=lc_color,
+            s=28,
+            alpha=0.9,
+            zorder=3,
+            label="lcbinint",
+        )
+        if np.all(np.isfinite(vbm_values)):
+            ax_mag.plot(
+                TIMES,
+                vbm_values,
+                color=vbm_color,
+                lw=1.4,
+                label="VBMicrolensing",
+            )
+            ax_res.semilogy(
+                TIMES,
+                relative_error(vbm_values, lc_values),
+                color=error_color,
+                lw=1.2,
+            )
+            ax_res.axhline(
+                1.0e-3,
+                color="0.35",
+                linestyle=":",
+                linewidth=1.0,
+            )
+        else:
+            ax_mag.text(0.5, 0.5, "VBM is not installed", ha="center", va="center")
+        ax_mag.set_title(label)
+        ax_mag.set_ylabel("magnification")
+        ax_mag.legend(loc="best", fontsize=8)
+        ax_res.set_title(f"{label} residual")
+        ax_res.set_ylabel("relative error")
+        ax_res.set_xlabel("time")
+    fig.suptitle("Triple light curve: lcbinint vs VBMicrolensing")
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
 
     output = Path(__file__).with_suffix(".png")
     fig.savefig(output, dpi=160)

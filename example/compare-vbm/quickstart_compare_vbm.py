@@ -134,6 +134,7 @@ def evaluate_vbm(limb_darkening_gamma: float):
 
     vbm = VBMicrolensing.VBMicrolensing()
     vbm.Tol = RELATIVE_TOLERANCE
+    vbm.RelTol = RELATIVE_TOLERANCE
     vbm.a1 = limb_darkening_gamma
     vbm.a2 = 0.0
     params = [
@@ -232,60 +233,61 @@ def main():
                 f"p99={stats['p99']:.3e} median={stats['median']:.3e} "
                 f"rms={stats['rms']:.3e}"
             )
-    fig = plt.figure(figsize=(8.0, 5.2), constrained_layout=True)
-    grid = fig.add_gridspec(2, 1, height_ratios=[2.0, 1.0])
-    ax_mag = fig.add_subplot(grid[0])
-    ax_res = fig.add_subplot(grid[1], sharex=ax_mag)
-
+    fig, axes = plt.subplots(
+        2,
+        2,
+        figsize=(10.0, 6.5),
+        sharex="col",
+        gridspec_kw={"height_ratios": [2.0, 1.0]},
+    )
+    lc_color = "tab:blue"
+    vbm_color = "tab:orange"
+    error_color = "C0"
     profiles = [
-        ("uniform", "tab:blue", vbm_no_ld, lc_no_ld),
-        ("LD ($c=0.5$)", "tab:red", vbm_ld, lc_ld),
+        ("C0: uniform", vbm_no_ld, lc_no_ld, axes[0, 0], axes[1, 0]),
+        ("C1: linear LD ($c=0.5$)", vbm_ld, lc_ld, axes[0, 1], axes[1, 1]),
     ]
-    for label, color, vbm_record, lc_record in profiles:
+    for label, vbm_record, lc_record, ax_mag, ax_res in profiles:
         lc_values = lc_record["values"]
         ax_mag.scatter(
             TIMES,
             lc_values,
-            color=color,
-            s=20,
+            color=lc_color,
+            s=28,
             alpha=0.9,
             zorder=3,
-            label=f"lcbinint {label}",
+            label="lcbinint",
         )
         if np.all(np.isfinite(vbm_record["values"])):
             ax_mag.plot(
                 TIMES,
                 vbm_record["values"],
-                color=color,
-                lw=1.5,
-                label=f"VBM {label}",
+                color=vbm_color,
+                lw=1.4,
+                label="VBMicrolensing",
             )
-    ax_mag.set_ylabel("magnification")
-    ax_mag.legend(loc="best", fontsize=8, ncol=2)
-
-    if np.all(np.isfinite(vbm_no_ld["values"])):
-        for label, color, vbm_record, lc_record in profiles:
-            ax_res.scatter(
+            ax_res.semilogy(
                 TIMES,
-                relative_error(vbm_record["values"], lc_record["values"]),
-                color=color,
-                s=16,
-                alpha=0.9,
-                label=label,
+                relative_error(vbm_record["values"], lc_values),
+                color=error_color,
+                lw=1.2,
             )
-        ax_res.axhline(
-            RELATIVE_TOLERANCE,
-            color="0.35",
-            linestyle="--",
-            linewidth=1.0,
-            label=fr"requested $epsilon_{{\rm rel}}={RELATIVE_TOLERANCE:.0e}$",
-        )
-        ax_res.legend(loc="best", fontsize=8)
-    else:
-        ax_res.text(0.5, 0.5, "VBM is not installed", ha="center", va="center")
-    ax_res.set_yscale("log")
-    ax_res.set_ylabel("relative error to VBM")
-    ax_res.set_xlabel("time")
+            ax_res.axhline(
+                RELATIVE_TOLERANCE,
+                color="0.35",
+                linestyle=":",
+                linewidth=1.0,
+            )
+        else:
+            ax_mag.text(0.5, 0.5, "VBM is not installed", ha="center", va="center")
+        ax_mag.set_title(label)
+        ax_mag.set_ylabel("magnification")
+        ax_mag.legend(loc="best", fontsize=8)
+        ax_res.set_title(f"{label} residual")
+        ax_res.set_ylabel("relative error")
+        ax_res.set_xlabel("time")
+    fig.suptitle("Binary light curve: lcbinint vs VBMicrolensing")
+    fig.tight_layout(rect=(0.0, 0.0, 1.0, 0.96))
 
     output = Path(__file__).with_suffix(".png")
     fig.savefig(output, dpi=160)
