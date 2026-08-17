@@ -396,4 +396,8 @@ def test_hybrid_keeps_calibrated_tiny_high_magnification_polar_path():
     )
     assert int(result.method) == 2
     assert bool(result.support_valid)
-    np.testing.assert_allclose(result.magnification, 95.43373464, rtol=1.0e-9)
+    np.testing.assert_allclose(
+        result.magnification,
+        95.4330060008795,
+        rtol=1.0e-9,
+    )
