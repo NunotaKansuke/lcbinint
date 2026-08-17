@@ -1361,6 +1361,15 @@ frozen \(A\simeq153,\rho=10^{-4}\) case, the 64-bin automatic grid gives
 152.71070 versus native 152.71349, takes about 6--7 ms warm for the explicit
 forward call, and reports no support failure.
 
+The binary CPU FFI now uses the same connected-support principle instead of
+retaining the original pure-JAX band rasterisation.  It reuses the Cartesian
+centre/limb/component-certificate roots as seeds, discovers centre-inside
+radial runs, and applies the existing affine moment rule only to those runs and
+their one-cell boundary halo.  The pure-JAX fallback keeps fixed-capacity bands
+because a variable-length queue remains a poor XLA representation.  Thus the
+two backends share support semantics without forcing the CPU implementation to
+pay for fixed-shape candidate regions.
+
 Differentiating polar cell membership itself was not accurate: radial edge
 terms omit the azimuthal shape derivative, while adding discrete cap terms
 over-corrects the primal.  The accepted JVP instead uses the physical identity

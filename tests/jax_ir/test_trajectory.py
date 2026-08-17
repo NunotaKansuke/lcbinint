@@ -237,16 +237,12 @@ def test_native_pipeline_trajectory_uses_high_magnification_polar_value():
     )
 
 
-def test_native_pipeline_unconverged_polar_epoch_falls_back_to_cartesian():
-    # `prefer_polar` is a prediction from the resolution regression, and this
-    # epoch is one it gets wrong: the caustic sits three quarters of a source
-    # radius from the centre, the polar grid finds no valid support there, and
-    # the pipeline used to have nothing else to offer -- `cartesian_candidate`
-    # excluded every `prefer_polar` epoch, so the answer was NaN with the
-    # Cartesian ladder sitting unarmed beside it.  The Cartesian route
-    # certifies the same epoch at 2.2e-5 against the sweep's stored reference
-    # of 7155.5028 (recal2026 case 0, uniform, epoch 0), which is what the
-    # value below is.  Without the fallback this returns NaN.
+def test_native_pipeline_polar_flood_resolves_former_band_failure():
+    # The old source-limb band support rejected this preferred-polar epoch and
+    # forced the Cartesian rescue. Component-certified radial-run flood support
+    # now reaches the image directly. Keep the regression on the scientifically
+    # relevant contract: a finite, converged image-plane value close to the
+    # sweep's stored 7155.5028 reference (recal2026 case 0, uniform, epoch 0).
     result = binary_magnification_native_pipeline_trajectory(
         jnp.asarray((0.0027202005904869452,)),
         jnp.asarray((0.0001923281189823918,)),
@@ -264,9 +260,11 @@ def test_native_pipeline_unconverged_polar_epoch_falls_back_to_cartesian():
     assert bool(jnp.isfinite(result.magnification[0]))
     assert bool(result.support_valid[0])
     assert bool(result.value_converged[0])
-    # Routed away from polar, not merely rescued after it.
-    assert not bool(result.used_polar[0])
-    assert int(result.method[0]) == 1
+    assert bool(result.used_polar[0])
+    np.testing.assert_allclose(
+        result.magnification[0], 7155.5028, rtol=3.0e-5
+    )
+    assert int(result.method[0]) == 2
     np.testing.assert_allclose(
         result.magnification[0], 7155.5027796525, rtol=1.0e-4, atol=0.0
     )

@@ -3110,141 +3110,8 @@ struct PolarSeed {
 
 struct PolarDiscovery {
     std::vector<PolarSeed> seeds;
-    std::vector<std::array<double, 2>> bands;
-    bool overflow = false;
     bool root_failure = false;
 };
-
-PolarDiscovery discover_polar_support(
-    double source_x,
-    double source_y,
-    double separation,
-    double mass_ratio,
-    double source_radius,
-    std::int64_t limb_samples,
-    std::int64_t band_capacity,
-    double padding_factor)
-{
-    PolarDiscovery result;
-    BinaryRootContinuation continuation;
-    result.seeds.reserve(
-        static_cast<std::size_t>((limb_samples + 1) * binary_root_count));
-    std::vector<std::array<double, 2>> intervals;
-    intervals.reserve(result.seeds.capacity());
-    const double two_pi = 2.0 * std::acos(-1.0);
-    const double padding = padding_factor * source_radius;
-    for (std::int64_t sample = 0; sample <= limb_samples; ++sample) {
-        double sample_x = source_x;
-        double sample_y = source_y;
-        if (sample > 0) {
-            const double angle =
-                two_pi * static_cast<double>(sample - 1)
-                / static_cast<double>(limb_samples);
-            sample_x += source_radius * std::cos(angle);
-            sample_y += source_radius * std::sin(angle);
-        }
-        const auto images = solve_binary_images(
-            sample_x, sample_y, separation, mass_ratio, &continuation);
-        std::int32_t physical_count = 0;
-        for (std::size_t root = 0; root < binary_root_count; ++root) {
-            physical_count += static_cast<std::int32_t>(images.physical[root]);
-            const double radius = std::abs(images.roots[root]);
-            result.seeds.push_back(
-                {radius, std::arg(images.roots[root]), images.physical[root]});
-            if (images.physical[root]) {
-                intervals.push_back(
-                    {std::max(0.0, radius - padding), radius + padding});
-            }
-        }
-        result.root_failure =
-            result.root_failure
-            || physical_count < 3
-            || physical_count > 5;
-    }
-    std::sort(
-        intervals.begin(),
-        intervals.end(),
-        [](const auto& left, const auto& right) {
-            return left[0] < right[0];
-        });
-    for (const auto& interval : intervals) {
-        if (
-            !result.bands.empty()
-            && interval[0] <= result.bands.back()[1]) {
-            result.bands.back()[1] =
-                std::max(result.bands.back()[1], interval[1]);
-        } else if (
-            result.bands.size()
-            < static_cast<std::size_t>(band_capacity)) {
-            result.bands.push_back(interval);
-        } else {
-            result.overflow = true;
-        }
-    }
-    return result;
-}
-
-PolarDiscovery cached_polar_support(
-    double source_x,
-    double source_y,
-    double separation,
-    double mass_ratio,
-    double source_radius,
-    std::int64_t limb_samples,
-    std::int64_t band_capacity,
-    double padding_factor)
-{
-    struct Entry {
-        double source_x;
-        double source_y;
-        double separation;
-        double mass_ratio;
-        double source_radius;
-        std::int64_t limb_samples;
-        std::int64_t band_capacity;
-        double padding_factor;
-        PolarDiscovery support;
-    };
-    constexpr std::size_t maximum_entries = 2048;
-    static std::deque<Entry> entries;
-    static std::shared_mutex mutex;
-    {
-        std::shared_lock lock(mutex);
-        for (const auto& entry : entries) {
-            if (entry.source_x == source_x && entry.source_y == source_y &&
-                entry.separation == separation &&
-                entry.mass_ratio == mass_ratio &&
-                entry.source_radius == source_radius &&
-                entry.limb_samples == limb_samples &&
-                entry.band_capacity == band_capacity &&
-                entry.padding_factor == padding_factor) {
-                return entry.support;
-            }
-        }
-    }
-    auto support = discover_polar_support(
-        source_x, source_y, separation, mass_ratio, source_radius,
-        limb_samples, band_capacity, padding_factor);
-    {
-        std::unique_lock lock(mutex);
-        for (const auto& entry : entries) {
-            if (entry.source_x == source_x && entry.source_y == source_y &&
-                entry.separation == separation &&
-                entry.mass_ratio == mass_ratio &&
-                entry.source_radius == source_radius &&
-                entry.limb_samples == limb_samples &&
-                entry.band_capacity == band_capacity &&
-                entry.padding_factor == padding_factor) {
-                return entry.support;
-            }
-        }
-        if (entries.size() >= maximum_entries) entries.pop_front();
-        entries.push_back({
-            source_x, source_y, separation, mass_ratio, source_radius,
-            limb_samples, band_capacity, padding_factor, support});
-    }
-    return support;
-}
 
 PolarDiscovery discover_triple_polar_support(
     double source_x,
@@ -3256,15 +3123,11 @@ PolarDiscovery discover_triple_polar_support(
     double tertiary_angle,
     double source_radius,
     std::int64_t limb_samples,
-    std::int64_t band_capacity,
-    double padding_factor,
     std::int64_t convention)
 {
     PolarDiscovery result;
     result.seeds.reserve(
         static_cast<std::size_t>((limb_samples + 1) * triple_root_count));
-    std::vector<std::array<double, 2>> intervals;
-    intervals.reserve(result.seeds.capacity());
     const auto geometry = convention == 0
         ? lcbinint::model::make_triple_lens_geometry(
             separation, mass_ratio, tertiary_mass_ratio,
@@ -3274,7 +3137,6 @@ PolarDiscovery discover_triple_polar_support(
             tertiary_angle, tertiary_mass_ratio);
     const lcbinint::magnification::PointSourceMagnifier magnifier;
     const double two_pi = 2.0 * std::acos(-1.0);
-    const double padding = padding_factor * source_radius;
     for (std::int64_t sample = 0; sample <= limb_samples; ++sample) {
         double sample_x = source_x;
         double sample_y = source_y;
@@ -3297,107 +3159,9 @@ PolarDiscovery discover_triple_polar_support(
                 {radius, angle, candidate.physical});
             if (!candidate.physical) continue;
             ++physical_count;
-            intervals.push_back(
-                {std::max(0.0, radius - padding), radius + padding});
         }
         const bool valid_count = physical_count > 0;
         result.root_failure = result.root_failure || !valid_count;
-    }
-    std::sort(
-        intervals.begin(),
-        intervals.end(),
-        [](const auto& left, const auto& right) {
-            return left[0] < right[0];
-        });
-    for (const auto& interval : intervals) {
-        if (
-            !result.bands.empty()
-            && interval[0] <= result.bands.back()[1]) {
-            result.bands.back()[1] =
-                std::max(result.bands.back()[1], interval[1]);
-        } else if (
-            result.bands.size()
-            < static_cast<std::size_t>(band_capacity)) {
-            result.bands.push_back(interval);
-        } else {
-            result.overflow = true;
-        }
-    }
-    return result;
-}
-
-struct PolarAngularRanges {
-    std::vector<double> lower;
-    std::vector<double> upper;
-};
-
-PolarAngularRanges build_polar_angular_ranges(
-    const PolarDiscovery& support,
-    std::int64_t angular_bins,
-    double angular_padding)
-{
-    const double two_pi = 2.0 * std::acos(-1.0);
-    const double dtheta = two_pi / angular_bins;
-    const std::size_t band_count = support.bands.size();
-    PolarAngularRanges result;
-    result.lower.assign(
-        band_count * static_cast<std::size_t>(angular_bins),
-        std::numeric_limits<double>::infinity());
-    result.upper.assign(
-        result.lower.size(), -std::numeric_limits<double>::infinity());
-    for (std::size_t band_index = 0; band_index < band_count; ++band_index) {
-        std::vector<std::pair<double, double>> seeds;
-        for (const auto& seed : support.seeds) {
-            if (
-                !seed.physical
-                || seed.radius < support.bands[band_index][0]
-                || seed.radius > support.bands[band_index][1]) {
-                continue;
-            }
-            double angle = std::fmod(seed.angle, two_pi);
-            if (angle < 0.0) angle += two_pi;
-            seeds.emplace_back(angle - two_pi, seed.radius);
-            seeds.emplace_back(angle, seed.radius);
-            seeds.emplace_back(angle + two_pi, seed.radius);
-        }
-        std::sort(
-            seeds.begin(), seeds.end(),
-            [](const auto& left, const auto& right) {
-                return left.first < right.first;
-            });
-        std::multiset<double> active_radii;
-        std::size_t left = 0;
-        std::size_t right = 0;
-        for (
-            std::int64_t angular_index = 0;
-            angular_index < angular_bins;
-            ++angular_index) {
-            const double theta =
-                (static_cast<double>(angular_index) + 0.5) * dtheta;
-            const double lower_angle = theta - angular_padding;
-            const double upper_angle = theta + angular_padding;
-            while (
-                right < seeds.size()
-                && seeds[right].first <= upper_angle) {
-                active_radii.insert(seeds[right].second);
-                ++right;
-            }
-            while (
-                left < right && seeds[left].first < lower_angle) {
-                const auto position =
-                    active_radii.find(seeds[left].second);
-                if (position != active_radii.end()) {
-                    active_radii.erase(position);
-                }
-                ++left;
-            }
-            if (active_radii.empty()) continue;
-            const std::size_t output =
-                band_index * static_cast<std::size_t>(angular_bins)
-                + static_cast<std::size_t>(angular_index);
-            result.lower[output] = *active_radii.begin();
-            result.upper[output] = *active_radii.rbegin();
-        }
     }
     return result;
 }
@@ -3412,7 +3176,7 @@ struct PolarFloodRun {
     double right_outside_distance_squared = -1.0;
 };
 
-struct TriplePolarFloodSupport {
+struct PolarFloodSupport {
     std::vector<PolarFloodRun> runs;
     std::array<double, 3> moments{};
     bool overflow = false;
@@ -3421,7 +3185,7 @@ struct TriplePolarFloodSupport {
 };
 
 template <MomentMode Mode, bool AccumulateMoments>
-TriplePolarFloodSupport discover_triple_polar_flood_support(
+PolarFloodSupport discover_triple_polar_flood_support(
     double source_x,
     double source_y,
     double separation,
@@ -3439,10 +3203,8 @@ TriplePolarFloodSupport discover_triple_polar_flood_support(
     const auto seeds = discover_triple_polar_support(
         source_x, source_y, separation, mass_ratio,
         tertiary_mass_ratio, tertiary_separation, tertiary_angle,
-        source_radius, limb_samples,
-        std::max<std::int64_t>(64, (limb_samples + 1) * 10),
-        0.0, convention);
-    TriplePolarFloodSupport result;
+        source_radius, limb_samples, convention);
+    PolarFloodSupport result;
     result.root_failure = seeds.root_failure;
     const auto lens = make_triple_lens_constants(
         separation, mass_ratio, tertiary_mass_ratio,
@@ -3675,6 +3437,199 @@ TriplePolarFloodSupport discover_triple_polar_flood_support(
     return result;
 }
 
+template <typename MakeColumnDistance>
+PolarFloodSupport discover_binary_polar_flood_support(
+    const CartesianSeedSupport& prepared,
+    double source_radius,
+    double dr,
+    std::int64_t angular_bins,
+    std::int64_t cell_capacity,
+    MakeColumnDistance make_column_distance)
+{
+    PolarFloodSupport result;
+    result.root_failure = prepared.root_failure;
+    const double two_pi = 2.0 * std::acos(-1.0);
+    const double dtheta = two_pi / angular_bins;
+    using Interval = std::array<std::int32_t, 2>;
+    std::vector<std::vector<Interval>> visited(
+        static_cast<std::size_t>(angular_bins));
+    struct PolarFrontier {
+        std::int32_t left = 0;
+        std::int32_t right = -1;
+        std::int32_t angular = 0;
+    };
+    std::deque<PolarFrontier> queue;
+    const auto wrap_angle = [angular_bins](std::int64_t index) {
+        index %= angular_bins;
+        if (index < 0) index += angular_bins;
+        return static_cast<std::int32_t>(index);
+    };
+    const auto cell_visited = [&](std::int32_t radial, std::int32_t angular) {
+        if (radial < 0) return true;
+        const auto& intervals = visited[
+            static_cast<std::size_t>(wrap_angle(angular))];
+        for (const auto& interval : intervals) {
+            if (radial >= interval[0] && radial <= interval[1]) return true;
+        }
+        return false;
+    };
+    const auto first_unvisited_at_or_after = [&](
+        std::int32_t radial, std::int32_t angular) {
+        const auto& intervals = visited[
+            static_cast<std::size_t>(wrap_angle(angular))];
+        for (const auto& interval : intervals) {
+            if (interval[1] < radial) continue;
+            if (interval[0] > radial) break;
+            radial = interval[1] + 1;
+        }
+        return radial;
+    };
+    const auto add_visited = [&](std::int32_t angular, std::int32_t left,
+                                 std::int32_t right) {
+        auto& intervals = visited[
+            static_cast<std::size_t>(wrap_angle(angular))];
+        intervals.push_back({left, right});
+        std::sort(
+            intervals.begin(), intervals.end(),
+            [](const auto& lhs, const auto& rhs) {
+                return lhs[0] < rhs[0];
+            });
+        std::size_t write = 0;
+        for (const auto& interval : intervals) {
+            if (write == 0 || interval[0] > intervals[write - 1][1] + 1) {
+                intervals[write++] = interval;
+            } else {
+                intervals[write - 1][1] =
+                    std::max(intervals[write - 1][1], interval[1]);
+            }
+        }
+        intervals.resize(write);
+    };
+    const auto enqueue_run = [&](std::int32_t left, std::int32_t right,
+                                 std::int32_t angular) {
+        left = std::max<std::int32_t>(left, 0);
+        left = first_unvisited_at_or_after(left, angular);
+        if (left <= right) {
+            queue.push_back({left, right, wrap_angle(angular)});
+        }
+    };
+
+    // A root lies inside the continuous image, but not necessarily at the
+    // centre of its quantised polar cell. Search a small resolution-scaled
+    // neighbourhood and start the flood from the first centre-inside cell.
+    // The centre, limb, and certificate roots are deliberately all retained:
+    // redundant roots are cheap after the visited check, while omitting one
+    // can lose a fold component absent at the source centre.
+    for (const auto& coordinate : prepared.image_coordinates) {
+        const double seed_radius = std::abs(coordinate);
+        double seed_angle = std::arg(coordinate);
+        if (seed_angle < 0.0) seed_angle += two_pi;
+        const auto radial = static_cast<std::int32_t>(
+            std::max(0.0, std::floor(seed_radius / dr)));
+        const auto angular = static_cast<std::int32_t>(
+            std::floor(seed_angle / dtheta));
+        bool found = false;
+        for (int da = -2; da <= 2 && !found; ++da) {
+            const std::int32_t candidate_angular = wrap_angle(angular + da);
+            const double theta =
+                (static_cast<double>(candidate_angular) + 0.5) * dtheta;
+            const auto column_distance =
+                make_column_distance(std::cos(theta), std::sin(theta));
+            for (int dr_index = -2; dr_index <= 2; ++dr_index) {
+                const std::int32_t candidate_radial = radial + dr_index;
+                if (candidate_radial < 0) continue;
+                if (column_distance(candidate_radial)
+                    <= source_radius * source_radius * (1.0 + 1.0e-10)) {
+                    enqueue_run(
+                        candidate_radial, candidate_radial,
+                        candidate_angular);
+                    found = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    std::vector<double> left_inside_distances;
+    std::vector<double> right_inside_distances;
+    left_inside_distances.reserve(64);
+    right_inside_distances.reserve(64);
+    const double source_radius_squared = source_radius * source_radius;
+    while (!queue.empty()) {
+        const auto frontier = queue.front();
+        queue.pop_front();
+        const std::int32_t angular = frontier.angular;
+        const double theta =
+            (static_cast<double>(angular) + 0.5) * dtheta;
+        const auto column_distance =
+            make_column_distance(std::cos(theta), std::sin(theta));
+        std::int64_t frontier_radial = frontier.left;
+        while (frontier_radial <= frontier.right) {
+            frontier_radial = first_unvisited_at_or_after(
+                static_cast<std::int32_t>(frontier_radial), angular);
+            if (frontier_radial > frontier.right) break;
+            const double start_distance = column_distance(
+                static_cast<std::int32_t>(frontier_radial));
+            if (start_distance > source_radius_squared) {
+                ++frontier_radial;
+                continue;
+            }
+            const std::int32_t radial =
+                static_cast<std::int32_t>(frontier_radial);
+            left_inside_distances.clear();
+            std::int32_t left = radial;
+            double left_outside = -1.0;
+            while (left > 0 && !cell_visited(left - 1, angular)) {
+                const double distance = column_distance(left - 1);
+                if (distance > source_radius_squared) {
+                    left_outside = distance;
+                    break;
+                }
+                --left;
+                left_inside_distances.push_back(distance);
+            }
+            right_inside_distances.clear();
+            std::int32_t right = radial;
+            double right_outside = -1.0;
+            while (!cell_visited(right + 1, angular)) {
+                const double distance = column_distance(right + 1);
+                if (distance > source_radius_squared) {
+                    right_outside = distance;
+                    break;
+                }
+                ++right;
+                right_inside_distances.push_back(distance);
+            }
+            const std::int64_t run_size =
+                static_cast<std::int64_t>(right) - left + 1;
+            if (result.cell_count + run_size > cell_capacity) {
+                result.overflow = true;
+                break;
+            }
+            add_visited(angular, left, right);
+            result.runs.push_back({
+                angular,
+                left,
+                right,
+                left_inside_distances.empty()
+                    ? start_distance : left_inside_distances.back(),
+                right_inside_distances.empty()
+                    ? start_distance : right_inside_distances.back(),
+                left_outside,
+                right_outside});
+            result.cell_count += run_size;
+            enqueue_run(left, right, angular - 1);
+            enqueue_run(left, right, angular + 1);
+            frontier_radial = std::max<std::int64_t>(
+                frontier_radial + 1,
+                static_cast<std::int64_t>(right) + 1);
+        }
+        if (result.overflow) break;
+    }
+    if (result.runs.empty()) result.root_failure = true;
+    return result;
+}
+
 template <MomentMode Mode, typename Scalar>
 void add_polar_interior(
     std::array<Scalar, 3>& moments,
@@ -3716,6 +3671,247 @@ void add_polar_affine(
         moments[moment] += area * affine_unit_square_moment(
             lower_left, delta_r, delta_theta, powers[moment]);
     }
+}
+
+template <MomentMode Mode, int BoundarySubdivision, typename Scalar>
+CartesianEpochResult<Scalar> binary_polar_flood_epoch_kernel(
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& source_radius,
+    std::int64_t resolution,
+    std::int64_t angular_bins,
+    std::int64_t radial_capacity,
+    std::int64_t band_capacity,
+    std::int64_t limb_samples,
+    std::int64_t angular_chunk_size,
+    std::int64_t boundary_capacity)
+{
+    const double source_x_value = scalar_value(source_x);
+    const double source_y_value = scalar_value(source_y);
+    const double separation_value = scalar_value(separation);
+    const double mass_ratio_value = scalar_value(mass_ratio);
+    const double source_radius_value = scalar_value(source_radius);
+    const double dr = source_radius_value / resolution;
+    const double two_pi = 2.0 * std::acos(-1.0);
+    const double dtheta = two_pi / angular_bins;
+
+    const auto prepared = cached_cartesian_seed_support(
+        source_x_value, source_y_value, separation_value,
+        mass_ratio_value, source_radius_value, limb_samples);
+    const double total_mass_value = 1.0 + mass_ratio_value;
+    const LensConstants<double> classification_lens{
+        -mass_ratio_value / total_mass_value * separation_value,
+        separation_value / total_mass_value,
+        1.0 / total_mass_value,
+        mass_ratio_value / total_mass_value};
+    const auto make_column_distance = [=](double cosine, double sine) {
+        return [=](std::int32_t radial) {
+            const double radius =
+                (static_cast<double>(radial) + 0.5) * dr;
+            const double image_x = radius * cosine;
+            const double image_y = radius * sine;
+            const double dx_1 = image_x - classification_lens.lens_1_x;
+            const double dx_2 = image_x - classification_lens.lens_2_x;
+            const double y_squared = image_y * image_y;
+            const double radius_1_squared = dx_1 * dx_1 + y_squared;
+            const double radius_2_squared = dx_2 * dx_2 + y_squared;
+            const double mapped_x =
+                image_x
+                - classification_lens.mass_1 * dx_1 / radius_1_squared
+                - classification_lens.mass_2 * dx_2 / radius_2_squared;
+            const double mapped_y =
+                image_y
+                - classification_lens.mass_1 * image_y / radius_1_squared
+                - classification_lens.mass_2 * image_y / radius_2_squared;
+            const double residual_x = mapped_x - source_x_value;
+            const double residual_y = mapped_y - source_y_value;
+            return residual_x * residual_x + residual_y * residual_y;
+        };
+    };
+    const auto capacity_product = [](std::int64_t left, std::int64_t right) {
+        const auto maximum = std::numeric_limits<std::int64_t>::max();
+        return left > maximum / right ? maximum : left * right;
+    };
+    const std::int64_t cell_capacity = capacity_product(
+        capacity_product(angular_bins, radial_capacity), band_capacity);
+    const auto support = discover_binary_polar_flood_support(
+        prepared, source_radius_value, dr, angular_bins,
+        cell_capacity, make_column_distance);
+
+    CartesianEpochResult<Scalar> result;
+    result.tile_count = static_cast<std::int32_t>(std::min<std::size_t>(
+        support.runs.size(),
+        static_cast<std::size_t>(std::numeric_limits<std::int32_t>::max())));
+    result.overflow = support.overflow;
+    result.root_failure = support.root_failure;
+    const Scalar total_mass = 1.0 + mass_ratio;
+    const LensConstants<Scalar> lens{
+        -mass_ratio / total_mass * separation,
+        separation / total_mass,
+        1.0 / total_mass,
+        mass_ratio / total_mass};
+    const Scalar inverse_source_radius_squared =
+        1.0 / (source_radius * source_radius);
+
+    std::vector<std::vector<std::array<std::int32_t, 2>>> runs_by_angle(
+        static_cast<std::size_t>(angular_bins));
+    for (const auto& run : support.runs) {
+        runs_by_angle[static_cast<std::size_t>(run.angular_index)]
+            .push_back({run.left, run.right});
+    }
+    for (auto& intervals : runs_by_angle) {
+        std::sort(
+            intervals.begin(), intervals.end(),
+            [](const auto& left, const auto& right) {
+                return left[0] < right[0];
+            });
+    }
+    const auto wrap_angle = [angular_bins](std::int64_t angular) {
+        angular %= angular_bins;
+        if (angular < 0) angular += angular_bins;
+        return static_cast<std::int32_t>(angular);
+    };
+    const auto boundary_key = [&](std::int32_t radial, std::int32_t angular) {
+        return (
+            static_cast<std::uint64_t>(
+                static_cast<std::uint32_t>(wrap_angle(angular)))
+            << 32)
+            | static_cast<std::uint32_t>(radial);
+    };
+    std::unordered_set<std::uint64_t> boundary_candidates;
+    boundary_candidates.reserve(
+        static_cast<std::size_t>(std::max<std::int64_t>(
+            16, 4 * static_cast<std::int64_t>(support.runs.size()))));
+    for (const auto& run : support.runs) {
+        if (run.left > 0) {
+            boundary_candidates.insert(
+                boundary_key(run.left - 1, run.angular_index));
+        }
+        boundary_candidates.insert(
+            boundary_key(run.right + 1, run.angular_index));
+        for (const int direction : {-1, 1}) {
+            const std::int32_t neighbor_angle =
+                wrap_angle(run.angular_index + direction);
+            const auto& neighbor_intervals = runs_by_angle[
+                static_cast<std::size_t>(neighbor_angle)];
+            std::int32_t cursor = run.left;
+            for (const auto& interval : neighbor_intervals) {
+                if (interval[1] < cursor) continue;
+                if (interval[0] > run.right) break;
+                const std::int32_t uncovered_right =
+                    std::min<std::int32_t>(run.right, interval[0] - 1);
+                for (
+                    std::int32_t radial = cursor;
+                    radial <= uncovered_right;
+                    ++radial) {
+                    boundary_candidates.insert(
+                        boundary_key(radial, neighbor_angle));
+                }
+                cursor = std::max<std::int32_t>(
+                    cursor, interval[1] + 1);
+                if (cursor > run.right) break;
+            }
+            for (
+                std::int32_t radial = cursor;
+                radial <= run.right;
+                ++radial) {
+                boundary_candidates.insert(
+                    boundary_key(radial, neighbor_angle));
+            }
+        }
+    }
+
+    const std::int64_t chunk_count =
+        (angular_bins + angular_chunk_size - 1) / angular_chunk_size;
+    std::vector<std::int64_t> boundaries_per_chunk(
+        static_cast<std::size_t>(chunk_count), 0);
+    const auto integrate_cell = [&](
+        std::int32_t radial, std::int32_t angular, bool centre_inside) {
+        const double theta =
+            (static_cast<double>(angular) + 0.5) * dtheta;
+        const double cosine = std::cos(theta);
+        const double sine = std::sin(theta);
+        const double radius =
+            (static_cast<double>(radial) + 0.5) * dr;
+        const auto values = phi_derivatives<false>(
+            radius * cosine, radius * sine,
+            source_x, source_y, lens, inverse_source_radius_squared);
+        const Scalar delta_r =
+            (values.gradient_x * cosine + values.gradient_y * sine) * dr;
+        const Scalar delta_theta =
+            radius
+            * (-values.gradient_x * sine + values.gradient_y * cosine)
+            * dtheta;
+        const double extent = 0.5 * (
+            std::abs(scalar_value(delta_r))
+            + std::abs(scalar_value(delta_theta)));
+        if (centre_inside && scalar_value(values.phi) > extent) {
+            add_polar_interior<Mode>(
+                result.integration.moments, values,
+                delta_r, delta_theta, radius * dr * dtheta);
+            ++result.integration.active_cells;
+            return;
+        }
+        if (scalar_value(values.phi) + extent <= 0.0) return;
+        ++result.integration.active_cells;
+        ++result.integration.boundary_cells;
+        ++boundaries_per_chunk[static_cast<std::size_t>(
+            angular / angular_chunk_size)];
+        constexpr double subdivision =
+            static_cast<double>(BoundarySubdivision);
+        for (int sr = 0; sr < BoundarySubdivision; ++sr) {
+            const double sub_radius =
+                radius
+                + ((static_cast<double>(sr) + 0.5) / subdivision - 0.5)
+                    * dr;
+            for (int st = 0; st < BoundarySubdivision; ++st) {
+                const double sub_theta =
+                    theta
+                    + ((static_cast<double>(st) + 0.5) / subdivision - 0.5)
+                        * dtheta;
+                const double sub_cosine = std::cos(sub_theta);
+                const double sub_sine = std::sin(sub_theta);
+                const auto sub_values = phi_derivatives<false>(
+                    sub_radius * sub_cosine,
+                    sub_radius * sub_sine,
+                    source_x, source_y, lens,
+                    inverse_source_radius_squared);
+                const Scalar sub_delta_r =
+                    (sub_values.gradient_x * sub_cosine
+                     + sub_values.gradient_y * sub_sine)
+                    * dr / subdivision;
+                const Scalar sub_delta_theta =
+                    sub_radius
+                    * (-sub_values.gradient_x * sub_sine
+                       + sub_values.gradient_y * sub_cosine)
+                    * dtheta / subdivision;
+                add_polar_affine<Mode>(
+                    result.integration.moments, sub_values,
+                    sub_delta_r, sub_delta_theta,
+                    sub_radius * dr * dtheta
+                        / (subdivision * subdivision));
+            }
+        }
+    };
+    for (const auto& run : support.runs) {
+        for (
+            std::int32_t radial = run.left;
+            radial <= run.right;
+            ++radial) {
+            integrate_cell(radial, run.angular_index, true);
+        }
+    }
+    for (const auto key : boundary_candidates) {
+        integrate_cell(
+            static_cast<std::int32_t>(key & 0xffffffffU),
+            static_cast<std::int32_t>(key >> 32), false);
+    }
+    for (const auto count : boundaries_per_chunk) {
+        if (count > boundary_capacity) result.overflow = true;
+    }
+    return result;
 }
 
 template <MomentMode Mode, typename Scalar>
@@ -3989,424 +4185,6 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
     return result;
 }
 
-template <MomentMode Mode, int BoundarySubdivision, typename Scalar>
-CartesianEpochResult<Scalar> polar_epoch_kernel_for_mode(
-    const Scalar& source_x,
-    const Scalar& source_y,
-    const Scalar& separation,
-    const Scalar& mass_ratio,
-    const Scalar& source_radius,
-    std::int64_t resolution,
-    std::int64_t angular_bins,
-    std::int64_t radial_capacity,
-    std::int64_t band_capacity,
-    std::int64_t limb_samples,
-    double padding_factor,
-    double angular_padding_factor,
-    std::int64_t angular_chunk_size,
-    std::int64_t boundary_capacity)
-{
-    const auto support = cached_polar_support(
-        scalar_value(source_x), scalar_value(source_y),
-        scalar_value(separation), scalar_value(mass_ratio),
-        scalar_value(source_radius), limb_samples, band_capacity,
-        padding_factor);
-    CartesianEpochResult<Scalar> result;
-    result.tile_count = static_cast<std::int32_t>(support.bands.size());
-    result.overflow = support.overflow;
-    result.root_failure = support.root_failure;
-    const double two_pi = 2.0 * std::acos(-1.0);
-    const double dr = scalar_value(source_radius) / resolution;
-    const double dtheta = two_pi / angular_bins;
-    const double padding = padding_factor * scalar_value(source_radius);
-    const double angular_padding =
-        angular_padding_factor * two_pi / limb_samples;
-    const auto angular_ranges = build_polar_angular_ranges(
-        support, angular_bins, angular_padding);
-    const Scalar inverse_source_radius_squared =
-        1.0 / (source_radius * source_radius);
-    const Scalar total_mass = 1.0 + mass_ratio;
-    const LensConstants<Scalar> lens{
-        -mass_ratio / total_mass * separation,
-        separation / total_mass,
-        1.0 / total_mass,
-        mass_ratio / total_mass};
-    const LensConstants<double> classification_lens{
-        scalar_value(lens.lens_1_x), scalar_value(lens.lens_2_x),
-        scalar_value(lens.mass_1), scalar_value(lens.mass_2)};
-    const double classification_inverse_radius_squared =
-        scalar_value(inverse_source_radius_squared);
-
-    for (
-        std::int64_t chunk_start = 0;
-        chunk_start < angular_bins;
-        chunk_start += angular_chunk_size) {
-        std::int64_t chunk_boundaries = 0;
-        const std::int64_t chunk_end =
-            std::min(angular_bins, chunk_start + angular_chunk_size);
-        for (
-            std::int64_t angular_index = chunk_start;
-            angular_index < chunk_end;
-            ++angular_index) {
-            const double theta =
-                (static_cast<double>(angular_index) + 0.5) * dtheta;
-            const double cosine = std::cos(theta);
-            const double sine = std::sin(theta);
-            for (
-                std::size_t band_index = 0;
-                band_index < support.bands.size();
-                ++band_index) {
-                const std::size_t range_index =
-                    band_index * static_cast<std::size_t>(angular_bins)
-                    + static_cast<std::size_t>(angular_index);
-                double local_lower = angular_ranges.lower[range_index];
-                double local_upper = angular_ranges.upper[range_index];
-                if (!std::isfinite(local_lower)) continue;
-                local_lower = std::max(0.0, local_lower - padding);
-                local_upper += padding;
-                if (local_upper - local_lower > radial_capacity * dr) {
-                    result.overflow = true;
-                }
-                const std::int64_t local_radial_count = std::min(
-                    radial_capacity,
-                    std::max<std::int64_t>(
-                        0,
-                        static_cast<std::int64_t>(std::ceil(
-                            (local_upper - local_lower) / dr))));
-                for (
-                    std::int64_t radial_index = 0;
-                    radial_index < local_radial_count;
-                    ++radial_index) {
-                    const double radius =
-                        local_lower
-                        + (static_cast<double>(radial_index) + 0.5) * dr;
-                    if (!(radius < local_upper)) continue;
-                    const double image_x = radius * cosine;
-                    const double image_y = radius * sine;
-                    const auto classification = phi_derivatives<false>(
-                        image_x, image_y, scalar_value(source_x),
-                        scalar_value(source_y), classification_lens,
-                        classification_inverse_radius_squared);
-                    const double gradient_r =
-                        classification.gradient_x * cosine
-                        + classification.gradient_y * sine;
-                    const double gradient_theta =
-                        radius
-                        * (
-                            -classification.gradient_x * sine
-                            + classification.gradient_y * cosine);
-                    const double delta_r = gradient_r * dr;
-                    const double delta_theta = gradient_theta * dtheta;
-                    const double extent =
-                        0.5 * (std::abs(delta_r) + std::abs(delta_theta));
-                    const bool inside =
-                        classification.phi - extent > 0.0;
-                    const bool boundary =
-                        !inside
-                        && classification.phi + extent > 0.0;
-                    if (!(inside || boundary)) continue;
-                    ++result.integration.active_cells;
-                    if (inside) {
-                        if constexpr (std::is_same_v<Scalar, double>) {
-                            add_polar_interior<Mode>(
-                                result.integration.moments, classification,
-                                delta_r, delta_theta,
-                                radius * dr * dtheta);
-                        } else {
-                            const auto values = phi_derivatives<false>(
-                                image_x, image_y, source_x, source_y, lens,
-                                inverse_source_radius_squared);
-                            const Scalar active_delta_r =
-                                (values.gradient_x * cosine
-                                 + values.gradient_y * sine)
-                                * dr;
-                            const Scalar active_delta_theta =
-                                radius
-                                * (
-                                    -values.gradient_x * sine
-                                    + values.gradient_y * cosine)
-                                * dtheta;
-                            add_polar_interior<Mode>(
-                                result.integration.moments, values,
-                                active_delta_r, active_delta_theta,
-                                radius * dr * dtheta);
-                        }
-                        continue;
-                    }
-                    ++result.integration.boundary_cells;
-                    ++chunk_boundaries;
-                    const double subdivision =
-                        static_cast<double>(BoundarySubdivision);
-                    for (int sr = 0; sr < BoundarySubdivision; ++sr) {
-                        const double sub_radius =
-                            radius
-                            + (
-                                  (static_cast<double>(sr) + 0.5)
-                                      / subdivision
-                                  - 0.5)
-                                * dr;
-                        for (int st = 0; st < BoundarySubdivision; ++st) {
-                            const double sub_theta =
-                                theta
-                                + (
-                                      (static_cast<double>(st) + 0.5)
-                                          / subdivision
-                                      - 0.5)
-                                    * dtheta;
-                            const double sub_cosine = std::cos(sub_theta);
-                            const double sub_sine = std::sin(sub_theta);
-                            const auto values = phi_derivatives<false>(
-                                sub_radius * sub_cosine,
-                                sub_radius * sub_sine,
-                                source_x, source_y, lens,
-                                inverse_source_radius_squared);
-                            const Scalar active_delta_r =
-                                (values.gradient_x * sub_cosine
-                                 + values.gradient_y * sub_sine)
-                                * dr / subdivision;
-                            const Scalar active_delta_theta =
-                                sub_radius
-                                * (
-                                    -values.gradient_x * sub_sine
-                                    + values.gradient_y * sub_cosine)
-                                * dtheta / subdivision;
-                            add_polar_affine<Mode>(
-                                result.integration.moments, values,
-                                active_delta_r, active_delta_theta,
-                                sub_radius * dr * dtheta
-                                    / (subdivision * subdivision));
-                        }
-                    }
-                }
-            }
-        }
-        if (chunk_boundaries > boundary_capacity) {
-            result.overflow = true;
-        }
-    }
-    return result;
-}
-
-template <MomentMode Mode, int BoundarySubdivision, typename Scalar>
-CartesianEpochResult<Scalar> triple_polar_epoch_kernel_for_mode(
-    const Scalar& source_x,
-    const Scalar& source_y,
-    const Scalar& separation,
-    const Scalar& mass_ratio,
-    const Scalar& tertiary_mass_ratio,
-    const Scalar& tertiary_separation,
-    const Scalar& tertiary_angle,
-    const Scalar& source_radius,
-    std::int64_t resolution,
-    std::int64_t angular_bins,
-    std::int64_t radial_capacity,
-    std::int64_t band_capacity,
-    std::int64_t limb_samples,
-    double padding_factor,
-    double angular_padding_factor,
-    std::int64_t angular_chunk_size,
-    std::int64_t boundary_capacity,
-    std::int64_t convention)
-{
-    const auto support = discover_triple_polar_support(
-        scalar_value(source_x), scalar_value(source_y),
-        scalar_value(separation), scalar_value(mass_ratio),
-        scalar_value(tertiary_mass_ratio),
-        scalar_value(tertiary_separation), scalar_value(tertiary_angle),
-        scalar_value(source_radius), limb_samples, band_capacity,
-        std::min(padding_factor, 0.25), convention);
-    CartesianEpochResult<Scalar> result;
-    result.tile_count = static_cast<std::int32_t>(support.bands.size());
-    result.overflow = support.overflow;
-    result.root_failure = support.root_failure;
-    const double two_pi = 2.0 * std::acos(-1.0);
-    const double dr = scalar_value(source_radius) / resolution;
-    const double dtheta = two_pi / angular_bins;
-    const double padding = padding_factor * scalar_value(source_radius);
-    const double angular_padding =
-        angular_padding_factor * two_pi / limb_samples;
-    const auto angular_ranges = build_polar_angular_ranges(
-        support, angular_bins, angular_padding);
-    const Scalar inverse_source_radius_squared =
-        1.0 / (source_radius * source_radius);
-    const auto lens = make_triple_lens_constants(
-        separation, mass_ratio, tertiary_mass_ratio,
-        tertiary_separation, tertiary_angle, convention);
-    const auto classification_lens = make_triple_lens_constants(
-        scalar_value(separation), scalar_value(mass_ratio),
-        scalar_value(tertiary_mass_ratio),
-        scalar_value(tertiary_separation), scalar_value(tertiary_angle),
-        convention);
-    const double classification_inverse_radius_squared =
-        scalar_value(inverse_source_radius_squared);
-
-    for (
-        std::int64_t chunk_start = 0;
-        chunk_start < angular_bins;
-        chunk_start += angular_chunk_size) {
-        std::int64_t chunk_boundaries = 0;
-        std::vector<std::array<double, 2>> radial_intervals;
-        radial_intervals.reserve(support.bands.size());
-        const std::int64_t chunk_end =
-            std::min(angular_bins, chunk_start + angular_chunk_size);
-        for (
-            std::int64_t angular_index = chunk_start;
-            angular_index < chunk_end;
-            ++angular_index) {
-            const double theta =
-                (static_cast<double>(angular_index) + 0.5) * dtheta;
-            const double cosine = std::cos(theta);
-            const double sine = std::sin(theta);
-            radial_intervals.clear();
-            for (std::size_t band_index = 0;
-                 band_index < support.bands.size(); ++band_index) {
-                const std::size_t range_index =
-                    band_index * static_cast<std::size_t>(angular_bins)
-                    + static_cast<std::size_t>(angular_index);
-                double local_lower = angular_ranges.lower[range_index];
-                double local_upper = angular_ranges.upper[range_index];
-                if (!std::isfinite(local_lower)) continue;
-                radial_intervals.push_back({
-                    std::max(0.0, local_lower - padding),
-                    local_upper + padding});
-            }
-            std::sort(
-                radial_intervals.begin(), radial_intervals.end(),
-                [](const auto& left, const auto& right) {
-                    return left[0] < right[0];
-                });
-            std::size_t merged_count = 0;
-            for (const auto& interval : radial_intervals) {
-                if (
-                    merged_count > 0
-                    && interval[0]
-                        <= radial_intervals[merged_count - 1][1]) {
-                    radial_intervals[merged_count - 1][1] = std::max(
-                        radial_intervals[merged_count - 1][1], interval[1]);
-                } else {
-                    radial_intervals[merged_count++] = interval;
-                }
-            }
-            for (std::size_t interval_index = 0;
-                 interval_index < merged_count; ++interval_index) {
-                const double local_lower =
-                    radial_intervals[interval_index][0];
-                const double local_upper =
-                    radial_intervals[interval_index][1];
-                if (local_upper - local_lower > radial_capacity * dr) {
-                    result.overflow = true;
-                }
-                const std::int64_t local_radial_count = std::min(
-                    radial_capacity,
-                    std::max<std::int64_t>(
-                        0,
-                        static_cast<std::int64_t>(std::ceil(
-                            (local_upper - local_lower) / dr))));
-                for (
-                    std::int64_t radial_index = 0;
-                    radial_index < local_radial_count;
-                    ++radial_index) {
-                    const double radius =
-                        local_lower
-                        + (static_cast<double>(radial_index) + 0.5) * dr;
-                    if (!(radius < local_upper)) continue;
-                    const double image_x = radius * cosine;
-                    const double image_y = radius * sine;
-                    const auto classification = triple_phi_derivatives<false>(
-                        image_x, image_y, scalar_value(source_x),
-                        scalar_value(source_y), classification_lens,
-                        classification_inverse_radius_squared);
-                    const double gradient_r =
-                        classification.gradient_x * cosine
-                        + classification.gradient_y * sine;
-                    const double gradient_theta =
-                        radius
-                        * (
-                            -classification.gradient_x * sine
-                            + classification.gradient_y * cosine);
-                    const double delta_r = gradient_r * dr;
-                    const double delta_theta = gradient_theta * dtheta;
-                    const double extent =
-                        0.5 * (std::abs(delta_r) + std::abs(delta_theta));
-                    const bool inside =
-                        classification.phi - extent > 0.0;
-                    const bool boundary =
-                        !inside && classification.phi + extent > 0.0;
-                    if (!(inside || boundary)) continue;
-                    ++result.integration.active_cells;
-                    if (inside) {
-                        const auto values = triple_phi_derivatives<false>(
-                            image_x, image_y, source_x, source_y, lens,
-                            inverse_source_radius_squared);
-                        const Scalar active_delta_r =
-                            (values.gradient_x * cosine
-                             + values.gradient_y * sine)
-                            * dr;
-                        const Scalar active_delta_theta =
-                            radius
-                            * (
-                                -values.gradient_x * sine
-                                + values.gradient_y * cosine)
-                            * dtheta;
-                        add_polar_interior<Mode>(
-                            result.integration.moments, values,
-                            active_delta_r, active_delta_theta,
-                            radius * dr * dtheta);
-                        continue;
-                    }
-                    ++result.integration.boundary_cells;
-                    ++chunk_boundaries;
-                    const double subdivision =
-                        static_cast<double>(BoundarySubdivision);
-                    for (int sr = 0; sr < BoundarySubdivision; ++sr) {
-                        const double sub_radius =
-                            radius
-                            + (
-                                  (static_cast<double>(sr) + 0.5)
-                                      / subdivision
-                                  - 0.5)
-                                * dr;
-                        for (int st = 0; st < BoundarySubdivision; ++st) {
-                            const double sub_theta =
-                                theta
-                                + (
-                                      (static_cast<double>(st) + 0.5)
-                                          / subdivision
-                                      - 0.5)
-                                    * dtheta;
-                            const double sub_cosine = std::cos(sub_theta);
-                            const double sub_sine = std::sin(sub_theta);
-                            const auto values = triple_phi_derivatives<false>(
-                                sub_radius * sub_cosine,
-                                sub_radius * sub_sine,
-                                source_x, source_y, lens,
-                                inverse_source_radius_squared);
-                            const Scalar active_delta_r =
-                                (values.gradient_x * sub_cosine
-                                 + values.gradient_y * sub_sine)
-                                * dr / subdivision;
-                            const Scalar active_delta_theta =
-                                sub_radius
-                                * (
-                                    -values.gradient_x * sub_sine
-                                    + values.gradient_y * sub_cosine)
-                                * dtheta / subdivision;
-                            add_polar_affine<Mode>(
-                                result.integration.moments, values,
-                                active_delta_r, active_delta_theta,
-                                sub_radius * dr * dtheta
-                                    / (subdivision * subdivision));
-                        }
-                    }
-                }
-            }
-        }
-        if (chunk_boundaries > boundary_capacity) {
-            result.overflow = true;
-        }
-    }
-    return result;
-}
 
 template <typename Scalar>
 CartesianEpochResult<Scalar> polar_epoch_kernel(
@@ -4427,12 +4205,15 @@ CartesianEpochResult<Scalar> polar_epoch_kernel(
     MomentMode mode,
     std::int64_t boundary_subdivision)
 {
+    // Retained in the public FFI ABI for compatibility with the pure-JAX
+    // band fallback. Flood support has no radial or angular padding rule.
+    (void) padding_factor;
+    (void) angular_padding_factor;
 #define LCBININT_POLAR_CASE(active_mode, subdivision) \
-    return polar_epoch_kernel_for_mode<active_mode, subdivision>( \
+    return binary_polar_flood_epoch_kernel<active_mode, subdivision>( \
         source_x, source_y, separation, mass_ratio, source_radius, \
         resolution, angular_bins, radial_capacity, band_capacity, \
-        limb_samples, padding_factor, angular_padding_factor, \
-        angular_chunk_size, boundary_capacity)
+        limb_samples, angular_chunk_size, boundary_capacity)
     if (mode == MomentMode::uniform) {
         if (boundary_subdivision == 1) LCBININT_POLAR_CASE(MomentMode::uniform, 1);
         if (boundary_subdivision == 2) LCBININT_POLAR_CASE(MomentMode::uniform, 2);
