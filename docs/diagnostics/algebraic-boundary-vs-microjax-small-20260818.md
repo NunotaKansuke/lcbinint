@@ -13,7 +13,8 @@ It compares the new native algebraic boundary kernel on the local
   dispatcher, FFI, or automatic differentiation is timed.
 - C++: `build/benchmark_algebraic_boundary`, warmed native calls, five timing
   repeats.  Its algebraic kernel includes its certified image seeds and radial
-  support search.
+  support search.  The reported steady-state call reuses the native binary
+  caustic cache for fixed `(s, q)`.
 - microJAX: `microjax.inverse_ray.cpu.mag_uniform_cpu` or
   `mag_limb_dark_cpu`, JIT compilation excluded, three steady-state CPU
   repeats, one CPU thread.
@@ -27,7 +28,8 @@ Raw JSON is kept outside the repository under `/tmp`.
 
 ## Results
 
-At the matched (10^{-3}) relative-error setting:
+At the matched (10^{-3}) relative-error setting (steady-state, with the native
+caustic cache warm):
 
 | profile | cases | C++ median | microJAX median | median microJAX/C++ | max C++ error | max microJAX error |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -44,7 +46,25 @@ adaptation stopped earlier; two of the ten C++ cases were above (10^{-3})
 error, as expected for the looser request.  microJAX remained below
 (2\times10^{-5}) on this small corpus.
 
-These numbers are a rough native-kernel comparison, not an API-level claim.
-They should not be used to claim a universal speedup: the corpus is small,
-microJAX and C++ use different adaptive policies, and no difficult tangent or
-capacity-failure corpus was included.
+## Cache and workload audit
+
+The 43.7x aggregate number is therefore a warm-cache number, not a universal
+per-call speedup.  Running the same native executable in batch mode exposes the
+first-call cost: the five uniform cases had a median cold call of 2.21 ms and
+the five linear cases 2.16 ms.  Against the microJAX adaptive timings this
+reduces the median ratio to roughly 9--11x.  Which number is appropriate depends
+on whether `(s, q)` is held fixed across many source epochs (steady state) or
+changes for every call (cold path).
+
+Two other checks rule out simpler measurement artefacts.  Timing microJAX with
+`return_info=False` changes the two representative profiles by only 1--4%.
+Also, a single microJAX 64-limb/2-radial-split tier takes about 13--15 ms, but
+its central-case error is as large as (2\times10^{-2}); the adaptive 20--23 ms
+path is needed for the comparable (10^{-3}) accuracy target.
+
+These numbers are still a rough native-kernel comparison, not an API-level
+claim.  The corpus is small, microJAX and C++ use different adaptive policies,
+and no difficult tangent or capacity-failure corpus was included.  The
+conservative conclusion is that the new C++ quartic path is materially faster
+on this small matched corpus, but the exact multiplier must be reported with
+the cache policy and achieved error.
