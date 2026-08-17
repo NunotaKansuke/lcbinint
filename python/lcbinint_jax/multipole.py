@@ -9,7 +9,9 @@ import jax.numpy as jnp
 from ._config import as_float64, reject_higher_order_ad, require_x64
 from .cpp_backend import (
     binary_images_ffi,
+    binary_hexadecapole_batch_ffi,
     cpp_binary_image_roots_ffi_available,
+    cpp_hexadecapole_batch_ffi_available,
 )
 from .images import binary_images
 from .lens import (
@@ -156,6 +158,17 @@ def binary_hexadecapole(
             limb_d,
         )
     )
+    if root_backend != "jax" and cpp_hexadecapole_batch_ffi_available():
+        result = binary_hexadecapole_batch_ffi(
+            jnp.reshape(source_x, (1,)),
+            jnp.reshape(source_y, (1,)),
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+        return jax.tree_util.tree_map(lambda value: value[0], result)
     dtype = jnp.result_type(source_x, source_y, separation, mass_ratio, source_radius)
     sqrt_half = jnp.asarray(jnp.sqrt(0.5), dtype=dtype)
     cardinal_x = jnp.asarray((1.0, 0.0, -1.0, 0.0), dtype=dtype)

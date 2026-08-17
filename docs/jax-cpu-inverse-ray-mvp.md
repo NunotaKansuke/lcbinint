@@ -528,6 +528,12 @@ hexadecapole, Cartesian/polar discovery, and source-plane quadrature.  On a
 zero value-budget failures against a `Tol=1e-7` VBMicrolensing reference.  A
 repeat after connecting both FFI backends to the dispatcher measured:
 
+The scalar hexadecapole API now wraps the fused C++ 13-point kernel as well.
+The native-routed trajectory first evaluates a one-root-set C++ point batch,
+then invokes the hexadecapole batch only on rows rejected by point-source
+routing.  Its active mask is enforced inside C++, including a zero-work fast
+path, so point-safe rows no longer pay for twelve unnecessary root sets.
+
 | Engine | 64-epoch forward |
 | --- | ---: |
 | native `lcbinint`, fixed Cartesian 64 | 130 ms |

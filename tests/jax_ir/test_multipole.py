@@ -10,6 +10,7 @@ from lcbinint_jax import (
     binary_hexadecapole_batch_ffi,
     binary_magnification_auto,
     binary_point_source_magnification,
+    binary_point_source_batch_ffi,
 )
 
 jax.config.update("jax_enable_x64", True)
@@ -20,6 +21,43 @@ def _require_root_ffi():
 
     if not hasattr(_native._jax_ir, "binary_image_roots_ffi"):
         pytest.skip("lcbinint was built without binary-image root FFI support")
+
+
+def _require_point_ffi():
+    from lcbinint import _native
+
+    if not hasattr(_native._jax_ir, "point_batch_ffi"):
+        pytest.skip("lcbinint was built without binary point-source FFI support")
+
+
+def test_batched_point_source_ffi_matches_pure_value_and_gradient():
+    _require_point_ffi()
+    source_x = jnp.asarray((0.2, 0.5, 0.8))
+    source_y = jnp.asarray((0.04, 0.04, 0.04))
+    parameters = jnp.asarray((1.2, 0.1))
+
+    def pure(active):
+        return jnp.sum(
+            jax.vmap(
+                lambda x, y: binary_point_source_magnification(
+                    x, y, *active, root_backend="jax"
+                ).magnification
+            )(source_x, source_y)
+        )
+
+    def ffi(active):
+        return jnp.sum(
+            binary_point_source_batch_ffi(
+                source_x, source_y, *active
+            ).magnification
+        )
+
+    pure_value, pure_gradient = jax.value_and_grad(pure)(parameters)
+    ffi_value, ffi_gradient = jax.value_and_grad(ffi)(parameters)
+    np.testing.assert_allclose(ffi_value, pure_value, rtol=2.0e-12, atol=2.0e-12)
+    np.testing.assert_allclose(
+        ffi_gradient, pure_gradient, rtol=2.0e-10, atol=2.0e-10
+    )
 
 
 def test_point_source_root_ffi_matches_jax_value_and_gradient():
@@ -101,6 +139,31 @@ def test_batched_hexadecapole_ffi_matches_scalar_value_and_gradient():
         rtol=0.0,
         atol=5.0e-9,
     )
+
+
+def test_batched_hexadecapole_ffi_skips_inactive_rows_and_gradients():
+    _require_root_ffi()
+    source_x = jnp.asarray((0.2, 0.5, 0.8))
+    source_y = jnp.asarray((0.04, 0.04, 0.04))
+    active = jnp.asarray((True, False, True))
+
+    def evaluate(mass_ratio):
+        return binary_hexadecapole_batch_ffi(
+            source_x,
+            source_y,
+            1.2,
+            mass_ratio,
+            0.02,
+            0.4,
+            0.1,
+            active=active,
+        ).magnification
+
+    values, tangent = jax.jvp(evaluate, (0.1,), (1.0,))
+    assert values[1] == 0.0
+    assert tangent[1] == 0.0
+    assert bool(jnp.all(jnp.isfinite(values[active])))
+    assert bool(jnp.all(jnp.isfinite(tangent[active])))
 
 
 def test_point_source_implicit_gradient_matches_finite_difference():

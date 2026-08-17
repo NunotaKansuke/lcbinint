@@ -6119,9 +6119,124 @@ XLA_FFI_DEFINE_HANDLER(
 
 #undef LCBININT_TRIPLE_POLAR_BATCH_BINDING
 
+ffi::Error point_batch_ffi_impl(
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::S32> image_count,
+    ffi::ResultBufferR1<ffi::PRED> root_failure)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        source_y.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || image_count->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size) {
+        return ffi::Error::InvalidArgument(
+            "point-source batch arrays must have a common length");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = batch_size >= 256
+        ? std::max(
+            1,
+            std::min(
+                {static_cast<int>(batch_size), omp_get_max_threads(), 8}))
+        : 1;
+#pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        std::int32_t count = 0;
+        bool failed = false;
+        const auto value = binary_point_magnification_jet(
+            Jet::variable(source_x.typed_data()[index], 0),
+            Jet::variable(source_y.typed_data()[index], 1),
+            Jet::variable(*separation.typed_data(), 2),
+            Jet::variable(*mass_ratio.typed_data(), 3),
+            count, failed);
+        magnification->typed_data()[index] = value.value;
+        image_count->typed_data()[index] = count;
+        root_failure->typed_data()[index] = failed;
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error point_batch_jacobian_ffi_impl(
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::S32> image_count,
+    ffi::ResultBufferR1<ffi::PRED> root_failure,
+    ffi::ResultBufferR2<ffi::F64> output_jacobian)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        source_y.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || image_count->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size
+        || output_jacobian->dimensions()[0] != batch_size
+        || output_jacobian->dimensions()[1] != 4) {
+        return ffi::Error::InvalidArgument(
+            "point-source batch Jacobian arrays have invalid shapes");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = batch_size >= 256
+        ? std::max(
+            1,
+            std::min(
+                {static_cast<int>(batch_size), omp_get_max_threads(), 8}))
+        : 1;
+#pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        std::int32_t count = 0;
+        bool failed = false;
+        const auto value = binary_point_magnification_jet(
+            Jet::variable(source_x.typed_data()[index], 0),
+            Jet::variable(source_y.typed_data()[index], 1),
+            Jet::variable(*separation.typed_data(), 2),
+            Jet::variable(*mass_ratio.typed_data(), 3),
+            count, failed);
+        magnification->typed_data()[index] = value.value;
+        image_count->typed_data()[index] = count;
+        root_failure->typed_data()[index] = failed;
+        std::copy_n(
+            value.derivative.begin(), 4,
+            output_jacobian->typed_data() + 4 * index);
+    }
+    return ffi::Error::Success();
+}
+
+#define LCBININT_POINT_BATCH_BINDING \
+    ffi::Ffi::Bind() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::S32>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+
+XLA_FFI_DEFINE_HANDLER(
+    point_batch_ffi_handler,
+    point_batch_ffi_impl,
+    LCBININT_POINT_BATCH_BINDING);
+
+XLA_FFI_DEFINE_HANDLER(
+    point_batch_jacobian_ffi_handler,
+    point_batch_jacobian_ffi_impl,
+    LCBININT_POINT_BATCH_BINDING.Ret<ffi::BufferR2<ffi::F64>>());
+
+#undef LCBININT_POINT_BATCH_BINDING
+
 ffi::Error hexadecapole_batch_ffi_impl(
     ffi::BufferR1<ffi::F64> source_x,
     ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::PRED> active,
     ffi::BufferR0<ffi::F64> separation,
     ffi::BufferR0<ffi::F64> mass_ratio,
     ffi::BufferR0<ffi::F64> source_radius,
@@ -6137,6 +6252,7 @@ ffi::Error hexadecapole_batch_ffi_impl(
     const std::int64_t batch_size = source_x.dimensions()[0];
     if (
         source_y.dimensions()[0] != batch_size
+        || active.dimensions()[0] != batch_size
         || magnification->dimensions()[0] != batch_size
         || point_magnification->dimensions()[0] != batch_size
         || quadrupole_correction->dimensions()[0] != batch_size
@@ -6146,14 +6262,34 @@ ffi::Error hexadecapole_batch_ffi_impl(
         return ffi::Error::InvalidArgument(
             "hexadecapole batch arrays must have a common length");
     }
+    const auto active_count = static_cast<std::int64_t>(std::count(
+        active.typed_data(), active.typed_data() + batch_size, true));
+    if (active_count == 0) {
+        std::fill_n(magnification->typed_data(), batch_size, 0.0);
+        std::fill_n(point_magnification->typed_data(), batch_size, 0.0);
+        std::fill_n(quadrupole_correction->typed_data(), batch_size, 0.0);
+        std::fill_n(hexadecapole_correction->typed_data(), batch_size, 0.0);
+        std::fill_n(topology_stable->typed_data(), batch_size, false);
+        std::fill_n(root_failure->typed_data(), batch_size, false);
+        return ffi::Error::Success();
+    }
 #ifdef LCBININT_HAS_OPENMP
     const int batch_threads = std::max(
         1,
         std::min(
-            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+            {static_cast<int>(active_count), omp_get_max_threads(), 8}));
 #pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
 #endif
     for (std::int64_t index = 0; index < batch_size; ++index) {
+        if (!active.typed_data()[index]) {
+            magnification->typed_data()[index] = 0.0;
+            point_magnification->typed_data()[index] = 0.0;
+            quadrupole_correction->typed_data()[index] = 0.0;
+            hexadecapole_correction->typed_data()[index] = 0.0;
+            topology_stable->typed_data()[index] = false;
+            root_failure->typed_data()[index] = false;
+            continue;
+        }
         const auto result = hexadecapole_kernel(
             source_x.typed_data()[index], source_y.typed_data()[index],
             *separation.typed_data(), *mass_ratio.typed_data(),
@@ -6178,6 +6314,7 @@ XLA_FFI_DEFINE_HANDLER(
     ffi::Ffi::Bind()
         .Arg<ffi::BufferR1<ffi::F64>>()
         .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::PRED>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
@@ -6193,6 +6330,7 @@ XLA_FFI_DEFINE_HANDLER(
 ffi::Error hexadecapole_batch_jacobian_ffi_impl(
     ffi::BufferR1<ffi::F64> source_x,
     ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::PRED> active,
     ffi::BufferR0<ffi::F64> separation,
     ffi::BufferR0<ffi::F64> mass_ratio,
     ffi::BufferR0<ffi::F64> source_radius,
@@ -6210,6 +6348,7 @@ ffi::Error hexadecapole_batch_jacobian_ffi_impl(
     const auto jacobian_dimensions = output_jacobian->dimensions();
     if (
         source_y.dimensions()[0] != batch_size
+        || active.dimensions()[0] != batch_size
         || magnification->dimensions()[0] != batch_size
         || point_magnification->dimensions()[0] != batch_size
         || quadrupole_correction->dimensions()[0] != batch_size
@@ -6222,14 +6361,41 @@ ffi::Error hexadecapole_batch_jacobian_ffi_impl(
         return ffi::Error::InvalidArgument(
             "hexadecapole batch Jacobian arrays have invalid shapes");
     }
+    const auto active_count = static_cast<std::int64_t>(std::count(
+        active.typed_data(), active.typed_data() + batch_size, true));
+    if (active_count == 0) {
+        std::fill_n(magnification->typed_data(), batch_size, 0.0);
+        std::fill_n(point_magnification->typed_data(), batch_size, 0.0);
+        std::fill_n(quadrupole_correction->typed_data(), batch_size, 0.0);
+        std::fill_n(hexadecapole_correction->typed_data(), batch_size, 0.0);
+        std::fill_n(topology_stable->typed_data(), batch_size, false);
+        std::fill_n(root_failure->typed_data(), batch_size, false);
+        std::fill_n(
+            output_jacobian->typed_data(),
+            batch_size * 4 * parameter_count,
+            0.0);
+        return ffi::Error::Success();
+    }
 #ifdef LCBININT_HAS_OPENMP
     const int batch_threads = std::max(
         1,
         std::min(
-            {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+            {static_cast<int>(active_count), omp_get_max_threads(), 8}));
 #pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
 #endif
     for (std::int64_t index = 0; index < batch_size; ++index) {
+        double* jacobian =
+            output_jacobian->typed_data() + index * 4 * parameter_count;
+        if (!active.typed_data()[index]) {
+            magnification->typed_data()[index] = 0.0;
+            point_magnification->typed_data()[index] = 0.0;
+            quadrupole_correction->typed_data()[index] = 0.0;
+            hexadecapole_correction->typed_data()[index] = 0.0;
+            topology_stable->typed_data()[index] = false;
+            root_failure->typed_data()[index] = false;
+            std::fill(jacobian, jacobian + 4 * parameter_count, 0.0);
+            continue;
+        }
         const auto result = hexadecapole_kernel(
             source_x.typed_data()[index], source_y.typed_data()[index],
             *separation.typed_data(), *mass_ratio.typed_data(),
@@ -6244,8 +6410,6 @@ ffi::Error hexadecapole_batch_jacobian_ffi_impl(
             result.hexadecapole_correction.value;
         topology_stable->typed_data()[index] = result.topology_stable;
         root_failure->typed_data()[index] = result.root_failure;
-        double* jacobian =
-            output_jacobian->typed_data() + index * 4 * parameter_count;
         const std::array<const Jet*, 4> values{
             &result.magnification,
             &result.point_magnification,
@@ -6282,6 +6446,7 @@ XLA_FFI_DEFINE_HANDLER(
     ffi::Ffi::Bind()
         .Arg<ffi::BufferR1<ffi::F64>>()
         .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::PRED>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
@@ -7923,6 +8088,18 @@ py::capsule hexadecapole_batch_ffi_capsule()
         reinterpret_cast<void*>(hexadecapole_batch_ffi_handler));
 }
 
+py::capsule point_batch_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(point_batch_ffi_handler));
+}
+
+py::capsule point_batch_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(point_batch_jacobian_ffi_handler));
+}
+
 py::capsule hexadecapole_batch_jacobian_ffi_capsule()
 {
     return py::capsule(
@@ -8112,6 +8289,14 @@ void register_jax_ir_submodule(py::module_& parent)
         "hexadecapole_batch_jacobian_ffi",
         &hexadecapole_batch_jacobian_ffi_capsule,
         "Return the batched hexadecapole value/Jacobian FFI capsule.");
+    module.def(
+        "point_batch_ffi",
+        &point_batch_ffi_capsule,
+        "Return the batched binary point-source FFI capsule.");
+    module.def(
+        "point_batch_jacobian_ffi",
+        &point_batch_jacobian_ffi_capsule,
+        "Return the batched binary point-source Jacobian FFI capsule.");
     module.def(
         "triple_hexadecapole_batch_ffi",
         &triple_hexadecapole_batch_ffi_capsule,

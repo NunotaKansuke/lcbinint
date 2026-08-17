@@ -9,6 +9,7 @@ from ._config import require_x64
 from .api import _multipole_dispatch_masks, binary_magnification_auto
 from .cpp_backend import (
     binary_hexadecapole_batch_ffi,
+    binary_point_source_batch_ffi,
     binary_inverse_ray_cartesian_ladder_ffi,
     binary_inverse_ray_polar_ffi,
     binary_magnification_trajectory_ffi,
@@ -635,6 +636,24 @@ def _native_pipeline_trajectory(
     unrouted_flag = jnp.zeros(jnp.shape(source_x), dtype=jnp.bool_)
     unrouted_method = jnp.zeros(jnp.shape(source_x), dtype=jnp.int32)
 
+    point_source = binary_point_source_batch_ffi(
+        source_x,
+        source_y,
+        separation_array,
+        mass_ratio,
+    )
+    routing = binary_routing_diagnostics_batch_ffi(
+        source_x,
+        source_y,
+        jax.lax.stop_gradient(point_source.magnification),
+        separation_array,
+        mass_ratio,
+        source_radius,
+        absolute_tolerance=absolute_tolerance,
+        relative_tolerance=relative_tolerance,
+        caustic_bins=caustic_bins,
+    )
+    point_route = jax.lax.stop_gradient(routing.point_safe & ~point_source.root_failure)
     expansion = binary_hexadecapole_batch_ffi(
         source_x,
         source_y,
@@ -643,19 +662,8 @@ def _native_pipeline_trajectory(
         source_radius,
         limb_c,
         limb_d,
+        active=~point_route,
     )
-    routing = binary_routing_diagnostics_batch_ffi(
-        source_x,
-        source_y,
-        jax.lax.stop_gradient(expansion.point_magnification),
-        separation_array,
-        mass_ratio,
-        source_radius,
-        absolute_tolerance=absolute_tolerance,
-        relative_tolerance=relative_tolerance,
-        caustic_bins=caustic_bins,
-    )
-    point_route = jax.lax.stop_gradient(routing.point_safe & ~expansion.root_failure)
     source_route = jnp.zeros_like(point_route)
     source_value = jnp.full_like(source_x, jnp.nan)
     source_error = jnp.full_like(source_x, jnp.inf)
@@ -669,7 +677,7 @@ def _native_pipeline_trajectory(
     requested_relative_tolerance = jnp.where(
         explicit_tolerance,
         relative_tolerance
-        + absolute_tolerance / jnp.maximum(jnp.abs(expansion.point_magnification), 1.0),
+        + absolute_tolerance / jnp.maximum(jnp.abs(point_source.magnification), 1.0),
         1.0e-3,
     )
     selections = jax.vmap(
@@ -684,7 +692,7 @@ def _native_pipeline_trajectory(
         )
     )(
         routing.caustic_distance,
-        jax.lax.stop_gradient(expansion.point_magnification),
+        jax.lax.stop_gradient(point_source.magnification),
         requested_relative_tolerance,
     )
     bucket_resolutions = jnp.asarray(
@@ -1039,7 +1047,7 @@ def _native_pipeline_trajectory(
     )
     magnification = jnp.where(
         point_route,
-        expansion.point_magnification,
+        point_source.magnification,
         jnp.where(accept_source, source_value, selected_magnification),
     )
     method = jnp.where(
