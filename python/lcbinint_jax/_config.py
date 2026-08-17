@@ -20,7 +20,7 @@ def as_float64(value):
 
     Enabling ``jax_enable_x64`` merely permits 64-bit arrays; it does not
     promote user-provided ``float32`` leaves.  The native FFI already coerces
-    its scalar ABI to ``float64``, so pure-JAX entry points must do the same
+    its scalar ABI to ``float64``, so JAX-facing entry points must do the same
     rather than silently selecting a different numerical kernel.
     """
 

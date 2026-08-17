@@ -181,7 +181,6 @@ def _binary_magnification_trajectory(
         trajectory_backend == "auto"
         and jax.default_backend() == "cpu"
         and kernel == "real"
-        and cartesian_backend != "jax"
         and root_backend != "jax"
         and cpp_cartesian_batch_ffi_available()
     )
@@ -424,7 +423,6 @@ def binary_magnification_trajectory(
         if (
             jax.default_backend() != "cpu"
             or kernel != "real"
-            or cartesian_backend == "jax"
             or root_backend == "jax"
             or not cpp_cartesian_batch_ffi_available()
         ):

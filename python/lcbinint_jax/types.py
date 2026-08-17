@@ -41,17 +41,6 @@ class InverseRayResult(NamedTuple):
     support_valid: jax.Array
 
 
-class PolarSupportResult(NamedTuple):
-    """Stopped-gradient radial bands for polar inverse-ray integration."""
-
-    lower: jax.Array
-    upper: jax.Array
-    mask: jax.Array
-    band_count: jax.Array
-    overflow: jax.Array
-    root_failure: jax.Array
-
-
 class AutoInverseRayResult(NamedTuple):
     """Unified result from the automatic Cartesian/polar dispatcher."""
 

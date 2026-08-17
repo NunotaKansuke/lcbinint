@@ -9,44 +9,26 @@ from ._config import as_float64, require_x64
 from .cpp_backend import (
     binary_inverse_ray_polar_ffi,
     binary_inverse_ray_cartesian_ffi,
-    binary_inverse_ray_fixed_support_ffi,
     cpp_cartesian_epoch_ffi_available,
     cpp_polar_epoch_ffi_available,
-    cpp_fixed_support_ffi_available,
-    cpp_macro_tile_discovery_ffi_available,
-    discover_binary_macro_tiles_ffi,
 )
-from .discovery import discover_binary_macro_tiles
-from .integrate import binary_inverse_ray_fixed_support
 from .multipole import (
     binary_hexadecapole,
     binary_point_source_magnification,
 )
-from .polar import binary_inverse_ray_polar
 from .types import (
     AutoInverseRayResult,
     HybridMagnificationResult,
-    InverseRayResult,
 )
 
 
-def _use_ffi_cartesian_backend(cartesian_backend, kernel):
+def _require_ffi_cartesian_backend(cartesian_backend, kernel):
     if cartesian_backend not in ("auto", "jax", "ffi"):
         raise ValueError("cartesian_backend must be 'auto', 'jax', or 'ffi'")
-    if cartesian_backend == "ffi":
-        if kernel != "real":
-            raise ValueError("the FFI Cartesian backend requires kernel='real'")
-        return True
-    if cartesian_backend == "jax":
-        # The public JAX result remains transformable through the registered
-        # JVP.  On CPU its support must nevertheless come from the certified
-        # component discovery, rather than the old fixed-limb JAX raster.
-        return kernel == "real" and cpp_fixed_support_ffi_available()
-    return (
-        cartesian_backend == "auto"
-        and kernel == "real"
-        and cpp_fixed_support_ffi_available()
-    )
+    if kernel != "real":
+        raise ValueError("binary inverse rays require the real CPU FFI kernel")
+    if not cpp_cartesian_epoch_ffi_available():
+        raise RuntimeError("binary Cartesian inverse rays require the CPU FFI backend")
 
 
 def _binary_inverse_ray(
@@ -80,97 +62,24 @@ def _binary_inverse_ray(
         )
     )
     cell_size = jax.lax.stop_gradient(source_radius / resolution)
-    use_ffi = _use_ffi_cartesian_backend(cartesian_backend, kernel)
-    use_fused_ffi = (
-        use_ffi and root_backend != "jax" and cpp_cartesian_epoch_ffi_available()
-    )
-    subdivision = 4
-    if use_fused_ffi:
-        return binary_inverse_ray_cartesian_ffi(
-            source_x,
-            source_y,
-            separation,
-            mass_ratio,
-            source_radius,
-            limb_c,
-            limb_d,
-            cell_size=cell_size,
-            tile_size=tile_size,
-            tile_capacity=tile_capacity,
-            limb_samples=limb_samples,
-            moment_mode=moment_mode,
-            boundary_subdivision=subdivision,
-        )
-    # Support discovery is topology, not a differentiable part of the cell
-    # quadrature.  On CPU use the certified C++ discovery whenever the root
-    # backend is not explicitly forced to JAX, even if the caller selected
-    # the JAX integration kernel.  This keeps the latter's AD path while
-    # avoiding a fixed limb raster as its component oracle.
-    certified_discovery = (
-        root_backend != "jax" and cpp_macro_tile_discovery_ffi_available()
-    )
-    discovery_function = (
-        discover_binary_macro_tiles_ffi
-        if certified_discovery
-        else discover_binary_macro_tiles
-    )
-    discovery = discovery_function(
+    # ``cartesian_backend='jax'`` and ``root_backend='jax'`` remain accepted
+    # as compatibility spellings, but binary inverse rays now have exactly one
+    # implementation: the fused, differentiable CPU FFI epoch kernel.
+    _require_ffi_cartesian_backend(cartesian_backend, kernel)
+    return binary_inverse_ray_cartesian_ffi(
         source_x,
         source_y,
         separation,
         mass_ratio,
         source_radius,
-        cell_size,
+        limb_c,
+        limb_d,
+        cell_size=cell_size,
         tile_size=tile_size,
         tile_capacity=tile_capacity,
         limb_samples=limb_samples,
-        root_backend=root_backend,
-    )
-    if use_ffi:
-        integrated = binary_inverse_ray_fixed_support_ffi(
-            discovery.tile_origins,
-            discovery.active_mask,
-            cell_size,
-            source_x,
-            source_y,
-            separation,
-            mass_ratio,
-            source_radius,
-            limb_c,
-            limb_d,
-            tile_size=tile_size,
-            moment_mode=moment_mode,
-        )
-    else:
-        integrated = binary_inverse_ray_fixed_support(
-            discovery.tile_origins,
-            discovery.active_mask,
-            cell_size,
-            source_x,
-            source_y,
-            separation,
-            mass_ratio,
-            source_radius,
-            limb_c,
-            limb_d,
-            tile_size=tile_size,
-            kernel=kernel,
-            moment_mode=moment_mode,
-        )
-    return _cartesian_result(discovery, integrated)
-
-
-def _cartesian_result(discovery, integrated):
-    support_valid = ~(discovery.overflow | discovery.root_failure)
-    return InverseRayResult(
-        magnification=integrated.magnification,
-        moments=integrated.moments,
-        boundary_cells=integrated.boundary_cells,
-        active_cells=integrated.active_cells,
-        tile_count=discovery.visited_count,
-        discovery_overflow=discovery.overflow,
-        root_failure=discovery.root_failure,
-        support_valid=support_valid,
+        moment_mode=moment_mode,
+        boundary_subdivision=4,
     )
 
 
@@ -438,137 +347,56 @@ def binary_inverse_ray_auto(
             "boundary_subdivision": polar_boundary_subdivision,
             "moment_mode": moment_mode,
         }
-        use_polar_ffi = (
-            kernel == "real"
-            and root_backend != "jax"
-            and cpp_polar_epoch_ffi_available()
-        )
-        if use_polar_ffi:
-            result = binary_inverse_ray_polar_ffi(
-                source_x,
-                source_y,
-                separation,
-                mass_ratio,
-                source_radius,
-                limb_c,
-                limb_d,
-                **polar_options,
+        if not cpp_polar_epoch_ffi_available():
+            raise RuntimeError(
+                "binary polar inverse rays require the CPU FFI backend"
             )
-        else:
-            result = binary_inverse_ray_polar(
-                source_x,
-                source_y,
-                separation,
-                mass_ratio,
-                source_radius,
-                limb_c,
-                limb_d,
-                kernel=kernel,
-                root_backend=root_backend,
-                **polar_options,
-            )
-        return _auto_result(result, True)
-
-    def cartesian_or_fallback(_):
-        cell_size = jax.lax.stop_gradient(source_radius / resolution)
-        use_ffi = _use_ffi_cartesian_backend(cartesian_backend, kernel)
-        use_fused_ffi = (
-            use_ffi and root_backend != "jax" and cpp_cartesian_epoch_ffi_available()
-        )
-
-        def fallback(_):
-            return polar_path(None)
-
-        if use_fused_ffi:
-            subdivision = 4 if moment_mode == "two_coefficient" else 3
-            cartesian = binary_inverse_ray_cartesian_ffi(
-                source_x,
-                source_y,
-                separation,
-                mass_ratio,
-                source_radius,
-                limb_c,
-                limb_d,
-                cell_size=cell_size,
-                tile_size=tile_size,
-                tile_capacity=tile_capacity,
-                limb_samples=limb_samples,
-                moment_mode=moment_mode,
-                boundary_subdivision=subdivision,
-            )
-            use_fallback = (
-                cartesian.discovery_overflow
-                & jnp.asarray(polar_allowed)
-                & jnp.asarray(polar_fallback_on_overflow)
-            )
-            return jax.lax.cond(
-                use_fallback,
-                fallback,
-                lambda _: _auto_result(cartesian, False),
-                None,
-            )
-
-        discovery_function = (
-            discover_binary_macro_tiles_ffi
-            if use_ffi and cpp_macro_tile_discovery_ffi_available()
-            else discover_binary_macro_tiles
-        )
-        discovery = discovery_function(
+        result = binary_inverse_ray_polar_ffi(
             source_x,
             source_y,
             separation,
             mass_ratio,
             source_radius,
-            cell_size,
+            limb_c,
+            limb_d,
+            **polar_options,
+        )
+        return _auto_result(result, True)
+
+    def cartesian_or_fallback(_):
+        cell_size = jax.lax.stop_gradient(source_radius / resolution)
+        _require_ffi_cartesian_backend(cartesian_backend, kernel)
+
+        def fallback(_):
+            return polar_path(None)
+
+        subdivision = 4 if moment_mode == "two_coefficient" else 3
+        cartesian = binary_inverse_ray_cartesian_ffi(
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+            cell_size=cell_size,
             tile_size=tile_size,
             tile_capacity=tile_capacity,
             limb_samples=limb_samples,
-            root_backend=root_backend,
+            moment_mode=moment_mode,
+            boundary_subdivision=subdivision,
         )
-
-        def integrate_cartesian(_):
-            subdivision = 4 if moment_mode == "two_coefficient" else 3
-            if use_ffi:
-                integrated = binary_inverse_ray_fixed_support_ffi(
-                    discovery.tile_origins,
-                    discovery.active_mask,
-                    cell_size,
-                    source_x,
-                    source_y,
-                    separation,
-                    mass_ratio,
-                    source_radius,
-                    limb_c,
-                    limb_d,
-                    tile_size=tile_size,
-                    moment_mode=moment_mode,
-                    boundary_subdivision=subdivision,
-                )
-            else:
-                integrated = binary_inverse_ray_fixed_support(
-                    discovery.tile_origins,
-                    discovery.active_mask,
-                    cell_size,
-                    source_x,
-                    source_y,
-                    separation,
-                    mass_ratio,
-                    source_radius,
-                    limb_c,
-                    limb_d,
-                    tile_size=tile_size,
-                    kernel=kernel,
-                    moment_mode=moment_mode,
-                    boundary_subdivision=subdivision,
-                )
-            return _auto_result(_cartesian_result(discovery, integrated), False)
-
         use_fallback = (
-            discovery.overflow
+            cartesian.discovery_overflow
             & jnp.asarray(polar_allowed)
             & jnp.asarray(polar_fallback_on_overflow)
         )
-        return jax.lax.cond(use_fallback, fallback, integrate_cartesian, None)
+        return jax.lax.cond(
+            use_fallback,
+            fallback,
+            lambda _: _auto_result(cartesian, False),
+            None,
+        )
 
     point_magnification = _point_source_magnification(
         source_x,

@@ -52,10 +52,7 @@ from .cpp_backend import (
     triple_inverse_ray_polar_batch_ffi,
     triple_point_source_batch_ffi,
 )
-from .discovery import discover_binary_macro_tiles
-from .integrate import binary_inverse_ray_fixed_support
 from .limb_darkening import combine_limb_darkening_moments
-from .polar import binary_inverse_ray_polar, discover_binary_polar_bands
 from .source_plane import (
     SourcePlaneQuadratureResult,
     binary_source_plane_quadrature,
@@ -111,9 +108,12 @@ from .types import (
     FixedSupportResult,
     InverseRayResult,
     HybridMagnificationResult,
-    PolarSupportResult,
     TrajectoryMagnificationResult,
 )
+
+# Binary polar inverse rays are intentionally CPU-FFI-only.  Preserve the
+# original public spelling while keeping one production implementation.
+binary_inverse_ray_polar = binary_inverse_ray_polar_ffi
 
 __all__ = [
     "AutoInverseRayResult",
@@ -128,7 +128,6 @@ __all__ = [
     "HybridMagnificationResult",
     "InverseRayResult",
     "PointSourceResult",
-    "PolarSupportResult",
     "SourcePlaneQuadratureResult",
     "TrajectoryMagnificationResult",
     "TripleInverseRayResult",
@@ -166,7 +165,6 @@ __all__ = [
     "binary_inverse_ray",
     "binary_inverse_ray_auto",
     "binary_inverse_ray_convergence",
-    "binary_inverse_ray_fixed_support",
     "binary_inverse_ray_fixed_support_cpp",
     "binary_inverse_ray_fixed_support_ffi",
     "binary_inverse_ray_linear",
@@ -189,9 +187,7 @@ __all__ = [
     "cpp_triple_hexadecapole_batch_ffi_available",
     "cpp_triple_image_roots_ffi_available",
     "cpp_triple_point_batch_ffi_available",
-    "discover_binary_macro_tiles",
     "discover_binary_macro_tiles_ffi",
-    "discover_binary_polar_bands",
     "discover_triple_macro_tiles",
     "kepler_orbital_motion",
     "load_earth_ephemeris",

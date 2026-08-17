@@ -328,7 +328,7 @@ def discover_triple_macro_tiles(
     def tile_has_inside_probe(tile_index):
         """Bound ``min |f(z) - zeta|`` over the tile rather than sampling it.
 
-        See ``lcbinint_jax.discovery._tile_has_inside_probe`` for the argument;
+        This is the same conservative map bound used by the native binary flood;
         the three lenses are not collinear here, so the tile-to-lens distance
         clamps in both coordinates.
         """

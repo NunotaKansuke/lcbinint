@@ -920,9 +920,10 @@ tests/diagnostics/jax_ir/
   inspect_tiles.py
 ```
 
-JAX is an optional project dependency. The standalone `lcbinint_jax` namespace
-does not import the native extension or require GSL. Importing ordinary
-`lcbinint` must not require JAX.
+JAX is an optional project dependency. Importing ordinary `lcbinint` must not
+require JAX. Binary Cartesian and polar inverse-ray calls in `lcbinint_jax`
+require the native CPU FFI; the former pure-JAX raster implementations were
+removed after the fused component-flood kernels became the production path.
 
 ### 8.3 Candidate API
 

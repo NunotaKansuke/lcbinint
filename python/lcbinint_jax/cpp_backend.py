@@ -87,6 +87,12 @@ class _FfiBinaryRootResult(NamedTuple):
     converged: jax.Array
 
 
+class _BinaryImageSeedPoints(NamedTuple):
+    roots: jax.Array
+    physical: jax.Array
+    root_failure: jax.Array
+
+
 class FfiTripleRootResult(NamedTuple):
     coordinates: jax.Array
     physical: jax.Array
@@ -3731,7 +3737,6 @@ def discover_binary_macro_tiles_ffi(
 ):
     """Discover stopped-gradient Cartesian support with a typed CPU FFI BFS."""
 
-    from .discovery import binary_image_seed_points
     from .types import DiscoveryResult
 
     require_x64()
@@ -3742,14 +3747,25 @@ def discover_binary_macro_tiles_ffi(
 
     frozen_cell_size = jax.lax.stop_gradient(jnp.asarray(cell_size, dtype=jnp.float64))
     tile_width = frozen_cell_size * tile_size
-    seeds = binary_image_seed_points(
-        source_x,
-        source_y,
-        separation,
-        mass_ratio,
-        source_radius,
-        limb_samples=limb_samples,
-        root_backend=root_backend,
+    if root_backend not in ("auto", "jax", "ffi"):
+        raise ValueError("root_backend must be 'auto', 'jax', or 'ffi'")
+    angles = 2.0 * jnp.pi * jnp.arange(limb_samples, dtype=jnp.float64) / limb_samples
+    centre = jnp.asarray(source_x, dtype=jnp.float64) + 1j * jnp.asarray(
+        source_y, dtype=jnp.float64
+    )
+    sources = jnp.concatenate(
+        (jnp.reshape(centre, (1,)), centre + source_radius * jnp.exp(1j * angles))
+    )
+    images = jax.vmap(lambda source: binary_images_ffi(source, separation, mass_ratio))(
+        sources
+    )
+    physical_counts = jnp.sum(images.physical, axis=1)
+    seeds = _BinaryImageSeedPoints(
+        roots=jax.lax.stop_gradient(images.roots.reshape(-1)),
+        physical=jax.lax.stop_gradient(images.physical.reshape(-1)),
+        root_failure=jax.lax.stop_gradient(
+            jnp.any((physical_counts < 3) | (physical_counts > 5))
+        ),
     )
     seed_coordinates = jnp.stack(
         (jnp.real(seeds.roots), jnp.imag(seeds.roots)),

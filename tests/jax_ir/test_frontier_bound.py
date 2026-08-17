@@ -14,7 +14,7 @@ resolution ladder non-monotone: at 64/128/256/512 the sampled probe gave
 -4.5e-4/-8.5e-4/-2.9e-4/-4.7e-5 relative to the reference, i.e. resolution 128
 was *worse* than 64.
 
-The bound in ``lcbinint_jax.discovery._tile_has_inside_probe`` replaces the nine
+The native component certificate replaces the old nine
 samples with a Lipschitz lower bound on ``|f(z) - zeta|`` over the whole tile,
 which can over-admit but never under-admit.  These tests pin the two properties
 that follow, not the calibration: the answer stops depending on ``tile_size``,

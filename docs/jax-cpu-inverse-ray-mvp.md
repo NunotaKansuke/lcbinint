@@ -516,9 +516,11 @@ the simpler scalar-conditional layout.
 
 The trajectory default is the 96/4096 Cartesian bucket with 24 limb seeds.
 The scalar API retains 64/1024 for low latency.  Its Cartesian execution
-backend defaults to `auto`: the typed C++ FFI is used for the real kernel on
-CPU when available, with pure JAX retained as the portable fallback.  Binary
-image roots have the same independent backend choice.  The C++ root handler
+backend defaults to `auto`: binary Cartesian and polar inverse rays use the
+typed C++ CPU FFI exclusively.  The legacy `cartesian_backend="jax"` spelling
+is accepted as an alias but no longer selects a separate raster integrator.
+Binary image roots used outside inverse-ray integration retain an independent
+backend choice.  The C++ root handler
 constructs the quintic, polishes and deduplicates physical images, and returns
 an analytic implicit root Jacobian through a JAX `custom_jvp`; it is shared by
 hexadecapole, Cartesian/polar discovery, and source-plane quadrature.  On a

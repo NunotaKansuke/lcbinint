@@ -9,41 +9,7 @@ from lcbinint_jax import (
     binary_inverse_ray_auto,
     binary_inverse_ray_polar,
     binary_inverse_ray_polar_ffi,
-    discover_binary_polar_bands,
 )
-
-
-def test_polar_bands_are_finite_disjoint_and_stopped_gradient():
-    support = discover_binary_polar_bands(
-        0.2,
-        0.1,
-        1.2,
-        0.1,
-        0.2,
-        limb_samples=32,
-        band_capacity=4,
-    )
-
-    assert bool(support.mask[0])
-    assert not bool(support.overflow)
-    assert not bool(support.root_failure)
-    assert np.all(np.asarray(support.upper[support.mask]) > support.lower[support.mask])
-    assert (
-        float(
-            jax.grad(
-                lambda x: discover_binary_polar_bands(
-                    x,
-                    0.1,
-                    1.2,
-                    0.1,
-                    0.2,
-                    limb_samples=32,
-                    band_capacity=4,
-                ).upper.sum()
-            )(0.2)
-        )
-        == 0.0
-    )
 
 
 def test_polar_value_and_gradient_converge_to_cartesian():
@@ -280,7 +246,7 @@ def test_polar_flood_ffi_converges_to_native_lcbinint():
     np.testing.assert_allclose(fine.magnification, native, rtol=3.0e-5)
 
 
-def test_polar_epoch_ffi_flood_matches_independent_jax_value_and_gradient():
+def test_public_polar_is_ffi_and_has_all_parameter_gradients():
     separation = 0.95
     mass_ratio = 0.01
     source_radius = 0.005
@@ -310,13 +276,10 @@ def test_polar_epoch_ffi_flood_matches_independent_jax_value_and_gradient():
         "moment_mode": "two_coefficient",
     }
 
-    def evaluate(active, backend):
-        function = (
-            binary_inverse_ray_polar_ffi
-            if backend == "ffi"
-            else binary_inverse_ray_polar
-        )
-        result = function(*active, **options)
+    assert binary_inverse_ray_polar is binary_inverse_ray_polar_ffi
+
+    def evaluate(active):
+        result = binary_inverse_ray_polar(*active, **options)
         return result.magnification, (
             result.moments,
             result.boundary_cells,
@@ -325,38 +288,25 @@ def test_polar_epoch_ffi_flood_matches_independent_jax_value_and_gradient():
             result.support_valid,
         )
 
-    (jax_value, jax_aux), jax_gradient = jax.value_and_grad(
+    (value, aux), gradient = jax.value_and_grad(
         evaluate,
         has_aux=True,
-    )(parameters, "jax")
-    (ffi_value, ffi_aux), ffi_gradient = jax.value_and_grad(
-        evaluate,
-        has_aux=True,
-    )(parameters, "ffi")
-    # The CPU FFI discovers connected radial runs, while the independent pure
-    # JAX implementation still rasterises source-limb-informed bands. They no
-    # longer have identical cell sets, but must converge to the same integral.
-    np.testing.assert_allclose(ffi_value, jax_value, rtol=8.0e-4)
-    np.testing.assert_allclose(ffi_aux[0], jax_aux[0], rtol=8.0e-4)
-    assert bool(ffi_aux[4])
-    # A band implementation can report at most band_capacity support objects;
-    # the flood reports its many connected angular runs instead.
-    assert int(ffi_aux[3]) > options["band_capacity"]
-    np.testing.assert_allclose(
-        ffi_gradient,
-        jax_gradient,
-        rtol=4.0e-2,
-        atol=5.0e-2,
-    )
+    )(parameters)
+    assert np.isfinite(float(value))
+    assert np.all(np.isfinite(np.asarray(gradient)))
+    assert bool(aux[4])
+    assert int(aux[3]) > 0
+    assert gradient[5] != 0.0
+    assert gradient[6] != 0.0
     step = 1.0e-7
     plus = parameters.copy()
     minus = parameters.copy()
     plus[0] += step
     minus[0] -= step
     finite_difference = (
-        float(evaluate(plus, "ffi")[0])
-        - float(evaluate(minus, "ffi")[0])
+        float(evaluate(plus)[0])
+        - float(evaluate(minus)[0])
     ) / (2.0 * step)
     np.testing.assert_allclose(
-        ffi_gradient[0], finite_difference, rtol=2.0e-3
+        gradient[0], finite_difference, rtol=2.0e-3
     )
