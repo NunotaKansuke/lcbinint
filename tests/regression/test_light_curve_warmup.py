@@ -28,13 +28,8 @@ def _curve(reltol=1.0e-3, max_source_bins=400):
     )
 
 
-def _baseline_reference(curve, times=TIMES, params=PARAMETERS):
-    return np.asarray(curve(times, params), dtype=float)
-
-
 def test_warmup_retains_and_automatically_uses_execution_plan():
     curve = _curve()
-    reference = _baseline_reference(curve)
 
     report = curve.warmup(TIMES, PARAMETERS)
 
@@ -44,7 +39,7 @@ def test_warmup_retains_and_automatically_uses_execution_plan():
     assert all(method != "auto_fallback" for method in report.methods)
     actual = np.asarray(curve(TIMES, PARAMETERS))
     np.testing.assert_array_less(
-        np.abs(actual - reference),
+        np.abs(actual - report.reference),
         report.budget + np.finfo(float).eps,
     )
     assert not hasattr(curve, "_warmup_values")
@@ -127,6 +122,31 @@ def test_incomplete_warmup_is_rejected_instead_of_retaining_fallback_rows():
     ):
         curve.warmup(TIMES, PARAMETERS)
     assert curve.warmup_profile is None
+
+
+def test_inverse_ray_warmup_uses_self_converged_reference_not_auto_value():
+    params = {
+        "t0": 0.0,
+        "tE": 1.0,
+        "u0": 0.05,
+        "alpha": 1.3,
+        "s": 1.0,
+        "q": 0.1,
+        "rho": 0.01,
+    }
+    times = np.linspace(-1.0, 1.0, 240)
+    curve = _curve(max_source_bins=400)
+    auto_reference = np.asarray(curve.info(times, params).finite_source_magnifications)
+
+    report = curve.warmup(times, params)
+
+    assert report.all_calibrated
+    assert abs(report.reference[166] - auto_reference[166]) > 5.0e-4
+    actual = np.asarray(curve(times, params))
+    np.testing.assert_array_less(
+        np.abs(actual - report.reference),
+        report.budget + np.finfo(float).eps,
+    )
 
 
 def test_native_preplanned_route_skips_auto_and_preserves_requested_method():

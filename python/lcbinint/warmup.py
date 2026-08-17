@@ -273,6 +273,43 @@ def _inside(values, support, reference, budget):
     )
 
 
+def _self_convergence_budget(values, atol, reltol):
+    """Return the tolerance budget for a set of finite-source values."""
+
+    values = np.asarray(values, dtype=float)
+    scale = np.maximum(np.abs(values), 1.0)
+    return max(float(atol), float(reltol) * float(np.max(scale)))
+
+
+def _stable_tail(samples, atol, reltol, count=3):
+    """Find a high-resolution tail whose values are mutually consistent.
+
+    ``samples`` is keyed by increasing grid resolution.  The tail rather than
+    the first passing run is intentional: an accidentally agreeable coarse
+    grid must not become the reference before later refinement is observed.
+    The returned reference is the median of the tail, which is insensitive to
+    a small non-monotonic quadrature wobble.
+    """
+
+    ordered = sorted(samples)
+    if len(ordered) < count:
+        return None
+    tail = ordered[-count:]
+    observations = [samples[bins] for bins in tail]
+    if not all(
+        observation["support"] and np.isfinite(observation["value"])
+        for observation in observations
+    ):
+        return None
+    values = np.asarray(
+        [observation["value"] for observation in observations], dtype=float
+    )
+    budget = _self_convergence_budget(values, atol, reltol)
+    if float(np.max(values) - np.min(values)) > budget:
+        return None
+    return tuple(tail), float(np.median(values)), budget
+
+
 def _interpolated_resolution(n_fail, error_fail, n_pass, error_pass, budget):
     if not (
         n_fail < n_pass
@@ -361,27 +398,37 @@ def _evaluate_variable_resolutions(
     )
 
 
-def _required_resolutions(
+def _self_converged_resolutions(
     curve,
     times,
     params,
     indices,
     method,
-    reference,
-    budget,
     predicted,
+    atol,
+    reltol,
     cap,
 ):
-    """Search from the empirical hint until three increasing grids pass."""
+    """Search for an internally self-converged inverse-ray reference.
+
+    The ordinary automatic dispatcher is deliberately not used as a numerical
+    oracle here.  It still supplies the empirical starting resolution through
+    ``predicted``, but the target value is established from a high-resolution
+    tail of the same preplanned route.  A confirmation batch after the first
+    stable tail prevents a coarse accidental plateau from being accepted.
+    """
 
     states = {
         int(index): {
             "samples": {},
             "next": _candidate_batch(int(predicted[int(index)]), int(cap)),
+            "confirming": False,
         }
         for index in indices
     }
     required = {int(index): None for index in indices}
+    references = {int(index): None for index in indices}
+    selected_values = {int(index): None for index in indices}
 
     for _ in range(GRID_SEARCH_MAX_ROUNDS):
         selected = []
@@ -398,67 +445,70 @@ def _required_resolutions(
         )
         values = np.asarray(measured["magnification"], dtype=float)
         support = np.asarray(measured["converged"], dtype=bool)
-        passes = _inside(
-            values, support, reference[selected], budget[selected]
-        )
         for offset, index_value in enumerate(selected):
             index = int(index_value)
             bins = int(resolutions[offset])
             states[index]["samples"][bins] = {
-                "error": float(abs(values[offset] - reference[index])),
-                "pass": bool(passes[offset]),
+                "value": float(values[offset]),
+                "support": bool(support[offset]),
             }
         for index in sorted(states):
-            if required[index] is not None or not states[index]["next"]:
+            if required[index] is not None:
                 continue
-            run = _persistent_pass_run(states[index]["samples"])
-            if run is not None:
-                required[index] = int(run[0])
-                states[index]["next"] = ()
-            else:
+            stable = _stable_tail(
+                states[index]["samples"], atol, reltol
+            )
+            if stable is None:
+                states[index]["confirming"] = False
                 states[index]["next"] = _next_candidate_batch(
                     states[index]["samples"], int(cap)
                 )
+                continue
+            if states[index]["confirming"] or not states[index]["next"]:
+                # A stable tail at the hard cap is sufficient even when there
+                # is no higher batch available for a separate confirmation.
+                states[index]["next"] = ()
+            else:
+                # Observe one more refinement batch before accepting this
+                # tail.  Only the highest candidate is needed for this
+                # confirmation; evaluating the entire next batch would add
+                # cost without strengthening the plateau check.  This is what
+                # distinguishes a genuine plateau from the low-resolution auto
+                # value that motivated warm-up.
+                states[index]["confirming"] = True
+                next_batch = _next_candidate_batch(
+                    states[index]["samples"], int(cap)
+                )
+                states[index]["next"] = next_batch[-1:] if next_batch else ()
 
-    # Interpolate the measured fail/pass bracket, round upward, and verify the
-    # resulting integer.  The two already-passing grids above it provide the
-    # persistence confirmation.
-    candidate_by_index = {}
-    for index, upper in required.items():
-        if upper is None:
+        # A state whose tail is stable and has no next batch is ready to be
+        # materialized below.  Leave other states in the search loop.
+        if all(
+            not state["next"]
+            for state in states.values()
+        ):
+            break
+
+    for index, state in states.items():
+        stable = _stable_tail(state["samples"], atol, reltol)
+        if stable is None:
             continue
-        samples = states[index]["samples"]
-        lower_failures = [
-            bins for bins in samples
-            if bins < upper and not samples[bins]["pass"]
-        ]
-        if not lower_failures:
-            continue
-        lower = max(lower_failures)
-        candidate = _interpolated_resolution(
-            lower,
-            samples[lower]["error"],
-            upper,
-            samples[upper]["error"],
-            budget[index],
-        )
-        if lower < candidate < upper:
-            candidate_by_index[index] = candidate
-    if candidate_by_index:
-        selected = np.asarray(sorted(candidate_by_index), dtype=int)
-        resolutions = [candidate_by_index[int(index)] for index in selected]
-        measured = _evaluate_variable_resolutions(
-            curve, times, params, selected, method, resolutions
-        )
-        values = np.asarray(measured["magnification"], dtype=float)
-        support = np.asarray(measured["converged"], dtype=bool)
-        passes = _inside(
-            values, support, reference[selected], budget[selected]
-        )
-        for offset, index_value in enumerate(selected):
-            if passes[offset]:
-                required[int(index_value)] = int(resolutions[offset])
-    return required
+        _, reference, budget = stable
+        references[index] = reference
+        candidates = []
+        for bins, observation in state["samples"].items():
+            if not observation["support"] or not np.isfinite(observation["value"]):
+                continue
+            candidate_budget = _self_convergence_budget(
+                (reference, observation["value"]), atol, reltol
+            )
+            if abs(observation["value"] - reference) <= candidate_budget:
+                candidates.append((int(bins), float(observation["value"])))
+        if candidates:
+            bins, value = min(candidates)
+            required[index] = bins
+            selected_values[index] = value
+    return required, references, selected_values
 
 
 def _time_grid_candidates(
@@ -528,8 +578,10 @@ def build_warmup_report(
 
     count = times.size
 
-    # The ordinary dispatcher supplies both A_ref and the cheap first split.
-    # Only rows that already entered an inverse-ray route pay for calibration.
+    # The ordinary dispatcher supplies the route split and the cheap point/
+    # hexadecapole decisions.  It is deliberately not used as the numerical
+    # oracle for inverse-ray rows: the automatic resolution law can itself be
+    # the thing that needs correction.
     baseline = curve.info(times, params)
     baseline_values = np.asarray(
         baseline.finite_source_magnifications, dtype=float
@@ -544,8 +596,6 @@ def build_warmup_report(
 
     reference = baseline_values.copy()
     grid_mask = np.isin(baseline_methods, (CARTESIAN, POLAR))
-    grid_indices = np.flatnonzero(grid_mask)
-
     scale = np.maximum(np.abs(reference), 1.0)
     atol = max(float(curve.options.finite_source_tol), 0.0)
     reltol = max(float(curve.options.finite_source_reltol), 0.0)
@@ -622,26 +672,34 @@ def build_warmup_report(
             )
             for index in remaining
         }
-        required_cartesian = _required_resolutions(
+        (
+            required_cartesian,
+            cartesian_references,
+            cartesian_values,
+        ) = _self_converged_resolutions(
             curve,
             times,
             params,
             remaining,
             CARTESIAN,
-            reference,
-            budget,
             predicted_cartesian,
+            atol,
+            reltol,
             cap,
         )
-        required_polar = _required_resolutions(
+        (
+            required_polar,
+            polar_references,
+            polar_values,
+        ) = _self_converged_resolutions(
             curve,
             times,
             params,
             remaining,
             POLAR,
-            reference,
-            budget,
             predicted_polar,
+            atol,
+            reltol,
             cap,
         )
         cartesian_timing = _time_grid_candidates(
@@ -668,6 +726,51 @@ def build_warmup_report(
                 cartesian_seconds[index] = cartesian_timing[index]
             if index in polar_timing:
                 polar_seconds[index] = polar_timing[index]
+
+            available_references = [
+                value
+                for value in (
+                    cartesian_references[index],
+                    polar_references[index],
+                )
+                if value is not None and np.isfinite(value)
+            ]
+            if not available_references:
+                statuses[index] = "max_source_bins_limited"
+                continue
+
+            common_reference = float(np.median(available_references))
+            common_budget = _self_convergence_budget(
+                available_references, atol, reltol
+            )
+            if len(available_references) == 2 and (
+                abs(available_references[0] - available_references[1])
+                > common_budget
+            ):
+                statuses[index] = "reference_disagreement"
+                continue
+
+            # A route may have self-converged while its selected resolution is
+            # not inside the common Cartesian/polar reference budget.  Do not
+            # install that route merely because its own tail was stable.
+            if cartesian_bins is not None:
+                cartesian_value = cartesian_values[index]
+                if cartesian_value is None or abs(
+                    cartesian_value - common_reference
+                ) > common_budget:
+                    cartesian_bins = None
+            if polar_bins is not None:
+                polar_value = polar_values[index]
+                if polar_value is None or abs(
+                    polar_value - common_reference
+                ) > common_budget:
+                    polar_bins = None
+            if cartesian_bins is None and polar_bins is None:
+                statuses[index] = "reference_disagreement"
+                continue
+
+            reference[index] = common_reference
+            budget[index] = common_budget
             method, bins = _choose_grid(
                 cartesian_bins,
                 polar_bins,
