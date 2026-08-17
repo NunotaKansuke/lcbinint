@@ -15,9 +15,11 @@ It compares the new native algebraic boundary kernel on the local
   repeats.  Its algebraic kernel includes its certified image seeds and radial
   support search.  The reported steady-state call reuses the native binary
   caustic cache for fixed `(s, q)`.
-- microJAX: `microjax.inverse_ray.cpu.mag_uniform_cpu` or
-  `mag_limb_dark_cpu`, JIT compilation excluded, three steady-state CPU
-  repeats, one CPU thread.
+- microJAX: the production one-shot schedulers
+  `mag_uniform_cpu_one_shot` or `mag_limb_dark_cpu_one_shot`, which are the
+  full-solve path used by `mag_binary(..., backend="cpu")`.  JIT compilation
+  is excluded; three steady-state CPU repeats are measured with one CPU
+  thread.  No adaptive retry ladder or diagnostic tuple is timed.
 - Direct VBMicrolensing calls are used only as an accuracy oracle and are not
   included in either timing.
 - microJAX revision: `326cb0dd14617e5716a9d652b510709902d27b5b`.
@@ -33,38 +35,55 @@ caustic cache warm):
 
 | profile | cases | C++ median | microJAX median | median microJAX/C++ | max C++ error | max microJAX error |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| uniform | 5 | 0.541 ms | 20.15 ms | 39.1x | (2.1\times10^{-4}) | (6.8\times10^{-6}) |
-| linear | 5 | 0.470 ms | 22.65 ms | 48.2x | (4.5\times10^{-4}) | (1.8\times10^{-5}) |
-| all | 10 | 0.506 ms | 21.07 ms | 43.7x | — | — |
+| uniform | 5 | 0.541 ms | 3.984 ms | 10.7x | (2.1\times10^{-4}) | (7.3\times10^{-8}) |
+| linear | 5 | 0.470 ms | 4.064 ms | 6.2x | (4.5\times10^{-4}) | (1.3\times10^{-7}) |
+| all | 10 | 0.506 ms | 4.024 ms | 8.4x | — | — |
 
 All ten cases returned a successful microJAX status, and all ten C++ values
 were within (10^{-3}) of the VBM oracle at this setting.
 
-At the looser (10^{-2}) setting, C++ had a median of 0.406 ms and microJAX
-20.99 ms, or 53.9x in the aggregate.  C++ was faster because its radial
-adaptation stopped earlier; two of the ten C++ cases were above (10^{-3})
-error, as expected for the looser request.  microJAX remained below
-(2\times10^{-5}) on this small corpus.
-
 ## Cache and workload audit
 
-The 43.7x aggregate number is therefore a warm-cache number, not a universal
-per-call speedup.  Running the same native executable in batch mode exposes the
-first-call cost: the five uniform cases had a median cold call of 2.21 ms and
-the five linear cases 2.16 ms.  Against the microJAX adaptive timings this
-reduces the median ratio to roughly 9--11x.  Which number is appropriate depends
-on whether `(s, q)` is held fixed across many source epochs (steady state) or
-changes for every call (cold path).
+The earlier 43.7x number came from timing microJAX's older adaptive research
+functions (`mag_*_cpu`), which execute a 32/1 tier followed by a 64/2 tier at
+this tolerance.  That is not the production `backend="cpu"` path and was an
+unfair handicap for microJAX.  The production one-shot path reduces the
+steady-state aggregate ratio to 8.4x while retaining smaller VBM errors on this
+corpus.
 
-Two other checks rule out simpler measurement artefacts.  Timing microJAX with
-`return_info=False` changes the two representative profiles by only 1--4%.
-Also, a single microJAX 64-limb/2-radial-split tier takes about 13--15 ms, but
-its central-case error is as large as (2\times10^{-2}); the adaptive 20--23 ms
-path is needed for the comparable (10^{-3}) accuracy target.
+The native cache policy still matters.  Running the same native executable in
+batch mode exposes the first-call cost: the five uniform cases had a median
+cold call of 2.21 ms and the five linear cases 2.16 ms.  Against the one-shot
+microJAX timings this reduces the median ratio to roughly 1.8--1.9x.  Which
+number is appropriate depends on whether `(s, q)` is held fixed across many
+source epochs (steady state) or changes for every call (cold path).
+
+The old adaptive diagnostic's `return_info=True` added only 1--4% in a
+separate check, so the main correction is selecting the production scheduler,
+not merely removing diagnostics.
+
+## Light-curve-level sanity check
+
+As a second check, 24 source positions with one fixed `(s, q)` were evaluated
+as one light curve.  C++ used one cache-building call followed by the 23
+steady calls; microJAX used its production one-shot light-curve scheduler.  JIT
+compilation was excluded and both sides used one CPU thread.
+
+| geometry/profile | C++ total | microJAX total | microJAX/C++ |
+| --- | ---: | ---: | ---: |
+| smooth / uniform | 7.88 ms | 55.30 ms | 7.0x |
+| smooth / linear | 8.57 ms | 50.12 ms | 5.9x |
+| central / uniform | 35.15 ms | 188.53 ms | 5.4x |
+| central / linear | 41.32 ms | 77.68 ms | 1.9x |
+
+All microJAX light-curve statuses were zero.  This vectorized comparison is
+the more relevant one when a lens geometry is reused over many epochs, and it
+does not show a 40--50x gap.
 
 These numbers are still a rough native-kernel comparison, not an API-level
-claim.  The corpus is small, microJAX and C++ use different adaptive policies,
-and no difficult tangent or capacity-failure corpus was included.  The
-conservative conclusion is that the new C++ quartic path is materially faster
-on this small matched corpus, but the exact multiplier must be reported with
-the cache policy and achieved error.
+claim.  The corpus is small, microJAX and C++ use different fixed quadrature
+policies, and no difficult tangent or capacity-failure corpus was included.  The
+conservative conclusion is that the new C++ quartic path is faster on this
+small matched corpus, but the honest range is roughly 1.8--1.9x cold, 1.9--7.0x
+for the 24-epoch light-curve check, or 8.4x scalar steady-state—not an
+unconditional 43x.

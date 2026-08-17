@@ -2,8 +2,9 @@
 
 This is intentionally not a public API or FFI benchmark.  The C++ timings are
 read from ``benchmark_algebraic_boundary`` (which measures the native
-experimental kernel after a warm-up); microJAX is timed as a warmed JAX CPU
-call.  VBM is used only as an accuracy oracle and is outside both timings.
+experimental kernel after a warm-up); microJAX is timed through the production
+one-shot CPU scheduler after JIT warm-up.  VBM is used only as an accuracy
+oracle and is outside both timings.
 """
 
 from __future__ import annotations
@@ -11,7 +12,6 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-import math
 import statistics
 import sys
 import time
@@ -32,11 +32,11 @@ def _load_microjax(source: Path):
     source = source.resolve()
     sys.path.insert(0, str(source))
     from microjax.inverse_ray.cpu import (  # pylint: disable=import-outside-toplevel
-        mag_limb_dark_cpu,
-        mag_uniform_cpu,
+        mag_limb_dark_cpu_one_shot,
+        mag_uniform_cpu_one_shot,
     )
 
-    return mag_uniform_cpu, mag_limb_dark_cpu
+    return mag_uniform_cpu_one_shot, mag_limb_dark_cpu_one_shot
 
 
 def _vbm_value(case_name: str, profile: str) -> float:
@@ -95,7 +95,9 @@ def main() -> int:
     import jax.numpy as jnp  # pylint: disable=import-outside-toplevel
 
     jax.config.update("jax_enable_x64", True)
-    mag_uniform_cpu, mag_limb_dark_cpu = _load_microjax(args.microjax_src)
+    mag_uniform_cpu_one_shot, mag_limb_dark_cpu_one_shot = _load_microjax(
+        args.microjax_src
+    )
     with args.native_csv.open(newline="") as stream:
         native_rows = list(csv.DictReader(
             line for line in stream if not line.startswith("#")
@@ -107,18 +109,20 @@ def main() -> int:
     }
     rows = []
     for profile in PROFILES:
-        micro_base = mag_uniform_cpu if profile == "uniform" else mag_limb_dark_cpu
+        micro_base = (
+            mag_uniform_cpu_one_shot
+            if profile == "uniform"
+            else mag_limb_dark_cpu_one_shot
+        )
         for case_name in CASES:
             s, q, x, y, rho = CASES[case_name]
             argument = jnp.asarray(x + 1.0j * y, dtype=jnp.complex128)
             if profile == "uniform":
                 def evaluate(w):
-                    return micro_base(w, rho, s=s, q=q, rtol=args.rtol,
-                                      return_info=True)
+                    return micro_base(w, rho, s=s, q=q, n_limb=64)
             else:
                 def evaluate(w):
-                    return micro_base(w, rho, s=s, q=q, u1=0.5,
-                                      rtol=args.rtol, return_info=True)
+                    return micro_base(w, rho, s=s, q=q, u1=0.5, n_limb=64)
             jitted = jax.jit(evaluate)
             compile_seconds, micro_seconds, result = _time_micro(
                 jitted, argument, max(1, args.repeats)
