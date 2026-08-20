@@ -175,12 +175,6 @@ public:
         double point_source_magnification,
         const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
     void ensure_limb_darkening_table() const;
-    void augment_seeds_from_caustic_branches(
-        double separation,
-        double mass_ratio,
-        SourcePosition source,
-        double source_radius,
-        std::vector<SourcePosition>& seeds) const;
     // Retain the complete, phase-ordered image seed set for an exact binary
     // epoch. Repeated LightCurve calls commonly revisit the same trajectory;
     // those calls can skip all centre, caustic, boundary, and certificate

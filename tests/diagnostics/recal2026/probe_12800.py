@@ -14,18 +14,15 @@ block.  The measured positions themselves are evaluated exactly once, so the
 native timing includes point-image seeding but excludes caustic-cache
 construction and never measures a memoized duplicate result.
 
-Run one process per probe policy because ``LCBININT_PROBE_POLICY`` is read once::
+The current binary is certificate-only.  Historical legacy JSON can still be
+passed to ``compare``; it need not be reproducible by the current API::
 
-    LCBININT_PROBE_STATS=1 LCBININT_PROBE_POLICY='rings=1' \
-      LCBININT_PROBE_BUILD=build python -m \
-      tests.diagnostics.recal2026.probe_12800 run --input REPORT --output full.json
-
-    LCBININT_PROBE_STATS=1 LCBININT_PROBE_POLICY='rings=0' \
+    LCBININT_PROBE_STATS=1 \
       LCBININT_PROBE_BUILD=build python -m \
       tests.diagnostics.recal2026.probe_12800 run --input REPORT --output cert.json
 
     python -m tests.diagnostics.recal2026.probe_12800 compare \
-      full.json cert.json --output comparison.json
+      historical-legacy.json cert.json --output comparison.json
 """
 
 from __future__ import annotations
@@ -46,15 +43,11 @@ BLOCK_EPOCHS = 24
 BLOCK_SPAN_IN_RADII = 0.4
 STRUCTURAL_DIFFERENCE = 1.0e-9
 COUNTER_KEYS = (
-    "ring_solves",
-    "heuristic_solves",
     "certified_solves",
     "certified_offered",
     "certified_extrema",
     "certifications",
     "unproven",
-    "ring_seconds",
-    "heuristic_seconds",
     "certified_seconds",
     "certify_seconds",
 )

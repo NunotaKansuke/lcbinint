@@ -25,20 +25,7 @@ ProbePolicy parse_policy(const char* spec)
             const std::string key = item.substr(0, equals);
             const std::string value = item.substr(equals + 1);
             const bool flag = !(value == "0" || value == "false" || value == "off");
-            if (key == "caustic_rings") {
-                policy.caustic_rings = flag;
-            } else if (key == "boundary_ring") {
-                policy.boundary_ring = flag;
-            } else if (key == "rings") {
-                policy.caustic_rings = flag;
-                policy.boundary_ring = flag;
-            } else if (key == "branch_heuristic" || key == "heuristic") {
-                policy.branch_heuristic = flag;
-            } else if (key == "legacy") {
-                policy.caustic_rings = flag;
-                policy.boundary_ring = flag;
-                policy.branch_heuristic = flag;
-            } else if (key == "tangents") {
+            if (key == "tangents") {
                 policy.tangents = flag;
             } else if (key == "normals") {
                 policy.normals = flag;
@@ -83,13 +70,7 @@ std::string probe_policy_description()
 {
     const auto& policy = probe_policy();
     std::string text;
-    text += "caustic_rings=";
-    text += policy.caustic_rings ? "1" : "0";
-    text += ",boundary_ring=";
-    text += policy.boundary_ring ? "1" : "0";
-    text += ",branch_heuristic=";
-    text += policy.branch_heuristic ? "1" : "0";
-    text += ",normals=";
+    text += "normals=";
     text += policy.normals ? "1" : "0";
     text += ",tangents=";
     text += policy.tangents ? "1" : "0";

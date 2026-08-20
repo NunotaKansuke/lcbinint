@@ -2876,20 +2876,8 @@ void append_valid_probe_image_seeds(
         return;
     }
 
-    // Every ring stage funnels through here, so this one point is where the
-    // pre-certificate seeding is charged; the certified ladder roots its own
-    // probes and is charged separately.
-    const bool stats = probe_stats_enabled();
-    const auto started = stats ? std::chrono::steady_clock::now()
-                               : std::chrono::steady_clock::time_point {};
     const auto probe_images =
         selected_point_images(point_magnifier, separation, mass_ratio, probe_source);
-    if (stats) {
-        auto& counters = probe_counters();
-        counters.ring_solves += 1;
-        counters.ring_seconds +=
-            std::chrono::duration<double>(std::chrono::steady_clock::now() - started).count();
-    }
     if (probe_images.size() <= 3) {
         return;
     }
@@ -3436,80 +3424,9 @@ std::vector<SourcePosition> augmented_image_seeds(
         // pass until the support certificate carries equivalent segment data.
         auto scan = scan_caustic_branches(
             *caustic_branches, source, source_radius, true);
-        // The legacy heuristic stages are disabled by default.  They remain
-        // behind the diagnostic policy so the calibration corpus can replay
-        // the historical seed set against the certificate-only path.
-        const auto& policy = probe_policy();
-        if (policy.caustic_rings) {
-            // First-crossing stage: probe inside vertices until one yields fold
-            // seeds.  first_contact_probes precede the transition vertices
-            // because the latter sit near the disk edge where probing is
-            // unreliable.
-            bool found_first_crossing = false;
-            for (const auto& probe : scan.first_contact_probes) {
-                const std::size_t before = seeds.size();
-                append_caustic_probe_image_seeds(
-                    point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-                    probe, seeds);
-                if (seeds.size() > before) {
-                    found_first_crossing = true;
-                    break;
-                }
-            }
-            std::size_t first_unprobed = 0;
-            for (; !found_first_crossing && first_unprobed < scan.crossing_probes.size();
-                 ++first_unprobed) {
-                const std::size_t before = seeds.size();
-                append_caustic_probe_image_seeds(
-                    point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-                    scan.crossing_probes[first_unprobed], seeds);
-                if (seeds.size() > before) {
-                    ++first_unprobed;
-                    break;
-                }
-            }
-            if (scan.crossing_probes.empty() && scan.min_distance < source_radius) {
-                // Grazing contact: no sampled vertex inside the disk but a
-                // segment passes through it.
-                append_caustic_probe_image_seeds(
-                    point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-                    scan.nearest, seeds);
-            }
-            // Once fold seeds exist, cover the remaining crossings and (for
-            // large sources) the engulfed arcs.
-            if (seeds.size() >= 5) {
-                for (std::size_t i = first_unprobed; i < scan.crossing_probes.size(); ++i) {
-                    append_caustic_probe_image_seeds(
-                        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-                        scan.crossing_probes[i], seeds);
-                }
-                for (const auto& probe : scan.arc_probes) {
-                    append_caustic_probe_image_seeds(
-                        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
-                        probe, seeds);
-                }
-            }
-        }
-        if (policy.boundary_ring && scan.min_distance < source_radius) {
-            append_boundary_probe_image_seeds(
-                point_magnifier, mapper, separation, mass_ratio, source, source_radius, seeds);
-        }
-        // The interior rings (3 x 64 solves at 0.2/0.5/0.8 rho, for rho >= 0.02)
-        // used to run here.  Ablating them over 911 grid rows of the tangency
-        // corpus x nbin 16/50/128 reproduced every magnification bit for bit,
-        // for ~11% of the stage's root solves: the radii they sample are always
-        // reached by the boundary ring or the certified ladder first.  Kept in
-        // the uncached fallback below, which this measurement does not cover.
-
-        // Completeness stage.  Every component of (disk \ caustic) owns a
+        // Every component of (disk \ caustic) owns a
         // local extremum of the distance to the disk centre along the caustic,
-        // so rooting the certified probes reaches every image component
-        // regardless of how the probe rings above happen to fall -- they were
-        // never a criterion: their fixed 0.02..0.35 rho steps cannot enter a
-        // cap shallower than 0.02 rho, which is what a caustic near tangency
-        // produces.  When diagnostics explicitly restore the legacy probes,
-        // they retain their historical position before this stage so the
-        // before/after comparison changes policy rather than probe order.
+        // so rooting the certified probes reaches every image component.
         const auto support = finalize_disk_support(
             std::move(scan.support), source, source_radius);
         const bool proven = append_certified_component_seeds(
@@ -5972,16 +5889,15 @@ FiniteSourceResult fixed_inverse_ray_spine_binary(
         "experimental image-spine guided scan",
     };
 
-    // Generate seeds once. All fallback paths reuse these to avoid a second
-    // call to augmented_image_seeds.
+    // Generate the same centre-plus-certificate seed set as every other
+    // public binary route.  All fallback paths reuse it.
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-    auto seeds = augmented_image_seeds(
-        point_magnifier, mapper, separation, mass_ratio, source, source_radius);
-    if (seeds.size() < 5 && finite_magnifier != nullptr &&
-        probe_policy().branch_heuristic) {
-        finite_magnifier->augment_seeds_from_caustic_branches(
-            separation, mass_ratio, source, source_radius, seeds);
-    }
+    auto seeds = finite_magnifier != nullptr
+        ? finite_magnifier->cached_binary_image_seeds(
+            point_magnifier, separation, mass_ratio, source, source_radius,
+            std::numeric_limits<double>::infinity(), nullptr, nullptr)
+        : augmented_image_seeds(
+            point_magnifier, mapper, separation, mass_ratio, source, source_radius);
 
     const int n_ps = static_cast<int>(
         point_magnifier.binary_images(separation, mass_ratio, source).size());
@@ -6320,10 +6236,6 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
         center_image_seeds,
         &binary_caustic_branches(separation, mass_ratio),
         &proven);
-    if (probe_policy().branch_heuristic) {
-        augment_seeds_from_caustic_branches(
-            separation, mass_ratio, source, source_radius, seeds);
-    }
 
     constexpr std::size_t maximum_entries = 1024;
     if (binary_seed_cache_.size() >= maximum_entries) {
@@ -6851,9 +6763,6 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
         std::numeric_limits<double>::infinity(), nullptr,
         &binary_caustic_branches(separation, mass_ratio), &support_proven,
         &centre_image_count);
-    if (seeds.size() < 5 && probe_policy().branch_heuristic) {
-        augment_seeds_from_caustic_branches(separation, mass_ratio, source, source_radius, seeds);
-    }
     const double sampled_caustic_distance = binary_sampled_caustic_distance(
         separation, mass_ratio, source, source_radius);
     const double polar_fallback_distance =
@@ -7836,93 +7745,6 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         point_magnifier, separation, mass_ratio, source, source_radius, runtime_settings, this, decision,
         refined_dist, rejected_hex_magnification, center_image_seeds);
     return cache_and_return(apply_tangent_band_floor(std::move(result)));
-}
-
-void FiniteSourceMagnifier::augment_seeds_from_caustic_branches(
-    double separation,
-    double mass_ratio,
-    SourcePosition source,
-    double source_radius,
-    std::vector<SourcePosition>& seeds) const
-{
-    ensure_binary_caustic_cache(separation, mass_ratio);
-    if (seeds.size() >= 5 || caustic_cache_branch_grid_.empty()) return;
-
-    const PointSourceMagnifier point_magnifier;
-    const double seg_search = source_radius + caustic_cache_max_seg_len_;
-    const int gs = caustic_cache_grid_size_;
-    const int ix0 = std::clamp(
-        static_cast<int>((source.x - seg_search - caustic_cache_min_x_) / caustic_cache_grid_step_x_),
-        0, gs - 1);
-    const int ix1 = std::clamp(
-        static_cast<int>((source.x + seg_search - caustic_cache_min_x_) / caustic_cache_grid_step_x_),
-        0, gs - 1);
-    const int iy0 = std::clamp(
-        static_cast<int>((source.y - seg_search - caustic_cache_min_y_) / caustic_cache_grid_step_y_),
-        0, gs - 1);
-    const int iy1 = std::clamp(
-        static_cast<int>((source.y + seg_search - caustic_cache_min_y_) / caustic_cache_grid_step_y_),
-        0, gs - 1);
-
-    for (int iy = iy0; iy <= iy1 && seeds.size() < 5; ++iy) {
-        for (int ix = ix0; ix <= ix1 && seeds.size() < 5; ++ix) {
-            for (const auto& ref :
-                 caustic_cache_branch_grid_[static_cast<std::size_t>(iy * gs + ix)]) {
-                const auto& branch =
-                    caustic_cache_branches_[static_cast<std::size_t>(ref.branch)];
-                const int n = static_cast<int>(branch.size());
-                if (n < 2) continue;
-                const int next = (ref.pos + 1) % n;
-                const SourcePosition p0 = branch[static_cast<std::size_t>(ref.pos)];
-                const SourcePosition p1 = branch[static_cast<std::size_t>(next)];
-                if (point_segment_distance(source, p0, p1) >= source_radius) continue;
-
-                const double seg_dx = p1.x - p0.x;
-                const double seg_dy = p1.y - p0.y;
-                const double seg_len2 = seg_dx * seg_dx + seg_dy * seg_dy;
-                const double t = seg_len2 > 0.0 ?
-                    std::clamp(
-                        ((source.x - p0.x) * seg_dx + (source.y - p0.y) * seg_dy) / seg_len2,
-                        0.0, 1.0) :
-                    0.0;
-                const SourcePosition nearest {p0.x + t * seg_dx, p0.y + t * seg_dy};
-                const double distance = std::sqrt(distance_squared(nearest, source));
-                if (distance <= 0.0 || distance >= source_radius) continue;
-
-                // Step 5% of source_radius past the nearest caustic segment point
-                // toward the interior of the caustic. This is large enough to cross
-                // the segment-to-true-caustic approximation error (one inter-sample
-                // spacing) without landing too close to a fold caustic where two
-                // merging images are nearly degenerate.
-                const double step = source_radius * 0.05 / distance;
-                const SourcePosition probe_source {
-                    nearest.x + (nearest.x - source.x) * step,
-                    nearest.y + (nearest.y - source.y) * step,
-                };
-                // Only use images from regions that actually overlap the source disk.
-                // A probe outside the source disk belongs to a caustic region that
-                // the disk does not straddle (e.g., a fold caustic tangent to the
-                // disk edge) and its images would be seeds for the wrong area.
-                if (distance_squared(probe_source, source) >= source_radius * source_radius) {
-                    continue;
-                }
-                const bool stats = probe_stats_enabled();
-                const auto started = stats ? std::chrono::steady_clock::now()
-                                           : std::chrono::steady_clock::time_point {};
-                const auto probe_images = selected_point_images(
-                    point_magnifier, separation, mass_ratio, probe_source);
-                if (stats) {
-                    auto& counters = probe_counters();
-                    counters.heuristic_solves += 1;
-                    counters.heuristic_seconds += std::chrono::duration<double>(
-                        std::chrono::steady_clock::now() - started).count();
-                }
-                if (probe_images.size() > seeds.size()) {
-                    seeds = probe_images;
-                }
-            }
-        }
-    }
 }
 
 } // namespace lcbinint::magnification

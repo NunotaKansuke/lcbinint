@@ -62,12 +62,12 @@ def cost_table(full):
             if not _grid_row(entry):
                 continue
             counters = entry["counters"]
-            ring.append(counters["ring_solves"])
+            ring.append(counters.get("ring_solves", 0))
             heuristic.append(counters.get("heuristic_solves", 0))
             certified.append(counters["certified_solves"])
             offered.append(counters["certified_offered"])
             extrema.append(counters["certified_extrema"])
-            ring_s.append(counters["ring_seconds"])
+            ring_s.append(counters.get("ring_seconds", 0.0))
             heuristic_s.append(counters.get("heuristic_seconds", 0.0))
             cert_s.append(counters["certified_seconds"])
             certify_s.append(counters["certify_seconds"])
@@ -209,10 +209,10 @@ def savings(full, other):
             for entry, solves, seconds in (
                     (mine, "base", "base"), (theirs, "cut", "cut")):
                 counters = entry["counters"]
-                total = (counters["ring_solves"] +
+                total = (counters.get("ring_solves", 0) +
                          counters.get("heuristic_solves", 0) +
                          counters["certified_solves"])
-                clock = (counters["ring_seconds"] +
+                clock = (counters.get("ring_seconds", 0.0) +
                          counters.get("heuristic_seconds", 0.0) +
                          counters["certified_seconds"]
                          + counters["certify_seconds"])

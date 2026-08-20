@@ -57,10 +57,7 @@ bool close_relative(double actual, double expected, double tolerance)
 int main()
 {
     const lcbinint::magnification::ProbePolicy default_probe_policy;
-    if (default_probe_policy.caustic_rings ||
-        default_probe_policy.boundary_ring ||
-        default_probe_policy.branch_heuristic ||
-        !default_probe_policy.normals ||
+    if (!default_probe_policy.normals ||
         !default_probe_policy.tangents ||
         default_probe_policy.offsets != 8) {
         return 61;

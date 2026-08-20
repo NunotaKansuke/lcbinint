@@ -26,17 +26,16 @@ run() {  # name core policy extra...
     echo "$name -> core $core  policy='$policy'  pid $!"
 }
 
+# Certificate ladder calibration.  The retired ring and branch-grid heuristic
+# cannot be restored through the runtime policy.
 #   name          core  policy
-run full          0     "legacy=1"
-run no_boundary   1     "legacy=1,boundary_ring=0"         --no-reference
-run no_caustic    3     "legacy=1,caustic_rings=0"         --no-reference
-run no_rings      4     "legacy=0"                         --no-reference
-run cert_3        5     "legacy=0,offsets=3"               --no-reference
-run cert_2        6     "legacy=0,offsets=2"               --no-reference
+run certificate   0     "offsets=8"
+run cert_3        5     "offsets=3"                        --no-reference
+run cert_2        6     "offsets=2"                        --no-reference
 # Negative control.  A cusp's wedge opens along the tangent, so this one is
 # expected to lose components; if the corpus does not notice, the corpus is
 # not hard enough and nothing else in this study means anything.
-run no_tangents   7     "legacy=0,tangents=0"              --no-reference
+run no_tangents   7     "tangents=0"                       --no-reference
 
 wait
 echo "all policies done"
