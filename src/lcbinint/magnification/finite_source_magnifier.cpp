@@ -3065,8 +3065,9 @@ CausticBranchScan scan_caustic_branches(
         };
         bool prev_inside = distance_squared(branch.back(), source) < source_radius2;
         for (std::size_t i = 0; i < branch.size(); ++i) {
-            const SourcePosition p0 = branch[
-                i == 0 ? branch.size() - 1 : i - 1];
+            const std::size_t segment_previous =
+                i == 0 ? branch.size() - 1 : i - 1;
+            const SourcePosition p0 = branch[segment_previous];
             const SourcePosition p1 = branch[i];
             if (!is_phantom_segment(i)) {
                 const SourcePosition candidate = closest_point_on_segment(source, p0, p1);
@@ -3076,6 +3077,54 @@ CausticBranchScan scan_caustic_branches(
                     scan.nearest = candidate;
                     scan.nearest_segment_start = p0;
                     scan.nearest_segment_end = p1;
+                }
+                if (build_support && branch.size() >= 3) {
+                    const SourcePosition segment {p1.x - p0.x, p1.y - p0.y};
+                    const double segment_length2 =
+                        segment.x * segment.x + segment.y * segment.y;
+                    const double projection = segment_length2 > 0.0
+                        ? ((source.x - p0.x) * segment.x +
+                           (source.y - p0.y) * segment.y) / segment_length2
+                        : 0.0;
+                    // A radial minimum of the piecewise-linear caustic may lie
+                    // in a segment interior while both sampled endpoints stay
+                    // outside the source.  Add exactly that blind crossing;
+                    // ordinary interior projections are already represented
+                    // by retained vertex extrema and would only perturb the
+                    // integration seed order with redundant probes.
+                    if (projection > 1.0e-12 && projection < 1.0 - 1.0e-12 &&
+                        candidate_distance2 < source_radius2 &&
+                        distance_squared(p0, source) >= source_radius2 &&
+                        distance_squared(p1, source) >= source_radius2) {
+                        const std::size_t before_previous = segment_previous == 0
+                            ? branch.size() - 1 : segment_previous - 1;
+                        const std::size_t next = (i + 1) % branch.size();
+                        const SourcePosition curvature0 {
+                            branch[before_previous].x - 2.0 * p0.x + p1.x,
+                            branch[before_previous].y - 2.0 * p0.y + p1.y,
+                        };
+                        const SourcePosition curvature1 {
+                            p0.x - 2.0 * p1.x + branch[next].x,
+                            p0.y - 2.0 * p1.y + branch[next].y,
+                        };
+                        const double margin = std::max(
+                            std::hypot(curvature0.x, curvature0.y),
+                            std::hypot(curvature1.x, curvature1.y));
+                        const double candidate_distance =
+                            std::sqrt(candidate_distance2);
+                        const double segment_length = std::sqrt(segment_length2);
+                        DiskExtremum extremum;
+                        extremum.position = candidate;
+                        extremum.tangent = {
+                            segment.x / segment_length,
+                            segment.y / segment_length};
+                        extremum.normal = {
+                            -extremum.tangent.y, extremum.tangent.x};
+                        extremum.distance = candidate_distance;
+                        extremum.polyline_margin = margin;
+                        extremum.inside_disk = true;
+                        scan.support.extrema.push_back(extremum);
+                    }
                 }
             }
             const bool inside = distance_squared(p1, source) < source_radius2;
@@ -3122,22 +3171,45 @@ CausticBranchScan scan_caustic_branches(
             if (vertex_radius[i] >= source_radius + margin) {
                 continue;
             }
-            const SourcePosition chord {
+            SourcePosition extremum_position = p1;
+            SourcePosition chord {
                 branch[next].x - branch[previous].x,
                 branch[next].y - branch[previous].y,
             };
+            // A shallow cap can cross the source limb between two cached
+            // vertices while its sampled radial minimum remains just outside.
+            // For a minimum, use the actual closest point on either adjacent
+            // polyline segment.  Treating only the vertex as the extremum made
+            // the certificate vacuous in exactly that case: it was labelled
+            // outside and therefore did not have to straddle the caustic.
+            if (radial_minimum) {
+                const SourcePosition left = closest_point_on_segment(
+                    source, branch[previous], p1);
+                const SourcePosition right = closest_point_on_segment(
+                    source, p1, branch[next]);
+                if (distance_squared(left, source) <
+                    distance_squared(right, source)) {
+                    extremum_position = left;
+                    chord = {p1.x - branch[previous].x,
+                             p1.y - branch[previous].y};
+                } else {
+                    extremum_position = right;
+                    chord = {branch[next].x - p1.x,
+                             branch[next].y - p1.y};
+                }
+            }
             const double chord_length = std::hypot(chord.x, chord.y);
             if (!(chord_length > 0.0)) {
                 continue;
             }
             DiskExtremum extremum;
-            extremum.position = p1;
+            extremum.position = extremum_position;
             extremum.tangent = {
                 chord.x / chord_length, chord.y / chord_length};
             extremum.normal = {-extremum.tangent.y, extremum.tangent.x};
-            extremum.distance = vertex_radius[i];
+            extremum.distance = std::sqrt(distance_squared(extremum_position, source));
             extremum.polyline_margin = margin;
-            extremum.inside_disk = vertex_radius[i] < source_radius;
+            extremum.inside_disk = extremum.distance < source_radius;
             scan.support.extrema.push_back(extremum);
         }
     }
@@ -3364,8 +3436,9 @@ std::vector<SourcePosition> augmented_image_seeds(
         // pass until the support certificate carries equivalent segment data.
         auto scan = scan_caustic_branches(
             *caustic_branches, source, source_radius, true);
-        // The heuristic stages below are what the calibration harness ablates;
-        // by default every one of them runs, exactly as it always has.
+        // The legacy heuristic stages are disabled by default.  They remain
+        // behind the diagnostic policy so the calibration corpus can replay
+        // the historical seed set against the certificate-only path.
         const auto& policy = probe_policy();
         if (policy.caustic_rings) {
             // First-crossing stage: probe inside vertices until one yields fold
@@ -3434,12 +3507,9 @@ std::vector<SourcePosition> augmented_image_seeds(
         // regardless of how the probe rings above happen to fall -- they were
         // never a criterion: their fixed 0.02..0.35 rho steps cannot enter a
         // cap shallower than 0.02 rho, which is what a caustic near tangency
-        // produces.  It runs last so that the rings keep first claim on the
-        // components they do reach.  A fill is confined to one side of the
-        // critical curve when its seed sits on a fold, and the ring probes hug
-        // the caustic while the certified ladder starts half a disk away from
-        // it, so letting the certified images in first would leave a fold pair
-        // traced by one unguarded scan across the seam.
+        // produces.  When diagnostics explicitly restore the legacy probes,
+        // they retain their historical position before this stage so the
+        // before/after comparison changes policy rather than probe order.
         const auto support = finalize_disk_support(
             std::move(scan.support), source, source_radius);
         const bool proven = append_certified_component_seeds(
@@ -5907,7 +5977,8 @@ FiniteSourceResult fixed_inverse_ray_spine_binary(
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     auto seeds = augmented_image_seeds(
         point_magnifier, mapper, separation, mass_ratio, source, source_radius);
-    if (seeds.size() < 5 && finite_magnifier != nullptr) {
+    if (seeds.size() < 5 && finite_magnifier != nullptr &&
+        probe_policy().branch_heuristic) {
         finite_magnifier->augment_seeds_from_caustic_branches(
             separation, mass_ratio, source, source_radius, seeds);
     }
@@ -6249,8 +6320,10 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
         center_image_seeds,
         &binary_caustic_branches(separation, mass_ratio),
         &proven);
-    augment_seeds_from_caustic_branches(
-        separation, mass_ratio, source, source_radius, seeds);
+    if (probe_policy().branch_heuristic) {
+        augment_seeds_from_caustic_branches(
+            separation, mass_ratio, source, source_radius, seeds);
+    }
 
     constexpr std::size_t maximum_entries = 1024;
     if (binary_seed_cache_.size() >= maximum_entries) {
@@ -6778,7 +6851,7 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
         std::numeric_limits<double>::infinity(), nullptr,
         &binary_caustic_branches(separation, mass_ratio), &support_proven,
         &centre_image_count);
-    if (seeds.size() < 5) {
+    if (seeds.size() < 5 && probe_policy().branch_heuristic) {
         augment_seeds_from_caustic_branches(separation, mass_ratio, source, source_radius, seeds);
     }
     const double sampled_caustic_distance = binary_sampled_caustic_distance(
@@ -7833,8 +7906,17 @@ void FiniteSourceMagnifier::augment_seeds_from_caustic_branches(
                 if (distance_squared(probe_source, source) >= source_radius * source_radius) {
                     continue;
                 }
+                const bool stats = probe_stats_enabled();
+                const auto started = stats ? std::chrono::steady_clock::now()
+                                           : std::chrono::steady_clock::time_point {};
                 const auto probe_images = selected_point_images(
                     point_magnifier, separation, mass_ratio, probe_source);
+                if (stats) {
+                    auto& counters = probe_counters();
+                    counters.heuristic_solves += 1;
+                    counters.heuristic_seconds += std::chrono::duration<double>(
+                        std::chrono::steady_clock::now() - started).count();
+                }
                 if (probe_images.size() > seeds.size()) {
                     seeds = probe_images;
                 }

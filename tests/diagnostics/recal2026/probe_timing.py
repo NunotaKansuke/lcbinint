@@ -99,21 +99,26 @@ def measure(block, nbin):
         elapsed = time.perf_counter() - started
         counters = native.probe_counters()
         samples.append((elapsed, counters["ring_seconds"],
+                        counters.get("heuristic_seconds", 0.0),
                         counters["certified_seconds"], counters["certify_seconds"],
-                        counters["ring_solves"], counters["certified_solves"]))
+                        counters["ring_solves"],
+                        counters.get("heuristic_solves", 0),
+                        counters["certified_solves"]))
     # The median pass, ranked on total time: taking medians of each column
     # separately would report a split that no single pass produced.
     samples.sort(key=lambda item: item[0])
-    total, ring, certified, certify, ring_solves, cert_solves = \
+    total, ring, heuristic, certified, certify, ring_solves, heuristic_solves, cert_solves = \
         samples[len(samples) // 2]
     return {
         "nbin": nbin,
         "seconds_per_epoch": total / len(block["times"]),
         "ring_share": ring / total,
+        "branch_heuristic_share": heuristic / total,
         "certified_probe_share": certified / total,
         "certify_support_share": certify / total,
-        "seeding_share": (ring + certified + certify) / total,
+        "seeding_share": (ring + heuristic + certified + certify) / total,
         "ring_solves": ring_solves,
+        "branch_heuristic_solves": heuristic_solves,
         "certified_solves": cert_solves,
         "epochs_inside": int(np.sum(distances < 1.0)),
         "epochs": len(block["times"]),

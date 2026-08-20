@@ -81,6 +81,47 @@ def _ladder(lcbinint, bins_ladder, limb_darkening_c=0.0):
     return values
 
 
+@pytest.mark.parametrize(
+    ("source_x", "reference"),
+    (
+        (0.0918268044772704, 32.976085546532),
+        (0.09184584419635068, 41.195418755732),
+    ),
+)
+def test_certificate_finds_a_cap_entering_between_cached_caustic_vertices(
+    source_x, reference
+):
+    """A segment-interior radial minimum must become a certificate extremum.
+
+    In this wide binary the source limb crosses a cached caustic segment while
+    both of the segment's vertices remain outside.  Looking only for extrema at
+    vertices leaves the support empty and loses the fold pair, returning about
+    29.85 at both positions.  The closest point in the segment interior is the
+    piecewise-linear caustic's actual radial minimum.
+    """
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = lcbinint.LightCurve(
+        lens="binary",
+        options=lcbinint.Options(
+            coordinates="vbm",
+            inverse_ray_grid="cartesian",
+            source_bins=50,
+            max_source_bins=50,
+        ),
+    )
+    value = curve.magnification(
+        source_x,
+        t0=0.0,
+        tE=1.0,
+        u0=0.001581655643152922,
+        alpha=0.0,
+        s=2.4374773061751362,
+        q=0.06744638777374898,
+        rho=0.0001368479808895235,
+    ).item()
+    assert value == pytest.approx(reference, rel=1.0e-9)
+
+
 def test_boundary_root_is_profile_independent_for_two_coefficient_limb_darkening():
     """The source-limb location must not depend on its brightness profile."""
     lcbinint = pytest.importorskip("lcbinint")

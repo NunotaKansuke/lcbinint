@@ -52,9 +52,9 @@ STUDY_BUCKETS = (16, 50, 200)
 REFERENCE_BUCKET = 400
 
 COUNTER_KEYS = (
-    "ring_solves", "certified_solves", "certified_offered", "certified_extrema",
+    "ring_solves", "heuristic_solves", "certified_solves", "certified_offered", "certified_extrema",
     "certifications", "unproven", "ring_seconds", "certified_seconds",
-    "certify_seconds",
+    "certify_seconds", "heuristic_seconds",
 )
 
 

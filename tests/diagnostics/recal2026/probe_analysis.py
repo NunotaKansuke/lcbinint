@@ -55,31 +55,38 @@ def cost_table(full):
     """Probe counts and seconds, per resolution, over the seeded rows."""
     out = {}
     for bucket in [str(b) for b in full["buckets"]]:
-        ring, certified, offered, extrema = [], [], [], []
-        ring_s, cert_s, certify_s, call_s = [], [], [], []
+        ring, heuristic, certified, offered, extrema = [], [], [], [], []
+        ring_s, heuristic_s, cert_s, certify_s, call_s = [], [], [], [], []
         for row in full["rows"]:
             entry = row["measured"].get(bucket)
             if not _grid_row(entry):
                 continue
             counters = entry["counters"]
             ring.append(counters["ring_solves"])
+            heuristic.append(counters.get("heuristic_solves", 0))
             certified.append(counters["certified_solves"])
             offered.append(counters["certified_offered"])
             extrema.append(counters["certified_extrema"])
             ring_s.append(counters["ring_seconds"])
+            heuristic_s.append(counters.get("heuristic_seconds", 0.0))
             cert_s.append(counters["certified_seconds"])
             certify_s.append(counters["certify_seconds"])
             call_s.append(entry["call_seconds"])
         if not ring:
             continue
-        ring, certified = np.asarray(ring), np.asarray(certified)
-        seeding = np.asarray(ring_s) + np.asarray(cert_s) + np.asarray(certify_s)
+        ring, heuristic, certified = (
+            np.asarray(ring), np.asarray(heuristic), np.asarray(certified))
+        seeding = (np.asarray(ring_s) + np.asarray(heuristic_s) +
+                   np.asarray(cert_s) + np.asarray(certify_s))
         call = np.asarray(call_s)
         out[bucket] = {
             "rows": int(ring.size),
             "ring_solves": {"median": float(np.median(ring)),
                             "p90": float(np.percentile(ring, 90)),
                             "total": int(ring.sum())},
+            "heuristic_solves": {"median": float(np.median(heuristic)),
+                                  "p90": float(np.percentile(heuristic, 90)),
+                                  "total": int(heuristic.sum())},
             "certified_solves": {"median": float(np.median(certified)),
                                  "p90": float(np.percentile(certified, 90)),
                                  "total": int(certified.sum())},
@@ -89,6 +96,7 @@ def cost_table(full):
                 float(ring.sum() / certified.sum()) if certified.sum() else float("inf")),
             "seconds": {
                 "ring": float(np.sum(ring_s)),
+                "branch_heuristic": float(np.sum(heuristic_s)),
                 "certified_probes": float(np.sum(cert_s)),
                 "certify_support": float(np.sum(certify_s)),
                 "seeding_total": float(seeding.sum()),
@@ -201,8 +209,12 @@ def savings(full, other):
             for entry, solves, seconds in (
                     (mine, "base", "base"), (theirs, "cut", "cut")):
                 counters = entry["counters"]
-                total = counters["ring_solves"] + counters["certified_solves"]
-                clock = (counters["ring_seconds"] + counters["certified_seconds"]
+                total = (counters["ring_solves"] +
+                         counters.get("heuristic_solves", 0) +
+                         counters["certified_solves"])
+                clock = (counters["ring_seconds"] +
+                         counters.get("heuristic_seconds", 0.0) +
+                         counters["certified_seconds"]
                          + counters["certify_seconds"])
                 if solves == "base":
                     base_solves += total

@@ -1,6 +1,7 @@
 #include "lcbinint/lcbinint.h"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
+#include "lcbinint/magnification/probe_diagnostics.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
 #include "lcbinint/model/triple_lens_geometry.hpp"
 #include "lcbinint/model/orbital_motion.hpp"
@@ -55,6 +56,16 @@ bool close_relative(double actual, double expected, double tolerance)
 
 int main()
 {
+    const lcbinint::magnification::ProbePolicy default_probe_policy;
+    if (default_probe_policy.caustic_rings ||
+        default_probe_policy.boundary_ring ||
+        default_probe_policy.branch_heuristic ||
+        !default_probe_policy.normals ||
+        !default_probe_policy.tangents ||
+        default_probe_policy.offsets != 8) {
+        return 61;
+    }
+
     lcbi_params params = lcbi_default_params();
     lcbi_options options = lcbi_default_options();
     lcbi_result result = {};

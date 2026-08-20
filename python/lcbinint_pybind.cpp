@@ -25,12 +25,14 @@ PYBIND11_MODULE(_lcbinint, m)
         out["enabled"] = lcbinint::magnification::probe_stats_enabled();
         out["policy"] = lcbinint::magnification::probe_policy_description();
         out["ring_solves"] = counters.ring_solves;
+        out["heuristic_solves"] = counters.heuristic_solves;
         out["certified_solves"] = counters.certified_solves;
         out["certified_offered"] = counters.certified_offered;
         out["certified_extrema"] = counters.certified_extrema;
         out["certifications"] = counters.certifications;
         out["unproven"] = counters.unproven;
         out["ring_seconds"] = counters.ring_seconds;
+        out["heuristic_seconds"] = counters.heuristic_seconds;
         out["certified_seconds"] = counters.certified_seconds;
         out["certify_seconds"] = counters.certify_seconds;
         return out;
