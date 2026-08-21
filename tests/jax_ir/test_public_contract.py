@@ -33,11 +33,24 @@ def test_jax_warmup_compiles_public_path_without_memoizing_values():
 
     assert type(report).__name__ == "JaxWarmupReport"
     assert report.all_calibrated
-    assert report.methods == ("jax_compiled",) * times.size
+    assert len(report.methods) == times.size
+    assert all(
+        method in {
+            "point_source",
+            "hexadecapole",
+            "inverse_ray_cartesian",
+            "inverse_ray_polar",
+        }
+        for method in report.methods
+    )
+    assert np.all(np.asarray(report.resolutions) >= 0)
     assert not hasattr(curve, "_warmup_values")
     assert report.geometry is not None
     assert isinstance(values, jax.Array)
-    np.testing.assert_allclose(values, report.reference, rtol=0.0, atol=0.0)
+    np.testing.assert_array_less(
+        np.abs(np.asarray(values) - report.reference),
+        report.budget + np.finfo(float).eps,
+    )
     derivative = jax.grad(
         lambda u0: jnp.sum(curve(times, {**PARAMETERS, "u0": u0}))
     )(PARAMETERS["u0"])

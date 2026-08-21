@@ -62,7 +62,23 @@ class WarmupReport:
 
 @dataclass
 class JaxWarmupReport(WarmupReport):
-    """Concrete XLA compilation/execution completed by ``LightCurve.warmup``."""
+    """Native-anchored, JAX-routed plan compiled for the JAX backend.
+
+    ``execution_plan`` is intentionally an implementation detail: it is the
+    compiled callable retained by its owning ``LightCurve``.  The public
+    report still exposes per-epoch methods and resolutions.  The native
+    warm-up remains the numerical reference, while an automatic JAX warm-up
+    takes its initial route/bin choices from the same JAX dispatcher that will
+    be used for one-off evaluations.  This distinction matters because native
+    Cartesian/Polar timings do not predict the relative cost of JAX FFI
+    branches.  The inherited ``cartesian_seconds`` and ``polar_seconds``
+    fields remain native candidate timings for diagnostics; they are not used
+    to select the automatic JAX route.
+    """
+
+    execution_plan: object = None
+    jax_compile_seconds: float = 0.0
+    seed_cache_primed: bool = False
 
     @property
     def calibrated(self):
@@ -208,6 +224,72 @@ def compare_warmup_geometry(curve, times, params, warm):
     )
 
 
+def _jax_auto_route_plan(curve, times, params):
+    """Return the route/bin proposal produced by the automatic JAX path.
+
+    This deliberately asks the public JAX diagnostics for the route instead
+    of reproducing the dispatcher in the warm-up module.  The dispatcher has
+    several stopped-gradient safety decisions (point source, multipole,
+    polar fallback, and Cartesian certification); duplicating those decisions
+    here would create a second routing implementation that could drift from
+    production.
+    """
+
+    from .jax_backend import (
+        _integration_tolerances,
+        _jax_resolution_bucket,
+        _limb_darkening,
+    )
+    from lcbinint_jax.resolution import select_binary_resolution
+
+    import jax
+    import jax.numpy as jnp
+
+    diagnostics = curve.info(times, params)
+    methods = np.asarray(
+        diagnostics.finite_source_methods, dtype=np.int64
+    ).copy()
+    resolutions = np.zeros(methods.shape, dtype=np.int64)
+    grid_mask = np.isin(methods, (CARTESIAN, POLAR))
+    if not np.any(grid_mask):
+        return methods, resolutions
+
+    absolute_tolerance, relative_tolerance = _integration_tolerances(
+        curve._options, "binary"
+    )
+    point_magnification = jnp.asarray(
+        diagnostics.point_source_magnifications
+    )
+    limb_c, _ = _limb_darkening(curve._native, params)
+    maximum_bins = _jax_resolution_bucket(curve.options.max_source_bins)
+    source_radius = jnp.full_like(
+        point_magnification,
+        jnp.abs(jnp.asarray(params["rho"], dtype=point_magnification.dtype)),
+    )
+    selection = jax.vmap(
+        lambda mass_ratio, source_radius, distance, point: (
+            select_binary_resolution(
+                mass_ratio,
+                source_radius,
+                distance,
+                point,
+                limb_c,
+                requested_relative_tolerance=relative_tolerance,
+                maximum_bins=maximum_bins,
+                requested_absolute_tolerance=absolute_tolerance,
+            )
+        )
+    )(
+        jnp.asarray(diagnostics.mass_ratios),
+        source_radius,
+        jnp.asarray(diagnostics.caustic_distances),
+        point_magnification,
+    )
+    selected_bins = np.asarray(selection.source_bins, dtype=np.int64)
+    resolutions[grid_mask] = selected_bins[grid_mask]
+    return methods, resolutions
+
+
 def build_jax_warmup_report(
     curve,
     times,
@@ -215,43 +297,194 @@ def build_jax_warmup_report(
     *,
     parameter_fingerprint,
     configuration_fingerprint,
+    grid_timing_repeats=1,
 ):
-    """Compile and synchronously execute the actual public JAX path once."""
+    """Calibrate, compile, and execute a fixed JAX route/bin plan.
 
-    from .jax_backend import magnification
+    The native warm-up supplies the numerical reference and the self-converged
+    candidate resolutions.  For ``nbin='auto'``, the initial route split is
+    taken from the JAX automatic dispatcher itself, rather than from native
+    Cartesian/Polar wall-clock measurements.  JAX and native use different
+    batching and FFI execution paths, so importing the native timing choice
+    can select a JAX-expensive Polar branch for a trajectory that JAX would
+    route through Cartesian.  The fixed plan is then certified against the
+    native reference and refined in a bounded, backend-independent search.
+
+    JAX executes the retained plan once before returning, so the XLA
+    executable and the C++ support/seed caches are both hot for the first
+    caller-visible evaluation.  The steady-state callable remains one fixed
+    grouped plan.
+    """
+
+    from .jax_backend import make_preplanned_magnification
 
     concrete_times = np.asarray(times, dtype=float)
     if concrete_times.ndim == 0:
         concrete_times = concrete_times.reshape(1)
-    start = time.perf_counter()
-    values = magnification(
-        curve._native,
-        curve._options,
+    if concrete_times.ndim != 1 or concrete_times.size == 0:
+        raise ValueError("warm-up times must be a non-empty finite 1-D array")
+
+    started = time.perf_counter()
+    native_report, native_methods = build_warmup_report(
+        curve,
         concrete_times,
         params,
-    )
-    if hasattr(values, "block_until_ready"):
-        values.block_until_ready()
-    elapsed = time.perf_counter() - start
-    reference = np.asarray(values, dtype=float).copy()
-    diagnostics = curve._native.info(concrete_times, params)
-    geometry = build_warmup_geometry(
-        curve, concrete_times, params, diagnostics
-    )
-    count = concrete_times.size
-    return JaxWarmupReport(
-        times=concrete_times.copy(),
-        methods=("jax_compiled",) * count,
-        resolutions=np.zeros(count, dtype=np.int64),
-        statuses=("compiled",) * count,
-        reference=reference,
-        budget=np.zeros(count, dtype=float),
-        cartesian_seconds=np.zeros(count, dtype=float),
-        polar_seconds=np.zeros(count, dtype=float),
-        elapsed_seconds=elapsed,
         parameter_fingerprint=parameter_fingerprint,
         configuration_fingerprint=configuration_fingerprint,
-        geometry=geometry,
+        grid_timing_repeats=grid_timing_repeats,
+    )
+
+    methods = np.asarray(native_methods, dtype=np.int64).copy()
+    resolutions = np.asarray(native_report.resolutions, dtype=np.int64).copy()
+    if curve.options.nbin == "auto":
+        # Do not let native route timing decide a JAX execution plan.  The
+        # diagnostics call below runs the same automatic JAX dispatcher used
+        # by an unwarmed evaluation and exposes its actual per-epoch route.
+        # The native report remains the accuracy oracle; only the initial
+        # route/bin proposal is backend-local.
+        jax_methods, jax_resolutions = _jax_auto_route_plan(
+            curve, concrete_times, params
+        )
+        supported = np.isin(
+            jax_methods, (POINT_SOURCE, HEXADECAPOLE, CARTESIAN, POLAR)
+        )
+        methods[supported] = jax_methods[supported]
+        resolutions[supported] = jax_resolutions[supported]
+    reference = np.asarray(native_report.reference, dtype=float).copy()
+    budget = np.asarray(native_report.budget, dtype=float).copy()
+    count = int(concrete_times.size)
+    cap = int(curve.options.max_source_bins)
+    compile_started = time.perf_counter()
+    execution_plan = None
+    values = None
+
+    def compile_and_execute():
+        nonlocal execution_plan
+        execution_plan = make_preplanned_magnification(
+            curve._native,
+            curve._options,
+            tuple(int(value) for value in methods),
+            tuple(int(value) for value in resolutions),
+            params,
+        )
+        result = execution_plan(concrete_times, params)
+        if hasattr(result, "block_until_ready"):
+            result.block_until_ready()
+        return np.asarray(result, dtype=float).copy()
+
+    values = compile_and_execute()
+
+    grid_mask = np.isin(methods, (CARTESIAN, POLAR))
+    # The native report is the baseline-anchored numerical reference.  For a
+    # JAX grid, require both a finite support result and agreement with that
+    # reference.  Resolution refinement is a generic warm-up operation, not a
+    # case-specific fallback.
+    def passing(current):
+        return (
+            np.isfinite(current)
+            & np.isfinite(reference)
+            & (np.abs(current - reference) <= budget)
+        )
+
+    passed = passing(values)
+
+    def refine_grid():
+        """Refine only uncertified inverse-ray rows in the current plan."""
+
+        nonlocal values, passed
+        for _ in range(GRID_SEARCH_MAX_ROUNDS):
+            failing = np.flatnonzero(grid_mask & ~passed)
+            if failing.size == 0:
+                break
+            changed = False
+            for index in failing:
+                old = int(resolutions[index])
+                if old <= 0 or old >= cap:
+                    continue
+                proposed = min(
+                    cap,
+                    max(old + 1, int(math.ceil(old * GRID_SEARCH_GROWTH))),
+                )
+                if proposed != old:
+                    resolutions[index] = proposed
+                    changed = True
+            if not changed:
+                break
+            values = compile_and_execute()
+            passed = passing(values)
+
+    refine_grid()
+
+    # A route selected by the JAX dispatcher can still differ from the native
+    # reference route at a borderline epoch.  Try the already-certified native
+    # route for those rows as a generic correctness reconciliation.  This is a
+    # warm-up-only plan search, not a case-specific production fallback: rows
+    # that pass keep the faster JAX-native route, and only rows that fail the
+    # same reference/budget certificate are replaced.
+    failed = np.flatnonzero(~passed)
+    if failed.size and curve.options.nbin == "auto":
+        candidate_methods = methods.copy()
+        candidate_resolutions = resolutions.copy()
+        changed = False
+        for index in failed:
+            native_method = int(native_methods[index])
+            native_resolution = int(native_report.resolutions[index])
+            if native_method not in (POINT_SOURCE, HEXADECAPOLE, CARTESIAN, POLAR):
+                continue
+            if native_resolution < 0:
+                continue
+            if (
+                candidate_methods[index] != native_method
+                or candidate_resolutions[index] != native_resolution
+            ):
+                candidate_methods[index] = native_method
+                candidate_resolutions[index] = native_resolution
+                changed = True
+        if changed:
+            methods[:] = candidate_methods
+            resolutions[:] = candidate_resolutions
+            grid_mask = np.isin(methods, (CARTESIAN, POLAR))
+            values = compile_and_execute()
+            passed = passing(values)
+            refine_grid()
+
+    failed = np.flatnonzero(~passed)
+    if failed.size:
+        details = ", ".join(
+            f"{int(index)}:{METHOD_NAMES[int(methods[index])]}/"
+            f"{int(resolutions[index])}"
+            for index in failed[:12]
+        )
+        if failed.size > 12:
+            details += ", ..."
+        raise RuntimeError(
+            "JAX warm-up could not certify every epoch against the native "
+            f"warm-up reference ({failed.size} rows: {details})"
+        )
+
+    # Keep this warm-up focused on the retained value execution plan.  A
+    # parameter Jacobian is benchmark-specific (and may use a different AD
+    # transformation), so callers that measure one compile that exact
+    # Jacobian explicitly rather than paying for an unrelated trajectory JVP.
+    jax_compile_seconds = time.perf_counter() - compile_started
+    method_names = tuple(METHOD_NAMES[int(method)] for method in methods)
+    has_grid = bool(np.any(grid_mask))
+    return JaxWarmupReport(
+        times=concrete_times.copy(),
+        methods=method_names,
+        resolutions=resolutions,
+        statuses=("calibrated",) * count,
+        reference=reference,
+        budget=budget,
+        cartesian_seconds=np.asarray(native_report.cartesian_seconds).copy(),
+        polar_seconds=np.asarray(native_report.polar_seconds).copy(),
+        elapsed_seconds=time.perf_counter() - started,
+        parameter_fingerprint=parameter_fingerprint,
+        configuration_fingerprint=configuration_fingerprint,
+        geometry=native_report.geometry,
+        execution_plan=execution_plan,
+        jax_compile_seconds=jax_compile_seconds,
+        seed_cache_primed=has_grid,
     )
 
 
@@ -573,16 +806,20 @@ def build_warmup_report(
         raise NotImplementedError("the first warm-up implementation supports binary lenses")
     if curve._native.model.source != "single":
         raise NotImplementedError("warm-up currently supports single-source curves")
-    if curve.options.jax:
-        raise NotImplementedError("warm-up execution plans currently require the native backend")
-
     count = times.size
 
     # The ordinary dispatcher supplies the route split and the cheap point/
     # hexadecapole decisions.  It is deliberately not used as the numerical
     # oracle for inverse-ray rows: the automatic resolution law can itself be
     # the thing that needs correction.
-    baseline = curve.info(times, params)
+    # A JAX warm-up uses this routine only as the native calibration oracle.
+    # Calling the public JAX ``info`` here would calibrate the dispatcher being
+    # replaced and would not reproduce the native plan contract.
+    baseline = (
+        curve._native.info(times, params)
+        if curve.options.jax
+        else curve.info(times, params)
+    )
     baseline_values = np.asarray(
         baseline.finite_source_magnifications, dtype=float
     )

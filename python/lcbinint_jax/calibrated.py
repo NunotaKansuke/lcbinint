@@ -33,9 +33,8 @@ _EXECUTION_BUCKETS = _CALIBRATED_EXECUTION_BUCKETS
 
 
 def _polar_angular_bins(resolution):
-    # The native selector's 200--400 radial buckets still need at least 65536
-    # angles for small-q, grazing high-magnification cusps.  With 32768 angles
-    # the radial coarse/fine pair can agree while sharing a 5e-2 angular bias.
+    # Keep the calibrated production path on its established static grid.
+    # The adaptive FFI mode is opt-in (angular_bins=0) for targeted retries.
     target = max(65536, 64 * resolution)
     return 1 << (target - 1).bit_length()
 
@@ -59,10 +58,11 @@ def binary_magnification_calibrated(
     """Use native-calibrated ``nbin`` and polar preselection on JAX CPU.
 
     This is deliberately opt-in while the full method selector is calibrated.
-    It reproduces the native resolution regression and floors, rounds to the
-    same 14 buckets, and pairs every bucket with a quadratic Cartesian support
-    capacity.  Binary caustic distance and all routing masks are
-    stopped-gradient; the selected physical kernel retains its analytic AD.
+    It applies the native continuous resolution law, the single JAX execution
+    margin, and the same 14 static buckets, then pairs every bucket with a
+    quadratic Cartesian support capacity.  Binary caustic distance and all
+    routing masks are stopped-gradient; the selected physical kernel retains
+    its analytic AD.
 
     Native point-safety and caustic-branch scans route safe point sources and
     grazing sources before the image-plane kernels.  Polar routing uses the
@@ -121,21 +121,15 @@ def binary_magnification_calibrated(
     caustic_distance = routing.caustic_distance[0]
     point_safe = routing.point_safe[0]
     point_route = point_safe & ~point_solution.root_failure
-    explicit_tolerance = (absolute_tolerance > 0.0) | (relative_tolerance > 0.0)
-    requested_relative_tolerance = jnp.where(
-        explicit_tolerance,
-        relative_tolerance
-        + absolute_tolerance / jnp.maximum(jnp.abs(point_magnification), 1.0),
-        1.0e-3,
-    )
     selection = select_binary_resolution(
         mass_ratio,
         source_radius,
         caustic_distance,
         point_magnification,
         limb_c,
-        requested_relative_tolerance,
-        maximum_source_bins,
+        requested_relative_tolerance=relative_tolerance,
+        maximum_bins=maximum_source_bins,
+        requested_absolute_tolerance=absolute_tolerance,
     )
     selected_bins = jnp.where(source_radius > 0.0, selection.source_bins, 16)
     bucket_resolutions = jnp.asarray(

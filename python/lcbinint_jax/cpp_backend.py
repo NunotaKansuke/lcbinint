@@ -60,6 +60,9 @@ _FFI_BINARY_ROUTING_DIAGNOSTICS_BATCH_TARGET = (
 )
 _FFI_POLAR_EPOCH_TARGET = "lcbinint_jax_polar_epoch_f64_v1"
 _FFI_POLAR_EPOCH_JACOBIAN_TARGET = "lcbinint_jax_polar_epoch_jacobian_f64_v1"
+_FFI_POLAR_EPOCH_DIRECTIONAL_TARGET = (
+    "lcbinint_jax_polar_epoch_directional_f64_v1"
+)
 _FFI_TRIPLE_POLAR_BATCH_TARGET = "lcbinint_jax_triple_polar_batch_f64_v1"
 _FFI_TRIPLE_POLAR_BATCH_JACOBIAN_TARGET = (
     "lcbinint_jax_triple_polar_batch_jacobian_f64_v1"
@@ -712,6 +715,7 @@ def _register_polar_epoch_ffi():
     try:
         forward = native._jax_ir.polar_epoch_forward_ffi()
         jacobian = native._jax_ir.polar_epoch_jacobian_ffi()
+        directional = native._jax_ir.polar_epoch_directional_ffi()
     except AttributeError as error:
         raise RuntimeError("lcbinint was built without the polar epoch FFI") from error
     jax.ffi.register_ffi_target(
@@ -722,6 +726,11 @@ def _register_polar_epoch_ffi():
     jax.ffi.register_ffi_target(
         _FFI_POLAR_EPOCH_JACOBIAN_TARGET,
         jacobian,
+        platform="cpu",
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_POLAR_EPOCH_DIRECTIONAL_TARGET,
+        directional,
         platform="cpu",
     )
 
@@ -1386,6 +1395,64 @@ def _polar_epoch_call(
     )
 
 
+def _polar_epoch_directional_call(
+    configuration,
+    primals,
+    tangents,
+    moment_count,
+):
+    """Call the one-direction polar JVP kernel.
+
+    The ordinary Jacobian FFI is useful when all parameter derivatives are
+    requested, but a trajectory JVP has only one nonzero direction.  Passing
+    that direction into a dedicated kernel avoids constructing five spatial
+    and two limb derivatives for every active polar cell.
+    """
+
+    outputs = (
+        jax.ShapeDtypeStruct((), jnp.float64),
+        jax.ShapeDtypeStruct((moment_count,), jnp.float64),
+        jax.ShapeDtypeStruct((), jnp.int32),
+        jax.ShapeDtypeStruct((), jnp.int32),
+        jax.ShapeDtypeStruct((), jnp.int32),
+        jax.ShapeDtypeStruct((), jnp.bool_),
+        jax.ShapeDtypeStruct((), jnp.bool_),
+        jax.ShapeDtypeStruct((), jnp.float64),
+        jax.ShapeDtypeStruct((moment_count,), jnp.float64),
+    )
+    (
+        resolution,
+        angular_bins,
+        radial_capacity,
+        band_capacity,
+        limb_samples,
+        padding_factor,
+        angular_padding_factor,
+        angular_chunk_size,
+        boundary_capacity,
+        boundary_subdivision,
+    ) = configuration
+    return jax.ffi.ffi_call(
+        _FFI_POLAR_EPOCH_DIRECTIONAL_TARGET,
+        outputs,
+        vmap_method="sequential",
+    )(
+        *primals,
+        *tangents,
+        resolution=np.int64(resolution),
+        angular_bins=np.int64(angular_bins),
+        radial_capacity=np.int64(radial_capacity),
+        band_capacity=np.int64(band_capacity),
+        limb_samples=np.int64(limb_samples),
+        padding_factor=np.float64(padding_factor),
+        angular_padding_factor=np.float64(angular_padding_factor),
+        angular_chunk_size=np.int64(angular_chunk_size),
+        boundary_capacity=np.int64(boundary_capacity),
+        moment_mode=np.int64(moment_count),
+        boundary_subdivision=np.int64(boundary_subdivision),
+    )
+
+
 @partial(jax.custom_jvp, nondiff_argnums=tuple(range(11)))
 def _polar_epoch_transformable(
     resolution,
@@ -1523,6 +1590,140 @@ def binary_inverse_ray_polar_ffi(
         root_failure=result.root_failure,
         support_valid=~(result.overflow | result.root_failure),
     )
+
+
+def binary_inverse_ray_polar_directional_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    source_x_tangent=0.0,
+    source_y_tangent=0.0,
+    separation_tangent=0.0,
+    mass_ratio_tangent=0.0,
+    source_radius_tangent=0.0,
+    limb_c_tangent=0.0,
+    limb_d_tangent=0.0,
+    resolution=64,
+    angular_bins=2048,
+    radial_capacity=512,
+    band_capacity=4,
+    limb_samples=16,
+    padding_factor=0.25,
+    angular_padding_factor=4.0,
+    angular_chunk_size=256,
+    boundary_capacity=2048,
+    boundary_subdivision=2,
+    moment_mode="two_coefficient",
+):
+    """Evaluate a polar value and one directional derivative in one FFI call.
+
+    This is intentionally a raw directional primitive rather than a custom
+    JVP.  A custom JVP must remain linear in its tangent arguments so that
+    reverse-mode ``jax.grad`` can transpose it; the benchmark's trajectory
+    derivative can call this primitive directly because it never differentiates
+    the derivative again.
+    """
+
+    require_x64()
+    if moment_mode not in _MOMENT_COUNTS:
+        raise ValueError("invalid moment_mode")
+    if resolution < 2:
+        raise ValueError("resolution must be at least 2")
+    primals = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
+    tangents = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            source_x_tangent,
+            source_y_tangent,
+            separation_tangent,
+            mass_ratio_tangent,
+            source_radius_tangent,
+            limb_c_tangent,
+            limb_d_tangent,
+        )
+    )
+    if any(value.ndim != 0 for value in primals + tangents):
+        raise ValueError("polar directional parameters must be scalars")
+    _register_polar_epoch_ffi()
+    outputs = _polar_epoch_directional_call(
+        (
+            resolution,
+            angular_bins,
+            radial_capacity,
+            band_capacity,
+            limb_samples,
+            padding_factor,
+            angular_padding_factor,
+            angular_chunk_size,
+            boundary_capacity,
+            boundary_subdivision,
+        ),
+        primals,
+        tangents,
+        _MOMENT_COUNTS[moment_mode],
+    )
+    primal = _FfiCartesianEpochResult(*outputs[:7])
+    tangent = _FfiCartesianEpochResult(
+        magnification=outputs[7],
+        moments=outputs[8],
+        boundary_cells=jnp.zeros_like(
+            primal.boundary_cells, dtype=jax.dtypes.float0
+        ),
+        active_cells=jnp.zeros_like(
+            primal.active_cells, dtype=jax.dtypes.float0
+        ),
+        tile_count=jnp.zeros_like(
+            primal.tile_count, dtype=jax.dtypes.float0
+        ),
+        overflow=jnp.zeros_like(primal.overflow, dtype=jax.dtypes.float0),
+        root_failure=jnp.zeros_like(
+            primal.root_failure, dtype=jax.dtypes.float0
+        ),
+    )
+
+    def as_result(result):
+        return InverseRayResult(
+            magnification=result.magnification,
+            moments=result.moments,
+            boundary_cells=result.boundary_cells,
+            active_cells=result.active_cells,
+            tile_count=result.tile_count,
+            discovery_overflow=result.overflow,
+            root_failure=result.root_failure,
+            support_valid=~(result.overflow | result.root_failure),
+        )
+
+    primal_result = as_result(primal)
+    tangent_result = InverseRayResult(
+        magnification=tangent.magnification,
+        moments=tangent.moments,
+        boundary_cells=tangent.boundary_cells,
+        active_cells=tangent.active_cells,
+        tile_count=tangent.tile_count,
+        discovery_overflow=tangent.overflow,
+        root_failure=tangent.root_failure,
+        # Tangent metadata is not a differentiable quantity.  Reuse the
+        # primal support mask instead of applying boolean operations to the
+        # float0 auxiliary tangents.
+        support_valid=primal_result.support_valid,
+    )
+    return primal_result, tangent_result
 
 
 def _point_source_batch_call(target, source_x, source_y, scalars, include_jacobian):

@@ -169,8 +169,11 @@ def test_native_pipeline_loose_inverse_ray_bucket_converges():
 
     assert bool(result.support_valid[0])
     assert bool(result.value_converged[0])
+    # The fixed JAX bucket is selected by the native law plus a backend-wide
+    # safety margin.  Check the requested 1e-3 accuracy budget rather than the
+    # old hand-picked 100-bin value.
     np.testing.assert_allclose(
-        result.magnification[0], 3.8652407702, rtol=0.0, atol=1.0e-8
+        result.magnification[0], 3.8652407702, rtol=1.0e-3, atol=1.0e-4
     )
 
 

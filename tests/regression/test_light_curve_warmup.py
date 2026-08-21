@@ -2,6 +2,7 @@ import importlib
 import warnings
 
 import numpy as np
+import pytest
 
 import lcbinint
 
@@ -198,3 +199,42 @@ def test_grid_search_requires_three_increasing_passes():
     samples[64] = {"pass": True}
     assert run(samples) == (32, 48, 64)
     assert warmup_module._candidate_batch(64, 400) == (16, 32, 64)
+
+
+def test_jax_warmup_aligns_auto_route_and_compiles_value():
+    jax = pytest.importorskip("jax")
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            coordinates="vbm",
+            nbin="auto",
+            reltol=1.0e-3,
+            max_source_bins=400,
+            jax=True,
+        )
+    )
+
+    auto_info = curve.info(TIMES, PARAMETERS)
+    report = curve.warmup(TIMES, PARAMETERS)
+
+    assert report.all_calibrated
+    assert report.execution_plan is not None
+    assert report.jax_compile_seconds > 0.0
+    assert report.seed_cache_primed
+    assert len(report.methods) == TIMES.size
+    assert all(method != "jax_compiled" for method in report.methods)
+    assert np.all(np.asarray(report.resolutions) >= 0)
+    assert report.methods == tuple(auto_info.finite_source_method_names)
+
+    values = np.asarray(curve(TIMES, PARAMETERS), dtype=float)
+    assert np.all(np.isfinite(values))
+    np.testing.assert_array_less(
+        np.abs(values - report.reference),
+        report.budget + np.finfo(float).eps,
+    )
+
+    _, derivative = jax.jvp(
+        lambda active_times: curve(active_times, PARAMETERS),
+        (jax.numpy.asarray(TIMES),),
+        (jax.numpy.ones(TIMES.shape),),
+    )
+    assert np.all(np.isfinite(np.asarray(derivative)))

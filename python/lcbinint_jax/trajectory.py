@@ -673,27 +673,20 @@ def _native_pipeline_trajectory(
         resolution for resolution, _ in _CALIBRATED_EXECUTION_BUCKETS
     }:
         raise ValueError("maximum_source_bins must be a calibrated resolution bucket")
-    explicit_tolerance = (absolute_tolerance > 0.0) | (relative_tolerance > 0.0)
-    requested_relative_tolerance = jnp.where(
-        explicit_tolerance,
-        relative_tolerance
-        + absolute_tolerance / jnp.maximum(jnp.abs(point_source.magnification), 1.0),
-        1.0e-3,
-    )
     selections = jax.vmap(
-        lambda distance, point, tolerance: select_binary_resolution(
+        lambda distance, point: select_binary_resolution(
             mass_ratio,
             source_radius,
             distance,
             point,
             limb_c,
-            tolerance,
-            maximum_source_bins,
+            requested_relative_tolerance=relative_tolerance,
+            maximum_bins=maximum_source_bins,
+            requested_absolute_tolerance=absolute_tolerance,
         )
     )(
         routing.caustic_distance,
         jax.lax.stop_gradient(point_source.magnification),
-        requested_relative_tolerance,
     )
     bucket_resolutions = jnp.asarray(
         tuple(item[0] for item in _CALIBRATED_EXECUTION_BUCKETS),

@@ -1032,6 +1032,83 @@ def magnification(native_curve, options, time, parameters):
     return result
 
 
+def make_preplanned_magnification(
+    native_curve,
+    options,
+    methods,
+    resolutions,
+    warmup_parameters,
+):
+    """Build a differentiable JIT callable for a retained warm-up plan.
+
+    ``methods`` and ``resolutions`` are static because they are the execution
+    plan.  The time and all physical parameters remain dynamic arguments to
+    the compiled function, so nearby proposals and AD traces do not reuse
+    stale magnification values.
+    """
+
+    if native_curve.lens != "binary" or native_curve.source != "single":
+        raise NotImplementedError(
+            "JAX fixed warm-up currently supports single-source binary curves"
+        )
+    if native_curve.model.parallax or native_curve.orbital_motion != "static":
+        raise NotImplementedError(
+            "JAX fixed warm-up currently requires a static binary lens"
+        )
+
+    import jax
+    import jax.numpy as jnp
+
+    from lcbinint_jax.planned import make_result_function
+
+    warmup_parameters = _normalize_parameters(warmup_parameters)
+    warmup_limb_c, warmup_limb_d = _limb_darkening(
+        native_curve, warmup_parameters
+    )
+    moment_mode = _static_moment_mode(warmup_limb_c, warmup_limb_d)
+    planned_result = make_result_function(methods, resolutions, moment_mode)
+
+    @jax.jit
+    def compiled(time, parameters):
+        time = jnp.asarray(time)
+        if time.ndim == 0:
+            time = jnp.reshape(time, (1,))
+        elif time.ndim != 1:
+            raise ValueError("times must be a one-dimensional array")
+        q2_valid = _validate_curve_parameters(native_curve, parameters)
+        source_x, source_y, separation = _lens_frame_geometry(
+            native_curve, time, parameters, options
+        )
+        source_radius = jnp.abs(_value(parameters, "rho"))
+        if not native_curve.model.finite_source:
+            source_radius = jnp.asarray(0.0, dtype=source_x.dtype)
+        limb_c, limb_d = _limb_darkening(native_curve, parameters)
+        mass_ratio = _value(parameters, "q")
+        if options.param_type in ("vbm", "vbm_center_of_mass"):
+            mass_ratio = 1.0 / mass_ratio
+        result = planned_result(
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+        value = jnp.where(result.support_valid, result.magnification, jnp.nan)
+        value = jnp.where(
+            _time_limit_mask(native_curve, options, time), value, jnp.nan
+        )
+        if q2_valid is not None:
+            value = jnp.where(q2_valid, value, jnp.nan)
+        return value
+
+    def public(time, parameters):
+        return compiled(time, _normalize_parameters(parameters))
+
+    return public
+
+
 def magnification_batch(native_curve, options, time, parameter_rows):
     """Vectorize the public JAX curve over independent parameter mappings."""
 

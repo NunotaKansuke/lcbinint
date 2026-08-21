@@ -15,7 +15,9 @@
 #include <complex>
 #include <cstdint>
 #include <deque>
+#include <iterator>
 #include <limits>
+#include <memory>
 #include <mutex>
 #include <set>
 #include <shared_mutex>
@@ -67,6 +69,7 @@ struct JetBase {
 };
 
 using Jet = JetBase<kernel_derivative_count>;
+using DirectionalJet = JetBase<1>;
 using TripleJet = JetBase<triple_kernel_derivative_count>;
 
 template <std::size_t N>
@@ -747,6 +750,11 @@ KernelResult<Scalar> dispatch_fixed_support_kernel_for_mode(
             origins, mask, tile_count, cell_size, source_x, source_y,
             separation, mass_ratio, source_radius, limb_d, tile_size);
     }
+    if (boundary_subdivision == 8) {
+        return fixed_support_kernel_for_mode<Mode, 8>(
+            origins, mask, tile_count, cell_size, source_x, source_y,
+            separation, mass_ratio, source_radius, limb_d, tile_size);
+    }
     return fixed_support_kernel_for_mode<Mode, 4>(
         origins, mask, tile_count, cell_size, source_x, source_y,
         separation, mass_ratio, source_radius, limb_d, tile_size);
@@ -1093,8 +1101,9 @@ py::tuple fixed_support_forward(
     if (tile_size <= 0) {
         throw std::invalid_argument("tile_size must be positive");
     }
-    if (boundary_subdivision < 1 || boundary_subdivision > 4) {
-        throw std::invalid_argument("boundary_subdivision must be 1, 2, 3, or 4");
+    if (boundary_subdivision < 1 || boundary_subdivision > 8
+        || (boundary_subdivision > 4 && boundary_subdivision != 8)) {
+        throw std::invalid_argument("boundary_subdivision must be 1, 2, 3, 4, or 8");
     }
     const auto mode = parse_moment_mode(moment_mode);
     const auto origins = tile_origins.unchecked<2>();
@@ -3184,6 +3193,164 @@ struct PolarFloodSupport {
     std::int64_t cell_count = 0;
 };
 
+// A polar grid may have millions of possible angular columns even though the
+// discovered image support occupies only a few connected arcs.  Keeping one
+// vector object per possible angle makes the cost of a fine angular grid
+// proportional to the *global* circumference.  Store interval state in lazy
+// pages instead: lookups remain O(1), while untouched angles allocate nothing.
+// The same structure is also used for the run index during boundary assembly.
+class PolarVisitedCellIntervals {
+public:
+    using Interval = std::array<std::int32_t, 2>;
+
+    struct Column {
+        Interval first{1, 0};
+        std::vector<Interval> overflow;
+
+        bool contains(std::int32_t radial) const
+        {
+            if (first[0] > first[1] || radial < first[0]) return false;
+            if (radial <= first[1]) return true;
+            for (const auto& interval : overflow) {
+                if (radial < interval[0]) return false;
+                if (radial <= interval[1]) return true;
+            }
+            return false;
+        }
+
+        std::int64_t first_unvisited_at_or_after(std::int64_t radial) const
+        {
+            if (first[0] > first[1] || radial < first[0]) return radial;
+            if (radial <= first[1]) {
+                radial = static_cast<std::int64_t>(first[1]) + 1;
+            }
+            for (const auto& interval : overflow) {
+                if (radial < interval[0]) return radial;
+                if (radial <= interval[1]) {
+                    radial = static_cast<std::int64_t>(interval[1]) + 1;
+                }
+            }
+            return radial;
+        }
+
+        void add(std::int32_t left, std::int32_t right)
+        {
+            if (right < left) return;
+            if (first[0] > first[1]) {
+                first = {left, right};
+                return;
+            }
+            if (static_cast<std::int64_t>(right) + 1 < first[0]) {
+                overflow.insert(overflow.begin(), first);
+                first = {left, right};
+                return;
+            }
+            if (static_cast<std::int64_t>(left)
+                <= static_cast<std::int64_t>(first[1]) + 1) {
+                first[0] = std::min(first[0], left);
+                first[1] = std::max(first[1], right);
+                std::size_t merged = 0;
+                while (
+                    merged < overflow.size()
+                    && static_cast<std::int64_t>(overflow[merged][0])
+                        <= static_cast<std::int64_t>(first[1]) + 1) {
+                    first[1] = std::max(first[1], overflow[merged][1]);
+                    ++merged;
+                }
+                if (merged != 0) {
+                    overflow.erase(
+                        overflow.begin(),
+                        overflow.begin() + static_cast<std::ptrdiff_t>(merged));
+                }
+                return;
+            }
+
+            auto iterator = std::lower_bound(
+                overflow.begin(), overflow.end(), left,
+                [](const Interval& interval, std::int32_t value) {
+                    return interval[0] < value;
+                });
+            if (
+                iterator != overflow.begin()
+                && static_cast<std::int64_t>(std::prev(iterator)->at(1)) + 1
+                    >= left) {
+                --iterator;
+                iterator->at(1) = std::max(iterator->at(1), right);
+            } else {
+                iterator = overflow.insert(iterator, {left, right});
+            }
+            while (
+                std::next(iterator) != overflow.end()
+                && static_cast<std::int64_t>(std::next(iterator)->at(0))
+                    <= static_cast<std::int64_t>(iterator->at(1)) + 1) {
+                iterator->at(1) = std::max(
+                    iterator->at(1), std::next(iterator)->at(1));
+                overflow.erase(std::next(iterator));
+            }
+        }
+
+        template <typename Function>
+        void for_each_interval(Function&& function) const
+        {
+            if (first[0] <= first[1]) function(first);
+            for (const auto& interval : overflow) function(interval);
+        }
+    };
+
+    explicit PolarVisitedCellIntervals(std::int64_t angular_bins)
+        : pages_(static_cast<std::size_t>(
+            (angular_bins + kColumnsPerPage - 1) / kColumnsPerPage))
+    {}
+
+    const Column* find(std::int32_t angular) const
+    {
+        const auto index = static_cast<std::size_t>(angular);
+        const auto& page = pages_[index / kColumnsPerPage];
+        return page == nullptr
+            ? nullptr
+            : &page->columns[index % kColumnsPerPage];
+    }
+
+    Column& get_or_create(std::int32_t angular)
+    {
+        const auto index = static_cast<std::size_t>(angular);
+        auto& page = pages_[index / kColumnsPerPage];
+        if (page == nullptr) page = std::make_unique<Page>();
+        return page->columns[index % kColumnsPerPage];
+    }
+
+    void direction(
+        std::int32_t angular, double dtheta, double& cosine, double& sine)
+    {
+        const auto index = static_cast<std::size_t>(angular);
+        auto& page = pages_[index / kColumnsPerPage];
+        if (page == nullptr) page = std::make_unique<Page>();
+        const auto offset = index % kColumnsPerPage;
+        const std::uint64_t bit = std::uint64_t{1} << offset;
+        if ((page->direction_mask & bit) == 0) {
+            const double theta =
+                (static_cast<double>(angular) + 0.5) * dtheta;
+            page->cosine[offset] = std::cos(theta);
+            page->sine[offset] = std::sin(theta);
+            page->direction_mask |= bit;
+        }
+        cosine = page->cosine[offset];
+        sine = page->sine[offset];
+    }
+
+private:
+    static constexpr std::size_t kColumnsPerPage = 64;
+
+    struct Page {
+        std::array<Column, kColumnsPerPage> columns;
+        std::array<double, kColumnsPerPage> cosine{};
+        std::array<double, kColumnsPerPage> sine{};
+        std::uint64_t direction_mask = 0;
+    };
+
+    std::vector<std::unique_ptr<Page>> pages_;
+};
+
 template <MomentMode Mode, bool AccumulateMoments>
 PolarFloodSupport discover_triple_polar_flood_support(
     double source_x,
@@ -3214,9 +3381,7 @@ PolarFloodSupport discover_triple_polar_flood_support(
         1.0 / source_radius_squared;
     const double two_pi = 2.0 * std::acos(-1.0);
     const double dtheta = two_pi / angular_bins;
-    using Interval = std::array<std::int32_t, 2>;
-    std::vector<std::vector<Interval>> visited(
-        static_cast<std::size_t>(angular_bins));
+    PolarVisitedCellIntervals visited(angular_bins);
     struct PolarFrontier {
         std::int32_t left = 0;
         std::int32_t right = -1;
@@ -3230,55 +3395,29 @@ PolarFloodSupport discover_triple_polar_flood_support(
     };
     const auto cell_visited = [&](std::int32_t radial, std::int32_t angular) {
         if (radial < 0) return true;
-        const auto& intervals = visited[
-            static_cast<std::size_t>(wrap_angle(angular))];
-        for (const auto& interval : intervals) {
-            if (radial >= interval[0] && radial <= interval[1]) return true;
-        }
-        return false;
+        const auto* intervals = visited.find(wrap_angle(angular));
+        return intervals != nullptr && intervals->contains(radial);
     };
     const auto first_unvisited_at_or_after = [&visited, &wrap_angle](
         std::int32_t radial, std::int32_t angular) {
-        const auto& intervals = visited[
-            static_cast<std::size_t>(wrap_angle(angular))];
-        for (const auto& interval : intervals) {
-            if (interval[1] < radial) continue;
-            if (interval[0] > radial) break;
-            radial = interval[1] + 1;
-        }
-        return radial;
+        const auto* intervals = visited.find(wrap_angle(angular));
+        return intervals == nullptr
+            ? static_cast<std::int64_t>(radial)
+            : intervals->first_unvisited_at_or_after(radial);
     };
     const auto add_visited = [&](
         std::int32_t angular, std::int32_t left, std::int32_t right) {
-        auto& intervals = visited[
-            static_cast<std::size_t>(wrap_angle(angular))];
-        intervals.push_back({left, right});
-        std::sort(
-            intervals.begin(), intervals.end(),
-            [](const auto& lhs, const auto& rhs) {
-                return lhs[0] < rhs[0];
-            });
-        std::size_t write = 0;
-        for (const auto& interval : intervals) {
-            if (
-                write == 0
-                || interval[0] > intervals[write - 1][1] + 1) {
-                intervals[write++] = interval;
-            } else {
-                intervals[write - 1][1] =
-                    std::max(intervals[write - 1][1], interval[1]);
-            }
-        }
-        intervals.resize(write);
+        visited.get_or_create(wrap_angle(angular)).add(left, right);
     };
     const auto mapped_distance_squared = [&](
         std::int32_t radial, std::int32_t angular) {
         if (radial < 0) return std::numeric_limits<double>::infinity();
-        const double theta =
-            (static_cast<double>(wrap_angle(angular)) + 0.5) * dtheta;
+        double cosine = 1.0;
+        double sine = 0.0;
+        visited.direction(wrap_angle(angular), dtheta, cosine, sine);
         const double radius = (static_cast<double>(radial) + 0.5) * dr;
         const auto mapped = triple_map_source(
-            radius * std::cos(theta), radius * std::sin(theta), lens);
+            radius * cosine, radius * sine, lens);
         const double dx = mapped.source_x - source_x;
         const double dy = mapped.source_y - source_y;
         return dx * dx + dy * dy;
@@ -3345,10 +3484,9 @@ PolarFloodSupport discover_triple_polar_flood_support(
         const auto frontier = queue.front();
         queue.pop_front();
         const std::int32_t angular = frontier.angular;
-        const double theta =
-            (static_cast<double>(angular) + 0.5) * dtheta;
-        const double cosine = std::cos(theta);
-        const double sine = std::sin(theta);
+        double cosine = 1.0;
+        double sine = 0.0;
+        visited.direction(angular, dtheta, cosine, sine);
         const auto column_distance_squared = [&](std::int32_t radial) {
             if (radial < 0) {
                 return std::numeric_limits<double>::infinity();
@@ -3450,9 +3588,7 @@ PolarFloodSupport discover_binary_polar_flood_support(
     result.root_failure = prepared.root_failure;
     const double two_pi = 2.0 * std::acos(-1.0);
     const double dtheta = two_pi / angular_bins;
-    using Interval = std::array<std::int32_t, 2>;
-    std::vector<std::vector<Interval>> visited(
-        static_cast<std::size_t>(angular_bins));
+    PolarVisitedCellIntervals visited(angular_bins);
     struct PolarFrontier {
         std::int32_t left = 0;
         std::int32_t right = -1;
@@ -3466,44 +3602,19 @@ PolarFloodSupport discover_binary_polar_flood_support(
     };
     const auto cell_visited = [&](std::int32_t radial, std::int32_t angular) {
         if (radial < 0) return true;
-        const auto& intervals = visited[
-            static_cast<std::size_t>(wrap_angle(angular))];
-        for (const auto& interval : intervals) {
-            if (radial >= interval[0] && radial <= interval[1]) return true;
-        }
-        return false;
+        const auto* intervals = visited.find(wrap_angle(angular));
+        return intervals != nullptr && intervals->contains(radial);
     };
     const auto first_unvisited_at_or_after = [&](
         std::int32_t radial, std::int32_t angular) {
-        const auto& intervals = visited[
-            static_cast<std::size_t>(wrap_angle(angular))];
-        for (const auto& interval : intervals) {
-            if (interval[1] < radial) continue;
-            if (interval[0] > radial) break;
-            radial = interval[1] + 1;
-        }
-        return radial;
+        const auto* intervals = visited.find(wrap_angle(angular));
+        return intervals == nullptr
+            ? static_cast<std::int64_t>(radial)
+            : intervals->first_unvisited_at_or_after(radial);
     };
     const auto add_visited = [&](std::int32_t angular, std::int32_t left,
                                  std::int32_t right) {
-        auto& intervals = visited[
-            static_cast<std::size_t>(wrap_angle(angular))];
-        intervals.push_back({left, right});
-        std::sort(
-            intervals.begin(), intervals.end(),
-            [](const auto& lhs, const auto& rhs) {
-                return lhs[0] < rhs[0];
-            });
-        std::size_t write = 0;
-        for (const auto& interval : intervals) {
-            if (write == 0 || interval[0] > intervals[write - 1][1] + 1) {
-                intervals[write++] = interval;
-            } else {
-                intervals[write - 1][1] =
-                    std::max(intervals[write - 1][1], interval[1]);
-            }
-        }
-        intervals.resize(write);
+        visited.get_or_create(wrap_angle(angular)).add(left, right);
     };
     const auto enqueue_run = [&](std::int32_t left, std::int32_t right,
                                  std::int32_t angular) {
@@ -3531,10 +3642,11 @@ PolarFloodSupport discover_binary_polar_flood_support(
         bool found = false;
         for (int da = -2; da <= 2 && !found; ++da) {
             const std::int32_t candidate_angular = wrap_angle(angular + da);
-            const double theta =
-                (static_cast<double>(candidate_angular) + 0.5) * dtheta;
+            double cosine = 1.0;
+            double sine = 0.0;
+            visited.direction(candidate_angular, dtheta, cosine, sine);
             const auto column_distance =
-                make_column_distance(std::cos(theta), std::sin(theta));
+                make_column_distance(cosine, sine);
             for (int dr_index = -2; dr_index <= 2; ++dr_index) {
                 const std::int32_t candidate_radial = radial + dr_index;
                 if (candidate_radial < 0) continue;
@@ -3559,10 +3671,10 @@ PolarFloodSupport discover_binary_polar_flood_support(
         const auto frontier = queue.front();
         queue.pop_front();
         const std::int32_t angular = frontier.angular;
-        const double theta =
-            (static_cast<double>(angular) + 0.5) * dtheta;
-        const auto column_distance =
-            make_column_distance(std::cos(theta), std::sin(theta));
+        double cosine = 1.0;
+        double sine = 0.0;
+        visited.direction(angular, dtheta, cosine, sine);
+        const auto column_distance = make_column_distance(cosine, sine);
         std::int64_t frontier_radial = frontier.left;
         while (frontier_radial <= frontier.right) {
             frontier_radial = first_unvisited_at_or_after(
@@ -3685,6 +3797,7 @@ CartesianEpochResult<Scalar> binary_polar_flood_epoch_kernel(
     std::int64_t radial_capacity,
     std::int64_t band_capacity,
     std::int64_t limb_samples,
+    double angular_grid_ratio,
     std::int64_t angular_chunk_size,
     std::int64_t boundary_capacity)
 {
@@ -3695,11 +3808,37 @@ CartesianEpochResult<Scalar> binary_polar_flood_epoch_kernel(
     const double source_radius_value = scalar_value(source_radius);
     const double dr = source_radius_value / resolution;
     const double two_pi = 2.0 * std::acos(-1.0);
-    const double dtheta = two_pi / angular_bins;
 
     const auto prepared = cached_cartesian_seed_support(
         source_x_value, source_y_value, separation_value,
         mass_ratio_value, source_radius_value, limb_samples);
+    if (angular_bins == 0) {
+        // A fixed angular floor is not resolution-independent for small
+        // sources: the image-plane tangential cell is r*dtheta, while the
+        // radial cell is rho/resolution.  The root support is already built
+        // for this epoch, so use its maximum image radius to choose one
+        // geometry-aware angular grid without an extra trial evaluation.
+        double maximum_radius = 1.0;
+        for (const auto& coordinate : prepared.image_coordinates) {
+            maximum_radius = std::max(
+                maximum_radius,
+                std::abs(coordinate) + 4.0 * source_radius_value);
+        }
+        // Match the tangential cell width to the radial cell width with one
+        // caller-supplied, dimensionless aspect ratio.  The ratio is a
+        // numerical-policy knob, not a lens-specific branch: convergence
+        // controllers can reduce it uniformly when the angular discretisation
+        // is the limiting error term.
+        const double polar_grid_ratio = std::max(angular_grid_ratio, 1.0);
+        const double requested = std::ceil(
+            two_pi * maximum_radius / (dr * polar_grid_ratio));
+        constexpr std::int64_t maximum_angular_bins = 16'777'216;
+        angular_bins = std::min<std::int64_t>(
+            maximum_angular_bins,
+            std::max<std::int64_t>(16, static_cast<std::int64_t>(requested)));
+    }
+    const double dtheta = two_pi / angular_bins;
+
     const double total_mass_value = 1.0 + mass_ratio_value;
     const LensConstants<double> classification_lens{
         -mass_ratio_value / total_mass_value * separation_value,
@@ -3755,18 +3894,10 @@ CartesianEpochResult<Scalar> binary_polar_flood_epoch_kernel(
     const Scalar inverse_source_radius_squared =
         1.0 / (source_radius * source_radius);
 
-    std::vector<std::vector<std::array<std::int32_t, 2>>> runs_by_angle(
-        static_cast<std::size_t>(angular_bins));
+    PolarVisitedCellIntervals runs_by_angle(angular_bins);
     for (const auto& run : support.runs) {
-        runs_by_angle[static_cast<std::size_t>(run.angular_index)]
-            .push_back({run.left, run.right});
-    }
-    for (auto& intervals : runs_by_angle) {
-        std::sort(
-            intervals.begin(), intervals.end(),
-            [](const auto& left, const auto& right) {
-                return left[0] < right[0];
-            });
+        runs_by_angle.get_or_create(run.angular_index).add(
+            run.left, run.right);
     }
     const auto wrap_angle = [angular_bins](std::int64_t angular) {
         angular %= angular_bins;
@@ -3794,12 +3925,25 @@ CartesianEpochResult<Scalar> binary_polar_flood_epoch_kernel(
         for (const int direction : {-1, 1}) {
             const std::int32_t neighbor_angle =
                 wrap_angle(run.angular_index + direction);
-            const auto& neighbor_intervals = runs_by_angle[
-                static_cast<std::size_t>(neighbor_angle)];
+            const auto* neighbor_intervals =
+                runs_by_angle.find(neighbor_angle);
+            if (neighbor_intervals == nullptr) {
+                for (
+                    std::int32_t radial = run.left;
+                    radial <= run.right;
+                    ++radial) {
+                    boundary_candidates.insert(
+                        boundary_key(radial, neighbor_angle));
+                }
+                continue;
+            }
             std::int32_t cursor = run.left;
-            for (const auto& interval : neighbor_intervals) {
-                if (interval[1] < cursor) continue;
-                if (interval[0] > run.right) break;
+            neighbor_intervals->for_each_interval([&](const auto& interval) {
+                if (cursor > run.right || interval[1] < cursor) return;
+                if (interval[0] > run.right) {
+                    cursor = run.right + 1;
+                    return;
+                }
                 const std::int32_t uncovered_right =
                     std::min<std::int32_t>(run.right, interval[0] - 1);
                 for (
@@ -3811,8 +3955,7 @@ CartesianEpochResult<Scalar> binary_polar_flood_epoch_kernel(
                 }
                 cursor = std::max<std::int32_t>(
                     cursor, interval[1] + 1);
-                if (cursor > run.right) break;
-            }
+            });
             for (
                 std::int32_t radial = cursor;
                 radial <= run.right;
@@ -3831,8 +3974,9 @@ CartesianEpochResult<Scalar> binary_polar_flood_epoch_kernel(
         std::int32_t radial, std::int32_t angular, bool centre_inside) {
         const double theta =
             (static_cast<double>(angular) + 0.5) * dtheta;
-        const double cosine = std::cos(theta);
-        const double sine = std::sin(theta);
+        double cosine = 1.0;
+        double sine = 0.0;
+        runs_by_angle.direction(angular, dtheta, cosine, sine);
         const double radius =
             (static_cast<double>(radial) + 0.5) * dr;
         const auto values = phi_derivatives<false>(
@@ -3927,8 +4071,14 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
     std::int64_t resolution,
     std::int64_t angular_bins,
     std::int64_t limb_samples,
-    std::int64_t convention)
+    std::int64_t convention,
+    double angular_grid_ratio)
 {
+    // Triple-lens auto-grids retain the calibrated production aspect ratio.
+    // The caller-supplied angular factor is used by the binary auto-grid, but
+    // changing the triple ratio would invalidate the existing polar
+    // convergence calibration for extreme mass-ratio configurations.
+    (void) angular_grid_ratio;
     const double dr = scalar_value(source_radius) / resolution;
     if (angular_bins == 0) {
         const auto geometry = convention == 0
@@ -3955,9 +4105,6 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
                     candidate.position.x, candidate.position.y)
                     + 4.0 * scalar_value(source_radius));
         }
-        // A tangential cell about half the native production density retains
-        // the calibrated 1e-4 polar accuracy while avoiding severe
-        // oversampling for ordinary source radii.
         constexpr double polar_grid_ratio = 32.0;
         angular_bins = std::max<std::int64_t>(
             16,
@@ -4010,8 +4157,7 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
     // halo.  The halo supplies both radial and azimuthal boundary motion while
     // keeping the discovered topology stopped-gradient.
     std::unordered_set<std::uint64_t> derivative_boundary_candidates;
-    std::vector<std::vector<std::array<std::int32_t, 2>>>
-        derivative_runs_by_angle;
+    PolarVisitedCellIntervals derivative_runs_by_angle(angular_bins);
     const auto boundary_key = [&](std::int32_t radial, std::int32_t angular) {
         std::int64_t wrapped = angular % angular_bins;
         if (wrapped < 0) wrapped += angular_bins;
@@ -4027,8 +4173,10 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
         if (wrapped < 0) wrapped += angular_bins;
         const double theta =
             (static_cast<double>(wrapped) + 0.5) * dtheta;
-        const double cosine = std::cos(theta);
-        const double sine = std::sin(theta);
+        double cosine = 1.0;
+        double sine = 0.0;
+        derivative_runs_by_angle.direction(
+            static_cast<std::int32_t>(wrapped), dtheta, cosine, sine);
         const double radius = (static_cast<double>(radial) + 0.5) * dr;
         const auto values = triple_phi_derivatives<false>(
             radius * cosine, radius * sine,
@@ -4060,19 +4208,9 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
         }
     };
     if constexpr (!std::is_same_v<Scalar, double>) {
-        derivative_runs_by_angle.resize(
-            static_cast<std::size_t>(angular_bins));
         for (const auto& run : support.runs) {
-            derivative_runs_by_angle[
-                static_cast<std::size_t>(run.angular_index)]
-                .push_back({run.left, run.right});
-        }
-        for (auto& intervals : derivative_runs_by_angle) {
-            std::sort(
-                intervals.begin(), intervals.end(),
-                [](const auto& left, const auto& right) {
-                    return left[0] < right[0];
-                });
+            derivative_runs_by_angle.get_or_create(run.angular_index).add(
+                run.left, run.right);
         }
     }
     for (const auto& run : support.runs) {
@@ -4099,13 +4237,17 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
                 std::int64_t neighbor_angle =
                     (run.angular_index + direction) % angular_bins;
                 if (neighbor_angle < 0) neighbor_angle += angular_bins;
-                const auto& neighbor_intervals =
-                    derivative_runs_by_angle[
-                        static_cast<std::size_t>(neighbor_angle)];
+                const auto* neighbor_intervals =
+                    derivative_runs_by_angle.find(
+                        static_cast<std::int32_t>(neighbor_angle));
                 std::int32_t cursor = run.left;
-                for (const auto& interval : neighbor_intervals) {
-                    if (interval[1] < cursor) continue;
-                    if (interval[0] > run.right) break;
+                if (neighbor_intervals != nullptr) {
+                    neighbor_intervals->for_each_interval([&](const auto& interval) {
+                        if (cursor > run.right || interval[1] < cursor) return;
+                        if (interval[0] > run.right) {
+                            cursor = run.right + 1;
+                            return;
+                        }
                     const std::int32_t uncovered_right =
                         std::min<std::int32_t>(
                             run.right, interval[0] - 1);
@@ -4118,7 +4260,7 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
                     }
                     cursor = std::max<std::int32_t>(
                         cursor, interval[1] + 1);
-                    if (cursor > run.right) break;
+                    });
                 }
                 for (
                     std::int32_t radial = cursor;
@@ -4206,14 +4348,15 @@ CartesianEpochResult<Scalar> polar_epoch_kernel(
     std::int64_t boundary_subdivision)
 {
     // Retained in the public FFI ABI for compatibility with the pure-JAX
-    // band fallback. Flood support has no radial or angular padding rule.
+    // band fallback. The angular factor controls the generic auto-grid
+    // aspect ratio when angular_bins==0.
     (void) padding_factor;
-    (void) angular_padding_factor;
 #define LCBININT_POLAR_CASE(active_mode, subdivision) \
     return binary_polar_flood_epoch_kernel<active_mode, subdivision>( \
         source_x, source_y, separation, mass_ratio, source_radius, \
         resolution, angular_bins, radial_capacity, band_capacity, \
-        limb_samples, angular_chunk_size, boundary_capacity)
+        limb_samples, std::max(angular_padding_factor, 1.0), \
+        angular_chunk_size, boundary_capacity)
     if (mode == MomentMode::uniform) {
         if (boundary_subdivision == 1) LCBININT_POLAR_CASE(MomentMode::uniform, 1);
         if (boundary_subdivision == 2) LCBININT_POLAR_CASE(MomentMode::uniform, 2);
@@ -4260,7 +4403,8 @@ CartesianEpochResult<Scalar> triple_polar_epoch_kernel(
     return triple_polar_flood_epoch_kernel<active_mode>( \
         source_x, source_y, separation, mass_ratio, \
         tertiary_mass_ratio, tertiary_separation, tertiary_angle, \
-        source_radius, resolution, angular_bins, limb_samples, convention)
+        source_radius, resolution, angular_bins, limb_samples, convention, \
+        std::max(angular_padding_factor, 1.0))
     if (mode == MomentMode::uniform) {
         if (boundary_subdivision == 1) {
             LCBININT_TRIPLE_POLAR_CASE(MomentMode::uniform, 1);
@@ -4478,9 +4622,10 @@ ffi::Error fixed_support_forward_ffi_impl(
         return ffi::Error::InvalidArgument(
             "moments output has the wrong length");
     }
-    if (boundary_subdivision < 1 || boundary_subdivision > 4) {
+    if (boundary_subdivision < 1 || boundary_subdivision > 8
+        || (boundary_subdivision > 4 && boundary_subdivision != 8)) {
         return ffi::Error::InvalidArgument(
-            "boundary_subdivision must be 1, 2, 3, or 4");
+            "boundary_subdivision must be 1, 2, 3, 4, or 8");
     }
     if (!(*cell_size.typed_data() > 0.0)
         || !(*source_radius.typed_data() > 0.0)) {
@@ -4573,9 +4718,10 @@ ffi::Error fixed_support_value_jacobian_ffi_impl(
         return ffi::Error::InvalidArgument(
             "value/Jacobian output shapes do not match the moment mode");
     }
-    if (boundary_subdivision < 1 || boundary_subdivision > 4) {
+    if (boundary_subdivision < 1 || boundary_subdivision > 8
+        || (boundary_subdivision > 4 && boundary_subdivision != 8)) {
         return ffi::Error::InvalidArgument(
-            "boundary_subdivision must be 1, 2, 3, or 4");
+            "boundary_subdivision must be 1, 2, 3, 4, or 8");
     }
     if (!(*cell_size.typed_data() > 0.0)
         || !(*source_radius.typed_data() > 0.0)) {
@@ -4674,9 +4820,10 @@ ffi::Error validate_cartesian_epoch_arguments(
         return ffi::Error::InvalidArgument(
             "invalid Cartesian epoch static configuration");
     }
-    if (boundary_subdivision < 1 || boundary_subdivision > 4) {
+    if (boundary_subdivision < 1 || boundary_subdivision > 8
+        || (boundary_subdivision > 4 && boundary_subdivision != 8)) {
         return ffi::Error::InvalidArgument(
-            "boundary_subdivision must be 1, 2, 3, or 4");
+            "boundary_subdivision must be 1, 2, 3, 4, or 8");
     }
     if (!(cell_size > 0.0) || !(source_radius > 0.0)) {
         return ffi::Error::InvalidArgument(
@@ -5637,7 +5784,7 @@ ffi::Error polar_epoch_forward_ffi_impl(
     ffi::ResultBufferR0<ffi::PRED> root_failure)
 {
     if (
-        resolution <= 0 || angular_bins <= 0 || radial_capacity <= 0
+        resolution <= 0 || angular_bins < 0 || radial_capacity <= 0
         || band_capacity <= 0 || limb_samples <= 0
         || angular_chunk_size <= 0 || boundary_capacity <= 0
         || mode_value < 1 || mode_value > 3
@@ -5799,6 +5946,145 @@ XLA_FFI_DEFINE_HANDLER(
     LCBININT_POLAR_FFI_BINDING
         .Ret<ffi::BufferR1<ffi::F64>>()
         .Ret<ffi::BufferR2<ffi::F64>>());
+
+// A trajectory JVP has one directional tangent, but the ordinary polar
+// Jacobian above computes five kernel derivatives (plus two limb coefficients)
+// for every active cell and contracts them afterwards.  That is needlessly
+// expensive for the dominant dA/dt use case.  Keep the same stopped-gradient
+// support and integration algorithm, but propagate one directional derivative
+// through the FFI kernel directly.
+ffi::Error polar_epoch_directional_ffi_impl(
+    std::int64_t resolution,
+    std::int64_t angular_bins,
+    std::int64_t radial_capacity,
+    std::int64_t band_capacity,
+    std::int64_t limb_samples,
+    double padding_factor,
+    double angular_padding_factor,
+    std::int64_t angular_chunk_size,
+    std::int64_t boundary_capacity,
+    std::int64_t mode_value,
+    std::int64_t boundary_subdivision,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::BufferR0<ffi::F64> source_x_tangent,
+    ffi::BufferR0<ffi::F64> source_y_tangent,
+    ffi::BufferR0<ffi::F64> separation_tangent,
+    ffi::BufferR0<ffi::F64> mass_ratio_tangent,
+    ffi::BufferR0<ffi::F64> source_radius_tangent,
+    ffi::BufferR0<ffi::F64> limb_c_tangent,
+    ffi::BufferR0<ffi::F64> limb_d_tangent,
+    ffi::ResultBufferR0<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> moments,
+    ffi::ResultBufferR0<ffi::S32> boundary_cells,
+    ffi::ResultBufferR0<ffi::S32> active_cells,
+    ffi::ResultBufferR0<ffi::S32> band_count,
+    ffi::ResultBufferR0<ffi::PRED> overflow,
+    ffi::ResultBufferR0<ffi::PRED> root_failure,
+    ffi::ResultBufferR0<ffi::F64> directional_magnification,
+    ffi::ResultBufferR1<ffi::F64> directional_moments)
+{
+    if (
+        resolution <= 0 || angular_bins < 0 || radial_capacity <= 0
+        || band_capacity <= 0 || limb_samples <= 0
+        || angular_chunk_size <= 0 || boundary_capacity <= 0
+        || mode_value < 1 || mode_value > 3
+        || boundary_subdivision < 1 || boundary_subdivision > 4
+        || moments->dimensions()[0] != moment_count(
+            static_cast<MomentMode>(mode_value))
+        || directional_moments->dimensions()[0] != moment_count(
+            static_cast<MomentMode>(mode_value))) {
+        return ffi::Error::InvalidArgument(
+            "invalid polar epoch directional configuration");
+    }
+    const auto make_directional = [](double value, double tangent) {
+        DirectionalJet result(value);
+        result.derivative[0] = tangent;
+        return result;
+    };
+    const auto mode = static_cast<MomentMode>(mode_value);
+    const auto result = polar_epoch_kernel(
+        make_directional(
+            *source_x.typed_data(), *source_x_tangent.typed_data()),
+        make_directional(
+            *source_y.typed_data(), *source_y_tangent.typed_data()),
+        make_directional(
+            *separation.typed_data(), *separation_tangent.typed_data()),
+        make_directional(
+            *mass_ratio.typed_data(), *mass_ratio_tangent.typed_data()),
+        make_directional(
+            *source_radius.typed_data(), *source_radius_tangent.typed_data()),
+        resolution, angular_bins, radial_capacity, band_capacity,
+        limb_samples, padding_factor, angular_padding_factor,
+        angular_chunk_size, boundary_capacity, mode, boundary_subdivision);
+    const auto active_magnification = combine_magnification(
+        result.integration.moments,
+        make_directional(*source_radius.typed_data(), *source_radius_tangent.typed_data()),
+        make_directional(*limb_c.typed_data(), *limb_c_tangent.typed_data()),
+        make_directional(*limb_d.typed_data(), *limb_d_tangent.typed_data()),
+        mode);
+    *magnification->typed_data() = active_magnification.value;
+    *directional_magnification->typed_data() =
+        active_magnification.derivative[0];
+    for (int moment = 0; moment < moment_count(mode); ++moment) {
+        moments->typed_data()[moment] =
+            result.integration.moments[moment].value;
+        directional_moments->typed_data()[moment] =
+            result.integration.moments[moment].derivative[0];
+    }
+    *boundary_cells->typed_data() = static_cast<std::int32_t>(
+        result.integration.boundary_cells);
+    *active_cells->typed_data() = static_cast<std::int32_t>(
+        result.integration.active_cells);
+    *band_count->typed_data() = result.tile_count;
+    *overflow->typed_data() = result.overflow;
+    *root_failure->typed_data() = result.root_failure;
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    polar_epoch_directional_ffi_handler,
+    polar_epoch_directional_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<std::int64_t>("resolution")
+        .Attr<std::int64_t>("angular_bins")
+        .Attr<std::int64_t>("radial_capacity")
+        .Attr<std::int64_t>("band_capacity")
+        .Attr<std::int64_t>("limb_samples")
+        .Attr<double>("padding_factor")
+        .Attr<double>("angular_padding_factor")
+        .Attr<std::int64_t>("angular_chunk_size")
+        .Attr<std::int64_t>("boundary_capacity")
+        .Attr<std::int64_t>("moment_mode")
+        .Attr<std::int64_t>("boundary_subdivision")
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::PRED>>()
+        .Ret<ffi::BufferR0<ffi::PRED>>()
+        .Ret<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>());
 
 #undef LCBININT_POLAR_FFI_BINDING
 
@@ -7676,7 +7962,8 @@ ffi::Error validate_cartesian_batch_arguments(
     }
     if (
         tile_size <= 0 || tile_capacity <= 0 || limb_samples <= 0
-        || boundary_subdivision < 1 || boundary_subdivision > 4) {
+        || boundary_subdivision < 1 || boundary_subdivision > 8
+        || (boundary_subdivision > 4 && boundary_subdivision != 8)) {
         return ffi::Error::InvalidArgument(
             "invalid Cartesian batch static configuration");
     }
@@ -8165,6 +8452,12 @@ py::capsule polar_epoch_jacobian_ffi_capsule()
         reinterpret_cast<void*>(polar_epoch_jacobian_ffi_handler));
 }
 
+py::capsule polar_epoch_directional_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(polar_epoch_directional_ffi_handler));
+}
+
 py::capsule triple_polar_batch_forward_ffi_capsule()
 {
     return py::capsule(
@@ -8333,6 +8626,10 @@ void register_jax_ir_submodule(py::module_& parent)
         "polar_epoch_jacobian_ffi",
         &polar_epoch_jacobian_ffi_capsule,
         "Return the fused polar epoch value/Jacobian FFI capsule.");
+    module.def(
+        "polar_epoch_directional_ffi",
+        &polar_epoch_directional_ffi_capsule,
+        "Return the fused polar epoch directional-JVP FFI capsule.");
     module.def(
         "triple_polar_batch_forward_ffi",
         &triple_polar_batch_forward_ffi_capsule,

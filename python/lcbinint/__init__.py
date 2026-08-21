@@ -216,6 +216,7 @@ class LightCurve:
         )
         self._warmup_profile = None
         self._warmup_methods = None
+        self._warmup_jax_function = None
         self._warmup_drift_warned = False
         self.lens = self._native.lens
         if jax and self._native.model.parallax:
@@ -314,17 +315,21 @@ class LightCurve:
     def clear_warmup(self):
         self._warmup_profile = None
         self._warmup_methods = None
+        self._warmup_jax_function = None
         self._warmup_drift_warned = False
 
     def warmup(self, times, params=None, **kwargs):
         """Prepare the selected backend for repeated evaluation.
 
-        Native execution retains a baseline-anchored per-epoch plan for reuse
-        across nearby parameter proposals. JAX execution compiles and
-        synchronously executes the actual
-        XLA path for this shape, dtype, and static configuration; it deliberately
-        does not memoize values because doing so would sever JAX gradients.
-        ``grid_timing_repeats`` applies only to native plan calibration.
+        Both backends retain a baseline-anchored per-epoch plan for reuse
+        across nearby parameter proposals. Native execution keeps its C++ plan;
+        JAX compiles a grouped fixed-route/``nbin`` callable and executes it
+        once during warm-up. No magnification values are memoized, so JAX
+        gradients remain connected to the current parameters. For automatic
+        ``nbin``, JAX takes the initial route/bin proposal from its own
+        dispatcher; the native calibration remains the numerical reference,
+        and a generic certification/refinement pass is run if the two
+        discretisations do not yet agree.
         """
         grid_timing_repeats = kwargs.pop("grid_timing_repeats", 1)
         self._validate_time_limit(times)
@@ -343,11 +348,17 @@ class LightCurve:
                 merged,
                 parameter_fingerprint=parameter_fingerprint,
                 configuration_fingerprint=configuration_fingerprint,
+                grid_timing_repeats=grid_timing_repeats,
             )
             import numpy as np
+            from .warmup import METHOD_NAMES
 
             self._warmup_profile = report
-            self._warmup_methods = np.zeros(report.times.size, dtype=np.int64)
+            self._warmup_methods = np.asarray(
+                [METHOD_NAMES.index(method) for method in report.methods],
+                dtype=np.int64,
+            )
+            self._warmup_jax_function = report.execution_plan
             self._warmup_drift_warned = False
             return report
         from .warmup import build_warmup_report
@@ -422,6 +433,8 @@ class LightCurve:
 
             if self._matching_warmup(times, merged):
                 self._warn_if_warmup_drift(times, merged)
+                if self._warmup_jax_function is not None:
+                    return self._warmup_jax_function(times, merged)
             return magnification(self._native, self._options, times, merged)
         if self._matching_warmup(times, merged):
             self._warn_if_warmup_drift(times, merged)

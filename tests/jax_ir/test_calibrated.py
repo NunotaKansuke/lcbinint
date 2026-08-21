@@ -60,11 +60,10 @@ def test_calibrated_dispatcher_uses_inverse_ray_without_grid_overflow():
         moment_mode="uniform",
     )
     assert int(result.method) == 1
-    assert int(result.executed_resolution) == 160
-    # The coarse bucket carries the comparison: with the bounded frontier and
-    # the capacities it needs, 128 no longer overflows into the polar route, so
-    # the dispatcher no longer has to reach past 160 for a second opinion.
-    assert int(result.comparison_resolution) == 128
+    assert int(result.executed_resolution) == 200
+    # The native-law selector plus the JAX backend margin rounds this case to
+    # 200; the preceding bucket remains the comparison rung.
+    assert int(result.comparison_resolution) == 160
     assert bool(result.support_valid)
     assert bool(result.value_converged)
     assert abs(float(result.magnification) - 67.80033446861006) < 6.9e-3

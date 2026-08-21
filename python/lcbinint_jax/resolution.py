@@ -1,4 +1,13 @@
-"""Native-calibrated binary inverse-ray grid and resolution selection."""
+"""Native-calibrated binary inverse-ray grid and resolution selection.
+
+The selector deliberately mirrors the native C++ calibration.  The native
+rule is continuous in the requested tolerances; JAX only rounds its result up
+to a fixed execution bucket because a jitted dispatcher needs static branch
+shapes.  Geometry/profile features do not belong in this first resolution
+decision: the native calibration already accounts for the two relevant
+regimes (Cartesian and polar) and the subsequent certificate decides whether
+the selected grid is actually sufficient.
+"""
 
 import jax
 import jax.numpy as jnp
@@ -7,42 +16,45 @@ from ._config import as_float64, require_x64
 from .types import BinaryResolutionSelection
 
 
-_FEATURE_MEAN = (
-    1.1820756488388118,
-    -2.9036106609012546,
-    -2.6986179919546345,
-    0.03688102633633496,
-    0.8972087621766296,
-    1.1341442606439753,
-    0.24869438061416335,
-)
-_FEATURE_STD = (
-    1.0111131697060847,
-    1.1601305065348657,
-    1.8500204276846226,
-    0.7895410239966703,
-    0.7222204031861401,
-    1.42955624048966,
-    0.2499965906927929,
-)
-_COEFFICIENTS = (
-    5.139848840914074,
-    -0.026354983398495537,
-    -0.008665567347890256,
-    0.028914523534964386,
-    0.09884746535594117,
-    0.0757379504124179,
-    0.03068462762322574,
-    -0.15822137689559143,
-)
+# Keep these values synchronized with the native selector in
+# finite_source_magnifier.cpp.  The relative and absolute branches are
+# alternatives: the smaller required grid is sufficient for the combined
+# error budget.  JAX does not duplicate the C++ bucket ladder here; it rounds
+# the continuous result up to the same ladder below.
+_BASELINE_TOLERANCE = 1.0e-3
+_MINIMUM_RELATIVE_TOLERANCE = 1.0e-4
+_MINIMUM_ABSOLUTE_TOLERANCE = 1.0e-4
+_MAXIMUM_TOLERANCE = 1.0e-2
+_DEFAULT_ABSOLUTE_TOLERANCE = 1.0e-4
+_DEFAULT_RELATIVE_TOLERANCE = 1.0e-3
+# The C++ coefficients were calibrated for the native inverse-ray kernel.
+# JAX uses the same continuous law but a different FFI kernel and a static
+# bucket ladder.  A single backend-wide margin covers that kernel-to-kernel
+# difference without reintroducing geometry/profile-specific feature floors.
+_JAX_EXECUTION_SAFETY_FACTOR = 1.10
+
+_CARTESIAN_RELATIVE_C = 49.5929807101336
+_CARTESIAN_RELATIVE_BETA = 0.47670215379590497
+_POLAR_RELATIVE_C = 105.29723705815378
+_POLAR_RELATIVE_BETA = 0.5952070961585817
+_CARTESIAN_ABSOLUTE_C = 138.06382198454384
+_CARTESIAN_ABSOLUTE_BETA = 0.4265493297299796
+_CARTESIAN_ABSOLUTE_GAMMA = 0.34119845152344075
+_POLAR_ABSOLUTE_C = 396.47500160748996
+_POLAR_ABSOLUTE_BETA = 0.5337641762207631
+_POLAR_ABSOLUTE_GAMMA = 0.2458039343900396
+
 _BUCKETS = (16, 24, 32, 40, 50, 64, 80, 100, 128, 160, 200, 256, 320, 400)
 
 
 def _upper_bucket(predicted):
     buckets = jnp.asarray(_BUCKETS, dtype=jnp.int32)
-    eligible = buckets >= predicted
-    index = jnp.argmax(eligible)
-    return jnp.where(jnp.any(eligible), buckets[index], buckets[-1])
+    # Keep the helper scalar-compatible for the selector and batch-compatible
+    # for diagnostics/benchmarks.  The final axis is the fixed bucket ladder;
+    # taking its minimum avoids a data-dependent Python loop and preserves the
+    # shape of ``predicted``.
+    eligible = buckets >= jnp.expand_dims(predicted, axis=-1)
+    return jnp.min(jnp.where(eligible, buckets, buckets[-1]), axis=-1)
 
 
 @jax.jit
@@ -54,12 +66,21 @@ def select_binary_resolution(
     limb_darkening_c=0.0,
     requested_relative_tolerance=1.0e-3,
     maximum_bins=400,
+    requested_absolute_tolerance=0.0,
 ) -> BinaryResolutionSelection:
     """Reproduce the native binary grid/``nbin`` calibration.
 
-    The inputs describe one source position. The returned integer bucket and
-    method mask are stopped-gradient routing data; the selected magnification
-    kernel remains responsible for the physical derivatives.
+    The inputs describe one source position.  Native C++ returns the ceiling
+    of a continuous power law.  The JAX path rounds that ceiling upward to a
+    fixed bucket, then applies ``maximum_bins`` as a hard cap.  The returned
+    integer bucket and method mask are stopped-gradient routing data; the
+    selected magnification kernel remains responsible for the physical
+    derivatives.
+
+    ``requested_absolute_tolerance`` is intentionally separate from the
+    relative tolerance.  Combining the two into a synthetic relative
+    tolerance changes the native calibration, especially at high
+    magnification, and was the main source of the old feature/bucket drift.
     """
 
     require_x64()
@@ -70,6 +91,7 @@ def select_binary_resolution(
         point_source_magnification,
         limb_darkening_c,
         requested_relative_tolerance,
+        requested_absolute_tolerance,
     ) = (
         as_float64(value)
         for value in (
@@ -79,87 +101,89 @@ def select_binary_resolution(
             point_source_magnification,
             limb_darkening_c,
             requested_relative_tolerance,
+            requested_absolute_tolerance,
         )
     )
     maximum_bins = jnp.maximum(jnp.asarray(maximum_bins, dtype=jnp.int32), 1)
-    feature_mean = jnp.asarray(_FEATURE_MEAN, dtype=jnp.float64)
-    feature_std = jnp.asarray(_FEATURE_STD, dtype=jnp.float64)
-    coefficients = jnp.asarray(_COEFFICIENTS, dtype=jnp.float64)
     point_magnification = jnp.abs(point_source_magnification)
+    finite_magnification = jnp.isfinite(point_magnification)
     distance_ratio = jnp.where(
         source_radius > 0.0,
         caustic_distance / source_radius,
         jnp.inf,
     )
-    finite_geometry = jnp.isfinite(point_magnification) & jnp.isfinite(
-        distance_ratio
-    )
+    # Resolution follows the native power law below.  Route selection remains
+    # a JAX-kernel concern: unlike native C++, the JAX polar FFI has a known
+    # grazing angular bias outside the caustic band.  Keep the stable polar
+    # high-magnification branch and the explicitly near-caustic branch, while
+    # leaving the rest to Cartesian certification.
     prefer_polar = (point_magnification >= 300.0) | (
         (point_magnification >= 100.0) & (distance_ratio < 0.3)
     )
 
-    polar_tolerance_scale = jnp.where(
-        (requested_relative_tolerance > 0.0)
-        & (requested_relative_tolerance < 1.0e-3),
-        jnp.sqrt(1.0e-3 / requested_relative_tolerance),
-        1.0,
+    absolute_tolerance = jnp.where(
+        jnp.isfinite(requested_absolute_tolerance),
+        jnp.maximum(requested_absolute_tolerance, 0.0),
+        0.0,
     )
-    polar_bins = _upper_bucket(64.0 * polar_tolerance_scale)
-
-    absolute_mass_ratio = jnp.abs(mass_ratio)
-    q_small = jnp.where(
-        absolute_mass_ratio < 1.0,
-        absolute_mass_ratio,
-        jnp.where(absolute_mass_ratio > 0.0, 1.0 / absolute_mass_ratio, 1.0e-12),
+    relative_tolerance = jnp.where(
+        jnp.isfinite(requested_relative_tolerance),
+        jnp.maximum(requested_relative_tolerance, 0.0),
+        0.0,
     )
-    q_small = jnp.maximum(q_small, 1.0e-12)
-    companion_risk_ratio = 4.0 * source_radius / q_small
-    features = jnp.stack(
-        (
-            jnp.log10(jnp.maximum(point_magnification, 1.0)),
-            jnp.log10(jnp.maximum(source_radius, 1.0e-12)),
-            jnp.log10(q_small),
-            jnp.log10(jnp.maximum(distance_ratio, 1.0e-3)),
-            jnp.maximum(0.0, 2.0 - jnp.minimum(distance_ratio, 2.0)),
-            jnp.maximum(0.0, jnp.log10(jnp.maximum(companion_risk_ratio, 1.0))),
-            limb_darkening_c,
-        )
+    use_defaults = (absolute_tolerance <= 0.0) & (relative_tolerance <= 0.0)
+    absolute_tolerance = jnp.where(
+        use_defaults, _DEFAULT_ABSOLUTE_TOLERANCE, absolute_tolerance
     )
-    log2_bins = coefficients[0] + jnp.dot(
-        coefficients[1:],
-        (features - feature_mean) / feature_std,
-    )
-    predicted_cartesian = 1.10 * jnp.exp2(log2_bins)
-    tighter = (requested_relative_tolerance > 0.0) & (
-        requested_relative_tolerance < 1.0e-3
-    )
-    tolerance_ratio = 1.0e-3 / jnp.maximum(requested_relative_tolerance, 1.0e-300)
-    first_order_risk = (distance_ratio < 2.0) | (companion_risk_ratio > 50.0)
-    tolerance_scale = jnp.where(
-        first_order_risk,
-        tolerance_ratio,
-        jnp.sqrt(tolerance_ratio),
-    )
-    predicted_cartesian = jnp.where(
-        tighter,
-        predicted_cartesian * tolerance_scale,
-        predicted_cartesian,
-    )
-    cartesian_bins = _upper_bucket(predicted_cartesian)
-    cartesian_bins = jnp.where(
-        (distance_ratio > 0.9) & (distance_ratio < 1.1),
-        jnp.maximum(cartesian_bins, 100),
-        cartesian_bins,
-    )
-    cartesian_bins = jnp.where(
-        companion_risk_ratio > 50.0,
-        jnp.maximum(cartesian_bins, 80),
-        cartesian_bins,
+    relative_tolerance = jnp.where(
+        use_defaults, _DEFAULT_RELATIVE_TOLERANCE, relative_tolerance
     )
 
-    selected_bins = jnp.where(prefer_polar, polar_bins, cartesian_bins)
-    selected_bins = jnp.where(finite_geometry, selected_bins, 100)
-    prefer_polar = jnp.where(finite_geometry, prefer_polar, True)
+    relative_supported = (
+        (relative_tolerance >= _MINIMUM_RELATIVE_TOLERANCE)
+        & (relative_tolerance <= _MAXIMUM_TOLERANCE)
+    )
+    absolute_supported = (
+        (absolute_tolerance > _MINIMUM_ABSOLUTE_TOLERANCE)
+        & (absolute_tolerance <= _MAXIMUM_TOLERANCE)
+    )
+    relative_c = jnp.where(prefer_polar, _POLAR_RELATIVE_C, _CARTESIAN_RELATIVE_C)
+    relative_beta = jnp.where(
+        prefer_polar, _POLAR_RELATIVE_BETA, _CARTESIAN_RELATIVE_BETA
+    )
+    absolute_c = jnp.where(prefer_polar, _POLAR_ABSOLUTE_C, _CARTESIAN_ABSOLUTE_C)
+    absolute_beta = jnp.where(
+        prefer_polar, _POLAR_ABSOLUTE_BETA, _CARTESIAN_ABSOLUTE_BETA
+    )
+    absolute_gamma = jnp.where(
+        prefer_polar, _POLAR_ABSOLUTE_GAMMA, _CARTESIAN_ABSOLUTE_GAMMA
+    )
+    relative_bins = jnp.where(
+        relative_supported,
+        relative_c
+        * jnp.power(relative_tolerance / _BASELINE_TOLERANCE, -relative_beta),
+        jnp.inf,
+    )
+    absolute_bins = jnp.where(
+        absolute_supported,
+        absolute_c
+        * jnp.power(absolute_tolerance / _BASELINE_TOLERANCE, -absolute_beta)
+        * jnp.power(jnp.maximum(point_magnification, 1.0), absolute_gamma),
+        jnp.inf,
+    )
+    required_bins = jnp.minimum(relative_bins, absolute_bins)
+    continuous_bins = jnp.where(
+        (~jnp.isfinite(required_bins)) | (required_bins >= maximum_bins),
+        maximum_bins,
+        jnp.maximum(
+            1.0,
+            jnp.ceil(required_bins * _JAX_EXECUTION_SAFETY_FACTOR),
+        ),
+    )
+    selected_bins = _upper_bucket(continuous_bins)
+    selected_bins = jnp.minimum(selected_bins, maximum_bins)
+    selected_bins = jnp.where(finite_magnification, selected_bins, 100)
+    prefer_polar = jnp.where(finite_magnification, prefer_polar, True)
     return BinaryResolutionSelection(
         source_bins=jax.lax.stop_gradient(jnp.minimum(selected_bins, maximum_bins)),
         prefer_polar=jax.lax.stop_gradient(prefer_polar),
