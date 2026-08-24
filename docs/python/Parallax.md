@@ -138,7 +138,9 @@ The limits use the same time convention as the epochs passed to
 dates remain full Julian dates. The implementation retains the interpolation
 nodes immediately outside the requested interval. For annual parallax it also
 retains the light-time and `t_ref` neighborhoods, even when `t_ref` is outside
-the observation interval.
+the observation interval. Both annual and spacecraft tables use cubic Hermite
+interpolation; the Earth table supplies node velocities, while spacecraft node
+velocities are estimated from neighboring Cartesian positions.
 
 With JAX, only those Earth and spacecraft ephemeris rows become compiler
 constants. Native space sites likewise retain only the required spacecraft

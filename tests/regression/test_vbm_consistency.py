@@ -2040,9 +2040,13 @@ def test_lcbinint_annual_parallax_source_trajectory_matches_jacscanomaly():
     )
     actual = _model(lcbinint, params, lcbinint.Options(coordinates="vbm")).source_positions(times)
 
+    # jacscanomaly currently retains its historical piecewise-linear Earth
+    # ephemeris interpolation.  lcbinint uses the Hermite table path, so this
+    # cross-package check allows the sub-1e-8 source-plane difference while
+    # retaining a much tighter bound than the physical parallax scale.
     for (x, y), expected_tau, expected_beta in zip(actual, tau, beta):
-        assert math.isclose(x, float(expected_tau), rel_tol=1.0e-10, abs_tol=1.0e-10)
-        assert math.isclose(y, float(expected_beta), rel_tol=1.0e-10, abs_tol=1.0e-10)
+        assert math.isclose(x, float(expected_tau), rel_tol=0.0, abs_tol=2.0e-8)
+        assert math.isclose(y, float(expected_beta), rel_tol=0.0, abs_tol=2.0e-8)
 
 
 def _microjax_lom():

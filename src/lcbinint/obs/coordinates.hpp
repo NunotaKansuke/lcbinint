@@ -33,8 +33,7 @@ public:
         : kind_(SiteKind::ground), has_ground_position_(true),
           lat_deg_(lat_deg), lon_deg_(lon_deg) {}
 
-    explicit Site(std::vector<double> times, std::vector<std::array<double, 3>> positions)
-        : kind_(SiteKind::space), times_(std::move(times)), positions_(std::move(positions)) {}
+    explicit Site(std::vector<double> times, std::vector<std::array<double, 3>> positions);
 
     SiteKind kind() const noexcept { return kind_; }
     bool has_ground_position() const noexcept { return has_ground_position_; }
@@ -44,6 +43,9 @@ public:
     const std::vector<double>& times() const noexcept { return times_; }
     const std::vector<std::array<double, 3>>& positions() const noexcept {
         return positions_;
+    }
+    const std::vector<std::array<double, 3>>& velocities() const noexcept {
+        return velocities_;
     }
     Site limited_to(
         double lower_time, double upper_time, std::size_t padding = 2) const;
@@ -56,6 +58,7 @@ private:
     double lon_deg_ = 0.0;
     std::vector<double> times_;
     std::vector<std::array<double, 3>> positions_;
+    std::vector<std::array<double, 3>> velocities_;
 };
 
 } // namespace lcbinint::obs

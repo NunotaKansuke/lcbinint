@@ -422,10 +422,16 @@ def _higher_order_offsets(
 
                     ephemeris_time = site.ephemeris_time
                     ephemeris_position = site.ephemeris_position
+                    ephemeris_velocity = site.ephemeris_velocity
                     if options.t_lim is not None:
-                        ephemeris_time, ephemeris_position = _trim_ephemeris_arrays(
+                        (
                             ephemeris_time,
                             ephemeris_position,
+                            ephemeris_velocity,
+                        ) = _trim_ephemeris_arrays(
+                            ephemeris_time,
+                            ephemeris_position,
+                            ephemeris_velocity,
                             t_lim=options.t_lim,
                         )
                     site_tau, site_beta = space_parallax_offsets(
@@ -436,6 +442,7 @@ def _higher_order_offsets(
                         sky.dec_deg,
                         ephemeris_time,
                         ephemeris_position,
+                        ephemeris_velocity,
                     )
                     tau_offset = tau_offset + site_tau
                     beta_offset = beta_offset + site_beta
