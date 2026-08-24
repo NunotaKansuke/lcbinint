@@ -18,6 +18,7 @@ from .types import BinaryRoutingDiagnostics, FixedSupportResult, InverseRayResul
 _FFI_FORWARD_TARGET = "lcbinint_jax_fixed_support_forward_f64_v1"
 _FFI_VALUE_JACOBIAN_TARGET = "lcbinint_jax_fixed_support_value_jacobian_f64_v1"
 _FFI_DISCOVERY_TARGET = "lcbinint_jax_macro_tile_discovery_f64_v1"
+_FFI_TRIPLE_DISCOVERY_TARGET = "lcbinint_jax_triple_macro_tile_discovery_f64_v1"
 _FFI_BINARY_ROOT_TARGET = "lcbinint_jax_binary_image_roots_f64_v1"
 _FFI_BINARY_ROOT_JACOBIAN_TARGET = "lcbinint_jax_binary_image_roots_jacobian_f64_v1"
 _FFI_TRIPLE_ROOT_TARGET = "lcbinint_jax_triple_image_roots_f64_v1"
@@ -188,6 +189,18 @@ def cpp_macro_tile_discovery_ffi_available():
     try:
         native = _native_module()
         return hasattr(native._jax_ir, "macro_tile_discovery_ffi")
+    except (AttributeError, RuntimeError):
+        return False
+
+
+def cpp_triple_macro_tile_discovery_ffi_available():
+    """Return whether certified triple macro-tile discovery is available."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        return hasattr(native._jax_ir, "triple_macro_tile_discovery_ffi")
     except (AttributeError, RuntimeError):
         return False
 
@@ -435,6 +448,23 @@ def _register_macro_tile_discovery_ffi():
         ) from error
     jax.ffi.register_ffi_target(
         _FFI_DISCOVERY_TARGET,
+        discovery_capsule,
+        platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_triple_macro_tile_discovery_ffi():
+    native = _native_module()
+    try:
+        discovery_capsule = native._jax_ir.triple_macro_tile_discovery_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without certified triple macro-tile discovery; "
+            "rebuild with LCBININT_ENABLE_JAX_FFI=ON"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_TRIPLE_DISCOVERY_TARGET,
         discovery_capsule,
         platform="cpu",
     )
@@ -4150,6 +4180,81 @@ def discover_binary_macro_tiles_ffi(
             seed_count=outputs[7],
             root_failure=seeds.root_failure,
         ),
+    )
+
+
+def discover_triple_macro_tiles_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    tertiary_mass_ratio,
+    tertiary_separation,
+    tertiary_angle,
+    source_radius,
+    cell_size,
+    *,
+    tile_size=16,
+    tile_capacity=2048,
+    limb_samples=24,
+    convention="center_of_mass",
+):
+    """Discover stopped triple support using the native support certificate."""
+
+    from .triple import TripleDiscoveryResult
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("triple macro-tile discovery is CPU-only")
+    if tile_size <= 0 or tile_capacity <= 0:
+        raise ValueError("tile_size and tile_capacity must be positive")
+    if limb_samples < 8:
+        raise ValueError("limb_samples must be at least 8")
+    if convention not in ("center_of_mass", "vbm"):
+        raise ValueError("convention must be 'center_of_mass' or 'vbm'")
+
+    stopped_scalars = tuple(
+        jax.lax.stop_gradient(jnp.asarray(value, dtype=jnp.float64))
+        for value in (
+            cell_size,
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            tertiary_mass_ratio,
+            tertiary_separation,
+            tertiary_angle,
+            source_radius,
+        )
+    )
+    if any(value.ndim != 0 for value in stopped_scalars):
+        raise ValueError("lens, source, and cell-size parameters must be scalars")
+
+    _register_triple_macro_tile_discovery_ffi()
+    outputs = jax.ffi.ffi_call(
+        _FFI_TRIPLE_DISCOVERY_TARGET,
+        (
+            jax.ShapeDtypeStruct((tile_capacity, 2), jnp.int32),
+            jax.ShapeDtypeStruct((tile_capacity, 2), jnp.float64),
+            jax.ShapeDtypeStruct((tile_capacity,), jnp.bool_),
+            jax.ShapeDtypeStruct((tile_capacity,), jnp.bool_),
+            jax.ShapeDtypeStruct((), jnp.bool_),
+            jax.ShapeDtypeStruct((), jnp.bool_),
+            jax.ShapeDtypeStruct((), jnp.int32),
+            jax.ShapeDtypeStruct((), jnp.int32),
+            jax.ShapeDtypeStruct((), jnp.int32),
+        ),
+        vmap_method="sequential",
+    )(
+        *stopped_scalars,
+        tile_size=np.int64(tile_size),
+        tile_capacity=np.int64(tile_capacity),
+        limb_samples=np.int64(limb_samples),
+        convention=np.int64(0 if convention == "center_of_mass" else 1),
+    )
+    return jax.tree_util.tree_map(
+        jax.lax.stop_gradient,
+        TripleDiscoveryResult(*outputs),
     )
 
 

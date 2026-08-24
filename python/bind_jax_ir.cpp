@@ -2613,6 +2613,203 @@ const std::vector<std::vector<lcbinint::SourcePosition>>& cached_caustic_branche
     return magnifier.binary_caustic_branches(separation, mass_ratio);
 }
 
+lcbinint::model::TripleLensGeometry make_native_triple_geometry(
+    double separation,
+    double mass_ratio,
+    double tertiary_mass_ratio,
+    double tertiary_separation,
+    double tertiary_angle,
+    std::int64_t convention)
+{
+    return convention == 0
+        ? lcbinint::model::make_triple_lens_geometry(
+            separation, mass_ratio, tertiary_mass_ratio,
+            tertiary_separation, tertiary_angle)
+        : lcbinint::model::make_triple_lens_geometry_vbm(
+            separation, mass_ratio, tertiary_separation,
+            tertiary_angle, tertiary_mass_ratio);
+}
+
+const std::vector<std::vector<lcbinint::SourcePosition>>&
+cached_jax_triple_caustic_branches(
+    const lcbinint::model::TripleLensGeometry& geometry)
+{
+    thread_local lcbinint::magnification::FiniteSourceMagnifier magnifier {{}};
+    return magnifier.triple_caustic_branches_cached(geometry);
+}
+
+struct TripleSeedSupport {
+    // Source-centre, source-limb, and certificate images in solver/probe order.
+    // Cartesian and polar discovery consume this one descriptor so their
+    // completeness criterion cannot drift apart.
+    std::vector<lcbinint::SourcePosition> image_coordinates;
+    std::size_t centre_image_count = 0;
+    bool root_failure = false;
+    bool support_proven = true;
+    std::uint64_t support_fingerprint = 0;
+};
+
+TripleSeedSupport prepare_triple_seed_support(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double tertiary_mass_ratio,
+    double tertiary_separation,
+    double tertiary_angle,
+    double source_radius,
+    std::int64_t limb_samples,
+    std::int64_t convention)
+{
+    TripleSeedSupport prepared;
+    prepared.image_coordinates.reserve(
+        static_cast<std::size_t>((limb_samples + 1) * triple_root_count));
+    const auto geometry = make_native_triple_geometry(
+        separation, mass_ratio, tertiary_mass_ratio,
+        tertiary_separation, tertiary_angle, convention);
+    const lcbinint::magnification::PointSourceMagnifier magnifier;
+    const double source_radius_squared = source_radius * source_radius;
+    const auto append_images = [&](lcbinint::SourcePosition sample,
+                                   bool validate_for_source_disk) {
+        const auto candidates =
+            magnifier.triple_image_candidates(geometry, sample);
+        std::int32_t physical_count = 0;
+        const std::size_t seeds_before = prepared.image_coordinates.size();
+        for (const auto& candidate : candidates) {
+            if (!candidate.physical) continue;
+            ++physical_count;
+            if (validate_for_source_disk) {
+                const auto mapped = lcbinint::model::triple_lens_equation(
+                    geometry, candidate.position);
+                const double dx = mapped.x - source_x;
+                const double dy = mapped.y - source_y;
+                const double mapped_distance_squared = dx * dx + dy * dy;
+                if (mapped_distance_squared
+                    > source_radius_squared * (1.0 + 1.0e-8)) {
+                    continue;
+                }
+                bool duplicate = false;
+                for (std::size_t index = 0; index < seeds_before; ++index) {
+                    const auto& existing = prepared.image_coordinates[index];
+                    const double image_dx = candidate.position.x - existing.x;
+                    const double image_dy = candidate.position.y - existing.y;
+                    if (image_dx * image_dx + image_dy * image_dy
+                        >= 0.0625 * source_radius_squared) {
+                        continue;
+                    }
+                    const auto existing_mapped =
+                        lcbinint::model::triple_lens_equation(geometry, existing);
+                    const double existing_dx = existing_mapped.x - source_x;
+                    const double existing_dy = existing_mapped.y - source_y;
+                    if (mapped_distance_squared + 1.0e-16
+                        < existing_dx * existing_dx + existing_dy * existing_dy) {
+                        prepared.image_coordinates[index] = candidate.position;
+                    }
+                    duplicate = true;
+                    break;
+                }
+                if (duplicate) continue;
+            }
+            prepared.image_coordinates.push_back(candidate.position);
+        }
+        prepared.root_failure = prepared.root_failure || physical_count == 0;
+        return physical_count;
+    };
+
+    const double two_pi = 2.0 * std::acos(-1.0);
+    for (std::int64_t sample = 0; sample <= limb_samples; ++sample) {
+        lcbinint::SourcePosition position {source_x, source_y};
+        if (sample > 0) {
+            const double angle =
+                two_pi * static_cast<double>(sample - 1)
+                / static_cast<double>(limb_samples);
+            position.x += source_radius * std::cos(angle);
+            position.y += source_radius * std::sin(angle);
+        }
+        append_images(position, false);
+        if (sample == 0) {
+            prepared.centre_image_count = prepared.image_coordinates.size();
+        }
+    }
+
+    const auto support = lcbinint::magnification::certify_disk_support(
+        cached_jax_triple_caustic_branches(geometry),
+        {source_x, source_y}, source_radius);
+    prepared.support_fingerprint = support.fingerprint;
+    prepared.support_proven = lcbinint::magnification::resolve_certified_probes(
+        support, [&](lcbinint::SourcePosition probe) {
+            return static_cast<int>(append_images(probe, true));
+        });
+    prepared.root_failure =
+        prepared.root_failure || !prepared.support_proven;
+    return prepared;
+}
+
+TripleSeedSupport cached_triple_seed_support(
+    double source_x,
+    double source_y,
+    double separation,
+    double mass_ratio,
+    double tertiary_mass_ratio,
+    double tertiary_separation,
+    double tertiary_angle,
+    double source_radius,
+    std::int64_t limb_samples,
+    std::int64_t convention)
+{
+    struct Entry {
+        double source_x;
+        double source_y;
+        double separation;
+        double mass_ratio;
+        double tertiary_mass_ratio;
+        double tertiary_separation;
+        double tertiary_angle;
+        double source_radius;
+        std::int64_t limb_samples;
+        std::int64_t convention;
+        TripleSeedSupport support;
+    };
+    constexpr std::size_t maximum_entries = 2048;
+    static std::deque<Entry> entries;
+    static std::shared_mutex mutex;
+    const auto matches = [&](const Entry& entry) {
+        return entry.source_x == source_x
+            && entry.source_y == source_y
+            && entry.separation == separation
+            && entry.mass_ratio == mass_ratio
+            && entry.tertiary_mass_ratio == tertiary_mass_ratio
+            && entry.tertiary_separation == tertiary_separation
+            && entry.tertiary_angle == tertiary_angle
+            && entry.source_radius == source_radius
+            && entry.limb_samples == limb_samples
+            && entry.convention == convention;
+    };
+    {
+        std::shared_lock lock(mutex);
+        for (const auto& entry : entries) {
+            if (matches(entry)) return entry.support;
+        }
+    }
+
+    auto support = prepare_triple_seed_support(
+        source_x, source_y, separation, mass_ratio,
+        tertiary_mass_ratio, tertiary_separation, tertiary_angle,
+        source_radius, limb_samples, convention);
+    {
+        std::unique_lock lock(mutex);
+        for (const auto& entry : entries) {
+            if (matches(entry)) return entry.support;
+        }
+        if (entries.size() >= maximum_entries) entries.pop_front();
+        entries.push_back({
+            source_x, source_y, separation, mass_ratio,
+            tertiary_mass_ratio, tertiary_separation, tertiary_angle,
+            source_radius, limb_samples, convention, support});
+    }
+    return support;
+}
+
 struct CartesianSeedSupport {
     // Image coordinates are independent of the Cartesian resolution.  Keep
     // them in solver/probe order so every rung quantises exactly the same seed
@@ -2908,8 +3105,11 @@ CartesianDiscovery discover_triple_cartesian_support(
     std::unordered_map<std::uint64_t, std::int32_t> visited;
     visited.reserve(initial_capacity);
     std::unordered_set<std::uint64_t> seeds;
-    seeds.reserve(
-        static_cast<std::size_t>((limb_samples + 1) * triple_root_count));
+    const auto prepared = cached_triple_seed_support(
+        source_x, source_y, separation, mass_ratio,
+        tertiary_mass_ratio, tertiary_separation, tertiary_angle,
+        source_radius, limb_samples, convention);
+    seeds.reserve(prepared.image_coordinates.size());
     const auto insert = [&](std::int32_t x, std::int32_t y) {
         const auto key = tile_key(x, y);
         if (visited.find(key) != visited.end()) return true;
@@ -2922,50 +3122,21 @@ CartesianDiscovery discover_triple_cartesian_support(
         result.queue.push_back({x, y});
         return true;
     };
-    const auto native_geometry = convention == 0
-        ? lcbinint::model::make_triple_lens_geometry(
-            separation, mass_ratio, tertiary_mass_ratio,
-            tertiary_separation, tertiary_angle)
-        : lcbinint::model::make_triple_lens_geometry_vbm(
-            separation, mass_ratio, tertiary_separation,
-            tertiary_angle, tertiary_mass_ratio);
     const auto classification_lens = make_triple_lens_constants(
         separation, mass_ratio, tertiary_mass_ratio,
         tertiary_separation, tertiary_angle, convention);
-    const lcbinint::magnification::PointSourceMagnifier magnifier;
-    const double two_pi = 2.0 * std::acos(-1.0);
-    for (std::int64_t sample = 0; sample <= limb_samples; ++sample) {
-        double sample_x = source_x;
-        double sample_y = source_y;
-        if (sample > 0) {
-            const double angle =
-                two_pi * static_cast<double>(sample - 1)
-                / static_cast<double>(limb_samples);
-            sample_x += source_radius * std::cos(angle);
-            sample_y += source_radius * std::sin(angle);
+    for (const auto& image : prepared.image_coordinates) {
+        const auto tile_x = static_cast<std::int32_t>(
+            std::floor(image.x / tile_width));
+        const auto tile_y = static_cast<std::int32_t>(
+            std::floor(image.y / tile_width));
+        if (insert(tile_x, tile_y)) {
+            seeds.insert(tile_key(tile_x, tile_y));
         }
-        const auto candidates = magnifier.triple_image_candidates(
-            native_geometry, {sample_x, sample_y});
-        std::int32_t physical_count = 0;
-        for (const auto& candidate : candidates) {
-            if (!candidate.physical) continue;
-            ++physical_count;
-            const auto tile_x = static_cast<std::int32_t>(
-                std::floor(candidate.position.x / tile_width));
-            const auto tile_y = static_cast<std::int32_t>(
-                std::floor(candidate.position.y / tile_width));
-            if (insert(tile_x, tile_y)) {
-                seeds.insert(tile_key(tile_x, tile_y));
-            }
-        }
-        const bool valid_count = physical_count > 0;
-        // The native high-precision classifier can retain a useful
-        // demagnified image with a conservative residual flag.  Flood support
-        // only needs one valid seed per connected component; the 65 source
-        // probes provide redundancy, so do not invalidate the whole epoch
-        // for one flagged probe.
-        result.root_failure = result.root_failure || !valid_count;
     }
+    result.root_failure = prepared.root_failure;
+    result.support_proven = prepared.support_proven;
+    result.support_fingerprint = prepared.support_fingerprint;
     result.seed_count = static_cast<std::int32_t>(result.queue.size());
     constexpr std::array<std::array<std::int32_t, 2>, 4> neighbours{{
         {1, 0}, {-1, 0}, {0, 1}, {0, -1}
@@ -3108,70 +3279,6 @@ CartesianEpochResult<Scalar> triple_cartesian_epoch_kernel(
         discovery.visited_count;
     result.overflow = discovery.overflow;
     result.root_failure = discovery.root_failure;
-    return result;
-}
-
-struct PolarSeed {
-    double radius = 0.0;
-    double angle = 0.0;
-    bool physical = false;
-};
-
-struct PolarDiscovery {
-    std::vector<PolarSeed> seeds;
-    bool root_failure = false;
-};
-
-PolarDiscovery discover_triple_polar_support(
-    double source_x,
-    double source_y,
-    double separation,
-    double mass_ratio,
-    double tertiary_mass_ratio,
-    double tertiary_separation,
-    double tertiary_angle,
-    double source_radius,
-    std::int64_t limb_samples,
-    std::int64_t convention)
-{
-    PolarDiscovery result;
-    result.seeds.reserve(
-        static_cast<std::size_t>((limb_samples + 1) * triple_root_count));
-    const auto geometry = convention == 0
-        ? lcbinint::model::make_triple_lens_geometry(
-            separation, mass_ratio, tertiary_mass_ratio,
-            tertiary_separation, tertiary_angle)
-        : lcbinint::model::make_triple_lens_geometry_vbm(
-            separation, mass_ratio, tertiary_separation,
-            tertiary_angle, tertiary_mass_ratio);
-    const lcbinint::magnification::PointSourceMagnifier magnifier;
-    const double two_pi = 2.0 * std::acos(-1.0);
-    for (std::int64_t sample = 0; sample <= limb_samples; ++sample) {
-        double sample_x = source_x;
-        double sample_y = source_y;
-        if (sample > 0) {
-            const double angle =
-                two_pi * static_cast<double>(sample - 1)
-                / static_cast<double>(limb_samples);
-            sample_x += source_radius * std::cos(angle);
-            sample_y += source_radius * std::sin(angle);
-        }
-        const auto candidates = magnifier.triple_image_candidates(
-            geometry, {sample_x, sample_y});
-        std::int32_t physical_count = 0;
-        for (const auto& candidate : candidates) {
-            const double radius = std::hypot(
-                candidate.position.x, candidate.position.y);
-            const double angle = std::atan2(
-                candidate.position.y, candidate.position.x);
-            result.seeds.push_back(
-                {radius, angle, candidate.physical});
-            if (!candidate.physical) continue;
-            ++physical_count;
-        }
-        const bool valid_count = physical_count > 0;
-        result.root_failure = result.root_failure || !valid_count;
-    }
     return result;
 }
 
@@ -3353,6 +3460,7 @@ private:
 
 template <MomentMode Mode, bool AccumulateMoments>
 PolarFloodSupport discover_triple_polar_flood_support(
+    const TripleSeedSupport& prepared,
     double source_x,
     double source_y,
     double separation,
@@ -3363,16 +3471,11 @@ PolarFloodSupport discover_triple_polar_flood_support(
     double source_radius,
     double dr,
     std::int64_t angular_bins,
-    std::int64_t limb_samples,
     std::int64_t cell_capacity,
     std::int64_t convention)
 {
-    const auto seeds = discover_triple_polar_support(
-        source_x, source_y, separation, mass_ratio,
-        tertiary_mass_ratio, tertiary_separation, tertiary_angle,
-        source_radius, limb_samples, convention);
     PolarFloodSupport result;
-    result.root_failure = seeds.root_failure;
+    result.root_failure = prepared.root_failure;
     const auto lens = make_triple_lens_constants(
         separation, mass_ratio, tertiary_mass_ratio,
         tertiary_separation, tertiary_angle, convention);
@@ -3430,13 +3533,14 @@ PolarFloodSupport discover_triple_polar_flood_support(
             queue.push_back({left, right, wrap_angle(angular)});
         }
     };
-    for (const auto& seed : seeds.seeds) {
-        if (!seed.physical) continue;
+    for (const auto& seed : prepared.image_coordinates) {
+        const double seed_radius = std::hypot(seed.x, seed.y);
+        const double seed_angle = std::atan2(seed.y, seed.x);
         const auto radial = static_cast<std::int32_t>(
-            std::max(0.0, std::floor(seed.radius / dr)));
+            std::max(0.0, std::floor(seed_radius / dr)));
         const auto angular = static_cast<std::int32_t>(
             std::floor(
-                (seed.angle < 0.0 ? seed.angle + two_pi : seed.angle)
+                (seed_angle < 0.0 ? seed_angle + two_pi : seed_angle)
                 / dtheta));
         bool found = false;
         for (int da = -2; da <= 2 && !found; ++da) {
@@ -4080,29 +4184,19 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
     // convergence calibration for extreme mass-ratio configurations.
     (void) angular_grid_ratio;
     const double dr = scalar_value(source_radius) / resolution;
+    const auto prepared = cached_triple_seed_support(
+        scalar_value(source_x), scalar_value(source_y),
+        scalar_value(separation), scalar_value(mass_ratio),
+        scalar_value(tertiary_mass_ratio),
+        scalar_value(tertiary_separation), scalar_value(tertiary_angle),
+        scalar_value(source_radius), limb_samples, convention);
     if (angular_bins == 0) {
-        const auto geometry = convention == 0
-            ? lcbinint::model::make_triple_lens_geometry(
-                scalar_value(separation), scalar_value(mass_ratio),
-                scalar_value(tertiary_mass_ratio),
-                scalar_value(tertiary_separation),
-                scalar_value(tertiary_angle))
-            : lcbinint::model::make_triple_lens_geometry_vbm(
-                scalar_value(separation), scalar_value(mass_ratio),
-                scalar_value(tertiary_separation),
-                scalar_value(tertiary_angle),
-                scalar_value(tertiary_mass_ratio));
-        const lcbinint::magnification::PointSourceMagnifier magnifier;
-        const auto candidates = magnifier.triple_image_candidates(
-            geometry,
-            {scalar_value(source_x), scalar_value(source_y)});
         double maximum_radius = 1.0;
-        for (const auto& candidate : candidates) {
-            if (!candidate.physical) continue;
+        for (std::size_t index = 0; index < prepared.centre_image_count; ++index) {
+            const auto& image = prepared.image_coordinates[index];
             maximum_radius = std::max(
                 maximum_radius,
-                std::hypot(
-                    candidate.position.x, candidate.position.y)
+                std::hypot(image.x, image.y)
                     + 4.0 * scalar_value(source_radius));
         }
         constexpr double polar_grid_ratio = 32.0;
@@ -4116,11 +4210,12 @@ CartesianEpochResult<Scalar> triple_polar_flood_epoch_kernel(
     constexpr std::int64_t cell_capacity = 50'000'000;
     const auto support = discover_triple_polar_flood_support<
         Mode, std::is_same_v<Scalar, double>>(
+        prepared,
         scalar_value(source_x), scalar_value(source_y),
         scalar_value(separation), scalar_value(mass_ratio),
         scalar_value(tertiary_mass_ratio),
         scalar_value(tertiary_separation), scalar_value(tertiary_angle),
-        scalar_value(source_radius), dr, angular_bins, limb_samples,
+        scalar_value(source_radius), dr, angular_bins,
         cell_capacity, convention);
     CartesianEpochResult<Scalar> result;
     result.tile_count = static_cast<std::int32_t>(support.runs.size());
@@ -4578,6 +4673,108 @@ XLA_FFI_DEFINE_HANDLER(
         .Ret<ffi::BufferR2<ffi::F64>>()
         .Ret<ffi::BufferR1<ffi::PRED>>()
         .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR0<ffi::PRED>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::S32>>()
+        .Ret<ffi::BufferR0<ffi::S32>>());
+
+ffi::Error triple_macro_tile_discovery_ffi_impl(
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t limb_samples,
+    std::int64_t convention,
+    ffi::BufferR0<ffi::F64> cell_size,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_mass_ratio,
+    ffi::BufferR0<ffi::F64> tertiary_separation,
+    ffi::BufferR0<ffi::F64> tertiary_angle,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::ResultBufferR2<ffi::S32> tile_indices,
+    ffi::ResultBufferR2<ffi::F64> tile_origins,
+    ffi::ResultBufferR1<ffi::PRED> tile_mask,
+    ffi::ResultBufferR1<ffi::PRED> active_mask,
+    ffi::ResultBufferR0<ffi::PRED> overflow,
+    ffi::ResultBufferR0<ffi::PRED> root_failure,
+    ffi::ResultBufferR0<ffi::S32> visited_count,
+    ffi::ResultBufferR0<ffi::S32> active_count,
+    ffi::ResultBufferR0<ffi::S32> seed_count)
+{
+    const auto index_dimensions = tile_indices->dimensions();
+    const auto origin_dimensions = tile_origins->dimensions();
+    if (
+        tile_size <= 0 || tile_capacity <= 0 || limb_samples <= 0
+        || (convention != 0 && convention != 1)
+        || index_dimensions[0] != tile_capacity || index_dimensions[1] != 2
+        || origin_dimensions[0] != tile_capacity || origin_dimensions[1] != 2
+        || tile_mask->dimensions()[0] != tile_capacity
+        || active_mask->dimensions()[0] != tile_capacity
+        || !(*cell_size.typed_data() > 0.0)
+        || !(*source_radius.typed_data() > 0.0)) {
+        return ffi::Error::InvalidArgument(
+            "invalid triple macro-tile discovery configuration");
+    }
+
+    auto* output_indices = tile_indices->typed_data();
+    auto* output_origins = tile_origins->typed_data();
+    auto* output_mask = tile_mask->typed_data();
+    auto* output_active = active_mask->typed_data();
+    std::fill(output_indices, output_indices + 2 * tile_capacity, 0);
+    std::fill(output_origins, output_origins + 2 * tile_capacity, 0.0);
+    std::fill(output_mask, output_mask + tile_capacity, false);
+    std::fill(output_active, output_active + tile_capacity, false);
+
+    const double width =
+        *cell_size.typed_data() * static_cast<double>(tile_size);
+    const auto discovery = discover_triple_cartesian_support(
+        width,
+        *source_x.typed_data(), *source_y.typed_data(),
+        *separation.typed_data(), *mass_ratio.typed_data(),
+        *tertiary_mass_ratio.typed_data(),
+        *tertiary_separation.typed_data(), *tertiary_angle.typed_data(),
+        *source_radius.typed_data(), tile_capacity, limb_samples, convention);
+    for (std::size_t index = 0; index < discovery.queue.size(); ++index) {
+        output_indices[2 * index] = discovery.queue[index][0];
+        output_indices[2 * index + 1] = discovery.queue[index][1];
+        output_origins[2 * index] = discovery.queue[index][0] * width;
+        output_origins[2 * index + 1] = discovery.queue[index][1] * width;
+        // The C++ discovery compacts away the inactive frontier.  Every
+        // retained tile is therefore both present and active.
+        output_mask[index] = true;
+        output_active[index] = true;
+    }
+    *overflow->typed_data() = discovery.overflow;
+    *root_failure->typed_data() = discovery.root_failure;
+    *visited_count->typed_data() = discovery.visited_count;
+    *active_count->typed_data() = discovery.active_count;
+    *seed_count->typed_data() = discovery.seed_count;
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    triple_macro_tile_discovery_ffi_handler,
+    triple_macro_tile_discovery_ffi_impl,
+    ffi::Ffi::Bind()
+        .Attr<std::int64_t>("tile_size")
+        .Attr<std::int64_t>("tile_capacity")
+        .Attr<std::int64_t>("limb_samples")
+        .Attr<std::int64_t>("convention")
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR2<ffi::S32>>()
+        .Ret<ffi::BufferR2<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR0<ffi::PRED>>()
         .Ret<ffi::BufferR0<ffi::PRED>>()
         .Ret<ffi::BufferR0<ffi::S32>>()
         .Ret<ffi::BufferR0<ffi::S32>>()
@@ -8296,6 +8493,12 @@ py::capsule macro_tile_discovery_ffi_capsule()
         reinterpret_cast<void*>(macro_tile_discovery_ffi_handler));
 }
 
+py::capsule triple_macro_tile_discovery_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(triple_macro_tile_discovery_ffi_handler));
+}
+
 py::capsule fixed_support_value_jacobian_ffi_capsule()
 {
     return py::capsule(
@@ -8526,6 +8729,10 @@ void register_jax_ir_submodule(py::module_& parent)
         "macro_tile_discovery_ffi",
         &macro_tile_discovery_ffi_capsule,
         "Return the typed XLA macro-tile discovery FFI handler capsule.");
+    module.def(
+        "triple_macro_tile_discovery_ffi",
+        &triple_macro_tile_discovery_ffi_capsule,
+        "Return the certified triple macro-tile discovery FFI capsule.");
     module.def(
         "fixed_support_forward_ffi",
         &fixed_support_forward_ffi_capsule,

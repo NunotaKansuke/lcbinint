@@ -7,6 +7,7 @@ import lcbinint
 from lcbinint_jax import (
     cpp_triple_cartesian_epoch_ffi_available,
     cpp_triple_hexadecapole_batch_ffi_available,
+    cpp_triple_macro_tile_discovery_ffi_available,
     cpp_triple_point_batch_ffi_available,
     discover_triple_macro_tiles,
     triple_hexadecapole_batch_ffi,
@@ -294,6 +295,72 @@ def test_adaptive_triple_matches_native_uniform_source():
     assert not bool(actual.root_failure)
     assert int(actual.visited_tiles) > 0
     np.testing.assert_allclose(actual.magnification, native, rtol=2.0e-4)
+
+
+@pytest.mark.skipif(
+    not (
+        cpp_triple_cartesian_epoch_ffi_available()
+        and cpp_triple_macro_tile_discovery_ffi_available()
+    ),
+    reason="certified triple discovery FFI is unavailable",
+)
+def test_triple_certificate_recovers_shallow_cap_in_all_jax_paths():
+    """A fixed limb ring misses this cap; certificate probes must recover it."""
+
+    reference = 17.500498988083
+    missed_component_value = 17.469486455187
+    parameters = dict(
+        source_x=-0.05,
+        source_y=0.02,
+        separation=1.0,
+        mass_ratio=1.0e-3,
+        tertiary_mass_ratio=1.0e-4,
+        tertiary_separation=0.5,
+        tertiary_angle=1.2,
+        source_radius=6.497855561e-3 / 0.99,
+        resolution=128,
+        limb_samples=12,
+        convention="vbm",
+        moment_mode="uniform",
+    )
+    for use_ffi in (True, False):
+        cartesian = triple_inverse_ray_adaptive(
+            **parameters,
+            tile_size=8,
+            tile_capacity=131072,
+            use_ffi=use_ffi,
+        )
+        assert bool(cartesian.support_valid)
+        assert not bool(cartesian.root_failure)
+        assert float(cartesian.magnification) > 0.5 * (
+            reference + missed_component_value
+        )
+        np.testing.assert_allclose(
+            cartesian.magnification, reference, rtol=0.0, atol=6.0e-5
+        )
+
+    polar = triple_inverse_ray_polar_batch_ffi(
+        jnp.asarray((parameters["source_x"],)),
+        jnp.asarray((parameters["source_y"],)),
+        parameters["separation"],
+        parameters["mass_ratio"],
+        parameters["tertiary_mass_ratio"],
+        parameters["tertiary_separation"],
+        parameters["tertiary_angle"],
+        parameters["source_radius"],
+        resolution=parameters["resolution"],
+        limb_samples=parameters["limb_samples"],
+        convention=parameters["convention"],
+        moment_mode=parameters["moment_mode"],
+    )
+    assert bool(polar.support_valid[0])
+    assert not bool(polar.root_failure[0])
+    assert float(polar.magnification[0]) > 0.5 * (
+        reference + missed_component_value
+    )
+    np.testing.assert_allclose(
+        polar.magnification[0], reference, rtol=0.0, atol=2.0e-3
+    )
 
 
 @pytest.mark.skipif(

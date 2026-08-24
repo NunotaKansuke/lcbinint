@@ -205,6 +205,11 @@ public:
         double mass_ratio) const;
     std::vector<std::vector<SourcePosition>> triple_caustic_branches(
         const model::TripleLensGeometry& geometry) const;
+    // Cached view used by JAX support discovery.  The returned reference is
+    // valid until this thread requests a different geometry or bin count.
+    const std::vector<std::vector<SourcePosition>>&
+    triple_caustic_branches_cached(
+        const model::TripleLensGeometry& geometry) const;
     std::vector<std::vector<SourcePosition>> triple_critical_curve_branches(
         const model::TripleLensGeometry& geometry) const;
     double triple_caustic_distance_for_source(

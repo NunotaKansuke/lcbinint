@@ -14,6 +14,7 @@ from .cell_moments import (
 )
 from .cpp_backend import (
     cpp_triple_cartesian_epoch_ffi_available,
+    discover_triple_macro_tiles_ffi as _discover_triple_macro_tiles_ffi,
     triple_caustic_distance_batch_ffi,
     triple_hexadecapole_batch_ffi,
     triple_images_ffi,
@@ -201,7 +202,7 @@ def discover_triple_macro_tiles(
     limb_samples=24,
     convention="center_of_mass",
 ):
-    """Discover connected triple-image macro tiles from degree-10 roots."""
+    """Discover triple-image tiles with the shared native certificate."""
 
     (
         source_x,
@@ -231,175 +232,21 @@ def discover_triple_macro_tiles(
         raise ValueError("tile_capacity must be positive")
     if limb_samples < 8:
         raise ValueError("limb_samples must be at least 8")
-    geometry = triple_lens_geometry(
-        separation,
-        mass_ratio,
-        tertiary_mass_ratio,
-        tertiary_separation,
-        tertiary_angle,
-        convention=convention,
-    )
-    dtype = jnp.result_type(
+    return _discover_triple_macro_tiles_ffi(
         source_x,
         source_y,
         separation,
         mass_ratio,
         tertiary_mass_ratio,
+        tertiary_separation,
+        tertiary_angle,
         source_radius,
+        cell_size,
+        tile_size=tile_size,
+        tile_capacity=tile_capacity,
+        limb_samples=limb_samples,
+        convention=convention,
     )
-    angles = 2.0 * jnp.pi * jnp.arange(limb_samples, dtype=dtype) / limb_samples
-    sample_x = jnp.concatenate(
-        (
-            jnp.reshape(jnp.asarray(source_x, dtype=dtype), (1,)),
-            source_x + source_radius * jnp.cos(angles),
-        )
-    )
-    sample_y = jnp.concatenate(
-        (
-            jnp.reshape(jnp.asarray(source_y, dtype=dtype), (1,)),
-            source_y + source_radius * jnp.sin(angles),
-        )
-    )
-    roots = jax.vmap(
-        lambda x, y: triple_images_ffi(
-            x,
-            y,
-            separation,
-            mass_ratio,
-            tertiary_mass_ratio,
-            tertiary_separation,
-            tertiary_angle,
-            convention=convention,
-        )
-    )(sample_x, sample_y)
-    physical_count = jnp.sum(roots.physical, axis=1)
-    valid_count = (
-        (physical_count == 4)
-        | (physical_count == 6)
-        | (physical_count == 8)
-        | (physical_count == 10)
-    )
-    root_failure = jnp.any(
-        ~valid_count | ~jnp.all(roots.converged | ~roots.physical, axis=1)
-    )
-    tile_width = jax.lax.stop_gradient(cell_size * tile_size)
-    coordinates = roots.coordinates.reshape((-1, 2))
-    physical = roots.physical.reshape((-1,))
-    safe_coordinates = jnp.where(physical[:, None], coordinates, 0.0)
-    seed_indices = jnp.floor(safe_coordinates / tile_width).astype(jnp.int32)
-    empty_indices = jnp.zeros((tile_capacity, 2), dtype=jnp.int32)
-    empty_mask = jnp.zeros(tile_capacity, dtype=jnp.bool_)
-
-    def insert_tile(state, candidate_and_valid):
-        indices, mask, count, overflow = state
-        candidate, valid = candidate_and_valid
-        exists = jnp.any(mask & jnp.all(indices == candidate[None, :], axis=1))
-        novel = valid & ~exists
-        has_capacity = count < tile_capacity
-        insert = novel & has_capacity
-        target = jnp.minimum(count, tile_capacity - 1)
-        indices = indices.at[target].set(
-            jnp.where(insert, candidate, indices[target])
-        )
-        mask = mask.at[target].set(mask[target] | insert)
-        return (
-            indices,
-            mask,
-            count + insert.astype(jnp.int32),
-            overflow | (novel & ~has_capacity),
-        )
-
-    seed_state = jax.lax.fori_loop(
-        0,
-        seed_indices.shape[0],
-        lambda index, state: insert_tile(
-            state, (seed_indices[index], physical[index])
-        ),
-        (
-            empty_indices,
-            empty_mask,
-            jnp.asarray(0, dtype=jnp.int32),
-            jnp.asarray(False),
-        ),
-    )
-    seed_indices_unique, seed_mask, seed_count, seed_overflow = seed_state
-    neighbours = jnp.asarray(((1, 0), (-1, 0), (0, 1), (0, -1)), jnp.int32)
-
-    def tile_has_inside_probe(tile_index):
-        """Bound ``min |f(z) - zeta|`` over the tile rather than sampling it.
-
-        This is the same conservative map bound used by the native binary flood;
-        the three lenses are not collinear here, so the tile-to-lens distance
-        clamps in both coordinates.
-        """
-
-        half_width = 0.5 * tile_width
-        centre = tile_index.astype(dtype) * tile_width + half_width
-        offset = jnp.maximum(
-            0.0, jnp.abs(centre[None, :] - geometry.positions) - half_width
-        )
-        distances_squared = jnp.sum(offset * offset, axis=1)
-        contains_lens = jnp.any(distances_squared <= 0.0)
-
-        mapped_x, mapped_y = triple_lens_map_real(centre[0], centre[1], geometry)
-        distance = jnp.hypot(mapped_x - source_x, mapped_y - source_y)
-        lipschitz = 1.0 + jnp.sum(
-            geometry.masses / jnp.where(contains_lens, 1.0, distances_squared)
-        )
-        half_diagonal = half_width * jnp.sqrt(jnp.asarray(2.0, dtype=dtype))
-        admissible = distance - lipschitz * half_diagonal <= source_radius
-        return contains_lens | ~jnp.isfinite(distance) | admissible
-
-    def condition(state):
-        _, _, _, count, head, _ = state
-        return head < count
-
-    def step(state):
-        indices, mask, active_mask, count, head, overflow = state
-        tile_index = indices[head]
-        is_seed = jnp.any(
-            seed_mask
-            & jnp.all(seed_indices_unique == tile_index[None, :], axis=1)
-        )
-        active = is_seed | tile_has_inside_probe(tile_index)
-        active_mask = active_mask.at[head].set(active)
-        insertion = (indices, mask, count, overflow)
-        insertion = jax.lax.fori_loop(
-            0,
-            4,
-            lambda neighbour, current: insert_tile(
-                current,
-                (tile_index + neighbours[neighbour], active),
-            ),
-            insertion,
-        )
-        indices, mask, count, overflow = insertion
-        return indices, mask, active_mask, count, head + 1, overflow
-
-    indices, mask, active_mask, visited, _, overflow = jax.lax.while_loop(
-        condition,
-        step,
-        (
-            seed_indices_unique,
-            seed_mask,
-            jnp.zeros(tile_capacity, dtype=jnp.bool_),
-            seed_count,
-            jnp.asarray(0, dtype=jnp.int32),
-            seed_overflow,
-        ),
-    )
-    result = TripleDiscoveryResult(
-        indices,
-        indices.astype(dtype) * tile_width,
-        mask,
-        active_mask,
-        overflow,
-        root_failure,
-        visited,
-        jnp.sum(active_mask, dtype=jnp.int32),
-        seed_count,
-    )
-    return jax.tree_util.tree_map(jax.lax.stop_gradient, result)
 
 
 def _triple_phi_gradient_laplacian(
