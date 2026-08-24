@@ -278,22 +278,92 @@ def _sky_basis(ra_degrees, dec_degrees):
     return event, north, east
 
 
+def _hermite_interpolate(times, values, derivatives, query_time):
+    """Evaluate a clamped cubic Hermite table at one or more epochs."""
+
+    times = jnp.asarray(times)
+    query_time = jnp.asarray(query_time)
+    upper = jnp.searchsorted(times, query_time, side="right")
+    upper = jnp.clip(upper, 1, times.shape[0] - 1)
+    lower = upper - 1
+    query = jnp.clip(query_time, times[0], times[-1])
+    t0 = jnp.take(times, lower, axis=0)
+    t1 = jnp.take(times, upper, axis=0)
+    y0 = jnp.take(values, lower, axis=0)
+    y1 = jnp.take(values, upper, axis=0)
+    d0 = jnp.take(derivatives, lower, axis=0)
+    d1 = jnp.take(derivatives, upper, axis=0)
+    interval = t1 - t0
+    u = (query - t0) / interval
+    u2 = u * u
+    u3 = u2 * u
+    h00 = 2.0 * u3 - 3.0 * u2 + 1.0
+    h10 = u3 - 2.0 * u2 + u
+    h01 = -2.0 * u3 + 3.0 * u2
+    h11 = u3 - u2
+    dh00 = (6.0 * u2 - 6.0 * u) / interval
+    dh10 = 3.0 * u2 - 4.0 * u + 1.0
+    dh01 = (-6.0 * u2 + 6.0 * u) / interval
+    dh11 = 3.0 * u2 - 2.0 * u
+    value = (
+        h00[..., None] * y0
+        + h10[..., None] * interval[..., None] * d0
+        + h01[..., None] * y1
+        + h11[..., None] * interval[..., None] * d1
+    )
+    derivative = (
+        dh00[..., None] * y0
+        + dh10[..., None] * d0
+        + dh01[..., None] * y1
+        + dh11[..., None] * d1
+    )
+    return value, derivative
+
+
+def _three_point_derivative(x0, x1, x2, y0, y1, y2, x):
+    w0 = (2.0 * x - x1 - x2) / ((x0 - x1) * (x0 - x2))
+    w1 = (2.0 * x - x0 - x2) / ((x1 - x0) * (x1 - x2))
+    w2 = (2.0 * x - x0 - x1) / ((x2 - x0) * (x2 - x1))
+    return w0[..., None] * y0 + w1[..., None] * y1 + w2[..., None] * y2
+
+
+def _estimate_ephemeris_velocity(times, positions):
+    """Estimate spacecraft table tangents without changing its public format."""
+
+    times = jnp.asarray(times)
+    positions = jnp.asarray(positions)
+    if times.shape[0] == 2:
+        slope = (positions[1] - positions[0]) / (times[1] - times[0])
+        return jnp.stack((slope, slope), axis=0)
+    left = _three_point_derivative(
+        times[0], times[1], times[2], positions[0], positions[1], positions[2], times[0]
+    )
+    interior = _three_point_derivative(
+        times[:-2],
+        times[1:-1],
+        times[2:],
+        positions[:-2],
+        positions[1:-1],
+        positions[2:],
+        times[1:-1],
+    )
+    last = times.shape[0] - 1
+    right = _three_point_derivative(
+        times[last - 2],
+        times[last - 1],
+        times[last],
+        positions[last - 2],
+        positions[last - 1],
+        positions[last],
+        times[last],
+    )
+    return jnp.concatenate((left[None, :], interior, right[None, :]), axis=0)
+
+
 def _interpolate_ephemeris(ephemeris, time):
-    position = jnp.stack(
-        tuple(
-            jnp.interp(time, ephemeris.time, ephemeris.position[:, axis])
-            for axis in range(3)
-        ),
-        axis=-1,
+    return _hermite_interpolate(
+        ephemeris.time, ephemeris.position, ephemeris.velocity, time
     )
-    velocity = jnp.stack(
-        tuple(
-            jnp.interp(time, ephemeris.time, ephemeris.velocity[:, axis])
-            for axis in range(3)
-        ),
-        axis=-1,
-    )
-    return position, velocity
 
 
 def annual_parallax_offsets(
@@ -406,6 +476,7 @@ def space_parallax_offsets(
     dec_degrees,
     ephemeris_time,
     position=None,
+    velocity=None,
 ):
     """Return native/VBM-compatible satellite parallax offsets.
 
@@ -440,12 +511,12 @@ def space_parallax_offsets(
         )
     else:
         position = jnp.asarray(position)
-    interpolated = jnp.stack(
-        tuple(
-            jnp.interp(query_time, ephemeris_time, position[:, axis])
-            for axis in range(3)
-        ),
-        axis=-1,
+    if velocity is None:
+        velocity = _estimate_ephemeris_velocity(ephemeris_time, position)
+    else:
+        velocity = jnp.asarray(velocity)
+    interpolated, _ = _hermite_interpolate(
+        ephemeris_time, position, velocity, query_time
     )
     cos_obliquity = 0.9174820003578725
     sin_obliquity = 0.3977772982704228

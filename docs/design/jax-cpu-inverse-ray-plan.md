@@ -1552,8 +1552,9 @@ Recorded artifacts are
 The public `Options(jax=True)` adapter now carries the two remaining
 native-supported higher-order connections. A space `Site` exposes its
 validated, Cartesian AU ephemeris to the JAX geometry layer; spacecraft
-parallax is linearly interpolated with the same reduced/full-JD convention as
-the native engine and composes with annual parallax.
+parallax uses cubic Hermite interpolation with the same reduced/full-JD
+convention as the native engine and composes with annual parallax. Its node
+tangents are estimated from the Cartesian table positions.
 
 Binary-source xallarap now routes through the existing two-body trajectory
 primitive instead of applying a single-source offset independently to both

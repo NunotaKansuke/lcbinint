@@ -200,13 +200,36 @@ EarthState interpolate_earth_state(double time)
         states.begin(), states.end(), time, [](double value, const EarthState& state) {
             return value < state.time;
         });
-    const auto hi = upper == states.begin() ? states.begin() + 1 : upper;
+    const auto hi = upper == states.begin()
+        ? states.begin() + 1
+        : (upper == states.end() ? states.end() - 1 : upper);
     const auto lo = hi - 1;
     const double dt = hi->time - lo->time;
-    const double weight = dt != 0.0 ? (time - lo->time) / dt : 0.0;
-    return {time,
-        add(lo->position, scale(subtract(hi->position, lo->position), weight)),
-        add(lo->velocity, scale(subtract(hi->velocity, lo->velocity), weight))};
+    if (dt == 0.0) {
+        return {time, lo->position, lo->velocity};
+    }
+
+    const double u = (time - lo->time) / dt;
+    const double u2 = u * u;
+    const double u3 = u2 * u;
+    const double h00 = 2.0 * u3 - 3.0 * u2 + 1.0;
+    const double h10 = u3 - 2.0 * u2 + u;
+    const double h01 = -2.0 * u3 + 3.0 * u2;
+    const double h11 = u3 - u2;
+    const double dh00 = (6.0 * u2 - 6.0 * u) / dt;
+    const double dh10 = 3.0 * u2 - 4.0 * u + 1.0;
+    const double dh01 = (-6.0 * u2 + 6.0 * u) / dt;
+    const double dh11 = 3.0 * u2 - 2.0 * u;
+
+    std::array<double, 3> position = {};
+    std::array<double, 3> velocity = {};
+    for (std::size_t axis = 0; axis < position.size(); ++axis) {
+        position[axis] = h00 * lo->position[axis] + h10 * dt * lo->velocity[axis]
+            + h01 * hi->position[axis] + h11 * dt * hi->velocity[axis];
+        velocity[axis] = dh00 * lo->position[axis] + dh10 * lo->velocity[axis]
+            + dh01 * hi->position[axis] + dh11 * hi->velocity[axis];
+    }
+    return {time, position, velocity};
 }
 
 double parallax_time_offset(double reference_time)

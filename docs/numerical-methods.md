@@ -123,10 +123,17 @@ terrestrial offset.
 Spacecraft parallax uses `obs.Site("space", table)`, where `table`
 has columns `(JD, RA_deg, Dec_deg, distance_AU)`. It follows the
 VBMicrolensing satellite-table convention: the geocentric spacecraft position
-is linearly interpolated and added directly to the Earth annual-parallax term,
-without subtracting its position or velocity at `t_ref`. A single event
+is converted to Cartesian AU and evaluated with cubic Hermite interpolation.
+The node tangents are estimated from neighboring table positions. The result
+is added directly to the Earth annual-parallax term, without subtracting its
+position or velocity at `t_ref`. A single event
 `Model` may have `terrestrial=True` and be shared by both ground and space
 curves; the terrestrial term is applied only to its ground curves.
+
+The bundled Earth ephemeris supplies both Cartesian positions and velocities,
+so the same cubic Hermite interpolation uses the tabulated velocities as node
+tangents. The interpolator returns the analytic Hermite derivative as well;
+this derivative is used for the reference-epoch secular-trend subtraction.
 
 The current terrestrial calculation uses a spherical Earth at the equatorial
 radius and GMST without polar motion, elevation, or sub-arcsecond nutation.

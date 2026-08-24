@@ -208,6 +208,22 @@ The space table follows VBMicrolensing's geocentric satellite convention.)")
             }
             return result;
         })
+        .def_property_readonly("ephemeris_velocity", [](const Site& s) {
+            const auto& velocities = s.velocities();
+            py::array_t<double> result({
+                static_cast<py::ssize_t>(velocities.size()),
+                static_cast<py::ssize_t>(3),
+            });
+            auto values = result.mutable_unchecked<2>();
+            for (py::ssize_t i = 0; i < values.shape(0); ++i) {
+                for (py::ssize_t axis = 0; axis < 3; ++axis) {
+                    values(i, axis) =
+                        velocities[static_cast<std::size_t>(i)][
+                            static_cast<std::size_t>(axis)];
+                }
+            }
+            return result;
+        })
         .def("_limited_to", [](const Site& s, double lower, double upper) {
             return std::make_shared<Site>(s.limited_to(lower, upper));
         }, py::arg("lower"), py::arg("upper"))
