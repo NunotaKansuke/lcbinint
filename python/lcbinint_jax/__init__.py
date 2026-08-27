@@ -17,8 +17,10 @@ from .convergence import binary_inverse_ray_convergence
 from .resolution import select_binary_resolution
 from .calibrated import binary_magnification_calibrated
 from .cpp_backend import (
+    AlgebraicBoundaryEpochResult,
     CppFixedSupportResult,
     TriplePointSourceResult,
+    binary_algebraic_boundary_polar_ffi,
     binary_images_ffi,
     binary_caustic_distance_batch_ffi,
     binary_routing_diagnostics_batch_ffi,
@@ -36,6 +38,7 @@ from .cpp_backend import (
     cpp_fixed_support_ffi_available,
     cpp_macro_tile_discovery_ffi_available,
     cpp_hexadecapole_batch_ffi_available,
+    cpp_algebraic_boundary_epoch_ffi_available,
     cpp_polar_epoch_ffi_available,
     cpp_trajectory_ffi_available,
     cpp_triple_cartesian_batch_ffi_available,
@@ -172,6 +175,8 @@ __all__ = [
     "binary_inverse_ray_linear",
     "binary_inverse_ray_polar",
     "binary_inverse_ray_polar_ffi",
+    "binary_algebraic_boundary_polar_ffi",
+    "AlgebraicBoundaryEpochResult",
     "binary_inverse_ray_uniform",
     "combine_limb_darkening_moments",
     "cpp_binary_image_roots_ffi_available",
@@ -183,6 +188,7 @@ __all__ = [
     "cpp_macro_tile_discovery_ffi_available",
     "cpp_hexadecapole_batch_ffi_available",
     "cpp_polar_epoch_ffi_available",
+    "cpp_algebraic_boundary_epoch_ffi_available",
     "cpp_trajectory_ffi_available",
     "cpp_triple_cartesian_batch_ffi_available",
     "cpp_triple_cartesian_epoch_ffi_available",

@@ -58,6 +58,12 @@ _FFI_TRIPLE_POLAR_BATCH_TARGET = "lcbinint_jax_triple_polar_batch_f64_v1"
 _FFI_TRIPLE_POLAR_BATCH_JACOBIAN_TARGET = (
     "lcbinint_jax_triple_polar_batch_jacobian_f64_v1"
 )
+_FFI_ALGEBRAIC_BOUNDARY_EPOCH_TARGET = (
+    "lcbinint_algebraic_boundary_autodiff_f64_v1"
+)
+_FFI_ALGEBRAIC_BOUNDARY_EPOCH_JACOBIAN_TARGET = (
+    "lcbinint_algebraic_boundary_autodiff_jacobian_f64_v1"
+)
 _FFI_TRAJECTORY_TARGET = "lcbinint_jax_trajectory_f64_v1"
 _FFI_TRAJECTORY_JACOBIAN_TARGET = "lcbinint_jax_trajectory_jacobian_f64_v1"
 _MOMENT_COUNTS = {
@@ -98,6 +104,12 @@ class _FfiCartesianEpochResult(NamedTuple):
     tile_count: jax.Array
     overflow: jax.Array
     root_failure: jax.Array
+
+
+class AlgebraicBoundaryEpochResult(NamedTuple):
+    magnification: jax.Array
+    grad_error: jax.Array
+    grad_reliable: jax.Array
 
 
 class _FfiHexadecapoleResult(NamedTuple):
@@ -1358,6 +1370,145 @@ def _polar_epoch_jvp(*arguments):
         root_failure=jnp.zeros_like(primal.root_failure, dtype=jax.dtypes.float0),
     )
     return primal, tangent
+
+
+def cpp_algebraic_boundary_epoch_ffi_available():
+    """Return whether the experimental algebraic-boundary epoch FFI is built."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        return hasattr(
+            native._jax_ir, "algebraic_boundary_epoch_forward_ffi"
+        ) and hasattr(native._jax_ir, "algebraic_boundary_epoch_jacobian_ffi")
+    except (AttributeError, RuntimeError):
+        return False
+
+
+@lru_cache(maxsize=1)
+def _register_algebraic_boundary_epoch_ffi():
+    native = _native_module()
+    try:
+        forward = native._jax_ir.algebraic_boundary_epoch_forward_ffi()
+        jacobian = native._jax_ir.algebraic_boundary_epoch_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the algebraic-boundary epoch FFI; "
+            "rebuild with LCBININT_ENABLE_JAX_FFI=ON"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_ALGEBRAIC_BOUNDARY_EPOCH_TARGET, forward, platform="cpu"
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_ALGEBRAIC_BOUNDARY_EPOCH_JACOBIAN_TARGET, jacobian, platform="cpu"
+    )
+
+
+def _algebraic_boundary_epoch_call(
+    target, grad_tol, relative_tolerance, scalars, include_jacobian
+):
+    outputs = (
+        jax.ShapeDtypeStruct((), jnp.float64),
+        jax.ShapeDtypeStruct((), jnp.float64),
+        jax.ShapeDtypeStruct((), jnp.bool_),
+    )
+    if include_jacobian:
+        outputs += (jax.ShapeDtypeStruct((5,), jnp.float64),)
+    return jax.ffi.ffi_call(target, outputs, vmap_method="sequential")(
+        *scalars,
+        grad_tol=np.float64(grad_tol),
+        relative_tolerance=np.float64(relative_tolerance),
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=(0, 1))
+def _algebraic_boundary_epoch_transformable(
+    grad_tol,
+    relative_tolerance,
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+):
+    outputs = _algebraic_boundary_epoch_call(
+        _FFI_ALGEBRAIC_BOUNDARY_EPOCH_TARGET,
+        grad_tol,
+        relative_tolerance,
+        (source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d),
+        False,
+    )
+    return AlgebraicBoundaryEpochResult(*outputs)
+
+
+@_algebraic_boundary_epoch_transformable.defjvp
+def _algebraic_boundary_epoch_jvp(grad_tol, relative_tolerance, primals, tangents):
+    reject_higher_order_ad(primals)
+    outputs = _algebraic_boundary_epoch_call(
+        _FFI_ALGEBRAIC_BOUNDARY_EPOCH_JACOBIAN_TARGET,
+        grad_tol,
+        relative_tolerance,
+        tuple(primals),
+        True,
+    )
+    primal = AlgebraicBoundaryEpochResult(*outputs[:3])
+    # Jacobian row order: [source_x, source_y, separation, mass_ratio,
+    # source_radius]; limb tangents do not propagate through this path.
+    source_x, source_y, separation, mass_ratio, source_radius, _, _ = tangents
+    parameter_tangent = jnp.stack(
+        [source_x, source_y, separation, mass_ratio, source_radius]
+    )
+    tangent = AlgebraicBoundaryEpochResult(
+        magnification=jnp.vdot(outputs[3], parameter_tangent),
+        grad_error=jnp.zeros_like(primal.grad_error),
+        grad_reliable=jnp.zeros_like(primal.grad_reliable, dtype=jax.dtypes.float0),
+    )
+    return primal, tangent
+
+
+def binary_algebraic_boundary_polar_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    grad_tol=-1.0,
+    relative_tolerance=0.0,
+):
+    """Evaluate one differentiable experimental algebraic-boundary epoch in C++.
+
+    Returns an ``AlgebraicBoundaryEpochResult``. The magnification carries a
+    ``jax.custom_jvp`` whose tangent is the forward-mode analytic Jacobian row
+    w.r.t. ``[source_x, source_y, separation, mass_ratio, source_radius]``.
+    ``grad_reliable`` is ``False`` (and the Jacobian NaN) whenever the driver's
+    measure-zero gates or two-form estimator trip.
+    """
+
+    require_x64()
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (
+            source_x,
+            source_y,
+            separation,
+            mass_ratio,
+            source_radius,
+            limb_c,
+            limb_d,
+        )
+    )
+    if any(value.ndim != 0 for value in scalars):
+        raise ValueError("algebraic-boundary epoch parameters must be scalars")
+    _register_algebraic_boundary_epoch_ffi()
+    return _algebraic_boundary_epoch_transformable(
+        float(grad_tol), float(relative_tolerance), *scalars
+    )
 
 
 def binary_inverse_ray_polar_ffi(

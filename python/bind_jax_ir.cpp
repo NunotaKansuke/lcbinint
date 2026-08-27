@@ -5464,6 +5464,144 @@ XLA_FFI_DEFINE_HANDLER(
 
 #undef LCBININT_POLAR_FFI_BINDING
 
+// --- Experimental algebraic-boundary polar finite-source kernel (binary) ------
+//
+// Per-epoch scalar FFI over the isolated experimental algebraic-boundary path
+// (FiniteSourceMagnifier::experimental_algebraic_boundary_binary_*). The forward
+// handler returns the primal magnification; the Jacobian handler adds the
+// forward-mode analytic d(mag)/d[source_x, source_y, separation, mass_ratio,
+// source_radius] row. `reliable` is false (and the Jacobian row NaN) whenever
+// the driver's measure-zero gates or the two-form estimator trip.
+
+constexpr std::size_t algebraic_boundary_parameter_count = 5;
+
+namespace {
+
+lcbinint::magnification::AlgebraicBoundarySettings algebraic_boundary_settings_from(
+    double relative_tolerance)
+{
+    lcbinint::magnification::AlgebraicBoundarySettings settings;
+    if (relative_tolerance > 0.0) {
+        settings.relative_tolerance = relative_tolerance;
+    }
+    return settings;
+}
+
+}  // namespace
+
+#define LCBININT_ALGEBRAIC_BOUNDARY_FFI_BINDING \
+    ffi::Ffi::Bind() \
+        .Attr<double>("grad_tol") \
+        .Attr<double>("relative_tolerance") \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR0<ffi::PRED>>()
+
+ffi::Error algebraic_boundary_epoch_forward_ffi_impl(
+    double grad_tol,
+    double relative_tolerance,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR0<ffi::F64> magnification,
+    ffi::ResultBufferR0<ffi::F64> grad_error,
+    ffi::ResultBufferR0<ffi::PRED> reliable)
+{
+    lcbinint::magnification::FiniteSourceSettings fs_settings;
+    fs_settings.limb_darkening_c = *limb_c.typed_data();
+    fs_settings.limb_darkening_d = *limb_d.typed_data();
+    const lcbinint::magnification::FiniteSourceMagnifier magnifier(fs_settings);
+    const auto algebraic_settings =
+        algebraic_boundary_settings_from(relative_tolerance);
+    const auto result = magnifier.experimental_algebraic_boundary_binary_mag(
+        *separation.typed_data(), *mass_ratio.typed_data(),
+        {*source_x.typed_data(), *source_y.typed_data()},
+        *source_radius.typed_data(), algebraic_settings);
+    *magnification->typed_data() =
+        result.success ? result.magnification
+                       : std::numeric_limits<double>::quiet_NaN();
+    *grad_error->typed_data() = 0.0;
+    *reliable->typed_data() = result.success;
+    (void)grad_tol;
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    algebraic_boundary_epoch_forward_ffi_handler,
+    algebraic_boundary_epoch_forward_ffi_impl,
+    LCBININT_ALGEBRAIC_BOUNDARY_FFI_BINDING);
+
+ffi::Error algebraic_boundary_epoch_jacobian_ffi_impl(
+    double grad_tol,
+    double relative_tolerance,
+    ffi::BufferR0<ffi::F64> source_x,
+    ffi::BufferR0<ffi::F64> source_y,
+    ffi::BufferR0<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR0<ffi::F64> magnification,
+    ffi::ResultBufferR0<ffi::F64> grad_error,
+    ffi::ResultBufferR0<ffi::PRED> reliable,
+    ffi::ResultBufferR1<ffi::F64> jacobian)
+{
+    if (jacobian->dimensions()[0] != algebraic_boundary_parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "algebraic-boundary Jacobian expects a length-5 row");
+    }
+    lcbinint::magnification::FiniteSourceSettings fs_settings;
+    fs_settings.limb_darkening_c = *limb_c.typed_data();
+    fs_settings.limb_darkening_d = *limb_d.typed_data();
+    const lcbinint::magnification::FiniteSourceMagnifier magnifier(fs_settings);
+    const auto algebraic_settings =
+        algebraic_boundary_settings_from(relative_tolerance);
+    const auto result =
+        magnifier.experimental_algebraic_boundary_binary_jacobian(
+            *separation.typed_data(), *mass_ratio.typed_data(),
+            {*source_x.typed_data(), *source_y.typed_data()},
+            *source_radius.typed_data(), algebraic_settings, grad_tol);
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    // Driver Jacobian order: [source_x, source_y, rho, q, separation].
+    // FFI row order: [source_x, source_y, separation, mass_ratio, source_radius].
+    const bool reliable_row = result.success && result.grad_reliable;
+    *magnification->typed_data() = result.success ? result.magnification : nan;
+    *grad_error->typed_data() = result.grad_error;
+    *reliable->typed_data() = reliable_row;
+    double* row = jacobian->typed_data();
+    if (reliable_row) {
+        row[0] = result.jacobian[0];
+        row[1] = result.jacobian[1];
+        row[2] = result.jacobian[4];
+        row[3] = result.jacobian[3];
+        row[4] = result.jacobian[2];
+    } else {
+        for (std::size_t i = 0; i < algebraic_boundary_parameter_count; ++i) {
+            row[i] = nan;
+        }
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    algebraic_boundary_epoch_jacobian_ffi_handler,
+    algebraic_boundary_epoch_jacobian_ffi_impl,
+    LCBININT_ALGEBRAIC_BOUNDARY_FFI_BINDING
+        .Ret<ffi::BufferR1<ffi::F64>>());
+
+#undef LCBININT_ALGEBRAIC_BOUNDARY_FFI_BINDING
+
 ffi::Error validate_triple_polar_batch(
     std::int64_t resolution,
     std::int64_t angular_bins,
@@ -7227,6 +7365,18 @@ py::capsule polar_epoch_jacobian_ffi_capsule()
         reinterpret_cast<void*>(polar_epoch_jacobian_ffi_handler));
 }
 
+py::capsule algebraic_boundary_epoch_forward_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(algebraic_boundary_epoch_forward_ffi_handler));
+}
+
+py::capsule algebraic_boundary_epoch_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(algebraic_boundary_epoch_jacobian_ffi_handler));
+}
+
 py::capsule triple_polar_batch_forward_ffi_capsule()
 {
     return py::capsule(
@@ -7379,6 +7529,14 @@ void register_jax_ir_submodule(py::module_& parent)
         "polar_epoch_jacobian_ffi",
         &polar_epoch_jacobian_ffi_capsule,
         "Return the fused polar epoch value/Jacobian FFI capsule.");
+    module.def(
+        "algebraic_boundary_epoch_forward_ffi",
+        &algebraic_boundary_epoch_forward_ffi_capsule,
+        "Return the experimental algebraic-boundary epoch FFI capsule.");
+    module.def(
+        "algebraic_boundary_epoch_jacobian_ffi",
+        &algebraic_boundary_epoch_jacobian_ffi_capsule,
+        "Return the experimental algebraic-boundary epoch value/Jacobian FFI capsule.");
     module.def(
         "triple_polar_batch_forward_ffi",
         &triple_polar_batch_forward_ffi_capsule,
