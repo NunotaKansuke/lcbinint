@@ -395,4 +395,20 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
     const AlgebraicBoundarySettings& settings = {},
     double grad_tol = -1.0);
 
+// Analytic Jacobian of the shared point-source / hexadecapole approximation.
+// Used when binary_mag()'s shared routing resolves the epoch without a deep
+// inverse-ray solve: the derivative is a ForwardJet<5> pass over the same
+// 1- or 13-point stencil the router evaluated, so it costs ~1% of the deep
+// driver.  `authoritative_magnification` is the value the router returned and
+// is copied through verbatim; only the derivative row is computed here.
+// `use_hexadecapole == false` selects the bare point-source stencil.
+// params: [source_x, source_y, rho, q_raw, separation_raw].
+AlgebraicBoundaryJacobian experimental_algebraic_boundary_multipole_jacobian(
+    const std::array<double, 5>& params,
+    const FrozenLensBranch& branch,
+    double limb_darkening_c,
+    double limb_darkening_d,
+    bool use_hexadecapole,
+    double authoritative_magnification);
+
 }  // namespace lcbinint::magnification::autodiff

@@ -232,6 +232,72 @@ int main()
         }
     }
 
+    // ---- 5. shared-routing multipole Jacobian vs central FD --------------
+    // Caustic-clear small-source geometries where binary_mag()'s shared
+    // routing resolves the epoch with the point-source / hexadecapole
+    // approximation; the Jacobian must then come from the analytic multipole
+    // stencil (experimental_algebraic_boundary_multipole_jacobian), not the
+    // deep ForwardJet solve.
+    {
+        namespace mg = lcbinint::magnification;
+        struct Case {
+            double sep, q, x, y, rho, c, d;
+            const char* name;
+        };
+        const Case cases[] = {
+            {1.60, 0.30, 0.95, 0.40, 0.01, 0.0, 0.0, "clear_wide uniform"},
+            {1.60, 0.30, 0.95, 0.40, 0.01, 0.5, 0.0, "clear_wide linear-LD"},
+            {1.00, 1.00, 0.015, 0.015, 0.01, 0.5, 0.0, "resonant_equal linear-LD"},
+            {1.00, 0.20, 0.095, 0.040, 0.02, 0.5, 0.0, "caustic_crossing linear-LD"},
+        };
+        for (const auto& cs : cases) {
+            mg::FiniteSourceSettings st;
+            st.limb_darkening_c = cs.c;
+            st.limb_darkening_d = cs.d;
+            st.finite_source_reltol = 1e-3;
+            mg::FiniteSourceMagnifier magnifier(st);
+            const auto jac =
+                magnifier.experimental_algebraic_boundary_binary_jacobian(
+                    cs.sep, cs.q, {cs.x, cs.y}, cs.rho);
+            if (!jac.success || !jac.grad_reliable) {
+                std::printf("FAIL multipole jacobian(%s) unusable (success=%d "
+                            "reliable=%d)\n",
+                            cs.name, jac.success, jac.grad_reliable);
+                ++failures;
+                continue;
+            }
+            // A fresh magnifier per evaluation: the 1-entry result cache
+            // aliases near-identical consecutive calls and would collapse the
+            // central difference.
+            auto mag_at = [&](double sx, double sy, double rr, double qq,
+                              double ss) {
+                mg::FiniteSourceMagnifier fresh(st);
+                return fresh
+                    .experimental_algebraic_boundary_binary_mag(
+                        ss, qq, {sx, sy}, rr)
+                    .magnification;
+            };
+            const double base[5] = {cs.x, cs.y, cs.rho, cs.q, cs.sep};
+            const double step[5] = {1e-5, 1e-5, 1e-5, 1e-5, 1e-5};
+            for (int p = 0; p < 5; ++p) {
+                double bp[5], bm[5];
+                for (int k = 0; k < 5; ++k) { bp[k] = base[k]; bm[k] = base[k]; }
+                bp[p] += step[p];
+                bm[p] -= step[p];
+                const double fd =
+                    (mag_at(bp[0], bp[1], bp[2], bp[3], bp[4]) -
+                     mag_at(bm[0], bm[1], bm[2], bm[3], bm[4])) /
+                    (2.0 * step[p]);
+                char what[80];
+                std::snprintf(what, sizeof(what), "d(mag)/dp[%d] %s", p,
+                              cs.name);
+                check(std::abs(jac.jacobian[p] - fd) <=
+                          2e-4 * (1.0 + std::abs(fd)) + 1e-5,
+                      what, jac.jacobian[p], fd, 2e-4);
+            }
+        }
+    }
+
     if (failures == 0) {
         std::printf("\nall autodiff-core checks passed\n");
         return 0;

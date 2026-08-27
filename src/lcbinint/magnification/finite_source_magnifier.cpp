@@ -6143,6 +6143,48 @@ FiniteSourceMagnifier::experimental_algebraic_boundary_binary_jacobian(
     double grad_tol) const
 {
     const PointSourceMagnifier point_magnifier;
+
+    autodiff::FrozenLensBranch branch;
+    branch.separation_sign = separation < 0.0 ? -1.0 : 1.0;
+    branch.q_below_one = std::abs(mass_ratio) < 1.0;
+    const std::array<double, 5> params{
+        source.x, source.y, source_radius,
+        std::abs(mass_ratio), std::abs(separation)};
+
+    // Shared routing preflight -- identical to the value path
+    // (experimental_algebraic_boundary_binary_mag): run binary_mag()'s
+    // point-source / hexadecapole / grazing router through the persistent
+    // algebraic_router_ (its caustic cache amortises across epochs at fixed
+    // s,q).  When the router resolves the epoch with the cheap point-source or
+    // hexadecapole approximation, differentiate that same stencil analytically
+    // instead of paying for the ForwardJet<5> deep solve.
+    const double want_reltol = algebraic_settings.relative_tolerance > 0.0
+        ? algebraic_settings.relative_tolerance
+        : settings_.finite_source_reltol;
+    if (!algebraic_router_ || algebraic_router_reltol_ != want_reltol) {
+        FiniteSourceSettings routed = settings_;
+        routed.finite_source_tol = 0.0;
+        routed.finite_source_reltol = want_reltol;
+        if (routed.finite_mode <= 0) { routed.finite_mode = 4; }
+        algebraic_router_ = std::make_shared<FiniteSourceMagnifier>(routed);
+        algebraic_router_reltol_ = want_reltol;
+    }
+    const double point_mag =
+        point_magnifier.binary_mag0(separation, mass_ratio, source).magnification;
+    const auto routed = algebraic_router_->binary_mag(
+        separation, mass_ratio, source, source_radius, point_mag,
+        /*center_image_seeds=*/nullptr,
+        /*point_source_magnification_is_exact=*/true, &point_magnifier,
+        /*algebraic_backend=*/nullptr, /*algebraic_out=*/nullptr,
+        /*multipole_only_probe=*/true);
+    if (routed.decision.method == FiniteSourceMethod::point_source ||
+        routed.decision.method == FiniteSourceMethod::hexadecapole) {
+        return autodiff::experimental_algebraic_boundary_multipole_jacobian(
+            params, branch, settings_.limb_darkening_c, settings_.limb_darkening_d,
+            routed.decision.method == FiniteSourceMethod::hexadecapole,
+            routed.magnification);
+    }
+
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     bool support_proven = true;
     auto seeds = augmented_image_seeds(
@@ -6154,12 +6196,6 @@ FiniteSourceMagnifier::experimental_algebraic_boundary_binary_jacobian(
             separation, mass_ratio, source, source_radius, seeds);
     }
 
-    autodiff::FrozenLensBranch branch;
-    branch.separation_sign = separation < 0.0 ? -1.0 : 1.0;
-    branch.q_below_one = std::abs(mass_ratio) < 1.0;
-    const std::array<double, 5> params{
-        source.x, source.y, source_radius,
-        std::abs(mass_ratio), std::abs(separation)};
     return autodiff::experimental_algebraic_boundary_jacobian(
         params, branch, settings_.limb_darkening_c, settings_.limb_darkening_d,
         seeds, algebraic_settings, grad_tol);
@@ -6657,7 +6693,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     bool point_source_magnification_is_exact,
     const PointSourceMagnifier* point_magnifier_hint,
     const AlgebraicBoundarySettings* algebraic_backend,
-    AlgebraicBoundaryResult* algebraic_out) const
+    AlgebraicBoundaryResult* algebraic_out,
+    bool multipole_only_probe) const
 {
     if (algebraic_out != nullptr) {
         *algebraic_out = AlgebraicBoundaryResult{};
@@ -6981,6 +7018,23 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 true});
         }
         rejected_hex_magnification = hex.magnification;
+    }
+
+    // Analytic-Jacobian probe: the shared point-source / hexadecapole routing
+    // above did not resolve the epoch.  Everything past this point is the
+    // inverse-ray-avoidance machinery (grazing chord quadrature, fixed
+    // inverse rays) that the algebraic-boundary backend replaces wholesale on
+    // the gradient path, so hand control back rather than pay for it here.
+    if (multipole_only_probe) {
+        FiniteSourceDecision decision {
+            FiniteSourceMethod::inverse_ray_polar, 0,
+            "multipole-only probe: deferred to algebraic-boundary deep solve",
+        };
+        return {
+            std::isfinite(rejected_hex_magnification)
+                ? rejected_hex_magnification
+                : point_source_magnification,
+            0, decision, std::numeric_limits<double>::infinity(), 0, false};
     }
 
     // Grazing-caustic regime: the caustic passes within a few source radii

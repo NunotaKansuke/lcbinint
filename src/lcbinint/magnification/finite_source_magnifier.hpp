@@ -158,7 +158,15 @@ public:
         // receives the full AlgebraicBoundaryResult (value, error, diagnostics).
         // Both default to nullptr, leaving every production call byte-identical.
         const AlgebraicBoundarySettings* algebraic_backend = nullptr,
-        AlgebraicBoundaryResult* algebraic_out = nullptr) const;
+        AlgebraicBoundaryResult* algebraic_out = nullptr,
+        // Additive probe for the algebraic-boundary analytic Jacobian
+        // (feature/algebraic-boundary-autodiff).  When true the shared
+        // point-source / hexadecapole routing runs unchanged, but the router
+        // returns immediately once those cheap approximations are exhausted
+        // instead of entering the grazing chord quadrature / inverse-ray
+        // solve (the "inverse-ray algorithm" the algebraic backend replaces
+        // wholesale on the gradient path).  Production calls leave it false.
+        bool multipole_only_probe = false) const;
     FiniteSourceResult triple_mag(
         const model::TripleLensGeometry& geometry,
         SourcePosition source,
