@@ -6050,6 +6050,44 @@ AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_b
 {
     const PointSourceMagnifier point_magnifier;
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+
+    // VBM-style boundary multipole short-circuit.  When the source is provably
+    // clear of every caustic feature the hexadecapole series (with the linear
+    // and square-root limb-darkening corrections) already resolves the
+    // finite-source magnification to the requested relative tolerance, so the
+    // band discovery and the radial quadrature can be skipped outright.  This
+    // mirrors the native routing test that binary_mag() performs before it
+    // commits to a contour/inverse-ray solve.
+    if (algebraic_settings.relative_tolerance > 0.0) {
+        FiniteSourceSettings hex_settings = settings_;
+        hex_settings.finite_source_tol = 0.0;
+        hex_settings.finite_source_reltol = algebraic_settings.relative_tolerance;
+        const double point_mag =
+            point_magnifier.binary_mag0(separation, mass_ratio, source).magnification;
+        const auto safety = evaluate_point_source_safety(
+            point_magnifier, separation, mass_ratio, source, source_radius,
+            point_mag, hex_settings);
+        if (safety.point_source_safe() && std::isfinite(point_mag)) {
+            const auto hex = hexadecapole_binary(
+                point_magnifier, separation, mass_ratio, source, source_radius,
+                hex_settings, &point_mag);
+            const double budget =
+                finite_source_error_budget(hex_settings, hex.magnification);
+            const double hex_error =
+                hex.relative_error * std::max(std::abs(hex.magnification), 1.0);
+            constexpr double kMultipoleSafety = 10.0;
+            if (std::isfinite(hex.magnification) && hex.magnification > 0.0 &&
+                kMultipoleSafety * hex_error <= budget) {
+                AlgebraicBoundaryResult shortcut;
+                shortcut.magnification = hex.magnification;
+                shortcut.error_estimate = hex.relative_error;
+                shortcut.success = true;
+                shortcut.diagnostics.multipole_shortcut_count = 1;
+                return shortcut;
+            }
+        }
+    }
+
     bool support_proven = true;
     auto seeds = augmented_image_seeds(
         point_magnifier, mapper, separation, mass_ratio, source, source_radius,

@@ -35,6 +35,9 @@ struct AlgebraicBoundaryDiagnostics {
     int real_sextic_fallback_count = 0;
     int tangency_solve_count = 0;
     int tangency_fallback_count = 0;
+    // Set when the VBM-style multipole test resolved the epoch and the band
+    // discovery / radial quadrature were skipped entirely.
+    int multipole_shortcut_count = 0;
 };
 
 struct AlgebraicBoundaryResult {
