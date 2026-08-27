@@ -131,6 +131,11 @@ add_executable(benchmark_algebraic_boundary EXCLUDE_FROM_ALL
 target_link_libraries(benchmark_algebraic_boundary PRIVATE
     lcbinint_magnification lcbinint_lightcurve)
 
+add_executable(benchmark_algebraic_boundary_jacobian EXCLUDE_FROM_ALL
+    tests/diagnostics/benchmark_algebraic_boundary_jacobian.cpp)
+target_link_libraries(benchmark_algebraic_boundary_jacobian PRIVATE
+    lcbinint_magnification lcbinint_lightcurve)
+
 add_executable(benchmark_algebraic_batch EXCLUDE_FROM_ALL
     tests/diagnostics/benchmark_algebraic_batch.cpp)
 target_link_libraries(benchmark_algebraic_batch PRIVATE

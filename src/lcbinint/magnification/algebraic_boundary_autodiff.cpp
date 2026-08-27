@@ -340,6 +340,7 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
     Jet flux_g(0.0);
 
     for (const auto& band : bands.bands) {
+        if (!reliable) break;  // an unreliable row is discarded; do not refine it.
         const double R_lo = band.first;
         const double R_hi = band.second;
         const Jet Rlo_j = endpoint_derivative(
@@ -352,7 +353,8 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
         bool have_prev = false;
         MomentsJet<5> acc_k;
         MomentsJet<5> acc_g;
-        for (int nsub = 1; nsub <= 256; nsub *= 2) {
+        for (int nsub = 1; nsub <= 64; nsub *= 2) {
+            if (!reliable) break;
             MomentsJet<5> tk;
             MomentsJet<5> tg;
             for (int s = 0; s < nsub; ++s) {
