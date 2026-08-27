@@ -114,6 +114,12 @@ if(LCBININT_BUILD_TESTS)
     target_link_libraries(test_algebraic_boundary PRIVATE
         lcbinint_magnification lcbinint_lightcurve)
     add_test(NAME unit_algebraic_boundary COMMAND test_algebraic_boundary)
+    add_executable(test_algebraic_boundary_autodiff
+        tests/unit/test_algebraic_boundary_autodiff.cpp)
+    target_link_libraries(test_algebraic_boundary_autodiff PRIVATE
+        lcbinint_magnification lcbinint_lightcurve)
+    add_test(NAME unit_algebraic_boundary_autodiff
+        COMMAND test_algebraic_boundary_autodiff)
 endif()
 
 add_executable(benchmark_point_hex EXCLUDE_FROM_ALL tests/diagnostics/benchmark_point_hex.cpp)
