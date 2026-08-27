@@ -141,6 +141,11 @@ add_executable(benchmark_algebraic_batch EXCLUDE_FROM_ALL
 target_link_libraries(benchmark_algebraic_batch PRIVATE
     lcbinint_magnification lcbinint_lightcurve)
 
+add_executable(benchmark_ld_compare EXCLUDE_FROM_ALL
+    tests/diagnostics/benchmark_ld_compare.cpp)
+target_link_libraries(benchmark_ld_compare PRIVATE
+    lcbinint_magnification lcbinint_lightcurve)
+
 if(LCBININT_BUILD_PYTHON)
     find_package(Python3 COMPONENTS Interpreter Development.Module REQUIRED)
     execute_process(

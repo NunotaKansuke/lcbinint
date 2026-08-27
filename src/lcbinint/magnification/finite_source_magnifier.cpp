@@ -6048,46 +6048,53 @@ AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_b
     double source_radius,
     const AlgebraicBoundarySettings& algebraic_settings) const
 {
-    const PointSourceMagnifier point_magnifier;
-    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
-
-    // VBM-style boundary multipole short-circuit.  When the source is provably
-    // clear of every caustic feature the hexadecapole series (with the linear
-    // and square-root limb-darkening corrections) already resolves the
-    // finite-source magnification to the requested relative tolerance, so the
-    // band discovery and the radial quadrature can be skipped outright.  This
-    // mirrors the native routing test that binary_mag() performs before it
-    // commits to a contour/inverse-ray solve.
-    if (algebraic_settings.relative_tolerance > 0.0) {
-        FiniteSourceSettings hex_settings = settings_;
-        hex_settings.finite_source_tol = 0.0;
-        hex_settings.finite_source_reltol = algebraic_settings.relative_tolerance;
-        const double point_mag =
-            point_magnifier.binary_mag0(separation, mass_ratio, source).magnification;
-        const auto safety = evaluate_point_source_safety(
-            point_magnifier, separation, mass_ratio, source, source_radius,
-            point_mag, hex_settings);
-        if (safety.point_source_safe() && std::isfinite(point_mag)) {
-            const auto hex = hexadecapole_binary(
-                point_magnifier, separation, mass_ratio, source, source_radius,
-                hex_settings, &point_mag);
-            const double budget =
-                finite_source_error_budget(hex_settings, hex.magnification);
-            const double hex_error =
-                hex.relative_error * std::max(std::abs(hex.magnification), 1.0);
-            constexpr double kMultipoleSafety = 10.0;
-            if (std::isfinite(hex.magnification) && hex.magnification > 0.0 &&
-                kMultipoleSafety * hex_error <= budget) {
-                AlgebraicBoundaryResult shortcut;
-                shortcut.magnification = hex.magnification;
-                shortcut.error_estimate = hex.relative_error;
-                shortcut.success = true;
-                shortcut.diagnostics.multipole_shortcut_count = 1;
-                return shortcut;
-            }
+    // Route through the shared binary_mag() decision funnel so the point-source
+    // preflight, the hexadecapole ("boundary 2nd-order") self-consistency test
+    // and the grazing/tangent-caustic quadrature are byte-identical to the
+    // mainstream path.  binary_mag() only diverges at the very end: instead of
+    // committing to an inverse-ray raster it hands the deep finite-source solve
+    // to the algebraic-boundary polar integral.  The single deliberate
+    // difference between the two backends is that terminal integrator.
+    const double want_reltol = algebraic_settings.relative_tolerance > 0.0
+        ? algebraic_settings.relative_tolerance
+        : settings_.finite_source_reltol;
+    if (!algebraic_router_ || algebraic_router_reltol_ != want_reltol) {
+        FiniteSourceSettings routed = settings_;
+        routed.finite_source_tol = 0.0;
+        routed.finite_source_reltol = want_reltol;
+        if (routed.finite_mode <= 0) {
+            routed.finite_mode = 4;
         }
+        algebraic_router_ = std::make_shared<FiniteSourceMagnifier>(routed);
+        algebraic_router_reltol_ = want_reltol;
     }
 
+    const PointSourceMagnifier point_magnifier;
+    const double point_mag =
+        point_magnifier.binary_mag0(separation, mass_ratio, source).magnification;
+
+    AlgebraicBoundaryResult out;
+    algebraic_router_->binary_mag(
+        separation, mass_ratio, source, source_radius, point_mag,
+        /*center_image_seeds=*/nullptr, /*point_source_magnification_is_exact=*/true,
+        &point_magnifier, &algebraic_settings, &out);
+    return out;
+}
+
+// Deep finite-source solve for the algebraic-boundary backend: build the frozen
+// image seeds exactly as the isolated experiment did and evaluate the polar
+// algebraic-boundary integral.  Called only from binary_mag() once the shared
+// routing has decided a full solve is required.
+FiniteSourceResult FiniteSourceMagnifier::algebraic_boundary_deep_solve(
+    const PointSourceMagnifier& point_magnifier,
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const AlgebraicBoundarySettings& algebraic_settings,
+    AlgebraicBoundaryResult* algebraic_out) const
+{
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     bool support_proven = true;
     auto seeds = augmented_image_seeds(
         point_magnifier, mapper, separation, mass_ratio, source, source_radius,
@@ -6103,7 +6110,27 @@ AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_b
         settings_.limb_darkening_c, settings_.limb_darkening_d,
         seeds, algebraic_settings);
     result.diagnostics.recovered_seed_support_count = support_proven ? 0 : 1;
-    return result;
+
+    const double abs_error =
+        result.error_estimate * std::max(std::abs(result.magnification), 1.0);
+    if (algebraic_out != nullptr) {
+        *algebraic_out = result;
+    }
+    FiniteSourceDecision decision {
+        FiniteSourceMethod::inverse_ray_polar,
+        0,
+        "algebraic-boundary polar integral",
+    };
+    return {
+        result.magnification,
+        0,
+        decision,
+        abs_error,
+        0,
+        result.success &&
+            finite_source_error_within_budget(
+                settings_, result.magnification, abs_error),
+    };
 }
 
 autodiff::AlgebraicBoundaryJacobian
@@ -6628,18 +6655,31 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     double point_source_magnification,
     const std::vector<SourcePosition>* center_image_seeds,
     bool point_source_magnification_is_exact,
-    const PointSourceMagnifier* point_magnifier_hint) const
+    const PointSourceMagnifier* point_magnifier_hint,
+    const AlgebraicBoundarySettings* algebraic_backend,
+    AlgebraicBoundaryResult* algebraic_out) const
 {
+    if (algebraic_out != nullptr) {
+        *algebraic_out = AlgebraicBoundaryResult{};
+    }
     if (result_cache_valid_ && result_cache_separation_ == separation &&
         result_cache_mass_ratio_ == mass_ratio && result_cache_source_x_ == source.x &&
         result_cache_source_y_ == source.y && result_cache_source_radius_ == source_radius &&
-        result_cache_point_magnification_ == point_source_magnification) {
+        result_cache_point_magnification_ == point_source_magnification &&
+        algebraic_backend == nullptr) {
         return result_cache_;
     }
 
     PointSourceSafetyEvaluation point_safety;
     bool point_safety_available = false;
     double caustic_distance_out = std::numeric_limits<double>::infinity();
+    bool algebraic_out_filled = false;
+    const auto mirror_algebraic_out = [&](const FiniteSourceResult& result) {
+        if (algebraic_out == nullptr || algebraic_out_filled) return;
+        algebraic_out->magnification = result.magnification;
+        algebraic_out->error_estimate = result.error_estimate;
+        algebraic_out->success = std::isfinite(result.magnification);
+    };
     const auto cache_and_return = [&](FiniteSourceResult result) {
         if (has_explicit_finite_source_tolerance(settings_) &&
             !finite_source_error_within_budget(
@@ -6660,6 +6700,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 (point_safety.planetary_safe ? 4 : 0);
         }
         result.caustic_distance = caustic_distance_out;
+        mirror_algebraic_out(result);
         result_cache_valid_ = true;
         result_cache_separation_ = separation;
         result_cache_mass_ratio_ = mass_ratio;
@@ -6928,6 +6969,9 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 kHexadecapoleEvaluations,
                 "hexadecapole self-consistency check passed",
             };
+            if (algebraic_out != nullptr) {
+                algebraic_out->diagnostics.multipole_shortcut_count = 1;
+            }
             return cache_and_return({
                 hex.magnification,
                 0,
@@ -7072,6 +7116,18 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         }
         return result;
     };
+
+    // Experimental algebraic-boundary backend: the shared routing above has
+    // decided a full finite-source solve is required.  Swap the inverse-ray
+    // raster for the polar algebraic-boundary integral; everything upstream
+    // (point-source, hexadecapole, grazing quadrature) already ran identically.
+    if (algebraic_backend != nullptr) {
+        auto result = apply_tangent_band_floor(algebraic_boundary_deep_solve(
+            point_magnifier, separation, mass_ratio, source, source_radius,
+            *algebraic_backend, algebraic_out));
+        algebraic_out_filled = true;
+        return cache_and_return(std::move(result));
+    }
 
     const bool auto_polar =
         settings_.finite_mode == 4 &&

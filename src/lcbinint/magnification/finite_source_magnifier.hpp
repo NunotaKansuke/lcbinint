@@ -7,6 +7,7 @@
 
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -149,7 +150,15 @@ public:
         double point_source_magnification,
         const std::vector<SourcePosition>* center_image_seeds = nullptr,
         bool point_source_magnification_is_exact = false,
-        const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
+        const PointSourceMagnifier* point_magnifier_hint = nullptr,
+        // Additive experimental backend selector (feature/algebraic-boundary-autodiff).
+        // When non-null the shared point-source / hexadecapole / grazing routing is
+        // used unchanged, but the terminal inverse-ray solve is replaced by the
+        // algebraic-boundary polar integral.  `algebraic_out`, when non-null,
+        // receives the full AlgebraicBoundaryResult (value, error, diagnostics).
+        // Both default to nullptr, leaving every production call byte-identical.
+        const AlgebraicBoundarySettings* algebraic_backend = nullptr,
+        AlgebraicBoundaryResult* algebraic_out = nullptr) const;
     FiniteSourceResult triple_mag(
         const model::TripleLensGeometry& geometry,
         SourcePosition source,
@@ -193,14 +202,26 @@ public:
         double source_radius,
         double point_source_magnification,
         const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
-    // Isolated native experiment. It is deliberately not wired into binary_mag,
-    // the public C API, JAX, or automatic routing.
+    // Experimental algebraic-boundary backend.  Reuses the shared binary_mag()
+    // routing (point-source / hexadecapole / grazing) unchanged and only swaps
+    // the terminal inverse-ray solve for the polar algebraic-boundary integral.
+    // Not wired into the public C API or automatic routing.
     AlgebraicBoundaryResult experimental_algebraic_boundary_binary_mag(
         double separation,
         double mass_ratio,
         SourcePosition source,
         double source_radius,
         const AlgebraicBoundarySettings& algebraic_settings = {}) const;
+    // Deep finite-source solve for the algebraic-boundary backend; invoked by
+    // binary_mag() when the shared routing requires a full solve.
+    FiniteSourceResult algebraic_boundary_deep_solve(
+        const PointSourceMagnifier& point_magnifier,
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        const AlgebraicBoundarySettings& algebraic_settings,
+        AlgebraicBoundaryResult* algebraic_out) const;
     // Forward-mode analytic Jacobian companion to
     // experimental_algebraic_boundary_binary_mag. Same frozen seed build; one
     // ForwardJet<5> pass for d(mag)/d(source_x, source_y, rho, q, separation).
@@ -271,6 +292,11 @@ private:
     mutable double result_cache_source_radius_ = 0.0;
     mutable double result_cache_point_magnification_ = 0.0;
     mutable FiniteSourceResult result_cache_;
+    // Persistent router for the experimental algebraic-boundary backend: reuses
+    // the shared binary_mag() routing (and its per-geometry caustic cache) across
+    // epochs.  Rebuilt only when the requested relative tolerance changes.
+    mutable std::shared_ptr<FiniteSourceMagnifier> algebraic_router_;
+    mutable double algebraic_router_reltol_ = -1.0;
     mutable bool limb_darkening_table_valid_ = false;
     mutable double limb_darkening_table_c_ = 0.0;
     mutable double limb_darkening_table_d_ = 0.0;
