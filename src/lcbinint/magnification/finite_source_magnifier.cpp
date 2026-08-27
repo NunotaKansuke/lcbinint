@@ -6068,6 +6068,38 @@ AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_b
     return result;
 }
 
+autodiff::AlgebraicBoundaryJacobian
+FiniteSourceMagnifier::experimental_algebraic_boundary_binary_jacobian(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    const AlgebraicBoundarySettings& algebraic_settings,
+    double grad_tol) const
+{
+    const PointSourceMagnifier point_magnifier;
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    bool support_proven = true;
+    auto seeds = augmented_image_seeds(
+        point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+        std::numeric_limits<double>::infinity(), nullptr,
+        &binary_caustic_branches(separation, mass_ratio), &support_proven);
+    if (!support_proven || seeds.size() < 5) {
+        augment_seeds_from_caustic_branches(
+            separation, mass_ratio, source, source_radius, seeds);
+    }
+
+    autodiff::FrozenLensBranch branch;
+    branch.separation_sign = separation < 0.0 ? -1.0 : 1.0;
+    branch.q_below_one = std::abs(mass_ratio) < 1.0;
+    const std::array<double, 5> params{
+        source.x, source.y, source_radius,
+        std::abs(mass_ratio), std::abs(separation)};
+    return autodiff::experimental_algebraic_boundary_jacobian(
+        params, branch, settings_.limb_darkening_c, settings_.limb_darkening_d,
+        seeds, algebraic_settings, grad_tol);
+}
+
 double FiniteSourceMagnifier::experimental_raster_polar_binary_mag(
     double separation,
     double mass_ratio,

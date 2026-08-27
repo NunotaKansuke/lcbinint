@@ -13,9 +13,14 @@
 //
 // See docs/design/algebraic-boundary-autodiff-20260828.md.
 
+#include "lcbinint/magnification/algebraic_boundary.hpp"
+#include "lcbinint/types.hpp"
+
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <string>
+#include <vector>
 
 namespace lcbinint::magnification::autodiff {
 
@@ -184,6 +189,8 @@ struct BinaryGeometry {
     Scalar zeta_x;  // shifted source: source_x + a*m1
     Scalar zeta_y;  // source_y
     Scalar rho;
+    Scalar src_x;   // raw source_x (map_lens folds the -a*m1 shift itself)
+    Scalar src_y;   // raw source_y
 };
 
 // params: [source_x, source_y, rho, q_raw, separation_raw]
@@ -210,7 +217,50 @@ BinaryGeometry<Scalar> make_geometry(
     g.zeta_x = source_x + a * m1;
     g.zeta_y = source_y;
     g.rho = rho;
+    g.src_x = source_x;
+    g.src_y = source_y;
     return g;
+}
+
+// Clamp-to-zero mirroring the primal `std::max(0.0, phi)`. The derivative is
+// taken to be zero once the value is non-positive (the sine map's vanishing
+// Jacobian already suppresses the contribution at a boundary node).
+inline double scalar_max0(double v) { return v > 0.0 ? v : 0.0; }
+template <std::size_t N>
+ForwardJet<N> scalar_max0(const ForwardJet<N>& a)
+{
+    return a.value > 0.0 ? a : ForwardJet<N>(0.0);
+}
+
+// Binary lens map, templated. Mirrors `map_lens` in algebraic_boundary.cpp with
+// lens {a, m1, m2} and the native -a*m1 source-frame shift folded in.
+template <typename Scalar>
+void map_lens_jet(
+    const BinaryGeometry<Scalar>& g, const Scalar& x, const Scalar& y,
+    Scalar* mx, Scalar* my)
+{
+    const Scalar& a = g.a;
+    const Scalar xa = x - a;
+    const Scalar den1 = xa * xa + y * y;
+    const Scalar den2 = x * x + y * y;
+    *mx = x - g.m1 * xa / den1 - g.m2 * x / den2 - a * g.m1;
+    *my = y - g.m1 * y / den1 - g.m2 * y / den2;
+}
+
+// phi = 1 - |lens_map(R,theta) - source|^2 / rho^2, templated.
+template <typename Scalar>
+Scalar phi_value_jet(
+    const BinaryGeometry<Scalar>& g, const Scalar& radius, const Scalar& angle)
+{
+    const Scalar x = radius * scalar_cos(angle);
+    const Scalar y = radius * scalar_sin(angle);
+    Scalar mx;
+    Scalar my;
+    map_lens_jet(g, x, y, &mx, &my);
+    const Scalar dx = mx - g.src_x;
+    const Scalar dy = my - g.src_y;
+    const Scalar rho2 = g.rho * g.rho;
+    return Scalar(1.0) - (dx * dx + dy * dy) / rho2;
 }
 
 // ---------------------------------------------------------------------------
@@ -311,5 +361,38 @@ Scalar trig_second(const BoundaryTrigForm<Scalar>& q, double theta)
     return 2.0 * (Scalar(-1.0) * q.C * c1 + q.D * s1)
         + 8.0 * (Scalar(-1.0) * q.A * c2 + q.B * s2);
 }
+
+// ---------------------------------------------------------------------------
+// Analytic Jacobian driver.
+//
+// Consumes the frozen discrete plan of the primal
+// (`experimental_algebraic_boundary_integral`) -- radial bands, per-radius
+// boundary-angle classification, real-quartic-vs-Skowron decision -- and runs
+// one forward-mode pass to produce d(mag)/d(source_x, source_y, rho, q_raw,
+// separation_raw). Any measure-zero transition (F'(theta_k) ~ 0, a singular
+// band-endpoint tangency system, or a two-form derivative disagreement over
+// `grad_tol`) marks the whole-epoch row unreliable.
+// ---------------------------------------------------------------------------
+
+struct AlgebraicBoundaryJacobian {
+    bool success = false;
+    std::string unsafe_reason;
+    double magnification = 0.0;
+    std::array<double, 5> jacobian{};  // wrt [source_x, source_y, rho, q, sep]
+    double grad_error = 0.0;           // reduced two-form estimate
+    bool grad_reliable = false;        // false => caller should NaN the row
+};
+
+// params: [source_x, source_y, rho, q_raw, separation_raw].
+// grad_tol < 0 selects the automatic budget (10 * relative_tolerance, clamped
+// to [1e-4, 1e-1]).
+AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
+    const std::array<double, 5>& params,
+    const FrozenLensBranch& branch,
+    double limb_darkening_c,
+    double limb_darkening_d,
+    const std::vector<SourcePosition>& certified_image_seeds,
+    const AlgebraicBoundarySettings& settings = {},
+    double grad_tol = -1.0);
 
 }  // namespace lcbinint::magnification::autodiff

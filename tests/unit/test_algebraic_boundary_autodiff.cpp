@@ -9,6 +9,7 @@
 
 #include "lcbinint/magnification/algebraic_boundary.hpp"
 #include "lcbinint/magnification/algebraic_boundary_autodiff.hpp"
+#include "lcbinint/magnification/finite_source_magnifier.hpp"
 
 #include <array>
 #include <cmath>
@@ -178,6 +179,57 @@ int main()
         const double fd = (ap - am) / (2.0 * h);
         check(std::abs(analytic - fd) <= 5e-5 * (1 + std::abs(fd)),
               "dtheta_k/dsource_x IFT vs FD", analytic, fd, 5e-5);
+    }
+
+    // ---- 4. full Jacobian vs central FD of the primal magnification ------
+    {
+        namespace mg = lcbinint::magnification;
+        struct Case { double c, d; const char* name; };
+        const Case cases[] = {{0.0, 0.0, "uniform"}, {0.6, 0.0, "linear-LD"}};
+        // A safely off-caustic wide-ish binary.
+        const double sep = 1.35, q = 0.28;
+        const SourcePosition src{0.22, 0.15};
+        const double rho = 0.05;
+        for (const auto& cs : cases) {
+            mg::FiniteSourceSettings st;
+            st.limb_darkening_c = cs.c;
+            st.limb_darkening_d = cs.d;
+            mg::FiniteSourceMagnifier magnifier(st);
+            const auto jac = magnifier.experimental_algebraic_boundary_binary_jacobian(
+                sep, q, src, rho);
+            if (!jac.success) {
+                std::printf("FAIL jacobian(%s) not successful: %s\n",
+                            cs.name, jac.unsafe_reason.c_str());
+                ++failures;
+                continue;
+            }
+            if (!jac.grad_reliable) {
+                std::printf("FAIL jacobian(%s) flagged unreliable (grad_error=%.3e)\n",
+                            cs.name, jac.grad_error);
+                ++failures;
+                continue;
+            }
+            auto mag_at = [&](double sx, double sy, double rr, double qq, double ss) {
+                return magnifier.experimental_algebraic_boundary_binary_mag(
+                    ss, qq, {sx, sy}, rr).magnification;
+            };
+            const double base[5] = {src.x, src.y, rho, q, sep};
+            const double step[5] = {1e-6, 1e-6, 1e-7, 1e-6, 1e-6};
+            for (int p = 0; p < 5; ++p) {
+                double bp[5], bm[5];
+                for (int k = 0; k < 5; ++k) { bp[k] = base[k]; bm[k] = base[k]; }
+                bp[p] += step[p];
+                bm[p] -= step[p];
+                const double fd =
+                    (mag_at(bp[0], bp[1], bp[2], bp[3], bp[4]) -
+                     mag_at(bm[0], bm[1], bm[2], bm[3], bm[4])) / (2.0 * step[p]);
+                char what[64];
+                std::snprintf(what, sizeof(what), "d(mag)/dp[%d] %s", p, cs.name);
+                check(std::abs(jac.jacobian[p] - fd) <=
+                          1e-4 * (1.0 + std::abs(fd)) + 1e-6,
+                      what, jac.jacobian[p], fd, 1e-4);
+            }
+        }
     }
 
     if (failures == 0) {

@@ -1769,6 +1769,23 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
     return result;
 }
 
+AlgebraicBoundaryRadialBands experimental_algebraic_boundary_radial_bands(
+    const AlgebraicBoundaryLens& lens,
+    SourcePosition source,
+    double source_radius,
+    const std::vector<SourcePosition>& certified_image_seeds,
+    const AlgebraicBoundarySettings& settings)
+{
+    AlgebraicBoundaryDiagnostics diagnostics;
+    if (certified_image_seeds.empty()) {
+        return {false, "no certified image seeds", {}};
+    }
+    const auto bands = find_radial_bands(
+        lens, source, source_radius, certified_image_seeds, settings,
+        &diagnostics);
+    return {bands.success, bands.unsafe_reason, bands.bands};
+}
+
 AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
     const AlgebraicBoundaryLens& lens,
     SourcePosition source,

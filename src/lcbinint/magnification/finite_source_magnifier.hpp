@@ -2,6 +2,7 @@
 
 #include "lcbinint/model/triple_lens_geometry.hpp"
 #include "lcbinint/magnification/algebraic_boundary.hpp"
+#include "lcbinint/magnification/algebraic_boundary_autodiff.hpp"
 #include "lcbinint/types.hpp"
 
 #include <cstddef>
@@ -200,6 +201,16 @@ public:
         SourcePosition source,
         double source_radius,
         const AlgebraicBoundarySettings& algebraic_settings = {}) const;
+    // Forward-mode analytic Jacobian companion to
+    // experimental_algebraic_boundary_binary_mag. Same frozen seed build; one
+    // ForwardJet<5> pass for d(mag)/d(source_x, source_y, rho, q, separation).
+    autodiff::AlgebraicBoundaryJacobian experimental_algebraic_boundary_binary_jacobian(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        const AlgebraicBoundarySettings& algebraic_settings = {},
+        double grad_tol = -1.0) const;
     double experimental_raster_polar_binary_mag(
         double separation,
         double mass_ratio,

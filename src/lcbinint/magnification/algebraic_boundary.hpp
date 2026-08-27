@@ -84,6 +84,23 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
     const AlgebraicBoundarySettings& settings,
     AlgebraicBoundaryDiagnostics* diagnostics = nullptr);
 
+struct AlgebraicBoundaryRadialBands {
+    bool success = false;
+    std::string unsafe_reason;
+    // Merged, sorted [R_lo, R_hi] image-radius support bands.
+    std::vector<std::pair<double, double>> bands;
+};
+
+// Additive read-only export of the primal's frozen band decomposition. Runs
+// exactly the internal `find_radial_bands` the integral uses; no effect on the
+// primal numerics. Consumed by the forward-mode Jacobian driver.
+AlgebraicBoundaryRadialBands experimental_algebraic_boundary_radial_bands(
+    const AlgebraicBoundaryLens& lens,
+    SourcePosition source,
+    double source_radius,
+    const std::vector<SourcePosition>& certified_image_seeds,
+    const AlgebraicBoundarySettings& settings = {});
+
 AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
     const AlgebraicBoundaryLens& lens,
     SourcePosition source,
