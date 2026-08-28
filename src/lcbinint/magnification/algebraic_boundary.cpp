@@ -75,6 +75,26 @@ SourcePosition map_lens(
     };
 }
 
+double phi_value_at_point(
+    const AlgebraicBoundaryLens& lens,
+    SourcePosition source,
+    double source_radius,
+    double image_x,
+    double image_y,
+    AlgebraicBoundaryDiagnostics* diagnostics)
+{
+    if (diagnostics != nullptr) {
+        ++diagnostics->lens_evaluation_count;
+    }
+    const auto mapped = map_lens(lens, image_x, image_y);
+    if (!std::isfinite(mapped.x) || !std::isfinite(mapped.y)) {
+        return -std::numeric_limits<double>::infinity();
+    }
+    const double dx = mapped.x - source.x;
+    const double dy = mapped.y - source.y;
+    return 1.0 - (dx * dx + dy * dy) / (source_radius * source_radius);
+}
+
 double phi_value(
     const AlgebraicBoundaryLens& lens,
     SourcePosition source,
@@ -83,17 +103,9 @@ double phi_value(
     double angle,
     AlgebraicBoundaryDiagnostics* diagnostics)
 {
-    if (diagnostics != nullptr) {
-        ++diagnostics->lens_evaluation_count;
-    }
-    const auto mapped = map_lens(
-        lens, radius * std::cos(angle), radius * std::sin(angle));
-    if (!std::isfinite(mapped.x) || !std::isfinite(mapped.y)) {
-        return -std::numeric_limits<double>::infinity();
-    }
-    const double dx = mapped.x - source.x;
-    const double dy = mapped.y - source.y;
-    return 1.0 - (dx * dx + dy * dy) / (source_radius * source_radius);
+    return phi_value_at_point(
+        lens, source, source_radius,
+        radius * std::cos(angle), radius * std::sin(angle), diagnostics);
 }
 
 std::array<Complex, 5> algebraic_boundary_quartic_fixed(
@@ -1691,10 +1703,19 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
                     continue;
                 }
             }
-            // Projection onto the unit circle cannot change the argument.
+            // Projection onto the unit circle cannot change the argument, so
+            // the residual gate can take the root's own components directly and
+            // skip the atan2 -> sin/cos round trip.  wrap_angle(atan2()) still
+            // supplies the angle the interval bookkeeping below needs.
+            const double root_modulus =
+                std::sqrt(root.real() * root.real() + root.imag() * root.imag());
+            const double inverse_modulus =
+                root_modulus > 0.0 ? 1.0 / root_modulus : 0.0;
             const double angle = wrap_angle(std::atan2(root.imag(), root.real()));
-            const double phi = phi_value(
-                lens, source, source_radius, image_radius, angle, diagnostics);
+            const double phi = phi_value_at_point(
+                lens, source, source_radius,
+                image_radius * root.real() * inverse_modulus,
+                image_radius * root.imag() * inverse_modulus, diagnostics);
             const double residual = std::abs(phi) * source_radius;
             if (!std::isfinite(residual) || residual >
                     settings.boundary_residual_tolerance * (1.0 + source_radius)) {
