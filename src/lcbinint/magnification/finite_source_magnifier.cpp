@@ -2344,13 +2344,28 @@ CausticBranchScan scan_caustic_branches(
                 i == 0 ? branch.size() - 1 : i - 1];
             const SourcePosition p1 = branch[i];
             if (!is_phantom_segment(i)) {
-                const SourcePosition candidate = closest_point_on_segment(source, p0, p1);
-                const double distance = std::sqrt(distance_squared(candidate, source));
-                if (distance < scan.min_distance) {
-                    scan.min_distance = distance;
-                    scan.nearest = candidate;
-                    scan.nearest_segment_start = p0;
-                    scan.nearest_segment_end = p1;
+                // A segment whose axis-aligned bounding box lies entirely
+                // outside the current best-distance disk cannot hold a closer
+                // point, so skip the projection + sqrt.  min_distance only ever
+                // decreases and starts at infinity, so this never changes which
+                // segment wins nor the recorded nearest point.
+                const double reach = scan.min_distance;
+                const bool box_out = std::isfinite(reach) &&
+                    (std::min(p0.x, p1.x) - source.x > reach ||
+                     source.x - std::max(p0.x, p1.x) > reach ||
+                     std::min(p0.y, p1.y) - source.y > reach ||
+                     source.y - std::max(p0.y, p1.y) > reach);
+                if (!box_out) {
+                    const SourcePosition candidate =
+                        closest_point_on_segment(source, p0, p1);
+                    const double distance =
+                        std::sqrt(distance_squared(candidate, source));
+                    if (distance < scan.min_distance) {
+                        scan.min_distance = distance;
+                        scan.nearest = candidate;
+                        scan.nearest_segment_start = p0;
+                        scan.nearest_segment_end = p1;
+                    }
                 }
             }
             const bool inside = distance_squared(p1, source) < source_radius2;

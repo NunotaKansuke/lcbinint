@@ -105,12 +105,18 @@ DiskSupport certify_disk_support(
         if (count < 3) {
             continue;
         }
+        // Work in squared distance for the sweep: it is a monotonic transform
+        // of the radius, so the local-extremum pattern is bit-for-bit the same,
+        // and it removes ~one std::sqrt per polyline vertex.  The sqrt is then
+        // paid only at the handful of vertices that are actually extrema.
         radius.assign(count, 0.0);
+        double min_distance2 = std::numeric_limits<double>::infinity();
         for (std::size_t i = 0; i < count; ++i) {
-            radius[i] = std::sqrt(distance2(branch[i], source));
-            support.min_caustic_distance =
-                std::min(support.min_caustic_distance, radius[i]);
+            radius[i] = distance2(branch[i], source);
+            min_distance2 = std::min(min_distance2, radius[i]);
         }
+        support.min_caustic_distance =
+            std::min(support.min_caustic_distance, std::sqrt(min_distance2));
 
         for (std::size_t i = 0; i < count; ++i) {
             const std::size_t prev = (i + count - 1) % count;
@@ -123,6 +129,7 @@ DiskSupport certify_disk_support(
             if (!minimum && !maximum) {
                 continue;
             }
+            const double radius_i = std::sqrt(radius[i]);
 
             // Transverse uncertainty of the chord representation.  The second
             // difference is the sagitta scale of the local arc and stays a
@@ -133,7 +140,7 @@ DiskSupport certify_disk_support(
                 branch[prev].y - 2.0 * branch[i].y + branch[next].y,
             };
             const double margin = std::hypot(curvature.x, curvature.y);
-            if (radius[i] >= source_radius + margin) {
+            if (radius_i >= source_radius + margin) {
                 continue;
             }
 
@@ -150,9 +157,9 @@ DiskSupport certify_disk_support(
             extremum.position = branch[i];
             extremum.tangent = {chord.x / chord_length, chord.y / chord_length};
             extremum.normal = {-extremum.tangent.y, extremum.tangent.x};
-            extremum.distance = radius[i];
+            extremum.distance = radius_i;
             extremum.polyline_margin = margin;
-            extremum.inside_disk = radius[i] < source_radius;
+            extremum.inside_disk = radius_i < source_radius;
             support.extrema.push_back(extremum);
         }
     }
