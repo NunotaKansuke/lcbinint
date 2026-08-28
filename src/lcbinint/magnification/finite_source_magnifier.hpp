@@ -300,6 +300,21 @@ private:
     mutable double result_cache_source_radius_ = 0.0;
     mutable double result_cache_point_magnification_ = 0.0;
     mutable FiniteSourceResult result_cache_;
+    // Temporal-coherence anchor for the binary_mag() caustic-distance queries.
+    // Within a light curve or an HMC trajectory the lens geometry (s, q, rho)
+    // is fixed and the source advances in small steps; when a nearby epoch
+    // already measured the refined caustic distance and landed in the deep
+    // finite-source solve, the (1-Lipschitz) distance at the new source is
+    // bounded below by anchor_refined - |source - anchor_source| without
+    // re-querying the caustic polyline.  Set only from a fresh measurement.
+    mutable bool caustic_distance_anchor_valid_ = false;
+    mutable double caustic_distance_anchor_separation_ = 0.0;
+    mutable double caustic_distance_anchor_mass_ratio_ = 0.0;
+    mutable double caustic_distance_anchor_source_radius_ = 0.0;
+    mutable double caustic_distance_anchor_source_x_ = 0.0;
+    mutable double caustic_distance_anchor_source_y_ = 0.0;
+    mutable double caustic_distance_anchor_refined_ = 0.0;
+    mutable bool caustic_distance_anchor_was_deep_ = false;
     // Persistent router for the experimental algebraic-boundary backend: reuses
     // the shared binary_mag() routing (and its per-geometry caustic cache) across
     // epochs.  Rebuilt only when the requested relative tolerance changes.

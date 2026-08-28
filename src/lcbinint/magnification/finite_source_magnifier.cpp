@@ -6725,6 +6725,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     PointSourceSafetyEvaluation point_safety;
     bool point_safety_available = false;
     double caustic_distance_out = std::numeric_limits<double>::infinity();
+    double fresh_refined_measurement = std::numeric_limits<double>::quiet_NaN();
     bool algebraic_out_filled = false;
     const auto mirror_algebraic_out = [&](const FiniteSourceResult& result) {
         if (algebraic_out == nullptr || algebraic_out_filled) return;
@@ -6761,6 +6762,20 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         result_cache_source_radius_ = source_radius;
         result_cache_point_magnification_ = point_source_magnification;
         result_cache_ = result;
+        // Refresh the temporal-coherence anchor only from a fresh distance
+        // measurement, tagged with whether this epoch reached the deep solve.
+        if (std::isfinite(fresh_refined_measurement)) {
+            caustic_distance_anchor_valid_ = true;
+            caustic_distance_anchor_separation_ = separation;
+            caustic_distance_anchor_mass_ratio_ = mass_ratio;
+            caustic_distance_anchor_source_radius_ = source_radius;
+            caustic_distance_anchor_source_x_ = source.x;
+            caustic_distance_anchor_source_y_ = source.y;
+            caustic_distance_anchor_refined_ = fresh_refined_measurement;
+            caustic_distance_anchor_was_deep_ =
+                result.decision.method != FiniteSourceMethod::point_source &&
+                result.decision.method != FiniteSourceMethod::hexadecapole;
+        }
         return result;
     };
 
@@ -6839,12 +6854,40 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         separation, mass_ratio);
     const double caustic_reuse_tolerance = std::min(
         0.25 * source_radius, 0.02 * topology_margin);
-    double sampled_dist = binary_sampled_caustic_distance(
-        separation, mass_ratio, source, adaptive_bbox_margin,
-        caustic_reuse_tolerance);
-    bool reused_caustic_geometry = caustic_cache_separation_ != separation;
+    // Temporal-coherence shortcut for the two caustic-polyline distance
+    // queries below (~24us combined).  When a nearby epoch at this exact
+    // geometry already measured the refined distance and went to the deep
+    // solve well inside the near-caustic band, the 1-Lipschitz distance at the
+    // new source is >= anchor_refined - |source - anchor_source|; that lower
+    // bound is conservative for every downstream consumer (bin calibration,
+    // near_caustic, grazing scan), so it cannot skip a solve the fresh
+    // distance would have required.
+    const double temporal_anchor_disp =
+        caustic_distance_anchor_valid_
+            ? std::hypot(source.x - caustic_distance_anchor_source_x_,
+                         source.y - caustic_distance_anchor_source_y_)
+            : std::numeric_limits<double>::infinity();
+    const bool temporal_distance_hit =
+        caustic_distance_anchor_valid_ &&
+        caustic_distance_anchor_was_deep_ &&
+        caustic_distance_anchor_separation_ == separation &&
+        caustic_distance_anchor_mass_ratio_ == mass_ratio &&
+        caustic_distance_anchor_source_radius_ == source_radius &&
+        std::isfinite(caustic_distance_anchor_refined_) &&
+        temporal_anchor_disp <= 0.25 * source_radius &&
+        caustic_distance_anchor_refined_ + temporal_anchor_disp +
+                0.5 * source_radius <
+            settings_.hex_threshold * source_radius;
+    double sampled_dist = temporal_distance_hit
+        ? std::max(0.0,
+                   caustic_distance_anchor_refined_ - temporal_anchor_disp)
+        : binary_sampled_caustic_distance(
+              separation, mass_ratio, source, adaptive_bbox_margin,
+              caustic_reuse_tolerance);
+    bool reused_caustic_geometry =
+        !temporal_distance_hit && caustic_cache_separation_ != separation;
     if (point_safety.point_source_safe() &&
-        !reused_caustic_geometry &&
+        !reused_caustic_geometry && !temporal_distance_hit &&
         (source.x < caustic_cache_min_x_ - adaptive_bbox_margin ||
         source.x > caustic_cache_max_x_ + adaptive_bbox_margin ||
         source.y < caustic_cache_min_y_ - adaptive_bbox_margin ||
@@ -6883,9 +6926,11 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     // the true distance (e.g. 7x rho) when the caustic is sparsely sampled; the segment
     // distance queries the actual line segments between consecutive points and returns the
     // correct distance.  We pass sampled_dist as a hint to skip the O(N) point scan.
-    double refined_dist = binary_caustic_distance(
-        separation, mass_ratio, source, sampled_dist,
-        caustic_reuse_tolerance);
+    double refined_dist = temporal_distance_hit
+        ? sampled_dist
+        : binary_caustic_distance(
+              separation, mass_ratio, source, sampled_dist,
+              caustic_reuse_tolerance);
     // Approximate anchor geometry is only a far-field routing accelerator.
     // Rebuild at the exact epoch near the caustic and around the measured
     // 20-rho topology-release boundary.  This also guarantees that any later
@@ -6901,6 +6946,9 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 separation, mass_ratio, source, sampled_dist, 0.0);
             reused_caustic_geometry = false;
         }
+    }
+    if (!temporal_distance_hit) {
+        fresh_refined_measurement = refined_dist;
     }
     caustic_distance_out = refined_dist;
 
