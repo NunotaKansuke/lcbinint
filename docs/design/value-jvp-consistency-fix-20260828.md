@@ -81,7 +81,7 @@ check 5: `2e-4*(1+|fd|)+1e-5`）。
 - `test_algebraic_boundary`（プライマル）green。
 - `tests/jax_ir/test_algebraic_boundary_epoch.py` 19 pass + 1 skip
   （小 rho=0.008 + two-coeff LD 行のフラグ → jvp NaN、契約どおり）。
-- 広域回帰 `tests/jax_ir/` — <TBD: 完了後に記入>。
+- 広域回帰 `tests/jax_ir/`: **260 passed, 1 skipped**（14m26s）。
 
 ---
 
