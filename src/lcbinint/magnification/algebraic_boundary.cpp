@@ -1652,7 +1652,11 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
     if (diagnostics != nullptr) {
         ++diagnostics->root_solve_count;
     }
-    std::vector<Complex> physical_roots;
+    // Reused scratch: this function runs once per radial quadrature node
+    // (~100+ times per magnification) and is not re-entrant, so a thread-local
+    // buffer removes one heap allocation per call without changing any value.
+    static thread_local std::vector<Complex> physical_roots;
+    physical_roots.clear();
     physical_roots.reserve(4);
     const bool used_real_quartic =
         self_inversive_unit_roots(coefficients, &physical_roots);
@@ -1671,7 +1675,8 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
     }
 
     const auto extract_angles = [&](const std::vector<Complex>& roots) {
-        std::vector<double> angles;
+        static thread_local std::vector<double> angles;
+        angles.clear();
         angles.reserve(4);
         for (const auto root : roots) {
             if (!finite_complex(root)) {
