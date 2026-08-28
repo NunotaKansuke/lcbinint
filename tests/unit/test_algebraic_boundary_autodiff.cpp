@@ -181,7 +181,7 @@ int main()
               "dtheta_k/dsource_x IFT vs FD", analytic, fd, 5e-5);
     }
 
-    // ---- 4. full Jacobian vs central FD of the primal magnification ------
+    // ---- 4. full Jacobian vs central FD of the reported magnification ----
     {
         namespace mg = lcbinint::magnification;
         struct Case { double c, d; const char* name; };
@@ -209,8 +209,13 @@ int main()
                 ++failures;
                 continue;
             }
+            // FD the SAME value the Jacobian now differentiates: the jacobian
+            // driver's own reported magnification (the ForwardJet
+            // reconstruction), not the primal value path.  A fresh magnifier
+            // per eval avoids any 1-entry result-cache aliasing.
             auto mag_at = [&](double sx, double sy, double rr, double qq, double ss) {
-                return magnifier.experimental_algebraic_boundary_binary_mag(
+                mg::FiniteSourceMagnifier fresh(st);
+                return fresh.experimental_algebraic_boundary_binary_jacobian(
                     ss, qq, {sx, sy}, rr).magnification;
             };
             const double base[5] = {src.x, src.y, rho, q, sep};
@@ -273,7 +278,7 @@ int main()
                               double ss) {
                 mg::FiniteSourceMagnifier fresh(st);
                 return fresh
-                    .experimental_algebraic_boundary_binary_mag(
+                    .experimental_algebraic_boundary_binary_jacobian(
                         ss, qq, {sx, sy}, rr)
                     .magnification;
             };

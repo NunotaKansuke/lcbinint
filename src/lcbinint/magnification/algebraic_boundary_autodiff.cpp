@@ -409,6 +409,17 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
     out.success = true;
     out.grad_reliable = reliable && (reduced <= grad_tol);
     if (out.grad_reliable) {
+        // Value/derivative consistency (the HMC-critical property): hand back
+        // the ForwardJet reconstruction's OWN value, not the authoritative
+        // primal solve.  out.jacobian below is d(mag_j)/dp; the primal integral
+        // uses a different adaptive quadrature, so returning primal.magnification
+        // here would leave the reported gradient inconsistent with d(value)/dp
+        // near a caustic -- a Hamiltonian-error / HMC-divergence source rather
+        // than a mere posterior bias.  The primal value stays as the fallback
+        // when the reconstruction is unusable (grad row is NaN then anyway).
+        if (std::isfinite(mag_j.value) && mag_j.value > 0.0) {
+            out.magnification = mag_j.value;
+        }
         for (std::size_t p = 0; p < 5; ++p) out.jacobian[p] = mag_j.derivative[p];
     }
     return out;
@@ -529,6 +540,11 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_multipole_jacobian(
         const auto images =
             point_magnifier.binary_images(abs_sep, abs_q, source_d);
         const Jet mag_j = binary_point_mag_jet(geom_j, images);
+        // Report the reconstruction's own value so it is exactly the function
+        // whose derivative this row carries (see the deep driver above).
+        if (std::isfinite(mag_j.value) && mag_j.value > 0.0) {
+            out.magnification = mag_j.value;
+        }
         for (std::size_t p = 0; p < 5; ++p) out.jacobian[p] = mag_j.derivative[p];
         out.success = true;
         out.grad_reliable = true;
@@ -562,6 +578,9 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_multipole_jacobian(
         + 0.5 * a2rho2 * (1.0 - 0.2 * gamma - lambda / 9.0)
         + a4rho4 / 3.0 * (1.0 - 11.0 * gamma / 35.0 - 7.0 * lambda / 39.0);
 
+    if (std::isfinite(mag_j.value) && mag_j.value > 0.0) {
+        out.magnification = mag_j.value;
+    }
     for (std::size_t p = 0; p < 5; ++p) out.jacobian[p] = mag_j.derivative[p];
     out.success = true;
     out.grad_reliable = true;
