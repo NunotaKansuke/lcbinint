@@ -61,7 +61,9 @@ using LatticeCells = std::set<LatticeCell>;
 using lcbinint::magnification::detail::CartesianBoundaryContribution;
 using lcbinint::magnification::detail::CartesianLatticeSeed;
 using lcbinint::magnification::detail::CartesianRunFillLimits;
+using lcbinint::magnification::detail::CartesianRunFillStatus;
 using lcbinint::magnification::detail::fill_cartesian_runs;
+using lcbinint::magnification::detail::lift_cartesian_component_run_seeds;
 
 struct MaskCellState {
     bool inside = false;
@@ -248,6 +250,87 @@ bool cartesian_run_boundary_tests()
         std::abs(area64 - pi) / pi < 1.0e-3;
 }
 
+bool cartesian_run_refinement_split_test()
+{
+    // One coarse component: the full upper run joins the two lower runs.
+    const LatticeCells coarse_cells = mask_cells({"###", "#.#"});
+    const auto coarse = fill_cartesian_runs<MaskCellState>(
+        {{0, 0}},
+        [&](std::int64_t ix, std::int64_t iy) {
+            return MaskCellState {coarse_cells.count({ix, iy}) != 0};
+        },
+        [](const MaskCellState& state) { return state.inside; },
+        [](std::int64_t, std::int64_t, const MaskCellState&) { return 1.0; },
+        [](const auto&, const auto&, const auto&, const auto&, const auto&) {
+            return CartesianBoundaryContribution {};
+        },
+        CartesianRunFillLimits {1000, 100});
+    if (!coarse.ok() || coarse.runs.empty()) {
+        return false;
+    }
+
+    constexpr std::int64_t factor = 3;
+    const std::size_t component = coarse.runs.front().component;
+    const auto seeds = lift_cartesian_component_run_seeds(
+        coarse, component, factor);
+    if (!seeds.has_value() || seeds->size() != 3) {
+        return false;
+    }
+
+    // At the fine centers the coarse bridge aliases away and the same coarse
+    // component is represented by two disconnected pieces.  Its first seed
+    // reaches only the left piece; one exact seed per coarse run reaches both.
+    LatticeCells fine_cells;
+    for (std::int64_t x = 0; x <= 3; ++x) {
+        fine_cells.emplace(x, 0);
+    }
+    for (std::int64_t y = 1; y <= 3; ++y) {
+        fine_cells.emplace(0, y);
+        fine_cells.emplace(6, y);
+    }
+    fine_cells.emplace(6, 0);
+    const auto fill_fine = [&](std::vector<CartesianLatticeSeed> fine_seeds) {
+        LatticeCells visited;
+        const auto result = fill_cartesian_runs<MaskCellState>(
+            std::move(fine_seeds),
+            [&](std::int64_t ix, std::int64_t iy) {
+                return MaskCellState {fine_cells.count({ix, iy}) != 0};
+            },
+            [](const MaskCellState& state) { return state.inside; },
+            [&](std::int64_t ix, std::int64_t iy, const MaskCellState&) {
+                visited.emplace(ix, iy);
+                return 1.0;
+            },
+            [](const auto&, const auto&, const auto&, const auto&, const auto&) {
+                return CartesianBoundaryContribution {};
+            },
+            CartesianRunFillLimits {1000, 100});
+        return std::make_pair(result.ok(), std::move(visited));
+    };
+    const auto one_seed = fill_fine({seeds->front()});
+    const auto all_seeds = fill_fine(*seeds);
+    return one_seed.first && one_seed.second != fine_cells &&
+        all_seeds.first && all_seeds.second == fine_cells;
+}
+
+bool cartesian_run_budget_test()
+{
+    const LatticeCells cells = mask_cells({"#..", ".#.", "..#"});
+    const auto result = fill_cartesian_runs<MaskCellState>(
+        {{0, 0}},
+        [&](std::int64_t ix, std::int64_t iy) {
+            return MaskCellState {cells.count({ix, iy}) != 0};
+        },
+        [](const MaskCellState& state) { return state.inside; },
+        [](std::int64_t, std::int64_t, const MaskCellState&) { return 1.0; },
+        [](const auto&, const auto&, const auto&, const auto&, const auto&) {
+            return CartesianBoundaryContribution {};
+        },
+        CartesianRunFillLimits {100, 2});
+    return result.status == CartesianRunFillStatus::run_budget_exhausted &&
+        result.runs.size() == 2;
+}
+
 } // namespace
 
 int main()
@@ -257,6 +340,12 @@ int main()
     }
     if (!cartesian_run_boundary_tests()) {
         return 63;
+    }
+    if (!cartesian_run_refinement_split_test()) {
+        return 64;
+    }
+    if (!cartesian_run_budget_test()) {
+        return 65;
     }
 
     const lcbinint::magnification::ProbePolicy default_probe_policy;

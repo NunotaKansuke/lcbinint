@@ -4963,6 +4963,16 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
         : 1.0;
     const bool bennett_root_enabled =
         std::getenv("LCBININT_DIAGNOSTIC_DISABLE_BENNETT_LIMB") == nullptr;
+    // A run contains at least one evaluated inside cell, so the evaluation
+    // budget is also a strict upper bound on useful run storage.  Retain the
+    // independent ceiling as the memory safety envelope for very large maps.
+    constexpr std::size_t kRunMemorySafetyCeiling = 1U << 21;
+    const std::size_t evaluation_run_ceiling = maximum_evaluations > 0
+        ? static_cast<std::size_t>(std::min<std::uint64_t>(
+            static_cast<std::uint64_t>(maximum_evaluations),
+            static_cast<std::uint64_t>(
+                std::numeric_limits<std::size_t>::max())))
+        : 0;
 
     return detail::fill_cartesian_runs<RunCellState>(
         seeds,
@@ -5037,7 +5047,7 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
         },
         detail::CartesianRunFillLimits {
             maximum_evaluations,
-            1U << 21,
+            std::min(kRunMemorySafetyCeiling, evaluation_run_ceiling),
             expected_rows,
         });
 }
@@ -5266,21 +5276,12 @@ double fill_all_cartesian_components_multirun(
         double contribution = static_cast<double>(component.area);
         const int factor = component.refinement_factor;
         if (factor > 1 && component.first_run_index != missing_component) {
-            const auto& seed_record =
-                run_fill.runs[component.first_run_index];
-            const auto& seed_run = seed_record.run;
-            const long double fine_ix_value =
-                static_cast<long double>(seed_run.lo) * factor;
-            const long double fine_iy_value =
-                static_cast<long double>(seed_run.iy) * factor;
-            if (fine_ix_value >=
-                    static_cast<long double>(std::numeric_limits<std::int64_t>::min()) &&
-                fine_ix_value <=
-                    static_cast<long double>(std::numeric_limits<std::int64_t>::max()) &&
-                fine_iy_value >=
-                    static_cast<long double>(std::numeric_limits<std::int64_t>::min()) &&
-                fine_iy_value <=
-                    static_cast<long double>(std::numeric_limits<std::int64_t>::max())) {
+            const std::size_t coarse_component =
+                run_fill.runs[component.first_run_index].component;
+            const auto refined_seeds =
+                detail::lift_cartesian_component_run_seeds(
+                    run_fill, coarse_component, factor);
+            if (refined_seeds.has_value() && !refined_seeds->empty()) {
                 FiniteSourceSettings refined_settings = settings;
                 refined_settings.source_bins = settings.source_bins * factor;
                 const double refined_incr = incr / static_cast<double>(factor);
@@ -5291,13 +5292,9 @@ double fill_all_cartesian_components_multirun(
                             static_cast<double>(factor) *
                             static_cast<double>(factor) +
                         4096.0));
-                const std::vector<detail::CartesianLatticeSeed> refined_seeds {{
-                    static_cast<std::int64_t>(fine_ix_value),
-                    static_cast<std::int64_t>(fine_iy_value),
-                }};
                 auto refined = fill_cartesian_run_union(
                     mapper, source, source_radius, refined_settings,
-                    finite_magnifier, refined_seeds, refined_incr,
+                    finite_magnifier, *refined_seeds, refined_incr,
                     refined_budget,
                     static_cast<std::size_t>(std::max(
                         16,
@@ -5319,8 +5316,6 @@ double fill_all_cartesian_components_multirun(
                         static_cast<double>(factor);
                     const double rescaled =
                         static_cast<double>(refined_area) / factor2;
-                    const std::size_t coarse_component =
-                        run_fill.runs[component.first_run_index].component;
                     if (std::isfinite(rescaled) && rescaled > 0.0 &&
                         refined_run_footprint_is_private(
                             refined, factor, run_fill, coarse_component)) {
@@ -5446,12 +5441,17 @@ double inverse_ray_cartesian_core(
     // selector makes the replacement independently testable in the meantime.
     const char* fill_selector = std::getenv("LCBININT_CARTESIAN_FILL");
     const bool use_multirun = fill_selector != nullptr &&
-        std::string(fill_selector) == "run";
+        std::string(fill_selector) == "run" &&
+        std::getenv("LCBININT_DIAGNOSTIC_UNSORTED_SEEDS") == nullptr;
     if (use_multirun) {
         std::vector<EvaluatedCartesianSeed> multirun_seeds;
         multirun_seeds.reserve(evaluated_images.size());
         for (const auto& seed : evaluated_images) {
             multirun_seeds.push_back({seed.position, seed.jacobian});
+            if (diagnostics != nullptr &&
+                std::abs(seed.jacobian) < kFoldJacobianThreshold) {
+                ++diagnostics->fold_seed_count;
+            }
         }
         area = fill_all_cartesian_components_multirun(
             mapper, source, source_radius, settings, finite_magnifier,

@@ -77,6 +77,49 @@ struct CartesianRunFillResult {
     bool ok() const noexcept { return status == CartesianRunFillStatus::ok; }
 };
 
+// Lift one exact coarse-lattice point from every run in a component.  A
+// component that is 8-connected on the coarse lattice may split into several
+// center-sampled components after refinement; seeding only its first run would
+// then retain just one of those pieces.  The exact lift keeps every selected
+// point at the same physical coordinate on an integer refinement factor.
+inline std::optional<std::vector<CartesianLatticeSeed>>
+lift_cartesian_component_run_seeds(
+    const CartesianRunFillResult& coarse,
+    std::size_t component,
+    std::int64_t factor)
+{
+    if (factor <= 0) {
+        return std::nullopt;
+    }
+    const auto scale = [factor](std::int64_t value)
+        -> std::optional<std::int64_t> {
+        if (value > std::numeric_limits<std::int64_t>::max() / factor ||
+            value < std::numeric_limits<std::int64_t>::min() / factor) {
+            return std::nullopt;
+        }
+        return value * factor;
+    };
+
+    std::vector<CartesianLatticeSeed> seeds;
+    seeds.reserve(static_cast<std::size_t>(std::count_if(
+        coarse.runs.begin(), coarse.runs.end(),
+        [component](const CartesianRunRecord& record) {
+            return record.component == component;
+        })));
+    for (const auto& record : coarse.runs) {
+        if (record.component != component) {
+            continue;
+        }
+        const auto ix = scale(record.run.lo);
+        const auto iy = scale(record.run.iy);
+        if (!ix.has_value() || !iy.has_value()) {
+            return std::nullopt;
+        }
+        seeds.push_back({*ix, *iy});
+    }
+    return seeds;
+}
+
 namespace cartesian_run_fill_detail {
 
 struct InsideInterval {
