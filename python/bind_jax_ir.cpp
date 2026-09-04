@@ -2969,10 +2969,10 @@ CartesianDiscovery discover_cartesian_support_from_prepared(
     const auto initial_capacity = static_cast<std::size_t>(
         std::min<std::int64_t>(tile_capacity, 4096));
     result.queue.reserve(initial_capacity);
-    std::unordered_map<std::uint64_t, std::int32_t> visited;
+    std::unordered_set<std::uint64_t> visited;
     visited.reserve(initial_capacity);
-    std::unordered_set<std::uint64_t> seeds;
-    seeds.reserve(prepared.image_coordinates.size());
+    std::unordered_set<std::uint64_t> seed_keys;
+    seed_keys.reserve(prepared.image_coordinates.size());
 
     const auto insert = [&](std::int32_t x, std::int32_t y) {
         const std::uint64_t key = tile_key(x, y);
@@ -2981,18 +2981,28 @@ CartesianDiscovery discover_cartesian_support_from_prepared(
             result.overflow = true;
             return false;
         }
-        visited.emplace(
-            key, static_cast<std::int32_t>(result.queue.size()));
+        visited.insert(key);
         result.queue.push_back({x, y});
         return true;
     };
 
+    std::vector<std::array<std::int32_t, 2>> canonical_seeds;
+    canonical_seeds.reserve(prepared.image_coordinates.size());
     for (const auto& image : prepared.image_coordinates) {
         const auto tile_x = static_cast<std::int32_t>(
             std::floor(image.real() / tile_width));
         const auto tile_y = static_cast<std::int32_t>(
             std::floor(image.imag() / tile_width));
-        if (insert(tile_x, tile_y)) seeds.insert(tile_key(tile_x, tile_y));
+        canonical_seeds.push_back({tile_x, tile_y});
+    }
+    std::sort(canonical_seeds.begin(), canonical_seeds.end());
+    canonical_seeds.erase(
+        std::unique(canonical_seeds.begin(), canonical_seeds.end()),
+        canonical_seeds.end());
+    for (const auto& seed : canonical_seeds) {
+        if (insert(seed[0], seed[1])) {
+            seed_keys.insert(tile_key(seed[0], seed[1]));
+        }
     }
     result.root_failure = prepared.root_failure;
     result.support_proven = prepared.support_proven;
@@ -3007,7 +3017,7 @@ CartesianDiscovery discover_cartesian_support_from_prepared(
     for (std::size_t head = 0; head < result.queue.size(); ++head) {
         const auto tile = result.queue[head];
         const bool active =
-            seeds.find(tile_key(tile[0], tile[1])) != seeds.end()
+            seed_keys.find(tile_key(tile[0], tile[1])) != seed_keys.end()
             || tile_has_inside_probe(
                 tile[0], tile[1], tile_width, source_x, source_y,
                 separation, mass_ratio, source_radius);
@@ -3102,14 +3112,14 @@ CartesianDiscovery discover_triple_cartesian_support(
     const auto initial_capacity = static_cast<std::size_t>(
         std::min<std::int64_t>(tile_capacity, 4096));
     result.queue.reserve(initial_capacity);
-    std::unordered_map<std::uint64_t, std::int32_t> visited;
+    std::unordered_set<std::uint64_t> visited;
     visited.reserve(initial_capacity);
-    std::unordered_set<std::uint64_t> seeds;
+    std::unordered_set<std::uint64_t> seed_keys;
     const auto prepared = cached_triple_seed_support(
         source_x, source_y, separation, mass_ratio,
         tertiary_mass_ratio, tertiary_separation, tertiary_angle,
         source_radius, limb_samples, convention);
-    seeds.reserve(prepared.image_coordinates.size());
+    seed_keys.reserve(prepared.image_coordinates.size());
     const auto insert = [&](std::int32_t x, std::int32_t y) {
         const auto key = tile_key(x, y);
         if (visited.find(key) != visited.end()) return true;
@@ -3117,21 +3127,29 @@ CartesianDiscovery discover_triple_cartesian_support(
             result.overflow = true;
             return false;
         }
-        visited.emplace(
-            key, static_cast<std::int32_t>(result.queue.size()));
+        visited.insert(key);
         result.queue.push_back({x, y});
         return true;
     };
     const auto classification_lens = make_triple_lens_constants(
         separation, mass_ratio, tertiary_mass_ratio,
         tertiary_separation, tertiary_angle, convention);
+    std::vector<std::array<std::int32_t, 2>> canonical_seeds;
+    canonical_seeds.reserve(prepared.image_coordinates.size());
     for (const auto& image : prepared.image_coordinates) {
         const auto tile_x = static_cast<std::int32_t>(
             std::floor(image.x / tile_width));
         const auto tile_y = static_cast<std::int32_t>(
             std::floor(image.y / tile_width));
-        if (insert(tile_x, tile_y)) {
-            seeds.insert(tile_key(tile_x, tile_y));
+        canonical_seeds.push_back({tile_x, tile_y});
+    }
+    std::sort(canonical_seeds.begin(), canonical_seeds.end());
+    canonical_seeds.erase(
+        std::unique(canonical_seeds.begin(), canonical_seeds.end()),
+        canonical_seeds.end());
+    for (const auto& seed : canonical_seeds) {
+        if (insert(seed[0], seed[1])) {
+            seed_keys.insert(tile_key(seed[0], seed[1]));
         }
     }
     result.root_failure = prepared.root_failure;
@@ -3146,7 +3164,7 @@ CartesianDiscovery discover_triple_cartesian_support(
     for (std::size_t head = 0; head < result.queue.size(); ++head) {
         const auto tile = result.queue[head];
         const bool active =
-            seeds.find(tile_key(tile[0], tile[1])) != seeds.end()
+            seed_keys.find(tile_key(tile[0], tile[1])) != seed_keys.end()
             || triple_tile_has_inside_probe(
                 tile[0], tile[1], tile_width, source_x, source_y,
                 classification_lens, source_radius);
@@ -4591,10 +4609,10 @@ ffi::Error macro_tile_discovery_ffi_impl(
 
     std::vector<std::array<std::int32_t, 2>> queue;
     queue.reserve(static_cast<std::size_t>(capacity));
-    std::unordered_map<std::uint64_t, std::int32_t> visited;
+    std::unordered_set<std::uint64_t> visited;
     visited.reserve(static_cast<std::size_t>(capacity));
-    std::unordered_set<std::uint64_t> seeds;
-    seeds.reserve(static_cast<std::size_t>(seed_dimensions[0]));
+    std::unordered_set<std::uint64_t> seed_keys;
+    seed_keys.reserve(static_cast<std::size_t>(seed_dimensions[0]));
     bool did_overflow = false;
 
     const auto insert = [&](std::int32_t x, std::int32_t y) {
@@ -4604,20 +4622,31 @@ ffi::Error macro_tile_discovery_ffi_impl(
             did_overflow = true;
             return false;
         }
-        visited.emplace(key, static_cast<std::int32_t>(queue.size()));
+        visited.insert(key);
         queue.push_back({x, y});
         return true;
     };
 
     const auto* coordinates = seed_coordinates.typed_data();
     const auto* physical = seed_physical.typed_data();
+    std::vector<std::array<std::int32_t, 2>> canonical_seeds;
+    canonical_seeds.reserve(static_cast<std::size_t>(seed_dimensions[0]));
     for (std::int64_t index = 0; index < seed_dimensions[0]; ++index) {
         if (!physical[index]) continue;
         const auto x = static_cast<std::int32_t>(
             std::floor(coordinates[2 * index] / width));
         const auto y = static_cast<std::int32_t>(
             std::floor(coordinates[2 * index + 1] / width));
-        if (insert(x, y)) seeds.insert(tile_key(x, y));
+        canonical_seeds.push_back({x, y});
+    }
+    std::sort(canonical_seeds.begin(), canonical_seeds.end());
+    canonical_seeds.erase(
+        std::unique(canonical_seeds.begin(), canonical_seeds.end()),
+        canonical_seeds.end());
+    for (const auto& seed : canonical_seeds) {
+        if (insert(seed[0], seed[1])) {
+            seed_keys.insert(tile_key(seed[0], seed[1]));
+        }
     }
     const std::int32_t unique_seed_count =
         static_cast<std::int32_t>(queue.size());
@@ -4628,7 +4657,7 @@ ffi::Error macro_tile_discovery_ffi_impl(
     for (std::size_t head = 0; head < queue.size(); ++head) {
         const auto tile = queue[head];
         const bool active =
-            seeds.find(tile_key(tile[0], tile[1])) != seeds.end()
+            seed_keys.find(tile_key(tile[0], tile[1])) != seed_keys.end()
             || tile_has_inside_probe(
                 tile[0], tile[1], width, *source_x.typed_data(),
                 *source_y.typed_data(), *separation.typed_data(),

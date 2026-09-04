@@ -1,4 +1,5 @@
 #include "lcbinint/lcbinint.h"
+#include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
@@ -11,6 +12,9 @@
 #include <cstddef>
 #include <cstring>
 #include <limits>
+#include <set>
+#include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -52,10 +56,209 @@ bool close_relative(double actual, double expected, double tolerance)
     return std::abs(actual - expected) <= tolerance * std::abs(expected);
 }
 
+using LatticeCell = std::pair<std::int64_t, std::int64_t>;
+using LatticeCells = std::set<LatticeCell>;
+using lcbinint::magnification::detail::CartesianBoundaryContribution;
+using lcbinint::magnification::detail::CartesianLatticeSeed;
+using lcbinint::magnification::detail::CartesianRunFillLimits;
+using lcbinint::magnification::detail::fill_cartesian_runs;
+
+struct MaskCellState {
+    bool inside = false;
+};
+
+LatticeCells mask_cells(const std::vector<std::string>& rows)
+{
+    LatticeCells cells;
+    for (std::size_t y = 0; y < rows.size(); ++y) {
+        for (std::size_t x = 0; x < rows[y].size(); ++x) {
+            if (rows[y][x] == '#') {
+                cells.emplace(
+                    static_cast<std::int64_t>(x),
+                    static_cast<std::int64_t>(y));
+            }
+        }
+    }
+    return cells;
+}
+
+bool run_mask_case(
+    const std::vector<std::string>& rows,
+    std::vector<CartesianLatticeSeed> seeds,
+    std::size_t minimum_multi_run_rows = 0)
+{
+    const LatticeCells expected = mask_cells(rows);
+    LatticeCells visited;
+    const auto result = fill_cartesian_runs<MaskCellState>(
+        std::move(seeds),
+        [&](std::int64_t ix, std::int64_t iy) {
+            return MaskCellState {expected.count({ix, iy}) != 0};
+        },
+        [](const MaskCellState& state) { return state.inside; },
+        [&](std::int64_t ix, std::int64_t iy, const MaskCellState&) {
+            visited.emplace(ix, iy);
+            return 1.0;
+        },
+        [](const auto&, const auto&, const auto&, const auto&, const auto&) {
+            return CartesianBoundaryContribution {};
+        },
+        CartesianRunFillLimits {100000, 10000});
+    if (!result.ok() || visited != expected) {
+        return false;
+    }
+    if (result.counters.rows_with_multiple_runs <
+        static_cast<std::int64_t>(minimum_multi_run_rows)) {
+        return false;
+    }
+    long double area = 0.0L;
+    for (std::size_t index = 0;
+         index < result.component_roots.size(); ++index) {
+        if (result.component_roots[index] == index) {
+            area += result.component_areas[index];
+        }
+    }
+    return area == static_cast<long double>(expected.size());
+}
+
+bool cartesian_run_topology_tests()
+{
+    const std::vector<std::string> banana {
+        "..#####..",
+        ".##...##.",
+        "##.....##",
+        "##.....##",
+    };
+    if (!run_mask_case(banana, {{4, 0}}, 2)) {
+        return false;
+    }
+
+    const std::vector<std::string> pinched {
+        ".#####.",
+        ".##.##.",
+        ".#####.",
+    };
+    if (!run_mask_case(pinched, {{3, 0}}, 1)) {
+        return false;
+    }
+
+    const std::vector<std::string> horseshoe {
+        "#######",
+        "##...##",
+        "##...##",
+        "##.....",
+    };
+    if (!run_mask_case(horseshoe, {{0, 0}}, 2)) {
+        return false;
+    }
+
+    const std::vector<std::string> diagonal {
+        "#....",
+        ".#...",
+        "..#..",
+        "...#.",
+        "....#",
+    };
+    if (!run_mask_case(diagonal, {{0, 0}})) {
+        return false;
+    }
+
+    const std::vector<std::string> disconnected {
+        "##....##",
+        "##....##",
+    };
+    if (!run_mask_case(disconnected, {{0, 0}, {6, 0}})) {
+        return false;
+    }
+
+    const std::vector<CartesianLatticeSeed> duplicate_permuted {
+        {7, 1}, {0, 1}, {7, 1}, {1, 0}, {6, 0}, {0, 1},
+    };
+    if (!run_mask_case(disconnected, duplicate_permuted)) {
+        return false;
+    }
+    std::vector<CartesianLatticeSeed> reverse = duplicate_permuted;
+    std::reverse(reverse.begin(), reverse.end());
+    return run_mask_case(disconnected, std::move(reverse));
+}
+
+struct DiskCellState {
+    double radius2 = 0.0;
+    bool inside = false;
+};
+
+double identity_disk_area(int bins, std::vector<CartesianLatticeSeed> seeds)
+{
+    const double spacing = 1.0 / static_cast<double>(bins);
+    const auto result = fill_cartesian_runs<DiskCellState>(
+        std::move(seeds),
+        [spacing](std::int64_t ix, std::int64_t iy) {
+            const double x = static_cast<double>(ix) * spacing;
+            const double y = static_cast<double>(iy) * spacing;
+            const double radius2 = x * x + y * y;
+            return DiskCellState {radius2, radius2 <= 1.0};
+        },
+        [](const DiskCellState& state) { return state.inside; },
+        [](std::int64_t, std::int64_t, const DiskCellState&) { return 1.0; },
+        [](const auto&,
+           const DiskCellState& left_inside,
+           const DiskCellState& left_outside,
+           const DiskCellState& right_inside,
+           const DiskCellState& right_outside) {
+            const auto correction = [](double inside2, double outside2) {
+                const double inside = std::sqrt(inside2);
+                const double outside = std::sqrt(outside2);
+                return (1.0 - inside) / (outside - inside) - 0.5;
+            };
+            return CartesianBoundaryContribution {
+                correction(left_inside.radius2, left_outside.radius2) +
+                    correction(right_inside.radius2, right_outside.radius2),
+                2,
+                true,
+            };
+        },
+        CartesianRunFillLimits {1000000, 100000});
+    if (!result.ok()) {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    long double cells = 0.0L;
+    for (std::size_t index = 0;
+         index < result.component_roots.size(); ++index) {
+        if (result.component_roots[index] == index) {
+            cells += result.component_areas[index];
+        }
+    }
+    return static_cast<double>(cells) * spacing * spacing;
+}
+
+bool cartesian_run_boundary_tests()
+{
+    const double area16 = identity_disk_area(16, {{0, 0}});
+    const double area32 = identity_disk_area(32, {{0, 0}});
+    const double area64 = identity_disk_area(64, {{0, 0}});
+    const double pi = std::acos(-1.0);
+    if (!std::isfinite(area16) || !std::isfinite(area32) ||
+        !std::isfinite(area64) ||
+        !(std::abs(area64 - pi) < std::abs(area32 - pi) &&
+          std::abs(area32 - pi) < std::abs(area16 - pi))) {
+        return false;
+    }
+    const double duplicate = identity_disk_area(
+        64, {{0, 0}, {20, 0}, {-20, 0}, {0, 20}, {0, 0}});
+    return std::abs(area64 - duplicate) <= 1.0e-14 &&
+        std::abs(area64 - pi) / pi < 1.0e-3;
+}
+
 } // namespace
 
 int main()
 {
+    if (!cartesian_run_topology_tests()) {
+        return 62;
+    }
+    if (!cartesian_run_boundary_tests()) {
+        return 63;
+    }
+
     const lcbinint::magnification::ProbePolicy default_probe_policy;
     if (!default_probe_policy.normals ||
         !default_probe_policy.tangents ||
