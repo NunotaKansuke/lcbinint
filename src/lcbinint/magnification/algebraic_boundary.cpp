@@ -1821,6 +1821,21 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
     const std::vector<SourcePosition>& certified_image_seeds,
     const AlgebraicBoundarySettings& settings)
 {
+    return experimental_algebraic_boundary_integral(
+        lens, source, source_radius, limb_darkening_c, limb_darkening_d,
+        certified_image_seeds, settings, nullptr);
+}
+
+AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
+    const AlgebraicBoundaryLens& lens,
+    SourcePosition source,
+    double source_radius,
+    double limb_darkening_c,
+    double limb_darkening_d,
+    const std::vector<SourcePosition>& certified_image_seeds,
+    const AlgebraicBoundarySettings& settings,
+    AlgebraicBoundaryRadialBands* frozen_bands)
+{
     AlgebraicBoundaryResult result;
     RootContinuationWorkspace root_workspace;
     RootWorkspaceScope root_scope(root_workspace);
@@ -1841,6 +1856,9 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
     const auto bands = find_radial_bands(
         lens, source, source_radius, certified_image_seeds, settings,
         &result.diagnostics);
+    if (frozen_bands != nullptr) {
+        *frozen_bands = {bands.success, bands.unsafe_reason, bands.bands};
+    }
     if (!bands.success) {
         result.unsafe_reason = bands.unsafe_reason;
         return result;

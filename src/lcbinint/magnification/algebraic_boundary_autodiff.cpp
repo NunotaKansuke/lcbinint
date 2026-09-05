@@ -306,16 +306,15 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
     }
 
     // Authoritative primal value.
+    AlgebraicBoundaryRadialBands bands;
     const auto primal = experimental_algebraic_boundary_integral(
-        lens_d, source_d, rho_d, c, d, seeds, settings);
+        lens_d, source_d, rho_d, c, d, seeds, settings, &bands);
     out.magnification = primal.magnification;
     if (!primal.success) {
         out.unsafe_reason = primal.unsafe_reason;
         return out;
     }
 
-    const auto bands = experimental_algebraic_boundary_radial_bands(
-        lens_d, source_d, rho_d, seeds, settings);
     if (!bands.success || bands.bands.empty()) {
         out.unsafe_reason = bands.success ? "no radial bands" : bands.unsafe_reason;
         return out;
