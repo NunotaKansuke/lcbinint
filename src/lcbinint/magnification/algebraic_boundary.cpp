@@ -1837,6 +1837,14 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
     AlgebraicBoundaryRadialBands* frozen_bands)
 {
     AlgebraicBoundaryResult result;
+    const auto export_failure = [&](const std::string& unsafe_reason) {
+        if (frozen_bands != nullptr) {
+            *frozen_bands = {false, unsafe_reason, {}};
+        }
+    };
+    // A caller may reuse its output object.  Never let an early failure expose
+    // bands or success from an earlier, unrelated evaluation.
+    export_failure({});
     RootContinuationWorkspace root_workspace;
     RootWorkspaceScope root_scope(root_workspace);
     std::unordered_map<double, IntegrandEvaluation> integrand_cache;
@@ -1844,6 +1852,7 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
     IntegrandCacheScope integrand_cache_scope(integrand_cache);
     if (certified_image_seeds.empty()) {
         result.unsafe_reason = "no certified image seeds";
+        export_failure(result.unsafe_reason);
         return result;
     }
     const double normalization =
@@ -1851,17 +1860,19 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
         (1.0 - limb_darkening_c / 3.0 - limb_darkening_d / 5.0);
     if (!(normalization > 0.0) || !std::isfinite(normalization)) {
         result.unsafe_reason = "invalid source flux normalization";
+        export_failure(result.unsafe_reason);
         return result;
     }
     const auto bands = find_radial_bands(
         lens, source, source_radius, certified_image_seeds, settings,
         &result.diagnostics);
-    if (frozen_bands != nullptr) {
-        *frozen_bands = {bands.success, bands.unsafe_reason, bands.bands};
-    }
     if (!bands.success) {
         result.unsafe_reason = bands.unsafe_reason;
+        export_failure(result.unsafe_reason);
         return result;
+    }
+    if (frozen_bands != nullptr) {
+        *frozen_bands = {true, {}, bands.bands};
     }
 
     // Obtain a one-panel estimate first so relative tolerance scales with the
@@ -1875,6 +1886,7 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
             std::numeric_limits<double>::infinity(), 0);
         if (!estimate.success) {
             result.unsafe_reason = estimate.unsafe_reason;
+            export_failure(result.unsafe_reason);
             return result;
         }
         preliminary_total = preliminary_total + estimate.value;
@@ -1894,6 +1906,7 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
         result.success = std::isfinite(result.magnification);
         if (!result.success) {
             result.unsafe_reason = "non-finite integrated magnification";
+            export_failure(result.unsafe_reason);
         }
         return result;
     }
@@ -1910,6 +1923,7 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
         if (!integrated.success) {
             result.error_estimate = integrated.error / normalization;
             result.unsafe_reason = integrated.unsafe_reason;
+            export_failure(result.unsafe_reason);
             return result;
         }
         total = total + integrated.value;
@@ -1921,6 +1935,7 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
     result.success = std::isfinite(result.magnification);
     if (!result.success) {
         result.unsafe_reason = "non-finite integrated magnification";
+        export_failure(result.unsafe_reason);
     }
     return result;
 }

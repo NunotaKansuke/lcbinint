@@ -519,6 +519,25 @@ bool test_primal_band_export_preserves_integral()
         std::cerr << "primal band export changed integral state\n";
         return false;
     }
+    // Reuse the same output object to ensure a failed evaluation cannot leave
+    // the previous successful support visible to a later caller.
+    const std::vector<lcbinint::SourcePosition> no_seeds;
+    const auto seed_failure =
+        lcbinint::magnification::experimental_algebraic_boundary_integral(
+            lens, source, rho, 0.5, 0.0, no_seeds, settings, &bands);
+    if (seed_failure.success || bands.success || !bands.bands.empty() ||
+        bands.unsafe_reason != seed_failure.unsafe_reason) {
+        std::cerr << "failed primal left stale exported bands\n";
+        return false;
+    }
+    const auto normalization_failure =
+        lcbinint::magnification::experimental_algebraic_boundary_integral(
+            lens, source, rho, 3.0, 0.0, seeds, settings, &bands);
+    if (normalization_failure.success || bands.success || !bands.bands.empty() ||
+        bands.unsafe_reason != normalization_failure.unsafe_reason) {
+        std::cerr << "failed primal left stale exported normalization bands\n";
+        return false;
+    }
     return true;
 }
 

@@ -116,7 +116,8 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
 // Internal evaluation-scoped support hand-off for the Jacobian driver.  The
 // legacy overload above remains the public entry point; this overload only
 // exposes the bands found by that exact primal invocation and never retains
-// them beyond the call.
+// them beyond the call.  The output is reset to a failed, empty result on any
+// failure of this call, including failures before band discovery.
 AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
     const AlgebraicBoundaryLens& lens,
     SourcePosition source,
