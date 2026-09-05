@@ -310,6 +310,8 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
     const auto primal = experimental_algebraic_boundary_integral(
         lens_d, source_d, rho_d, c, d, seeds, settings, &bands);
     out.magnification = primal.magnification;
+    out.value_error = primal.error_estimate;
+    out.diagnostics = primal.diagnostics;
     if (!primal.success) {
         out.unsafe_reason = primal.unsafe_reason;
         return out;
@@ -405,22 +407,33 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
     }
     out.grad_error = reduced;
 
-    out.success = true;
-    out.grad_reliable = reliable && (reduced <= grad_tol);
-    if (out.grad_reliable) {
-        // Value/derivative consistency (the HMC-critical property): hand back
-        // the ForwardJet reconstruction's OWN value, not the authoritative
-        // primal solve.  out.jacobian below is d(mag_j)/dp; the primal integral
-        // uses a different adaptive quadrature, so returning primal.magnification
-        // here would leave the reported gradient inconsistent with d(value)/dp
-        // near a caustic -- a Hamiltonian-error / HMC-divergence source rather
-        // than a mere posterior bias.  The primal value stays as the fallback
-        // when the reconstruction is unusable (grad row is NaN then anyway).
-        if (std::isfinite(mag_j.value) && mag_j.value > 0.0) {
-            out.magnification = mag_j.value;
-        }
-        for (std::size_t p = 0; p < 5; ++p) out.jacobian[p] = mag_j.derivative[p];
+    // `primal` certified the discrete plan and its adaptive integral, whereas
+    // `mag_j` is the smooth ForwardJet reconstruction returned to JAX when it
+    // is structurally sound.  Its absolute error must cover both estimates:
+    // the integral error and the observed reconstruction displacement.
+    const bool finite_reconstruction =
+        std::isfinite(mag_j.value) && mag_j.value > 0.0;
+    bool finite_derivatives = true;
+    for (const double derivative : mag_j.derivative) {
+        finite_derivatives = finite_derivatives && std::isfinite(derivative);
     }
+    const bool structurally_reliable = reliable && finite_reconstruction && finite_derivatives;
+    out.success = true;
+    if (structurally_reliable) {
+        // Value/derivative consistency: this is the ForwardJet's own value,
+        // so its row is d(returned value)/dp even when certification is later
+        // declined by a caller's grad_tol.  The ABI boundary, not this driver,
+        // performs strict masking of that structurally valid best-effort row.
+        out.magnification = mag_j.value;
+        out.value_error = primal.error_estimate +
+            std::fabs(mag_j.value - primal.magnification);
+        for (std::size_t p = 0; p < 5; ++p) out.jacobian[p] = mag_j.derivative[p];
+    } else {
+        // Keep the primal value/error as a valid value result, but do not leak
+        // a partial or non-finite reconstruction as a Jacobian.
+        out.unsafe_reason = "structurally unreliable ForwardJet reconstruction";
+    }
+    out.grad_reliable = structurally_reliable && std::isfinite(reduced) && (reduced <= grad_tol);
     return out;
 }
 
@@ -510,6 +523,9 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_multipole_jacobian(
     AlgebraicBoundaryJacobian out;
     for (auto& j : out.jacobian) j = std::numeric_limits<double>::quiet_NaN();
     out.magnification = authoritative_magnification;
+    // The point / multipole stencil has no quadrature error estimate in this
+    // ABI. The caller reports this as an explicit unavailable diagnostic.
+    out.value_error = std::numeric_limits<double>::quiet_NaN();
 
     std::array<Jet, 5> pj;
     for (std::size_t i = 0; i < 5; ++i) pj[i] = Jet::variable(params[i], i);
@@ -538,6 +554,11 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_multipole_jacobian(
     if (!use_hexadecapole) {
         const auto images =
             point_magnifier.binary_images(abs_sep, abs_q, source_d);
+        // One quintic image solve followed by one lens-map/Jacobian evaluation
+        // per physical image.  These are actual point-driver work counts, not
+        // availability sentinels; the caller adds its own primal solve work.
+        out.diagnostics.root_solve_count = 1;
+        out.diagnostics.lens_evaluation_count = static_cast<int>(images.size());
         const Jet mag_j = binary_point_mag_jet(geom_j, images);
         // Report the reconstruction's own value so it is exactly the function
         // whose derivative this row carries (see the deep driver above).

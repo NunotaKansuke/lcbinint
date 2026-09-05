@@ -239,7 +239,10 @@ public:
         SourcePosition source,
         double source_radius,
         const AlgebraicBoundarySettings& algebraic_settings = {},
-        double grad_tol = -1.0) const;
+        double grad_tol = -1.0,
+        // Batch M1 uses this to prohibit legacy point/hex routing for rows
+        // explicitly selected as finite-source algebraic work.
+        bool force_algebraic_finite = false) const;
     double experimental_raster_polar_binary_mag(
         double separation,
         double mass_ratio,

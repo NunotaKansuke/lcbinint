@@ -19,6 +19,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -378,9 +379,13 @@ struct AlgebraicBoundaryJacobian {
     bool success = false;
     std::string unsafe_reason;
     double magnification = 0.0;
+    // Absolute magnification error from the authoritative primal integral
+    // consumed by this driver. It is already in magnification units.
+    double value_error = std::numeric_limits<double>::quiet_NaN();
     std::array<double, 5> jacobian{};  // wrt [source_x, source_y, rho, q, sep]
     double grad_error = 0.0;           // reduced two-form estimate
     bool grad_reliable = false;        // false => caller should NaN the row
+    AlgebraicBoundaryDiagnostics diagnostics{};
 };
 
 // params: [source_x, source_y, rho, q_raw, separation_raw].
