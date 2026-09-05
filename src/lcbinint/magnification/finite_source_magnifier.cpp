@@ -6155,7 +6155,8 @@ FiniteSourceMagnifier::experimental_algebraic_boundary_binary_jacobian(
     SourcePosition source,
     double source_radius,
     const AlgebraicBoundarySettings& algebraic_settings,
-    double grad_tol) const
+    double grad_tol,
+    bool force_algebraic_finite) const
 {
     const PointSourceMagnifier point_magnifier;
 
@@ -6166,39 +6167,38 @@ FiniteSourceMagnifier::experimental_algebraic_boundary_binary_jacobian(
         source.x, source.y, source_radius,
         std::abs(mass_ratio), std::abs(separation)};
 
-    // Shared routing preflight -- identical to the value path
-    // (experimental_algebraic_boundary_binary_mag): run binary_mag()'s
-    // point-source / hexadecapole / grazing router through the persistent
-    // algebraic_router_ (its caustic cache amortises across epochs at fixed
-    // s,q).  When the router resolves the epoch with the cheap point-source or
-    // hexadecapole approximation, differentiate that same stencil analytically
-    // instead of paying for the ForwardJet<5> deep solve.
-    const double want_reltol = algebraic_settings.relative_tolerance > 0.0
-        ? algebraic_settings.relative_tolerance
-        : settings_.finite_source_reltol;
-    if (!algebraic_router_ || algebraic_router_reltol_ != want_reltol) {
-        FiniteSourceSettings routed = settings_;
-        routed.finite_source_tol = 0.0;
-        routed.finite_source_reltol = want_reltol;
-        if (routed.finite_mode <= 0) { routed.finite_mode = 4; }
-        algebraic_router_ = std::make_shared<FiniteSourceMagnifier>(routed);
-        algebraic_router_reltol_ = want_reltol;
+    if (!force_algebraic_finite) {
+        // Scalar compatibility path: match the legacy value driver's routing.
+        const double want_reltol = algebraic_settings.relative_tolerance > 0.0
+            ? algebraic_settings.relative_tolerance
+            : settings_.finite_source_reltol;
+        if (!algebraic_router_ || algebraic_router_reltol_ != want_reltol) {
+            FiniteSourceSettings routed = settings_;
+            routed.finite_source_tol = 0.0;
+            routed.finite_source_reltol = want_reltol;
+            if (routed.finite_mode <= 0) { routed.finite_mode = 4; }
+            algebraic_router_ = std::make_shared<FiniteSourceMagnifier>(routed);
+            algebraic_router_reltol_ = want_reltol;
+        }
+        const double point_mag =
+            point_magnifier.binary_mag0(separation, mass_ratio, source).magnification;
+        const auto routed = algebraic_router_->binary_mag(
+            separation, mass_ratio, source, source_radius, point_mag,
+            /*center_image_seeds=*/nullptr,
+            /*point_source_magnification_is_exact=*/true, &point_magnifier,
+            /*algebraic_backend=*/nullptr, /*algebraic_out=*/nullptr,
+            /*multipole_only_probe=*/true);
+        if (routed.decision.method == FiniteSourceMethod::point_source ||
+            routed.decision.method == FiniteSourceMethod::hexadecapole) {
+            return autodiff::experimental_algebraic_boundary_multipole_jacobian(
+                params, branch, settings_.limb_darkening_c, settings_.limb_darkening_d,
+                routed.decision.method == FiniteSourceMethod::hexadecapole,
+                routed.magnification);
+        }
     }
-    const double point_mag =
-        point_magnifier.binary_mag0(separation, mass_ratio, source).magnification;
-    const auto routed = algebraic_router_->binary_mag(
-        separation, mass_ratio, source, source_radius, point_mag,
-        /*center_image_seeds=*/nullptr,
-        /*point_source_magnification_is_exact=*/true, &point_magnifier,
-        /*algebraic_backend=*/nullptr, /*algebraic_out=*/nullptr,
-        /*multipole_only_probe=*/true);
-    if (routed.decision.method == FiniteSourceMethod::point_source ||
-        routed.decision.method == FiniteSourceMethod::hexadecapole) {
-        return autodiff::experimental_algebraic_boundary_multipole_jacobian(
-            params, branch, settings_.limb_darkening_c, settings_.limb_darkening_d,
-            routed.decision.method == FiniteSourceMethod::hexadecapole,
-            routed.magnification);
-    }
+
+    // M1's explicit finite mask selects this forced algebraic driver and
+    // never permits the legacy point/hex shortcut above.
 
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     bool support_proven = true;

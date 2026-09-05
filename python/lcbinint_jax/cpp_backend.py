@@ -125,6 +125,8 @@ class AlgebraicBoundaryBatchResult(NamedTuple):
     status: jax.Array
     method: jax.Array
     refinement_level: jax.Array
+    root_solve_count: jax.Array
+    lens_evaluation_count: jax.Array
     fallback_used: jax.Array
     jacobian: jax.Array
 
@@ -1591,6 +1593,8 @@ def _algebraic_boundary_batch_call(target, source_x, source_y, separation, scala
         jax.ShapeDtypeStruct((batch_size,), jnp.int32),
         jax.ShapeDtypeStruct((batch_size,), jnp.int32),
         jax.ShapeDtypeStruct((batch_size,), jnp.int32),
+        jax.ShapeDtypeStruct((batch_size,), jnp.int32),
+        jax.ShapeDtypeStruct((batch_size,), jnp.int32),
         jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
     )
     if include_jacobian:
@@ -1609,6 +1613,9 @@ def _algebraic_boundary_batch_call(target, source_x, source_y, separation, scala
         value_rtol,
         gradient_atol,
         strict=np.int64(bool(strict)),
+        # v1: force the declared algebraic finite plan; no point/hex fallback.
+        refinement_policy=np.int64(0),
+        fallback_policy=np.int64(0),
     )
 
 
@@ -1693,6 +1700,8 @@ def _algebraic_boundary_batch_jvp(strict, limb_c, limb_d, primals, tangents):
         status=jnp.zeros_like(primal.status, dtype=jax.dtypes.float0),
         method=jnp.zeros_like(primal.method, dtype=jax.dtypes.float0),
         refinement_level=jnp.zeros_like(primal.refinement_level, dtype=jax.dtypes.float0),
+        root_solve_count=jnp.zeros_like(primal.root_solve_count, dtype=jax.dtypes.float0),
+        lens_evaluation_count=jnp.zeros_like(primal.lens_evaluation_count, dtype=jax.dtypes.float0),
         fallback_used=jnp.zeros_like(primal.fallback_used, dtype=jax.dtypes.float0),
         jacobian=jnp.zeros_like(primal.jacobian),
     )
@@ -1713,6 +1722,8 @@ def binary_algebraic_boundary_batch_ffi(
     value_rtol=1.0e-4,
     gradient_atol=3.0e-4,
     strict=True,
+    refinement_policy_id="algebraic-forced-finite-v1",
+    fallback_policy_id="none",
 ):
     """Run a full algebraic binary curve in one native CPU FFI invocation.
 
@@ -1727,6 +1738,10 @@ def binary_algebraic_boundary_batch_ffi(
         raise RuntimeError("the algebraic-boundary batch FFI is CPU-only")
     if isinstance(limb_c, jax.core.Tracer) or isinstance(limb_d, jax.core.Tracer):
         raise NotImplementedError("limb-darkening tangents are unsupported by algebraic batch v1")
+    if refinement_policy_id != "algebraic-forced-finite-v1":
+        raise ValueError("unsupported algebraic refinement policy")
+    if fallback_policy_id != "none":
+        raise ValueError("unsupported algebraic fallback policy")
     source_x = jnp.asarray(source_x, dtype=jnp.float64)
     source_y = jnp.asarray(source_y, dtype=jnp.float64)
     separation = jnp.asarray(separation, dtype=jnp.float64)
@@ -1766,6 +1781,8 @@ def binary_algebraic_boundary_batch_value_jacobian_ffi(
     value_rtol=1.0e-4,
     gradient_atol=3.0e-4,
     strict=True,
+    refinement_policy_id="algebraic-forced-finite-v1",
+    fallback_policy_id="none",
 ):
     """Return the explicit native value/Jacobian ABI without Python epoch loops."""
 
@@ -1774,6 +1791,10 @@ def binary_algebraic_boundary_batch_value_jacobian_ffi(
         raise RuntimeError("the algebraic-boundary batch FFI is CPU-only")
     if isinstance(limb_c, jax.core.Tracer) or isinstance(limb_d, jax.core.Tracer):
         raise NotImplementedError("limb-darkening tangents are unsupported by algebraic batch v1")
+    if refinement_policy_id != "algebraic-forced-finite-v1":
+        raise ValueError("unsupported algebraic refinement policy")
+    if fallback_policy_id != "none":
+        raise ValueError("unsupported algebraic fallback policy")
     source_x = jnp.asarray(source_x, dtype=jnp.float64)
     source_y = jnp.asarray(source_y, dtype=jnp.float64)
     separation = jnp.asarray(separation, dtype=jnp.float64)

@@ -131,11 +131,55 @@ def test_nonzero_limb_tangent_is_refused():
 
 def test_mask_keeps_point_and_finite_rows_in_one_native_call():
     mask = jnp.array([True, False, True, False, True])
-    result = _curve(5, mask=mask)
+    result = binary_algebraic_boundary_batch_value_jacobian_ffi(
+        jnp.linspace(0.19, 0.23, 5),
+        jnp.linspace(0.13, 0.17, 5),
+        jnp.full((5,), 1.35),
+        0.05,
+        0.28,
+        finite_mask=mask,
+        limb_c=0.4,
+        limb_d=0.2,
+    )
     assert np.array_equal(result.method, np.array([2, 1, 2, 1, 2], dtype=np.int32))
     assert np.all(np.isin(result.status[mask], [0, 3]))
-    assert np.all(result.status[~mask] == 3)  # point value, no certified v1 geometry Jacobian
-    assert np.all(np.isnan(result.jacobian[~mask]))
+    assert np.all(result.status[~mask] == 0)
+    assert np.all(np.isfinite(result.jacobian[~mask]))
+    assert np.all(result.root_solve_count[~mask] == 0)
+    assert np.all(result.lens_evaluation_count[~mask] == 0)
+
+
+def test_forced_finite_mask_never_reports_router_shortcut_method():
+    result = binary_algebraic_boundary_batch_value_jacobian_ffi(
+        jnp.array([10.0]), jnp.array([0.15]), jnp.array([1.35]), 0.05, 0.28,
+        limb_c=0.4, limb_d=0.2,
+    )
+    assert np.array_equal(result.method, np.array([2], dtype=np.int32))
+    assert np.all(result.root_solve_count >= 0)
+    assert np.all(result.lens_evaluation_count >= 0)
+
+
+def test_zero_value_budget_is_fail_closed():
+    result = binary_algebraic_boundary_batch_value_jacobian_ffi(
+        jnp.array([0.22]), jnp.array([0.15]), jnp.array([1.35]), 0.05, 0.28,
+        limb_c=0.4, limb_d=0.2, value_atol=0.0, value_rtol=0.0,
+    )
+    assert np.array_equal(result.status, np.array([2], dtype=np.int32))
+    assert np.all(np.isnan(result.magnification))
+    assert np.all(np.isnan(result.jacobian))
+
+
+def test_unknown_policy_is_rejected_before_ffi_lowering():
+    with pytest.raises(ValueError, match="refinement policy"):
+        binary_algebraic_boundary_batch_ffi(
+            jnp.array([0.22]), jnp.array([0.15]), jnp.array([1.35]), 0.05, 0.28,
+            refinement_policy_id="adaptive-unimplemented",
+        )
+    with pytest.raises(ValueError, match="fallback policy"):
+        binary_algebraic_boundary_batch_value_jacobian_ffi(
+            jnp.array([0.22]), jnp.array([0.15]), jnp.array([1.35]), 0.05, 0.28,
+            fallback_policy_id="point",
+        )
 
 
 def test_q_exchange_preserves_value_and_canonical_geometry_jacobian():

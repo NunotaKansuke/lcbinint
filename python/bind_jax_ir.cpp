@@ -5483,6 +5483,9 @@ constexpr std::int32_t algebraic_status_ok = 0;
 constexpr std::int32_t algebraic_status_invalid_input = 1;
 constexpr std::int32_t algebraic_status_value_uncertified = 2;
 constexpr std::int32_t algebraic_status_grad_uncertified = 3;
+constexpr std::int32_t algebraic_status_root_failure = 4;
+constexpr std::int32_t algebraic_status_capacity_exceeded = 5;
+constexpr std::int32_t algebraic_status_fallback_exhausted = 6;
 constexpr std::int32_t algebraic_method_point = 1;
 constexpr std::int32_t algebraic_method_finite = 2;
 constexpr std::int32_t algebraic_unavailable = -1;
@@ -5492,13 +5495,31 @@ std::atomic<std::int64_t> algebraic_batch_jacobian_call_count {0};
 namespace {
 
 lcbinint::magnification::AlgebraicBoundarySettings algebraic_boundary_settings_from(
+    double absolute_tolerance,
     double relative_tolerance)
 {
     lcbinint::magnification::AlgebraicBoundarySettings settings;
+    settings.absolute_tolerance = absolute_tolerance;
     if (relative_tolerance > 0.0) {
         settings.relative_tolerance = relative_tolerance;
     }
     return settings;
+}
+
+std::int32_t algebraic_failure_status(const std::string& reason)
+{
+    if (reason.find("root") != std::string::npos
+        || reason.find("seed") != std::string::npos) {
+        return algebraic_status_root_failure;
+    }
+    if (reason.find("capacity") != std::string::npos
+        || reason.find("overflow") != std::string::npos) {
+        return algebraic_status_capacity_exceeded;
+    }
+    if (reason.find("fallback") != std::string::npos) {
+        return algebraic_status_fallback_exhausted;
+    }
+    return algebraic_status_value_uncertified;
 }
 
 }  // namespace
@@ -5537,7 +5558,7 @@ ffi::Error algebraic_boundary_epoch_forward_ffi_impl(
     fs_settings.limb_darkening_d = *limb_d.typed_data();
     const lcbinint::magnification::FiniteSourceMagnifier magnifier(fs_settings);
     const auto algebraic_settings =
-        algebraic_boundary_settings_from(relative_tolerance);
+        algebraic_boundary_settings_from(1.0e-8, relative_tolerance);
     const auto result = magnifier.experimental_algebraic_boundary_binary_mag(
         *separation.typed_data(), *mass_ratio.typed_data(),
         {*source_x.typed_data(), *source_y.typed_data()},
@@ -5580,7 +5601,7 @@ ffi::Error algebraic_boundary_epoch_jacobian_ffi_impl(
     fs_settings.limb_darkening_d = *limb_d.typed_data();
     const lcbinint::magnification::FiniteSourceMagnifier magnifier(fs_settings);
     const auto algebraic_settings =
-        algebraic_boundary_settings_from(relative_tolerance);
+        algebraic_boundary_settings_from(1.0e-8, relative_tolerance);
     const auto result =
         magnifier.experimental_algebraic_boundary_binary_jacobian(
             *separation.typed_data(), *mass_ratio.typed_data(),
@@ -5627,6 +5648,8 @@ XLA_FFI_DEFINE_HANDLER(
 #define LCBININT_ALGEBRAIC_BOUNDARY_BATCH_BINDING \
     ffi::Ffi::Bind() \
         .Attr<std::int64_t>("strict") \
+        .Attr<std::int64_t>("refinement_policy") \
+        .Attr<std::int64_t>("fallback_policy") \
         .Arg<ffi::BufferR1<ffi::F64>>() \
         .Arg<ffi::BufferR1<ffi::F64>>() \
         .Arg<ffi::BufferR1<ffi::F64>>() \
@@ -5644,11 +5667,15 @@ XLA_FFI_DEFINE_HANDLER(
         .Ret<ffi::BufferR1<ffi::S32>>() \
         .Ret<ffi::BufferR1<ffi::S32>>() \
         .Ret<ffi::BufferR1<ffi::S32>>() \
+        .Ret<ffi::BufferR1<ffi::S32>>() \
+        .Ret<ffi::BufferR1<ffi::S32>>() \
         .Ret<ffi::BufferR1<ffi::PRED>>()
 
 template <bool IncludeJacobian>
 ffi::Error algebraic_boundary_batch_impl(
     std::int64_t strict,
+    std::int64_t refinement_policy,
+    std::int64_t fallback_policy,
     ffi::BufferR1<ffi::F64> source_x,
     ffi::BufferR1<ffi::F64> source_y,
     ffi::BufferR1<ffi::F64> separation,
@@ -5666,6 +5693,8 @@ ffi::Error algebraic_boundary_batch_impl(
     ffi::ResultBufferR1<ffi::S32> status,
     ffi::ResultBufferR1<ffi::S32> method,
     ffi::ResultBufferR1<ffi::S32> refinement_level,
+    ffi::ResultBufferR1<ffi::S32> root_solve_count,
+    ffi::ResultBufferR1<ffi::S32> lens_evaluation_count,
     ffi::ResultBufferR1<ffi::PRED> fallback_used,
     std::conditional_t<IncludeJacobian, ffi::ResultBufferR2<ffi::F64>, int> jacobian = 0)
 {
@@ -5675,8 +5704,15 @@ ffi::Error algebraic_boundary_batch_impl(
         || finite_mask.dimensions()[0] != n || magnification->dimensions()[0] != n
         || value_error->dimensions()[0] != n || gradient_error->dimensions()[0] != n
         || status->dimensions()[0] != n || method->dimensions()[0] != n
-        || refinement_level->dimensions()[0] != n || fallback_used->dimensions()[0] != n) {
+        || refinement_level->dimensions()[0] != n || root_solve_count->dimensions()[0] != n
+        || lens_evaluation_count->dimensions()[0] != n || fallback_used->dimensions()[0] != n) {
         return ffi::Error::InvalidArgument("invalid algebraic-boundary batch shapes");
+    }
+    // v1 has one explicit finite refinement plan and no fallback.  Keep these
+    // attributes in the ABI so callers cannot accidentally request a policy
+    // the native driver does not implement.
+    if (refinement_policy != 0 || fallback_policy != 0) {
+        return ffi::Error::InvalidArgument("unsupported algebraic-boundary refinement/fallback policy");
     }
     if constexpr (IncludeJacobian) {
         if (jacobian->dimensions()[0] != n || jacobian->dimensions()[1] != 5) {
@@ -5700,15 +5736,20 @@ ffi::Error algebraic_boundary_batch_impl(
     settings.limb_darkening_d = d;
     const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
     const lcbinint::magnification::PointSourceMagnifier point_magnifier;
-    const auto algebraic_settings = algebraic_boundary_settings_from(rtol);
+    const auto algebraic_settings = algebraic_boundary_settings_from(atol, rtol);
     for (std::size_t row = 0; row < n; ++row) {
-        auto set_nan_row = [&](std::int32_t row_status) {
+        auto set_nan_row = [&](std::int32_t row_status, std::int32_t row_method = algebraic_unavailable,
+                               std::int32_t row_refinement = algebraic_unavailable,
+                               std::int32_t row_root_work = algebraic_unavailable,
+                               std::int32_t row_lens_work = algebraic_unavailable) {
             magnification->typed_data()[row] = nan;
             value_error->typed_data()[row] = nan;
             gradient_error->typed_data()[row] = nan;
             status->typed_data()[row] = row_status;
-            method->typed_data()[row] = algebraic_unavailable;
-            refinement_level->typed_data()[row] = algebraic_unavailable;
+            method->typed_data()[row] = row_method;
+            refinement_level->typed_data()[row] = row_refinement;
+            root_solve_count->typed_data()[row] = row_root_work;
+            lens_evaluation_count->typed_data()[row] = row_lens_work;
             fallback_used->typed_data()[row] = false;
             if constexpr (IncludeJacobian) {
                 for (std::size_t col = 0; col < 5; ++col) jacobian->typed_data()[row * 5 + col] = nan;
@@ -5727,36 +5768,63 @@ ffi::Error algebraic_boundary_batch_impl(
             // Point rows are a declared method, never a finite-source fallback.
             const auto point = point_magnifier.binary_mag0(s, q, {x, y});
             if (!std::isfinite(point.magnification) || point.magnification <= 0.0) {
-                set_nan_row(algebraic_status_value_uncertified);
+                set_nan_row(algebraic_status_value_uncertified, algebraic_method_point, 0, 0, 0);
                 continue;
             }
-            magnification->typed_data()[row] = point.magnification;
+            lcbinint::magnification::autodiff::FrozenLensBranch branch;
+            branch.separation_sign = 1.0;
+            branch.q_below_one = q < 1.0;
+            const std::array<double, 5> params{x, y, rho, q, s};
+            const auto point_jacobian =
+                lcbinint::magnification::autodiff::experimental_algebraic_boundary_multipole_jacobian(
+                    params, branch, c, d, false, point.magnification);
+            if (!point_jacobian.success || !std::isfinite(point_jacobian.magnification)) {
+                set_nan_row(algebraic_status_root_failure, algebraic_method_point, 0, 0, 0);
+                continue;
+            }
+            magnification->typed_data()[row] = point_jacobian.magnification;
             value_error->typed_data()[row] = 0.0;
-            gradient_error->typed_data()[row] = nan;
-            status->typed_data()[row] = algebraic_status_grad_uncertified;
+            gradient_error->typed_data()[row] = point_jacobian.grad_error;
+            status->typed_data()[row] = algebraic_status_ok;
             method->typed_data()[row] = algebraic_method_point;
+            root_solve_count->typed_data()[row] = 0;
+            lens_evaluation_count->typed_data()[row] = 0;
             if constexpr (IncludeJacobian) {
-                for (std::size_t col = 0; col < 5; ++col) jacobian->typed_data()[row * 5 + col] = nan;
+                for (std::size_t col = 0; col < 5; ++col) {
+                    jacobian->typed_data()[row * 5 + col] = point_jacobian.jacobian[col];
+                }
             }
             continue;
         }
-        // The reported value comes from the Jet driver in both entry points.
-        // A separate value pass supplies the algebraic quadrature error estimate
-        // only; it never selects the primal returned to JAX.
-        const auto value = magnifier.experimental_algebraic_boundary_binary_mag(
-            s, q, {x, y}, rho, algebraic_settings);
+        // The Jet driver owns both the returned primal and its absolute error
+        // estimate.  Do not run a second value-only integral here.
         const auto result = magnifier.experimental_algebraic_boundary_binary_jacobian(
-            s, q, {x, y}, rho, algebraic_settings, grad_tol);
-        const bool value_ok = value.success && std::isfinite(value.error_estimate)
+            s, q, {x, y}, rho, algebraic_settings, grad_tol,
+            /*force_algebraic_finite=*/true);
+        const auto& diagnostics = result.diagnostics;
+        const std::int32_t refinement = diagnostics.radial_subdivision_count;
+        const std::int32_t root_work = diagnostics.root_solve_count;
+        const std::int32_t lens_work = diagnostics.lens_evaluation_count;
+        const bool value_ok = result.success && std::isfinite(result.value_error)
             && std::isfinite(result.magnification) && result.magnification > 0.0;
-        if (!value_ok || !result.success) {
-            set_nan_row(algebraic_status_value_uncertified);
+        if (!value_ok) {
+            set_nan_row(algebraic_failure_status(result.unsafe_reason), algebraic_method_finite,
+                        refinement, root_work, lens_work);
             continue;
         }
         magnification->typed_data()[row] = result.magnification;
-        value_error->typed_data()[row] = value.error_estimate * std::max(1.0, std::abs(value.magnification));
+        value_error->typed_data()[row] = result.value_error;
         gradient_error->typed_data()[row] = result.grad_error;
         method->typed_data()[row] = algebraic_method_finite;
+        refinement_level->typed_data()[row] = refinement;
+        root_solve_count->typed_data()[row] = root_work;
+        lens_evaluation_count->typed_data()[row] = lens_work;
+        const double value_budget = atol + rtol * std::max(1.0, std::abs(result.magnification));
+        if (!(result.value_error <= value_budget)) {
+            set_nan_row(algebraic_status_value_uncertified, algebraic_method_finite,
+                        refinement, root_work, lens_work);
+            continue;
+        }
         const bool gradient_ok = result.grad_reliable && std::isfinite(result.grad_error)
             && result.grad_error <= grad_tol;
         status->typed_data()[row] = gradient_ok ? algebraic_status_ok : algebraic_status_grad_uncertified;
@@ -5771,7 +5839,8 @@ ffi::Error algebraic_boundary_batch_impl(
 }
 
 ffi::Error algebraic_boundary_batch_forward_ffi_impl(
-    std::int64_t strict, ffi::BufferR1<ffi::F64> source_x, ffi::BufferR1<ffi::F64> source_y,
+    std::int64_t strict, std::int64_t refinement_policy, std::int64_t fallback_policy,
+    ffi::BufferR1<ffi::F64> source_x, ffi::BufferR1<ffi::F64> source_y,
     ffi::BufferR1<ffi::F64> separation, ffi::BufferR0<ffi::F64> source_radius,
     ffi::BufferR0<ffi::F64> mass_ratio, ffi::BufferR1<ffi::PRED> finite_mask,
     ffi::BufferR0<ffi::F64> limb_c, ffi::BufferR0<ffi::F64> limb_d,
@@ -5779,16 +5848,18 @@ ffi::Error algebraic_boundary_batch_forward_ffi_impl(
     ffi::BufferR0<ffi::F64> gradient_atol, ffi::ResultBufferR1<ffi::F64> magnification,
     ffi::ResultBufferR1<ffi::F64> value_error, ffi::ResultBufferR1<ffi::F64> gradient_error,
     ffi::ResultBufferR1<ffi::S32> status, ffi::ResultBufferR1<ffi::S32> method,
-    ffi::ResultBufferR1<ffi::S32> refinement_level, ffi::ResultBufferR1<ffi::PRED> fallback_used)
+    ffi::ResultBufferR1<ffi::S32> refinement_level, ffi::ResultBufferR1<ffi::S32> root_solve_count,
+    ffi::ResultBufferR1<ffi::S32> lens_evaluation_count, ffi::ResultBufferR1<ffi::PRED> fallback_used)
 {
     algebraic_batch_forward_call_count.fetch_add(1, std::memory_order_relaxed);
-    return algebraic_boundary_batch_impl<false>(strict, source_x, source_y, separation, source_radius,
+    return algebraic_boundary_batch_impl<false>(strict, refinement_policy, fallback_policy, source_x, source_y, separation, source_radius,
         mass_ratio, finite_mask, limb_c, limb_d, value_atol, value_rtol, gradient_atol, magnification,
-        value_error, gradient_error, status, method, refinement_level, fallback_used);
+        value_error, gradient_error, status, method, refinement_level, root_solve_count, lens_evaluation_count, fallback_used);
 }
 
 ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
-    std::int64_t strict, ffi::BufferR1<ffi::F64> source_x, ffi::BufferR1<ffi::F64> source_y,
+    std::int64_t strict, std::int64_t refinement_policy, std::int64_t fallback_policy,
+    ffi::BufferR1<ffi::F64> source_x, ffi::BufferR1<ffi::F64> source_y,
     ffi::BufferR1<ffi::F64> separation, ffi::BufferR0<ffi::F64> source_radius,
     ffi::BufferR0<ffi::F64> mass_ratio, ffi::BufferR1<ffi::PRED> finite_mask,
     ffi::BufferR0<ffi::F64> limb_c, ffi::BufferR0<ffi::F64> limb_d,
@@ -5796,13 +5867,14 @@ ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
     ffi::BufferR0<ffi::F64> gradient_atol, ffi::ResultBufferR1<ffi::F64> magnification,
     ffi::ResultBufferR1<ffi::F64> value_error, ffi::ResultBufferR1<ffi::F64> gradient_error,
     ffi::ResultBufferR1<ffi::S32> status, ffi::ResultBufferR1<ffi::S32> method,
-    ffi::ResultBufferR1<ffi::S32> refinement_level, ffi::ResultBufferR1<ffi::PRED> fallback_used,
+    ffi::ResultBufferR1<ffi::S32> refinement_level, ffi::ResultBufferR1<ffi::S32> root_solve_count,
+    ffi::ResultBufferR1<ffi::S32> lens_evaluation_count, ffi::ResultBufferR1<ffi::PRED> fallback_used,
     ffi::ResultBufferR2<ffi::F64> jacobian)
 {
     algebraic_batch_jacobian_call_count.fetch_add(1, std::memory_order_relaxed);
-    return algebraic_boundary_batch_impl<true>(strict, source_x, source_y, separation, source_radius,
+    return algebraic_boundary_batch_impl<true>(strict, refinement_policy, fallback_policy, source_x, source_y, separation, source_radius,
         mass_ratio, finite_mask, limb_c, limb_d, value_atol, value_rtol, gradient_atol, magnification,
-        value_error, gradient_error, status, method, refinement_level, fallback_used, jacobian);
+        value_error, gradient_error, status, method, refinement_level, root_solve_count, lens_evaluation_count, fallback_used, jacobian);
 }
 
 XLA_FFI_DEFINE_HANDLER(

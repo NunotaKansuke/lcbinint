@@ -310,6 +310,8 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
     const auto primal = experimental_algebraic_boundary_integral(
         lens_d, source_d, rho_d, c, d, seeds, settings, &bands);
     out.magnification = primal.magnification;
+    out.value_error = primal.error_estimate;
+    out.diagnostics = primal.diagnostics;
     if (!primal.success) {
         out.unsafe_reason = primal.unsafe_reason;
         return out;
@@ -510,6 +512,9 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_multipole_jacobian(
     AlgebraicBoundaryJacobian out;
     for (auto& j : out.jacobian) j = std::numeric_limits<double>::quiet_NaN();
     out.magnification = authoritative_magnification;
+    // The point / multipole stencil has no quadrature error estimate in this
+    // ABI. The caller reports this as an explicit unavailable diagnostic.
+    out.value_error = std::numeric_limits<double>::quiet_NaN();
 
     std::array<Jet, 5> pj;
     for (std::size_t i = 0; i < 5; ++i) pj[i] = Jet::variable(params[i], i);
