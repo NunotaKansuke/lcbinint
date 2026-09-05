@@ -5836,10 +5836,19 @@ ffi::Error algebraic_boundary_batch_impl(
                 set_budget_failure(algebraic_method_point, 0, point_root_work, point_lens_work);
                 continue;
             }
-            status->typed_data()[row] = algebraic_status_ok;
+            bool point_structurally_reliable = point_jacobian.success;
+            for (const double derivative : point_jacobian.jacobian) {
+                point_structurally_reliable = point_structurally_reliable && std::isfinite(derivative);
+            }
+            const bool point_gradient_ok = point_structurally_reliable &&
+                point_gradient_error <= grad_tol;
+            status->typed_data()[row] = point_gradient_ok
+                ? algebraic_status_ok : algebraic_status_grad_uncertified;
             if constexpr (IncludeJacobian) {
                 for (std::size_t col = 0; col < 5; ++col) {
-                    jacobian->typed_data()[row * 5 + col] = point_jacobian.jacobian[col];
+                    jacobian->typed_data()[row * 5 + col] =
+                        point_structurally_reliable && (point_gradient_ok || !strict)
+                        ? point_jacobian.jacobian[col] : nan;
                 }
             }
             continue;

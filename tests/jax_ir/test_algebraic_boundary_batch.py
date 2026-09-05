@@ -199,6 +199,18 @@ def test_point_rows_report_measured_not_sentinel_diagnostics():
     assert np.all(result.lens_evaluation_count > 0)
 
 
+@pytest.mark.parametrize("strict", [True, False])
+def test_point_rows_obey_gradient_budget_and_strict_masking(strict):
+    result = binary_algebraic_boundary_batch_value_jacobian_ffi(
+        jnp.array([0.22]), jnp.array([0.15]), jnp.array([1.35]), 0.05, 0.28,
+        finite_mask=jnp.array([False]), limb_c=0.4, limb_d=0.2,
+        gradient_atol=0.0, strict=strict,
+    )
+    assert np.array_equal(result.status, np.array([3], dtype=np.int32))
+    assert np.all(np.isfinite(result.gradient_error))
+    assert np.all(np.isnan(result.jacobian) if strict else np.isfinite(result.jacobian))
+
+
 def test_unknown_policy_is_rejected_before_ffi_lowering():
     with pytest.raises(ValueError, match="refinement policy"):
         binary_algebraic_boundary_batch_ffi(
