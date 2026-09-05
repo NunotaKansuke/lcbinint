@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <complex>
 #include <cstdint>
@@ -5475,6 +5476,19 @@ XLA_FFI_DEFINE_HANDLER(
 
 constexpr std::size_t algebraic_boundary_parameter_count = 5;
 
+// M1 algebraic curve ABI.  These codes intentionally live at this boundary:
+// MOASARC owns policy, while lcbinint reports the outcome of that policy
+// without making a host callback for every epoch.
+constexpr std::int32_t algebraic_status_ok = 0;
+constexpr std::int32_t algebraic_status_invalid_input = 1;
+constexpr std::int32_t algebraic_status_value_uncertified = 2;
+constexpr std::int32_t algebraic_status_grad_uncertified = 3;
+constexpr std::int32_t algebraic_method_point = 1;
+constexpr std::int32_t algebraic_method_finite = 2;
+constexpr std::int32_t algebraic_unavailable = -1;
+std::atomic<std::int64_t> algebraic_batch_forward_call_count {0};
+std::atomic<std::int64_t> algebraic_batch_jacobian_call_count {0};
+
 namespace {
 
 lcbinint::magnification::AlgebraicBoundarySettings algebraic_boundary_settings_from(
@@ -5601,6 +5615,206 @@ XLA_FFI_DEFINE_HANDLER(
         .Ret<ffi::BufferR1<ffi::F64>>());
 
 #undef LCBININT_ALGEBRAIC_BOUNDARY_FFI_BINDING
+
+// --- M1 algebraic-boundary full-curve FFI ---------------------------------
+//
+// This is deliberately not a vmap wrapper around the scalar experimental
+// handler.  A single native invocation owns the epoch loop and shares the
+// fixed LD settings, the magnifier, and its caustic/router cache.  Both public
+// targets use the Jacobian driver for the primal so a forward evaluation and a
+// JVP select the same numerical target.
+
+#define LCBININT_ALGEBRAIC_BOUNDARY_BATCH_BINDING \
+    ffi::Ffi::Bind() \
+        .Attr<std::int64_t>("strict") \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::PRED>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::S32>>() \
+        .Ret<ffi::BufferR1<ffi::S32>>() \
+        .Ret<ffi::BufferR1<ffi::S32>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+
+template <bool IncludeJacobian>
+ffi::Error algebraic_boundary_batch_impl(
+    std::int64_t strict,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR1<ffi::PRED> finite_mask,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::BufferR0<ffi::F64> value_atol,
+    ffi::BufferR0<ffi::F64> value_rtol,
+    ffi::BufferR0<ffi::F64> gradient_atol,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> value_error,
+    ffi::ResultBufferR1<ffi::F64> gradient_error,
+    ffi::ResultBufferR1<ffi::S32> status,
+    ffi::ResultBufferR1<ffi::S32> method,
+    ffi::ResultBufferR1<ffi::S32> refinement_level,
+    ffi::ResultBufferR1<ffi::PRED> fallback_used,
+    std::conditional_t<IncludeJacobian, ffi::ResultBufferR2<ffi::F64>, int> jacobian = 0)
+{
+    const std::size_t n = source_x.dimensions()[0];
+    if (
+        n == 0 || source_y.dimensions()[0] != n || separation.dimensions()[0] != n
+        || finite_mask.dimensions()[0] != n || magnification->dimensions()[0] != n
+        || value_error->dimensions()[0] != n || gradient_error->dimensions()[0] != n
+        || status->dimensions()[0] != n || method->dimensions()[0] != n
+        || refinement_level->dimensions()[0] != n || fallback_used->dimensions()[0] != n) {
+        return ffi::Error::InvalidArgument("invalid algebraic-boundary batch shapes");
+    }
+    if constexpr (IncludeJacobian) {
+        if (jacobian->dimensions()[0] != n || jacobian->dimensions()[1] != 5) {
+            return ffi::Error::InvalidArgument("invalid algebraic-boundary batch Jacobian shape");
+        }
+    }
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const double rho = *source_radius.typed_data();
+    const double q = *mass_ratio.typed_data();
+    const double c = *limb_c.typed_data();
+    const double d = *limb_d.typed_data();
+    const double atol = *value_atol.typed_data();
+    const double rtol = *value_rtol.typed_data();
+    const double grad_tol = *gradient_atol.typed_data();
+    const bool common_valid = std::isfinite(rho) && rho > 0.0 && std::isfinite(q) && q > 0.0
+        && std::isfinite(c) && std::isfinite(d) && std::isfinite(atol) && atol >= 0.0
+        && std::isfinite(rtol) && rtol >= 0.0 && std::isfinite(grad_tol) && grad_tol >= 0.0;
+
+    lcbinint::magnification::FiniteSourceSettings settings;
+    settings.limb_darkening_c = c;
+    settings.limb_darkening_d = d;
+    const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+    const lcbinint::magnification::PointSourceMagnifier point_magnifier;
+    const auto algebraic_settings = algebraic_boundary_settings_from(rtol);
+    for (std::size_t row = 0; row < n; ++row) {
+        auto set_nan_row = [&](std::int32_t row_status) {
+            magnification->typed_data()[row] = nan;
+            value_error->typed_data()[row] = nan;
+            gradient_error->typed_data()[row] = nan;
+            status->typed_data()[row] = row_status;
+            method->typed_data()[row] = algebraic_unavailable;
+            refinement_level->typed_data()[row] = algebraic_unavailable;
+            fallback_used->typed_data()[row] = false;
+            if constexpr (IncludeJacobian) {
+                for (std::size_t col = 0; col < 5; ++col) jacobian->typed_data()[row * 5 + col] = nan;
+            }
+        };
+        const double x = source_x.typed_data()[row];
+        const double y = source_y.typed_data()[row];
+        const double s = separation.typed_data()[row];
+        if (!common_valid || !std::isfinite(x) || !std::isfinite(y) || !std::isfinite(s) || s <= 0.0) {
+            set_nan_row(algebraic_status_invalid_input);
+            continue;
+        }
+        fallback_used->typed_data()[row] = false;
+        refinement_level->typed_data()[row] = 0;
+        if (!finite_mask.typed_data()[row]) {
+            // Point rows are a declared method, never a finite-source fallback.
+            const auto point = point_magnifier.binary_mag0(s, q, {x, y});
+            if (!std::isfinite(point.magnification) || point.magnification <= 0.0) {
+                set_nan_row(algebraic_status_value_uncertified);
+                continue;
+            }
+            magnification->typed_data()[row] = point.magnification;
+            value_error->typed_data()[row] = 0.0;
+            gradient_error->typed_data()[row] = nan;
+            status->typed_data()[row] = algebraic_status_grad_uncertified;
+            method->typed_data()[row] = algebraic_method_point;
+            if constexpr (IncludeJacobian) {
+                for (std::size_t col = 0; col < 5; ++col) jacobian->typed_data()[row * 5 + col] = nan;
+            }
+            continue;
+        }
+        // The reported value comes from the Jet driver in both entry points.
+        // A separate value pass supplies the algebraic quadrature error estimate
+        // only; it never selects the primal returned to JAX.
+        const auto value = magnifier.experimental_algebraic_boundary_binary_mag(
+            s, q, {x, y}, rho, algebraic_settings);
+        const auto result = magnifier.experimental_algebraic_boundary_binary_jacobian(
+            s, q, {x, y}, rho, algebraic_settings, grad_tol);
+        const bool value_ok = value.success && std::isfinite(value.error_estimate)
+            && std::isfinite(result.magnification) && result.magnification > 0.0;
+        if (!value_ok || !result.success) {
+            set_nan_row(algebraic_status_value_uncertified);
+            continue;
+        }
+        magnification->typed_data()[row] = result.magnification;
+        value_error->typed_data()[row] = value.error_estimate * std::max(1.0, std::abs(value.magnification));
+        gradient_error->typed_data()[row] = result.grad_error;
+        method->typed_data()[row] = algebraic_method_finite;
+        const bool gradient_ok = result.grad_reliable && std::isfinite(result.grad_error)
+            && result.grad_error <= grad_tol;
+        status->typed_data()[row] = gradient_ok ? algebraic_status_ok : algebraic_status_grad_uncertified;
+        if constexpr (IncludeJacobian) {
+            for (std::size_t col = 0; col < 5; ++col) {
+                jacobian->typed_data()[row * 5 + col] = gradient_ok || !strict
+                    ? result.jacobian[col] : nan;
+            }
+        }
+    }
+    return ffi::Error::Success();
+}
+
+ffi::Error algebraic_boundary_batch_forward_ffi_impl(
+    std::int64_t strict, ffi::BufferR1<ffi::F64> source_x, ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::F64> separation, ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> mass_ratio, ffi::BufferR1<ffi::PRED> finite_mask,
+    ffi::BufferR0<ffi::F64> limb_c, ffi::BufferR0<ffi::F64> limb_d,
+    ffi::BufferR0<ffi::F64> value_atol, ffi::BufferR0<ffi::F64> value_rtol,
+    ffi::BufferR0<ffi::F64> gradient_atol, ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> value_error, ffi::ResultBufferR1<ffi::F64> gradient_error,
+    ffi::ResultBufferR1<ffi::S32> status, ffi::ResultBufferR1<ffi::S32> method,
+    ffi::ResultBufferR1<ffi::S32> refinement_level, ffi::ResultBufferR1<ffi::PRED> fallback_used)
+{
+    algebraic_batch_forward_call_count.fetch_add(1, std::memory_order_relaxed);
+    return algebraic_boundary_batch_impl<false>(strict, source_x, source_y, separation, source_radius,
+        mass_ratio, finite_mask, limb_c, limb_d, value_atol, value_rtol, gradient_atol, magnification,
+        value_error, gradient_error, status, method, refinement_level, fallback_used);
+}
+
+ffi::Error algebraic_boundary_batch_jacobian_ffi_impl(
+    std::int64_t strict, ffi::BufferR1<ffi::F64> source_x, ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::F64> separation, ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> mass_ratio, ffi::BufferR1<ffi::PRED> finite_mask,
+    ffi::BufferR0<ffi::F64> limb_c, ffi::BufferR0<ffi::F64> limb_d,
+    ffi::BufferR0<ffi::F64> value_atol, ffi::BufferR0<ffi::F64> value_rtol,
+    ffi::BufferR0<ffi::F64> gradient_atol, ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> value_error, ffi::ResultBufferR1<ffi::F64> gradient_error,
+    ffi::ResultBufferR1<ffi::S32> status, ffi::ResultBufferR1<ffi::S32> method,
+    ffi::ResultBufferR1<ffi::S32> refinement_level, ffi::ResultBufferR1<ffi::PRED> fallback_used,
+    ffi::ResultBufferR2<ffi::F64> jacobian)
+{
+    algebraic_batch_jacobian_call_count.fetch_add(1, std::memory_order_relaxed);
+    return algebraic_boundary_batch_impl<true>(strict, source_x, source_y, separation, source_radius,
+        mass_ratio, finite_mask, limb_c, limb_d, value_atol, value_rtol, gradient_atol, magnification,
+        value_error, gradient_error, status, method, refinement_level, fallback_used, jacobian);
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    algebraic_boundary_batch_forward_ffi_handler,
+    algebraic_boundary_batch_forward_ffi_impl,
+    LCBININT_ALGEBRAIC_BOUNDARY_BATCH_BINDING);
+XLA_FFI_DEFINE_HANDLER(
+    algebraic_boundary_batch_jacobian_ffi_handler,
+    algebraic_boundary_batch_jacobian_ffi_impl,
+    LCBININT_ALGEBRAIC_BOUNDARY_BATCH_BINDING.Ret<ffi::BufferR2<ffi::F64>>());
+
+#undef LCBININT_ALGEBRAIC_BOUNDARY_BATCH_BINDING
 
 ffi::Error validate_triple_polar_batch(
     std::int64_t resolution,
@@ -7377,6 +7591,32 @@ py::capsule algebraic_boundary_epoch_jacobian_ffi_capsule()
         reinterpret_cast<void*>(algebraic_boundary_epoch_jacobian_ffi_handler));
 }
 
+py::capsule algebraic_boundary_batch_forward_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(algebraic_boundary_batch_forward_ffi_handler));
+}
+
+py::capsule algebraic_boundary_batch_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(algebraic_boundary_batch_jacobian_ffi_handler));
+}
+
+py::dict algebraic_boundary_batch_call_counters()
+{
+    py::dict counters;
+    counters["forward"] = algebraic_batch_forward_call_count.load(std::memory_order_relaxed);
+    counters["jacobian"] = algebraic_batch_jacobian_call_count.load(std::memory_order_relaxed);
+    return counters;
+}
+
+void reset_algebraic_boundary_batch_call_counters()
+{
+    algebraic_batch_forward_call_count.store(0, std::memory_order_relaxed);
+    algebraic_batch_jacobian_call_count.store(0, std::memory_order_relaxed);
+}
+
 py::capsule triple_polar_batch_forward_ffi_capsule()
 {
     return py::capsule(
@@ -7537,6 +7777,22 @@ void register_jax_ir_submodule(py::module_& parent)
         "algebraic_boundary_epoch_jacobian_ffi",
         &algebraic_boundary_epoch_jacobian_ffi_capsule,
         "Return the experimental algebraic-boundary epoch value/Jacobian FFI capsule.");
+    module.def(
+        "algebraic_boundary_batch_forward_ffi",
+        &algebraic_boundary_batch_forward_ffi_capsule,
+        "Return the M1 algebraic-boundary full-curve forward FFI capsule.");
+    module.def(
+        "algebraic_boundary_batch_jacobian_ffi",
+        &algebraic_boundary_batch_jacobian_ffi_capsule,
+        "Return the M1 algebraic-boundary full-curve value/Jacobian FFI capsule.");
+    module.def(
+        "algebraic_boundary_batch_call_counters",
+        &algebraic_boundary_batch_call_counters,
+        "Return native M1 algebraic-batch forward/Jacobian invocation counts.");
+    module.def(
+        "reset_algebraic_boundary_batch_call_counters",
+        &reset_algebraic_boundary_batch_call_counters,
+        "Reset native M1 algebraic-batch invocation counts.");
     module.def(
         "triple_polar_batch_forward_ffi",
         &triple_polar_batch_forward_ffi_capsule,
