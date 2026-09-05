@@ -113,6 +113,21 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
     const std::vector<SourcePosition>& certified_image_seeds,
     const AlgebraicBoundarySettings& settings = {});
 
+// Internal evaluation-scoped support hand-off for the Jacobian driver.  The
+// legacy overload above remains the public entry point; this overload only
+// exposes the bands found by that exact primal invocation and never retains
+// them beyond the call.  The output is reset to a failed, empty result on any
+// failure of this call, including failures before band discovery.
+AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
+    const AlgebraicBoundaryLens& lens,
+    SourcePosition source,
+    double source_radius,
+    double limb_darkening_c,
+    double limb_darkening_d,
+    const std::vector<SourcePosition>& certified_image_seeds,
+    const AlgebraicBoundarySettings& settings,
+    AlgebraicBoundaryRadialBands* frozen_bands);
+
 // Constant-first coefficients of F(x_fixed, y). Coefficients are real up to
 // floating-point roundoff; Complex is retained for the shared root solver.
 std::vector<Complex> algebraic_cartesian_boundary_sextic(

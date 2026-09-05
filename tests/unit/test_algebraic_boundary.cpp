@@ -482,6 +482,65 @@ bool test_redundant_seeds_preserve_integral()
     return true;
 }
 
+bool test_primal_band_export_preserves_integral()
+{
+    constexpr double separation = 1.1;
+    constexpr double mass_ratio = 1.0e-3;
+    const lcbinint::SourcePosition source {0.08, 0.03};
+    constexpr double rho = 0.01;
+    const auto lens = native_lens(separation, mass_ratio);
+    lcbinint::magnification::PointSourceMagnifier point;
+    const auto images = point.binary_images(separation, mass_ratio, source);
+    std::vector<lcbinint::SourcePosition> seeds;
+    for (const auto& image : images) seeds.push_back(image.position);
+    if (seeds.empty()) return false;
+
+    lcbinint::magnification::AlgebraicBoundarySettings settings;
+    settings.absolute_tolerance = 1.0e-4;
+    settings.relative_tolerance = 1.0e-4;
+    settings.unit_circle_tolerance = 2.0e-6;
+    settings.boundary_residual_tolerance = 2.0e-8;
+    const auto legacy = lcbinint::magnification::experimental_algebraic_boundary_integral(
+        lens, source, rho, 0.5, 0.0, seeds, settings);
+    lcbinint::magnification::AlgebraicBoundaryRadialBands bands;
+    const auto exported = lcbinint::magnification::experimental_algebraic_boundary_integral(
+        lens, source, rho, 0.5, 0.0, seeds, settings, &bands);
+    if (!legacy.success || !exported.success || !bands.success || bands.bands.empty()) {
+        std::cerr << "primal band export failed\n";
+        return false;
+    }
+    const double scale = std::max({std::abs(legacy.magnification),
+                                   std::abs(exported.magnification), 1.0});
+    if (std::abs(legacy.magnification - exported.magnification) > 2.0e-11 * scale ||
+        legacy.error_estimate != exported.error_estimate ||
+        legacy.diagnostics.root_solve_count != exported.diagnostics.root_solve_count ||
+        legacy.diagnostics.lens_evaluation_count != exported.diagnostics.lens_evaluation_count ||
+        legacy.diagnostics.radial_subdivision_count != exported.diagnostics.radial_subdivision_count) {
+        std::cerr << "primal band export changed integral state\n";
+        return false;
+    }
+    // Reuse the same output object to ensure a failed evaluation cannot leave
+    // the previous successful support visible to a later caller.
+    const std::vector<lcbinint::SourcePosition> no_seeds;
+    const auto seed_failure =
+        lcbinint::magnification::experimental_algebraic_boundary_integral(
+            lens, source, rho, 0.5, 0.0, no_seeds, settings, &bands);
+    if (seed_failure.success || bands.success || !bands.bands.empty() ||
+        bands.unsafe_reason != seed_failure.unsafe_reason) {
+        std::cerr << "failed primal left stale exported bands\n";
+        return false;
+    }
+    const auto normalization_failure =
+        lcbinint::magnification::experimental_algebraic_boundary_integral(
+            lens, source, rho, 3.0, 0.0, seeds, settings, &bands);
+    if (normalization_failure.success || bands.success || !bands.bands.empty() ||
+        bands.unsafe_reason != normalization_failure.unsafe_reason) {
+        std::cerr << "failed primal left stale exported normalization bands\n";
+        return false;
+    }
+    return true;
+}
+
 bool test_ill_conditioned_real_quartic_falls_back()
 {
     constexpr double separation = 0.8;
@@ -530,7 +589,8 @@ int main()
     if (!test_interval_edge_cases()) return 6;
     if (!test_magnification_profiles()) return 7;
     if (!test_redundant_seeds_preserve_integral()) return 8;
-    if (!test_ill_conditioned_real_quartic_falls_back()) return 9;
+    if (!test_primal_band_export_preserves_integral()) return 9;
+    if (!test_ill_conditioned_real_quartic_falls_back()) return 10;
     std::cout << "algebraic boundary tests passed\n";
     return 0;
 }
