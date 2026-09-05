@@ -5755,6 +5755,24 @@ ffi::Error algebraic_boundary_batch_impl(
                 for (std::size_t col = 0; col < 5; ++col) jacobian->typed_data()[row * 5 + col] = nan;
             }
         };
+        // Unlike structural/input failure, a value-budget failure has useful
+        // measured diagnostics.  Preserve them while fail-closing only the
+        // returned value/Jacobian.
+        auto set_budget_failure = [&](std::int32_t row_method,
+                                      std::int32_t row_refinement,
+                                      std::int32_t row_root_work,
+                                      std::int32_t row_lens_work) {
+            magnification->typed_data()[row] = nan;
+            status->typed_data()[row] = algebraic_status_value_uncertified;
+            method->typed_data()[row] = row_method;
+            refinement_level->typed_data()[row] = row_refinement;
+            root_solve_count->typed_data()[row] = row_root_work;
+            lens_evaluation_count->typed_data()[row] = row_lens_work;
+            fallback_used->typed_data()[row] = false;
+            if constexpr (IncludeJacobian) {
+                for (std::size_t col = 0; col < 5; ++col) jacobian->typed_data()[row * 5 + col] = nan;
+            }
+        };
         const double x = source_x.typed_data()[row];
         const double y = source_y.typed_data()[row];
         const double s = separation.typed_data()[row];
@@ -5782,13 +5800,43 @@ ffi::Error algebraic_boundary_batch_impl(
                 set_nan_row(algebraic_status_root_failure, algebraic_method_point, 0, 0, 0);
                 continue;
             }
+            const double point_displacement =
+                std::fabs(point_jacobian.magnification - point.magnification);
+            const double point_roundoff = std::numeric_limits<double>::epsilon() *
+                std::max(1.0, std::abs(point_jacobian.magnification));
+            const double point_value_error = std::max(
+                std::isfinite(point.root_max_residual) ? point.root_max_residual : nan,
+                point_displacement + point_roundoff);
+            const double point_gradient_error = std::max(
+                std::isfinite(point.root_max_residual) ? point.root_max_residual : nan,
+                point_roundoff);
+            // `binary_mag0` above and the ForwardJet point reconstruction
+            // each execute one binary polynomial root solve.  Count solve
+            // invocations rather than the optional candidate diagnostic,
+            // which is not populated by every point-source implementation.
+            const std::int32_t point_root_work =
+                1 + point_jacobian.diagnostics.root_solve_count;
+            const std::int32_t point_lens_work =
+                point.image_count + point_jacobian.diagnostics.lens_evaluation_count;
+            if (!std::isfinite(point_value_error) || !std::isfinite(point_gradient_error)
+                || point_root_work <= 0 || point_lens_work <= 0) {
+                set_nan_row(algebraic_status_root_failure, algebraic_method_point,
+                            algebraic_unavailable, point_root_work, point_lens_work);
+                continue;
+            }
             magnification->typed_data()[row] = point_jacobian.magnification;
-            value_error->typed_data()[row] = 0.0;
-            gradient_error->typed_data()[row] = point_jacobian.grad_error;
-            status->typed_data()[row] = algebraic_status_ok;
+            value_error->typed_data()[row] = point_value_error;
+            gradient_error->typed_data()[row] = point_gradient_error;
             method->typed_data()[row] = algebraic_method_point;
-            root_solve_count->typed_data()[row] = 0;
-            lens_evaluation_count->typed_data()[row] = 0;
+            root_solve_count->typed_data()[row] = point_root_work;
+            lens_evaluation_count->typed_data()[row] = point_lens_work;
+            const double point_value_budget = atol + rtol *
+                std::max(1.0, std::abs(point_jacobian.magnification));
+            if (!(point_value_error <= point_value_budget)) {
+                set_budget_failure(algebraic_method_point, 0, point_root_work, point_lens_work);
+                continue;
+            }
+            status->typed_data()[row] = algebraic_status_ok;
             if constexpr (IncludeJacobian) {
                 for (std::size_t col = 0; col < 5; ++col) {
                     jacobian->typed_data()[row * 5 + col] = point_jacobian.jacobian[col];
@@ -5821,8 +5869,7 @@ ffi::Error algebraic_boundary_batch_impl(
         lens_evaluation_count->typed_data()[row] = lens_work;
         const double value_budget = atol + rtol * std::max(1.0, std::abs(result.magnification));
         if (!(result.value_error <= value_budget)) {
-            set_nan_row(algebraic_status_value_uncertified, algebraic_method_finite,
-                        refinement, root_work, lens_work);
+            set_budget_failure(algebraic_method_finite, refinement, root_work, lens_work);
             continue;
         }
         const bool gradient_ok = result.grad_reliable && std::isfinite(result.grad_error)

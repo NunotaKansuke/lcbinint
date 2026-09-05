@@ -145,8 +145,8 @@ def test_mask_keeps_point_and_finite_rows_in_one_native_call():
     assert np.all(np.isin(result.status[mask], [0, 3]))
     assert np.all(result.status[~mask] == 0)
     assert np.all(np.isfinite(result.jacobian[~mask]))
-    assert np.all(result.root_solve_count[~mask] == 0)
-    assert np.all(result.lens_evaluation_count[~mask] == 0)
+    assert np.all(result.root_solve_count[~mask] > 0)
+    assert np.all(result.lens_evaluation_count[~mask] > 0)
 
 
 def test_forced_finite_mask_never_reports_router_shortcut_method():
@@ -167,6 +167,36 @@ def test_zero_value_budget_is_fail_closed():
     assert np.array_equal(result.status, np.array([2], dtype=np.int32))
     assert np.all(np.isnan(result.magnification))
     assert np.all(np.isnan(result.jacobian))
+    # Fail closed must not erase the measured absolute error or work evidence.
+    assert np.all(np.isfinite(result.value_error))
+    assert np.all(result.value_error > 0.0)
+    assert np.all(np.isfinite(result.gradient_error))
+    assert np.all(result.root_solve_count > 0)
+    assert np.all(result.lens_evaluation_count > 0)
+    assert np.all(result.refinement_level >= 0)
+
+
+def test_nonstrict_keeps_structurally_valid_jacobian_after_grad_budget_failure():
+    result = binary_algebraic_boundary_batch_value_jacobian_ffi(
+        jnp.array([0.22]), jnp.array([0.15]), jnp.array([1.35]), 0.05, 0.28,
+        limb_c=0.4, limb_d=0.2, gradient_atol=0.0, strict=False,
+    )
+    assert np.array_equal(result.status, np.array([3], dtype=np.int32))
+    assert np.all(np.isfinite(result.gradient_error))
+    assert np.all(np.isfinite(result.jacobian))
+
+
+def test_point_rows_report_measured_not_sentinel_diagnostics():
+    result = binary_algebraic_boundary_batch_value_jacobian_ffi(
+        jnp.array([0.22]), jnp.array([0.15]), jnp.array([1.35]), 0.05, 0.28,
+        finite_mask=jnp.array([False]), limb_c=0.4, limb_d=0.2,
+    )
+    assert np.array_equal(result.status, np.array([0], dtype=np.int32))
+    assert np.all(result.method == 1)
+    assert np.all(np.isfinite(result.value_error))
+    assert np.all(np.isfinite(result.gradient_error))
+    assert np.all(result.root_solve_count > 0)
+    assert np.all(result.lens_evaluation_count > 0)
 
 
 def test_unknown_policy_is_rejected_before_ffi_lowering():
