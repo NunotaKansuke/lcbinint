@@ -11,7 +11,7 @@ branch `claude/lcbinint-holonomic-solver-b7d3cd`。設計書 14 節の M0–M8 �
 |---|---|---|---|---|
 | M0 | baseline 固定・計器化 | `benchmarks/holonomic/baseline_probe.py`: 現行有限光源 (uniform + linear-LD) の median/p95、失敗率、精度 | 現行ソルバ cost の分解が再現可能 | TODO |
 | M1 | 係数・判別式・追加イベントの数式検証 + radial event 列挙 | `checks/holonomic/symbolic_checks.py`, `holonomic_ref/{polynomial_family,radial_events}.py`, `tests/holonomic/test_{symbolic_identities,radial_event_completeness}.py` | 全 boxed 恒等式が exact/複数特殊化で一致。dense/random/caustic stress で crossing-count のジャンプが全て列挙イベント近傍 | **完了** (`checkpoint_M1.md`) |
-| M2 | radial トポロジー・セル・incidence graph | `holonomic_ref/topology.py` | 各セルの円周交差 0/2/4・内部円弧 <=2 を分類、`CellPlan` 生成、代表角符号で empty/full 判定 | TODO |
+| M2 | radial トポロジー・セル・incidence graph | `holonomic_ref/topology.py` | 各セルの円周交差 0/2/4・内部円弧 <=2 を分類、`CellPlan` 生成、代表角符号で empty/full 判定 | **完了** (`checkpoint_M2.md`) |
 | M3 | 周期還元 reference (7形式→留数ゼロ6形式→観測形式) | `holonomic_ref/period_reduction.py`, `connection.py` | 係数恒等式・留数条件・7D/6D 周期値・直接角度積分が rtol ~1e-10 で一致 | TODO |
 | M4 | 通常セルの輸送 + flux (Python reference) | `holonomic_ref/transport.py`, `seed.py`, `root_pair.py` | 複数セルで F0,F_{1/2} が直接二重求積と一致。条件数記録 | TODO |
 | M5 | 特異パッチ + 全 epoch reference | `holonomic_ref/singular.py`, `solver.py` | 監査領域で精度と失敗率を別々に報告、silent miss なし | TODO |
