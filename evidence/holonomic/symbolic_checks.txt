@@ -1,0 +1,16 @@
+[   0.1s] [PASS] P_is_quartic_in_t  deg_t P = 4
+[   0.3s] [PASS] phi_equals_P_over_rho2R2AB_numeric  20000 pts, max rel = 4.98e-12
+[   0.7s] [PASS] disc_P_is_R4_times_D14_of_R2  t0: Rpowers=[4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32] deg_vD14=14; t1: Rpowers=[4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32] deg_vD14=14; t2: Rpowers=[4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32] deg_vD14=14
+[   1.2s] [PASS] res_P_Pt_equals_p4_times_disc  
+[   1.2s] [PASS] disc_A_is_minus4  
+[   1.2s] [PASS] disc_B_is_minus4_R2ma2_sq  
+[   1.2s] [PASS] res_A_B_is_16a2R2  
+[   1.2s] [PASS] res_P_A_formula  t0:True t1:True t2:True
+[   1.2s] [PASS] res_P_B_formula  t0:True t1:True t2:True
+[   5.9s] [PASS] LD_reduction_identity  residual=0
+[   6.2s] [PASS] H_degree_le_6  deg_t H = 6
+[   8.6s] [PASS] gauss_manin_polynomial_identity  all tuples/R, k=0..6: exact, deg C_k<=6, T_k polynomial
+[   8.6s] [PASS] rootpair_E_exact  
+[   8.6s] [PASS] rootpair_O_exact  
+[   8.6s] [PASS] rootpair_jacobian_det_at_v0  det = -1/2 P''(m)^2 modulo P'(m)=0 ; raw(det+1/2P''^2) = (c3+4c4 m) P'(m)
+[   8.9s] [PASS] Rmax_bound_no_image_outside  3000 configs x 3 radii x 36 angles
