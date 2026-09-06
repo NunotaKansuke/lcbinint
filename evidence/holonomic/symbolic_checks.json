@@ -1,0 +1,69 @@
+{
+  "all_pass": true,
+  "results": {
+    "P_is_quartic_in_t": {
+      "ok": true,
+      "detail": "deg_t P = 4"
+    },
+    "phi_equals_P_over_rho2R2AB_numeric": {
+      "ok": true,
+      "detail": "20000 pts, max rel = 4.98e-12"
+    },
+    "disc_P_is_R4_times_D14_of_R2": {
+      "ok": true,
+      "detail": "t0: Rpowers=[4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32] deg_vD14=14; t1: Rpowers=[4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32] deg_vD14=14; t2: Rpowers=[4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32] deg_vD14=14"
+    },
+    "res_P_Pt_equals_p4_times_disc": {
+      "ok": true,
+      "detail": ""
+    },
+    "disc_A_is_minus4": {
+      "ok": true,
+      "detail": ""
+    },
+    "disc_B_is_minus4_R2ma2_sq": {
+      "ok": true,
+      "detail": ""
+    },
+    "res_A_B_is_16a2R2": {
+      "ok": true,
+      "detail": ""
+    },
+    "res_P_A_formula": {
+      "ok": true,
+      "detail": "t0:True t1:True t2:True"
+    },
+    "res_P_B_formula": {
+      "ok": true,
+      "detail": "t0:True t1:True t2:True"
+    },
+    "LD_reduction_identity": {
+      "ok": true,
+      "detail": "residual=0"
+    },
+    "H_degree_le_6": {
+      "ok": true,
+      "detail": "deg_t H = 6"
+    },
+    "gauss_manin_polynomial_identity": {
+      "ok": true,
+      "detail": "all tuples/R, k=0..6: exact, deg C_k<=6, T_k polynomial"
+    },
+    "rootpair_E_exact": {
+      "ok": true,
+      "detail": ""
+    },
+    "rootpair_O_exact": {
+      "ok": true,
+      "detail": ""
+    },
+    "rootpair_jacobian_det_at_v0": {
+      "ok": true,
+      "detail": "det = -1/2 P''(m)^2 modulo P'(m)=0 ; raw(det+1/2P''^2) = (c3+4c4 m) P'(m)"
+    },
+    "Rmax_bound_no_image_outside": {
+      "ok": true,
+      "detail": "3000 configs x 3 radii x 36 angles"
+    }
+  }
+}
