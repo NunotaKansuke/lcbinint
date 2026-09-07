@@ -82,6 +82,19 @@ from .direct_quadrature import (
     image_plane_flux_grid,
     magnification_reference,
 )
+from .singular import (
+    SINGULAR_ZETA_TOL,
+    PatchResult,
+    near_origin_source,
+    representation_events,
+    on_axis_origin_flux,
+    tangency_flux_series,
+)
+from .solver import (
+    EpochResult,
+    solve_epoch,
+    magnification,
+)
 
 __all__ = [
     "boundary_quartic",
@@ -146,4 +159,13 @@ __all__ = [
     "image_plane_flux",
     "image_plane_flux_grid",
     "magnification_reference",
+    "SINGULAR_ZETA_TOL",
+    "PatchResult",
+    "near_origin_source",
+    "representation_events",
+    "on_axis_origin_flux",
+    "tangency_flux_series",
+    "EpochResult",
+    "solve_epoch",
+    "magnification",
 ]
