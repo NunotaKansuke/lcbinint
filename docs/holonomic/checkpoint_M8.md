@@ -149,3 +149,31 @@ out-param of `aberth()`.
   accuracy/coverage/Jacobian unchanged.
 
 Evidence: `evidence/holonomic/m8_step3_warmstart_ftz.txt`.
+
+### After step 3 — fresh profile, next target
+
+`holoprof9` (all slices under the FTZ guard, best-of-400):
+
+| case | full | classify_cells | radius_terms sweep | angular+chain |
+|---|--:|--:|--:|--:|
+| plan15 | 1.96 | 0.74 | 1.20 | ~0.02 |
+| resonant | 3.08 | 1.41 | 1.65 | ~0.02 |
+| caustic-cross | 3.69 | **2.85** | 0.82 | ~0.02 |
+| close-binary | 2.30 | 0.81 | 1.47 | ~0.02 |
+| wide-planet | 1.22 | 0.89 | 0.33 | ~0.01 |
+| very-close | 2.05 | 1.05 | 0.99 | ~0.01 |
+
+- **The angular + chain-rule sweep is now negligible (~0.02 ms).** The
+  planned "SIMD the GC-1(64) angular+polish sweep" item is **dropped** —
+  there is nothing left to win there.
+- `classify_cells` (dominated by the D14 `radial_events` solve) is the
+  p90/p99 lever — 77 % of the caustic-crossing epoch that sets the tail.
+  D14 stays (band oracle + completeness certificate). The in-scope way to
+  cut it is **not** a faster D14 but **not recomputing it**: a
+  trajectory-level `classify_cells` / `radial_events` cache reused across
+  consecutive epochs of a light curve (their cell topology is nearly
+  identical), with a cheap validity check and fall-through to a full
+  recompute on any change. Needs a sequence-level entry point alongside
+  `epoch_jacobian` — next step.
+- `radius_terms` sweep (0.33–1.65 ms) is the other half; the warm-start
+  landed this step already took ~30 % off it.
