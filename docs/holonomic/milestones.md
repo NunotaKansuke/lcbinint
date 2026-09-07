@@ -119,3 +119,46 @@ branch `claude/lcbinint-holonomic-solver-b7d3cd`。設計書 14 節の M0–M8 �
     p99 8.4 ms); (b) seed の `std::isfinite` チェックと `!(worst <= tol)`
     形式の NaN-safe gate。standing 指示「fail closed、silent
     approximation 禁止」に直接対応。
+
+22. **Phase 2 — 3-way 比較 (algebraic-boundary / holonomic M7 / inverse-ray)**
+    (ユーザ指示 2026-09-08、`checkpoint_algebraic_vs_holonomic.md`)。
+    M7 の decision-20 gate は **inverse-ray baseline 比** で達成 (median
+    4.78 ms vs 14.89 ms = 3.1x)。本来の比較対象であるローカル
+    algebraic-boundary 実装 (`algebraic-boundary-ld-moment-recurrence`
+    @ `cc5e55d`) を **同一 config・同一 frame (Mapping B)・同一 LD 規約・
+    同一 trusted reference (M0 μ)・analytic-vs-analytic Jacobian** で
+    同じ harness (`tests/holonomic_cpp/bench_three_way.cpp`) に載せた。
+    共有 `.so` は触れず、detached worktree `algebraic-bench-cc5e55d` の
+    private static-lib build を使用。central FD を algebraic 側の本番速度
+    として扱っていない (analytic forward-mode `ForwardJet<5>` を使用)。
+    結論 (holonomic の速度は **inverse-ray baseline 比** としてのみ記載):
+    - algebraic は bimodal。74/108 は `binary_mag` の routing が
+      multipole shortcut を選び boundary integral を回さない
+      (~0.05 ms、精度は exact hexadecapole)。32/108 のみ deep solve。
+    - **value-only: algebraic が明確に速い** (deep-solve ~1 ms vs
+      holonomic ~7 ms)。holonomic に value-only path は無い
+      (5-Jacobian は同じ radial pass に fuse)。
+    - **value+Jacobian median (ordinary-binary deep-solve): algebraic が
+      やや速い** (~5.2 ms vs ~7.2 ms、約 1.4x)。
+    - **value+Jacobian tail: holonomic が bounded で勝つ** (p95 8.5 vs
+      10.5 ms、max 8.5 vs 12.5 ms)。node budget 固定のため。
+    - **Jacobian 可用性: holonomic が決定的に上** (reliable 96% vs 57%。
+      algebraic は near-caustic deep-solve でこそ fail-close する)。
+    - **robustness: holonomic が上**。algebraic は `rand002` (wide planet,
+      q~1e-4) で **非終了** (無限 allocation、return も fail も返さない
+      = fail-closed policy 違反)。holonomic は同 config で status OK。
+    - **accuracy: 両者とも modelling tolerance 内**。algebraic は median
+      ~3x tight。holonomic は `tiny-rho` (rel 7.7e-3)・`very-wide`
+      (rel 4.8e-3) で ~0.5-0.8% bias、status は OK (楽観的) → M8 で
+      tolerance/status を締める follow-up。
+    - **wall-clock 支配項 (fresh 実測)**: holonomic は `classify_cells`
+      (arcs_at(3072) probe ×3/cell + radial_events) が **58-83%**。
+      M7 §7 の ~30% 見積もりを **改訂**。per-cell radial×angular pass が
+      17-42%。D14 solve ~6%、chain rule <4%。
+    - **M8 目標 (well-posed)**: algebraic-boundary の ordinary-binary
+      **deep-solve median** に明確に勝つ (7.2 → <5 ms、理想 <3 ms) かつ
+      p95/p99 bounded-tail と Jacobian 可用性の優位を維持。優先:
+      `arcs_at(3072)` / `classify_cells` (quartic_topology 置換 +
+      trajectory-level cache) → radial×angular の SIMD 化。D14 solve は
+      過剰最適化しない。
+
