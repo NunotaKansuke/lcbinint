@@ -136,3 +136,28 @@ def test_hmc_carrier_separation_point_is_certified():
            jac=True,limb_c=.4,value_atol=1e-8,value_rtol=1e-8,gradient_atol=1e-5,strict=True)
     assert r.status[0] == 0
     assert np.isfinite(r.magnification).all() and np.isfinite(r.jacobian).all()
+
+def test_failed_finer_pass_preserves_last_complete_estimate():
+    p=jnp.array([.05135221895347432,.22523542312781708,.01,10.,1.2])
+    options=dict(jac=True,limb_c=.4,value_atol=1e-8,value_rtol=1e-8,gradient_atol=1e-5)
+    approximate=call(p,**options)
+    strict=call(p,strict=True,**options)
+    assert approximate.status[0] == strict.status[0] == 3
+    assert np.isfinite(approximate.magnification).all()
+    assert np.isfinite(approximate.jacobian).all()
+    assert np.isnan(strict.jacobian).all()
+    np.testing.assert_array_equal(approximate.magnification,strict.magnification)
+    np.testing.assert_array_equal(approximate.value_error,strict.value_error)
+    np.testing.assert_array_equal(approximate.gradient_error,strict.gradient_error)
+    fd=[]
+    for h in [2e-5,1e-5,5e-6]:
+        row=[]
+        for axis in range(5):
+            delta=jnp.eye(5)[axis]*h
+            plus=call(p+delta,**options)
+            minus=call(p-delta,**options)
+            row.append(float((plus.magnification[0]-minus.magnification[0])/(2*h)))
+        fd.append(row)
+    fd=np.array(fd);extrapolates=(4*fd[1:]-fd[:-1])/3
+    np.testing.assert_allclose(extrapolates,np.broadcast_to(approximate.jacobian[0],(2,5)),
+                               rtol=0.,atol=3e-4)
