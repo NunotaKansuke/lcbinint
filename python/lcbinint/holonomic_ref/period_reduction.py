@@ -40,8 +40,41 @@ import numpy as np
 import sympy as sp
 from scipy import integrate
 
-from .connection import _q_expr_in_tR, q_coeffs, q_coeffs_exact
+from .connection import (
+    _q_expr_in_tR,
+    q_coeffs,
+    q_coeffs_exact,
+    q_coeffs_numeric,
+)
 from .polynomial_family import boundary_quartic
+
+
+def _asc_add(*polys):
+    n = max(len(p) for p in polys)
+    out = np.zeros(n)
+    for p in polys:
+        out[: len(p)] += np.asarray(p, dtype=float)
+    return out
+
+
+def h_coeffs_numeric(R, a, m0, xs, ys, rho):
+    """[h0 .. h6] of ``H(.; R)`` by float polynomial arithmetic (no sympy).
+
+    ``H = (2 (R+a)^2 P + t (B P_t + B_t P)) / (8 a R)`` (plan sec. 6).  The
+    fast path for the flux assembly; :func:`h_coeffs_exact` is the oracle.
+    """
+    P = np.asarray(boundary_quartic(R, a, m0, xs, ys, rho), dtype=float)
+    Pt = np.array([P[1], 2.0 * P[2], 3.0 * P[3], 4.0 * P[4]])
+    B = np.array([(R - a) ** 2, 0.0, (R + a) ** 2])
+    Bt = np.array([0.0, 2.0 * (R + a) ** 2])
+    inner = _asc_add(np.convolve(B, Pt), np.convolve(Bt, P))   # deg 5
+    t_inner = np.concatenate([[0.0], inner])                   # * t  -> deg 6
+    H = _asc_add(2.0 * (R + a) ** 2 * P, t_inner) / (8.0 * a * R)
+    out = np.zeros(7)
+    out[: min(7, len(H))] = H[:7]
+    if len(H) > 7 and np.any(np.abs(H[7:]) > 1e-6 * (np.abs(H).max() + 1e-300)):
+        raise ValueError("deg_t H > 6 (numeric)")
+    return out
 
 _t = sp.symbols("t", real=True)
 _Rs = sp.Symbol("R", real=True)
@@ -297,6 +330,30 @@ def half_period_obs_reduced(R, a, m0, xs, ys, rho, arc, *, basis="6D"):
     if basis == "7D":
         return float(hcf @ I)
     return float(cf @ (W @ I))
+
+
+def phi_arc_reduced_numeric(R, a, m0, xs, ys, rho, arc, *, basis="6D"):
+    """Fast (sympy-free) evaluation of ``Phi_arc(R)`` for the flux assembly.
+
+    Same result as :func:`half_period_obs_reduced` but every coefficient
+    comes from the float polynomial fast paths (:func:`h_coeffs_numeric`,
+    :func:`connection.q_coeffs_numeric`).  Returns ``(value, h3_residual)``;
+    ``h3_residual`` is the second-kind check ``h3 + b1 h4 + b2 h5 + b3 h6``
+    and the caller fails closed if it is not small relative to ``|h|``.
+    """
+    params, _tt, _s = arc_chart(a, m0, xs, ys, rho, arc)
+    I = half_period_eta(R, a, m0, xs, ys, rho, arc)
+    hcf = h_coeffs_numeric(R, *params)
+    qc = q_coeffs_numeric(R, *params)
+    b1, b2, b3 = residue_b_exact(qc)
+    h3res = hcf[3] + b1 * hcf[4] + b2 * hcf[5] + b3 * hcf[6]
+    if basis == "7D":
+        val = float(hcf @ I)
+    else:
+        W = psi_reduction_matrix(qc)
+        cf = hcf[[0, 1, 2, 4, 5, 6]]
+        val = float(cf @ (W @ I))
+    return val, float(h3res)
 
 
 def closed_period_eta(R, a, m0, xs, ys, rho, arc, kmax=6, n=8000, pad=1.35):

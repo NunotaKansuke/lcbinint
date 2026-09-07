@@ -7,10 +7,10 @@
 [   1.2s] [PASS] res_A_B_is_16a2R2  
 [   1.2s] [PASS] res_P_A_formula  t0:True t1:True t2:True
 [   1.2s] [PASS] res_P_B_formula  t0:True t1:True t2:True
-[   5.9s] [PASS] LD_reduction_identity  residual=0
+[   6.0s] [PASS] LD_reduction_identity  residual=0
 [   6.2s] [PASS] H_degree_le_6  deg_t H = 6
-[   8.6s] [PASS] gauss_manin_polynomial_identity  all tuples/R, k=0..6: exact, deg C_k<=6, T_k polynomial
-[   8.6s] [PASS] rootpair_E_exact  
-[   8.6s] [PASS] rootpair_O_exact  
-[   8.6s] [PASS] rootpair_jacobian_det_at_v0  det = -1/2 P''(m)^2 modulo P'(m)=0 ; raw(det+1/2P''^2) = (c3+4c4 m) P'(m)
-[   8.9s] [PASS] Rmax_bound_no_image_outside  3000 configs x 3 radii x 36 angles
+[   8.7s] [PASS] gauss_manin_polynomial_identity  all tuples/R, k=0..6: exact, deg C_k<=6, T_k polynomial
+[   8.7s] [PASS] rootpair_E_exact  
+[   8.7s] [PASS] rootpair_O_exact  
+[   8.8s] [PASS] rootpair_jacobian_det_at_v0  det = -1/2 P''(m)^2 modulo P'(m)=0 ; raw(det+1/2P''^2) = (c3+4c4 m) P'(m)
+[   9.0s] [PASS] Rmax_bound_no_image_outside  3000 configs x 3 radii x 36 angles

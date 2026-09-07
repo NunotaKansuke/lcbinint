@@ -32,7 +32,32 @@ from functools import lru_cache
 import numpy as np
 import sympy as sp
 
+from .polynomial_family import B_coeffs, boundary_quartic, boundary_quartic_dR
+
 _t, _R = sp.symbols("t R", real=True)
+
+
+def q_coeffs_numeric(R, a, m0, xs, ys, rho):
+    """[q0 .. q8] of ``Q = P A B`` by float polynomial arithmetic (no sympy).
+
+    Fast path used by the flux assembly; :func:`q_coeffs_exact` is the oracle
+    and ``tests/holonomic`` pins the two together.
+    """
+    P = np.asarray(boundary_quartic(R, a, m0, xs, ys, rho))
+    A = np.array([1.0, 0.0, 1.0])
+    B = np.asarray(B_coeffs(R, a))
+    return np.convolve(np.convolve(P, A), B)
+
+
+def q_coeffs_dR_numeric(R, a, m0, xs, ys, rho):
+    """d/dR of :func:`q_coeffs_numeric` -- ``Q_R = P_R A B + P A B_R`` (float)."""
+    P = np.asarray(boundary_quartic(R, a, m0, xs, ys, rho))
+    dP = np.asarray(boundary_quartic_dR(R, a, m0, xs, ys, rho))
+    A = np.array([1.0, 0.0, 1.0])
+    B = np.asarray(B_coeffs(R, a))
+    dB = np.array([2.0 * (R - a), 0.0, 2.0 * (R + a)])
+    return (np.convolve(np.convolve(dP, A), B)
+            + np.convolve(np.convolve(P, A), dB))
 
 
 def _q_expr_in_tR(a, m0, xs, ys, rho):
@@ -63,6 +88,94 @@ def q_coeffs_exact(R, a, m0, xs, ys, rho):
 
 def q_coeffs(R, a, m0, xs, ys, rho):
     return np.array([float(x) for x in q_coeffs_exact(R, a, m0, xs, ys, rho)])
+
+
+def _polysub(p, q):
+    """``p - q`` for ascending float coeff arrays of any length."""
+    n = max(len(p), len(q))
+    out = np.zeros(n)
+    out[: len(p)] += p
+    out[: len(q)] -= q
+    return out
+
+
+def _polymod(p, q):
+    """``p mod q`` (ascending float coeffs), trimmed."""
+    from numpy.polynomial.polynomial import polydiv
+    r = polydiv(p, q)[1]
+    return np.trim_zeros(r, "b") if np.any(r) else np.array([0.0])
+
+
+def _connection_from_QQR(Q, QR):
+    """7x7 float ``C_eta`` from balanced coefficient arrays ``Q``, ``Q_R``."""
+    from numpy.polynomial.polynomial import polyder, polydiv, polymul
+
+    Qt = polyder(Q)
+    twoQ = 2.0 * Q
+    n = 8
+    M = np.zeros((n, n))
+    for j in range(n):
+        basis = np.zeros(j + 1)
+        basis[j] = 1.0
+        col = _polymod(polymul(Qt, basis), Q)
+        M[: len(col), j] = col[:n]
+    rhs = np.zeros(n)
+    rhs[0] = 1.0
+    inv = np.linalg.solve(M, rhs)
+
+    C = np.zeros((7, 7))
+    for k in range(7):
+        tk = np.zeros(k + 1)
+        tk[k] = 1.0
+        Sk = _polymod(polymul(polymul(tk, QR), inv), Q)            # deg <= 7
+        num = _polysub(polymul(Sk, Qt), polymul(tk, QR))
+        Tk = polydiv(num, twoQ)[0]
+        Ck = _polysub(Tk, polyder(Sk))
+        C[k, : min(7, len(Ck))] = Ck[:7]
+    return C
+
+
+def connection_matrix_numeric(R, a, m0, xs, ys, rho):
+    """7x7 float ``C_eta(R)`` by float polynomial Gauss-Manin (no sympy).
+
+    Fast surrogate of :func:`connection_matrix` for condition-number
+    recording and previews.  :func:`connection_matrix` remains the oracle
+    and fails closed on branch collisions; this routine assumes ``deg Q =
+    8`` and ``gcd(Q, Q_t) = 1`` and will simply return an ill-formed matrix
+    if they do not hold.
+
+    ``Q`` spans many orders of magnitude for small ``rho`` (the ``rho^2``
+    piece is dwarfed by ``|T|^2``), which wrecks the float polynomial
+    divisions.  We therefore work in a balanced variable ``t = c tau`` with
+    ``c = (|q0/q8|)^{1/8}`` -- the connection of the rescaled family relates
+    back exactly by ``C_kj = C~_kj c^{k-j}`` (``c`` is ``R``-independent, so
+    ``oint eta_k = c^{k+1} oint eta~_k``).
+    """
+    Q = np.asarray(q_coeffs_numeric(R, a, m0, xs, ys, rho), dtype=float)
+    QR = np.asarray(q_coeffs_dR_numeric(R, a, m0, xs, ys, rho), dtype=float)
+
+    # a near-vanishing leading coefficient (theta -> pi tangency: the degree
+    # drops towards 7) makes the float monomial Gauss-Manin singular -- the
+    # exact oracle handles it, so hand off.
+    if abs(Q[8]) < 1e-6 * np.abs(Q).max():
+        return connection_matrix(R, a, m0, xs, ys, rho)
+
+    if Q[8] != 0.0 and Q[0] != 0.0:
+        c = (abs(Q[0] / Q[8])) ** 0.125
+    else:
+        c = 1.0
+    pows = c ** np.arange(9)
+    Qb = Q * pows
+    QRb = QR * pows
+    nrm = np.abs(Qb).max()
+    if nrm > 0.0:
+        Qb = Qb / nrm
+        QRb = QRb / nrm
+
+    Cb = _connection_from_QQR(Qb, QRb)
+    kk = np.arange(7)
+    scale = c ** (kk[:, None] - kk[None, :])
+    return Cb * scale
 
 
 @lru_cache(maxsize=64)

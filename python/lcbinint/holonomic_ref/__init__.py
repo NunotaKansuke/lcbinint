@@ -5,6 +5,7 @@ production backend (M7) must reproduce.  See docs/holonomic/.
 """
 from .polynomial_family import (
     boundary_quartic,
+    boundary_quartic_dR,
     T_coeffs,
     B_coeffs,
     phi_value,
@@ -22,13 +23,17 @@ from .topology import (
 from .connection import (
     q_coeffs,
     q_coeffs_exact,
+    q_coeffs_numeric,
+    q_coeffs_dR_numeric,
     connection_matrix,
+    connection_matrix_numeric,
     gm_polynomials,
     s_polynomials,
 )
 from .period_reduction import (
     h_coeffs,
     h_coeffs_exact,
+    h_coeffs_numeric,
     residue_b_exact,
     laurent_b,
     psi_reduction_matrix,
@@ -39,11 +44,48 @@ from .period_reduction import (
     half_period_eta,
     half_period_obs_angular,
     half_period_obs_reduced,
+    phi_arc_reduced_numeric,
     closed_period_eta,
+)
+from .root_pair import (
+    RootPair,
+    from_endpoints,
+    eo_residuals,
+    eo_jacobian,
+    tangency_determinant,
+    endpoint_dR,
+    root_pair_dR,
+)
+from .transport import (
+    eta_connection,
+    psi_connection,
+    psi_connection_exact,
+    transport_psi,
+    cell_conditioning,
+)
+from .seed import (
+    seed_eta,
+    seed_psi,
+    tangency_seed_eta,
+)
+from .flux import (
+    CellFlux,
+    FluxResult,
+    epoch_flux,
+    mu_uniform,
+    mu_linear_ld,
+)
+from .direct_quadrature import (
+    point_source_magnification,
+    source_plane_flux,
+    image_plane_flux,
+    image_plane_flux_grid,
+    magnification_reference,
 )
 
 __all__ = [
     "boundary_quartic",
+    "boundary_quartic_dR",
     "T_coeffs",
     "B_coeffs",
     "phi_value",
@@ -58,11 +100,15 @@ __all__ = [
     "classify_cells",
     "q_coeffs",
     "q_coeffs_exact",
+    "q_coeffs_numeric",
+    "q_coeffs_dR_numeric",
     "connection_matrix",
+    "connection_matrix_numeric",
     "gm_polynomials",
     "s_polynomials",
     "h_coeffs",
     "h_coeffs_exact",
+    "h_coeffs_numeric",
     "residue_b_exact",
     "laurent_b",
     "psi_reduction_matrix",
@@ -73,5 +119,31 @@ __all__ = [
     "half_period_eta",
     "half_period_obs_angular",
     "half_period_obs_reduced",
+    "phi_arc_reduced_numeric",
     "closed_period_eta",
+    "RootPair",
+    "from_endpoints",
+    "eo_residuals",
+    "eo_jacobian",
+    "tangency_determinant",
+    "endpoint_dR",
+    "root_pair_dR",
+    "eta_connection",
+    "psi_connection",
+    "psi_connection_exact",
+    "transport_psi",
+    "cell_conditioning",
+    "seed_eta",
+    "seed_psi",
+    "tangency_seed_eta",
+    "CellFlux",
+    "FluxResult",
+    "epoch_flux",
+    "mu_uniform",
+    "mu_linear_ld",
+    "point_source_magnification",
+    "source_plane_flux",
+    "image_plane_flux",
+    "image_plane_flux_grid",
+    "magnification_reference",
 ]
