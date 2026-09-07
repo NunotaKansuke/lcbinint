@@ -15,7 +15,7 @@ branch `claude/lcbinint-holonomic-solver-b7d3cd`。設計書 14 節の M0–M8 �
 | M3 | 周期還元 reference (7形式→留数ゼロ6形式→観測形式) | `holonomic_ref/period_reduction.py`, `connection.py` | 係数恒等式・留数条件・7D/6D 周期値・直接角度積分が rtol ~1e-10 で一致 | **完了** (`checkpoint_M3.md`) |
 | M4 | 通常セルの輸送 + flux (Python reference) | `holonomic_ref/{transport,seed,root_pair,flux,direct_quadrature}.py` | 複数セルで F0,F_{1/2} が直接二重求積と一致。条件数記録 | **完了** (`checkpoint_M4.md`) |
 | M5 | 特異パッチ + 全 epoch reference | `holonomic_ref/singular.py`, `solver.py`, `benchmarks/holonomic/audit.py`, `tests/holonomic/test_solver_audit.py` | 監査領域で精度と失敗率を別々に報告、silent miss なし | **完了** (`checkpoint_M5.md`) — 監査 36 点: 精度 median rel 3.1e-5 / p90 2.4e-4 / max 5.9e-4 (OK_VALIDATED 27点)、失敗率 8/36 = 22.2%、silent miss 0、GATE PASS。full suite 252 passed / 3 skipped |
-| M6 | value/JVP 整合 (5成分 Jacobian) | forward-mode jet, `tests/holonomic/test_value_jvp_consistency.py` | 中心差分収束、チャート変更前後で整合、既存経路との勾配比較 | TODO |
+| M6 | value/JVP 整合 (5成分 Jacobian) | `holonomic_ref/jacobian.py` (有限数値再構成 jet)、`solve_epoch(with_jacobian=True)`、`tests/holonomic/test_value_jvp_consistency.py` | 中心差分収束、チャート変更前後で整合、既存経路との勾配比較 | **完了** (`checkpoint_M6.md`) — value と grad_mu を単一の per-cell Gauss–Chebyshev 再構成から生成。`epoch_flux` 中心差分との比較: plan15/resonant 全成分 rel ≤ 1e-3、benign 小 ρ の ∂μ/∂ρ (激しい相殺) と ∂μ/∂a (~0) のみ oracle 律速で ~1e-2。independent `image_plane_flux(+evs)` Richardson とも plan15 ≤ 1.6e-4。n_r 収束 O(1/n_r²) (48→192 で 6.6e-3→4.5e-4)。IFT-θ vs IFT-t チャート整合 2.8e-14。特異パッチ / degenerate quartic / full circle は `GRADIENT_UNRELIABLE` で fail closed。test_value_jvp_consistency.py 17 passed |
 | M7 | C++ production 実装 + 高速化 | `src/lcbinint/magnification/holonomic/*.hpp` + `solver.cpp`, versioned FFI | 同じ精度・被覆で linear-LD value+Jacobian の end-to-end median >= 2x, p95 悪化 <= 25% | TODO |
 | M8 | 高リスク上積み最適化 | seed-only tangency、rank-change 解析接続、epoch topology continuation | M7 通過が前提 | TODO |
 
@@ -57,3 +57,21 @@ branch `claude/lcbinint-holonomic-solver-b7d3cd`。設計書 14 節の M0–M8 �
     `d/du = πρ²(F_{1/2} - 2F0/3)` = u に依らず一定 → 常に単調だが
     符号は幾何依存 (caustic 近傍のソースでは u とともに増加)。
     テストは単調性 + 正値のみ主張 (`checkpoint_M5.md` §7a)。
+
+12. 端点微分は chart-free な IFT-in-θ 形 `∂θ*/∂P = -(∂φ/∂P)/(∂φ/∂θ)` を採用。
+    `t = tan(θ/2)` 形は代数的に同一だが θ*=π に可除極を持つため cross-check
+    専用 (`checkpoint_M6.md` §2.3)。
+13. 各動径ノードの arc 端点は `boundary_quartic(R)` の実根 (`np.roots`) から
+    列挙する。`topology.arcs_at` の角度グリッド走査は tangency セル端近傍の
+    薄い newborn arc を取りこぼし ∂F0/∂P に ~10% 誤差 (value は ~1e-4 で不感)
+    (`checkpoint_M6.md` §3.1、設計判断 13)。
+14. jax A/B 勾配経路は polar epoch FFI 不在で使用不可 → native
+    `binary_ray_shooting` の有限差分を A/B 相手にする (~1e-2、粗い)。
+15. `∂μ/∂u = πρ²(F_{1/2} - 2F0/3)/D²` の分子は u に依らない → flux 一組で
+    全 u の `∂μ/∂u` が得られる。
+16. `solve_epoch(with_jacobian=True)` は value/JVP 整合のため jet 再構成の
+    `F0`/`F_{1/2}`/`μ` を採用 (plan §11)。この再構成は adaptive-quad `epoch_flux`
+    と ~1e-4 (最悪の小 ρ 構成で 2e-3) で一致 (`checkpoint_M6.md` §3.6)。
+17. `∂μ/∂ρ` は `((1-u)dF0+u dF_{1/2})/D` と `2μ/ρ` (各 O(1/ρ)) の差で
+    小 ρ で激しく相殺する。n_r=64 で絶対精度 ~1e-2、O(1/n_r²) で収束。
+    C++ jet では `∂(F/ρ²)/∂ρ` を直接組む (`checkpoint_M6.md` §5-1)。

@@ -65,6 +65,7 @@ class EpochResult:
     notes: list = field(default_factory=list)
     validation: dict = field(default_factory=dict)
     seconds: float = 0.0
+    jacobian: "dict | None" = None    # set when solve_epoch(..., with_jacobian=True)
 
     def mu_linear_ld(self, u: float) -> float:
         rho2 = self.params.rho ** 2
@@ -176,13 +177,23 @@ def _independent_mu(params: LensParams, u: float):
 
 
 def solve_epoch(params: LensParams, u: float = 0.0, *, mode: str = "validated",
-                validate: bool | None = None) -> EpochResult:
+                validate: bool | None = None,
+                with_jacobian: bool = False) -> EpochResult:
     """Finite-source magnification for one source position (plan sec. 1, 12).
 
     ``u`` is the linear limb-darkening coefficient (``u = 0`` -> uniform).
     ``mode`` is ``"validated"`` (default -- run the independent cross-check)
     or ``"fast"`` (skip it; status stays whatever the flux path reported).
     ``validate`` overrides the mode's cross-check choice if given.
+
+    ``with_jacobian`` also returns the 5-component magnification Jacobian
+    (:mod:`jacobian`) on ``result.jacobian``.  It is computed from a
+    separate per-cell Gauss-Chebyshev reconstruction; to keep ``value``
+    and the Jacobian mutually consistent (plan sec. 11) the result's
+    ``F0`` / ``F_half`` / ``mu`` are then taken from that reconstruction
+    (they agree with the default :func:`flux.epoch_flux` path to ~1e-4).
+    A near-tangency / full-circle / singular-patch node marks
+    ``result.jacobian['status']`` (and the epoch status) ``GRADIENT_UNRELIABLE``.
     """
     if mode not in ("validated", "fast"):
         raise ValueError(f"mode must be 'validated' or 'fast', got {mode!r}")
@@ -213,6 +224,24 @@ def solve_epoch(params: LensParams, u: float = 0.0, *, mode: str = "validated",
                      f"scan (crossed by direct QAWSE re-anchor; no bridging)")
 
     mu, mu_u = _mu_from_flux(F0, F_half, rho, u)
+
+    # ---- optional 5-component Jacobian (plan sec. 11) ----------------
+    jacobian = None
+    if with_jacobian:
+        from .jacobian import epoch_jacobian as _epoch_jacobian
+        ej = _epoch_jacobian(params, u)
+        F0, F_half = ej.F0, ej.F_half
+        mu, mu_u = _mu_from_flux(F0, F_half, rho, u)
+        jacobian = {
+            "grad_mu": ej.grad_mu,
+            "dmu_du": ej.dmu_du,
+            "param_order": ("xs", "ys", "rho", "q", "a"),
+            "status": ej.status,
+            "notes": list(ej.notes),
+        }
+        if ej.status != "OK":
+            status = _worst_status(status, ej.status)
+            notes.append(f"jacobian: {ej.status}")
 
     # ---- independent value cross-check --------------------------------
     validation: dict = {}
@@ -256,7 +285,8 @@ def solve_epoch(params: LensParams, u: float = 0.0, *, mode: str = "validated",
     return EpochResult(
         params=params, u=u, mu=mu, mu_uniform=mu_u, F0=F0, F_half=F_half,
         r_max=r_max, status=status, mode=mode, cells=cells, notes=notes,
-        validation=validation, seconds=time.perf_counter() - t0)
+        validation=validation, seconds=time.perf_counter() - t0,
+        jacobian=jacobian)
 
 
 def magnification(params: LensParams, u: float = 0.0, **kw) -> float:

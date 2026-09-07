@@ -95,6 +95,53 @@ def boundary_quartic_dR(R, a, m0, xs, ys, rho):
     return [dlin0 - da0, -da1, dlin2 - da2, -da3, dlin4 - da4]
 
 
+def boundary_quartic_dp(R, a, m0, xs, ys, rho):
+    """Exact closed-form derivatives of :func:`boundary_quartic` w.r.t. the
+    five *primary-frame* parameters ``(xs, ys, rho, m0, a)``.
+
+    Returns ``(d_dxs, d_dys, d_drho, d_dm0, d_da)`` where each entry is a
+    length-5 list ``[dp0, .., dp4]`` (ascending powers of ``t``).  ``xs, ys``
+    here are the primary-frame source coordinates (as passed to
+    :func:`boundary_quartic`), *not* the barycentric user parameters.
+
+    Structure mirrors :func:`boundary_quartic_dR`.  ``zeta = xs + i ys``
+    enters only through ``n0, n1``; ``m0`` only through ``n2``; ``rho`` only
+    through ``k = rho^2 R^2``; ``a`` through ``bm, bp, n1, n2``.
+    """
+    rho2 = rho * rho
+    k = rho2 * R * R
+    bm, bp = (R - a) ** 2, (R + a) ** 2
+    cT0, cT1, cT2 = _T_complex_coeffs(R, a, m0, xs, ys)
+    zeta = complex(xs, ys)
+
+    def _assemble(dcT0, dcT1, dcT2, dlin0, dlin2, dlin4):
+        da0 = 2.0 * (dcT0 * cT0.conjugate()).real
+        da1 = 2.0 * (dcT0 * cT1.conjugate() + cT0 * dcT1.conjugate()).real
+        da2 = (2.0 * (dcT1 * cT1.conjugate()).real
+               + 2.0 * (dcT0 * cT2.conjugate() + cT0 * dcT2.conjugate()).real)
+        da3 = 2.0 * (dcT1 * cT2.conjugate() + cT1 * dcT2.conjugate()).real
+        da4 = 2.0 * (dcT2 * cT2.conjugate()).real
+        return [dlin0 - da0, -da1, dlin2 - da2, -da3, dlin4 - da4]
+
+    def _dcT(dn0, dn1, dn2):
+        return (dn0 + dn1 + dn2, 2j * (dn2 - dn0), dn1 - dn0 - dn2)
+
+    # d/dxs : dn0 = -R^2, dn1 = a R, dn2 = 0 ; lin terms unaffected
+    d_dxs = _assemble(*_dcT(-R * R, a * R, 0.0), 0.0, 0.0, 0.0)
+    # d/dys : dn0 = -i R^2, dn1 = i a R, dn2 = 0
+    d_dys = _assemble(*_dcT(-1j * R * R, 1j * a * R, 0.0), 0.0, 0.0, 0.0)
+    # d/drho : T unaffected ; dk = 2 rho R^2
+    dk = 2.0 * rho * R * R
+    d_drho = _assemble(0j, 0j, 0j, dk * bm, dk * (bm + bp), dk * bp)
+    # d/dm0 : dn2 = a ; lin terms unaffected
+    d_dm0 = _assemble(*_dcT(0.0, 0.0, a), 0.0, 0.0, 0.0)
+    # d/da : dn1 = R zeta, dn2 = m0 - R^2 ; dbm = -2(R-a), dbp = 2(R+a)
+    dbm, dbp = -2.0 * (R - a), 2.0 * (R + a)
+    d_da = _assemble(*_dcT(0.0, R * zeta, m0 - R * R),
+                     k * dbm, k * (dbm + dbp), k * dbp)
+    return d_dxs, d_dys, d_drho, d_dm0, d_da
+
+
 def _poly_eval(coeffs, t):
     r = 0.0
     for c in reversed(coeffs):
