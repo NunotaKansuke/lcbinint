@@ -79,7 +79,8 @@ inline Cplx<R> polyder_eval_c(const R* c, int n, Cplx<R> x) {
 template <class R>
 inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
                                    const Cplx<R>* seed = nullptr,
-                                   R tol_override = R(0)) {
+                                   R tol_override = R(0),
+                                   double* final_step = nullptr) {
     std::vector<Cplx<R>> z(deg);
 
     // initial guesses on a circle of radius ~ Cauchy bound (Aberth's spread)
@@ -105,8 +106,9 @@ inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
         tol_override > R(0)
             ? tol_override
             : ((sizeof(R) > 8) ? R(1e-24) : R(1e-15));
+    R maxstep = R(0);
     for (int it = 0; it < max_iter; ++it) {
-        R maxstep = R(0);
+        maxstep = R(0);
         for (int i = 0; i < deg; ++i) {
             Cplx<R> p = poly_eval_c(coeffs, deg, z[i]);
             Cplx<R> dp = polyder_eval_c(coeffs, deg, z[i]);
@@ -125,6 +127,7 @@ inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
         }
         if (maxstep < tol) break;
     }
+    if (final_step) *final_step = (double)maxstep;
     return z;
 }
 

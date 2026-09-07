@@ -22,6 +22,7 @@
 
 #include "lcbinint/magnification/holonomic/angular_rule.hpp"
 #include "lcbinint/magnification/holonomic/cells.hpp"
+#include "lcbinint/magnification/holonomic/fp_env.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
 #include "lcbinint/magnification/holonomic/radius_terms.hpp"
 #include "lcbinint/magnification/holonomic/status.hpp"
@@ -74,6 +75,7 @@ inline bool near_origin_source(const PrimaryFrame& pf,
 }
 
 inline FluxJacobian flux_jacobian(const LensParams& p, int n_r = 64) {
+    const ScopedFlushDenormals _fp_guard;
     const PrimaryFrame pf = PrimaryFrame::from(p);
     TopologyResult topo = classify_cells(pf);
 
@@ -96,9 +98,13 @@ inline FluxJacobian flux_jacobian(const LensParams& p, int n_r = 64) {
         const double ins = 1e-9 * w;
         const double lo = c.r_lo + ins, hi = c.r_hi - ins;
         const double rmid = 0.5 * (lo + hi), rhalf = 0.5 * (hi - lo);
+        // Chebyshev nodes are monotone in R within a cell -> warm-start the
+        // per-node boundary-quartic solve from the previous node.  Fresh
+        // (cold) start on the first node of every cell.
+        QuarticWarm qw;
         for (int k = 0; k < n_r; ++k) {
             double R = rmid + rhalf * rr.x[k];
-            RadiusTerms rt = radius_terms(R, pf);
+            RadiusTerms rt = radius_terms(R, pf, kTanRel, &qw);
             if (!rt.reliable) fj.status = Status::GRADIENT_UNRELIABLE;
             double Wk = rhalf * rr.w[k];
             fj.F0 += Wk * rt.f0;
@@ -118,6 +124,7 @@ inline FluxJacobian flux_jacobian(const LensParams& p, int n_r = 64) {
 
 inline EpochJacobian epoch_jacobian(const LensParams& p, double u = 0.0,
                                     int n_r = 64) {
+    const ScopedFlushDenormals _fp_guard;
     FluxJacobian fj = flux_jacobian(p, n_r);
     const PrimaryFrame pf = PrimaryFrame::from(p);
 

@@ -62,18 +62,22 @@ inline PolishResult polish_endpoint(double R, double theta,
 }
 
 // ---- sorted theta of the real roots of P(t), t = tan(theta/2) --------
-inline std::vector<double> real_root_thetas(const std::array<double, 5>& pc) {
-    // aberth on the quartic (descending), real filter matches np.roots +
-    // |Im| <= _ROOT_IM_REL (1 + |Re|)
-    double c[5] = {pc[4], pc[3], pc[2], pc[1], pc[0]};
+// descending, leading-zero-deflated quartic coeffs -> working degree.
+inline int quartic_descending(const std::array<double, 5>& pc, double c[5]) {
+    c[0] = pc[4]; c[1] = pc[3]; c[2] = pc[2]; c[3] = pc[1]; c[4] = pc[0];
     int deg = 4;
     while (deg > 0 && c[0] == 0.0) {
         for (int i = 0; i < deg; ++i) c[i] = c[i + 1];
         --deg;
     }
+    return deg;
+}
+
+// complex roots -> sorted, near-double-merged theta list.  Real filter
+// matches np.roots + |Im| <= _ROOT_IM_REL (1 + |Re|); merge at 1e-11 in t.
+inline std::vector<double> thetas_from_complex(
+    const std::vector<Cplx<double>>& z) {
     std::vector<double> out;
-    if (deg <= 0) return out;
-    auto z = aberth<double>(c, deg, 40);
     for (const auto& r : z)
         if (std::fabs(r.im) <= kRootImRel * (1.0 + std::fabs(r.re))) {
             double t = std::fmod(2.0 * std::atan(r.re), kTwoPi);
@@ -85,6 +89,75 @@ inline std::vector<double> real_root_thetas(const std::array<double, 5>& pc) {
     for (double x : out)
         if (merged.empty() || x - merged.back() > 1e-11) merged.push_back(x);
     return merged;
+}
+
+inline std::vector<double> real_root_thetas(const std::array<double, 5>& pc) {
+    double c[5];
+    int deg = quartic_descending(pc, c);
+    if (deg <= 0) return {};
+    return thetas_from_complex(aberth<double>(c, deg, 40));
+}
+
+// Warm-start state for the per-radial-node quartic solve inside one cell.
+// The Chebyshev nodes are monotone in R inside a cell and the boundary
+// quartic's roots move smoothly with R away from a tangency, so node k
+// seeds node k-1's converged roots into a short Aberth pass instead of a
+// cold circle start.
+//
+// The warm result is adopted only when the final Aberth correction is
+// <= kWarmStepTol (roots then good well past what the downstream
+// 6-iteration polish_endpoint Newton needs -- the quartic roots are arc
+// seeds, not final endpoints) AND the real-root count is unchanged from
+// the seed.  Any failure -> exact cold 40-iteration solve, identical to
+// real_root_thetas().  So an adopted set is never a degraded guess and the
+// arc topology can never silently change.  After kColdStreak consecutive
+// warm misses the warm path is disabled for the rest of the cell (a moving
+// tangency -- stop paying warm+cold).  Reset (valid=false) at each cell
+// boundary and at a chart (p4~0) radius.
+constexpr int kWarmIters = 20;
+constexpr double kWarmStepTol = 1e-7;
+constexpr int kColdStreak = 3;
+
+struct QuarticWarm {
+    Cplx<double> z[4];
+    int deg = 0;
+    int n_real = -1;
+    bool valid = false;    // z[] holds a usable previous-node root set
+    int cold_streak = 0;   // consecutive warm misses -> disable at kColdStreak
+    long warm_hits = 0, cold_falls = 0;
+};
+
+inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc,
+                                                 QuarticWarm& w) {
+    double c[5];
+    int deg = quartic_descending(pc, c);
+    if (deg <= 0) { w.valid = false; return {}; }
+
+    if (w.valid && w.deg == deg && w.cold_streak < kColdStreak) {
+        double step = 1.0;
+        auto z = aberth<double>(c, deg, kWarmIters, w.z, 0.0, &step);
+        if (step <= kWarmStepTol) {
+            auto th = thetas_from_complex(z);
+            if (w.n_real < 0 || (int)th.size() == w.n_real) {
+                for (int i = 0; i < deg; ++i) w.z[i] = z[i];
+                w.n_real = (int)th.size();
+                w.cold_streak = 0;
+                ++w.warm_hits;
+                return th;
+            }
+        }
+        ++w.cold_streak;
+    }
+
+    // cold path -- identical roots to real_root_thetas()
+    auto z = aberth<double>(c, deg, 40);
+    auto th = thetas_from_complex(z);
+    for (int i = 0; i < deg && i < 4; ++i) w.z[i] = z[i];
+    w.deg = deg;
+    w.n_real = (int)th.size();
+    w.valid = (deg <= 4);
+    ++w.cold_falls;
+    return th;
 }
 
 enum class ArcKind { kArcs, kFull, kEmpty, kDegenerate };
@@ -168,13 +241,17 @@ inline GridArcs arcs_at(double R, const PrimaryFrame& pf, int n_grid = 3072) {
 }
 
 // ---- arc_intervals : from the boundary quartic ----------------------
-inline ArcSet arc_intervals(double R, const PrimaryFrame& pf) {
+// `w` (optional): per-cell warm-start state for the quartic root solve.
+inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
+                            QuarticWarm* w = nullptr) {
     QuarticCoeffs q = boundary_quartic(R, pf);
     double amax = 0.0;
     for (double c : q.p) amax = std::max(amax, std::fabs(c));
-    if (amax == 0.0 || std::fabs(q.p[4]) < kP4DegenRel * amax)
+    if (amax == 0.0 || std::fabs(q.p[4]) < kP4DegenRel * amax) {
+        if (w) w->valid = false;  // chart radius -> break the warm chain
         return {ArcKind::kDegenerate, {}};
-    auto th = real_root_thetas(q.p);
+    }
+    auto th = w ? real_root_thetas_warm(q.p, *w) : real_root_thetas(q.p);
     if (th.empty())
         return {q.p[4] > 0.0 ? ArcKind::kFull : ArcKind::kEmpty, {}};
     if (th.size() % 2 != 0) return {ArcKind::kDegenerate, {}};
@@ -241,9 +318,10 @@ inline RadiusTerms full_circle_terms(double R, const PrimaryFrame& pf) {
 
 // ---- radius_terms --------------------------------------------------
 inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
-                                double tan_rel = kTanRel) {
+                                double tan_rel = kTanRel,
+                                QuarticWarm* w = nullptr) {
     RadiusTerms rt;
-    ArcSet as = arc_intervals(R, pf);
+    ArcSet as = arc_intervals(R, pf, w);
     if (as.kind == ArcKind::kEmpty) return rt;
     if (as.kind == ArcKind::kFull) return full_circle_terms(R, pf);
     if (as.kind == ArcKind::kDegenerate) {

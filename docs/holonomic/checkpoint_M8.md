@@ -79,3 +79,73 @@ result, or (c) fail-closed. Never a lone unchecked quartic guess.
   to 2.83 ms (caustic-cross).
 
 Evidence: `evidence/holonomic/m8_step1_three_way.txt`.
+
+---
+
+## Step 2 — targeted `phi_grad` variants (commit `ab40983`)
+
+`phi_grad` was computing the full 5-component parameter gradient at every
+call site, including the many that only need `d phi/d theta` / `d phi/d R`
+for a Newton polish. Split into targeted variants so endpoint polishing
+and the arc-interval scan stop paying for the parameter derivatives. No
+behaviour change; folded into the step-1 latency regime.
+
+---
+
+## Step 3 — boundary-quartic warm-start + denormal-flush FP guard
+
+After step 1, `radial_events` (the D14 solve) and the **per-radial-node
+boundary quartic** dominate. D14 is the band-structure oracle and cannot be
+removed; the quartic solve is reducible. Two independent wins:
+
+### 3a - `ScopedFlushDenormals` (FTZ/DAZ) guard - `holonomic/fp_env.hpp`
+
+A near-converged Aberth iteration on the boundary quartic pushes the
+intermediate `|p|`, `|p'|` and (near a tangency) the root-gap
+`|z_i - z_j|` into gradual underflow. Each denormal SSE operand on x86 is
+a ~50-100x microcode assist. An RAII guard sets MXCSR FTZ (bit 15) + DAZ
+(bit 6) at the entry of `flux_jacobian` / `epoch_jacobian` and restores
+the caller's MXCSR on exit. Numerically inert here - every reported
+quantity is `>~ 1e-3` and every retained coefficient `>> 2.2e-308`; the
+`__float128` D14 path is software (libquadmath) and unaffected.
+
+### 3b - warm-started quartic solve - `real_root_thetas_warm`
+
+Radial node `k` seeds node `k-1`'s converged roots into a short Aberth
+pass (the Gauss-Chebyshev nodes are monotone in `R` within a cell; the
+quartic roots move smoothly with `R` away from a tangency). The warm set
+is **adopted only when** the final Aberth correction `<= 1e-7` (returned
+free via the new `final_step` out-param - the roots are seeds for the
+6-iteration `polish_endpoint` Newton, so ~1e-9 is already past what is
+used) **and** the real-root count is unchanged. Any miss -> exact cold
+40-iteration solve, bit-identical to `real_root_thetas()`; 3 consecutive
+misses disable the warm path for the rest of the cell. ~98% warm-hit rate.
+
+Dead code removed: `aberth_roots_plausible` (the v1-v3 Vieta/Newton
+certificate, superseded by `final_step`) and the unused `iters_used`
+out-param of `aberth()`.
+
+### Validation
+
+- `test_holonomic_m7`: 10397 checks / 0 failures.
+- 108-case holonomic parity (`epoch_jacobian` mu + 5-Jac + dmu/du) vs HEAD:
+  **0 status changes** (same 104 OK / 4 fail-closed), worst |d mu|/mu
+  1.5e-14, worst gradient-vector L2 rel change 2.8e-8, worst dmu/du rel
+  9.9e-8. Arc topology never changed.
+
+### Latency - `bench_holonomic_m7`, value+5-Jac, best-of-200, 108 points
+
+| metric | pre-step-3 | step 3 | change |
+|---|--:|--:|--:|
+| median | 2.994 | **2.143** | -28% |
+| p90 | 5.841 | **3.820** | -35% |
+| p95 | 6.070 | **3.958** | -35% |
+| p99 | 6.297 | **4.102** | -35% |
+| max | 6.313 | 4.109 | -35% |
+
+- **vs inverse-ray incumbent (14.89 ms): 7.5x -> 11.7x.**
+- Decision-20 gate: median 2.143 ms <= 7.44 ms **PASS** (3.5x margin);
+  every percentile improved, so p90/p95/p99 non-regress **PASS**;
+  accuracy/coverage/Jacobian unchanged.
+
+Evidence: `evidence/holonomic/m8_step3_warmstart_ftz.txt`.
