@@ -17,6 +17,44 @@ void check(bool condition, const char* label)
     if (!condition) ++failures;
 }
 
+bool full_positive_radius_square_subset(const ce::CriticalEvent& event)
+{
+    if (!std::isfinite(event.u_box.lo) || !std::isfinite(event.u_box.hi) ||
+        !std::isfinite(event.radius_box.lo) ||
+        !std::isfinite(event.radius_box.hi) ||
+        !(event.radius_box.lo > 0.0) ||
+        !(event.radius_box.lo <= event.radius_box.hi)) {
+        return false;
+    }
+    const double lower = std::nextafter(
+        event.radius_box.lo * event.radius_box.lo,
+        -std::numeric_limits<double>::infinity());
+    const double upper = std::nextafter(
+        event.radius_box.hi * event.radius_box.hi,
+        std::numeric_limits<double>::infinity());
+    return std::isfinite(lower) && std::isfinite(upper) &&
+        lower >= event.u_box.lo && upper <= event.u_box.hi;
+}
+
+void check_expected_certified_events(
+    const ce::CriticalEventInput& input,
+    std::size_t expected_events,
+    const char* label)
+{
+    const auto numerical = ce::enumerate_and_lift_critical_events(input);
+    std::printf(
+        "REGRESSION label=%s success=%d reason=%s events=%zu\n",
+        label, numerical.success ? 1 : 0, numerical.unsafe_reason.c_str(),
+        numerical.events.size());
+    check(numerical.success, label);
+    check(numerical.events.size() == expected_events,
+          "regression has its expected certified event count");
+    for (const auto& event : numerical.events) {
+        check(full_positive_radius_square_subset(event),
+              "full positive radius box squared is outward-contained in U");
+    }
+}
+
 }  // namespace
 
 int main()
@@ -59,7 +97,22 @@ int main()
         check(event.radius_box.lo <= event.radius &&
                   event.radius <= event.radius_box.hi,
               "event representative is inside returned Krawczyk box");
+        check(full_positive_radius_square_subset(event),
+              "regular5 full positive radius box squared is outward-contained in U");
     }
+
+    // These inputs exercised the former noncertifying seed drift.  They are
+    // numerical-kernel regressions only; limb-darkening coefficients do not
+    // enter this geometry-only API.
+    check_expected_certified_events(
+        ce::CriticalEventInput{{0.037, -0.021}, 0.007, 0.02, 0.9}, 10,
+        "q_exchange_low geometry has ten certified events");
+    check_expected_certified_events(
+        ce::CriticalEventInput{{-0.037, -0.021}, 0.007, 50.0, 0.9}, 10,
+        "q_exchange_high geometry has ten certified events");
+    check_expected_certified_events(
+        ce::CriticalEventInput{{0.08, 0.03}, 0.01, 0.001, 1.1}, 6,
+        "LD geometry has six certified events");
 
     const auto plan = ce::find_critical_events(regular5);
     check(!plan.success, "full critical-event plan remains fail-closed");

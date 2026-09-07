@@ -1043,32 +1043,21 @@ double seed_eval_t(
 }
 
 bool polish_event_chart(
-    const std::array<SeedPoly, 5>& polynomial,
+    const std::array<DPoly, 5>& exact_polynomial,
     double* radius,
     double* chart)
 {
     for (int iteration = 0; iteration < 32; ++iteration) {
-        double q[5];
-        double qr[5];
-        for (int i = 0; i < 5; ++i) {
-            q[i] = static_cast<double>(seed_eval(polynomial[i], *radius));
-            qr[i] = static_cast<double>(
-                seed_eval(seed_derivative(polynomial[i]), *radius));
-        }
-        const double z = *chart;
-        const double f =
-            (((q[4] * z + q[3]) * z + q[2]) * z + q[1]) * z + q[0];
-        const double ft =
-            ((4.0 * q[4] * z + 3.0 * q[3]) * z + 2.0 * q[2]) * z +
-            q[1];
-        const double fr =
-            (((qr[4] * z + qr[3]) * z + qr[2]) * z + qr[1]) * z +
-            qr[0];
-        const double ftr =
-            ((4.0 * qr[4] * z + 3.0 * qr[3]) * z + 2.0 * qr[2]) * z +
-            qr[1];
-        const double ftt =
-            (12.0 * q[4] * z + 6.0 * q[3]) * z + 2.0 * q[2];
+        const auto exact =
+            chart_system_exact_center(exact_polynomial, *radius, *chart);
+        if (!finite_interval(exact.f) || !finite_interval(exact.ft) ||
+            !finite_interval(exact.fr) || !finite_interval(exact.ftr) ||
+            !finite_interval(exact.ftt)) return false;
+        const double f = midpoint(exact.f);
+        const double ft = midpoint(exact.ft);
+        const double fr = midpoint(exact.fr);
+        const double ftr = midpoint(exact.ftr);
+        const double ftt = midpoint(exact.ftt);
         const double determinant = fr * ftt - ft * ftr;
         if (!std::isfinite(determinant) ||
             std::abs(determinant) < 1.0e-15) {
@@ -1504,7 +1493,7 @@ CriticalEventNumericalResult enumerate_and_lift_critical_events(
                 double event_radius = radius_seed;
                 double event_chart = chart_seed;
                 if (!polish_event_chart(
-                        chart_seed_polynomial, &event_radius, &event_chart)) {
+                        chart_exact_polynomial, &event_radius, &event_chart)) {
                     continue;
                 }
                 const double event_u = event_radius * event_radius;
