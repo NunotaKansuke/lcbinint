@@ -54,6 +54,16 @@ Interval imul(Interval a, Interval b)
         std::nextafter(hi, std::numeric_limits<double>::infinity())};
 }
 
+bool finite_interval(Interval value);
+
+bool positive_square_subset(Interval radius, Interval u)
+{
+    if (!finite_interval(radius) || !finite_interval(u) ||
+        !(radius.lo > 0.0)) return false;
+    const Interval squared = imul(radius, radius);
+    return finite_interval(squared) && squared.lo >= u.lo && squared.hi <= u.hi;
+}
+
 Interval iscale(Interval a, double scale)
 {
     return imul(a, exact_interval(scale));
@@ -987,8 +997,8 @@ bool chart_krawczyk(
         const Interval m11 = isub(
             exact_interval(1.0),
             iadd(iscale(whole.ft, c10), iscale(whole.ftt, c11)));
-        const Interval dr{radius.lo - radius0, radius.hi - radius0};
-        const Interval dt{chart.lo - chart0, chart.hi - chart0};
+        const Interval dr = isub(radius, exact_interval(radius0));
+        const Interval dt = isub(chart, exact_interval(chart0));
         const Interval k0 =
             iadd(y0, iadd(imul(m00, dr), imul(m01, dt)));
         const Interval k1 =
@@ -1173,6 +1183,39 @@ bool arithmetic_unit_checks()
         !dcompare(invalid, Dyadic(0), &ignored_compare) &&
         !std::isfinite(dyadic_to_double(sum)) &&
         !finite_interval(dyadic_adjacent_enclosure(product));
+
+    // A tiny nonzero chart center with the fixed Krawczyk padding crosses
+    // zero.  The outward displacement must contain exact-Dyadic endpoint
+    // differences, not just their round-to-nearest subtraction.
+    const double chart0 = 1.0e-20;
+    const Interval chart_box{-1.0e-10, 1.0e-10};
+    const Interval displacement = isub(chart_box, exact_interval(chart0));
+    const Interval plain_displacement{
+        chart_box.lo - chart0, chart_box.hi - chart0};
+    const auto exact_in = [](Interval enclosure, const Dyadic& value) {
+        int cmp_lo = 0;
+        int cmp_hi = 0;
+        return dcompare(
+                   Dyadic::from_double(enclosure.lo), value, &cmp_lo) &&
+            dcompare(value, Dyadic::from_double(enclosure.hi), &cmp_hi) &&
+            cmp_lo <= 0 && cmp_hi <= 0;
+    };
+    const Dyadic exact_lower = dsub(
+        Dyadic::from_double(chart_box.lo), Dyadic::from_double(chart0));
+    const Dyadic exact_upper = dsub(
+        Dyadic::from_double(chart_box.hi), Dyadic::from_double(chart0));
+    pass &= exact_in(displacement, exact_lower) &&
+        exact_in(displacement, exact_upper) &&
+        !exact_in(plain_displacement, exact_upper);
+
+    // A midpoint exactly on the U lower bound cannot rescue a radius box that
+    // straddles it by one representable value.
+    const Interval u_boundary{1.0, 1.0};
+    const Interval straddling_radius{
+        std::nextafter(1.0, -std::numeric_limits<double>::infinity()),
+        std::nextafter(1.0, std::numeric_limits<double>::infinity())};
+    pass &= !positive_square_subset(straddling_radius, u_boundary);
+    pass &= positive_square_subset({1.0, 1.0}, {0.9, 1.1});
     return pass;
 }
 
@@ -1413,7 +1456,9 @@ CriticalEventNumericalResult enumerate_and_lift_critical_events(
                 }
                 const double radius = midpoint(certified_radius);
                 const double chart = midpoint(certified_chart);
-                const double certified_u = radius * radius;
+                const Interval u_box{u_lo, u_hi};
+                const Interval representative_square =
+                    imul(exact_interval(radius), exact_interval(radius));
                 const double p = seed_eval_t(
                     chart_seed_polynomial, radius, chart, 0);
                 const double pt = seed_eval_t(
@@ -1421,7 +1466,9 @@ CriticalEventNumericalResult enumerate_and_lift_critical_events(
                 const bool box_inside =
                     certified_radius.lo >= radius_lo &&
                     certified_radius.hi <= radius_hi;
-                if (!(certified_u >= u_lo && certified_u <= u_hi) ||
+                if (!positive_square_subset(certified_radius, u_box) ||
+                    !(representative_square.lo >= u_lo &&
+                      representative_square.hi <= u_hi) ||
                     !box_inside || std::abs(p) > 1.0e-12 ||
                     std::abs(pt) > 1.0e-12 ||
                     !finite_contact_proxy(
