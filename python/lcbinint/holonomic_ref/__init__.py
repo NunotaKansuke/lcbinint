@@ -6,6 +6,7 @@ production backend (M7) must reproduce.  See docs/holonomic/.
 from .polynomial_family import (
     boundary_quartic,
     boundary_quartic_dR,
+    boundary_quartic_dp,
     T_coeffs,
     B_coeffs,
     phi_value,
@@ -95,10 +96,22 @@ from .solver import (
     solve_epoch,
     magnification,
 )
+from .jacobian import (
+    phi_grad,
+    arc_intervals,
+    radius_terms,
+    endpoint_dtheta_theta_chart,
+    endpoint_dtheta_t_chart,
+    flux_jacobian,
+    epoch_jacobian,
+    FluxJacobian,
+    EpochJacobian,
+)
 
 __all__ = [
     "boundary_quartic",
     "boundary_quartic_dR",
+    "boundary_quartic_dp",
     "T_coeffs",
     "B_coeffs",
     "phi_value",
@@ -168,4 +181,13 @@ __all__ = [
     "EpochResult",
     "solve_epoch",
     "magnification",
+    "phi_grad",
+    "arc_intervals",
+    "radius_terms",
+    "endpoint_dtheta_theta_chart",
+    "endpoint_dtheta_t_chart",
+    "flux_jacobian",
+    "epoch_jacobian",
+    "FluxJacobian",
+    "EpochJacobian",
 ]
