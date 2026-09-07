@@ -416,9 +416,24 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
                 const double mid_t = 0.5 * (t_a + t_b);
                 const double hw_t = 0.5 * (t_b - t_a);
                 for (std::size_t i = 0; i < 15; ++i) {
-                    const double t_i = mid_t + hw_t * smap15().coord[i];
-                    const Jet Ri_j = Rlo_j + dR_j * t_i;
-                    const Jet wR_j = (dR_j * hw_t) * smap15().jac[i];
+                    double coordinate, weight;
+                    if (settings.critical_events) {
+                        // Regularize the square-root contact at BOTH ends of
+                        // the entire certified cell, not separately at each
+                        // panel edge. The parameter-independent sine-square
+                        // substitution preserves the same moving-endpoint IFT.
+                        const double t_i = mid_t + hw_t * gk15().nodes[i];
+                        const double sn = std::sin(0.5 * kPi * t_i);
+                        const double cs = std::cos(0.5 * kPi * t_i);
+                        coordinate = sn * sn;
+                        weight = hw_t * kPi * sn * cs;
+                    } else {
+                        coordinate = mid_t + hw_t * smap15().coord[i];
+                        weight = hw_t * smap15().jac[i];
+                    }
+                    const Jet Ri_j = Rlo_j + dR_j * coordinate;
+                    const Jet wR_j = settings.critical_events ? dR_j * weight
+                        : (dR_j * hw_t) * smap15().jac[i];
                     const auto integ = radial_integrand_jet(
                         geom_j, lens_d, source_d, rho_d, Ri_j, c, d, settings, &reliable);
                     const Jet wk = wR_j * gk15().kw[i];
