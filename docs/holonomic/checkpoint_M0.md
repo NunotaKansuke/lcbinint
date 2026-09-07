@@ -110,7 +110,22 @@ Estimate only — unproven until M7 exists.
 
 ---
 
-## 4. Consequence for the M7 gate — re-framing (design decision 18, cont.)
+## 4. Consequence for the M7 gate — analysis, and the re-framing RETRACTED
+
+> **RETRACTED 2026-09-07 (user instruction).** The re-framing proposed in
+> this section — demoting "median ≥ 2×" to a non-regression check and making
+> p90/p95/p99 + Jacobian quality the primary gate — was **withdrawn by the
+> user**. The M7 adoption condition **keeps `median ≥ 2× faster than the
+> incumbent`** (plan §14). p90/p95/p99 are reported as *additional* key
+> metrics, not a substitute. The bimodal finding below stands as evidence;
+> it does not lower the target. The C++ 3–12 ms estimate is a *starting
+> point to cut further*, not a destination — M7 must get the normal
+> binary-scale case clearly below the incumbent's ~2 ms. See
+> `milestones.md` design decision 20 for the binding criteria and the
+> mandatory optimization targets. The analysis in the rest of this section
+> is retained for context only.
+
+## 4b. (retained) original re-framing analysis (design decision 18, cont.)
 
 Plan §14 gate: "linear-LD value+Jacobian の end-to-end **median >= 2x**,
 **p95 悪化 <= 25%**".
