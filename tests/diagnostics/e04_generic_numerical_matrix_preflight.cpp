@@ -18,15 +18,18 @@ int main()
         return lcbinint::SourcePosition{t*std::cos(alpha)-u0*std::sin(alpha),
                                         t*std::sin(alpha)+u0*std::cos(alpha)};
     };
+    // The JSON trajectory rows carry public q.  The matrix's `native_order`
+    // requires the reciprocal native q used by the numerical core.
+    const auto public_q_to_native=[](double q_public) { return 1.0/q_public; };
     const std::array<MatrixCase,20> cases{{
         {"regular_1",{{-.1737444200273406,.15560487302576048},.01,10,1.2}},
         {"regular_2",{{-.11642423067980426,.17333608542544085},.01,10,1.2}},
         {"regular_3",{{-.05910404133226791,.19106729782512122},.01,10,1.2}},
         {"regular_4",{{-.0017838519847315562,.2087985102248016},.01,10,1.2}},
         {"regular_5",{{.0555363373628048,.22652972262448196},.01,10,1.2}},
-        {"signed_u0_1",{trajectory(-.12),.01,.1,1.2}},
-        {"signed_u0_2",{trajectory(0),.01,.1,1.2}},
-        {"signed_u0_3",{trajectory(.12),.01,.1,1.2}},
+        {"signed_u0_1",{trajectory(-.12),.01,public_q_to_native(.1),1.2}},
+        {"signed_u0_2",{trajectory(0),.01,public_q_to_native(.1),1.2}},
+        {"signed_u0_3",{trajectory(.12),.01,public_q_to_native(.1),1.2}},
         {"q_exchange_low",{{.037,-.021},.007,.02,.9}}, {"q_exchange_high",{{-.037,-.021},.007,50,.9}},
         {"q_exchange_low_second_fixture_point",{{-.11,.04},.007,.02,.9}},
         {"q_exchange_high_second_fixture_point",{{.11,.04},.007,50,.9}},
