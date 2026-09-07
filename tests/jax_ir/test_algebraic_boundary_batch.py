@@ -75,6 +75,7 @@ def test_scalar_batch_values_jacobian_status_and_order_are_identical():
         0.28,
         limb_c=0.4,
         limb_d=0.2,
+        strict=True,  # Match the legacy scalar API's certificate mask.
     )
     x = np.linspace(0.19, 0.23, count)
     y = np.linspace(0.13, 0.17, count)
@@ -162,7 +163,7 @@ def test_forced_finite_mask_never_reports_router_shortcut_method():
 def test_zero_value_budget_is_fail_closed():
     result = binary_algebraic_boundary_batch_value_jacobian_ffi(
         jnp.array([0.22]), jnp.array([0.15]), jnp.array([1.35]), 0.05, 0.28,
-        limb_c=0.4, limb_d=0.2, value_atol=0.0, value_rtol=0.0,
+        limb_c=0.4, limb_d=0.2, value_atol=0.0, value_rtol=0.0, strict=True,
     )
     assert np.array_equal(result.status, np.array([2], dtype=np.int32))
     assert np.all(np.isnan(result.magnification))

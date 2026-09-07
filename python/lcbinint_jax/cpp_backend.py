@@ -1724,7 +1724,7 @@ def binary_algebraic_boundary_batch_ffi(
     value_atol=1.0e-4,
     value_rtol=1.0e-4,
     gradient_atol=3.0e-4,
-    strict=True,
+    strict=False,
     refinement_policy_id="algebraic-forced-finite-v1",
     fallback_policy_id="none",
 ):
@@ -1784,7 +1784,7 @@ def binary_algebraic_boundary_batch_value_jacobian_ffi(
     value_atol=1.0e-4,
     value_rtol=1.0e-4,
     gradient_atol=3.0e-4,
-    strict=True,
+    strict=False,
     refinement_policy_id="algebraic-forced-finite-v1",
     fallback_policy_id="none",
 ):

@@ -75,7 +75,7 @@ def test_fixed_mask_and_strict_budget():
     result=explicit(*args, finite_mask=jnp.array([True,False]),refinement_policy_id=POLICY)
     np.testing.assert_array_equal(result.status,[0,0])
     np.testing.assert_array_equal(result.method,[2,1])
-    failed=explicit(*args,gradient_atol=0.,refinement_policy_id=POLICY)
+    failed=explicit(*args,gradient_atol=0.,refinement_policy_id=POLICY,strict=True)
     assert np.all(failed.status != 0)
     assert np.isnan(failed.jacobian).all()
 
@@ -116,3 +116,23 @@ def test_tight_linear_ld_has_no_isolated_gradient_budget_holes(x,y):
     assert r.status[0] == 0
     assert np.isfinite(r.jacobian).all()
     assert r.gradient_error[0] <= 1e-5
+
+@pytest.mark.parametrize('mask', [True, False])
+def test_default_preserves_value_budget_exceeded_result(mask):
+    p=jnp.array([.0555363373628048,.22652972262448196,.01,10.,1.2])
+    r=call(p,jac=True,value_atol=0.,value_rtol=0.,finite_mask=jnp.array([mask]))
+    assert r.status[0] == 2
+    assert np.isfinite(r.magnification).all()
+    assert np.isfinite(r.jacobian).all()
+    assert r.value_error[0] > 0
+    s=call(p,jac=True,value_atol=0.,value_rtol=0.,finite_mask=jnp.array([mask]),strict=True)
+    assert s.status[0] == 2
+    assert np.isnan(s.magnification).all() and np.isnan(s.jacobian).all()
+    np.testing.assert_array_equal(r.value_error,s.value_error)
+    np.testing.assert_array_equal(r.gradient_error,s.gradient_error)
+
+def test_hmc_carrier_separation_point_is_certified():
+    r=call(jnp.array([.05136045095017044,.22523796958280187,.01,10.,1.2]),
+           jac=True,limb_c=.4,value_atol=1e-8,value_rtol=1e-8,gradient_atol=1e-5,strict=True)
+    assert r.status[0] == 0
+    assert np.isfinite(r.magnification).all() and np.isfinite(r.jacobian).all()
