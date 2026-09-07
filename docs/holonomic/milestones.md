@@ -16,7 +16,7 @@ branch `claude/lcbinint-holonomic-solver-b7d3cd`。設計書 14 節の M0–M8 �
 | M4 | 通常セルの輸送 + flux (Python reference) | `holonomic_ref/{transport,seed,root_pair,flux,direct_quadrature}.py` | 複数セルで F0,F_{1/2} が直接二重求積と一致。条件数記録 | **完了** (`checkpoint_M4.md`) |
 | M5 | 特異パッチ + 全 epoch reference | `holonomic_ref/singular.py`, `solver.py`, `benchmarks/holonomic/audit.py`, `tests/holonomic/test_solver_audit.py` | 監査領域で精度と失敗率を別々に報告、silent miss なし | **完了** (`checkpoint_M5.md`) — 監査 36 点: 精度 median rel 3.1e-5 / p90 2.4e-4 / max 5.9e-4 (OK_VALIDATED 27点)、失敗率 8/36 = 22.2%、silent miss 0、GATE PASS。full suite 252 passed / 3 skipped |
 | M6 | value/JVP 整合 (5成分 Jacobian) | `holonomic_ref/jacobian.py` (有限数値再構成 jet)、`solve_epoch(with_jacobian=True)`、`tests/holonomic/test_value_jvp_consistency.py` | 中心差分収束、チャート変更前後で整合、既存経路との勾配比較 | **完了** (`checkpoint_M6.md`) — value と grad_mu を単一の per-cell Gauss–Chebyshev 再構成から生成。`epoch_flux` 中心差分との比較: plan15/resonant 全成分 rel ≤ 1e-3、benign 小 ρ の ∂μ/∂ρ (激しい相殺) と ∂μ/∂a (~0) のみ oracle 律速で ~1e-2。independent `image_plane_flux(+evs)` Richardson とも plan15 ≤ 1.6e-4。n_r 収束 O(1/n_r²) (48→192 で 6.6e-3→4.5e-4)。IFT-θ vs IFT-t チャート整合 2.8e-14。特異パッチ / degenerate quartic / full circle は `GRADIENT_UNRELIABLE` で fail closed。test_value_jvp_consistency.py 17 passed |
-| M7 | C++ production 実装 + 高速化 | `src/lcbinint/magnification/holonomic/*.hpp` + binding `_lcbinint_holonomic_m7` | 同じ精度・被覆で linear-LD value+Jacobian の end-to-end **median >= 2x faster**、かつ p95/p99 non-regressing (理想的には大幅高速化)、analytic Jacobian 品質 (設計判断 20) | TODO |
+| M7 | C++ production 実装 + 高速化 | `src/lcbinint/magnification/holonomic/*.hpp` + binding `_lcbinint_holonomic_m7`、standalone `tests/holonomic_cpp/CMakeLists.txt` | 同じ精度・被覆で linear-LD value+Jacobian の end-to-end **median >= 2x faster**、かつ p95/p99 non-regressing (理想的には大幅高速化)、analytic Jacobian 品質 (設計判断 20) | **完了** (`checkpoint_M7.md`) — best-of-200 / `taskset -c 0-7` / load ~13、108 (config,u) 点: **median 4.77 ms** (incumbent 14.89 ms、3.1×、gate <= 7.44 ms PASS)、p90 8.15 / p95 8.37 / p99 8.44 ms (incumbent 145 / 4392 / 4628 ms、~18–548× 改善、non-regress PASS)。μ は M6 Python と bit-identical (OK 104 点)、status 一致 (108 点、fail-closed 4 点 = rand008/rand031 の near-tangency・extreme-q、M6 と同一)、grad_mu は M6 の oracle bar 内 (median 5.4e-10)。10397 checks / 0 failures。D14 event solve の silent-failure (wide binary で μ=0 を status OK で返す) を発見・修正 (monomial-basis balancing + NaN-safe residual gate)。設計判断 21 参照 |
 | M8 | 高リスク上積み最適化 | seed-only tangency、rank-change 解析接続、epoch topology continuation | M7 通過が前提 | TODO |
 
 ## 判断済みの設計修正 (理由は各 checkpoint に記録)
@@ -106,3 +106,16 @@ branch `claude/lcbinint-holonomic-solver-b7d3cd`。設計書 14 節の M0–M8 �
     value+Jacobian の fused evaluation。
     median 2x 未達の場合は目標変更ではなく、profiling を分解して支配項を
     特定し M8 最適化候補を具体提示する。
+
+21. **D14 two-stage solve の silent-failure 修正** (2026-09-08、`checkpoint_M7.md` §4)。
+    M7 の D14(v) 判別式求解を「balanced double Aberth 事前探索 → 113-bit
+    warm polish → residual/finiteness-gated cold __float128 fallback」の
+    二段構成にした。当初の plain double 探索は wide binary (`a` 大、係数
+    spread ~1e11) で `|z|^14` が double range を超えて全 NaN を返し、
+    `worst > 1e-12` gate が `NaN > 1e-12 == false` で cold fallback を
+    起動せず、全 D14 event を silent に落として **μ=0 を status OK で
+    返した**。修正: (a) `v = s·w`, `s = |a_n/a_0|^{1/deg}` で monomial
+    basis を balancing し Cauchy bound を O(10) に保つ (fast path 維持、
+    p99 8.4 ms); (b) seed の `std::isfinite` チェックと `!(worst <= tol)`
+    形式の NaN-safe gate。standing 指示「fail closed、silent
+    approximation 禁止」に直接対応。

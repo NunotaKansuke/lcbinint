@@ -311,7 +311,68 @@ inline std::vector<RadialEvent> radial_events(const PrimaryFrame& pf,
         int deg = (int)d14.size() - 1;
         std::vector<qf> desc(deg + 1);
         for (int i = 0; i <= deg; ++i) desc[i] = d14[deg - i];
-        auto roots = aberth<qf>(desc.data(), deg, 400);
+
+        // Two-stage solve.  The D14 monomial basis is ill-conditioned, so
+        // the *polish* must be 113-bit -- but the *search* need not be.  A
+        // double Aberth-Ehrlich pass (~15 us) locates every root basin;
+        // __float128 AE warm-started from those guesses then converges in a
+        // handful of iterations instead of ~400 cold.  If any root's
+        // 113-bit residual is still large (double stage was fooled into a
+        // spurious complex pair, per the radial_events.py docstring) we
+        // fall back to the cold __float128 solve.
+        qf dscale = 0;
+        for (int i = 0; i <= deg; ++i) {
+            qf av = fabsq(desc[i]);
+            if (av > dscale) dscale = av;
+        }
+        // Balance the monomial basis before the double search: substitute
+        // v = s w with s = |desc[deg]/desc[0]|^(1/deg) (geometric centre of
+        // the root magnitudes).  Un-balanced, a wide binary's D14 has a
+        // ~1e11 coeff spread and |z|^14 overflows the double range -- the
+        // search then returns non-finite guesses.  Balanced, the Cauchy
+        // bound drops to O(10) and the double pass is reliable.  The
+        // 113-bit polish still runs on the original `desc`.
+        double sscale = 1.0;
+        if ((double)fabsq(desc[deg]) > 0.0 && (double)fabsq(desc[0]) > 0.0) {
+            double ratio = (double)(fabsq(desc[deg]) / fabsq(desc[0]));
+            sscale = std::pow(ratio, 1.0 / deg);
+            if (!(sscale > 0.0) || !std::isfinite(sscale)) sscale = 1.0;
+        }
+        std::vector<double> descd(deg + 1);
+        {
+            double sp = 1.0;  // s^(deg-i), i running deg..0
+            for (int i = deg; i >= 0; --i) {
+                descd[i] = (double)desc[i] * sp;
+                sp *= sscale;
+            }
+        }
+        auto zd = aberth<double>(descd.data(), deg, 200);
+        // Backstop: if the balanced search still returns non-finite
+        // guesses, go straight to the cold 113-bit solve.
+        bool seed_ok = true;
+        for (int i = 0; i < deg; ++i)
+            if (!std::isfinite(zd[i].re) || !std::isfinite(zd[i].im)) {
+                seed_ok = false;
+                break;
+            }
+        std::vector<Cplx<qf>> roots;
+        if (seed_ok) {
+            std::vector<Cplx<qf>> seed(deg);
+            for (int i = 0; i < deg; ++i)
+                seed[i] = Cplx<qf>((qf)zd[i].re * (qf)sscale,
+                                   (qf)zd[i].im * (qf)sscale);
+            roots = aberth<qf>(desc.data(), deg, 24, seed.data(), (qf)1e-20);
+            qf worst = 0;
+            for (const auto& r : roots) {
+                qf res = cabs(poly_eval_c(desc.data(), deg, r)) /
+                         (dscale + (qf)1e-300);
+                if (res > worst) worst = res;
+            }
+            // NaN-safe: a non-finite residual must also force the cold redo.
+            if (!(worst <= (qf)1e-12)) seed_ok = false;
+        }
+        if (!seed_ok)
+            roots = aberth<qf>(desc.data(), deg, 400, nullptr, (qf)1e-22);
         auto rv = positive_real_roots(roots, 1e-8, 1e-9);
         for (double v : rv) {
             double R = std::sqrt(v);
@@ -374,9 +435,9 @@ inline std::vector<RadialEvent> radial_events(const PrimaryFrame& pf,
         int deg = fam.p[4].deg;
         while (deg > 0 && fabsq(fam.p[4].c[deg]) == 0) --deg;
         if (deg > 0) {
-            std::vector<qf> desc(deg + 1);
-            for (int i = 0; i <= deg; ++i) desc[i] = fam.p[4].c[deg - i];
-            auto z = aberth<qf>(desc.data(), deg, 200);
+            std::vector<double> desc(deg + 1);
+            for (int i = 0; i <= deg; ++i) desc[i] = (double)fam.p[4].c[deg - i];
+            auto z = aberth<double>(desc.data(), deg, 200);
             auto rv = positive_real_roots(z, 1e-8, 1e-9);
             for (double R : rv)
                 if (R > 0.0 && R < Rmax)

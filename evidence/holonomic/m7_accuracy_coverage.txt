@@ -1,0 +1,39 @@
+# M7 accuracy / failure-coverage verification (decision-20 criteria 3 & 4)
+# generated 2026-09-08T00:05:33
+# C++ epoch_jacobian (build-holonomic-m7, -O3 -march=native -funroll-loops
+#   -ffp-contract=fast -fno-math-errno) vs M6 Python holonomic_ref and vs
+#   incumbent binary_ray_shooting value+FDx11 (evidence/holonomic/baseline_M0.json)
+# 108 (config,u) points -- the M0 baseline set.
+
+STATUS  C++ : {'GRADIENT_UNRELIABLE': 4, 'OK': 104}
+STATUS  M6  : {'GRADIENT_UNRELIABLE': 4, 'OK': 104}
+STATUS  mismatches C++ vs M6 : 0  []
+
+# fail-closed cases (identical set in C++ and M6):
+  rand008          u=0.0  GRADIENT_UNRELIABLE  xs=-1.042 ys=-0.7142 rho=0.001416 q=0.004389 a=0.1955
+  rand008          u=0.5  GRADIENT_UNRELIABLE  xs=-1.042 ys=-0.7142 rho=0.001416 q=0.004389 a=0.1955
+  rand031          u=0.0  GRADIENT_UNRELIABLE  xs=-0.5094 ys=+0.03078 rho=0.2629 q=6.451e-08 a=0.4376
+  rand031          u=0.5  GRADIENT_UNRELIABLE  xs=-0.5094 ys=+0.03078 rho=0.2629 q=6.451e-08 a=0.4376
+
+ACCURACY  mu   C++ vs M6 Python (n=104 both-OK)   : median 0.00e+00  p90 0.00e+00  p99 0.00e+00  max 0.00e+00
+ACCURACY  mu   C++ vs incumbent binary_ray_shooting        : median 2.69e-05  p90 1.70e-04  p99 7.57e-03  max 7.66e-03
+JACOBIAN  grad_mu worst-comp rel  C++ vs M6                : median 5.39e-10  p90 6.01e-07  p99 4.17e-03  max 2.12e-02
+JACOBIAN  dmu_du rel              C++ vs M6                : median 0.00e+00  p90 2.06e-09  p99 9.74e-08  max 9.83e-08
+
+# worst grad_mu disagreements C++ vs M6 (all M6-oracle-limited near-caustic /
+#   companion-axis endpoints, see checkpoint_M6.md):
+  caustic-cross    u=0.5  worst-comp rel 2.12e-02
+  caustic-cross    u=0.0  worst-comp rel 4.28e-03
+  on-axis-off      u=0.0  worst-comp rel 8.13e-04
+  extreme-q-planet u=0.0  worst-comp rel 7.95e-05
+  extreme-q-planet u=0.5  worst-comp rel 4.57e-05
+  on-axis-off      u=0.5  worst-comp rel 1.61e-05
+
+# worst mu disagreements C++ vs incumbent (small-rho / thin-arc wide-binary,
+#   pre-existing M6 reference limitation -- C++ mu is bit-identical to M6):
+  tiny-rho         u=0.5  rel 7.66e-03   C++ mu 38.0292  incumbent 38.3229
+  tiny-rho         u=0.0  rel 7.66e-03   C++ mu 38.0441  incumbent 38.3377
+  very-wide        u=0.0  rel 4.82e-03   C++ mu 1.02752  incumbent 1.0325
+  very-wide        u=0.5  rel 4.82e-03   C++ mu 1.02752  incumbent 1.0325
+  fold-tangent     u=0.0  rel 4.08e-04   C++ mu 6.0804  incumbent 6.07793
+  very-close       u=0.5  rel 2.74e-04   C++ mu 24.843  incumbent 24.8362
