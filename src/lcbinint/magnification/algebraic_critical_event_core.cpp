@@ -991,7 +991,7 @@ ChartSystemInterval chart_system_interval(
     return {f, ft, fr, ftr, ftt};
 }
 
-bool chart_krawczyk(
+bool chart_krawczyk_search(
     const std::array<IPoly, 5>& polynomial,
     const std::array<DPoly, 5>& exact_polynomial,
     double radius0,
@@ -999,17 +999,17 @@ bool chart_krawczyk(
     double radius_lo,
     double radius_hi,
     Interval* certified_radius,
-    Interval* certified_chart)
+    Interval* certified_chart,
+    double search_half_width,
+    double chart_padding)
 {
     // Search inside the certified carrier at the existing endpoint width scale.
     // This proposal is not evidence; strict Krawczyk must still certify it.
-    const double search_half_width = 1.0e-12 * (1.0 + std::abs(radius0));
     Interval radius{
         std::max(radius_lo, std::nextafter(radius0 - search_half_width,
             -std::numeric_limits<double>::infinity())),
         std::min(radius_hi, std::nextafter(radius0 + search_half_width,
             std::numeric_limits<double>::infinity()))};
-    const double chart_padding = 1.0e-10 * (1.0 + std::abs(chart0));
     Interval chart{chart0 - chart_padding, chart0 + chart_padding};
     const auto center =
         chart_system_exact_center(exact_polynomial, radius0, chart0);
@@ -1072,6 +1072,30 @@ bool chart_krawczyk(
         *certified_chart = chart;
     }
     return accepted;
+}
+
+bool chart_krawczyk(
+    const std::array<IPoly, 5>& polynomial,
+    const std::array<DPoly, 5>& exact_polynomial,
+    double radius0, double chart0, double radius_lo, double radius_hi,
+    Interval* certified_radius, Interval* certified_chart)
+{
+    // Bounded proposals only: every result must pass the same strict interval
+    // inclusion and endpoint-width gates. Never return an unproved search box.
+    const double budget = 1e-12 * (1.0 + std::abs(radius0));
+    const double ulp = std::nextafter(radius0, INFINITY) - radius0;
+    for (double chart_fraction : {1e-14, 1e-13, 1e-12, 1e-11, 1e-10}) {
+      const double chart_padding = chart_fraction * (1.0 + std::abs(chart0));
+      for (double units = 16; units <= 8192; units *= 2) {
+        const double half_width = std::min(budget, units * ulp);
+        if (chart_krawczyk_search(polynomial, exact_polynomial, radius0, chart0,
+                radius_lo, radius_hi, certified_radius, certified_chart, half_width, chart_padding)) return true;
+        if (half_width == budget) break;
+      }
+      if (chart_krawczyk_search(polynomial, exact_polynomial, radius0, chart0,
+          radius_lo, radius_hi, certified_radius, certified_chart, budget, chart_padding)) return true;
+    }
+    return false;
 }
 
 double seed_eval_t(
@@ -1185,9 +1209,97 @@ bool canonicalize_candidate_reports(
     return true;
 }
 
+Interval square_interval(Interval x) {
+    const double upper=absmax(x);
+    const double lower=absmin(x);
+    return {std::max(0.0,std::nextafter(lower*lower,-INFINITY)),std::nextafter(upper*upper,INFINITY)};
+}
+// Positive row scaling preserves the implicit system; near-dependent rows
+// must still be rejected after equilibration. All bounds remain outward.
+bool equilibrated_ift(Interval fr, Interval ft, Interval frt, Interval ftt,
+                      double coefficient_scale)
+{
+    if (!finite_interval(fr) || !finite_interval(ft) ||
+        !finite_interval(frt) || !finite_interval(ftt) ||
+        !std::isfinite(coefficient_scale) || !(coefficient_scale > 0.0)) return false;
+    int exponent = 0, e1 = 0, e2 = 0;
+    std::frexp(coefficient_scale, &exponent);
+    const double factor = std::ldexp(1.0, -exponent);
+    const double row1 = std::max(absmax(fr), absmax(ft));
+    const double row2 = std::max(absmax(frt), absmax(ftt));
+    std::frexp(row1, &e1);
+    std::frexp(row2, &e2);
+    const double f1 = std::ldexp(1.0, -e1), f2 = std::ldexp(1.0, -e2);
+    if (!(row1 > 0.0) || !(row2 > 0.0) || !std::isfinite(factor) ||
+        !(factor > 0.0) || !std::isfinite(f1) || !std::isfinite(f2)) return false;
+    const Interval term1 = imul(iscale(fr, f1), iscale(ftt, f2));
+    const Interval term2 = imul(iscale(ft, f1), iscale(frt, f2));
+    const Interval det = isub(term1, term2);
+    const double terms = std::nextafter(absmax(term1) + absmax(term2), INFINITY);
+    return finite_interval(det) && absmin(iscale(ftt, factor)) > 1e-9 &&
+        absmin(det) > 1e-8 * std::max(1.0, terms);
+}
+
+bool certify_event_geometry(const CriticalEventInput& input,const FrozenGeometry& g,
+ const CriticalEvent& e, std::string* reason) {
+    const auto fail = [&](const char* text) { if (reason) *reason=text; return false; };
+    const Interval r{e.radius_box.lo,e.radius_box.hi},z{e.chart_box.lo,e.chart_box.hi};
+    const Interval one=exact_interval(1.0),z2=square_interval(z), w=iadd(one,z2);
+    const Interval cosv=idiv(e.cot_chart?isub(z2,one):isub(one,z2),w);
+    const Interval sinv=idiv(iscale(z,2),w);
+    const Interval x=imul(r,cosv),y=imul(r,sinv),xa=isub(x,exact_interval(g.a));
+    const Interval d0=iadd(square_interval(x),square_interval(y));
+    const Interval d1=iadd(square_interval(xa),square_interval(y));
+    if(d0.lo<=1e-28||d1.lo<=1e-28) {return fail("critical event crosses lens pole");}
+    const Interval mx=isub(isub(isub(x,idiv(iscale(xa,g.m1),d1)),
+       idiv(iscale(x,g.m2),d0)),imul(exact_interval(g.a),exact_interval(g.m1)));
+    const Interval my=isub(isub(y,idiv(iscale(y,g.m1),d1)),idiv(iscale(y,g.m2),d0));
+    const Interval residual=isub(iadd(square_interval(isub(mx,exact_interval(input.source.x))),
+        square_interval(isub(my,exact_interval(input.source.y)))),square_interval(exact_interval(g.rho)));
+    const double zm=midpoint(z), den=1+zm*zm;
+    const auto p=physical_boundary_residual(g,input.source,e.radius*(e.cot_chart?(zm*zm-1):(1-zm*zm))/den,e.radius*2*zm/den);
+    if(!finite_interval(residual)||!contains_zero(residual)||!p.finite||
+       std::abs(p.value)>2e-9*p.scale){return fail("critical event physical residual uncertain");}
+    auto exact=dyadic_trig_polynomials(g);
+    if(e.cot_chart)std::reverse(exact.begin(),exact.end());
+    std::array<IPoly,5> poly;
+    for(int i=0;i<5;++i)for(const auto& c:exact[i])poly[i].push_back(dyadic_adjacent_enclosure(c));
+    const auto v=chart_system_interval(poly,r,z);
+    const Interval h=idiv(one,square_interval(w));
+    const Interval hp=ineg(idiv(iscale(z,4),imul(square_interval(w),w)));
+    const Interval hpp=idiv(isub(iscale(z2,20),exact_interval(4)),square_interval(square_interval(w)));
+    const Interval gg=iscale(w,e.cot_chart?-.5:.5);
+    const Interval gz=iscale(z,e.cot_chart?-1:1);
+    const Interval first=iadd(imul(v.ft,h),imul(v.f,hp));
+    const Interval fr=imul(v.fr,h), ft=imul(gg,first);
+    const Interval frt=imul(gg,iadd(imul(v.ftr,h),imul(v.fr,hp)));
+    const Interval ftt=iadd(imul(square_interval(gg),iadd(iadd(imul(v.ftt,h),iscale(imul(v.ft,hp),2)),imul(v.f,hpp))),imul(imul(gg,gz),first));
+
+    Interval q[5];for(int i=0;i<5;++i)q[i]=ieval(poly[i],r);
+    const Interval A=iscale(isub(iadd(q[0],q[4]),q[2]),1./16);
+    const Interval B=iscale(isub(q[3],q[1]),1./16);
+    const Interval C=iscale(isub(q[0],q[4]),.25);
+    const Interval D=iscale(iadd(q[1],q[3]),-.125);
+    const Interval E=iscale(iadd(iscale(iadd(q[0],q[4]),3),q[2]),.125);
+    const double coefficient_scale=std::max({std::nextafter(absmax(A)+absmax(B),INFINITY),std::nextafter(absmax(C)+absmax(D),INFINITY),absmax(E)});
+    if (!equilibrated_ift(fr, ft, frt, ftt, coefficient_scale)) {
+       return fail("critical event equilibrated IFT uncertain");}
+    return true;
+}
+
 bool arithmetic_unit_checks()
 {
     bool pass = true;
+    for (int power : {-400, -40, 0, 40, 400}) {
+        const double s = std::ldexp(1.0, power);
+        const Interval zero = exact_interval(0.0), one = exact_interval(s);
+        pass &= equilibrated_ift(one, zero, one, one, s);
+        // Near-parallel rows, absent curvature, and an uncertain determinant
+        // are not made safe by a change in polynomial units.
+        pass &= !equilibrated_ift(one, one, one, exact_interval(s * (1.0 + 1e-12)), s);
+        pass &= !equilibrated_ift(one, zero, one, zero, s);
+        pass &= !equilibrated_ift(one, one, one, {0.9*s, 1.1*s}, s);
+    }
     const auto interval_check = [&pass](
                                     const IPoly& polynomial,
                                     const DPoly& exact_polynomial,
@@ -1701,10 +1813,54 @@ CriticalEventPlan find_critical_events(const CriticalEventInput& input)
         out.unsafe_reason = numerical.unsafe_reason;
         return out;
     }
-    // Deliberate fail-closed boundary: physical interval residual/pole,
-    // scaled-IFT, topology, and event-tagged band gates are not in this port.
-    out.unsafe_reason =
-        "pending physical-residual, scaled-IFT, topology, and band gates";
+    FrozenGeometry geometry;
+    if (!freeze_positive_geometry(input, &geometry, &out.unsafe_reason)) return out;
+    for (const auto& event : out.events) {
+        if (!certify_event_geometry(input, geometry, event, &out.unsafe_reason)) {
+            out.unsafe_reason += " at event " + std::to_string(event.event_id);
+            return out;
+        }
+    }
+    if (out.events.size() < 2) {
+        out.unsafe_reason = "insufficient certified critical events";
+        return out;
+    }
+    const AlgebraicBoundaryLens lens{geometry.a, geometry.m1, geometry.m2};
+    AlgebraicBoundarySettings classification_settings;
+    classification_settings.critical_events = true;
+    int previous_roots = 0;
+    for (std::size_t cell = 0; cell <= out.events.size(); ++cell) {
+        double radius;
+        if (cell == 0) radius = 0.5 * out.events.front().radius_box.lo;
+        else if (cell == out.events.size()) radius = 2.0 * out.events.back().radius_box.hi;
+        else radius = 0.5 * out.events[cell-1].radius_box.hi +
+                      0.5 * out.events[cell].radius_box.lo;
+        if (!(radius > 0.0) || !std::isfinite(radius)) {
+            out.unsafe_reason = "invalid radial classification point";
+            return out;
+        }
+        const auto intervals = algebraic_boundary_intervals_at_radius(
+            lens, input.source, input.rho, radius, classification_settings);
+        const int roots = static_cast<int>(intervals.boundary_angles.size());
+        const bool active = intervals.full_circle || !intervals.inside_intervals.empty();
+        if (!intervals.success || roots > 4 || roots % 2 != 0 ||
+            ((cell == 0 || cell == out.events.size()) && (active || roots != 0)) ||
+            (cell > 0 && std::abs(roots - previous_roots) != 2)) {
+            out.unsafe_reason = "uncertain radial-cell topology at cell " + std::to_string(cell);
+            return out;
+        }
+        previous_roots = roots;
+        if (cell > 0 && cell < out.events.size() && active) {
+            out.active_bands.push_back({out.events[cell-1].radius, out.events[cell].radius});
+            out.band_event_ids.emplace_back(out.events[cell-1].event_id, out.events[cell].event_id);
+        }
+    }
+    if (out.active_bands.empty()) {
+        out.unsafe_reason = "empty certified radial support";
+        return out;
+    }
+    out.success = true;
+    out.unsafe_reason.clear();
     return out;
 }
 

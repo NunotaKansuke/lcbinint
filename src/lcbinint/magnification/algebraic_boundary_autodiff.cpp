@@ -19,6 +19,7 @@
 //     two-form reliability estimate.
 
 #include "lcbinint/magnification/algebraic_boundary_autodiff.hpp"
+#include "lcbinint/magnification/algebraic_boundary_physical.hpp"
 
 #include "lcbinint/magnification/algebraic_boundary.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
@@ -152,7 +153,11 @@ MomentsJet<5> radial_integrand_jet(
     }
 
     const auto form_j = make_trig_form<Jet>(geom_j, radius_j);
-    const double scale = scale_of(form_j);
+    const double scale = settings.critical_events
+        ? std::max({std::hypot(form_j.A.value, form_j.B.value),
+                    std::hypot(form_j.C.value, form_j.D.value),
+                    std::fabs(form_j.Epsilon.value)})
+        : scale_of(form_j);
     const bool need_half = (c != 0.0);
     const bool need_quarter = (d != 0.0);
 
@@ -186,8 +191,18 @@ MomentsJet<5> radial_integrand_jet(
             *reliable = false;
         }
         Jet tj(angles[k]);
-        const double inv = (Fp != 0.0) ? 1.0 / Fp : 0.0;
-        for (std::size_t p = 0; p < 5; ++p) tj.derivative[p] = -F.derivative[p] * inv;
+        if (settings.critical_events) {
+            const Jet phi = phi_value_jet<Jet>(geom_j, radius_j, Jet(angles[k]));
+            const auto physical = physical_angular_boundary(lens_d, source_d, rho_d, R, angles[k]);
+            const double phi_theta = static_cast<double>(-physical.derivative /
+                (static_cast<long double>(rho_d) * rho_d));
+            if (!std::isfinite(phi_theta) || phi_theta == 0.0) *reliable = false;
+            for (std::size_t p = 0; p < 5; ++p)
+                tj.derivative[p] = -phi.derivative[p] / phi_theta;
+        } else {
+            const double inv = (Fp != 0.0) ? 1.0 / Fp : 0.0;
+            for (std::size_t p = 0; p < 5; ++p) tj.derivative[p] = -F.derivative[p] * inv;
+        }
         theta_j[k] = tj;
     }
 
@@ -229,12 +244,17 @@ Jet endpoint_derivative(
     double band_lo,
     double band_hi,
     const AlgebraicBoundarySettings& settings,
-    bool* reliable)
+    bool* reliable,
+    const double* certified_theta = nullptr)
 {
     Jet result(r_star);
-    if (r_star < 1.0e-9) {
+    if (r_star < 1.0e-9 && certified_theta == nullptr) {
         return result;  // inner band touches the origin; endpoint is fixed.
     }
+    double theta_star = 0.0;
+    if (certified_theta != nullptr) {
+        theta_star = *certified_theta;
+    } else {
     const double span = std::max(band_hi - band_lo, 1.0e-12);
     double probe = r_star;
     AlgebraicBoundaryIntervals iv =
@@ -252,10 +272,10 @@ Jet endpoint_derivative(
         return result;
     }
     double best_w = std::numeric_limits<double>::infinity();
-    double theta_star = 0.0;
     for (const auto& seg : iv.inside_intervals) {
         const double w = seg.second - seg.first;
         if (w < best_w) { best_w = w; theta_star = 0.5 * (seg.first + seg.second); }
+    }
     }
 
     const auto form_r = make_trig_form<JetR>(geom_r, JetR::variable(r_star, 5));
@@ -269,6 +289,25 @@ Jet endpoint_derivative(
     const double scale = scale_of(form_r);
     const double det = dF_dR * Fpp_v - Fp_v * dFp_dR;
     const double det_terms = std::fabs(dF_dR * Fpp_v) + std::fabs(Fp_v * dFp_dR);
+    if (certified_theta != nullptr) {
+        // The plan already certified the interval IFT. Equilibrate these two
+        // constraint rows identically on both matrix and RHS for stable solves.
+        int e0 = 0, e1 = 0;
+        std::frexp(std::max(std::abs(dF_dR), std::abs(Fp_v)), &e0);
+        std::frexp(std::max(std::abs(dFp_dR), std::abs(Fpp_v)), &e1);
+        const double s0 = std::ldexp(1.0, -e0), s1 = std::ldexp(1.0, -e1);
+        const double a = dF_dR*s0, b = Fp_v*s0;
+        const double c = dFp_dR*s1, d = Fpp_v*s1;
+        const double scaled_det = a*d-b*c;
+        if (!std::isfinite(scaled_det) || std::abs(scaled_det) <=
+            1e-8*std::max(1.0,std::abs(a*d)+std::abs(b*c))) {
+            *reliable = false;
+            return result;
+        }
+        for (std::size_t p = 0; p < 5; ++p)
+            result.derivative[p] = (-F.derivative[p]*s0*d + b*Fp.derivative[p]*s1)/scaled_det;
+        return result;
+    }
     if (std::fabs(Fpp_v) <= 1.0e-9 * scale ||
         std::fabs(det) <= 1.0e-8 * std::max(det_terms, scale)) {
         *reliable = false;
@@ -307,8 +346,10 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
 
     // Authoritative primal value.
     AlgebraicBoundaryRadialBands bands;
+    auto primal_settings = settings;
+    primal_settings.critical_mass_ratio = params[3];
     const auto primal = experimental_algebraic_boundary_integral(
-        lens_d, source_d, rho_d, c, d, seeds, settings, &bands);
+        lens_d, source_d, rho_d, c, d, seeds, primal_settings, &bands);
     out.magnification = primal.magnification;
     out.value_error = primal.error_estimate;
     out.diagnostics = primal.diagnostics;
@@ -319,6 +360,12 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
 
     if (!bands.success || bands.bands.empty()) {
         out.unsafe_reason = bands.success ? "no radial bands" : bands.unsafe_reason;
+        return out;
+    }
+    if (settings.critical_events &&
+        (bands.endpoint_angles.size() != bands.bands.size() ||
+         bands.event_ids.size() != bands.bands.size())) {
+        out.unsafe_reason = "missing certified endpoint identity";
         return out;
     }
 
@@ -341,21 +388,25 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
     Jet flux_k(0.0);
     Jet flux_g(0.0);
 
-    for (const auto& band : bands.bands) {
+    for (std::size_t band_index = 0; band_index < bands.bands.size(); ++band_index) {
+        const auto& band = bands.bands[band_index];
         if (!reliable) break;  // an unreliable row is discarded; do not refine it.
         const double R_lo = band.first;
         const double R_hi = band.second;
         const Jet Rlo_j = endpoint_derivative(
-            geom_r, lens_d, source_d, rho_d, R_lo, R_lo, R_hi, settings, &reliable);
+            geom_r, lens_d, source_d, rho_d, R_lo, R_lo, R_hi, settings, &reliable,
+            settings.critical_events ? &bands.endpoint_angles[band_index].first : nullptr);
         const Jet Rhi_j = endpoint_derivative(
-            geom_r, lens_d, source_d, rho_d, R_hi, R_lo, R_hi, settings, &reliable);
+            geom_r, lens_d, source_d, rho_d, R_hi, R_lo, R_hi, settings, &reliable,
+            settings.critical_events ? &bands.endpoint_angles[band_index].second : nullptr);
         const Jet dR_j = Rhi_j - Rlo_j;
 
         MomentsJet<5> prev_k;
         bool have_prev = false;
         MomentsJet<5> acc_k;
         MomentsJet<5> acc_g;
-        for (int nsub = 1; nsub <= 64; nsub *= 2) {
+        const int max_subdivisions = settings.critical_events ? 256 : 64;
+        for (int nsub = 1; nsub <= max_subdivisions; nsub *= 2) {
             if (!reliable) break;
             MomentsJet<5> tk;
             MomentsJet<5> tg;
@@ -388,7 +439,18 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
                 double worst = std::fabs(a.value - b.value);
                 for (std::size_t p = 0; p < 5; ++p)
                     worst = std::max(worst, std::fabs(a.derivative[p] - b.derivative[p]));
-                if (worst <= 1.0e-10 * std::max(1.0, std::fabs(a.value))) break;
+                if (settings.critical_events) {
+                    const Jet normalization = kPi * (pj[2] * pj[2]) *
+                        (1.0 - c / 3.0 - d / 5.0);
+                    const Jet ak = a / normalization;
+                    const Jet previous = b / normalization;
+                    const Jet ag = combined_flux_jet<5>(tg, c, d) / normalization;
+                    const double local_budget = grad_tol / (2.0 * bands.bands.size());
+                    if (absolute_gradient_disagreement(ak, previous) <= local_budget &&
+                        absolute_gradient_disagreement(ak, ag) <= local_budget &&
+                        std::fabs(ak.value - ag.value) <= settings.absolute_tolerance /
+                            (2.0 * bands.bands.size())) break;
+                } else if (worst <= 1.0e-10 * std::max(1.0, std::fabs(a.value))) break;
             }
             prev_k = tk;
             have_prev = true;

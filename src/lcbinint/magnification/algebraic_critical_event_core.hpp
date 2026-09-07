@@ -50,7 +50,7 @@ struct CriticalEvent {
 
 // Result of the bounded numerical kernel only.  `success` certifies exact
 // discriminant construction, interval isolation of every positive root, and
-// one strict Krawczyk lift per root.  It does not certify the still-pending
+// one strict Krawczyk lift per root.  It does not certify the separate
 // physical-pole/residual, scaled-IFT, or topology gates required by the full
 // production plan.
 struct CriticalEventNumericalResult {
@@ -68,6 +68,7 @@ struct CriticalEventPlan {
     std::vector<CriticalEvent> events;
     // Consecutive cells are deliberately not merged across an event.
     std::vector<CertifiedInterval> active_bands;
+    std::vector<std::pair<std::size_t, std::size_t>> band_event_ids;
     int root_work = 0;
     int lift_work = 0;
 };
@@ -80,7 +81,7 @@ bool freeze_positive_geometry(
     std::string* reason);
 
 // Uncleared lens-map residual at an image coordinate.  This is the physical
-// gate paired with a future algebraic P(R,t) lift; it is not used by legacy
+// gate paired with the algebraic P(R,t) lift; it is not used by legacy
 // band discovery.
 PhysicalResidual physical_boundary_residual(
     const FrozenGeometry& frozen,

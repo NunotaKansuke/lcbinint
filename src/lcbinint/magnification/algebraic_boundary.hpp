@@ -15,6 +15,10 @@ struct AlgebraicBoundarySettings {
     int maximum_band_search_steps = 64;
     double unit_circle_tolerance = 2.0e-7;
     double boundary_residual_tolerance = 2.0e-9;
+    bool critical_events = false;
+    // Original native q is supplied by the caller; never reconstruct it from
+    // rounded masses for the exact event polynomial.
+    double critical_mass_ratio = 0.0;
 };
 
 struct AlgebraicBoundaryDiagnostics {
@@ -92,6 +96,8 @@ struct AlgebraicBoundaryRadialBands {
     std::string unsafe_reason;
     // Merged, sorted [R_lo, R_hi] image-radius support bands.
     std::vector<std::pair<double, double>> bands;
+    std::vector<std::pair<double, double>> endpoint_angles;
+    std::vector<std::pair<std::size_t, std::size_t>> event_ids;
 };
 
 // Additive read-only export of the primal's frozen band decomposition. Runs

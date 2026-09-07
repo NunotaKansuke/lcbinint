@@ -1,4 +1,8 @@
 #include "lcbinint/magnification/algebraic_boundary.hpp"
+#include "lcbinint/magnification/algebraic_boundary_physical.hpp"
+#ifdef LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE
+#include "lcbinint/magnification/algebraic_critical_event_core.hpp"
+#endif
 
 #include "lcbinint/math/polynomial_roots.hpp"
 
@@ -1711,11 +1715,25 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
                 std::sqrt(root.real() * root.real() + root.imag() * root.imag());
             const double inverse_modulus =
                 root_modulus > 0.0 ? 1.0 / root_modulus : 0.0;
-            const double angle = wrap_angle(std::atan2(root.imag(), root.real()));
+            double angle = wrap_angle(std::atan2(root.imag(), root.real()));
+            if (settings.critical_events) {
+                long double polished = angle;
+                for (int iteration = 0; iteration < 12; ++iteration) {
+                    const auto f = physical_angular_boundary(
+                        lens, source, source_radius, image_radius, polished);
+                    if (!std::isfinite(f.residual) || !std::isfinite(f.derivative) ||
+                        f.derivative == 0.0L) break;
+                    const long double step = f.residual / f.derivative;
+                    if (std::abs(step) > 0.02L) break;
+                    polished -= step;
+                    if (std::abs(step) < 1e-19L) break;
+                }
+                angle = wrap_angle(static_cast<double>(polished));
+            }
             const double phi = phi_value_at_point(
                 lens, source, source_radius,
-                image_radius * root.real() * inverse_modulus,
-                image_radius * root.imag() * inverse_modulus, diagnostics);
+                image_radius * (settings.critical_events ? std::cos(angle) : root.real() * inverse_modulus),
+                image_radius * (settings.critical_events ? std::sin(angle) : root.imag() * inverse_modulus), diagnostics);
             const double residual = std::abs(phi) * source_radius;
             if (!std::isfinite(residual) || residual >
                     settings.boundary_residual_tolerance * (1.0 + source_radius)) {
@@ -1850,7 +1868,7 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
     std::unordered_map<double, IntegrandEvaluation> integrand_cache;
     integrand_cache.reserve(64);
     IntegrandCacheScope integrand_cache_scope(integrand_cache);
-    if (certified_image_seeds.empty()) {
+    if (certified_image_seeds.empty() && !settings.critical_events) {
         result.unsafe_reason = "no certified image seeds";
         export_failure(result.unsafe_reason);
         return result;
@@ -1863,9 +1881,40 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
         export_failure(result.unsafe_reason);
         return result;
     }
-    const auto bands = find_radial_bands(
-        lens, source, source_radius, certified_image_seeds, settings,
-        &result.diagnostics);
+    BandSearchResult bands;
+    AlgebraicBoundaryRadialBands critical_support;
+    if (settings.critical_events) {
+#ifdef LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE
+        const critical_events::CriticalEventInput input{
+            source, source_radius, settings.critical_mass_ratio, std::abs(lens.lens_position)};
+        critical_events::FrozenGeometry frozen;
+        std::string reason;
+        if (!critical_events::freeze_positive_geometry(input, &frozen, &reason) ||
+            frozen.a != lens.lens_position || frozen.m1 != lens.m1 || frozen.m2 != lens.m2) {
+            result.unsafe_reason = "critical-event/native geometry mismatch";
+            export_failure(result.unsafe_reason);
+            return result;
+        }
+        const auto plan = critical_events::find_critical_events(input);
+        bands.success = plan.success;
+        bands.unsafe_reason = plan.unsafe_reason;
+        for (std::size_t i = 0; i < plan.active_bands.size(); ++i) {
+            const auto ids = plan.band_event_ids[i];
+            bands.bands.emplace_back(plan.active_bands[i].lo, plan.active_bands[i].hi);
+            critical_support.endpoint_angles.emplace_back(plan.events[ids.first].theta, plan.events[ids.second].theta);
+            critical_support.event_ids.push_back(ids);
+        }
+        // Isolation bisections and proposed lifts are not root-solver calls.
+        // Do not fold these differently defined quantities into that counter.
+        result.diagnostics.radial_band_count = static_cast<int>(bands.bands.size());
+#else
+        bands.success = false;
+        bands.unsafe_reason = "critical-event core was not built";
+#endif
+    } else {
+        bands = find_radial_bands(lens, source, source_radius, certified_image_seeds,
+                                 settings, &result.diagnostics);
+    }
     if (!bands.success) {
         result.unsafe_reason = bands.unsafe_reason;
         export_failure(result.unsafe_reason);
@@ -1873,6 +1922,10 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
     }
     if (frozen_bands != nullptr) {
         *frozen_bands = {true, {}, bands.bands};
+        if (settings.critical_events) {
+            frozen_bands->endpoint_angles = std::move(critical_support.endpoint_angles);
+            frozen_bands->event_ids = std::move(critical_support.event_ids);
+        }
     }
 
     // Obtain a one-panel estimate first so relative tolerance scales with the

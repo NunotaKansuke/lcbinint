@@ -84,6 +84,8 @@ target_include_directories(lcbinint_magnification
 target_link_libraries(lcbinint_magnification PUBLIC GSL::gsl GSL::gslcblas m)
 
 if(LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE)
+    target_compile_definitions(lcbinint_magnification PUBLIC
+        LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE=1)
     target_sources(lcbinint_magnification PRIVATE
         src/lcbinint/magnification/algebraic_critical_event_core.cpp)
     add_executable(e04_generic_critical_events_preflight EXCLUDE_FROM_ALL
@@ -94,6 +96,13 @@ if(LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE)
         tests/diagnostics/e04_generic_numerical_matrix_preflight.cpp)
     target_link_libraries(e04_generic_numerical_matrix_preflight PRIVATE
         lcbinint_magnification)
+    add_executable(e04_critical_endpoint_fd EXCLUDE_FROM_ALL
+        tests/diagnostics/e04_critical_endpoint_fd.cpp)
+    target_link_libraries(e04_critical_endpoint_fd PRIVATE lcbinint_magnification)
+    add_executable(e04_critical_integral_matrix EXCLUDE_FROM_ALL
+        tests/diagnostics/e04_critical_integral_matrix.cpp
+        src/lcbinint/model/triple_lens_geometry.cpp)
+    target_link_libraries(e04_critical_integral_matrix PRIVATE lcbinint_magnification)
 endif()
 
 # Lens/trajectory model + light-curve/likelihood API; depends on lcbinint_magnification.

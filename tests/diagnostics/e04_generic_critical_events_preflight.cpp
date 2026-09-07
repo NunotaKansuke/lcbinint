@@ -118,11 +118,12 @@ int main()
     check_expected_certified_events(
         ce::CriticalEventInput{{0.002, 0.0007}, 0.001, 0.001, 1.1}, 12,
         "low-q geometry has twelve certified events");
-    check(!plan.success, "full critical-event plan remains fail-closed");
+    check(plan.success, "regular5 physical and topology plan succeeds");
     check(plan.events.size() == 6,
-          "pending full plan retains the numerical module evidence");
-    check(plan.unsafe_reason.find("pending") != std::string::npos,
-          "full plan reports explicit pending production gates");
+          "physical plan retains the numerical module evidence");
+    check(plan.unsafe_reason.empty() && plan.active_bands.size() == 3 &&
+              plan.band_event_ids.size() == plan.active_bands.size(),
+          "regular5 has three event-tagged bands with the empty gap preserved");
 
     for (const auto invalid : {
              ce::CriticalEventInput{{0.0, 0.0}, 0.01, 0.1, 0.0},
