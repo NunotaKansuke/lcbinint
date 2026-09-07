@@ -1,14 +1,28 @@
 #pragma once
 
-// ATPT holonomic solver (M7) -- radial cell classification.
+// ATPT holonomic solver -- radial cell classification.
 // Ports python/lcbinint/holonomic_ref/topology.py:classify_cells.
 //
 // The radial events partition (0, r_max] into cells of constant arc
 // topology.  Each cell is probed at three interior radii (fractions
-// 0.18, 0.50, 0.82) with the grid arc scanner (topology.arcs_at); if the
-// (kind, n_crossings) signature is not constant across the three probes,
-// or the mid probe has an odd crossing count, the cell -- and the whole
-// result -- is marked TOPOLOGY_UNCERTAIN (fail closed).
+// 0.18, 0.50, 0.82).
+//
+// M7 probed all three with the 3072-point grid scanner (topology.arcs_at)
+// for bit-parity with the M6 reference.  Profiling (checkpoint_M7 sec.7,
+// checkpoint_algebraic_vs_holonomic sec.6) showed those probes are
+// 58-83% of the solver wall-clock -- ~0.05 ms x 3 x (13..16 cells).
+//
+// M8 hybrid: the probe topology (kind, crossing count) comes from the
+// boundary quartic's real roots (radius_terms.quartic_topology, ~85x
+// cheaper -- the same polynomial the integrator itself root-finds).  It
+// is cross-checked against a 512-point grid at the mid radius; on ANY
+// disagreement -- crossing count, kind, non-uniformity across the three
+// fractions, odd mid count -- the cell escalates to the full M7 path
+// (arcs_at(3072) at all three fractions).  A cell whose two independent
+// methods still disagree after escalation is marked TOPOLOGY_UNCERTAIN
+// (fail closed).  So the adopted classification is either (a) confirmed
+// by two independent methods, or (b) exactly the M7 3072-grid result, or
+// (c) fail-closed -- never a lone unchecked quartic guess.
 
 #include <algorithm>
 #include <array>
@@ -35,6 +49,12 @@ struct TopologyResult {
     std::vector<CellPlan> cells;
     Status status = Status::OK;
 };
+
+namespace cells_detail {
+inline bool same_sig(const GridArcs& a, const GridArcs& b) {
+    return a.kind == b.kind && a.n_crossings == b.n_crossings;
+}
+}  // namespace cells_detail
 
 inline TopologyResult classify_cells(const PrimaryFrame& pf) {
     double r_max = 0.0;
@@ -64,21 +84,35 @@ inline TopologyResult classify_cells(const PrimaryFrame& pf) {
     for (size_t i = 0; i + 1 < bounds.size(); ++i) {
         double lo = bounds[i], hi = bounds[i + 1];
         if (hi - lo < 1e-11) continue;
-        // Grid arc scan at 3 interior radii -- parity with the M6
-        // reference (topology.classify_cells).  A cheaper quartic probe
-        // (quartic_topology) shifts thin-arc classification on extreme-q
-        // planetary cells and is deferred to M8 pending an independent
-        // gradient cross-check.
-        GridArcs probe[3];
-        for (int k = 0; k < 3; ++k)
-            probe[k] = arcs_at(lo + fr[k] * (hi - lo), pf, 3072);
-        const GridArcs& mid = probe[1];
+        double Rp[3];
+        for (int k = 0; k < 3; ++k) Rp[k] = lo + fr[k] * (hi - lo);
 
-        bool uniform = true;
-        for (int k = 1; k < 3; ++k)
-            if (probe[k].kind != probe[0].kind ||
-                probe[k].n_crossings != probe[0].n_crossings)
-                uniform = false;
+        // --- fast path: boundary-quartic topology at the 3 fractions ----
+        GridArcs probe[3];
+        bool quartic_ok = true;
+        for (int k = 0; k < 3; ++k) {
+            probe[k] = quartic_topology(Rp[k], pf);
+            // quartic_topology self-escalates to arcs_at(...,3072) at a
+            // p4~0 (chart) radius; such a probe already carries a grid
+            // signature and needs no further check.
+        }
+        bool uniform = cells_detail::same_sig(probe[1], probe[0]) &&
+                       cells_detail::same_sig(probe[1], probe[2]);
+
+        // --- cross-check the mid probe against a coarse independent grid -
+        GridArcs mid_grid = arcs_at(Rp[1], pf, 512);
+        bool mid_agrees = cells_detail::same_sig(probe[1], mid_grid);
+
+        if (!uniform || !mid_agrees) {
+            // escalate exactly to the M7 path: 3072-grid at all three.
+            for (int k = 0; k < 3; ++k) probe[k] = arcs_at(Rp[k], pf, 3072);
+            uniform = cells_detail::same_sig(probe[1], probe[0]) &&
+                      cells_detail::same_sig(probe[1], probe[2]);
+            quartic_ok = false;
+        }
+        (void)quartic_ok;
+
+        const GridArcs& mid = probe[1];
         Status cs = Status::OK;
         if (!uniform || (mid.n_crossings % 2 != 0)) {
             cs = Status::TOPOLOGY_UNCERTAIN;
