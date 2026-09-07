@@ -50,14 +50,14 @@ inline PolishResult polish_endpoint(double R, double theta,
                                     const PrimaryFrame& pf, int iters = 6) {
     double th = theta, dth = 1.0;
     for (int i = 0; i < iters; ++i) {
-        PhiGrad g = phi_grad(R, th, pf);
+        PhiValDtheta g = phi_val_dtheta(R, th, pf);
         dth = g.dphi_dtheta;
         if (std::fabs(dth) < 1e-13) return {th, dth, false};
         double step = g.phi / dth;
         th -= step;
         if (std::fabs(step) < 1e-15) break;
     }
-    PhiGrad g = phi_grad(R, th, pf);
+    PhiValDtheta g = phi_val_dtheta(R, th, pf);
     return {th, g.dphi_dtheta, std::fabs(g.dphi_dtheta) >= 1e-13};
 }
 
@@ -227,7 +227,7 @@ inline RadiusTerms full_circle_terms(double R, const PrimaryFrame& pf) {
     std::array<double, 5> dfh{};
     for (int i = 0; i < M; ++i) {
         double t = kTwoPi * i / M;
-        PhiGrad g = phi_grad(R, t, pf);
+        PhiValDP g = phi_val_dP(R, t, pf);
         if (g.phi <= 0.0) continue;
         double sq = std::sqrt(g.phi);
         fh += sq;
@@ -272,8 +272,8 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
             rt.reliable = false;
 
         rt.f0 += R * (tl - te);
-        PhiGrad ge = phi_grad(R, te, pf);
-        PhiGrad gl = phi_grad(R, tl, pf);
+        PhiValDP ge = phi_val_dP(R, te, pf);
+        PhiValDP gl = phi_val_dP(R, tl, pf);
         for (int j = 0; j < 5; ++j) {
             double dte = (td != 0.0) ? -ge.dP[j] / td : 0.0;
             double dtl = (tdl != 0.0) ? -gl.dP[j] / tdl : 0.0;
@@ -286,7 +286,7 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
         std::array<double, 5> acc_der{};
         for (int k = 0; k < 64; ++k) {
             double thn = mid + half * AR.x[k];
-            PhiGrad g = phi_grad(R, thn, pf);
+            PhiValDP g = phi_val_dP(R, thn, pf);
             if (g.phi <= 0.0) continue;
             double sq = std::sqrt(g.phi);
             double wk = AR.w[k];
