@@ -78,7 +78,8 @@ inline Cplx<R> polyder_eval_c(const R* c, int n, Cplx<R> x) {
 // cold start, ~3 warm.  If `seed` is non-null it is the warm-start guess.
 template <class R>
 inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
-                                   const Cplx<R>* seed = nullptr) {
+                                   const Cplx<R>* seed = nullptr,
+                                   R tol_override = R(0)) {
     std::vector<Cplx<R>> z(deg);
 
     // initial guesses on a circle of radius ~ Cauchy bound (Aberth's spread)
@@ -100,7 +101,10 @@ inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
         }
     }
 
-    const R tol = (sizeof(R) > 8) ? R(1e-30) : R(1e-15);
+    const R tol =
+        tol_override > R(0)
+            ? tol_override
+            : ((sizeof(R) > 8) ? R(1e-24) : R(1e-15));
     for (int it = 0; it < max_iter; ++it) {
         R maxstep = R(0);
         for (int i = 0; i < deg; ++i) {
