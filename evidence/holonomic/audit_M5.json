@@ -1,0 +1,674 @@
+{
+  "summary": {
+    "n_points": 36,
+    "n_with_ref": 36,
+    "accuracy_over_validated": {
+      "n": 27,
+      "median_rel": 3.1117513885515684e-05,
+      "p90_rel": 0.00023990167623713334,
+      "max_rel": 0.0005851089626410622
+    },
+    "failure_rate": {
+      "n_flagged": 8,
+      "fraction": 0.2222222222222222,
+      "by_status": {
+        "OK_VALIDATED": 27,
+        "LOCAL_REFERENCE_USED": 4,
+        "OK": 1,
+        "TRANSPORT_TOLERANCE_FAILED": 4
+      }
+    },
+    "silent_misses": [],
+    "wall_seconds": 132.12008611200145
+  },
+  "rows": [
+    {
+      "name": "plan15",
+      "u": 0.0,
+      "mu": 6.0199519761580955,
+      "ref": 6.018865348889579,
+      "rel": 0.00018053689616376488,
+      "status": "OK_VALIDATED",
+      "seconds": 3.0301310019858647,
+      "error": null,
+      "cfg": {
+        "xs": 0.2,
+        "ys": 0.14285714285714285,
+        "rho": 0.125,
+        "q": 0.5,
+        "a": 1.2,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "plan15",
+      "u": 0.5,
+      "mu": 6.1205004202446025,
+      "ref": 6.1197751459804,
+      "rel": 0.00011851322097657827,
+      "status": "OK_VALIDATED",
+      "seconds": 2.8709168799978215,
+      "error": null,
+      "cfg": {
+        "xs": 0.2,
+        "ys": 0.14285714285714285,
+        "rho": 0.125,
+        "q": 0.5,
+        "a": 1.2,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "resonant",
+      "u": 0.0,
+      "mu": 13.73011292728374,
+      "ref": 13.730050698460795,
+      "rel": 4.532308314881384e-06,
+      "status": "OK_VALIDATED",
+      "seconds": 3.245875222986797,
+      "error": null,
+      "cfg": {
+        "xs": 0.05,
+        "ys": 0.02,
+        "rho": 0.05,
+        "q": 0.3,
+        "a": 0.9,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "resonant",
+      "u": 0.5,
+      "mu": 13.87747883720733,
+      "ref": 13.876456214355201,
+      "rel": 7.369481345460872e-05,
+      "status": "OK_VALIDATED",
+      "seconds": 3.0068376830022316,
+      "error": null,
+      "cfg": {
+        "xs": 0.05,
+        "ys": 0.02,
+        "rho": 0.05,
+        "q": 0.3,
+        "a": 0.9,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "close-binary",
+      "u": 0.0,
+      "mu": 8.133185446492664,
+      "ref": 8.132873115196485,
+      "rel": 3.8403561909188726e-05,
+      "status": "OK_VALIDATED",
+      "seconds": 2.9266511159949005,
+      "error": null,
+      "cfg": {
+        "xs": 0.4,
+        "ys": -0.05,
+        "rho": 0.09,
+        "q": 0.8,
+        "a": 0.55,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "close-binary",
+      "u": 0.5,
+      "mu": 8.083398015390625,
+      "ref": 8.083225299262164,
+      "rel": 2.136722930095221e-05,
+      "status": "OK_VALIDATED",
+      "seconds": 2.777729020017432,
+      "error": null,
+      "cfg": {
+        "xs": 0.4,
+        "ys": -0.05,
+        "rho": 0.09,
+        "q": 0.8,
+        "a": 0.55,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "wide-planet",
+      "u": 0.0,
+      "mu": 1.1591893297138902,
+      "ref": 1.1591532597462346,
+      "rel": 3.1117513885515684e-05,
+      "status": "OK_VALIDATED",
+      "seconds": 2.8962709449988324,
+      "error": null,
+      "cfg": {
+        "xs": 1.4,
+        "ys": 0.1,
+        "rho": 0.03,
+        "q": 0.001,
+        "a": 2.5,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "wide-planet",
+      "u": 0.5,
+      "mu": 1.1591861781383872,
+      "ref": 1.1591532597462346,
+      "rel": 2.8398653824074717e-05,
+      "status": "OK_VALIDATED",
+      "seconds": 2.6031250579981133,
+      "error": null,
+      "cfg": {
+        "xs": 1.4,
+        "ys": 0.1,
+        "rho": 0.03,
+        "q": 0.001,
+        "a": 2.5,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "cusp-approach",
+      "u": 0.0,
+      "mu": 1.5003308803797568,
+      "ref": 1.5003323154340311,
+      "rel": 9.564909450651963e-07,
+      "status": "OK_VALIDATED",
+      "seconds": 3.3953168720181566,
+      "error": null,
+      "cfg": {
+        "xs": 0.9,
+        "ys": -0.3,
+        "rho": 0.05,
+        "q": 0.25,
+        "a": 0.7,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "cusp-approach",
+      "u": 0.5,
+      "mu": 1.5002745508681055,
+      "ref": 1.500275466067725,
+      "rel": 6.100210530291077e-07,
+      "status": "OK_VALIDATED",
+      "seconds": 3.220096028991975,
+      "error": null,
+      "cfg": {
+        "xs": 0.9,
+        "ys": -0.3,
+        "rho": 0.05,
+        "q": 0.25,
+        "a": 0.7,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "big-source",
+      "u": 0.0,
+      "mu": 5.304494730685358,
+      "ref": 5.3043929529616065,
+      "rel": 1.918744042035169e-05,
+      "status": "OK_VALIDATED",
+      "seconds": 2.0666799290047493,
+      "error": null,
+      "cfg": {
+        "xs": 0.1,
+        "ys": 0.1,
+        "rho": 0.3,
+        "q": 0.5,
+        "a": 0.8,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "big-source",
+      "u": 0.5,
+      "mu": 5.417812355489546,
+      "ref": 5.417750475080008,
+      "rel": 1.1421790247158416e-05,
+      "status": "OK_VALIDATED",
+      "seconds": 1.9180227339966223,
+      "error": null,
+      "cfg": {
+        "xs": 0.1,
+        "ys": 0.1,
+        "rho": 0.3,
+        "q": 0.5,
+        "a": 0.8,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "zeta~0",
+      "u": 0.0,
+      "mu": 5.945350602161228,
+      "ref": 5.94658721344024,
+      "rel": 0.0002079531056430028,
+      "status": "LOCAL_REFERENCE_USED",
+      "seconds": 2.09936682501575,
+      "error": null,
+      "cfg": {
+        "xs": 0.0003,
+        "ys": 0.0,
+        "rho": 0.1,
+        "q": 0.4,
+        "a": 1.1,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "zeta~0",
+      "u": 0.5,
+      "mu": 5.982310976734526,
+      "ref": 5.983167577095428,
+      "rel": 0.00014316837191411476,
+      "status": "LOCAL_REFERENCE_USED",
+      "seconds": 2.0011382209777366,
+      "error": null,
+      "cfg": {
+        "xs": 0.0003,
+        "ys": 0.0,
+        "rho": 0.1,
+        "q": 0.4,
+        "a": 1.1,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "zeta=0-exact",
+      "u": 0.0,
+      "mu": 5.932671770883503,
+      "ref": 5.932683636423129,
+      "rel": 2.0000290515326985e-06,
+      "status": "LOCAL_REFERENCE_USED",
+      "seconds": 6.435544816980837,
+      "error": null,
+      "cfg": {
+        "xs": 0.0,
+        "ys": 0.0,
+        "rho": 0.1,
+        "q": 0.4,
+        "a": 1.1,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "zeta=0-exact",
+      "u": 0.5,
+      "mu": 5.969098168340283,
+      "ref": 5.969128389828879,
+      "rel": 5.062965080061101e-06,
+      "status": "LOCAL_REFERENCE_USED",
+      "seconds": 6.3824935859884135,
+      "error": null,
+      "cfg": {
+        "xs": 0.0,
+        "ys": 0.0,
+        "rho": 0.1,
+        "q": 0.4,
+        "a": 1.1,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "on-axis-off",
+      "u": 0.0,
+      "mu": 3.8270934203522025,
+      "ref": 3.8270965134982196,
+      "rel": 8.08222632010273e-07,
+      "status": "OK_VALIDATED",
+      "seconds": 2.9411988199863117,
+      "error": null,
+      "cfg": {
+        "xs": 0.5,
+        "ys": 0.0,
+        "rho": 0.05,
+        "q": 0.4,
+        "a": 1.1,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "on-axis-off",
+      "u": 0.5,
+      "mu": 3.82549804119152,
+      "ref": 3.825500971645195,
+      "rel": 7.66031350286588e-07,
+      "status": "OK_VALIDATED",
+      "seconds": 2.843735384987667,
+      "error": null,
+      "cfg": {
+        "xs": 0.5,
+        "ys": 0.0,
+        "rho": 0.05,
+        "q": 0.4,
+        "a": 1.1,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "R=a-graze",
+      "u": 0.0,
+      "mu": 2.313867110705202,
+      "ref": 2.3157828595681087,
+      "rel": 0.0008272575535272641,
+      "status": "OK",
+      "seconds": 4.908082672016462,
+      "error": null,
+      "cfg": {
+        "xs": 1.2,
+        "ys": 0.0,
+        "rho": 0.05,
+        "q": 0.5,
+        "a": 1.2,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "R=a-graze",
+      "u": 0.5,
+      "mu": 2.3142771440221,
+      "ref": 2.315632041083517,
+      "rel": 0.0005851089626410622,
+      "status": "OK_VALIDATED",
+      "seconds": 4.825260929996148,
+      "error": null,
+      "cfg": {
+        "xs": 1.2,
+        "ys": 0.0,
+        "rho": 0.05,
+        "q": 0.5,
+        "a": 1.2,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "R=sqrt(m0)",
+      "u": 0.0,
+      "mu": 1.3877210420279575,
+      "ref": 1.3878220323133303,
+      "rel": 7.276890193511732e-05,
+      "status": "OK_VALIDATED",
+      "seconds": 3.17631204801728,
+      "error": null,
+      "cfg": {
+        "xs": 0.0,
+        "ys": 0.8165,
+        "rho": 0.03,
+        "q": 0.5,
+        "a": 1.5,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "R=sqrt(m0)",
+      "u": 0.5,
+      "mu": 1.387736546956094,
+      "ref": 1.387805239877388,
+      "rel": 4.94975226494496e-05,
+      "status": "OK_VALIDATED",
+      "seconds": 2.946355829015374,
+      "error": null,
+      "cfg": {
+        "xs": 0.0,
+        "ys": 0.8165,
+        "rho": 0.03,
+        "q": 0.5,
+        "a": 1.5,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "tiny-rho",
+      "u": 0.0,
+      "mu": 38.040036328111306,
+      "ref": 38.33771426340434,
+      "rel": 0.007764623974392295,
+      "status": "TRANSPORT_TOLERANCE_FAILED",
+      "seconds": 2.7144167170044966,
+      "error": null,
+      "cfg": {
+        "xs": 0.1,
+        "ys": 0.02,
+        "rho": 0.001,
+        "q": 0.3,
+        "a": 1.0,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "tiny-rho",
+      "u": 0.5,
+      "mu": 38.02646349238221,
+      "ref": 38.32290404571931,
+      "rel": 0.007735336366561496,
+      "status": "TRANSPORT_TOLERANCE_FAILED",
+      "seconds": 2.5414530679991003,
+      "error": null,
+      "cfg": {
+        "xs": 0.1,
+        "ys": 0.02,
+        "rho": 0.001,
+        "q": 0.3,
+        "a": 1.0,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "caustic-cross",
+      "u": 0.0,
+      "mu": 31.943876152541723,
+      "ref": 31.943845130810338,
+      "rel": 9.711332889810134e-07,
+      "status": "OK_VALIDATED",
+      "seconds": 2.9937783970090095,
+      "error": null,
+      "cfg": {
+        "xs": 0.12,
+        "ys": 0.0,
+        "rho": 0.02,
+        "q": 0.5,
+        "a": 1.0,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "caustic-cross",
+      "u": 0.5,
+      "mu": 33.28879458374075,
+      "ref": 33.289044292592614,
+      "rel": 7.501232227219416e-06,
+      "status": "OK_VALIDATED",
+      "seconds": 2.932507989986334,
+      "error": null,
+      "cfg": {
+        "xs": 0.12,
+        "ys": 0.0,
+        "rho": 0.02,
+        "q": 0.5,
+        "a": 1.0,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "extreme-q-lo",
+      "u": 0.0,
+      "mu": 1.6758178761069755,
+      "ref": 1.6758313612981737,
+      "rel": 8.046866474501314e-06,
+      "status": "OK_VALIDATED",
+      "seconds": 2.94443204801064,
+      "error": null,
+      "cfg": {
+        "xs": 0.7,
+        "ys": 0.05,
+        "rho": 0.02,
+        "q": 1e-06,
+        "a": 1.5,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "extreme-q-lo",
+      "u": 0.5,
+      "mu": 1.6758046877008945,
+      "ref": 1.675798006245106,
+      "rel": 3.98702932186097e-06,
+      "status": "OK_VALIDATED",
+      "seconds": 2.7986485949950293,
+      "error": null,
+      "cfg": {
+        "xs": 0.7,
+        "ys": 0.05,
+        "rho": 0.02,
+        "q": 1e-06,
+        "a": 1.5,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "extreme-q-planet",
+      "u": 0.0,
+      "mu": 1.3706790501005501,
+      "ref": 1.371036649497216,
+      "rel": 0.0002608240974425707,
+      "status": "OK_VALIDATED",
+      "seconds": 3.8692967949900776,
+      "error": null,
+      "cfg": {
+        "xs": 1.0,
+        "ys": 0.01,
+        "rho": 0.015,
+        "q": 3e-05,
+        "a": 1.6,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "extreme-q-planet",
+      "u": 0.5,
+      "mu": 1.3696187689159751,
+      "ref": 1.3699283088688645,
+      "rel": 0.0002259533954335083,
+      "status": "OK_VALIDATED",
+      "seconds": 3.6773807690187823,
+      "error": null,
+      "cfg": {
+        "xs": 1.0,
+        "ys": 0.01,
+        "rho": 0.015,
+        "q": 3e-05,
+        "a": 1.6,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "very-wide",
+      "u": 0.0,
+      "mu": 1.0275193988527918,
+      "ref": 1.0324984394200403,
+      "rel": 0.004822322608105121,
+      "status": "TRANSPORT_TOLERANCE_FAILED",
+      "seconds": 2.433916659996612,
+      "error": null,
+      "cfg": {
+        "xs": 3.0,
+        "ys": 0.2,
+        "rho": 0.05,
+        "q": 0.4,
+        "a": 5.0,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "very-wide",
+      "u": 0.5,
+      "mu": 1.0275211804330695,
+      "ref": 1.0324984394200403,
+      "rel": 0.0048205971040174355,
+      "status": "TRANSPORT_TOLERANCE_FAILED",
+      "seconds": 2.304754384997068,
+      "error": null,
+      "cfg": {
+        "xs": 3.0,
+        "ys": 0.2,
+        "rho": 0.05,
+        "q": 0.4,
+        "a": 5.0,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "very-close",
+      "u": 0.0,
+      "mu": 25.120857891556565,
+      "ref": 25.116903833393888,
+      "rel": 0.00015742617756172702,
+      "status": "OK_VALIDATED",
+      "seconds": 3.4090943920018617,
+      "error": null,
+      "cfg": {
+        "xs": 0.1,
+        "ys": 0.05,
+        "rho": 0.06,
+        "q": 0.6,
+        "a": 0.25,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "very-close",
+      "u": 0.5,
+      "mu": 24.84031579183724,
+      "ref": 24.836179912127005,
+      "rel": 0.00016652640320975496,
+      "status": "OK_VALIDATED",
+      "seconds": 3.242468620010186,
+      "error": null,
+      "cfg": {
+        "xs": 0.1,
+        "ys": 0.05,
+        "rho": 0.06,
+        "q": 0.6,
+        "a": 0.25,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "fold-tangent",
+      "u": 0.0,
+      "mu": 6.080068026656734,
+      "ref": 6.077926562042151,
+      "rel": 0.0003523347300635496,
+      "status": "OK_VALIDATED",
+      "seconds": 2.973383806995116,
+      "error": null,
+      "cfg": {
+        "xs": 0.55,
+        "ys": 0.28,
+        "rho": 0.04,
+        "q": 0.7,
+        "a": 1.0,
+        "barycentric": false
+      }
+    },
+    {
+      "name": "fold-tangent",
+      "u": 0.5,
+      "mu": 6.064351170641464,
+      "ref": 6.063606547886145,
+      "rel": 0.00012280195778502283,
+      "status": "OK_VALIDATED",
+      "seconds": 2.8344200770079624,
+      "error": null,
+      "cfg": {
+        "xs": 0.55,
+        "ys": 0.28,
+        "rho": 0.04,
+        "q": 0.7,
+        "a": 1.0,
+        "barycentric": false
+      }
+    }
+  ]
+}
