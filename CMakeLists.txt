@@ -15,6 +15,8 @@ option(LCBININT_BUILD_PYTHON "Build pybind11 Python extension" ON)
 option(LCBININT_ENABLE_OPENMP "Parallelize independent parameter rows" ON)
 option(LCBININT_ENABLE_JAX_FFI "Build the experimental JAX CPU FFI handler" ON)
 option(LCBININT_BUILD_TESTS "Build lcbinint standalone tests" ${BUILD_TESTING})
+option(LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE
+    "Build the opt-in E04 algebraic critical-event preflight core" OFF)
 
 if(LCBININT_ENABLE_OPENMP)
     find_package(OpenMP QUIET)
@@ -80,6 +82,15 @@ target_include_directories(lcbinint_magnification
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
 target_link_libraries(lcbinint_magnification PUBLIC GSL::gsl GSL::gslcblas m)
+
+if(LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE)
+    target_sources(lcbinint_magnification PRIVATE
+        src/lcbinint/magnification/algebraic_critical_event_core.cpp)
+    add_executable(e04_generic_critical_events_preflight EXCLUDE_FROM_ALL
+        tests/diagnostics/e04_generic_critical_events_preflight.cpp)
+    target_link_libraries(e04_generic_critical_events_preflight PRIVATE
+        lcbinint_magnification)
+endif()
 
 # Lens/trajectory model + light-curve/likelihood API; depends on lcbinint_magnification.
 add_library(lcbinint_lightcurve
