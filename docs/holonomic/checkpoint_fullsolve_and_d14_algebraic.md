@@ -1,8 +1,9 @@
 # Checkpoint — forced full-solve benchmark methodology + D14-into-algebraic experiment
 
-Status: **IN PROGRESS** (autonomous). Supersedes the priority order in
-`checkpoint_M8.md` step >= 3: the `classify_cells / arcs_at(3072)` deep
-optimisation is **on hold** until this comparison decides M8's real priority.
+Status: **COMPLETE** (autonomous, 2026-09-08). Verdict below. The
+`classify_cells / arcs_at(3072)` deep optimisation (`checkpoint_M8.md` step 3)
+was on hold pending this comparison; the comparison is now concluded and that
+optimisation is **back ON** (see `## M8 priority decision`).
 
 Motivating problem (user, 2026-09-08): the committed 3-way comparison
 (`checkpoint_algebraic_vs_holonomic.md`) is **not a pure full-finite-source
@@ -351,3 +352,10 @@ taskset -c 0-7 ./build-holonomic-m7/bench_fullsolve /tmp/bench_cases_ext.tsv 15
 
 Raw logs: `evidence/holonomic/fullsolve_bench_A.txt`,
 `evidence/holonomic/fullsolve_bench_B.txt`.
+
+The D14-into-algebraic patch (variant 2, applied to the throwaway
+`algebraic-bench-cc5e55d` worktree) is captured verbatim as
+`evidence/holonomic/d14_into_algebraic_experiment.patch` so the rejected
+experiment stays reproducible after that worktree is removed. The worktree
+itself is kept for now because `bench_fullsolve` (class-A regression harness)
+links `build-bench-d14/*.a` — M8 needs before/after class-A numbers.

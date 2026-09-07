@@ -1,0 +1,261 @@
+diff --git a/src/lcbinint/magnification/algebraic_boundary.cpp b/src/lcbinint/magnification/algebraic_boundary.cpp
+index b37295d..b41e5f9 100644
+--- a/src/lcbinint/magnification/algebraic_boundary.cpp
++++ b/src/lcbinint/magnification/algebraic_boundary.cpp
+@@ -10,6 +10,12 @@
+ #include <queue>
+ #include <unordered_map>
+ 
++#ifdef ALG_ENABLE_D14
++#include <cstdlib>
++#include <stdexcept>
++#include "lcbinint/magnification/holonomic/radial_events.hpp"
++#endif
++
+ namespace lcbinint::magnification {
+ namespace {
+ 
+@@ -1859,6 +1865,144 @@ BandSearchResult find_radial_bands(
+     return {true, std::move(merged), {}};
+ }
+ 
++// --- Experimental: D14 radial-event band enumeration --------------------------
++//
++// The algebraic backend's fixed-radius boundary quartic (algebraic_boundary_
++// quartic_fixed) is the same self-inversive quartic P(t;R) the holonomic
++// solver builds; its angular discriminant, with the R^4 chart factor removed,
++// is the degree-14 polynomial D14(v=R^2) whose real positive roots are exactly
++// the radial tangency radii (band birth/death).  holonomic::radial_events
++// enumerates those in __float128 with the same NaN-safe / balanced-Aberth /
++// __float128-fallback policy the holonomic solver uses.
++//
++// This replaces find_radial_bands' seed-anchored exponential march + boolean
++// bisection + Newton tangency search with (#events + 1) radius_has_image probes
++// to classify the inter-event intervals.  Any ambiguity -> fall back to
++// find_radial_bands for the whole epoch and count it; D14 never makes the
++// answer silently wrong.
++BandSearchResult find_radial_bands_d14(
++    const AlgebraicBoundaryLens& lens,
++    SourcePosition source,
++    double source_radius,
++    const std::vector<SourcePosition>& seeds,
++    const AlgebraicBoundarySettings& settings,
++    AlgebraicBoundaryDiagnostics* diagnostics)
++{
++#ifndef ALG_ENABLE_D14
++    return find_radial_bands(lens, source, source_radius, seeds, settings, diagnostics);
++#else
++    auto fallback = [&](const char* /*why*/) {
++        if (diagnostics != nullptr) ++diagnostics->d14_fallback_count;
++        return find_radial_bands(lens, source, source_radius, seeds, settings, diagnostics);
++    };
++
++    // Frame map: algebraic native (origin at the mass-m2 lens) -> holonomic
++    // PrimaryFrame.  Exact; the two fixed-radius quartics are the same poly.
++    namespace hol = lcbinint::holonomic;
++    hol::PrimaryFrame pf;
++    pf.a = lens.lens_position;
++    pf.m0 = lens.m2;
++    pf.X = source.x + lens.lens_position * lens.m1;
++    pf.Y = source.y;
++    pf.rho = source_radius;
++    if (!std::isfinite(pf.a) || !std::isfinite(pf.m0) || !std::isfinite(pf.X) ||
++        !std::isfinite(pf.Y) || !std::isfinite(pf.rho) || !(pf.rho > 0.0) ||
++        !(std::abs(pf.a) > 0.0)) {
++        return fallback("non-finite frame");
++    }
++
++    double r_max = 0.0;
++    std::vector<hol::RadialEvent> events;
++    try {
++        events = hol::radial_events(pf, &r_max);
++    } catch (...) {
++        return fallback("radial_events threw");
++    }
++
++    std::vector<double> edges;
++    for (const auto& e : events) {
++        if (!std::isfinite(e.radius) || e.radius <= 0.0) continue;
++        if (e.physically_real && e.kind == "physical_real") edges.push_back(e.radius);
++    }
++    if (diagnostics != nullptr)
++        diagnostics->d14_event_count = static_cast<int>(edges.size());
++    std::sort(edges.begin(), edges.end());
++    edges.erase(std::unique(edges.begin(), edges.end(),
++        [](double x, double y) { return std::abs(x - y) <= 1.0e-11 * (1.0 + std::abs(y)); }),
++        edges.end());
++    if (edges.empty()) return fallback("D14 returned no physical_real events");
++
++    // Interval partition points: 0, edges..., and an outer sentinel past the
++    // largest edge / seed radius.
++    double outer = edges.back();
++    for (const auto& seed : seeds) outer = std::max(outer, std::hypot(seed.x, seed.y));
++    std::vector<double> pts;
++    pts.push_back(0.0);
++    for (double e : edges) pts.push_back(e);
++    pts.push_back(outer + std::max(source_radius, 1.0e-9));
++
++    std::vector<std::pair<double, double>> bands;
++    for (std::size_t i = 0; i + 1 < pts.size(); ++i) {
++        const double mid = 0.5 * (pts[i] + pts[i + 1]);
++        std::string reason;
++        const bool inside = radius_has_image(
++            lens, source, source_radius, mid, settings, diagnostics, &reason);
++        if (!reason.empty()) return fallback("radius_has_image inconclusive");
++        if (inside) bands.emplace_back(pts[i], pts[i + 1]);
++    }
++
++    std::sort(bands.begin(), bands.end());
++    std::vector<std::pair<double, double>> merged;
++    for (const auto& band : bands) {
++        const double tol = 1.0e-11 * (1.0 + std::abs(band.second));
++        if (merged.empty() || band.first > merged.back().second + tol) {
++            merged.push_back(band);
++        } else {
++            merged.back().second = std::max(merged.back().second, band.second);
++        }
++    }
++    if (merged.empty()) return fallback("D14 classified every interval as outside");
++
++    // Every certified seed radius must sit inside a band, else D14 missed an
++    // event -> fall back rather than integrate an incomplete support set.
++    for (const auto& seed : seeds) {
++        const double sr = std::hypot(seed.x, seed.y);
++        const bool covered = std::any_of(merged.begin(), merged.end(),
++            [&](const auto& b) { return sr >= b.first - 1e-12 && sr <= b.second + 1e-12; });
++        if (!covered) return fallback("D14 band set does not cover a certified seed");
++    }
++
++    if (diagnostics != nullptr) {
++        ++diagnostics->d14_band_enum_count;
++        diagnostics->radial_band_count = static_cast<int>(merged.size());
++    }
++    return {true, std::move(merged), {}};
++#endif
++}
++
++static bool alg_d14_enabled() {
++#ifdef ALG_ENABLE_D14
++    // Read fresh so an in-process A/B harness can toggle via setenv().
++    const char* f = std::getenv("ALG_D14");
++    return f != nullptr && *f != '\0' && *f != '0';
++#else
++    return false;
++#endif
++}
++
++BandSearchResult find_radial_bands_dispatch(
++    const AlgebraicBoundaryLens& lens,
++    SourcePosition source,
++    double source_radius,
++    const std::vector<SourcePosition>& seeds,
++    const AlgebraicBoundarySettings& settings,
++    AlgebraicBoundaryDiagnostics* diagnostics)
++{
++    if (alg_d14_enabled())
++        return find_radial_bands_d14(lens, source, source_radius, seeds, settings, diagnostics);
++    return find_radial_bands(lens, source, source_radius, seeds, settings, diagnostics);
++}
++
+ struct RadialIntegralResult {
+     bool success = false;
+     Moments value;
+@@ -2436,7 +2580,7 @@ AlgebraicBoundaryRadialBands experimental_algebraic_boundary_radial_bands(
+     if (certified_image_seeds.empty()) {
+         return {false, "no certified image seeds", {}};
+     }
+-    const auto bands = find_radial_bands(
++    const auto bands = find_radial_bands_dispatch(
+         lens, source, source_radius, certified_image_seeds, settings,
+         &diagnostics);
+     return {bands.success, bands.unsafe_reason, bands.bands};
+@@ -2468,7 +2612,7 @@ AlgebraicBoundaryResult experimental_algebraic_boundary_integral(
+         result.unsafe_reason = "invalid source flux normalization";
+         return result;
+     }
+-    const auto bands = find_radial_bands(
++    const auto bands = find_radial_bands_dispatch(
+         lens, source, source_radius, certified_image_seeds, settings,
+         &result.diagnostics);
+     if (!bands.success) {
+diff --git a/src/lcbinint/magnification/algebraic_boundary.hpp b/src/lcbinint/magnification/algebraic_boundary.hpp
+index 6a61e33..2aeb441 100644
+--- a/src/lcbinint/magnification/algebraic_boundary.hpp
++++ b/src/lcbinint/magnification/algebraic_boundary.hpp
+@@ -47,6 +47,10 @@ struct AlgebraicBoundaryDiagnostics {
+     // Set when the VBM-style multipole test resolved the epoch and the band
+     // discovery / radial quadrature were skipped entirely.
+     int multipole_shortcut_count = 0;
++    // Experimental: D14 (holonomic radial_events) band enumeration.
++    int d14_band_enum_count = 0;      // epochs where D14 produced the bands
++    int d14_fallback_count = 0;       // epochs where D14 fell back to march+bisect
++    int d14_event_count = 0;          // physical_real radial events D14 returned
+ };
+ 
+ struct AlgebraicBoundaryResult {
+diff --git a/src/lcbinint/magnification/finite_source_magnifier.cpp b/src/lcbinint/magnification/finite_source_magnifier.cpp
+index 4fcc4ef..425059d 100644
+--- a/src/lcbinint/magnification/finite_source_magnifier.cpp
++++ b/src/lcbinint/magnification/finite_source_magnifier.cpp
+@@ -6085,6 +6085,20 @@ AlgebraicBoundaryResult FiniteSourceMagnifier::experimental_algebraic_boundary_b
+     }
+ 
+     const PointSourceMagnifier point_magnifier;
++
++    // Experimental algorithm-benchmark bypass: skip the shared point-source /
++    // hexadecapole / grazing router and always run the deep algebraic-boundary
++    // polar integral, so the algebraic backend can be compared against the
++    // holonomic full solve on equal (full-solve) footing.  Shared .so and the
++    // production routing are unaffected (env-gated, isolated bench build only).
++    if (const char* f = std::getenv("ALG_FORCE_FULLSOLVE"); f && *f && *f != '0') {
++        AlgebraicBoundaryResult forced;
++        algebraic_boundary_deep_solve(
++            point_magnifier, separation, mass_ratio, source, source_radius,
++            algebraic_settings, &forced);
++        return forced;
++    }
++
+     const double point_mag =
+         point_magnifier.binary_mag0(separation, mass_ratio, source).magnification;
+ 
+@@ -6184,20 +6198,26 @@ FiniteSourceMagnifier::experimental_algebraic_boundary_binary_jacobian(
+         algebraic_router_ = std::make_shared<FiniteSourceMagnifier>(routed);
+         algebraic_router_reltol_ = want_reltol;
+     }
+-    const double point_mag =
+-        point_magnifier.binary_mag0(separation, mass_ratio, source).magnification;
+-    const auto routed = algebraic_router_->binary_mag(
+-        separation, mass_ratio, source, source_radius, point_mag,
+-        /*center_image_seeds=*/nullptr,
+-        /*point_source_magnification_is_exact=*/true, &point_magnifier,
+-        /*algebraic_backend=*/nullptr, /*algebraic_out=*/nullptr,
+-        /*multipole_only_probe=*/true);
+-    if (routed.decision.method == FiniteSourceMethod::point_source ||
+-        routed.decision.method == FiniteSourceMethod::hexadecapole) {
+-        return autodiff::experimental_algebraic_boundary_multipole_jacobian(
+-            params, branch, settings_.limb_darkening_c, settings_.limb_darkening_d,
+-            routed.decision.method == FiniteSourceMethod::hexadecapole,
+-            routed.magnification);
++    const bool alg_force_full = [] {
++        const char* f = std::getenv("ALG_FORCE_FULLSOLVE");
++        return f != nullptr && *f != '\0' && *f != '0';
++    }();
++    if (!alg_force_full) {
++        const double point_mag =
++            point_magnifier.binary_mag0(separation, mass_ratio, source).magnification;
++        const auto routed = algebraic_router_->binary_mag(
++            separation, mass_ratio, source, source_radius, point_mag,
++            /*center_image_seeds=*/nullptr,
++            /*point_source_magnification_is_exact=*/true, &point_magnifier,
++            /*algebraic_backend=*/nullptr, /*algebraic_out=*/nullptr,
++            /*multipole_only_probe=*/true);
++        if (routed.decision.method == FiniteSourceMethod::point_source ||
++            routed.decision.method == FiniteSourceMethod::hexadecapole) {
++            return autodiff::experimental_algebraic_boundary_multipole_jacobian(
++                params, branch, settings_.limb_darkening_c, settings_.limb_darkening_d,
++                routed.decision.method == FiniteSourceMethod::hexadecapole,
++                routed.magnification);
++        }
+     }
+ 
+     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
