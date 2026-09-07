@@ -303,6 +303,46 @@ int main()
         }
     }
 
+    // ---- 6. K/G gradient certificate is absolute and fully normalized -----
+    // This last regular-uniform E04 epoch has a raw K/G disagreement above 10
+    // in dA/dtheta units, including the rho-normalization derivative. The
+    // historical derivative-relative value was about 3.3 and was incorrectly
+    // compared to the absolute gradient_atol contract.
+    {
+        namespace mg = lcbinint::magnification;
+        mg::FiniteSourceMagnifier magnifier({});
+        mg::AlgebraicBoundarySettings settings;
+        settings.absolute_tolerance = 1.0e-4;
+        settings.relative_tolerance = 1.0e-4;
+        const auto jac = magnifier.experimental_algebraic_boundary_binary_jacobian(
+            1.2, 10.0, {0.05553633736, 0.22652972262}, 0.01, settings, 3.0e-4,
+            /*force_algebraic_finite=*/true);
+        check(jac.success, "absolute K/G regression successful", jac.success, 1.0, 0.0);
+        // This pins the full quotient-rule estimate.  The raw flux-derivative
+        // difference divided by norm is 28.350066..., so it would fail this
+        // rho-sensitive check.
+        constexpr double expected_full_normalized_error = 28.171450012617356;
+        check(std::abs(jac.grad_error - expected_full_normalized_error) <= 1.0e-10,
+              "absolute K/G error includes rho", jac.grad_error,
+              expected_full_normalized_error, 1.0e-10);
+        check(!jac.grad_reliable, "absolute K/G error rejects 3e-4", jac.grad_reliable, 0.0, 0.0);
+    }
+
+    // A finite K reconstruction paired with a non-finite G reconstruction
+    // must never receive the old std::max-with-NaN implicit zero certificate.
+    {
+        ad::ForwardJet<5> mag_k(1.0);
+        ad::ForwardJet<5> mag_g(std::numeric_limits<double>::quiet_NaN());
+        mag_g.derivative[2] = std::numeric_limits<double>::quiet_NaN();
+        const double error = ad::absolute_gradient_disagreement(mag_k, mag_g);
+        if (!std::isinf(error)) {
+            ++failures;
+            std::printf("FAIL nonfinite K/G disagreement did not fail closed\n");
+        } else {
+            std::printf("ok   nonfinite K/G disagreement fails closed\n");
+        }
+    }
+
     if (failures == 0) {
         std::printf("\nall autodiff-core checks passed\n");
         return 0;

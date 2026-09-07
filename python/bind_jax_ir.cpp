@@ -5711,9 +5711,14 @@ ffi::Error algebraic_boundary_batch_impl(
     // v1 has one explicit finite refinement plan and no fallback.  Keep these
     // attributes in the ABI so callers cannot accidentally request a policy
     // the native driver does not implement.
-    if (refinement_policy != 0 || fallback_policy != 0) {
+    if ((refinement_policy != 0 && refinement_policy != 1) || fallback_policy != 0) {
         return ffi::Error::InvalidArgument("unsupported algebraic-boundary refinement/fallback policy");
     }
+#ifndef LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE
+    if (refinement_policy == 1) {
+        return ffi::Error::InvalidArgument("critical-event policy was not built");
+    }
+#endif
     if constexpr (IncludeJacobian) {
         if (jacobian->dimensions()[0] != n || jacobian->dimensions()[1] != 5) {
             return ffi::Error::InvalidArgument("invalid algebraic-boundary batch Jacobian shape");
@@ -5736,7 +5741,8 @@ ffi::Error algebraic_boundary_batch_impl(
     settings.limb_darkening_d = d;
     const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
     const lcbinint::magnification::PointSourceMagnifier point_magnifier;
-    const auto algebraic_settings = algebraic_boundary_settings_from(atol, rtol);
+    auto algebraic_settings = algebraic_boundary_settings_from(atol, rtol);
+    algebraic_settings.critical_events = refinement_policy == 1;
     for (std::size_t row = 0; row < n; ++row) {
         auto set_nan_row = [&](std::int32_t row_status, std::int32_t row_method = algebraic_unavailable,
                                std::int32_t row_refinement = algebraic_unavailable,
@@ -5860,8 +5866,13 @@ ffi::Error algebraic_boundary_batch_impl(
             /*force_algebraic_finite=*/true);
         const auto& diagnostics = result.diagnostics;
         const std::int32_t refinement = diagnostics.radial_subdivision_count;
-        const std::int32_t root_work = diagnostics.root_solve_count;
-        const std::int32_t lens_work = diagnostics.lens_evaluation_count;
+        // The v2 plan/Jet work is not completely instrumented. Preserve the
+        // ABI's unavailable sentinel instead of presenting primal-only counts
+        // as total work. Legacy diagnostics retain their established meaning.
+        const std::int32_t root_work = algebraic_settings.critical_events
+            ? -1 : diagnostics.root_solve_count;
+        const std::int32_t lens_work = algebraic_settings.critical_events
+            ? -1 : diagnostics.lens_evaluation_count;
         const bool value_ok = result.success && std::isfinite(result.value_error)
             && std::isfinite(result.magnification) && result.magnification > 0.0;
         if (!value_ok) {
@@ -7913,6 +7924,13 @@ void register_jax_ir_submodule(py::module_& parent)
         "algebraic_boundary_batch_jacobian_ffi",
         &algebraic_boundary_batch_jacobian_ffi_capsule,
         "Return the M1 algebraic-boundary full-curve value/Jacobian FFI capsule.");
+    module.def("algebraic_critical_events_enabled", []() {
+#ifdef LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE
+        return true;
+#else
+        return false;
+#endif
+    }, "Whether the opt-in certified critical-event policy was built.");
     module.def(
         "algebraic_boundary_batch_call_counters",
         &algebraic_boundary_batch_call_counters,

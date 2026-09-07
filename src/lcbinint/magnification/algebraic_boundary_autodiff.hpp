@@ -16,6 +16,7 @@
 #include "lcbinint/magnification/algebraic_boundary.hpp"
 #include "lcbinint/types.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstddef>
@@ -86,6 +87,25 @@ ForwardJet<N> operator/(const ForwardJet<N>& a, const ForwardJet<N>& b)
     for (std::size_t i = 0; i < N; ++i)
         r.derivative[i] = (a.derivative[i] * b.value - a.value * b.derivative[i]) * inv2;
     return r;
+}
+
+// Maximum absolute K/G disagreement for two fully normalized ForwardJet
+// reconstructions. A non-finite form cannot certify a gradient row: returning
+// infinity makes callers fail closed instead of letting std::max ignore NaN.
+template <std::size_t N>
+double absolute_gradient_disagreement(
+    const ForwardJet<N>& mag_k, const ForwardJet<N>& mag_g)
+{
+    if (!std::isfinite(mag_k.value) || !std::isfinite(mag_g.value)) {
+        return std::numeric_limits<double>::infinity();
+    }
+    double result = 0.0;
+    for (std::size_t p = 0; p < N; ++p) {
+        const double est = std::fabs(mag_k.derivative[p] - mag_g.derivative[p]);
+        if (!std::isfinite(est)) return std::numeric_limits<double>::infinity();
+        result = std::max(result, est);
+    }
+    return result;
 }
 
 // double op jet / jet op double -- the implicit ForwardJet(double) ctor makes
@@ -383,7 +403,10 @@ struct AlgebraicBoundaryJacobian {
     // consumed by this driver. It is already in magnification units.
     double value_error = std::numeric_limits<double>::quiet_NaN();
     std::array<double, 5> jacobian{};  // wrt [source_x, source_y, rho, q, sep]
-    double grad_error = 0.0;           // reduced two-form estimate
+    // Maximum absolute K/G disagreement of the fully normalized
+    // d(magnification)/d(parameter) row. This is directly comparable with the
+    // caller's absolute grad_tol, including the rho normalization derivative.
+    double grad_error = 0.0;
     bool grad_reliable = false;        // false => caller should NaN the row
     AlgebraicBoundaryDiagnostics diagnostics{};
 };

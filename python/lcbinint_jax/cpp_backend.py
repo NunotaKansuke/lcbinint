@@ -1584,7 +1584,7 @@ def binary_algebraic_boundary_polar_ffi(
     )
 
 
-def _algebraic_boundary_batch_call(target, source_x, source_y, separation, scalars, finite_mask, strict, *, include_jacobian):
+def _algebraic_boundary_batch_call(target, source_x, source_y, separation, scalars, finite_mask, strict, *, include_jacobian, refinement_policy=0):
     batch_size = source_x.shape[0]
     outputs = (
         jax.ShapeDtypeStruct((batch_size,), jnp.float64),
@@ -1614,12 +1614,12 @@ def _algebraic_boundary_batch_call(target, source_x, source_y, separation, scala
         gradient_atol,
         strict=np.int64(bool(strict)),
         # v1: force the declared algebraic finite plan; no point/hex fallback.
-        refinement_policy=np.int64(0),
+        refinement_policy=np.int64(refinement_policy),
         fallback_policy=np.int64(0),
     )
 
 
-@partial(jax.custom_jvp, nondiff_argnums=(0, 7, 8))
+@partial(jax.custom_jvp, nondiff_argnums=(0, 7, 8, 12))
 def _algebraic_boundary_batch_transformable(
     strict,
     source_x,
@@ -1633,6 +1633,7 @@ def _algebraic_boundary_batch_transformable(
     value_atol,
     value_rtol,
     gradient_atol,
+    refinement_policy,
 ):
     outputs = _algebraic_boundary_batch_call(
         _FFI_ALGEBRAIC_BOUNDARY_BATCH_TARGET,
@@ -1643,12 +1644,13 @@ def _algebraic_boundary_batch_transformable(
         finite_mask,
         strict,
         include_jacobian=False,
+        refinement_policy=refinement_policy,
     )
     return AlgebraicBoundaryBatchResult(*outputs, jnp.full((source_x.shape[0], 5), jnp.nan))
 
 
 @_algebraic_boundary_batch_transformable.defjvp
-def _algebraic_boundary_batch_jvp(strict, limb_c, limb_d, primals, tangents):
+def _algebraic_boundary_batch_jvp(strict, limb_c, limb_d, refinement_policy, primals, tangents):
     reject_higher_order_ad(primals)
     (
         source_x,
@@ -1681,6 +1683,7 @@ def _algebraic_boundary_batch_jvp(strict, limb_c, limb_d, primals, tangents):
         finite_mask,
         strict,
         include_jacobian=True,
+        refinement_policy=refinement_policy,
     )
     primal = AlgebraicBoundaryBatchResult(*outputs)
     tangent_parameters = jnp.stack(
@@ -1738,7 +1741,7 @@ def binary_algebraic_boundary_batch_ffi(
         raise RuntimeError("the algebraic-boundary batch FFI is CPU-only")
     if isinstance(limb_c, jax.core.Tracer) or isinstance(limb_d, jax.core.Tracer):
         raise NotImplementedError("limb-darkening tangents are unsupported by algebraic batch v1")
-    if refinement_policy_id != "algebraic-forced-finite-v1":
+    if refinement_policy_id not in ("algebraic-forced-finite-v1", "algebraic-critical-events-v2"):
         raise ValueError("unsupported algebraic refinement policy")
     if fallback_policy_id != "none":
         raise ValueError("unsupported algebraic fallback policy")
@@ -1763,7 +1766,8 @@ def binary_algebraic_boundary_batch_ffi(
     _register_algebraic_boundary_batch_ffi()
     return _algebraic_boundary_batch_transformable(
         bool(strict), source_x, source_y, separation, *dynamic_scalars[:2], finite_mask,
-        *static_limb, *dynamic_scalars[2:]
+        *static_limb, *dynamic_scalars[2:],
+        int(refinement_policy_id == "algebraic-critical-events-v2")
     )
 
 
@@ -1791,7 +1795,7 @@ def binary_algebraic_boundary_batch_value_jacobian_ffi(
         raise RuntimeError("the algebraic-boundary batch FFI is CPU-only")
     if isinstance(limb_c, jax.core.Tracer) or isinstance(limb_d, jax.core.Tracer):
         raise NotImplementedError("limb-darkening tangents are unsupported by algebraic batch v1")
-    if refinement_policy_id != "algebraic-forced-finite-v1":
+    if refinement_policy_id not in ("algebraic-forced-finite-v1", "algebraic-critical-events-v2"):
         raise ValueError("unsupported algebraic refinement policy")
     if fallback_policy_id != "none":
         raise ValueError("unsupported algebraic fallback policy")
@@ -1822,6 +1826,7 @@ def binary_algebraic_boundary_batch_value_jacobian_ffi(
         finite_mask,
         strict,
         include_jacobian=True,
+        refinement_policy=int(refinement_policy_id == "algebraic-critical-events-v2"),
     )
     return AlgebraicBoundaryBatchResult(*outputs)
 

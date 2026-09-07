@@ -6158,6 +6158,17 @@ FiniteSourceMagnifier::experimental_algebraic_boundary_binary_jacobian(
     double grad_tol,
     bool force_algebraic_finite) const
 {
+    if (algebraic_settings.critical_events) {
+        if (!(separation > 0.0) || !(mass_ratio > 0.0) || !(source_radius > 0.0)) {
+            autodiff::AlgebraicBoundaryJacobian rejected;
+            rejected.unsafe_reason = "critical-event policy requires positive geometry";
+            return rejected;
+        }
+        const std::array<double,5> params{source.x,source.y,source_radius,mass_ratio,separation};
+        return autodiff::experimental_algebraic_boundary_jacobian(
+            params, {1.0,mass_ratio < 1.0}, settings_.limb_darkening_c,
+            settings_.limb_darkening_d, {}, algebraic_settings, grad_tol);
+    }
     const PointSourceMagnifier point_magnifier;
 
     autodiff::FrozenLensBranch branch;
