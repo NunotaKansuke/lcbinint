@@ -90,6 +90,10 @@ if(LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE)
         tests/diagnostics/e04_generic_critical_events_preflight.cpp)
     target_link_libraries(e04_generic_critical_events_preflight PRIVATE
         lcbinint_magnification)
+    add_executable(e04_generic_numerical_matrix_preflight EXCLUDE_FROM_ALL
+        tests/diagnostics/e04_generic_numerical_matrix_preflight.cpp)
+    target_link_libraries(e04_generic_numerical_matrix_preflight PRIVATE
+        lcbinint_magnification)
 endif()
 
 # Lens/trajectory model + light-curve/likelihood API; depends on lcbinint_magnification.
