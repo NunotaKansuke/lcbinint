@@ -400,12 +400,17 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
     Jet norm_j = kPi * (pj[2] * pj[2]) * (1.0 - c / 3.0 - d / 5.0);
     const Jet mag_j = flux_k / norm_j;
 
-    double reduced = 0.0;
+    // The contract's gradient tolerance is absolute in dA/dtheta units.
+    // Compare the two fully normalized ForwardJet reconstructions, rather
+    // than their flux derivatives divided by a scalar norm: the latter loses
+    // the rho derivative of the normalization when K and G fluxes differ.
+    double absolute_error = 0.0;
+    const Jet mag_g = flux_g / norm_j;
     for (std::size_t p = 0; p < 5; ++p) {
-        const double est = std::fabs(flux_k.derivative[p] - flux_g.derivative[p]) / norm_v;
-        reduced = std::max(reduced, est / std::max(1.0, std::fabs(mag_j.derivative[p])));
+        const double est = std::fabs(mag_j.derivative[p] - mag_g.derivative[p]);
+        absolute_error = std::max(absolute_error, est);
     }
-    out.grad_error = reduced;
+    out.grad_error = absolute_error;
 
     // `primal` certified the discrete plan and its adaptive integral, whereas
     // `mag_j` is the smooth ForwardJet reconstruction returned to JAX when it
@@ -433,7 +438,8 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
         // a partial or non-finite reconstruction as a Jacobian.
         out.unsafe_reason = "structurally unreliable ForwardJet reconstruction";
     }
-    out.grad_reliable = structurally_reliable && std::isfinite(reduced) && (reduced <= grad_tol);
+    out.grad_reliable = structurally_reliable && std::isfinite(absolute_error)
+        && (absolute_error <= grad_tol);
     return out;
 }
 

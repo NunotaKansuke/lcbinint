@@ -383,7 +383,10 @@ struct AlgebraicBoundaryJacobian {
     // consumed by this driver. It is already in magnification units.
     double value_error = std::numeric_limits<double>::quiet_NaN();
     std::array<double, 5> jacobian{};  // wrt [source_x, source_y, rho, q, sep]
-    double grad_error = 0.0;           // reduced two-form estimate
+    // Maximum absolute K/G disagreement of the fully normalized
+    // d(magnification)/d(parameter) row. This is directly comparable with the
+    // caller's absolute grad_tol, including the rho normalization derivative.
+    double grad_error = 0.0;
     bool grad_reliable = false;        // false => caller should NaN the row
     AlgebraicBoundaryDiagnostics diagnostics{};
 };
