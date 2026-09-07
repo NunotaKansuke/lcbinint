@@ -179,6 +179,7 @@ def test_retained_estimate_native_fd_neighbors():
     [.04241247170456686,.22247003524138212], # production step 5524
     [.03214318990199859,.21929337412239128], # production step 5908
     [.05135854391869902,.2252373796688386],  # production step 7013
+    [-.033157493927010534,.19909350548978183], # preserve successful legacy lift
 ])
 def test_traced_nonfinite_leapfrog_epoch_is_certified(xy):
     r=call(jnp.array([*xy,.01,10.,1.2]),jac=True,limb_c=.4,
