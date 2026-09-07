@@ -1108,6 +1108,44 @@ bool finite_contact_proxy(
     return std::isfinite(determinant) && std::abs(determinant) > 1.0e-20;
 }
 
+bool canonicalize_candidate_reports(
+    const std::vector<CriticalEvent>& reports, CriticalEvent* canonical)
+{
+    // Preconditions supplied by the caller: each report is an original strict
+    // lift of one simple positive H root.  This only checks consistency; it
+    // does not synthesize or certify a replacement box.
+    if (reports.empty() || canonical == nullptr) return false;
+    const std::size_t id = reports.front().event_id;
+    const CertifiedInterval u_box = reports.front().u_box;
+    bool any_tan = false;
+    for (const auto& report : reports) {
+        if (report.event_id != id || report.u_box.lo != u_box.lo ||
+            report.u_box.hi != u_box.hi ||
+            !positive_square_subset(
+                {report.radius_box.lo, report.radius_box.hi},
+                {report.u_box.lo, report.u_box.hi})) return false;
+        any_tan |= !report.cot_chart;
+    }
+    Interval common_radius{reports.front().radius_box.lo, reports.front().radius_box.hi};
+    Interval common_chart{reports.front().chart_box.lo, reports.front().chart_box.hi};
+    if (any_tan && reports.front().cot_chart) {
+        common_chart = idiv(exact_interval(1.0), common_chart);
+    }
+    if (!finite_interval(common_chart)) return false;
+    for (std::size_t i = 1; i < reports.size(); ++i) {
+        const auto& report = reports[i];
+        common_radius = iintersect(
+            common_radius, {report.radius_box.lo, report.radius_box.hi});
+        Interval chart{report.chart_box.lo, report.chart_box.hi};
+        if (any_tan && report.cot_chart) chart = idiv(exact_interval(1.0), chart);
+        if (!finite_interval(chart)) return false;
+        common_chart = iintersect(common_chart, chart);
+        if (!finite_interval(common_radius) || !finite_interval(common_chart)) return false;
+    }
+    *canonical = reports.front();  // Retain an original strict lift, not a synthetic box.
+    return true;
+}
+
 bool arithmetic_unit_checks()
 {
     bool pass = true;
@@ -1216,6 +1254,48 @@ bool arithmetic_unit_checks()
         std::nextafter(1.0, std::numeric_limits<double>::infinity())};
     pass &= !positive_square_subset(straddling_radius, u_boundary);
     pass &= positive_square_subset({1.0, 1.0}, {0.9, 1.1});
+
+    // Consistency-helper tests only: production calls this after strict lifts
+    // and simple-root certification, never as a new certificate shortcut.
+    const auto report = [](std::size_t id, Interval radius, Interval chart,
+                           bool cot) {
+        return CriticalEvent{id, {0.9, 1.1}, {radius.lo, radius.hi},
+                             {chart.lo, chart.hi}, cot, 1.0, 0.0};
+    };
+    CriticalEvent canonical;
+    const auto same = report(4, {1.0, 1.0}, {.4, .6}, false);
+    pass &= canonicalize_candidate_reports({same, same}, &canonical);
+    pass &= canonical.event_id == same.event_id &&
+        canonical.radius_box.lo == same.radius_box.lo &&
+        canonical.chart_box.lo == same.chart_box.lo;
+    pass &= canonicalize_candidate_reports(
+        {report(4, {.99, 1.01}, {.4, .6}, false),
+         report(4, {1.0, 1.02}, {.5, .7}, false)}, &canonical);
+    pass &= canonicalize_candidate_reports(
+        {report(4, {1.0, 1.0}, {.49, .51}, false),
+         report(4, {1.0, 1.0}, {1.99, 2.01}, true)}, &canonical);
+    pass &= canonicalize_candidate_reports(
+        {report(4, {1.0, 1.0}, {-.51, -.49}, false),
+         report(4, {1.0, 1.0}, {-2.01, -1.99}, true)}, &canonical);
+    pass &= canonicalize_candidate_reports(
+        {report(4, {1.0, 1.0}, {1.99, 2.01}, true),
+         report(4, {1.0, 1.0}, {2.0, 2.02}, true)}, &canonical);
+    pass &= !canonicalize_candidate_reports(
+        {report(4, {1.0, 1.0}, {.4, .6}, false),
+         report(4, {1.0, 1.0}, {-.1, .1}, true)}, &canonical);
+    pass &= !canonicalize_candidate_reports(
+        {report(4, {1.0, 1.0}, {0.0, 2.0}, false),
+         report(4, {1.0, 1.0}, {1.0, 3.0}, false),
+         report(4, {1.0, 1.0}, {2.5, 4.0}, false)}, &canonical);
+    pass &= !canonicalize_candidate_reports(
+        {report(4, {1.0, 1.0}, {.1, .2}, false),
+         report(4, {1.0, 1.0}, {.3, .4}, false)}, &canonical);
+    pass &= !canonicalize_candidate_reports(
+        {report(4, {1.0, 1.0}, {.4, .6}, false),
+         report(5, {1.0, 1.0}, {.4, .6}, false)}, &canonical);
+    auto different_u = report(4, {1.0, 1.0}, {.4, .6}, false);
+    different_u.u_box.hi = 1.2;
+    pass &= !canonicalize_candidate_reports({same, different_u}, &canonical);
     return pass;
 }
 
@@ -1488,13 +1568,14 @@ CriticalEventNumericalResult enumerate_and_lift_critical_events(
                     theta});
             }
         }
-        if (candidate_events[candidate_id].size() != 1) {
+        CriticalEvent canonical_event;
+        if (!canonicalize_candidate_reports(
+                candidate_events[candidate_id], &canonical_event)) {
             out.unsafe_reason = candidate_events[candidate_id].empty()
-                ? "unlifted_positive_candidate"
-                : "ambiguous_projective_lift";
+                ? "unlifted_positive_candidate" : "ambiguous_projective_lift";
             return out;
         }
-        out.events.push_back(candidate_events[candidate_id].front());
+        out.events.push_back(canonical_event);
     }
 
     std::sort(
