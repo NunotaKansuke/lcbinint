@@ -404,12 +404,8 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
     // Compare the two fully normalized ForwardJet reconstructions, rather
     // than their flux derivatives divided by a scalar norm: the latter loses
     // the rho derivative of the normalization when K and G fluxes differ.
-    double absolute_error = 0.0;
     const Jet mag_g = flux_g / norm_j;
-    for (std::size_t p = 0; p < 5; ++p) {
-        const double est = std::fabs(mag_j.derivative[p] - mag_g.derivative[p]);
-        absolute_error = std::max(absolute_error, est);
-    }
+    const double absolute_error = absolute_gradient_disagreement(mag_j, mag_g);
     out.grad_error = absolute_error;
 
     // `primal` certified the discrete plan and its adaptive integral, whereas
