@@ -149,6 +149,16 @@ def test_failed_finer_pass_preserves_last_complete_estimate():
     np.testing.assert_array_equal(approximate.magnification,strict.magnification)
     np.testing.assert_array_equal(approximate.value_error,strict.value_error)
     np.testing.assert_array_equal(approximate.gradient_error,strict.gradient_error)
+
+@pytest.mark.xfail(strict=True,reason='pre-existing neighboring x/rho root-isolation failures; independent retained-estimate reference passes')
+def test_retained_estimate_native_fd_neighbors_remain_unresolved():
+    # Reproduced against the pre-retention 7a7fe7f static library:
+    # x+5e-6: interval_newton_derivative_contains_zero;
+    # rho-5e-6: critical_value_contains_zero. Preserve all three steps rather
+    # than selecting only the two larger successful ones.
+    p=jnp.array([.05135221895347432,.22523542312781708,.01,10.,1.2])
+    options=dict(jac=True,limb_c=.4,value_atol=1e-8,value_rtol=1e-8,gradient_atol=1e-5)
+    approximate=call(p,**options)
     fd=[]
     for h in [2e-5,1e-5,5e-6]:
         row=[]
