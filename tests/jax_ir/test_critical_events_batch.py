@@ -102,3 +102,17 @@ def test_returned_value_finite_difference_step_study(p,c,d):
     # Both extrapolates must agree, not just a selected best step.
     np.testing.assert_allclose(extrapolates,np.broadcast_to(base.jacobian[0],(2,5)),
                                rtol=0.,atol=3e-4)
+
+@pytest.mark.parametrize('x,y', [
+    (.032149700109009964,.21929538796541237),
+    (.042429120732001495,.2224751853890884),
+    (.04090058234940052,.22200235305843025),
+])
+def test_tight_linear_ld_has_no_isolated_gradient_budget_holes(x,y):
+    # These smooth points rejected J at 1e-5 despite adjacent points passing;
+    # a 2001-point t0 scan exposed the resulting HMC divergences.
+    r=call(jnp.array([x,y,.01,10.,1.2]),jac=True,limb_c=.4,
+           value_atol=1e-8,value_rtol=1e-8,gradient_atol=1e-5)
+    assert r.status[0] == 0
+    assert np.isfinite(r.jacobian).all()
+    assert r.gradient_error[0] <= 1e-5
