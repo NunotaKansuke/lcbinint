@@ -432,6 +432,32 @@ DPoly dderivative(const DPoly& polynomial)
     return out;
 }
 
+bool exact_polynomial_matches_enclosure(
+    const IPoly& polynomial,
+    const DPoly& exact_polynomial)
+{
+    if (polynomial.empty() || polynomial.size() != exact_polynomial.size()) {
+        return false;
+    }
+    for (std::size_t i = 0; i < polynomial.size(); ++i) {
+        if (!finite_interval(polynomial[i]) || !exact_polynomial[i].valid) {
+            return false;
+        }
+        const Dyadic lower = Dyadic::from_double(polynomial[i].lo);
+        const Dyadic upper = Dyadic::from_double(polynomial[i].hi);
+        int lower_comparison = 0;
+        int upper_comparison = 0;
+        if (!lower.valid || !upper.valid ||
+            !dcompare(lower, exact_polynomial[i], &lower_comparison) ||
+            !dcompare(exact_polynomial[i], upper, &upper_comparison) ||
+            lower_comparison > 0 || upper_comparison > 0) {
+            return false;
+        }
+    }
+    return exact_polynomial.back().numerator != 0 &&
+        !contains_zero(polynomial.back());
+}
+
 std::array<DPoly, 5> dyadic_trig_polynomials(const FrozenGeometry& geometry)
 {
     const Dyadic a = Dyadic::from_double(geometry.a);
@@ -698,6 +724,7 @@ bool bisect_simple_root(
 
 bool isolate_positive_roots(
     const IPoly& polynomial,
+    const DPoly& exact_polynomial,
     double lo,
     double hi,
     IsolationState* state,
@@ -709,14 +736,22 @@ bool isolate_positive_roots(
         state->fail("invalid_isolation_domain");
         return false;
     }
+    if (!exact_polynomial_matches_enclosure(polynomial, exact_polynomial)) {
+        state->fail("exact_polynomial_mismatch");
+        return false;
+    }
     const IPoly derivative = iderivative(polynomial);
-    if (derivative.size() != polynomial.size() - 1) {
+    const DPoly exact_derivative = dderivative(exact_polynomial);
+    if (derivative.size() != polynomial.size() - 1 ||
+        exact_derivative.size() != exact_polynomial.size() - 1 ||
+        derivative.size() != exact_derivative.size()) {
         state->fail("derivative_degree_not_descending");
         return false;
     }
     std::vector<IsolatedRoot> critical;
     if (derivative.size() > 1 &&
-        !isolate_positive_roots(derivative, lo, hi, state, &critical)) {
+        !isolate_positive_roots(
+            derivative, exact_derivative, lo, hi, state, &critical)) {
         return false;
     }
     std::sort(
@@ -785,10 +820,18 @@ bool isolate_positive_roots(
                 return false;
             }
             const double mid = 0.5 * root.lo + 0.5 * root.hi;
+            const Dyadic exact_mid = Dyadic::from_double(mid);
+            const Dyadic exact_value = deval(exact_polynomial, exact_mid);
+            const Interval exact_value_box =
+                dyadic_adjacent_enclosure(exact_value);
+            if (!exact_mid.valid || !exact_value.valid ||
+                !finite_interval(exact_value_box)) {
+                state->fail("nonfinite_exact_newton_center");
+                return false;
+            }
             const Interval newton = isub(
                 exact_interval(mid),
-                idiv(
-                    ieval(polynomial, exact_interval(mid)), derivative_box));
+                idiv(exact_value_box, derivative_box));
             const double new_lo = std::max(root.lo, newton.lo);
             const double new_hi = std::min(root.hi, newton.hi);
             if (!(new_hi > new_lo)) {
@@ -958,7 +1001,14 @@ bool chart_krawczyk(
     Interval* certified_radius,
     Interval* certified_chart)
 {
-    Interval radius{radius_lo, radius_hi};
+    // Search inside the certified carrier at the existing endpoint width scale.
+    // This proposal is not evidence; strict Krawczyk must still certify it.
+    const double search_half_width = 1.0e-12 * (1.0 + std::abs(radius0));
+    Interval radius{
+        std::max(radius_lo, std::nextafter(radius0 - search_half_width,
+            -std::numeric_limits<double>::infinity())),
+        std::min(radius_hi, std::nextafter(radius0 + search_half_width,
+            std::numeric_limits<double>::infinity()))};
     const double chart_padding = 1.0e-10 * (1.0 + std::abs(chart0));
     Interval chart{chart0 - chart_padding, chart0 + chart_padding};
     const auto center =
@@ -1140,6 +1190,7 @@ bool arithmetic_unit_checks()
     bool pass = true;
     const auto interval_check = [&pass](
                                     const IPoly& polynomial,
+                                    const DPoly& exact_polynomial,
                                     bool expected_success,
                                     int expected_roots) {
         double bound = 0.0;
@@ -1147,31 +1198,60 @@ bool arithmetic_unit_checks()
         std::vector<IsolatedRoot> roots;
         const bool bound_ok = outward_cauchy_bound(polynomial, &bound);
         const bool success = bound_ok && isolate_positive_roots(
-            polynomial, 0.0, bound, &state, &roots);
+            polynomial, exact_polynomial, 0.0, bound, &state, &roots);
         pass &= success == expected_success &&
             (!success || static_cast<int>(roots.size()) == expected_roots);
     };
     interval_check(
-        {exact_interval(-2.0), exact_interval(1.0)}, true, 1);
+        {exact_interval(-2.0), exact_interval(1.0)},
+        {Dyadic(-2), Dyadic(1)}, true, 1);
     interval_check(
         {exact_interval(3.0), exact_interval(-4.0), exact_interval(1.0)},
+        {Dyadic(3), Dyadic(-4), Dyadic(1)},
         true, 2);
     interval_check(
-        {exact_interval(1.0), exact_interval(1.0)}, true, 0);
+        {exact_interval(1.0), exact_interval(1.0)},
+        {Dyadic(1), Dyadic(1)}, true, 0);
     interval_check(
         {exact_interval(-2.0), exact_interval(-1.0), exact_interval(1.0)},
+        {Dyadic(-2), Dyadic(-1), Dyadic(1)},
         true, 1);
     interval_check(
-        {exact_interval(-0.5), exact_interval(1.0)}, true, 1);
+        {exact_interval(-0.5), exact_interval(1.0)},
+        {Dyadic::from_double(-0.5), Dyadic(1)}, true, 1);
     interval_check(
         {exact_interval(1.0000000000001),
          exact_interval(-2.0000000000001), exact_interval(1.0)},
+        {Dyadic::from_double(1.0000000000001),
+         Dyadic::from_double(-2.0000000000001), Dyadic(1)},
         false, 0);
     interval_check(
-        {exact_interval(1.0), {-1.0e-16, 1.0e-16}}, false, 0);
+        {exact_interval(1.0), {-1.0e-16, 1.0e-16}},
+        {Dyadic(1), Dyadic(0)}, false, 0);
     interval_check(
         {exact_interval(0.0), exact_interval(0.0), exact_interval(1.0)},
+        {Dyadic(0), Dyadic(0), Dyadic(1)},
         false, 0);
+
+    const auto rejects_paired_isolation = [](const IPoly& polynomial,
+                                               const DPoly& exact_polynomial) {
+        IsolationState state;
+        std::vector<IsolatedRoot> roots;
+        return !isolate_positive_roots(
+            polynomial, exact_polynomial, 0.0, 4.0, &state, &roots);
+    };
+    pass &= rejects_paired_isolation(
+        {exact_interval(-2.0), exact_interval(1.0)}, {Dyadic(-2)});
+    pass &= rejects_paired_isolation(
+        {exact_interval(-2.0), exact_interval(1.0)},
+        {Dyadic(-2), Dyadic::from_double(
+            std::numeric_limits<double>::infinity())});
+    pass &= rejects_paired_isolation(
+        {exact_interval(-2.0), exact_interval(1.0)},
+        {Dyadic(-3), Dyadic(1)});
+    pass &= rejects_paired_isolation(
+        {exact_interval(-2.0), {0.0, 1.0}},
+        {Dyadic(-2), Dyadic(0)});
 
     const auto dyadic_check = [&pass](
                                   const Dyadic& value,
@@ -1381,6 +1461,7 @@ CriticalEventNumericalResult enumerate_and_lift_critical_events(
         return out;
     }
     IPoly h;
+    DPoly exact_h;
     for (std::size_t power = 0; power < 37; ++power) {
         const Dyadic coefficient = power < exact_discriminant.size()
             ? exact_discriminant[power]
@@ -1399,25 +1480,29 @@ CriticalEventNumericalResult enumerate_and_lift_critical_events(
                 return out;
             }
             h.push_back(enclosure);
+            exact_h.push_back(coefficient);
         }
     }
-    if (h.size() != 15) {
+    if (h.size() != 15 || exact_h.size() != h.size()) {
         out.unsafe_reason = "canonical_h_degree_failure";
         return out;
     }
 
     // Exact power-of-two U=2V scaling retained from the accepted probe.
     IPoly h_v = h;
+    DPoly exact_h_v = exact_h;
     for (std::size_t i = 0; i < h_v.size(); ++i) {
         h_v[i] = iscale(
             h_v[i], std::ldexp(1.0, static_cast<int>(i)));
+        exact_h_v[i] = dmul(
+            exact_h_v[i], Dyadic(std::int64_t(1) << i));
     }
     double cauchy_bound = 0.0;
     IsolationState isolation;
     std::vector<IsolatedRoot> roots_v;
     if (!outward_cauchy_bound(h_v, &cauchy_bound) ||
         !isolate_positive_roots(
-            h_v, 0.0, cauchy_bound, &isolation, &roots_v)) {
+            h_v, exact_h_v, 0.0, cauchy_bound, &isolation, &roots_v)) {
         out.isolation_calls = isolation.calls;
         out.root_bisections = isolation.bisections;
         out.unsafe_reason = isolation.ok
@@ -1434,11 +1519,31 @@ CriticalEventNumericalResult enumerate_and_lift_critical_events(
         });
     for (std::size_t i = 1; i < roots_v.size(); ++i) {
         const double previous_width =
-            2.0 * (roots_v[i - 1].hi - roots_v[i - 1].lo);
-        const double width = 2.0 * (roots_v[i].hi - roots_v[i].lo);
-        const double gap = 2.0 * roots_v[i].lo - 2.0 * roots_v[i - 1].hi;
+            2.0 * (roots_v[i - 1].witness_hi - roots_v[i - 1].witness_lo);
+        const double width = 2.0 * (roots_v[i].witness_hi - roots_v[i].witness_lo);
+        const double gap = 2.0 * roots_v[i].witness_lo - 2.0 * roots_v[i - 1].witness_hi;
         if (!(gap >= 16.0 * std::max(previous_width, width))) {
             out.unsafe_reason = "positive_root_boxes_not_separated";
+            return out;
+        }
+    }
+
+    // A locator can be narrower than floating-point lift arithmetic.  The
+    // recorded sign witness is a separate certified identity carrier.
+    const IPoly h_prime = iderivative(h_v);
+    const IPoly h_second = iderivative(h_prime);
+    for (const auto& root : roots_v) {
+        const Interval carrier{root.witness_lo, root.witness_hi};
+        const Interval derivative = iintersect(
+            ieval(h_prime, carrier),
+            centered_eval(h_prime, h_second, carrier.lo, carrier.hi));
+        const int left = strict_sign(ieval(h_v, exact_interval(carrier.lo)));
+        const int right = strict_sign(ieval(h_v, exact_interval(carrier.hi)));
+        if (!finite_interval(carrier) || !(carrier.lo > 0.0) ||
+            !(carrier.hi > carrier.lo) || root.lo < carrier.lo ||
+            root.hi > carrier.hi || left * right != -1 ||
+            !finite_interval(derivative) || contains_zero(derivative)) {
+            out.unsafe_reason = "uncertified_root_identity_carrier";
             return out;
         }
     }
@@ -1450,9 +1555,9 @@ CriticalEventNumericalResult enumerate_and_lift_critical_events(
     std::vector<std::vector<CriticalEvent>> candidate_events(roots_v.size());
     for (std::size_t candidate_id = 0; candidate_id < roots_v.size();
          ++candidate_id) {
-        const double u_lo = 2.0 * roots_v[candidate_id].lo;
-        const double u_hi = 2.0 * roots_v[candidate_id].hi;
-        const double u_seed = 0.5 * u_lo + 0.5 * u_hi;
+        const double u_lo = 2.0 * roots_v[candidate_id].witness_lo;
+        const double u_hi = 2.0 * roots_v[candidate_id].witness_hi;
+        const double u_seed = roots_v[candidate_id].lo + roots_v[candidate_id].hi;
         if (!(u_seed > 0.0) || !std::isfinite(u_seed)) {
             out.unsafe_reason = "invalid_positive_root_box";
             return out;

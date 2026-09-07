@@ -115,6 +115,9 @@ int main()
         "LD geometry has six certified events");
 
     const auto plan = ce::find_critical_events(regular5);
+    check_expected_certified_events(
+        ce::CriticalEventInput{{0.002, 0.0007}, 0.001, 0.001, 1.1}, 12,
+        "low-q geometry has twelve certified events");
     check(!plan.success, "full critical-event plan remains fail-closed");
     check(plan.events.size() == 6,
           "pending full plan retains the numerical module evidence");
