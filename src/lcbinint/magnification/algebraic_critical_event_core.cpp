@@ -673,6 +673,7 @@ struct IsolatedRoot {
 };
 
 struct IsolationState {
+    bool exact_retry = false;
     int budget = 128;
     int bisections = 0;
     int calls = 0;
@@ -688,10 +689,11 @@ struct IsolationState {
     }
 };
 
-int exact_fallback_sign(const IPoly& polynomial, const DPoly& exact, double x)
+int exact_fallback_sign(const IPoly& polynomial, const DPoly& exact, double x,
+                        bool enabled)
 {
     const int sign = strict_sign(ieval(polynomial, exact_interval(x)));
-    if (sign != 0) return sign;
+    if (sign != 0 || !enabled) return sign;
     const Dyadic value = deval(exact, Dyadic::from_double(x));
     if (!value.valid) return 0;
     return value.numerator > 0 ? 1 : (value.numerator < 0 ? -1 : 0);
@@ -705,8 +707,8 @@ bool bisect_simple_root(
     IsolationState* state,
     IsolatedRoot* box)
 {
-    int left = exact_fallback_sign(polynomial, exact_polynomial, lo);
-    int right = exact_fallback_sign(polynomial, exact_polynomial, hi);
+    int left = exact_fallback_sign(polynomial, exact_polynomial, lo, state->exact_retry);
+    int right = exact_fallback_sign(polynomial, exact_polynomial, hi, state->exact_retry);
     if (left == 0 || right == 0 || left == right) {
         state->fail("endpoint_sign_uncertain");
         return false;
@@ -714,15 +716,15 @@ bool bisect_simple_root(
     for (int iteration = 0; iteration < state->budget; ++iteration) {
         const double mid = 0.5 * lo + 0.5 * hi;
         if (!(mid > lo && mid < hi)) break;
-        const int sign = exact_fallback_sign(polynomial, exact_polynomial, mid);
+        const int sign = exact_fallback_sign(polynomial, exact_polynomial, mid, state->exact_retry);
         ++state->bisections;
         if (sign == 0) {
             const double qleft = 0.5 * (lo + mid);
             const double qright = 0.5 * (mid + hi);
             const int left_quarter =
-                exact_fallback_sign(polynomial, exact_polynomial, qleft);
+                exact_fallback_sign(polynomial, exact_polynomial, qleft, state->exact_retry);
             const int right_quarter =
-                exact_fallback_sign(polynomial, exact_polynomial, qright);
+                exact_fallback_sign(polynomial, exact_polynomial, qright, state->exact_retry);
             if (left_quarter != 0) {
                 if (left_quarter == left) {
                     lo = qleft;
@@ -806,7 +808,7 @@ bool isolate_positive_roots(
         }
         Interval critical_value = centered_eval(
             polynomial, derivative, critical[i].lo, critical[i].hi);
-        if (contains_zero(critical_value)) {
+        if (state->exact_retry && contains_zero(critical_value)) {
             critical_value = exact_centered_eval(
                 exact_polynomial, critical[i].lo, critical[i].hi);
         }
@@ -828,12 +830,12 @@ bool isolate_positive_roots(
             return false;
         }
         const int left_sign =
-            exact_fallback_sign(polynomial, exact_polynomial, cell.first);
+            exact_fallback_sign(polynomial, exact_polynomial, cell.first, state->exact_retry);
         const int right_sign =
-            exact_fallback_sign(polynomial, exact_polynomial, cell.second);
+            exact_fallback_sign(polynomial, exact_polynomial, cell.second, state->exact_retry);
         const double cell_midpoint = 0.5 * cell.first + 0.5 * cell.second;
         if (left_sign == 0 || right_sign == 0 ||
-            exact_fallback_sign(derivative, exact_derivative, cell_midpoint) == 0) {
+            exact_fallback_sign(derivative, exact_derivative, cell_midpoint, state->exact_retry) == 0) {
             state->fail("monotone_cell_sign_uncertain");
             return false;
         }
@@ -856,7 +858,7 @@ bool isolate_positive_roots(
                 state->fail("derivative_enclosure_intersection_empty");
                 return false;
             }
-            if (contains_zero(derivative_box)) {
+            if (state->exact_retry && contains_zero(derivative_box)) {
                 derivative_box = exact_centered_eval(
                     exact_derivative, root.lo, root.hi);
             }
@@ -902,6 +904,36 @@ bool isolate_positive_roots(
         roots->push_back(root);
     }
     return state->ok;
+}
+
+bool isolate_with_exact_retry(
+    const IPoly& polynomial, const DPoly& exact_polynomial,
+    double lo, double hi, IsolationState* state,
+    std::vector<IsolatedRoot>* roots)
+{
+    if (isolate_positive_roots(polynomial, exact_polynomial, lo, hi, state, roots))
+        return true;
+    // Keep successful legacy locators/carriers byte-for-byte unchanged: an
+    // unnecessarily narrowed carrier can change the subsequent 2D lift.
+    // Retry the whole isolation only on certificate uncertainty, never reuse
+    // a partial root list. Both passes have the same bounded recursion budget.
+    const std::string reason = state->reason;
+    if (reason != "critical_value_contains_zero" &&
+        reason != "interval_newton_derivative_contains_zero" &&
+        reason != "monotone_cell_sign_uncertain" &&
+        reason != "endpoint_sign_uncertain" &&
+        reason != "root_bisection_budget") return false;
+    const int calls = state->calls, bisections = state->bisections;
+    const int budget = state->budget;
+    *state = IsolationState{};
+    state->budget = budget;
+    state->exact_retry = true;
+    roots->clear();
+    const bool ok = isolate_positive_roots(
+        polynomial, exact_polynomial, lo, hi, state, roots);
+    state->calls += calls;
+    state->bisections += bisections;
+    return ok;
 }
 
 bool outward_cauchy_bound(const IPoly& polynomial, double* bound)
@@ -1371,7 +1403,7 @@ bool arithmetic_unit_checks()
         IsolationState state;
         std::vector<IsolatedRoot> roots;
         const bool bound_ok = outward_cauchy_bound(polynomial, &bound);
-        const bool success = bound_ok && isolate_positive_roots(
+        const bool success = bound_ok && isolate_with_exact_retry(
             polynomial, exact_polynomial, 0.0, bound, &state, &roots);
         pass &= success == expected_success &&
             (!success || static_cast<int>(roots.size()) == expected_roots);
@@ -1678,7 +1710,7 @@ CriticalEventNumericalResult enumerate_and_lift_critical_events(
     IsolationState isolation;
     std::vector<IsolatedRoot> roots_v;
     if (!outward_cauchy_bound(h_v, &cauchy_bound) ||
-        !isolate_positive_roots(
+        !isolate_with_exact_retry(
             h_v, exact_h_v, 0.0, cauchy_bound, &isolation, &roots_v)) {
         out.isolation_calls = isolation.calls;
         out.root_bisections = isolation.bisections;
