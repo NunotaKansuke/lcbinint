@@ -637,6 +637,34 @@ Interval centered_eval(
         imul(displacement, ieval(derivative, {lo, hi})));
 }
 
+// Translate the SAME exact frozen polynomial before interval evaluation.
+// Exact cancellation in its Taylor coefficients avoids coefficient-rounding
+// inflation. Outward enclosures still bound the entire requested interval.
+Interval exact_centered_eval(const DPoly& polynomial, double lo, double hi)
+{
+    const double mid = 0.5 * lo + 0.5 * hi;
+    const Dyadic center = Dyadic::from_double(mid);
+    DPoly shifted{polynomial.back()};
+    for (std::size_t i = polynomial.size() - 1; i-- > 0;) {
+        DPoly next(shifted.size() + 1);
+        for (std::size_t j = 0; j < shifted.size(); ++j) {
+            next[j] = dadd(next[j], dmul(shifted[j], center));
+            next[j + 1] = dadd(next[j + 1], shifted[j]);
+        }
+        next[0] = dadd(next[0], polynomial[i]);
+        shifted = std::move(next);
+    }
+    IPoly enclosure;
+    for (const auto& coefficient : shifted) {
+        const Interval box = dyadic_adjacent_enclosure(coefficient);
+        if (!finite_interval(box)) return box;
+        enclosure.push_back(box);
+    }
+    return ieval(enclosure, {
+        std::nextafter(lo - mid, -std::numeric_limits<double>::infinity()),
+        std::nextafter(hi - mid, std::numeric_limits<double>::infinity())});
+}
+
 struct IsolatedRoot {
     double lo;
     double hi;
@@ -660,15 +688,25 @@ struct IsolationState {
     }
 };
 
+int exact_fallback_sign(const IPoly& polynomial, const DPoly& exact, double x)
+{
+    const int sign = strict_sign(ieval(polynomial, exact_interval(x)));
+    if (sign != 0) return sign;
+    const Dyadic value = deval(exact, Dyadic::from_double(x));
+    if (!value.valid) return 0;
+    return value.numerator > 0 ? 1 : (value.numerator < 0 ? -1 : 0);
+}
+
 bool bisect_simple_root(
     const IPoly& polynomial,
+    const DPoly& exact_polynomial,
     double lo,
     double hi,
     IsolationState* state,
     IsolatedRoot* box)
 {
-    int left = strict_sign(ieval(polynomial, exact_interval(lo)));
-    int right = strict_sign(ieval(polynomial, exact_interval(hi)));
+    int left = exact_fallback_sign(polynomial, exact_polynomial, lo);
+    int right = exact_fallback_sign(polynomial, exact_polynomial, hi);
     if (left == 0 || right == 0 || left == right) {
         state->fail("endpoint_sign_uncertain");
         return false;
@@ -676,15 +714,15 @@ bool bisect_simple_root(
     for (int iteration = 0; iteration < state->budget; ++iteration) {
         const double mid = 0.5 * lo + 0.5 * hi;
         if (!(mid > lo && mid < hi)) break;
-        const int sign = strict_sign(ieval(polynomial, exact_interval(mid)));
+        const int sign = exact_fallback_sign(polynomial, exact_polynomial, mid);
         ++state->bisections;
         if (sign == 0) {
             const double qleft = 0.5 * (lo + mid);
             const double qright = 0.5 * (mid + hi);
             const int left_quarter =
-                strict_sign(ieval(polynomial, exact_interval(qleft)));
+                exact_fallback_sign(polynomial, exact_polynomial, qleft);
             const int right_quarter =
-                strict_sign(ieval(polynomial, exact_interval(qright)));
+                exact_fallback_sign(polynomial, exact_polynomial, qright);
             if (left_quarter != 0) {
                 if (left_quarter == left) {
                     lo = qleft;
@@ -766,9 +804,13 @@ bool isolate_positive_roots(
             state->fail("critical_boxes_overlap_or_escape");
             return false;
         }
-        const Interval critical_value = centered_eval(
+        Interval critical_value = centered_eval(
             polynomial, derivative, critical[i].lo, critical[i].hi);
         if (contains_zero(critical_value)) {
+            critical_value = exact_centered_eval(
+                exact_polynomial, critical[i].lo, critical[i].hi);
+        }
+        if (!finite_interval(critical_value) || contains_zero(critical_value)) {
             state->fail("critical_value_contains_zero");
             return false;
         }
@@ -786,20 +828,19 @@ bool isolate_positive_roots(
             return false;
         }
         const int left_sign =
-            strict_sign(ieval(polynomial, exact_interval(cell.first)));
+            exact_fallback_sign(polynomial, exact_polynomial, cell.first);
         const int right_sign =
-            strict_sign(ieval(polynomial, exact_interval(cell.second)));
+            exact_fallback_sign(polynomial, exact_polynomial, cell.second);
         const double cell_midpoint = 0.5 * cell.first + 0.5 * cell.second;
         if (left_sign == 0 || right_sign == 0 ||
-            strict_sign(
-                ieval(derivative, exact_interval(cell_midpoint))) == 0) {
+            exact_fallback_sign(derivative, exact_derivative, cell_midpoint) == 0) {
             state->fail("monotone_cell_sign_uncertain");
             return false;
         }
         if (left_sign == right_sign) continue;
         IsolatedRoot root;
         if (!bisect_simple_root(
-                polynomial, cell.first, cell.second, state, &root)) {
+                polynomial, exact_polynomial, cell.first, cell.second, state, &root)) {
             return false;
         }
         bool contracted_once = false;
@@ -809,13 +850,17 @@ bool isolate_positive_roots(
                 ieval(derivative, {root.lo, root.hi});
             const Interval derivative_taylor = centered_eval(
                 derivative, second_derivative, root.lo, root.hi);
-            const Interval derivative_box =
+            Interval derivative_box =
                 iintersect(derivative_natural, derivative_taylor);
             if (!(derivative_box.hi >= derivative_box.lo)) {
                 state->fail("derivative_enclosure_intersection_empty");
                 return false;
             }
             if (contains_zero(derivative_box)) {
+                derivative_box = exact_centered_eval(
+                    exact_derivative, root.lo, root.hi);
+            }
+            if (!finite_interval(derivative_box) || contains_zero(derivative_box)) {
                 state->fail("interval_newton_derivative_contains_zero");
                 return false;
             }
@@ -1290,6 +1335,23 @@ bool certify_event_geometry(const CriticalEventInput& input,const FrozenGeometry
 bool arithmetic_unit_checks()
 {
     bool pass = true;
+    // (x-1)^2 + epsilon: cancellation-sensitive but strictly positive.
+    // Check whole-box enclosure against exact values, including endpoints.
+    for (int power : {-100, -50, -20}) {
+        const Dyadic epsilon = Dyadic::from_double(std::ldexp(1.0, power));
+        const DPoly polynomial{dadd(Dyadic(1), epsilon), Dyadic(-2), Dyadic(1)};
+        const double lo = 1.0 - 1e-8, hi = 1.0 + 1e-8;
+        const Interval box = exact_centered_eval(polynomial, lo, hi);
+        pass &= finite_interval(box);
+        const Interval point = exact_centered_eval(polynomial, 1.0, 1.0);
+        pass &= finite_interval(point) && point.lo > 0.0;
+        for (double x : {lo, 1.0, hi}) {
+            int lower = 0, upper = 0;
+            const Dyadic value = deval(polynomial, Dyadic::from_double(x));
+            pass &= dcompare(Dyadic::from_double(box.lo), value, &lower) && lower <= 0;
+            pass &= dcompare(value, Dyadic::from_double(box.hi), &upper) && upper <= 0;
+        }
+    }
     for (int power : {-400, -40, 0, 40, 400}) {
         const double s = std::ldexp(1.0, power);
         const Interval zero = exact_interval(0.0), one = exact_interval(s);
@@ -1336,7 +1398,10 @@ bool arithmetic_unit_checks()
          exact_interval(-2.0000000000001), exact_interval(1.0)},
         {Dyadic::from_double(1.0000000000001),
          Dyadic::from_double(-2.0000000000001), Dyadic(1)},
-        false, 0);
+        true, 2);  // Exact evaluation now resolves these distinct roots.
+    interval_check(
+        {exact_interval(1.0), exact_interval(-2.0), exact_interval(1.0)},
+        {Dyadic(1), Dyadic(-2), Dyadic(1)}, false, 0);  // True double root.
     interval_check(
         {exact_interval(1.0), {-1.0e-16, 1.0e-16}},
         {Dyadic(1), Dyadic(0)}, false, 0);
