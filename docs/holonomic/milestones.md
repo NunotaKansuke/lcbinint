@@ -13,7 +13,7 @@ branch `claude/lcbinint-holonomic-solver-b7d3cd`。設計書 14 節の M0–M8 �
 | M1 | 係数・判別式・追加イベントの数式検証 + radial event 列挙 | `checks/holonomic/symbolic_checks.py`, `holonomic_ref/{polynomial_family,radial_events}.py`, `tests/holonomic/test_{symbolic_identities,radial_event_completeness}.py` | 全 boxed 恒等式が exact/複数特殊化で一致。dense/random/caustic stress で crossing-count のジャンプが全て列挙イベント近傍 | **完了** (`checkpoint_M1.md`) |
 | M2 | radial トポロジー・セル・incidence graph | `holonomic_ref/topology.py` | 各セルの円周交差 0/2/4・内部円弧 <=2 を分類、`CellPlan` 生成、代表角符号で empty/full 判定 | **完了** (`checkpoint_M2.md`) |
 | M3 | 周期還元 reference (7形式→留数ゼロ6形式→観測形式) | `holonomic_ref/period_reduction.py`, `connection.py` | 係数恒等式・留数条件・7D/6D 周期値・直接角度積分が rtol ~1e-10 で一致 | **完了** (`checkpoint_M3.md`) |
-| M4 | 通常セルの輸送 + flux (Python reference) | `holonomic_ref/transport.py`, `seed.py`, `root_pair.py` | 複数セルで F0,F_{1/2} が直接二重求積と一致。条件数記録 | TODO |
+| M4 | 通常セルの輸送 + flux (Python reference) | `holonomic_ref/{transport,seed,root_pair,flux,direct_quadrature}.py` | 複数セルで F0,F_{1/2} が直接二重求積と一致。条件数記録 | **完了** (`checkpoint_M4.md`) |
 | M5 | 特異パッチ + 全 epoch reference | `holonomic_ref/singular.py`, `solver.py` | 監査領域で精度と失敗率を別々に報告、silent miss なし | TODO |
 | M6 | value/JVP 整合 (5成分 Jacobian) | forward-mode jet, `tests/holonomic/test_value_jvp_consistency.py` | 中心差分収束、チャート変更前後で整合、既存経路との勾配比較 | TODO |
 | M7 | C++ production 実装 + 高速化 | `src/lcbinint/magnification/holonomic/*.hpp` + `solver.cpp`, versioned FFI | 同じ精度・被覆で linear-LD value+Jacobian の end-to-end median >= 2x, p95 悪化 <= 25% | TODO |
@@ -29,3 +29,14 @@ branch `claude/lcbinint-holonomic-solver-b7d3cd`。設計書 14 節の M0–M8 �
 4. `xs = ys = 0` (原点上の対称ソース) は Q が全 R で二重根を持つ特異軌跡。
    接続は fail closed し、M4/M5 は輸送で通さず singular patch として扱う
    (`checkpoint_M3.md` §4)。
+5. M4 flux は seed を 1 点輸送しない。ψ 基底の cell 条件数は最大 ~1e12
+   (plan §15 の "monomial 基底の悪条件" を実測で確認) なので、reference flux
+   は各動径求積ノードで周期を再アンカーする。well-conditioned な
+   flux-priority 基底と単一 seed 輸送は plan 通り M7/M8 送り
+   (`checkpoint_M4.md` §4)。
+6. `cell_conditioning` は既定で exact sympy 接続を使う。float 版
+   `connection_matrix_numeric` は θ→π 次数落ち近傍で偽の ~1e20 条件数を返す
+   ため、benign-config 専用の高速プレビュー扱い (`checkpoint_M4.md` §4-5)。
+7. `connection_matrix_numeric` は変数バランス (`t = c τ`, `c=(|q0/q8|)^{1/8}`)
+   と次数落ち時の oracle ハンドオフ (`|q8| < 1e-6·max|q|`) で硬化。
+   小 ρ で係数が 6 桁以上分散する問題への対策 (`checkpoint_M4.md` §5)。
