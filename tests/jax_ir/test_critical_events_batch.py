@@ -150,12 +150,11 @@ def test_failed_finer_pass_preserves_last_complete_estimate():
     np.testing.assert_array_equal(approximate.value_error,strict.value_error)
     np.testing.assert_array_equal(approximate.gradient_error,strict.gradient_error)
 
-@pytest.mark.xfail(strict=True,reason='pre-existing neighboring x/rho root-isolation failures; independent retained-estimate reference passes')
-def test_retained_estimate_native_fd_neighbors_remain_unresolved():
+def test_retained_estimate_native_fd_neighbors():
     # Reproduced against the pre-retention 7a7fe7f static library:
     # x+5e-6: interval_newton_derivative_contains_zero;
-    # rho-5e-6: critical_value_contains_zero. Preserve all three steps rather
-    # than selecting only the two larger successful ones.
+    # rho-5e-6: critical_value_contains_zero. Exact-centered evaluation and
+    # exact sign fallback resolve both without dropping the smallest FD step.
     p=jnp.array([.05135221895347432,.22523542312781708,.01,10.,1.2])
     options=dict(jac=True,limb_c=.4,value_atol=1e-8,value_rtol=1e-8,gradient_atol=1e-5)
     approximate=call(p,**options)
@@ -166,8 +165,23 @@ def test_retained_estimate_native_fd_neighbors_remain_unresolved():
             delta=jnp.eye(5)[axis]*h
             plus=call(p+delta,**options)
             minus=call(p-delta,**options)
+            assert np.isfinite(plus.magnification).all() and np.isfinite(plus.jacobian).all()
+            assert np.isfinite(minus.magnification).all() and np.isfinite(minus.jacobian).all()
             row.append(float((plus.magnification[0]-minus.magnification[0])/(2*h)))
         fd.append(row)
     fd=np.array(fd);extrapolates=(4*fd[1:]-fd[:-1])/3
     np.testing.assert_allclose(extrapolates,np.broadcast_to(approximate.jacobian[0],(2,5)),
                                rtol=0.,atol=3e-4)
+
+@pytest.mark.parametrize('xy', [
+    [.0513581406932155,.22523725493657978],  # warmup step 2745
+    [.03214255105050703,.21929317650246682], # production step 4776
+    [.04241247170456686,.22247003524138212], # production step 5524
+    [.03214318990199859,.21929337412239128], # production step 5908
+    [.05135854391869902,.2252373796688386],  # production step 7013
+])
+def test_traced_nonfinite_leapfrog_epoch_is_certified(xy):
+    r=call(jnp.array([*xy,.01,10.,1.2]),jac=True,limb_c=.4,
+           value_atol=1e-8,value_rtol=1e-8,gradient_atol=1e-5,strict=True)
+    assert r.status[0] == 0
+    assert np.isfinite(r.magnification).all() and np.isfinite(r.jacobian).all()
