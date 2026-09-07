@@ -384,6 +384,7 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
     }
 
     bool reliable = true;
+    bool refinement_certificate_lost = false;
 
     Jet flux_k(0.0);
     Jet flux_g(0.0);
@@ -446,6 +447,17 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
                     tg.mquarter = tg.mquarter + wg * integ.mquarter;
                 }
             }
+            if (!reliable && settings.critical_events) {
+                if (have_prev) {
+                    // A failed finer pass must not overwrite a complete
+                    // earlier estimate with partial cell flux. Keep both K/G
+                    // estimates, finish the other bands, and report that this
+                    // row could not complete its certification refinement.
+                    reliable = true;
+                    refinement_certificate_lost = true;
+                }
+                break;
+            }
             acc_k = tk;
             acc_g = tg;
             if (have_prev) {
@@ -506,13 +518,17 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
         out.value_error = primal.error_estimate +
             std::fabs(mag_j.value - primal.magnification);
         for (std::size_t p = 0; p < 5; ++p) out.jacobian[p] = mag_j.derivative[p];
+        if (refinement_certificate_lost)
+            out.unsafe_reason = "finer radial pass failed; retained complete earlier estimates";
     } else {
         // Keep the primal value/error as a valid value result, but do not leak
         // a partial or non-finite reconstruction as a Jacobian.
         out.unsafe_reason = "structurally unreliable ForwardJet reconstruction";
         out.jacobian.fill(std::numeric_limits<double>::quiet_NaN());
+        if (settings.critical_events)
+            out.grad_error = std::numeric_limits<double>::quiet_NaN();
     }
-    out.grad_reliable = structurally_reliable && std::isfinite(absolute_error)
+    out.grad_reliable = structurally_reliable && !refinement_certificate_lost && std::isfinite(absolute_error)
         && (absolute_error <= grad_tol);
     return out;
 }
