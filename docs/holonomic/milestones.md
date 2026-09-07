@@ -9,14 +9,14 @@ branch `claude/lcbinint-holonomic-solver-b7d3cd`。設計書 14 節の M0–M8 �
 
 | M | 目的 | 成果物 | 完了条件 (採用ゲート) | 状態 |
 |---|---|---|---|---|
-| M0 | baseline 固定・計器化 | `benchmarks/holonomic/baseline_probe.py`、`evidence/holonomic/baseline_M0.json` | 現行ソルバ cost の分解が再現可能 | **完了** (`checkpoint_M0.md`) — inverse-ray `binary_ray_shooting` の value+Jacobian (central FD ×11) cost は **強く bimodal**: median 15 ms / p90 0.12 s / **p95 4.38 s**、遅い裾 9.3% は全て extreme-q (`q ≲ 1.4e-3`, planetary caustic をグリッドで解像)。jax 微分 backend は polar epoch FFI 不在で使用不可 → baseline は native inverse-ray の有限差分。M7 gate を裾 (p90/p95/p99) + Jacobian 品質中心に再定義 (設計判断 18) |
+| M0 | baseline 固定・計器化 | `benchmarks/holonomic/baseline_probe.py`、`evidence/holonomic/baseline_M0.json` | 現行ソルバ cost の分解が再現可能 | **完了** (`checkpoint_M0.md`) — inverse-ray `binary_ray_shooting` の value+Jacobian (central FD ×11) cost は **強く bimodal**: median 15 ms / p90 0.12 s / **p95 4.38 s**、遅い裾 9.3% は全て extreme-q (`q ≲ 1.4e-3`, planetary caustic をグリッドで解像)。jax 微分 backend は polar epoch FFI 不在で使用不可 → baseline は native inverse-ray の有限差分。bimodal は評価データとして記録するが採用 gate は変更しない (設計判断 18, 20) |
 | M1 | 係数・判別式・追加イベントの数式検証 + radial event 列挙 | `checks/holonomic/symbolic_checks.py`, `holonomic_ref/{polynomial_family,radial_events}.py`, `tests/holonomic/test_{symbolic_identities,radial_event_completeness}.py` | 全 boxed 恒等式が exact/複数特殊化で一致。dense/random/caustic stress で crossing-count のジャンプが全て列挙イベント近傍 | **完了** (`checkpoint_M1.md`) |
 | M2 | radial トポロジー・セル・incidence graph | `holonomic_ref/topology.py` | 各セルの円周交差 0/2/4・内部円弧 <=2 を分類、`CellPlan` 生成、代表角符号で empty/full 判定 | **完了** (`checkpoint_M2.md`) |
 | M3 | 周期還元 reference (7形式→留数ゼロ6形式→観測形式) | `holonomic_ref/period_reduction.py`, `connection.py` | 係数恒等式・留数条件・7D/6D 周期値・直接角度積分が rtol ~1e-10 で一致 | **完了** (`checkpoint_M3.md`) |
 | M4 | 通常セルの輸送 + flux (Python reference) | `holonomic_ref/{transport,seed,root_pair,flux,direct_quadrature}.py` | 複数セルで F0,F_{1/2} が直接二重求積と一致。条件数記録 | **完了** (`checkpoint_M4.md`) |
 | M5 | 特異パッチ + 全 epoch reference | `holonomic_ref/singular.py`, `solver.py`, `benchmarks/holonomic/audit.py`, `tests/holonomic/test_solver_audit.py` | 監査領域で精度と失敗率を別々に報告、silent miss なし | **完了** (`checkpoint_M5.md`) — 監査 36 点: 精度 median rel 3.1e-5 / p90 2.4e-4 / max 5.9e-4 (OK_VALIDATED 27点)、失敗率 8/36 = 22.2%、silent miss 0、GATE PASS。full suite 252 passed / 3 skipped |
 | M6 | value/JVP 整合 (5成分 Jacobian) | `holonomic_ref/jacobian.py` (有限数値再構成 jet)、`solve_epoch(with_jacobian=True)`、`tests/holonomic/test_value_jvp_consistency.py` | 中心差分収束、チャート変更前後で整合、既存経路との勾配比較 | **完了** (`checkpoint_M6.md`) — value と grad_mu を単一の per-cell Gauss–Chebyshev 再構成から生成。`epoch_flux` 中心差分との比較: plan15/resonant 全成分 rel ≤ 1e-3、benign 小 ρ の ∂μ/∂ρ (激しい相殺) と ∂μ/∂a (~0) のみ oracle 律速で ~1e-2。independent `image_plane_flux(+evs)` Richardson とも plan15 ≤ 1.6e-4。n_r 収束 O(1/n_r²) (48→192 で 6.6e-3→4.5e-4)。IFT-θ vs IFT-t チャート整合 2.8e-14。特異パッチ / degenerate quartic / full circle は `GRADIENT_UNRELIABLE` で fail closed。test_value_jvp_consistency.py 17 passed |
-| M7 | C++ production 実装 + 高速化 | `src/lcbinint/magnification/holonomic/*.hpp` + `solver.cpp`, versioned FFI | 同じ精度・被覆で linear-LD value+Jacobian の end-to-end median >= 2x, p95 悪化 <= 25% | TODO |
+| M7 | C++ production 実装 + 高速化 | `src/lcbinint/magnification/holonomic/*.hpp` + binding `_lcbinint_holonomic_m7` | 同じ精度・被覆で linear-LD value+Jacobian の end-to-end **median >= 2x faster**、かつ p95/p99 non-regressing (理想的には大幅高速化)、analytic Jacobian 品質 (設計判断 20) | TODO |
 | M8 | 高リスク上積み最適化 | seed-only tangency、rank-change 解析接続、epoch topology continuation | M7 通過が前提 | TODO |
 
 ## 判断済みの設計修正 (理由は各 checkpoint に記録)
@@ -79,12 +79,30 @@ branch `claude/lcbinint-holonomic-solver-b7d3cd`。設計書 14 節の M0–M8 �
 18. M7 baseline は native inverse-ray `binary_ray_shooting` の central FD
     (jax 微分 backend は `polar_epoch_directional_ffi` 不在 + 共有 .so の
     再ビルド禁止で使用不可)。実測で incumbent の value+Jacobian cost は
-    強く bimodal (median 15 ms / p95 4.38 s、遅い裾は extreme-q のみ) と
-    判明したため、plan §14 の「median ≥ 2x」を主 gate から外し、**p90/p95/
-    p99 end-to-end + Jacobian 品質 (analytic jet vs grid-FD noise) + 同一
-    精度・被覆** を M7 採用条件とする。median は「非退化 (≤ baseline)」のみ
-    要求 (`checkpoint_M0.md` §2, §4)。
+    強く bimodal (median 15 ms / p95 4.38 s、遅い裾は extreme-q のみ)。
+    この bimodal 性は **評価データ** として p90/p95/p99 を必ず併記する
+    根拠になるが、採用 gate は plan §14 の「median ≥ 2x」を維持する
+    (設計判断 20 で確定、`checkpoint_M0.md` §4 の再フレーム提案は撤回)。
 19. M7 C++ は `build-holonomic-m7/` に直接 cmake でビルドし
     `sys.modules["lcbinint._lcbinint"]` 事前投入で読み込む。共有
     `site-packages/_lcbinint*.so` は絶対に上書きしない
     (`project_editable_install_serves_stale_so.md`、`checkpoint_M7.md` で詳細)。
+
+20. **M7 gate 再フレームの撤回** (ユーザ指示 2026-09-07)。M7 の目的は
+    bounded-tail 化だけでなく、通常の binary-scale regime を含む
+    end-to-end 高速化。採用条件は:
+    (1) median >= 2x faster than incumbent (元の採用条件、維持);
+    (2) p95/p99 non-regressing、理想的には大幅高速化;
+    (3) 同一 accuracy / failure coverage;
+    (4) analytic Jacobian 品質。
+    Python reference が 0.4 s、C++ 見積もりが 3–12 ms であることを理由に
+    目標を下げない。M7 の仕事はその 3–12 ms をさらに削り、通常ケースでも
+    既存 ~2 ms を明確に下回る設計にすること。必須最適化対象:
+    D14 event solve/certificate の amortization; seed/re-anchor 削減;
+    Gauss–Manin connection matrix の precompute / factor reuse;
+    full-cell transport 安定化; fixed-size SIMD 化;
+    heap allocation / dynamic dispatch 排除; branchless hot path;
+    trajectory 内 geometry reuse / warm-start;
+    value+Jacobian の fused evaluation。
+    median 2x 未達の場合は目標変更ではなく、profiling を分解して支配項を
+    特定し M8 最適化候補を具体提示する。
