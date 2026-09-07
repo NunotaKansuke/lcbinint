@@ -510,6 +510,7 @@ AlgebraicBoundaryJacobian experimental_algebraic_boundary_jacobian(
         // Keep the primal value/error as a valid value result, but do not leak
         // a partial or non-finite reconstruction as a Jacobian.
         out.unsafe_reason = "structurally unreliable ForwardJet reconstruction";
+        out.jacobian.fill(std::numeric_limits<double>::quiet_NaN());
     }
     out.grad_reliable = structurally_reliable && std::isfinite(absolute_error)
         && (absolute_error <= grad_tol);

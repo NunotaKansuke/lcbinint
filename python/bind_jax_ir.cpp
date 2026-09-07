@@ -5768,7 +5768,7 @@ ffi::Error algebraic_boundary_batch_impl(
                                       std::int32_t row_refinement,
                                       std::int32_t row_root_work,
                                       std::int32_t row_lens_work) {
-            magnification->typed_data()[row] = nan;
+            if (strict) magnification->typed_data()[row] = nan;
             status->typed_data()[row] = algebraic_status_value_uncertified;
             method->typed_data()[row] = row_method;
             refinement_level->typed_data()[row] = row_refinement;
@@ -5776,7 +5776,8 @@ ffi::Error algebraic_boundary_batch_impl(
             lens_evaluation_count->typed_data()[row] = row_lens_work;
             fallback_used->typed_data()[row] = false;
             if constexpr (IncludeJacobian) {
-                for (std::size_t col = 0; col < 5; ++col) jacobian->typed_data()[row * 5 + col] = nan;
+                if (strict) for (std::size_t col = 0; col < 5; ++col)
+                    jacobian->typed_data()[row * 5 + col] = nan;
             }
         };
         const double x = source_x.typed_data()[row];
@@ -5839,6 +5840,10 @@ ffi::Error algebraic_boundary_batch_impl(
             const double point_value_budget = atol + rtol *
                 std::max(1.0, std::abs(point_jacobian.magnification));
             if (!(point_value_error <= point_value_budget)) {
+                if constexpr (IncludeJacobian) {
+                    for (std::size_t col = 0; col < 5; ++col)
+                        jacobian->typed_data()[row * 5 + col] = point_jacobian.jacobian[col];
+                }
                 set_budget_failure(algebraic_method_point, 0, point_root_work, point_lens_work);
                 continue;
             }
@@ -5889,6 +5894,10 @@ ffi::Error algebraic_boundary_batch_impl(
         lens_evaluation_count->typed_data()[row] = lens_work;
         const double value_budget = atol + rtol * std::max(1.0, std::abs(result.magnification));
         if (!(result.value_error <= value_budget)) {
+            if constexpr (IncludeJacobian) {
+                for (std::size_t col = 0; col < 5; ++col)
+                    jacobian->typed_data()[row * 5 + col] = result.jacobian[col];
+            }
             set_budget_failure(algebraic_method_finite, refinement, root_work, lens_work);
             continue;
         }

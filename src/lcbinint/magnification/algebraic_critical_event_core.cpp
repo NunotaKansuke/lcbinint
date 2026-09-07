@@ -1629,7 +1629,35 @@ CriticalEventNumericalResult enumerate_and_lift_critical_events(
         [](const IsolatedRoot& a, const IsolatedRoot& b) {
             return a.lo < b.lo;
         });
+    const auto witness_sign = [&](double point) {
+        const int enclosed = strict_sign(ieval(h_v, exact_interval(point)));
+        if (enclosed != 0) return enclosed;
+        const Dyadic exact = deval(exact_h_v, Dyadic::from_double(point));
+        return !exact.valid || exact.numerator == 0 ? 0
+            : (exact.numerator > 0 ? 1 : -1);
+    };
     for (std::size_t i = 1; i < roots_v.size(); ++i) {
+        // A valid identity carrier may be much wider than its locator.
+        // Contract the sign witnesses before applying the separation gate;
+        // never confuse a coarse carrier with genuinely unresolved roots.
+        for (int attempt = 0; attempt < 32; ++attempt) {
+            auto& left = roots_v[i - 1];
+            auto& right = roots_v[i];
+            const double gap = right.witness_lo - left.witness_hi;
+            if (gap >= 16.0 * std::max(left.witness_hi - left.witness_lo,
+                                      right.witness_hi - right.witness_lo)) break;
+            bool changed = false;
+            for (auto* root : {&left, &right}) {
+                const double lo = 0.5 * root->witness_lo + 0.5 * root->lo;
+                const double hi = 0.5 * root->witness_hi + 0.5 * root->hi;
+                if (lo < hi && witness_sign(lo) * witness_sign(hi) == -1) {
+                    changed |= lo > root->witness_lo || hi < root->witness_hi;
+                    root->witness_lo = lo;
+                    root->witness_hi = hi;
+                }
+            }
+            if (!changed) break;
+        }
         const double previous_width =
             2.0 * (roots_v[i - 1].witness_hi - roots_v[i - 1].witness_lo);
         const double width = 2.0 * (roots_v[i].witness_hi - roots_v[i].witness_lo);
@@ -1649,8 +1677,8 @@ CriticalEventNumericalResult enumerate_and_lift_critical_events(
         const Interval derivative = iintersect(
             ieval(h_prime, carrier),
             centered_eval(h_prime, h_second, carrier.lo, carrier.hi));
-        const int left = strict_sign(ieval(h_v, exact_interval(carrier.lo)));
-        const int right = strict_sign(ieval(h_v, exact_interval(carrier.hi)));
+        const int left = witness_sign(carrier.lo);
+        const int right = witness_sign(carrier.hi);
         if (!finite_interval(carrier) || !(carrier.lo > 0.0) ||
             !(carrier.hi > carrier.lo) || root.lo < carrier.lo ||
             root.hi > carrier.hi || left * right != -1 ||
