@@ -2454,3 +2454,133 @@ that kept Gauss–Manin transport off the critical path is now cleared.
 * `scratchpad/basis_b_probe.py`, `scratchpad/basis_b_probe3.py` — probes
   (scratchpad, not committed).
 * No solver code touched; `holonomic_ref` pure-Python oracle only.
+
+---
+
+## §28 Holonomic rescue — feasibility spike (c): coupled (m,v)+K+flux-priority transport (2026-09-09)
+
+Spike **(c)**, the last feasibility step before the C++ 3-solver benchmark:
+do the shipped `(m,v)` root-pair state, the spike-(a) fold rule
+`(2/ρ)Φ_arc = v·K`, and the spike-(b) flux-priority jet combine into **one
+per-arc state, seeded once per radial cell**, carrying BOTH flux integrands
+across the whole cell with no angular re-anchoring — and does the 3-solver
+benchmark reach the ~1.47× epoch ceiling? Feasibility on the pure-Python
+`holonomic_ref` oracle; a GO authorises the C++ benchmark (the implementation
+of the unified engine, NOT part of this spike).
+
+### 28.1 The coupled state (derived + numerically confirmed)
+
+`X = [ (m,v) | K | y_0..d ]` is **block-triangular**:
+
+* `(m,v)` is **autonomous** — `root_pair_dR` needs only itself + the quartic
+  coefficients.
+* `K(R) = K[(m,v)(R); R]` — the spike-(a) 8-node x-chart quadrature of
+  `w = √S₂/(A^{3/2}√B)`, `S₂ = P/((t−t₋)(t₊−t))` the exact deflation.
+  `(2/ρ)Φ_arc = v·K` exactly, for **any** bounded arc, fold or not.
+* `y_k = s^k Φ_arc^{(k)}(R_c)/k!` — the spike-(b) jet, `s = max(H, r_a/4)`.
+  Depends on the local germ of `Φ_arc` only.
+
+No `K ↔ y` coupling, no feedback into `(m,v)`. Coupled conditioning
+`= max(cond(m,v), cond(K|m,v), cond(y))` — cannot exceed the worst block.
+
+**Three regimes; cheap router (0 QAWSE for the fold path):**
+`dist_fold = |v(R_c)/(dv/dR)(R_c)|` (algebraic distance to the band-birth
+radius, since `v ~ (R−R*)` near a fold).
+
+| regime | when | transport | seed cost |
+|---|---|---|---|
+| **1** fold in reach | `dist_fold < 2H` | `(m,v)` RK4 + 8-node x-chart K, `(2/ρ)Φ_arc = v·K` | **0 QAWSE** (algebraic `(m,v)` pair) |
+| **2** generic (incl. θ→π drop) | not R1 **and** `decay_ρ ≥ 6` | cheap `d+3` QAWSE jet at `R_c`, Taylor packet | `d+3 = 9` QAWSE |
+| **3** fail closed | `arc_chart` raises / no `(m,v)` pair / K non-finite | incumbent angular √φ sweep + explicit status | (per-node, by construction) |
+
+**Key structural point:** regime 1 (the K-rule) is the **universal**
+transport — `S₂` is a positive smooth polynomial wherever the arc exists, so
+the x-chart K degrades nowhere, including through the θ→π degree drop (the
+reflected `arc_chart` chart keeps the near-π arc bounded). The jet is **not**
+more general — it fails when a fold / real `Φ_arc` branch point sits inside
+its analyticity radius (`decay_ρ → 1…3`, recon error 1e-2…1e-4). The jet's
+only value is **speed** (P6: 66× the direct kernel vs 15× for K). Regime 1
+alone removes both the quartic warm solve (14%) and the angular sweep (18%),
+because 15× ≫ the ~3× that would leave K as the bottleneck → **the 1.47×
+ceiling is reachable from regime 1 alone**; regime 2 only widens the margin.
+
+### 28.2 Probe (`scratchpad/spike_c_probe.py`, pure-Python oracle)
+
+6 geometries (memo-s15, resonant, close, planet-wide q=1e-3, caustic-xing,
+near-full), 41 `arcs` cells, every `chart_p4` degree-drop cell. Host pinned
+0-7, load ~14–16, 2026-09-09 04:47 / 04:51.
+
+| probe | result |
+|---|---|
+| **P1/P2 one seed → whole cell** | Router: **38 regime 1, 3 regime 2, 0 regime 3**. Regime 1 F_half sup rel err **3e-13…1e-10** (34/38), **1e-9…3e-8** (4 wide cells); F0 ~0.5× that (1e-14…1.6e-8). Regime 2 jet F_half **2.8e-8…4.8e-7** (`decay_ρ` 7…12); K-rule note-bracket on the same 3 cells **9e-14…1e-11**. All 8 θ→π degree-drop cells transported **3e-13…2e-8** through the apparent singularity. Note-bracket over all 41: jet accurate (≤1e-7) iff `decay_ρ ≳ 10`, K-rule accurate always — router picks correctly every time. |
+| **P5 routing + coverage** | 41/41 cells covered by a transported regime (38 R1 + 3 R2), **0 fail-closed**, all 6 geometries. regime 3 not triggered for any dominant arc here (path present by construction). |
+| **P3 block-triangular conditioning** | `κ(m,v)` seed→edge: fold cells 1e0…5e5 (expected v→0 relative amplification, seed-level absolute drift), generic 1e0…8e0. `κ K` **1e-4…0.16** (de-amplifies). `cond(y)` = the spike-(b) number, unchanged by coupling. Coupled = max of blocks, as derived. |
+| **P4 whole-epoch μ vs `epoch_flux`** | Dominant arc transported, others oracle, fixed 32-node GL radial rule per cell: `μ_uniform` to **1.5e-5**, `μ_linear_ld(0.6)` to **7.6e-6**. Worst-cell 3.3e-6 = jet cell caustic-xing [1.0333,1.0528] evaluated to the edge (regime 1 on it is 1e-11); shrink the jet sub-interval / hand edges to K. |
+| **P6 3-solver kernel cost** | (1) direct 1.00× → (2) +(m,v), no quartic solve **1.37×** kernel (== shipped `HOLO_MV_TRANSPORT` −8.7% epoch, §25) → (3a) +holo K-rule **15×**, (3b) +holo jet **66×**. Epoch `x = 1/(1 − 0.32·f)`; P5 gives `f = 1.00` → **x → 1.47×**, the advisor ceiling. (Absolute µs meaningless under load ~15; ratio + op-count are the signal, as (a)/(b).) |
+
+### 28.3 Verdict
+
+1. one seed per cell carries both flux integrands — **PASS** (38/41 ≤1e-10,
+   3/41 ≤3e-8)
+2. state is block-triangular, coupling adds no ill-conditioning — **PASS**
+3. cheap algebraic router picks the right regime every time — **PASS**
+4. θ→π degree drop transported, not re-anchored — **PASS** (8/8 cells)
+5. whole-epoch μ reproduced (1.5e-5 / 7.6e-6) — **PASS**
+6. 3-solver benchmark reaches the ceiling — **PASS** (1.00× → 1.37× kernel /
+   ~1.16× epoch → 15×/66× holo; `f = 1.00` → 1.47× ceiling)
+
+**OVERALL: GO.** The coupled `(m,v)+K+flux-priority` per-arc state is a
+single block-triangular transport that, seeded once per radial cell, carries
+both flux integrands across the whole cell — fold cells, generic cells, θ→π
+degree drop alike — to ≤3e-8 on F_half and ≤2e-8 on F0, with **100% cell
+coverage and 0 fail-closed** over 6 geometries. The cheap algebraic router
+(`dist_fold` + `decay_ρ`, no QAWSE for the fold path) selects K-rule or jet
+correctly on every cell. The `(m,v)` stage alone gives ~1.16× epoch (== the
+shipped flag); the full holonomic stage removes both the quartic solve and
+the angular sweep, so the **~1.47× epoch ceiling is reachable at 100%
+coverage**. Proceed to the C++ 3-solver benchmark of the unified engine.
+
+### 28.4 Scope / caveats
+
+* Feasibility on the oracle. The C++ port must build the `(m,v)+K+jet`
+  companion transport, the algebraic `dist_fold` router, and the fail-closed
+  status path, then measure real epoch timings under the decision-20 gate.
+  This spike does **not** touch solver code.
+* Wide cells (`w ≳ 0.08`) show K-rule F_half err to 3e-8 from RK4 `(m,v)`
+  accumulation over the node spacing (fixed substep here `min(3e-4, H/6)`);
+  a finer fixed substep / sub-cell split makes it integration-limited only.
+* Jet is least accurate at cell edges (P4 3.3e-6); planner should shrink the
+  jet's trusted sub-interval or hand edge nodes to the K-rule. K has no such
+  edge degradation.
+* `decay_ρ` from a 9-node local Chebyshev tail is noisy at the low end
+  (reports ~1 when the tail does not decay cleanly) — conservative gate
+  (≥6), so noise costs jet-coverage, never accuracy (those cells → K-rule).
+* regime 3 (genuine θ=0/θ=π straddle, `arc_chart` raises) did not occur for
+  any dominant arc here. Sub-dominant π-straddling arcs would fail closed to
+  the angular sweep with explicit status (never silent approximation).
+
+### 28.5 Status / next
+
+* (a) **DONE** (§26), (b) **DONE** (§27), (c) **DONE** (this study). Evidence:
+  `evidence/holonomic/coupled_transport_feasibility.txt`.
+* **NEXT (gated on this GO): C++ 3-solver benchmark of the unified engine** —
+  (1) current fastest direct, (2) +(m,v) transport only, (3) +(m,v)+
+  regularised holonomic (K-rule router + flux-priority jet on `decay_ρ ≥ 6`
+  cells), under decision-20 (full-Jac median ≥ 2×, p90/p95/p99
+  non-regressing). This is the implementation of the unified finite-source
+  engine.
+* The (m,v) stage of the benchmark **is** the held `HOLO_MV_TRANSPORT`
+  default-ON flip + Phase C step 2 (shared `_lcbinint.so`) — coordinate with
+  that timing window.
+* Fold the K-rule + jet companion transport into `flux_jacobian_integrate`
+  behind a `HOLO_HOLONOMIC_TRANSPORT` flag (OFF by default), mirroring the
+  `HOLO_MV_TRANSPORT` rollout (cold parity → m7_reference → ctest → epoch
+  timing).
+* Unrelated held items unchanged: Phase D value lanes, Phase F M3 JVP.
+
+### 28.6 Files
+
+* `evidence/holonomic/coupled_transport_feasibility.txt` (NEW) — derivation +
+  P1/P2/P3/P4/P5/P6 probe results + verdict.
+* `scratchpad/spike_c_probe.py` — probe (scratchpad, not committed).
+* No solver code touched; `holonomic_ref` pure-Python oracle only.
