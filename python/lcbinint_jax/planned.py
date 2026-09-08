@@ -18,8 +18,9 @@ from .cpp_backend import (
     binary_hexadecapole_batch_ffi,
     binary_inverse_ray_cartesian_batch_ffi,
     binary_inverse_ray_polar_ffi,
+    binary_point_source_batch_ffi,
+    cpp_point_source_batch_ffi_available,
 )
-from .multipole import binary_point_source_magnification
 from .trajectory import _tile_capacity
 
 
@@ -78,11 +79,20 @@ def _set_group(array, indices, values):
 
 
 def _point_batch(source_x, source_y, separation, mass_ratio):
-    result = jax.vmap(
-        lambda x, y: binary_point_source_magnification(
-            x, y, separation, mass_ratio
+    if cpp_point_source_batch_ffi_available():
+        result = binary_point_source_batch_ffi(
+            source_x, source_y, separation, mass_ratio
         )
-    )(source_x, source_y)
+    else:
+        # Developer builds without the optional point FFI retain a correct
+        # differentiable fallback; the prepared report records the same route.
+        from .multipole import binary_point_source_magnification
+
+        result = jax.vmap(
+            lambda x, y: binary_point_source_magnification(
+                x, y, separation, mass_ratio
+            )
+        )(source_x, source_y)
     return result.magnification, ~result.root_failure
 
 
