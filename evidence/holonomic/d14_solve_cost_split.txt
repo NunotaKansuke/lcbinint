@@ -1,0 +1,80 @@
+Phase B step 0 -- radial_events / D14 cost split  (2026-09-08)
+===========================================================
+
+Question: the phase-B direction is 'keep every bit of information D14
+carries, cut the cost of SOLVING it'.  Attack the solve, or also the
+__float128 coefficient construction?
+
+  taskset -c 0-7 ./build-holonomic-m7/bench_d14_split /tmp/bench_cases.tsv 120
+  (108 (config,u) points, best-of-120 per stage)
+
+ 21:11:43 up 3 days, 23:50,  2 users,  load average: 10.19, 10.10, 10.10
+loaded 108 cases, reps=120
+
+== radial_events cost split (best-of-120 per case) ==
+  pcoef     median   0.0123  p90   0.0124  max   0.0125  ms   (   1.2% of radial_events ,   0.6% of epoch )
+  d14c      median   0.0425  p90   0.0429  max   0.0436  ms   (   4.2% of radial_events ,   2.0% of epoch )
+  dsrch     median   0.1411  p90   0.1412  max   0.1414  ms   (  13.8% of radial_events ,   6.5% of epoch )
+  qpol      median   0.6885  p90   2.4621  max   2.5010  ms   (  67.5% of radial_events ,  31.9% of epoch )
+  drr       median   0.0028  p90   0.0159  max   0.0242  ms   (   0.3% of radial_events ,   0.1% of epoch )
+  side      median   0.1229  p90   0.1412  max   0.1705  ms   (  12.1% of radial_events ,   5.7% of epoch )
+  --RE--    median   1.0193  p90   2.8063  max   2.8421  ms
+  epoch     median   2.1612  p90   3.8395  max   4.1364  ms
+
+  cold-quad (fallback) alone : median  12.6600  p90  42.7050  max  47.2116  ms
+  (dsrch+qpol) / radial_events : median 81.4%  p90 93.0%
+  d14_coeffs empty (structural degen) : 0 / 108
+  warm-polish -> cold-quad fallback   : 0 / 108
+
+  -- top 12 by radial_events wall time --
+     case              u     RE(ms)      d14c     solve     epoch
+     rand028         0.5     2.8421    0.0423    2.6423    3.8304
+     rand028         0.0     2.8377    0.0425    2.6263    3.8395
+     on-axis-off     0.5     2.8371    0.0386    2.6368    4.0368
+     on-axis-off     0.0     2.8348    0.0387    2.6375    3.9940
+     rand011         0.0     2.8282    0.0426    2.6131    3.8141
+     rand011         0.5     2.8236    0.0426    2.6117    3.8285
+     caustic-cross   0.0     2.8168    0.0387    2.6340    3.8395
+     caustic-cross   0.5     2.8160    0.0385    2.6288    3.8390
+     extreme-q-lo    0.0     2.8122    0.0419    2.6071    3.4884
+     extreme-q-lo    0.5     2.8089    0.0421    2.6122    3.4802
+     rand010         0.0     2.8082    0.0426    2.6016    3.9209
+     rand010         0.5     2.8054    0.0426    2.6096    3.9514
+
+checksum 345767.404757
+
+----------------------------------------------------------------
+READING
+----------------------------------------------------------------
+* qpol (the __float128 warm polish, 24-iter cap, seeded from the
+  balanced double pre-search) is the whole game: 67.5% of
+  radial_events median, 31.9% of the full value+5-Jac epoch median,
+  and ~all of the radial_events p90 tail (0.69 -> 2.46 ms, a 3.6x
+  spread -- easy roots break at ~5 iters, hard clusters run all 24).
+* d14c (Iq/Jq assembly + disc = (4 Iq^3 - Jq^2)/27, deg-36 __float128
+  polynomial arithmetic) is only 4.2% of radial_events and DEAD FLAT
+  (0.0425 median / 0.0436 max).  Coefficient construction is NOT the
+  bottleneck.  pcoef 1.2%, side (p4=0 + L(v) + misc) 12.1%.
+* (dsrch + qpol) = 81.4% median / 93.0% p90 of radial_events.
+* cold-quad fallback (400 iter, tol 1e-22) alone = 12.66 ms median /
+  42.7 ms p90 -- but 0/108 cases hit it on the bench (the 24-iter
+  warm polish + 1e-12 residual gate is well calibrated here).  It is
+  still the latent p99 landmine (decision-21: wide binaries can trip
+  the double pre-search into spurious complex pairs).
+
+DECISION: attack the SOLVE precision level, not the coefficient build.
+  B1 = compensated Ehrlich-Aberth (double-double EFT) to replace the
+       __float128 warm polish -- D14 kappa ~1e9 is inside double-double
+       range; true quad only for local-kappa>1e14 near-multiple
+       clusters.  Expected: qpol 0.69/2.46 -> ~0.5 ms flat; epoch p90
+       3.84 -> ~2.4 ms; decision-20 p90/p95/p99 headroom restored.
+  B2 = all-root warm-start across trajectory epochs (aberth already
+       has the seed + final_step hooks; QuarticWarm precedent 98% hit).
+  B3 = exact on-axis 6+4 factorization (also a cheaper coeff path
+       on-axis; removes the structural double root) + near-axis
+       perturbative hard-root seeding.
+  B4 = secular transformation -- only if B1+B2 leave a gap.
+
+top-12 by radial_events wall time: rand028, on-axis-off, rand011,
+caustic-cross, extreme-q-lo, rand010 -- solve (dsrch+qpol) is 2.6 ms
+of the 2.8 ms radial_events on every one; d14c is 0.04 ms on every one.
