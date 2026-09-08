@@ -182,7 +182,15 @@ inline double pimg_solve_verify(const PrimaryFrame& pf, double residual_tol,
     if (deg < 1) return 1e30;
 
     const R atol = (sizeof(R) > 8) ? R(1e-26) : R(1e-13);
-    const int aiter = (sizeof(R) > 8) ? 200 : 80;
+    // The Aberth loop breaks on convergence (maxstep < atol); a clean odd
+    // image set always converges well inside 40 iterations at either
+    // precision (measured on the 108-case bench, dbg_aiter).  The iteration
+    // cap only bounds the NON-convergent case -- an extreme-q geometry whose
+    // planet-image pair sits on its caustic and never separates in the
+    // monomial basis even at __float128.  Those escalate to the D14 oracle
+    // regardless, so a tight cap just stops burning __float128 Aberth
+    // iterations on a solve that cannot succeed.
+    const int aiter = 80;
     std::vector<Z> cz = pimg_detail::complex_aberth<R>(P, aiter, atol);
 
     // Verify each root against the ORIGINAL non-holomorphic equation.  A

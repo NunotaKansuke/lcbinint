@@ -69,6 +69,12 @@ target_include_directories(bench_fast_bands PRIVATE "${_SRC}")
 target_compile_options(bench_fast_bands PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_fast_bands PRIVATE quadmath)
 
+# Phase A step 3: fast planner + sec.5.2 local confidence screen -> D14 rate.
+add_executable(bench_fast_bands_screen "${CMAKE_CURRENT_SOURCE_DIR}/bench_fast_bands_screen.cpp")
+target_include_directories(bench_fast_bands_screen PRIVATE "${_SRC}")
+target_compile_options(bench_fast_bands_screen PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_fast_bands_screen PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7

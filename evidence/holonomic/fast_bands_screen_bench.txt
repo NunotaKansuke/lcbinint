@@ -1,0 +1,22 @@
+# bench_fast_bands_screen -- Phase A step 3 (108 cases, best-of-200)
+# 2026-09-08T05:07:32Z  load 11.81 11.40 10.59  taskset -c 0-7
+
+loaded 108 bench cases, reps=200
+
+== screen outcome (108 epochs) ==
+  planner bail (seeds/fb unreliable) : 26  (24.1%)
+  screen PASS                        : 82  (75.9%)
+  screen FAIL                        : 0  (0.0%)
+  --> D14 oracle invocation rate     : 26 / 108  (24.1%)
+  check 4 (complement scan) ran       : 80
+  screen FAIL by check : 1 partition=0  2 fold=0  3 seed-cov=0  4 complement=0
+  worst fold ratio     : min 1.661  p10 1.840  median 1.930  p90 1.937  max 2.100  [pass window 1.55..2.35]
+  screen probe calls   : median 82  p90 115  max 129
+
+== wall time, best-of-200 per epoch, 108 epochs ==
+  seeds + fast_bands + screen : median  0.4481  p90  0.8713  p95  1.0049  p99  1.0814
+  classify_cells (D14 path)   : median  1.2618  p90  3.0252  p95  3.0677  p99  3.2889
+  BLENDED screened path       : median  0.6601  p90  3.1590  p95  3.3220  p99  3.9308
+  speedup screen-only / blended vs D14 (median): 2.82x / 1.91x
+
+checksum 1706826.000
