@@ -15,6 +15,8 @@
 #include <cmath>
 #include <complex>
 #include <cstdint>
+#include <cstring>
+#include <memory>
 #include <deque>
 #include <limits>
 #include <set>
@@ -5671,6 +5673,82 @@ XLA_FFI_DEFINE_HANDLER(
         .Ret<ffi::BufferR1<ffi::S32>>() \
         .Ret<ffi::BufferR1<ffi::PRED>>()
 
+// Exact-input memoization of the authoritative finite-source value/Jacobian.
+// Worker-local storage needs no hot-path lock and never assumes proposal order.
+// Keys include every numerical input; strict/reporting is applied after lookup.
+// Failed solves are not retained. Generation invalidates all workers lazily.
+std::atomic<std::uint64_t> geometry_cache_generation{0};
+std::atomic<std::uint64_t> geometry_cache_hits{0}, geometry_cache_misses{0};
+std::atomic<bool> geometry_cache_enabled{true};
+struct GeometryCacheHash {
+    std::size_t operator()(const std::array<std::uint64_t, 11>& key) const {
+        std::size_t h = 0;
+        for (auto x : key) h ^= std::hash<std::uint64_t>{}(x) + 0x9e3779b9 + (h<<6) + (h>>2);
+        return h;
+    }
+};
+using GeometryJacobian = lcbinint::magnification::autodiff::AlgebraicBoundaryJacobian;
+struct GeometryWorkspace {
+    std::uint64_t generation = 0;
+    std::unordered_map<std::array<std::uint64_t, 11>, GeometryJacobian, GeometryCacheHash> results;
+    std::unique_ptr<lcbinint::magnification::FiniteSourceMagnifier> magnifier;
+};
+GeometryWorkspace& geometry_workspace(bool refresh = true)
+{
+    thread_local GeometryWorkspace workspace;
+    const auto generation = geometry_cache_generation.load(std::memory_order_relaxed);
+    if (refresh && generation != workspace.generation) {
+        workspace.results.clear();
+        workspace.magnifier.reset();
+        workspace.generation = generation;
+    }
+    return workspace;
+}
+const lcbinint::magnification::FiniteSourceMagnifier& prepared_geometry_magnifier(
+    const lcbinint::magnification::FiniteSourceSettings& settings)
+{
+    auto& workspace = geometry_workspace();
+    // Only LD varies in this FFI's FiniteSourceSettings. The magnifier itself
+    // keys/invalidates lens-dependent caches. Critical-event policy bypasses
+    // that caustic workspace; do not attribute exact-result hits to warm seeds.
+    if (!geometry_cache_enabled.load(std::memory_order_relaxed) || !workspace.magnifier ||
+        workspace.magnifier->settings().limb_darkening_c != settings.limb_darkening_c ||
+        workspace.magnifier->settings().limb_darkening_d != settings.limb_darkening_d) {
+        workspace.magnifier = std::make_unique<lcbinint::magnification::FiniteSourceMagnifier>(settings);
+    }
+    return *workspace.magnifier;
+}
+GeometryJacobian cached_geometry_jacobian(
+    const lcbinint::magnification::FiniteSourceMagnifier& magnifier,
+    const lcbinint::magnification::AlgebraicBoundarySettings& settings,
+    double x, double y, double rho, double q, double s,
+    double c, double d, double atol, double rtol, double grad_tol, int policy)
+{
+    // Refresh only at batch entry, so a concurrent reset cannot destroy the
+    // magnifier reference held by this in-flight batch.
+    auto& workspace = geometry_workspace(false);
+    const std::array<double, 11> values{x,y,rho,q,s,c,d,atol,rtol,grad_tol,static_cast<double>(policy)};
+    std::array<std::uint64_t, 11> key;
+    std::memcpy(key.data(), values.data(), sizeof(values));
+    const bool enabled = geometry_cache_enabled.load(std::memory_order_relaxed);
+    if (enabled) {
+        const auto found = workspace.results.find(key);
+        if (found != workspace.results.end()) {
+            geometry_cache_hits.fetch_add(1, std::memory_order_relaxed);
+            return found->second;
+        }
+    }
+    geometry_cache_misses.fetch_add(1, std::memory_order_relaxed);
+    auto result = magnifier.experimental_algebraic_boundary_binary_jacobian(
+        s, q, {x,y}, rho, settings, grad_tol, true);
+    if (enabled && result.success) {
+        // Bound memory independently of the number of models and proposals.
+        if (workspace.results.size() >= 1024) workspace.results.clear();
+        workspace.results.emplace(key, result);
+    }
+    return result;
+}
+
 template <bool IncludeJacobian>
 ffi::Error algebraic_boundary_batch_impl(
     std::int64_t strict,
@@ -5739,7 +5817,7 @@ ffi::Error algebraic_boundary_batch_impl(
     lcbinint::magnification::FiniteSourceSettings settings;
     settings.limb_darkening_c = c;
     settings.limb_darkening_d = d;
-    const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+    const auto& magnifier = prepared_geometry_magnifier(settings);
     const lcbinint::magnification::PointSourceMagnifier point_magnifier;
     auto algebraic_settings = algebraic_boundary_settings_from(atol, rtol);
     algebraic_settings.critical_events = refinement_policy == 1;
@@ -5866,9 +5944,8 @@ ffi::Error algebraic_boundary_batch_impl(
         }
         // The Jet driver owns both the returned primal and its absolute error
         // estimate.  Do not run a second value-only integral here.
-        const auto result = magnifier.experimental_algebraic_boundary_binary_jacobian(
-            s, q, {x, y}, rho, algebraic_settings, grad_tol,
-            /*force_algebraic_finite=*/true);
+        const auto result = cached_geometry_jacobian(magnifier, algebraic_settings,
+            x, y, rho, q, s, c, d, atol, rtol, grad_tol, refinement_policy);
         const auto& diagnostics = result.diagnostics;
         const std::int32_t refinement = diagnostics.radial_subdivision_count;
         // The v2 plan/Jet work is not completely instrumented. Preserve the
@@ -7948,6 +8025,20 @@ void register_jax_ir_submodule(py::module_& parent)
         "reset_algebraic_boundary_batch_call_counters",
         &reset_algebraic_boundary_batch_call_counters,
         "Reset native M1 algebraic-batch invocation counts.");
+    module.def("geometry_cache_info", []() {
+        py::dict result;
+        result["hits"] = geometry_cache_hits.load();
+        result["misses"] = geometry_cache_misses.load();
+        result["capacity_per_worker"] = 1024;
+        result["enabled"] = geometry_cache_enabled.load();
+        return result;
+    });
+    module.def("reset_geometry_cache", [](bool enabled) {
+        geometry_cache_enabled.store(enabled);
+        geometry_cache_generation.fetch_add(1);
+        geometry_cache_hits.store(0);
+        geometry_cache_misses.store(0);
+    }, py::arg("enabled") = true);
     module.def(
         "triple_polar_batch_forward_ffi",
         &triple_polar_batch_forward_ffi_capsule,
