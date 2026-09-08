@@ -43,6 +43,12 @@ target_include_directories(bench_holonomic_m7 PRIVATE "${_SRC}")
 target_compile_options(bench_holonomic_m7 PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_holonomic_m7 PRIVATE quadmath)
 
+# Checkpoint revision 2, section 13: V0/V1/V2 three-variant micro-benchmark.
+add_executable(bench_v0v1v2 "${CMAKE_CURRENT_SOURCE_DIR}/bench_v0v1v2.cpp")
+target_include_directories(bench_v0v1v2 PRIVATE "${_SRC}")
+target_compile_options(bench_v0v1v2 PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_v0v1v2 PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7

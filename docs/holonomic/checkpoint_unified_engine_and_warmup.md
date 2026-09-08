@@ -722,3 +722,63 @@ only code that already exists on both sides. Outcomes:
 * **V1 − V2 large and favourable** (with warm-hit rate holding up) ⇒ adaptive
   radial scheduling is a real win → the fast planner + adaptive radial rule
   moves up the implementation order.
+
+### 13.6 Results (2026-09-08)
+
+Bench: `tests/holonomic_cpp/bench_v0v1v2.cpp`, isolated build
+(`build-holonomic-m7/bench_v0v1v2`), 108 full-solve cases, best-of-200,
+`taskset -c 0-7`, load average ≈ 11 (64-core box) logged before the run.
+Raw: `evidence/holonomic/v0v1v2_bench.txt`.
+
+| variant | median | p90 | p95 | p99 | radial nodes (mean) | quartic-solve sites | warm-hit rate |
+|---|---|---|---|---|---|---|---|
+| **V0** (fused value + 5-Jac) | 2.144 ms | 3.822 | 3.959 | 4.081 | 239.4 | 239.4 | 0.984 |
+| **V1** (V0 kernel, value-only, fixed GC64) | 1.614 ms | 3.418 | 3.468 | 3.710 | 239.4 | 239.4 | 0.984 |
+| **V2** (V1 kernel, adaptive one-panel-first GK) | 1.379 ms | 3.162 | 3.357 | 3.582 | 116.7 | 116.7 | 0.933 |
+
+Derived deltas (per-case, then percentiles):
+
+| delta | median | p90 | p95 | p99 | cases improved |
+|---|---|---|---|---|---|
+| **V0 − V1** — LD half-integral + full Jacobian-state marginal cost | +0.256 ms | +0.831 | +0.971 | +1.181 | 108 / 108 |
+| **V1 − V2** — radial scheduling (incl. node-count + warm-start knock-on) | +0.117 ms | +0.314 | +0.342 | +0.529 | 98 / 108 |
+
+μ parity (uniform μ = F0 / (π ρ²), vs V0's F0):
+
+* **V1 vs V0: max \|Δμ/μ\| = 0.0 — bit-identical.** Confirms V1 is V0's kernel
+  exactly, only the derivative / F_half work removed.
+* **V2 vs V0: max \|Δμ/μ\| = 1.1 × 10⁻⁴** on case `very-close` (V0 status OK),
+  median 6 × 10⁻¹⁴. The algebraic one-panel-first error gate accepted a panel
+  whose true error was ~100× the `|Kronrod − Gauss|` estimate — a real failure
+  mode of the one-panel heuristic near close-topology geometry, above the
+  `rel_tol = 1e-6` target.
+
+Status: V0 / V1 / V2 all 104 / 108 OK (same 4 extreme-q non-OK cases);
+**status-change count vs V0 = 0** for both V1 and V2.
+
+**Reading.**
+
+1. *"Value-only must not pay Jacobian-state cost"* is **true but the win is
+   modest at the median** — 12% (0.26 ms of 2.14 ms) — and **tail-heavy**: 22%
+   at p90, 29% at p99, every case improving. It is not the "large" win the
+   premise assumed, because on the holonomic path `classify_cells` (always-on
+   D14 `__float128` band discovery + probes) is the dominant fixed cost, and no
+   variant here touches it.
+2. Adaptive radial scheduling (V1 → V2) adds a further **7% at the median** but
+   (a) breaks bit-exact parity (the 1.1e-4 outlier), (b) **regresses 10 / 108
+   cases** (the one-panel + re-integrate double evaluation and the priority-queue
+   subdivision can cost more than the fixed grid), and (c) drops the warm-hit
+   rate 0.984 → 0.933 despite halving the node count — the single-slot
+   `QuarticWarm` cannot follow the non-monotone GK node order. A faithful port
+   would need the algebraic `RootContinuationWorkspace` nearest-parent-node
+   warm start.
+3. The **real latency floor is `classify_cells` / D14**, untouched by both
+   deltas. If the objective is median latency, this is direct evidence to
+   prioritise the **fast planner (§10 phase 3)** — replacing always-on D14
+   `__float128` with the fast march + §5.2 screen — over both kernel
+   unification and the value-only lane. The value-only lane (phase 2) is a
+   real but second-order win; adaptive GK as specified is marginal and carries
+   a parity regression, so it should not lead.
+
+This is input to the user's decision on implementation order; it is **not**
+itself an implementation step.
