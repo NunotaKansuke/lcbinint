@@ -106,6 +106,14 @@ target_include_directories(bench_holonomic_trajectory PRIVATE "${_SRC}")
 target_compile_options(bench_holonomic_trajectory PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_holonomic_trajectory PRIVATE quadmath)
 
+# Per-node cost decomposition inside radius_terms -- sizes the angular
+# sqrt(phi) sweep (the Gauss-Manin transport target) against the quartic
+# build/solve/polish and classify_cells, post B1/B2.
+add_executable(bench_radius_terms_split "${CMAKE_CURRENT_SOURCE_DIR}/bench_radius_terms_split.cpp")
+target_include_directories(bench_radius_terms_split PRIVATE "${_SRC}")
+target_compile_options(bench_radius_terms_split PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_radius_terms_split PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7
