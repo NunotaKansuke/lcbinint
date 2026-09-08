@@ -1007,9 +1007,148 @@ engine — `classify_cells` / D14 remains the only wired path.
 
 ### 15.3 Remaining phase-A work
 
-* **step 3** — §5.2 local confidence screen (uniform in-band `quartic_topology`
-  ×3; up/down march band-count agreement; resolution margin; tangency
-  regularity) + extreme-q fast-fail predicate; measure screen-fail rate.
+* **step 3** — §5.2 local confidence screen + extreme-q fast-fail predicate;
+  measure screen-fail rate. **DONE 2026-09-08 — see §16.** (Screen built; D14
+  rate 24.1% = the extreme-q bail set, 0 new failures. Extreme-q predicate
+  REJECTED as unsafe, §16.5.)
 * **step 4** — wire the planner as an alternative discovery path behind a flag
   in the value-only and full-Jacobian epochs; full-epoch bench both modes;
   108-case parity (0 `Status` changes); decision-20 re-check; commit.
+
+---
+
+## 16. Phase A step 3 — §5.2 local confidence screen (2026-09-08)
+
+New file `src/lcbinint/magnification/holonomic/fast_bands_screen.hpp`
+(header-only, `fast_bands_screen(pf, fb, seeds) -> FastBandsScreen`). New bench
+target `bench_fast_bands_screen`. Nothing wired into the engine yet —
+`classify_cells` / D14 is still the only path the solver calls.
+
+### 16.1 What the screen is
+
+A **local confidence gate**, not a completeness proof (§5.4/§5.5). It governs
+*only* whether the D14 oracle is invoked for an epoch; it never decides that
+completeness holds. Any epoch whose screen does not pass goes to D14; any epoch
+D14 cannot resolve fails closed. It is applied on top of the §15 seed-anchored
+`fast_bands` planner, over that planner's **significant** band subset (arcs wide
+enough — ≥ 3e-3 rad — to move μ at the M7 reference tolerance; razor bands are
+not screened, §15.1).
+
+### 16.2 The four checks (deviations from the §5.2 sketch, all forced by the
+available primitives — `phi.hpp` exposes no 2nd derivatives, `radial_events`
+*is* the D14 core so it cannot be a "cheap independent check")
+
+| # | §5.2 sketch | as built | why the deviation |
+|---|-------------|----------|-------------------|
+| 1 | "uniform in-band `quartic_topology` ×3" | **no interior kEmpty**: `quartic_topology` at 7 interior fractions of each significant band, each must be kFull or kArcs-even. Crossing *count* may vary. | the M7 moment integrator re-derives the arc set at every quadrature radius (`epoch_jacobian.hpp`), so a 2→4→2 arc split inside a band (source straddling a caustic fold) is harmless; only a real image-free sub-region breaks the integration partition. |
+| 2 | "tangency regularity — `det ∂G/∂(R,θ) = φ_R·φ_θθ`" | **fold half-width ratio**: `hw(4δ)/hw(δ)` from `arc_intervals`, must lie in `[1.55, 2.35]` (regular fold = 2.0; ≈1.41 = cusp/higher contact; ≫2 = two bands merging). | `phi.hpp` has no φ_θθ / φ_R. The half-width growth rate is the scale-free equivalent and needs only `arc_intervals`. |
+| 3 | "up/down march band-count agreement" | **seed coverage** (probe-free): every reliable point-source seed radius whose own local arc is significant must fall inside some planner band. | a blind independent radial recount cannot cheaply match the seed-anchored planner's resolution (rand000 / on-axis-off traces, §15). The necessary condition "source centre ∈ disk ⇒ every point image z_i ∈ image region ⇒ |z_i| ∈ some band" is both cheaper (O(seeds·bands), 1 `arc_intervals` call/seed) and stronger against the failure that matters (a dropped band). |
+| 4 | "resolution margin" | **complement scan** (runs unconditionally): every inter-band gap wider than 2× the edge inset, plus below-innermost and above-outermost, swept linearly and must be image-free. Sub-0.3ρ gaps skipped (a newborn band cannot hide there). | originally gated on a straddle indicator; fault injection (`dbg_seedless`) showed the gate leaked adversarial seed-less-band drops, so it is now always on. |
+
+`Status` is worst-of / fail-closed throughout.
+
+### 16.3 Measured — `bench_fast_bands_screen` (108 epochs, best-of-200, load ~11.8)
+
+```
+planner bail (seeds/fb unreliable) : 26  (24.1%)
+screen PASS                        : 82  (75.9%)
+screen FAIL                        : 0
+--> D14 oracle invocation rate     : 26 / 108  (24.1%)
+screen FAIL by check               : all zero
+worst fold ratio  : min 1.661  median 1.930  p90 1.937  max 2.100   [window 1.55..2.35]
+screen probe calls: median 82  p90 115  max 129
+
+seeds + fast_bands + screen : median 0.448  p90 0.871  p95 1.005  p99 1.081  ms
+classify_cells (D14 path)   : median 1.262  p90 3.025  p95 3.068  p99 3.289  ms
+BLENDED (screen + D14 on the 24.1%) : median 0.660  p90 3.159  p95 3.322  p99 3.931  ms
+speedup vs D14 (median)     : screen-only 2.82x   blended 1.91x
+```
+
+Raw: `evidence/holonomic/fast_bands_screen_bench.txt`.
+
+### 16.4 Gate assessment (§0.7 Phase A)
+
+* **D14-invocation rate measured: 24.1%** (26/108) — *exactly* the extreme-q
+  bail set from §15 (13 named cases × 2 u-values), where even `__float128`
+  point-source returns an even image count. The screen adds **zero** new
+  failures: all 82 planner-reliable epochs pass all four checks. Non-extreme-q
+  invocation rate: 0%.
+* **Band-discovery cost ↓ ≥ 3×**: the discovery *primitive* (`fast_bands`
+  alone) is still 3.5–3.6× (§15.2, re-confirmed this session). The screen costs
+  ~0.10 ms median (0.35 → 0.45) / ~0.28 ms p99, trading that for a 75.9%
+  D14-skip. Screen-inclusive speedup is **2.82× median**. The blended path
+  (screen always + D14 on the 24.1% that don't pass) is **1.91× median** but
+  its p90+ tail *regresses* vs D14 alone, because the 26 bail epochs now pay
+  `point_images` + a bailed `fast_bands` *before* D14. → **step-4 wiring must
+  route the extreme-q set to D14 without first running the planner** (see 16.5).
+* **p90/p95/p99 non-regressing** (screen-only path): MET — 0.87 / 1.00 / 1.08
+  ms, well under the D14 path at every percentile.
+* **108-case topology parity, 0 disagreement on the adopted band set**: MET
+  under the §15.1 significance-aware reading (82/82 significant-band count +
+  coverage + edges from §15.2; screen adds 0 FAIL, so the adopted band set is
+  unchanged).
+* **full-Jacobian decision-20**: not re-run — planner still not wired into
+  `epoch_jacobian` (step 4).
+
+### 16.5 The extreme-q fast-fail predicate — REJECTED as unsafe
+
+The §15.3 plan called for "a cheap upfront extreme-q predicate to skip the seed
+solve on geometries that cannot succeed". **This cannot be done safely on q
+magnitude.** `dbg_tier` over the 108 cases: the double→`__float128` escalation
+is genuinely load-bearing and q does **not** separate quad-rescuable from
+quad-unrescuable geometries —
+
+| case | q | double | `__float128` |
+|------|------|--------|--------------|
+| rand031 | 6.5e-8 | n=2 | **n=3, rescued** |
+| rand015 | 7.0e-7 | n=2 | **n=3, rescued** |
+| rand024 | 4.0e-7 | n=2 | **n=3, rescued** |
+| rand016 | 2.2e-7 | n=2 | n=2, bails |
+| rand011 | 2.0e-7 | n=2 | n=2, bails |
+
+rand031 at q=6.5e-8 is rescued while rand016 at *larger* q=2.2e-7 bails. Any
+q-threshold that skipped tier 2 would wrongly send the rescued cases to D14 and
+lose their screen-pass. The two-tier solve's own **odd-count + residual gate**
+(`point_images.hpp`) already *is* the correct predicate, and the `__float128`
+Aberth is not a measurable cost problem: bail-epoch wall time is dominated by
+the *subsequent* D14 call (p90 3.03 ms), not the quad solve. **No predicate
+added.** The step-4 routing win is structural (don't run `fast_bands` when the
+seeds are known-unreliable → straight to D14), not a q heuristic.
+
+### 16.6 Fault-injection — the screen's teeth (`dbg_fault`, `dbg_seedless`)
+
+| injection | caught | note |
+|-----------|--------|------|
+| drop the outermost significant band | 80 / 80 | check 3 (seed coverage) |
+| drop a middle significant band | 20 / 20 | check 3 |
+| add a spurious *empty* band in the largest gap | 0 / 80 | **harmless** — `band_significant` rejects it, and the M7 integrator skips kEmpty cells; μ unchanged |
+| drop a significant band **and its nearest seed** | 68 / 182 | the §5.4 irreducible residual — a thin fully-seed-less band in a wide gap defeats the linear complement sweep |
+
+The last row is the acknowledged limit: **the screen provably cannot certify a
+thin seed-less band cold.** Physically such a band only forms where the source
+disk straddles a caustic fold, and check 4 catches the resolvable cases, but a
+sufficiently thin one in a wide gap is missed. → **step-4 wiring needs
+D14-as-authority on the first epoch of a trajectory (warmup) and/or a low-rate
+audit** (design points 3 and 5), not a screen tweak.
+
+### 16.7 Files
+
+* `src/lcbinint/magnification/holonomic/fast_bands_screen.hpp` — NEW, the screen.
+* `tests/holonomic_cpp/bench_fast_bands_screen.cpp` + `CMakeLists.txt` target — NEW.
+* `evidence/holonomic/fast_bands_screen_bench.txt` — NEW, raw bench.
+* `src/lcbinint/magnification/holonomic/point_images.hpp` — `aiter` cap 200→80
+  (bounds only the non-convergent extreme-q path, which escalates to D14
+  regardless; `test_point_images` all-pass, `bench_fast_bands` parity 82/82
+  unchanged).
+
+### 16.8 Remaining phase-A work
+
+* **step 4** — wire `fast_bands` + `fast_bands_screen` as an alternative
+  discovery path **behind a flag** in the value-only and full-Jacobian epochs.
+  Deliverables: full-epoch bench (fast path vs `classify_cells` path) both
+  modes; 108-case parity (0 `Status` changes); decision-20 re-check; commit.
+  **Design constraints from step 3:** (a) route known-unreliable-seed epochs
+  straight to D14 without running the planner (16.4/16.5); (b) D14-as-authority
+  on the first epoch of a trajectory and/or a low-rate audit, since the screen
+  cannot certify thin seed-less bands cold (16.6).
+
