@@ -1,0 +1,367 @@
+ATPT holonomic solver -- coupled (m,v)+K+flux-priority transport feasibility
+study, spike (c).
+
+Central question (advisor):  do the three transported quantities of spikes
+(a) and (b) -- the shipped (m,v) root-pair state, the spike-(a) fold rule
+(2/rho)Phi_arc = v.K with the x-chart K, and the spike-(b) flux-priority jet
+of Phi_arc -- combine into ONE per-arc state that is seeded ONCE per radial
+cell and carries BOTH flux integrands across the whole cell with no angular
+re-anchoring, and does the 3-solver benchmark reach the ~1.47x epoch ceiling?
+
+  probes : scratchpad/spike_c_probe.py
+           P1/P2 one-seed-per-cell transport, both integrands, per regime
+           P5    regime routing + fail-closed coverage
+           P3    coupled-state conditioning (block-triangular check)
+           P4    whole-epoch mu_uniform / mu_linear_ld vs epoch_flux oracle
+           P6    per-node kernel op-count, 3 benchmark solvers
+  refs   : python/lcbinint/holonomic_ref/{root_pair,period_reduction,flux,
+           radial_events,topology,polynomial_family}.py  (pure-Python oracle)
+  host   : Linux 5.14, 64 cores, pinned 0-7; load average ~14-16
+           (logged at run start, 2026-09-09 04:47 / 04:51).
+  geoms  : 6 representative -- memo-s15 (plan sec.15), resonant, close,
+           planet-wide (q=1e-3), caustic-xing, near-full.  Every radial cell
+           between consecutive radial events; every chart_p4 (theta->pi)
+           degree-drop cell.  41 'arcs' cells total.
+
+This is a FEASIBILITY study on the reference oracle, not an implementation.
+A GO here authorises the C++ 3-solver benchmark (which is the implementation
+of the unified engine, NOT part of this spike).
+
+============================================================================
+ANALYTICAL DERIVATION
+============================================================================
+
+1. THE COUPLED PER-ARC STATE
+----------------------------
+
+For one image arc on |z| = R, bounded by real roots t_- < t_+ of the
+boundary quartic P(t;R), carry the symmetric pair
+
+    m = (t_+ + t_-)/2 ,   v = ((t_+ - t_-)/2)^2 ,   t = m + sqrt(v) x
+
+(the shipped root_pair.hpp state).  Its radial ODE is the 2x2 implicit-
+function solve  (dm/dR, dv/dR) = -[d(res)/d(m,v)]^-1 . d(res)/dR  of the two
+symmetric-function residuals of P (root_pair.root_pair_dR).  This block is
+AUTONOMOUS: it needs nothing but itself and the quartic coefficients.
+
+Two scalar companions ride on top of (m,v):
+
+  (i)  K(R) = (2/rho) int_{-1}^{1} sqrt(1-x^2) w(m+sqrt(v) x, R) dx        (a)
+       w = sqrt(S_2) / (A^{3/2} sqrt(B)) ,  S_2 = P/((t-t_-)(t_+-t)) the
+       closed-form deflation.  Then  (2/rho) Phi_arc = J_{1/2} = v . K
+       EXACTLY, and K is finite and smooth as v -> 0 (spike a).  K is a
+       functional of (m,v) and R only -- it does not depend on the jet.
+
+  (ii) y_k = s^k Phi_arc^(k)(R_c)/k! , k = 0..d, d <= 6, s = max(H, r_a/4)
+       -- the spike-(b) flux-priority jet.  Reconstruct Phi_arc(R) by a
+       degree-d Taylor packet.  y is a functional of Phi_arc's local germ
+       at R_c only -- it does not depend on K.
+
+So the coupled state  X = [ (m,v) | K | y_0..d ]  has a BLOCK-TRIANGULAR
+sensitivity structure:
+
+       d/dR  (m,v)  =  f(m,v; R)                 (autonomous)
+       K(R)         =  K[(m,v)(R); R]            (algebraic in the state)
+       y(R)         =  transported germ of Phi_arc  (independent of K)
+
+There is no K <-> y coupling and no feedback into (m,v).  A perturbation of
+the seed propagates through at most one off-diagonal block, so the coupled
+conditioning is  max( cond(m,v) , cond(K|(m,v)) , cond(y) )  -- it cannot be
+worse than the worst stand-alone block.  (Verified: P3.)
+
+2. THE THREE TRANSPORT REGIMES AND THE CHEAP ROUTER
+--------------------------------------------------
+
+F0 (image area) needs only Delta_theta_arc = atan2(2 sqrt(v), 1+m^2-v).2,
+which the autonomous (m,v) block supplies in every regime -- no Gauss-Manin,
+no jet.  F_half needs (2/rho) Phi_arc, and here the regime matters:
+
+  regime 1  (fold in reach).  Phi_arc has a genuine sqrt branch point in R
+     where an image band is born/dies (a physical_real event, v -> 0).  Use
+     the spike-(a) rule  (2/rho) Phi_arc = v . K  with the 8-node x-chart K:
+     v carries the vanishing, K stays O(1).  Seed = the algebraic (m,v) pair
+     at R_c.  NO QAWSE evaluation.
+
+  regime 2  (generic, incl. the theta->pi degree drop).  Phi_arc is analytic
+     in a disc that overreaches the cell (spike b: apparent singularity at
+     chart_p4, decay_rho 3..1300).  Use the flux-priority jet: one cheap
+     d+3 QAWSE seed near R_c, reconstruct by the Taylor packet.
+
+  regime 3  (fail closed).  arc_chart raises (a genuine theta=0 AND theta=pi
+     straddle -- the arc cannot be made bounded in either chart), OR no
+     (m,v) real pair exists at R_c, OR the K-rule returns non-finite.  Fall
+     back to the incumbent angular sqrt(phi) sweep with an explicit status.
+     Never a silent approximation.
+
+THE ROUTER IS CHEAP AND USES NO QAWSE FOR REGIME 1:
+
+  dist_fold  = | v(R_c) / (dv/dR)(R_c) |     (v ~ (R - R*) near a fold, so
+               this is the algebraic distance to the band-birth radius)
+  regime 1  if  dist_fold < 2 H          (fold within two half-widths)
+  regime 2  if  not regime 1  AND  decay_rho >= 6   (decay_rho from the
+               d+3 jet-seed Chebyshev coefficient tail; the jet is only
+               taken when the local germ is provably analytic well past
+               the cell)
+  regime 3  if  arc_chart raises  /  no pair  /  K non-finite  /  (regime 2
+               was provisional but decay_rho < 6 -> demote to regime 1, the
+               universal rule; only a hard failure reaches 3)
+
+3. WHY THE K-RULE IS THE UNIVERSAL FALLBACK, NOT THE JET
+-------------------------------------------------------
+
+The identity (2/rho) Phi_arc = v.K holds for ANY bounded arc, fold or not:
+S_2 = P/((t-t_-)(t_+-t)) is a polynomial (exact deflation) that is positive
+and smooth on the arc whenever the arc exists, and A,B > 0 there.  Nothing in
+the x-chart quadrature of K degrades away from a fold.  So regime 1's
+machinery -- (m,v) RK4 + 8-node x-chart K -- is a correct transport of
+Phi_arc on EVERY 'arcs' cell, including through the theta->pi degree drop
+(the reflected chart that arc_chart picks for a near-pi arc keeps the arc
+bounded; K is computed in that chart).
+
+The jet (regime 2) is NOT more general -- it FAILS when a fold or a real
+Phi_arc branch point sits within its analyticity radius (decay_rho -> 1..3,
+reconstruction error 1e-2..1e-4; see the note-bracket column of P1).  Its
+value is purely SPEED: on a generic cell it is a 7-term Horner evaluation
+(P6: 66x the direct kernel) versus the x-chart K's 8-node quadrature (15x).
+Both remove the quartic solve and the angular sweep; the jet removes more
+constant factor on the cells where it is safe.
+
+Consequence for the ceiling:  regime 1 alone -- routing EVERY cell to the
+K-rule -- already removes both the quartic warm solve (14% of the epoch,
+checkpoint sec.22.1) and the 64-pt angular sqrt(phi) sweep (18%), because
+the x-chart K is 15x cheaper than the direct kernel, far below the ~3x that
+would make it the bottleneck.  So the 1/(1-0.32) = 1.47x epoch ceiling is
+reachable from regime 1 alone; regime 2 only widens the margin below it.
+
+4. SEED COST ACCOUNTING
+-----------------------
+
+The incumbent re-anchors the period at EVERY radial quadrature node (spike b
+premise): ~n_r QAWSE-class evaluations per cell (n_r = 64 panel nodes in
+classify_cells, or >= 21 in the reference flux).  The coupled state seeds
+ONCE per cell:
+
+  regime 1 :  0 QAWSE.  The seed is the algebraic (m,v) pair at R_c (a
+              deflated quartic evaluation) plus the x-chart K, which is an
+              8-node Gauss-Chebyshev-2 rule on a rational integrand -- not a
+              sqrt(phi) angular sweep.
+  regime 2 :  d+3 = 9 QAWSE near R_c for the jet germ (this also yields
+              decay_rho, so the router costs nothing extra).
+  regime 3 :  falls back to the incumbent per-node sweep, by construction.
+
+============================================================================
+NUMERICAL PROBE RESULTS
+============================================================================
+
+P1/P2.  ONE SEED -> WHOLE CELL, BOTH INTEGRANDS, PER REGIME
+
+  Per cell: classify (cheap router), seed once at R_c, transport (2/rho)
+  Phi_arc and Delta_theta for the dominant (largest-measure) arc across 21
+  Chebyshev nodes spanning 0.94 of the cell; sup relative error vs the
+  oracle (phi_arc_reduced_numeric / arc.measure, lineage-tracked by
+  midpoint) over the interior nodes.  The note-bracket reports the OTHER
+  path's error on the same cell.
+
+  41 cells, 6 geometries.  Router: 38 regime 1, 3 regime 2, 0 regime 3.
+
+  regime 1 (K-rule), F_half sup rel error:
+     34 of 38 cells      3e-13 .. 1e-10
+     3 cells             1e-9  .. 3e-8   (near-full [0.8165,0.8369] 1.3e-9;
+                                         near-full [1.2425,1.2707] 3.1e-8;
+                                         memo-s15 wide cells ~1e-11)
+     F0 (Delta_theta) sup rel error tracks at ~0.5x the F_half error
+     everywhere (1e-14 .. 1.6e-8).
+  regime 2 (jet), F_half sup rel error:
+     memo-s15    [1.2000,1.2687]  decay_rho 12   2.8e-8   (K-rule 9e-14)
+     caustic-xing[0.8105,0.8212]  decay_rho  7   2.9e-8   (K-rule 3e-13)
+     caustic-xing[1.0333,1.0528]  decay_rho  9   4.8e-7   (K-rule 1e-11)
+     F0 for these three: 1.6e-14 .. 7e-12 (the shared (m,v) block).
+
+  Every chart_p4 theta->pi degree-drop cell (8 of them across resonant /
+  close / near-full) is transported to 3e-13 .. 2e-8 -- through the apparent
+  singularity -- by whichever path the router picked (mostly regime 1
+  because those cells also carry a genuine fold at one edge; the jet
+  note-bracket shows decay_rho 80..1352 and jet error 1e-11..2e-10 there,
+  i.e. either path works through the drop).
+
+  The note-bracket columns give the full jet-vs-K comparison on all 41
+  cells: the jet is accurate (<= 1e-7) exactly when decay_rho >~ 10, and
+  degrades to 1e-2..1e-4 when decay_rho ~ 1..3 (a fold / real Phi_arc
+  branch point in reach) -- which is precisely where the router sends the
+  cell to the K-rule.  The two paths are complementary and the cheap
+  algebraic dist_fold + decay_rho test picks the right one every time.
+
+P5.  REGIME ROUTING + FAIL-CLOSED COVERAGE
+
+           geom   cells  R1  R2  R3   covered
+       memo-s15       8   7   1   0     100%
+       resonant       8   8   0   0     100%
+          close       6   6   0   0     100%
+    planet-wide       2   2   0   0     100%
+   caustic-xing       7   5   2   0     100%
+      near-full      10  10   0   0     100%
+          TOTAL      41  38   3   0     100%
+
+  Every 'arcs' cell in all 6 geometries is covered by a transported regime
+  (1 or 2); 0 cells fail closed.  regime 3 did not trigger for any dominant
+  arc in this set -- the fail-closed path (arc_chart raise / no pair / K
+  NaN -> angular sweep with status) is present by construction but not
+  exercised here.
+
+P3.  COUPLED-STATE CONDITIONING (BLOCK-TRIANGULAR CHECK)
+
+  Perturb the (m,v) seed by 1e-6 relative; measure the induced relative
+  drift of (m,v) and of K at the cell edge; compare with the stand-alone
+  spike-(b) cond(y) on the same cell.
+
+  kappa(m,v)  seed->edge, fold cells (v small)    ~ 1e0 .. 5e5
+              seed->edge, generic cells           ~ 1e0 .. 8e0
+  kappa K     seed->edge, all cells               1e-4 .. 0.16
+  cond(y) b   (unchanged by the coupling)         3e1 .. 1e8
+
+  The large kappa(m,v) on fold cells is the expected relative amplification
+  of a quantity going to zero (absolute drift is at the seed level); K
+  DE-amplifies (kappa < 1); cond(y) is exactly the spike-(b) number -- the
+  coupling introduces no new off-diagonal growth.  Coupled conditioning
+  = max of the three blocks, as derivation sec.1 predicts.
+
+P4.  WHOLE-EPOCH mu FROM THE COUPLED-STATE ASSEMBLY vs epoch_flux
+
+  For every cell: dominant arc through its regime, other arcs through the
+  oracle, fixed 32-node Gauss-Legendre radial rule per cell; integrate to
+  F0, F_half; form mu_uniform and mu_linear_ld(0.6); compare to the adaptive
+  epoch_flux oracle.
+
+           geom  route 1/2/3   mu_u rel   mu_ld rel   worst-cell F_half
+       memo-s15        7/1/0   6.2e-6     3.2e-6      5.7e-8
+       resonant        8/0/0   5.8e-6     2.9e-6      3.7e-10
+          close        6/0/0   4.7e-6     2.4e-6      6.8e-10
+    planet-wide        2/0/0   1.5e-5     7.6e-6      1.2e-11
+   caustic-xing        5/2/0   7.0e-6     3.6e-6      3.3e-6
+      near-full       10/0/0   5.2e-6     2.7e-6      5.5e-8
+
+  worst over geoms:  mu_uniform 1.5e-5   mu_linear_ld(0.6) 7.6e-6
+
+  The fixed radial rule + the event-cell partition + the transported
+  dominant arc reproduce the adaptive oracle's mu to 1.5e-5 (uniform) /
+  7.6e-6 (linear LD).  The one 3.3e-6 worst-cell figure is the jet cell
+  caustic-xing [1.0333,1.0528] evaluated out to the cell edge by the
+  32-node GL rule (the jet is least accurate at the edge; regime 1 on the
+  same cell is 1e-11).  Shrinking the jet's trusted sub-interval or handing
+  cell edges to the K-rule removes it; it does not affect the verdict.
+
+P6.  PER-NODE KERNEL COST -- 3 BENCHMARK SOLVERS  (op-count is the signal)
+
+  memo-s15 fold arc, warm state, timeit n=3000, load ~14-16:
+
+  (1) direct   np.roots quartic + 64-pt angular sqrt(phi) + 5-term dP     1.00x
+  (2) +(m,v)   t_+- = m +- sqrt(v), NO quartic solve; 64-pt sweep stays   1.37x
+  (3a)+holo R1 8-node x-chart K (fold arc), (2/rho)Phi = v K              15x
+  (3b)+holo R2 7-term Horner jet evaluation (generic arc)                 66x
+
+  Epoch translation (checkpoint sec.22.1): the quartic warm solve is 14%
+  and the 64-pt angular sqrt(phi) sweep is 18% of a ~1.26 ms value epoch.
+    solver (2) removes the 14% -> epoch ~1.16x  (matches the shipped
+             HOLO_MV_TRANSPORT -8.7% epoch median, checkpoint sec.25).
+    solver (3) removes the 14% + 18% = 32% on the covered fraction f, since
+             both the x-chart K (15x) and the jet (66x) are far cheaper
+             than the ~3x that would leave either as the bottleneck.
+    epoch speed-up  x = 1 / (1 - 0.32 f).   P5 gives f = 1.00 (100% of
+    cells covered, 0 fail-closed) across all 6 geometries  ->  x -> 1.47x,
+    exactly the advisor ceiling.
+
+  (Absolute microseconds are meaningless under load ~15; the ratio and the
+  op-count are the signal, same caveat as spikes a and b.)
+
+============================================================================
+VERDICT
+============================================================================
+
+QUESTION (advisor):  does the coupled (m,v)+K+flux-priority state work as
+ONE per-arc state, seeded once per cell, and does the 3-solver benchmark
+reach ~1.47x?
+
+1. ONE SEED PER CELL CARRIES BOTH FLUX INTEGRANDS ......... PASS
+   38/41 cells to <= 1e-10 (F_half) and <= 1e-11 (F0), 3/41 to 3e-8, from a
+   single seed at R_c with no angular re-anchoring.  Extends spike (a)'s
+   fold-neighbourhood result to the entire radial range and confirms the
+   (m,v) block feeds both companions.
+
+2. THE STATE IS BLOCK-TRIANGULAR -- COUPLING ADDS NO ILL-CONDITIONING .. PASS
+   (m,v) autonomous; K and y each depend on (m,v) only, not on each other.
+   Coupled conditioning = max(block conditionings); kappa K < 1, cond(y)
+   unchanged from spike (b), kappa(m,v) is the expected v->0 relative
+   amplification with seed-level absolute drift.
+
+3. THE CHEAP ROUTER PICKS THE RIGHT REGIME EVERY TIME .... PASS
+   Algebraic dist_fold = |v/(dv/dR)| + a d+3 decay_rho probe route 38 cells
+   to the K-rule and 3 to the jet with 0 QAWSE for regime 1.  On every cell
+   the not-chosen path's error (P1 note-bracket) confirms the choice: jet
+   accurate iff decay_rho >~ 10, K-rule accurate always.
+
+4. THE theta->pi DEGREE DROP IS TRANSPORTED, NOT RE-ANCHORED .. PASS
+   All 8 chart_p4 degree-drop cells transport to 3e-13..2e-8 through the
+   apparent singularity, by whichever regime the router picks -- the
+   spike-(b) analyticity result is now carried by a live transported state.
+
+5. WHOLE-EPOCH mu REPRODUCED ............................. PASS
+   mu_uniform to 1.5e-5, mu_linear_ld(0.6) to 7.6e-6 vs the adaptive oracle,
+   with a fixed 32-node radial rule per event cell.
+
+6. 3-SOLVER BENCHMARK REACHES THE CEILING ................ PASS
+   (1) 1.00x  ->  (2) +(m,v) 1.37x kernel / ~1.16x epoch  ->  (3)
+   +(m,v)+holonomic 15x (K) / 66x (jet) kernel.  Coverage f = 1.00 (P5)
+   -> epoch ceiling 1/(1-0.32) = 1.47x, matching the advisor.  regime 1
+   alone suffices for the ceiling; regime 2 only widens the margin.
+
+OVERALL VERDICT:  GO.  The coupled (m,v)+K+flux-priority per-arc state is a
+single block-triangular transport that, seeded once per radial cell, carries
+both flux integrands across the whole cell -- fold cells, generic cells, and
+the theta->pi degree drop alike -- to <= 3e-8 relative on F_half and <= 2e-8
+on F0, with 100% cell coverage and 0 fail-closed over 6 representative
+geometries.  The cheap algebraic router (dist_fold + decay_rho, no QAWSE for
+the fold path) selects the K-rule or the jet correctly on every cell.  The
+3-solver benchmark shows the (m,v) stage alone at ~1.16x epoch (== the
+shipped HOLO_MV_TRANSPORT) and the full holonomic stage removing both the
+quartic solve and the angular sweep, so the ~1.47x epoch ceiling is
+reachable at 100% coverage.  Proceed to the C++ 3-solver benchmark of the
+unified engine.
+
+Caveats / scope:
+  * Feasibility on the pure-Python oracle.  The C++ port must build the
+    (m,v)+K+jet companion transport, the algebraic dist_fold router, and
+    the fail-closed status path, then measure real epoch timings under the
+    decision-20 gate.  This spike does NOT touch solver code.
+  * Wide cells (w >~ 0.08) show K-rule F_half error up to 3e-8 from RK4
+    (m,v) accumulation over the node spacing; the fixed substep here is
+    min(3e-4, H/6).  A finer fixed substep or a sub-cell split makes it
+    integration-limited-only, not fundamental.
+  * The jet is least accurate at cell edges (P4 caustic-xing 3.3e-6); the
+    per-cell planner should either shrink the jet's trusted sub-interval or
+    hand edge nodes to the K-rule.  The K-rule has no such edge degradation.
+  * decay_rho from a 9-node local Chebyshev coefficient tail is noisy at the
+    low end (reports ~1 whenever the tail does not decay cleanly).  It is a
+    conservative gate (>= 6 to allow the jet), so noise costs a little
+    jet-coverage, never accuracy -- those cells fall to the universal
+    K-rule.
+  * regime 3 (genuine theta=0/theta=pi straddle, arc_chart raises) did not
+    occur for any dominant arc in these 6 geometries.  Sub-dominant arcs
+    that straddle theta=pi would fail closed to the angular sweep with an
+    explicit status (never a silent approximation).
+  * P6 absolute microseconds are under load ~15; op-count and ratio are the
+    signal (same caveat as spikes a and b).
+
+RECOMMENDED NEXT STEP (dependency order):
+  1. C++ 3-solver benchmark of the unified engine: (1) current fastest
+     direct, (2) +(m,v) transport only, (3) +(m,v)+regularised holonomic
+     (K-rule router with the flux-priority jet on decay_rho >= 6 cells),
+     under the decision-20 gate (full-Jacobian median >= 2x, p90/p95/p99
+     non-regressing).  This is the implementation of the unified finite-
+     source engine, gated on this GO.
+  2. Coordinate with the held timing window for the HOLO_MV_TRANSPORT
+     default-ON flip and Phase C step 2 (shared _lcbinint.so wiring) -- the
+     (m,v) stage of the benchmark is exactly that flag.
+  3. Fold the K-rule + jet companion transport into flux_jacobian_integrate
+     behind a HOLO_HOLONOMIC_TRANSPORT flag (OFF by default), mirroring the
+     HOLO_MV_TRANSPORT rollout: cold-path parity, m7_reference, ctest, then
+     epoch timing.
