@@ -1815,3 +1815,86 @@ it is also nowhere near the dominant term.
 * `tests/holonomic_cpp/bench_radius_terms_split.cpp` + CMake target — NEW.
 * `evidence/holonomic/gauss_manin_feasibility.txt` — NEW (full checklist
   write-up + the flop counts).
+
+**User sign-off (2026-09-09):** proceed with Phase C; then `(m,v)` root-pair
+transport as the priority; Gauss–Manin stays off the critical path as a
+research candidate. For Phase C: land the isolated internal router header
+first, synchronise only the shared-build touch (`.so` rebuild) to a timing
+window.
+
+---
+
+## §23 Phase C step 1 — internal mode router `finite_source_binary` (2026-09-09)
+
+The engine-side seam that the production finite-source layer will dispatch to,
+built and validated **entirely in the isolated harness** — no shared `.cpp`
+touched, no `_lcbinint.so` rebuild. The enum value + `binary_mag_preplanned`
+case + `warmup()` selection are step 2 and land with a coordinated rebuild.
+
+### 23.1 What landed — `src/lcbinint/magnification/holonomic/finite_source_binary.hpp` (NEW)
+
+* **`RequestedOutput`** — `kValue` / `kValueJacobian` / `kValueJvp`. Work is
+  chosen by *requested output*, not algorithm name (§0 policy pt 2).
+* **`FiniteSourceRequest`** `{ LensParams params; double u; RequestedOutput
+  output; int n_r; array<double,5> jvp_direction; }` — engine-neutral.
+* **`FiniteSourceOutcome`** `{ mu; grad_mu[5]; dmu_du; mu_jvp; F0; F_half;
+  r_max; Status status; PreparedEpochGeometry::Provenance provenance;
+  bool has_jacobian; bool has_jvp; }`.
+* **`finite_source_binary(req)`** — stateless/cold, forwards to
+  `epoch_jacobian`.
+* **`finite_source_binary_prepared(req, state, cfg, stats)`** — trajectory
+  route over a caller-owned rolling `PreparedEpochGeometry`, forwards to
+  `epoch_jacobian_prepared`; `provenance` propagated from the cache.
+* **`default_reuse_config()`** — production defaults: L2 warm-D14 ON, L1
+  verbatim reuse OFF (§21).
+* `kValueJvp` **fails closed** (`GRADIENT_UNRELIABLE`) — the M3 JVP lane is
+  not built (Phase F). `kValue` runs the fused pass today and withholds the
+  Jacobian; the M1/M2 value lane (Phase D) slots in here with no signature
+  change.
+* Zero arithmetic added — `from_epoch` is a field copy. The standalone
+  `epoch_jacobian*` entry points stay for A/B.
+
+### 23.2 Validation — `tests/holonomic_cpp/test_finite_source_binary.cpp` (NEW)
+
+`ctest -R holonomic_finite_source_binary` — **16524 checks, 0 failures.**
+
+* Cold route vs a direct `epoch_jacobian` call over all 108 bench configs:
+  `mu` / `F0` / `F_half` / `dmu_du` match to < 1e-12 rel; `grad_mu` to
+  < 1e-11 rel **except `∂μ/∂ρ` (j==2)** which is checked at 1e-6 — worst
+  observed 6.5e-7 on one tiny-ρ config. That drift is the documented
+  `(large)/D − 2μ/ρ` cancellation (checkpoint_M6 §5): under
+  `-ffp-contract=fast` the forwarded `epoch_jacobian` rounds that
+  subtraction one ULP differently inlined at the router site vs directly,
+  and the cancellation amplifies it ~7 orders. A `noinline` probe confirms
+  the router itself adds no difference (bit-identical there).
+* `kValue`: same `mu`, `has_jacobian == false`, `grad_mu` all zero.
+* `kValueJvp`: `status != OK`, `has_jvp == false` — never a silent number.
+* Prepared route vs `epoch_jacobian_prepared` over a synthetic 12-epoch
+  track per config (1296 epochs), independent rolling caches in lockstep:
+  `provenance` matches the cache every epoch; `mu` to 1e-6, `grad` to 1e-4
+  (warm-D14 Aberth-iteration noise, the §21.2 "max |dμ|/μ 3.9e-7" story).
+* `ctest` 3/3 (`holonomic_point_images`, `holonomic_m7_reference`,
+  `holonomic_finite_source_binary`).
+
+### 23.3 Files
+
+* `src/lcbinint/magnification/holonomic/finite_source_binary.hpp` — NEW.
+* `tests/holonomic_cpp/test_finite_source_binary.cpp` + CMake target +
+  `add_test(holonomic_finite_source_binary)` — NEW.
+
+### 23.4 Next — Phase C step 2 (needs a coordinated `_lcbinint.so` rebuild)
+
+1. `FiniteSourceMethod::holonomic_binary` enum value
+   (`finite_source_magnifier.hpp`) + `finite_source_method_name` case.
+2. `FiniteSourceMagnifier::binary_mag` / `binary_mag_preplanned` dispatch:
+   translate `(sep, q, source, source_radius, u)` → `FiniteSourceRequest`,
+   call the router, map `FiniteSourceOutcome` → `FiniteSourceResult`; a
+   non-OK `Status` → the existing fail-closed result path.
+3. `MagnificationExecutionPlan` gains an optional `PreparedEpochGeometry`
+   handle (additive field, §6 direction 2); `magnification_preplanned` /
+   `fill_preplanned_magnification` thread a per-trajectory rolling cache.
+4. `python/lcbinint/warmup.py` `build_warmup_report`: emit the new method
+   for epochs where the holonomic engine is reference-validated and faster
+   (M4 gate), keeping the B1/B2 kernel as baseline/fallback.
+5. Bench: end-to-end `magnification_preplanned` trajectory vs the incumbent
+   inverse-ray route (family B), decision-20 gate, 0 status changes.

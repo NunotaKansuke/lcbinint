@@ -114,10 +114,19 @@ target_include_directories(bench_radius_terms_split PRIVATE "${_SRC}")
 target_compile_options(bench_radius_terms_split PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_radius_terms_split PRIVATE quadmath)
 
+# Phase C internal mode router (finite_source_binary) -- plumbing parity
+# vs epoch_jacobian / epoch_jacobian_prepared over the bench trajectory.
+add_executable(test_finite_source_binary "${CMAKE_CURRENT_SOURCE_DIR}/test_finite_source_binary.cpp")
+target_include_directories(test_finite_source_binary PRIVATE "${_SRC}")
+target_compile_options(test_finite_source_binary PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_finite_source_binary PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7
                  "${_REPO_ROOT}/evidence/holonomic/m7_reference.tsv")
+add_test(NAME holonomic_finite_source_binary
+         COMMAND test_finite_source_binary "/tmp/bench_cases.tsv")
 
 # --- optional Python binding (separately named, isolated) ------------------
 option(LCBININT_BUILD_HOLONOMIC_M7_PY "Build the isolated _lcbinint_holonomic_m7 pybind module" ON)
