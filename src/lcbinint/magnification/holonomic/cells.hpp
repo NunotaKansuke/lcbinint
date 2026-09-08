@@ -48,6 +48,12 @@ struct TopologyResult {
     double r_max = 0.0;
     std::vector<CellPlan> cells;
     Status status = Status::OK;
+    // The cell plan / D14 roots came from a warm-seeded reuse (L1 verbatim or
+    // L2 warm-D14 recompute), so cell boundaries carry a ~1e-8..1e-13 seed
+    // perturbation vs a cold solve.  Tells the integrator to cross-certify the
+    // (m, v) transport continuation on thin near-caustic arcs, where that
+    // perturbation is amplified (HOLO_MV_TRANSPORT only).
+    bool from_warm_d14 = false;
 };
 
 namespace cells_detail {

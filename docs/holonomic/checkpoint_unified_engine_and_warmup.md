@@ -2072,7 +2072,7 @@ tail back to an improvement.
 
   All percentiles improve; **0 status downgrades** in either lane.
 
-### 25.4 KNOWN ISSUE — transport × L2 warm-seeded-D14 reuse
+### 25.4 KNOWN ISSUE — transport × L2 warm-seeded-D14 reuse — **RESOLVED 2026-09-09 (§25.7)**
 
 `bench_holonomic_trajectory` checks V1 (`flux_jacobian_prepared`, L2
 warm-seeded-D14, DEFAULT ON per §21) against V0 (cold `classify_cells`
@@ -2107,11 +2107,12 @@ flip, same disposition Phase A's `HOLO_FAST_PLANNER` got):
 
 ### 25.5 Status / next
 
-Flag **OFF by default**. Parity (cold path 1e-14, m7 10397/0, ctest 4/4)
-and a measured epoch-time win (median −8.7 %, every percentile
-non-regressing, 0 status changes) are both demonstrated. A default-ON
-flip is gated on resolving §25.4 (transport × L2-reuse). Off the critical
-path until then; Gauss–Manin Π-transport remains a research spike only.
+Flag **OFF by default** at §25 landing; §25.4 resolved in §25.7, so a
+default-ON flip is now unblocked (pending the advisor's coordinated
+timing window). Parity (cold path 1e-14, m7 10397/0, ctest 4/4) and a
+measured epoch-time win (median −8.7 %, every percentile non-regressing,
+0 status changes) are both demonstrated. Gauss–Manin Π-transport remains
+a research spike only.
 
 ### 25.6 Files
 
@@ -2121,3 +2122,122 @@ path until then; Gauss–Manin Π-transport remains a research spike only.
   `arc_intervals` / `radius_terms`.
 * `src/lcbinint/magnification/holonomic/epoch_jacobian.hpp` — `rpw`
   in the `flux_jacobian_integrate` per-cell loop.
+
+## §25.7 (m,v) transport × L2-warm-D14 — root cause + fix (2026-09-09)
+
+Resolves the §25.4 KNOWN ISSUE that gated the default-ON flip.
+
+### 25.7.1 Root cause — the continuation is blind to arc birth/death
+
+Instrumented `real_root_thetas_transport` to print the transported θ set
+vs a cold `real_root_thetas(pc)` at every node on `('extreme-q-planet',
+14)` (a caustic-crossing epoch). **376 nodes had 2 transported θ but 4
+cold θ** — every transported θ matched one of the 4 cold roots exactly
+(mismatch 0), but one entire arc pair was missing.
+
+The (m,v) root-pair continuation tracks a *fixed* set of arcs from node
+to node (predictor `root_pair_dR` + `(E,O)=0` corrector). When the source
+edge crosses a caustic *between* two radial nodes inside one cell, a new
+image-arc pair is **born** — the boundary quartic goes from 2 real roots
+to 4. The continuation has no term that can see the new pair: it keeps
+transporting its old 1-pair set, and the new arc's flux is silently
+dropped. On this epoch that is a ~2e-3 deficit in μ.
+
+Why only with L2 warm-D14 reuse (V1), not cold (V0)? Both hit the same
+mid-cell caustic. But V0's cold `classify_cells` re-probes topology at 3
+fractions per cell and splits the cell at the caustic radius, so no
+single integration cell straddles the birth. L2 reuses the *previous
+epoch's* cell boundaries (~1e-8..1e-13 perturbed), and on the epoch where
+the caustic first enters a cell interior, that cell has not yet been
+split — the birth happens mid-cell and transport walks straight through
+it. (V0-vs-V0 ON/OFF stays 1e-14 because cold never continues.)
+
+### 25.7.2 Fix — quartic discriminant sign as a fail-closed trip
+
+The quartic discriminant changes sign **exactly** when the real-root
+count crosses between {2} and {0,4} — i.e. precisely at an arc pair
+birth/death. New `transport_disc_sign(pc)` (≈30 flops, no root solve,
+same closed form as `fast_topo_detail::quartic_disc_sign`, kept local so
+the header carries no upward dependency). `RootPairWarm` gains
+`int disc_sign` recorded at seed time. At the top of
+`real_root_thetas_transport`, if the current sign differs from the seed
+sign, the warm state is invalidated (`valid=false`, `++cold_streak`,
+`++trips`) → the cold Aberth solve below re-seeds with the **full** root
+set, picking up the newborn arc.
+
+This is a fail-closed trigger only — it does **not** switch to a
+real-roots / Sturm scheme; every bit of D14's information is retained
+(GOVERNING TASK Phase B constraint).
+
+**Defense in depth** (kept, none decisive alone — verified by A/B that
+each left the 2.006e-3 gap unchanged; disc-sign was the one that closed
+it):
+
+* `transport_pairs_valid` — branch-aware acceptance after predictor +
+  corrector: ascending non-overlapping real *inside* arcs (φ>0 at
+  t-midpoint), both endpoints genuine roots of P (`transport_is_root`,
+  scale-correct at any |t| — replaces the near-vacuous `(|E|+|O|) <
+  tol·cmax·m⁴` residual gate, old `kTransportResidRel` →
+  `kTransportRootRel = 1e-11`), and a pair-ambiguity gate
+  (`kTransportGapRel = 0.25`: reject if the t-gap between consecutive
+  arcs is < 25 % of the narrower arc's width — a near-merger where the
+  corrector can swap an endpoint between arcs).
+* `kTransportTMax = 12.0` — refuse any transported/seeded arc with
+  endpoint |t| = |m|+√v > 12 (within ~0.17 rad of θ=π, where the
+  `t = tan(θ/2)` chart is catastrophically ill-conditioned; the Möbius
+  chart change is not yet implemented → stay cold there).
+* `kTransportVJumpRel = 4.0` — predictor sanity: reject the linear IFT
+  step if it changes v by more than 4× (a fold the linear model can't
+  see).
+* `RootPairWarm::certify` (from `TopologyResult::from_warm_d14`, threaded
+  L1/L2 → `prepared_geometry` → `epoch_jacobian`): on a warm-D14-reused
+  plan, any transported arc with v < `kTransportCertifyV = 1e-5` gets its
+  whole θ set cross-checked against a cold quartic solve at that node;
+  mismatch > `kTransportCertifyRel·(1+|θ|)` (1e-7) → fall closed. This is
+  the advisor's explicitly-requested "if a D14-warm solve moved an event
+  position, don't inherit transport state near it".
+* cold fallback now delegates to `real_root_thetas_warm(pc, *qw)` (warm
+  Aberth) rather than a bare cold 40-iter Aberth — a warm continuation
+  solver stays in-basin under the ~1e-13 L2 coeff perturbation, whereas a
+  cold global Aberth near a folding root has condition ~1/√disc.
+
+### 25.7.3 Validation
+
+`taskset -c 0-7`, load ≈ 11 (OFF run) / ≈ 17 (ON run).
+
+| check | before | after |
+|---|---|---|
+| `bench_holonomic_trajectory` V1-vs-V0 `\|Δμ\|/\|μ\|` max, transport ON | 2.03e-3 | **3.92e-7** (= OFF baseline) |
+| `dV1` ON-vs-OFF (HOLO_DUMP diff, 1728 epochs) | 2.006e-3 | median 1.7e-16 / p99 1.4e-14 / **max 2.53e-14** |
+| `dV0` = `dV2` ON-vs-OFF max | — | 2.53e-14 (all three lanes bit-equivalent) |
+| status downgrades V1 (30×32 bench, both flags) | — | 0 |
+| false reuse V1 | — | 0 |
+| `('extreme-q-planet', 14)` in top-5 by Δμ | yes | no (top-5 now rand008/024/007 @ ~2e-14 FP) |
+
+Full matrix, both flags: `test_holonomic_m7` 10397/0 · `ctest` 4/4 ·
+`test_root_pair` 2809/0 (worst 3.62e-14) · `test_finite_source_binary`
+16524/0 (drift 6.53e-7 OFF / 6.52e-7 ON).
+
+Speed (30×32 trajectory bench, best-of-30): transport ON V1 steady-state
+median 1.165 ms vs V0 1.220 ms = **1.05×** (was 1.08× on the OFF run at
+load ≈11 — the ON run ran at load ≈17, contention-compressed, not a
+regression); p90/p95 improve, p99 +1 % / max +9 % are single-sample noise
+at that load gap.
+
+### 25.7.4 Files
+
+* `radius_terms.hpp` — `transport_disc_sign`, `transport_is_root`,
+  `transport_pairs_valid`; `RootPairWarm::{disc_sign, certify,
+  certify_falls}`; disc-flip guard + branch-aware acceptance + warm-D14
+  certification in `real_root_thetas_transport`; `qw` forwarded to the
+  cold fallback. `kTransportRootRel` / `kTransportTMax` /
+  `kTransportVJumpRel` / `kTransportCertifyV` / `kTransportCertifyRel` /
+  `kTransportGapRel`. Gated diagnostics `holo_mv_debug` / `holo_mv_noseed`
+  + `[mvT]` trace (zero cost when env unset).
+* `cells.hpp` — `TopologyResult::from_warm_d14`.
+* `prepared_geometry.hpp` — set `from_warm_d14` on the L1 verbatim and L2
+  warm-D14 paths.
+* `epoch_jacobian.hpp` — `rpw.certify = topo.from_warm_d14` in the
+  per-cell loop.
+* `tests/holonomic_cpp/bench_holonomic_trajectory.cpp` — `HOLO_DUMP` /
+  `HOLO_ONLY` / `HOLO_ONLY_EP` diagnostics (gated).

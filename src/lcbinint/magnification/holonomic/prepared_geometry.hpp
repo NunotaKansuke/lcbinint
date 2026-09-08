@@ -254,7 +254,9 @@ inline TopologyResult prepared_topology(const PrimaryFrame& pf,
         // roots) is unchanged, still anchored at the original geometry.
         state.provenance = PreparedEpochGeometry::kTopologyReused;
         bump(&PreparedReuseStats::l1_topology_reuse);
-        return TopologyResult{state.r_max, state.cells, state.status};
+        TopologyResult r{state.r_max, state.cells, state.status};
+        r.from_warm_d14 = true;
+        return r;
     }
     if (cfg.allow_topology_reuse && drift <= cfg.l1_drift)
         bump(&PreparedReuseStats::rescreen_fail);
@@ -270,6 +272,7 @@ inline TopologyResult prepared_topology(const PrimaryFrame& pf,
         state = next;
         bump(&PreparedReuseStats::l2_warm_recompute);
         if (!fresh.empty()) bump(&PreparedReuseStats::warm_solve_used);
+        topo.from_warm_d14 = true;
         return topo;
     }
 
