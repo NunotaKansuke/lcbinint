@@ -114,7 +114,10 @@ int main(int argc, char** argv) {
     long total_epochs = 0;
     double checksum = 0.0;
 
+    const char* only = std::getenv("HOLO_ONLY");
+    const char* only_ep = std::getenv("HOLO_ONLY_EP");
     for (const auto& c : cases) {
+        if (only && c.name.find(only) == std::string::npos) continue;
         // straight source track through (xs,ys); length scaled to guarantee
         // it meets the config's boundary structure.
         const double L = std::max(8.0 * c.rho, 0.5 * c.a);
@@ -133,10 +136,15 @@ int main(int argc, char** argv) {
             BC e = epoch_params(k);
             LensParams p{e.xs, e.ys, e.rho, e.q, e.a, (bool)e.bary};
 
+            const bool trace = std::getenv("HOLO_MV_DEBUG") &&
+                               (!only_ep || std::atoi(only_ep) == k);
+            if (trace) std::fprintf(stderr, "=== %s k=%d PATH=V0\n", c.name.c_str(), k);
             EpochJacobian b = epoch_jacobian(p, e.u, 64, false);
             PreparedReuseStats s1{}, s2{};
+            if (trace) std::fprintf(stderr, "=== %s k=%d PATH=V1\n", c.name.c_str(), k);
             EpochJacobian r1 =
                 epoch_jacobian_prepared(p, e.u, 64, st1, cfg_v1, &s1);
+            if (trace) std::fprintf(stderr, "=== %s k=%d PATH=V2\n", c.name.c_str(), k);
             EpochJacobian r2 =
                 epoch_jacobian_prepared(p, e.u, 64, st2, cfg_v2, &s2);
             agg_v1.l1_topology_reuse += s1.l1_topology_reuse;
@@ -156,6 +164,11 @@ int main(int argc, char** argv) {
             const double e2 = std::fabs(r2.mu - b.mu) / md;
             mu_rel_v1.push_back(e1);
             mu_rel_v2.push_back(e2);
+
+            if (std::getenv("HOLO_DUMP")) {
+                std::printf("DUMP\t%s\t%d\t%.17g\t%.17g\t%.17g\n",
+                            c.name.c_str(), k, b.mu, r1.mu, r2.mu);
+            }
 
             auto grad_rel = [&](const EpochJacobian& r) {
                 double num = 0, den = 0;
