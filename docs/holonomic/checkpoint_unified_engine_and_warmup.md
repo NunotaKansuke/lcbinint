@@ -1898,3 +1898,81 @@ case + `warmup()` selection are step 2 and land with a coordinated rebuild.
    (M4 gate), keeping the B1/B2 kernel as baseline/fallback.
 5. Bench: end-to-end `magnification_preplanned` trajectory vs the incumbent
    inverse-ray route (family B), decision-20 gate, 0 status changes.
+
+---
+
+## §24 (m,v) root-pair radial transport — port + feasibility (2026-09-09)
+
+User priority 2 (after Phase C, ahead of Gauss–Manin). Target: the **14 %**
+of the full-Jac epoch spent on the per-radial-node warm boundary-quartic
+solve (§22 decomposition — 0.17 ms of 1.26 ms). Instead of an Aberth
+deg-4 solve at each of the 64 Chebyshev nodes, carry each arc's boundary
+root pair in the symmetric coordinates `m = (t₊+t₋)/2`, `v = ((t₊−t₋)/2)²`
+(t = tan θ/2) and transport it in R with the 2×2 implicit-function ODE.
+A tangency is the smooth boundary `v → 0`, not a coordinate collision.
+Proven −16 % in the algebraic backend ([[project_algebraic_mv_transport]]).
+
+### 24.1 What landed — `src/lcbinint/magnification/holonomic/root_pair.hpp` (NEW)
+
+Direct port of `python/lcbinint/holonomic_ref/root_pair.py`:
+
+* `RootPair {m, v}` with `t_minus/t_plus/delta_theta`,
+  `root_pair_from_endpoints`.
+* `p_derivs` (P, P′..P⁗); `eo_residuals` →
+  `E = P + (v/2)P″ + (v²/24)P⁗`, `O = P′ + (v/6)P‴` (exact for a quartic —
+  `E = O = 0 ⟺ P(t₋) = P(t₊) = 0`); `eo_jacobian` (analytic 2×2);
+  `tangency_determinant` = `−½P″(m)²`.
+* `endpoint_dR` = `−P_R/P_t`; `root_pair_dR` = the 2×2 IFT solve
+  `[[E_m,E_v],[O_m,O_v]](dm,dv)ᵀ = −(E_R,O_R)ᵀ`, **fail-closed**
+  (`ok = false`) when `|det| < 1e-300` or non-finite — the caller must
+  fall back to a cold quartic solve.
+* `boundary_quartic_dR` added to `boundary_polynomial.hpp` (closed form,
+  ports `polynomial_family.boundary_quartic_dR`).
+
+### 24.2 Validation — `tests/holonomic_cpp/test_root_pair.cpp` +
+`gen_root_pair_ref.py` → `evidence/holonomic/root_pair_ref.tsv`
+
+`ctest -R holonomic_root_pair` — **2809 checks, 0 failures.**
+
+1. **Reference parity** (72 root pairs from the bench configs):
+   `eo_residuals` / `eo_jacobian` / `root_pair_dR` match `root_pair.py` to
+   **worst 3.6e-14 rel**; the `ok` flag matches every row.
+2. **`boundary_quartic_dR` vs central FD** over 432 (config, R) samples:
+   worst 3.0e-8 rel.
+3. **Transport smoke test** — cold-solve the quartic at the low edge of
+   each `kArcs` cell, then RK4-step `(dm/dR, dv/dR)` + a 2×2 Newton
+   corrector on `(E,O)=0` across 63 sub-intervals, comparing the
+   transported `(t₋, t₊)` to a cold Aberth solve at every node:
+   * **256 / 360 bands** transport edge-to-edge; **worst endpoint drift
+     1.0e-5** in t (near tangencies, where the cold reference is itself
+     noisy) — far inside the downstream `polish_endpoint` basin (the
+     quartic roots only *seed* a 6-iter Newton on the true φ).
+   * **104 / 360** fail closed (guard: `v < 1e-10`, unconverged Newton,
+     or singular 2×2) — these are near-tangency cells the node-wise
+     integrator already marks `GRADIENT_UNRELIABLE`, so a cold solve
+     there costs nothing extra.
+   * **0 guard misses** — no band where the real arc closed while
+     transport kept reporting a live pair.
+
+### 24.3 Status / next
+
+Port + math validated, isolated harness only. **Not yet wired into
+`radius_terms` / `flux_jacobian_integrate`.** Next: an
+`arc_intervals` variant that cold-solves at cell node 0, transports the
+root pairs across the remaining 63 nodes, and cold-solves only on a guard
+trip — behind a flag (`HOLO_MV_TRANSPORT`), A/B'd on
+`bench_radius_terms_split` / `bench_holonomic_trajectory` for the actual
+epoch-time delta and full parity (F0/F_half/5-Jac, 0 status changes)
+before any default flip. The 29 % fail-closed rate in the smoke test is a
+conservative upper bound — it marches uniform steps into the fold-margin
+insets that the Chebyshev nodes never reach, and re-cold-solves only once
+per band rather than resuming transport after a trip.
+
+### 24.4 Files
+
+* `src/lcbinint/magnification/holonomic/root_pair.hpp` — NEW.
+* `src/lcbinint/magnification/holonomic/boundary_polynomial.hpp` —
+  `boundary_quartic_dR` added.
+* `tests/holonomic_cpp/test_root_pair.cpp` + `gen_root_pair_ref.py` +
+  CMake target + `add_test(holonomic_root_pair)` — NEW.
+* `evidence/holonomic/root_pair_ref.tsv` — NEW.
