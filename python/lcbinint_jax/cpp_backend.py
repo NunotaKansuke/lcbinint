@@ -37,6 +37,10 @@ _FFI_HEX_BATCH_TARGET = "lcbinint_jax_hexadecapole_batch_f64_v1"
 _FFI_HEX_BATCH_JACOBIAN_TARGET = "lcbinint_jax_hexadecapole_batch_jacobian_f64_v1"
 _FFI_POINT_BATCH_TARGET = "lcbinint_jax_point_batch_f64_v1"
 _FFI_POINT_BATCH_JACOBIAN_TARGET = "lcbinint_jax_point_batch_jacobian_f64_v1"
+_FFI_POINT_BATCH_ARRAY_TARGET = "lcbinint_jax_point_batch_array_f64_v1"
+_FFI_POINT_BATCH_ARRAY_JACOBIAN_TARGET = (
+    "lcbinint_jax_point_batch_array_jacobian_f64_v1"
+)
 _FFI_TRIPLE_HEX_BATCH_TARGET = "lcbinint_jax_triple_hexadecapole_batch_f64_v1"
 _FFI_TRIPLE_HEX_BATCH_JACOBIAN_TARGET = (
     "lcbinint_jax_triple_hexadecapole_batch_jacobian_f64_v1"
@@ -341,6 +345,21 @@ def cpp_point_source_batch_ffi_available():
         return False
 
 
+def cpp_point_source_batch_array_ffi_available():
+    """Return whether the per-epoch-separation point FFI is available."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        native = _native_module()
+        jax_ir = native._jax_ir
+        return hasattr(jax_ir, "point_batch_array_ffi") and hasattr(
+            jax_ir, "point_batch_array_jacobian_ffi"
+        )
+    except (AttributeError, RuntimeError):
+        return False
+
+
 def cpp_triple_hexadecapole_batch_ffi_available():
     """Return whether differentiable triple hexadecapole FFI is available."""
 
@@ -595,6 +614,26 @@ def _register_point_source_batch_ffi():
     jax.ffi.register_ffi_target(_FFI_POINT_BATCH_TARGET, forward, platform="cpu")
     jax.ffi.register_ffi_target(
         _FFI_POINT_BATCH_JACOBIAN_TARGET,
+        jacobian,
+        platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_point_source_batch_array_ffi():
+    native = _native_module()
+    try:
+        forward = native._jax_ir.point_batch_array_ffi()
+        jacobian = native._jax_ir.point_batch_array_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the dynamic point-source FFI"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_POINT_BATCH_ARRAY_TARGET, forward, platform="cpu"
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_POINT_BATCH_ARRAY_JACOBIAN_TARGET,
         jacobian,
         platform="cpu",
     )
@@ -2018,6 +2057,83 @@ def binary_point_source_batch_ffi(source_x, source_y, separation, mass_ratio):
         raise ValueError("lens parameters must be scalars")
     _register_point_source_batch_ffi()
     result = _point_source_batch_transformable(source_x, source_y, *scalars)
+    from .multipole import PointSourceResult
+
+    return PointSourceResult(*result)
+
+
+@jax.custom_jvp
+def _point_source_batch_array_transformable(
+    source_x, source_y, separation, mass_ratio
+):
+    outputs = _point_source_batch_call(
+        _FFI_POINT_BATCH_ARRAY_TARGET,
+        source_x,
+        source_y,
+        (separation, mass_ratio),
+        False,
+    )
+    return _FfiPointSourceResult(*outputs)
+
+
+@_point_source_batch_array_transformable.defjvp
+def _point_source_batch_array_jvp(primals, tangents):
+    reject_higher_order_ad(primals)
+    source_x, source_y, separation, mass_ratio = primals
+    source_x_tangent, source_y_tangent, separation_tangent, mass_ratio_tangent = (
+        tangents
+    )
+    outputs = _point_source_batch_call(
+        _FFI_POINT_BATCH_ARRAY_JACOBIAN_TARGET,
+        source_x,
+        source_y,
+        (separation, mass_ratio),
+        True,
+    )
+    primal = _FfiPointSourceResult(*outputs[:3])
+    parameter_tangent = jnp.stack(
+        (
+            source_x_tangent,
+            source_y_tangent,
+            separation_tangent,
+            jnp.full_like(source_x, mass_ratio_tangent),
+        ),
+        axis=1,
+    )
+    tangent = _FfiPointSourceResult(
+        magnification=jnp.einsum("nq,nq->n", outputs[3], parameter_tangent),
+        image_count=jnp.zeros_like(primal.image_count, dtype=jax.dtypes.float0),
+        root_failure=jnp.zeros_like(primal.root_failure, dtype=jax.dtypes.float0),
+    )
+    return primal, tangent
+
+
+def binary_point_source_batch_array_ffi(
+    source_x, source_y, separation, mass_ratio
+):
+    """Evaluate point-source magnification with one separation per row."""
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("the dynamic binary point-source FFI is CPU-only")
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    separation = jnp.asarray(separation, dtype=jnp.float64)
+    if (
+        source_x.ndim != 1
+        or source_y.shape != source_x.shape
+        or separation.shape != source_x.shape
+    ):
+        raise ValueError(
+            "source_x, source_y, and separation must have the same 1-D shape"
+        )
+    mass_ratio = jnp.asarray(mass_ratio, dtype=jnp.float64)
+    if mass_ratio.ndim != 0:
+        raise ValueError("mass_ratio must be scalar")
+    _register_point_source_batch_array_ffi()
+    result = _point_source_batch_array_transformable(
+        source_x, source_y, separation, mass_ratio
+    )
     from .multipole import PointSourceResult
 
     return PointSourceResult(*result)

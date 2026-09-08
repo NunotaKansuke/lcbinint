@@ -15,10 +15,13 @@ import jax
 import jax.numpy as jnp
 
 from .cpp_backend import (
+    binary_magnification_trajectory_ffi,
     binary_hexadecapole_batch_ffi,
     binary_inverse_ray_cartesian_batch_ffi,
     binary_inverse_ray_polar_ffi,
     binary_point_source_batch_ffi,
+    binary_point_source_batch_array_ffi,
+    cpp_point_source_batch_array_ffi_available,
     cpp_point_source_batch_ffi_available,
 )
 from .trajectory import _tile_capacity
@@ -28,12 +31,14 @@ POINT_SOURCE = 0
 HEXADECAPOLE = 1
 CARTESIAN = 2
 POLAR = 3
+TRAJECTORY = 4
 
 METHOD_NAMES = (
     "point_source",
     "hexadecapole",
     "inverse_ray_cartesian",
     "inverse_ray_polar",
+    "trajectory_dispatch",
 )
 
 _METHOD_CODES = {name: code for code, name in enumerate(METHOD_NAMES)}
@@ -60,7 +65,13 @@ def _normalise_plan(methods, resolutions):
         )
     unsupported = tuple(
         method for method in methods
-        if method not in (POINT_SOURCE, HEXADECAPOLE, CARTESIAN, POLAR)
+        if method not in (
+            POINT_SOURCE,
+            HEXADECAPOLE,
+            CARTESIAN,
+            POLAR,
+            TRAJECTORY,
+        )
     )
     if unsupported:
         raise ValueError(f"unsupported planned route code(s): {unsupported!r}")
@@ -79,7 +90,14 @@ def _set_group(array, indices, values):
 
 
 def _point_batch(source_x, source_y, separation, mass_ratio):
-    if cpp_point_source_batch_ffi_available():
+    # Keep the scalar ABI fast path for static geometries and use the separate
+    # array ABI for orbital rows.  Developer builds without either optional
+    # symbol retain the differentiable JAX fallback.
+    if jnp.ndim(separation) != 0 and cpp_point_source_batch_array_ffi_available():
+        result = binary_point_source_batch_array_ffi(
+            source_x, source_y, separation, mass_ratio
+        )
+    elif cpp_point_source_batch_ffi_available() and jnp.ndim(separation) == 0:
         result = binary_point_source_batch_ffi(
             source_x, source_y, separation, mass_ratio
         )
@@ -88,15 +106,75 @@ def _point_batch(source_x, source_y, separation, mass_ratio):
         # differentiable fallback; the prepared report records the same route.
         from .multipole import binary_point_source_magnification
 
+        separation = jnp.broadcast_to(separation, source_x.shape)
         result = jax.vmap(
-            lambda x, y: binary_point_source_magnification(
-                x, y, separation, mass_ratio
+            lambda x, y, s: binary_point_source_magnification(
+                x, y, s, mass_ratio
             )
-        )(source_x, source_y)
+        )(source_x, source_y, separation)
     return result.magnification, ~result.root_failure
 
 
-def _make_result(methods, resolutions, moment_mode):
+def _trajectory_batch(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+    resolution,
+    moment_mode,
+    absolute_tolerance=1.0e-4,
+    relative_tolerance=1.0e-4,
+):
+    """Run the native per-epoch dispatcher for an orbiting binary.
+
+    The grouped fixed-route kernels intentionally take scalar ``s``.  For an
+    orbit, route safety can change from epoch to epoch, so the trajectory FFI
+    is the correct prepared primitive: it keeps one compiled call while
+    dispatching hexadecapole/Cartesian/polar independently for the supplied
+    ``s(t)`` array.  Its stopped-gradient support certificate lets MOASARC
+    retain the same algebraic fallback contract as fixed routes.
+    """
+    if jnp.ndim(separation) == 0:
+        separation = jnp.broadcast_to(separation, source_x.shape)
+    return binary_magnification_trajectory_ffi(
+        source_x,
+        source_y,
+        separation,
+        mass_ratio,
+        source_radius,
+        limb_c,
+        limb_d,
+        absolute_tolerance=absolute_tolerance,
+        relative_tolerance=relative_tolerance,
+        multipole_safety_factor=4.0,
+        polar_magnification_threshold=80.0,
+        polar_max_source_radius=0.01,
+        polar_min_mass_ratio=5.0e-3,
+        resolution=max(2, int(resolution)),
+        tile_size=16,
+        tile_capacity=_tile_capacity(int(resolution)),
+        limb_samples=32,
+        polar_resolution=max(64, int(resolution)),
+        polar_angular_bins=max(4096, 32 * int(resolution)),
+        polar_radial_capacity=max(256, 4 * int(resolution)),
+        polar_band_capacity=16,
+        polar_limb_samples=64,
+        polar_angular_chunk_size=256,
+        polar_fallback_on_overflow=False,
+        moment_mode=moment_mode,
+    )
+
+
+def _make_result(
+    methods,
+    resolutions,
+    moment_mode,
+    absolute_tolerance=1.0e-4,
+    relative_tolerance=1.0e-4,
+):
     methods, resolutions = _normalise_plan(methods, resolutions)
     if moment_mode not in ("uniform", "linear", "two_coefficient"):
         raise ValueError(f"invalid planned moment mode: {moment_mode!r}")
@@ -114,12 +192,25 @@ def _make_result(methods, resolutions, moment_mode):
         source_y = jnp.broadcast_to(
             jnp.asarray(source_y, dtype=jnp.float64), source_x.shape
         )
+        separation = jnp.asarray(separation, dtype=jnp.float64)
+        if separation.ndim == 0:
+            separation_values = separation
+        elif separation.shape == source_x.shape:
+            separation_values = separation
+        else:
+            raise ValueError("separation must be scalar or match source_x")
         magnification = jnp.full_like(source_x, jnp.nan)
         support_valid = jnp.zeros(source_x.shape, dtype=jnp.bool_)
 
         # Every group is static.  The Python loops are unrolled while tracing,
         # leaving grouped native calls and indexed scatters in the executable.
-        for method in (POINT_SOURCE, HEXADECAPOLE, POLAR, CARTESIAN):
+        for method in (
+            POINT_SOURCE,
+            HEXADECAPOLE,
+            POLAR,
+            CARTESIAN,
+            TRAJECTORY,
+        ):
             for resolution in sorted(
                 {
                     resolutions[index]
@@ -138,16 +229,21 @@ def _make_result(methods, resolutions, moment_mode):
                 index_array = jnp.asarray(indices, dtype=jnp.int32)
                 group_x = source_x[index_array]
                 group_y = source_y[index_array]
+                group_separation = (
+                    separation_values
+                    if jnp.ndim(separation_values) == 0
+                    else separation_values[index_array]
+                )
 
                 if method == POINT_SOURCE:
                     group_value, group_support = _point_batch(
-                        group_x, group_y, separation, mass_ratio
+                        group_x, group_y, group_separation, mass_ratio
                     )
                 elif method == HEXADECAPOLE:
                     expansion = binary_hexadecapole_batch_ffi(
                         group_x,
                         group_y,
-                        separation,
+                        group_separation,
                         mass_ratio,
                         source_radius,
                         limb_c,
@@ -161,7 +257,7 @@ def _make_result(methods, resolutions, moment_mode):
                     grid = binary_inverse_ray_cartesian_batch_ffi(
                         group_x,
                         group_y,
-                        separation,
+                        group_separation,
                         mass_ratio,
                         source_radius,
                         limb_c,
@@ -176,15 +272,15 @@ def _make_result(methods, resolutions, moment_mode):
                     )
                     group_value = grid.magnification
                     group_support = grid.support_valid
-                else:
+                elif method == POLAR:
                     radial_target = max(256, 8 * int(resolution))
                     radial_capacity = 1 << (radial_target - 1).bit_length()
 
-                    def evaluate(active_x, active_y):
+                    def evaluate(active_x, active_y, active_s):
                         return binary_inverse_ray_polar_ffi(
                             active_x,
                             active_y,
-                            separation,
+                            active_s,
                             mass_ratio,
                             source_radius,
                             limb_c,
@@ -199,9 +295,28 @@ def _make_result(methods, resolutions, moment_mode):
                             moment_mode=moment_mode,
                         )
 
-                    grid = jax.vmap(evaluate)(group_x, group_y)
+                    group_s = jnp.broadcast_to(
+                        group_separation, group_x.shape
+                    )
+                    grid = jax.vmap(evaluate)(group_x, group_y, group_s)
                     group_value = grid.magnification
                     group_support = grid.support_valid
+                else:
+                    trajectory = _trajectory_batch(
+                        group_x,
+                        group_y,
+                        group_separation,
+                        mass_ratio,
+                        source_radius,
+                        limb_c,
+                        limb_d,
+                        resolution,
+                        moment_mode,
+                        absolute_tolerance,
+                        relative_tolerance,
+                    )
+                    group_value = trajectory.magnification
+                    group_support = trajectory.support_valid
 
                 magnification = _set_group(magnification, indices, group_value)
                 support_valid = _set_group(
@@ -213,10 +328,25 @@ def _make_result(methods, resolutions, moment_mode):
     return result
 
 
-def make_result_function(methods, resolutions, moment_mode="two_coefficient"):
+def make_result_function(
+    methods,
+    resolutions,
+    moment_mode="two_coefficient",
+    *,
+    absolute_tolerance=1.0e-4,
+    relative_tolerance=1.0e-4,
+):
     """Compile and return one fixed grouped execution plan."""
 
-    return jax.jit(_make_result(methods, resolutions, moment_mode))
+    return jax.jit(
+        _make_result(
+            methods,
+            resolutions,
+            moment_mode,
+            absolute_tolerance,
+            relative_tolerance,
+        )
+    )
 
 
 __all__ = [
@@ -225,6 +355,7 @@ __all__ = [
     "METHOD_NAMES",
     "POINT_SOURCE",
     "POLAR",
+    "TRAJECTORY",
     "PlannedResult",
     "make_result_function",
 ]
