@@ -1956,17 +1956,13 @@ Direct port of `python/lcbinint/holonomic_ref/root_pair.py`:
 
 ### 24.3 Status / next
 
-Port + math validated, isolated harness only. **Not yet wired into
-`radius_terms` / `flux_jacobian_integrate`.** Next: an
-`arc_intervals` variant that cold-solves at cell node 0, transports the
-root pairs across the remaining 63 nodes, and cold-solves only on a guard
-trip — behind a flag (`HOLO_MV_TRANSPORT`), A/B'd on
-`bench_radius_terms_split` / `bench_holonomic_trajectory` for the actual
-epoch-time delta and full parity (F0/F_half/5-Jac, 0 status changes)
-before any default flip. The 29 % fail-closed rate in the smoke test is a
-conservative upper bound — it marches uniform steps into the fold-margin
-insets that the Chebyshev nodes never reach, and re-cold-solves only once
-per band rather than resuming transport after a trip.
+Port + math validated, isolated harness only. **Wired into `radius_terms`
+/ `flux_jacobian_integrate` behind `HOLO_MV_TRANSPORT` in §25** (OFF by
+default). The 29 % fail-closed rate in the smoke test proved a
+conservative upper bound — the production per-cell warm loop only ever
+transports across the Chebyshev nodes (never the fold-margin insets) and
+resumes transport after a trip, so the measured cold-fallback rate is
+far lower.
 
 ### 24.4 Files
 
@@ -1976,3 +1972,152 @@ per band rather than resuming transport after a trip.
 * `tests/holonomic_cpp/test_root_pair.cpp` + `gen_root_pair_ref.py` +
   CMake target + `add_test(holonomic_root_pair)` — NEW.
 * `evidence/holonomic/root_pair_ref.tsv` — NEW.
+
+---
+
+## §25 (m,v) transport wired into `radius_terms` — flag-gated (2026-09-09)
+
+Follows §24. The §24 port now drives the per-radial-node boundary solve
+inside `flux_jacobian_integrate`, behind `HOLO_MV_TRANSPORT`
+(**OFF by default**). Same fail-closed contract as every other holonomic
+path: any doubt → the exact cold Aberth solve, never a silent
+approximation.
+
+### 25.1 What landed — `radius_terms.hpp`, `epoch_jacobian.hpp`
+
+* `holo_mv_transport_enabled()` — static-once `getenv("HOLO_MV_TRANSPORT")
+  == "1"`, same pattern as `holo_fast_planner_enabled()`.
+* `struct RootPairWarm` — per-cell transport state: the tracked `RootPair`
+  list (ascending in t), the previous node's `boundary_quartic` /
+  `boundary_quartic_dR` coefficients + `R_prev`, a `valid` seed flag, a
+  `cold_streak` (consecutive misses) and a `trips` (total misses this
+  cell) counter, plus `warm_hits` / `cold_falls` telemetry.
+* `real_root_thetas_transport(pc, R, pf, w)` — returns a θ list
+  **structurally identical** to `real_root_thetas()` /
+  `real_root_thetas_warm()` (downstream arc formation unchanged):
+  * **warm branch** — for each tracked pair: predictor
+    `root_pair_dR(rp, pc_prev, pcR_prev)` (IFT in R on the *previous*
+    node's coeffs) then ≤ `kTransportNewton` (5) Newton steps on
+    `(E,O) = 0` at the new node. Accept only if every pair converged
+    (step-relative gate `kTransportStepTol = 1e-13`), `v >
+    kTransportVFloor = 1e-10`, the scaled residual `(|E|+|O|) <
+    kTransportResidRel · cmax · m⁴` (`1e-10`), the state is finite, and
+    the recovered θ count still equals `2·npairs`. On accept, roll
+    `pc_prev`/`pcR_prev`/`R_prev` forward and `++warm_hits`.
+  * **cold branch** — the byte-for-byte `aberth<double>(c, deg, 40)` +
+    `thetas_from_complex` of `real_root_thetas`, then a **re-seed**: if
+    the real t-roots pair up (`size % 2 == 0`, count matches θ) *and*
+    `phi_lens > 0` at the `(t0,t1)` t-midpoint (the non-wrapping "even"
+    gap owns the φ>0 arcs — the "odd" set owns the θ=π / t=±∞ arc that
+    `(m,v)` cannot represent), build `RootPair`s from consecutive
+    endpoints and mark `valid`. Otherwise leave `valid = false` (that
+    cell stays cold for the rest of its life).
+* `arc_intervals` / `radius_terms` — new trailing `RootPairWarm* rpw =
+  nullptr` param. Transport is taken only when
+  `rpw && holo_mv_transport_enabled() && cold_streak < kColdStreak &&
+  trips < kTransportMaxTrips (4)`; else the existing `w` warm-Aberth /
+  cold path, unchanged. Degenerate (chart-radius) branch also clears
+  `rpw->valid`.
+* `flux_jacobian_integrate` — one `RootPairWarm rpw;` beside the existing
+  `QuarticWarm qw;` in the per-cell node loop; `radius_terms(R, pf,
+  kTanRel, &qw, &rpw)`. Covers **both** `flux_jacobian` (cold) and
+  `flux_jacobian_prepared` (L1/L2 reuse) since both funnel through
+  `flux_jacobian_integrate`.
+
+`kTransportMaxTrips` was added after the first A/B: without it a
+near-caustic cell that oscillates (transport succeeds a few nodes, trips,
+re-seeds, trips…) paid *both* transport and cold and regressed the tail
+(p90 +3.6 %, max +2.4 %). Capping total misses per cell at 4 turned the
+tail back to an improvement.
+
+### 25.2 Parity — flag ON vs OFF (cold path)
+
+* **`ctest` (flag OFF)** — `4/4` pass (`holonomic_point_images`,
+  `holonomic_m7_reference`, `holonomic_finite_source_binary`,
+  `holonomic_root_pair`), 4.69 s.
+* **`test_holonomic_m7`** — `10397 checks / 0 failures`, **both** flag
+  states.
+* **108 bench cases via `epoch_jacobian(p, u, 64)`, flag ON vs OFF**:
+  `0` status diffs; worst `|Δμ|/|μ| = 1.39e-14`; worst
+  `‖Δgrad‖/‖g‖ = 3.65e-8` (`rand024`); worst `ΔF/F = 1.39e-14`.
+  The `3.65e-8` gradient term is the **pre-existing** ∂μ/∂ρ catastrophic
+  cancellation (`grad_mu[2] -= 2μ/ρ`, checkpoint M6 §5) reacting to a
+  one-ULP `-ffp-contract=fast` reassociation — **not transport-induced**
+  (it appears at the same magnitude comparing any two byte-identical
+  builds).
+
+### 25.3 Speed — `HOLO_MV_TRANSPORT=1` vs unset
+
+`taskset -c 0-7`, `uptime` load ≈ 13, `-O3 -march=native -ffp-contract=fast`.
+
+* **`bench_radius_terms_split`** (`epoch_jacobian` full, 4 trials):
+
+  | | median | p90 | max |
+  |---|---|---|---|
+  | OFF | 1.260 ms | 2.263 ms | 4.17 ms |
+  | ON | **1.150 ms** (−8.7 %) | 2.188 ms (−3.3 %) | 4.13 ms (−1 %) |
+
+  All three non-regressing. The `bench_radius_terms_split` share
+  readout shifts "quartic solve" 24.8 % → 27.1 % of the epoch because
+  the *denominator* (epoch) shrank ~9 % while the angular sweep did not.
+
+* **`bench_holonomic_trajectory`** (3456 epochs, 2 trials):
+
+  | lane | metric | OFF | ON |
+  |---|---|---|---|
+  | V0 cold | median | 1.2914 | 1.1875 |
+  | V0 cold | p90 / p95 / p99 | 2.016 / 2.455 / 3.353 | 1.926 / 2.343 / 3.313 |
+  | V0 cold | max | 4.279 | 4.152 |
+  | V1 L2 warm-D14 | median | 1.1927 | 1.0863 |
+
+  All percentiles improve; **0 status downgrades** in either lane.
+
+### 25.4 KNOWN ISSUE — transport × L2 warm-seeded-D14 reuse
+
+`bench_holonomic_trajectory` checks V1 (`flux_jacobian_prepared`, L2
+warm-seeded-D14, DEFAULT ON per §21) against V0 (cold `classify_cells`
+every epoch) **within one run**:
+
+| | transport OFF | transport ON |
+|---|---|---|
+| `\|Δμ\|/\|μ\|` max (V1 vs V0) | 3.92e-7 | **2.03e-3** |
+| `‖Δgrad‖/‖g‖` max | 3.05e-2 | 6.49e-2 |
+
+Reproducible across both trials. **Not** fixed by raising
+`kTransportVFloor` to 1e-6 (gap stayed exactly 2.03e-3 / 6.49e-2 and cost
+~1 % of the speed win — reverted).
+
+**Hypothesis**: an L2 warm-seeded-D14 solve places cell boundaries
+~1e-13 off a cold solve. Transport's node-to-node integration is
+path-dependent (predictor from node k−1 + corrector), so on one
+razor-thin arc near a caustic the predictor lands in a neighbouring
+root's basin, the corrector converges to the wrong pair, and that arc
+seed drifts ~2e-3 in μ. The cold path re-solves each node independently
+and is immune — which is why V0-vs-V0 (ON vs OFF, §25.2) stays 1e-14.
+
+**Candidate fixes** (none implemented — this is the gate for a default
+flip, same disposition Phase A's `HOLO_FAST_PLANNER` got):
+
+1. Transport re-seeds (cold node-0 solve) whenever the prepared path
+   signals a warm-D14 recompute for that cell.
+2. Basin-flip guard: after the corrector, verify each pair still brackets
+   the same φ>0 arc and the pair ordering is unchanged; else cold.
+3. Disable transport when `cfg.allow_warm_d14` and the cell is within a
+   caustic-proximity margin.
+
+### 25.5 Status / next
+
+Flag **OFF by default**. Parity (cold path 1e-14, m7 10397/0, ctest 4/4)
+and a measured epoch-time win (median −8.7 %, every percentile
+non-regressing, 0 status changes) are both demonstrated. A default-ON
+flip is gated on resolving §25.4 (transport × L2-reuse). Off the critical
+path until then; Gauss–Manin Π-transport remains a research spike only.
+
+### 25.6 Files
+
+* `src/lcbinint/magnification/holonomic/radius_terms.hpp` —
+  `holo_mv_transport_enabled`, `RootPairWarm`,
+  `real_root_thetas_transport`; `rpw` param threaded through
+  `arc_intervals` / `radius_terms`.
+* `src/lcbinint/magnification/holonomic/epoch_jacobian.hpp` — `rpw`
+  in the `flux_jacobian_integrate` per-cell loop.
