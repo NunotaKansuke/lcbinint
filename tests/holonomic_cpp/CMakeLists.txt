@@ -56,6 +56,13 @@ target_include_directories(bench_planner_split PRIVATE "${_SRC}")
 target_compile_options(bench_planner_split PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_planner_split PRIVATE quadmath)
 
+# Phase A step 1: binary point-source image solver (seeds for the fast planner).
+add_executable(test_point_images "${CMAKE_CURRENT_SOURCE_DIR}/test_point_images.cpp")
+target_include_directories(test_point_images PRIVATE "${_SRC}")
+target_compile_options(test_point_images PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_point_images PRIVATE quadmath)
+add_test(NAME holonomic_point_images COMMAND test_point_images)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7
