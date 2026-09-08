@@ -1530,3 +1530,70 @@ the previous epoch should push most cases to ~3 dd sweeps.
   completeness check, conjugate symmetrization, `HOLO_D14_LEGACY_SOLVE` hatch.
 * `tests/holonomic_cpp/bench_d14_compensated.cpp` + `CMakeLists.txt` — NEW.
 * `evidence/holonomic/d14_compensated_bench.txt` — raw bench + reading.
+
+---
+
+## §20 Phase B step 3 feasibility + step 2 dependency (2026-09-08)
+
+### 20.1 B3 (on-axis factorization) — identity confirmed, closed-form premise refuted
+
+Evidence: `evidence/holonomic/d14_onaxis_factorization.txt`.
+
+* The sympy identity `Disc_t(P)/R⁴ = 16·F6(v)·G4(v)²` was matched **term
+  by term** to the C++ `re_detail::p_coeffs_in_R` construction and verified
+  numerically (mpmath 70-digit, both exact-ys=0 bench configs): identity
+  residual 2.4e-71, `F = p4·p0` and `H = p2²−4F` **exactly** even in R
+  (`p2` is purely even; `p0`, `p4` are not — their odd cross terms cancel).
+  The factorization is real and exact in the production basis.
+* **But it is not a closed form.** `G4` (deg 4) → Ferrari, clean, and its
+  roots are the a-priori multiplicity-2 roots of D14. `F6` (deg 6) has
+  **no product factorization** — `F6(v) = pe4·pe0 + v·po4·po0`, a sum —
+  and a general sextic has no radical solution. "Ferrari closed-form
+  sextic" (§18.3) does not exist. Worse, F6's roots are real and
+  *clustered* for the on-axis cases (on-axis-off: two near-triple
+  clusters in R) — exactly the structure that makes the on-axis D14
+  Aberth slow (B0 top-12). F6 keeps that clustering.
+* **Revised payoff:** deg-14 clustered Aberth → deg-4 Ferrari + deg-6
+  clustered numerical solve ≈ 1.5–2× on the on-axis solve, on **2/108**
+  configs (exact ys=0 only; near-axis unaffected). B1 already dominates.
+* **RECOMMENDATION: defer B3.** If pursued, fold only the Ferrari `G4`
+  sub-solve into `solve_d14` behind `|Y|<1e-14` (removes the a-priori
+  double root) — not a separate closed-form engine. `§18.3`'s "Ferrari
+  closed-form sextic + quartic" and "G4² … no numerical multiplicity-2
+  cluster" are corrected here: only the G4 half is clean.
+
+### 20.2 B2 (all-root cross-epoch warm-start) — blocked on a threading decision
+
+B2 = carry the previous epoch's full D14 root set as the next epoch's
+Aberth seed. §18.3 said "via `warmup()` / the execution plan — no new
+public API", but:
+
+* The holonomic backend is **not wired into `FiniteSourceMagnifier`**
+  (memory: "Neither backend is wired … both standalone"). `warmup()` /
+  `MagnificationExecutionPlan` / `compare_warmup_geometry` live in the
+  main lcbinint path and do not reach `radial_events`. Phases **C**
+  (mode router / wiring) and **E** (prepared-geometry cache) build that
+  bridge — they come *after* B in the user's order.
+* The in-repo precedent §18.3 actually cites — `QuarticWarm` /
+  `real_root_thetas_warm` — is **workspace threading**, not the
+  execution plan: a caller-owned scratch struct passed through the call
+  chain. For B2 that means a `D14Warm` workspace threaded
+  `radial_events → cells → epoch_jacobian`, populated across a
+  light-curve sample loop by the bench / a trajectory driver.
+* That is a real, non-trivial change (new overloads down the chain) and
+  its payoff needs a trajectory-level bench that does not exist yet.
+  Root-correspondence near a bifurcation is the known hard part (§18.3).
+
+**Decision needed from the user:** thread a `D14Warm` workspace now (the
+`QuarticWarm` pattern, standalone, no `FiniteSourceMagnifier` wiring), or
+reorder — do C/E first so B2 rides the prepared-geometry cache. Until
+then B1 stands as the delivered Phase B result (gate met).
+
+### 20.3 Phase B status
+
+* **B1 — DONE, committed `69cc789`, gate met** (§19): compensated dd D14
+  polish default-ON, epoch median 1.71× / p90 1.70× / p99 non-regressing,
+  0/115 parity, 10397/0.
+* **B2 — blocked** on 20.2 (threading decision / phase reorder).
+* **B3 — deferred** per 20.1 (no closed form, 2% scope).
+* **B4 (secular)** — unchanged: only if a gap remains after B1+B2.
