@@ -22,6 +22,7 @@
 
 #include "lcbinint/magnification/holonomic/angular_rule.hpp"
 #include "lcbinint/magnification/holonomic/cells.hpp"
+#include "lcbinint/magnification/holonomic/fast_topology.hpp"
 #include "lcbinint/magnification/holonomic/fp_env.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
 #include "lcbinint/magnification/holonomic/radius_terms.hpp"
@@ -74,10 +75,16 @@ inline bool near_origin_source(const PrimaryFrame& pf,
     return std::hypot(pf.X, pf.Y) < tol;
 }
 
-inline FluxJacobian flux_jacobian(const LensParams& p, int n_r = 64) {
+inline FluxJacobian flux_jacobian(const LensParams& p, int n_r,
+                                  bool use_fast_planner) {
     const ScopedFlushDenormals _fp_guard;
     const PrimaryFrame pf = PrimaryFrame::from(p);
-    TopologyResult topo = classify_cells(pf);
+    // Band discovery: classify_cells (D14 oracle) is the default and the
+    // authority.  use_fast_planner routes through the seed-anchored fast
+    // planner + sec.5.2 screen, which itself falls back to classify_cells on
+    // any bail / screen failure (fast_topology.hpp).  Phase A step 4.
+    TopologyResult topo =
+        use_fast_planner ? classify_cells_fast(pf) : classify_cells(pf);
 
     FluxJacobian fj;
     fj.r_max = topo.r_max;
@@ -122,10 +129,14 @@ inline FluxJacobian flux_jacobian(const LensParams& p, int n_r = 64) {
     return fj;
 }
 
-inline EpochJacobian epoch_jacobian(const LensParams& p, double u = 0.0,
-                                    int n_r = 64) {
+inline FluxJacobian flux_jacobian(const LensParams& p, int n_r = 64) {
+    return flux_jacobian(p, n_r, holo_fast_planner_enabled());
+}
+
+inline EpochJacobian epoch_jacobian(const LensParams& p, double u, int n_r,
+                                    bool use_fast_planner) {
     const ScopedFlushDenormals _fp_guard;
-    FluxJacobian fj = flux_jacobian(p, n_r);
+    FluxJacobian fj = flux_jacobian(p, n_r, use_fast_planner);
     const PrimaryFrame pf = PrimaryFrame::from(p);
 
     EpochJacobian ej;
@@ -144,6 +155,11 @@ inline EpochJacobian epoch_jacobian(const LensParams& p, double u = 0.0,
     ej.grad_mu[2] -= 2.0 * ej.mu / rho;
     ej.dmu_du = kPi * r2 * (Fh - 2.0 * F0 / 3.0) / (D * D);
     return ej;
+}
+
+inline EpochJacobian epoch_jacobian(const LensParams& p, double u = 0.0,
+                                    int n_r = 64) {
+    return epoch_jacobian(p, u, n_r, holo_fast_planner_enabled());
 }
 
 }  // namespace lcbinint::holonomic

@@ -60,6 +60,13 @@ struct PointImages {
     double mu_total = 0.0;           // sum of |mag| -- point-source magnification
     int n_raw = 0;                   // roots returned by the degree-5 solve
     bool reliable = true;            // false: image count even / residuals large
+    bool escalated = false;          // true: the double tier failed the odd /
+                                     // residual gate and __float128 was used --
+                                     // an extreme-q geometry whose planet-image
+                                     // pair only separates at ~34 digits.  A
+                                     // "known-fragile-seed" marker: the fast
+                                     // planner routes these to the D14 oracle
+                                     // (checkpoint sec.16.4 constraint a).
 };
 
 namespace pimg_detail {
@@ -258,6 +265,7 @@ inline PointImages binary_point_images(const PrimaryFrame& pf,
         return out;
     }
     // Tier 2: __float128.
+    out.escalated = true;
     const double w_q =
         pimg_detail::pimg_solve_verify<__float128>(pf, residual_tol, &out);
     const int n = (int)out.images.size();

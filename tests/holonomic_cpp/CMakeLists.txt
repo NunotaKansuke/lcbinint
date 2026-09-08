@@ -75,6 +75,13 @@ target_include_directories(bench_fast_bands_screen PRIVATE "${_SRC}")
 target_compile_options(bench_fast_bands_screen PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_fast_bands_screen PRIVATE quadmath)
 
+# Phase A step 4: fast-planner topology wired into epoch_jacobian (flag-gated);
+# full value+5-Jac epoch parity vs classify_cells + decision-20 re-check.
+add_executable(bench_fast_topology "${CMAKE_CURRENT_SOURCE_DIR}/bench_fast_topology.cpp")
+target_include_directories(bench_fast_topology PRIVATE "${_SRC}")
+target_compile_options(bench_fast_topology PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_fast_topology PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7

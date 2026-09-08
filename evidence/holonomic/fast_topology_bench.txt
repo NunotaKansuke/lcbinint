@@ -1,0 +1,61 @@
+Phase A step 4 -- fast-planner topology wired into epoch_jacobian (flag-gated)
+unified-engine implementation order, checkpoint sec.0.7 / sec.17
+
+machine: load/affinity logged below; all timing runs taskset -c 0-7
+ 15:19:37 up 3 days, 17:58,  4 users,  load average: 10.05, 11.27, 12.16
+
+================================================================
+bench_fast_topology  (108 (config,u) epochs, value + 5-Jacobian,
+                      best-of-150, base=classify_cells vs fast=planner)
+================================================================
+loaded 108 bench cases, reps=150
+
+== fast-topology adoption (108 epochs) ==
+  fast band set adopted (screen pass) : 26  (24.1%)
+  fell back to classify_cells / D14   : 82  (75.9%)
+
+== parity: fast vs classify_cells (base) ==
+  Status changes            : 0  (PASS)
+  |mu_fast - mu_base|/|mu|   : median 0.00e+00  p90 3.21e-08  max 3.03e-05
+  ||dgrad|| / ||grad_base||  : median 0.00e+00  p90 6.13e-05  max 1.20e-02
+  |ddmu_du| / |dmu_du_base|  : median 0.00e+00  p90 1.57e-05  max 2.42e-01
+
+== wall time, best-of-150 per epoch (value + 5-Jac) ==
+  classify_cells path : median   2.162  p90   3.847  p95   3.978  p99   4.111  ms
+  fast-planner path   : median   1.800  p90   3.477  p95   3.874  p99   4.642  ms
+  speedup vs incumbent (fast path) : median 10.5x  min 0.0x  p10 0.0x
+  DECISION-20 (fast path median <= 7.44 ms) : PASS
+
+checksum 209990.441685
+
+================================================================
+reference harness  test_holonomic_m7  (evidence/holonomic/m7_reference.tsv)
+================================================================
+--- DEFAULT (HOLO_FAST_PLANNER unset) : the shipped path ---
+loaded 7 cases, 245 samples, 92 evs, 77 rts, 14 epochs
+
+10397 checks, 0 failures
+
+--- HOLO_FAST_PLANNER=1 : experimental flag, A/B only ---
+  FAIL ej.mu      resonant u=0.000000                            got= 13.731296545386821 want= 13.731297161221546 |d|=6.158e-07
+  FAIL ej.mu      resonant u=0.500000                            got= 13.878583036925992 want= 13.878583406718795 |d|=3.698e-07
+  FAIL ej.mu      plan15 u=0.000000                              got= 6.0203583058921577 want= 6.0204103664095427 |d|=5.206e-05
+  FAIL ej.mu      plan15 u=0.500000                              got= 6.1209088197213877 want= 6.1209627244296367 |d|=5.390e-05
+  FAIL ej.mu      tiny-rho u=0.000000                            got= 45.536766445598481 want= 45.539486183500642 |d|=2.720e-03
+  FAIL ej.mu      tiny-rho u=0.500000                            got= 45.24482060316091 want= 45.24746908818566 |d|=2.648e-03
+10397 checks, 81 failures
+
+  flag-on failures are confined to the physical_complex soft-boundary
+  panels classify_cells derives from the degree-14 resultant's COMPLEX
+  roots -- not reconstructible from the boundary quartic's real root
+  structure (the deferred cheaper-than-D14 certificate, design point 3).
+  benign/close/cusp: mu passes, a few grad components 1e-4..1e-3.
+  plan15 mu 5e-5 | resonant mu 6e-7 | tiny-rho(rho=5e-3) mu 2.7e-3.
+
+================================================================
+fallback-reason tally  (54 configs, u=0)
+================================================================
+configs=54  fast-adopted=13
+   10  fast sub-cell topology not certified (razor / fold)
+    1  no significant band -- near-tangency, D14 authority
+   30  point-source double tier not a clean odd set (fragile geometry)
