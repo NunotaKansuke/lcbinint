@@ -90,6 +90,13 @@ target_include_directories(bench_d14_split PRIVATE "${_SRC}")
 target_compile_options(bench_d14_split PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_d14_split PRIVATE quadmath)
 
+# Phase B step 1: compensated (double-double) D14 polish vs the __float128
+# warm polish -- parity (root sets, residual) + A/B timing of solve_d14().
+add_executable(bench_d14_compensated "${CMAKE_CURRENT_SOURCE_DIR}/bench_d14_compensated.cpp")
+target_include_directories(bench_d14_compensated PRIVATE "${_SRC}")
+target_compile_options(bench_d14_compensated PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_d14_compensated PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7

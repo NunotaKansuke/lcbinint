@@ -48,4 +48,30 @@ class ScopedFlushDenormals {
     ScopedFlushDenormals& operator=(const ScopedFlushDenormals&) = delete;
 };
 
+// Inverse guard: temporarily CLEAR FTZ/DAZ so error-free-transformation
+// arithmetic (dd_real.hpp) keeps its `lo` limbs.  Nested inside the
+// public-entry ScopedFlushDenormals; saves and restores MXCSR, so the
+// surrounding flush state is exactly reinstated on return.  In this
+// solver's magnitude regime the compensated D14 solve never reaches the
+// subnormal range, so this is correctness-by-construction rather than a
+// measured fix -- see dd_real.hpp.
+class ScopedNoFlushDenormals {
+#ifdef LCBININT_HOLONOMIC_HAVE_MXCSR
+ public:
+    ScopedNoFlushDenormals() : saved_(_mm_getcsr()) {
+        _mm_setcsr(saved_ & ~0x8040u);
+    }
+    ~ScopedNoFlushDenormals() { _mm_setcsr(saved_); }
+
+ private:
+    unsigned int saved_;
+#else
+ public:
+    ScopedNoFlushDenormals() = default;
+#endif
+
+    ScopedNoFlushDenormals(const ScopedNoFlushDenormals&) = delete;
+    ScopedNoFlushDenormals& operator=(const ScopedNoFlushDenormals&) = delete;
+};
+
 }  // namespace lcbinint::holonomic
