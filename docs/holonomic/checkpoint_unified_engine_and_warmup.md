@@ -1728,3 +1728,90 @@ Full output: `evidence/holonomic/prepared_geometry_trajectory.txt`.
 * **B2 — DONE** as the L2 warm-seeded D14 solve on Phase E.
 * Next: **Phase D** (M1/M2 value lanes + panel-robust integrator), then
   **Phase F** (M3 JVP). B3 deferred, B4 only if a gap remains.
+
+---
+
+## §22 Gauss–Manin / true-holonomic transport — feasibility study (2026-09-09)
+
+The user asked, as the next big algorithmic candidate, for a serious look at a
+**true holonomic / Gauss–Manin period transport that does NOT solve the
+boundary quartic at each radial node** — transport Π(R) via dΠ/dR = C(R)·Π
+across a cell instead of the per-node angular √φ quadrature — with a specific
+8-point checklist, and the explicit framing: *"目標は holonomic という名前に
+こだわることではなく、現在の optimized D14 + quartic-warm engine より明確に
+速くなるか"*, implementation order to be decided from the code dependencies.
+
+### 22.1 Measurement — `bench_radius_terms_split` (NEW)
+
+One full value + 5-Jacobian epoch (`epoch_jacobian`, n_r=64) over the 108
+bench configs, best-of-150, decomposed into the stages a period transport
+would / would not remove. Post B1 + B2/L2 + M8 FTZ + quartic warm-start
+(today's optimised engine). Host: pinned 0-7, load ~12–14, 2026-09-09.
+
+| stage | median ms | ~% epoch |
+|---|---|---|
+| `epoch_jacobian` (full) | 1.261 | 100 |
+| `classify_cells` (D14 + topology) | 0.790 | **63** |
+| `radius_terms` per-node sweep, WARM (production) | 0.420 | 33 |
+| — quartic root solve (warm) | 0.173 | 14 |
+| — 64-pt angular √φ + dP sweep | 0.227 | **18** |
+| — polish + arc filter + coeff build | 0.041 | 3 |
+| assembly / internal→user Jac | ~0.05 | 4 |
+
+(cold quartic solve 0.347 ms; warm-start already claws back half of it.)
+
+**This corrects the M8 `holoprof9` "angular sweep ~0.02 ms, negligible"
+line.** holoprof9 isolated only the *incremental* dfh chain-rule add-on over
+an already-evaluated φ. The full 64× `phi_val_dP` loop (φ + 5 partials) over
+every arc-bearing cell, measured standalone, is **0.23 ms median / 0.75 ms
+p90** — a real 18 % of the epoch. So Π-transport is not chasing nothing; but
+it is also nowhere near the dominant term.
+
+### 22.2 8-point checklist
+
+| # | question | finding |
+|---|---|---|
+| 1 | period basis | η / ψ both built + pointwise-validated; both ill-conditioned across a cell — `cond(C_ψ)` up to ~1e12 near θ→π (M4). Well-conditioned **flux-priority basis G (plan §8) never built** (deferred M4→M8); policy pt 3 bars banking on it. |
+| 2 | how cheap is C(R) at runtime | per node: 8×8 solve for `(Q_t)⁻¹ mod Q` + 7 poly reductions ≈ **2000 flops**, vs ≈ 12800 for the 64× sweep. Raw C(R) build is ~6× cheaper than the sweep — a real but modest structural win *in isolation*. |
+| 3 | seed period per cell | `seed_psi` = deflated QAWSE, 7× `scipy quad` under alg weight ≈ **≥ one angular sweep**. `tangency_seed_eta` closed series is cheap but fold-only. |
+| 4 | re-anchor at endpoint / fold / soft boundary | **the wall.** M4 measured single-seed-per-cell transport losing 2–8 digits by the cell edge; the M4/M6 reference **re-anchors at every radial node** for exactly this reason. Per-node re-anchor = pay the pt-3 seed cost (≥ 1 sweep) per node ⇒ **strictly slower than the sweep it replaces.** Endpoint-only anchoring fails the decision-20 accuracy gate. |
+| 5 | can both F0 and F_half transport | F0 needs no Gauss–Manin at all (pure arc measure `R·ΣΔθ`; df0 = IFT-in-θ at endpoints, already ~0). Only F_half is a period. "Transport both" = "transport one". |
+| 6 | 5-Jac / JVP in the same system | possible (parametric connection `∂Π/∂P_j`, M3 symbolic pieces exist) but ×~6 the per-node build and inherits the pt-4 conditioning wall on every column. No saving over the current closed-form `dφ/dP` in the sweep. |
+| 7 | reduction in node-wise quartic solves | **zero** from Π-transport alone — endpoints still needed. The quartic solve (14 %) is removed only by the **separate (m,v) root-pair radial ODE** (`root_pair.root_pair_dR`: analytic 2×2 IFT, well-conditioned off-tangency, fail-closed at folds), already **−16 % in the algebraic backend** ([[project_algebraic_mv_transport]]). That is the "no per-node quartic solve" that works today. |
+| 8 | does C(R) construction become the bottleneck | not in isolation (pt 2), but amortising the t-reduction across R needs a 2-variable (t,R) Picard–Fuchs system — explicitly on the plan §17–18 **"do not do"** list — and the pt-4 re-anchor forces a seed per node regardless, so effective per-node cost `C build + ODE step + seed` **> the sweep**. |
+
+### 22.3 Verdict — NOT a clear win; keep off the critical path
+
+* Ceiling gain **1.22×** (18 % of epoch), and only if the conditioning wall
+  did not exist. It does (measured M4), it forces a per-node re-anchor, and
+  a per-node re-anchor is slower than the sweep.
+* The one escape — the plan §8 flux-priority basis — is unbuilt speculative
+  research; policy pt 3 bars it as a current premise.
+* The decision-20 gate is **already met with ~3.5× margin** (B1 epoch 1.71×;
+  M8 step 3 11.7× vs incumbent). An at-risk 1.22× ceiling needing new
+  research does not earn the critical path.
+
+### 22.4 Recommended order (code-dependency driven, per the user's ask)
+
+1. **Production wiring first (Phase C).** Thin additive adapter:
+   `FiniteSourceMethod::holonomic` → `binary_mag_preplanned` dispatch to
+   `epoch_jacobian_prepared` over a per-trajectory `PreparedEpochGeometry`
+   cache; teach `warmup()` when to select it. Zero algorithmic risk,
+   unblocks the banked 1.71× (B1) + 1.08× (B2/L2), **not blocked by any of
+   this research**. B1/B2 kernel stays baseline/fallback (§0 constraint).
+2. **(m,v) root-pair radial transport** — targets the 14 % warm quartic
+   solve + polish; proven approach, analytic, fail-closed. The bankable
+   "no per-node quartic solve".
+3. **Gauss–Manin Π-transport** — research spike only, behind an off flag.
+   Entry condition: first derive + condition-test the plan §8 flux-priority
+   basis G and show `cond < ~1e6` across a full cell *including* the θ→π
+   degree drop. Until then the per-node re-anchor makes it a net loss.
+4. Biggest remaining lever is still `classify_cells` / D14 (63 %): B1 + B2/L2
+   banked; L1 verbatim reuse blocked on the same cheaper-than-D14
+   topology/panel certificate (policy pt 3 research).
+
+### 22.5 Files
+
+* `tests/holonomic_cpp/bench_radius_terms_split.cpp` + CMake target — NEW.
+* `evidence/holonomic/gauss_manin_feasibility.txt` — NEW (full checklist
+  write-up + the flop counts).
