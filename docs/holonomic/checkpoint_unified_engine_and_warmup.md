@@ -2337,3 +2337,120 @@ leaves the (m,v) chart. This is basis (b)'s problem, not spike (a)'s.
 * `scratchpad/rescue_feasibility.py`, `scratchpad/rescue_probe_b.py`,
   `scratchpad/rescue_jac.py` — probes (scratchpad, not committed).
 * No solver code touched; `holonomic_ref` pure-Python oracle only.
+
+## §27 Holonomic rescue — feasibility spike (b): flux-priority basis (2026-09-09)
+
+Spike **(b)**, the entry condition for putting Gauss–Manin transport back on
+the critical path (§22.4): discard the η/ψ residue-free period basis
+(`cond(C_ψ)` to ~1e12 near the θ→π degree drop → forces per-node re-anchoring
+→ strictly slower than the angular sweep) and build a **flux-centred** basis.
+Success metric is cell-wide transport **conditioning ONLY**, target `cond <
+~1e6` INCLUDING the θ→π degree drop — NOT speed. This is what lets a single
+per-cell seed serve a **generic** cell (v = O(1), far from any fold), the
+fraction spike (a) does not cover.
+
+### 27.1 The math (derived + numerically confirmed)
+
+**The degree drop.** `Q(t;R) = P·A·B`, deg 8 in `t = tan(θ/2)`;
+`q8(R) = p4(R)·(R+a)²`, `p4 = Re(ρ²R²(R+a)² − |c_T2|²)`. A `chart_p4` radial
+event is `p4(R*) = 0` ⟺ a boundary root of `P` crosses θ=π ⟺ `t→∞` ⟺
+`deg P: 4→3` ⟺ `deg Q: 8→7`. It is a **representation** event — no band
+birth/death, the period lattice is unchanged; only the chart that trivialises
+`t=∞` degenerates. The η/ψ basis subtracts the `t=∞` residue of `η₃` using
+`b_j ~ q8^{−j}` (b1..b3), so `C_ψ` inherits poles of order up to 4 in
+`(R−R*)` and the residue-free closure `h3' = h3 + b1 h4 + b2 h5 + b3 h6 == 0`
+degrades to O(1e-3).
+
+**The singularity is apparent for the physical flux.** For an arc bounded
+away from θ=π, `Φ_arc(R) = (ρR/2)∫_arc √φ dθ` has integrand + endpoints
+smooth in `R` through `q8 = 0`. Formally `Φ_arc` satisfies a scalar
+Picard–Fuchs ODE of order `r ≤ 6`; the leading coeff `a_r(R)` carries the
+`1/q8` factor but `R*` is an **apparent singularity** — local exponents are
+non-negative integers, no logarithm, every Frobenius solution holomorphic.
+`Φ_arc` and a full physical-period basis extend holomorphically across `R*`.
+
+**The flux-priority basis.** Transport the scaled derivative / companion
+basis of the scalar `Φ_arc` ODE, seeded from ONE positive physical integral
+at the cell midpoint `R_c`:
+
+* `y_k = s^k · Φ_arc^{(k)}(R_c)/k!`, `k = 0..d`, `d ≤ 6`;
+* **scale `s = max(H, r_a/4)`**, `H` = cell half-width, `r_a = decay_ρ·H` =
+  Chebyshev-coefficient-decay analyticity radius. Scale TO the analyticity
+  radius, never below `H`.
+* transport `dy/dR = M(R) y`, `M` = rescaled companion matrix; reconstruct
+  `Φ_arc(R) = Σ_k y_k ((R−R_c)/s)^k`.
+
+`|y_k| ~ Φ_max·(s/r_a)^k = Φ_max·4^{−k}` — bounded, mildly decreasing,
+`cond → O(4^d)` independent of `decay_ρ`. Naive `s = H` gives
+`|y_k| ~ Φ_max·decay_ρ^{−k}` → `cond ~ decay_ρ^d`, which blows up precisely
+on the ultra-narrow slivers where `Φ_arc` is far more analytic than the cell
+is wide. That blow-up is a **scaling artefact**, removed by the rescale.
+
+### 27.2 Probes (scratchpad, pure-Python `holonomic_ref` oracle)
+
+`basis_b_probe.py` (P1 wall / P2 apparent-sing / P5 constructive basis),
+`basis_b_probe3.py` (P3 constant re-basing / P6 rescaling; lean unbuffered
+rewrite of probe2). 7 geometries: memo-s15, resonant, close, planet-wide
+(q=1e-3), caustic-xing, small-src (ρ=4e-3), near-full. Every radial cell,
+every `chart_p4` degree drop, both sides. Host pinned 0-7, load ~16,
+2026-09-09 03:56 / 04:05.
+
+| probe | result |
+|---|---|
+| **P1 η/ψ wall — reproduced** | `cond(C_ψ)` at chart_p4-adjacent cells **1e9…4.3e11** (near-full [0.8097,0.8105] 4.3e11, ψ-resid 6.1e-5; close [0.5918,0.5976] 2.5e9, ψ-resid 3.9e-3). Generic mid-cell: `cond(C_ψ) ~ 7e3…1e6`. The wall is real, localised to the degree drop, absent from generic cells. |
+| **P2 Φ_arc analytic through the drop** | EVERY degree-drop cell, 7 geoms: Chebyshev tail **3e-16…5e-14**; `decay_ρ = r_a/H` = **3.0…137** (median ~40, ≥10 for all but the widest cells); Taylor-from-midpoint order for 1e-10 at edge **4…8**. The θ→π singularity is **apparent** for the flux. |
+| **P5 constructive basis, naive s = H** | `cond(y_0..5)`: generic degree-drop cells **1e2…1e6** (target met, 3–9 orders below η/ψ on the identical cells); ultra-narrow event-adjacent slivers (w 5e-4…9e-3, `decay_ρ` 40…140) **1e7…2e10** (the s=H artefact). Order-6 single packet reconstructs `Φ_arc` across the whole cell to **1e-6…1e-11**. |
+| **P6 rescaled s = max(H, r_a/4)** | Every degree-drop cell, slivers included, drops to `cond(y_0..5)` = **30…900** (resonant [0.7951,0.7973] 1.6e8→59; near-full [1.0691,1.0696] `decay_ρ`=1272, 5.8e10→8.7e2). Whole-cell reconstruction **1e-10…1e-11** on the slivers. Two widest cells 1e-6/1e-5 recon = Chebyshev order over a fat cell → wants a 2-packet split, unrelated to the drop. |
+| **P3 constant re-basing cannot help** | On the 5 chart_p4-**bracket** cells `psi_connection_exact` **RAISES** — `deg Q < 8` removes the `t=∞` residue the residue-free chart is built on, so `C_ψ` is literally **UNDEFINED**; nothing for a constant `G` to re-base. On the one generic cell where ψ transport is defined, constant `G` improves an already-fine case (133→2.3). The fix must be structural. |
+
+### 27.3 Verdict
+
+1. η/ψ wall real AND structural (`C_ψ` undefined at `q8=0`) — **CONFIRMED**
+2. physical `Φ_arc` analytic through the drop (apparent singularity) —
+   **CONFIRMED (decisive)**
+3. flux-priority basis beats ~1e6 on generic-width degree-drop cells —
+   **PASS** (1e2…1e6, 3–9 orders below η/ψ)
+4. …and on the narrow event-adjacent slivers with `s = max(H, r_a/4)` —
+   **PASS (unconditional)** (30…900, recon 1e-10…1e-11; one-line seed change,
+   no cell merge / fail-closed needed)
+
+**OVERALL: FEASIBLE (unconditional).** The flux-priority basis — scaled
+derivative/companion basis of the scalar `Φ_arc` Picard–Fuchs ODE, seeded
+from one positive physical integral per cell, scale `s = max(H, r_a/4)` —
+achieves cell-wide conditioning **O(1e1…1e3) THROUGH the θ→π degree drop**
+(generic cells and slivers alike), versus O(1e9…1e12) for η/ψ, and remains
+30…900 where η/ψ is not merely ill-conditioned but undefined. Holds across
+all 7 geometries. **(b) REVIVES.** The §22.3 / §22.4 conditioning barrier
+that kept Gauss–Manin transport off the critical path is now cleared.
+
+### 27.4 Scope / caveats
+
+* Conditioning result only — does NOT build the companion transport in C++
+  or measure speed. That is **(c)**.
+* Wide cells (`decay_ρ` ~ 3–6) want > 6 Taylor terms or a 2-packet split;
+  the per-cell planner already knows the width.
+* Seed = ONE positive integral of `Φ_arc` and its low derivatives at `R_c`
+  (NOT the cancellation-prone `c^T Π`) — a single deflated QAWSE or short
+  local series, never a per-node re-anchor.
+* Fail-closed natural: if the seed's Chebyshev/derivative probe shows
+  `decay_ρ < ~2`, split the cell or fall back to the angular sweep.
+
+### 27.5 Status / next
+
+* (a) **DONE** (§26), (b) **DONE** (this study). Evidence:
+  `evidence/holonomic/flux_priority_basis_feasibility.txt`.
+* (c) **COUPLED (m,v)+K+flux-priority-companion transport** as one state —
+  next. Benchmark 3 solvers: (1) current fastest direct, (2) +(m,v) only,
+  (3) +(m,v)+regularised holonomic (K near folds per §26, flux-priority
+  companion basis on generic cells per §27). Advisor speed ceiling ~1.47×.
+* Unrelated held items unchanged: `HOLO_MV_TRANSPORT` default-ON flip and
+  Phase C step 2 (shared `_lcbinint.so`) still await the coordinated timing
+  window.
+
+### 27.6 Files
+
+* `evidence/holonomic/flux_priority_basis_feasibility.txt` (NEW) —
+  derivation + P1/P2/P3/P5/P6 probe results + verdict.
+* `scratchpad/basis_b_probe.py`, `scratchpad/basis_b_probe3.py` — probes
+  (scratchpad, not committed).
+* No solver code touched; `holonomic_ref` pure-Python oracle only.
