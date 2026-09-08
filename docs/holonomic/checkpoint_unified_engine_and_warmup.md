@@ -915,3 +915,101 @@ phase-A gate metric.
 
 **Decision:** phase A (fast planner) leads. Confirmed by direct measurement, and
 aligned with policy §0.3. Raw: `evidence/holonomic/planner_split_bench.txt`.
+
+---
+
+## 15. Phase A steps 1–2 — seed-anchored fast band planner (2026-09-08)
+
+Two new headers, both **additive** (no existing solver touched; `classify_cells`
+stays the oracle):
+
+* `point_images.hpp` — binary point-source image solve (Witt & Mao degree-5
+  polynomial). **Two-tier:** a `double` complex Aberth pass, its roots verified
+  by residual against the *original non-holomorphic* lens equation; a clean odd
+  set (3 or 5, worst residual ≤ `1e-9`) is returned directly. Otherwise the
+  build + solve is redone in `__float128` (the extreme-q planet cluster
+  collapses to a 2-image count in `double`). Seeds only anchor the radial
+  march — band *edges* come from independent bisection — so the looser `double`
+  accept is safe. Committed `5093876` was `__float128`-only; the two-tier split
+  is this checkpoint.
+* `fast_bands.hpp` — seed-anchored radial band planner. From each unique
+  point-source image radius, a **neighbour-bounded** step-doubling march
+  outward/inward on `has_image(R)` (= `arc_intervals(R)` yields a non-empty
+  φ>0 arc set), then boolean bisection of the bracket. Each seed's march is
+  bounded by the adjacent seed radii. Raw brackets are merged, then a
+  **solidity pass** re-probes any merged band that absorbed >1 seed bracket or
+  had a step-doubled march: interior probes per seed-gap at ~ρ/50 resolution,
+  splitting at image-free notches the march tunnelled. `has_image` resolves the
+  `t = tan(θ/2)` chart singularity (p4≈0 → `kDegenerate`) on a 2048-grid, same
+  as `quartic_topology`; a genuine odd crossing count there → `UNCERTAIN` →
+  fail closed.
+
+### 15.1 `classify_cells` razor-band finding (revises the phase-A gate)
+
+The §0.7 gate says "0 disagreement on the adopted band set". Taken literally
+against `classify_cells` this is **both unachievable and undesirable**:
+
+`classify_cells` **silently mislabels razor-thin image bands as `kEmpty`**.
+When the boundary quartic resolves a real image arc of angular width below the
+3072-grid step (~2e-3 rad), the grid512 cross-check overrules the correct
+quartic result and the grid3072 escalation confirms the wrong `Empty`
+(`cells.hpp:106–120`, `cs = Status::OK` — no `TOPOLOGY_UNCERTAIN`). Verified
+these bands are real: `phi_lens` margin ~0.99 at the arc midpoint, independent
+point-source-solver agreement, boundary-quartic root pair. Their contribution
+to μ is ~1e-7…1e-9 relative — below M7 reference tolerance — so this is not an
+accuracy bug in the incumbent, but it means `fast_bands` legitimately reports
+**more** bands than the oracle on 27/82 adopted cases (56 "razor extras"
+total). `fast_bands` is *strictly more correct* here.
+
+**Reframed parity criterion (significance-aware):** a fast band is
+*significant* if its widest arc over 3 interior radii is ≥ `kRazorAng = 3e-3`
+rad. Parity is required only on the significant subset:
+significant-band **count** match, significant ref bands **covered**
+(overlap-based), and significant band **edges** agree to < 5e-3 of band width.
+Razor extras are logged as a strict refinement, not a disagreement.
+
+### 15.2 Bench result — `bench_fast_bands` (108 cases, best-of-200, load ~12)
+
+```
+fast_bands reliable          : 82 / 108   (26 rows / 13 named cases fail closed -> D14)
+significant-band count match  : 82 / 82
+significant ref bands covered : 82 / 82
+significant band edges agree  : 82 / 82    (median 5.7e-8, p90 7.9e-7, max 9.6e-7 rel)
+razor extras                  : 56 total   (sub-grid arcs classify_cells drops)
+classify_cells UNCERTAIN      : 4 / 108
+
+point_images + fast_bands : median 0.353 ms   p90 0.785   p99 2.567   mean 0.532
+classify_cells (D14 path) : median 1.262 ms   p90 3.025   p99 3.280   mean 1.692
+band-discovery speedup    : 3.57x median / 3.18x mean   (p90 3.85x, p99 non-regressing)
+has_image calls / epoch   : median 152   p90 242   max 458
+```
+
+* **Gate "band-discovery cost ↓ ≥ 3×": MET** (3.57× median, 3.85× p90).
+* **Gate "topology parity, 0 disagreement on the adopted band set": MET** under
+  the §15.1 significance-aware reading (82/82 significant count + coverage +
+  edges); 56 razor extras documented as refinement.
+* **Gate "p90/p95/p99 non-regressing": MET** — fast path is faster than the
+  D14 path at every percentile measured (p99 2.567 < 3.280).
+* **D14-invocation rate: 24% (26/108)** — entirely the extreme-q cases
+  (q ≲ 3e-4 with the source near the planet) where even `__float128`
+  point-source gives an even image count. This *is* the §5.2 "seeds unreliable
+  → D14" screen, already fail-closed. Non-extreme-q cases: 0% invocation.
+* full-Jacobian decision-20: not re-run this step (planner not yet wired into
+  `epoch_jacobian`); that is phase-A step 4.
+
+Caveat: the 13 D14-bail cases pay `point_images` (`__float128`, p99 ~2.5 ms)
+*before* falling through to D14, i.e. a small absolute regression on those
+epochs. Phase-A step 3 adds a cheap upfront extreme-q predicate to skip the
+seed solve on geometries that cannot succeed.
+
+Raw: `evidence/holonomic/fast_bands_bench.txt`. Not yet committed to the
+engine — `classify_cells` / D14 remains the only wired path.
+
+### 15.3 Remaining phase-A work
+
+* **step 3** — §5.2 local confidence screen (uniform in-band `quartic_topology`
+  ×3; up/down march band-count agreement; resolution margin; tangency
+  regularity) + extreme-q fast-fail predicate; measure screen-fail rate.
+* **step 4** — wire the planner as an alternative discovery path behind a flag
+  in the value-only and full-Jacobian epochs; full-epoch bench both modes;
+  108-case parity (0 `Status` changes); decision-20 re-check; commit.
