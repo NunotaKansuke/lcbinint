@@ -56,9 +56,15 @@ inline bool same_sig(const GridArcs& a, const GridArcs& b) {
 }
 }  // namespace cells_detail
 
-inline TopologyResult classify_cells(const PrimaryFrame& pf) {
+// `d14_warm` / `d14_roots_out` (optional, Phase B2 / E): forwarded to
+// `radial_events` -- a previous epoch's D14 root set to warm-seed the solve,
+// and an out-slot for this epoch's full root set for a prepared-geometry cache.
+inline TopologyResult classify_cells(
+    const PrimaryFrame& pf,
+    const std::vector<Cplx<__float128>>* d14_warm = nullptr,
+    std::vector<Cplx<__float128>>* d14_roots_out = nullptr) {
     double r_max = 0.0;
-    auto events = radial_events(pf, &r_max);
+    auto events = radial_events(pf, &r_max, 1e-7, d14_warm, d14_roots_out);
 
     // merge events sharing a radius (tol max(1e-9, 1e-7 * radius))
     std::vector<double> radii;

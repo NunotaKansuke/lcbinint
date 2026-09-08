@@ -313,6 +313,8 @@ struct D14Solve {
     qf worst_res = 0;
     int tier = 0;  // 0 dd-sufficed, 1 qf-warm escalation, 2 cold quad,
                    // 3 legacy qf-warm, -1 cold (seed non-finite)
+    bool warm_seeded = false;  // the double presearch was seeded by a
+                               // previous epoch's root set (Phase B2)
 };
 
 // worst relative residual of `roots` against the degree-`deg` descending
@@ -341,8 +343,17 @@ inline qf d14_worst_res(const qf* desc, int deg,
 //
 // Backstop (either path): non-finite presearch or a failed residual gate
 // -> cold __float128 Aberth (tier 2 / -1).
+// `warm_seed` (optional, Phase B2): a previous epoch's D14 root set in the
+// same v = R^2 space, length deg.  When present and finite it seeds the
+// `double` root-basin presearch instead of a cold Aberth-Ehrlich spread --
+// on a smoothly drifting trajectory the roots move O(drift), so a short
+// warm refine locates every basin and the compensated dd polish then
+// converges in a handful of sweeps.  Every downstream gate (residual,
+// Newton-sum completeness, cold __float128 backstop) is unchanged, so a
+// stale or wrong seed still fails closed to the cold solve.
 inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
-                          bool compensated) {
+                          bool compensated,
+                          const std::vector<Cplx<qf>>* warm_seed = nullptr) {
     const qf* desc = desc_v.data();
     D14Solve out;
 
@@ -366,7 +377,25 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             sp *= sscale;
         }
     }
-    auto zd = aberth<double>(descd.data(), deg, 200);
+    // Root-basin presearch in balanced `double`.  Cold by default; when a
+    // previous epoch's roots are supplied, refine from them (balanced the
+    // same way, w = v / sscale) in a few iterations instead.
+    std::vector<Cplx<double>> presearch_seed;
+    if (warm_seed && (int)warm_seed->size() == deg && sscale > 0.0) {
+        presearch_seed.resize(deg);
+        bool ok = true;
+        for (int i = 0; i < deg; ++i) {
+            double wr = (double)(*warm_seed)[i].re / sscale;
+            double wi = (double)(*warm_seed)[i].im / sscale;
+            if (!std::isfinite(wr) || !std::isfinite(wi)) { ok = false; break; }
+            presearch_seed[i] = Cplx<double>(wr, wi);
+        }
+        if (!ok) presearch_seed.clear();
+    }
+    auto zd = presearch_seed.empty()
+                  ? aberth<double>(descd.data(), deg, 200)
+                  : aberth<double>(descd.data(), deg, 60, presearch_seed.data());
+    out.warm_seeded = !presearch_seed.empty();
     bool seed_ok = true;
     for (int i = 0; i < deg; ++i)
         if (!std::isfinite(zd[i].re) || !std::isfinite(zd[i].im)) {
@@ -485,9 +514,14 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
 
 // Port of radial_events.radial_events.  Returns events sorted by radius and
 // merged within `merge_tol` per kind; `r_max` via the same formula.
-inline std::vector<RadialEvent> radial_events(const PrimaryFrame& pf,
-                                              double* r_max_out,
-                                              double merge_tol = 1e-7) {
+// `d14_warm` (optional, Phase B2): a previous epoch's full D14 root set
+// (v = R^2 space, all 14 incl. complex) used to warm-seed the solve.
+// `d14_roots_out` (optional): receives this epoch's full post-symmetrised
+// D14 root set for the next epoch / a prepared-geometry cache (Phase E).
+inline std::vector<RadialEvent> radial_events(
+    const PrimaryFrame& pf, double* r_max_out, double merge_tol = 1e-7,
+    const std::vector<Cplx<__float128>>* d14_warm = nullptr,
+    std::vector<Cplx<__float128>>* d14_roots_out = nullptr) {
     using namespace re_detail;
     const double a = pf.a, m0 = pf.m0, X = pf.X, Y = pf.Y, rho = pf.rho;
     const double W = std::hypot(X, Y) + rho;
@@ -511,8 +545,12 @@ inline std::vector<RadialEvent> radial_events(const PrimaryFrame& pf,
         // warm-started from those guesses then converges in a handful of
         // iterations.  A failed __float128 residual gate -> cold
         // __float128 solve.  See re_detail::solve_d14.
-        D14Solve sol = solve_d14(desc, deg, holo_d14_compensated_enabled());
+        D14Solve sol = solve_d14(desc, deg, holo_d14_compensated_enabled(),
+                                 (d14_warm && (int)d14_warm->size() == deg)
+                                     ? d14_warm
+                                     : nullptr);
         std::vector<Cplx<qf>>& roots = sol.roots;
+        if (d14_roots_out) *d14_roots_out = roots;
         auto rv = positive_real_roots(roots, 1e-8, 1e-9);
         for (double v : rv) {
             double R = std::sqrt(v);

@@ -97,6 +97,15 @@ target_include_directories(bench_d14_compensated PRIVATE "${_SRC}")
 target_compile_options(bench_d14_compensated PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_d14_compensated PRIVATE quadmath)
 
+# Phase C/E: prepared-epoch geometry cache + Phase B2 all-root D14 warm-start.
+# Synthesises an N-epoch source track per bench config and runs it cold
+# (V0), L1-topology-reuse (V1), and L1+L2-warm-D14 (V2); reports parity vs
+# V0, the false-reuse audit, the reuse mix, and per-epoch wall time.
+add_executable(bench_holonomic_trajectory "${CMAKE_CURRENT_SOURCE_DIR}/bench_holonomic_trajectory.cpp")
+target_include_directories(bench_holonomic_trajectory PRIVATE "${_SRC}")
+target_compile_options(bench_holonomic_trajectory PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_holonomic_trajectory PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7

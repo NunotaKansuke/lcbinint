@@ -1597,3 +1597,134 @@ then B1 stands as the delivered Phase B result (gate met).
 * **B2 — blocked** on 20.2 (threading decision / phase reorder).
 * **B3 — deferred** per 20.1 (no closed form, 2% scope).
 * **B4 (secular)** — unchanged: only if a gap remains after B1+B2.
+
+---
+
+## §21 Phase C/E (prepared-epoch geometry cache) + Phase B2 (all-root D14 warm-start) (2026-09-08)
+
+The user chose **option 2** in §20.2: do not build a standalone `D14Warm`
+workspace; advance C/E first and land B2's all-root warm-start on the final
+`PreparedEpochGeometry` / the existing `warmup()` infrastructure. Final
+architecture the user specified: prepared state holds D14's all 14 roots
+(incl. complex), radial events, physical/soft boundaries, panel cuts /
+CellPlan, conditioning / validity info; next-time evaluation hierarchy is
+`cached roots → compensated DD warm polish → DD cold solve → legacy
+__float128 fallback`; keep extending `warmup()` / `MagnificationExecutionPlan`,
+no new public trajectory API; B1's compensated solver is the standard D14
+kernel, legacy `__float128` stays as the correctness fallback / A–B oracle.
+
+### 21.1 What landed
+
+New header `src/lcbinint/magnification/holonomic/prepared_geometry.hpp`:
+
+* **`PreparedEpochGeometry`** — Layer-1 immutable payload frozen once per
+  trajectory / proposal: `anchor` frame, `r_max`, `cells` (the quadrature
+  panel plan), `d14_roots` (all 14 incl. complex — the B2 seed), `d14_deg`,
+  `ConditioningMargins` (narrowest cell, min |p4(r_mid)|, coarse fold count,
+  r_max), `status`, `provenance` (kColdOracle / kTopologyReused /
+  kWarmRecomputed / kColdRecomputed), `valid`.
+* **`prepared_topology(pf, state, cfg, st)`** — the §8 fail-closed ladder for
+  one epoch, `state` a caller-owned rolling cache (in/out):
+  * **L1** — drift pre-filter (`drift_norm ≤ l1_drift`) **plus a mandatory
+    cheap re-screen** (`prepared_rescreen`): r_max invariance, a coarse
+    global disc-sign fold-count invariant, and per-cached-cell
+    `quartic_topology` at three interior fractions must still match the
+    cached (kind, crossing count). Reuse the cached cell plan verbatim only
+    if all pass.
+  * **L2** — `classify_cells` runs (still the authority), but its D14 root
+    solve is **warm-seeded** by `state.d14_roots` (Phase B2). `state` rolls
+    forward to the fresh solve each epoch.
+  * **L3** — cold `classify_cells`.
+* **`prepared_rescreen`** — the independent cheap re-derivation of the cached
+  topology at the new geometry (not a trust of the drift pre-filter).
+
+Warm-seed hook threaded down the existing chain (no new public API, the
+`QuarticWarm` workspace precedent):
+
+* `radial_events(pf, r_max_out, merge_tol, d14_warm=nullptr, d14_roots_out=nullptr)`
+* `classify_cells(pf, d14_warm=nullptr, d14_roots_out=nullptr)`
+* `solve_d14(desc_v, deg, compensated, warm_seed=nullptr)` — the warm seed
+  refines the **balanced `double` root-basin presearch** (60 iters from the
+  previous roots vs 200 cold); **every downstream gate is unchanged**
+  (dd Aberth polish, worst-residual, Newton first-identity completeness,
+  conjugate symmetrization, cold `__float128` backstop), so a stale or wrong
+  seed still fails closed to the cold solve. `D14Solve` gains `warm_seeded`.
+
+Integrator split in `epoch_jacobian.hpp` so cold and prepared paths share
+the fused radial pass:
+
+* `flux_jacobian_integrate(p, n_r, pf, topo)` — the fused value +
+  internal-Jacobian pass over an already-decided cell plan (unchanged body).
+* `flux_jacobian(p, n_r, use_fast_planner)` — thin: band discovery then
+  `flux_jacobian_integrate`.
+* `flux_jacobian_prepared` / `epoch_jacobian_prepared(p, u, n_r, state, cfg, st)`
+  — the Phase E path over a rolling `PreparedEpochGeometry`.
+
+### 21.2 Result — `bench_holonomic_trajectory` (108 configs × 32-epoch synthetic tracks = 3456 epochs, reps 20, taskset -c 0-7, load ~10)
+
+Full output: `evidence/holonomic/prepared_geometry_trajectory.txt`.
+
+| | parity `|dμ|/|μ|` med / max | false reuse | steady median | p90 | p99 |
+|---|---|---|---|---|---|
+| V0 cold every epoch | — | — | 1.2901 ms | 2.0152 | 3.3452 |
+| **V1 = L2 warm-D14 only** | **0 / 3.9e-7** | **0** | **1.1901 ms (1.08×)** | 1.9078 | 3.1551 |
+| V2 = L1 + L2 | 0 / 2.5e-2 | **5** | 1.1827 ms (1.09×) | 1.8999 | 3.0983 |
+
+* **L2 (Phase B2) is safe and default-on.** Exact parity (median/p90 |dμ| =
+  0; max 3.9e-7 is only the Aberth iteration count differing between a warm
+  and cold seed, inside solve_d14's tolerance — `classify_cells` still runs
+  every epoch and stays the authority). Fail-closed holds (0 status
+  downgrades, 0 false reuse). **1.08× steady-state median**, p90/p95/p99
+  **non-regressing** (p99 improved 3.16 vs 3.35 ms). The M7/decision-20 gate
+  was already met by B1 (1.71× epoch median); this is additive. Warm seed
+  consumed on 3348/3348 non-cold epochs.
+* **L1 verbatim topology reuse is NOT default-safe — stays gated OFF**
+  (`PreparedReuseConfig::allow_topology_reuse = false`). Only 14/3456 epochs
+  reached an L1 reuse (the quartic re-screen rejected 1026/1040 attempts);
+  of those 14, **5 were false reuse** (|dμ|/|μ| up to 2.5e-2, ||dgrad|| up
+  to 3.49) on near-caustic epochs. The re-screen is built entirely from the
+  boundary quartic and is structurally blind to (a) D14's complex-root panel
+  boundaries and (b) the panel-placement error of reusing anchor-geometry
+  cells at a drifted geometry — percent-level near a caustic. Same wall
+  Phase A hit (§17.6). A cheaper-than-D14 topology/panel certificate is
+  future research (§0 policy point 3); L1 remains opt-in for experiments.
+
+### 21.3 Config defaults (`PreparedReuseConfig`)
+
+* `allow_topology_reuse = false` — L1 off (21.2).
+* `allow_warm_d14 = true` — L2 on.
+* `l2_drift = 1e9` — a perf guard only; `solve_d14` fails closed on a bad
+  seed, so there is no correctness reason to bound it and the seed setup is
+  a few `double` ops. Large ⇒ the warm seed is used whenever roots exist.
+
+### 21.4 Regression checks (all pass, new optional params byte-inert on the default path)
+
+* `ctest` (`holonomic_point_images`, `holonomic_m7_reference`) — 2/2.
+* `bench_d14_compensated` — 0/115 parity, compensated 1.51× median (B1 intact).
+* `bench_fast_topology` — 0 status changes, decision-20 PASS (Phase A intact).
+
+### 21.5 Files
+
+* `src/lcbinint/magnification/holonomic/prepared_geometry.hpp` — NEW.
+* `src/lcbinint/magnification/holonomic/radial_events.hpp` — `solve_d14`
+  warm-seed hook, `D14Solve::warm_seeded`, `radial_events` d14_warm /
+  d14_roots_out params.
+* `src/lcbinint/magnification/holonomic/cells.hpp` — `classify_cells`
+  d14_warm / d14_roots_out passthrough.
+* `src/lcbinint/magnification/holonomic/epoch_jacobian.hpp` —
+  `flux_jacobian_integrate` split, `flux_jacobian_prepared`,
+  `epoch_jacobian_prepared`.
+* `tests/holonomic_cpp/bench_holonomic_trajectory.cpp` + CMake target — NEW.
+* `evidence/holonomic/prepared_geometry_trajectory.txt` — NEW.
+
+### 21.6 Status / next
+
+* **Phase E (prepared-geometry cache)** — landed; L2 (= Phase B2) is the
+  default reuse level and the delivered win. L1 held behind an off flag.
+* **Phase C (mode router / `FiniteSourceMethod`)** — the prepared path is
+  proven in the isolated harness (as Phase A was). Production wiring onto
+  `MagnificationExecutionPlan` / `warmup()` is a thin additive adapter
+  (§6 correspondence table) — still to do, no `_lcbinint.so` rebuild here.
+* **B2 — DONE** as the L2 warm-seeded D14 solve on Phase E.
+* Next: **Phase D** (M1/M2 value lanes + panel-robust integrator), then
+  **Phase F** (M3 JVP). B3 deferred, B4 only if a gap remains.

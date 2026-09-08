@@ -25,6 +25,7 @@
 #include "lcbinint/magnification/holonomic/fast_topology.hpp"
 #include "lcbinint/magnification/holonomic/fp_env.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
+#include "lcbinint/magnification/holonomic/prepared_geometry.hpp"
 #include "lcbinint/magnification/holonomic/radius_terms.hpp"
 #include "lcbinint/magnification/holonomic/status.hpp"
 
@@ -75,17 +76,13 @@ inline bool near_origin_source(const PrimaryFrame& pf,
     return std::hypot(pf.X, pf.Y) < tol;
 }
 
-inline FluxJacobian flux_jacobian(const LensParams& p, int n_r,
-                                  bool use_fast_planner) {
-    const ScopedFlushDenormals _fp_guard;
-    const PrimaryFrame pf = PrimaryFrame::from(p);
-    // Band discovery: classify_cells (D14 oracle) is the default and the
-    // authority.  use_fast_planner routes through the seed-anchored fast
-    // planner + sec.5.2 screen, which itself falls back to classify_cells on
-    // any bail / screen failure (fast_topology.hpp).  Phase A step 4.
-    TopologyResult topo =
-        use_fast_planner ? classify_cells_fast(pf) : classify_cells(pf);
-
+// The fused value + internal-Jacobian radial pass over an already-decided
+// cell plan.  Split out of flux_jacobian so the prepared-geometry path
+// (Phase E) reuses the identical integrator over a cached / warm-recomputed
+// TopologyResult -- band discovery is the only thing that differs.
+inline FluxJacobian flux_jacobian_integrate(const LensParams& p, int n_r,
+                                            const PrimaryFrame& pf,
+                                            const TopologyResult& topo) {
     FluxJacobian fj;
     fj.r_max = topo.r_max;
     // jacobian.flux_jacobian: OK iff the topology is clean, else
@@ -129,8 +126,36 @@ inline FluxJacobian flux_jacobian(const LensParams& p, int n_r,
     return fj;
 }
 
+inline FluxJacobian flux_jacobian(const LensParams& p, int n_r,
+                                  bool use_fast_planner) {
+    const ScopedFlushDenormals _fp_guard;
+    const PrimaryFrame pf = PrimaryFrame::from(p);
+    // Band discovery: classify_cells (D14 oracle) is the default and the
+    // authority.  use_fast_planner routes through the seed-anchored fast
+    // planner + sec.5.2 screen, which itself falls back to classify_cells on
+    // any bail / screen failure (fast_topology.hpp).  Phase A step 4.
+    TopologyResult topo =
+        use_fast_planner ? classify_cells_fast(pf) : classify_cells(pf);
+    return flux_jacobian_integrate(p, n_r, pf, topo);
+}
+
 inline FluxJacobian flux_jacobian(const LensParams& p, int n_r = 64) {
     return flux_jacobian(p, n_r, holo_fast_planner_enabled());
+}
+
+// Prepared-geometry (Phase E) variant.  `state` is the caller-owned rolling
+// PreparedEpochGeometry: invalid on the first epoch of a trajectory (cold
+// build), then reused / warm-recomputed / cold-recomputed per the sec.8
+// fail-closed ladder.  `cfg` toggles the L1 topology reuse and the L2 warm
+// D14 seed independently (bench variants V1 / V2).
+inline FluxJacobian flux_jacobian_prepared(const LensParams& p, int n_r,
+                                           PreparedEpochGeometry& state,
+                                           const PreparedReuseConfig& cfg,
+                                           PreparedReuseStats* st) {
+    const ScopedFlushDenormals _fp_guard;
+    const PrimaryFrame pf = PrimaryFrame::from(p);
+    TopologyResult topo = prepared_topology(pf, state, cfg, st);
+    return flux_jacobian_integrate(p, n_r, pf, topo);
 }
 
 inline EpochJacobian epoch_jacobian(const LensParams& p, double u, int n_r,
@@ -160,6 +185,37 @@ inline EpochJacobian epoch_jacobian(const LensParams& p, double u, int n_r,
 inline EpochJacobian epoch_jacobian(const LensParams& p, double u = 0.0,
                                     int n_r = 64) {
     return epoch_jacobian(p, u, n_r, holo_fast_planner_enabled());
+}
+
+// Prepared-geometry (Phase E) epoch.  Identical result to
+// epoch_jacobian(p, u, n_r, /*fast=*/false) when `state` is reused validly;
+// the sec.8 cheap re-screen guarantees fail-closed to a cold recompute
+// whenever the cached band topology is not certified at the new geometry.
+inline EpochJacobian epoch_jacobian_prepared(const LensParams& p, double u,
+                                             int n_r,
+                                             PreparedEpochGeometry& state,
+                                             const PreparedReuseConfig& cfg,
+                                             PreparedReuseStats* st = nullptr) {
+    const ScopedFlushDenormals _fp_guard;
+    FluxJacobian fj = flux_jacobian_prepared(p, n_r, state, cfg, st);
+    const PrimaryFrame pf = PrimaryFrame::from(p);
+
+    EpochJacobian ej;
+    ej.status = fj.status;
+    ej.r_max = fj.r_max;
+    ej.F0 = fj.F0;
+    ej.F_half = fj.F_half;
+    if (near_origin_source(pf)) ej.status = Status::GRADIENT_UNRELIABLE;
+
+    const double rho = p.rho, r2 = rho * rho;
+    const double D = kPi * r2 * (1.0 - u / 3.0);
+    const double F0 = fj.F0, Fh = fj.F_half;
+    ej.mu = ((1.0 - u) * F0 + u * Fh) / D;
+    for (int j = 0; j < 5; ++j)
+        ej.grad_mu[j] = ((1.0 - u) * fj.dF0[j] + u * fj.dF_half[j]) / D;
+    ej.grad_mu[2] -= 2.0 * ej.mu / rho;
+    ej.dmu_du = kPi * r2 * (Fh - 2.0 * F0 / 3.0) / (D * D);
+    return ej;
 }
 
 }  // namespace lcbinint::holonomic

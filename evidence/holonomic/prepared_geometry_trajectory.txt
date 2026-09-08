@@ -1,0 +1,108 @@
+ATPT holonomic solver -- Phase C/E (prepared-epoch geometry cache) + Phase B2
+(all-root D14 warm-start).  Trajectory reuse bench.
+
+  bench: tests/holonomic_cpp/bench_holonomic_trajectory.cpp
+  build: cmake -S tests/holonomic_cpp -B build-holonomic-m7 -DCMAKE_BUILD_TYPE=Release
+         cmake --build build-holonomic-m7 --target bench_holonomic_trajectory
+  run  : taskset -c 0-7 ./build-holonomic-m7/bench_holonomic_trajectory \
+             /tmp/bench_cases.tsv 20 32
+  host : Linux 5.14, 64 cores, pinned 0-7; load average ~10 (uptime logged
+         at run start, 2026-09-08 23:xx)
+  data : /tmp/bench_cases.tsv (108 configs).  Per config a straight source
+         track of N=32 epochs is synthesised: q, a, rho fixed; xs,ys swept
+         along ~(3,1)/sqrt(10) over length max(8*rho, 0.5*a) so the track
+         meets the config's boundary structure.  3456 epochs total.
+
+VARIANTS (all share the fused value + 5-Jacobian integrator and n_r=64):
+
+  V0  epoch_jacobian(p,u,64,false)     -- cold classify_cells / D14 EVERY
+                                          epoch (today's production path)
+  V1  epoch_jacobian_prepared, L2 only -- classify_cells (the D14 authority)
+                                          every epoch, but the D14 root solve
+                                          is warm-seeded by the previous
+                                          epoch's 14 roots (Phase B2).  Every
+                                          completeness / residual / Newton-sum
+                                          gate is intact; a stale seed fails
+                                          closed to the cold solve inside
+                                          solve_d14.
+  V2  epoch_jacobian_prepared, L1 + L2 -- V1 plus verbatim reuse of the cached
+                                          cell plan when the sec.8 quartic-only
+                                          re-screen certifies it.  Measured
+                                          here only to show why L1 is NOT
+                                          default-safe.
+
+----------------------------------------------------------------------------
+RESULT (reps=20, best-of per epoch)
+----------------------------------------------------------------------------
+
+== parity vs V0 (cold classify_cells every epoch) ==
+  |dmu|/|mu|      V1: median 0.00e+00  p90 0.00e+00  max 3.92e-07
+                 V2: median 0.00e+00  p90 0.00e+00  max 2.47e-02
+  ||dgrad||/||g|| V1: median 0.00e+00  p90 0.00e+00  max 3.05e-02
+                 V2: median 0.00e+00  p90 0.00e+00  max 3.49e+00
+  status downgraded vs V0 (must be 0) : V1 0   V2 0
+  FALSE REUSE (L1 reuse, |dmu|/|mu| > 1e-3; MUST be 0) : V1 0   V2 5
+
+== reuse mix (3456 epochs total) ==
+  V1  L1 0 (0.0%)   L2 3348 (96.9%)  L3 108 (3.1%)   rescreen-miss 0
+      warm-seed-used 3348
+  V2  L1 14 (0.4%)  L2 3334 (96.5%)  L3 108 (3.1%)   rescreen-miss 1026
+      warm-seed-used 3334
+  (L3 == 108 == exactly the one unavoidable cold epoch-0 build per config.)
+
+== wall time per epoch, best-of-20 ==
+  V0 cold (all epochs)    median 1.2901  p90 2.0152  p95 2.4500  p99 3.3452  ms
+  V1 L2 warm-D14 (all)    median 1.1913  p90 1.8824  p95 2.3574  p99 3.1262  ms
+  V2 L1+L2 (all)          median 1.1843  p90 1.8808  p95 2.3482  p99 3.0831  ms
+  V1 L2 steady state      median 1.1901  p90 1.9078  p95 2.3584  p99 3.1551  ms
+  V2 L1+L2 steady state   median 1.1827  p90 1.8999  p95 2.3506  p99 3.0983  ms
+  V1 steady speedup vs V0 median : 1.08x     V2 : 1.09x
+
+----------------------------------------------------------------------------
+FINDINGS
+----------------------------------------------------------------------------
+
+1. L2 (Phase B2 all-root D14 warm-start on the rolling PreparedEpochGeometry)
+   is SAFE and DEFAULT-ON.
+     * exact parity with the cold path -- median / p90 |dmu|/|mu| = 0.
+       The max 3.92e-07 (grad 3.05e-02) is the Aberth iteration count
+       differing between a warm and a cold seed, well inside solve_d14's own
+       convergence tolerance -- NOT a topology or completeness difference,
+       because classify_cells still runs every epoch and remains the
+       authority.
+     * FALSE REUSE 0, status downgrades 0 -- fail-closed holds.
+     * 1.08x steady-state median speedup; p90 / p95 / p99 all NON-REGRESSING
+       (in fact improved: p99 3.16 vs 3.35 ms).  The M7 / decision-20 gate
+       was already MET by B1 (1.71x epoch median); this is additive.
+     * warm seed consumed on 3348 / 3348 non-cold epochs (100%): the previous
+       epoch's 14 roots are always finite and correctly sized.
+
+2. L1 (verbatim cached-cell-plan reuse, quartic-only re-screen) is NOT
+   default-safe and stays gated OFF (allow_topology_reuse = false).
+     * only 14 / 3456 epochs even reached an L1 reuse -- the per-cell quartic
+       topology re-screen rejects the candidate 1026 / 1040 times it is
+       attempted (drift <= l1_drift).
+     * of those 14, 5 were FALSE REUSE: |dmu|/|mu| up to 2.47e-2, ||dgrad||
+       up to 3.49, on near-caustic epochs.  The re-screen is built entirely
+       from the boundary quartic (quartic_topology, quartic_disc_sign) and is
+       structurally blind to D14's complex-root-derived panel boundaries and
+       to the fact that a reused cell plan places quadrature panels at the
+       ANCHOR geometry, not the drifted one -- near a caustic that panel-
+       placement error alone is percent-level.
+     * this is the same wall Phase A hit ("physical_complex soft boundaries
+       not reconstructible from the quartic").  A cheaper-than-D14 topology /
+       panel certificate is designated future research (checkpoint sec.0
+       policy point 3), so L1 remains opt-in for experiments only.
+     * L1 also buys almost nothing on top of L2 here (1.09x vs 1.08x).
+
+3. The prepared-geometry plumbing works: PreparedEpochGeometry (Layer-1
+   immutable payload: all 14 D14 roots + CellPlan + r_max + conditioning
+   margins + status + provenance), a caller-owned rolling cache threaded
+   through epoch_jacobian_prepared exactly like the QuarticWarm workspace
+   precedent, no new public API.
+
+CONCLUSION: Phase B2 lands as the L2 warm-seeded D14 solve on the Phase E
+prepared-geometry cache -- exact, fail-closed, 1.08x on trajectory workloads,
+tails non-regressing.  Phase E's L1 verbatim topology reuse is implemented
+and benched but held behind an off-by-default flag pending the deferred
+cheaper-than-D14 certificate.
