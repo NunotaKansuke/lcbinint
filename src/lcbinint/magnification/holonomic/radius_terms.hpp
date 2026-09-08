@@ -19,11 +19,14 @@
 #include <cmath>
 #include <vector>
 
+#include <cstdlib>
+
 #include "lcbinint/magnification/holonomic/angular_rule.hpp"
 #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
 #include "lcbinint/magnification/holonomic/phi.hpp"
 #include "lcbinint/magnification/holonomic/poly_roots.hpp"
+#include "lcbinint/magnification/holonomic/root_pair.hpp"
 
 namespace lcbinint::holonomic {
 
@@ -160,6 +163,182 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
     return th;
 }
 
+// ===================================================================
+// (m, v) root-pair radial transport  --  flag-gated alternative to the
+// warm Aberth quartic solve inside one integration cell.
+//
+// Instead of re-solving the boundary quartic at every radial node the
+// integrator carries the symmetric pair (m, v) = ((t_+ + t_-)/2,
+// ((t_+ - t_-)/2)^2) of each image arc (root_pair.hpp) and advances it
+// with a predictor (root_pair_dR, IFT in R using the previous node's
+// coefficients) + a few Newton steps on (E, O) = 0 at the new node.
+//
+// Fail-closed: any singular 2x2, near-tangency (v below kTransportVFloor),
+// non-converged corrector, arc-count change, or non-finite state drops to
+// the exact 40-iteration cold Aberth solve -- byte-identical roots to
+// real_root_thetas() -- and re-seeds.  After kColdStreak consecutive
+// misses the caller abandons transport for the rest of the cell.
+//
+// Scope limit (t = tan(theta/2)): an arc that crosses theta = pi maps to
+// the unbounded t-interval (t_last, +inf) u (-inf, t_first); (m, v) has no
+// finite midpoint there.  Such a cell is detected at seed time (the phi>0
+// arcs are the "odd" gaps) and left un-seeded -> always cold.
+// ===================================================================
+inline bool holo_mv_transport_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_MV_TRANSPORT");
+        return e && e[0] == '1';
+    }();
+    return on;
+}
+
+constexpr int kTransportNewton = 5;
+constexpr double kTransportStepTol = 1e-13;    // step-relative corrector gate
+constexpr double kTransportResidRel = 1e-10;   // (|E|+|O|) / coeff-scale accept
+constexpr double kTransportVFloor = 1e-10;      // v <= this: near-tangency, the
+                                               // 2x2 (E,O) solve is ill-cond
+                                               // (det ~ -1/2 P''^2, corrector
+                                               // step ~ 1/sqrt(v)) -> cold.
+                                               // Genuine physical tangencies
+                                               // are additionally caught by
+                                               // radius_terms' tan_thresh.
+constexpr int kTransportMaxTrips = 4;          // total misses/cell -> abandon
+                                               // (guards an oscillating cell
+                                               //  from paying transport+cold)
+
+struct RootPairWarm {
+    std::vector<RootPair> pairs;        // tracked t-bounded pairs, ascending in t
+    std::array<double, 5> pc_prev{};    // boundary_quartic(R_prev) coeffs
+    std::array<double, 5> pcR_prev{};   // boundary_quartic_dR(R_prev) coeffs
+    double R_prev = 0.0;
+    bool valid = false;                 // pairs[] holds a usable previous-node set
+    int cold_streak = 0;                // consecutive transport misses
+    int trips = 0;                      // total misses this cell
+    long warm_hits = 0, cold_falls = 0;
+};
+
+// Sorted theta list of the real roots of P(t), via (m, v) transport when
+// `w` carries a live seed, else a cold solve that (re)seeds `w`.  The
+// returned list is structurally identical to real_root_thetas() /
+// real_root_thetas_warm() so the downstream arc formation is unchanged.
+inline std::vector<double> real_root_thetas_transport(
+    const std::array<double, 5>& pc, double R, const PrimaryFrame& pf,
+    RootPairWarm& w) {
+    // ---- warm transport -------------------------------------------------
+    if (w.valid && !w.pairs.empty()) {
+        const double dR = R - w.R_prev;
+        std::vector<RootPair> next = w.pairs;
+        double cmax = 0.0;
+        for (double c : pc) cmax = std::max(cmax, std::fabs(c));
+        bool ok = true;
+        for (auto& rp : next) {
+            const RootPairDR pd = root_pair_dR(rp, w.pc_prev, w.pcR_prev);
+            if (pd.ok && std::isfinite(pd.dm_dR) && std::isfinite(pd.dv_dR)) {
+                rp.m += pd.dm_dR * dR;
+                rp.v += pd.dv_dR * dR;
+            }
+            bool conv = false;
+            for (int it = 0; it < kTransportNewton; ++it) {
+                const EO f = eo_residuals(rp, pc);
+                const EOJac J = eo_jacobian(rp, pc);
+                const double det = J.E_m * J.O_v - J.E_v * J.O_m;
+                if (!(std::fabs(det) > 0.0) || !std::isfinite(det)) break;
+                const double dm = -(J.O_v * f.E - J.E_v * f.O) / det;
+                const double dv = -(J.E_m * f.O - J.O_m * f.E) / det;
+                rp.m += dm;
+                rp.v += dv;
+                const double sc =
+                    std::fabs(rp.m) + std::sqrt(std::fabs(rp.v)) + 1.0;
+                if (std::fabs(dm) + std::fabs(dv) <= kTransportStepTol * sc) {
+                    conv = true;
+                    break;
+                }
+            }
+            const EO fr = eo_residuals(rp, pc);
+            const double mm = std::max(1.0, std::fabs(rp.m));
+            const double rsc = (cmax > 0.0 ? cmax : 1.0) * mm * mm * mm * mm;
+            if (!conv || !std::isfinite(rp.m) || !std::isfinite(rp.v) ||
+                rp.v <= kTransportVFloor ||
+                std::fabs(fr.E) + std::fabs(fr.O) > kTransportResidRel * rsc) {
+                ok = false;
+                break;
+            }
+        }
+        if (ok) {
+            std::vector<double> out;
+            out.reserve(next.size() * 2);
+            for (const auto& rp : next)
+                for (double t : {rp.t_minus(), rp.t_plus()}) {
+                    double th = std::fmod(2.0 * std::atan(t), kTwoPi);
+                    if (th < 0.0) th += kTwoPi;
+                    out.push_back(th);
+                }
+            std::sort(out.begin(), out.end());
+            std::vector<double> merged;
+            for (double x : out)
+                if (merged.empty() || x - merged.back() > 1e-11)
+                    merged.push_back(x);
+            if ((int)merged.size() == 2 * (int)next.size()) {
+                w.pairs = next;
+                w.pc_prev = pc;
+                w.pcR_prev = boundary_quartic_dR(R, pf).p;
+                w.R_prev = R;
+                ++w.warm_hits;
+                return merged;
+            }
+        }
+        w.valid = false;
+        ++w.cold_streak;
+        ++w.trips;
+    }
+
+    // ---- cold solve (identical roots to real_root_thetas) + (re)seed ---
+    double c[5];
+    int deg = quartic_descending(pc, c);
+    if (deg <= 0) {
+        w.valid = false;
+        ++w.cold_streak;
+        return {};
+    }
+    auto z = aberth<double>(c, deg, 40);
+    auto th = thetas_from_complex(z);
+    ++w.cold_falls;
+
+    std::vector<double> tr;  // real t-roots, same filter thetas_from_complex uses
+    for (const auto& r : z)
+        if (std::fabs(r.im) <= kRootImRel * (1.0 + std::fabs(r.re)))
+            tr.push_back(r.re);
+    std::sort(tr.begin(), tr.end());
+
+    bool seeded = false;
+    if (!tr.empty() && tr.size() % 2 == 0 && tr.size() == th.size()) {
+        // inside arcs are the non-wrapping "even" gaps (t0,t1),(t2,t3),...
+        // iff phi > 0 at the (t0,t1) t-midpoint; the "odd" set owns the
+        // theta = pi (t = +-inf) arc, which (m, v) cannot represent.
+        double tm = 0.5 * (tr[0] + tr[1]);
+        double thm = std::fmod(2.0 * std::atan(tm), kTwoPi);
+        if (thm < 0.0) thm += kTwoPi;
+        if (phi_lens(R, thm, pf) > 0.0) {
+            w.pairs.clear();
+            w.pairs.reserve(tr.size() / 2);
+            for (size_t i = 0; i + 1 < tr.size(); i += 2)
+                w.pairs.push_back(root_pair_from_endpoints(tr[i], tr[i + 1]));
+            w.pc_prev = pc;
+            w.pcR_prev = boundary_quartic_dR(R, pf).p;
+            w.R_prev = R;
+            w.valid = true;
+            w.cold_streak = 0;
+            seeded = true;
+        }
+    }
+    if (!seeded) {
+        w.valid = false;
+        ++w.cold_streak;
+        ++w.trips;
+    }
+    return th;
+}
+
 enum class ArcKind { kArcs, kFull, kEmpty, kDegenerate };
 struct ArcSet {
     ArcKind kind;
@@ -241,17 +420,26 @@ inline GridArcs arcs_at(double R, const PrimaryFrame& pf, int n_grid = 3072) {
 }
 
 // ---- arc_intervals : from the boundary quartic ----------------------
-// `w` (optional): per-cell warm-start state for the quartic root solve.
+// `w`   (optional): per-cell warm-start state for the warm Aberth solve.
+// `rpw` (optional): per-cell (m, v) root-pair transport state; used only
+//                   when HOLO_MV_TRANSPORT=1, else `w` / cold as before.
 inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
-                            QuarticWarm* w = nullptr) {
+                            QuarticWarm* w = nullptr,
+                            RootPairWarm* rpw = nullptr) {
     QuarticCoeffs q = boundary_quartic(R, pf);
     double amax = 0.0;
     for (double c : q.p) amax = std::max(amax, std::fabs(c));
     if (amax == 0.0 || std::fabs(q.p[4]) < kP4DegenRel * amax) {
         if (w) w->valid = false;  // chart radius -> break the warm chain
+        if (rpw) rpw->valid = false;
         return {ArcKind::kDegenerate, {}};
     }
-    auto th = w ? real_root_thetas_warm(q.p, *w) : real_root_thetas(q.p);
+    const bool use_transport = rpw && holo_mv_transport_enabled() &&
+                               rpw->cold_streak < kColdStreak &&
+                               rpw->trips < kTransportMaxTrips;
+    auto th = use_transport ? real_root_thetas_transport(q.p, R, pf, *rpw)
+              : w           ? real_root_thetas_warm(q.p, *w)
+                            : real_root_thetas(q.p);
     if (th.empty())
         return {q.p[4] > 0.0 ? ArcKind::kFull : ArcKind::kEmpty, {}};
     if (th.size() % 2 != 0) return {ArcKind::kDegenerate, {}};
@@ -319,9 +507,10 @@ inline RadiusTerms full_circle_terms(double R, const PrimaryFrame& pf) {
 // ---- radius_terms --------------------------------------------------
 inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
                                 double tan_rel = kTanRel,
-                                QuarticWarm* w = nullptr) {
+                                QuarticWarm* w = nullptr,
+                                RootPairWarm* rpw = nullptr) {
     RadiusTerms rt;
-    ArcSet as = arc_intervals(R, pf, w);
+    ArcSet as = arc_intervals(R, pf, w, rpw);
     if (as.kind == ArcKind::kEmpty) return rt;
     if (as.kind == ArcKind::kFull) return full_circle_terms(R, pf);
     if (as.kind == ArcKind::kDegenerate) {

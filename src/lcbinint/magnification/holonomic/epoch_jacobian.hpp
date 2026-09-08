@@ -106,9 +106,10 @@ inline FluxJacobian flux_jacobian_integrate(const LensParams& p, int n_r,
         // per-node boundary-quartic solve from the previous node.  Fresh
         // (cold) start on the first node of every cell.
         QuarticWarm qw;
+        RootPairWarm rpw;  // (m, v) transport state (HOLO_MV_TRANSPORT=1 only)
         for (int k = 0; k < n_r; ++k) {
             double R = rmid + rhalf * rr.x[k];
-            RadiusTerms rt = radius_terms(R, pf, kTanRel, &qw);
+            RadiusTerms rt = radius_terms(R, pf, kTanRel, &qw, &rpw);
             if (!rt.reliable) fj.status = Status::GRADIENT_UNRELIABLE;
             double Wk = rhalf * rr.w[k];
             fj.F0 += Wk * rt.f0;
