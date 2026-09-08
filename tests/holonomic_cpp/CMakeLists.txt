@@ -82,6 +82,14 @@ target_include_directories(bench_fast_topology PRIVATE "${_SRC}")
 target_compile_options(bench_fast_topology PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_fast_topology PRIVATE quadmath)
 
+# Phase B step 0: radial_events / D14 cost split -- decides whether to attack
+# the D14 solve (compensated Aberth / secular / warm-start) or also the
+# __float128 coefficient construction.
+add_executable(bench_d14_split "${CMAKE_CURRENT_SOURCE_DIR}/bench_d14_split.cpp")
+target_include_directories(bench_d14_split PRIVATE "${_SRC}")
+target_compile_options(bench_d14_split PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_d14_split PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7

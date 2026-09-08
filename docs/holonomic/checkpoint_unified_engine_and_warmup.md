@@ -1323,3 +1323,108 @@ can flip. Phase A (fast planner + §5.2 screen in front of D14) is **complete**.
 * `evidence/holonomic/fast_topology_bench.txt` — raw bench + reference-harness
   default/flag-on summary + fallback tally.
 
+---
+
+## 18. Phase B step 0 — `radial_events` / D14 cost split (2026-09-08)
+
+**Governing task (user, 2026-09-08):** this phase does **not** remove D14. Keep
+every bit of information D14 carries — the real fold events *and* the
+complex-root-derived panel boundaries — and cut the **cost of solving** it.
+Four candidate approaches, user ranking in parentheses: ① compensated
+Ehrlich–Aberth (user's #1, "may help even the cold single shot"), ② secular
+equation transformation (#2, gate on implementation cost), ③ exact on-axis
+6+4 factorization `Disc_t(P)/R⁴ = 16·F6(R²)·G4(R²)²` for `ys = 0` (#3, narrow
+but mathematically clean; symbolically verified — `87521a12-d14_axis_factor_check.py`),
+④ all-root warm-start across trajectory epochs (#4, big for the series/light-curve
+workload). Explicit judging rule: **separate coefficient-construction precision
+from root-solve precision**; judge on the *whole* `radial_events` (coeff build +
+solve + verify + classify + panel generation) and the final-epoch time, not the
+bare root solve; hold root information, final magnification, and Jacobian
+precision fixed; single-shot cold vs series warm judged separately.
+
+### 18.1 Measurement
+
+`tests/holonomic_cpp/bench_d14_split.cpp` — per (config, u) point, best-of-N,
+times each stage of `radial_events` in isolation: `pcoef` (`p_coeffs_in_R`),
+`d14c` (`d14_coeffs` — the Iq/Jq quartic-invariant assembly and
+`disc = (4·Iq³ − Jq²)/27` degree-36 `__float128` polynomial arithmetic),
+`dsrch` (balanced `aberth<double>` pre-search, 200-iter cap), `qpol` (seeded
+`aberth<__float128>` warm polish, 24-iter cap), `drr` (`double_root_is_real`
+loop), `side` (`p4(R)=0` chart + `L(v)` on-axis + misc), plus full
+`radial_events` and full `epoch_jacobian(p, u, 64, false)`. `ScopedFlushDenormals`
+per case. 108 (config, u) points from `/tmp/bench_cases.tsv`, reps=120,
+`taskset -c 0-7`, load ~10.
+
+```
+  pcoef   median 0.0123   ( 1.2% of radial_events ,  0.6% of epoch )
+  d14c    median 0.0425   ( 4.2% of radial_events ,  2.0% of epoch )   p90 0.0429  max 0.0436
+  dsrch   median 0.1411   (13.8% of radial_events ,  6.5% of epoch )
+  qpol    median 0.6885   (67.5% of radial_events , 31.9% of epoch )   p90 2.4621  max 2.5010
+  drr     median 0.0028   ( 0.3% /  0.1% )
+  side    median 0.1229   (12.1% /  5.7% )
+  RE      median 1.0193   p90 2.8063   max 2.8421
+  epoch   median 2.1612   p90 3.8395   max 4.1364
+  cold-quad fallback alone : median 12.6600  p90 42.7050  max 47.2116 ms
+  (dsrch + qpol) / radial_events : median 81.4%  p90 93.0%
+  d14_coeffs empty : 0/108   warm-polish -> cold-quad fallback : 0/108
+```
+
+### 18.2 Verdict
+
+* The **`__float128` warm polish (`qpol`) is the entire target** — 67.5% of the
+  `radial_events` median, 31.9% of the full value+5-Jacobian epoch median, and
+  ~all of the `radial_events` p90 tail (0.69 → 2.46 ms, a 3.6× spread: the
+  24-iter cap lets easy roots break at ~5 iters while near-multiple clusters run
+  all 24).
+* **Coefficient construction is not the bottleneck.** `d14c` is 4.2% of
+  `radial_events` and dead flat (0.0425 median / 0.0436 max — no case-to-case
+  spread). `pcoef` 1.2%. Per the user's "separate coeff precision from solve
+  precision" rule: the answer is that the coeff build can stay in `__float128`;
+  the **solve** precision level is what to attack. ③'s cheaper on-axis coeff
+  build is a minor bonus; ③'s real value is removing the structural `G4²`
+  double root.
+* `(dsrch + qpol)` = 81.4% / 93.0% (median / p90) of `radial_events`.
+* Cold-quad fallback (400 iter, tol 1e-22) costs 12.7 ms median / 42.7 ms p90
+  when it fires — 0/108 on this bench (the 24-iter polish + 1e-12 residual gate
+  is well calibrated for these cases) but the latent p99 landmine (decision 21:
+  un-balanced wide-binary D14 coeff spread → spurious complex pairs in the
+  double pre-search → warm seed rejected → cold quad).
+
+### 18.3 Phase B implementation order (set by this verdict)
+
+* **B1 = ① compensated Ehrlich–Aberth.** Replace the `__float128` warm polish
+  with a double-double (error-free-transformation) Aberth correction:
+  TwoSum / TwoProduct / FMA, compensated Horner for D14 and D14′, compensated
+  Aberth update; freeze-on-converge; escalate only the unconverged / genuinely
+  near-multiple root subset to `__float128`. D14 κ ≈ 1e9 sits inside the
+  double-double range; true quad only for local κ > ~1e14 clusters. Resolve
+  FTZ/DAZ — the `ScopedFlushDenormals` guard flushes subnormals and destroys
+  EFT error terms → nested MXCSR restore around the compensated solve. Preserve
+  the decision-21 monomial balancing. Add a Gershgorin/inclusion count check so
+  completeness is not silently weakened (float128 solving was never itself a
+  completeness proof — inclusion verification is a separate need). Keep the
+  `__float128` path as the retained A/B fallback.
+* **B2 = ④ all-root warm-start** across trajectory epochs via `warmup()` /
+  the execution plan — no new public API. `aberth<R>()` already has the `seed`
+  and `final_step` hooks; `QuarticWarm` / `real_root_thetas_warm` (98% hit) are
+  the in-repo precedents. Carry ALL roots (positive-real *and* complex) from the
+  previous epoch as the next epoch's Aberth seed. Separate the warm-start
+  success test from the missing-root check (root correspondence near a
+  bifurcation is hard). Compounds with B1.
+* **B3 = ③ exact on-axis 6+4 factorization**, guarded on `|Y| < 1e-14` (existing
+  `L_root` precedent at `radial_events.hpp` line ~409). Ferrari closed-form
+  sextic + quartic; `G4²` is a known a-priori double → no numerical
+  multiplicity-2 cluster. Must **not** round near-axis geometry to `ys = 0`.
+  Prototype near-axis perturbative hard-root seeding (near-axis = high
+  magnification = scientifically important).
+* **B4 = ② secular transformation** — only if B1 + B2 leave a gap. Prototype in
+  isolation first; at degree 14 the O(n²) high-precision setup may dominate.
+
+Every new path A/B-compares against the retained `__float128` fallback and must
+reproduce: identical positive-real root count, residual ≤ current, identical
+`double_root_is_real` classification, identical complex-Re>0 list.
+
+### 18.4 Files
+
+* `tests/holonomic_cpp/bench_d14_split.cpp` + `CMakeLists.txt` target — NEW.
+* `evidence/holonomic/d14_solve_cost_split.txt` — raw bench + reading.
