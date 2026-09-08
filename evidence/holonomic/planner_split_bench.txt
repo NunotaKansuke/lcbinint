@@ -1,0 +1,26 @@
+=== load before run ===
+ 11:28:11 up 3 days, 14:07,  4 users,  load average: 10.30, 10.20, 10.08
+loaded 108 bench cases, reps=200
+
+== per-stage wall time, best-of-200 per case, 108 cases ==
+   (best-of picks the fastest FULL epoch; stage times are that epoch's)
+
+  (A) radial_events / D14    median  1.0194  p90  2.7980  p99  2.8369  mean  1.4458  (74% of epoch)
+  (B) grid probes 512+3072   median  0.1468  p90  0.2972  p99  0.5808  mean  0.1892  (10% of epoch)
+  (C) quartic_topology x3/cell median  0.0368  p90  0.0562  p99  0.0709  mean  0.0390  (2% of epoch)
+      event merge / bounds   median  0.0005  p90  0.0005  p99  0.0006  mean  0.0005  (0% of epoch)
+  (D) radial pass (V1 value) median  0.2241  p90  0.4904  p99  0.7242  mean  0.2820  (14% of epoch)
+     classify_cells total    median  1.2275  p90  3.0032  p99  3.2795  mean  1.6744
+     full epoch              median  1.5988  p90  3.4209  p99  3.7058  mean  1.9580
+
+== fast-planner ceiling vs floor ==
+  saveable  (A)+(B)  : median  1.2028  p90  2.9498  p99  3.2234  mean  1.6350  (84% of epoch)
+  floor     (C)+(D)  : median  0.2606  p90  0.5386  p99  0.7825  mean  0.3210  (16% of epoch)
+  NOTE: the fast march itself costs ~0.03 ms (algebraic-side measured) and the
+        sec.5.2 screen still pays (C); realistic planner-path saving ~= (A)+(B) - 0.03ms - screen.
+
+== structure ==
+  cells/epoch      mean 12.7
+  3072-escalations mean 0.43/epoch   (cases with >=1: 34/108)
+
+  checksum 138645.116523

@@ -26,6 +26,91 @@ competing backends. Design one **fully integrated finite-source engine** that
 routes purely by *requested output × geometry*, doing only the minimal work
 each answer needs. Do **not** assume either side "wins".
 
+---
+
+## 0. Fixed design policy (2026-09-08) — GOVERNING
+
+The user has fixed this as the design policy for all further work. It overrides
+any earlier framing that treated algebraic and holonomic as competing backends.
+
+0.1 **One common geometry / root kernel at the centre.** Boundary-quartic
+    construction, scaling/balancing, quartic root solve, neighbouring-R warm
+    start, `(m,v)` continuation, root correspondence, endpoint polish / residual
+    certification, conditioning detection, FTZ/DAZ, fail-closed fallback are
+    **one** numerical kernel shared by every mode. "algebraic solver" and
+    "holonomic solver" each running their own copy of the same quartic is
+    **not** the final form.
+
+0.2 **Work is decided by requested output, not by algorithm name.** No
+    "pick algebraic / pick holonomic" dispatch. Modes: uniform value-only,
+    limb-darkened value-only, value+JVP, value+full Jacobian. Answer-only is the
+    shortest path; each added output costs only its own marginal work. Uniform
+    value-only uses algebraic's strength (compute `F0` directly / cheaply).
+    Jacobian uses holonomic's proven fused analytic derivative — **no second
+    geometry solve after the value**.
+
+0.3 **Topology discovery: the cheap algebraic method is the normal path.**
+    fast algebraic discovery → cheap validation / confidence checks → use
+    directly if safe → **D14 only if uncertain**. D14 is **not** deleted: it is
+    the correctness oracle / fallback for difficult geometry, near-degeneracy,
+    or questionable completeness. A cheaper-than-D14 root-exclusion / root-count
+    certificate is permitted as *future research*, not a current premise.
+
+0.4 **Keep both sides' good parts; force neither structure onto the other.**
+    From algebraic: cheap band discovery, uniform value-only lightness, adaptive
+    work allocation, moment-series fast path, `(m,v)` continuation. From
+    holonomic: fused LD moments, fused analytic Jacobian / JVP, bounded
+    difficult-case behaviour, strong reliability gating, quartic warm-start,
+    FTZ/DAZ, D14 fallback / completeness machinery.
+
+0.5 **warmup / trajectory reuse integrates into existing infrastructure.** No
+    new independent public API as a premise. Extend `LightCurve.warmup()`, the
+    per-epoch execution plan, and the geometry-drift machinery. Future: a
+    per-epoch prepared geometry holding bands/cells, root ordering, quartic seed
+    state, conditioning margins, optional D14 info; neighbouring-epoch reuse and
+    neighbouring-HMC/MCMC-proposal reuse handled by the **same** internal
+    mechanism. Cached topology is **never** blindly reused on a heuristic drift
+    check alone — it must pass a cheap validation; if uncertain, recompute that
+    epoch only (fail closed).
+
+0.6 **Optimisation decisions are driven by profile and benchmark.** Measure
+    latency, node / root-solve count, warm-start hit rate, D14 invocation rate,
+    accuracy, Jacobian reliability, p90/p95/p99 tail, pathological geometry.
+    Proceed from highest measured impact first. A new idea that beats this
+    policy *with data* is acceptable. The goal is a production-quality
+    finite-source engine that is fast even value-only, cheap when LD is added,
+    low added cost when derivatives are requested, and does not break on
+    difficult geometry — **not** "make holonomic win" or "keep algebraic".
+
+**Implementation order, intermediate experiments, and internal data-structure
+details are delegated to the implementer, decided from the current code and
+profile.** §0.7 records the order chosen; §14 records the E1 measurement it
+rests on.
+
+### 0.7 Chosen implementation order (profile-driven; supersedes §10's numbering)
+
+E1 (§14) measured where a value-only holonomic epoch spends its time:
+**`radial_events` / D14 is 74% of the epoch** (median 1.02 ms of 1.60 ms), grid
+probes another 10%, the radial integration pass only 14%, and the cheap
+`quartic_topology` probes 2%. The fast-planner *ceiling* — D14 + grid probes —
+is **84% of the epoch**; the *floor* it cannot touch is **16%** (median
+0.26 ms). This dominates every other lever (the value-only Jacobian-state skip
+was 12% of the *old* epoch; adaptive GK 7% with a parity regression).
+
+| order | phase | why here | gate |
+|---|---|---|---|
+| **A** | **fast planner + §5.2 confidence screen in front of D14** (was §10 phase 3) | attacks 84% of the measured epoch cost; also directly policy §0.3 | band-discovery cost ↓ ≥ 3×; 108-case topology parity vs `classify_cells` (0 disagreement on the adopted band set); D14-invocation rate measured; p90/p95/p99 non-regressing; full-Jacobian decision-20 still met |
+| **B** | unify the numerical kernel (was §10 phase 1): one `boundary_quartic`, one `aberth`, one warm-start state; port `solve_radial_tangency` + point-source seed solver into a shared header | now scoped by what the planner actually needs shared; no perf claim | bit-parity both standalone backends; `test_holonomic_m7` full pass |
+| **C** | mode router `finite_source_binary(geometry, requested)` + `FiniteSourceMethod` wiring (was §10 phase 4) | makes M1–M4 real; unlocks benchmark family B (multipole shortcut ON) | all 4 modes parity + latency; family-B table |
+| **D** | M1 / M2 value lanes (was §10 phase 2): exact-`m0`, LD moment series, adaptive-GK radial | *after* phase A the value-only skip is ~50% of the shrunken epoch, not 12% — worth more, but needs the router | uniform value-only median ≥ 2× the fused value; μ parity; moment-series fails closed to GK |
+| **E** | prepared-geometry cache (was §10 phase 5): Layer-1 struct in the warmup report, Layer-2 scratch, §8 drift pre-filter + mandatory cheap validation | the planner's seeds / bands / margins are exactly the cache payload | trajectory + HMC-proposal reuse win; forced-caustic-crossing false-reuse audit passes |
+| **F** | M3 JVP mode (was §10 phase 6) | smallest independent slice | JVP cheaper than one FD column |
+
+Every phase keeps the standalone experimental `algebraic_boundary_*` and
+`holonomic::epoch_jacobian` entry points for A/B; nothing is deleted; failure is
+a `Status`, never a silent approximation; each phase ends with a committed
+checkpoint.
+
 The four requested-output modes this engine must serve:
 
 | mode | outputs | today's cheapest source |
@@ -782,3 +867,51 @@ Status: V0 / V1 / V2 all 104 / 108 OK (same 4 extreme-q non-OK cases);
 
 This is input to the user's decision on implementation order; it is **not**
 itself an implementation step.
+
+---
+
+## 14. E1 — planner cost-split (2026-09-08)
+
+Bench: `tests/holonomic_cpp/bench_planner_split.cpp`, isolated build
+(`build-holonomic-m7/bench_planner_split`), 108 cases, best-of-200, `taskset -c
+0-7`, load average ≈ 9.9 logged before the run. `classify_cells` re-implemented
+with per-stage `steady_clock` splits (behaviour identical — same events, merge,
+3-fraction probe, escalation rule). The "best-of" picks the fastest full epoch
+per case and reports that epoch's stage breakdown.
+
+Purpose: §13.6 concluded from *inference* that `classify_cells` / D14 is the
+latency floor. E1 measures it directly, and separates the part a fast planner
+**replaces** (D14 + the 512/3072 grid probes) from the part the §5.2 screen
+**keeps** (`quartic_topology` ×3/cell) and the part no planner touches (the
+radial integration pass).
+
+| stage | median | p90 | p99 | mean | share of epoch |
+|---|---|---|---|---|---|
+| **(A) `radial_events` / D14** | 1.018 ms | 2.797 | 2.831 | 1.446 | **74%** |
+| (B) grid probes (512 + 3072 escalations) | 0.147 ms | 0.297 | 0.580 | 0.189 | 10% |
+| (C) `quartic_topology` ×3/cell (screen keeps) | 0.037 ms | 0.056 | 0.065 | 0.039 | 2% |
+| event merge / bounds | 0.0005 ms | — | — | 0.0005 | 0% |
+| (D) radial integration pass (V1 value-only) | 0.224 ms | 0.489 | 0.725 | 0.282 | 14% |
+| `classify_cells` total | 1.227 ms | 3.004 | 3.284 | 1.674 | — |
+| **full epoch** | 1.599 ms | 3.418 | 3.708 | 1.958 | — |
+
+Fast-planner **ceiling vs floor**:
+
+| | median | p90 | p99 | mean | share |
+|---|---|---|---|---|---|
+| **saveable** (A)+(B) | 1.200 ms | 2.954 | 3.228 | 1.635 | **84%** |
+| **floor** (C)+(D) | 0.261 ms | 0.538 | 0.781 | 0.321 | 16% |
+
+Realistic planner-path epoch ≈ floor + fast march (~0.03 ms, algebraic-side
+measured) + the §5.2 screen overhead ≈ **~0.3–0.4 ms median**, i.e. a
+**~4–5× reduction** of the value-only epoch and a comparable cut to the
+full-Jacobian epoch (V0 2.14 ms → plausibly ~0.8–1.0 ms), *if* the screen-fail
+(D14-invocation) rate stays low.
+
+Structure: mean **12.7 cells/epoch**; **34/108 cases** hit ≥ 1 `arcs_at(3072)`
+escalation (mean 0.43/epoch). Those 34 are the cases most likely to fail the
+§5.2 screen and fall through to the D14 oracle — the D14-invocation rate is the
+phase-A gate metric.
+
+**Decision:** phase A (fast planner) leads. Confirmed by direct measurement, and
+aligned with policy §0.3. Raw: `evidence/holonomic/planner_split_bench.txt`.
