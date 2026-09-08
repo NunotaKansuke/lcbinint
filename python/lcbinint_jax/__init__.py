@@ -74,6 +74,14 @@ from .trajectory import (
     binary_magnification_native_pipeline_trajectory,
     binary_magnification_trajectory,
 )
+from .planned import (
+    CARTESIAN as PLANNED_CARTESIAN,
+    HEXADECAPOLE as PLANNED_HEXADECAPOLE,
+    POINT_SOURCE as PLANNED_POINT_SOURCE,
+    POLAR as PLANNED_POLAR,
+    PlannedResult,
+    make_result_function,
+)
 from .triple import (
     TripleAdaptiveInverseRayResult,
     TripleDiscoveryResult,
@@ -168,6 +176,12 @@ __all__ = [
     "binary_magnification_calibrated",
     "binary_magnification_trajectory",
     "binary_magnification_native_pipeline_trajectory",
+    "make_result_function",
+    "PlannedResult",
+    "PLANNED_POINT_SOURCE",
+    "PLANNED_HEXADECAPOLE",
+    "PLANNED_CARTESIAN",
+    "PLANNED_POLAR",
     "circular_orbital_motion",
     "binary_point_source_magnification",
     "binary_source_plane_quadrature",
