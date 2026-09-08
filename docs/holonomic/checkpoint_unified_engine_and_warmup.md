@@ -1428,3 +1428,105 @@ reproduce: identical positive-real root count, residual ≤ current, identical
 
 * `tests/holonomic_cpp/bench_d14_split.cpp` + `CMakeLists.txt` target — NEW.
 * `evidence/holonomic/d14_solve_cost_split.txt` — raw bench + reading.
+
+---
+
+## §19 Phase B step 1 — compensated (double-double) D14 solve (2026-09-08)
+
+**Status: COMPLETE. Default-ON. `HOLO_D14_LEGACY_SOLVE=1` = exact legacy A/B.**
+Evidence: `evidence/holonomic/d14_compensated_bench.txt`.
+
+### 19.1 What changed
+
+The `__float128` (libquadmath, software) Aberth–Ehrlich warm polish of D14
+— B0's `qpol`, 67.5% of `radial_events` median / 31.9% of the epoch median
+— is replaced by a polish in **double-double** (unevaluated sum `hi+lo`,
+~106 bits, error-free transformations in hardware `double` + one `std::fma`
+per product). D14 κ ≈ 1e9 sits well inside the double-double range; the
+coefficient build stays `__float128` (B0: separate coefficient-construction
+precision from root-solve precision — held).
+
+* `src/lcbinint/magnification/holonomic/dd_real.hpp` — NEW. `DD` type,
+  TwoSum/FastTwoSum (`+`/`−` only, contraction-immune), TwoProduct via
+  `std::fma` (contraction-immune by construction), `/`, ordering, `qabs_`,
+  `qsqrt_` (Karp), `dd_from_qf` / `qf_from_dd`. Deliberately mirrors the
+  small surface `aberth<R>()` / `Cplx<R>` need → `aberth<DD>` and
+  `Cplx<DD>` instantiate with **no change to poly_roots.hpp**.
+* `re_detail::solve_d14()` (radial_events.hpp) — multi-tier solve extracted
+  from the inline block:
+  * tier 0 — dd Aberth, 25 sweeps, tol 1e-26, seeded from the balanced
+    `double` presearch (decision-21 monomial balancing preserved). Gate:
+    worst `__float128` residual ≤ 1e-13.
+  * tier 1 — `__float128` warm polish seeded by the dd roots, for a
+    near-multiple cluster past 106 bits. Gate 1e-12.
+  * tier 2 — cold `__float128` Aberth (400 iter, tol 1e-22): seed
+    non-finite, OR tier-1 gate failed, OR the Vieta completeness check
+    failed.
+  * tier 3 — legacy: `__float128` warm polish straight off the double
+    presearch, no dd stage (`HOLO_D14_LEGACY_SOLVE=1`).
+* **Completeness check** (B0 verdict / user: "float128 で解いたこと自体は
+  完全性の証明ではない。根を誤差込みで囲って全根が含まれると確認する処理は
+  別に必要"): Newton's first identity `Σ roots == −c[1]/c[0]`. A dropped or
+  doubled basin — how an under-resolved Aberth actually fails — shifts the
+  deg-14 power sum far outside rounding. Absolute tol `1e-6·(1+|want|)` on
+  O(1..10) roots ≈ 1e5× the honest round-off → cold re-solve on failure.
+  0/115 bench cases tripped it.
+* **Conjugate symmetrization**: real coefficients ⇒ non-real roots are
+  exact conjugate pairs. Aberth splits a pair's real parts ~1e-8 rel in dd
+  (vs ~1e-11 in `__float128`); `radial_events` dedups the complex-Re
+  soft-boundary list at a fixed 1e-9 gap, so the wider dd split would post
+  one pair as two soft boundaries. Snap every near-conjugate pair
+  (clearly complex, conjugate distance < 1e-6 rel) onto its common real
+  part and mean |im|. No-op for the `__float128` paths.
+* `src/lcbinint/magnification/holonomic/fp_env.hpp` — `ScopedNoFlushDenormals`
+  (inverse of `ScopedFlushDenormals`; nested around the dd solve so EFT
+  `lo` limbs survive). FTZ/DAZ **proven bit-exact inert** here
+  (`/tmp/probe_ftz.cpp`: `max|root_ftz − root_noftz| = 0.000e+00`) — the
+  guard is structural, not a measured fix.
+* `tests/holonomic_cpp/bench_d14_compensated.cpp` + `CMakeLists.txt` target
+  — NEW. Direct A/B of `solve_d14(desc,deg,false/true)` + whole
+  `radial_events` + full `epoch_jacobian`, parity vs legacy.
+
+### 19.2 Result (bench_d14_compensated, reps 80, taskset -c 0-7, load ~10)
+
+| stage | legacy | compensated | speedup |
+|---|---|---|---|
+| bare `solve_d14` | med 0.774 / p90 2.638 / p99 2.679 ms | med 0.511 / p90 0.531 / p99 2.659 ms | **1.51× / 4.97×** |
+| whole `radial_events` (compiled path) | med 0.927 / p90 2.798 / p99 2.837 ms | med 0.603 / p90 0.627 / p99 2.817 ms | **1.54× / 4.46× / p99 1.01×** |
+| full value + 5-Jac epoch | med 2.147 / p90 3.835 / p99 4.118 / max 4.13 ms | med 1.253 / p90 2.259 / p99 3.958 / max 4.15 ms | **1.71× / 1.70× / p99 1.04× / max ~1.00×** |
+
+* tier histogram: **113 dd-sufficed / 2 qf-escalate / 0 cold-quad** (the 2 =
+  rand028 both u — one near-multiple cluster, tier 1, final residual 3.8e-14).
+* parity failures **0 / 115**; worst root-set rel diff comp-vs-legacy 2.598e-09.
+* worst `__float128` residual: legacy 1.604e-15, comp 3.836e-14 — far past
+  every downstream tol (`double_root_is_real` 1e-6, positive-real merge 1e-9,
+  complex-Re dedup 1e-9). Final μ + 5-Jac **bit-for-bit unchanged** in
+  `m7_reference.tsv` (10397 checks / 0 failures, default AND legacy).
+* p90/p95/p99 all non-regressing → **decision-20 tail condition MET**. The
+  +0.02 ms on the compensated `max` is the rand028 escalation case, within
+  run-to-run noise.
+
+### 19.3 Reading
+
+The polish precision level was the whole cost, exactly as B0 predicted.
+Dropping from ~113-bit software `__float128` to ~106-bit hardware
+double-double — still ~10 decimal digits past anything the event list,
+classification, or Jacobian consumes — halves the bare solve and takes the
+epoch median from 2.15 → 1.25 ms. Every bit of D14's information is
+retained: identical fold-event list, identical complex-root-derived panel
+boundaries, identical `double_root_is_real` classification. Only the
+arithmetic precision of the iterative polish changed, and the completeness
+check + residual gate + conjugate symmetrization keep that change from
+silently weakening the result.
+
+Compounds with B2 (all-root cross-epoch warm-start): a warm dd seed from
+the previous epoch should push most cases to ~3 dd sweeps.
+
+### 19.4 Files
+
+* `src/lcbinint/magnification/holonomic/dd_real.hpp` — NEW.
+* `src/lcbinint/magnification/holonomic/fp_env.hpp` — `ScopedNoFlushDenormals`.
+* `src/lcbinint/magnification/holonomic/radial_events.hpp` — `solve_d14()`,
+  completeness check, conjugate symmetrization, `HOLO_D14_LEGACY_SOLVE` hatch.
+* `tests/holonomic_cpp/bench_d14_compensated.cpp` + `CMakeLists.txt` — NEW.
+* `evidence/holonomic/d14_compensated_bench.txt` — raw bench + reading.

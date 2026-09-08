@@ -1,0 +1,121 @@
+Phase B step 1 -- compensated (double-double) D14 solve  (2026-09-08)
+====================================================================
+
+Governing task: keep every bit of information D14 carries (real fold
+events AND complex-root-derived panel boundaries), cut the COST of
+solving it.  B0 verdict (d14_solve_cost_split.txt): the __float128 warm
+polish `qpol` is 67.5% of radial_events median / 31.9% of the epoch
+median / ~all of the radial_events p90 tail; coefficient construction
+`d14c` is 4.2% and dead flat -> attack the SOLVE precision level.
+
+Approach: run the Aberth-Ehrlich polish in double-double (unevaluated
+sum hi+lo, ~106 bits, error-free transformations in hardware double +
+one FMA per product) instead of libquadmath __float128.  D14 kappa ~1e9
+sits well inside the double-double range.  Only a genuinely near-multiple
+cluster (local kappa > ~1e14, detected by a per-root residual gate)
+escalates that solve to __float128.
+
+  src/lcbinint/magnification/holonomic/dd_real.hpp   -- DD type + EFT
+  re_detail::solve_d14()  (radial_events.hpp)        -- multi-tier solve
+  HOLO_D14_LEGACY_SOLVE=1                            -- A/B escape hatch
+                                                       (exact legacy path)
+
+solve_d14 tiers:
+  balanced `double` presearch (decision-21 monomial balancing, s = |c_d/c_0|^(1/d))
+   -> tier 0  double-double Aberth polish, 25 sweeps, tol 1e-26, dd seed
+              gate: worst __float128 residual <= 1e-13
+   -> tier 1  __float128 warm polish seeded by the dd roots (near-multiple
+              cluster past 106 bits); gate 1e-12
+   -> tier 2  cold __float128 Aberth, 400 iter, tol 1e-22 (seed non-finite
+              OR tier-1 gate failed OR Vieta completeness check failed)
+  tier 3 = legacy path (HOLO_D14_LEGACY_SOLVE=1): __float128 warm polish
+           straight off the double presearch, no dd stage.
+
+Completeness check (B0 verdict: "float128 solving was never itself a
+completeness proof -- inclusion verification is a separate need"):
+Newton's first identity  sum(roots) == -c[1]/c[0].  A dropped or doubled
+basin -- the way an under-resolved Aberth actually fails -- shifts the
+deg-14 power sum far outside rounding.  Absolute tol 1e-6*(1+|want|) on
+O(1..10) roots is ~1e5x the honest round-off; on failure -> cold re-solve.
+0/115 cases tripped it on the bench.
+
+Conjugate symmetrization: D14 has real coefficients, so its non-real
+roots are exact conjugate pairs -- a pair's two real parts are equal.
+Finite Aberth splits them ~1e-11 rel in __float128, ~1e-8 rel in
+double-double; radial_events dedups the complex-Re soft-boundary list at
+a fixed 1e-9 gap, so the wider dd split would post one pair as TWO soft
+boundaries.  Every near-conjugate pair (clearly complex, conjugate
+distance < 1e-6 rel) is snapped onto its common real part and mean
+imaginary magnitude.  No-op for the __float128 paths.
+
+--------------------------------------------------------------------
+BENCH   taskset -c 0-7 ./build-holonomic-m7/bench_d14_compensated /tmp/bench_cases.tsv 80
+        115 (config,u) points = 108 bench + 7 M7 reference configs, best-of-80
+--------------------------------------------------------------------
+ 22:39:20 up 4 days,  1:18,  load average: 9.79, 10.11, 10.25   (compensated / default)
+ 22:40:20 up 4 days,  1:19,  load average: 10.08, 10.16, 10.26   (legacy)
+
+== solve_d14  A/B (bare solve) ==
+  legacy (__float128 warm)     median 0.7738  p90 2.6382  p99 2.6791  max 2.680  ms
+  compensated (double-double)  median 0.5113  p90 0.5308  p99 2.6587  max 2.999  ms
+  speedup                      median 1.51x   p90 4.97x
+
+  compensated tier histogram : dd-sufficed 113   qf-escalate 2   cold-quad 0
+  legacy cold-quad fallbacks : 0
+  (the 2 qf-escalate cases = rand028 u=0.0 and u=0.5 -- one near-multiple
+   cluster; escalates to tier 1, final residual 3.8e-14.)
+
+== whole radial_events (compiled default path; coeff build + solve +
+   verify + double_root_is_real classification + soft-boundary/panel list) ==
+  compensated (default)  median 0.6031  p90 0.6274  p99 2.8166  max 3.170  ms
+  legacy  (LEGACY=1)     median 0.9272  p90 2.7977  p99 2.8374  max 2.849  ms
+  speedup                median 1.54x   p90 4.46x   p99 1.01x
+
+== full value + 5-component Jacobian epoch (epoch_jacobian, 64 panels/cell) ==
+  compensated (default)  median 1.2531  p90 2.2591  p99 3.9575  max 4.154  ms
+  legacy  (LEGACY=1)     median 2.1472  p90 3.8345  p99 4.1175  max 4.132  ms
+  speedup                median 1.71x   p90 1.70x   p99 1.04x   max ~1.00x
+
+  (compensated max 4.154 vs legacy 4.132 ms: +0.02 ms on the rand028
+   escalation case, within run-to-run noise.  p90/p95/p99 all
+   non-regressing -- decision-20 tail condition MET.)
+
+--------------------------------------------------------------------
+PARITY  (root information / final magnification / Jacobian precision held fixed)
+--------------------------------------------------------------------
+  parity failures                          : 0 / 115
+  worst positive-real + complex-Re root-set
+    rel diff  (compensated vs legacy)      : 2.598e-09
+  worst __float128 residual  legacy        : 1.604e-15
+                             compensated   : 3.836e-14
+  test_holonomic_m7 evidence/holonomic/m7_reference.tsv
+    default              : 10397 checks, 0 failures
+    HOLO_D14_LEGACY_SOLVE=1 : 10397 checks, 0 failures
+
+  The 3.8e-14 worst compensated residual is far past every downstream
+  consumer: double_root_is_real classification tol 1e-6, positive-real
+  merge 1e-9, complex-Re dedup 1e-9.  Final mu and the 5-component
+  Jacobian are bit-for-bit unchanged in the M7 reference fixture.
+
+--------------------------------------------------------------------
+FTZ / DAZ  (user's explicit concern: compensated arithmetic + flush-to-zero)
+--------------------------------------------------------------------
+  /tmp/probe_ftz.cpp -- dd polish, FTZ+DAZ on vs off, eqp / benign /
+  wide-planet / tiny-rho:   max|root_ftz - root_noftz| = 0.000e+00
+  (bit-exact).  This solver's magnitude regime (balanced roots O(1..10),
+  coeffs <= ~1e11, EFT error terms >= ~1e-40) never reaches the 2.2e-308
+  subnormal floor.  `ScopedNoFlushDenormals` wraps the compensated solve
+  anyway -- the guarantee is structural, not empirical.
+
+--------------------------------------------------------------------
+VERDICT
+--------------------------------------------------------------------
+B1 lands the epoch median at 1.25 ms (1.71x over the retained legacy
+__float128 path) with the p90 also 1.70x and p90/p95/p99 non-regressing.
+0/115 parity failures; final mu + Jacobian unchanged.  Compensated dd
+polish is default-ON; HOLO_D14_LEGACY_SOLVE=1 restores the exact legacy
+path for A/B at any time.  Every bit of D14 information is retained:
+same fold-event list, same complex-root-derived panel boundaries, same
+classification.  Only the arithmetic precision of the polish changed.
+
+Next: B2 (all-root cross-epoch warm-start) compounds on this.

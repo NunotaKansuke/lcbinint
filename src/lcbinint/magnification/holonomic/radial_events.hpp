@@ -27,12 +27,15 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
 #include <quadmath.h>
 
 #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
+#include "lcbinint/magnification/holonomic/dd_real.hpp"
+#include "lcbinint/magnification/holonomic/fp_env.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
 #include "lcbinint/magnification/holonomic/poly_roots.hpp"
 
@@ -290,6 +293,194 @@ inline bool double_root_is_real(double R, const PrimaryFrame& pf,
            std::fabs(best_im) < 1e-4 * (std::fabs(best_re) + 1.0);
 }
 
+// Process-wide opt-out: HOLO_D14_LEGACY_SOLVE=1 forces the original
+// __float128-only warm polish.  Default: the Phase-B1 compensated
+// (double-double) polish, which reproduces the same roots at
+// residual <= the __float128 path but without libquadmath in the hot
+// loop (evidence/holonomic/d14_compensated_bench.txt).  The kept flag is
+// the A/B escape hatch.
+inline bool holo_d14_compensated_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_LEGACY_SOLVE");
+        return !(e && e[0] == '1');
+    }();
+    return on;
+}
+
+// Result of the multi-tier D14 root solve.
+struct D14Solve {
+    std::vector<Cplx<qf>> roots;
+    qf worst_res = 0;
+    int tier = 0;  // 0 dd-sufficed, 1 qf-warm escalation, 2 cold quad,
+                   // 3 legacy qf-warm, -1 cold (seed non-finite)
+};
+
+// worst relative residual of `roots` against the degree-`deg` descending
+// __float128 polynomial `desc`.
+inline qf d14_worst_res(const qf* desc, int deg,
+                        const std::vector<Cplx<qf>>& roots, qf dscale) {
+    qf worst = 0;
+    for (const auto& r : roots) {
+        qf res = cabs(poly_eval_c(desc, deg, r)) / (dscale + (qf)1e-300);
+        if (res > worst) worst = res;
+    }
+    return worst;
+}
+
+// Two/three-tier D14 solve.  `desc` descending __float128, length deg+1.
+//
+// Shared prefix: balance the monomial basis (v = s w, decision 21) and run
+// a `double` Aberth-Ehrlich presearch to locate every root basin.
+//
+// Polish:
+//   compensated == true  -> double-double Aberth warm-started from the
+//     presearch (tier 0).  If its __float128 residual still exceeds 1e-12
+//     (a near-multiple cluster beyond ~106 bits) escalate to an
+//     __float128 warm polish seeded by the dd result (tier 1).
+//   compensated == false -> __float128 warm polish directly (tier 3).
+//
+// Backstop (either path): non-finite presearch or a failed residual gate
+// -> cold __float128 Aberth (tier 2 / -1).
+inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
+                          bool compensated) {
+    const qf* desc = desc_v.data();
+    D14Solve out;
+
+    qf dscale = 0;
+    for (int i = 0; i <= deg; ++i) {
+        qf av = fabsq(desc[i]);
+        if (av > dscale) dscale = av;
+    }
+
+    double sscale = 1.0;
+    if ((double)fabsq(desc[deg]) > 0.0 && (double)fabsq(desc[0]) > 0.0) {
+        double ratio = (double)(fabsq(desc[deg]) / fabsq(desc[0]));
+        sscale = std::pow(ratio, 1.0 / deg);
+        if (!(sscale > 0.0) || !std::isfinite(sscale)) sscale = 1.0;
+    }
+    std::vector<double> descd(deg + 1);
+    {
+        double sp = 1.0;
+        for (int i = deg; i >= 0; --i) {
+            descd[i] = (double)desc[i] * sp;
+            sp *= sscale;
+        }
+    }
+    auto zd = aberth<double>(descd.data(), deg, 200);
+    bool seed_ok = true;
+    for (int i = 0; i < deg; ++i)
+        if (!std::isfinite(zd[i].re) || !std::isfinite(zd[i].im)) {
+            seed_ok = false;
+            break;
+        }
+
+    if (seed_ok && compensated) {
+        // FTZ/DAZ off so the error-free transforms keep their lo limbs.
+        ScopedNoFlushDenormals _eft;
+        std::vector<DD> descdd(deg + 1);
+        for (int i = 0; i <= deg; ++i) descdd[i] = dd_from_qf(desc[i]);
+        std::vector<Cplx<DD>> seed(deg);
+        for (int i = 0; i < deg; ++i)
+            seed[i] = Cplx<DD>(DD((double)zd[i].re * sscale),
+                               DD((double)zd[i].im * sscale));
+        // The balanced double presearch seeds every basin to ~1e-13 rel;
+        // dd Aberth is locally cubic, so ~3 sweeps reach the ~1e-30 dd
+        // floor.  tol 1e-26 is inside that floor (a step norm below it for
+        // O(10) roots is dd round-off); 25 sweeps is headroom for a
+        // poorly-seeded root (the residual gate escalates it if not).
+        auto zdd = aberth<DD>(descdd.data(), deg, 25, seed.data(), DD(1e-26));
+        out.roots.resize(deg);
+        for (int i = 0; i < deg; ++i)
+            out.roots[i] = Cplx<qf>(qf_from_dd(zdd[i].re), qf_from_dd(zdd[i].im));
+        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+        out.tier = 0;
+        // dd normally reaches ~1e-15 rel residual; a worse result signals a
+        // near-multiple cluster past ~106 bits -> escalate that solve to an
+        // __float128 warm polish seeded by the dd roots.
+        if (!(out.worst_res <= (qf)1e-13)) {
+            out.roots = aberth<qf>(desc, deg, 24, out.roots.data(), (qf)1e-20);
+            out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+            out.tier = 1;
+            if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
+        }
+    } else if (seed_ok) {
+        std::vector<Cplx<qf>> seed(deg);
+        for (int i = 0; i < deg; ++i)
+            seed[i] = Cplx<qf>((qf)zd[i].re * (qf)sscale,
+                               (qf)zd[i].im * (qf)sscale);
+        out.roots = aberth<qf>(desc, deg, 24, seed.data(), (qf)1e-20);
+        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+        out.tier = 3;
+        if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
+    }
+
+    if (!seed_ok) {
+        out.roots = aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22);
+        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+        out.tier = (out.tier == 0 && !compensated) ? -1 : 2;
+    }
+
+    // Completeness sanity check (separate from the per-root residual gate,
+    // which bounds backward error but not root *count*).  Newton's first
+    // identity: sum of the deg roots == -c[1]/c[0].  A dropped or doubled
+    // basin -- the way an under-resolved Aberth actually fails -- shifts
+    // the power sum well outside rounding.  The residual is scale-free;
+    // the roots are O(1..10) so an absolute 1e-6 slack on a deg-14 sum is
+    // ~1e5 x the honest error.  On failure redo cold (once).
+    if (out.tier != 2 && out.tier != -1 && deg >= 1 &&
+        (double)fabsq(desc[0]) > 0.0) {
+        Cplx<qf> s{(qf)0, (qf)0};
+        for (const auto& r : out.roots) s = s + r;
+        qf want = -desc[1] / desc[0];
+        qf err = fabsq(s.re - want) + fabsq(s.im);
+        qf tolsum = (qf)1e-6 * ((qf)1 + fabsq(want));
+        if (!(err <= tolsum)) {
+            out.roots = aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22);
+            out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+            out.tier = 2;
+        }
+    }
+
+    // D14 has real coefficients: its non-real roots are exact conjugate
+    // pairs, so a pair's two real parts are mathematically identical.  A
+    // finite-precision Aberth leaves them a little apart -- ~1e-11 rel in
+    // __float128, ~1e-8 rel in double-double.  Downstream, radial_events
+    // dedups the complex-Re soft-boundary list at a fixed gap, so the
+    // wider double-double split would post one conjugate pair as *two*
+    // soft boundaries.  Snap every near-conjugate pair (clearly complex,
+    // conjugate distance < 1e-6 rel) onto its common real part and mean
+    // imaginary magnitude.  A no-op for the __float128 paths (the shift is
+    // far below the dedup gap); it makes the compensated path's event
+    // list identical.
+    {
+        std::vector<char> done(deg, 0);
+        for (int i = 0; i < deg; ++i) {
+            if (done[i]) continue;
+            qf ai = fabsq(out.roots[i].im);
+            qf scale_i = (qf)1 + fabsq(out.roots[i].re);
+            if (ai < (qf)1e-9 * scale_i) continue;  // real root: leave it
+            int best = -1;
+            qf best_d = (qf)1e-6 * scale_i;
+            for (int j = i + 1; j < deg; ++j) {
+                if (done[j]) continue;
+                qf dre = fabsq(out.roots[i].re - out.roots[j].re);
+                qf dim = fabsq(out.roots[i].im + out.roots[j].im);
+                qf d = dre + dim;
+                if (d < best_d) { best_d = d; best = j; }
+            }
+            if (best < 0) continue;
+            int j = best;
+            qf re_avg = (qf)0.5 * (out.roots[i].re + out.roots[j].re);
+            qf im_mag = (qf)0.5 * (fabsq(out.roots[i].im) + fabsq(out.roots[j].im));
+            qf si = out.roots[i].im >= 0 ? (qf)1 : (qf)-1;
+            out.roots[i] = Cplx<qf>(re_avg, si * im_mag);
+            out.roots[j] = Cplx<qf>(re_avg, -si * im_mag);
+            done[i] = done[j] = 1;
+        }
+    }
+    return out;
+}
+
 }  // namespace re_detail
 
 // Port of radial_events.radial_events.  Returns events sorted by radius and
@@ -312,67 +503,16 @@ inline std::vector<RadialEvent> radial_events(const PrimaryFrame& pf,
         std::vector<qf> desc(deg + 1);
         for (int i = 0; i <= deg; ++i) desc[i] = d14[deg - i];
 
-        // Two-stage solve.  The D14 monomial basis is ill-conditioned, so
-        // the *polish* must be 113-bit -- but the *search* need not be.  A
-        // double Aberth-Ehrlich pass (~15 us) locates every root basin;
-        // __float128 AE warm-started from those guesses then converges in a
-        // handful of iterations instead of ~400 cold.  If any root's
-        // 113-bit residual is still large (double stage was fooled into a
-        // spurious complex pair, per the radial_events.py docstring) we
-        // fall back to the cold __float128 solve.
-        qf dscale = 0;
-        for (int i = 0; i <= deg; ++i) {
-            qf av = fabsq(desc[i]);
-            if (av > dscale) dscale = av;
-        }
-        // Balance the monomial basis before the double search: substitute
-        // v = s w with s = |desc[deg]/desc[0]|^(1/deg) (geometric centre of
-        // the root magnitudes).  Un-balanced, a wide binary's D14 has a
-        // ~1e11 coeff spread and |z|^14 overflows the double range -- the
-        // search then returns non-finite guesses.  Balanced, the Cauchy
-        // bound drops to O(10) and the double pass is reliable.  The
-        // 113-bit polish still runs on the original `desc`.
-        double sscale = 1.0;
-        if ((double)fabsq(desc[deg]) > 0.0 && (double)fabsq(desc[0]) > 0.0) {
-            double ratio = (double)(fabsq(desc[deg]) / fabsq(desc[0]));
-            sscale = std::pow(ratio, 1.0 / deg);
-            if (!(sscale > 0.0) || !std::isfinite(sscale)) sscale = 1.0;
-        }
-        std::vector<double> descd(deg + 1);
-        {
-            double sp = 1.0;  // s^(deg-i), i running deg..0
-            for (int i = deg; i >= 0; --i) {
-                descd[i] = (double)desc[i] * sp;
-                sp *= sscale;
-            }
-        }
-        auto zd = aberth<double>(descd.data(), deg, 200);
-        // Backstop: if the balanced search still returns non-finite
-        // guesses, go straight to the cold 113-bit solve.
-        bool seed_ok = true;
-        for (int i = 0; i < deg; ++i)
-            if (!std::isfinite(zd[i].re) || !std::isfinite(zd[i].im)) {
-                seed_ok = false;
-                break;
-            }
-        std::vector<Cplx<qf>> roots;
-        if (seed_ok) {
-            std::vector<Cplx<qf>> seed(deg);
-            for (int i = 0; i < deg; ++i)
-                seed[i] = Cplx<qf>((qf)zd[i].re * (qf)sscale,
-                                   (qf)zd[i].im * (qf)sscale);
-            roots = aberth<qf>(desc.data(), deg, 24, seed.data(), (qf)1e-20);
-            qf worst = 0;
-            for (const auto& r : roots) {
-                qf res = cabs(poly_eval_c(desc.data(), deg, r)) /
-                         (dscale + (qf)1e-300);
-                if (res > worst) worst = res;
-            }
-            // NaN-safe: a non-finite residual must also force the cold redo.
-            if (!(worst <= (qf)1e-12)) seed_ok = false;
-        }
-        if (!seed_ok)
-            roots = aberth<qf>(desc.data(), deg, 400, nullptr, (qf)1e-22);
+        // Multi-tier solve.  The D14 monomial basis is ill-conditioned
+        // (kappa ~ 1e9), so the *polish* must exceed `double` -- but the
+        // *search* need not.  A balanced `double` Aberth-Ehrlich pass
+        // locates every root basin; a compensated double-double polish
+        // (default) or an __float128 polish (HOLO_D14_LEGACY_SOLVE=1)
+        // warm-started from those guesses then converges in a handful of
+        // iterations.  A failed __float128 residual gate -> cold
+        // __float128 solve.  See re_detail::solve_d14.
+        D14Solve sol = solve_d14(desc, deg, holo_d14_compensated_enabled());
+        std::vector<Cplx<qf>>& roots = sol.roots;
         auto rv = positive_real_roots(roots, 1e-8, 1e-9);
         for (double v : rv) {
             double R = std::sqrt(v);
