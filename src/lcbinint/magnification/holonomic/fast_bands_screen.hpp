@@ -285,10 +285,15 @@ inline FastBandsScreen fast_bands_screen(const PrimaryFrame& pf,
         if (band_significant(b, pf, calls)) sig.push_back(b);
     scr.n_significant = (int)sig.size();
     if (sig.empty()) {
-        // every band razor-thin: mu contribution below oracle tolerance,
-        // nothing to certify.
-        scr.pass = true;
-        scr.reason = "all bands sub-significant";
+        // Every planner band is razor-thin.  Individually each contributes mu
+        // below the oracle's reference tolerance, but "no arc anywhere is
+        // wider than kRazorAng" is itself a near-tangency geometry: the whole
+        // image region is collapsing onto a fold and a thin arc the planner
+        // dropped could still be the dominant one (rand008: classify_cells
+        // marks a [0.5513,0.5520] near-tangency arc TOPOLOGY_UNCERTAIN).  The
+        // screen cannot certify this cold -- route to the D14 oracle.
+        scr.pass = false;
+        scr.reason = "no significant band -- near-tangency, D14 authority";
         return scr;
     }
 

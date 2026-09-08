@@ -1014,6 +1014,12 @@ engine — `classify_cells` / D14 remains the only wired path.
 * **step 4** — wire the planner as an alternative discovery path behind a flag
   in the value-only and full-Jacobian epochs; full-epoch bench both modes;
   108-case parity (0 `Status` changes); decision-20 re-check; commit.
+  **DONE 2026-09-08 — see §17.** (Flag `HOLO_FAST_PLANNER`, OFF by default;
+  default build byte-identical, reference harness 0 failures. `panel_cuts`
+  cheap subdivision + fail-closed per-sub-cell guard. Adoption 24.1%,
+  0 `Status` changes, decision-20 PASS. Not yet a viable default — the
+  `physical_complex` / fold-edge residual and the p99-from-fallback-prelude
+  structural cost motivate phases D & E.)
 
 ---
 
@@ -1151,4 +1157,169 @@ audit** (design points 3 and 5), not a screen tweak.
   straight to D14 without running the planner (16.4/16.5); (b) D14-as-authority
   on the first epoch of a trajectory and/or a low-rate audit, since the screen
   cannot certify thin seed-less bands cold (16.6).
+
+
+---
+
+## 17. Phase A step 4 — fast-planner topology wired into `epoch_jacobian` (flag-gated) (2026-09-08)
+
+### 17.1 What landed
+
+`classify_cells_fast(pf, &FastTopologyStats)` is now the alternative band-discovery
+path, reachable from the fused value+5-Jacobian epoch:
+
+* **`fast_topology.hpp`** — `classify_cells_fast` = double-tier point-source seed
+  solve (`pimg_solve_verify`) → `fast_bands` → `fast_bands_screen` → build a
+  `TopologyResult` from the screened bands, **or** `return classify_cells(pf)` on
+  any bail. `FastTopologyStats { used_fast, fell_back, reason, n_bands,
+  screen_probe_calls }`.
+* **`epoch_jacobian.hpp`** — `flux_jacobian` / `epoch_jacobian` gained a 3rd/4th
+  arg `bool use_fast_planner`; the 2-arg / 3-arg wrappers read
+  `holo_fast_planner_enabled()` (env `HOLO_FAST_PLANNER`, parsed once as
+  `static const bool`, `e && e[0]=='1'`). `classify_cells` / D14 stays the
+  default and the authority.
+* **`fast_bands_screen.hpp`** — `sig.empty()` (no significant band) now yields
+  `pass = false` ("near-tangency, D14 authority"), not a silent empty adopt.
+* **`point_images.hpp`** — informational `bool escalated` on `PointImages`
+  (tier-2 `__float128` rescue marker); `aiter` cap 80.
+
+Default build (`HOLO_FAST_PLANNER` unset) is **byte-identical** to before step 4:
+`test_holonomic_m7 m7_reference.tsv` → **10397 checks, 0 failures**.
+
+### 17.2 The key finding — `classify_cells`' cell list is a quadrature panel grid
+
+The M7 integrator (`flux_jacobian`) runs a **fixed `n_r = 64` Gauss–Chebyshev
+radial pass per cell**. `classify_cells` places a cell boundary at **every
+`radial_events` radius** — folds (`physical_real`), soft boundaries
+(`physical_complex`), `R = √m0`, `R = a`, `L_root`, `chart_p4`. Those boundaries
+are what make the per-cell radial quadrature spectral: a fold at a panel edge is
+integrable; a fold **mid-panel** is a √-type singularity that drops the pass to
+~2nd-order. `fast_bands` returns only the outer image-region **envelopes** — a
+correct topology, but 64 nodes then span a fold-crossing range and μ is wrong at
+~1e-3. **So the fast planner cannot just hand its bands to the n_r=64 integrator;
+it has to reconstruct the panel grid inside each envelope.**
+
+### 17.3 `panel_cuts` — cheap panel-grid reconstruction
+
+`fast_topo_detail::panel_cuts(lo, hi, pf, cuts)` subdivides one envelope using
+only the **closed-form boundary quartic** (`boundary_quartic`, ~0.3 µs), no D14:
+
+* **Folds** — sign changes of the **quartic discriminant** `D(R)` over a K=128
+  scan of the envelope, refined by `bisect_sign`. Quartic disc sign encodes the
+  real-root count (0↔2↔4 all flip it); a fold is exactly where it flips.
+* **Chart crossings** — sign changes of `p4(R)` (the quartic's leading
+  coefficient; `quartic_topology` returns `kDegenerate` at `p4=0`, a boundary
+  point crossing θ=π).
+* **`R = √m0` and `R = a`** — added directly when interior to the envelope.
+
+Cost is negligible (all `boundary_quartic`, ~0.3 µs × ~260 evals per envelope).
+`panel_cuts` recovers the benign / close / cusp cells to an **exact
+`classify_cells` match**; plan15 μ error 6e-3 → 5e-5.
+
+### 17.4 The `quartic_topology` φ>0 blind spot and the fail-closed guard
+
+`quartic_topology(R, pf)` counts the boundary quartic's real-root θ's but does
+**not** verify `phi_lens > 0` on the arc (confirmed with `dbg_vw.cpp` on a
+very-wide razor band: `quartic_topology` reports `nx=2` uniformly across the
+envelope while `arcs_at(R, pf, 512)` and `arcs_at(…, 3072)` both correctly return
+`kEmpty` — φ<0 everywhere). A `panel_cuts` grid built from `quartic_topology`
+alone would therefore integrate phantom arcs → **grad_rel max 6.28e-1**, a
+silently wrong Jacobian.
+
+Fix — a **fail-closed per-sub-cell guard**, mirroring `classify_cells`'
+per-cell validation (`cells.hpp:83-124`): for each sub-cell probe fractions
+{0.18, 0.50, 0.82} with `quartic_topology`, require kind+n_crossings uniform,
+**and** cross-check the midpoint against `arcs_at(mid, pf, 512)`. On
+`!uniform || !mid_ok`, **or** a `kEmpty` midpoint, the whole epoch returns
+`classify_cells(pf)` (`s.fell_back = true`, reason recorded). Post-guard:
+grad_rel max 1.20e-2, μ_rel max 3.03e-5; adoption 46 → 26, p99 4.06 → 4.64 ms.
+
+### 17.5 Final numbers (`bench_fast_topology`, 108 epochs, best-of-150)
+
+| metric | value |
+|--------|-------|
+| fast band set adopted (screen pass) | **26 / 108 (24.1%)** |
+| fell back to `classify_cells` / D14 | 82 / 108 (75.9%) |
+| `Status` changes fast vs base | **0 (PASS)** |
+| μ_rel median / p90 / max | 0 / 3.21e-8 / 3.03e-5 |
+| grad_rel (L2) median / p90 / max | 0 / 6.13e-5 / 1.20e-2 |
+| dmu_du_rel median / p90 / max | 0 / 1.57e-5 / 2.42e-1 |
+| `classify_cells` path median / p90 / p95 / p99 | 2.162 / 3.847 / 3.978 / 4.111 ms |
+| fast path median / p90 / p95 / p99 | 1.800 / 3.477 / 3.874 / **4.642** ms |
+| **DECISION-20** (fast path median ≤ 7.44 ms) | **PASS** (10.5× incumbent median) |
+
+Fallback-reason tally (54 configs, u=0): 13 adopt / **30** "point-source double
+tier not a clean odd set" (the §16.4 extreme-q design — bails at the cheap seed
+stage, never runs `fast_bands`) / 10 "fast sub-cell topology not certified
+(razor / fold)" / 1 "no significant band".
+
+`HOLO_FAST_PLANNER=1` reference harness: **81 failures** on 6 geometries —
+benign(10) / close(9) / cusp(10) grad-component-only (μ passes); plan15 μ 5e-5,
+resonant μ 6e-7, tiny-rho (ρ=5e-3) μ 2.7e-3. All confined to `physical_complex`
+soft-boundary panels + fold-edge ∂/∂ρ precision (see §17.6).
+
+### 17.6 Residual gaps — findings that motivate phases D & E (NOT bugs to fix in A)
+
+1. **`physical_complex` soft boundaries are not reconstructible from the boundary
+   quartic.** They are constructed from the degree-14 resultant's **complex**
+   roots (Re(v)>0), or real double roots D14 re-classifies as complex — arc
+   count is *unchanged* across them, so there is no quartic-disc sign flip, and
+   `dbg_dip.cpp` confirms they are **not** at arc-width / gap local minima
+   either (all sub-cell width ratios 1.0–1.16, no separation). A missing soft
+   panel boundary → mid-panel near-tangency → the n_r=64 pass loses digits:
+   resonant μ ~6e-7, plan15 ~5e-5, tiny-rho ~2.7e-3. This **is** the "cheaper-
+   than-D14 root-exclusion / root-count certificate" that design point 3
+   explicitly defers to future research — not a current premise.
+2. **Fold-edge precision.** `panel_cuts` lands fold radii by disc-sign bisection
+   to ~1e-8; `classify_cells` gets them from float128 D14 Aberth to ~1e-12. Near
+   a fold ∂μ/∂ρ ~ 1/√(R−R\*) amplifies the ~1e-8 offset to ~1e-4 grad error on
+   benign / close / cusp (μ still passes).
+3. **p99 +0.5 ms is structural.** With a 76% fallback rate, every fallback epoch
+   pays the fast-path prelude — seed solve (~0.2 ms) + `fast_bands` (~0.3 ms) +
+   screen (~0.45 ms) — *on top of* the same D14. A cold per-epoch planner
+   **cannot** meet "p99 non-regressing" as a `classify_cells` replacement. The
+   fix is **phase E** (prepared-geometry cache / trajectory reuse: pay D14 once
+   at warmup, then the cheap planner + screen per epoch) and **phase D** (a
+   panel-robust / adaptive integrator that tolerates the coarser envelope grid
+   so more epochs adopt).
+4. **Tiny-q razor planet bands** (rand030/037/038): grad_rel ~1e-2..6e-2 while
+   μ_rel ~1e-8..1e-11 — the razor band contributes ≈0 to μ. Inherent to the
+   screen's "razor bands not screened" design (`kRazorAng`).
+
+### 17.7 Standing design constraints carried forward (from §16.4–16.6)
+
+* **Route fragile-seed epochs straight to D14** — `classify_cells_fast` bails to
+  `classify_cells` *before* `fast_bands` whenever `pimg_solve_verify` does not
+  return a clean odd set (30/54 configs). No q-threshold predicate (§16.5,
+  REJECTED — q does not separate quad-rescuable geometries).
+* **D14-as-authority on trajectory epoch 1 + a low-rate audit** — the screen
+  provably cannot certify a thin seed-less band cold (§16.6 last row). Phase E's
+  warmup must run D14 on the first epoch and re-audit at a low rate, not trust
+  the screen alone.
+
+### 17.8 Verdict
+
+Phase A step 4 lands the wiring, the cheap subdivision, and the fail-closed
+guard, with the flag **OFF by default** (zero change to the shipped path). The
+fast planner is **not yet a viable default**: 24.1% adoption, a real
+`physical_complex` accuracy gap, and a structural p99 regression from the 76%
+fallback prelude. Phases **D** (panel-robust integrator) and **E**
+(prepared-geometry cache / trajectory reuse) are prerequisites before the flag
+can flip. Phase A (fast planner + §5.2 screen in front of D14) is **complete**.
+
+### 17.9 Files
+
+* `src/lcbinint/magnification/holonomic/fast_topology.hpp` — `fast_topo_detail`
+  namespace (`quartic_disc_sign`, `quartic_p4_sign`, `bisect_sign`,
+  `panel_cuts`); `classify_cells_fast` cell-build loop rewritten to subdivide
+  each band + the fail-closed per-sub-cell guard.
+* `src/lcbinint/magnification/holonomic/epoch_jacobian.hpp` — 3-arg
+  `flux_jacobian` / 4-arg `epoch_jacobian` + `holo_fast_planner_enabled()`
+  wrappers; `#include "…/fast_topology.hpp"`.
+* `src/lcbinint/magnification/holonomic/fast_bands_screen.hpp` — `sig.empty()`
+  → `pass = false`.
+* `src/lcbinint/magnification/holonomic/point_images.hpp` — `bool escalated`.
+* `tests/holonomic_cpp/bench_fast_topology.cpp` + `CMakeLists.txt` target — NEW.
+* `evidence/holonomic/fast_topology_bench.txt` — raw bench + reference-harness
+  default/flag-on summary + fallback tally.
 
