@@ -2241,3 +2241,99 @@ at that load gap.
   per-cell loop.
 * `tests/holonomic_cpp/bench_holonomic_trajectory.cpp` — `HOLO_DUMP` /
   `HOLO_ONLY` / `HOLO_ONLY_EP` diagnostics (gated).
+
+## §26 Holonomic rescue — feasibility spike (a): J₁/₂ = v·K (2026-09-09)
+
+Advisor GO for the holonomic-rescue research spike, strict order (a)→(b)→(c).
+Spike **(a)**: factor the root-pair width `v` (→ 0 at a fold) out of the
+half-flux density, carry `K := J₁/₂/v` as a finite transport variable seeded
+from a **local series at the D14 fold radius**. HARD CONSTRAINT: no
+angular-quadrature re-anchoring near the fold. Feasibility-first; deliverables
+mirror the §22 study.
+
+### 26.1 The rescue math (derived + numerically confirmed)
+
+`t = tan(θ/2)`, arc bounded by real roots `t₋<t₊` of `P(t;R)`; carry
+`m=(t₊+t₋)/2`, `v=((t₊−t₋)/2)²` (the shipped (m,v) state). With
+`t = m+√v·x`, `x∈[−1,1]`:
+
+* `(t−t₋)(t₊−t) = v(1−x²)`, `P(t) = v(1−x²)S₂(t)`,
+  `S₂ = P/((t−t₋)(t₊−t)) > 0` on the arc (closed-form deflation of `P`).
+* `J₁/₂(R) = (2/ρ)·v·∫₋₁¹ √(1−x²)·w(m+√v x, R) dx` with
+  `w(t,R) = √(S₂)/(A^{3/2}√B)`, `A=1+t²`, `B=(R−a)²+(R+a)²t²`.
+* **⟹ `K(R) = (2/ρ)∫₋₁¹ √(1−x²) w dx` (Gauss–Chebyshev-2 weight),
+  `J₁/₂ = v·K` EXACT.**
+* `K(R∗) = (π/ρ)√C / (A(m∗)²B(m∗,R∗))`, `C = ½|P″(m∗)|A B > 0` — finite.
+* `w` analytic in `t` on a disc of radius `r_conv` = dist(m, nearest complex
+  singularity: `S₂=0`, `t=±i`, `t=±i|R−a|/(R+a)`); `K` analytic in `v`,
+  `K = Σ c_k(m,R) v^k`, `c_k = (2/ρ)β₂ₖ w^{(2k)}(m,R)/(2k)!`,
+  truncation error `~ (v/r_conv²)^{N+1}`.
+
+### 26.2 Probes (scratchpad, pure-Python `holonomic_ref` oracle)
+
+`rescue_feasibility.py` (near-fold), `rescue_probe_b.py` (transport window +
+cost), `rescue_jac.py` (dK/dp). 5 geometries (memo-s15, resonant, close,
+planet-wide q=1e-3, caustic-xing), every `physical_real` D14 fold, both sides.
+Host pinned 0-7, load ~15, 2026-09-09 03:39.
+
+| probe | result |
+|---|---|
+| **K finite as v→0** | x-chart K vs oracle `J₁/₂/v`: **1e-13…1e-15** rel at every dR from 1e-2 down to 1e-6, all folds. Bit-stable where the naive ratio loses half its digits. |
+| **local v-series seed** | 3–4 term v-series → **1e-11 or better for v ≤ 1e-3**; ratio per order `~ v/r_conv²`, `r_conv∈[0.11,0.61]` for genuine folds. Machine-precision *seed*. |
+| **(m,v) ODE cond** | EO 2×2 Jacobian cond **2.0–7.8**, STABLE through v→0 (det\|_fold = −½P″²). |
+| **vs η/ψ basis** | same fold-adjacent cells: `cond(C_ψ)` **1e5–8e8**, up to **6.2e9** near θ→π (ψ-closure resid 3.9e-3). Rescue path is **5–9 orders better conditioned**. |
+| **transport window** | **T2** = one local-series seed + (m,v) RK4 ODE + **8-node** x-chart K holds **1e-14…1e-11** rel vs oracle across a whole fold-neighbourhood / inter-fold cell (\|dR\| to ~5e-2, v to ~1e-2), m-drift 1e-15…1e-11. planet-wide: one seed carried an arc **fold-to-fold** (dR≈4.7e-2) at 1e-13. |
+| **frozen series ≠ transport** | **T1** (c_k frozen at seed, only v(R) from ODE): rel error grows linearly `~0.3·\|dR\|`. The series is a **seed only** — c₀(m,R) moves at O(1) in R. |
+| **dK/dp** | 8-node x-chart derivative vs oracle derivative (a,xs,ys,ρ): 3e-9…1e-6 (FD-limited). Same complexity class as the value; no new transcendentals. |
+| **cost** | 8-pt x-chart K kernel ~**13×** lighter than the 64-pt angular √φ+dP sweep, ~**16×** with the quartic solve (removed for fold arcs: t± = m±√v from the ODE). Python-ratio; op-count ~15–30×. |
+
+### 26.3 Six-question verdict
+
+1. K stability v→0 — **PASS**  2. local-series seed — **PASS**
+3. conditioning across geometries — **PASS**  4. vs η/ψ (cond ~1e12) —
+**PASS (decisive, 5–9 orders)**  5. transport window w/o per-node re-anchor —
+**PASS** (T2, not T1)  6. beat the direct angular sweep — **QUALIFIED YES**:
+per-node kernel ~13–16× lighter and the quartic solve vanishes, but only on
+the **fold-adjacent** fraction of the work. Generic mid-cell arcs (v=O(1), no
+fold in reach) are untouched — that is basis (b). Epoch estimate from (a)
+alone **~1.08–1.14×** (removes ~25–40 % of the 0.40 ms solve+sweep); the
+advisor's ~1.47× ceiling needs (b)+(c) to cover generic cells. No C++ epoch
+measurement of the fold-adjacent fraction in this study.
+
+**OVERALL: FEASIBLE — PROCEED to the coupled (m,v)+K state, scoped to
+fold-neighbourhood cells.** The rescue math is exact (not an approximation);
+fail-closed to the angular sweep outside the (m,v) chart / series reach is
+natural. Does NOT touch classify_cells/D14 (63 %) and does NOT address the
+θ→π degree drop.
+
+### 26.4 CAVEAT — θ→π singular chart is out of scope
+
+"Folds" with `m∗ ~ −8…−19` (an arc near θ=π mapping to large \|t\|, guarded by
+`kTransportTMax`) are **not tangencies**: `r_conv ~ 10–24`, `v ~ 1e1–1e2`, the
+v-series converges slowly. K itself is still finite there; the arc simply
+leaves the (m,v) chart. This is basis (b)'s problem, not spike (a)'s.
+
+### 26.5 Status / next
+
+* (a) **DONE** (this study). Evidence:
+  `evidence/holonomic/holonomic_rescue_feasibility.txt`.
+* (b) **FLUX-PRIORITY BASIS** — next. Do NOT reuse η/ψ. Success criterion is
+  ONLY cell-wide cond-number improvement (target < ~1e6 incl. the θ→π degree
+  drop), not speed. This is what lets a single seed serve a **generic** cell.
+* (c) **COUPLED (m,v)+K+auxiliary-period transport** as one state. Benchmark 3
+  solvers: (1) current fastest direct, (2) +(m,v) only, (3) +(m,v)+regularised
+  holonomic.
+* Implementation form: 8-node GC-2 x-chart rule for K near folds; S₂ by
+  closed-form deflation from the (m,v) state; v-series for the per-cell SEED
+  only, never frozen across the cell.
+* Unrelated held items unchanged: `HOLO_MV_TRANSPORT` default-ON flip and
+  Phase C step 2 (shared `_lcbinint.so`) still await the coordinated timing
+  window.
+
+### 26.6 Files
+
+* `evidence/holonomic/holonomic_rescue_feasibility.txt` (NEW) — derivation +
+  probe results + 6-question verdict.
+* `scratchpad/rescue_feasibility.py`, `scratchpad/rescue_probe_b.py`,
+  `scratchpad/rescue_jac.py` — probes (scratchpad, not committed).
+* No solver code touched; `holonomic_ref` pure-Python oracle only.

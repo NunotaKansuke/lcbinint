@@ -1,0 +1,233 @@
+ATPT holonomic solver -- holonomic rescue feasibility study, spike (a).
+Central hypothesis (advisor):  J_{1/2}(R) = v(R) * K(R).  Factor the root-pair
+width v -- which vanishes at a fold -- out of the half-flux density, and carry
+K as a finite, well-conditioned transport variable seeded from a LOCAL SERIES
+at the D14 fold radius.  HARD CONSTRAINT: no angular-quadrature re-anchoring
+near the fold.
+
+  probes : scratchpad/rescue_feasibility.py   (near-fold: K finite, v-series)
+           scratchpad/rescue_probe_b.py        (transport window + cost model)
+           scratchpad/rescue_jac.py            (dK/dp from the same rule)
+  refs   : python/lcbinint/holonomic_ref/{root_pair,period_reduction,
+           radial_events,transport}.py   (pure-Python oracle, sympy+scipy)
+  host   : Linux 5.14, 64 cores, pinned 0-7; uptime 4d, load average ~15
+           (logged at run start, 2026-09-09 03:39).
+  geoms  : 5 representative -- memo-s15 (plan sec.15), resonant, close,
+           planet-wide (q=1e-3), caustic-xing.  Every physical_real D14 fold
+           in each, both approach sides.
+
+This is a FEASIBILITY study, not an implementation.  It answers the advisor's
+six questions and recommends whether to proceed to the coupled (m,v)+K state.
+
+----------------------------------------------------------------------------
+ANALYTICAL DERIVATION
+----------------------------------------------------------------------------
+
+t = tan(theta/2).  An inside image arc on |z| = R is bounded by two real roots
+t_- < t_+ of the boundary quartic P(t;R).  Carry the symmetric pair
+
+    m = (t_+ + t_-)/2 ,   v = ((t_+ - t_-)/2)^2 ,   t = m + sqrt(v) x , x in[-1,1]
+
+(this is exactly the shipped (m,v) root-pair state -- root_pair.hpp).  Then
+
+    (t - t_-)(t_+ - t) = v (1 - x^2)
+    P(t)   = v (1 - x^2) S_2(t) ,   S_2(t) = P / ((t-t_-)(t_+-t)) > 0 on the arc
+    Y := sqrt(P A B) = sqrt(v) . sqrt(1-x^2) . sqrt(S_2 A B)
+      A(t) = 1 + t^2 ,   B(t;R) = (R-a)^2 + (R+a)^2 t^2
+
+    J_{1/2}(R) = (2/rho) int_{t_-}^{t_+} P/(A Y) dt
+               = (2/rho) . v . int_{-1}^{1} sqrt(1-x^2) . w(m + sqrt(v) x, R) dx
+      with   w(t,R) = sqrt(S_2(t)) / ( A(t)^{3/2} sqrt(B(t,R)) )              (*)
+
+  ==>  K(R) = (2/rho) int_{-1}^1 sqrt(1-x^2) w(m + sqrt(v) x, R) dx    (GC-2 wt)
+  ==>  J_{1/2} = v . K   EXACT.
+
+At the fold (v -> 0):
+
+  K(R_*) = (pi/rho) . sqrt(C(m_*,R_*)) / ( A(m_*)^2 B(m_*,R_*) ) ,
+  C = S_2 A B |_{m_*} = (1/2)|P''(m_*)| A(m_*) B(m_*,R_*)   > 0  and FINITE.
+
+w(.,R) is analytic in t on a disc about t = m of radius r_conv = dist(m,
+nearest complex singularity of w) = { complex roots of P (S_2 = 0),
+t = +-i (A = 0), t = +-i|R-a|/(R+a) (B = 0) }.  Hence K is analytic in v:
+
+    K(R) = sum_{k>=0} c_k(m,R) v^k ,  c_k = (2/rho) beta_{2k} w^{(2k)}(m,R)/(2k)!
+    beta_{2k} = int_{-1}^1 sqrt(1-x^2) x^{2k} dx = pi/2, pi/8, pi/16, 5pi/128,...
+    truncation error after N terms  ~  (v / r_conv^2)^{N+1}.
+
+Numerically S_2 is the CLOSED-FORM deflation of P by (t-t_-)(t_+-t)
+(period_reduction._deflated_quadratic) -- given (m,v) it needs NO root solve.
+
+----------------------------------------------------------------------------
+NUMERICAL PROBE RESULTS
+----------------------------------------------------------------------------
+
+A. K IS FINITE AND BIT-STABLE AS v -> 0     (scratchpad/rescue_out1.txt)
+
+  Step off the exact D14 fold radius by dR in [1e-2 .. 1e-6]; compare the
+  x-chart integral K_gc (48-node GC-2 on (*)) against the oracle K = J_half/v
+  (J_half from the angular sqrt(phi) QAWSE, period_reduction).
+
+    dR       v          J_half     K_oracle     |K_gc/K_oracle - 1|
+    1e-2   ~1e-3       ~5e-2       ~30-130       1e-14 .. 1e-15
+    1e-4   ~1e-5       ~5e-4       ~30-130       1e-13 .. 3e-13
+    1e-6   ~1e-8       ~5e-6       ~30-130       3e-11 .. 4e-10 (J_half ~ eps)
+
+  Holds for EVERY genuine fold across all 5 geometries.  The x-chart form is
+  bit-stable exactly where the naive J_half/v ratio loses half its digits.
+  => K is finite and well-conditioned as v -> 0.  Q1 PASS.
+
+B. LOCAL v-SERIES SEED ACCURACY            (scratchpad/rescue_out1.txt)
+
+    fold neighbourhood, genuine (small-v) folds, r_conv in [0.11, 0.61]:
+      v           2-term (k<=1)   3-term (k<=2)   4-term (k<=3)
+      ~1e-3        1e-5 .. 1e-6   4e-8 .. 1e-8    1e-10 .. 1e-11
+      ~1e-4        1e-7 .. 1e-8   6e-11 .. 1e-11  <= 1e-12
+      ~1e-5        1e-9 .. 1e-10  ~ machine       ~ machine
+
+  Convergence ratio per order ~ v / r_conv^2, as predicted.  A 3-4 term
+  v-series evaluates K(R_*) to 1e-11 or better for any v <= 1e-3.
+  => the local series is a MACHINE-PRECISION SEED at the fold.  Q2 PASS.
+  (Spurious "folds" with m_* ~ -8..-19 -- the theta->pi singular chart, NOT a
+  tangency -- have r_conv ~ 10-24 and v ~ 1e1-1e2; the series converges slowly
+  there.  Out of scope for the rescue; that chart is basis (b)'s problem.)
+
+C. CONDITIONING ACROSS GEOMETRIES          (scratchpad/rescue_out1.txt)
+
+  (m,v) 2x2 EO Jacobian cond number (the ODE that carries the seed):
+      genuine folds : 2.0 .. 7.8 ,  STABLE as v -> 0  (det|_fold = -1/2 P''^2)
+      theta->pi      : ~1e2 .. 2e2  (out of scope)
+  x-chart K quadrature: O(1) conditioned regardless of v (part A).
+
+  eta / psi Gauss-Manin over the SAME fold-adjacent cells (M4 gate fn,
+  transport.cell_conditioning):
+      cond(C_psi) typical .......... 1e5 .. 8e8
+      cond(C_psi) near theta->pi ... up to 6.2e9 , psi-closure resid 3.9e-3
+  => the (m,v)+K path is 5-9 orders better conditioned near a fold than the
+     eta/psi basis.  Q3 PASS, Q4 PASS.
+  CAVEAT: the theta->pi degree drop is NOT fixed by the rescue -- K there is
+  fine but the arc leaves the (m,v) chart (kTransportTMax guard).  Basis (b).
+
+D. TRANSPORT WINDOW -- NO PER-NODE ANGULAR RE-ANCHOR   (scratchpad/rescue_out_b.txt)
+
+  Seed once at R_seed = R_* +- 3e-4 (local series -> (m,v,c_k)); march R
+  outward with RK4 on root_pair_dR; evaluate K at every step two ways:
+
+   T1  FROZEN v-SERIES : c_k frozen at the seed, only v(R) updated by the ODE.
+       rel error grows ~ LINEARLY, ~1e-4 per 3e-4 of |dR|  (~ 0.3 |dR|).
+       => NOT a transport.  The series is a SEED only: c_0(m,R) = K at v=0
+          itself moves at O(1) rate in R.  Do not freeze it.
+
+   T2  (m,v) ODE + x-CHART K : carry (m,v) by the shipped 2x2 IFT ODE;
+       each step deflate S_2 in closed form from (m +- sqrt v) and apply an
+       8-node GC-2 rule to (*).  NO angular quadrature, NO quartic root solve.
+       rel error vs the angular oracle, ALL 5 geometries, whole marched span
+       (|dR| up to 5-6e-2, v up to ~1e-2, through fold clusters):
+             1e-14  ..  1e-11        (m-drift 1e-15 .. 1e-11)
+       8-node and 16-node identical to ~1e-14  =>  8 nodes suffice.
+       planet-wide: one seed carried an arc fold-to-fold across a full
+       inter-fold cell (dR ~ 4.7e-2) at 1e-13 until it collapsed at the next
+       fold.
+  => Q5 PASS.  A single local-series seed + the (m,v) ODE + an 8-node analytic
+     K rule transports J_{1/2} across an entire fold-neighbourhood / inter-fold
+     cell with no re-anchoring.  This is the transport, not T1.
+
+E. dK/dp FROM THE SAME RULE                (scratchpad/rescue_jac.py)
+
+  Central-difference of the 8-node x-chart K vs central-difference of the
+  angular oracle, p in {a, xs, ys, rho}, at a fold-adjacent node:
+      rel diff  3e-9 .. 1e-6   (finite-difference-step limited, not method)
+  dK/dp is a sum over the 8 nodes of elementary chain-rule terms through
+  w(t,R), S_2-coeffs (linear in P's coeffs, polynomial in the params) and
+  (m,v) + d(m,v)/dp (already transported by the (m,v) Jacobian machinery).
+  Same complexity class as the value; no new transcendentals.  Q "5-Jac" PASS.
+
+F. COST MODEL                              (scratchpad/rescue_out_b.txt)
+
+  Per-node kernel, Python timeit ratio (absolute us meaningless, ratio is the
+  signal; op-count corroborates ~15-30x):
+      T2 value kernel (8-pt x-chart, closed-form deflation) ..  1.0x
+      incumbent 64-pt angular sqrt(phi) + 5 dP sweep ........  13x heavier
+      + incumbent quartic root solve (removed for fold arcs)  16x heavier
+  For a fold arc T2 removes the quartic root solve ENTIRELY: t_+- = m +- sqrt v
+  come from the (m,v) ODE state; S_2 is a closed-form deflation.
+
+----------------------------------------------------------------------------
+SIX-QUESTION CHECKLIST VERDICT
+----------------------------------------------------------------------------
+
+1. K STABILITY AS v -> 0 .................................... PASS
+   x-chart K matches the oracle to 1e-13..1e-15 at every dR to 1e-6; finite
+   closed form K(R_*) = (pi/rho) sqrt(C) / (A^2 B).  cond of the carrying
+   (m,v) ODE stays 2-8 through the fold.
+
+2. LOCAL-SERIES SEED ACCURACY ............................... PASS
+   3-4 term v-series -> 1e-11 or better for v <= 1e-3; error ~ (v/r_conv^2)^N,
+   r_conv in [0.11,0.61] for genuine folds.  Machine-precision seed, cheap,
+   no period basis, no 1e12 conditioning.
+
+3. CONDITIONING ACROSS REPRESENTATIVE GEOMETRIES ............ PASS
+   (m,v) EO Jacobian cond 2-8, x-chart K quadrature O(1), across all folds in
+   5 geometries incl. q = 1e-3.  No degradation as v -> 0.
+
+4. IMPROVEMENT VS THE eta/psi BASIS (cond ~1e12) ............ PASS (decisive)
+   5-9 orders better conditioned near a fold (2-8 vs 1e5-6e9, psi-closure
+   resid 3.9e-3 near theta->pi).  CAVEAT: theta->pi degree drop is NOT
+   addressed -- that is basis (b), not this spike.
+
+5. TRANSPORT WINDOW WITHOUT PER-NODE RE-ANCHOR .............. PASS
+   T2 = one local-series seed + (m,v) ODE + 8-node x-chart K holds 1e-14..1e-11
+   across a whole fold-neighbourhood / inter-fold cell (|dR| to ~5e-2).  The
+   frozen-series T1 is a seed only and must NOT be used as the transport.
+
+6. REALISTIC PROSPECT OF BEATING THE DIRECT ANGULAR SWEEP ... QUALIFIED YES
+   Per-node kernel ~13-16x lighter AND the quartic solve vanishes for fold
+   arcs.  BUT this only covers fold-neighbourhood arcs.  Generic mid-cell arcs
+   (v = O(1), no fold within seed/ODE reach) are untouched -- they still need
+   the angular sweep or basis (b).  Epoch-level (from gauss_manin_feasibility:
+   quartic solve 0.17 ms/14 % + angular sweep 0.23 ms/18 % of a 1.26 ms epoch)
+   the rescue removes BOTH but only on the fold-adjacent fraction of the work.
+   No C++ epoch measurement of that fraction here; from D14 event density
+   ~25-40 % of the (solve+sweep) 0.40 ms is fold-adjacent and single-seed
+   reachable  ->  ~0.10-0.16 ms  ->  epoch ~1.08-1.14x from (a) ALONE.
+   The advisor's ~1.47x ceiling (both stages fully removed) needs (b) + the
+   coupled (c) to also cover the generic cells.
+
+----------------------------------------------------------------------------
+OVERALL VERDICT:  FEASIBLE.  PROCEED to the coupled (m,v)+K state, scoped to
+fold-neighbourhood cells.  Strongly synergistic with the shipped (m,v)
+transport; it is NOT by itself a generic-cell replacement for the angular
+sweep.
+----------------------------------------------------------------------------
+
+  * The rescue math is EXACT (J_{1/2} = v K, quartic deflation) -- not an
+    approximation.  Fail-closed is natural: outside the (m,v) chart or beyond
+    the series/ODE reach, fall back to the angular sweep.
+  * All six advisor questions pass; Q6 is bounded, not open-ended: (a) buys
+    ~1.1x on its own, and it removes the two most fold-fragile operations
+    (per-node quartic solve + per-node angular re-anchor) in exactly the
+    region where they are least reliable.
+  * It does NOT touch classify_cells / D14 (63 % of epoch) and does NOT
+    address the theta->pi degree drop.
+
+RECOMMENDED NEXT STEPS (dependency order):
+
+  (a) DONE (this study).  K = J_{1/2}/v finite, seeded from a local v-series at
+      the D14 fold radius, transported by (m,v) ODE + 8-node x-chart rule with
+      no angular re-anchor.  cond 2-8 vs eta/psi 1e12.
+
+  (b) FLUX-PRIORITY BASIS -- next.  Do NOT reuse eta/psi.  Success criterion is
+      ONLY cell-wide condition-number improvement (target < ~1e6 including the
+      theta->pi degree drop), not speed.  This is what lets a single seed serve
+      a GENERIC cell (v = O(1), far from any fold) -- the part (a) does not
+      cover.
+
+  (c) COUPLED (m,v) + K + auxiliary-period transport as one state.  Integrate
+      the shipped (m,v) root-pair ODE with the regularised K transport (and
+      the basis-(b) periods for generic cells).  Benchmark 3 solvers:
+      (1) current fastest direct, (2) +(m,v) transport only,
+      (3) +(m,v)+regularised holonomic.
+
+  Implementation form: 8-node GC-2 x-chart rule for K near folds; S_2 by
+  closed-form deflation from the (m,v) state; v-series only for the per-cell
+  SEED, never frozen across the cell.
