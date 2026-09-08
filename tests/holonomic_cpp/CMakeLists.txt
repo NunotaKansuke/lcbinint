@@ -49,6 +49,13 @@ target_include_directories(bench_v0v1v2 PRIVATE "${_SRC}")
 target_compile_options(bench_v0v1v2 PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_v0v1v2 PRIVATE quadmath)
 
+# Intermediate experiment E1: planner cost-split (D14 vs grid probes vs
+# quartic_topology vs radial pass) -- unified-engine implementation order.
+add_executable(bench_planner_split "${CMAKE_CURRENT_SOURCE_DIR}/bench_planner_split.cpp")
+target_include_directories(bench_planner_split PRIVATE "${_SRC}")
+target_compile_options(bench_planner_split PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_planner_split PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7
