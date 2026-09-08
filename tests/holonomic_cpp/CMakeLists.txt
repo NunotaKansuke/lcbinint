@@ -121,12 +121,24 @@ target_include_directories(test_finite_source_binary PRIVATE "${_SRC}")
 target_compile_options(test_finite_source_binary PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_finite_source_binary PRIVATE quadmath)
 
+# (m,v) root-pair radial transport -- port correctness vs the Python
+# reference, boundary_quartic_dR vs finite differences, and a transport
+# smoke test (RK4 + Newton corrector) with the tangency fail-closed guard.
+add_executable(test_root_pair "${CMAKE_CURRENT_SOURCE_DIR}/test_root_pair.cpp")
+target_include_directories(test_root_pair PRIVATE "${_SRC}")
+target_compile_options(test_root_pair PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_root_pair PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7
                  "${_REPO_ROOT}/evidence/holonomic/m7_reference.tsv")
 add_test(NAME holonomic_finite_source_binary
          COMMAND test_finite_source_binary "/tmp/bench_cases.tsv")
+add_test(NAME holonomic_root_pair
+         COMMAND test_root_pair
+                 "${_REPO_ROOT}/evidence/holonomic/root_pair_ref.tsv"
+                 "/tmp/bench_cases.tsv")
 
 # --- optional Python binding (separately named, isolated) ------------------
 option(LCBININT_BUILD_HOLONOMIC_M7_PY "Build the isolated _lcbinint_holonomic_m7 pybind module" ON)

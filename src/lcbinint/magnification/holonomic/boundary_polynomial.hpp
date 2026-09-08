@@ -56,6 +56,45 @@ inline QuarticCoeffs boundary_quartic(double R, const PrimaryFrame& pf) {
     return QuarticCoeffs{{lin0 - a0, -a1, lin2 - a2, -a3, lin4 - a4}};
 }
 
+// Exact d P / d R (ascending [dp0..dp4]).  Closed form -- P's coefficients
+// are explicit polynomials in R through k = rho^2 R^2, bm = (R-a)^2,
+// bp = (R+a)^2 and the complex T coefficients.  Ports
+// polynomial_family.boundary_quartic_dR.
+inline QuarticCoeffs boundary_quartic_dR(double R, const PrimaryFrame& pf) {
+    const double a = pf.a, m0 = pf.m0, X = pf.X, Y = pf.Y, rho = pf.rho;
+    const double rho2 = rho * rho;
+    const double k = rho2 * R * R, dk = 2.0 * rho2 * R;
+    const double bm = (R - a) * (R - a), bp = (R + a) * (R + a);
+    const double dbm = 2.0 * (R - a), dbp = 2.0 * (R + a);
+
+    const double dlin0 = dk * bm + k * dbm;
+    const double dlin2 = dk * (bm + bp) + k * (dbm + dbp);
+    const double dlin4 = dk * bp + k * dbp;
+
+    cd cT0, cT1, cT2;
+    t_complex_coeffs(R, a, m0, X, Y, cT0, cT1, cT2);
+    const cd zeta(X, Y);
+    const cd dn0 = -2.0 * zeta * R;
+    const cd dn1 = cd(3.0 * R * R - 1.0, 0.0) + a * zeta;
+    const cd dn2(-2.0 * a * R, 0.0);
+    const cd dcT0 = dn0 + dn1 + dn2;
+    const cd dcT1 = cd(0.0, 2.0) * (dn2 - dn0);
+    const cd dcT2 = dn1 - dn0 - dn2;
+
+    const double da0 = 2.0 * (dcT0 * std::conj(cT0)).real();
+    const double da1 =
+        2.0 * (dcT0 * std::conj(cT1) + cT0 * std::conj(dcT1)).real();
+    const double da2 =
+        2.0 * (dcT1 * std::conj(cT1)).real() +
+        2.0 * (dcT0 * std::conj(cT2) + cT0 * std::conj(dcT2)).real();
+    const double da3 =
+        2.0 * (dcT1 * std::conj(cT2) + cT1 * std::conj(dcT2)).real();
+    const double da4 = 2.0 * (dcT2 * std::conj(cT2)).real();
+
+    return QuarticCoeffs{
+        {dlin0 - da0, -da1, dlin2 - da2, -da3, dlin4 - da4}};
+}
+
 // Exact d P / d(xs, ys, rho, m0, a) in the *primary frame* (xs,ys == X,Y).
 // Returns dp[param][coeff], param order (X, Y, rho, m0, a), coeff ascending.
 struct QuarticParamJac {
