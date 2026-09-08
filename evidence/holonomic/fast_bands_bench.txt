@@ -1,0 +1,67 @@
+# bench_fast_bands -- Phase A steps 1-2, seed-anchored fast band planner
+# generated 2026-09-08
+ 12:25:09 up 3 days, 15:04,  2 users,  load average: 10.76, 11.53, 11.27
+# cmd: taskset -c 0-7 ./build-holonomic-m7/bench_fast_bands /tmp/bench_cases.tsv 200
+# (per-case lines de-duplicated; each case = 2 epochs in bench_cases.tsv)
+
+loaded 108 bench cases, reps=200
+
+== discovery parity (108 cases) ==
+  fast_bands reliable          : 82 / 108  (rest fail closed -> D14)
+  significant-band count match : 82 / 82
+  significant ref bands covered: 82 / 82
+  + edges agree (<5e-3 width)  : 82 / 82
+  exact band-set parity        : 44 / 82
+  razor extras (fast>ref, sub-grid arc): 56 total
+  classify_cells UNCERTAIN     : 4 / 108
+  sig band-edge rel error      : median 5.73e-08  p90 7.92e-07  max 9.62e-07
+
+  -- fast_bands bailed (26) --
+     rand005          point-source seeds unreliable
+     rand007          point-source seeds unreliable
+     rand011          point-source seeds unreliable
+     rand013          point-source seeds unreliable
+     rand016          point-source seeds unreliable
+     rand017          point-source seeds unreliable
+     rand018          point-source seeds unreliable
+     rand022          point-source seeds unreliable
+     rand023          point-source seeds unreliable
+     rand028          point-source seeds unreliable
+     rand032          point-source seeds unreliable
+     rand035          point-source seeds unreliable
+     rand039          point-source seeds unreliable
+
+  -- notes (50) --
+     wide-planet      ok + 1 razor extra (sig parity clean)
+     tiny-rho         ok + 2 razor extra (sig parity clean)
+     extreme-q-lo     ok + 1 razor extra (sig parity clean)
+     extreme-q-planet ok + 1 razor extra (sig parity clean)
+     very-wide        ok + 1 razor extra (sig parity clean)
+     rand000          ok + 1 razor extra (sig parity clean)
+     rand001          ok + 1 razor extra (sig parity clean)
+     rand002          ok + 1 razor extra (sig parity clean)
+     rand003          ok + 1 razor extra (sig parity clean)
+     rand006          ok + 1 razor extra (sig parity clean)
+     rand008          ok + 3 razor extra (sig parity clean)
+     rand009          ok + 1 razor extra (sig parity clean)
+     rand010          ok + 1 razor extra (sig parity clean)
+     rand012          ok + 1 razor extra (sig parity clean)
+     rand014          ok + 1 razor extra (sig parity clean)
+     rand015          ok + 1 razor extra (sig parity clean)
+     rand019          ok + 1 razor extra (sig parity clean)
+     rand027          ok + 1 razor extra (sig parity clean)
+     rand029          ok + 1 razor extra (sig parity clean)
+     rand030          ok + 1 razor extra (sig parity clean)
+     rand031          ok + 1 razor extra (sig parity clean)
+     rand034          ok + 1 razor extra (sig parity clean)
+     rand036          ok + 1 razor extra (sig parity clean)
+     rand037          ok + 1 razor extra (sig parity clean)
+     rand038          ok + 1 razor extra (sig parity clean)
+
+== wall time, best-of-200 per case, 108 cases ==
+  point_images + fast_bands : median  0.3534  p90  0.7849  p99  2.5693  mean  0.5315
+  classify_cells (D14 path) : median  1.2622  p90  3.0301  p99  3.2814  mean  1.6911
+  speedup (mean / median)   : 3.18x / 3.57x
+  has_image calls / epoch   : median 152  p90 242  max 458
+
+checksum 321838.000

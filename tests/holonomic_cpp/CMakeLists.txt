@@ -63,6 +63,12 @@ target_compile_options(test_point_images PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_point_images PRIVATE quadmath)
 add_test(NAME holonomic_point_images COMMAND test_point_images)
 
+# Phase A step 2: fast seed-anchored band planner vs classify_cells (parity).
+add_executable(bench_fast_bands "${CMAKE_CURRENT_SOURCE_DIR}/bench_fast_bands.cpp")
+target_include_directories(bench_fast_bands PRIVATE "${_SRC}")
+target_compile_options(bench_fast_bands PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_fast_bands PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7
