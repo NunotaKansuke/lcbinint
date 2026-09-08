@@ -4,6 +4,22 @@ Status: **design checkpoint, no code change.** Written against the tree at
 `cbaa673` (holonomic worktree) and the algebraic-boundary backend at
 `cc5e55d` (`algebraic-bench-cc5e55d` worktree).
 
+**Revision 2 (2026-09-08).** Three corrections from review, before any
+implementation:
+
+1. The M1 micro-experiment is split into **three variants V0 / V1 / V2** so the
+   speed-up cause is separable (§13). Kernel unification is **not** started yet.
+2. §5.2's "band endpoint `|dφ/dθ|` above threshold" was **wrong** — a radial
+   band endpoint *is* a tangency (`φ = 0`, `φ_θ = 0`), so `|dφ/dθ| ≈ 0` there
+   by definition. Replaced with the tangency-system regularity determinant
+   `det ∂(φ, φ_θ)/∂(R, θ)`.
+3. The fast-planner checks are a **heuristic / local confidence screen**, not a
+   completeness proof. Explicit three-tier split: fast planner → *candidate*
+   bands; local checks → *confidence screen*; D14 / future root-exclusion
+   certificate → *completeness authority*. The same rule applies to warmup
+   reuse: `compare_warmup_geometry`'s `warn == false` is a pre-filter, **not**
+   proof that a cached band topology is still complete.
+
 Goal restated: stop optimising *algebraic-boundary* and *holonomic* as two
 competing backends. Design one **fully integrated finite-source engine** that
 (a) shares each side's strong parts in a single numerical kernel, and (b)
@@ -123,20 +139,22 @@ INPUT:  FiniteSourceGeometry g           (shared, engine-neutral, exists today)
           +Jacobian  -> ForwardJet<5> over the SAME stencil (~1% cost) -> return
       else -> deep path
 
- 3. BAND DISCOVERY  (fast planner, ~0.03 ms)
+ 3. BAND DISCOVERY  (fast planner, ~0.03 ms)  ->  CANDIDATE bands only
       seed-anchored exponential radial march (step doubling)
         + boolean bisection + algebraic tangency solve
       -> candidate bands + per-endpoint conditioning margins
-         (min |dphi/dtheta|, min band width vs march resolution,
+         (tangency regularity det = phi_R*phi_thetatheta at each endpoint,
+          min band width vs march resolution,
           up-march vs down-march band-count agreement)
 
- 4. LOCAL CERTIFICATION  (cheap, no degree-14 solve)
+ 4. LOCAL CONFIDENCE SCREEN  (cheap, no degree-14 solve; heuristic, NOT a proof)
       (a) 3 in-band probes agree on (kind, crossing count)   [holonomic cell check, minus the 3072 grid]
-      (b) every band endpoint's tangency margin above threshold
+      (b) every band endpoint's tangency regularity |det ∂(phi,phi_theta)/∂(R,theta)|
+          = |phi_R * phi_thetatheta| above a relative threshold
       (c) up-march and down-march band counts agree
       (d) no band narrower than N x march resolution
       pass       -> adopt bands, provenance = fast_march
-      any fail   -> D14 ORACLE:  radial_events(frame) in __float128
+      any fail   -> D14 ORACLE (completeness authority):  radial_events(frame) in __float128
                       clean      -> adopt, provenance = d14_oracle
                       degenerate -> Status = TOPOLOGY_UNCERTAIN, FAIL CLOSED
 
@@ -216,30 +234,50 @@ Port of `find_radial_bands()` (`algebraic_boundary.cpp:1660`):
 Cost measured on the algebraic side: **~0.03 ms**. Output: bands +, per
 endpoint, the tangency-solve residual and the `|dφ/dθ|` at the tangency.
 
-### 5.2 Local certification (cheap, no degree-14 solve)
+### 5.2 Local confidence screen (cheap, no degree-14 solve)
 
-A band set is *adopted directly* iff **all** of:
+**This is a heuristic screen, not a completeness proof** (see §5.5). It raises
+confidence that the fast planner's candidate band set is complete and
+well-conditioned; it cannot *prove* it. The band set passes the screen iff
+**all** of:
 
 1. **Uniform topology in band.** The 3 in-band probe radii (fractions
    0.18 / 0.50 / 0.82) agree on `(kind, crossing count)` via
    `quartic_topology` — the holonomic cell check from `cells.hpp:99`, but
    *without* the 3072-point grid cross-check.
-2. **Tangency margin.** Every band endpoint's `|dφ/dθ|` (or tangency residual)
-   is above a fixed relative threshold — i.e. the endpoint is a genuine
-   transversal band birth/death, not a grazing near-double.
+2. **Tangency regularity.** A radial band endpoint is a *tangency*: at the
+   endpoint `(R*, θ*)` both `φ(R*, θ*) = 0` and `φ_θ(R*, θ*) = 0`. So the
+   endpoint's own `|φ_θ|` is ≈ 0 by construction and is **not** a usable
+   margin. The correct local metric is the regularity (fold vs higher-order
+   degeneracy) of the tangency system `G(R, θ) = (φ, φ_θ)`:
+
+   ```
+   det ∂G/∂(R, θ) = φ_R φ_θθ − φ_θ φ_Rθ
+                  = φ_R φ_θθ        at the tangency (φ_θ = 0)
+   ```
+
+   This is the discriminant of the projection of the tangency curve
+   `{φ = φ_θ = 0}` onto the R axis. `|det|` well above a relative threshold ⇒
+   an ordinary fold (band birth/death moves regularly in R) ⇒ the fast march's
+   local linear picture is valid. `|det| → 0` ⇒ either `φ_R ≈ 0` (band edge
+   stationary in R) or `φ_θθ ≈ 0` (cusp-like higher-order contact) ⇒ **do not
+   fast-accept, escalate to D14.** (Any mathematically equivalent regularity
+   metric — e.g. the resultant-based tangency discriminant — is acceptable;
+   `φ_R φ_θθ` is the cheapest given the holonomic `φ` derivative primitives.)
 3. **Direction agreement.** An independent march *down* from `r_max` yields the
    same band count as the march up.
-4. **Resolution margin.** No adopted band is narrower than `N ×` the local
+4. **Resolution margin.** No candidate band is narrower than `N ×` the local
    march step (an unresolved thin band would be silently missed → `m0` low).
 
 The 512-point independent grid cross-check that `classify_cells` does today is
-replaced by (1)+(3): two independent *root-based* verdicts instead of one
-root-based + one grid-based. Grid probing stays available only inside the D14
-oracle path for the chart (`p4 ≈ 0`) radius, as `quartic_topology` already does.
+replaced, *at screen level*, by (1)+(3): two independent *root-based* verdicts
+instead of one root-based + one grid-based. Grid probing stays available only
+inside the D14 oracle path for the chart (`p4 ≈ 0`) radius, as
+`quartic_topology` already does.
 
-### 5.3 D14 oracle (fallback only)
+### 5.3 D14 oracle (completeness authority)
 
-If any certification check fails → run `radial_events(frame)` in `__float128`
+If any screen check fails → run `radial_events(frame)` in `__float128`
 (the existing holonomic path: balanced double pre-search → warm `__float128`
 Aberth → cold `__float128` on residual miss). This is the **completeness
 certificate**: its positive real roots are every band birth/death, its complex
@@ -251,21 +289,45 @@ in R) or `double_root_is_real` cannot classify a root → `Status =
 TOPOLOGY_UNCERTAIN`, the epoch fails closed (caller NaNs the row / falls back
 to the incumbent ray-shooting solver).
 
-**D14 is therefore an oracle, not a step.** Expected fallback rate: low for
-ordinary and wide/close geometry, higher near caustic cusps and for extreme q
-— to be measured (§11). The existing evidence
+**D14 is an oracle, not a normal-path step.** Expected screen-fail rate: low
+for ordinary and wide/close geometry, higher near caustic cusps and for
+extreme q — to be measured (§11). The existing evidence
 (`checkpoint_fullsolve_and_d14_algebraic.md`) that "the holonomic win is the
 fused transport pass, not D14" and that a naive D14-into-algebraic port gave a
-silent −9.6% with no root-solve win is the reason D14 must not be on the
-normal path.
+silent −9.6% with no root-solve win is the reason D14 must not run on every
+epoch.
 
-### 5.4 Future research (NOT an implementation premise now)
+### 5.4 Three-tier responsibility split (epistemics)
 
-A **root-exclusion certificate**: a Sturm / Budan sign-count or
-interval-arithmetic bound on D14 over each *inter-band gap* that proves "no
+| tier | component | guarantee it provides |
+|---|---|---|
+| **candidate** | fast seed-anchored radial march (§5.1) | a plausible band set, ~0.03 ms; **no** completeness guarantee |
+| **confidence screen** | the 4 checks (§5.2) | *heuristic* local confidence: conditioning is OK and no obvious missed band; **not a proof** |
+| **completeness authority** | D14 `radial_events` (§5.3); *future:* an inter-band root-exclusion certificate (§5.5) | every band birth/death is accounted for, to `__float128` precision |
+
+The screen can be fooled: an up-march, a down-march and all 3 in-band probes
+can in principle miss the *same* thin newborn band simultaneously (they sample,
+they do not bound). So the screen governs only *whether the D14 authority is
+invoked*, never *whether completeness holds*. Any epoch whose screen is not
+fully confident goes to the D14 authority; any epoch the authority cannot
+resolve fails closed.
+
+**Consequence for the architecture:** as currently specified, D14 is
+"fallback-only" only in the sense that it does not run when the screen is
+confident — it remains the sole completeness authority and will run on a
+non-trivial minority of epochs. Making D14 *genuinely* rare (a true
+fallback-only architecture) requires the §5.5 certificate; that re-evaluation
+is deferred until the screen-fail rate is measured (§11).
+
+### 5.5 Future research (NOT an implementation premise now)
+
+A **root-exclusion / root-count certificate**: a Sturm / Budan sign-count or
+interval-arithmetic bound on D14 over each *inter-band gap* that *proves* "no
 undiscovered real root of D14 in this interval" *without* the degree-14
-`__float128` Aberth solve. Cheaper than the oracle, would let the fast planner
-self-certify completeness. Flagged as a research candidate only.
+`__float128` Aberth solve. Cheaper than the oracle, it would promote the fast
+planner + screen to a genuine completeness authority and demote D14 to a true
+fallback. Flagged as a research candidate only; the decision to pursue it
+depends on the §11 screen-fail-rate measurement.
 
 ---
 
@@ -282,8 +344,8 @@ radial_events cache" needs a home for.
 | `LightCurve.warmup(times, params)` | same entry point | reuse — no signature change |
 | `MagnificationExecutionPlan { method, resolution }` | `+ optional prepared-geometry handle` | **additive field**, default null = today |
 | `WarmupGeometry` (frozen: src x/y, sep, q, ρ, caustic_distance, topology) | the validity key for prepared geometry | reuse verbatim |
-| `compare_warmup_geometry()` → `WarmupDriftReport` (warn-only) | the drift gate | reuse — **but promoted to a hard gate for topology-sensitive state** (§8) |
-| `_binary_topology()` → close / wide / resonant per epoch | topology-change detector | reuse; any change hard-invalidates that epoch's prepared geometry |
+| `compare_warmup_geometry()` → `WarmupDriftReport` (warn-only) | Layer-1 candidate **pre-filter** | reuse — a `warn == false` epoch becomes a *reuse candidate*, still subject to the cheap prepared-band validation in §8; it is **not** a completeness proof |
+| `_binary_topology()` → close / wide / resonant per epoch | topology-change detector | reuse; any change drops that epoch's prepared geometry from the candidate set |
 | `build_warmup_report()` per-epoch route/resolution calibration | per-epoch band structure / root-ordering calibration | same shape, richer payload |
 | `build_jax_warmup_report()` compiled fixed plan + certification vs native + budget | same, plus prepared geometry frozen at compile time | extend |
 | `JaxWarmupReport.execution_plan` retained by the owning `LightCurve` | prepared geometry retained the same way (immutable) | reuse the ownership model |
@@ -298,16 +360,19 @@ radial_events cache" needs a home for.
 * **(B) inter-proposal warmup reuse.** The warmup anchor for epoch *k* seeds
   the *next parameter proposal*'s epoch *k* (HMC/MCMC).
 
-Both are keyed and validated by the **same** `WarmupGeometry` +
-`compare_warmup_geometry` drift comparison + topology hard-gate, and both feed
-the **same** prepared-state struct (§7). They are not implemented separately.
+Both are keyed by the **same** `WarmupGeometry` + `compare_warmup_geometry`
+drift comparison (the *pre-filter*), then **both** run the same cheap
+prepared-band validation (§8) before the cached structure is trusted, and both
+feed the **same** prepared-state struct (§7). They are not implemented
+separately.
 
 When *both* a same-epoch (B) anchor and a previous-epoch (A) trajectory state
-are available for epoch *k*: both are cheap seed candidates. Run the fast
-march (§5.1) from whichever seed set has the smaller drift norm to the current
-geometry; keep the other as the fallback seed if the first march's
-certification fails, before paying a cold march. Selecting the seed is O(1)
-(a drift-norm comparison); it does not cost a solve.
+pass the drift pre-filter for epoch *k*: both are cheap seed candidates. Run
+the fast march (§5.1) from whichever seed set has the smaller drift norm to the
+current geometry; keep the other as the fallback seed if the first march's
+screen fails, before paying a cold march. Selecting the seed is O(1) (a
+drift-norm comparison); it does not cost a solve. In all cases the fast march
+output is re-screened (§5.2) — a reused seed never bypasses the screen.
 
 ---
 
@@ -321,8 +386,8 @@ Conceptual — **not** a new public type. Lives inside the warmup report.
 struct PreparedEpochGeometry {
     // --- validity key / provenance ---
     WarmupGeometryRow anchor;      // src(x,y), sep, q, rho, caustic_distance, topology
-    ConditioningMargins margins;   // min tangency |dphi/dtheta|, min band width,
-                                   //   up/down march agreement, min |p4|
+    ConditioningMargins margins;   // min |tangency regularity det| (= |phi_R*phi_thetatheta|),
+                                   //   min band width, up/down march agreement, min |p4|
     enum { fast_march, d14_oracle, escalated } provenance;
     Status status;                 // OK | TOPOLOGY_UNCERTAIN | GRADIENT_UNRELIABLE
 
@@ -360,29 +425,43 @@ behaviour exactly.
 Per-epoch fail-closed ladder:
 
 ```
-1. WARMUP DRIFT GATE (Layer 1 eligibility)
+1. WARMUP DRIFT PRE-FILTER (Layer 1 reuse-candidate selection)
      compare_warmup_geometry -> WarmupDriftReport
-     reuse the prepared band structure / root ordering ONLY IF
+     epoch k's cached PreparedEpochGeometry is a REUSE CANDIDATE only if
          warn == false  AND  topology_changed == false
-     otherwise -> discard Layer 1 for this epoch, recompute locally
+     otherwise -> drop Layer 1 for this epoch, recompute from scratch
                   (fast march, cold or from the nearest still-valid neighbour)
 
-     *** CRITICAL: a drift WARNING alone must NOT permit reuse of
-         topology-sensitive cached state. warn == true is treated as
-         INVALID for the prepared-geometry payload -- recompute, do not
-         "use with a note". The existing scalar method/resolution warmup
-         keeps its warn-only semantics; this hard gate is scoped to the
-         new PreparedEpochGeometry payload. ***
+     *** This pre-filter is NOT a completeness proof. warn == false means
+         "geometry drifted little enough to be worth trying to reuse", not
+         "the cached band topology is still correct". A reuse candidate
+         ALWAYS proceeds to step 2 below before its bands / root ordering
+         are trusted. The existing scalar method/resolution warmup keeps
+         its warn-only semantics unchanged; this candidate/validate split
+         is scoped to the new PreparedEpochGeometry payload. ***
 
-2. LOCAL FAST-MARCH CERTIFICATION  (section 5.2, the 4 checks)
+2. MANDATORY CHEAP VALIDATION OF THE REUSE CANDIDATE
+     re-run the section 5.2 confidence screen against the CACHED structure:
+       - 3 in-band probes at the current geometry still agree on
+         (kind, crossing count) for every cached band
+       - every cached band endpoint re-solved (3-iter tangency prefilter)
+         still lands inside its cached bracket AND its tangency-regularity
+         det |phi_R*phi_thetatheta| is still above threshold
+       - cached root ordering at each anchor radius still matches a fresh
+         cheap quartic solve (order + count)
+     all agree -> reuse the cached bands / root ordering, provenance = fast_march (reused)
+     any disagreement OR uncertain -> DISCARD the candidate, per-epoch
+         recompute: fast march (section 5.1) -> screen (section 5.2) -> D14 if the screen fails
+
+3. LOCAL FAST-MARCH CONFIDENCE SCREEN  (section 5.2, the 4 checks; for a fresh march)
      pass  -> use bands directly, provenance = fast_march
      fail  -> D14 oracle
 
-3. D14 ORACLE  (radial_events, __float128)
+4. D14 ORACLE  (radial_events, __float128) -- completeness authority
      clean      -> use, provenance = d14_oracle
      degenerate -> Status = TOPOLOGY_UNCERTAIN, FAIL CLOSED
 
-4. PER-RADIUS RELIABILITY  (radius_terms.reliable)
+5. PER-RADIUS RELIABILITY  (radius_terms.reliable)
      near-tangency / degenerate quartic / full circle / near-origin source
         -> Status = GRADIENT_UNRELIABLE   (value may still be OK; Jacobian row NaN'd)
 
@@ -437,9 +516,9 @@ each ends with a benchmark + 108-case parity (0 status changes) + `test_holonomi
 | **0 (done)** | M8 holonomic fused pass | decision-20 met (2.14 ms median, 11.7×) |
 | **1** | unify the numerical kernel: one `boundary_quartic`, one `aberth`, one warm-start state type shared by both backends (header move, no behaviour change) | bit-parity both backends |
 | **2** | M1 value-only fast lane: exact-`m0` + multipole shortcut + adaptive-GK radial into the holonomic entry; `u = 0` value-only skips `F_half` and all Jacobian state | uniform value-only median ≥ 2× faster than current fused value; μ parity |
-| **3** | fast planner + §5.2 certifier in front of D14; D14 becomes fallback-only | band-discovery cost ↓; p90/p99 non-regressing; fallback rate measured |
+| **3** | fast planner + §5.2 confidence screen in front of D14; D14 is the completeness authority, invoked on screen-fail | band-discovery cost ↓; p90/p99 non-regressing; screen-fail (D14-invocation) rate measured |
 | **4** | the mode router `finite_source_binary(geometry, requested)`; wire as a `FiniteSourceMethod` | all 4 modes parity + latency |
-| **5** | prepared-geometry cache: Layer-1 struct in the warmup report, Layer-2 scratch, the §8 hard drift gate | trajectory + HMC-proposal reuse win; drift-gate false-reuse audit passes |
+| **5** | prepared-geometry cache: Layer-1 struct in the warmup report, Layer-2 scratch, the §8 drift pre-filter + mandatory cheap validation | trajectory + HMC-proposal reuse win; false-reuse audit passes (forced caustic crossing recomputes) |
 | **6** | M3 JVP mode (single-direction ForwardJet / fused single direction) | JVP cheaper than one FD column |
 
 ---
@@ -450,7 +529,19 @@ Harness: `bench_holonomic_m7` (108 cases, best-of-200, `taskset -c 0-7`, log
 `uptime` + affinity **before** timing). Isolated build (`build-holonomic-m7/`),
 never touch the shared `_lcbinint.so`.
 
-**Per mode — separate median / p90 / p95 / p99:**
+**Two distinct benchmark families — never merged into one table:**
+
+* **(A) Algorithm micro-benchmark — multipole / hexadecapole shortcut OFF.**
+  Every one of the 108 cases runs the full boundary integral. This isolates the
+  *kernel* cost (band discovery + quartic + arcs + radial/angular rules +
+  Jacobian state) with no router masking. All the V0/V1/V2 numbers in §13 and
+  all per-mode kernel comparisons below are of this family.
+* **(B) Router-inclusive production benchmark — shortcut ON.** The real
+  end-to-end cost, ~74/108 cases resolved by the multipole shortcut. Reported
+  as its own separate table, and only once a mode is wired through the router
+  (phase 4+). Do **not** compare (A) and (B) numbers directly.
+
+**Per mode — separate median / p90 / p95 / p99 (family A unless noted):**
 
 * **M1** uniform value-only: vs `binary_mag` point/hex path, vs algebraic
   value-only, vs current `epoch_jacobian` value.
@@ -463,8 +554,9 @@ never touch the shared `_lcbinint.so`.
 **Planner:**
 
 * band-discovery microbench: fast march vs D14 `__float128`, per geometry class;
-* fraction of the 108 cases that trigger the D14 fallback;
-* fraction that fail closed (`TOPOLOGY_UNCERTAIN`).
+* fraction of the 108 cases whose §5.2 screen fails (→ D14 authority invoked);
+* fraction that fail closed (`TOPOLOGY_UNCERTAIN`);
+* fraction of reuse candidates rejected by the §8 step-2 validation.
 
 **Cache:**
 
@@ -531,8 +623,9 @@ number.
 * **Frozen crossing angles.** The algebraic `ForwardJet` re-pass evaluates the
   boundary at crossing angles *frozen from the primal*. If the prepared-geometry
   cache hands back stale crossing angles after a drift, the derivative is
-  silently wrong. The §8 hard drift gate must cover the cached **root
-  ordering**, not just the band bounds.
+  silently wrong. The §8 step-2 mandatory validation must re-check the cached
+  **root ordering** (order + count vs a fresh cheap quartic solve), not just the
+  band bounds — the drift pre-filter alone does not.
 * **Per-epoch, not per-trajectory, invalidation.** An HMC proposal that crosses
   a caustic-topology boundary for even one epoch must invalidate *that epoch
   only*. The gate is per-epoch.
@@ -542,29 +635,90 @@ number.
 
 ---
 
-## Proposed next experiment (exactly one)
+## 13. Next experiment — the V0 / V1 / V2 three-variant micro-benchmark
 
-**M1 value-only fast-lane micro-experiment — isolated bench, no wiring, no API
-change.**
+**Isolated bench only. No kernel unification, no wiring, no API change, no
+cache.** One bench executable builds three variants that share *everything*
+except the two things under test, so the speed-up cause is separable. Kernel
+unification / fast planner / warmup cache implementation order is decided by
+the user *after* seeing these numbers.
 
-Add a bench-only `holonomic::epoch_value(p, u)` that:
+### 13.1 The three variants
 
-1. runs the existing `classify_cells` for band structure (unchanged);
-2. for `u == 0`, accumulates **F0 only** from arc-interval lengths — the
-   `rt.f0 += R·(θ_leave − θ_enter)` term already computed inside
-   `radius_terms` — using the algebraic side's **adaptive one-panel-first
-   Gauss–Kronrod** radial rule instead of the fixed `n_r = 64` Gauss–Chebyshev;
-3. **skips** `F_half`, every `dF0` / `dF_half` accumulator, the internal→user
-   chain rule, and `polish_endpoint`'s derivative bookkeeping.
+All three run the **same** `classify_cells` band structure, the **same** cell
+list, the **same** per-cell `QuarticWarm` warm-start, the **same**
+`boundary_quartic` / root path, and the **same** `polish_endpoint` on
+`φ(R,θ)=0`. The multipole / hexadecapole shortcut is **OFF** for all three
+(benchmark family A, §11) — every case runs the full boundary integral.
 
-Then, on the 108-case bench, compare **uniform value-only** median / p90 / p99
-against: (i) current `epoch_jacobian` value, (ii) `binary_mag`
-hexadecapole/IR, (iii) the algebraic value-only path; and μ parity vs the
-current fused value.
+| variant | radial rule | angular / derivative work | what it is |
+|---|---|---|---|
+| **V0** | fixed GC64 per cell | value **+ fused 5-Jacobian + ∂μ/∂u** (`F0`, `F_half`, `dF0[5]`, `dF_half[5]`, IFT-θ endpoint derivs, `d√φ/dP`, internal→user chain rule) | **the baseline** — today's `epoch_jacobian` exactly |
+| **V1** | fixed GC64 per cell (**identical to V0**) | **value only**: accumulate `F0` from arc-interval lengths (`R·(θ_leave−θ_enter)`); skip `F_half`, `dF0`, `dF_half`, the `√φ` angular loop, the chain rule, and every derivative accumulator / state field | V0's kernel, uniform value-only, fixed grid |
+| **V2** | **adaptive one-panel-first Gauss–Kronrod** (algebraic-style: one-panel estimate per band, bisect only if the panel error is over budget) | same value-only kernel as V1 | V1 with only the radial rule swapped |
 
-**Why this one:** it is the smallest change that tests the central premise of
-Direction 1 — that "value-only must not pay Jacobian-state cost" is a *large*
-win — using only code that already exists on both sides. No kernel
-unification, no planner rewrite, no cache. If uniform value-only does not get
-materially cheaper, the mode-router priority order in §10 changes before any
-of it is built.
+The GK rule and adaptive bisection are reimplemented inside the bench
+(`integrate_outer_adaptive` / `gauss_kronrod21()` are in an anonymous namespace
+in `algebraic_boundary.cpp` and not exported).
+
+### 13.2 What the differences isolate
+
+```
+V0 − V1  =  marginal cost of the LD half-integral + the full Jacobian state
+            (F_half, the √φ angular loop, dF0/dF_half accumulation,
+             IFT-θ endpoint derivatives, d√φ/dP, internal→user chain rule)
+            — everything else held identical.
+
+V1 − V2  =  marginal cost of radial SCHEDULING
+            (fixed 64-node Gauss–Chebyshev  vs  adaptive one-panel-first GK)
+```
+
+**Caveat to report alongside V1 − V2:** the adaptive GK rule does not only
+change *when* nodes are placed — it also changes the *node count* and the node
+*distribution*, and a non-monotone / non-Chebyshev node sequence can weaken the
+`QuarticWarm` warm-start (which assumes the near-monotone GC node march). So
+V1 − V2 is "scheduling **and** its knock-on effects on node count and
+warm-start", not a pure scheduling delta. The per-variant metrics below
+(radial-node count, quartic-solve count, warm-hit rate) are exactly what
+exposes this — the experiment stays well-posed, but the report must not claim
+V1 − V2 is scheduling alone.
+
+### 13.3 Metrics — on the 108 full-solve cases
+
+Reported for **each** of V0, V1, V2:
+
+* wall time: **median / p90 / p95 / p99** (best-of-200 per case, `taskset -c 0-7`,
+  `uptime` + affinity logged before the run);
+* **radial-node count** (total quartic-solve sites): mean + distribution;
+* **quartic-solve count** (cold + warm, i.e. Aberth invocations): mean;
+* **warm-hit rate** (`QuarticWarm.warm_hits / (warm_hits + cold_falls)`);
+* **μ parity**: max \|Δμ/μ\| of V1 and V2 vs V0 (the fused baseline value).
+
+Plus the two derived deltas (`V0−V1`, `V1−V2`) at median / p90 / p95 / p99, and
+the fraction of cases where each delta is positive (a per-case win, not just an
+aggregate one).
+
+### 13.4 Separate table — router-inclusive production benchmark
+
+Benchmark family B (§11), shortcut **ON**, reported as its own table and
+explicitly **not** compared line-to-line with 13.3. This is deferred: it only
+becomes meaningful once a value-only mode is actually wired through
+`finite_source_binary` (phase 4). For this experiment it is a placeholder row
+noting "deferred to phase 4".
+
+### 13.5 Why this experiment, and what it decides
+
+It tests the central premise of Direction 1 — *"value-only must not pay
+Jacobian-state cost, and that saving is large"* — while **separating** that
+claim from the independent claim that adaptive radial scheduling helps. Using
+only code that already exists on both sides. Outcomes:
+
+* **V0 − V1 large, V1 − V2 small** ⇒ the Jacobian-state skip is the whole M1/M2
+  win; adaptive GK is not worth the warm-start risk → keep fixed GC for every
+  mode, prioritise the mode router (§10 phase 2/4) over the fast planner.
+* **V0 − V1 small** ⇒ value-only is *not* materially cheaper than the fused
+  pass → the §10 mode-router priority order changes; M4 stays the primary
+  target and M1/M2 get de-prioritised.
+* **V1 − V2 large and favourable** (with warm-hit rate holding up) ⇒ adaptive
+  radial scheduling is a real win → the fast planner + adaptive radial rule
+  moves up the implementation order.
