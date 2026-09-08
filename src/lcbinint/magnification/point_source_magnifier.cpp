@@ -823,17 +823,13 @@ PointSourceDerivativeResult PointSourceMagnifier::binary_mag0_with_derivatives_c
     }
     // Reuse the previous epoch's roots whenever the lens parameters are
     // unchanged.  ``binary_mag0_impl(..., true)`` performs a warm Newton/root
-    // polish from the thread-local cache and falls back to a cold solve when
+    // polish from the worker-local cache and falls back to a cold solve when
     // the trajectory has crossed a topology boundary.  The old exact-source
     // check made the derivative FFI cold for every row of a light curve,
     // because source coordinates necessarily differ between epochs.
-    const bool cache_matches_lens =
-        root_cache_valid_ &&
-        root_cache_separation_ == separation &&
-        root_cache_mass_ratio_ == mass_ratio;
-    if (!cache_matches_lens) {
-        return binary_mag0_with_derivatives(separation, mass_ratio, source);
-    }
+    // Seed the cache with one cold solve when the lens changes; otherwise
+    // polish the previous epoch's roots.  The derivative calculation below
+    // consumes the resulting classified roots instead of solving twice.
     (void)binary_mag0_impl(separation, mass_ratio, source, true);
 
     const FastBinaryGeometry geometry = make_fast_vbm_geometry(separation, mass_ratio, source);
