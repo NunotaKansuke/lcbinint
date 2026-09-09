@@ -24,6 +24,7 @@
 #include "lcbinint/magnification/holonomic/cells.hpp"
 #include "lcbinint/magnification/holonomic/fast_topology.hpp"
 #include "lcbinint/magnification/holonomic/fp_env.hpp"
+#include "lcbinint/magnification/holonomic/holonomic_ode_transport.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
 #include "lcbinint/magnification/holonomic/prepared_geometry.hpp"
 #include "lcbinint/magnification/holonomic/radius_terms.hpp"
@@ -34,6 +35,23 @@ namespace lcbinint::holonomic {
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kSingularZetaTol = 1.0e-3;  // singular.SINGULAR_ZETA_TOL
 
+// Epoch-scope fail-closed gate for the rho-derivative catastrophic
+// cancellation.  epoch grad_mu[2] = (dN/D) - 2 mu/rho with
+//   dN/D - 2 mu/rho = { (1-u)(dF0_rho - 2 F0/rho) + u(dFh_rho - 2 Fh/rho) }/D
+// so the cancellation lives (u-independently) inside dF0_rho - 2 F0/rho and
+// dFh_rho - 2 Fh/rho.  For tiny rho both halves of each difference reach
+// ~1e3-1e8 in magnitude and cancel to O(1e-2): the incumbent GC pass keeps
+// F0 / dF0_rho to ~1e-9 relative and survives, but the RK4 ODE transport
+// only reaches ~1e-5..1e-6 relative and the difference is then O(1) wrong
+// (sometimes sign-wrong).  When the cancellation ratio exceeds this bound
+// on an epoch that took any ODE cell, flux_jacobian re-runs the radial pass
+// with the ODE path disabled (true fail-closed to the per-node incumbent).
+// Calibrated (evidence/holonomic, ode_probe 108-case sweep): kappa > ~2.5e3
+// predicts |dgrad_mu[rho]| > ~2e-2 vs the direct path; below it the ODE and
+// direct rho-derivative agree to < ~2e-2.  Value lane (no -2mu/rho term) is
+// unaffected and keeps the ODE path.
+constexpr double kOdeRhoCancelMax = 2.5e3;
+
 struct FluxJacobian {
     double F0 = 0.0, F_half = 0.0;
     std::array<double, 5> dF0{};       // user params (xs, ys, rho, q, a)
@@ -42,7 +60,22 @@ struct FluxJacobian {
     std::array<double, 5> dF_half_internal{};
     double r_max = 0.0;
     Status status = Status::OK;
+    bool used_ode = false;  // any cell took the coupled-state ODE path
 };
+
+// Cancellation ratio of the epoch rho-derivative assembly (see
+// kOdeRhoCancelMax).  u-independent: evaluated on the raw F0 / dF0_rho and
+// F_half / dF_half_rho.  Returns the worse of the two halves.
+inline double rho_cancel_kappa(const FluxJacobian& fj, double rho) {
+    const double inv2 = 2.0 / rho;
+    auto ratio = [](double d, double c) {
+        return (std::fabs(d) + std::fabs(c)) /
+               std::max(std::fabs(d - c), 1e-300);
+    };
+    const double k0 = ratio(fj.dF0[2], inv2 * fj.F0);
+    const double kh = ratio(fj.dF_half[2], inv2 * fj.F_half);
+    return std::max(k0, kh);
+}
 
 struct EpochJacobian {
     double mu = 0.0;
@@ -82,7 +115,8 @@ inline bool near_origin_source(const PrimaryFrame& pf,
 // TopologyResult -- band discovery is the only thing that differs.
 inline FluxJacobian flux_jacobian_integrate(const LensParams& p, int n_r,
                                             const PrimaryFrame& pf,
-                                            const TopologyResult& topo) {
+                                            const TopologyResult& topo,
+                                            bool allow_ode = true) {
     FluxJacobian fj;
     fj.r_max = topo.r_max;
     // jacobian.flux_jacobian: OK iff the topology is clean, else
@@ -102,6 +136,28 @@ inline FluxJacobian flux_jacobian_integrate(const LensParams& p, int n_r,
         const double ins = 1e-9 * w;
         const double lo = c.r_lo + ins, hi = c.r_hi - ins;
         const double rmid = 0.5 * (lo + hi), rhalf = 0.5 * (hi - lo);
+
+        // Full coupled-state ODE transport (opt-in, per cell).  One RK4
+        // march of [(m,v) per arc | F0 | F_half | dF0i | dFhi] replaces the
+        // 64-node GC1 radial pass + per-node quartic solve + per-node
+        // angular sweep.  Any bail -> the incumbent per-node loop below
+        // (fail closed).
+        if (allow_ode && holo_ode_transport_enabled() &&
+            c.kind == ArcKind::kArcs) {
+            OdeCellJac oc;
+            if (ode_transport_cell_jac(pf, lo, hi, rhalf, oc)) {
+                fj.F0 += oc.F0;
+                fj.F_half += oc.F_half;
+                for (int j = 0; j < 5; ++j) {
+                    dF0i[j] += oc.dF0i[j];
+                    dFhi[j] += oc.dFhi[j];
+                }
+                if (!oc.reliable) fj.status = Status::GRADIENT_UNRELIABLE;
+                fj.used_ode = true;
+                continue;
+            }
+        }
+
         // Chebyshev nodes are monotone in R within a cell -> warm-start the
         // per-node boundary-quartic solve from the previous node.  Fresh
         // (cold) start on the first node of every cell.
@@ -129,6 +185,20 @@ inline FluxJacobian flux_jacobian_integrate(const LensParams& p, int n_r,
     return fj;
 }
 
+// flux_jacobian_integrate + the epoch rho-cancellation fail-closed gate:
+// if any cell took the ODE path and the rho-derivative assembly would lose
+// too many digits to cancellation, redo the pass with the ODE disabled.
+inline FluxJacobian flux_jacobian_integrate_gated(const LensParams& p, int n_r,
+                                                  const PrimaryFrame& pf,
+                                                  const TopologyResult& topo) {
+    FluxJacobian fj = flux_jacobian_integrate(p, n_r, pf, topo, /*allow_ode=*/true);
+    if (fj.used_ode && rho_cancel_kappa(fj, p.rho) > kOdeRhoCancelMax) {
+        ++ode_counters().rho_cancel_gated;
+        fj = flux_jacobian_integrate(p, n_r, pf, topo, /*allow_ode=*/false);
+    }
+    return fj;
+}
+
 inline FluxJacobian flux_jacobian(const LensParams& p, int n_r,
                                   bool use_fast_planner) {
     const ScopedFlushDenormals _fp_guard;
@@ -139,7 +209,7 @@ inline FluxJacobian flux_jacobian(const LensParams& p, int n_r,
     // any bail / screen failure (fast_topology.hpp).  Phase A step 4.
     TopologyResult topo =
         use_fast_planner ? classify_cells_fast(pf) : classify_cells(pf);
-    return flux_jacobian_integrate(p, n_r, pf, topo);
+    return flux_jacobian_integrate_gated(p, n_r, pf, topo);
 }
 
 inline FluxJacobian flux_jacobian(const LensParams& p, int n_r = 64) {
@@ -158,7 +228,7 @@ inline FluxJacobian flux_jacobian_prepared(const LensParams& p, int n_r,
     const ScopedFlushDenormals _fp_guard;
     const PrimaryFrame pf = PrimaryFrame::from(p);
     TopologyResult topo = prepared_topology(pf, state, cfg, st);
-    return flux_jacobian_integrate(p, n_r, pf, topo);
+    return flux_jacobian_integrate_gated(p, n_r, pf, topo);
 }
 
 inline EpochJacobian epoch_jacobian(const LensParams& p, double u, int n_r,
@@ -266,6 +336,18 @@ inline FluxValue flux_value_integrate(int n_r, double u, const PrimaryFrame& pf,
         const double ins = 1e-9 * w;
         const double lo = c.r_lo + ins, hi = c.r_hi - ins;
         const double rmid = 0.5 * (lo + hi), rhalf = 0.5 * (hi - lo);
+
+        // Full coupled-state ODE transport (opt-in, per cell) -- value lane.
+        if (holo_ode_transport_enabled() && c.kind == ArcKind::kArcs) {
+            OdeCellValue oc;
+            if (ode_transport_cell_value(pf, lo, hi, rhalf, want_fh, oc)) {
+                fv.F0 += oc.F0;
+                fv.F_half += oc.F_half;
+                if (!oc.reliable) fv.status = Status::GRADIENT_UNRELIABLE;
+                continue;
+            }
+        }
+
         QuarticWarm qw;
         RootPairWarm rpw;
         rpw.certify = topo.from_warm_d14;
