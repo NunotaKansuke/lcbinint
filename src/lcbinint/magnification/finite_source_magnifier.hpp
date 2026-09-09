@@ -19,6 +19,13 @@ enum class FiniteSourceMethod {
     inverse_ray_polar,
     inverse_ray_spine,
     source_plane_quadrature,
+    // ATPT holonomic binary finite-source engine (fused value + 5-Jacobian
+    // radial pass; header-only, src/lcbinint/magnification/holonomic/).  Wired
+    // through binary_mag_preplanned only -- selected by LightCurve.warmup()
+    // where the engine is reference-validated and faster (Phase C step 2).
+    // The ordinary routing cascade never picks it; a non-OK holonomic Status
+    // fails closed (converged = false), never a silent approximation.
+    holonomic_binary,
 };
 
 // Canonical, engine-neutral finite-source geometry for one source position:

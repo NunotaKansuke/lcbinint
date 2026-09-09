@@ -9,12 +9,24 @@
 
 #include <memory>
 
+namespace lcbinint::holonomic {
+struct PreparedEpochGeometry;
+}
+
 namespace lcbinint::model {
 
 struct MagnificationExecutionPlan {
     magnification::FiniteSourceMethod method =
         magnification::FiniteSourceMethod::point_source;
     int resolution = 0;
+
+    // Phase E prepared-geometry hook (§6 direction 2).  A caller evaluating a
+    // trajectory neighbourhood with FiniteSourceMethod::holonomic_binary may
+    // attach a rolling PreparedEpochGeometry here so consecutive epochs reuse
+    // the D14 root set / cell plan (L2 warm-seeded, exact-parity, fail-closed).
+    // Null -> every epoch runs the cold holonomic route.  Additive: the
+    // ordinary time-based and inverse-ray paths ignore this field.
+    std::shared_ptr<holonomic::PreparedEpochGeometry> prepared_geometry;
 };
 
 class LensModel {

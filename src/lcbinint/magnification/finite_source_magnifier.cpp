@@ -6,6 +6,11 @@
 #include "lcbinint/magnification/probe_diagnostics.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
 
+// ATPT holonomic binary engine -- header-only, same leaf layer (no model/lc/obs
+// dependency).  Reached only from binary_mag_preplanned for the
+// FiniteSourceMethod::holonomic_binary plan (Phase C step 2).
+#include "lcbinint/magnification/holonomic/finite_source_binary.hpp"
+
 #include <algorithm>
 #include <array>
 #include <chrono>
@@ -7316,6 +7321,8 @@ const char* finite_source_method_name(FiniteSourceMethod method)
         return "inverse_ray_spine";
     case FiniteSourceMethod::source_plane_quadrature:
         return "source_plane_quadrature";
+    case FiniteSourceMethod::holonomic_binary:
+        return "holonomic_binary";
     default:
         return "unknown";
     }
@@ -7712,6 +7719,87 @@ HexadecapoleDiagnosticResult diagnostic_hexadecapole_binary(
     return {result.magnification, result.relative_error, derivative_relative_error};
 }
 
+namespace {
+
+// FiniteSourceMethod::holonomic_binary dispatch (Phase C step 2).
+//
+// Frame: `source` is the centre-of-mass source position and `separation`/
+// `mass_ratio` the trajectory-resolved binary; this is the convention the
+// ATPT reference was A/B-validated against (binary_ray_shooting, holonomic_ref
+// solver._ray_shooting_mu).  For a wide binary evaluated with
+// options.center_of_mass == 0 the caller has folded a constant x offset into
+// `source`; the holonomic value then simply disagrees with the reference and
+// LightCurve.warmup() does not select this method for that epoch (fail open to
+// the inverse-ray route, never a wrong answer).
+//
+// Failure is a Status -> converged = false (never a silent approximation).
+// The holonomic engine is linear-limb-darkening only; a non-zero quadratic
+// coefficient (_d) also fails closed.
+FiniteSourceResult holonomic_binary_preplanned(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double limb_darkening_c,
+    double limb_darkening_d,
+    int resolution)
+{
+    FiniteSourceDecision decision{
+        FiniteSourceMethod::holonomic_binary, 0, "preplanned holonomic binary"};
+
+    const double s = std::abs(separation);
+    const double q = mass_ratio;
+    const bool inputs_ok =
+        std::isfinite(s) && s > 0.0 &&
+        std::isfinite(q) && q > 0.0 && q <= 1.0 &&
+        std::isfinite(source_radius) && source_radius > 0.0 &&
+        std::isfinite(source.x) && std::isfinite(source.y) &&
+        std::isfinite(limb_darkening_c) &&
+        limb_darkening_d == 0.0;
+    if (!inputs_ok) {
+        decision.reason = "holonomic preconditions unmet";
+        return {std::numeric_limits<double>::quiet_NaN(), 0, decision,
+                0.0, 0, /*converged=*/false};
+    }
+
+    holonomic::FiniteSourceRequest req;
+    req.params = holonomic::LensParams{
+        source.x, source.y, source_radius, q, s, /*barycentric=*/true};
+    req.u = limb_darkening_c;
+    req.output = holonomic::RequestedOutput::kValue;
+    req.n_r = resolution > 0 ? resolution : 64;
+
+    const holonomic::FiniteSourceOutcome outcome =
+        holonomic::finite_source_binary(req);
+
+    // The value is trustworthy for OK / estimated / locally-referenced /
+    // gradient-only-unreliable outcomes; every hard topology / conditioning
+    // failure fails closed.
+    bool value_ok = std::isfinite(outcome.mu) && outcome.mu > 0.0;
+    switch (outcome.status) {
+    case holonomic::Status::OK:
+    case holonomic::Status::OK_VALIDATED:
+    case holonomic::Status::OK_ESTIMATED:
+    case holonomic::Status::LOCAL_REFERENCE_USED:
+    case holonomic::Status::GRADIENT_UNRELIABLE:
+        break;
+    default:
+        value_ok = false;
+        break;
+    }
+
+    decision.estimated_evaluations = req.n_r;
+    decision.reason = std::string("preplanned holonomic binary [") +
+                      holonomic::to_string(outcome.status) + "]";
+
+    FiniteSourceResult result{
+        outcome.mu, 0, decision, 0.0, 0, value_ok};
+    if (!value_ok) result.magnification = std::numeric_limits<double>::quiet_NaN();
+    return result;
+}
+
+}  // namespace
+
 FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
     double separation,
     double mass_ratio,
@@ -7768,6 +7856,12 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
             0,
             std::isfinite(value),
         };
+    }
+
+    if (method == FiniteSourceMethod::holonomic_binary) {
+        return holonomic_binary_preplanned(
+            separation, mass_ratio, source, source_radius,
+            settings_.limb_darkening_c, settings_.limb_darkening_d, resolution);
     }
 
     if (method == FiniteSourceMethod::inverse_ray_cartesian ||

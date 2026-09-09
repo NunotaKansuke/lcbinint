@@ -296,7 +296,9 @@ std::vector<lcbinint::model::MagnificationExecutionPlan> execution_plan_from(
     std::vector<lcbinint::model::MagnificationExecutionPlan> plan;
     plan.reserve(methods.size());
     for (std::size_t i = 0; i < methods.size(); ++i) {
-        if (methods[i] < 0 || methods[i] > 5) {
+        if (methods[i] < 0 ||
+            methods[i] > static_cast<int>(
+                lcbinint::magnification::FiniteSourceMethod::holonomic_binary)) {
             throw std::invalid_argument("invalid warm-up finite-source method");
         }
         plan.push_back({
