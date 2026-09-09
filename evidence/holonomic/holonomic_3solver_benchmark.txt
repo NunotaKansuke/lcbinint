@@ -1,0 +1,79 @@
+=== ATPT holonomic -- 3-solver whole-epoch benchmark (checkpoint 29) ===
+date: 2026-09-08T23:55:10Z
+host load at run:
+ 08:55:10 up 4 days, 11:34,  2 users,  load average: 16.33, 16.01, 13.82
+
+build: cmake -S tests/holonomic_cpp -B build-holonomic-m7 -DCMAKE_BUILD_TYPE=Release; -O3 -march=native
+cases: /tmp/bench_cases.tsv (108)
+
+--- test_holonomic_transport (ctest: holonomic_transport) ---
+== A. v_times_K  vs  64-pt angular sweep ==
+  memo-s15      arcs= 50 engaged= 45 ( 90%)  worst rel=1.50e-14
+  resonant      arcs= 40 engaged= 30 ( 75%)  worst rel=5.47e-14
+  close         arcs= 25 engaged= 15 ( 60%)  worst rel=4.39e-14
+  planet-wide   arcs= 10 engaged=  5 ( 50%)  worst rel=2.54e-14
+  caustic-xing  arcs= 45 engaged= 30 ( 67%)  worst rel=9.13e-14
+  near-full     arcs= 45 engaged= 35 ( 78%)  worst rel=4.83e-13
+  plan15-raw    arcs= 45 engaged= 31 ( 69%)  worst rel=3.24e-14
+  --> worst rel err 4.83e-13 over 191/260 arcs engaged
+
+== B. analytic d/dP_j[v K]  vs  central finite diff ==
+  memo-s15      worst rel=1.09e-08
+  resonant      worst rel=1.51e-06
+  close         worst rel=1.46e-06
+  planet-wide   worst rel=5.15e-08
+  caustic-xing  worst rel=6.81e-08
+  near-full     worst rel=4.63e-06
+  plan15-raw    worst rel=7.24e-09
+  --> worst rel err 4.63e-06 over 575 component checks
+
+== C. epoch_jacobian(u=0.5) V2(holo ON) vs V0(OFF) parity ==
+  memo-s15      mu=3.478442878  dmu=3.83e-16  dgrad=1.75e-13 (j=3)
+  resonant      mu=6.390065848  dmu=0.00e+00  dgrad=5.97e-12 (j=1)
+  close         mu=2.758744324  dmu=1.61e-16  dgrad=1.37e-12 (j=3)
+  planet-wide   mu=1.158498975  dmu=1.92e-16  dgrad=1.07e-09 (j=2)
+  caustic-xing  mu=4.663310294  dmu=3.81e-16  dgrad=4.65e-11 (j=2)
+  near-full     mu=12.27593994  dmu=2.89e-16  dgrad=1.44e-11 (j=1)
+  plan15-raw    mu=6.120962724  dmu=2.90e-16  dgrad=3.18e-13 (j=4)
+  --> worst dmu 3.83e-16 (tol 1e-09)  worst dgrad 1.07e-09 (tol 1e-06)  status changes 0
+
+PASSED (0 failures)
+
+--- bench_holonomic_3solver /tmp/bench_cases.tsv 200 ---
+loaded 108 bench cases, reps=200
+
+== whole-epoch wall time, best-of-200 per case ==
+  V0   median   1.2616  p90   2.2713  p95   2.6151  p99   4.0738  max   4.1685  (ms)
+  V1   median   1.2490  p90   2.2192  p95   2.5491  p99   4.0590  max   4.1550  (ms)
+  V2   median   1.0684  p90   1.9394  p95   2.2412  p99   3.9819  max   4.1087  (ms)
+
+== speedup vs V0 (per-case ratio, then percentiles) ==
+  V0/V1 (+m,v):     median 1.028x  p90 1.154x  p95 1.164x  p99 1.184x  min 1.003x
+  V0/V2 (+holo):    median 1.183x  p90 1.373x  p95 1.524x  p99 1.728x  min 1.015x
+  aggregate median-of-medians:  V0 1.2616  V1 1.2490  V2 1.0684 ms  ->  V2 1.181x
+
+== radial pass only (classify_cells hoisted; 1.47x ceiling term) ==
+  V0 median 0.5724  V2 median 0.3119 ms   speedup median 2.095x  p90 3.310x  p95 4.578x  min 1.017x
+  radial fraction of whole epoch (V0): 45.4%
+
+== accuracy vs V0 ==
+  mu:      V1 max |dmu/mu| 1.176e-14  median 1.486e-16
+           V2 max |dmu/mu| 2.298e-13  median 2.881e-16   (worst: extreme-q-planet)
+  grad_mu: V1 max rel 1.563e-04  median 1.634e-11
+           V2 max rel 1.563e-04  median 6.968e-11
+           V2 worst: rand008  j=2  rho=0.00142 q=0.00439 mu=1.203
+             grad_mu[j]: V0 -2.151730e-05  V2 -2.151394e-05  (abs d 3.36e-09)
+
+== Jacobian reliability (status) ==
+  OK count:  V0 104/108   V1 104/108   V2 104/108
+  status-change vs V0:  V1 0   V2 0
+
+== decision-20 gate ==
+  full-Jac median >= 2x faster AND p90/p95/p99 non-regressing.
+  V2 median 1.0684 ms vs V0 1.2616 ms  (1.181x)  not met (see note)
+  p90 ok  p95 ok  p99 ok  (V2 <= V0 => non-regressing)
+
+  NOTE: whole-epoch includes classify_cells (D14) which is common to
+  all 3 -- the profile ceiling (1.47x) is on the radial pass only.
+
+  checksum 421217.364238

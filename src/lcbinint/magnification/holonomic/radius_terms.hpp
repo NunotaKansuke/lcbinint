@@ -25,6 +25,7 @@
 
 #include "lcbinint/magnification/holonomic/angular_rule.hpp"
 #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
+#include "lcbinint/magnification/holonomic/holonomic_transport.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
 #include "lcbinint/magnification/holonomic/phi.hpp"
 #include "lcbinint/magnification/holonomic/poly_roots.hpp"
@@ -186,7 +187,17 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
 // finite midpoint there.  Such a cell is detected at seed time (the phi>0
 // arcs are the "odd" gaps) and left un-seeded -> always cold.
 // ===================================================================
+// Runtime override for tests / the 3-solver benchmark (variants toggled in one
+// process): -1 = follow the environment variable (production), 0 = force off,
+// 1 = force on.  Production code never touches this.
+inline int& holo_mv_transport_override() {
+    static int v = -1;
+    return v;
+}
+
 inline bool holo_mv_transport_enabled() {
+    const int o = holo_mv_transport_override();
+    if (o >= 0) return o != 0;
     static const bool on = [] {
         const char* e = std::getenv("HOLO_MV_TRANSPORT");
         return e && e[0] == '1';
@@ -778,6 +789,12 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
 
     const double tan_thresh = tan_rel * pf.rho / std::max(R, 1e-9);
     const auto& AR = ang_rule();
+    const bool holo_on = holo_holonomic_transport_enabled();
+    // holonomic transport works on the raw primary frame quartic P(.; R)
+    const QuarticCoeffs holo_pc =
+        holo_on ? boundary_quartic(R, pf) : QuarticCoeffs{};
+    const QuarticParamJac holo_dpc =
+        holo_on ? boundary_quartic_dp(R, pf) : QuarticParamJac{};
 
     for (const auto& arc : as.arcs) {
         PolishResult pe = polish_endpoint(R, arc[0], pf);
@@ -786,16 +803,39 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
         double td = pe.dphi_dtheta, tdl = pl.dphi_dtheta;
         if (tl <= te) tl += kTwoPi;
         rt.reliable = rt.reliable && pe.reliable && pl.reliable;
-        if (std::fabs(td) < tan_thresh || std::fabs(tdl) < tan_thresh)
-            rt.reliable = false;
+        const bool arc_clean = std::fabs(td) >= tan_thresh &&
+                               std::fabs(tdl) >= tan_thresh;
+        if (!arc_clean) rt.reliable = false;
 
         rt.f0 += R * (tl - te);
         PhiValDP ge = phi_val_dP(R, te, pf);
         PhiValDP gl = phi_val_dP(R, tl, pf);
+        std::array<double, 5> dte_arr{}, dtl_arr{};
         for (int j = 0; j < 5; ++j) {
             double dte = (td != 0.0) ? -ge.dP[j] / td : 0.0;
             double dtl = (tdl != 0.0) ? -gl.dP[j] / tdl : 0.0;
+            dte_arr[j] = dte;
+            dtl_arr[j] = dtl;
             rt.df0[j] += R * (dtl - dte);
+        }
+
+        // ---- F_half via regularized holonomic transport ------------------
+        // (2/rho) Phi_arc(R) = v K, deflated x-chart, no root solve / no
+        // 64-point angular sweep.  Per-arc fail-closed: any theta = pi
+        // straddle, near-tangency, negative S2, or non-finite result keeps
+        // the incumbent sweep for that arc.
+        if (holo_on && arc_clean) {
+            ArcPairJac ap = arc_pair_jac(te, tl, dte_arr, dtl_arr);
+            if (ap.ok) {
+                VKJacobian vkj =
+                    v_times_K_jac(ap.m, ap.v, ap.dm, ap.dv, R, pf, holo_pc.p,
+                                  holo_dpc.dp);
+                if (vkj.ok) {
+                    rt.fh += vkj.vK;
+                    for (int j = 0; j < 5; ++j) rt.dfh[j] += vkj.dvK[j];
+                    continue;
+                }
+            }
         }
 
         double half = 0.5 * (tl - te);

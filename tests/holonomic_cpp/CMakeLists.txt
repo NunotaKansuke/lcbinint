@@ -129,10 +129,27 @@ target_include_directories(test_root_pair PRIVATE "${_SRC}")
 target_compile_options(test_root_pair PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_root_pair PRIVATE quadmath)
 
+# Regularized holonomic transport (rescue spikes a/b/c) -- holonomic_transport.hpp
+# value vs the 64-pt angular sweep, analytic d/dP_j[v K] vs central FD, and the
+# epoch_jacobian grad_mu chain with the transport forced ON.
+add_executable(test_holonomic_transport "${CMAKE_CURRENT_SOURCE_DIR}/test_holonomic_transport.cpp")
+target_include_directories(test_holonomic_transport PRIVATE "${_SRC}")
+target_compile_options(test_holonomic_transport PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_holonomic_transport PRIVATE quadmath)
+
+# 3-solver whole-epoch benchmark: (V0) current direct / (V1) +(m,v) transport /
+# (V2) +(m,v)+regularized holonomic.  Wall-clock median/p90/p95/p99, mu +
+# grad_mu parity vs V0, status counts -- decision-20 gate.
+add_executable(bench_holonomic_3solver "${CMAKE_CURRENT_SOURCE_DIR}/bench_holonomic_3solver.cpp")
+target_include_directories(bench_holonomic_3solver PRIVATE "${_SRC}")
+target_compile_options(bench_holonomic_3solver PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_holonomic_3solver PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7
                  "${_REPO_ROOT}/evidence/holonomic/m7_reference.tsv")
+add_test(NAME holonomic_transport COMMAND test_holonomic_transport)
 add_test(NAME holonomic_finite_source_binary
          COMMAND test_finite_source_binary "/tmp/bench_cases.tsv")
 add_test(NAME holonomic_root_pair
