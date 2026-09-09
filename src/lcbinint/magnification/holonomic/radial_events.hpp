@@ -34,6 +34,7 @@
 #include <quadmath.h>
 
 #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
+#include "lcbinint/magnification/holonomic/d14_structure.hpp"
 #include "lcbinint/magnification/holonomic/dd_real.hpp"
 #include "lcbinint/magnification/holonomic/fp_env.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
@@ -307,6 +308,28 @@ inline bool holo_d14_compensated_enabled() {
     return on;
 }
 
+// Process-wide opt-out: HOLO_D14_STRUCT_LEGACY=1 forces Horner on the
+// expanded degree-14 coefficient vector.  Default: run the Aberth polish
+// against the C3/G4/Z3 block-form D/D' evaluator (d14_structure.hpp), and
+// build the (still expanded, for the residual / Newton-sum gates)
+// coefficient vector from the same exact blocks.  The blocks carry no
+// high-order cancellation, so the polish sees ~1e-32 coefficients where
+// the expansion route carries ~1e-28 -- the difference that forced the
+// rand028-class near-multiple clusters to escalate to __float128.  The
+// block form is ~1.8x the flops per Aberth node (isolated solve_d14
+// median 0.83x) but collapses the latency tail: epoch p90 1.14x / p99
+// 1.64x / max 1.72x, all percentiles non-regressing; identity exact to
+// 3.2e-28, parity 0/115, no new cold fallbacks
+// (evidence/holonomic/d14_structure_bench.txt, checkpoint 34).  Isolated
+// holonomic build only -- header-only, no shared .so wiring.
+inline bool holo_d14_struct_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_STRUCT_LEGACY");
+        return !(e && e[0] == '1');
+    }();
+    return on;
+}
+
 // Result of the multi-tier D14 root solve.
 struct D14Solve {
     std::vector<Cplx<qf>> roots;
@@ -353,7 +376,8 @@ inline qf d14_worst_res(const qf* desc, int deg,
 // stale or wrong seed still fails closed to the cold solve.
 inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                           bool compensated,
-                          const std::vector<Cplx<qf>>* warm_seed = nullptr) {
+                          const std::vector<Cplx<qf>>* warm_seed = nullptr,
+                          const D14StructQf* sc = nullptr) {
     const qf* desc = desc_v.data();
     D14Solve out;
 
@@ -403,6 +427,16 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             break;
         }
 
+    // Block-form D/D' polish (memo section 3): exact C3/G4/Z3 evaluation
+    // in place of Horner on the cancellation-carrying expanded vector.
+    const bool use_struct = sc && holo_d14_struct_enabled() && deg == 14;
+    D14StructC<DD> scdd;
+    D14StructQf scqf;
+    if (use_struct) {
+        scdd = d14_struct_cast<DD>(*sc);
+        scqf = *sc;
+    }
+
     if (seed_ok && compensated) {
         // FTZ/DAZ off so the error-free transforms keep their lo limbs.
         ScopedNoFlushDenormals _eft;
@@ -417,7 +451,10 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         // floor.  tol 1e-26 is inside that floor (a step norm below it for
         // O(10) roots is dd round-off); 25 sweeps is headroom for a
         // poorly-seeded root (the residual gate escalates it if not).
-        auto zdd = aberth<DD>(descdd.data(), deg, 25, seed.data(), DD(1e-26));
+        auto zdd =
+            use_struct
+                ? aberth_d14_struct<DD>(scdd, nullptr, 25, seed.data(), DD(1e-26))
+                : aberth<DD>(descdd.data(), deg, 25, seed.data(), DD(1e-26));
         out.roots.resize(deg);
         for (int i = 0; i < deg; ++i)
             out.roots[i] = Cplx<qf>(qf_from_dd(zdd[i].re), qf_from_dd(zdd[i].im));
@@ -427,7 +464,11 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         // near-multiple cluster past ~106 bits -> escalate that solve to an
         // __float128 warm polish seeded by the dd roots.
         if (!(out.worst_res <= (qf)1e-13)) {
-            out.roots = aberth<qf>(desc, deg, 24, out.roots.data(), (qf)1e-20);
+            out.roots =
+                use_struct
+                    ? aberth_d14_struct<qf>(scqf, nullptr, 24, out.roots.data(),
+                                            (qf)1e-20)
+                    : aberth<qf>(desc, deg, 24, out.roots.data(), (qf)1e-20);
             out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
             out.tier = 1;
             if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
@@ -437,14 +478,20 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         for (int i = 0; i < deg; ++i)
             seed[i] = Cplx<qf>((qf)zd[i].re * (qf)sscale,
                                (qf)zd[i].im * (qf)sscale);
-        out.roots = aberth<qf>(desc, deg, 24, seed.data(), (qf)1e-20);
+        out.roots =
+            use_struct
+                ? aberth_d14_struct<qf>(scqf, nullptr, 24, seed.data(), (qf)1e-20)
+                : aberth<qf>(desc, deg, 24, seed.data(), (qf)1e-20);
         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
         out.tier = 3;
         if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
     }
 
     if (!seed_ok) {
-        out.roots = aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22);
+        out.roots =
+            use_struct
+                ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22)
+                : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22);
         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
         out.tier = (out.tier == 0 && !compensated) ? -1 : 2;
     }
@@ -464,7 +511,10 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         qf err = fabsq(s.re - want) + fabsq(s.im);
         qf tolsum = (qf)1e-6 * ((qf)1 + fabsq(want));
         if (!(err <= tolsum)) {
-            out.roots = aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22);
+            out.roots =
+                use_struct
+                    ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22)
+                    : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22);
             out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
             out.tier = 2;
         }
@@ -531,7 +581,14 @@ inline std::vector<RadialEvent> radial_events(
     std::vector<RadialEvent> ev;
 
     PolyFamilyR fam = p_coeffs_in_R((qf)a, (qf)m0, (qf)X, (qf)Y, (qf)rho);
-    std::vector<qf> d14 = d14_coeffs(fam);  // ascending in v
+    // D14 low-degree block form (memo sec 2): exact, cancellation-free.
+    // Used for the polish evaluator and -- unless HOLO_D14_STRUCT_LEGACY=1
+    // -- as the source of the expanded coefficient vector too.
+    D14StructQf d14s =
+        d14_struct_build((qf)a, (qf)m0, (qf)X, (qf)Y, (qf)rho);
+    std::vector<qf> d14 = holo_d14_struct_enabled()
+                              ? d14_expanded_from_struct(d14s)
+                              : d14_coeffs(fam);  // ascending in v
     if (!d14.empty()) {
         int deg = (int)d14.size() - 1;
         std::vector<qf> desc(deg + 1);
@@ -548,7 +605,8 @@ inline std::vector<RadialEvent> radial_events(
         D14Solve sol = solve_d14(desc, deg, holo_d14_compensated_enabled(),
                                  (d14_warm && (int)d14_warm->size() == deg)
                                      ? d14_warm
-                                     : nullptr);
+                                     : nullptr,
+                                 &d14s);
         std::vector<Cplx<qf>>& roots = sol.roots;
         if (d14_roots_out) *d14_roots_out = roots;
         auto rv = positive_real_roots(roots, 1e-8, 1e-9);

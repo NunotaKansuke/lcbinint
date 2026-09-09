@@ -97,6 +97,14 @@ target_include_directories(bench_d14_compensated PRIVATE "${_SRC}")
 target_compile_options(bench_d14_compensated PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_d14_compensated PRIVATE quadmath)
 
+# D14 C3/G4/Z3 block-form: exact cancellation-free coefficients + block D/D'
+# evaluation in the Aberth polish (default; HOLO_D14_STRUCT_LEGACY=1 reverts).
+# Parity + A/B timing.
+add_executable(bench_d14_structure "${CMAKE_CURRENT_SOURCE_DIR}/bench_d14_structure.cpp")
+target_include_directories(bench_d14_structure PRIVATE "${_SRC}")
+target_compile_options(bench_d14_structure PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_d14_structure PRIVATE quadmath)
+
 # Phase C/E: prepared-epoch geometry cache + Phase B2 all-root D14 warm-start.
 # Synthesises an N-epoch source track per bench config and runs it cold
 # (V0), L1-topology-reuse (V1), and L1+L2-warm-D14 (V2); reports parity vs

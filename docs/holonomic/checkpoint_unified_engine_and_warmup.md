@@ -3261,3 +3261,153 @@ tiny-high-mag path, identical to §32.7, `git archive 2cdf946` fails it
 identically. **Do NOT fix on this branch** (user message 27: *"stale golden
 test は今の判断でいい"*).
 
+## 34. D14 structural (C₃/G₄/Z₃ block-form) optimisation (2026-09-09)
+
+Agenda item 4 (message 29): *"if D14 still largest → full structural
+optimisation."* User request: pick effective ideas from
+`/rogue1_8/nunota/D14_structure_ideas_ja.md`, implement, test, bench; keep
+compensated DD / warm-start / `__float128` fallback / complex-root
+soft-boundary intact; also **audit the benchmark harness** (polar suspiciously
+fast). Evidence:
+[`evidence/holonomic/d14_structure_bench.txt`](../../evidence/holonomic/d14_structure_bench.txt),
+[`evidence/holonomic/benchmark_harness_audit.txt`](../../evidence/holonomic/benchmark_harness_audit.txt).
+
+### 34.1 Harness audit (Part 0)
+
+5 findings. The benched **"polar" is the pre-planned warmup one-shot**
+(`binary_mag_preplanned` → `fixed_inverse_ray_binary` →
+`evaluate_polar_to_tolerance` returns after ONE `inverse_ray_polar_core`; no
+half-grid, no retry, no grazing quadrature), **not** the `binary_mag()` auto
+route the user remembers as ~5× slower. Polar is pinned at 106 bins for all
+108 cases (reltol 1e-3 == baseline → relative law degenerates to the bare
+coefficient) and is **not iso-accuracy** (polar rel-err vs VBM median 6.0e-5
+vs holo 6.1e-7). `bench_holo_e2e2` carries `thread_local` caches across its 25
+reps at one position; `bench_holo_traj` (N=2600 distinct positions) is clean
+and shows **no** whole-trajectory holo speed win (t_P/t_W ≈ 0.98–0.99×). The
+C++ V0/V1/V2 benches are sound as **relative** measurements (min-of-reps =
+warm-cache floor; `classify_cells` hoisted; percentiles over cases).
+**Consequence:** the polar E2E ratio is not the D14 metric — judge by
+root/status/tier parity (hard gate), then isolated `solve_d14` (median + p90 +
+p99, cold + warm, not min-only), then isolated `radial_events`, then whole
+`epoch_jacobian`.
+
+### 34.2 The identity — verified exact
+
+`scratchpad/verify_d14_structure.cpp` builds D14 two ways on all 108 bench
+geometries: production `d14_coeffs(p_coeffs_in_R(...))` vs the C₃/G₄/Z₃ block
+assembly. **Ratio = 1.000000 on every coefficient; worst relative mismatch
+3.234e-28** (rand011) — and that residual is the production degree-36 Iq/Jq
+route's own high-order cancellation noise, so the block route is the *cleaner*
+reference. With `d=v−1`, `e=v−m`, `β=x²+y²−h`:
+
+```
+L  = v·d + a²·e                                      (deg 2)
+U  = a·e·d + x·L + a·v·β                             (deg 2)
+C3 = v·d² + a²·e² + v(v+a²)β + 2axv(3m−1−2v)         (deg 3, monic)
+G4 = U² + y²·L² − 4aex·C3 − 4a²e²v(4x²+y²)           (deg 4)
+B2 = [a·m + (x−a)·v]² + v²(y²−h)                     (deg 2)
+Z3 = a²(1−m)·y²·(v−m)·B2                             (deg 3)
+F6 = C3² − 4v·G4                                     (deg 6)
+D14(v) = 4096·[ F6·G4² + 8·C3·(2C3² − 9v·G4)·Z3 − 432·v²·Z3² ]
+```
+
+### 34.3 What was added (header-only, additive; LEGACY flag ⇒ byte-identical)
+
+* **`d14_structure.hpp`** (NEW, ~292 lines) — `D14StructC<T>{c3[4],g4[5],z3[4]}`;
+  `d14_struct_build(a,m,X,Y,rho)`; `d14_struct_cast<T>` (`__float128`→DD/double);
+  `d14_struct_eval<T>(s,v,D,Dp)` = memo §3 D/D′ block evaluation
+  (`f=c²−4vg`, `b=2c²−9vg`, `D̂=fg²+8cbz−432v²z²` and its derivative, never
+  conjugating `v` mid-eval, ×4096); `d14_expanded_from_struct` (exact deg-14
+  vector by block polynomial multiplication, for the coeff source / Cauchy
+  bound / non-block tiers); `aberth_d14_struct<T>` mirrors
+  `poly_roots.hpp::aberth` **exactly** but calls `d14_struct_eval` for p/p′.
+* **`radial_events.hpp`** — `holo_d14_struct_enabled()` (default **ON** since
+  §34.7; `HOLO_D14_STRUCT_LEGACY=1` reverts to expanded-Horner). `solve_d14` gains `const D14StructQf* sc = nullptr`;
+  when `sc && flag && deg==14`, tiers 0 (DD), 1 (qf escalate), 3 (qf legacy),
+  the cold-400 backstop and the Newton-sum re-solve all call
+  `aberth_d14_struct` instead of `aberth`-on-the-expanded-vector. **All gates,
+  tolerances, tier order, warm-seed hook, Newton-sum completeness check and
+  conjugate symmetrisation unchanged** — only the polynomial evaluator swaps.
+  `radial_events()` sources the coeff vector from `d14_expanded_from_struct`
+  when the flag is on (`fam` still built for `chart_p4`'s `fam.p[4]`).
+* **`bench_d14_structure.cpp`** + CMake target — in-process A/B (base =
+  expansion+Horner, strt = blocks+block-eval): coeff-vector parity, root-set
+  parity, residual regression, tier histograms, best-of-N median/p90/p99/max,
+  plus whole `radial_events` and full `epoch_jacobian` aggregates.
+
+**Not implemented** (memo §6 low-q all-14-root seed — not universal, q=0.1
+regressed 11→125 iterations, needs a safe low-q predicate; memo §7 small-rho
+h=0 seed — untested). Listed as follow-ups.
+
+### 34.4 Correctness / parity (hard gate)
+
+Isolated `build-holonomic-m7/`: **ctest 5/5 with flag OFF and with
+`HOLO_D14_STRUCT=1`**. `bench_d14_structure` A/B, 115 cases (108 bench + 7
+ref), reps 200:
+
+| check | value |
+|---|---|
+| coeff vector (blocks vs expansion) worst rel | 1.657e-29 (deg-mismatch 0) |
+| root-set rel diff (strt vs base) worst | 2.472e-09 = conjugate-snap floor (no real diff) |
+| worst `__float128` residual | base 3.836e-14 / strt 6.930e-14 (both ≪ 1e-12 gate) |
+| parity failures | **0 / 115** |
+| cold fallbacks | 0 / 115 both paths |
+| tier histogram | base dd 113 / qf-escal 2 / cold 0 · strt dd 107 / qf-escal 8 / cold 0 |
+
+The 6 extra DD→qf escalations are the heavier ~50-op DD block assembly tripping
+the 1e-13 DD-residual gate; tier-1 `__float128` block-eval resolves them
+cheaply (hence the collapsed p99). **0 reach cold.**
+
+### 34.5 Speed — whole-epoch wall-clock primary (load 10.8, taskset -c 0-7, best-of-200)
+
+| lane | `HOLO_D14_STRUCT=1` | baseline (flag unset) | speedup |
+|---|---|---|---|
+| `solve_d14` isolated | med 0.622 · p90 0.641 · **p99 0.890 · max 0.891** | med 0.514 · p90 0.534 · p99 2.66 · max 3.00 | med **0.83×** · p99 **2.99×** · max **3.37×** |
+| whole `radial_events` | med 0.653 · p90 0.691 · **p99 1.00 · max 1.00** | med 0.608 · p90 0.632 · p99 2.82 · max 3.17 | med 0.93× · p99 **2.82×** · max **3.17×** |
+| full value + 5-Jac epoch | med 1.196 · p90 1.94 · **p99 2.41 · max 2.43** | med 1.236 · p90 2.21 · p99 3.96 · max 4.18 | med **1.03×** · p90 **1.14×** · p99 **1.64×** · max **1.72×** |
+
+checksum 895264.122905 identical both runs. Flag-OFF in the same process:
+strt == base to 1.00× (gate is a true no-op).
+
+### 34.6 Interpretation
+
+* The block form is **~1.8× the flops per Aberth node** vs a 14-term Horner
+  (memo §8 predicted this). On the common case (DD converges in ~3 sweeps)
+  that is the isolated `solve_d14` median regression to 0.83×.
+* But it **kills the tail.** The expanded deg-14 vector carries ~1e-28 relative
+  coefficient noise from the production degree-36 cancellation; near a
+  near-multiple root cluster that noise pushed the old path onto the slow
+  genuine-`__float128` branch (solve p99 2.66 ms / max 3.0 ms). The block
+  evaluator has no such noise → the cluster resolves in tier-1 block-eval:
+  solve p99 2.66 → 0.89 (2.99×), `radial_events` p99 2.82 → 1.00 (2.82×),
+  epoch p99 3.96 → 2.41 (1.64×), epoch max 4.18 → 2.43 (1.72×).
+* At epoch level the per-node regression washes out and the tail win survives:
+  epoch median 1.24 → 1.20 (1.03×), p90 2.21 → 1.94 (1.14×), **every
+  percentile non-regressing** — exactly the profile decision-20 rewards.
+* Identity exact, parity clean (0/115), every existing tier / gate / warm-seed
+  / fallback / soft-boundary path untouched (`HOLO_D14_STRUCT_LEGACY=1` → byte-identical).
+
+### 34.7 Status / decision
+
+Implemented, built, ctest 5/5 both ways, benchmarked, parity-verified.
+**User decision 2026-09-09: flip the default ON.** The env flag is now an
+opt-out — `HOLO_D14_STRUCT_LEGACY=1` reverts to expanded-Horner (the A/B
+escape hatch). Rationale: epoch p90 1.14× / p99 1.64× / max 1.72×, median
+1.03×, all percentiles non-regressing; identity exact; parity 0/115; no new
+cold fallbacks; LEGACY byte-identical. The isolated `solve_d14` median 0.83×
+is dominated out at epoch level. Header-only, no `.so` wiring — stays in the
+isolated build, **not** part of the coordinated `.so` window.
+
+Confirmation re-run (load 0.10, reps 120): default == prior flag-on to the
+digit (solve strt median 0.623 / p99 0.890; epoch median 1.195 / p90 1.94 /
+p99 2.41 / max 2.43); `HOLO_D14_STRUCT_LEGACY=1` == prior baseline (epoch
+median 1.235 / p90 2.21 / p99 3.96 / max 4.16); checksum identical both,
+parity 0/115 both. ctest 5/5 default and LEGACY.
+
+### 34.8 Follow-ups (not blocking)
+
+* memo §6 low-q all-14-root seed behind a safe low-q predicate (attacks the
+  ~0.14 ms double presearch, ~14% of `radial_events`) — **deferred (user,
+  2026-09-09)**: not universal, marginal payoff.
+* memo §7 small-rho h=0 `A₄·T₅²` seed (untested).
+
