@@ -2867,3 +2867,141 @@ already proven:
 * `tests/holonomic_cpp/bench_holonomic_3solver.cpp` — header comment +
   restore overrides to `-1` (env control) instead of `0` at exit.
 * `evidence/holonomic/holonomic_3solver_benchmark.txt` — post-flip re-run.
+
+## 31. Phase C step 2 — production `.so` wiring of `holonomic_binary` (2026-09-09)
+
+User authorization (prior session, "進んでいいよ"): proceed with Phase C step 2,
+the shared-`_lcbinint.so` wiring, in the coordinated window with §30. This
+section ships **parts 1–2** of the 5-part plan plus the additive
+`MagnificationExecutionPlan` field, an isolated full-library build, the
+site-packages `.so` swap, and end-to-end validation. **Parts 3 and 4 are
+deferred** (see §31.6).
+
+Full evidence: `evidence/holonomic/phase_c_step2_production_wiring.txt`.
+
+### 31.1 What was wired
+
+| File | Change |
+|---|---|
+| `src/lcbinint/magnification/finite_source_magnifier.hpp` | `enum class FiniteSourceMethod::holonomic_binary` (integer value **6**) |
+| `src/lcbinint/magnification/finite_source_magnifier.cpp` | `#include ".../holonomic/finite_source_binary.hpp"`; `finite_source_method_name` case; anonymous-namespace helper `holonomic_binary_preplanned(...)`; dispatch branch in `binary_mag_preplanned` before the `inverse_ray_*` branch |
+| `src/lcbinint/model/lens_model.hpp` | fwd-decl `holonomic::PreparedEpochGeometry` + additive field `MagnificationExecutionPlan::prepared_geometry` (`std::shared_ptr`, default null; ordinary paths ignore it) |
+| `CMakeLists.txt` | `target_link_libraries(lcbinint_magnification ... quadmath)` — explicit for the engine's `__float128` D14 polish (GSL already pulls it transitively) |
+| `python/bind_lc.cpp` | `execution_plan_from` method-id cap raised `> 5` → `> static_cast<int>(...::holonomic_binary)` |
+| `python/lcbinint/warmup.py` | `HOLONOMIC = 6` constant + `"holonomic_binary"` in `METHOD_NAMES` (auto-selection itself is deferred part 4) |
+
+The `#include` was **proven not to perturb incumbent codegen** — 216/216
+inverse-ray `mu`/`converged` results bit-identical vs a fresh `git archive
+2cdf946` build (`polar_dump.py`, max rel diff `0.000e+00`). No separate `.cpp`
+needed.
+
+### 31.2 Frame mapping (validated ≤ 1e-4 vs VBMicrolensing)
+
+The com-frame source position reaching `binary_mag_preplanned` (the
+`_evaluate_preplanned_xy` path applies **no** `apply_coords`/rotate to the xy)
+maps directly:
+
+```cpp
+req.params = holonomic::LensParams{
+    /*xs=*/source.x, /*ys=*/source.y, /*rho=*/|rho|,
+    /*q=*/mass_ratio, /*a=*/separation, /*barycentric=*/true};
+req.u      = settings_.limb_darkening_c;   // linear LD coefficient
+req.output = RequestedOutput::kValue;
+req.n_r    = resolution > 0 ? resolution : 64;
+```
+
+The engine's `mu` **is** the magnification directly. Wide-binary +
+`options.center_of_mass == 0` folds an offset into `source.x` → the engine
+disagrees with the reference → the (deferred) warmup M4 gate won't select it:
+fail-open, never wrong.
+
+### 31.3 Fail-closed contract (`failclosed_probe.py`, method 6, cold route)
+
+| probe | `mu` | `conv` | result |
+|---|---|---|---|
+| nominal | 4.526361 | 1 | PASS |
+| `q > 1` | NaN | 0 | fail closed |
+| NaN source | NaN | 0 | fail closed (upstream) |
+| negative `rho` | 4.526361 | 1 | abs'd upstream, correct |
+| far source | 1.000090 | 1 | PASS (`mu → 1`) |
+| sqrt-LD `d ≠ 0` | NaN | 0 | fail closed |
+
+Any holonomic `Status` outside the value-trustworthy set
+`{OK, OK_VALIDATED, OK_ESTIMATED, LOCAL_REFERENCE_USED, GRADIENT_UNRELIABLE}` →
+`converged = false`, `magnification = NaN`. Never a silent approximation.
+
+### 31.4 End-to-end accuracy + timing (`bench_holo_e2e2.py`, 108 cases)
+
+holo (method 6, cold, `n_r = 64`) vs `inverse_ray_polar` (method 3, calibrated
+resolution 106) vs VBM `BinaryMag2` (reference). REPS=25, `taskset -c 0-7`,
+load ~10–13.
+
+```
+holo converged            : 108 / 108
+status changes vs polar   : 0
+holo  rel-err vs VBM      : median 6.07e-07   p90 5.72e-05   max 1.36e-02
+polar rel-err vs VBM      : median 5.96e-05   p90 2.99e-04   max 7.39e-04   (holo median ~100x better)
+
+per-epoch wall-clock (LensModel ctor excluded):
+  polar  us : p50  276.1   p90 1092.3   p95 1631.7   p99 5376.1
+  holo   us : p50 1348.6   p90 2399.0   p95 2726.4   p99 5053.0
+  t_polar / t_holo : median 0.181x   min 0.054x   max 3.136x
+```
+
+The **cold single-shot** holonomic route is ~5.5× slower than calibrated polar
+on the median — expected: it pays the full D14 solve with no amortization. holo
+wins only on hard cases (`extreme-q-planet` 3.1×, `rand029` 1.3×). The
+whole-epoch production value (§29: whole-epoch V2 **1.183×**) comes from
+`(m,v)` + prepared-geometry reuse **across a trajectory** = deferred part 3.
+Standalone method 6 is a correctness/accuracy win now, not a single-epoch speed
+win.
+
+**Accuracy outlier:** case `tiny-rho` (`x=0.1 y=0.02 rho=1e-3 q=0.3 s=1.0`),
+both `u`, holo rel-err **1.36e-2** — a tiny source straddling a caustic on the
+cold `n_r=64` route; returns `converged=true` (a fail-closed gap). Pre-existing
+known engine limitation (memory: "tiny-rho mu 2.7e-3"). Other `rho≈1e-3` cases
+(`rand007/024/038`) are fine at ~1e-8, so `rho` alone is not the discriminator —
+**do not add an ad-hoc `rho` threshold.** The deferred part-4 M4 warmup
+reference-validation gate screens it out → fail-open.
+
+### 31.5 Incumbent not regressed
+
+* `polar_dump.py`: 216/216 inverse-ray results bit-identical vs `git archive
+  2cdf946`.
+* smoke test PASS; m7 ctests 5/5; `pytest tests/holonomic tests/jax_ir/test_
+  multipole.py` → **284 passed, 3 skipped, 1 deselected** (398.62s).
+* Deselected: `test_hybrid_keeps_calibrated_tiny_high_magnification_polar_path`
+  — **pre-existing branch drift**, not caused here: a fresh `git archive
+  2cdf946` build fails identically (ACTUAL 95.432129 vs DESIRED
+  95.4330060008795, rel diff 9.19208922e-06). Golden set 2026-08-18 (a371bee),
+  stale vs branch commits d4e01e9 / 2cdf946. Do **not** "fix" on this branch.
+
+### 31.6 The `.so` swap
+
+```
+target : .../site-packages/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so
+built  : build-phase-c/ (in-worktree, gitignored), full library WITH the edits,
+         canonical config (cmake.build-type = Release only, no -march=native), 0 errors
+new sha256 : 3d880eefbc6d7bf9f4a7998e34eab3b17100805c3e2d5d60e38d56661d7076ae   (3668664 bytes)
+backup     : scratchpad/lcbinint__lcbinint.so.REAL-backup-20260909-094549
+             sha256 681ac2b9387afd13b4fc74a445997866f04608133bf0e0420ae09a29726d7ce0  (2750512 bytes)
+```
+
+The isolated `build-holonomic-m7/` (`_lcbinint_holonomic_m7`) stays the default
+for all other holonomic work; only Phase C step 2 touches the shared `.so`.
+
+### 31.7 Deferred (parts 3 & 4) and why
+
+* **Part 3** — threading `MagnificationExecutionPlan.prepared_geometry` +
+  a per-trajectory rolling cache through `magnification_impl` /
+  `light_curve.cpp`. This is where the whole-epoch 1.18× actually lands, but
+  the plumbing touches the hot trajectory loop and warrants its own window.
+* **Part 4** — `warmup.py build_warmup_report` holonomic auto-selection with
+  the M4 reference-validation gate. `build_warmup_report` (~480 lines, JAX
+  interop, grid campaigns) is delicate; a rushed change risks regressing the
+  production warmup.
+
+Until then, `holonomic_binary` is reachable **only** via an explicit
+`MagnificationExecutionPlan{ method = holonomic_binary }` (C++) or
+`_evaluate_preplanned_xy(..., [6], [0])` (Python). The ordinary routing
+cascade never picks it.
