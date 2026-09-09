@@ -3411,3 +3411,274 @@ parity 0/115 both. ctest 5/5 default and LEGACY.
   2026-09-09)**: not universal, marginal payoff.
 * memo §7 small-rho h=0 `A₄·T₅²` seed (untested).
 
+## 35. Full coupled-state ODE transport in C++ — 4-solver benchmark + audit (2026-09-09)
+
+`evidence/holonomic/ode_transport_benchmark.txt`.  User task (2026-09-09):
+implement the *full* holonomic ODE transport from Python spike (a)–(c) in C++
+— transport `(m, v, K, F0, F_{1/2})` as **one coupled RK4 state within a cell**
+so the normal ODE path no longer needs the per-radial-node quartic re-solve,
+the per-node angular √φ quadrature, or the normal radial flux quadrature.
+Distinct from the current `HOLO_HOLONOMIC_TRANSPORT` ("semi-holonomic", which
+still recomputes a 16-node v·K at every radial node).  Benchmark ≥ 3 solvers,
+value-only + value+5-Jac split; audit that it is *really* full-ODE.
+
+### 35.1 Solvers
+
+| | path | quartic re-solve / node | angular √φ / node | flux quad |
+|---|---|---|---|---|
+| V0 | current direct | yes | yes | GC64 |
+| V1 | + (m,v) root-pair transport (shipped default) | **no** | yes | GC64 |
+| V2 | + semi-holonomic v·K (`HOLO_HOLONOMIC_TRANSPORT`) | yes | **no** (16-node K-rule) | GC64 |
+| V3 | + full coupled-state ODE (`HOLO_ODE_TRANSPORT`) | **no** (1 seed/cell) | **no** | **no** (RK4 state) |
+
+### 35.2 What was closed this checkpoint
+
+The ODE transport (`holonomic_ode_transport.hpp`, opt-in, flag-OFF
+bit-identical) was built across prior sessions.  Two gaps closed here:
+
+1. **`kOdeTailVFloor = 1e-250`.** The fold tail integrates under
+   `u = √|R_f − R|` (`dR = 2u du` regularizes `d(Δθ)/dv ∼ 1/√v`), so it can go
+   arbitrarily close to `v → 0` and needs its *own* floor (guard only 0 /
+   negative / non-finite), not the shared near-tangency `kHoloVFloor = 1e-10`.
+   `v·K → 0` as `v → 0`, so sub-`kHoloVFloor` tail nodes contribute 0 to
+   `F_half` (K-rule skipped).  `fb_march_tail` ≈ 178 → ≈ 8; ODE cell adoption
+   15.8 % → **56.9 %**.
+
+2. **Epoch-scope ρ-derivative catastrophic-cancellation fail-closed gate**
+   (§35.4).
+
+### 35.3 Full-ODE audit — PASS
+
+`bench_holonomic_ode` / `test_holonomic_ode`, V3 Jacobian lane, 108 cases:
+
+```
+kArcs cells offered        404
+cells completed on ODE     230   (56.9 %)
+cells fallback -> per-node  174   (43.1 %)   polish 48 / theta=pi 84 / krule 34 / tail 8
+seed quartic solves        404   (exactly 1 per ODE-cell seed; NO per-node re-solve)
+RK4 steps               78 160
+K-rule 16-node GC2 evals 337 900  (on the RK4 march, NOT per radial node)
+>>> angular_sweep_nodes      0    MUST be 0   PASS
+>>> per_node_quartic_solves  0    MUST be 0   PASS
+```
+
+On the 230 adopted cells: one quartic solve (the anchor seed), zero angular √φ
+nodes.  `F0 / F_half / dF0i[5] / dFhi[5]` are RK4 state; v·K enters only through
+the on-march 16-node K-rule at the RK4 stages.  **The V3 timing is a genuine
+full-ODE measurement.**
+
+### 35.4 The ρ-derivative cancellation gate (`kOdeRhoCancelMax = 2.5e3`)
+
+`epoch grad_mu[2] = dN/D − 2μ/ρ`, and
+
+```
+dN/D − 2μ/ρ = { (1−u)(dF0_ρ − 2F0/ρ) + u(dF½_ρ − 2F½/ρ) } / D
+```
+
+so the cancellation is **u-independent**, inside `dF0_ρ − 2F0/ρ` and
+`dF½_ρ − 2F½/ρ`.  Small ρ ⇒ both halves reach 1e3…1e8 and cancel to O(1e-2).
+The incumbent GC64 pass holds `F0 / dF0_ρ` to ~1e-9 relative and **survives**;
+RK4 ODE transport reaches only ~1e-5…1e-6 relative and the difference is then
+O(1) wrong (sign-wrong on the worst cases).  Root cause is **not** the ODE cell
+transport — `cellconv` shows the per-cell `dF0_ρ` matches an `n_r=4096` direct
+GC to ~1e-5…1e-6; it is the epoch assembly of `grad_mu[ρ]` that is
+ill-conditioned (memo §29's "incumbent's own −2μ/ρ cancellation", now measured).
+
+```
+rho_cancel_kappa = max_{F0,F½} (|d_ρ| + |2F/ρ|) / max(|d_ρ − 2F/ρ|, 1e-300)
+
+gate:  fj.used_ode && rho_cancel_kappa(fj, ρ) > 2.5e3
+   ->  re-run flux_jacobian_integrate(..., allow_ode=false)   (fail closed to per-node)
+```
+
+Wiring: `FluxJacobian` gains `bool used_ode`; `flux_jacobian_integrate` gains
+`bool allow_ode = true`; new `flux_jacobian_integrate_gated()` wraps both and
+is called by `flux_jacobian` + `flux_jacobian_prepared`.  The **value lane**
+(`flux_value`, no −2μ/ρ term) is **not** gated.
+
+Effect over the 108-case sweep:
+
+| | before gate | after gate |
+|---|---|---|
+| worst grad vec-rel (V3−V0) | 0.395 | **2.55e-3** |
+| worst grad rel (V3−V0) | 1.664 | 4.49e-2 (rand004 — see note) |
+| worst \|dμ/μ\| | 6.11e-5 | 6.11e-5 |
+| status changes vs V0 | 0/108 | 0/108 |
+| epochs gated | — | **52/108** |
+
+**Note (rand004, κ≈1.05e3, not gated, residual 4.49e-2):** vs an `n_r=512`
+reference, V3 is *closer to truth* than V0 (V3−Ref −5.6e-4 vs V0−Ref +1.4e-3);
+same on rand036 / rand032 (V3 ≈ 2.5× closer).  The residual is a V3-vs-V0
+disagreement where V3 is the better answer — lowering the threshold would
+reject it.  For κ > ~2e4 the ODE genuinely breaks down and the gate correctly
+defers.  Calibration: κ > ~2e4 → ODE O(1)/sign-wrong; κ 3e3…2e4 → ODE err
+0.05…0.26; κ < 1e3 → agree to < 1e-2.
+
+### 35.5 Accuracy (108 cases)
+
+* value+5-Jac vs V0: V3 μ max\|dμ/μ\| **6.1e-5**, grad max rel 4.5e-2 (see
+  note), median grad rel 1.5e-5.  V1/V2 unchanged (1.6e-4, pre-existing).
+* value-only vs V0: V3 μ max\|dμ/μ\| **1.0e-4** (rand033), median 2.6e-7.
+* status: V0=V1=V2=V3=104/108 OK, **0 status changes** every lane.
+
+### 35.6 Wall-clock (`bench_holonomic_ode`, best-of-200, 2026-09-09 23:46 JST)
+
+Loadavg was 17.7/18.4/17.9, but that load is ~10 heavy processes packed onto
+cores 0–17; **cores 24–31 (NUMA node1) were fully idle** (pre-run `ps` check).
+Pinned `taskset -c 24-31` instead of the contended `0-7`. The four variants are
+timed interleaved in one process so the V0/Vn ratios are robust regardless; the
+idle-core pin makes the absolute ms trustworthy too. Confirms the earlier
+load-21 reps-3 smoke run to within noise.
+
+value + 5-Jacobian lane, whole-epoch ms:
+
+| | median | p90 | p95 | p99 | max |
+|---|---|---|---|---|---|
+| V0 | 1.2752 | 1.9938 | 2.3135 | 2.4946 | 2.5148 |
+| V1 | 1.2266 | 1.9937 | 2.2590 | 2.4707 | 2.4848 |
+| V2 | 1.0945 | 1.8364 | 1.9528 | 2.1161 | 2.1237 |
+| V3 | 2.4699 | 3.5396 | 4.2532 | 6.0857 | 6.1423 |
+
+| speedup vs V0 | median | p90 | p99 |
+|---|---|---|---|
+| V1 (m,v) root-pair, in `.so` | 1.040× | 1.000× | 1.010× |
+| V2 semi-holonomic v·K, isolated | **1.165×** | 1.086× | 1.179× |
+| V3 full coupled ODE | **0.516×** | 0.563× | 0.410× |
+
+value-only lane (`epoch_value`): V0 median 1.1241 ms → V1 1.096× · V2 1.095× ·
+**V3 0.888×** (p99 0.769×).
+
+jac radial pass only (D14 hoisted — the 1.47× ceiling term): V0 0.5783 ms vs
+**V3 1.8228 ms → 0.435×** (p90 0.781×, min 0.117×); radial = 45.4 % of the V0
+epoch.
+
+**V3 is 1.94× slower on the value+Jac whole epoch, 2.30× slower on the radial
+pass, 1.13× slower even value-only; never faster on any case; tails worse
+(jac p99 2.44× slower).**
+
+### 35.7 Interpretation
+
+* Full coupled-state ODE transport is **implemented, correct, audited** — but
+  **slower** than the direct solver, not faster (1.94× value+Jac epoch, 2.30×
+  radial pass, never faster on any case).
+* Cost driver (visible in the audit): **337 900** K-rule 16-node evaluations
+  over 230 cells (~1470/cell), because v·K is re-evaluated at every RK4 stage
+  (~340 steps/cell × 4).  Direct path ≈ 4 100 integrand evals/cell.  ODE march
+  does ~5–6× more flux-integrand work.
+* Consistent with spike (c) (memo §28): K-rule is the *universal* transport but
+  the **regime-2 flux-priority jet** (decay_ρ ≥ 6 → per-substep 16-node K-rule
+  sum → seeded Taylor germ) was **deferred, speed-only**.  212 / 298 routed
+  cells are regime-2 territory but all take the K-rule.  The 1.47× ceiling
+  assumed the jet.
+* ~340 RK4 steps/cell is the adaptive v-clamp (`kOdeVStepFrac = 0.10`) crawling
+  from `v ∼ 1e-3` to `kOdeVWork = 1e-9` before the u-sub tail.  Raising
+  `kOdeVWork` (earlier tail hand-off) is the obvious first speed lever —
+  untested, needs its own accuracy pass.
+* 48 % epoch gate rate is an **upper bound** — `bench_cases.tsv` is a
+  deliberately extreme stress set.
+
+### 35.8 Recommendation / status
+
+Implemented, built, **ctest 6/6** (new `holonomic_ode`), flag-OFF
+bit-identical, parity + audit verified.  **Keep `HOLO_ODE_TRANSPORT` OFF by
+default** — it is (1) the correctness / A/B reference for coupled-state
+transport and (2) the substrate for the regime-2 jet.  Shipped speed levers
+stay V1 ((m,v)-only, in the `.so`) and V2 (semi-holonomic, isolated build).
+**User call:** whether to build the regime-2 jet — the only path to the 1.47×
+ceiling for fold-adjacent arcs, and purely speed (the K-rule already gives the
+correct number).  As it stands the full-ODE path is a research substrate, not
+a speed lever; V2 (semi-holonomic v·K, 1.165×) remains the best isolated-build
+radial lever and V1 (1.040×) the shipped one.
+
+## 36. Regime-2 flux-priority jet in C++ (2026-09-10)
+
+**Task (user, 2026-09-09):** §35.7 pinned the K-rule **call count** (337 900
+on-march 16-node GC2 evals) as the V3 cost driver; implement the deferred
+regime-2 flux-priority jet (spike (c)/memo §28) in C++.
+
+### 36.1 What was built (`holonomic_ode_transport.hpp`, untracked; additive)
+
+* `route_regimes` now reports `jet_eligible` (regime 2 ⇔ `dist_fold ≥ 2H`).
+* `ode_jet_build`: per eligible cell — 9 Chebyshev–Gauss seed nodes over
+  `anchor ± 0.85 H`; at each node one `(m,v)` sub-march + **one** K-rule eval of
+  `[v·K, d(v·K)/dp_j (×5)]`; 9×9 Chebyshev–Vandermonde solve → per-column
+  coefficient-decay ρ (log|cₖ| slope over k=2..6; k=1 skipped — parity coeff).
+  **Gate: the worst ρ across all 6 columns** (v·K + 5 param derivatives) must be
+  ≥ `kOdeJetDecayMin = 6`. The v·K-only gate let a 0.72-relative grad error
+  through on rand013 — the `a`-separation derivative column stays rough where
+  v·K looks smooth. Cheb→Taylor about the anchor (well-conditioned: anchor is
+  the seed-window centre).
+* `ode_rhs_jac` / `ode_rhs_value`: when a germ is active and `|R−R_c| ≤ r_half`
+  (= H), the F½ / dF½ᵢ accumulators are fed by degree-6 Horner instead of
+  `v_times_K_jac` / `v_times_K`. The `(m,v)` march + IFT `dm/dp`, `dv/dp` are
+  **unchanged** — the jet only removes the K-rule call.
+* A regime-2 cell that still reaches a v-work fold edge mid-march (linear
+  `dist_fold` is optimistic) is **not** failed: germ covers `[anchor, R_end]`,
+  `ode_fold_tail` runs the K-rule on `[R_end, edge]`.
+* New env knobs (isolated build only): `HOLO_ODE_JET_DECAY` (ρ gate override),
+  `HOLO_ODE_JET_DEBUG` (stderr coeff dump). New constants `kOdeJetDeg=6`,
+  `kOdeJetSeedN=9`, `kOdeJetSeedSpan=0.85`, `kOdeJetDecayMin=6.0`.
+
+### 36.2 Audit + accuracy (`bench_holonomic_ode`, 108 cases, reps=200, cores 24-31 idle)
+
+| | pre-jet (§35) | post-jet |
+|---|---|---|
+| cells on ODE / fallback | 230 / 174 | 230 / 174 |
+| epochs ρ-cancel gated | 52/108 | 52/108 |
+| RK4 steps | 78 160 | **78 160 (unchanged)** |
+| on-march K-rule 16-node evals | 337 900 | **181 912 (−46 %)** |
+| jet eligible / active | — | 196 / 130 (demote decay/seed 60/6) |
+| jet Horner RHS arc-evals | — | 157 776 |
+| angular_sweep / per_node_quartic | 0 / 0 | 0 / 0 ✅ |
+
+Accuracy unchanged within noise (the jet reproduces the K-rule): V3 value+5-Jac
+μ max |δμ/μ| 6.11e-5, grad max rel 4.50e-2 (rand004, §35.4); value-only
+1.02e-4. Status 104/108 OK, 0 changes vs V0. **ctest `holonomic_ode` PASS**
+(μ ≤ 5e-4, grad ≤ 5e-2, audit, new jet-engaged regression guard).
+
+### 36.3 Wall-clock (same run, best-of-200)
+
+value + 5-Jacobian lane, whole-epoch median ms:
+
+| | V0 | V1 | V2 | V3 |
+|---|---|---|---|---|
+| median | 1.2746 | 1.2243 | 1.0936 | 2.0806 |
+| speedup vs V0 | — | 1.041× | 1.165× | **0.613×** |
+| p99 speedup | — | 1.014× | 1.179× | 0.602× |
+
+* value-only: V3 0.926× (was 0.888×).
+* jac radial pass only: V0 0.5784 → V3 1.3946 ms = **0.554×** (was 0.435×);
+  p99 0.410× → 0.602×.
+
+**The jet moved V3 from 0.516× → 0.613× (value+Jac epoch) and 0.435× → 0.554×
+(radial pass); tails improved markedly. V3 is still 1.63× slower on the whole
+epoch, 1.80× on the radial pass, never faster on any single case.**
+
+### 36.4 Interpretation — why −46 % K-rule only bought +19 % on the ratio
+
+* **RK4 step count is unchanged at 78 160.** The jet removes the K-rule *call*
+  at each stage; the stage still runs the full `(m,v)` transport (root_pair_dR
+  Newton, E/O Jacobian, `dm/dp`+`dv/dp` IFT solve). The K-rule was ~30–40 % of
+  a stage; the rest stays. The **step-count crawl** (adaptive v-clamp from
+  `v∼1e-3` to `kOdeVWork=1e-9` before the u-sub tail) is now the dominant term.
+* 52/108 epochs still trip the ρ-cancellation gate → pay both an ODE pass and a
+  full per-node pass.
+* Only 130/196 eligible cells take the jet (60 demoted by the 6-column gate);
+  loosening risks the rand004/rand013 param-derivative edge error (already
+  4.5e-2 vs the 5e-2 tolerance).
+
+Confirms and extends the §35.7 verdict: the flux-priority jet is **necessary
+for the 1.47× ceiling but not sufficient alone**. Next lever is structural —
+either raise `kOdeVWork` (earlier tail hand-off, cut the step-count crawl) or
+the **"aggressive" regime-2 form** (analytic F½ integral of the degree-6 packet
++ a fixed low-order GL rule for F0 → drop the RK4 march on regime-2 cells
+entirely). Both are the user's call; neither is started.
+
+### 36.5 Status
+
+Implemented, built, **ctest 6/6**, flag-OFF bit-identical. **Keep
+`HOLO_ODE_TRANSPORT` OFF by default.** The jet is in the tree as the substrate
+for the aggressive regime-2 form. Shipped speed levers stay V1 (`.so`) and V2
+(isolated). Not committed. Evidence:
+`evidence/holonomic/ode_transport_benchmark.txt` §8.
+

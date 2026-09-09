@@ -161,6 +161,22 @@ target_include_directories(bench_holonomic_3solver PRIVATE "${_SRC}")
 target_compile_options(bench_holonomic_3solver PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_holonomic_3solver PRIVATE quadmath)
 
+# Full coupled-state ODE transport benchmark: (V0) direct / (V1) +(m,v) /
+# (V2) +semi-holonomic per-node v*K / (V3) +full coupled-state ODE march.
+# value-only and value+5-Jac lanes timed separately; whole-epoch + radial-pass
+# percentiles; accuracy + status + fallback rate; ends with a full-ODE audit
+# (angular_sweep_nodes == 0, per_node_quartic_solves == 0 on the V3 path).
+add_executable(bench_holonomic_ode "${CMAKE_CURRENT_SOURCE_DIR}/bench_holonomic_ode.cpp")
+target_include_directories(bench_holonomic_ode PRIVATE "${_SRC}")
+target_compile_options(bench_holonomic_ode PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_holonomic_ode PRIVATE quadmath)
+
+# Full coupled-state ODE transport correctness + full-ODE audit (fast; ctest).
+add_executable(test_holonomic_ode "${CMAKE_CURRENT_SOURCE_DIR}/test_holonomic_ode.cpp")
+target_include_directories(test_holonomic_ode PRIVATE "${_SRC}")
+target_compile_options(test_holonomic_ode PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_holonomic_ode PRIVATE quadmath)
+
 enable_testing()
 add_test(NAME holonomic_m7_reference
          COMMAND test_holonomic_m7
@@ -172,6 +188,8 @@ add_test(NAME holonomic_root_pair
          COMMAND test_root_pair
                  "${_REPO_ROOT}/evidence/holonomic/root_pair_ref.tsv"
                  "/tmp/bench_cases.tsv")
+add_test(NAME holonomic_ode
+         COMMAND test_holonomic_ode "/tmp/bench_cases.tsv")
 
 # --- optional Python binding (separately named, isolated) ------------------
 option(LCBININT_BUILD_HOLONOMIC_M7_PY "Build the isolated _lcbinint_holonomic_m7 pybind module" ON)
