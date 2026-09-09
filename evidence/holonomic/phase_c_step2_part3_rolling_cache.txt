@@ -1,0 +1,174 @@
+================================================================================
+Phase C step 2 part 3 -- per-trajectory rolling PreparedEpochGeometry wired
+into the production LightCurve magnification path + end-to-end benchmark
+================================================================================
+Date        : 2026-09-09
+Branch      : claude/holonomic-solver-m1   (base HEAD 48daa49)
+Governing   : checkpoint_unified_engine_and_warmup.md S32
+                 (user message 27: "Part 3 rolling cache -> E2E trajectory
+                  benchmark -> accuracy/fail-closed gate -> Part 4")
+Host load   : 10.0 - 14.3 (uptime logged before every timing run), taskset -c 0-7
+
+--------------------------------------------------------------------------------
+1. WHAT WAS WIRED (all additive; flag OFF => bit-identical to 48daa49)
+--------------------------------------------------------------------------------
+src/lcbinint/magnification/finite_source_magnifier.hpp
+    + fwd-decl  namespace lcbinint::holonomic { struct PreparedEpochGeometry; }
+    + free fn   make_prepared_epoch_geometry() -> shared_ptr<PreparedEpochGeometry>
+                (empty, valid==false => first epoch builds cold)
+    + FiniteSourceMagnifier::binary_mag_preplanned() gains a trailing
+      `holonomic::PreparedEpochGeometry* rolling_prepared = nullptr`
+
+src/lcbinint/magnification/finite_source_magnifier.cpp
+    + holonomic_binary_preplanned() gains the same trailing param; when non-null
+      it takes  finite_source_binary_prepared(req, *rolling, default_reuse_config)
+      instead of the stateless finite_source_binary(req).
+      default_reuse_config = L2 warm-seeded D14 ON / L1 verbatim reuse OFF.
+    + decision.reason now carries a provenance tag:
+        "[<status>, cold]"                       rolling_prepared == nullptr
+        "[<status>, prepared:cold-build]"        kColdOracle   (first epoch)
+        "[<status>, prepared:L1-reuse]"          kTopologyReused
+        "[<status>, prepared:L2-warm-D14]"       kWarmRecomputed
+        "[<status>, prepared:L3-cold-recompute]" kColdRecomputed
+
+src/lcbinint/model/lens_model.cpp
+    + magnification_source()  (~L333) and magnification_impl() (~L526) pass
+      plan.prepared_geometry.get() as the new trailing arg.  (.get() on a
+      shared_ptr of incomplete type is legal; no new include in lens_model.cpp.)
+
+python/bind_lc.cpp
+    + execution_plan_from(methods, resolutions, bool reuse_prepared_geometry=false)
+      -- when true, allocates ONE rolling PreparedEpochGeometry and attaches it
+      to every FiniteSourceMethod::holonomic_binary plan entry (shared_ptr, so
+      the whole trajectory rolls through the same cache).
+    + compute_preplanned / _diagnostic / _xy_diagnostic + the 3 .def lambdas
+      (_magnification_preplanned, _evaluate_preplanned, _evaluate_preplanned_xy)
+      gain  py::arg("reuse_prepared_geometry") = false.
+
+src/lcbinint/magnification/holonomic/prepared_geometry.hpp
+    + finalize_prepared(pf, topo, roots, bool want_margins = true)
+      build_prepared_geometry(pf, bool want_margins = true)
+      -- the ConditioningMargins block (per-cell boundary_quartic +
+         192-eval prep_detail::coarse_fold_count) is read ONLY by
+         prepared_rescreen, i.e. only on the L1 verbatim-reuse path.  With L1
+         off (cfg.allow_topology_reuse == false, the production default) it was
+         dead work every epoch.  prepared_topology now passes
+         want_margins = cfg.allow_topology_reuse to the L2/L3 recompute calls.
+      -- fail-closed preserved: a later L1 attempt against a margin-less cache
+         simply fails prepared_rescreen; it never reuses on stale data.
+
+--------------------------------------------------------------------------------
+2. CORRECTNESS -- cold vs prepared, incumbent untouched
+--------------------------------------------------------------------------------
+part3_smoke.py (N=40, s=1.0 q=0.3 rho=0.01 near-caustic):
+    converged cold/warm : 40/40
+    max |dmu|/mu cold-vs-warm : 0.0
+
+bench_holo_traj.py C-vs-W parity (method 6, reuse=False vs reuse=True):
+    N=400  wide track   : max rel |dmu_C - dmu_W| / mu  = 6.60e-15
+    N=1500 caustic zoom : max rel                        = 8.96e-15
+    status changes vs polar : cold 0 / prepared 0  (both tracks)
+
+isolated bench_holonomic_trajectory (3456 epochs, full-Jacobian path,
+epoch_jacobian_prepared, reps=30):
+    |dmu|/|mu|  V1 (L2 warm-D14) : median 0  p90 0  max 3.92e-07
+    status downgraded vs V0 : V1 0
+    FALSE REUSE (L1, must be 0) : V1 0
+    reuse mix : L1 0 / L2 96.9% / L3 3.1%  warm-seed-used 3348  rescreen-miss 0
+
+incumbent inverse-ray polar (method 3), polar_dump.py vs git-archive 2cdf946:
+    216/216 mu/converged bit-identical  (max rel diff 0.000e+00)
+
+--------------------------------------------------------------------------------
+3. SPEED -- the finding: no measurable whole-trajectory win on the VALUE path
+--------------------------------------------------------------------------------
+3a. Isolated full-Jacobian path (bench_holonomic_trajectory, best-of-30):
+        V0 cold          median 1.2229 ms   p90 1.9567  p99 3.3466
+        V1 L2 warm-D14   median 1.1651 ms   p90 1.8873  p99 3.0980
+        V1 steady speedup vs V0 median : 1.05x   (was 1.08x at S21;
+        B1 compensated double-double D14 polish, shipped since S19, has cut the
+        cold D14 solve cost that S21's warm-seed was recovering -> the L2 gain
+        has eroded to ~1.05x, right at this host's load-10..14 noise floor.)
+
+3b. End-to-end production value path (_evaluate_preplanned_xy, method 6,
+    RequestedOutput::kValue -- note the Phase D value lane is NOT built, so
+    kValue still runs the full fused epoch_jacobian_prepared pass):
+
+    trajectory s=0.9 q=0.2 rho=0.008 u=0.6, single 6-cusp caustic
+      N=400  XR=0.85  reps=15   (wide pass, drift 0.71 rho/step near centre)
+        whole-trajectory  polar 255.5 ms / holo C 733.5 / holo W 742.8
+        speedup  t_C / t_W = 0.988x     (prepared marginally SLOWER)
+        rel-err vs VBM median : polar 2.45e-5 / holo C,W 1.98e-7  (~124x better)
+      N=1500 XR=0.20  reps=6    (caustic zoom, drift 0.033 rho/step)
+        whole-trajectory  polar 1713 ms / holo C 3091 / holo W 3152
+        speedup  t_C / t_W = 0.981x
+        rel-err vs VBM median : polar 7.86e-6 / holo C,W 2.83e-5
+        per-epoch us p50 : polar 972 / holo C 2207 / holo W 2231
+
+    Why the isolated 1.05x does not survive to the E2E path: per-epoch wall
+    clock is ~2.2 ms E2E vs ~1.2 ms isolated kernel.  The extra ~1 ms/epoch is
+    pybind marshalling + com-frame transform + linear-LD blend + the
+    LightCurve per-epoch loop, none of which the rolling cache touches.  That
+    halves the kernel's share of the epoch, so a 1.05x kernel gain becomes
+    ~1.02x E2E -- indistinguishable from noise at load 10..14.
+
+3c. Holo (method 6) vs calibrated inverse_ray_polar (method 3), whole track:
+        wide pass    : t_polar / t_holo = 0.35x   (holo ~2.9x slower)
+        caustic zoom : t_polar / t_holo = 0.55x   (holo ~1.8x slower)
+    Polar at the per-epoch calibrated low resolution (_binary_resolution_hint)
+    is genuinely cheap; holo pays the full D14 classify_cells every epoch
+    (~55% of the epoch, shared, untouched by the radial-pass optimisation).
+
+--------------------------------------------------------------------------------
+4. INTERPRETATION
+--------------------------------------------------------------------------------
+* Part 3's rolling cache is now a real production capability: exact-parity,
+  fail-closed, 0 status changes, incumbent bit-identical.  The structural
+  enablement is done.
+* It does NOT deliver a wall-clock win on the current production path, because:
+    - the S29 1.183x radial-pass win lives on the FULL-Jacobian flux pass and
+      is gated behind HOLO_HOLONOMIC_TRANSPORT (still OFF); the shipped .so
+      carries only the (m,v) 1.028x;
+    - the S21 ~1.08x D14-reuse win that Part 3 threads has eroded to ~1.05x
+      (isolated) / ~noise (E2E) because B1 already cut the cold D14 solve;
+    - the production value path is kValue but the Phase D value lane does not
+      exist yet, so it pays the whole fused Jacobian pass and then discards it.
+* Holo's demonstrated production value on this path is ACCURACY, not speed:
+  ~100-120x better median rel-err than calibrated polar at a fixed n_r=64, and
+  exact reproducibility across the rolling cache.
+* This is the "real comparison" the user asked for (message 27: "Part 3 が
+  本当の比較になる").  Verdict: on the production value path, holonomic +
+  full reuse ~= the direct solver in wall-clock, wins ~100x on accuracy,
+  exact parity, 0 status changes; it is 1.8-2.9x slower than calibrated
+  inverse-ray-polar end-to-end.
+
+--------------------------------------------------------------------------------
+4b. VALIDATION
+--------------------------------------------------------------------------------
+isolated build-holonomic-m7/ rebuilt with the prepared_geometry.hpp change:
+    ctest : 5/5 pass
+      holonomic_point_images / holonomic_m7_reference / holonomic_transport /
+      holonomic_finite_source_binary / holonomic_root_pair
+
+build-phase-c/ rebuilt, .so re-swapped into site-packages:
+    md5 7fabf35387b2bc0a14be2d60ff435cd8   (3681016 bytes)
+    backup scratchpad/lcbinint__lcbinint.so.step2-backup-20260909-103912
+
+pytest tests/holonomic tests/jax_ir/test_multipole.py :
+    284 passed, 3 skipped, 1 failed  (404 s)
+    the 1 failure = pre-existing test_hybrid_keeps_calibrated_tiny_high_
+    magnification_polar_path branch drift (max rel 9.19e-6, ACTUAL 95.432129
+    vs DESIRED 95.433006) -- calibrated-polar path, untouched by part 3,
+    git-archive 2cdf946 fails identically.  NOT fixed on this branch
+    (user message 27).
+
+--------------------------------------------------------------------------------
+5. FILES
+--------------------------------------------------------------------------------
+scratchpad/part3_smoke.py                cold-vs-prepared parity smoke
+scratchpad/bench_holo_traj.py            E2E trajectory benchmark
+scratchpad/bench_holo_traj.json          wide pass N=400
+scratchpad/bench_traj_caustic.json       caustic zoom N=1500 (run 1)
+scratchpad/bench_traj_caustic2.json      caustic zoom N=1500 (run 2, confirms)
+scratchpad/polar_part3.json              incumbent 216/216 bit-identical re-dump
+tests/holonomic_cpp/bench_holonomic_trajectory.cpp   isolated V0/V1/V2 harness

@@ -1,0 +1,26 @@
+ 10:51:21 up 4 days, 13:30,  2 users,  load average: 10.15, 10.58, 10.92
+loaded 108 bench cases, reps=30, N=32 epochs/track
+
+== parity vs V0 (cold classify_cells every epoch) ==
+  |dmu|/|mu|      V1: median 0.00e+00 p90 0.00e+00 max 3.92e-07
+                 V2: median 0.00e+00 p90 0.00e+00 max 2.47e-02
+  ||dgrad||/||g|| V1: median 0.00e+00 p90 0.00e+00 max 3.05e-02
+                 V2: median 0.00e+00 p90 0.00e+00 max 3.49e+00
+  status downgraded vs V0 (must be 0) : V1 0  V2 0
+  FALSE REUSE (L1 reuse, |dmu|/|mu|>1e-3; MUST be 0) : V1 0  V2 5
+
+== reuse mix (3456 epochs total) ==
+  V1  L1 0 (0.0%)  L2 3348 (96.9%)  L3 108 (3.1%)  rescreen-miss 0  warm-seed-used 3348
+  V2  L1 14 (0.4%)  L2 3334 (96.5%)  L3 108 (3.1%)  rescreen-miss 1026  warm-seed-used 3334
+
+== wall time per epoch, best-of-30 ==
+  V0 cold (all epochs)   median  1.2229  p90  1.9567  p95  2.3850  p99  3.3466  max  4.2392  ms
+  V1 L2 warm-D14 (all)   median  1.1651  p90  1.8873  p95  2.3506  p99  3.0980  max  4.5737  ms
+  V2 L1+L2 (all)         median  1.1615  p90  1.8830  p95  2.3444  p99  3.0863  max  4.5579  ms
+  V1 L2 steady state     median  1.1612  p90  1.8904  p95  2.3639  p99  3.1784  max  4.5737  ms
+  V2 L1+L2 steady state  median  1.1588  p90  1.8878  p95  2.3548  p99  3.0893  max  4.5579  ms
+  V1 steady speedup vs V0 median : 1.05x    V2 : 1.06x
+
+checksum 1422387.731730
+
+[exited with code 0]

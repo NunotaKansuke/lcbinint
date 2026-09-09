@@ -188,9 +188,18 @@ inline bool prepared_rescreen(const PreparedEpochGeometry& s,
 // Freeze a solved (topo, root set) at geometry `pf` into a prepared cache
 // entry -- fills r_max / cells / status / the B2 warm-seed root set and the
 // conditioning margins the re-screen reads.
+//
+// `want_margins` computes the ConditioningMargins block (per-cell
+// boundary_quartic + a 192-eval coarse_fold_count scan).  Those numbers are
+// read ONLY by prepared_rescreen, i.e. only on the L1 verbatim-reuse path.
+// When L1 is off (cfg.allow_topology_reuse == false -- the production default)
+// the block is dead work on every epoch, so the L2/L3 recompute path passes
+// false.  A later L1 attempt against a margin-less cache simply fails the
+// re-screen (fail-closed), never reuses on stale data.
 inline PreparedEpochGeometry finalize_prepared(
     const PrimaryFrame& pf, const TopologyResult& topo,
-    const std::vector<Cplx<__float128>>& roots) {
+    const std::vector<Cplx<__float128>>& roots,
+    bool want_margins = true) {
     PreparedEpochGeometry s;
     s.anchor = pf;
     s.r_max = topo.r_max;
@@ -202,15 +211,17 @@ inline PreparedEpochGeometry finalize_prepared(
     ConditioningMargins m;
     m.n_cells = (int)s.cells.size();
     m.r_max = s.r_max;
-    m.min_cell_width = 1e300;
-    m.min_abs_p4_mid = 1e300;
-    for (const auto& c : s.cells) {
-        m.min_cell_width = std::min(m.min_cell_width, c.r_hi - c.r_lo);
-        const double p4 = std::fabs(boundary_quartic(c.r_mid, pf).p[4]);
-        m.min_abs_p4_mid = std::min(m.min_abs_p4_mid, p4);
+    if (want_margins) {
+        m.min_cell_width = 1e300;
+        m.min_abs_p4_mid = 1e300;
+        for (const auto& c : s.cells) {
+            m.min_cell_width = std::min(m.min_cell_width, c.r_hi - c.r_lo);
+            const double p4 = std::fabs(boundary_quartic(c.r_mid, pf).p[4]);
+            m.min_abs_p4_mid = std::min(m.min_abs_p4_mid, p4);
+        }
+        if (s.cells.empty()) { m.min_cell_width = 0.0; m.min_abs_p4_mid = 0.0; }
+        m.coarse_fold_count = prep_detail::coarse_fold_count(pf, s.r_max);
     }
-    if (s.cells.empty()) { m.min_cell_width = 0.0; m.min_abs_p4_mid = 0.0; }
-    m.coarse_fold_count = prep_detail::coarse_fold_count(pf, s.r_max);
     s.margins = m;
 
     s.valid = true;
@@ -218,10 +229,11 @@ inline PreparedEpochGeometry finalize_prepared(
 }
 
 // Build the frozen plan cold -- classify_cells is the authority.
-inline PreparedEpochGeometry build_prepared_geometry(const PrimaryFrame& pf) {
+inline PreparedEpochGeometry build_prepared_geometry(const PrimaryFrame& pf,
+                                                     bool want_margins = true) {
     std::vector<Cplx<__float128>> roots;
     TopologyResult topo = classify_cells(pf, nullptr, &roots);
-    PreparedEpochGeometry s = finalize_prepared(pf, topo, roots);
+    PreparedEpochGeometry s = finalize_prepared(pf, topo, roots, want_margins);
     s.provenance = PreparedEpochGeometry::kColdOracle;
     return s;
 }
@@ -237,9 +249,11 @@ inline TopologyResult prepared_topology(const PrimaryFrame& pf,
         if (st) (st->*f)++;
     };
 
+    const bool want_margins = cfg.allow_topology_reuse;
+
     // First epoch / no valid cache -> cold build.
     if (!state.valid) {
-        state = build_prepared_geometry(pf);
+        state = build_prepared_geometry(pf, want_margins);
         state.provenance = PreparedEpochGeometry::kColdOracle;
         bump(&PreparedReuseStats::l3_cold_recompute);
         return TopologyResult{state.r_max, state.cells, state.status};
@@ -267,7 +281,8 @@ inline TopologyResult prepared_topology(const PrimaryFrame& pf,
         (int)state.d14_roots.size() > 0) {
         std::vector<Cplx<__float128>> fresh;
         TopologyResult topo = classify_cells(pf, &state.d14_roots, &fresh);
-        PreparedEpochGeometry next = finalize_prepared(pf, topo, fresh);
+        PreparedEpochGeometry next =
+            finalize_prepared(pf, topo, fresh, want_margins);
         next.provenance = PreparedEpochGeometry::kWarmRecomputed;
         state = next;
         bump(&PreparedReuseStats::l2_warm_recompute);
@@ -280,7 +295,8 @@ inline TopologyResult prepared_topology(const PrimaryFrame& pf,
     {
         std::vector<Cplx<__float128>> fresh;
         TopologyResult topo = classify_cells(pf, nullptr, &fresh);
-        PreparedEpochGeometry next = finalize_prepared(pf, topo, fresh);
+        PreparedEpochGeometry next =
+            finalize_prepared(pf, topo, fresh, want_margins);
         next.provenance = PreparedEpochGeometry::kColdRecomputed;
         state = next;
         bump(&PreparedReuseStats::l3_cold_recompute);
