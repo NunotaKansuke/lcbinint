@@ -195,12 +195,22 @@ inline int& holo_mv_transport_override() {
     return v;
 }
 
+// Process-wide opt-out: HOLO_MV_TRANSPORT_LEGACY=1 restores the pre-flip
+// behaviour (arc endpoints re-solved cold with real_root_thetas_warm at
+// every radial node).  Default: the (m,v) root-pair transport -- proven
+// bit-parity vs the cold path (max |dmu| 2.53e-14, 0 status downgrades,
+// checkpoint sec. 25.7) at -8.7% epoch median / all percentiles
+// non-regressing (checkpoint sec. 29,
+// evidence/holonomic/holonomic_3solver_benchmark.txt).  The kept flag is
+// the A/B escape hatch; the arc-birth disc-sign guard, branch-aware
+// acceptance and from_warm_d14 thin-arc cross-check make the transport
+// fail closed to the cold solve on every topology change.
 inline bool holo_mv_transport_enabled() {
     const int o = holo_mv_transport_override();
     if (o >= 0) return o != 0;
     static const bool on = [] {
-        const char* e = std::getenv("HOLO_MV_TRANSPORT");
-        return e && e[0] == '1';
+        const char* e = std::getenv("HOLO_MV_TRANSPORT_LEGACY");
+        return !(e && e[0] == '1');
     }();
     return on;
 }
@@ -683,8 +693,8 @@ inline GridArcs arcs_at(double R, const PrimaryFrame& pf, int n_grid = 3072) {
 
 // ---- arc_intervals : from the boundary quartic ----------------------
 // `w`   (optional): per-cell warm-start state for the warm Aberth solve.
-// `rpw` (optional): per-cell (m, v) root-pair transport state; used only
-//                   when HOLO_MV_TRANSPORT=1, else `w` / cold as before.
+// `rpw` (optional): per-cell (m, v) root-pair transport state; used by
+//                   default, `w` / cold with HOLO_MV_TRANSPORT_LEGACY=1.
 inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
                             QuarticWarm* w = nullptr,
                             RootPairWarm* rpw = nullptr) {

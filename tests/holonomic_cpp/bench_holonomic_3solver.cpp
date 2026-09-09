@@ -6,8 +6,8 @@
 // p90/p95/p99 -- NOT the kernel-level 15x/66x spike estimates.
 //
 //   V0  current direct solver          -- epoch_jacobian, both transports OFF
-//   V1  + (m,v) root-pair transport    -- HOLO_MV_TRANSPORT
-//   V2  + regularized holonomic        -- HOLO_MV_TRANSPORT + HOLO_HOLONOMIC_TRANSPORT
+//   V1  + (m,v) root-pair transport    -- (m,v) transport (production default)
+//   V2  + regularized holonomic        -- (m,v) transport + HOLO_HOLONOMIC_TRANSPORT
 //                                         (deflated x-chart K-rule replaces the
 //                                          64-pt angular sqrt(phi) sweep for
 //                                          the F_half value + Jacobian)
@@ -204,7 +204,8 @@ int main(int argc, char** argv) {
         rp0.push_back(q0);
         rp2.push_back(q2);
     }
-    set_variant(0);  // restore
+    holo_mv_transport_override() = -1;  // restore env-var control
+    holo_holonomic_transport_override() = -1;
 
     auto row = [](const char* tag, std::vector<double>& t) {
         std::fprintf(stderr,

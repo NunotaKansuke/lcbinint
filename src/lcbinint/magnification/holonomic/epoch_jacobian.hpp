@@ -106,7 +106,8 @@ inline FluxJacobian flux_jacobian_integrate(const LensParams& p, int n_r,
         // per-node boundary-quartic solve from the previous node.  Fresh
         // (cold) start on the first node of every cell.
         QuarticWarm qw;
-        RootPairWarm rpw;  // (m, v) transport state (HOLO_MV_TRANSPORT=1 only)
+        RootPairWarm rpw;  // (m, v) transport state (default on; opt out with
+                           // HOLO_MV_TRANSPORT_LEGACY=1)
         rpw.certify = topo.from_warm_d14;  // cross-check thin arcs on reused plans
         for (int k = 0; k < n_r; ++k) {
             double R = rmid + rhalf * rr.x[k];

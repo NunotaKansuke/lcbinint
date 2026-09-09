@@ -52,7 +52,8 @@ struct TopologyResult {
     // L2 warm-D14 recompute), so cell boundaries carry a ~1e-8..1e-13 seed
     // perturbation vs a cold solve.  Tells the integrator to cross-certify the
     // (m, v) transport continuation on thin near-caustic arcs, where that
-    // perturbation is amplified (HOLO_MV_TRANSPORT only).
+    // perturbation is amplified ((m, v) transport, i.e. not
+    // HOLO_MV_TRANSPORT_LEGACY=1).
     bool from_warm_d14 = false;
 };
 
