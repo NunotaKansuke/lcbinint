@@ -221,4 +221,119 @@ inline EpochJacobian epoch_jacobian_prepared(const LensParams& p, double u,
     return ej;
 }
 
+// =====================================================================
+// Phase D value lane -- kValue only.  Skips every Jacobian state field,
+// the internal->user chain rule, the per-endpoint IFT dtheta/dP, and the
+// dP evaluation at the angular nodes.  F_half is skipped entirely when
+// u == 0 (uniform source -- the blend weight on F_half is 0).
+//
+// mu is bit-identical to epoch_jacobian(...).mu / epoch_jacobian_prepared
+// (...).mu on the shipped path: identical topology (classify_cells /
+// prepared_topology), identical arc discovery (arc_intervals with the
+// same QuarticWarm / RootPairWarm state), identical F_half rule.  The
+// standalone fused entry points stay in the tree for A/B.
+// =====================================================================
+
+struct FluxValue {
+    double F0 = 0.0, F_half = 0.0;
+    double r_max = 0.0;
+    Status status = Status::OK;
+};
+
+struct EpochValue {
+    double mu = 0.0;
+    double F0 = 0.0, F_half = 0.0;
+    double r_max = 0.0;
+    Status status = Status::OK;
+};
+
+// Value-only radial pass over an already-decided cell plan -- the exact
+// mirror of flux_jacobian_integrate with the derivative work removed.
+inline FluxValue flux_value_integrate(int n_r, double u, const PrimaryFrame& pf,
+                                      const TopologyResult& topo) {
+    FluxValue fv;
+    fv.r_max = topo.r_max;
+    fv.status = (topo.status == Status::OK) ? Status::OK
+                                            : Status::GRADIENT_UNRELIABLE;
+    const bool want_fh = (u != 0.0);
+
+    Cheb1Dyn rr(n_r);
+    for (const auto& c : topo.cells) {
+        double w = c.r_hi - c.r_lo;
+        if (w <= 0.0 || c.kind == ArcKind::kEmpty) continue;
+        if (c.kind == ArcKind::kFull) fv.status = Status::GRADIENT_UNRELIABLE;
+
+        const double ins = 1e-9 * w;
+        const double lo = c.r_lo + ins, hi = c.r_hi - ins;
+        const double rmid = 0.5 * (lo + hi), rhalf = 0.5 * (hi - lo);
+        QuarticWarm qw;
+        RootPairWarm rpw;
+        rpw.certify = topo.from_warm_d14;
+        for (int k = 0; k < n_r; ++k) {
+            double R = rmid + rhalf * rr.x[k];
+            RadiusValue rt = radius_value(R, pf, want_fh, kTanRel, &qw, &rpw);
+            if (!rt.reliable) fv.status = Status::GRADIENT_UNRELIABLE;
+            double Wk = rhalf * rr.w[k];
+            fv.F0 += Wk * rt.f0;
+            fv.F_half += Wk * rt.fh;
+        }
+    }
+    return fv;
+}
+
+inline FluxValue flux_value(const LensParams& p, double u, int n_r,
+                            bool use_fast_planner) {
+    const ScopedFlushDenormals _fp_guard;
+    const PrimaryFrame pf = PrimaryFrame::from(p);
+    TopologyResult topo =
+        use_fast_planner ? classify_cells_fast(pf) : classify_cells(pf);
+    return flux_value_integrate(n_r, u, pf, topo);
+}
+
+inline FluxValue flux_value_prepared(const LensParams& p, double u, int n_r,
+                                     PreparedEpochGeometry& state,
+                                     const PreparedReuseConfig& cfg,
+                                     PreparedReuseStats* st) {
+    const ScopedFlushDenormals _fp_guard;
+    const PrimaryFrame pf = PrimaryFrame::from(p);
+    TopologyResult topo = prepared_topology(pf, state, cfg, st);
+    return flux_value_integrate(n_r, u, pf, topo);
+}
+
+inline EpochValue epoch_value_blend(const FluxValue& fv, const LensParams& p,
+                                    double u, const PrimaryFrame& pf) {
+    EpochValue ev;
+    ev.status = fv.status;
+    ev.r_max = fv.r_max;
+    ev.F0 = fv.F0;
+    ev.F_half = fv.F_half;
+    if (near_origin_source(pf)) ev.status = Status::GRADIENT_UNRELIABLE;
+
+    const double rho = p.rho, r2 = rho * rho;
+    const double D = kPi * r2 * (1.0 - u / 3.0);
+    ev.mu = ((1.0 - u) * fv.F0 + u * fv.F_half) / D;
+    return ev;
+}
+
+inline EpochValue epoch_value(const LensParams& p, double u, int n_r,
+                              bool use_fast_planner) {
+    const ScopedFlushDenormals _fp_guard;
+    FluxValue fv = flux_value(p, u, n_r, use_fast_planner);
+    return epoch_value_blend(fv, p, u, PrimaryFrame::from(p));
+}
+
+inline EpochValue epoch_value(const LensParams& p, double u = 0.0,
+                              int n_r = 64) {
+    return epoch_value(p, u, n_r, holo_fast_planner_enabled());
+}
+
+inline EpochValue epoch_value_prepared(const LensParams& p, double u, int n_r,
+                                       PreparedEpochGeometry& state,
+                                       const PreparedReuseConfig& cfg,
+                                       PreparedReuseStats* st = nullptr) {
+    const ScopedFlushDenormals _fp_guard;
+    FluxValue fv = flux_value_prepared(p, u, n_r, state, cfg, st);
+    return epoch_value_blend(fv, p, u, PrimaryFrame::from(p));
+}
+
 }  // namespace lcbinint::holonomic

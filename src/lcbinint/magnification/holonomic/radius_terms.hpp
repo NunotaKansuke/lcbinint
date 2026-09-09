@@ -868,4 +868,99 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
     return rt;
 }
 
+// ---- radius_value : Phase D value-only sibling of radius_terms -----------
+//
+// F0 always; F_half only when `want_fh` (the linear-LD blend needs it iff
+// u != 0).  No derivative accumulators, no per-endpoint IFT dtheta/dP, no
+// dP evaluation at the angular nodes, no internal->user chain rule.
+//
+// Arc discovery is byte-identical to radius_terms: the same arc_intervals
+// with the same QuarticWarm / RootPairWarm ((m,v) transport) state, so F0
+// matches the fused pass to the last bit.  F_half reuses the same
+// ang_rule() Gauss-Chebyshev-1(64) nodes and phi_val (== phi_val_dP().phi),
+// so it matches the fused pass's non-holonomic-transport F_half exactly.
+// (HOLO_HOLONOMIC_TRANSPORT changes the fused F_half to the v*K rule; the
+// value lane is only routed to when that flag is OFF -- see
+// finite_source_binary.hpp.  Wiring v_times_K into this lane is Phase D
+// step 2.)
+struct RadiusValue {
+    double f0 = 0.0;
+    double fh = 0.0;
+    bool reliable = true;
+};
+
+namespace radius_value_detail {
+// Value-only mirror of full_circle_terms: F0 = R*2pi, F_half from the same
+// 256-point periodic sqrt(phi) rule (phi_val == phi_val_dP().phi).
+inline void full_circle_value(double R, const PrimaryFrame& pf, bool want_fh,
+                              RadiusValue* rt) {
+    rt->f0 = R * kTwoPi;
+    rt->reliable = false;
+    if (!want_fh) return;
+    constexpr int M = 256;
+    const double dth = kTwoPi / M;
+    double fh = 0.0;
+    for (int i = 0; i < M; ++i) {
+        double t = kTwoPi * i / M;
+        double ph = phi_val(R, t, pf);
+        if (ph <= 0.0) continue;
+        fh += std::sqrt(ph);
+    }
+    rt->fh = R * dth * fh;
+}
+}  // namespace radius_value_detail
+
+inline RadiusValue radius_value(double R, const PrimaryFrame& pf, bool want_fh,
+                                double tan_rel = kTanRel,
+                                QuarticWarm* w = nullptr,
+                                RootPairWarm* rpw = nullptr) {
+    RadiusValue rt;
+    ArcSet as = arc_intervals(R, pf, w, rpw);
+    if (as.kind == ArcKind::kEmpty) return rt;
+    if (as.kind == ArcKind::kFull) {
+        radius_value_detail::full_circle_value(R, pf, want_fh, &rt);
+        return rt;
+    }
+    if (as.kind == ArcKind::kDegenerate) {
+        ArcSet g = grid_intervals(R, pf);
+        rt.reliable = false;
+        if (g.kind == ArcKind::kEmpty) return rt;
+        if (g.kind == ArcKind::kFull) {
+            radius_value_detail::full_circle_value(R, pf, want_fh, &rt);
+            return rt;
+        }
+        as = g;
+    }
+
+    const double tan_thresh = tan_rel * pf.rho / std::max(R, 1e-9);
+    const auto& AR = ang_rule();
+
+    for (const auto& arc : as.arcs) {
+        PolishResult pe = polish_endpoint(R, arc[0], pf);
+        PolishResult pl = polish_endpoint(R, arc[1], pf);
+        double te = pe.theta, tl = pl.theta;
+        double td = pe.dphi_dtheta, tdl = pl.dphi_dtheta;
+        if (tl <= te) tl += kTwoPi;
+        rt.reliable = rt.reliable && pe.reliable && pl.reliable;
+        const bool arc_clean = std::fabs(td) >= tan_thresh &&
+                               std::fabs(tdl) >= tan_thresh;
+        if (!arc_clean) rt.reliable = false;
+
+        rt.f0 += R * (tl - te);
+        if (!want_fh) continue;
+
+        double half = 0.5 * (tl - te);
+        double mid = 0.5 * (te + tl);
+        double acc_val = 0.0;
+        for (int k = 0; k < 64; ++k) {
+            double thn = mid + half * AR.x[k];
+            double ph = phi_val(R, thn, pf);
+            if (ph <= 0.0) continue;
+            acc_val += AR.w[k] * std::sqrt(ph);
+        }
+        rt.fh += R * half * acc_val;
+    }
+    return rt;
+}
+
 }  // namespace lcbinint::holonomic

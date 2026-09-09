@@ -130,6 +130,14 @@ inline PhiValDtheta phi_val_dtheta(double R, double theta,
     return {c.phi, phi_detail::dphi_dtheta_from(c, pf)};
 }
 
+// phi only, shared core (bit-identical to phi_val_dP(...).phi and
+// phi_val_dtheta(...).phi).  The Phase D value lane's angular sqrt(phi)
+// quadrature uses this so F_half matches the fused pass exactly while
+// paying nothing for the unused dP / dphi_dtheta.
+inline double phi_val(double R, double theta, const PrimaryFrame& pf) {
+    return phi_detail::core(R, theta, pf).phi;
+}
+
 // phi only, straight from the lens equation (topology._phi) -- the
 // independent evaluation used for arc mid-point sign tests.
 inline double phi_lens(double R, double theta, const PrimaryFrame& pf) {

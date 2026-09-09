@@ -127,12 +127,25 @@ int main(int argc, char** argv) {
         }
         want_true("cold has_jacobian", got.has_jacobian);
 
-        // kValue: same mu, Jacobian withheld.
+        // kValue: same mu, Jacobian withheld.  Phase D value lane -- must
+        // reproduce the fused mu (F0 from the identical arc discovery; F_half
+        // from the identical 64-node sweep when u != 0).
         req.output = RequestedOutput::kValue;
         FiniteSourceOutcome v = finite_source_binary(req);
         near("value mu", v.mu, ref.mu, 1e-12);
+        near("value F0", v.F0, ref.F0, 1e-12);
+        if (r.u != 0.0) near("value F_half", v.F_half, ref.F_half, 1e-12);
+        eq("value lane status", (double)(int)v.status, (double)(int)ref.status);
         want_true("value no jacobian", !v.has_jacobian);
         for (int j = 0; j < 5; ++j) eq("value grad zero", v.grad_mu[j], 0.0);
+
+        // The value lane and the fused pass must also agree on the uniform
+        // (u = 0) magnification regardless of the case's own u.
+        EpochValue ev0 = epoch_value(r.p, 0.0, 64);
+        EpochJacobian ej0 = epoch_jacobian(r.p, 0.0, 64);
+        near("value lane u=0 mu", ev0.mu, ej0.mu, 1e-12);
+        eq("value lane u=0 status", (double)(int)ev0.status,
+           (double)(int)ej0.status);
 
         // kValueJvp: not implemented -> fail closed, never a silent number.
         req.output = RequestedOutput::kValueJvp;
@@ -153,13 +166,13 @@ int main(int argc, char** argv) {
         const double dx = L / N * 3.0 / std::sqrt(10.0);
         const double dy = L / N * 1.0 / std::sqrt(10.0);
 
-        PreparedEpochGeometry st_ref{}, st_got{};
+        PreparedEpochGeometry st_ref{}, st_got{}, st_val{};
         for (int e = 0; e < N; ++e) {
             LensParams p = r.p;
             p.xs = r.p.xs + (e - N / 2) * dx;
             p.ys = r.p.ys + (e - N / 2) * dy;
 
-            PreparedReuseStats s_ref{}, s_got{};
+            PreparedReuseStats s_ref{}, s_got{}, s_val{};
             EpochJacobian ref =
                 epoch_jacobian_prepared(p, r.u, 64, st_ref, cfg, &s_ref);
 
@@ -169,6 +182,18 @@ int main(int argc, char** argv) {
             req.output = RequestedOutput::kValueJacobian;
             FiniteSourceOutcome got = finite_source_binary_prepared(
                 req, st_got, cfg, &s_got);
+
+            // Phase D value lane on the prepared/trajectory route: an
+            // independent rolling cache, kValue -> epoch_value_prepared.
+            req.output = RequestedOutput::kValue;
+            FiniteSourceOutcome val = finite_source_binary_prepared(
+                req, st_val, cfg, &s_val);
+            near("prep value mu", val.mu, ref.mu, 1e-6);
+            eq("prep value status", (double)(int)val.status,
+               (double)(int)ref.status);
+            want_true("prep value no jacobian", !val.has_jacobian);
+            eq("prep value cache lockstep", (double)(int)st_val.provenance,
+               (double)(int)st_ref.provenance);
 
             // Warm-D14 path: two independent rolling caches see an identical
             // param sequence, so they track to Aberth-tolerance (the

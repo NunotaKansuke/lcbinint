@@ -3156,3 +3156,108 @@ E2E). Kept because it is correct and harmless; not load-bearing.
   2cdf946` fails it identically. **Do NOT fix on this branch** (user message
   27: *"stale golden test は今の判断でいい"*).
 
+## 33. Phase D value lane — `kValue` skips the Jacobian (2026-09-09)
+
+Message 29 agenda item 1. Production `kValue` (`FiniteSourceMethod::holonomic_binary`
+= 6) still ran the fused `epoch_jacobian` / `epoch_jacobian_prepared` and
+**discarded the Jacobian**; §29 measured ~1 ms/epoch of that ~2.2 ms
+end-to-end going to unused derivative assembly. This section gives `kValue`
+a real value-only path so production end-to-end does the right amount of
+work. It is **not** a bid for the 2× gate — structurally unreachable while
+D14 is in the epoch (§14 / decision-20).
+
+### 33.1 What was added (header-only, additive, flag-OFF byte-identical)
+
+| file | addition |
+|---|---|
+| `phi.hpp` | `phi_val(R,θ,pf)` — φ only, shares `phi_detail::core` ⇒ **bit-identical** to `phi_val_dP(…).phi` and the fused F½ evaluations |
+| `radius_terms.hpp` | `RadiusValue` + `radius_value(R,pf,want_fh,…)`: reuses `arc_intervals(R,pf,w,rpw)` **verbatim** (same `QuarticWarm`, same `RootPairWarm` with `rpw.certify = topo.from_warm_d14`) ⇒ `F0 = Σ R·(θ_leave−θ_enter)` identical; F½ reuses `ang_rule()` + `phi_val` + `sqrt`; **no** `dF0`/`dF_half`, **no** `polish_endpoint` dP, **no** IFT |
+| `epoch_jacobian.hpp` | `FluxValue` / `EpochValue`; `flux_value_integrate` (parity template = `flux_jacobian_integrate`), `flux_value[_prepared]`, `epoch_value_blend`, `epoch_value[_prepared]`. Same LD blend, same `near_origin_source` fail-closed, same `GRADIENT_UNRELIABLE` downgrade on `kFull` / unreliable arc |
+| `finite_source_binary.hpp` | `from_epoch_value`, `value_lane_active(req) = (output == kValue && !holo_holonomic_transport_enabled())`; both routes forward `kValue` → `epoch_value[_prepared]`. Under `HOLO_HOLONOMIC_TRANSPORT` the lane is bypassed (routes back to the fused pass) so μ still matches the flag-on `epoch_jacobian`; wiring `v_times_K` into `radius_value` is agenda item 2 |
+
+### 33.2 Correctness — μ is bit-identical
+
+* Isolated `build-holonomic-m7/`: **ctest 5/5**; `test_finite_source_binary`
+  **22194 checks, 0 failures**, worst rel drift 8.69e-07 (pre-existing j==2
+  dμ/dρ cancellation, *not* the value lane); 1296 provenance/lockstep checks.
+* `bench_value_lane` μ parity `|μ_VD − μ_VF| / |μ_VF|` = **0.000e+00**
+  (bit-identical) on all 4 tracks, median / p99 / max. status-change VD vs
+  VF = **0**.
+* End-to-end `.so` before vs after: rel-err-vs-VBM distribution
+  **bit-identical** (holo median 6.07e-07, p90 5.72e-05, max 1.36e-02 —
+  the max is the pre-existing tiny-ρ caustic-straddle gap, unchanged);
+  **0 status changes** (108/108 converged both `.so`); trajectory C-vs-W
+  parity 9.05e-15, trajectory status changes cold 0 / prepared 0.
+
+### 33.3 Speed — whole-epoch wall-clock (the primary metric)
+
+`bench_value_lane`, isolated, load ~12, `taskset -c 0-7`, best-of-40:
+
+| track | VF fused (med/p90/p99 ms) | VD value lane | speedup VF/VD (med/p90/p99) |
+|---|---|---|---|
+| COLD u=0 | 1.261 / 2.251 / 4.13 | 1.000 / 1.451 / 3.63 | **1.261** / 1.551 / 1.138 |
+| COLD u=case | 1.263 / 2.254 / 4.11 | 1.087 / 1.708 / 3.68 | **1.162** / 1.319 / 1.115 |
+| PREPARED(L2) u=0 | 1.204 / 1.903 / 3.06 | 0.932 / 1.332 / 1.73 | **1.292** / 1.428 / 1.773 |
+| PREPARED(L2) u=case | 1.204 / 1.904 / 3.06 | 1.022 / 1.529 / 2.42 | **1.178** / 1.245 / 1.265 |
+
+Value lane **1.16–1.29× faster on median, never slower on any percentile**.
+u=0 gains most (skips the entire F½ sweep); u≠0 still ~1.17× (Jacobian
+state + chain rule + per-node dP removed).
+
+End-to-end, production path, `.so` A/B (load ~13–14, `taskset -c 0-7`):
+
+* `bench_holo_e2e2.py` (108 cases, cold, u=case, 25 reps, median-of-reps) —
+  holo epoch time OLD `7fabf353` → NEW `1700163a`:
+  p50 1350.9 → 1190.6 µs (**1.135×**), p90 2407.0 → 1935.7 (1.243×),
+  p95 2723.7 → 2181.5 (1.249×), p99 5043.3 → 4517.1 (1.116×).
+  polar p50 274.3 → 276.7 (noise) — machine state comparable.
+* `bench_holo_traj.py` (2600 epochs, s=0.9 q=0.2 ρ=0.008 u=0.6, 6 reps):
+  holo-cold whole-trajectory 4790.958 → 4392.709 ms (**1.091×**);
+  t_polar/t_holo_cold 0.378 → 0.412×.
+
+### 33.4 Interpretation
+
+* The value lane is a **real production win**: ~1.1–1.25× end-to-end on the
+  method-6 value path, bit-identical μ, 0 status changes. The ~1 ms/epoch of
+  wasted Jacobian assembly (§29) is now largely recovered — production
+  end-to-end does the right amount of work (message 29).
+* It **does not** reach 2×, and cannot: the lane removes only the Jacobian
+  portion of the radial pass (~14% of the epoch, §14) plus — for u=0 — the
+  F½ angular sweep. D14 / `classify_cells` (~55–74% of the epoch) is
+  untouched and shared. §14 predicted ~1.3× isolated; measured 1.16–1.29×.
+* holo method 6 is still ~4× slower than calibrated inverse-ray-polar on the
+  cold value path (polar p50 ~277 µs vs holo p50 ~1190 µs). Its production
+  value on this path remains **accuracy** (~100× better median rel-err vs
+  VBM at n_r=64), now at ~1.1–1.25× less cost than before.
+
+### 33.5 Build / deploy
+
+* `build-holonomic-m7/` — isolated, ctest 5/5.
+* `build-phase-c/` rebuilt (`cmake --build build-phase-c --target lcbinint_python -j8`).
+* `.so` swapped into site-packages: new **md5 `1700163a7cd78d6ab3a310ecb50254c3`**,
+  3693336 B; backup (checkpoint-32 state, md5 `7fabf353…`) at
+  `scratchpad/lcbinint__lcbinint.so.pre-valuelane-20260909-112932`.
+  Canonical config unchanged (Release only, no `-march=native`).
+
+Evidence: [`evidence/holonomic/phase_d_value_lane.txt`](../../evidence/holonomic/phase_d_value_lane.txt).
+
+### 33.6 Next (message 29 agenda)
+
+2. Make `HOLO_HOLONOMIC_TRANSPORT` usable on the production value path —
+   wire `v_times_K` into `radius_value`, tighten the fail-closed router,
+   usable at least for explicit method 6.
+3. Re-profile (D14 / `classify_cells`, radial pass, frame transform / pybind,
+   LD blend).
+4. If D14 still largest → structural optimisation.
+5. Part 4 auto-selection LAST.
+
+### 33.7 pytest
+
+`tests/holonomic tests/jax_ir/test_multipole.py`, new `.so`:
+**284 passed, 3 skipped, 1 failed in 399 s**. The single failure is the
+pre-existing `test_hybrid_keeps_calibrated_tiny_high_magnification_polar_path`
+(ACTUAL 95.432129 vs DESIRED 95.433006, max rel 9.19e-6) — a calibrated-polar
+tiny-high-mag path, identical to §32.7, `git archive 2cdf946` fails it
+identically. **Do NOT fix on this branch** (user message 27: *"stale golden
+test は今の判断でいい"*).
+

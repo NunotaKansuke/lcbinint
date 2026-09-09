@@ -99,6 +99,28 @@ inline FiniteSourceOutcome from_epoch(const EpochJacobian& ej,
     return out;
 }
 
+inline FiniteSourceOutcome from_epoch_value(
+    const EpochValue& ev, PreparedEpochGeometry::Provenance prov) {
+    FiniteSourceOutcome out;
+    out.mu = ev.mu;
+    out.F0 = ev.F0;
+    out.F_half = ev.F_half;  // 0 when u == 0 (blend weight is 0)
+    out.r_max = ev.r_max;
+    out.status = ev.status;
+    out.provenance = prov;
+    return out;  // has_jacobian == false, has_jvp == false
+}
+
+// The Phase D value lane owns kValue only while the fused F_half rule is the
+// 64-node angular sweep.  HOLO_HOLONOMIC_TRANSPORT swaps the fused F_half to
+// the v*K rule; until that is wired into radius_value (Phase D step 2), a
+// kValue request under that flag routes back to the fused pass so mu still
+// matches the flag-on epoch_jacobian.
+inline bool value_lane_active(const FiniteSourceRequest& req) {
+    return req.output == RequestedOutput::kValue &&
+           !holo_holonomic_transport_enabled();
+}
+
 }  // namespace fsb_detail
 
 // ---- stateless (cold) route -----------------------------------------------
@@ -108,7 +130,11 @@ inline FiniteSourceOutcome finite_source_binary(const FiniteSourceRequest& req) 
         out.status = Status::GRADIENT_UNRELIABLE;  // JVP lane not built (M3)
         return out;
     }
-    // kValue currently shares the fused pass; Phase D swaps in the value lane.
+    if (fsb_detail::value_lane_active(req)) {
+        EpochValue ev = epoch_value(req.params, req.u, req.n_r);
+        return fsb_detail::from_epoch_value(ev,
+                                            PreparedEpochGeometry::kColdOracle);
+    }
     EpochJacobian ej = epoch_jacobian(req.params, req.u, req.n_r);
     return fsb_detail::from_epoch(ej, req.output,
                                  PreparedEpochGeometry::kColdOracle);
@@ -123,6 +149,11 @@ inline FiniteSourceOutcome finite_source_binary_prepared(
         FiniteSourceOutcome out;
         out.status = Status::GRADIENT_UNRELIABLE;
         return out;
+    }
+    if (fsb_detail::value_lane_active(req)) {
+        EpochValue ev = epoch_value_prepared(req.params, req.u, req.n_r, state,
+                                             cfg, stats);
+        return fsb_detail::from_epoch_value(ev, state.provenance);
     }
     EpochJacobian ej =
         epoch_jacobian_prepared(req.params, req.u, req.n_r, state, cfg, stats);

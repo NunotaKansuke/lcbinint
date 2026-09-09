@@ -1,0 +1,131 @@
+ATPT holonomic solver — Phase D value lane
+==========================================
+Checkpoint §33.  Date 2026-09-09.  Branch claude/holonomic-solver-m1.
+
+GOAL (user message 29, agenda item 1)
+-------------------------------------
+Production kValue (FiniteSourceMethod::holonomic_binary = 6) today runs the
+fused epoch_jacobian / epoch_jacobian_prepared pass and THROWS AWAY the
+Jacobian.  §29 measured ~1 ms/epoch of that ~2.2 ms end-to-end going to
+unused derivative assembly.  Task: give kValue a real value-only path —
+skip all Jacobian state / chain rule / per-endpoint IFT dtheta,dP / dP at the
+angular nodes; compute F0 always, F_half only when u != 0 — so production
+end-to-end does the right amount of work.  NOT a bid to hit the 2x gate
+(structurally unreachable while D14 is in the epoch — §14 / decision-20).
+
+WHAT WAS ADDED  (header-only, additive; flag OFF -> byte-identical incumbent)
+---------------------------------------------------------------------------
+  phi.hpp                phi_val(R,theta,pf) — phi only, shares phi_detail::core
+                         => bit-identical to phi_val_dP(...).phi and the fused
+                         F_half evaluations.
+  radius_terms.hpp       RadiusValue + radius_value(R,pf,want_fh,...): reuses
+                         arc_intervals(R,pf,w,rpw) VERBATIM (same QuarticWarm,
+                         same RootPairWarm with rpw.certify = topo.from_warm_d14)
+                         so F0 = sum R*(theta_leave - theta_enter) is identical;
+                         F_half reuses ang_rule() + phi_val + sqrt; no dF0/dF_half
+                         accumulators, no polish_endpoint dP, no IFT.
+  epoch_jacobian.hpp     FluxValue / EpochValue; flux_value_integrate (parity
+                         template = flux_jacobian_integrate), flux_value,
+                         flux_value_prepared, epoch_value_blend, epoch_value,
+                         epoch_value_prepared.  Same LD blend
+                         mu = ((1-u) F0 + u F_half) / (pi rho^2 (1 - u/3)),
+                         same near_origin_source fail-closed, same
+                         GRADIENT_UNRELIABLE downgrade on kFull / unreliable arc.
+  finite_source_binary.hpp
+                         fsb_detail::from_epoch_value, value_lane_active(req)
+                         = (req.output == kValue && !holo_holonomic_transport_enabled()).
+                         finite_source_binary / _prepared route kValue to
+                         epoch_value / epoch_value_prepared; every other path
+                         unchanged.  Under HOLO_HOLONOMIC_TRANSPORT the value
+                         lane is bypassed (routes back to the fused pass) so
+                         mu still matches the flag-on epoch_jacobian; wiring
+                         v_times_K into radius_value is agenda item 2.
+
+CORRECTNESS
+-----------
+Isolated build build-holonomic-m7/  (module _lcbinint_holonomic_m7):
+  ctest                         5/5 pass
+  test_finite_source_binary     22194 checks, 0 failures, worst rel drift
+                                8.69e-07 (pre-existing j==2 dmu/drho
+                                cancellation, NOT the value lane);
+                                1296 provenance/lockstep checks.
+  bench_value_lane mu parity  |mu_VD - mu_VF| / |mu_VF|  =  0.000e+00
+                                (bit-identical) on ALL 4 tracks, median /
+                                p99 / max.  status-change VD vs VF = 0.
+
+End-to-end (production _evaluate_preplanned_xy, method 6), .so before vs after:
+  rel-err vs VBM distribution  BIT-IDENTICAL old vs new:
+     holo  median 6.07e-07   p90 5.72e-05   max 1.36e-02
+     (max 1.36e-02 = pre-existing tiny-rho caustic-straddle gap, unchanged)
+  status changes vs polar     0   (108/108 converged, both .so)
+  trajectory C-vs-W mu parity 9.05e-15 (warm-D14 reuse, unchanged)
+  trajectory status changes   cold 0 / prepared 0
+
+SPEED  (whole-epoch wall-clock; the primary metric, not kernel-level)
+--------------------------------------------------------------------
+bench_value_lane, isolated, load ~12, taskset -c 0-7, best-of-40:
+  track                     VF fused ms   VD value lane ms   speedup VF/VD
+                            med  p90  p99  med  p90  p99      med   p90   p99
+  COLD  u = 0 (uniform)    1.261 2.251 4.13 1.000 1.451 3.63  1.261 1.551 1.138
+  COLD  u = case           1.263 2.254 4.11 1.087 1.708 3.68  1.162 1.319 1.115
+  PREPARED (L2)  u = 0     1.204 1.903 3.06 0.932 1.332 1.73  1.292 1.428 1.773
+  PREPARED (L2)  u = case  1.204 1.904 3.06 1.022 1.529 2.42  1.178 1.245 1.265
+  -> value lane 1.16-1.29x faster on median, never slower on any percentile.
+     u=0 gains most (skips the whole F_half sweep); u!=0 still ~1.17x
+     (Jacobian state + chain rule + per-node dP removed).
+
+End-to-end, production path, .so A/B (load ~13-14, taskset -c 0-7):
+  bench_holo_e2e2.py  (108 cases, cold, u = case, 25 reps, median-of-reps):
+    holo epoch us     OLD 7fabf353   NEW 1700163a   speedup
+      p50               1350.9         1190.6         1.135x
+      p90               2407.0         1935.7         1.243x
+      p95               2723.7         2181.5         1.249x
+      p99               5043.3         4517.1         1.116x
+    polar p50 274.3 -> 276.7 (noise) — machine state comparable.
+  bench_holo_traj.py  (2600 epochs, s=0.9 q=0.2 rho=0.008 u=0.6, 6 reps):
+    holo C whole-trajectory   OLD 4790.958 ms   NEW 4392.709 ms   1.091x
+    t_polar / t_holo_cold     OLD 0.378x        NEW 0.412x
+    holo C per-epoch p50      OLD 1670.9 us     NEW ~1670 us  (u=0.6, F_half
+                              still computed; the win is the Jacobian removal,
+                              ~150 us/epoch on the whole-trajectory sum)
+
+INTERPRETATION
+--------------
+* The value lane is a REAL production win: ~1.1-1.25x end-to-end on the
+  method-6 value path, with bit-identical mu and 0 status changes.  This is
+  "make production end-to-end do the right amount of work" (message 29) —
+  the ~1 ms/epoch of wasted Jacobian assembly (§29) is now largely recovered.
+* It does NOT reach 2x, and cannot: the value lane only removes the Jacobian
+  portion of the radial pass (~14% of the epoch, §14) plus — for u=0 — the
+  F_half angular sweep.  D14 / classify_cells (~55-74% of the epoch) is
+  untouched and shared.  §14 predicted ~1.3x isolated; measured 1.16-1.29x.
+* holo method 6 is still ~4x slower than calibrated inverse-ray-polar on the
+  cold value path (polar p50 ~277 us vs holo p50 ~1190 us); its production
+  value on this path remains ACCURACY (~100x better median rel-err vs VBM at
+  n_r=64), now delivered at ~1.1-1.25x less cost than before.
+
+BUILD / DEPLOY
+--------------
+  build-phase-c/ rebuilt (cmake --build build-phase-c --target lcbinint_python -j8).
+  .so swapped into site-packages:
+    new  md5 1700163a7cd78d6ab3a310ecb50254c3   3693336 B
+    backup (checkpoint-32 state, md5 7fabf353…) at
+      scratchpad/lcbinint__lcbinint.so.pre-valuelane-20260909-112932
+  Canonical config unchanged (Release only, no -march=native).
+
+PYTEST
+------
+  tests/holonomic tests/jax_ir/test_multipole.py — 284 passed, 3 skipped,
+1 failed in 399 s (pre-existing failure
+   test_hybrid_keeps_calibrated_tiny_high_magnification_polar_path,
+   git-archive 2cdf946 fails identically; do NOT fix here).
+
+NEXT (message 29 agenda)
+------------------------
+  2. Make HOLO_HOLONOMIC_TRANSPORT usable on the production value path —
+     wire v_times_K into radius_value; tighten the fail-closed router;
+     at least usable for explicit method 6.
+  3. Re-profile (D14 / classify_cells, radial pass, frame transform / pybind,
+     LD blend).
+  4. If D14 still largest -> structural optimisation.
+  5. Part 4 auto-selection LAST.
