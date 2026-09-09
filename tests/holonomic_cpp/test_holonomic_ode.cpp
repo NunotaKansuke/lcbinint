@@ -54,6 +54,8 @@ int main(int argc, char** argv) {
 
     OdeCounters audit;
     audit.reset();
+    OdeCounters audit_val;
+    audit_val.reset();
 
     std::string line;
     while (std::getline(in, line)) {
@@ -87,11 +89,29 @@ int main(int argc, char** argv) {
             audit.rho_cancel_gated += c.rho_cancel_gated;
             audit.jet_eligible_cells += c.jet_eligible_cells;
             audit.jet_cells += c.jet_cells;
+            audit.r2_packet_cells += c.r2_packet_cells;
+            audit.r2_packet_demote += c.r2_packet_demote;
+            audit.r2_packet_seed_fail += c.r2_packet_seed_fail;
+            audit.r2_jac_cells += c.r2_jac_cells;
+            audit.r2_jac_demote += c.r2_jac_demote;
             audit.jet_rhs_evals += c.jet_rhs_evals;
             audit.jet_seed_krule_evals += c.jet_seed_krule_evals;
             audit.krule_gc2_evals += c.krule_gc2_evals;
         }
+        ode_counters().reset();
         EpochValue v3 = epoch_value(p, u, 64, false);
+        {
+            const OdeCounters& c = ode_counters();
+            audit_val.cells_seen += c.cells_seen;
+            audit_val.cells_ode += c.cells_ode;
+            audit_val.cells_fallback += c.cells_fallback;
+            audit_val.jet_eligible_cells += c.jet_eligible_cells;
+            audit_val.jet_cells += c.jet_cells;
+            audit_val.r2_packet_cells += c.r2_packet_cells;
+            audit_val.r2_packet_demote += c.r2_packet_demote;
+            audit_val.r2_packet_seed_fail += c.r2_packet_seed_fail;
+            audit_val.krule_gc2_evals += c.krule_gc2_evals;
+        }
 
         double b = std::fabs(v0.mu) > 0 ? std::fabs(v0.mu) : 1.0;
         double dmv = std::fabs(v3.mu - v0.mu) / b;
@@ -142,14 +162,25 @@ int main(int argc, char** argv) {
                 audit.jet_eligible_cells, audit.jet_cells,
                 audit.jet_seed_krule_evals, audit.jet_rhs_evals,
                 audit.krule_gc2_evals - audit.jet_seed_krule_evals);
+    std::printf("regime-2 r2 packet    %ld cells   %ld demote / %ld seed-fail\n",
+                audit.r2_packet_cells, audit.r2_packet_demote,
+                audit.r2_packet_seed_fail);
+    std::printf("JAC lane r2 packet    %ld cells   %ld demote\n",
+                audit.r2_jac_cells, audit.r2_jac_demote);
+    std::printf("VALUE lane: %ld seen / %ld ode / %ld fb   jet %ld/%ld   "
+                "r2 %ld cells (%ld demote / %ld seed-fail)   on-march K-rule %ld\n",
+                audit_val.cells_seen, audit_val.cells_ode, audit_val.cells_fallback,
+                audit_val.jet_eligible_cells, audit_val.jet_cells,
+                audit_val.r2_packet_cells, audit_val.r2_packet_demote,
+                audit_val.r2_packet_seed_fail, audit_val.krule_gc2_evals);
 
     bool audit_ok = (audit.angular_sweep_nodes == 0 &&
                      audit.per_node_quartic_solves == 0);
-    // the jet must actually engage on this stress set (regression guard: a
-    // silently-disabled jet would still pass parity but lose the speed win).
-    if (audit.jet_cells == 0) {
+    // the regime-2 fast path must actually engage on this stress set (a
+    // silently-disabled jet/r2 would still pass parity but lose the speed win).
+    if (audit.jet_cells + audit.r2_packet_cells + audit.r2_jac_cells == 0) {
         ++fails;
-        std::fprintf(stderr, "  AUDIT FAIL: regime-2 jet never engaged\n");
+        std::fprintf(stderr, "  AUDIT FAIL: regime-2 jet + r2 packet never engaged\n");
     }
     if (!audit_ok) {
         ++fails;

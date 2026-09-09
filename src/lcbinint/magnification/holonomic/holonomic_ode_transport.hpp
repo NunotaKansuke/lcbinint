@@ -103,6 +103,11 @@ constexpr int kOdeJetDeg = 6;                  // Taylor packet degree d
 constexpr int kOdeJetSeedN = kOdeJetDeg + 3;   // 9 Chebyshev-Gauss seed nodes
 constexpr double kOdeJetSeedSpan = 0.85;       // seed spans anchor +/- span*H
 constexpr double kOdeJetDecayMin = 6.0;        // coefficient-decay rho gate
+// aggressive regime-2 packet: seed 9 Chebyshev-Gauss nodes across the WHOLE
+// cell (anchor +/- span*H), fit degree-6 packets for all 12 integrand columns
+// (R*dtheta, dF0/dp[5], v*K, dvK/dp[5]), and integrate each analytically over
+// [lo,hi].  No RK4 march, no fold tail -- the cell closes on the packet alone.
+constexpr int kOdeJetCols = 12;                // widest column set (r2 rule)
 
 // 5-point Gauss-Legendre on [-1, 1] for the regularized fold tail in u.
 constexpr int kOdeGLn = 5;
@@ -136,6 +141,18 @@ inline double holo_ode_substep_cap() {
     }();
     return c;
 }
+// v-work hand-off floor (HOLO_ODE_VWORK, default kOdeVWork = 1e-9) -- the v at
+// which the RK4 march stops and hands [R_end, edge] to the u-sub tail.  Raising
+// it ends the near-fold adaptive-clamp step crawl earlier (cheaper march, more
+// work on the regularized tail); calibration knob for the step-count study.
+inline double holo_ode_vwork() {
+    static const double c = [] {
+        const char* e = std::getenv("HOLO_ODE_VWORK");
+        const double v = e ? std::atof(e) : 0.0;
+        return (v > 0.0) ? v : kOdeVWork;
+    }();
+    return c;
+}
 // regime-2 jet coefficient-decay gate (HOLO_ODE_JET_DECAY) -- calibration
 // knob for the decay_rho threshold below which a jet-eligible cell reverts
 // to the per-stage K-rule.  Default kOdeJetDecayMin.
@@ -146,6 +163,34 @@ inline double holo_ode_jet_decay_min() {
         return (v > 0.0) ? v : kOdeJetDecayMin;
     }();
     return c;
+}
+// aggressive regime-2 packet (HOLO_ODE_R2_PACKET, default ON when the ODE
+// path is enabled) -- when every arc in a cell is regime-2, close the cell on
+// analytic packet integrals instead of an RK4 march.  Set to 0 to fall back
+// to the flux-priority jet + march for A/B timing.
+inline int& holo_ode_r2_packet_override() {
+    static int v = -1;  // -1 env, 0 off, 1 on
+    return v;
+}
+inline bool holo_ode_r2_packet_enabled() {
+    const int o = holo_ode_r2_packet_override();
+    if (o >= 0) return o != 0;
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_ODE_R2_PACKET");
+        return !(e && e[0] == '0');  // default ON
+    }();
+    return on;
+}
+// r2 packet tolerance scale (HOLO_ODE_R2_TAIL, default 1e-6 -> scale 1.0):
+// multiplies both the (m,v) geometry-packet fidelity gate in ode_jet_build
+// and the F0 G7/K15 convergence gate in r2_value_cell.
+inline double holo_ode_r2_packet_tail_scale() {
+    static const double s = [] {
+        const char* e = std::getenv("HOLO_ODE_R2_TAIL");
+        const double v = e ? std::atof(e) : 0.0;
+        return ((v > 0.0) ? v : 1.0e-6) / 1.0e-6;
+    }();
+    return s;
 }
 
 // ---- instrumentation (thread-local; the benchmark / tests audit this) ---
@@ -185,6 +230,12 @@ struct OdeCounters {
     long jet_rhs_evals = 0;       // RHS arc-evals served by the Horner jet
     long jet_demote_decay = 0;    // jet-eligible but decay_rho < gate -> K-rule
     long jet_demote_seed = 0;     // jet-eligible but a seed sample failed
+    // --- aggressive regime-2 packet (no RK4 march; analytic cell integral) ---
+    long r2_packet_cells = 0;     // regime-2 cells closed by analytic packet integral
+    long r2_packet_demote = 0;    // regime-2 packet built but a column failed the gate
+    long r2_packet_seed_fail = 0;  // regime-2 packet seed sample failed -> jet/march
+    long r2_jac_cells = 0;        // jac-lane regime-2 cells closed on the (m,v) packet
+    long r2_jac_demote = 0;       // jac-lane packet built but F0 / dF0 gate failed
     void reset() { *this = OdeCounters{}; }
 };
 inline OdeCounters& ode_counters() {
@@ -216,8 +267,20 @@ struct JetGerm {
     double r_half = 0.0;                    // |R - R_c| bound for jet use
     double c_val[kOdeJetDeg + 1] = {};      // Taylor coeff k of  v*K(R)
     double c_dp[5][kOdeJetDeg + 1] = {};    // ... of  d(v*K)/dp_j
+    // (m,v) geometry packet: the same kOdeJetSeedN seed nodes that build the
+    // flux germ already solve the quartic and the (m,v) implicit-function
+    // Jacobian, so m(R), v(R) and their five parameter-derivatives fit into
+    // Taylor packets too.  A regime-2 value cell then reconstructs the whole
+    // root pair by Horner instead of an (m,v)-only RK4 march to every
+    // quadrature node -- the last ODE march removed from the regime-2 path.
+    double c_m[kOdeJetDeg + 1] = {};        // Taylor coeff k of  m(R)
+    double c_v[kOdeJetDeg + 1] = {};        // ... of  v(R)
+    double c_dm[5][kOdeJetDeg + 1] = {};    // ... of  dm/dp_j
+    double c_dv[5][kOdeJetDeg + 1] = {};    // ... of  dv/dp_j
     double decay_rho = 0.0;
-    bool active = false;
+    double mv_decay_rho = 0.0;
+    bool active = false;                    // v*K flux packet usable
+    bool mv_active = false;                 // (m,v) geometry packet usable
 };
 
 namespace ode_detail {
@@ -226,10 +289,10 @@ namespace ode_detail {
 // solve  T_j(x_k) c_j = rhs_k  for up to `ncol` right-hand sides at once
 // (Gauss-Jordan with partial pivot, kOdeJetSeedN x kOdeJetSeedN).  coef[k]
 // holds the k-th Chebyshev coefficient for each column.
-inline bool cheb_fit(const double* xs, const double rhs[kOdeJetSeedN][6],
-                     int ncol, double coef[kOdeJetSeedN][6]) {
+inline bool cheb_fit(const double* xs, const double rhs[kOdeJetSeedN][kOdeJetCols],
+                     int ncol, double coef[kOdeJetSeedN][kOdeJetCols]) {
     constexpr int N = kOdeJetSeedN;
-    double M[N][N], b[N][6];
+    double M[N][N], b[N][kOdeJetCols];
     for (int k = 0; k < N; ++k) {
         double tm1 = 1.0, t = xs[k];
         M[k][0] = 1.0;
@@ -589,6 +652,7 @@ inline bool ode_march(double R0, double R1, double* y, int na,
                        : ode_rhs_value(R, yy, na, pf, want_fh, jets, out, ctr);
     };
 
+    const double vwork = holo_ode_vwork();
     double R = R0;
     for (long st = 0; st < kOdeMaxSteps; ++st) {
         const double remain = R1 - R;
@@ -598,7 +662,7 @@ inline bool ode_march(double R0, double R1, double* y, int na,
         }
         // already at / past the working floor -> stop cleanly here
         for (int a = 0; a < na; ++a)
-            if (y[2 * a + 1] < kOdeVWork) {
+            if (y[2 * a + 1] < vwork) {
                 *R_end = R;
                 *fold_arc = a;
                 return true;
@@ -624,8 +688,8 @@ inline bool ode_march(double R0, double R1, double* y, int na,
             const double v_now = y[2 * a + 1];
             const double dv = k1[2 * a + 1];
             if (dv >= 0.0) continue;
-            if (v_now + h * dv < kOdeVWork) {
-                const double h_hit = (kOdeVWork - v_now) / dv;
+            if (v_now + h * dv < vwork) {
+                const double h_hit = (vwork - v_now) / dv;
                 if (h_hit > 0.0 && std::fabs(h_hit) <= std::fabs(h)) {
                     h = h_hit;
                     hit = a;
@@ -715,7 +779,9 @@ inline void ode_jet_build(const PrimaryFrame& pf, double anchor, double H,
         nodeX[k] = (2.0 * nodeR[k] - (A + B)) / (B - A);
 
     // samp[arc][node][col]:  col 0 = v*K,  col 1..5 = d(v*K)/dp_j
-    double samp[kOdeMaxArcs][NS][6];
+    // sampmv[arc][node][col]: col 0 = m, 1 = v, 2..6 = dm/dp_j, 7..11 = dv/dp_j
+    double samp[kOdeMaxArcs][NS][kOdeJetCols];
+    double sampmv[kOdeMaxArcs][NS][kOdeJetCols];
     for (int k = 0; k < NS; ++k) {
         std::array<double, 2 * kOdeMaxArcs> mv{};
         for (int i = 0; i < 2 * na; ++i) mv[i] = sd.mv[i];
@@ -738,6 +804,12 @@ inline void ode_jet_build(const PrimaryFrame& pf, double anchor, double H,
                 ++ctr.jet_demote_seed;
                 return;
             }
+            sampmv[a][k][0] = rp.m;
+            sampmv[a][k][1] = rp.v;
+            for (int j = 0; j < 5; ++j) {
+                sampmv[a][k][2 + j] = dm_dp[j];
+                sampmv[a][k][7 + j] = dv_dp[j];
+            }
             ++ctr.jet_seed_krule_evals;
             ++ctr.krule_gc2_evals;
             const VKJacobian vkj = v_times_K_jac(rp.m, rp.v, dm_dp, dv_dp,
@@ -749,7 +821,7 @@ inline void ode_jet_build(const PrimaryFrame& pf, double anchor, double H,
     }
 
     for (int a = 0; a < na; ++a) {
-        double coef[NS][6];
+        double coef[NS][kOdeJetCols];
         if (!ode_detail::cheb_fit(nodeX, samp[a], 6, coef)) {
             ++ctr.jet_demote_seed;
             return;
@@ -803,6 +875,66 @@ inline void ode_jet_build(const PrimaryFrame& pf, double anchor, double H,
         }
         if (!fin) { ++ctr.jet_demote_seed; return; }
         g.active = true;
+
+        // ---- (m,v) geometry packet (independent of the flux gate) --------
+        // A degree-kOdeJetDeg packet must reproduce all 9 seed samples of m,
+        // v and every dm/dp, dv/dp.  A root branch mis-tracked between seed
+        // nodes -- the one failure a geometry packet must never accept --
+        // blows up either the coefficient decay or the truncation residual
+        // (|c7| + |c8|, Chebyshev coeffs are <= 1 on the seed span), so both
+        // are gated explicitly.  Failure leaves mv_active false; the cell
+        // then keeps the ODE march, never a silent bad packet.
+        double coefmv[NS][kOdeJetCols];
+        if (ode_detail::cheb_fit(nodeX, sampmv[a], 12, coefmv)) {
+            const double mv_scale = holo_ode_r2_packet_tail_scale();
+            double mv_rho = 1.0e18;
+            bool mv_ok = true;
+            for (int col = 0; col < 12; ++col) {
+                double cc[NS], sc = 1e-300;
+                for (int k = 0; k < NS; ++k) {
+                    cc[k] = coefmv[k][col];
+                    sc = std::max(sc, std::fabs(sampmv[a][k][col]));
+                }
+                const double resid =
+                    std::fabs(coefmv[7][col]) + std::fabs(coefmv[8][col]);
+                const double tol = (col < 2 ? 3.0e-5 : 3.0e-3) * mv_scale;
+                if (!(resid <= tol * sc)) mv_ok = false;
+                const double r = ode_detail::cheb_decay_rho(cc, A, B, H);
+                if (r < mv_rho) mv_rho = r;
+            }
+            if (mv_ok && std::isfinite(mv_rho) &&
+                mv_rho >= holo_ode_jet_decay_min()) {
+                double cm[NS], cv[NS];
+                for (int k = 0; k < NS; ++k) {
+                    cm[k] = coefmv[k][0];
+                    cv[k] = coefmv[k][1];
+                }
+                ode_detail::cheb_to_taylor(cm, A, B, anchor, g.c_m);
+                ode_detail::cheb_to_taylor(cv, A, B, anchor, g.c_v);
+                for (int j = 0; j < 5; ++j) {
+                    double dm[NS], dv[NS];
+                    for (int k = 0; k < NS; ++k) {
+                        dm[k] = coefmv[k][2 + j];
+                        dv[k] = coefmv[k][7 + j];
+                    }
+                    ode_detail::cheb_to_taylor(dm, A, B, anchor, g.c_dm[j]);
+                    ode_detail::cheb_to_taylor(dv, A, B, anchor, g.c_dv[j]);
+                }
+                bool mvfin = true;
+                for (int k = 0; k <= kOdeJetDeg; ++k) {
+                    if (!std::isfinite(g.c_m[k]) || !std::isfinite(g.c_v[k]))
+                        mvfin = false;
+                    for (int j = 0; j < 5; ++j)
+                        if (!std::isfinite(g.c_dm[j][k]) ||
+                            !std::isfinite(g.c_dv[j][k]))
+                            mvfin = false;
+                }
+                if (mvfin) {
+                    g.mv_decay_rho = mv_rho;
+                    g.mv_active = true;
+                }
+            }
+        }
     }
     for (int a = 0; a < na; ++a)
         if (!germs[a].active) { ++ctr.jet_demote_seed; return; }
@@ -943,6 +1075,263 @@ inline void route_regimes(const PrimaryFrame& pf, const OdeSeed& sd,
 }
 }  // namespace ode_detail
 
+// ======================================================================
+// Aggressive regime-2 cell rule.  When route_regimes reports every arc in
+// the cell regime-2 (fold out of reach, dist_fold >= 2H), the integrands
+//   col 0      = R * delta_theta(m,v)                      -> F0
+//   col 1..5   = R * (dtheta_m dm/dp_j + dtheta_v dv/dp_j) -> dF0/dp_j
+//   col 6      = v*K                                       -> F_half
+//   col 7..11  = d(v*K)/dp_j                               -> dF_half/dp_j
+// are each smooth across the WHOLE cell.  We sample a fixed kOdeR2GLn-point
+// Gauss-Legendre rule over [lo,hi] -- (m,v) at each node reached by an
+// (m,v)-only RK4 from the cell-centre seed, NO quartic re-solve -- and take
+// the cell integral straight from the GL weights.  No RK4 flux march, no
+// fold tail: the whole cell closes on one fixed rule.
+//
+// Safety: the GL-node samples of every column are also fitted to a
+// degree-(kOdeR2GLn-1) Chebyshev interpolant; if the two top coefficients
+// are not down by kOdeR2TailTol (value columns) / *100 (derivative columns)
+// relative to c0 the fixed rule is not resolving that integrand and the
+// cell is demoted to the flux-priority jet + march.  Parity-immune (a top-
+// coefficient magnitude test, not a decay slope).  Never a silent approx.
+namespace ode_detail {
+
+struct R2Result {
+    int na = 0;
+    double F0 = 0.0, F_half = 0.0;
+    double dF0[5] = {}, dFh[5] = {};
+    bool ok = false;
+};
+
+// Gauss 7 / Kronrod 15 on [-1, 1].  The 15 Kronrod abscissae kOdeR2X[] give
+// the cell integral; the 7 Gauss abscissae are the subset at indices 1,3,..,13
+// and kOdeR2GW[] are their weights (kOdeR2GW[i] pairs with kOdeR2X[2i+1]).
+// |I_K15 - I_G7| is the standard embedded error estimate -- a real per-cell
+// convergence check for the fixed rule, not a decay heuristic.
+constexpr int kOdeR2N = 15;
+constexpr double kOdeR2X[15] = {
+    -0.9914553711208126, -0.9491079123427585, -0.8648644233597691,
+    -0.7415311855993945, -0.5860872354676911, -0.4058451513773972,
+    -0.2077849550078985,  0.0,                 0.2077849550078985,
+     0.4058451513773972,  0.5860872354676911,  0.7415311855993945,
+     0.8648644233597691,  0.9491079123427585,  0.9914553711208126};
+constexpr double kOdeR2KW[15] = {
+    0.0229353220105292, 0.0630920926299786, 0.1047900103222502,
+    0.1406532597155259, 0.1690047266392679, 0.1903505780647854,
+    0.2044329400752989, 0.2094821410847278, 0.2044329400752989,
+    0.1903505780647854, 0.1690047266392679, 0.1406532597155259,
+    0.1047900103222502, 0.0630920926299786, 0.0229353220105292};
+constexpr double kOdeR2GW[7] = {
+    0.1294849661688697, 0.2797053914892766, 0.3818300505051189,
+    0.4179591836734694, 0.3818300505051189, 0.2797053914892766,
+    0.1294849661688697};
+
+// Analytic integral of a degree-kOdeJetDeg Taylor packet (coeffs c[k] about
+// R_c, c[k] = f^(k)(R_c)/k!) over [lo, hi]:  int f dR = sum_k c[k]/(k+1) *
+// ((hi-R_c)^{k+1} - (lo-R_c)^{k+1}).  The jet germ is valid over the whole
+// cell (g.R_c = anchor, g.r_half = H), so F_half and d(F_half)/dp on a
+// regime-2 cell close in closed form -- no K-rule sampling at all.
+inline double jet_integrate(const double* c, double R_c, double lo, double hi) {
+    const double a = lo - R_c, b = hi - R_c;
+    double ap = a, bp = b, acc = 0.0;  // ap = a^{k+1}, bp = b^{k+1}
+    for (int k = 0; k <= kOdeJetDeg; ++k) {
+        acc += c[k] / (double)(k + 1) * (bp - ap);
+        ap *= a;
+        bp *= b;
+    }
+    return acc;
+}
+
+// Composite Kronrod-15 of sum_a R * delta_theta(m_a(R), v_a(R)) over `np`
+// equal panels of [lo,hi], with (m,v) from the geometry packet (Horner, no
+// march).  delta_theta = 2 atan2(2 sqrt(v), .) carries a ~1/sqrt(v) bend
+// that even an exact (m,v) does not remove, so the fixed rule is checked by
+// panel refinement (np=1 vs np=2) in the caller.  false if any packet node
+// leaves the valid (v > 0) sheet.
+inline bool r2_jet_f0(double lo, double hi, int na, const JetGerm* germs,
+                      int np, double* F0) {
+    const double pw = (hi - lo) / (double)np;
+    double acc = 0.0;
+    for (int p = 0; p < np; ++p) {
+        const double pmid = lo + (p + 0.5) * pw, phlf = 0.5 * pw;
+        for (int k = 0; k < kOdeR2N; ++k) {
+            const double R = pmid + phlf * kOdeR2X[k];
+            double f = 0.0;
+            for (int a = 0; a < na; ++a) {
+                const double m = jet_eval(germs[a].c_m, germs[a].R_c, R);
+                const double v = jet_eval(germs[a].c_v, germs[a].R_c, R);
+                if (!(v > kHoloVFloor) || !std::isfinite(m)) return false;
+                const DThetaDeriv dt = dtheta_derivs(m, v);
+                if (!dt.ok) return false;
+                f += R * dt.val;
+            }
+            acc += phlf * kOdeR2KW[k] * f;
+        }
+    }
+    *F0 = acc;
+    return true;
+}
+
+// Value-lane regime-2 packet: (m,v) from the geometry packet (Horner, no
+// march), F0 by panel-refined composite K15 gated on the np=1 vs np=2 delta,
+// F_half by the analytic v*K jet integral.  No RK4 (m,v) march, no flux
+// march, no fold tail, no K-rule sampling -- the cell closes on packet
+// coefficients.
+inline R2Result r2_value_cell(double lo, double hi, const OdeSeed& sd,
+                              const JetGerm* germs, bool want_fh,
+                              OdeCounters& ctr) {
+    R2Result res;
+    const int na = sd.na;
+    for (int a = 0; a < na; ++a)
+        if (!germs[a].mv_active) { ++ctr.r2_packet_demote; return res; }
+
+    double F0_1 = 0.0, F0_2 = 0.0;
+    if (!r2_jet_f0(lo, hi, na, germs, 1, &F0_1) ||
+        !r2_jet_f0(lo, hi, na, germs, 2, &F0_2)) {
+        ++ctr.r2_packet_seed_fail;
+        return res;
+    }
+
+    const double tol_f0 = 2.0e-4 * holo_ode_r2_packet_tail_scale();
+    const bool dbg = std::getenv("HOLO_ODE_R2_DEBUG") != nullptr;
+    const double err = std::fabs(F0_2 - F0_1) / (std::fabs(F0_2) + 1e-300);
+    if (dbg)
+        std::fprintf(stderr, "R2val F0 err=%.2e tol=%.0e%s\n", err, tol_f0,
+                     (err < tol_f0) ? "" : "  X");
+    if ((!(err < tol_f0) || !std::isfinite(err)) && !dbg) {
+        ++ctr.r2_packet_demote;
+        return res;
+    }
+    res.F0 = F0_2;
+
+    if (want_fh) {
+        double Fh = 0.0;
+        for (int a = 0; a < na; ++a)
+            Fh += jet_integrate(germs[a].c_val, germs[a].R_c, lo, hi);
+        if (!std::isfinite(Fh)) return res;
+        res.F_half = Fh;
+    }
+    if (!std::isfinite(res.F0)) return res;
+    res.na = na;
+    res.ok = true;
+    return res;
+}
+
+// jac-lane regime-2: F0 and its 5 parameter-derivatives by composite K15
+// over `np` panels, everything from the geometry packet by Horner.  The
+// dF0/dp_j integrand R*(dtheta_m*dm/dp + dtheta_v*dv/dp) carries dtheta_v ~
+// 1/sqrt(v); in a regime-2 cell v can still dip to ~0.01 at the fold-facing
+// edge, so v(R)^{-1/2} has a complex branch point ~0.14 in R from the cell
+// centre and composite Gauss-Kronrod converges only ~np^{-1/2} on dF0/dp
+// (checkpoint 37 / evidence sec.9 -- this is why r2_jac_cell demotes ~90 %
+// of regime-2 jac cells and the V3 line is frozen as reference).  The np=1
+// vs np=2 refinement gate in r2_jac_cell catches exactly that.
+// out[0] = F0, out[1..5] = dF0/dp_j.  false on a bad packet node.
+inline bool r2_jet_f0_jac(double lo, double hi, int na, const JetGerm* germs,
+                          int np, double* out) {
+    for (int c = 0; c < 6; ++c) out[c] = 0.0;
+    const double pw = (hi - lo) / (double)np;
+    for (int p = 0; p < np; ++p) {
+        const double pmid = lo + (p + 0.5) * pw, phlf = 0.5 * pw;
+        for (int k = 0; k < kOdeR2N; ++k) {
+            const double R = pmid + phlf * kOdeR2X[k];
+            const double w = phlf * kOdeR2KW[k];
+            double f0 = 0.0, fd[5] = {};
+            for (int a = 0; a < na; ++a) {
+                const double m = jet_eval(germs[a].c_m, germs[a].R_c, R);
+                const double v = jet_eval(germs[a].c_v, germs[a].R_c, R);
+                if (!(v > kHoloVFloor) || !std::isfinite(m)) return false;
+                const DThetaDeriv dt = dtheta_derivs(m, v);
+                if (!dt.ok) return false;
+                f0 += R * dt.val;
+                for (int j = 0; j < 5; ++j) {
+                    const double dm =
+                        jet_eval(germs[a].c_dm[j], germs[a].R_c, R);
+                    const double dv =
+                        jet_eval(germs[a].c_dv[j], germs[a].R_c, R);
+                    fd[j] += R * (dt.d_m * dm + dt.d_v * dv);
+                }
+            }
+            out[0] += w * f0;
+            for (int j = 0; j < 5; ++j) out[1 + j] += w * fd[j];
+        }
+    }
+    return true;
+}
+
+// jac-lane regime-2 packet: F_half + d(F_half)/dp by the analytic v*K jet
+// integral, F0 + dF0/dp by panel-refined K15 of the geometry packet.  No
+// RK4 march of any kind -- the (m,v) transport that dominated the jac cell
+// cost (root_pair_dR + eo_jacobian + IFT per substep) is Horner now.
+inline R2Result r2_jac_cell(double lo, double hi, const OdeSeed& sd,
+                            const JetGerm* germs, OdeCounters& ctr) {
+    R2Result res;
+    const int na = sd.na;
+    for (int a = 0; a < na; ++a)
+        if (!germs[a].mv_active || !germs[a].active) {
+            ++ctr.r2_jac_demote;
+            return res;
+        }
+
+    double c1[6], c2[6];
+    if (!r2_jet_f0_jac(lo, hi, na, germs, 1, c1) ||
+        !r2_jet_f0_jac(lo, hi, na, germs, 2, c2)) {
+        ++ctr.r2_jac_demote;
+        return res;
+    }
+
+    const double sc = holo_ode_r2_packet_tail_scale();
+    const double tol_f0 = 2.0e-4 * sc;
+    const double tol_d = 5.0e-3 * sc;
+    const bool dbg = std::getenv("HOLO_ODE_R2_DEBUG") != nullptr;
+    const double eF0 = std::fabs(c2[0] - c1[0]) / (std::fabs(c2[0]) + 1e-300);
+    double eDmax = 0.0;
+    for (int j = 0; j < 5; ++j) {
+        const double den =
+            std::fabs(c2[1 + j]) + 1.0e-3 * std::fabs(c2[0]) + 1e-300;
+        const double e = std::fabs(c2[1 + j] - c1[1 + j]) / den;
+        if (e > eDmax) eDmax = e;
+    }
+    if (dbg)
+        std::fprintf(stderr, "R2jac F0 e=%.2e (tol %.0e)  dF0 e=%.2e (tol %.0e)%s\n",
+                     eF0, tol_f0, eDmax, tol_d,
+                     (eF0 < tol_f0 && eDmax < tol_d) ? "" : "  X");
+    if (((!(eF0 < tol_f0) || !std::isfinite(eF0)) ||
+         (!(eDmax < tol_d) || !std::isfinite(eDmax))) &&
+        !dbg) {
+        ++ctr.r2_jac_demote;
+        return res;
+    }
+
+    res.F0 = c2[0];
+    for (int j = 0; j < 5; ++j) res.dF0[j] = c2[1 + j];
+
+    double Fh = 0.0, dFh[5] = {};
+    for (int a = 0; a < na; ++a) {
+        Fh += jet_integrate(germs[a].c_val, germs[a].R_c, lo, hi);
+        for (int j = 0; j < 5; ++j)
+            dFh[j] += jet_integrate(germs[a].c_dp[j], germs[a].R_c, lo, hi);
+    }
+    res.F_half = Fh;
+    for (int j = 0; j < 5; ++j) res.dFh[j] = dFh[j];
+
+    if (!std::isfinite(res.F0) || !std::isfinite(res.F_half)) {
+        ++ctr.r2_jac_demote;
+        return res;
+    }
+    for (int j = 0; j < 5; ++j)
+        if (!std::isfinite(res.dF0[j]) || !std::isfinite(res.dFh[j])) {
+            ++ctr.r2_jac_demote;
+            return res;
+        }
+
+    res.na = na;
+    res.ok = true;
+    return res;
+}
+
+}  // namespace ode_detail
+
 inline bool ode_transport_cell_jac(const PrimaryFrame& pf, double lo, double hi,
                                    double H, OdeCellJac& out) {
     OdeCounters& ctr = ode_counters();
@@ -963,16 +1352,42 @@ inline bool ode_transport_cell_jac(const PrimaryFrame& pf, double lo, double hi,
 
     // regime-2 flux-priority jet: build the per-arc Taylor germ once here;
     // if every arc's germ clears the decay gate the marches below evaluate
-    // v*K + d(v*K)/dp by Horner instead of a per-stage 16-node K-rule.
+    // v*K + d(v*K)/dp by Horner instead of a per-stage 16-node K-rule.  The
+    // same build also fits the (m,v) geometry packet (c_m/c_v/c_dm/c_dv);
+    // when it clears its own fidelity gate on every arc, r2_jac_cell closes
+    // the whole cell -- F0/dF0 by panel-refined K15 of the packet, F_half/
+    // dFh by the analytic v*K jet integral -- with no RK4 march at all.
     JetGerm germs[kOdeMaxArcs];
-    bool jet_on = false;
+    bool jet_on = false, mv_on = false;
     if (jet_elig) {
         ++ctr.jet_eligible_cells;
         ode_jet_build(pf, anchor, H, sd, ctr, germs);
         jet_on = true;
-        for (int a = 0; a < sd.na; ++a) jet_on = jet_on && germs[a].active;
+        mv_on = true;
+        for (int a = 0; a < sd.na; ++a) {
+            jet_on = jet_on && germs[a].active;
+            mv_on = mv_on && germs[a].mv_active;
+        }
     }
     const JetGerm* jets = jet_on ? germs : nullptr;
+
+    if (jet_elig && holo_ode_r2_packet_enabled() && mv_on && jet_on) {
+        const ode_detail::R2Result r =
+            ode_detail::r2_jac_cell(lo, hi, sd, germs, ctr);
+        if (r.ok) {
+            out.F0 = r.F0;
+            out.F_half = r.F_half;
+            for (int j = 0; j < 5; ++j) {
+                out.dF0i[j] = r.dF0[j];
+                out.dFhi[j] = r.dFh[j];
+            }
+            out.reliable = true;
+            ++ctr.r2_jac_cells;
+            ++ctr.cells_ode;
+            return true;
+        }
+        // fall through: flux-priority jet + march
+    }
 
     const int na = sd.na;
     const int ND = 2 * na + 12;
@@ -1083,14 +1498,37 @@ inline bool ode_transport_cell_value(const PrimaryFrame& pf, double lo, double h
     }
 
     JetGerm germs[kOdeMaxArcs];
-    bool jet_on = false;
-    if (jet_elig && want_fh) {
+    bool jet_on = false, mv_on = false;
+    if (jet_elig) {
         ++ctr.jet_eligible_cells;
         ode_jet_build(pf, anchor, H, sd, ctr, germs);
         jet_on = true;
-        for (int a = 0; a < sd.na; ++a) jet_on = jet_on && germs[a].active;
+        mv_on = true;
+        for (int a = 0; a < sd.na; ++a) {
+            jet_on = jet_on && germs[a].active;
+            mv_on = mv_on && germs[a].mv_active;
+        }
     }
     const JetGerm* jets = jet_on ? germs : nullptr;
+
+    // aggressive regime-2 packet (value lane): (m,v) reconstructed by Horner
+    // from the geometry packet -- no march at all -- F0 by the G7/K15 rule,
+    // F_half by the analytic v*K jet integral.  want_fh cells also need the
+    // flux packet (jet_on); every cell needs the geometry packet (mv_on).
+    if (jet_elig && holo_ode_r2_packet_enabled() && mv_on &&
+        (!want_fh || jet_on)) {
+        const ode_detail::R2Result r =
+            ode_detail::r2_value_cell(lo, hi, sd, germs, want_fh, ctr);
+        if (r.ok) {
+            out.F0 = r.F0;
+            out.F_half = want_fh ? r.F_half : 0.0;
+            out.reliable = true;
+            ++ctr.r2_packet_cells;
+            ++ctr.cells_ode;
+            return true;
+        }
+        // fall through: flux-priority jet + march
+    }
 
     const int na = sd.na;
     const int ND = 2 * na + 2;
