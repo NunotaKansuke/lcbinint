@@ -7735,6 +7735,14 @@ namespace {
 // Failure is a Status -> converged = false (never a silent approximation).
 // The holonomic engine is linear-limb-darkening only; a non-zero quadratic
 // coefficient (_d) also fails closed.
+//
+// rolling_prepared (Phase C step 2 part 3): when non-null, the caller owns a
+// per-trajectory PreparedEpochGeometry and consecutive epochs take the
+// prepared route (finite_source_binary_prepared -> epoch_jacobian_prepared,
+// default_reuse_config = L2 warm-seeded D14 ON / L1 verbatim reuse OFF).
+// state.valid == false on the first epoch => cold build; every completeness /
+// residual gate stays intact and a stale seed fails closed inside solve_d14.
+// Null -> every epoch runs the stateless cold route (bit-identical to before).
 FiniteSourceResult holonomic_binary_preplanned(
     double separation,
     double mass_ratio,
@@ -7742,7 +7750,8 @@ FiniteSourceResult holonomic_binary_preplanned(
     double source_radius,
     double limb_darkening_c,
     double limb_darkening_d,
-    int resolution)
+    int resolution,
+    holonomic::PreparedEpochGeometry* rolling_prepared)
 {
     FiniteSourceDecision decision{
         FiniteSourceMethod::holonomic_binary, 0, "preplanned holonomic binary"};
@@ -7770,7 +7779,10 @@ FiniteSourceResult holonomic_binary_preplanned(
     req.n_r = resolution > 0 ? resolution : 64;
 
     const holonomic::FiniteSourceOutcome outcome =
-        holonomic::finite_source_binary(req);
+        rolling_prepared != nullptr
+            ? holonomic::finite_source_binary_prepared(
+                  req, *rolling_prepared, holonomic::default_reuse_config())
+            : holonomic::finite_source_binary(req);
 
     // The value is trustworthy for OK / estimated / locally-referenced /
     // gradient-only-unreliable outcomes; every hard topology / conditioning
@@ -7789,8 +7801,17 @@ FiniteSourceResult holonomic_binary_preplanned(
     }
 
     decision.estimated_evaluations = req.n_r;
+    const char* prov =
+        rolling_prepared == nullptr ? "cold"
+        : outcome.provenance == holonomic::PreparedEpochGeometry::kColdOracle
+            ? "prepared:cold-build"
+        : outcome.provenance == holonomic::PreparedEpochGeometry::kTopologyReused
+            ? "prepared:L1-reuse"
+        : outcome.provenance == holonomic::PreparedEpochGeometry::kWarmRecomputed
+            ? "prepared:L2-warm-D14"
+            : "prepared:L3-cold-recompute";
     decision.reason = std::string("preplanned holonomic binary [") +
-                      holonomic::to_string(outcome.status) + "]";
+                      holonomic::to_string(outcome.status) + ", " + prov + "]";
 
     FiniteSourceResult result{
         outcome.mu, 0, decision, 0.0, 0, value_ok};
@@ -7799,6 +7820,13 @@ FiniteSourceResult holonomic_binary_preplanned(
 }
 
 }  // namespace
+
+std::shared_ptr<holonomic::PreparedEpochGeometry> make_prepared_epoch_geometry()
+{
+    // Empty (valid == false) => the first holonomic epoch builds cold, then the
+    // sec.8 fail-closed reuse ladder governs every subsequent epoch.
+    return std::make_shared<holonomic::PreparedEpochGeometry>();
+}
 
 FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
     double separation,
@@ -7809,7 +7837,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
     FiniteSourceMethod method,
     int resolution,
     const std::vector<SourcePosition>* center_image_seeds,
-    const PointSourceMagnifier* point_magnifier_hint) const
+    const PointSourceMagnifier* point_magnifier_hint,
+    holonomic::PreparedEpochGeometry* rolling_prepared) const
 {
     PointSourceMagnifier local_point_magnifier;
     const PointSourceMagnifier& point_magnifier = point_magnifier_hint != nullptr
@@ -7861,7 +7890,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
     if (method == FiniteSourceMethod::holonomic_binary) {
         return holonomic_binary_preplanned(
             separation, mass_ratio, source, source_radius,
-            settings_.limb_darkening_c, settings_.limb_darkening_d, resolution);
+            settings_.limb_darkening_c, settings_.limb_darkening_d, resolution,
+            rolling_prepared);
     }
 
     if (method == FiniteSourceMethod::inverse_ray_cartesian ||
