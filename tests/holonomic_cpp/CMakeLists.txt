@@ -137,6 +137,14 @@ target_include_directories(test_holonomic_transport PRIVATE "${_SRC}")
 target_compile_options(test_holonomic_transport PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_holonomic_transport PRIVATE quadmath)
 
+# Phase D value lane: fused kValueJacobian (discard Jac) vs epoch_value /
+# epoch_value_prepared through the production router -- wall-clock, mu parity,
+# status parity, over {u=0, u=case} x {cold, L2-prepared}.
+add_executable(bench_value_lane "${CMAKE_CURRENT_SOURCE_DIR}/bench_value_lane.cpp")
+target_include_directories(bench_value_lane PRIVATE "${_SRC}")
+target_compile_options(bench_value_lane PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_value_lane PRIVATE quadmath)
+
 # 3-solver whole-epoch benchmark: (V0) current direct / (V1) +(m,v) transport /
 # (V2) +(m,v)+regularized holonomic.  Wall-clock median/p90/p95/p99, mu +
 # grad_mu parity vs V0, status counts -- decision-20 gate.
