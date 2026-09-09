@@ -60,3 +60,7 @@ PYTHONPATH=python pytest -q tests/holonomic
 
 V0/V1/V2/V3のwhole epoch、value-only、微分込み、D14単体、GM本体の区別、旧経路A/B、
 測定ホスト、精度・status・未解決リスクは証拠ファイルにまとめてある。
+
+Phase 3のtrue GM coverage / analytic sensitivity / cold-warm結果は
+[checkpoint_global_optimization_phase3.md](checkpoint_global_optimization_phase3.md)を参照。
+valueの全ノード輸送は成立したが、速度と解析Jacobianの全面受理は未達。

@@ -1,0 +1,62 @@
+plan15 nodes=576 transported=576 accurate=576 seeds=9 err=4.797e-13 conn=974/974 steps=974 rejected=308 ms=539.682/14.125
+resonant nodes=640 transported=640 accurate=640 seeds=10 err=6.420e-14 conn=2126/2126 steps=2126 rejected=4200 ms=1177.805/68.852
+REFERENCE_REFINE close-binary R=1.3221176813007627 fh=0.80600960488816376 angular512=0.80600960510221764 angular2048=0.80600960488811257 angular4096=0.80600960488811391 reseed2048=0.80600960488815088
+close-binary nodes=576 transported=576 accurate=576 seeds=9 err=2.760e-14 conn=1689/1689 steps=1689 rejected=2926 ms=936.405/50.329
+wide-planet nodes=128 transported=128 accurate=128 seeds=2 err=1.349e-15 conn=164/164 steps=164 rejected=0 ms=90.857/1.816
+cusp-approach nodes=320 transported=320 accurate=320 seeds=5 err=4.625e-15 conn=410/410 steps=410 rejected=0 ms=227.305/4.537
+on-axis-off nodes=448 transported=448 accurate=448 seeds=7 err=3.262e-14 conn=574/574 steps=574 rejected=0 ms=317.808/6.346
+R=sqrt(m0) nodes=256 transported=256 accurate=256 seeds=4 err=1.863e-14 conn=328/328 steps=328 rejected=0 ms=181.736/3.630
+tiny-rho nodes=256 transported=256 accurate=256 seeds=4 err=5.859e-13 conn=328/328 steps=328 rejected=0 ms=181.638/3.629
+REFERENCE_REFINE caustic-cross R=0.85720265976937571 fh=0.91768360623539735 angular512=0.91768361016350952 angular2048=0.91768360623540901 angular4096=0.91768360623540068 reseed2048=0.91768360623539302
+caustic-cross nodes=384 transported=384 accurate=384 seeds=6 err=4.767e-14 conn=1438/1438 steps=1438 rejected=2924 ms=796.244/47.554
+extreme-q-lo nodes=128 transported=128 accurate=128 seeds=2 err=1.181e-15 conn=164/164 steps=164 rejected=0 ms=90.878/1.807
+extreme-q-planet nodes=384 transported=384 accurate=384 seeds=6 err=5.497e-15 conn=707/707 steps=707 rejected=330 ms=391.601/11.408
+very-wide nodes=128 transported=128 accurate=128 seeds=2 err=1.410e-15 conn=164/164 steps=164 rejected=0 ms=90.793/1.810
+REFERENCE_REFINE very-close R=0.92907521911042179 fh=0.79439835061834085 angular512=0.79439835058108588 angular2048=0.79439835058108521 angular4096=0.79439835058108266 reseed2048=0.79439835058109853
+REFERENCE_REFINE very-close R=0.92816569583481201 fh=0.81494599455335048 angular512=0.81494599449619332 angular2048=0.81494599449619309 angular4096=0.81494599449619398 reseed2048=0.81494599449624783
+REFERENCE_REFINE very-close R=0.92777432976288132 fh=0.82490630341448667 angular512=0.82490630355868255 angular2048=0.82490630355868211 angular4096=0.82490630355867711 reseed2048=0.82490630355866135
+REFERENCE_REFINE very-close R=1.0947897391023049 fh=0.78471301786310854 angular512=0.78471303481696908 angular2048=0.78471301786292358 angular4096=0.78471301786292547 reseed2048=0.78471301786290526
+very-close nodes=832 transported=832 accurate=832 seeds=13 err=7.901e-11 conn=3812/3812 steps=3812 rejected=7804 ms=2111.784/126.565
+fold-tangent nodes=640 transported=640 accurate=640 seeds=10 err=1.062e-13 conn=820/820 steps=820 rejected=0 ms=454.261/9.067
+rand000 nodes=256 transported=256 accurate=256 seeds=4 err=3.473e-15 conn=328/328 steps=328 rejected=0 ms=181.714/3.617
+rand001 nodes=192 transported=192 accurate=192 seeds=3 err=8.307e-15 conn=246/246 steps=246 rejected=0 ms=136.325/2.728
+rand002 nodes=128 transported=128 accurate=128 seeds=2 err=1.053e-14 conn=164/164 steps=164 rejected=0 ms=90.847/1.829
+rand003 nodes=256 transported=256 accurate=256 seeds=4 err=6.116e-14 conn=388/388 steps=388 rejected=60 ms=215.246/4.952
+rand004 nodes=192 transported=192 accurate=192 seeds=3 err=5.734e-15 conn=246/246 steps=246 rejected=0 ms=136.361/2.718
+rand005 nodes=128 transported=128 accurate=128 seeds=2 err=6.224e-15 conn=164/164 steps=164 rejected=0 ms=90.800/1.808
+rand006 nodes=320 transported=320 accurate=320 seeds=5 err=2.494e-14 conn=432/432 steps=432 rejected=22 ms=239.326/5.011
+rand007 nodes=128 transported=128 accurate=128 seeds=2 err=3.463e-14 conn=164/164 steps=164 rejected=0 ms=90.930/1.820
+rand008 nodes=128 transported=128 accurate=128 seeds=2 err=8.457e-15 conn=164/164 steps=164 rejected=0 ms=90.830/1.814
+rand009 nodes=128 transported=128 accurate=128 seeds=2 err=9.312e-15 conn=164/164 steps=164 rejected=0 ms=90.842/1.810
+rand010 nodes=320 transported=320 accurate=320 seeds=5 err=1.222e-13 conn=410/410 steps=410 rejected=0 ms=227.082/4.513
+rand011 nodes=256 transported=256 accurate=256 seeds=4 err=1.419e-14 conn=328/328 steps=328 rejected=0 ms=181.706/3.655
+rand012 nodes=128 transported=128 accurate=128 seeds=2 err=7.062e-15 conn=164/164 steps=164 rejected=0 ms=90.810/1.826
+rand013 nodes=128 transported=128 accurate=128 seeds=2 err=2.708e-14 conn=172/172 steps=172 rejected=8 ms=95.324/1.998
+rand014 nodes=128 transported=128 accurate=128 seeds=2 err=3.364e-15 conn=164/164 steps=164 rejected=0 ms=90.792/1.822
+rand015 nodes=128 transported=128 accurate=128 seeds=2 err=3.717e-15 conn=164/164 steps=164 rejected=0 ms=90.759/1.810
+rand016 nodes=256 transported=256 accurate=256 seeds=4 err=2.562e-15 conn=328/328 steps=328 rejected=0 ms=181.804/3.611
+rand017 nodes=128 transported=128 accurate=128 seeds=2 err=2.731e-14 conn=164/164 steps=164 rejected=0 ms=90.832/1.820
+rand018 nodes=128 transported=128 accurate=128 seeds=2 err=1.154e-14 conn=164/164 steps=164 rejected=0 ms=90.898/1.812
+rand019 nodes=128 transported=128 accurate=128 seeds=2 err=3.947e-14 conn=164/164 steps=164 rejected=0 ms=90.778/1.810
+rand020 nodes=192 transported=192 accurate=192 seeds=3 err=1.938e-14 conn=246/246 steps=246 rejected=0 ms=136.289/2.726
+rand021 nodes=128 transported=128 accurate=128 seeds=2 err=1.916e-14 conn=164/164 steps=164 rejected=0 ms=90.831/1.821
+rand022 nodes=128 transported=128 accurate=128 seeds=2 err=1.300e-14 conn=164/164 steps=164 rejected=0 ms=90.857/1.817
+rand023 nodes=128 transported=128 accurate=128 seeds=2 err=1.342e-13 conn=164/164 steps=164 rejected=0 ms=90.977/1.810
+rand024 nodes=128 transported=128 accurate=128 seeds=2 err=4.458e-14 conn=164/164 steps=164 rejected=0 ms=90.958/1.816
+rand025 nodes=704 transported=704 accurate=704 seeds=11 err=1.128e-14 conn=953/953 steps=953 rejected=63 ms=527.834/11.253
+rand026 nodes=128 transported=128 accurate=128 seeds=2 err=1.046e-14 conn=164/164 steps=164 rejected=0 ms=90.786/1.816
+rand027 nodes=128 transported=128 accurate=128 seeds=2 err=1.866e-13 conn=164/164 steps=164 rejected=0 ms=90.916/1.817
+rand028 nodes=256 transported=256 accurate=256 seeds=4 err=2.346e-14 conn=328/328 steps=328 rejected=0 ms=181.547/3.634
+rand029 nodes=320 transported=320 accurate=320 seeds=5 err=3.792e-13 conn=513/513 steps=513 rejected=130 ms=284.132/7.076
+rand030 nodes=320 transported=320 accurate=320 seeds=5 err=5.901e-15 conn=410/410 steps=410 rejected=0 ms=227.323/4.540
+rand031 nodes=256 transported=256 accurate=256 seeds=4 err=6.235e-14 conn=462/462 steps=462 rejected=185 ms=255.744/7.130
+rand032 nodes=128 transported=128 accurate=128 seeds=2 err=1.866e-13 conn=164/164 steps=164 rejected=0 ms=90.841/1.819
+REFERENCE_REFINE rand033 R=1.1259766700705147 fh=0.61314673641535689 angular512=0.61314673493972016 angular2048=0.61314673641504913 angular4096=0.61314673641504824 reseed2048=0.6131467364150498
+rand033 nodes=704 transported=704 accurate=704 seeds=11 err=1.913e-13 conn=1860/1860 steps=1860 rejected=2954 ms=1030.493/52.457
+rand034 nodes=128 transported=128 accurate=128 seeds=2 err=1.407e-14 conn=164/164 steps=164 rejected=0 ms=90.880/1.800
+rand035 nodes=192 transported=192 accurate=192 seeds=3 err=6.047e-14 conn=298/298 steps=298 rejected=52 ms=165.095/3.869
+rand036 nodes=128 transported=128 accurate=128 seeds=2 err=2.886e-14 conn=164/164 steps=164 rejected=0 ms=90.953/1.808
+rand037 nodes=320 transported=320 accurate=320 seeds=5 err=1.917e-14 conn=410/410 steps=410 rejected=0 ms=227.084/4.532
+rand038 nodes=128 transported=128 accurate=128 seeds=2 err=3.090e-15 conn=164/164 steps=164 rejected=0 ms=90.782/1.808
+rand039 nodes=128 transported=128 accurate=128 seeds=2 err=2.287e-14 conn=164/164 steps=164 rejected=0 ms=90.844/1.809
+TOTAL cases=54 all_true_accurate=52 nodes=13952 transported=13952 accurate=13952 worst=7.901e-11 connections=25664/25664 steps=25664 rejected=21966 connection_ms=14217.967 transport_ms=521.421

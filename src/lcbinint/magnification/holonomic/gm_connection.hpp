@@ -709,11 +709,12 @@ inline GmPoly<GmSeries<Order, Scalar>, kGmPolyCapacity> gm_q_series_raw(
 
 template <int Order, class Scalar>
 inline GmConnectionJet<Order, Scalar> gm_connection_jet(
-    double Rc, const GmParams<Scalar>& params) {
+    double Rc, const GmParams<Scalar>& params, double radial_scale = 1.0) {
     using Result = GmConnectionJet<Order, Scalar>;
     using Series = GmSeries<Order, Scalar>;
     using Poly = GmPoly<Series, kGmPolyCapacity>;
     Result out;
+    if (!(radial_scale > 0.0) || !std::isfinite(radial_scale)) return out;
     // Q_R is the h derivative.  One extra coefficient is required even for
     // a point connection (Order=0); differentiating an Order=0 series would
     // otherwise silently return zero and produce a zero connection matrix.
@@ -724,9 +725,13 @@ inline GmConnectionJet<Order, Scalar> gm_connection_jet(
     out.q.deg = qfull.deg;
     out.qR.deg = qrfull.deg;
     for (int i = 0; i <= qfull.deg; ++i) {
+        double radial_power = 1.0;
         for (int n = 0; n <= Order; ++n) {
-            out.q.c[i].c[n] = qfull.c[i].c[n];
-            out.qR.c[i].c[n] = qrfull.c[i].c[n];
+            // x=(R-Rc)/radial_scale: reduce the exact differential form
+            // with Q_x, not Q_R. The resulting C drives d eta / dx.
+            out.q.c[i].c[n] = qfull.c[i].c[n] * Scalar(radial_power);
+            out.qR.c[i].c[n] = qrfull.c[i].c[n] * Scalar(radial_power * radial_scale);
+            radial_power *= radial_scale;
         }
     }
 
