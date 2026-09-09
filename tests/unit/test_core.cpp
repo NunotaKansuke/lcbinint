@@ -7,6 +7,7 @@
 #include "lcbinint/model/triple_lens_geometry.hpp"
 #include "lcbinint/model/orbital_motion.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <complex>
 #include <cstddef>
@@ -62,6 +63,8 @@ using lcbinint::magnification::detail::CartesianBoundaryContribution;
 using lcbinint::magnification::detail::CartesianLatticeSeed;
 using lcbinint::magnification::detail::CartesianRunFillLimits;
 using lcbinint::magnification::detail::CartesianRunFillStatus;
+using lcbinint::magnification::detail::CartesianRunFillTrace;
+using lcbinint::magnification::detail::CartesianRunFillTraceEventKind;
 using lcbinint::magnification::detail::fill_cartesian_runs;
 using lcbinint::magnification::detail::lift_cartesian_component_run_seeds;
 
@@ -181,6 +184,157 @@ bool cartesian_run_topology_tests()
     std::vector<CartesianLatticeSeed> reverse = duplicate_permuted;
     std::reverse(reverse.begin(), reverse.end());
     return run_mask_case(disconnected, std::move(reverse));
+}
+
+bool cartesian_run_separate_components_share_row_test()
+{
+    const LatticeCells expected = mask_cells({"##....##", "##....##"});
+    LatticeCells visited;
+    const auto result = fill_cartesian_runs<MaskCellState>(
+        {{0, 0}, {6, 0}},
+        [&](std::int64_t ix, std::int64_t iy) {
+            return MaskCellState {expected.count({ix, iy}) != 0};
+        },
+        [](const MaskCellState& state) { return state.inside; },
+        [&](std::int64_t ix, std::int64_t iy, const MaskCellState&) {
+            visited.emplace(ix, iy);
+            return 1.0;
+        },
+        [](const auto&, const auto&, const auto&, const auto&, const auto&) {
+            return CartesianBoundaryContribution {};
+        },
+        CartesianRunFillLimits {100000, 10000});
+    // Two separate image components can occupy one row without making that
+    // row a multi-run topology event for either component.
+    return result.ok() && visited == expected &&
+        result.counters.maximum_runs_in_row == 2 &&
+        result.counters.rows_with_multiple_runs == 0;
+}
+
+bool cartesian_run_trace_order_test()
+{
+    const LatticeCells expected = mask_cells({
+        "##....##",
+        "##....##",
+    });
+    LatticeCells visited;
+    CartesianRunFillTrace trace;
+    const auto result = fill_cartesian_runs<MaskCellState>(
+        {{6, 0}, {0, 0}},
+        [&](std::int64_t ix, std::int64_t iy) {
+            return MaskCellState {expected.count({ix, iy}) != 0};
+        },
+        [](const MaskCellState& state) { return state.inside; },
+        [&](std::int64_t ix, std::int64_t iy, const MaskCellState&) {
+            visited.emplace(ix, iy);
+            return 1.0;
+        },
+        [](const auto&, const auto&, const auto&, const auto&, const auto&) {
+            return CartesianBoundaryContribution {};
+        },
+        CartesianRunFillLimits {100000, 10000},
+        trace);
+    if (!result.ok() || visited != expected) {
+        return false;
+    }
+
+    std::size_t discovered = 0;
+    std::size_t popped = 0;
+    std::size_t first_popped_event = trace.events.size();
+    for (std::size_t event_index = 0;
+         event_index < trace.events.size(); ++event_index) {
+        const auto& event = trace.events[event_index];
+        if (event.kind == CartesianRunFillTraceEventKind::run_discovered) {
+            if (event.run_index != discovered || event.fill_level != 0) {
+                return false;
+            }
+            ++discovered;
+            continue;
+        }
+        if (event.kind == CartesianRunFillTraceEventKind::frontier_popped) {
+            if (first_popped_event == trace.events.size()) {
+                first_popped_event = event_index;
+            }
+            if (event.run_index != popped || event.fill_level != 0) {
+                return false;
+            }
+            ++popped;
+            continue;
+        }
+        if (event.kind == CartesianRunFillTraceEventKind::components_merged) {
+            if (event.fill_level != 0) {
+                return false;
+            }
+            continue;
+        }
+        return false;
+    }
+    // Both sorted seed runs must be registered before the first frontier pop;
+    // the trace must expose the same discovery and pop counts as the result.
+    return first_popped_event == 2 && discovered == result.runs.size() &&
+        popped == static_cast<std::size_t>(result.counters.frontier_intervals_popped);
+}
+
+bool cartesian_run_trace_cap_test()
+{
+    const LatticeCells expected = mask_cells({
+        "##....##",
+        "##....##",
+    });
+    CartesianRunFillTrace trace;
+    trace.maximum_events = 1;
+    const auto result = fill_cartesian_runs<MaskCellState>(
+        {{0, 0}, {6, 0}},
+        [&](std::int64_t ix, std::int64_t iy) {
+            return MaskCellState {expected.count({ix, iy}) != 0};
+        },
+        [](const MaskCellState& state) { return state.inside; },
+        [](std::int64_t, std::int64_t, const MaskCellState&) { return 1.0; },
+        [](const auto&, const auto&, const auto&, const auto&, const auto&) {
+            return CartesianBoundaryContribution {};
+        },
+        CartesianRunFillLimits {100000, 10000},
+        trace);
+    return result.ok() && trace.truncated && trace.events.size() == 1;
+}
+
+bool binary_cartesian_trace_route_test()
+{
+    lcbinint::magnification::FiniteSourceSettings settings;
+    settings.source_bins = 12;
+    settings.caustic_bins = 64;
+    settings.finite_mode = 1;
+    settings.automatic_source_bins = false;
+    const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+    const auto trace = magnifier.binary_cartesian_trace(
+        1.0, 0.1, {-0.075, 0.09}, 0.04, 12);
+    if (!trace.valid() || trace.source_bins != 12 ||
+        !(trace.lattice_spacing > 0.0) || !trace.complete ||
+        trace.events.empty()) {
+        return false;
+    }
+    bool found_discovery = false;
+    bool found_frontier = false;
+    for (const auto& event : trace.events) {
+        found_discovery = found_discovery ||
+            event.kind == CartesianRunFillTraceEventKind::run_discovered;
+        found_frontier = found_frontier ||
+            event.kind == CartesianRunFillTraceEventKind::frontier_popped;
+    }
+    if (!found_discovery || !found_frontier) {
+        return false;
+    }
+
+    // The trace-enabled route must be observational: retaining the event
+    // order cannot change the numerical area returned by the ordinary API.
+    const auto point_source = lcbinint::magnification::PointSourceMagnifier{};
+    const double point_magnification = std::abs(
+        point_source.binary_mag0(1.0, 0.1, {-0.075, 0.09}).magnification);
+    const auto ordinary = magnifier.binary_mag(
+        1.0, 0.1, {-0.075, 0.09}, 0.04, point_magnification);
+    const double scale = std::max(1.0, std::abs(ordinary.magnification));
+    return std::isfinite(ordinary.magnification) &&
+        std::abs(trace.magnification - ordinary.magnification) <= 1e-12 * scale;
 }
 
 struct DiskCellState {
@@ -337,6 +491,18 @@ int main()
 {
     if (!cartesian_run_topology_tests()) {
         return 62;
+    }
+    if (!cartesian_run_separate_components_share_row_test()) {
+        return 66;
+    }
+    if (!cartesian_run_trace_order_test()) {
+        return 67;
+    }
+    if (!cartesian_run_trace_cap_test()) {
+        return 69;
+    }
+    if (!binary_cartesian_trace_route_test()) {
+        return 68;
     }
     if (!cartesian_run_boundary_tests()) {
         return 63;

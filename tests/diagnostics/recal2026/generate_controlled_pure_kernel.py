@@ -265,6 +265,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--cases", type=int, default=160)
+    parser.add_argument(
+        "--case-id-start", type=int, default=0,
+        help="first case ID to assign; useful for appending an independent extension",
+    )
     parser.add_argument("--seed", type=int, default=20260812)
     parser.add_argument("--max-attempts", type=int, default=20000)
     parser.add_argument(
@@ -279,17 +283,22 @@ def main():
 
     if args.workers < 1:
         parser.error("--workers must be positive")
+    if args.cases < 1:
+        parser.error("--cases must be positive")
+    if args.case_id_start < 0:
+        parser.error("--case-id-start must be non-negative")
 
     rng = np.random.default_rng(args.seed)
     child_seeds = np.random.SeedSequence(args.seed).spawn(args.cases)
     tasks = []
-    for config_id in range(args.cases):
+    for local_index in range(args.cases):
+        config_id = args.case_id_start + local_index
         config = {
             "s": _log_uniform(rng, *CONFIG_S_RANGE),
             "q": _log_uniform(rng, *CONFIG_Q_RANGE),
             "rho": _log_uniform(rng, *CONFIG_RHO_RANGE),
         }
-        task_seed = int(child_seeds[config_id].generate_state(
+        task_seed = int(child_seeds[local_index].generate_state(
             1, dtype=np.uint64
         )[0])
         tasks.append((
@@ -329,6 +338,8 @@ def main():
         "generator": "generate_controlled_pure_kernel.py",
         "seed": args.seed,
         "cases": args.cases,
+        "case_id_start": args.case_id_start,
+        "case_id_end": args.case_id_start + args.cases,
         "profiles": list(args.profiles),
         "parameter_sampling": {
             "distribution": "independent_log_uniform",

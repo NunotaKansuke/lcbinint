@@ -2235,13 +2235,17 @@ struct LegacyAreaDiagnostics {
     std::int64_t integrated_cells = 0;
     double max_jump_cells = 0.0;
     double estimated_error = 0.0;
+    // The run fill integrates the union of fold partners, so a near-critical
+    // seed is diagnostic information but does not create the artificial
+    // parity boundary used by the legacy walker.
+    bool parity_free_topology = false;
 };
 
 int cartesian_error_convergence_order(const LegacyAreaDiagnostics& diagnostics)
 {
-    return diagnostics.fold_seed_count == 0 &&
-            diagnostics.max_jump_cells <= 20.0 &&
-            diagnostics.rows_with_multiple_runs == 0
+    return (diagnostics.parity_free_topology || diagnostics.fold_seed_count == 0) &&
+        diagnostics.max_jump_cells <= 20.0 &&
+        diagnostics.rows_with_multiple_runs == 0
         ? 2
         : 1;
 }
@@ -2310,13 +2314,14 @@ double cartesian_area_error_indicator(
 
     // The (t - 0.5) edge correction makes an ordinary smooth image boundary
     // second order.  Fold components and large row-to-row jumps can degrade
-    // back toward first order, so retain the original scale for those topology
-    // warnings.  A small-jump, no-fold scan gets the extra cell-width factor
-    // expected from the corrected boundary rule.  Gap repairs participate in
-    // the same scaling there: without a large jump they are scan-continuation
-    // events, not evidence of missing image area.  With the claimed-cell
-    // registry cross-seed overlaps can no longer occur, so the old overlap
-    // terms are gone.
+    // the legacy, parity-split walk back toward first order.  The run fill
+    // integrates fold partners as one union, so its near-critical seeds do not
+    // by themselves lower the convergence order.  A small-jump, no-fold scan
+    // gets the extra cell-width factor expected from the corrected boundary
+    // rule.  Gap repairs participate in the same scaling there: without a
+    // large jump they are scan-continuation events, not evidence of missing
+    // image area.  With the claimed-cell registry cross-seed overlaps can no
+    // longer occur, so the old overlap terms are gone.
     const double gap_weight = source_radius >= 2.0e-2
         ? 0.005
         : ((source_radius < 1.0e-2 && diagnostics.seed_count >= 16) ? 0.015 : 0.03);
@@ -4510,20 +4515,20 @@ std::vector<SourcePosition> augmented_triple_image_seeds(
 // dropped if none qualifies (it marked a sub-cell image the lattice cannot
 // resolve).  Seeds landing on the same cell are deduplicated.
 //
-// The snap must also keep the seed on its own side of the critical curve.  A
-// probe taken just off a caustic arc has an image just off the critical curve,
-// closer to it than one cell at any resolution the caller is likely to run; if
-// rounding carries that image across, the fold pair loses the seed for one of
-// its two members and the fill traces only one of them.  So the sign of the
-// Jacobian at the raw seed is preserved when a lattice cell can supply it, and
-// only a seed already on the curve (sign zero) is snapped freely.
+// The legacy walker can optionally keep each snapped seed on its own side of
+// the critical curve.  The run fill does not need that topological shortcut:
+// its membership predicate is only the mapped source disk and its shared-cell
+// registry handles duplicate coverage independently.  Keeping the switch here
+// lets the legacy path retain its old behaviour while the run path removes the
+// parity constraint entirely.
 template <typename ImageMap>
 std::vector<SourcePosition> lattice_snapped_seeds(
     const ImageMap& mapper,
     SourcePosition source,
     double source_radius,
     double incr,
-    const std::vector<SourcePosition>& seeds)
+    const std::vector<SourcePosition>& seeds,
+    bool preserve_jacobian_side = true)
 {
     const double source_radius2 = source_radius * source_radius;
     std::vector<SourcePosition> snapped;
@@ -4534,13 +4539,14 @@ std::vector<SourcePosition> lattice_snapped_seeds(
         const double jacobian = lens_jacobian(mapper, x, y);
         return jacobian > 0.0 ? 1 : jacobian < 0.0 ? -1 : 0;
     };
-    // `required_sign` of 0 accepts either side.
+    // `required_sign` of 0 accepts either side.  The sign check is only
+    // active for the legacy walker; the run fill always passes zero here.
     const auto try_cell = [&]
         (std::int64_t ix, std::int64_t iy, int required_sign) {
         const SourcePosition cell {
             static_cast<double>(ix) * incr,
             static_cast<double>(iy) * incr};
-        if (required_sign == 0) {
+        if (!preserve_jacobian_side || required_sign == 0) {
             if (mapped_lens_distance2(mapper, cell.x, cell.y, source) >
                 source_radius2) {
                 return false;
@@ -4581,7 +4587,9 @@ std::vector<SourcePosition> lattice_snapped_seeds(
             !rounded_lattice_index(seed.y / incr, iy)) {
             return {};
         }
-        const int seed_sign = jacobian_sign_at(seed.x, seed.y);
+        const int seed_sign = preserve_jacobian_side
+            ? jacobian_sign_at(seed.x, seed.y)
+            : 0;
         if (place(ix, iy, seed_sign)) {
             continue;
         }
@@ -4950,10 +4958,14 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
     const std::vector<detail::CartesianLatticeSeed>& seeds,
     double incr,
     std::int64_t maximum_evaluations,
-    std::size_t expected_rows)
+    std::size_t expected_rows,
+    detail::CartesianRunFillTrace* trace = nullptr)
 {
     const double source_radius2 = source_radius * source_radius;
     const double inverse_source_radius2 = 1.0 / source_radius2;
+    if (trace != nullptr) {
+        trace->cell_spacing = incr;
+    }
     const bool use_limb_darkening =
         settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0;
     const double edge_brightness = use_limb_darkening
@@ -4974,7 +4986,8 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
                 std::numeric_limits<std::size_t>::max())))
         : 0;
 
-    return detail::fill_cartesian_runs<RunCellState>(
+    const auto run_fill = [&](auto& trace_sink) {
+        return detail::fill_cartesian_runs<RunCellState>(
         seeds,
         [&](std::int64_t ix, std::int64_t iy) {
             const double x = static_cast<double>(ix) * incr;
@@ -5049,7 +5062,14 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
             maximum_evaluations,
             std::min(kRunMemorySafetyCeiling, evaluation_run_ceiling),
             expected_rows,
-        });
+        },
+        trace_sink);
+    };
+    if (trace != nullptr) {
+        return run_fill(*trace);
+    }
+    auto& no_trace = detail::default_cartesian_run_fill_trace();
+    return run_fill(no_trace);
 }
 
 struct CartesianRunComponent {
@@ -5151,7 +5171,8 @@ double fill_all_cartesian_components_multirun(
     const std::vector<EvaluatedCartesianSeed>& evaluated_seeds,
     double incr,
     double magnification_hint,
-    LegacyAreaDiagnostics* diagnostics)
+    LegacyAreaDiagnostics* diagnostics,
+    detail::CartesianRunFillTrace* trace = nullptr)
 {
     std::vector<detail::CartesianLatticeSeed> seeds;
     seeds.reserve(evaluated_seeds.size());
@@ -5180,10 +5201,14 @@ double fill_all_cartesian_components_multirun(
                 static_cast<std::int64_t>(
                     std::ceil(evaluation_limit_estimate)))
             : std::numeric_limits<std::int64_t>::max();
+    if (trace != nullptr) {
+        trace->fill_level = 0;
+    }
     auto run_fill = fill_cartesian_run_union(
         mapper, source, source_radius, settings, finite_magnifier,
         seeds, incr, evaluation_limit,
-        static_cast<std::size_t>(std::max(settings.source_bins, 1)) * 64U);
+        static_cast<std::size_t>(std::max(settings.source_bins, 1)) * 64U,
+        trace);
     if (!run_fill.ok()) {
         if (diagnostics != nullptr) {
             ++diagnostics->walk_budget_failures;
@@ -5292,13 +5317,17 @@ double fill_all_cartesian_components_multirun(
                             static_cast<double>(factor) *
                             static_cast<double>(factor) +
                         4096.0));
+                if (trace != nullptr) {
+                    trace->fill_level = 1;
+                }
                 auto refined = fill_cartesian_run_union(
                     mapper, source, source_radius, refined_settings,
                     finite_magnifier, *refined_seeds, refined_incr,
                     refined_budget,
                     static_cast<std::size_t>(std::max(
                         16,
-                        2 * component.measurement.rows_span * factor + 16)));
+                        2 * component.measurement.rows_span * factor + 16)),
+                    trace);
                 if (refined.ok()) {
                     if (diagnostics != nullptr) {
                         diagnostics->fine_grid_cell_evaluations +=
@@ -5355,15 +5384,23 @@ double inverse_ray_cartesian_core(
     const FiniteSourceMagnifier* finite_magnifier,
     double point_source_magnification_hint,
     LegacyAreaDiagnostics* diagnostics,
-    const char* diagnostics_label)
+    const char* diagnostics_label,
+    detail::CartesianRunFillTrace* trace = nullptr)
 {
     if (raw_images.empty() || source_radius <= 0.0) {
         return std::nan("");
     }
     const double nbin = static_cast<double>(std::max(settings.source_bins, 1));
     const double incr = source_radius / nbin;
+    const char* fill_selector = std::getenv("LCBININT_CARTESIAN_FILL");
+    // The deterministic run fill is the production default.  `legacy` keeps
+    // the former walker available for diagnostics and rollback comparisons;
+    // the diagnostic unsorted-seed mode also deliberately selects that path.
+    const bool use_multirun = trace != nullptr ||
+        ((fill_selector == nullptr || std::string(fill_selector) == "run") &&
+        std::getenv("LCBININT_DIAGNOSTIC_UNSORTED_SEEDS") == nullptr);
     auto images = lattice_snapped_seeds(
-        mapper, source, source_radius, incr, raw_images);
+        mapper, source, source_radius, incr, raw_images, !use_multirun);
     struct EvaluatedSeed {
         SourcePosition position;
         double jacobian;
@@ -5436,14 +5473,10 @@ double inverse_ray_cartesian_core(
         diagnostics->seed_count = static_cast<int>(evaluated_images.size());
     }
     double area = 0.0;
-    // Keep the established walker as the production default until the
-    // multi-run path clears every frozen low-resolution regression.  The
-    // selector makes the replacement independently testable in the meantime.
-    const char* fill_selector = std::getenv("LCBININT_CARTESIAN_FILL");
-    const bool use_multirun = fill_selector != nullptr &&
-        std::string(fill_selector) == "run" &&
-        std::getenv("LCBININT_DIAGNOSTIC_UNSORTED_SEEDS") == nullptr;
     if (use_multirun) {
+        if (diagnostics != nullptr) {
+            diagnostics->parity_free_topology = true;
+        }
         std::vector<EvaluatedCartesianSeed> multirun_seeds;
         multirun_seeds.reserve(evaluated_images.size());
         for (const auto& seed : evaluated_images) {
@@ -5455,7 +5488,7 @@ double inverse_ray_cartesian_core(
         }
         area = fill_all_cartesian_components_multirun(
             mapper, source, source_radius, settings, finite_magnifier,
-            multirun_seeds, incr, walk_magnification_hint, diagnostics);
+            multirun_seeds, incr, walk_magnification_hint, diagnostics, trace);
         if (!std::isfinite(area)) {
             return std::numeric_limits<double>::quiet_NaN();
         }
@@ -5534,7 +5567,7 @@ double inverse_ray_cartesian_core(
             refined_settings.source_bins = settings.source_bins * factor;
             const double refined_incr = incr / static_cast<double>(factor);
             const auto refined_seeds = lattice_snapped_seeds(
-                mapper, source, source_radius, refined_incr, {seed});
+                mapper, source, source_radius, refined_incr, {seed}, true);
             // The refined walk is supposed to cover the coarse footprint, k^2
             // finer, plus the few cells per row the scan overshoots by; the
             // margin is generous because the cost of the budget being wrong is
@@ -5646,7 +5679,8 @@ double inverse_ray_cartesian_binary_mag(
     const std::vector<SourcePosition>* precomputed_seeds = nullptr,
     LegacyAreaDiagnostics* diagnostics = nullptr,
     double point_source_magnification_hint =
-        std::numeric_limits<double>::quiet_NaN())
+        std::numeric_limits<double>::quiet_NaN(),
+    detail::CartesianRunFillTrace* trace = nullptr)
 {
     if ((settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0) &&
         finite_magnifier != nullptr) {
@@ -5674,7 +5708,7 @@ double inverse_ray_cartesian_binary_mag(
               point_magnifier.binary_mag0(separation, mass_ratio, source).magnification);
     return inverse_ray_cartesian_core(
         mapper, raw_images, source, source_radius, settings, finite_magnifier,
-        point_source_hint, diagnostics, "AREA_DIAGNOSTICS");
+        point_source_hint, diagnostics, "AREA_DIAGNOSTICS", trace);
 }
 
 double inverse_ray_cartesian_triple_mag(
@@ -5804,9 +5838,18 @@ FiniteSourceResult fixed_inverse_ray_binary(
         // The calibrated empirical law is the complete automatic-resolution
         // decision.  Keep the cheap area indicator as a diagnostic, but do not
         // let it trigger another grid or veto a supported one-shot result.
-        constexpr double kAutomaticAreaIndicatorScale = 0.25;
+        // The run union exposes every interval in a multi-run component.  Its
+        // boundary-only indicator is consequently less pessimistic than the
+        // legacy walk's gap/jump indicator.  For large disks, where many
+        // separate image intervals share the source footprint, retain a
+        // conservative factor so a supported result does not under-report its
+        // error.  Small-source calibration remains on the established scale.
+        const bool large_source_run_union = diagnostics.parity_free_topology &&
+            source_radius >= 5.0e-2;
+        const double automatic_area_indicator_scale =
+            large_source_run_union ? 2.0 : 0.25;
         const double error_estimate = support_proven
-            ? kAutomaticAreaIndicatorScale * diagnostics.estimated_error
+            ? automatic_area_indicator_scale * diagnostics.estimated_error
             : std::numeric_limits<double>::infinity();
         return {
             magnification, 0, decision, error_estimate, 0, support_proven,
@@ -7819,6 +7862,69 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
         center_image_seeds,
         true,
         &point_magnifier);
+}
+
+CartesianTraceResult FiniteSourceMagnifier::binary_cartesian_trace(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    int source_bins) const
+{
+    CartesianTraceResult result;
+    result.complete = false;
+    constexpr int kMaximumTraceSourceBins = 256;
+    if (!(std::isfinite(separation) && std::isfinite(mass_ratio) &&
+          std::isfinite(source.x) && std::isfinite(source.y) &&
+          std::isfinite(source_radius)) ||
+        separation <= 0.0 || mass_ratio <= 0.0 || source_radius <= 0.0 ||
+        (source_bins > kMaximumTraceSourceBins) ||
+        (source_bins <= 0 && settings_.source_bins > kMaximumTraceSourceBins)) {
+        return result;
+    }
+
+    FiniteSourceSettings trace_settings = settings_;
+    trace_settings.finite_mode = 1;
+    trace_settings.automatic_source_bins = false;
+    trace_settings.source_bins = std::max(
+        source_bins > 0 ? source_bins : settings_.source_bins, 1);
+    trace_settings.finite_source_tol = 0.0;
+    trace_settings.finite_source_reltol = 0.0;
+    result.source_bins = trace_settings.source_bins;
+    result.lattice_spacing = source_radius /
+        static_cast<double>(trace_settings.source_bins);
+
+    const PointSourceMagnifier point_magnifier;
+    const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
+    const auto& caustics = binary_caustic_branches(separation, mass_ratio);
+    const auto seeds = augmented_image_seeds(
+        point_magnifier,
+        mapper,
+        separation,
+        mass_ratio,
+        source,
+        source_radius,
+        std::numeric_limits<double>::infinity(),
+        nullptr,
+        &caustics);
+    const double point_source_magnification = std::abs(
+        point_magnifier.binary_mag0(separation, mass_ratio, source).magnification);
+    detail::CartesianRunFillTrace trace;
+    result.magnification = inverse_ray_cartesian_binary_mag(
+        point_magnifier,
+        separation,
+        mass_ratio,
+        source,
+        source_radius,
+        trace_settings,
+        this,
+        &seeds,
+        nullptr,
+        point_source_magnification,
+        &trace);
+    result.complete = !trace.truncated;
+    result.events = std::move(trace.events);
+    return result;
 }
 
 FiniteSourceResult FiniteSourceMagnifier::binary_mag(

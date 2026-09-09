@@ -24,6 +24,126 @@ struct CartesianRun {
     std::int64_t hi = -1;
 };
 
+enum class CartesianRunFillTraceEventKind {
+    run_discovered,
+    frontier_popped,
+    components_merged,
+};
+
+struct CartesianRunFillTraceEvent {
+    static constexpr std::size_t npos = std::numeric_limits<std::size_t>::max();
+
+    CartesianRunFillTraceEventKind kind =
+        CartesianRunFillTraceEventKind::run_discovered;
+    CartesianRun run;
+    std::size_t run_index = npos;
+    // For a discovered run this is its parent frontier run.  For a merge it
+    // is the other run whose component was joined.
+    std::size_t related_run_index = npos;
+    std::size_t component = npos;
+    int fill_level = 0;
+    double cell_spacing = 0.0;
+};
+
+// Optional sink for the exact run-fill order.  The ordinary fill path uses the
+// zero-state no-op sink below, so it pays neither for event storage nor for
+// trace event work. A trace-enabled caller can retain the events.
+struct CartesianRunFillTrace {
+    // A trace is diagnostic output, not part of the numerical result. Keep a
+    // hard ceiling so an accidentally requested high-resolution trace cannot
+    // turn an otherwise bounded fill into an unbounded event log.
+    static constexpr std::size_t default_maximum_events = 1U << 18;
+
+    std::vector<CartesianRunFillTraceEvent> events;
+    int fill_level = 0;
+    double cell_spacing = 0.0;
+    std::size_t maximum_events = default_maximum_events;
+    bool truncated = false;
+
+    template <typename... Args>
+    void append(Args&&... args)
+    {
+        if (events.size() >= maximum_events) {
+            truncated = true;
+            return;
+        }
+        events.emplace_back(std::forward<Args>(args)...);
+    }
+
+    void run_discovered(
+        std::size_t run_index,
+        const CartesianRun& run,
+        std::size_t parent_run_index,
+        std::size_t component)
+    {
+        append(CartesianRunFillTraceEvent{
+            CartesianRunFillTraceEventKind::run_discovered,
+            run,
+            run_index,
+            parent_run_index,
+            component,
+            fill_level,
+            cell_spacing,
+        });
+    }
+
+    void frontier_popped(
+        std::size_t run_index,
+        const CartesianRun& run,
+        std::size_t component)
+    {
+        append(CartesianRunFillTraceEvent{
+            CartesianRunFillTraceEventKind::frontier_popped,
+            run,
+            run_index,
+            CartesianRunFillTraceEvent::npos,
+            component,
+            fill_level,
+            cell_spacing,
+        });
+    }
+
+    void components_merged(
+        std::size_t run_index,
+        std::size_t related_run_index,
+        std::size_t component)
+    {
+        append(CartesianRunFillTraceEvent{
+            CartesianRunFillTraceEventKind::components_merged,
+            {},
+            run_index,
+            related_run_index,
+            component,
+            fill_level,
+            cell_spacing,
+        });
+    }
+};
+
+struct CartesianRunFillNoTrace {
+    void run_discovered(
+        std::size_t,
+        const CartesianRun&,
+        std::size_t,
+        std::size_t) const noexcept {}
+
+    void frontier_popped(
+        std::size_t,
+        const CartesianRun&,
+        std::size_t) const noexcept {}
+
+    void components_merged(
+        std::size_t,
+        std::size_t,
+        std::size_t) const noexcept {}
+};
+
+inline CartesianRunFillNoTrace& default_cartesian_run_fill_trace() noexcept
+{
+    static CartesianRunFillNoTrace sink;
+    return sink;
+}
+
 struct CartesianBoundaryContribution {
     double area = 0.0;
     int edges = 0;
@@ -42,6 +162,9 @@ struct CartesianRunFillCounters {
     std::int64_t frontier_intervals_popped = 0;
     std::int64_t maximal_runs_discovered = 0;
     std::int64_t row_intervals_stored = 0;
+    // Rows whose intervals contain two or more runs from the same connected
+    // component.  Runs belonging to separate image components on one y row
+    // are not a within-component topology event.
     std::int64_t rows_with_multiple_runs = 0;
     std::size_t maximum_runs_in_row = 0;
     std::int64_t seeds_offered = 0;
@@ -445,14 +568,16 @@ template <typename CellState,
           typename Classify,
           typename IsInside,
           typename CellWeight,
-          typename BoundaryWeight>
+          typename BoundaryWeight,
+          typename Trace = CartesianRunFillNoTrace>
 CartesianRunFillResult fill_cartesian_runs(
     std::vector<CartesianLatticeSeed> seeds,
     Classify&& classify,
     IsInside&& is_inside,
     CellWeight&& cell_weight,
     BoundaryWeight&& boundary_weight,
-    CartesianRunFillLimits limits = {})
+    CartesianRunFillLimits limits = {},
+    Trace& trace = default_cartesian_run_fill_trace())
 {
     using namespace cartesian_run_fill_detail;
 
@@ -521,6 +646,7 @@ CartesianRunFillResult fill_cartesian_runs(
                                   std::int64_t iy,
                                   const CellState& seed_state,
                                   std::size_t component,
+                                  std::size_t parent_run_index,
                                   std::optional<CellState> left_hint)
         -> std::optional<std::size_t> {
         if (result.runs.size() >= limits.maximum_runs) {
@@ -617,13 +743,11 @@ CartesianRunFillResult fill_cartesian_runs(
 
         const std::size_t run_index = result.runs.size();
         result.runs.push_back({run, component});
+        trace.run_discovered(
+            run_index, run, parent_run_index, component);
         components.accumulate(component, area, cells, boundary.edges);
         auto& inside_row = rows.get(iy).inside;
-        const std::size_t prior_intervals = inside_row.size();
         inside_row.insert({lo, hi, run_index});
-        if (prior_intervals == 1) {
-            ++result.counters.rows_with_multiple_runs;
-        }
         result.counters.maximum_runs_in_row = std::max(
             result.counters.maximum_runs_in_row, inside_row.size());
         frontier.push_back(run_index);
@@ -650,6 +774,7 @@ CartesianRunFillResult fill_cartesian_runs(
         ++result.counters.provisional_components;
         if (!discover_run(
                 seed.ix, seed.iy, *state, component,
+                CartesianRunFillTraceEvent::npos,
                 std::nullopt).has_value()) {
             return result;
         }
@@ -661,6 +786,7 @@ CartesianRunFillResult fill_cartesian_runs(
         ++result.counters.frontier_intervals_popped;
         const CartesianRun run = result.runs[run_index].run;
         const std::size_t component = result.runs[run_index].component;
+        trace.frontier_popped(run_index, run, component);
 
         std::int64_t candidate_lo = 0;
         std::int64_t candidate_hi = 0;
@@ -686,6 +812,8 @@ CartesianRunFillResult fill_cartesian_runs(
                     if (components.merge(
                             component, result.runs[interval.run_index].component)) {
                         ++result.counters.merged_components;
+                        trace.components_merged(
+                            run_index, interval.run_index, component);
                     }
                 });
             }
@@ -725,7 +853,7 @@ CartesianRunFillResult fill_cartesian_runs(
                 const std::size_t root = components.find(component);
                 const std::int64_t seed_ix = ix;
                 const auto discovered = discover_run(
-                    seed_ix, next_iy, *state, root, previous_outside);
+                    seed_ix, next_iy, *state, root, run_index, previous_outside);
                 if (!discovered.has_value()) {
                     return false;
                 }
@@ -777,6 +905,7 @@ CartesianRunFillResult fill_cartesian_runs(
         }
         std::vector<std::size_t> row_components;
         row_components.reserve(row.inside.size());
+        bool multiple_runs_in_component = false;
         row.inside.visit_all([&](const InsideInterval& interval) {
             const std::size_t root =
                 result.runs[interval.run_index].component;
@@ -785,8 +914,13 @@ CartesianRunFillResult fill_cartesian_runs(
                 row_components.end()) {
                 row_components.push_back(root);
                 ++result.component_rows[root];
+            } else {
+                multiple_runs_in_component = true;
             }
         });
+        if (multiple_runs_in_component) {
+            ++result.counters.rows_with_multiple_runs;
+        }
     });
     return result;
 }

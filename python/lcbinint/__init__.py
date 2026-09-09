@@ -677,12 +677,28 @@ def binary_ray_shooting(
     )
 
 
+def binary_cartesian_trace(x, y, *, s, q, rho, source_bins=50):
+    """Return the native Cartesian run-fill event order.
+
+    This is an explicit diagnostic/visualisation route. It is intentionally
+    not routed through the JAX backend, because the returned variable-length
+    event list is host-side data rather than a differentiable numerical API.
+    """
+
+    native_trace = getattr(_native, "binary_cartesian_trace", None)
+    if native_trace is None:
+        raise RuntimeError(
+            "binary_cartesian_trace requires a rebuilt lcbinint native extension"
+        )
+    return native_trace(x, y, s=s, q=q, rho=rho, source_bins=source_bins)
+
+
 __all__ = [
     "obs",
     "Options", "Parameters", "LensParams", "LimbDarkening", "LightCurve",
     "LightCurveInfo", "SourceTrajectory", "BinarySourceComponent",
     "BinarySourceComponents", "GeometryBranches", "Model",
     "OrbitalMotionMode", "XallarapParamType",
-    "binary_ray_shooting",
+    "binary_ray_shooting", "binary_cartesian_trace",
     "image", "ImagePlane",
 ]

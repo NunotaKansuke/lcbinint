@@ -15,6 +15,8 @@ halves of that contract -- the component is found, and it is found independently
 of the integration resolution.
 """
 
+import os
+
 import pytest
 
 
@@ -81,15 +83,23 @@ def _ladder(lcbinint, bins_ladder, limb_darkening_c=0.0):
     return values
 
 
+def _legacy_cartesian_path_selected():
+    selector = os.environ.get("LCBININT_CARTESIAN_FILL")
+    return (
+        selector not in (None, "run")
+        or "LCBININT_DIAGNOSTIC_UNSORTED_SEEDS" in os.environ
+    )
+
+
 @pytest.mark.parametrize(
-    ("source_x", "reference"),
+    ("source_x", "run_reference", "legacy_reference"),
     (
-        (0.0918268044772704, 32.976085546532),
-        (0.09184584419635068, 41.195418755732),
+        (0.0918268044772704, 32.977624862631, 32.976085546532),
+        (0.09184584419635068, 41.196991231450, 41.195418755732),
     ),
 )
 def test_certificate_finds_a_cap_entering_between_cached_caustic_vertices(
-    source_x, reference
+    source_x, run_reference, legacy_reference
 ):
     """A segment-interior radial minimum must become a certificate extremum.
 
@@ -119,6 +129,9 @@ def test_certificate_finds_a_cap_entering_between_cached_caustic_vertices(
         q=0.06744638777374898,
         rho=0.0001368479808895235,
     ).item()
+    reference = (
+        legacy_reference if _legacy_cartesian_path_selected() else run_reference
+    )
     assert value == pytest.approx(reference, rel=1.0e-9)
 
 

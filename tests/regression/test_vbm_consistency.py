@@ -1,4 +1,5 @@
 import math
+import os
 import sys
 from pathlib import Path
 
@@ -464,7 +465,16 @@ def test_lcbinint_auto_nbin_reproduces_independent_validation_row():
     assert auto.finite_source_refinement_levels == [0]
     assert auto.finite_source_converged == [True]
     assert fixed.finite_source_refinement_levels == [0]
-    assert fixed.finite_source_converged == [False]
+    # The run fill integrates both fold partners as one shared-cell union, so
+    # its fixed-grid estimate is accurate enough to pass the default budget.
+    # The explicit legacy fallback intentionally retains its older conservative
+    # error estimate for side-by-side diagnostics.
+    selector = os.environ.get("LCBININT_CARTESIAN_FILL")
+    legacy_fallback = (
+        selector not in (None, "run")
+        or "LCBININT_DIAGNOSTIC_UNSORTED_SEEDS" in os.environ
+    )
+    assert fixed.finite_source_converged == [not legacy_fallback]
     assert auto.magnifications != fixed.magnifications
     assert abs(auto.magnifications[0] / 113.42113550323353 - 1.0) < 1.0e-3
 
@@ -1074,7 +1084,7 @@ def test_binary_auto_uses_inverse_ray_for_grazing_source():
     }
 
 
-def test_lcbinint_cartesian_ir_keeps_same_parity_fold_branch_seed():
+def test_lcbinint_cartesian_ir_keeps_fold_branch_area():
     lcbinint = pytest.importorskip("lcbinint")
     module = pytest.importorskip("VBMicrolensing")
 

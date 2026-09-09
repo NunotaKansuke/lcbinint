@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f9fc">
+  <meta name="description" content="Binary-lens inverse-ray explorer: move a finite source across a caustic and watch its images appear.">
+  <title>Binary-lens inverse-ray explorer</title>
+  <link rel="stylesheet" href="styles.css?v=20260909-1">
+</head>
+<body>
+  <main class="app-shell">
+    <section class="workspace" aria-label="Binary-lens explorer">
+      <aside class="controls" aria-label="Lens and source controls">
+        <div class="control-list">
+          <label class="control-row" for="separation">
+            <span class="control-label"><strong>s</strong></span>
+            <output id="separationValue" for="separation">1.00</output>
+            <input id="separation" type="range" min="0.20" max="2.50" step="0.01" value="1.00">
+          </label>
+          <label class="control-row" for="massRatio">
+            <span class="control-label"><strong>q</strong></span>
+            <output id="massRatioValue" for="massRatio">0.10</output>
+            <input id="massRatio" type="range" min="0.01" max="1.00" step="0.01" value="0.10">
+          </label>
+          <label class="control-row" for="radius">
+            <span class="control-label"><strong>ρ</strong></span>
+            <output id="radiusValue" for="radius">0.040</output>
+            <input id="radius" type="range" min="0.01" max="0.22" step="0.005" value="0.04">
+          </label>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="control-list source-controls">
+          <label class="control-row" for="sourceX">
+            <span class="control-label"><strong>x<sub>s</sub></strong></span>
+            <output id="sourceXValue" for="sourceX">−0.075</output>
+            <input id="sourceX" type="range" min="-2.00" max="2.00" step="0.005" value="-0.075">
+          </label>
+          <label class="control-row" for="sourceY">
+            <span class="control-label"><strong>y<sub>s</sub></strong></span>
+            <output id="sourceYValue" for="sourceY">0.090</output>
+            <input id="sourceY" type="range" min="-2.00" max="2.00" step="0.005" value="0.090">
+          </label>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="quiet" id="resetPreset">リセット</button>
+        </div>
+      </aside>
+
+      <section class="visual-panel" aria-label="Source and image planes">
+        <canvas id="plot" role="img" aria-label="Source plane and image plane inverse-ray map"></canvas>
+        <div class="legend" aria-label="Legend">
+          <span><i class="swatch outside"></i>outside</span>
+          <span><i class="swatch inside"></i>inside</span>
+          <span><i class="seed-dot centre"></i>centre</span>
+          <span><i class="seed-dot auxiliary"></i>extra</span>
+        </div>
+      </section>
+    </section>
+  </main>
+  <script src="app.js?v=20260909-1" defer></script>
+</body>
+</html>

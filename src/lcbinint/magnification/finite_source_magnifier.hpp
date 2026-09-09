@@ -1,8 +1,10 @@
 #pragma once
 
+#include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/model/triple_lens_geometry.hpp"
 #include "lcbinint/types.hpp"
 
+#include <cmath>
 #include <cstddef>
 #include <limits>
 #include <string>
@@ -111,6 +113,19 @@ struct FiniteSourceResult {
     double caustic_distance = std::numeric_limits<double>::infinity();
 };
 
+// Explicitly requested trace of the Cartesian run-fill route.  This is a
+// diagnostic/teaching path: ordinary binary_mag() calls do not allocate or
+// populate these events.
+struct CartesianTraceResult {
+    double magnification = std::numeric_limits<double>::quiet_NaN();
+    double lattice_spacing = 0.0;
+    int source_bins = 0;
+    bool complete = true;
+    std::vector<detail::CartesianRunFillTraceEvent> events;
+
+    bool valid() const noexcept { return std::isfinite(magnification); }
+};
+
 struct BinaryRoutingDiagnostics {
     double point_magnification = 0.0;
     double point_error_estimate = std::numeric_limits<double>::infinity();
@@ -155,6 +170,16 @@ public:
         const std::vector<SourcePosition>* center_image_seeds = nullptr,
         bool point_source_magnification_is_exact = false,
         const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
+    // Run the same Cartesian inverse-ray route used by the multi-run fill,
+    // but retain its run-discovery/frontier order for visualization or audit.
+    // This is deliberately separate from binary_mag() so production calls do
+    // not pay for trace storage or event dispatch.
+    CartesianTraceResult binary_cartesian_trace(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        int source_bins = 0) const;
     // Execute a route selected and reference-validated by LightCurve.warmup().
     // The caller may reuse the plan across a nearby inference neighbourhood;
     // this entry deliberately skips the normal routing cascade.

@@ -202,6 +202,7 @@ def _select(rows, profile, target, d_bin_index=None):
 
 
 def _merge(parts, corpus, output):
+    corpus_manifest = json.loads((corpus / "manifest.json").read_text())
     corpus_payload = json.loads((corpus / "rows.json").read_text())
     corpus_rows = corpus_payload["rows"]
     payloads = [json.loads(path.read_text()) for path in parts]
@@ -229,7 +230,7 @@ def _merge(parts, corpus, output):
         "corpus": str(corpus),
         "parts": [str(path) for path in parts],
         "input": first.get("input"),
-        "case_count": first.get("case_count"),
+        "case_count": corpus_manifest.get("cases", first.get("case_count")),
         "factors": [
             float(payload.get("factors", [float("nan")])[0])
             for payload in payloads
@@ -261,7 +262,6 @@ def _merge(parts, corpus, output):
 
 def _make_report(merged, corpus_payload):
     rows = merged["results"]
-    parameter_sampling = corpus_payload["manifest"] if "manifest" in corpus_payload else {}
     manifest = corpus_payload.get("_manifest", {})
     configs = manifest.get("configurations", ())
     all_summaries = {
@@ -281,30 +281,121 @@ def _make_report(merged, corpus_payload):
         }
         for profile in PROFILES
     }
+    composition = manifest.get("composition")
+    nominal_epoch_measurements = sum(
+        len(row.get("ratio_status", ())) for row in rows
+    )
+    if composition:
+        base_metadata = composition.get("base", {})
+        base_case_start = int(base_metadata.get("case_id_start", 0))
+        base_case_end = int(
+            base_metadata.get(
+                "case_id_end",
+                base_case_start + int(base_metadata.get("cases", 0)),
+            )
+        )
+        base_rows = [
+            row for row in rows
+            if base_case_start <= int(row.get("case_id", -1)) < base_case_end
+        ]
+    else:
+        base_rows = rows
+    canonical_summaries = {
+        profile: {
+            str(target): _summary(_select(base_rows, profile, target))
+            for target in TARGETS
+        }
+        for profile in PROFILES
+    }
+    canonical_bin_summaries = {
+        profile: {
+            str(target): [
+                _summary(_select(base_rows, profile, target, index))
+                for index in range(len(D_BINS))
+            ]
+            for target in TARGETS
+        }
+        for profile in PROFILES
+    }
+    canonical_nominal_epoch_measurements = sum(
+        len(row.get("ratio_status", ())) for row in base_rows
+    )
+    if composition:
+        base = composition.get("base", {})
+        extension = composition.get("extension", {})
+        extension_manifest = {}
+        extension_path = extension.get("path")
+        if extension_path:
+            extension_manifest_path = Path(extension_path) / "manifest.json"
+            if extension_manifest_path.exists():
+                extension_manifest = json.loads(
+                    extension_manifest_path.read_text()
+                )
+        coverage = extension_manifest.get("coverage", {})
+        extension_sampling = extension_manifest.get("parameter_sampling", {})
+        extension_s = extension_sampling.get("s", ())
+        fixed_s = (
+            extension_s[0]
+            if extension_s and len(extension_s) == 2
+            and extension_s[0] == extension_s[1]
+            else None
+        )
+        design_lines = [
+            f"- The merged corpus contains `{manifest.get('cases', len(configs))}` "
+            "configurations and `"
+            f"{len(corpus_payload['rows'])}` profile-position rows.",
+            f"- The base corpus contains `{base.get('cases', 0)}` independent "
+            "log-uniform configurations over "
+            "`s=[0.2,4]`, `q=[1e-4,1]`, and `rho=[3e-5,1]`.",
+            f"- The appended coverage extension contains "
+            f"`{extension.get('cases', 0)}` configurations. It targets the "
+            f"`{coverage.get('base_empty_bins', 'recorded')}` q--rho bins that "
+            "were empty in the base corpus; "
+            + (f"all extension configurations use fixed `s={fixed_s:g}`."
+               if fixed_s is not None else
+               "its sampling is recorded in the extension manifest."),
+            "- The extension is a coverage diagnostic, not an iid draw: the "
+            "combined timing summary must not be used as the canonical global "
+            "speed-law estimate.",
+            "- The base timing covers all five measured `d/rho` strata. The "
+            "extension timing covers only `d/rho=1.4` and `1.8` for the "
+            f"`{coverage.get('targeted_cases', 'recorded')}` targeted cases; "
+            "the remaining extension configurations are not timed.",
+            "- Each position is evaluated for a uniform source and linear limb "
+            "darkening with `c=0.5`.",
+            "- The requested relative tolerances are `1e-3` and `1e-4`.",
+            f"- The canonical base timing contains `{len(base_rows)}` job rows "
+            f"and `{canonical_nominal_epoch_measurements}` nominal epoch "
+            "measurements; the coverage-extended merge contains "
+            f"`{len(rows)}` job rows and `{nominal_epoch_measurements}` nominal "
+            "epoch measurements.",
+        ]
+    else:
+        case_count = manifest.get("cases", len(configs))
+        design_lines = [
+            f"- `{case_count}` independent binary-lens configurations; `s`, `q`, "
+            "and `rho` are independently log-uniform over `[0.2, 4]`, "
+            "`[1e-4, 1]`, and `[3e-5, 1]`, respectively.",
+            "- For every configuration, one source position is accepted in each "
+            "measured `d/rho` bin: `[0,0.4)`, `[0.4,0.8)`, `[0.8,1.2)`, "
+            "`[1.2,1.6)`, and `[1.6,2]`.",
+            "- Each position is evaluated for a uniform source and linear limb "
+            "darkening with `c=0.5`.",
+            "- The requested relative tolerances are `1e-3` and `1e-4`.",
+            f"- The timing contains `{len(rows)}` job rows and "
+            f"`{nominal_epoch_measurements}` nominal epoch measurements.",
+        ]
     lines = [
         "# Controlled pure-kernel speed comparison",
         "",
-        "This report uses the balanced corpus with independent log-uniform lens",
-        "parameters and equal-width bins in the measured caustic distance",
-        "`d/rho`. The timing is the cache-warm pure finite-source kernel only.",
+        "This report uses the cache-warm pure finite-source kernel protocol.",
+        "The corpus composition and any coverage extension are described below.",
+        "The timing is summarized in equal-width bins of the measured caustic",
+        "distance `d/rho`.",
         "",
         "## Benchmark design",
         "",
-        "- 160 independent binary-lens configurations; `s`, `q`, and `rho` are",
-        "  independently log-uniform over `[0.2, 4]`, `[1e-4, 1]`, and",
-        "  `[3e-5, 1]`, respectively.",
-        "- For every configuration, one source position is accepted in each",
-        "  measured `d/rho` bin: `[0,0.4)`, `[0.4,0.8)`, `[0.8,1.2)`,",
-        "  `[1.2,1.6)`, and `[1.6,2]`. This gives 800 positions and 1,600",
-        "  profile rows (800 uniform and 800 linear-LD rows).",
-        "- Each profile row is run at both requested tolerances, giving 3,200",
-        "  profile-tolerance jobs. Each job contains four reference epochs, so",
-        "  one profile/tolerance row in the table has 3,200 nominal epoch",
-        "  measurements. Across both profiles and both tolerances the nominal",
-        "  total is 12,800 epoch measurements.",
-        "- Each position is evaluated for a uniform source and linear limb",
-        "  darkening with `c=0.5`.",
-        "- The requested relative tolerances are `1e-3` and `1e-4`.",
+        *design_lines,
         "- lcbinint increases Nbin independently of VBM and selects the first",
         "  Nbin in a run of three increasing grid values whose relative spread",
         "  is within the requested tolerance. The native `support_proven`",
@@ -327,9 +418,9 @@ def _make_report(merged, corpus_payload):
         "  per epoch.",
         "- The harness uses `route-filter=all`: this is a direct integrator",
         "  comparison, not a production-route win-rate measurement.",
-        "- Each timing process was pinned to one physical CPU core with",
-        "  `OMP_NUM_THREADS=1`; repeated samples use the cache-warm native kernel",
-        "  timing protocol.",
+        "- Each timing process used `OMP_NUM_THREADS=1`; no OS-level CPU affinity",
+        "  was imposed in this rerun. Repeated samples use the cache-warm native",
+        "  kernel timing protocol.",
         "",
         "## Independent stopping rules and disagreement handling",
         "",
@@ -338,20 +429,37 @@ def _make_report(merged, corpus_payload):
         "lcbinint uses its three-point self-convergence rule and VBM uses the",
         "requested `RelTol`. The reported `abs(Delta) > epsilon` count is therefore",
         "a cross-engine disagreement diagnostic, not an accuracy verdict.",
+    ]
+    if composition:
+        lines += [
+            "",
+            "For this merged coverage report, the canonical tables below use "
+            "the handoff base corpus only. The targeted extension is reported "
+            "separately as a q--rho coverage diagnostic; it is not an iid "
+            "replacement for the base performance result.",
+        ]
+    lines += [
         "",
+        "## Canonical base timing summary" if composition else
         "## Overall timing summary",
         "",
         "`R = t_VBM / t_lcbinint`; `R > 1` means lcbinint is faster.",
         "Each row below is one source profile and one requested tolerance:",
-        "800 jobs times four reference epochs gives 3,200 nominal measured",
-        "epochs per row; all four rows together give 12,800 nominal epochs.",
+        (
+            f"the canonical base result contains `{len(base_rows)}` job rows "
+            f"and `{canonical_nominal_epoch_measurements}` nominal epoch "
+            "measurements."
+            if composition else
+            f"the result contains `{len(rows)}` job rows and "
+            f"`{nominal_epoch_measurements}` nominal epoch measurements in total."
+        ),
         "",
         "| profile | target | jobs | measured epochs | lcbinint wins | VBM wins | unresolved epochs | timeout jobs | cross-engine abs(Delta) > epsilon | win rate | p10 R | p25 R | p50 R | p75 R | p90 R | median Nbin |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for profile in PROFILES:
         for target in TARGETS:
-            item = all_summaries[profile][str(target)]
+            item = canonical_summaries[profile][str(target)]
             ratio = item["ratio"]
             nbin = item["nbin"]
             lines.append(
@@ -376,7 +484,7 @@ def _make_report(merged, corpus_payload):
     for profile in PROFILES:
         for target in TARGETS:
             for index, (low, high) in enumerate(D_BINS):
-                item = bin_summaries[profile][str(target)][index]
+                item = canonical_bin_summaries[profile][str(target)][index]
                 ratio = item["ratio"]
                 high_bracket = "]" if index == len(D_BINS) - 1 else ")"
                 label = f"[{low:g}, {high:g}{high_bracket}"
@@ -392,6 +500,29 @@ def _make_report(merged, corpus_payload):
                     f"{ratio.get('p75', float('nan')):.3f} | "
                     f"{ratio.get('p90', float('nan')):.3f} |"
                 )
+    if composition:
+        lines += [
+            "",
+            "## Coverage-extended diagnostic summary",
+            "",
+            "The following table combines the base timing with the targeted "
+            "coverage extension. It is included to document the map input, "
+            "not as a replacement for the canonical base speed result.",
+            "",
+            "| profile | target | jobs | measured epochs | lcbinint wins | VBM wins | unresolved epochs | win rate | median R |",
+            "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
+        ]
+        for profile in PROFILES:
+            for target in TARGETS:
+                item = all_summaries[profile][str(target)]
+                ratio = item["ratio"]
+                lines.append(
+                    f"| {profile} | `{target:g}` | {item['jobs']} | "
+                    f"{item['measured']} | {item['grid_wins']} | "
+                    f"{item['vbm_wins']} | {item['unresolved']} | "
+                    f"{ratio.get('win_rate', float('nan')):.1%} | "
+                    f"{ratio.get('p50', ratio.get('median', float('nan'))):.3f} |"
+                )
     lines += [
         "",
         "## Self-convergence search diagnostics",
@@ -405,7 +536,7 @@ def _make_report(merged, corpus_payload):
     ]
     for profile in PROFILES:
         for target in TARGETS:
-            item = all_summaries[profile][str(target)]
+            item = canonical_summaries[profile][str(target)]
             counts = item["self_status_counts"]
             lines.append(
                 f"| {profile} | `{target:g}` | "
@@ -413,7 +544,13 @@ def _make_report(merged, corpus_payload):
                 f"{counts.get('self_unresolved', 0)} | "
                 f"{counts.get('self_timeout', 0)} |"
             )
-    return "\n".join(lines) + "\n", all_summaries, bin_summaries
+    return (
+        "\n".join(lines) + "\n",
+        canonical_summaries,
+        canonical_bin_summaries,
+        all_summaries if composition else None,
+        bin_summaries if composition else None,
+    )
 
 
 def main():
@@ -427,12 +564,26 @@ def main():
     corpus_rows = json.loads((args.corpus / "rows.json").read_text())
     corpus_payload = {"_manifest": manifest, **corpus_rows}
     merged, _ = _merge(args.parts, args.corpus, args.output)
-    report, summaries, bin_summaries = _make_report(merged, corpus_payload)
+    (
+        report,
+        summaries,
+        bin_summaries,
+        coverage_summaries,
+        coverage_bin_summaries,
+    ) = _make_report(merged, corpus_payload)
     (args.output / "REPORT_controlled_pure_kernel.md").write_text(report)
-    (args.output / "summary.json").write_text(json.dumps({
+    summary_payload = {
         "overall": summaries,
         "by_d_over_rho_bin": bin_summaries,
-    }, indent=2))
+    }
+    if coverage_summaries is not None:
+        summary_payload["coverage_extended_overall"] = coverage_summaries
+        summary_payload["coverage_extended_by_d_over_rho_bin"] = (
+            coverage_bin_summaries
+        )
+    (args.output / "summary.json").write_text(
+        json.dumps(summary_payload, indent=2)
+    )
     print(report)
 
 

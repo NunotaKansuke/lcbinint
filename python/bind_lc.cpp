@@ -2067,6 +2067,61 @@ This is the low-level counterpart of VBMicrolensing's BinaryMag2: ``x`` and
 The calculation uses inverse-ray integration; pass ``Options`` to choose the
 Cartesian or polar grid and its resolution.)");
 
+    lc.def("binary_cartesian_trace",
+        [](double x, double y, double s, double q, double rho, int source_bins) {
+            if (!(std::isfinite(x) && std::isfinite(y) && std::isfinite(s) &&
+                  std::isfinite(q) && std::isfinite(rho)) ||
+                q <= 0.0 || rho <= 0.0 || source_bins <= 0 ||
+                source_bins > 256) {
+                throw std::invalid_argument(
+                    "binary_cartesian_trace requires finite lens/source values and source_bins in [1, 256]");
+            }
+            lcbinint::magnification::FiniteSourceSettings settings;
+            settings.finite_mode = 1;
+            settings.source_bins = source_bins;
+            settings.automatic_source_bins = false;
+            const lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
+            const auto result = magnifier.binary_cartesian_trace(
+                s, q, {x, y}, rho, source_bins);
+            py::dict output;
+            output["magnification"] = result.magnification;
+            output["lattice_spacing"] = result.lattice_spacing;
+            output["source_bins"] = result.source_bins;
+            output["complete"] = result.complete;
+            py::list events;
+            for (const auto& event : result.events) {
+                py::dict item;
+                const auto kind = event.kind;
+                item["kind"] = kind == lcbinint::magnification::detail::
+                    CartesianRunFillTraceEventKind::run_discovered
+                    ? "run_discovered"
+                    : kind == lcbinint::magnification::detail::
+                        CartesianRunFillTraceEventKind::frontier_popped
+                        ? "frontier_popped"
+                        : "components_merged";
+                item["iy"] = event.run.iy;
+                item["lo"] = event.run.lo;
+                item["hi"] = event.run.hi;
+                item["run_index"] = event.run_index;
+                if (event.related_run_index ==
+                    lcbinint::magnification::detail::CartesianRunFillTraceEvent::npos) {
+                    item["related_run_index"] = py::none();
+                } else {
+                    item["related_run_index"] = event.related_run_index;
+                }
+                item["component"] = event.component;
+                item["fill_level"] = event.fill_level;
+                item["cell_spacing"] = event.cell_spacing;
+                events.append(std::move(item));
+            }
+            output["events"] = std::move(events);
+            return output;
+        },
+        py::arg("x"), py::arg("y"), py::kw_only(),
+        py::arg("s"), py::arg("q"), py::arg("rho"),
+        py::arg("source_bins") = 50,
+        "Return the exact C++ Cartesian run-fill event order for one binary source.");
+
     lc.def("_binary_safety_diagnostic",
         [](double separation, double mass_ratio, double source_x, double source_y) {
             lcbinint::magnification::PointSourceMagnifier magnifier;
