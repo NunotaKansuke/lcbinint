@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstdio>
 #include <vector>
+#include <quadmath.h>
 
 #include "lcbinint/magnification/holonomic/gm_taylor_transport.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
@@ -48,6 +49,19 @@ PrimaryFrame bump(PrimaryFrame p, int j, double h) {
         case 4: p.a += h; break;
     }
     return p;
+}
+
+bool qf_connection_at(double R, const PrimaryFrame& pf,
+                      std::array<std::array<__float128, kGmEtaDim>,
+                                 kGmEtaDim>& out) {
+    const auto jet = gm_connection_jet<0, __float128>(R,
+        GmParams<__float128>{(__float128)pf.X, (__float128)pf.Y,
+                             (__float128)pf.rho, (__float128)pf.m0,
+                             (__float128)pf.a});
+    if (!jet.ok) return false;
+    for (int i = 0; i < kGmEtaDim; ++i)
+        for (int j = 0; j < kGmEtaDim; ++j) out[i][j] = jet.C[i][j].c[0];
+    return true;
 }
 
 bool rhs(const std::array<double, kGmEtaDim>& z, double R,
@@ -170,20 +184,34 @@ void test_point_and_taylor() {
                 const double base = par == 0 ? pf.X : par == 1 ? pf.Y :
                                     par == 2 ? pf.rho : par == 3 ? pf.m0 : pf.a;
                 const double eps = 2e-6 * std::max(1.0, std::fabs(base));
-                const GmConnectionPoint plus = gm_connection_at(R, bump(pf, par, eps));
-                const GmConnectionPoint minus = gm_connection_at(R, bump(pf, par, -eps));
-                if (!plus.ok || !minus.ok) continue;
+                std::array<std::array<__float128, kGmEtaDim>, kGmEtaDim> plus{};
+                std::array<std::array<__float128, kGmEtaDim>, kGmEtaDim> minus{};
+                if (!qf_connection_at(R, bump(pf, par, eps), plus) ||
+                    !qf_connection_at(R, bump(pf, par, -eps), minus)) continue;
                 double par_worst = 0.0;
                 for (int i = 0; i < kGmEtaDim; ++i)
                     for (int j = 0; j < kGmEtaDim; ++j) {
-                        const double fd = (plus.C[i][j] - minus.C[i][j]) / (2.0 * eps);
+                        const __float128 fd =
+                            (plus[i][j] - minus[i][j]) / ((__float128)2 * eps);
                         const double got = djet.C[i][j].c[0].deriv[par];
-                        const double scale = 1.0 + std::max(std::fabs(fd), std::fabs(got));
-                        par_worst = std::max(par_worst, std::fabs(fd - got) / scale);
+                        const double fd_d = (double)fd;
+                        const double scale = 1.0 + std::max(std::fabs(fd_d),
+                                                            std::fabs(got));
+                        par_worst = std::max(
+                            par_worst,
+                            (double)(fabsq(fd - (__float128)got) / scale));
                     }
+                if (par_worst > 1e-4)
+                    std::fprintf(stderr, "    dual %-12s par=%d err=%.3e\n",
+                                 g.name, par, par_worst);
                 worst_dual = std::max(worst_dual, par_worst);
             }
-        } else ++dual_rejected;
+        } else {
+            ++dual_rejected;
+            std::fprintf(stderr, "    dual rejected %-12s id=%.3e pivot=%.3e finite=%d\n",
+                         g.name, djet.identity_residual, djet.matrix_pivot_rel,
+                         djet.finite ? 1 : 0);
+        }
     }
 
     std::fprintf(stderr, "  benign geometries       %d/%zu\n", used, kGeoms.size());

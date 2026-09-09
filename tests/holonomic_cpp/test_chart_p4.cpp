@@ -32,6 +32,19 @@ double p4_value(double R, const PrimaryFrame& pf) {
     return boundary_quartic(R, pf).p[4];
 }
 
+// This mirrors the existing radial_events() merge policy.  It belongs in the
+// parity harness only: chart_p4_factor_roots deliberately returns every root
+// from every algebraic factor when b^2 != 0.
+std::vector<double> event_dedup(std::vector<double> roots,
+                                double merge_tol = 1e-7) {
+    std::sort(roots.begin(), roots.end());
+    std::vector<double> out;
+    for (double r : roots)
+        if (out.empty() || std::fabs(r - out.back()) >= merge_tol)
+            out.push_back(r);
+    return out;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -40,6 +53,21 @@ int main(int argc, char** argv) {
     if (!in) { std::fprintf(stderr, "cannot open %s\n", path); return 2; }
     int n = 0, fails = 0, applicable = 0;
     double worst_root = 0.0, worst_res = 0.0;
+
+    // Exercise the branch itself with adjacent representable values.  At
+    // exact |Y|==rho there is one algebraic factor; one ulp above it has a
+    // nonzero b^2 and must expose both factors before downstream merging.
+    const PrimaryFrame exact{0.5, 0.7, 0.2, 0.1, 0.1};
+    const PrimaryFrame near{0.5, 0.7, 0.2, 0.1,
+                            std::nextafter(0.1, 1.0)};
+    const auto exact_roots = chart_p4_factor_roots(exact);
+    const auto near_roots = chart_p4_factor_roots(near);
+    if (exact_roots.size() != 1 || near_roots.size() != 2 ||
+        near_roots[0] == near_roots[1]) {
+        ++fails;
+        std::fprintf(stderr, "  FACTOR BRANCH FAIL exact=%zu near=%zu\n",
+                     exact_roots.size(), near_roots.size());
+    }
     std::string line;
     while (std::getline(in, line)) {
         std::istringstream ls(line);
@@ -50,8 +78,8 @@ int main(int argc, char** argv) {
         ++n;
         const LensParams lp{xs, ys, rho, q, a, (bool)bary};
         const PrimaryFrame pf = PrimaryFrame::from(lp);
-        const auto fact = chart_p4_factor_roots(pf);
-        const auto gen = generic_roots(pf);
+        const auto fact = event_dedup(chart_p4_factor_roots(pf));
+        const auto gen = event_dedup(generic_roots(pf));
         const double scale = 1.0 + std::fabs(pf.a) + std::fabs(pf.m0) +
                              std::fabs(pf.X) + std::fabs(pf.Y) + pf.rho;
         if (pf.rho >= std::fabs(pf.Y)) ++applicable;

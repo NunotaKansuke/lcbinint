@@ -1,5 +1,8 @@
 # Global optimization checkpoint
 
+続きの実装・実測は [phase 2 checkpoint](checkpoint_global_optimization_phase2.md) と
+[phase 2 evidence](../../evidence/holonomic/checkpoint_global_optimization_phase2.txt) に記録した。
+
 基準は `dev/holonomic` の `420f58861fa2f67c1109ad3045f5ef80848fde68`。作業は
 isolated holonomic buildの範囲に限定した。添付計画の原文は
 [holonomic_global_optimization_plan_ja.md](holonomic_global_optimization_plan_ja.md)、

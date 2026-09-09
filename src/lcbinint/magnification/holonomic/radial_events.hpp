@@ -289,11 +289,13 @@ inline std::vector<double> chart_p4_factor_roots(const PrimaryFrame& pf) {
 
     // Difference-of-squares form avoids subtracting rho^2 and Y^2 when the
     // chart crossing is close to the |Y|=rho boundary.
-    const double b2 = std::max(0.0, (pf.rho - ay) * (pf.rho + ay));
+    const double b2 = (pf.rho - ay) * (pf.rho + ay);
     const double b = std::sqrt(b2);
-    const double scale = 1.0 + std::fabs(pf.a) + std::fabs(pf.X) +
-                         std::fabs(pf.m0);
-    const int nfactor = b <= 1e-14 * scale ? 1 : 2;
+    // Only the exact algebraic boundary b^2 == 0 has one factor.  Nearly
+    // coincident cubic roots are intentionally left for radial_events'
+    // existing event merge below; the factorization itself has no tolerance
+    // based branch.
+    const int nfactor = b2 == 0.0 ? 1 : 2;
     for (int s = -1; s <= 1; s += 2) {
         if (nfactor == 1 && s > 0) break;
         const double sb = s * b;
@@ -305,10 +307,11 @@ inline std::vector<double> chart_p4_factor_roots(const PrimaryFrame& pf) {
         out.insert(out.end(), roots.begin(), roots.end());
     }
     std::sort(out.begin(), out.end());
-    std::vector<double> ded;
-    for (double r : out)
-        if (ded.empty() || r - ded.back() > 1e-9) ded.push_back(r);
-    return ded;
+    // Keep both roots when b^2 is nonzero.  Coincident or near-coincident
+    // events are merged by radial_events(), after all event kinds have been
+    // collected; the algebraic factorization itself has no numerical
+    // proximity policy.
+    return out;
 }
 
 // classify: at a discriminant zero P has a double root t*; real?

@@ -184,10 +184,20 @@ target_include_directories(test_gm_taylor PRIVATE "${_SRC}")
 target_compile_options(test_gm_taylor PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_gm_taylor PRIVATE quadmath)
 
+add_executable(test_gm_physical "${CMAKE_CURRENT_SOURCE_DIR}/test_gm_physical.cpp")
+target_include_directories(test_gm_physical PRIVATE "${_SRC}")
+target_compile_options(test_gm_physical PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_gm_physical PRIVATE quadmath)
+
 add_executable(bench_gm_taylor "${CMAKE_CURRENT_SOURCE_DIR}/bench_gm_taylor.cpp")
 target_include_directories(bench_gm_taylor PRIVATE "${_SRC}")
 target_compile_options(bench_gm_taylor PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_gm_taylor PRIVATE quadmath)
+
+add_executable(bench_gm_e2e "${CMAKE_CURRENT_SOURCE_DIR}/bench_gm_e2e.cpp")
+target_include_directories(bench_gm_e2e PRIVATE "${_SRC}")
+target_compile_options(bench_gm_e2e PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_gm_e2e PRIVATE quadmath)
 
 add_executable(test_chart_p4 "${CMAKE_CURRENT_SOURCE_DIR}/test_chart_p4.cpp")
 target_include_directories(test_chart_p4 PRIVATE "${_SRC}")
@@ -213,6 +223,7 @@ add_test(NAME holonomic_root_pair
 add_test(NAME holonomic_ode
          COMMAND test_holonomic_ode "/tmp/bench_cases.tsv")
 add_test(NAME holonomic_gm_taylor COMMAND test_gm_taylor)
+add_test(NAME holonomic_gm_physical COMMAND test_gm_physical)
 add_test(NAME holonomic_chart_p4 COMMAND test_chart_p4 "/tmp/bench_cases.tsv")
 
 # --- optional Python binding (separately named, isolated) ------------------

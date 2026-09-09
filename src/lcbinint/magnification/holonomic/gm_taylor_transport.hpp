@@ -17,16 +17,17 @@
 
 namespace lcbinint::holonomic {
 
-template <int Order, class Scalar>
-inline bool gm_taylor_transport(
-    const GmConnectionJet<Order, Scalar>& connection,
+template <int EvalOrder, int JetOrder, class Scalar>
+inline bool gm_taylor_transport_prefix(
+    const GmConnectionJet<JetOrder, Scalar>& connection,
     const std::array<Scalar, kGmEtaDim>& seed, double h,
     std::array<Scalar, kGmEtaDim>& result) {
+    static_assert(EvalOrder <= JetOrder);
     if (!connection.ok || !std::isfinite(h)) return false;
 
-    std::array<std::array<Scalar, kGmEtaDim>, Order + 1> z{};
+    std::array<std::array<Scalar, kGmEtaDim>, EvalOrder + 1> z{};
     z[0] = seed;
-    for (int n = 0; n < Order; ++n) {
+    for (int n = 0; n < EvalOrder; ++n) {
         for (int i = 0; i < kGmEtaDim; ++i) {
             Scalar sum = Scalar(0);
             for (int j = 0; j <= n; ++j)
@@ -38,7 +39,7 @@ inline bool gm_taylor_transport(
 
     result.fill(Scalar(0));
     double hp = 1.0;
-    for (int n = 0; n <= Order; ++n) {
+    for (int n = 0; n <= EvalOrder; ++n) {
         for (int i = 0; i < kGmEtaDim; ++i)
             result[i] = result[i] + z[n][i] * Scalar(hp);
         hp *= h;
@@ -46,6 +47,14 @@ inline bool gm_taylor_transport(
     for (const Scalar& x : result)
         if (!gm_finite(x)) return false;
     return true;
+}
+
+template <int Order, class Scalar>
+inline bool gm_taylor_transport(
+    const GmConnectionJet<Order, Scalar>& connection,
+    const std::array<Scalar, kGmEtaDim>& seed, double h,
+    std::array<Scalar, kGmEtaDim>& result) {
+    return gm_taylor_transport_prefix<Order>(connection, seed, h, result);
 }
 
 template <int Order>

@@ -1,0 +1,175 @@
+ATPT holonomic global optimization phase 2
+===========================================
+
+基準 / scope
+------------
+  branch: dev/holonomic
+  base HEAD: 7fd15113bcee5c5d5d100c781e02a3e94663d228
+  host: Linux 5.14.0-570.23.1.el9_6.x86_64
+  CPU: INTEL(R) XEON(R) GOLD 6530, 64 logical CPUs, 4 NUMA nodes
+  build: Release, -O3 -march=native -funroll-loops -ffp-contract=fast
+         -fno-math-errno, standalone tests/holonomic_cpp project
+  cases: /tmp/bench_cases.tsv, 108 rows
+  isolation: src/.../magnification/holonomic,
+             tests/holonomic_cpp, docs/holonomic, evidence/holonomic
+  pre-existing .claude/ was left untouched
+
+添付計画
+--------
+  /home/nunota/.codex/attachments/0ab3bd4d-523e-4ead-8245-b6eaa55d81f7/
+  holonomic_global_optimization_plan_ja.md
+  cmp with docs/holonomic/holonomic_global_optimization_plan_ja.md: equal
+
+chart_p4 boundary
+-----------------
+  implementation:
+    chart_p4_factor_roots() computes b2=(rho-|Y|)(rho+|Y|) and uses one
+    cubic only when b2 == 0.0.  Otherwise it solves both cubics.
+    No factor-level near-root threshold/dedup remains.  radial_events()
+    performs the existing event merge after all event kinds are collected.
+  test command:
+    ./build-holonomic-global/test_chart_p4 /tmp/bench_cases.tsv
+    HOLO_CHART_P4_LEGACY=1 ./build-holonomic-global/test_chart_p4 /tmp/bench_cases.tsv
+  result (both):
+    cases 108
+    |Y|<=rho cases 34
+    worst root rel diff 6.548e-15
+    worst p4 residual 1.846e-16
+    PASS
+  timing inherited from the chart_p4 A/B:
+    factor applicable median 0.0008 ms
+    old generic applicable median 0.7124 ms
+    ratio 843.066x
+
+GM coefficient profile and specialization
+-------------------------------------------
+  commands:
+    ./build-holonomic-global/bench_gm_taylor /tmp/bench_cases.tsv 3
+    perf record -o /tmp/gm_taylor_perf.data --call-graph dwarf \
+      ./build-holonomic-global/bench_gm_taylor /tmp/bench_cases.tsv 10
+    perf report --stdio -i /tmp/gm_taylor_perf.data --percent-limit 1.0
+  latest bench_gm_taylor result:
+    cases 42, reps 3, step 0.01
+    point value-only median 0.0027 ms, p90 0.0028, p99 0.0029
+    16-step RK4 median 0.1497 ms, p90 0.1581, p99 0.1682
+    Taylor-10 __float128 median 3.8128 ms, p90 3.9358, p99 3.9974
+    qf connection Taylor coefficient generation median 3.6826 ms
+    qf transport recurrence median 0.0988 ms
+    Taylor-3/6/8/10 double median 0.0215/0.0533/0.0663/0.0887 ms
+    Taylor-3/6/8/10 DD median 0.0410/0.1149/0.1936/0.2492 ms
+    double gate accepted 18/42, 4/42, 0/42, 0/42 respectively
+    DD gate accepted 42/42, 42/42, 42/42, 38/42 respectively
+    double worst-vs-qf for accepted lanes:
+      Order-3 1.958e-3, Order-6 2.452e-7,
+      Order-8 no accepted lane, Order-10 no accepted lane
+    DD worst-vs-qf:
+      Order-3 6.764e-3, Order-6 2.398e-5,
+      Order-8 6.984e-7, Order-10 6.538e-24
+    GmDual5 Order-3 + 5-dual median 0.1297 ms, cases 20
+    worst dual vs finite difference 1.985e-7 (test oracle uses qf point FD)
+    6D residue-free projection DD O8 median 0.0152 ms
+    6D residue-free transport DD O8 median 0.0050 ms
+    6D closure accepted 42/42; these times exclude 7D eta jet generation
+
+  perf report (latest run includes all benchmark lanes):
+    GmConnectionJet<10,__float128> children about 75.08%
+    within that call: __multf3 35.38%, __subtf3 19.82%, __addtf3 16.51%
+    no generic gm_poly_mod hotspot appeared above the 1% report cutoff
+  previous phase qf Taylor full median was about 12.9346 ms.  The fixed
+  degree/fused-series changes reduce it to 3.8128 ms.  The remaining qf
+  cost is high-precision scalar arithmetic, not the transport recurrence.
+
+physical seed / residue-free test
+----------------------------------
+  command:
+    ./build-holonomic-global/test_gm_physical
+  result:
+    physical seed vs independent angular integral:
+      memo-s15 3.818e-15, resonant 1.565e-15,
+      caustic-xing 1.646e-14, near-full 3.328e-14,
+      plan15-raw 1.245e-15
+    qf residue-free transport:
+      memo-s15 4.310e-15, near-full 4.429e-15
+    residue-free point closure:
+      memo-s15 1.337e-18, near-full 1.356e-17
+    6D basis consistency:
+      memo-s15 1.287e-17, near-full 6.665e-17
+    physical geometries exercised 5/7
+    PASS
+  The qf physical test uses eta_closed as the physical period seed and
+  compares both eta observable and psi observable against the independently
+  reseeded physical period.  The K-rule/Chebyshev packet is not called.
+
+whole epoch true-GM diagnostic, same radial precision as V2
+-------------------------------------------------------------
+  command:
+    ./build-holonomic-global/bench_gm_e2e /tmp/bench_cases.tsv 3 108 64 0 dd8
+  lane: DD Order-8, n_r=64, 108 cases
+  status:
+    GM total 52/108
+    GM value-only 52/54
+    GM value+5Jac 0/54
+    GM all-transport value+5Jac 0/54
+    V2 104/108
+    status changes 52
+  accuracy:
+    GM/V2 mu rel median/p90/max 2.801e-15 / 1.280e-12 / 1.944e-08
+    GM/direct-physical rel median/p90/max 0 / 3.911e-16 / 5.007e-12
+    direct-physical/V0 rel median/p90/max 2.865e-15 / 1.164e-12 / 1.944e-08
+    F0 GM/V0 worst 1.477e-16
+    Fhalf GM/V0 worst 5.004e-09
+  independent angular reference:
+    command suffix angular_n=256
+    direct/reference rel median/p90/max 0 / 5.588e-13 / 5.368e-09
+    reference/V0 rel median/p90/max 4.649e-16 / 7.717e-14 / 1.904e-08
+  wall:
+    GM median/p90 1.7218 / 5.0891 ms
+    V2 median/p90 1.0509 / 1.8549 ms
+    V2/GM median 0.610x
+    value-only GM/V2 median 1.0493 / 0.8652 ms
+  value+5Jac diagnostic:
+    physical endpoint analytic Jacobian is not implemented yet
+    central-difference complete GM value lane median/p90 26.4887 / 51.9804 ms
+    same-case GM value median/p90 2.8076 / 5.9149 ms
+    FD Jac/value ratio 9.435x
+    gradient rel vs V2 median/p90/max 4.880e-03 / 1.726e-01 / 3.874e-01
+  summed cost over 108 cases:
+    seed 0.762 ms
+    connection 41.871 ms
+    transport 27.334 ms
+    node arc 26.883 ms
+    topology/D14 96.709 ms
+    direct fallback 45.215 ms
+  counts:
+    cells 1370, arcs 218, physical seeds 218
+    connection attempts/failed 214/179
+    transport attempts/failed 2496/2131
+    transported nodes 365, direct fallback nodes 13587
+    transport rejected 2131, max full/(full-2) tail 5.887e-01
+
+precision ladder whole-epoch checks
+------------------------------------
+  double8, n_r=64:
+    GM status 52/108, value+5Jac 0/54, all connections 218/218 failed
+    GM median 1.5161 ms, V2 median 1.0547 ms
+  qf10, n_r=16:
+    command:
+      ./build-holonomic-global/bench_gm_e2e /tmp/bench_cases.tsv 1 108 16 0 qf10
+    GM status 52/108, value+5Jac 0/54
+    connection attempts/failed 214/188
+    transport attempts/failed 480/350
+    GM median 2.0018 ms, V2 median 1.0720 ms
+    qf FD Jac diagnostic median 132.7625 ms
+  Higher scalar precision alone does not remove the chart/eta basis gate.
+
+decision
+--------
+  - chart_p4 exact branch and legacy parity: adopted.
+  - fixed-degree GM algebra and scalar precision measurements: adopted as
+    isolated research kernel improvements.
+  - true GM whole epoch as V2 replacement: not adopted.
+  - V3 9-point K-rule/Chebyshev packet: retained as a separately named
+    comparison path; it is not counted as true GM transport here.
+  - next required direction: direct scalar flux-priority companion basis or
+    another regularized GM representation that remains defined across the
+    chart_p4 degree drop and supplies analytic parameter derivatives.

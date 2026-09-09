@@ -21,16 +21,22 @@
 #include <cmath>
 #include <cstddef>
 #include <limits>
+#include <type_traits>
 
 #include <quadmath.h>
 
+#include "lcbinint/magnification/holonomic/dd_real.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
 
 namespace lcbinint::holonomic {
 
 constexpr int kGmEtaDim = 7;
 constexpr int kGmQDegree = 8;
-constexpr int kGmPolyCapacity = 32;
+// The largest product used by the fixed degree-8 reduction is degree 15.
+// Keeping a 32-degree scratch polynomial made every returned object carry
+// 17 never-touched series coefficients.  The connection code below is fixed
+// to Q degree 8, so capacity 16 is sufficient for all intermediate products.
+constexpr int kGmPolyCapacity = 16;
 
 // A small forward-mode parameter dual used by the derivative-inclusive
 // kernel.  Parameter order is (X, Y, rho, m0, a), matching PrimaryFrame.
@@ -86,10 +92,14 @@ inline GmDual5 operator/(GmDual5 a, GmDual5 b) {
 inline double gm_abs_value(double x) { return std::fabs(x); }
 inline double gm_abs_value(long double x) { return (double)std::fabs(x); }
 inline double gm_abs_value(__float128 x) { return (double)fabsq(x); }
+inline double gm_abs_value(DD x) { return std::fabs(x.hi + x.lo); }
 inline double gm_abs_value(const GmDual5& x) { return std::fabs(x.value); }
 inline bool gm_finite(double x) { return std::isfinite(x); }
 inline bool gm_finite(long double x) { return std::isfinite(x); }
 inline bool gm_finite(__float128 x) { return finiteq(x); }
+inline bool gm_finite(DD x) {
+    return std::isfinite(x.hi) && std::isfinite(x.lo);
+}
 inline bool gm_finite(const GmDual5& x) {
     if (!std::isfinite(x.value)) return false;
     for (double d : x.deriv)
@@ -100,6 +110,7 @@ inline bool gm_finite(const GmDual5& x) {
 inline double gm_quality_limit(double) { return 1e-6; }
 inline double gm_quality_limit(long double) { return 1e-10; }
 inline double gm_quality_limit(__float128) { return 1e-12; }
+inline double gm_quality_limit(DD) { return 1e-12; }
 inline double gm_quality_limit(const GmDual5&) { return 1e-6; }
 
 // Truncated scalar series in h=R-Rc, with coefficients in Scalar.
@@ -134,12 +145,36 @@ inline GmSeries<Order, Scalar> operator-(const GmSeries<Order, Scalar>& a) {
     return r;
 }
 template <int Order, class Scalar>
+inline void gm_series_mul_accumulate(GmSeries<Order, Scalar>& dst,
+                                     const GmSeries<Order, Scalar>& a,
+                                     const GmSeries<Order, Scalar>& b) {
+    for (int i = 0; i <= Order; ++i)
+        for (int j = 0; j + i <= Order; ++j)
+            dst.c[i + j] = dst.c[i + j] + a.c[i] * b.c[j];
+}
+
+template <int Order, class Scalar>
+inline void gm_series_mul_subtract(GmSeries<Order, Scalar>& dst,
+                                   const GmSeries<Order, Scalar>& a,
+                                   const GmSeries<Order, Scalar>& b) {
+    for (int i = 0; i <= Order; ++i)
+        for (int j = 0; j + i <= Order; ++j)
+            dst.c[i + j] = dst.c[i + j] - a.c[i] * b.c[j];
+}
+
+template <int Order, class Scalar>
 inline GmSeries<Order, Scalar> operator*(const GmSeries<Order, Scalar>& a,
                                          const GmSeries<Order, Scalar>& b) {
     GmSeries<Order, Scalar> r;
-    for (int i = 0; i <= Order; ++i)
-        for (int j = 0; j + i <= Order; ++j)
-            r.c[i + j] = r.c[i + j] + a.c[i] * b.c[j];
+    gm_series_mul_accumulate(r, a, b);
+    return r;
+}
+
+template <int Order, class Scalar>
+inline GmSeries<Order, Scalar> gm_series_scale_scalar(
+    const GmSeries<Order, Scalar>& a, const Scalar& x) {
+    GmSeries<Order, Scalar> r;
+    for (int i = 0; i <= Order; ++i) r.c[i] = a.c[i] * x;
     return r;
 }
 
@@ -256,6 +291,34 @@ inline GmPoly<T, Capacity> gm_poly_mul(const GmPoly<T, Capacity>& a,
             r.c[i + j] = r.c[i + j] + a.c[i] * b.c[j];
     return r;
 }
+
+// The GM kernel uses a polynomial over a truncated series ring.  The generic
+// version above computes one temporary series product and then adds that
+// temporary series to the result for every polynomial coefficient pair.  This
+// overload fuses those two operations and avoids the repeated full-series
+// addition and its temporary object.
+template <int Order, class Scalar, int Capacity>
+inline GmPoly<GmSeries<Order, Scalar>, Capacity> gm_poly_mul(
+    const GmPoly<GmSeries<Order, Scalar>, Capacity>& a,
+    const GmPoly<GmSeries<Order, Scalar>, Capacity>& b) {
+    using Series = GmSeries<Order, Scalar>;
+    GmPoly<Series, Capacity> r;
+    if (a.deg < 0 || b.deg < 0) return r;
+    r.deg = std::min(Capacity, a.deg + b.deg);
+    for (int i = 0; i <= a.deg; ++i)
+        for (int j = 0; j <= b.deg && i + j <= Capacity; ++j) {
+            if constexpr (std::is_same_v<Scalar, GmDual5>) {
+                // Keep the original operation grouping for the derivative
+                // lane.  Its finite-difference parity is more sensitive to
+                // reassociation than the value-only double/qf lanes.
+                const Series term = a.c[i] * b.c[j];
+                r.c[i + j] = r.c[i + j] + term;
+            } else {
+                gm_series_mul_accumulate(r.c[i + j], a.c[i], b.c[j]);
+            }
+        }
+    return r;
+}
 template <class T, int Capacity>
 inline GmPoly<T, Capacity> gm_poly_scale(const GmPoly<T, Capacity>& a,
                                          const T& x) {
@@ -264,11 +327,48 @@ inline GmPoly<T, Capacity> gm_poly_scale(const GmPoly<T, Capacity>& a,
     for (int i = 0; i <= a.deg; ++i) r.c[i] = a.c[i] * x;
     return r;
 }
+
+template <int Order, class Scalar, int Capacity>
+inline GmPoly<GmSeries<Order, Scalar>, Capacity> gm_poly_scale_scalar(
+    const GmPoly<GmSeries<Order, Scalar>, Capacity>& a, const Scalar& x) {
+    using Series = GmSeries<Order, Scalar>;
+    GmPoly<Series, Capacity> r;
+    r.deg = a.deg;
+    for (int i = 0; i <= a.deg; ++i)
+        r.c[i] = gm_series_scale_scalar(a.c[i], x);
+    return r;
+}
+
+template <class T, int Capacity>
+inline GmPoly<T, Capacity> gm_poly_shift(const GmPoly<T, Capacity>& a,
+                                         int shift) {
+    GmPoly<T, Capacity> r;
+    if (a.deg < 0 || shift > Capacity) return r;
+    r.deg = std::min(Capacity, a.deg + shift);
+    for (int i = 0; i <= a.deg && i + shift <= Capacity; ++i)
+        r.c[i + shift] = a.c[i];
+    return r;
+}
 template <class T, int Capacity>
 inline GmPoly<T, Capacity> gm_poly_derivative(const GmPoly<T, Capacity>& a) {
     GmPoly<T, Capacity> r;
     r.deg = std::max(-1, a.deg - 1);
     for (int i = 1; i <= a.deg; ++i) r.c[i - 1] = a.c[i] * T(i);
+    return r;
+}
+
+template <int Order, class Scalar, int Capacity>
+inline GmPoly<GmSeries<Order, Scalar>, Capacity> gm_poly_derivative(
+    const GmPoly<GmSeries<Order, Scalar>, Capacity>& a) {
+    using Series = GmSeries<Order, Scalar>;
+    GmPoly<Series, Capacity> r;
+    r.deg = std::max(-1, a.deg - 1);
+    for (int i = 1; i <= a.deg; ++i) {
+        if constexpr (std::is_same_v<Scalar, GmDual5>)
+            r.c[i - 1] = a.c[i] * Series(Scalar(i));
+        else
+            r.c[i - 1] = gm_series_scale_scalar(a.c[i], Scalar(i));
+    }
     return r;
 }
 
@@ -288,6 +388,49 @@ inline GmPoly<T, Capacity> gm_poly_mod(const GmPoly<T, Capacity>& p,
     return r;
 }
 
+// Fixed-Q reduction avoids constructing a truncated-series reciprocal for
+// every long-division step.  In the GM kernel q is always the degree-8 Q and
+// inv_lead is computed once per connection jet.
+template <class T, int Capacity>
+inline GmPoly<T, Capacity> gm_poly_mod_with_lead_inv(
+    const GmPoly<T, Capacity>& p, const GmPoly<T, Capacity>& q,
+    const T& inv_lead) {
+    GmPoly<T, Capacity> r = p;
+    if (q.deg < 0 || r.deg < q.deg) return r;
+    for (int d = r.deg; d >= q.deg; --d) {
+        const T factor = r.c[d] * inv_lead;
+        const int shift = d - q.deg;
+        for (int j = 0; j <= q.deg; ++j)
+            r.c[shift + j] = r.c[shift + j] - factor * q.c[j];
+        r.c[d] = T(0);
+    }
+    r.deg = q.deg - 1;
+    return r;
+}
+
+template <int Order, class Scalar, int Capacity>
+inline GmPoly<GmSeries<Order, Scalar>, Capacity> gm_poly_mod_with_lead_inv(
+    const GmPoly<GmSeries<Order, Scalar>, Capacity>& p,
+    const GmPoly<GmSeries<Order, Scalar>, Capacity>& q,
+    const GmSeries<Order, Scalar>& inv_lead) {
+    using Series = GmSeries<Order, Scalar>;
+    GmPoly<Series, Capacity> r = p;
+    if (q.deg < 0 || r.deg < q.deg) return r;
+    for (int d = r.deg; d >= q.deg; --d) {
+        const Series factor = r.c[d] * inv_lead;
+        const int shift = d - q.deg;
+        for (int j = 0; j <= q.deg; ++j) {
+            if constexpr (std::is_same_v<Scalar, GmDual5>)
+                r.c[shift + j] = r.c[shift + j] - factor * q.c[j];
+            else
+                gm_series_mul_subtract(r.c[shift + j], factor, q.c[j]);
+        }
+        r.c[d] = Series{};
+    }
+    r.deg = q.deg - 1;
+    return r;
+}
+
 template <class T, int Capacity>
 inline GmPoly<T, Capacity> gm_poly_div_exact(const GmPoly<T, Capacity>& p,
                                              const GmPoly<T, Capacity>& q) {
@@ -302,6 +445,73 @@ inline GmPoly<T, Capacity> gm_poly_div_exact(const GmPoly<T, Capacity>& p,
         for (int j = 0; j <= q.deg; ++j)
             r.c[shift + j] = r.c[shift + j] - factor * q.c[j];
         r.c[d] = T(0);
+    }
+    return out;
+}
+
+// Exact division with a reusable inverse of q's leading series.  The
+// residual is measured after the same elimination that constructs the
+// quotient, so it supplies the GM identity gate without rebuilding three
+// polynomial products for every eta row.
+template <class T, int Capacity>
+inline GmPoly<T, Capacity> gm_poly_div_exact_with_lead_inv(
+    const GmPoly<T, Capacity>& p, const GmPoly<T, Capacity>& q,
+    const T& inv_lead, double* remainder_max = nullptr) {
+    GmPoly<T, Capacity> r = p;
+    GmPoly<T, Capacity> out;
+    if (q.deg < 0 || p.deg < q.deg) {
+        if (remainder_max) *remainder_max = 0.0;
+        return out;
+    }
+    out.deg = p.deg - q.deg;
+    for (int d = p.deg; d >= q.deg; --d) {
+        const T factor = r.c[d] * inv_lead;
+        out.c[d - q.deg] = factor;
+        const int shift = d - q.deg;
+        for (int j = 0; j <= q.deg; ++j)
+            r.c[shift + j] = r.c[shift + j] - factor * q.c[j];
+        r.c[d] = T(0);
+    }
+    if (remainder_max) {
+        double worst = 0.0;
+        for (int i = 0; i < q.deg; ++i)
+            worst = std::max(worst, gm_series_max_abs(r.c[i]));
+        *remainder_max = worst;
+    }
+    return out;
+}
+
+template <int Order, class Scalar, int Capacity>
+inline GmPoly<GmSeries<Order, Scalar>, Capacity>
+gm_poly_div_exact_with_lead_inv(
+    const GmPoly<GmSeries<Order, Scalar>, Capacity>& p,
+    const GmPoly<GmSeries<Order, Scalar>, Capacity>& q,
+    const GmSeries<Order, Scalar>& inv_lead, double* remainder_max = nullptr) {
+    using Series = GmSeries<Order, Scalar>;
+    GmPoly<Series, Capacity> r = p;
+    GmPoly<Series, Capacity> out;
+    if (q.deg < 0 || p.deg < q.deg) {
+        if (remainder_max) *remainder_max = 0.0;
+        return out;
+    }
+    out.deg = p.deg - q.deg;
+    for (int d = p.deg; d >= q.deg; --d) {
+        const Series factor = r.c[d] * inv_lead;
+        out.c[d - q.deg] = factor;
+        const int shift = d - q.deg;
+        for (int j = 0; j <= q.deg; ++j) {
+            if constexpr (std::is_same_v<Scalar, GmDual5>)
+                r.c[shift + j] = r.c[shift + j] - factor * q.c[j];
+            else
+                gm_series_mul_subtract(r.c[shift + j], factor, q.c[j]);
+        }
+        r.c[d] = Series{};
+    }
+    if (remainder_max) {
+        double worst = 0.0;
+        for (int i = 0; i < q.deg; ++i)
+            worst = std::max(worst, gm_series_max_abs(r.c[i]));
+        *remainder_max = worst;
     }
     return out;
 }
@@ -327,6 +537,7 @@ struct GmConnectionJet {
     bool quality_ok = false;
     double identity_residual = std::numeric_limits<double>::infinity();
     double matrix_pivot_rel = 0.0;
+    double chart_scale = 1.0;
     Poly q;
     Poly qR;
     std::array<std::array<Series, kGmEtaDim>, kGmEtaDim> C{};
@@ -415,8 +626,17 @@ inline GmPoly<GmSeries<Order, Scalar>, kGmPolyCapacity> gm_q_series_raw(
     const C n2(n2s, Series(Scalar(0)));
     const C cT0 = n0 + n1 + n2;
     const C dT = n2 - n0;
-    const C cT1(-Series(Scalar(2)) * dT.im,
+    C cT1;
+    Series a1, a2, a3;
+    if constexpr (std::is_same_v<Scalar, GmDual5>) {
+        // Preserve the established dual arithmetic grouping so its
+        // finite-difference parity remains comparable with the legacy jet.
+        cT1 = C(-Series(Scalar(2)) * dT.im,
                 Series(Scalar(2)) * dT.re);
+    } else {
+        cT1 = C(gm_series_scale_scalar(dT.im, Scalar(-2)),
+                gm_series_scale_scalar(dT.re, Scalar(2)));
+    }
     const C cT2 = n1 - n0 - n2;
 
     const Series rho2 = rho * rho;
@@ -424,10 +644,20 @@ inline GmPoly<GmSeries<Order, Scalar>, kGmPolyCapacity> gm_q_series_raw(
     const Series bm = (R - a) * (R - a);
     const Series bp = (R + a) * (R + a);
     const Series a0 = gm_complex_norm(cT0);
-    const Series a1 = Series(Scalar(2)) * gm_complex_re_cross(cT0, cT1);
-    const Series a2 = gm_complex_norm(cT1)
-                    + Series(Scalar(2)) * gm_complex_re_cross(cT0, cT2);
-    const Series a3 = Series(Scalar(2)) * gm_complex_re_cross(cT1, cT2);
+    if constexpr (std::is_same_v<Scalar, GmDual5>) {
+        a1 = Series(Scalar(2)) * gm_complex_re_cross(cT0, cT1);
+        a2 = gm_complex_norm(cT1)
+           + Series(Scalar(2)) * gm_complex_re_cross(cT0, cT2);
+        a3 = Series(Scalar(2)) * gm_complex_re_cross(cT1, cT2);
+    } else {
+        a1 = gm_series_scale_scalar(
+            gm_complex_re_cross(cT0, cT1), Scalar(2));
+        a2 = gm_complex_norm(cT1)
+           + gm_series_scale_scalar(
+               gm_complex_re_cross(cT0, cT2), Scalar(2));
+        a3 = gm_series_scale_scalar(
+            gm_complex_re_cross(cT1, cT2), Scalar(2));
+    }
     const Series a4 = gm_complex_norm(cT2);
 
     Poly P;
@@ -438,16 +668,39 @@ inline GmPoly<GmSeries<Order, Scalar>, kGmPolyCapacity> gm_q_series_raw(
     P.c[3] = -a3;
     P.c[4] = k * bp - a4;
 
-    Poly A;
-    A.deg = 2;
-    A.c[0] = one;
-    A.c[2] = one;
-    Poly B;
-    B.deg = 2;
-    B.c[0] = bm;
-    B.c[2] = bp;
+    if constexpr (std::is_same_v<Scalar, GmDual5>) {
+        Poly A;
+        A.deg = 2;
+        A.c[0] = one;
+        A.c[2] = one;
+        Poly B;
+        B.deg = 2;
+        B.c[0] = bm;
+        B.c[2] = bp;
+        const Poly Q = gm_poly_mul(gm_poly_mul(P, A), B);
+        qR_out.deg = Q.deg;
+        for (int i = 0; i <= Q.deg; ++i)
+            qR_out.c[i] = gm_series_derivative(Q.c[i]);
+        return Q;
+    }
 
-    const Poly Q = gm_poly_mul(gm_poly_mul(P, A), B);
+    // A(t)B(t) is even.  Expand its three nonzero coefficients directly;
+    // the generic polynomial products used here previously accounted for a
+    // large fraction of the __float128 profile despite the fixed degrees.
+    const Series d0 = bm;
+    const Series d2 = bm + bp;
+    const Series d4 = bp;
+    Poly Q;
+    Q.deg = 8;
+    Q.c[0] = P.c[0] * d0;
+    Q.c[1] = P.c[1] * d0;
+    Q.c[2] = P.c[2] * d0 + P.c[0] * d2;
+    Q.c[3] = P.c[3] * d0 + P.c[1] * d2;
+    Q.c[4] = P.c[4] * d0 + P.c[2] * d2 + P.c[0] * d4;
+    Q.c[5] = P.c[3] * d2 + P.c[1] * d4;
+    Q.c[6] = P.c[4] * d2 + P.c[2] * d4;
+    Q.c[7] = P.c[3] * d4;
+    Q.c[8] = P.c[4] * d4;
     qR_out.deg = Q.deg;
     for (int i = 0; i <= Q.deg; ++i)
         qR_out.c[i] = gm_series_derivative(Q.c[i]);
@@ -495,6 +748,7 @@ inline GmConnectionJet<Order, Scalar> gm_connection_jet(
         chart_scale = std::pow(raw_q0 / raw_q8, 0.125);
         if (!(chart_scale > 0.0) || !std::isfinite(chart_scale)) chart_scale = 1.0;
     }
+    out.chart_scale = chart_scale;
     double chart_norm = 0.0;
     double cp = 1.0;
     for (int i = 0; i <= out.q.deg; ++i) {
@@ -506,22 +760,43 @@ inline GmConnectionJet<Order, Scalar> gm_connection_jet(
     // Apply only constant chart factors.  In particular, the normalization
     // is not a series inverse and carries no artificial h dependence.
     cp = 1.0;
-    const Series inv_norm{Scalar(1.0 / chart_norm)};
-    for (int i = 0; i <= out.q.deg; ++i) {
-        const Series factor{Scalar(cp)};
-        out.q.c[i] = out.q.c[i] * factor * inv_norm;
-        out.qR.c[i] = out.qR.c[i] * factor * inv_norm;
-        cp *= chart_scale;
+    if constexpr (std::is_same_v<Scalar, GmDual5>) {
+        const Series inv_norm{Scalar(1.0 / chart_norm)};
+        for (int i = 0; i <= out.q.deg; ++i) {
+            const Series factor{Scalar(cp)};
+            out.q.c[i] = out.q.c[i] * factor * inv_norm;
+            out.qR.c[i] = out.qR.c[i] * factor * inv_norm;
+            cp *= chart_scale;
+        }
+    } else {
+        for (int i = 0; i <= out.q.deg; ++i) {
+            const Scalar factor = Scalar(cp / chart_norm);
+            out.q.c[i] = gm_series_scale_scalar(out.q.c[i], factor);
+            out.qR.c[i] = gm_series_scale_scalar(out.qR.c[i], factor);
+            cp *= chart_scale;
+        }
     }
 
     const Poly Qt = gm_poly_derivative(out.q);
+    const Series inv_q8 = gm_series_inv(out.q.c[kGmQDegree]);
     std::array<std::array<Series, kGmQDegree>, kGmQDegree> M{};
-    for (int j = 0; j < kGmQDegree; ++j) {
-        Poly basis;
-        basis.deg = j;
-        basis.c[j] = Series(Scalar(1));
-        const Poly col = gm_poly_mod(gm_poly_mul(Qt, basis), out.q);
-        for (int i = 0; i < kGmQDegree; ++i) M[i][j] = col.c[i];
+    if constexpr (std::is_same_v<Scalar, GmDual5>) {
+        for (int j = 0; j < kGmQDegree; ++j) {
+            Poly basis;
+            basis.deg = j;
+            basis.c[j] = Series(Scalar(1));
+            const Poly col = gm_poly_mod(gm_poly_mul(Qt, basis), out.q);
+            for (int i = 0; i < kGmQDegree; ++i) M[i][j] = col.c[i];
+        }
+    } else {
+        for (int j = 0; j < kGmQDegree; ++j) {
+            // The j-th column is t^j Q_t mod Q.  Multiplication by the
+            // monomial is just a shift; do not materialise a one-hot
+            // polynomial and feed it through the generic product kernel.
+            const Poly col = gm_poly_mod_with_lead_inv(
+                gm_poly_shift(Qt, j), out.q, inv_q8);
+            for (int i = 0; i < kGmQDegree; ++i) M[i][j] = col.c[i];
+        }
     }
 
     std::array<std::array<Scalar, kGmQDegree>, kGmQDegree> M0{};
@@ -554,35 +829,93 @@ inline GmConnectionJet<Order, Scalar> gm_connection_jet(
     Poly Up;
     Up.deg = kGmQDegree - 1;
     for (int j = 0; j < kGmQDegree; ++j) Up.c[j] = U[j];
-    const Poly twoQ = gm_poly_scale(out.q, Series(Scalar(2)));
-    const Poly Qt_again = Qt;
-    double residual = 0.0;
     double residual_scale = 1.0;
+    double residual = 0.0;
+    if constexpr (std::is_same_v<Scalar, GmDual5>) {
+        // Keep the established dual path's operation grouping.  This lane
+        // is used for parameter-Jacobian parity, where reassociation can
+        // move a central-difference comparison by several ulps.
+        // The original construction also retained degree 21 intermediates
+        // in t^k Q_R U.  Use a wide local scratch polynomial for this
+        // compatibility lane while keeping the value-only result buffers at
+        // the fixed degree-16 capacity.
+        using WidePoly = GmPoly<Series, 32>;
+        auto widen = [](const Poly& p) {
+            WidePoly r;
+            r.deg = p.deg;
+            for (int i = 0; i <= p.deg; ++i) r.c[i] = p.c[i];
+            return r;
+        };
+        const WidePoly wide_q = widen(out.q);
+        const WidePoly wide_qR = widen(out.qR);
+        const WidePoly wide_Qt = widen(Qt);
+        WidePoly wide_Up;
+        wide_Up.deg = Up.deg;
+        for (int i = 0; i <= Up.deg; ++i) wide_Up.c[i] = Up.c[i];
+        const WidePoly twoQ = gm_poly_scale(wide_q, Series(Scalar(2)));
+        const WidePoly Qt_again = wide_Qt;
+        for (int k = 0; k < kGmEtaDim; ++k) {
+            WidePoly tk;
+            tk.deg = k;
+            tk.c[k] = Series(Scalar(1));
+            const WidePoly tkQR = gm_poly_mul(tk, wide_qR);
+            const WidePoly Sk = gm_poly_mod(gm_poly_mul(tkQR, wide_Up), wide_q);
+            const WidePoly num = gm_poly_sub(gm_poly_mul(Sk, Qt_again), tkQR);
+            const WidePoly Tk = gm_poly_div_exact(num, twoQ);
+            const WidePoly Ck = gm_poly_sub(Tk, gm_poly_derivative(Sk));
+            out.S[k].deg = Sk.deg;
+            for (int i = 0; i <= Sk.deg; ++i) out.S[k].c[i] = Sk.c[i];
+            for (int j = 0; j < kGmEtaDim; ++j) {
+                const double back = std::pow(chart_scale, double(k - j));
+                out.C[k][j] = Ck.c[j] * Series(Scalar(back));
+            }
 
-    for (int k = 0; k < kGmEtaDim; ++k) {
-        Poly tk;
-        tk.deg = k;
-        tk.c[k] = Series(Scalar(1));
-        const Poly tkQR = gm_poly_mul(tk, out.qR);
-        const Poly Sk = gm_poly_mod(gm_poly_mul(tkQR, Up), out.q);
-        const Poly num = gm_poly_sub(gm_poly_mul(Sk, Qt_again), tkQR);
-        const Poly Tk = gm_poly_div_exact(num, twoQ);
-        const Poly Ck = gm_poly_sub(Tk, gm_poly_derivative(Sk));
-        out.S[k] = Sk;
-        for (int j = 0; j < kGmEtaDim; ++j) {
-            const double back = std::pow(chart_scale, double(k - j));
-            out.C[k][j] = Ck.c[j] * Series(Scalar(back));
+            const WidePoly lhs = gm_poly_scale(tkQR, Series(Scalar(-0.5)));
+            const WidePoly dSk = gm_poly_derivative(Sk);
+            const WidePoly rhs = gm_poly_sub(
+                gm_poly_add(gm_poly_mul(Ck, wide_q),
+                            gm_poly_mul(dSk, wide_q)),
+                gm_poly_scale(gm_poly_mul(Sk, Qt_again),
+                              Series(Scalar(0.5))));
+            const WidePoly diff = gm_poly_sub(lhs, rhs);
+            for (int i = 0; i <= diff.deg; ++i) {
+                residual_scale = std::max(residual_scale,
+                                          gm_series_max_abs(out.q.c[i]));
+                residual = std::max(residual, gm_series_max_abs(diff.c[i]));
+            }
         }
+    } else {
+        for (int i = 0; i <= out.q.deg; ++i)
+            residual_scale = std::max(residual_scale,
+                                      gm_series_max_abs(out.q.c[i]));
+        const Poly twoQ = gm_poly_scale_scalar(out.q, Scalar(2));
+        const Series inv_two_q8 = gm_series_scale_scalar(inv_q8, Scalar(0.5));
+        Poly Sk = gm_poly_mod_with_lead_inv(
+            gm_poly_mul(out.qR, Up), out.q, inv_q8);
 
-        const Poly lhs = gm_poly_scale(tkQR, Series(Scalar(-0.5)));
-        const Poly rhs = gm_poly_sub(
-            gm_poly_add(gm_poly_mul(Ck, out.q),
-                        gm_poly_mul(gm_poly_derivative(Sk), out.q)),
-            gm_poly_scale(gm_poly_mul(Sk, Qt_again), Series(Scalar(0.5))));
-        const Poly diff = gm_poly_sub(lhs, rhs);
-        for (int i = 0; i <= diff.deg; ++i) {
-            residual_scale = std::max(residual_scale, gm_series_max_abs(out.q.c[i]));
-            residual = std::max(residual, gm_series_max_abs(diff.c[i]));
+        for (int k = 0; k < kGmEtaDim; ++k) {
+            // S_{k+1} = t S_k mod Q, so one product/modulo chain replaces
+            // the repeated t^k Q_R * U construction for all seven eta rows.
+            const Poly tkQR = gm_poly_shift(out.qR, k);
+            const Poly num = gm_poly_sub(gm_poly_mul(Sk, Qt), tkQR);
+            double div_residual = 0.0;
+            const Poly Tk = gm_poly_div_exact_with_lead_inv(
+                num, twoQ, inv_two_q8, &div_residual);
+            const Poly Ck = gm_poly_sub(Tk, gm_poly_derivative(Sk));
+            out.S[k] = Sk;
+            for (int j = 0; j < kGmEtaDim; ++j) {
+                const double back = std::pow(chart_scale, double(k - j));
+                out.C[k][j] = gm_series_scale_scalar(Ck.c[j], Scalar(back));
+            }
+
+            // Since Ck = Tk - S'_k and 2 Q Tk = S_k Q_t - t^k Q_R by
+            // construction, the long-division remainder is the residual of
+            // the full differential-form identity.  Avoid rebuilding its
+            // three degree-14 products solely to measure the same quantity.
+            residual = std::max(residual, div_residual);
+            if (k + 1 < kGmEtaDim)
+                Sk = gm_poly_mod_with_lead_inv(gm_poly_shift(Sk, 1), out.q,
+                                               inv_q8);
         }
     }
 
