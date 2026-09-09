@@ -1,12 +1,12 @@
-=== ATPT holonomic -- 3-solver whole-epoch benchmark (checkpoint 29) ===
-date: 2026-09-08T23:55:10Z
-host load at run:
- 08:55:10 up 4 days, 11:34,  2 users,  load average: 16.33, 16.01, 13.82
+=== ATPT holonomic -- 3-solver whole-epoch benchmark (checkpoint 29; re-run after HOLO_MV_TRANSPORT default-ON flip, checkpoint 30) ===
+date: 2026-09-09T00:25:00Z
+host load:
+ 09:25:00 up 4 days, 12:04,  2 users,  load average: 15.31, 15.11, 14.86
 
-build: cmake -S tests/holonomic_cpp -B build-holonomic-m7 -DCMAKE_BUILD_TYPE=Release; -O3 -march=native
-cases: /tmp/bench_cases.tsv (108)
+NOTE: (m,v) root-pair transport is now the production default (opt out: HOLO_MV_TRANSPORT_LEGACY=1).
+  V0 = forced legacy (both overrides 0), V1 = (m,v) transport, V2 = + holonomic K-rule.
 
---- test_holonomic_transport (ctest: holonomic_transport) ---
+--- test_holonomic_transport ---
 == A. v_times_K  vs  64-pt angular sweep ==
   memo-s15      arcs= 50 engaged= 45 ( 90%)  worst rel=1.50e-14
   resonant      arcs= 40 engaged= 30 ( 75%)  worst rel=5.47e-14
@@ -43,17 +43,17 @@ PASSED (0 failures)
 loaded 108 bench cases, reps=200
 
 == whole-epoch wall time, best-of-200 per case ==
-  V0   median   1.2616  p90   2.2713  p95   2.6151  p99   4.0738  max   4.1685  (ms)
-  V1   median   1.2490  p90   2.2192  p95   2.5491  p99   4.0590  max   4.1550  (ms)
-  V2   median   1.0684  p90   1.9394  p95   2.2412  p99   3.9819  max   4.1087  (ms)
+  V0   median   1.2611  p90   2.2732  p95   2.6193  p99   4.0771  max   4.1752  (ms)
+  V1   median   1.2464  p90   2.2204  p95   2.5521  p99   4.0676  max   4.1741  (ms)
+  V2   median   1.0681  p90   1.9389  p95   2.2413  p99   3.9802  max   4.1120  (ms)
 
 == speedup vs V0 (per-case ratio, then percentiles) ==
-  V0/V1 (+m,v):     median 1.028x  p90 1.154x  p95 1.164x  p99 1.184x  min 1.003x
-  V0/V2 (+holo):    median 1.183x  p90 1.373x  p95 1.524x  p99 1.728x  min 1.015x
-  aggregate median-of-medians:  V0 1.2616  V1 1.2490  V2 1.0684 ms  ->  V2 1.181x
+  V0/V1 (+m,v):     median 1.028x  p90 1.152x  p95 1.163x  p99 1.182x  min 1.000x
+  V0/V2 (+holo):    median 1.183x  p90 1.372x  p95 1.525x  p99 1.726x  min 1.014x
+  aggregate median-of-medians:  V0 1.2611  V1 1.2464  V2 1.0681 ms  ->  V2 1.181x
 
 == radial pass only (classify_cells hoisted; 1.47x ceiling term) ==
-  V0 median 0.5724  V2 median 0.3119 ms   speedup median 2.095x  p90 3.310x  p95 4.578x  min 1.017x
+  V0 median 0.5725  V2 median 0.3123 ms   speedup median 2.093x  p90 3.306x  p95 4.574x  min 1.017x
   radial fraction of whole epoch (V0): 45.4%
 
 == accuracy vs V0 ==
@@ -70,7 +70,7 @@ loaded 108 bench cases, reps=200
 
 == decision-20 gate ==
   full-Jac median >= 2x faster AND p90/p95/p99 non-regressing.
-  V2 median 1.0684 ms vs V0 1.2616 ms  (1.181x)  not met (see note)
+  V2 median 1.0681 ms vs V0 1.2611 ms  (1.181x)  not met (see note)
   p90 ok  p95 ok  p99 ok  (V2 <= V0 => non-regressing)
 
   NOTE: whole-epoch includes classify_cells (D14) which is common to

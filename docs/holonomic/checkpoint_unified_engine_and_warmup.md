@@ -2792,3 +2792,78 @@ the user (§29.7).
   transport-test output.
 * `scratchpad/probe_arc.cpp`, `probe_partc.cpp`, `probe_plan15.cpp` — probes
   (scratchpad, not committed).
+
+---
+
+## 30. `HOLO_MV_TRANSPORT` default-ON flip (2026-09-09)
+
+User authorization (2026-09-09): proceed with the recommended step — the
+`HOLO_MV_TRANSPORT` default-ON flip. Scoped to the **isolated holonomic
+build only**; the shared `_lcbinint.so` Phase C step 2 wiring is *not* part
+of this (still held for its own coordinated window).
+
+### 30.1 The change
+
+`src/lcbinint/magnification/holonomic/radius_terms.hpp` —
+`holo_mv_transport_enabled()`:
+
+```cpp
+// before: opt-IN
+const char* e = std::getenv("HOLO_MV_TRANSPORT");
+return e && e[0] == '1';
+// after: opt-OUT (mirrors HOLO_D14_LEGACY_SOLVE, §19)
+const char* e = std::getenv("HOLO_MV_TRANSPORT_LEGACY");
+return !(e && e[0] == '1');
+```
+
+The `holo_mv_transport_override()` in-process hook is unchanged (still wins
+when ≥ 0, for the 3-solver bench / Part C). New opt-out: **`HOLO_MV_TRANSPORT_
+LEGACY=1`** restores the cold `real_root_thetas_warm` path at every radial
+node — the A/B escape hatch is kept, same policy as the B1 compensated-D14
+flip. Stale doc comments in `epoch_jacobian.hpp` / `cells.hpp` /
+`radius_terms.hpp` (`"HOLO_MV_TRANSPORT=1 only"`) updated.
+
+### 30.2 Why it is safe
+
+The flip does not change a single code path — `V1` in the 3-solver bench
+(`holo_mv_transport_override() = 1`) *is* the new default path, and `V0`
+(`= 0`) *is* `HOLO_MV_TRANSPORT_LEGACY=1`. Everything that gates adoption was
+already proven:
+
+* **Parity** (§25.7, §29.4): default vs legacy — `max |dµ/µ| 1.18e-14`,
+  grad_µ `max rel 1.56e-4` (= the incumbent's own `−2µ/ρ` cancellation, not
+  transport), **0 Jacobian-status changes** over 108 cases; the §25.7
+  arc-birth disc-sign guard + branch-aware acceptance + `from_warm_d14`
+  thin-arc cross-check make the transport fail closed to the cold solve on
+  every topology change.
+* **Speed** (§29.4): whole-epoch median **1.028×**, p90/p95/p99 all
+  non-regressing, per-case min **1.000×** (never slower on any of 108 cases).
+* **Tests**: all 5 ctests pass with the flip **and** with
+  `HOLO_MV_TRANSPORT_LEGACY=1`; `holonomic_m7_reference` 10397/0 both ways
+  (its `rtol 1e-8` on µ/F/`rt.fh` and `1e-7` on grad dwarfs the 1e-14
+  parity).
+* Re-ran `bench_holonomic_3solver` post-flip: **checksum bit-identical**
+  (421217.364238), V2 1.181×, radial 2.093× — a pure default change.
+
+### 30.3 Scope / what is still held
+
+* **Shared `_lcbinint.so` untouched.** The isolated `build-holonomic-m7/`
+  pybind module `_lcbinint_holonomic_m7` and the test/bench binaries are the
+  only things that compile these headers today. `FiniteSourceMagnifier` still
+  does not call the holonomic engine — Phase C step 2 (`FiniteSourceMethod`
+  enum + `binary_mag_preplanned` dispatch + `MagnificationExecutionPlan`
+  prepared-geometry handle + `warmup()` selection + the `.so` rebuild)
+  remains held for its own coordinated window.
+* `HOLO_HOLONOMIC_TRANSPORT` (the K-rule holonomic stage, §29) stays
+  **OFF by default** — the fail-closed router there is less mature and the
+  whole-epoch gain over `(m,v)` alone is capped (§29.5).
+
+### 30.4 Files
+
+* `src/lcbinint/magnification/holonomic/radius_terms.hpp` — the flip +
+  doc-comment fixes.
+* `src/lcbinint/magnification/holonomic/epoch_jacobian.hpp`,
+  `src/lcbinint/magnification/holonomic/cells.hpp` — doc-comment fixes.
+* `tests/holonomic_cpp/bench_holonomic_3solver.cpp` — header comment +
+  restore overrides to `-1` (env control) instead of `0` at exit.
+* `evidence/holonomic/holonomic_3solver_benchmark.txt` — post-flip re-run.
