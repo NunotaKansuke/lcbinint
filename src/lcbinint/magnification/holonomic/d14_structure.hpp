@@ -265,25 +265,31 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
     const T tol = tol_override > T(0)
                       ? tol_override
                       : ((sizeof(T) > 8) ? T(1e-24) : T(1e-15));
+    const bool legacy = holo_legacy_complex_ops();
     for (int it = 0; it < max_iter; ++it) {
-        T maxstep = T(0);
+        T maxstep2 = T(0);
         for (int i = 0; i < deg; ++i) {
             Cplx<T> p, dp;
             d14_struct_eval(s, z[i], p, dp);
-            Cplx<T> ratio = p / dp;
             Cplx<T> sum(T(0), T(0));
             for (int j = 0; j < deg; ++j) {
                 if (j == i) continue;
                 Cplx<T> d = z[i] - z[j];
                 sum = sum + Cplx<T>(T(1), T(0)) / d;
             }
-            Cplx<T> denom = Cplx<T>(T(1), T(0)) - ratio * sum;
-            Cplx<T> w = ratio / denom;
+            Cplx<T> w;
+            if (legacy) {
+                Cplx<T> ratio = p / dp;
+                Cplx<T> denom = Cplx<T>(T(1), T(0)) - ratio * sum;
+                w = ratio / denom;
+            } else {
+                w = p / (dp - p * sum);
+            }
             z[i] = z[i] - w;
-            T sabs = cabs(w);
-            if (sabs > maxstep) maxstep = sabs;
+            T sabs2 = cabs2(w);
+            if (sabs2 > maxstep2) maxstep2 = sabs2;
         }
-        if (maxstep < tol) break;
+        if (maxstep2 < tol * tol) break;
     }
     return z;
 }

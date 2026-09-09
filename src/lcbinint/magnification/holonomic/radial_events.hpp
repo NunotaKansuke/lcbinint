@@ -263,6 +263,54 @@ inline std::vector<qf> d14_coeffs(const PolyFamilyR& fam) {
     return even;
 }
 
+// p4(R) has a parameter-independent factorization whenever |Y| <= rho.
+// Writing
+//
+//   f(R) = R^3 + (X+a)R^2 + (aX-1)R - a m0,
+//   b^2 = (rho-|Y|)(rho+|Y|),
+//
+// gives p4(R) = -(f-bR(R+a))(f+bR(R+a)).  The two monic factors are cubics
+// with coefficients [1, a+X +/- b, a(X +/- b)-1, -a m0].  If |Y| > rho,
+// p4 is strictly negative for R>0 and has no positive roots.  This helper
+// keeps the old degree-6 Aberth route available in radial_events behind
+// HOLO_CHART_P4_LEGACY=1 for parity and timing A/Bs.
+inline bool holo_chart_p4_factor_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_CHART_P4_LEGACY");
+        return !(e && e[0] == '1');
+    }();
+    return on;
+}
+
+inline std::vector<double> chart_p4_factor_roots(const PrimaryFrame& pf) {
+    std::vector<double> out;
+    const double ay = std::fabs(pf.Y);
+    if (pf.rho < ay) return out;
+
+    // Difference-of-squares form avoids subtracting rho^2 and Y^2 when the
+    // chart crossing is close to the |Y|=rho boundary.
+    const double b2 = std::max(0.0, (pf.rho - ay) * (pf.rho + ay));
+    const double b = std::sqrt(b2);
+    const double scale = 1.0 + std::fabs(pf.a) + std::fabs(pf.X) +
+                         std::fabs(pf.m0);
+    const int nfactor = b <= 1e-14 * scale ? 1 : 2;
+    for (int s = -1; s <= 1; s += 2) {
+        if (nfactor == 1 && s > 0) break;
+        const double sb = s * b;
+        const double desc[4] = {1.0, pf.a + pf.X + sb,
+                                pf.a * (pf.X + sb) - 1.0,
+                                -pf.a * pf.m0};
+        auto z = aberth<double>(desc, 3, 120);
+        auto roots = positive_real_roots(z, 1e-8, 1e-10);
+        out.insert(out.end(), roots.begin(), roots.end());
+    }
+    std::sort(out.begin(), out.end());
+    std::vector<double> ded;
+    for (double r : out)
+        if (ded.empty() || r - ded.back() > 1e-9) ded.push_back(r);
+    return ded;
+}
+
 // classify: at a discriminant zero P has a double root t*; real?
 // Port of radial_events._double_root_is_real.
 inline bool double_root_is_real(double R, const PrimaryFrame& pf,
@@ -666,20 +714,28 @@ inline std::vector<RadialEvent> radial_events(
         (void)lp;
     }
 
-    // chart_p4 : p4(R) = 0
+    // chart_p4 : p4(R) = 0.  The factored cubic route is independent of the
+    // D14 parameter regime; the old degree-6 Aberth solve remains the A/B
+    // oracle under HOLO_CHART_P4_LEGACY=1.
     {
-        int deg = fam.p[4].deg;
-        while (deg > 0 && fabsq(fam.p[4].c[deg]) == 0) --deg;
-        if (deg > 0) {
-            std::vector<double> desc(deg + 1);
-            for (int i = 0; i <= deg; ++i) desc[i] = (double)fam.p[4].c[deg - i];
-            auto z = aberth<double>(desc.data(), deg, 200);
-            auto rv = positive_real_roots(z, 1e-8, 1e-9);
-            for (double R : rv)
-                if (R > 0.0 && R < Rmax)
-                    ev.push_back({R, "chart_p4", false,
-                                  "p4(R)=0 : boundary point at theta=pi"});
+        std::vector<double> rv;
+        if (holo_chart_p4_factor_enabled()) {
+            rv = chart_p4_factor_roots(pf);
+        } else {
+            int deg = fam.p[4].deg;
+            while (deg > 0 && fabsq(fam.p[4].c[deg]) == 0) --deg;
+            if (deg > 0) {
+                std::vector<double> desc(deg + 1);
+                for (int i = 0; i <= deg; ++i)
+                    desc[i] = (double)fam.p[4].c[deg - i];
+                auto z = aberth<double>(desc.data(), deg, 200);
+                rv = positive_real_roots(z, 1e-8, 1e-9);
+            }
         }
+        for (double R : rv)
+            if (R > 0.0 && R < Rmax)
+                ev.push_back({R, "chart_p4", false,
+                              "p4(R)=0 : boundary point at theta=pi"});
     }
 
     std::sort(ev.begin(), ev.end(),

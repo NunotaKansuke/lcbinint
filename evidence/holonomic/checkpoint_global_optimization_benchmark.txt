@@ -1,0 +1,186 @@
+ATPT holonomic global optimization checkpoint
+===============================================
+
+目的
+----
+dev/holonomic (HEAD 420f58861fa2f67c1109ad3045f5ef80848fde68) を基準に、
+添付計画の D14 全般高速化と、Gauss--Manin 恒等式から係数を生成する
+Taylor 輸送を isolated holonomic build で実装・検証した。既存の V0/V1/V2/V3
+本番ルータは Taylor 検証が終わるまで変更していない。
+
+測定 provenance
+----------------
+  host       Linux 5.14.0-570.23.1.el9_6.x86_64
+  CPU        INTEL(R) XEON(R) GOLD 6530, 64 logical CPUs, 4 NUMA nodes
+  build      Release, -O3 -march=native -funroll-loops -ffp-contract=fast
+             -fno-math-errno, standalone tests/holonomic_cpp project
+  pin        taskset -c 0-7 for timing commands
+  cases      /tmp/bench_cases.tsv, 108 rows
+  branch     dev/holonomic; origin/dev/holonomic was equal at baseline
+  isolation  src/.../magnification/holonomic, tests/holonomic_cpp,
+             docs/holonomic, evidence/holonomic only
+  note       pre-existing untracked .claude/ worktrees were not touched
+
+実装
+----
+  1. poly_roots.hpp / d14_structure.hpp
+     - Aberth の p/(p'-p sum) 形を使い、p/p' の中間複素除算を削減。
+     - complex quotient は通常域で一つの real reciprocal を共有し、
+       squared-norm が非有限/非正のときは scale 付き reciprocal に退避。
+     - Aberth 停止判定を |step|^2 にし、warm seed では Cauchy bound の
+       係数走査を省略。
+     - HOLO_D14_LEGACY_COMPLEX=1 で旧除算・旧更新式を再現可能。
+
+  2. radial_events.hpp
+     - p4(R) = -(f-b R(R+a))(f+b R(R+a)) を実装。
+       f=R^3+(X+a)R^2+(aX-1)R-a m0、b^2=(rho-|Y|)(rho+|Y|)。
+     - |Y|>rho の正根なし、|Y|=rho の一因子、その他の二三次式を扱う。
+     - HOLO_CHART_P4_LEGACY=1 で旧六次Aberthを再現可能。
+
+  3. gm_connection.hpp / gm_taylor_transport.hpp
+     - Q=P*A*B (deg_t=8) を実装式から構築し、Q_Rをh=R-Rcの級数微分で生成。
+     - Q_t の剰余類行列を一度LU分解し、M(h)U(h)=e0 を係数再帰で解く。
+     - S_k=t^k Q_R U mod Q、T_k=(S_k Q_t-t^k Q_R)/(2Q)、
+       C_k=T_k-S'_k を、サンプル補間なしで級数環上に生成。
+     - Z_{n+1}=(n+1)^-1 sum_j C_j Z_{n-j} の真のTaylor輸送を実装。
+     - GmDual5 による (X,Y,rho,m0,a) 5方向のforward derivativeを追加。
+     - degree drop、Q_t非可逆、恒等式残差の品質ゲートでfail-closed。
+     - 既存 holonomic_ode_transport.hpp の9点K-rule/packetとは別経路で、
+       packetをholonomic輸送として数えていない。
+
+再現コマンド
+------------
+  cmake -S tests/holonomic_cpp -B build-holonomic-global \
+    -DCMAKE_BUILD_TYPE=Release -DLCBININT_BUILD_HOLONOMIC_M7_PY=OFF
+  cmake --build build-holonomic-global -j8
+  ctest --test-dir build-holonomic-global --output-on-failure
+  HOLO_D14_LEGACY_COMPLEX=1 ctest --test-dir build-holonomic-global --output-on-failure
+  HOLO_CHART_P4_LEGACY=1 ctest --test-dir build-holonomic-global --output-on-failure
+
+  taskset -c 0-7 ./build-holonomic-global/bench_chart_p4 /tmp/bench_cases.tsv 50
+  taskset -c 0-7 ./build-holonomic-global/bench_gm_taylor /tmp/bench_cases.tsv 10
+  taskset -c 0-7 ./build-holonomic-global/bench_d14_split /tmp/bench_cases.tsv 5
+  HOLO_D14_LEGACY_COMPLEX=1 taskset -c 0-7 \
+    ./build-holonomic-global/bench_d14_split /tmp/bench_cases.tsv 5
+  taskset -c 0-7 ./build-holonomic-global/bench_d14_structure /tmp/bench_cases.tsv 10
+  HOLO_D14_LEGACY_COMPLEX=1 taskset -c 0-7 \
+    ./build-holonomic-global/bench_d14_structure /tmp/bench_cases.tsv 10
+  taskset -c 0-7 ./build-holonomic-global/bench_holonomic_ode /tmp/bench_cases.tsv 10
+  HOLO_CHART_P4_LEGACY=1 taskset -c 0-7 \
+    ./build-holonomic-global/bench_holonomic_ode /tmp/bench_cases.tsv 10
+
+  PYTHONPATH=python pytest -q tests/holonomic
+
+テスト結果
+----------
+  C++ isolated ctest: 8/8 PASS, 6.60 s。
+  旧複素演算を強制したctest: 8/8 PASS, 6.62 s。
+  旧chart_p4を強制したctest: 8/8 PASS, 6.72 s。
+  Python holonomic suite: 269 passed, 3 skipped, 12 warnings, 385.75 s。
+  Pythonの警告は既存flux.pyのscipy IntegrationWarningで、今回のテスト失敗ではない。
+
+chart_p4 (post-change, reps=50)
+------------------------------
+  108 cases、|Y|<=rho は34 cases。
+  factor route: 全体 median 0.0000 / p90 0.0010 / p99 0.0010 ms。
+  generic route: 全体 median 0.0370 / p90 0.8687 / p99 0.9730 ms。
+  applicable only: factor median 0.0008 / p90 0.0010 / p99 0.0980 ms。
+  applicable only: generic median 0.7107 / p90 0.9719 / p99 0.9749 ms。
+  applicable median generic/factor = 846.060x。
+  根集合差のworstは6.548e-15、p4残差worstは1.846e-16。
+  checksum は factor/generic = 3372.21460121 / 3372.21460121。
+
+Gauss--Manin kernel (post-change, reps=10)
+--------------------------------------------
+  品質ゲートを通った42/108 cellsを測定。dualは18 cells。
+  point C(Rc), value-only: median 0.0056 / p90 0.0061 / p99 0.0061 ms。
+  16-step point-connection RK4: median 0.3290 / p90 0.3387 / p99 0.3389 ms。
+  equation-derived Order-10 __float128 Taylor: median 12.9346 /
+    p90 13.3038 / p99 13.5392 ms。
+  Order-3 GmDual5 Taylor: median 0.1415 / p90 0.1417 / p99 0.1417 ms。
+  Order-10 Taylor/point median = 2299.066x。
+  Order-10 identity residualは受理セルで最大3.647e-09、
+  高精度Taylor対RK4は最大2.064e-09、pointとTaylor中心Cの差は最大1.298e-09。
+  dual対central FDは最大9.950e-05。
+  double Order-3は5 cellsで最大1.335e-03となり、同精度ゲートでREJECT。
+  近接・悪条件セルは恒等式/品質ゲートで受理しない。
+
+D14 complex A/B (post-change, reps=5)
+---------------------------------------
+  HOLO_D14_LEGACY_COMPLEX unset:
+    pcoef 0.0143 ms, d14c 0.0483, double search 0.1587,
+    qf warm polish 0.6799, radial_events 0.6622, epoch 1.2027 ms (median)。
+  HOLO_D14_LEGACY_COMPLEX=1:
+    pcoef 0.0146 ms, d14c 0.0499, double search 0.1585,
+    qf warm polish 0.6671, radial_events 0.6929, epoch 1.2815 ms (median)。
+  このrunのwhole radial_eventsはnew/legacyで約1.046x、epochは約1.066x。
+  ただしqf warm polish単体はnewが1.019x遅く、改善は更新式と周辺費用を含む
+  相対値である。大幅なD14高速化とは扱わない。
+
+D14 structural A/B (post-change, reps=10)
+------------------------------------------
+  new complex path: base expansion/Horner 0.4934 ms、struct 0.5928 ms、
+    p90 0.5371/0.6162、p99 2.5621/0.8764。
+  old complex path: base 0.5284 ms、struct 0.6347 ms、
+    p90 0.5642/0.6793、p99 2.6261/0.9166。
+  block-vs-expansion coeff worst 1.657e-29、root-set worst 2.148e-09、
+  parity 0/115。new complex pathでも全根・残差・tierゲートを維持した。
+
+Whole epoch / value-only / derivative-inclusive (post-change, reps=10)
+-----------------------------------------------------------------------
+  これは現行V0/V1/V2/V3の比較であり、GM Taylorを本番へ配線した値ではない。
+  new chart_p4 path, value+5-Jac whole epoch:
+    V0 1.3119, V1 1.2453, V2 1.0666, V3(packet) 2.1883 ms median。
+    V0/V2=1.230x、V0/V3=0.599x。
+  new chart_p4 path, value-only whole epoch:
+    V0 1.1361, V1 1.0541, V2 1.0521, V3(packet) 1.1510 ms median。
+    V0/V2=1.080x、V0/V3=0.987x。
+  new chart_p4 path, V3 Jacobian radial pass:
+    V0 0.6022、V3 1.4643 ms、V0/V3=0.516x。
+  V0/V1/V2 statusは104/108, 104/108, 104/108で、status change 0。
+  V2 mu最大相対差は2.044e-13、V2 grad最大relは1.218e-04。
+  V3 packetはvalue最大1.020e-04、grad最大4.496e-02で、Taylorとは別物。
+
+  HOLO_CHART_P4_LEGACY=1 の独立runでも、value+5-Jacは
+    V0 1.2615, V1 1.1906, V2 1.0786, V3 2.1137 ms median、
+  value-onlyは V0 1.1277, V1 1.0076, V2 1.0049, V3 1.1238 ms median、
+  status/accuracy gateは同一だった。独立runのOSノイズを超えるchart_p4の
+  whole-epoch速度差は観測できず、改善をD14単体の根探索速度としてのみ採用する。
+
+  変更後 bench_value_lane reps=3 (value-only専用、108 cases、16 epoch track):
+    COLD u=0 fused/value-only 1.2516/0.9310 ms、speedup 1.344x。
+    COLD u=case fused/value-only 1.2737/1.0509 ms、speedup 1.212x。
+    PREPARED u=0 fused/value-only 1.1234/0.8547 ms、speedup 1.314x。
+    PREPARED u=case fused/value-only 1.1315/0.9551 ms、speedup 1.185x。
+    4条件すべてmu parity 0、status-change 0。
+
+baseline comparison (変更前、同じisolated build、ケース108)
+--------------------------------------------------------------
+  変更前 bench_holonomic_3solver reps=30:
+    V0 1.2628, V1 1.2172, V2 1.0904 ms median、V0/V2=1.206x。
+    V2 mu最大2.045e-13、grad最大1.563e-04、status 104/108。
+  変更前 bench_holonomic_ode reps=15:
+    value+5-Jac V0 1.2962, V1 1.2361, V2 1.0967, V3 2.1243 ms median。
+    value-only V0 1.1297, V1 1.0347, V2 1.0371, V3 1.1163 ms median。
+    V3 radial V0 0.5876 / V3 1.4335 ms、V3 packet value最大1.020e-04、
+    grad最大4.496e-02、ODE cells 230/404、fallback 174/404。
+  変更前 bench_d14_structure reps=30:
+    solve_d14 expansion median 0.5156、block 0.6203 ms、
+    radial_events block 0.6524、full-Jac epoch block 1.2191 ms median。
+  変更前 bench_value_lane reps=15:
+    COLD u=0 fused/value-only 1.2456/0.9237 ms、speedup 1.348x。
+    PREPARED u=0 fused/value-only 1.0934/0.8328 ms、speedup 1.313x。
+
+判断と未解決点
+--------------
+  - D14複素演算改良: parityとfull testを通過し、D14/whole相対測定で小さな改善を
+    観測したため採用。qf polish単体の一貫した大幅改善ではない。
+  - chart_p4三次因数分解: 数値根・残差・legacy parityを通過し、D14側の一般
+    パラメータに依存しない安全な前処理として採用。whole epochでの寄与は小さい。
+  - true GM Taylor: 恒等式からの係数生成、再帰、dual、fail-closedを実装。
+    高精度Order-10は短セルで正しいが、測定したTaylor生成は現行whole epochより
+    高価で、悪条件セルもある。現V2と同じ精度のvalue-only/full-Jac whole-epoch
+    代替としては不採用。seed/period observable/endpoint chart crossingを含む
+    本番flux wiringも未実施。
+  - 既存V3の9点K-rule packet/RK4は、GM Taylorのベンチに混ぜず、別名packetとして
+    記録した。V3の精度・速度は上記の現行V3比較値のままである。

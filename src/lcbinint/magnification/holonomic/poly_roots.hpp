@@ -26,6 +26,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdlib>
 #include <vector>
 
 #include <quadmath.h>
@@ -45,15 +46,71 @@ template <class R> inline Cplx<R> operator-(Cplx<R> a, Cplx<R> b) { return {a.re
 template <class R> inline Cplx<R> operator*(Cplx<R> a, Cplx<R> b) {
     return {a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re};
 }
-template <class R> inline Cplx<R> operator/(Cplx<R> a, Cplx<R> b) {
-    R d = b.re * b.re + b.im * b.im;
-    return {(a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d};
-}
 
 inline double qabs_(double x) { return std::fabs(x); }
 inline double qsqrt_(double x) { return std::sqrt(x); }
 inline __float128 qabs_(__float128 x) { return fabsq(x); }
 inline __float128 qsqrt_(__float128 x) { return sqrtq(x); }
+inline bool qfinite_(double x) { return std::isfinite(x); }
+inline bool qfinite_(long double x) { return std::isfinite(x); }
+inline bool qfinite_(__float128 x) { return finiteq(x); }
+template <class R> inline bool qfinite_(const R&) { return true; }
+
+// The original quotient is retained behind an environment switch so that
+// isolated A/B runs can compare arithmetic changes in a fresh process.  The
+// default reciprocal first scales the denominator, avoiding the squared-norm
+// overflow/underflow path and reducing a complex quotient to one reciprocal
+// followed by a multiply.
+inline bool holo_legacy_complex_ops() {
+    static const bool legacy = [] {
+        const char* e = std::getenv("HOLO_D14_LEGACY_COMPLEX");
+        return e && e[0] == '1';
+    }();
+    return legacy;
+}
+
+template <class R>
+inline Cplx<R> cdiv_legacy(Cplx<R> a, Cplx<R> b) {
+    R d = b.re * b.re + b.im * b.im;
+    return {(a.re * b.re + a.im * b.im) / d,
+            (a.im * b.re - a.re * b.im) / d};
+}
+
+template <class R>
+inline Cplx<R> crecip(Cplx<R> b) {
+    const R ar = qabs_(b.re), ai = qabs_(b.im);
+    const R scale = ar > ai ? ar : ai;
+    if (!(scale > R(0))) {
+        // Preserve the old IEEE invalid/zero behaviour for a zero divisor;
+        // all valid Aberth denominators take the scaled branch.
+        return cdiv_legacy(Cplx<R>(R(1), R(0)), b);
+    }
+    const R br = b.re / scale;
+    const R bi = b.im / scale;
+    const R n2 = br * br + bi * bi;
+    const R inv_scale = R(1) / scale;
+    return {br * inv_scale / n2, -bi * inv_scale / n2};
+}
+
+template <class R>
+inline Cplx<R> cdiv_fast(Cplx<R> a, Cplx<R> b) {
+    // The usual root-scale range fits the squared norm.  Reuse one real
+    // reciprocal for both components; this keeps the fast path cheaper than
+    // forming a reciprocal complex and multiplying by it.  The scaled path
+    // remains available for tiny/large denominators.
+    const R d = b.re * b.re + b.im * b.im;
+    if (d > R(0) && qfinite_(d)) {
+        const R inv = R(1) / d;
+        return {(a.re * b.re + a.im * b.im) * inv,
+                (a.im * b.re - a.re * b.im) * inv};
+    }
+    return a * crecip(b);
+}
+
+template <class R>
+inline Cplx<R> operator/(Cplx<R> a, Cplx<R> b) {
+    return holo_legacy_complex_ops() ? cdiv_legacy(a, b) : cdiv_fast(a, b);
+}
 
 template <class R> inline R cabs2(Cplx<R> z) { return z.re * z.re + z.im * z.im; }
 template <class R> inline R cabs(Cplx<R> z) { return qsqrt_(cabs2(z)); }
@@ -83,14 +140,17 @@ inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
                                    double* final_step = nullptr) {
     std::vector<Cplx<R>> z(deg);
 
-    // initial guesses on a circle of radius ~ Cauchy bound (Aberth's spread)
-    R an = qabs_(coeffs[0]);
-    R bound = R(0);
-    for (int i = 1; i <= deg; ++i) {
-        R v = qabs_(coeffs[i]) / an;
-        if (v > bound) bound = v;
+    // Initial guesses on a circle of radius ~ Cauchy bound (Aberth's
+    // spread).  A warm seed already contains the basin information, so do
+    // not spend time scanning all coefficients to rebuild the cold bound.
+    R bound = R(1);
+    if (!seed) {
+        R an = qabs_(coeffs[0]);
+        for (int i = 1; i <= deg; ++i) {
+            R v = qabs_(coeffs[i]) / an;
+            if (v > bound - R(1)) bound = R(1) + v;
+        }
     }
-    bound = R(1) + bound;
     const R pi = R(3.14159265358979323846264338327950288L);
     for (int i = 0; i < deg; ++i) {
         if (seed) {
@@ -106,28 +166,38 @@ inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
         tol_override > R(0)
             ? tol_override
             : ((sizeof(R) > 8) ? R(1e-24) : R(1e-15));
-    R maxstep = R(0);
+    R maxstep2 = R(0);
+    const bool legacy = holo_legacy_complex_ops();
     for (int it = 0; it < max_iter; ++it) {
-        maxstep = R(0);
+        maxstep2 = R(0);
         for (int i = 0; i < deg; ++i) {
             Cplx<R> p = poly_eval_c(coeffs, deg, z[i]);
             Cplx<R> dp = polyder_eval_c(coeffs, deg, z[i]);
-            Cplx<R> ratio = p / dp;  // Newton step p/p'
             Cplx<R> sum(R(0), R(0));
             for (int j = 0; j < deg; ++j) {
                 if (j == i) continue;
                 Cplx<R> d = z[i] - z[j];
                 sum = sum + Cplx<R>(R(1), R(0)) / d;
             }
-            Cplx<R> denom = Cplx<R>(R(1), R(0)) - ratio * sum;
-            Cplx<R> w = ratio / denom;
+            // Algebraically this is p / (p' - p sum_j 1/(z-z_j)).  It
+            // removes the intermediate complex quotient p/p' from the hot
+            // loop.  Keep the old form under the A/B switch to isolate the
+            // effect of the rewrite from the reciprocal implementation.
+            Cplx<R> w;
+            if (legacy) {
+                Cplx<R> ratio = p / dp;
+                Cplx<R> denom = Cplx<R>(R(1), R(0)) - ratio * sum;
+                w = ratio / denom;
+            } else {
+                w = p / (dp - p * sum);
+            }
             z[i] = z[i] - w;
-            R s = cabs(w);
-            if (s > maxstep) maxstep = s;
+            R s2 = cabs2(w);
+            if (s2 > maxstep2) maxstep2 = s2;
         }
-        if (maxstep < tol) break;
+        if (maxstep2 < tol * tol) break;
     }
-    if (final_step) *final_step = (double)maxstep;
+    if (final_step) *final_step = (double)qsqrt_(maxstep2);
     return z;
 }
 
