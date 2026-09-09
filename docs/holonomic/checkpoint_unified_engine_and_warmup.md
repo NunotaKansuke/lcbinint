@@ -3682,3 +3682,111 @@ for the aggressive regime-2 form. Shipped speed levers stay V1 (`.so`) and V2
 (isolated). Not committed. Evidence:
 `evidence/holonomic/ode_transport_benchmark.txt` §8.
 
+## 37. Aggressive regime-2 packet + (m,v) geometry packet — V3 line frozen (2026-09-10)
+
+User's two ordered GOs: (A) packet-ise `m(R)`, `v(R)`, `dm/dp`, `dv/dp`
+themselves over the whole cell (the residual cost after the jet was "(m,v) を
+得るための ODE march"), reconstruct by Horner, `F_half` by the analytic `v·K`
+jet integral, `F0` by a few-point rule on `Δθ(m,v)` — no RK4 march on a
+regime-2 value cell; (B) carry the same packets to the Jacobian lane where the
+RK4 substep is genuinely heavy (`root_pair_dR` + Newton + E/O Jac + IFT + 5
+param-derivatives) and make the final call. Framework: value-only → V2; full
+Jacobian → adopt the packet **iff** it wins; packet also loses → freeze V3 as
+research / reference.
+
+### 37.1 What was built (`holonomic_ode_transport.hpp`, `HOLO_ODE_TRANSPORT` still OFF)
+
+- `JetGerm` extended with `c_m[7]`, `c_v[7]`, `c_dm[5][7]`, `c_dv[5][7]` —
+  degree-6 Taylor packets fitted from the **same** 9 Chebyshev–Gauss seed
+  nodes as the `v·K` flux jet (those nodes already solve the quartic +
+  `mv_param_jac`). `mv_active` gate = per-column decay-ρ ≥ 6 **and**
+  top-coefficient truncation residual `(|c7|+|c8|)/scale < tol` on **all 12
+  columns** (the user: "branch を間違えた packet を accept するのが一番怖い").
+- `r2_value_cell` (value lane): all arcs `mv_active` ⇒ `F0` by panel-refined
+  composite K15 (np=1 vs np=2) of `R·Σ Δθ(m_a(R), v_a(R))` with `m,v` by
+  Horner; `F_half` by `jet_integrate(c_val)`. Zero RK4 march. Fail-closed
+  fall-through to jet+march on any gate miss.
+- `r2_jac_cell` (jac lane): `F_half + dFh[j]` by the analytic `v·K` jet
+  integral; `F0 + dF0[j]` by panel-refined composite K15 of the geometry
+  packet (`dF0[j]` integrand `= R·(θ_m·dm_a[j] + θ_v·dv_a[j])`). Gate: np=1
+  vs np=2 refinement `< 2e-4` (F0) and `< 5e-3` (each `dF0[j]`, `1e-3·|F0|`
+  absolute floor). Counters `r2_jac_cells` / `r2_jac_demote`.
+
+### 37.2 Value-lane result — technically successful, no speed benefit
+
+The geometry packet works: **112 / 130** vK-active regime-2 value cells close
+entirely on Horner + panel-refined K15, **0 demote**, worst `|dμ/μ|` in the
+whole `epoch_value` lane `1.02e-4` (rand033), value-lane μ median `5.9e-6`, 0
+status downgrades. Real **+9 %** on the r2 path
+(`value-only V0/V3` 1.010× packet ON vs 0.925× OFF) — but still only
+break-even with V0 and below V2:
+
+| lane | V0/V1 | V0/V2 | V0/V3 |
+|---|---|---|---|
+| value-only whole epoch | 1.096× | 1.096× | **1.010×** |
+
+Cause: finite-source `n_r=64` economics — ~8–10 radial nodes per cell, the
+warm-started quartic is already cheap, and the packet setup (9 seed marches +
+quartic coeffs + E/O Jac + `mv_param_jac` + `vK_jac` + Chebyshev fits) does
+not amortise over ~10 nodes. The packet wins only for `n_r ≥ 256`, not the
+production regime. **⇒ value-only production fastest stays V2.**
+
+### 37.3 Jac-lane result — NEGATIVE, structural `1/√v` obstruction
+
+| metric | packet ON | jet+march |
+|---|---|---|
+| jac radial pass `V0/V3` | **0.550×** | 0.550× |
+| whole-epoch jac lane `V0/V3` | 0.614× | 0.610× |
+| RK4 steps | 77 572 | 78 160 (−0.75 %) |
+| μ / grad / status | unchanged, in tol, 0 downgrades | — |
+
+Only **10 / 112** regime-2 jac cells clear the gate; 102 demote on `dF0/dp`.
+This is **not implementation noise** — it was the point of the experiment. The
+`dF0/dp_j` integrand carries `∂Δθ/∂v ~ 1/√v`:
+
+```
+d(Δθ)/dp = A₊·(dm + dv/(2√v)) − A₋·(dm − dv/(2√v)),   A± = 2/(1+(m±√v)²) smooth
+```
+
+In a regime-2 cell `v` still dips to ~0.01 at the fold-facing edge, so
+`v(R)^{−1/2}` has a complex-plane branch point `~√(2 v_min/v″) ≈ 0.14` in `R`
+from the cell centre — comparable to / smaller than the cell half-width `H`.
+Composite Gauss–Kronrod then converges at `~np^{−1/2}`:
+
+```
+np:   1→2      2→4      4→8      8→16
+dF0:  1.24e-2  8.7e-3   6.1e-3   4.3e-3     (ratio ≈ 0.70 per doubling)
+```
+
+~1000 panels for `5e-3`. Clean packet-sourced `dm/dp`, `dv/dp` do **not**
+help — the obstruction is the fixed rule vs the integrand shape. `F0` itself
+(smooth `Δθ`) converges fine (~`4e-5`). Only the RK4 march resolves the
+derivatives, through its adaptive `v`-clamp step refinement near small `v` —
+the mechanism a fixed rule lacks.
+
+Sharpens §35.7 / §36.4: even with the K-rule gone **and** the (m,v) march
+replaced by Horner, the jac radial pass does not move — the cell still pays
+the seed quartic + route + fold-tail overhead and 52/108 epochs re-run
+per-node on the ρ-cancel gate. The V3 jac lane is 0.61× whole-epoch / 0.55×
+radial and never faster on any of the 108 cases; decision-20's 2× is
+structurally unreachable.
+
+### 37.4 Final judgment — V3 line FROZEN
+
+- **value-only production → V2** (1.096×, ~1e-14, clean tails)
+- **full-Jacobian production → V2** (V1 1.04× `.so` / V2 1.17× isolated)
+- **V3 full coupled-ODE line → FROZEN as research / reference.**
+  `HOLO_ODE_TRANSPORT` stays default **OFF**. `r2_value_cell` + `r2_jac_cell`
+  remain in the tree, fail-closed, as the reproducible demonstration of the
+  `1/√v` `dF0/dp` obstruction.
+- **√v-split regularization** (local arcsinh rule at the packet `v`-minimum
+  instead of Gauss) → **future research**. Not worth building now: removes
+  only the (m,v) march term, cannot reach the 2× gate.
+
+### 37.5 Status
+
+Implemented, built, **ctest 6/6**, flag-OFF bit-identical, 0 status
+downgrades, audit `angular_sweep_nodes == 0 && per_node_quartic_solves == 0`.
+Committed as the frozen V3 reference state. Evidence:
+`evidence/holonomic/ode_transport_benchmark.txt` §9.
+
