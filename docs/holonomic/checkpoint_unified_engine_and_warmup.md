@@ -2584,3 +2584,211 @@ coverage**. Proceed to the C++ 3-solver benchmark of the unified engine.
   P1/P2/P3/P4/P5/P6 probe results + verdict.
 * `scratchpad/spike_c_probe.py` — probe (scratchpad, not committed).
 * No solver code touched; `holonomic_ref` pure-Python oracle only.
+
+---
+
+## 29. C++ 3-solver whole-epoch benchmark — regularized transport in production (2026-09-09)
+
+Gated on the §28 GO. This is the **implementation phase**, not feasibility:
+real C++ `epoch_jacobian` wall-clock, µ / grad_µ parity, Jacobian
+reliability, and p90/p95/p99 tails decide whether the regularized `(m,v)` +
+holonomic transport earns its place against the current direct solver.
+
+Governing task (verbatim, session two-back): *"比較対象は 1. current direct
+solver 2. current solver + (m,v) root-pair transport 3. (m,v) + regularized
+holonomic transport … 実際の C++ epoch wall-clock、accuracy、Jacobian
+reliability、p90/p95/p99 tail で判断 … whole-epoch speedup を主指標に …
+理論上限が約 1.47× … regularized transport が production C++ でも現在の
+direct solver に対して実測上の追加価値を出すかを確定する"*.
+
+### 29.1 What was built
+
+Three variants toggled **in one process** by runtime overrides (production
+still reads the env vars):
+
+| var | override hook | env var (production) | default |
+|---|---|---|---|
+| V0 direct | both overrides `= 0` | — | — |
+| V1 `+(m,v)` | `holo_mv_transport_override() = 1` | `HOLO_MV_TRANSPORT` | **OFF** |
+| V2 `+(m,v)+holo` | `+ holo_holonomic_transport_override() = 1` | `HOLO_HOLONOMIC_TRANSPORT` | **OFF** |
+
+* **`src/lcbinint/magnification/holonomic/holonomic_transport.hpp`** (NEW) —
+  the regularized-transport primitive:
+  * `deflate_mv(pc, m, v)` — deflates the boundary quartic `P(·; R)` by its
+    two real arc-boundary roots `t∓ = m ∓ √v` to `(p4, d1, d0)`; **needs only
+    `(m,v)`, no root solve** (§26 identity `(2/ρ)Φ_arc = v·K`).
+  * `arc_pair_jac(te, tl, dte, dtl)` — `(m,v)` and its exact `d/dP_j` from the
+    two polished angular endpoints and the IFT-θ sensitivities `radius_terms`
+    already forms for `df0` (`dt/dP_j = ½(1+t²)·dθ/dP_j`). Param order
+    `(X, Y, ρ, m0, a)`.
+  * `v_times_K` / `v_times_K_jac` — the K-rule value + analytic Jacobian on a
+    **16-node Gauss–Chebyshev-2nd-kind** rule, with an **8-node subrule**
+    evaluated alongside purely as a fail-closed error estimate
+    (`k_rule_converged`, `kHoloKRelTol = 1e-8`).
+* **`radius_terms.hpp`** — per-arc, inside `radius_terms`: when
+  `holo_holonomic_transport_enabled() && arc_clean` and `arc_pair_jac.ok` and
+  `v_times_K_jac.ok`, replace the arc's contribution to `fh` / `dfh` with
+  `v·K` and `d/dP_j[v·K]` and `continue` (skip the 64-pt GC1 angular √φ
+  sweep). Any failure → keep the incumbent sweep for that arc. Flag OFF →
+  block is dead, `df0`/`fh` bit-identical (cold-path parity by construction).
+* **`tests/holonomic_cpp/test_holonomic_transport.cpp`** — Part A (value vs
+  64-pt sweep), Part B (analytic `d/dP_j[v·K]` vs central FD), Part C
+  (`epoch_jacobian` V2-vs-V0 parity of µ + grad_µ + status). 7 geoms incl.
+  `plan15-raw` (bary=0, X=0.2 — the wide-arc stressor).
+* **`tests/holonomic_cpp/bench_holonomic_3solver.cpp`** — whole-epoch
+  wall-clock (best-of-N per case) + a **radial-pass-only** loop
+  (`classify_cells` hoisted, times only `flux_jacobian_integrate`) to isolate
+  the 1.47× ceiling term + µ/grad_µ parity + reliability + decision-20 gate.
+
+### 29.2 The `plan15` 8-node K-rule failure — found and closed
+
+The pilot bench showed **V2 `max |dµ/µ| = 8.25e-05` on case `plan15`** — a
+genuine accuracy bug, not a tail artifact. Diagnosed (`scratchpad/probe_arc.cpp`):
+the original **8-node** GC2 K-rule under-resolves the x-chart integrand
+`√S₂ / (A^{3/2}√B)` for **wide arcs whose endpoints approach θ = π**
+(`|t| = |tan(θ/2)|` up to ~12, arc `√v` up to ~5.8). The 8-vs-16-node
+self-disagreement `|K8−K16|/|K16|` tracks `|t|max`:
+
+| `|t|max` | `|K8−K16|/|K16|` |
+|---|---|
+| ≲ 3 | ~1e-9 |
+| 4–8 | 1e-7 … 4e-5 |
+| 9.7–12.2 | 1.5e-4 … 2.3e-3 |
+
+**Fix:** 16-node primary rule + 8-node subrule + `k_rule_converged` gate in
+**both** `v_times_K` and `v_times_K_jac` (`kHoloKRelTol = 1e-8`). Arcs that
+fail the gate fall back to the incumbent 64-pt sweep — **fail-closed, never a
+silent approximation** (compliant with *"Failure は silent approximation では
+なく status として fail closed"*). When it passes, K16's own error is
+`<~ 1e-10`. This is the documented "θ→π chart / Möbius" limitation; the old
+`kHoloTMax = 12` guard alone was too loose. After the fix `plan15` `dµ →
+2.3e-13`; `plan15-raw` engages the K-rule on ~69% of arcs (the wide ones fail
+closed), **0 status changes**.
+
+### 29.3 Part C rewrite — testing the right thing
+
+Part C initially compared analytic `grad_µ` against central FD and failed
+(rel err 1.9e+00 on `planet-wide`, several at ~1e-2). Root cause: **not a
+transport bug** — `epoch_jacobian` does `grad_mu[2] -= 2·µ/ρ`, and for
+tiny-ρ / on-axis / extreme-q geometries `grad_mu[2]` is a near-total
+cancellation (`2µ/ρ ≈ 77` for planet-wide) that amplifies any FD error by
+~1e4. `scratchpad/probe_partc.cpp` confirmed **V0, V1, V2 produce
+bit-identical `grad_mu`** — it is the incumbent solver's own FD-vs-analytic
+property. Part C rewritten to test **V2(holo ON) vs V0(OFF) parity** of µ +
+grad_µ + status (`kMuTol = 1e-9`, `kGradTol = 1e-6`, 0 status changes) — the
+question that actually matters. Now passes: worst `dµ = 3.8e-16`, worst
+`dgrad = 1.1e-9`, 0 status changes.
+
+### 29.4 Results (108 bench cases, host load ~14, best-of-200 reps, `taskset -c 0-7`)
+
+Evidence: `evidence/holonomic/holonomic_3solver_benchmark.txt`.
+
+**Whole-epoch wall time (ms, best-of-200 per case):**
+
+| | median | p90 | p95 | p99 | max |
+|---|---|---|---|---|---|
+| V0 direct | 1.262 | 2.271 | 2.615 | 4.074 | 4.169 |
+| V1 `+(m,v)` | 1.249 | 2.219 | 2.549 | 4.059 | 4.155 |
+| V2 `+(m,v)+holo` | **1.068** | 1.939 | 2.241 | 3.982 | 4.109 |
+
+**Speedup vs V0 (per-case ratio, then percentiles):**
+
+| | median | p90 | p95 | p99 | min |
+|---|---|---|---|---|---|
+| V0/V1 `+(m,v)` | 1.028× | 1.154× | 1.164× | 1.184× | 1.003× |
+| V0/V2 `+holo` | **1.183×** | 1.373× | 1.524× | 1.728× | **1.015×** |
+
+**Radial pass in isolation** (`classify_cells` hoisted — the 1.47× ceiling
+term): V0 0.572 ms → V2 0.312 ms, **speedup median 2.095×** (p90 3.31×, p95
+4.58×, min 1.017×). Radial pass = **45.4%** of the whole epoch.
+
+**Accuracy vs V0:** µ `max |dµ/µ|` V2 **2.30e-13** (median 2.88e-16);
+grad_µ `max rel` V2 **1.56e-04** (median 6.97e-11) — the worst grad case is
+`rand008` (ρ=0.00142, q=0.00439), `j=2` (d/dρ), abs diff 3.4e-9, i.e. the
+same `−2µ/ρ` cancellation, and **identical to V1's 1.56e-04** → pre-existing
+incumbent property, not a transport effect.
+
+**Reliability:** OK count V0 = V1 = V2 = **104/108**; **status changes vs V0:
+V1 0, V2 0**.
+
+**decision-20 gate:** full-Jac median ≥ 2× → **NOT met** (V2 1.181×).
+p90/p95/p99 all non-regressing (V2 ≤ V0 everywhere), min 1.015× (never
+slower on any case).
+
+### 29.5 Verdict — why 2× whole-epoch is structurally unreachable here
+
+`classify_cells` (the D14 oracle) is **~55% of the epoch and is shared by all
+three variants** — it is not touched by a radial-pass optimization. With the
+epoch cost model `x = 1/(1 − 0.32·f)`, `f = 1` (full radial coverage) gives a
+**1.47× whole-epoch ceiling**, and the radial pass alone already hits
+**2.10×** (65–70% of the ~3× kernel headroom, the rest eaten by the
+per-arc fail-closed prelude — endpoint polish + `arc_clean` + quartic build).
+decision-20's 2× is the right gate for a *solve-cost* optimization measured
+against a solve-dominated epoch; it is **mis-specified for this radial-pass
+optimization against a D14-dominated epoch**. On every metric that a
+radial-pass optimization controls, V2 delivers:
+
+* **1.18× whole-epoch median**, tails strictly non-regressing, never slower
+  on any of 108 cases;
+* **2.10× radial pass** (approaching the 1.47× whole-epoch / ~3× kernel
+  ceiling);
+* µ parity 2.3e-13, grad_µ parity to the incumbent's own noise floor;
+* **0 Jacobian-status changes**, OK count unchanged.
+
+The `(m,v)`-only stage (V1) gives 1.028× whole-epoch — real but marginal;
+the holonomic K-rule stage is what converts the radial pass.
+
+**Regularized transport does deliver measurable additional value in
+production C++** over the direct solver, bounded by the D14 share of the
+epoch. Whether that clears the bar for a **default-ON flip** is a call for
+the user (§29.7).
+
+### 29.6 What was NOT implemented (deferred, per §28 caveats)
+
+* **No `dist_fold` router, no flux-priority jet, no QAWSE primitive.** Solver
+  3 uses the **universal K-rule** for every clean fold-adjacent arc with the
+  8-vs-16-node convergence gate. §28 established the jet is speed-only
+  (66× vs 15× kernel) and fails `decay_ρ → 1…3`; the whole-epoch value of
+  the extra 51× kernel factor on a 45%-of-epoch pass that the K-rule already
+  accelerates ~2× is marginal, and it needs a C++ QAWSE `Φ_arc` primitive.
+  Revisit only if a future profile shows the K-rule itself as the radial
+  bottleneck.
+* **No Möbius θ≈π chart** (`t' = (t−c)/(1+ct)`). Wide near-π arcs fail closed
+  to the angular sweep (the `kHoloKRelTol` gate). ~30% of arcs on the
+  `plan15-raw` stressor; a few % on typical geometries.
+
+### 29.7 Status / next
+
+* **DONE:** `holonomic_transport.hpp` (NEW), `radius_terms.hpp` wiring behind
+  `HOLO_HOLONOMIC_TRANSPORT` (OFF by default), `test_holonomic_transport`
+  (ctest `holonomic_transport`, 5/5 ctests pass incl. `holonomic_m7_reference`
+  byte-parity with the flag OFF), `bench_holonomic_3solver`.
+* **For the user to decide:** the held `HOLO_MV_TRANSPORT` **default-ON flip**
+  + Phase C step 2 (`FiniteSourceMethod` enum + `binary_mag_preplanned`
+  dispatch + shared `_lcbinint.so` rebuild) "coordinated timing window". The
+  benchmark says: 1.18× whole-epoch / 2.10× radial / full µ+grad parity /
+  **0 regressions**, but the headline decision-20 2× whole-epoch gate is not
+  met (structurally — D14 is ~55% of the epoch and shared). `HOLO_HOLONOMIC_
+  TRANSPORT` stays **OFF-by-default** regardless.
+* Unrelated held items unchanged: Phase D value lanes, Phase F M3 JVP,
+  Phase C production wiring, the Möbius θ≈π chart, the regime-2 flux-priority
+  jet (needs a QAWSE `Φ_arc` C++ primitive).
+
+### 29.8 Files
+
+* `src/lcbinint/magnification/holonomic/holonomic_transport.hpp` (NEW) —
+  `deflate_mv`, `arc_pair_jac`, `v_times_K`, `v_times_K_jac`, the 16-node
+  GC2 rule + 8-node subrule + `k_rule_converged` gate, the
+  `holo_holonomic_transport_override()` / `_enabled()` hooks.
+* `src/lcbinint/magnification/holonomic/radius_terms.hpp` — per-arc holonomic
+  transport branch behind `holo_holonomic_transport_enabled()`; `arc_clean`
+  refactor; `dte_arr`/`dtl_arr` capture in the `df0` loop; the
+  `holo_mv_transport_override()` hook.
+* `tests/holonomic_cpp/test_holonomic_transport.cpp` (NEW),
+  `tests/holonomic_cpp/bench_holonomic_3solver.cpp` (NEW),
+  `tests/holonomic_cpp/CMakeLists.txt` (2 targets + `holonomic_transport`
+  ctest).
+* `evidence/holonomic/holonomic_3solver_benchmark.txt` (NEW) — full bench +
+  transport-test output.
+* `scratchpad/probe_arc.cpp`, `probe_partc.cpp`, `probe_plan15.cpp` — probes
+  (scratchpad, not committed).
