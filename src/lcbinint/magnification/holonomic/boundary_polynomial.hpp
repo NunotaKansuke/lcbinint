@@ -25,6 +25,20 @@ struct QuarticCoeffs {
     std::array<double, 5> p;  // ascending: p0 + p1 t + ... + p4 t^4
 };
 
+// Exact reciprocal chart transform for u = -1/t:
+//
+//     u^4 P(-1/u) = p4 - p3 u + p2 u^2 - p1 u^3 + p0 u^4.
+//
+// This is kept as an algebraic primitive for the isolated chart experiment;
+// the V2 router remains on the incumbent t chart until a whole-epoch
+// condition-driven A/B demonstrates a benefit.
+inline QuarticCoeffs boundary_quartic_reciprocal(const QuarticCoeffs& in) {
+    return QuarticCoeffs{{in.p[4], -in.p[3], in.p[2], -in.p[1], in.p[0]}};
+}
+
+inline double reciprocal_t_from_u(double u) { return -1.0 / u; }
+inline double reciprocal_u_from_t(double t) { return -1.0 / t; }
+
 inline void t_complex_coeffs(double R, double a, double m0, double X, double Y,
                              cd& cT0, cd& cT1, cd& cT2) {
     const cd zeta(X, Y);
@@ -100,6 +114,15 @@ inline QuarticCoeffs boundary_quartic_dR(double R, const PrimaryFrame& pf) {
 struct QuarticParamJac {
     std::array<std::array<double, 5>, 5> dp;  // dp[j] = d/dP_j of [p0..p4]
 };
+
+inline QuarticParamJac boundary_quartic_reciprocal_dp(
+    const QuarticParamJac& in) {
+    QuarticParamJac out{};
+    for (int j = 0; j < 5; ++j)
+        out.dp[j] = {in.dp[j][4], -in.dp[j][3], in.dp[j][2],
+                     -in.dp[j][1], in.dp[j][0]};
+    return out;
+}
 
 inline QuarticParamJac boundary_quartic_dp(double R, const PrimaryFrame& pf) {
     const double a = pf.a, m0 = pf.m0, X = pf.X, Y = pf.Y, rho = pf.rho;

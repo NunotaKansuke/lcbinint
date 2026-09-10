@@ -30,6 +30,7 @@
 #include "lcbinint/magnification/holonomic/phi.hpp"
 #include "lcbinint/magnification/holonomic/poly_roots.hpp"
 #include "lcbinint/magnification/holonomic/root_pair.hpp"
+#include "lcbinint/magnification/holonomic/v2_profile.hpp"
 
 namespace lcbinint::holonomic {
 
@@ -54,17 +55,25 @@ struct PolishResult {
 };
 inline PolishResult polish_endpoint(double R, double theta,
                                     const PrimaryFrame& pf, int iters = 6) {
+    V2Profile* prof = v2_profile_current();
+    if (prof) ++prof->endpoint_calls;
+    V2ProfileTimer endpoint_timer(&V2Profile::endpoint_ms);
     double th = theta, dth = 1.0;
     for (int i = 0; i < iters; ++i) {
         PhiValDtheta g = phi_val_dtheta(R, th, pf);
         dth = g.dphi_dtheta;
-        if (std::fabs(dth) < 1e-13) return {th, dth, false};
+        if (std::fabs(dth) < 1e-13) {
+            if (prof) ++prof->endpoint_unreliable;
+            return {th, dth, false};
+        }
         double step = g.phi / dth;
         th -= step;
         if (std::fabs(step) < 1e-15) break;
     }
     PhiValDtheta g = phi_val_dtheta(R, th, pf);
-    return {th, g.dphi_dtheta, std::fabs(g.dphi_dtheta) >= 1e-13};
+    const bool reliable = std::fabs(g.dphi_dtheta) >= 1e-13;
+    if (prof && !reliable) ++prof->endpoint_unreliable;
+    return {th, g.dphi_dtheta, reliable};
 }
 
 // ---- sorted theta of the real roots of P(t), t = tan(theta/2) --------
@@ -135,11 +144,13 @@ struct QuarticWarm {
 
 inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc,
                                                  QuarticWarm& w) {
+    V2Profile* prof = v2_profile_current();
     double c[5];
     int deg = quartic_descending(pc, c);
     if (deg <= 0) { w.valid = false; return {}; }
 
     if (w.valid && w.deg == deg && w.cold_streak < kColdStreak) {
+        if (prof) ++prof->quartic_warm_calls;
         double step = 1.0;
         auto z = aberth<double>(c, deg, kWarmIters, w.z, 0.0, &step);
         if (step <= kWarmStepTol) {
@@ -149,6 +160,7 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
                 w.n_real = (int)th.size();
                 w.cold_streak = 0;
                 ++w.warm_hits;
+                if (prof) ++prof->quartic_warm_hits;
                 return th;
             }
         }
@@ -163,6 +175,10 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
     w.n_real = (int)th.size();
     w.valid = (deg <= 4);
     ++w.cold_falls;
+    if (prof) {
+        ++prof->quartic_cold_calls;
+        ++prof->quartic_cold_falls;
+    }
     return th;
 }
 
@@ -260,11 +276,10 @@ constexpr double kTransportTMax = 12.0;        // max endpoint |t| = |m| + sqrt(
                                                // predictor/corrector wander
                                                // basins on a ~1e-13 seed
                                                // perturbation.  Such an arc
-                                               // needs the Moebius chart change
-                                               // t' = (t-c)/(1+ct) (not yet
-                                               // implemented) -> until then the
-                                               // whole seed is refused and the
-                                               // cell stays on the cold quartic.
+                                               // can use the exact reciprocal
+                                               // chart in the isolated A/B
+                                               // retry; the production default
+                                               // stays on the t-chart.
 constexpr double kTransportVJumpRel = 4.0;     // predictor sanity: reject the
                                                // step if the linear IFT
                                                // extrapolation changes v by
@@ -406,6 +421,9 @@ struct RootPairWarm {
 inline std::vector<double> real_root_thetas_transport(
     const std::array<double, 5>& pc, double R, const PrimaryFrame& pf,
     RootPairWarm& w, QuarticWarm* qw = nullptr) {
+    V2Profile* prof = v2_profile_current();
+    if (prof) ++prof->rootpair_calls;
+    V2ProfileTimer rootpair_timer(&V2Profile::rootpair_ms);
     // ---- warm transport -------------------------------------------------
     // A discriminant sign flip since the seed means an arc pair was born or
     // died between nodes -- a topology change the (m, v) continuation cannot
@@ -415,6 +433,7 @@ inline std::vector<double> real_root_thetas_transport(
     const int disc_now = transport_disc_sign(pc);
     if (w.valid && !w.pairs.empty() && w.disc_sign != 0 && disc_now != 0 &&
         disc_now != w.disc_sign) {
+        if (prof) ++prof->rootpair_disc_mismatch;
         w.valid = false;
         ++w.cold_streak;
         ++w.trips;
@@ -442,6 +461,13 @@ inline std::vector<double> real_root_thetas_transport(
                     kTransportVJumpRel * v_seed + kTransportVFloor ||
                 std::fabs(m_pred) + std::sqrt(std::fabs(v_pred)) >
                     kTransportTMax;
+            if (pred_wild && prof) {
+                ++prof->rootpair_predictor_reject;
+                if (v_pred <= kTransportVFloor) ++prof->rootpair_vfloor_reject;
+                if (std::isfinite(v_pred) && std::isfinite(m_pred) &&
+                    std::fabs(m_pred) + std::sqrt(std::fabs(v_pred)) > kTransportTMax)
+                    ++prof->rootpair_tmax_reject;
+            }
             // corrector: Newton on (E, O) = 0 at the new node
             bool conv = false;
             double det_lo = std::numeric_limits<double>::infinity();
@@ -479,9 +505,15 @@ inline std::vector<double> real_root_thetas_transport(
             }
             if (pred_wild || !conv || !std::isfinite(rp.m) ||
                 !std::isfinite(rp.v) || rp.v <= kTransportVFloor) {
+                if (prof && !pred_wild) {
+                    ++prof->rootpair_newton_reject;
+                    if (!conv) ++prof->rootpair_residual_reject;
+                    if (rp.v <= kTransportVFloor) ++prof->rootpair_vfloor_reject;
+                }
                 ok = false;
                 break;
             }
+            if (prof) ++prof->rootpair_newton_iterations;
         }
         // branch-aware acceptance: still the same ascending, non-overlapping
         // family of real inside arcs (rejects a corrector basin-flip whose
@@ -510,6 +542,7 @@ inline std::vector<double> real_root_thetas_transport(
                 // HOLO_MV_TRANSPORT x L2-warm-D14 interaction (checkpoint 25.4).
                 bool cert_ok = true;
                 if (w.certify) {
+                    if (prof) ++prof->rootpair_certify_calls;
                     double v_min = std::numeric_limits<double>::infinity();
                     for (const auto& rp : next) v_min = std::fmin(v_min, rp.v);
                     if (v_min < kTransportCertifyV) {
@@ -524,7 +557,10 @@ inline std::vector<double> real_root_thetas_transport(
                                 break;
                             }
                         }
-                        if (!cert_ok) ++w.certify_falls;
+                        if (!cert_ok) {
+                            ++w.certify_falls;
+                            if (prof) ++prof->rootpair_certify_falls;
+                        }
                     }
                 }
                 if (cert_ok) {
@@ -533,6 +569,7 @@ inline std::vector<double> real_root_thetas_transport(
                     w.pcR_prev = boundary_quartic_dR(R, pf).p;
                     w.R_prev = R;
                     ++w.warm_hits;
+                    if (prof) ++prof->rootpair_warm_success;
                     // Keep the warm Aberth seed (qw) live: it is only a few
                     // nodes stale and real_root_thetas_warm re-polishes it,
                     // whereas forcing a *cold* 40-iter Aberth on the next
@@ -543,6 +580,7 @@ inline std::vector<double> real_root_thetas_transport(
             }
         }
         w.valid = false;
+        if (prof) ++prof->rootpair_branch_reject;
         ++w.cold_streak;
         ++w.trips;
     }
@@ -572,6 +610,7 @@ inline std::vector<double> real_root_thetas_transport(
         for (int i = 0; i < deg && i < 4; ++i) zbuf[i] = z[i];
     }
     ++w.cold_falls;
+    if (prof) ++prof->rootpair_cold_falls;
 
     std::vector<double> tr;  // real t-roots, same filter thetas_from_complex uses
     for (int i = 0; i < deg && i < 4; ++i)
@@ -624,6 +663,14 @@ struct GridArcs {
     std::vector<std::array<double, 2>> arcs;
 };
 inline GridArcs arcs_at(double R, const PrimaryFrame& pf, int n_grid = 3072) {
+    V2Profile* prof = v2_profile_current();
+    if (prof) {
+        if (n_grid == 512) ++prof->grid512_calls;
+        else if (n_grid == 3072) ++prof->grid3072_calls;
+        else if (n_grid == 4096) ++prof->grid4096_calls;
+        prof->grid_total_nodes += (V2Profile::u64)n_grid;
+    }
+    V2ProfileTimer grid_timer(&V2Profile::topology_grid_ms);
     std::vector<double> val(n_grid);
     bool all_pos = true, all_neg = true;
     for (int i = 0; i < n_grid; ++i) {
@@ -698,12 +745,16 @@ inline GridArcs arcs_at(double R, const PrimaryFrame& pf, int n_grid = 3072) {
 inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
                             QuarticWarm* w = nullptr,
                             RootPairWarm* rpw = nullptr) {
+    V2Profile* prof = v2_profile_current();
+    if (prof) ++prof->arc_interval_calls;
+    V2ProfileTimer arc_timer(&V2Profile::arc_ms);
     QuarticCoeffs q = boundary_quartic(R, pf);
     double amax = 0.0;
     for (double c : q.p) amax = std::max(amax, std::fabs(c));
     if (amax == 0.0 || std::fabs(q.p[4]) < kP4DegenRel * amax) {
         if (w) w->valid = false;  // chart radius -> break the warm chain
         if (rpw) rpw->valid = false;
+        if (prof) ++prof->arc_degenerate;
         return {ArcKind::kDegenerate, {}};
     }
     const bool use_transport = rpw && holo_mv_transport_enabled() &&
@@ -712,9 +763,17 @@ inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
     auto th = use_transport ? real_root_thetas_transport(q.p, R, pf, *rpw, w)
               : w           ? real_root_thetas_warm(q.p, *w)
                             : real_root_thetas(q.p);
-    if (th.empty())
+    if (th.empty()) {
+        if (prof) {
+            if (q.p[4] > 0.0) ++prof->arc_full;
+            else ++prof->arc_empty;
+        }
         return {q.p[4] > 0.0 ? ArcKind::kFull : ArcKind::kEmpty, {}};
-    if (th.size() % 2 != 0) return {ArcKind::kDegenerate, {}};
+    }
+    if (th.size() % 2 != 0) {
+        if (prof) ++prof->arc_degenerate;
+        return {ArcKind::kDegenerate, {}};
+    }
     ArcSet out{ArcKind::kArcs, {}};
     int n = (int)th.size();
     for (int i = 0; i < n; ++i) {
@@ -723,6 +782,10 @@ inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
         if (hi <= lo) hi += kTwoPi;
         if (phi_lens(R, 0.5 * (lo + hi), pf) > 0.0) out.arcs.push_back({lo, hi});
     }
+    if (prof) {
+        ++prof->arc_sets;
+        prof->arc_count += (V2Profile::u64)out.arcs.size();
+    }
     return out;
 }
 
@@ -730,6 +793,7 @@ inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
 // boundary quartic's real roots -- no 3072-point grid.  Falls back to the
 // grid only at a p4~0 (degenerate) probe radius.  Used by classify_cells.
 inline GridArcs quartic_topology(double R, const PrimaryFrame& pf) {
+    if (V2Profile* prof = v2_profile_current()) ++prof->quartic_probe_calls;
     QuarticCoeffs q = boundary_quartic(R, pf);
     double amax = 0.0;
     for (double c : q.p) amax = std::max(amax, std::fabs(c));
@@ -781,11 +845,22 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
                                 double tan_rel = kTanRel,
                                 QuarticWarm* w = nullptr,
                                 RootPairWarm* rpw = nullptr) {
+    V2Profile* prof = v2_profile_current();
+    if (prof) {
+        ++prof->radius_terms_calls;
+        ++prof->radial_nodes;
+        ++prof->jacobian_nodes;
+    }
+    V2ProfileTimer jac_timer(&V2Profile::jacobian_ms);
     RadiusTerms rt;
     ArcSet as = arc_intervals(R, pf, w, rpw);
     if (as.kind == ArcKind::kEmpty) return rt;
-    if (as.kind == ArcKind::kFull) return full_circle_terms(R, pf);
+    if (as.kind == ArcKind::kFull) {
+        if (prof) ++prof->full_circle_calls;
+        return full_circle_terms(R, pf);
+    }
     if (as.kind == ArcKind::kDegenerate) {
+        if (prof) ++prof->arc_degenerate;
         ArcSet g = grid_intervals(R, pf);
         rt.reliable = false;
         if (g.kind == ArcKind::kEmpty) return rt;
@@ -805,8 +880,19 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
         holo_on ? boundary_quartic(R, pf) : QuarticCoeffs{};
     const QuarticParamJac holo_dpc =
         holo_on ? boundary_quartic_dp(R, pf) : QuarticParamJac{};
+    const bool reciprocal_on = holo_on && holo_reciprocal_chart_enabled();
+    const QuarticCoeffs holo_rpc =
+        reciprocal_on ? boundary_quartic_reciprocal(holo_pc)
+                       : QuarticCoeffs{};
+    const QuarticParamJac holo_rdpc =
+        reciprocal_on ? boundary_quartic_reciprocal_dp(holo_dpc)
+                       : QuarticParamJac{};
 
     for (const auto& arc : as.arcs) {
+        if (prof) {
+            ++prof->f0_arcs;
+        }
+        auto f0_begin = V2Clock::now();
         PolishResult pe = polish_endpoint(R, arc[0], pf);
         PolishResult pl = polish_endpoint(R, arc[1], pf);
         double te = pe.theta, tl = pl.theta;
@@ -828,22 +914,68 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
             dtl_arr[j] = dtl;
             rt.df0[j] += R * (dtl - dte);
         }
+        if (prof) v2_profile_add_ms(&V2Profile::f0_ms, f0_begin,
+                                    V2Clock::now());
 
         // ---- F_half via regularized holonomic transport ------------------
         // (2/rho) Phi_arc(R) = v K, deflated x-chart, no root solve / no
         // 64-point angular sweep.  Per-arc fail-closed: any theta = pi
         // straddle, near-tangency, negative S2, or non-finite result keeps
         // the incumbent sweep for that arc.
-        if (holo_on && arc_clean) {
-            ArcPairJac ap = arc_pair_jac(te, tl, dte_arr, dtl_arr);
-            if (ap.ok) {
-                VKJacobian vkj =
-                    v_times_K_jac(ap.m, ap.v, ap.dm, ap.dv, R, pf, holo_pc.p,
-                                  holo_dpc.dp);
-                if (vkj.ok) {
-                    rt.fh += vkj.vK;
-                    for (int j = 0; j < 5; ++j) rt.dfh[j] += vkj.dvK[j];
-                    continue;
+        if (holo_on) {
+            if (!arc_clean) {
+                if (prof) {
+                    ++prof->k_reject_arc;
+                    ++prof->k_arc_endpoint;
+                }
+            } else {
+                ArcPairJac ap = arc_pair_jac(te, tl, dte_arr, dtl_arr);
+                if (ap.ok) {
+                    VKJacobian vkj =
+                        v_times_K_jac(ap.m, ap.v, ap.dm, ap.dv, R, pf, holo_pc.p,
+                                      holo_dpc.dp);
+                    if (vkj.ok) {
+                        rt.fh += vkj.vK;
+                        for (int j = 0; j < 5; ++j) rt.dfh[j] += vkj.dvK[j];
+                        continue;
+                    }
+                } else if (prof) {
+                    ++prof->k_reject_arc;
+                    if (ap.reject_reason == 1) ++prof->k_arc_nonfinite;
+                    else if (ap.reject_reason == 2) ++prof->k_arc_order;
+                    else if (ap.reject_reason == 3) ++prof->k_arc_tmax;
+                    else if (ap.reject_reason == 4) ++prof->k_arc_vfloor;
+                }
+
+                // A t-chart rejection or quadrature disagreement can be a
+                // representation problem at theta ~= pi.  Retry the same
+                // physical arc in the exact reciprocal chart only in the
+                // isolated research A/B lane.  The normal V2 path has this
+                // flag off and therefore follows the byte-identical rescue.
+                if (reciprocal_on) {
+                    if (prof) ++prof->k_reciprocal_attempts;
+                    auto reciprocal_begin = V2Clock::now();
+                    ArcPairJac rap = arc_pair_jac_reciprocal(
+                        te, tl, dte_arr, dtl_arr);
+                    bool reciprocal_ok = false;
+                    if (rap.ok) {
+                        VKJacobian rvkj = v_times_K_jac(
+                            rap.m, rap.v, rap.dm, rap.dv, R, pf, holo_rpc.p,
+                            holo_rdpc.dp, true);
+                        if (rvkj.ok) {
+                            rt.fh += rvkj.vK;
+                            for (int j = 0; j < 5; ++j)
+                                rt.dfh[j] += rvkj.dvK[j];
+                            reciprocal_ok = true;
+                        }
+                    }
+                    if (prof) {
+                        if (reciprocal_ok) ++prof->k_reciprocal_success;
+                        else ++prof->k_reciprocal_reject;
+                        v2_profile_add_ms(&V2Profile::k_reciprocal_ms,
+                                          reciprocal_begin, V2Clock::now());
+                    }
+                    if (reciprocal_ok) continue;
                 }
             }
         }
@@ -852,6 +984,7 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
         double mid = 0.5 * (te + tl);
         double acc_val = 0.0;
         std::array<double, 5> acc_der{};
+        auto rescue_begin = V2Clock::now();
         for (int k = 0; k < 64; ++k) {
             double thn = mid + half * AR.x[k];
             PhiValDP g = phi_val_dP(R, thn, pf);
@@ -862,9 +995,16 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
             double inv = wk / (2.0 * sq);
             for (int j = 0; j < 5; ++j) acc_der[j] += inv * g.dP[j];
         }
+        if (prof) {
+            ++prof->angular_rescue_calls;
+            prof->angular_rescue_nodes += 64;
+            v2_profile_add_ms(&V2Profile::angular_rescue_ms, rescue_begin,
+                              V2Clock::now());
+        }
         rt.fh += R * half * acc_val;
         for (int j = 0; j < 5; ++j) rt.dfh[j] += R * half * acc_der[j];
     }
+    if (prof && !rt.reliable) ++prof->radius_unreliable;
     return rt;
 }
 
@@ -876,13 +1016,11 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
 //
 // Arc discovery is byte-identical to radius_terms: the same arc_intervals
 // with the same QuarticWarm / RootPairWarm ((m,v) transport) state, so F0
-// matches the fused pass to the last bit.  F_half reuses the same
-// ang_rule() Gauss-Chebyshev-1(64) nodes and phi_val (== phi_val_dP().phi),
-// so it matches the fused pass's non-holonomic-transport F_half exactly.
-// (HOLO_HOLONOMIC_TRANSPORT changes the fused F_half to the v*K rule; the
-// value lane is only routed to when that flag is OFF -- see
-// finite_source_binary.hpp.  Wiring v_times_K into this lane is Phase D
-// step 2.)
+// matches the fused pass to the last bit.  With transport disabled, F_half
+// uses the same angular rule.  With HOLO_HOLONOMIC_TRANSPORT enabled, this
+// sibling uses the same v*K evaluator as radius_terms but omits endpoint
+// derivatives; the public finite-source router remains conservative and is
+// unchanged.
 struct RadiusValue {
     double f0 = 0.0;
     double fh = 0.0;
@@ -914,10 +1052,17 @@ inline RadiusValue radius_value(double R, const PrimaryFrame& pf, bool want_fh,
                                 double tan_rel = kTanRel,
                                 QuarticWarm* w = nullptr,
                                 RootPairWarm* rpw = nullptr) {
+    V2Profile* prof = v2_profile_current();
+    if (prof) {
+        ++prof->radius_value_calls;
+        ++prof->radial_nodes;
+    }
+    V2ProfileTimer value_timer(&V2Profile::value_angular_ms);
     RadiusValue rt;
     ArcSet as = arc_intervals(R, pf, w, rpw);
     if (as.kind == ArcKind::kEmpty) return rt;
     if (as.kind == ArcKind::kFull) {
+        if (prof) ++prof->full_circle_calls;
         radius_value_detail::full_circle_value(R, pf, want_fh, &rt);
         return rt;
     }
@@ -934,6 +1079,13 @@ inline RadiusValue radius_value(double R, const PrimaryFrame& pf, bool want_fh,
 
     const double tan_thresh = tan_rel * pf.rho / std::max(R, 1e-9);
     const auto& AR = ang_rule();
+    const bool holo_on = holo_holonomic_transport_enabled();
+    const bool reciprocal_on = holo_on && holo_reciprocal_chart_enabled();
+    const QuarticCoeffs holo_pc =
+        holo_on ? boundary_quartic(R, pf) : QuarticCoeffs{};
+    const QuarticCoeffs holo_rpc =
+        reciprocal_on ? boundary_quartic_reciprocal(holo_pc)
+                       : QuarticCoeffs{};
 
     for (const auto& arc : as.arcs) {
         PolishResult pe = polish_endpoint(R, arc[0], pf);
@@ -949,14 +1101,75 @@ inline RadiusValue radius_value(double R, const PrimaryFrame& pf, bool want_fh,
         rt.f0 += R * (tl - te);
         if (!want_fh) continue;
 
+        // Value-only V2 uses the same regularized v*K evaluator as the fused
+        // path, but it does not form endpoint IFT derivatives or any angular
+        // dP values.  The zero derivative arrays are intentional: v_times_K
+        // consumes only (m, v).  A reciprocal retry is the same isolated
+        // condition-driven chart experiment used by radius_terms.
+        bool holo_value_ok = false;
+        if (holo_on) {
+            if (!arc_clean) {
+                if (prof) {
+                    ++prof->k_reject_arc;
+                    ++prof->k_arc_endpoint;
+                }
+            } else {
+                const std::array<double, 5> zero{};
+                ArcPairJac ap = arc_pair_jac(te, tl, zero, zero);
+                if (ap.ok) {
+                    VKValue vk =
+                        v_times_K(ap.m, ap.v, R, pf, holo_pc.p);
+                    if (vk.ok) {
+                        rt.fh += vk.vK;
+                        holo_value_ok = true;
+                    }
+                } else if (prof) {
+                    ++prof->k_reject_arc;
+                    if (ap.reject_reason == 1) ++prof->k_arc_nonfinite;
+                    else if (ap.reject_reason == 2) ++prof->k_arc_order;
+                    else if (ap.reject_reason == 3) ++prof->k_arc_tmax;
+                    else if (ap.reject_reason == 4) ++prof->k_arc_vfloor;
+                }
+                if (!holo_value_ok && reciprocal_on) {
+                    if (prof) ++prof->k_reciprocal_attempts;
+                    auto reciprocal_begin = V2Clock::now();
+                    ArcPairJac rap = arc_pair_jac_reciprocal(
+                        te, tl, zero, zero);
+                    if (rap.ok) {
+                        VKValue rvk = v_times_K(
+                            rap.m, rap.v, R, pf, holo_rpc.p, true);
+                        if (rvk.ok) {
+                            rt.fh += rvk.vK;
+                            holo_value_ok = true;
+                        }
+                    }
+                    if (prof) {
+                        if (holo_value_ok) ++prof->k_reciprocal_success;
+                        else ++prof->k_reciprocal_reject;
+                        v2_profile_add_ms(&V2Profile::k_reciprocal_ms,
+                                          reciprocal_begin, V2Clock::now());
+                    }
+                }
+            }
+        }
+        if (holo_value_ok) continue;
+
         double half = 0.5 * (tl - te);
         double mid = 0.5 * (te + tl);
         double acc_val = 0.0;
+        auto rescue_begin = V2Clock::now();
         for (int k = 0; k < 64; ++k) {
             double thn = mid + half * AR.x[k];
             double ph = phi_val(R, thn, pf);
             if (ph <= 0.0) continue;
             acc_val += AR.w[k] * std::sqrt(ph);
+        }
+        if (prof) {
+            ++prof->angular_rescue_calls;
+            prof->angular_rescue_nodes += 64;
+            prof->value_angular_nodes += 64;
+            v2_profile_add_ms(&V2Profile::angular_rescue_ms, rescue_begin,
+                              V2Clock::now());
         }
         rt.fh += R * half * acc_val;
     }

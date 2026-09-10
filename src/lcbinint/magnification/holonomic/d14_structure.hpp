@@ -236,9 +236,11 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
                                               const T* bound_coeffs,
                                               int max_iter,
                                               const Cplx<T>* seed,
-                                              T tol_override) {
+                                              T tol_override,
+                                              int* iterations = nullptr) {
     constexpr int deg = 14;
     std::vector<Cplx<T>> z(deg);
+    if (iterations) *iterations = 0;
 
     T bound = T(1);
     if (bound_coeffs) {
@@ -267,6 +269,7 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
                       : ((sizeof(T) > 8) ? T(1e-24) : T(1e-15));
     const bool legacy = holo_legacy_complex_ops();
     for (int it = 0; it < max_iter; ++it) {
+        if (iterations) *iterations = it + 1;
         T maxstep2 = T(0);
         for (int i = 0; i < deg; ++i) {
             Cplx<T> p, dp;

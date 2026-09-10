@@ -137,8 +137,10 @@ template <class R>
 inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
                                    const Cplx<R>* seed = nullptr,
                                    R tol_override = R(0),
-                                   double* final_step = nullptr) {
+                                   double* final_step = nullptr,
+                                   int* iterations = nullptr) {
     std::vector<Cplx<R>> z(deg);
+    if (iterations) *iterations = 0;
 
     // Initial guesses on a circle of radius ~ Cauchy bound (Aberth's
     // spread).  A warm seed already contains the basin information, so do
@@ -169,6 +171,7 @@ inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
     R maxstep2 = R(0);
     const bool legacy = holo_legacy_complex_ops();
     for (int it = 0; it < max_iter; ++it) {
+        if (iterations) *iterations = it + 1;
         maxstep2 = R(0);
         for (int i = 0; i < deg; ++i) {
             Cplx<R> p = poly_eval_c(coeffs, deg, z[i]);

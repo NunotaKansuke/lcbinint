@@ -1,0 +1,31 @@
+== A. v_times_K  vs  64-pt angular sweep ==
+  memo-s15      arcs= 50 engaged= 45 ( 90%)  worst rel=1.50e-14
+  resonant      arcs= 40 engaged= 30 ( 75%)  worst rel=4.15e-14
+  close         arcs= 25 engaged= 15 ( 60%)  worst rel=4.39e-14
+  planet-wide   arcs= 10 engaged=  5 ( 50%)  worst rel=2.60e-14
+  caustic-xing  arcs= 45 engaged= 30 ( 67%)  worst rel=9.13e-14
+  near-full     arcs= 45 engaged= 35 ( 78%)  worst rel=4.83e-13
+  plan15-raw    arcs= 45 engaged= 33 ( 73%)  worst rel=1.40e-13
+  --> worst rel err 4.83e-13 over 193/260 arcs engaged
+
+== B. analytic d/dP_j[v K]  vs  central finite diff ==
+  memo-s15      worst rel=1.09e-08
+  resonant      worst rel=1.51e-06
+  close         worst rel=1.46e-06
+  planet-wide   worst rel=5.15e-08
+  caustic-xing  worst rel=6.81e-08
+  near-full     worst rel=4.63e-06
+  plan15-raw    worst rel=7.24e-09
+  --> worst rel err 4.63e-06 over 580 component checks
+
+== C. epoch_jacobian(u=0.5) V2(holo ON) vs V0(OFF) parity ==
+  memo-s15      mu=3.478442878  dmu=3.83e-16  dgrad=1.95e-12 (j=1)
+  resonant      mu=6.390065848  dmu=0.00e+00  dgrad=4.24e-12 (j=1)
+  close         mu=2.758744324  dmu=0.00e+00  dgrad=1.37e-12 (j=3)
+  planet-wide   mu=1.158498975  dmu=0.00e+00  dgrad=1.32e-10 (j=2)
+  caustic-xing  mu=4.663310294  dmu=3.81e-16  dgrad=1.13e-11 (j=2)
+  near-full     mu=12.27593994  dmu=5.79e-16  dgrad=1.35e-11 (j=1)
+  plan15-raw    mu=6.120962724  dmu=7.26e-16  dgrad=6.51e-13 (j=4)
+  --> worst dmu 7.26e-16 (tol 1e-09)  worst dgrad 1.32e-10 (tol 1e-06)  status changes 0
+
+PASSED (0 failures)

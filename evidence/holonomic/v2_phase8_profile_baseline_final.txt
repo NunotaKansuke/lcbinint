@@ -1,0 +1,65 @@
+loaded 108 cases reps=1 trajectory_epochs=4 n_r=64
+PROFILE cold_value cases=108 wall_ms p50=1.133708 p90=2.006888 p95=2.149504 p99=2.405621 max=2.416870 status_ok=104 status_bad=4 max_mu_ref=2.044e-13 max_grad_ref=0.000e+00
+  calls radial_events=108 classify=108 cells=1370 nodes=25856
+  D14 calls=108 struct=108 horner=0 dd=108 qf_warm=6 qf_cold=0 warm_seed=0 sweeps(pre/dd/qfw/qfc)=21600/1696/10/0
+  D14 certificate root_count/conjugacy/vieta/completeness/close_pairs=0/0/0/0/52
+  D14 lifted attempts/success/cert-fail=0/0/0
+  D14 lifted fail seed/newton/scalar/lift/conj/vieta/recon=0/0/0/0/0/0/0
+  D14 lifted max reconstruction error=0.000e+00
+  D14 hybrid attempts/success/cert-fail=0/0/0 cheap/struct/unsafe=0/0/0 time_ms=0
+  topology probes=4110 grid512/3072/4096=1370/138/0 escalations=46 uncertain=4
+  roots quartic warm/cold/hits=8838/404/8838 pair calls/warm/cold=17548/16614/934 pred/newton/branch=232/46/282 iters=17904 guards(tmax/vfloor/gap/resid)=14/44/0/2
+  K attempts/success/reject=19672/18556/1116 mid_attempt/success/reject=0/0/0 reason nonfinite/vfloor/tmax/S2/B/disagree=0/0/0/0/0/1116 angular rescue calls/nodes=9348/598272
+  K reject affected cases nonfinite/vfloor/tmax/S2/B/disagree=0/0/0/0/0/20
+  K rescue ms/case disagreement p50=0.346874 p90=0.588227 p99=0.664351 max=0.665846
+  time ms radial=58.3973 d14(coeff/struct/expand/solve)=1.68076/0.219477/0.929381/54.187 d14 inner(pre/dd/qf/validate)=18.0064/27.87/1.28997/0.073195 topology=83.4567 grid=20.2932 arc=19.9249 pair=5.64656 endpoint=8.4378 f0=11.5791 K=3.16156 Kmid=0 rescue=14.3759
+  event physical_real/complex/soft/chart_p4/rep=630/376/360/68/0
+  derived K reject rate=5.673% rescue_ms_per_call=0.001538 D14 solve ms/call=0.501731
+PROFILE cold_value_jac cases=108 wall_ms p50=1.128731 p90=2.023149 p95=2.209914 p99=2.432562 max=2.503221 status_ok=104 status_bad=4 max_mu_ref=2.044e-13 max_grad_ref=1.218e-04
+  calls radial_events=108 classify=108 cells=1370 nodes=25856
+  D14 calls=108 struct=108 horner=0 dd=108 qf_warm=6 qf_cold=0 warm_seed=0 sweeps(pre/dd/qfw/qfc)=21600/1696/10/0
+  D14 certificate root_count/conjugacy/vieta/completeness/close_pairs=0/0/0/0/52
+  D14 lifted attempts/success/cert-fail=0/0/0
+  D14 lifted fail seed/newton/scalar/lift/conj/vieta/recon=0/0/0/0/0/0/0
+  D14 lifted max reconstruction error=0.000e+00
+  D14 hybrid attempts/success/cert-fail=0/0/0 cheap/struct/unsafe=0/0/0 time_ms=0
+  topology probes=4110 grid512/3072/4096=1370/138/0 escalations=46 uncertain=4
+  roots quartic warm/cold/hits=8838/404/8838 pair calls/warm/cold=17548/16614/934 pred/newton/branch=232/46/282 iters=17904 guards(tmax/vfloor/gap/resid)=14/44/0/2
+  K attempts/success/reject=19672/18556/1116 mid_attempt/success/reject=0/0/0 reason nonfinite/vfloor/tmax/S2/B/disagree=0/0/0/0/0/1116 angular rescue calls/nodes=9348/598272
+  K reject affected cases nonfinite/vfloor/tmax/S2/B/disagree=0/0/0/0/0/20
+  K rescue ms/case disagreement p50=0.334222 p90=0.584153 p99=0.702066 max=0.709879
+  time ms radial=58.2638 d14(coeff/struct/expand/solve)=1.71479/0.220782/0.947275/54.0341 d14 inner(pre/dd/qf/validate)=17.9999/27.8534/1.34976/0.073542 topology=83.1295 grid=20.1335 arc=19.8125 pair=5.56655 endpoint=8.48127 f0=11.6336 K=3.15195 Kmid=0 rescue=14.4024
+  event physical_real/complex/soft/chart_p4/rep=630/376/360/68/0
+  derived K reject rate=5.673% rescue_ms_per_call=0.001541 D14 solve ms/call=0.500316
+PROFILE warm_value_steady cases=324 wall_ms p50=1.012373 p90=1.665798 p95=2.160029 p99=3.494658 max=3.636109 status_ok=308 status_bad=16 max_mu_ref=5.839e-14 max_grad_ref=0.000e+00
+  calls radial_events=324 classify=324 cells=4000 nodes=68352
+  D14 calls=324 struct=324 horner=0 dd=324 qf_warm=4 qf_cold=0 warm_seed=0 sweeps(pre/dd/qfw/qfc)=19440/4830/14/0
+  D14 certificate root_count/conjugacy/vieta/completeness/close_pairs=0/0/0/0/106
+  D14 lifted attempts/success/cert-fail=0/0/0
+  D14 lifted fail seed/newton/scalar/lift/conj/vieta/recon=0/0/0/0/0/0/0
+  D14 lifted max reconstruction error=0.000e+00
+  D14 hybrid attempts/success/cert-fail=0/0/0 cheap/struct/unsafe=0/0/0 time_ms=0
+  topology probes=12000 grid512/3072/4096=4000/528/0 escalations=176 uncertain=10
+  roots quartic warm/cold/hits=18692/1068/18692 pair calls/warm/cold=51014/48592/2422 pred/newton/branch=720/106/828 iters=50720 guards(tmax/vfloor/gap/resid)=42/84/0/22
+  K attempts/success/reject=54314/52224/2090 mid_attempt/success/reject=0/0/0 reason nonfinite/vfloor/tmax/S2/B/disagree=0/0/0/0/0/2090 angular rescue calls/nodes=17024/1089536
+  K reject affected cases nonfinite/vfloor/tmax/S2/B/disagree=0/0/0/0/0/28
+  K rescue ms/case disagreement p50=0.664040 p90=1.027044 p99=1.099729 max=1.111718
+  time ms radial=134.344 d14(coeff/struct/expand/solve)=5.82637/0.797013/3.42066/120.577 d14 inner(pre/dd/qf/validate)=16.2403/79.3383/1.88492/0.29479 topology=213.167 grid=65.6713 arc=63.4854 pair=34.0604 endpoint=19.2342 f0=26.9547 K=8.67527 Kmid=0 rescue=26.7253
+  event physical_real/complex/soft/chart_p4/rep=1918/1106/1106/96/0
+  derived K reject rate=3.848% rescue_ms_per_call=0.001570 D14 solve ms/call=0.372150
+PROFILE warm_value_jac_steady cases=324 wall_ms p50=1.001113 p90=1.643135 p95=2.190985 p99=3.490212 max=3.650998 status_ok=308 status_bad=16 max_mu_ref=5.839e-14 max_grad_ref=1.379e-03
+  calls radial_events=324 classify=324 cells=4000 nodes=68352
+  D14 calls=324 struct=324 horner=0 dd=324 qf_warm=4 qf_cold=0 warm_seed=0 sweeps(pre/dd/qfw/qfc)=19440/4830/14/0
+  D14 certificate root_count/conjugacy/vieta/completeness/close_pairs=0/0/0/0/106
+  D14 lifted attempts/success/cert-fail=0/0/0
+  D14 lifted fail seed/newton/scalar/lift/conj/vieta/recon=0/0/0/0/0/0/0
+  D14 lifted max reconstruction error=0.000e+00
+  D14 hybrid attempts/success/cert-fail=0/0/0 cheap/struct/unsafe=0/0/0 time_ms=0
+  topology probes=12000 grid512/3072/4096=4000/528/0 escalations=176 uncertain=10
+  roots quartic warm/cold/hits=18692/1068/18692 pair calls/warm/cold=51014/48592/2422 pred/newton/branch=720/106/828 iters=50720 guards(tmax/vfloor/gap/resid)=42/84/0/22
+  K attempts/success/reject=54314/52224/2090 mid_attempt/success/reject=0/0/0 reason nonfinite/vfloor/tmax/S2/B/disagree=0/0/0/0/0/2090 angular rescue calls/nodes=17024/1089536
+  K reject affected cases nonfinite/vfloor/tmax/S2/B/disagree=0/0/0/0/0/28
+  K rescue ms/case disagreement p50=0.648079 p90=1.035741 p99=1.168201 max=1.203667
+  time ms radial=131.971 d14(coeff/struct/expand/solve)=5.62805/0.725602/3.21101/118.753 d14 inner(pre/dd/qf/validate)=16.253/79.2283/1.85672/0.251165 topology=210.507 grid=65.4417 arc=63.3638 pair=33.9053 endpoint=19.2183 f0=26.9544 K=8.70229 Kmid=0 rescue=26.8773
+  event physical_real/complex/soft/chart_p4/rep=1918/1106/1106/96/0
+  derived K reject rate=3.848% rescue_ms_per_call=0.001579 D14 solve ms/call=0.366523

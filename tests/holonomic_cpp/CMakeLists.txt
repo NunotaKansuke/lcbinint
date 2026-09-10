@@ -226,6 +226,15 @@ add_test(NAME holonomic_gm_taylor COMMAND test_gm_taylor)
 add_test(NAME holonomic_gm_physical COMMAND test_gm_physical)
 add_test(NAME holonomic_chart_p4 COMMAND test_chart_p4 "/tmp/bench_cases.tsv")
 
+add_executable(test_reciprocal_chart
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_reciprocal_chart.cpp")
+target_include_directories(test_reciprocal_chart PRIVATE "${_SRC}")
+target_compile_options(test_reciprocal_chart PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_reciprocal_chart PRIVATE quadmath)
+add_test(NAME holonomic_reciprocal_chart
+    COMMAND test_reciprocal_chart
+    "${_REPO_ROOT}/evidence/holonomic/gm_coverage_cases.tsv")
+
 # --- optional Python binding (separately named, isolated) ------------------
 option(LCBININT_BUILD_HOLONOMIC_M7_PY "Build the isolated _lcbinint_holonomic_m7 pybind module" ON)
 if(LCBININT_BUILD_HOLONOMIC_M7_PY)
@@ -297,3 +306,29 @@ target_include_directories(test_gm_phase7_shared PRIVATE "${_SRC}")
 target_compile_options(test_gm_phase7_shared PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_gm_phase7_shared PRIVATE quadmath)
 add_test(NAME holonomic_gm_phase7_shared COMMAND test_gm_phase7_shared)
+
+# Actual finite_source_binary production-router profile for current V2.
+# This is intentionally separate from the Phase 7 shared-geometry harness.
+add_executable(bench_v2_profile
+    "${CMAKE_CURRENT_SOURCE_DIR}/bench_v2_profile.cpp")
+target_include_directories(bench_v2_profile PRIVATE "${_SRC}")
+target_compile_options(bench_v2_profile PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_v2_profile PRIVATE quadmath)
+
+# Uninstrumented V2 whole-epoch value/value+5Jac cold/warm timing.  The
+# angular reference is used only for parity; transport overrides force the
+# measured route to the current V2 production candidate.
+add_executable(bench_v2_whole
+    "${CMAKE_CURRENT_SOURCE_DIR}/bench_v2_whole.cpp")
+target_include_directories(bench_v2_whole PRIVATE "${_SRC}")
+target_compile_options(bench_v2_whole PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_v2_whole PRIVATE quadmath)
+
+# Research-only D14 matrix-polynomial / companion-pencil comparison.  A QZ
+# dependency is intentionally not added to the isolated build; the benchmark
+# records the exact identity and pencil assembly before any external solver.
+add_executable(bench_d14_matrix
+    "${CMAKE_CURRENT_SOURCE_DIR}/bench_d14_matrix.cpp")
+target_include_directories(bench_d14_matrix PRIVATE "${_SRC}")
+target_compile_options(bench_d14_matrix PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_d14_matrix PRIVATE quadmath)

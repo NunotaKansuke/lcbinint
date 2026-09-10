@@ -29,16 +29,19 @@
 // non-finite result, OR an 8-vs-16-node quadrature disagreement above
 // kHoloKRelTol (wide arcs whose endpoints approach theta = pi -- the (m,v)
 // x-chart integrand sqrt(S2)/(A^{3/2} sqrt(B)) then develops structure the
-// 8-node rule cannot resolve; needs the Moebius chart, not yet implemented)
+// 8-node rule cannot resolve; an isolated reciprocal-chart retry is available
+// for A/B, while the production default remains the t-chart)
 // returns ok == false and the caller keeps the incumbent angular sweep for
 // that arc -- never a silent approximation.
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdlib>
 
 #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
+#include "lcbinint/magnification/holonomic/v2_profile.hpp"
 
 namespace lcbinint::holonomic {
 
@@ -46,8 +49,8 @@ constexpr double kHoloPi = 3.14159265358979323846;
 constexpr double kHoloTMax = 12.0;     // max endpoint |t| = |m| + sqrt(v);
                                        // t = tan(theta/2), |t| > 12 is within
                                        // ~0.17 rad of theta = pi where the
-                                       // (m, v) chart is unusable (needs the
-                                       // Moebius chart -- not yet implemented).
+                                       // (m, v) chart is unusable; an isolated
+                                       // reciprocal retry is available for A/B.
 constexpr double kHoloVFloor = 1e-10;  // v <= this: near-tangency, the x-chart
                                        // node derivative dt/dv ~ x/(2 sqrt(v))
                                        // blows up; such arcs are already
@@ -76,6 +79,16 @@ inline bool holo_holonomic_transport_enabled() {
     return on;
 }
 
+// Research-only condition-driven chart switch.  The incumbent t-chart is
+// unchanged unless an isolated A/B process explicitly enables this flag.
+inline bool holo_reciprocal_chart_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_RECIPROCAL_CHART");
+        return e && e[0] == '1';
+    }();
+    return on;
+}
+
 // Gauss-Chebyshev, 2nd kind, on (-1, 1):
 //   x_k = cos(k pi / (n+1)),  W_k = (pi / (n+1)) sin^2(k pi / (n+1)),  k = 1..n
 // exact for  int_{-1}^{1} p(x) sqrt(1 - x^2) dx ,  deg p <= 2n - 1.
@@ -84,8 +97,8 @@ inline bool holo_holonomic_transport_enabled() {
 constexpr int kHoloNK = 16;
 constexpr int kHoloNKLo = 8;
 struct GC2Rule {
-    double x[kHoloNK];
-    double w[kHoloNK];
+    double x[32];
+    double w[32];
 };
 inline void gc2_fill(GC2Rule& t, int n) {
     for (int k = 1; k <= n; ++k) {
@@ -102,6 +115,55 @@ inline const GC2Rule& gc2_rule16() {
 inline const GC2Rule& gc2_rule8() {
     static const GC2Rule r = [] { GC2Rule t{}; gc2_fill(t, kHoloNKLo); return t; }();
     return r;
+}
+inline const GC2Rule& gc2_rule24() {
+    static const GC2Rule r = [] { GC2Rule t{}; gc2_fill(t, 24); return t; }();
+    return r;
+}
+
+// Research-only three-level gate.  The incumbent 8-vs-16 test remains the
+// first certificate.  On its disagreement, 24 nodes are evaluated and the
+// 16-node value is accepted only when the independent 16-vs-24 difference is
+// within the same tolerance.  Default is off so all existing callers retain
+// the exact V2 gate unless the isolated A/B process opts in.
+inline bool holo_k_three_gate_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_K_GATE");
+        return e && (e[0] == 't' || e[0] == 's');
+    }();
+    return on;
+}
+
+inline bool holo_k_three_gate_strict() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_K_GATE");
+        return e && e[0] == 's';
+    }();
+    return on;
+}
+
+enum class KRejectReason {
+    none,
+    nonfinite,
+    vfloor,
+    tmax,
+    s2,
+    b,
+    disagreement,
+};
+
+inline void profile_k_reject(KRejectReason why) {
+    V2Profile* p = v2_profile_current();
+    if (!p) return;
+    ++p->k_reject;
+    switch (why) {
+        case KRejectReason::vfloor: ++p->k_reject_vfloor; break;
+        case KRejectReason::tmax: ++p->k_reject_tmax; break;
+        case KRejectReason::s2: ++p->k_reject_s2; break;
+        case KRejectReason::b: ++p->k_reject_b; break;
+        case KRejectReason::disagreement: ++p->k_reject_disagreement; break;
+        default: ++p->k_reject_nonfinite; break;
+    }
 }
 
 // Deflate the ascending quartic `pc` by (t - (m-s))(t - (m+s)), s = sqrt(v):
@@ -123,15 +185,21 @@ inline DeflatedQuad deflate_mv(const std::array<double, 5>& pc, double m,
 // over the first `n` nodes of `gc`.  Returns false on S2 < 0 or B <= 0.
 inline bool gc2_accum_G(const GC2Rule& gc, int n, double m, double s,
                         const DeflatedQuad& q, double Rma, double Rpa2,
-                        double& G) {
+                        double& G, KRejectReason* why = nullptr) {
     G = 0.0;
     for (int i = 0; i < n; ++i) {
         const double t = m + s * gc.x[i];
         const double S2 = -(q.d0 + t * (q.d1 + t * q.p4));
-        if (!(S2 >= 0.0)) return false;
+        if (!(S2 >= 0.0)) {
+            if (why) *why = KRejectReason::s2;
+            return false;
+        }
         const double A = 1.0 + t * t;
         const double B = Rma * Rma + Rpa2 * t * t;
-        if (!(B > 0.0)) return false;
+        if (!(B > 0.0)) {
+            if (why) *why = KRejectReason::b;
+            return false;
+        }
         G += gc.w[i] * std::sqrt(S2) / (A * std::sqrt(A) * std::sqrt(B));
     }
     return true;
@@ -143,15 +211,45 @@ inline bool gc2_accum_G(const GC2Rule& gc, int n, double m, double s,
 // `vK` carries the 16-node value.
 inline bool k_rule_converged(double m, double v, double s, const DeflatedQuad& q,
                              double Rma, double Rpa2, double two_over_rho,
-                             double& vK) {
+                             double& vK, KRejectReason* why = nullptr) {
+    if (why) *why = KRejectReason::none;
     double G16 = 0.0, G8 = 0.0;
-    if (!gc2_accum_G(gc2_rule16(), kHoloNK, m, s, q, Rma, Rpa2, G16)) return false;
-    if (!gc2_accum_G(gc2_rule8(), kHoloNKLo, m, s, q, Rma, Rpa2, G8)) return false;
+    if (!gc2_accum_G(gc2_rule16(), kHoloNK, m, s, q, Rma, Rpa2, G16, why)) return false;
+    if (!gc2_accum_G(gc2_rule8(), kHoloNKLo, m, s, q, Rma, Rpa2, G8, why)) return false;
     const double vK16 = two_over_rho * v * G16;
     const double vK8 = two_over_rho * v * G8;
-    if (!std::isfinite(vK16) || !std::isfinite(vK8)) return false;
+    if (!std::isfinite(vK16) || !std::isfinite(vK8)) {
+        if (why) *why = KRejectReason::nonfinite;
+        return false;
+    }
     const double denom = std::fabs(vK16) > 0.0 ? std::fabs(vK16) : 1.0;
-    if (std::fabs(vK16 - vK8) > kHoloKRelTol * denom) return false;
+    if (std::fabs(vK16 - vK8) > kHoloKRelTol * denom) {
+        if (holo_k_three_gate_enabled()) {
+            V2Profile* prof = v2_profile_current();
+            if (prof) ++prof->k_mid_attempts;
+            double G24 = 0.0;
+            auto mid_begin = V2Clock::now();
+            const bool ok24 = gc2_accum_G(gc2_rule24(), 24, m, s, q, Rma,
+                                          Rpa2, G24, nullptr);
+            const double vK24 = two_over_rho * v * G24;
+            const double mid_tol = holo_k_three_gate_strict()
+                                       ? 1e-12
+                                       : kHoloKRelTol;
+            const bool agree24 = ok24 && std::isfinite(vK24) &&
+                std::fabs(vK16 - vK24) <= mid_tol * denom;
+            if (prof)
+                v2_profile_add_ms(&V2Profile::k_mid_ms, mid_begin,
+                                  V2Clock::now());
+            if (agree24) {
+                if (prof) ++prof->k_mid_success;
+                vK = vK16;
+                return true;
+            }
+            if (prof) ++prof->k_mid_reject;
+        }
+        if (why) *why = KRejectReason::disagreement;
+        return false;
+    }
     vK = vK16;
     return true;
 }
@@ -164,6 +262,7 @@ struct ArcPairJac {
     double m, v, s;                  // s = sqrt(v) = (t_hi - t_lo) / 2
     std::array<double, 5> dm, dv;
     bool ok;                         // false: straddles theta = pi / tangency
+    int reject_reason = 0;           // 1 nonfinite, 2 order, 3 TMax, 4 VFloor
 };
 inline ArcPairJac arc_pair_jac(double te, double tl,
                                const std::array<double, 5>& dte,
@@ -173,6 +272,7 @@ inline ArcPairJac arc_pair_jac(double te, double tl,
     const double t_hi = std::tan(0.5 * tl);
     if (!std::isfinite(t_lo) || !std::isfinite(t_hi) || t_hi <= t_lo) {
         out.ok = false;
+        out.reject_reason = (!std::isfinite(t_lo) || !std::isfinite(t_hi)) ? 1 : 2;
         return out;
     }
     const double half = 0.5 * (t_hi - t_lo);
@@ -181,6 +281,7 @@ inline ArcPairJac arc_pair_jac(double te, double tl,
     out.s = half;
     if (std::fabs(out.m) + out.s > kHoloTMax || out.v <= kHoloVFloor) {
         out.ok = false;
+        out.reject_reason = std::fabs(out.m) + out.s > kHoloTMax ? 3 : 4;
         return out;
     }
     // dt/dP_j = 0.5 (1 + t^2) dtheta/dP_j     (t = tan(theta/2))
@@ -196,23 +297,106 @@ inline ArcPairJac arc_pair_jac(double te, double tl,
     return out;
 }
 
+// The reciprocal chart u = -1/t = tan((theta-pi)/2) is continuous across
+// theta=pi, where the incumbent t chart has its pole.  It has the other pole
+// at theta=0, so an arc that crosses a 2*pi boundary is rejected here and
+// remains on the incumbent angular rescue.  The derivative is
+// du/dP = (1/t^2) dt/dP = (1+u^2) dtheta/dP / 2.
+inline ArcPairJac arc_pair_jac_reciprocal(
+    double te, double tl, const std::array<double, 5>& dte,
+    const std::array<double, 5>& dtl) {
+    ArcPairJac out{};
+    const double two_pi = 2.0 * kHoloPi;
+    if (!std::isfinite(te) || !std::isfinite(tl) ||
+        std::floor(te / two_pi) != std::floor(tl / two_pi)) {
+        out.ok = false;
+        out.reject_reason = 2;
+        return out;
+    }
+    const double t_e = std::tan(0.5 * te);
+    const double t_l = std::tan(0.5 * tl);
+    if (!std::isfinite(t_e) || !std::isfinite(t_l) ||
+        t_e == 0.0 || t_l == 0.0) {
+        out.ok = false;
+        out.reject_reason = 1;
+        return out;
+    }
+    const double u_e = -1.0 / t_e;
+    const double u_l = -1.0 / t_l;
+    if (!std::isfinite(u_e) || !std::isfinite(u_l) || u_e == u_l) {
+        out.ok = false;
+        out.reject_reason = !std::isfinite(u_e) || !std::isfinite(u_l) ? 1 : 2;
+        return out;
+    }
+
+    const double ju_e = 0.5 * (1.0 + t_e * t_e) / (t_e * t_e);
+    const double ju_l = 0.5 * (1.0 + t_l * t_l) / (t_l * t_l);
+    std::array<double, 5> du_e{}, du_l{};
+    for (int j = 0; j < 5; ++j) {
+        du_e[j] = ju_e * dte[j];
+        du_l[j] = ju_l * dtl[j];
+    }
+
+    const double u_lo = std::min(u_e, u_l);
+    const double u_hi = std::max(u_e, u_l);
+    const std::array<double, 5>& d_lo = u_e < u_l ? du_e : du_l;
+    const std::array<double, 5>& d_hi = u_e < u_l ? du_l : du_e;
+    const double half = 0.5 * (u_hi - u_lo);
+    out.m = 0.5 * (u_lo + u_hi);
+    out.v = half * half;
+    out.s = half;
+    if (std::fabs(out.m) + out.s > kHoloTMax || out.v <= kHoloVFloor) {
+        out.ok = false;
+        out.reject_reason = std::fabs(out.m) + out.s > kHoloTMax ? 3 : 4;
+        return out;
+    }
+    for (int j = 0; j < 5; ++j) {
+        out.dm[j] = 0.5 * (d_lo[j] + d_hi[j]);
+        out.dv[j] = out.s * (d_hi[j] - d_lo[j]);
+    }
+    out.ok = true;
+    return out;
+}
+
 // (2/rho) Phi_arc(R) = v K, the F_half value integrand for one arc.
 struct VKValue {
     double vK;
     bool ok;
 };
 inline VKValue v_times_K(double m, double v, double R, const PrimaryFrame& pf,
-                         const std::array<double, 5>& pc) {
-    if (!(v > kHoloVFloor) || !std::isfinite(v) || !std::isfinite(m))
+                         const std::array<double, 5>& pc,
+                         bool reciprocal = false) {
+    V2Profile* prof = v2_profile_current();
+    if (prof) ++prof->k_attempts;
+    if (!std::isfinite(v) || !std::isfinite(m)) {
+        profile_k_reject(KRejectReason::nonfinite);
         return {0.0, false};
+    }
+    if (!(v > kHoloVFloor)) {
+        profile_k_reject(KRejectReason::vfloor);
+        return {0.0, false};
+    }
     const double s = std::sqrt(v);
-    if (std::fabs(m) + s > kHoloTMax) return {0.0, false};
+    if (std::fabs(m) + s > kHoloTMax) {
+        profile_k_reject(KRejectReason::tmax);
+        return {0.0, false};
+    }
     const DeflatedQuad q = deflate_mv(pc, m, v);
     const double Rma = R - pf.a, Rpa = R + pf.a;
-    const double Rpa2 = Rpa * Rpa;
+    const double b0 = reciprocal ? Rpa : Rma;
+    const double b2 = reciprocal ? Rma * Rma : Rpa * Rpa;
     double vK = 0.0;
-    if (!k_rule_converged(m, v, s, q, Rma, Rpa2, 2.0 / pf.rho, vK))
+    KRejectReason why = KRejectReason::none;
+    auto k_begin = V2Clock::now();
+    if (!k_rule_converged(m, v, s, q, b0, b2, 2.0 / pf.rho, vK, &why)) {
+        if (prof) v2_profile_add_ms(&V2Profile::k_ms, k_begin, V2Clock::now());
+        profile_k_reject(why);
         return {0.0, false};
+    }
+    if (prof) {
+        ++prof->k_success;
+        v2_profile_add_ms(&V2Profile::k_ms, k_begin, V2Clock::now());
+    }
     return {vK, true};
 }
 
@@ -229,16 +413,31 @@ inline VKJacobian v_times_K_jac(
     double m, double v, const std::array<double, 5>& dm,
     const std::array<double, 5>& dv, double R, const PrimaryFrame& pf,
     const std::array<double, 5>& pc,
-    const std::array<std::array<double, 5>, 5>& dpc) {
+    const std::array<std::array<double, 5>, 5>& dpc,
+    bool reciprocal = false) {
     VKJacobian out{};
     out.ok = false;
-    if (!(v > kHoloVFloor) || !std::isfinite(v) || !std::isfinite(m)) return out;
+    V2Profile* prof = v2_profile_current();
+    if (prof) ++prof->k_attempts;
+    if (!std::isfinite(v) || !std::isfinite(m)) {
+        profile_k_reject(KRejectReason::nonfinite);
+        return out;
+    }
+    if (!(v > kHoloVFloor)) {
+        profile_k_reject(KRejectReason::vfloor);
+        return out;
+    }
     const double s = std::sqrt(v);
-    if (std::fabs(m) + s > kHoloTMax) return out;
+    if (std::fabs(m) + s > kHoloTMax) {
+        profile_k_reject(KRejectReason::tmax);
+        return out;
+    }
 
     const DeflatedQuad q = deflate_mv(pc, m, v);
     const double p4 = q.p4, d1 = q.d1, d0 = q.d0;
-    const double Rma = R - pf.a, Rpa = R + pf.a, Rpa2 = Rpa * Rpa;
+    const double Rma = R - pf.a, Rpa = R + pf.a;
+    const double b0 = reciprocal ? Rpa : Rma;
+    const double b2 = reciprocal ? Rma * Rma : Rpa * Rpa;
     const double inv_rho = 1.0 / pf.rho;
     const double two_over_rho = 2.0 * inv_rho;
     const double inv_2s = 0.5 / s;
@@ -246,8 +445,14 @@ inline VKJacobian v_times_K_jac(
     // fail closed on an 8-vs-16-node quadrature disagreement (wide arc, endpoint
     // near theta = pi) -- same gate v_times_K applies to the value.
     double vK_chk = 0.0;
-    if (!k_rule_converged(m, v, s, q, Rma, Rpa2, two_over_rho, vK_chk))
+    KRejectReason why = KRejectReason::none;
+    auto k_begin = V2Clock::now();
+    if (!k_rule_converged(m, v, s, q, b0, b2, two_over_rho, vK_chk, &why)) {
+        if (prof) v2_profile_add_ms(&V2Profile::k_ms, k_begin, V2Clock::now());
+        profile_k_reject(why);
         return out;
+    }
+    if (prof) v2_profile_add_ms(&V2Profile::k_ms, k_begin, V2Clock::now());
 
     // deflated-coefficient parameter derivatives
     //   p4 = pc[4]
@@ -268,23 +473,32 @@ inline VKJacobian v_times_K_jac(
         const double xi = gc.x[i], wi = gc.w[i];
         const double t = m + s * xi;
         const double S2 = -(d0 + t * (d1 + t * p4));
-        if (!(S2 > 0.0)) return out;
+        if (!(S2 > 0.0)) {
+            profile_k_reject(KRejectReason::s2);
+            return out;
+        }
         const double A = 1.0 + t * t;
-        const double B = Rma * Rma + Rpa2 * t * t;
-        if (!(B > 0.0)) return out;
+        const double B = b0 * b0 + b2 * t * t;
+        if (!(B > 0.0)) {
+            profile_k_reject(KRejectReason::b);
+            return out;
+        }
         const double wv = std::sqrt(S2) / (A * std::sqrt(A) * std::sqrt(B));
         G += wi * wv;
 
         const double dS2_dt = -(d1 + 2.0 * t * p4);
         const double dA_dt = 2.0 * t;
-        const double dB_dt = 2.0 * Rpa2 * t;
+        const double dB_dt = 2.0 * b2 * t;
         const double c_S2 = 0.5 / S2, c_A = -1.5 / A, c_B = -0.5 / B;
         for (int j = 0; j < 5; ++j) {
             const double dt = dm[j] + xi * inv_2s * dv[j];
             double dS2 = -(dd0[j] + t * (dd1[j] + t * dp4[j])) + dS2_dt * dt;
             double dA = dA_dt * dt;
             double dB = dB_dt * dt;
-            if (j == 4) dB += -2.0 * Rma + 2.0 * Rpa * t * t;  // explicit d/da B
+            if (j == 4) {
+                dB += reciprocal ? 2.0 * Rpa - 2.0 * Rma * t * t
+                                  : -2.0 * Rma + 2.0 * Rpa * t * t;
+            }  // explicit d/da B
             const double dw = wv * (c_S2 * dS2 + c_A * dA + c_B * dB);
             dG[j] += wi * dw;
         }
@@ -299,6 +513,10 @@ inline VKJacobian v_times_K_jac(
     out.vK = vK;
     out.ok = std::isfinite(vK);
     for (double d : out.dvK) out.ok = out.ok && std::isfinite(d);
+    if (prof) {
+        if (out.ok) ++prof->k_success;
+        else profile_k_reject(KRejectReason::nonfinite);
+    }
     return out;
 }
 

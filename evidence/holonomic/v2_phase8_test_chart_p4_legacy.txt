@@ -1,0 +1,6 @@
+cases                 108
+|Y|<=rho cases        34
+worst root rel diff    6.548e-15
+worst p4 residual      1.846e-16
+
+PASS

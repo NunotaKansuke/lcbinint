@@ -34,6 +34,7 @@
 #include "lcbinint/magnification/holonomic/radial_events.hpp"
 #include "lcbinint/magnification/holonomic/radius_terms.hpp"
 #include "lcbinint/magnification/holonomic/status.hpp"
+#include "lcbinint/magnification/holonomic/v2_profile.hpp"
 
 namespace lcbinint::holonomic {
 
@@ -75,6 +76,9 @@ inline TopologyResult classify_cells(
     const PrimaryFrame& pf,
     const std::vector<Cplx<__float128>>* d14_warm = nullptr,
     std::vector<Cplx<__float128>>* d14_roots_out = nullptr) {
+    V2Profile* prof = v2_profile_current();
+    if (prof) ++prof->classify_calls;
+    V2ProfileTimer topology_timer(&V2Profile::topology_ms);
     double r_max = 0.0;
     auto events = radial_events(pf, &r_max, 1e-7, d14_warm, d14_roots_out);
 
@@ -105,6 +109,7 @@ inline TopologyResult classify_cells(
         if (hi - lo < 1e-11) continue;
         double Rp[3];
         for (int k = 0; k < 3; ++k) Rp[k] = lo + fr[k] * (hi - lo);
+        auto probe_begin = V2Clock::now();
 
         // --- fast path: boundary-quartic topology at the 3 fractions ----
         GridArcs probe[3];
@@ -123,6 +128,7 @@ inline TopologyResult classify_cells(
         bool mid_agrees = cells_detail::same_sig(probe[1], mid_grid);
 
         if (!uniform || !mid_agrees) {
+            if (prof) ++prof->topology_escalations;
             // escalate exactly to the M7 path: 3072-grid at all three.
             for (int k = 0; k < 3; ++k) probe[k] = arcs_at(Rp[k], pf, 3072);
             uniform = cells_detail::same_sig(probe[1], probe[0]) &&
@@ -136,10 +142,16 @@ inline TopologyResult classify_cells(
         if (!uniform || (mid.n_crossings % 2 != 0)) {
             cs = Status::TOPOLOGY_UNCERTAIN;
             worst = Status::TOPOLOGY_UNCERTAIN;
+            if (prof) ++prof->topology_uncertain;
         }
         out.cells.push_back(CellPlan{(int)out.cells.size(), lo, hi,
                                      0.5 * (lo + hi), mid.kind,
                                      mid.n_crossings, cs});
+        if (prof) {
+            ++prof->classified_cells;
+            v2_profile_add_ms(&V2Profile::topology_probe_ms, probe_begin,
+                              V2Clock::now());
+        }
     }
     out.status = worst;
     return out;

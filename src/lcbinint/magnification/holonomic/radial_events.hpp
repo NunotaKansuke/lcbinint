@@ -28,6 +28,7 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -36,9 +37,12 @@
 #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
 #include "lcbinint/magnification/holonomic/d14_structure.hpp"
 #include "lcbinint/magnification/holonomic/dd_real.hpp"
+#include "lcbinint/magnification/holonomic/d14_lifted.hpp"
+#include "lcbinint/magnification/holonomic/d14_hybrid.hpp"
 #include "lcbinint/magnification/holonomic/fp_env.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
 #include "lcbinint/magnification/holonomic/poly_roots.hpp"
+#include "lcbinint/magnification/holonomic/v2_profile.hpp"
 
 namespace lcbinint::holonomic {
 
@@ -381,6 +385,77 @@ inline bool holo_d14_struct_enabled() {
     return on;
 }
 
+// Research selector.  The shipped default is the proven compensated
+// Aberth path.  `HOLO_D14_METHOD=lifted` only permits the cubic-discriminant
+// candidate below after its independent global certificate passes; a failed
+// candidate immediately continues through the incumbent ladder.
+inline bool holo_d14_lifted_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_METHOD");
+        return e && e[0] == 'l';
+    }();
+    return on;
+}
+
+inline bool holo_d14_hybrid_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_METHOD");
+        return e && std::strncmp(e, "hybrid", 6) == 0;
+    }();
+    return on;
+}
+
+inline bool holo_d14_horner_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_METHOD");
+        return e && std::strncmp(e, "horner", 6) == 0;
+    }();
+    return on;
+}
+
+// Research A/B knob for the balanced double basin search.  The shipped
+// defaults remain 200 cold / 60 warm.  Any shorter search is still followed
+// by the existing DD/qf residual and global completeness gates, so a missed
+// basin can only escalate or fail closed.
+inline int holo_d14_presearch_max(bool warm) {
+    static const int requested = [] {
+        const char* e = std::getenv("HOLO_D14_PRESEARCH_MAX");
+        if (!e || !*e) return 0;
+        const int n = std::atoi(e);
+        return (n >= 20 && n <= 200) ? n : 0;
+    }();
+    const int default_max = warm ? 60 : 200;
+    if (requested == 0) return default_max;
+    return warm ? std::min(default_max, requested) : requested;
+}
+
+// Research-only early-stop knob for the double basin locator.  This pass is
+// not the accuracy owner: DD/qf polishing and the global certificates below
+// remain unchanged.  The default is zero, which preserves the incumbent
+// fixed-work presearch exactly; a positive value is an A/B experiment for
+// whether a certified downstream polish can safely absorb an earlier stop.
+inline double holo_d14_presearch_tol() {
+    static const double tol = [] {
+        const char* e = std::getenv("HOLO_D14_PRESEARCH_TOL");
+        if (!e || !*e) return 0.0;
+        char* end = nullptr;
+        const double x = std::strtod(e, &end);
+        if (end == e || *end != '\0' || !std::isfinite(x) ||
+            !(x > 0.0) || x > 1e-12)
+            return 0.0;
+        return x;
+    }();
+    return tol;
+}
+
+inline bool holo_d14_skip_warm_presearch() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_SKIP_WARM_PRESEARCH");
+        return e && e[0] == '1';
+    }();
+    return on;
+}
+
 // Result of the multi-tier D14 root solve.
 struct D14Solve {
     std::vector<Cplx<qf>> roots;
@@ -431,6 +506,9 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                           const D14StructQf* sc = nullptr) {
     const qf* desc = desc_v.data();
     D14Solve out;
+    V2Profile* prof = v2_profile_current();
+    if (prof) ++prof->d14_solve_calls;
+    V2ProfileTimer solve_timer(&V2Profile::d14_solve_ms);
 
     qf dscale = 0;
     for (int i = 0; i <= deg; ++i) {
@@ -467,9 +545,26 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         }
         if (!ok) presearch_seed.clear();
     }
-    auto zd = presearch_seed.empty()
-                  ? aberth<double>(descd.data(), deg, 200)
-                  : aberth<double>(descd.data(), deg, 60, presearch_seed.data());
+    int pre_iters = 0;
+    auto pre_begin = V2Clock::now();
+    const int pre_max = holo_d14_presearch_max(!presearch_seed.empty());
+    std::vector<Cplx<double>> zd;
+    if (!presearch_seed.empty() && holo_d14_skip_warm_presearch()) {
+        // The seed was produced by a previously certified D14 solve.  This
+        // is a research-only warm trajectory experiment: the DD/qf polish,
+        // residual gate, and global certificate still own correctness.
+        zd = presearch_seed;
+    } else if (presearch_seed.empty()) {
+        zd = aberth<double>(descd.data(), deg, pre_max, nullptr,
+                            holo_d14_presearch_tol(), nullptr, &pre_iters);
+    } else {
+        zd = aberth<double>(descd.data(), deg, pre_max, presearch_seed.data(),
+                            holo_d14_presearch_tol(), nullptr, &pre_iters);
+    }
+    if (prof) {
+        prof->d14_presearch_sweeps += (V2Profile::u64)pre_iters;
+        v2_profile_add_ms(&V2Profile::d14_presearch_ms, pre_begin, V2Clock::now());
+    }
     out.warm_seeded = !presearch_seed.empty();
     bool seed_ok = true;
     for (int i = 0; i < deg; ++i)
@@ -480,7 +575,10 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
 
     // Block-form D/D' polish (memo section 3): exact C3/G4/Z3 evaluation
     // in place of Horner on the cancellation-carrying expanded vector.
-    const bool use_struct = sc && holo_d14_struct_enabled() && deg == 14;
+    const bool use_struct = sc && holo_d14_struct_enabled() && deg == 14 &&
+                            !holo_d14_horner_enabled();
+    if (prof && use_struct) ++prof->d14_struct_calls;
+    if (prof && holo_d14_horner_enabled()) ++prof->d14_horner_calls;
     D14StructC<DD> scdd;
     D14StructQf scqf;
     if (use_struct) {
@@ -488,7 +586,70 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         scqf = *sc;
     }
 
-    if (seed_ok && compensated) {
+    bool used_lifted = false;
+    bool used_hybrid = false;
+    if (seed_ok && use_struct && holo_d14_hybrid_enabled()) {
+        if (prof) ++prof->d14_hybrid_attempts;
+        auto hybrid_begin = V2Clock::now();
+        auto hybrid = d14_hybrid_solve(*sc, desc_v, zd, sscale);
+        qf hybrid_res = 0;
+        const bool cert = d14_scalar_certificate(sc, desc_v, hybrid.roots,
+                                                 &hybrid_res);
+        if (prof) {
+            prof->d14_hybrid_cheap_calls +=
+                static_cast<V2Profile::u64>(hybrid.cheap_calls);
+            prof->d14_hybrid_structural_calls +=
+                static_cast<V2Profile::u64>(hybrid.structural_calls);
+            prof->d14_hybrid_unsafe_calls +=
+                static_cast<V2Profile::u64>(hybrid.unsafe_calls);
+            v2_profile_add_ms(&V2Profile::d14_hybrid_ms, hybrid_begin,
+                              V2Clock::now());
+        }
+        if (hybrid.converged && cert) {
+            out.roots = std::move(hybrid.roots);
+            out.worst_res = hybrid_res;
+            out.tier = 0;
+            used_hybrid = true;
+            if (prof) ++prof->d14_hybrid_success;
+        } else if (prof) {
+            ++prof->d14_hybrid_certificate_fail;
+        }
+    }
+    if (seed_ok && use_struct && holo_d14_lifted_enabled()) {
+        if (prof) ++prof->d14_lifted_attempts;
+        auto lift_begin = V2Clock::now();
+        auto lifted = d14_lifted_solve(*sc, zd, sscale);
+        qf lifted_res = 0;
+        qf lifted_rec = 0;
+        int lifted_reason = 0;
+        const bool cert = d14_lifted_certificate(*sc, desc_v, lifted,
+                                                 &lifted_res, &lifted_reason,
+                                                 &lifted_rec);
+        if (prof)
+            prof->d14_lifted_max_reconstruct =
+                std::max(prof->d14_lifted_max_reconstruct, (double)lifted_rec);
+        if (prof)
+            v2_profile_add_ms(&V2Profile::d14_qf_ms, lift_begin, V2Clock::now());
+        if (cert) {
+            out.roots = std::move(lifted.roots);
+            out.worst_res = lifted_res;
+            out.tier = 0;
+            used_lifted = true;
+            if (prof) ++prof->d14_lifted_success;
+        } else if (prof) {
+            ++prof->d14_lifted_certificate_fail;
+            if (lifted.failure_code == 1) ++prof->d14_lifted_fail_seed;
+            else if (lifted.failure_code == 2) ++prof->d14_lifted_fail_newton;
+            else if (lifted.failure_code == 3) ++prof->d14_lifted_fail_scalar;
+            else if (lifted_reason == 4) ++prof->d14_lifted_fail_scalar;
+            else if (lifted_reason == 3) ++prof->d14_lifted_fail_lift;
+            else if (lifted_reason == 5) ++prof->d14_lifted_fail_conjugacy;
+            else if (lifted_reason == 6) ++prof->d14_lifted_fail_vieta;
+            else if (lifted_reason == 7) ++prof->d14_lifted_fail_reconstruct;
+        }
+    }
+
+    if (!used_hybrid && !used_lifted && seed_ok && compensated) {
         // FTZ/DAZ off so the error-free transforms keep their lo limbs.
         ScopedNoFlushDenormals _eft;
         std::vector<DD> descdd(deg + 1);
@@ -502,10 +663,19 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         // floor.  tol 1e-26 is inside that floor (a step norm below it for
         // O(10) roots is dd round-off); 25 sweeps is headroom for a
         // poorly-seeded root (the residual gate escalates it if not).
+        int dd_iters = 0;
+        auto dd_begin = V2Clock::now();
         auto zdd =
             use_struct
-                ? aberth_d14_struct<DD>(scdd, nullptr, 25, seed.data(), DD(1e-26))
-                : aberth<DD>(descdd.data(), deg, 25, seed.data(), DD(1e-26));
+                ? aberth_d14_struct<DD>(scdd, nullptr, 25, seed.data(), DD(1e-26),
+                                        &dd_iters)
+                : aberth<DD>(descdd.data(), deg, 25, seed.data(), DD(1e-26),
+                             nullptr, &dd_iters);
+        if (prof) {
+            ++prof->d14_dd_calls;
+            prof->d14_dd_sweeps += (V2Profile::u64)dd_iters;
+            v2_profile_add_ms(&V2Profile::d14_dd_ms, dd_begin, V2Clock::now());
+        }
         out.roots.resize(deg);
         for (int i = 0; i < deg; ++i)
             out.roots[i] = Cplx<qf>(qf_from_dd(zdd[i].re), qf_from_dd(zdd[i].im));
@@ -515,34 +685,60 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         // near-multiple cluster past ~106 bits -> escalate that solve to an
         // __float128 warm polish seeded by the dd roots.
         if (!(out.worst_res <= (qf)1e-13)) {
+            int qf_iters = 0;
+            auto qf_begin = V2Clock::now();
             out.roots =
                 use_struct
                     ? aberth_d14_struct<qf>(scqf, nullptr, 24, out.roots.data(),
-                                            (qf)1e-20)
-                    : aberth<qf>(desc, deg, 24, out.roots.data(), (qf)1e-20);
+                                            (qf)1e-20, &qf_iters)
+                    : aberth<qf>(desc, deg, 24, out.roots.data(), (qf)1e-20,
+                                 nullptr, &qf_iters);
+            if (prof) {
+                ++prof->d14_qf_warm_calls;
+                prof->d14_qf_warm_sweeps += (V2Profile::u64)qf_iters;
+                v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, V2Clock::now());
+            }
             out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
             out.tier = 1;
             if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
         }
-    } else if (seed_ok) {
+    } else if (!used_hybrid && !used_lifted && seed_ok) {
         std::vector<Cplx<qf>> seed(deg);
         for (int i = 0; i < deg; ++i)
             seed[i] = Cplx<qf>((qf)zd[i].re * (qf)sscale,
                                (qf)zd[i].im * (qf)sscale);
+        int qf_iters = 0;
+        auto qf_begin = V2Clock::now();
         out.roots =
             use_struct
-                ? aberth_d14_struct<qf>(scqf, nullptr, 24, seed.data(), (qf)1e-20)
-                : aberth<qf>(desc, deg, 24, seed.data(), (qf)1e-20);
+                ? aberth_d14_struct<qf>(scqf, nullptr, 24, seed.data(), (qf)1e-20,
+                                        &qf_iters)
+                : aberth<qf>(desc, deg, 24, seed.data(), (qf)1e-20, nullptr,
+                             &qf_iters);
+        if (prof) {
+            ++prof->d14_qf_warm_calls;
+            prof->d14_qf_warm_sweeps += (V2Profile::u64)qf_iters;
+            v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, V2Clock::now());
+        }
         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
         out.tier = 3;
         if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
     }
 
     if (!seed_ok) {
+        int qf_iters = 0;
+        auto qf_begin = V2Clock::now();
         out.roots =
             use_struct
-                ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22)
-                : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22);
+                ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22,
+                                        &qf_iters)
+                : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22, nullptr,
+                             &qf_iters);
+        if (prof) {
+            ++prof->d14_qf_cold_calls;
+            prof->d14_qf_cold_sweeps += (V2Profile::u64)qf_iters;
+            v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, V2Clock::now());
+        }
         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
         out.tier = (out.tier == 0 && !compensated) ? -1 : 2;
     }
@@ -554,6 +750,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     // the power sum well outside rounding.  The residual is scale-free;
     // the roots are O(1..10) so an absolute 1e-6 slack on a deg-14 sum is
     // ~1e5 x the honest error.  On failure redo cold (once).
+    auto validation_begin = V2Clock::now();
     if (out.tier != 2 && out.tier != -1 && deg >= 1 &&
         (double)fabsq(desc[0]) > 0.0) {
         Cplx<qf> s{(qf)0, (qf)0};
@@ -562,14 +759,26 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         qf err = fabsq(s.re - want) + fabsq(s.im);
         qf tolsum = (qf)1e-6 * ((qf)1 + fabsq(want));
         if (!(err <= tolsum)) {
+            if (prof) ++prof->d14_completeness_fails;
+            int qf_iters = 0;
+            auto qf_begin = V2Clock::now();
             out.roots =
                 use_struct
-                    ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22)
-                    : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22);
+                    ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22,
+                                            &qf_iters)
+                    : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22, nullptr,
+                                 &qf_iters);
+            if (prof) {
+                ++prof->d14_qf_cold_calls;
+                prof->d14_qf_cold_sweeps += (V2Profile::u64)qf_iters;
+                v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, V2Clock::now());
+            }
             out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
             out.tier = 2;
         }
     }
+    if (prof) v2_profile_add_ms(&V2Profile::d14_validate_ms, validation_begin,
+                                V2Clock::now());
 
     // D14 has real coefficients: its non-real roots are exact conjugate
     // pairs, so a pair's two real parts are mathematically identical.  A
@@ -608,6 +817,79 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             done[i] = done[j] = 1;
         }
     }
+
+    // Diagnostic only: count suspiciously close root pairs after the final
+    // conjugacy snap.  This is deliberately outside all solver decisions;
+    // it identifies the clusters that drive the DD/qf ladder without adding
+    // another heuristic to the production root path.
+    if (prof) {
+        if ((int)out.roots.size() != deg) ++prof->d14_root_count_bad;
+        for (size_t i = 0; i < out.roots.size(); ++i) {
+            const auto& a = out.roots[i];
+            if (fabsq(a.im) <= (qf)1e-10 * ((qf)1 + fabsq(a.re))) continue;
+            bool found = false;
+            for (size_t j = 0; j < out.roots.size(); ++j) {
+                if (i == j) continue;
+                const auto& b = out.roots[j];
+                const qf e = fabsq(a.re - b.re) + fabsq(a.im + b.im);
+                if (e <= (qf)1e-7 * ((qf)1 + fabsq(a.re) + fabsq(a.im))) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) ++prof->d14_conjugacy_bad;
+        }
+        if ((int)out.roots.size() == deg && desc[0] != 0) {
+            for (int power = 1; power <= 3; ++power) {
+                Cplx<qf> sum(0, 0);
+                for (const auto& r : out.roots) {
+                    Cplx<qf> x(1, 0);
+                    for (int k = 0; k < power; ++k) x = x * r;
+                    sum = sum + x;
+                }
+                const qf c1 = desc[1] / desc[0];
+                const qf c2 = desc[2] / desc[0];
+                const qf c3 = desc[3] / desc[0];
+                const qf want = power == 1 ? -c1
+                                  : power == 2 ? c1 * c1 - 2 * c2
+                                               : -c1 * c1 * c1 + 3 * c1 * c2 - 3 * c3;
+                if (!(cabs(sum - Cplx<qf>(want, 0)) <=
+                      (qf)2e-8 * ((qf)1 + fabsq(want))))
+                    ++prof->d14_vieta_bad;
+            }
+        }
+        for (int i = 0; i < deg; ++i) {
+            for (int j = i + 1; j < deg; ++j) {
+                const qf d = fabsq(out.roots[i].re - out.roots[j].re) +
+                             fabsq(out.roots[i].im - out.roots[j].im);
+                const qf sc = (qf)1 + fabsq(out.roots[i].re) +
+                              fabsq(out.roots[i].im) + fabsq(out.roots[j].re) +
+                              fabsq(out.roots[j].im);
+                if (d <= (qf)1e-8 * sc) ++prof->d14_root_clusters;
+            }
+        }
+    }
+
+    // The Horner candidate is allowed to reach event classification only
+    // after validation through the exact structural evaluator.  A failure is
+    // a hard qf escalation; it never returns an unchecked root set.
+    if (holo_d14_horner_enabled() && sc && deg == 14) {
+        qf cert_res = 0;
+        if (!d14_scalar_certificate(sc, desc_v, out.roots, &cert_res)) {
+            int qf_iters = 0;
+            auto qf_begin = V2Clock::now();
+            out.roots = aberth_d14_struct<qf>(*sc, desc, 400, nullptr,
+                                              (qf)1e-22, &qf_iters);
+            out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+            out.tier = 2;
+            if (prof) {
+                ++prof->d14_qf_cold_calls;
+                prof->d14_qf_cold_sweeps += (V2Profile::u64)qf_iters;
+                v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin,
+                                  V2Clock::now());
+            }
+        }
+    }
     return out;
 }
 
@@ -624,6 +906,9 @@ inline std::vector<RadialEvent> radial_events(
     const std::vector<Cplx<__float128>>* d14_warm = nullptr,
     std::vector<Cplx<__float128>>* d14_roots_out = nullptr) {
     using namespace re_detail;
+    V2Profile* prof = v2_profile_current();
+    if (prof) ++prof->radial_event_calls;
+    V2ProfileTimer radial_timer(&V2Profile::radial_events_ms);
     const double a = pf.a, m0 = pf.m0, X = pf.X, Y = pf.Y, rho = pf.rho;
     const double W = std::hypot(X, Y) + rho;
     const double Rmax = 0.5 * (a + W + std::hypot(a - W, 2.0)) + 1e-12;
@@ -631,15 +916,39 @@ inline std::vector<RadialEvent> radial_events(
 
     std::vector<RadialEvent> ev;
 
-    PolyFamilyR fam = p_coeffs_in_R((qf)a, (qf)m0, (qf)X, (qf)Y, (qf)rho);
+    // The structured D14 block and exact chart_p4 factorization do not need
+    // the generic polynomial family.  Construct it only for the explicitly
+    // requested legacy lanes; this removes a duplicate generic-series build
+    // from the default production route without changing either certificate.
+    const bool need_poly_family = !holo_d14_struct_enabled() ||
+                                  !holo_chart_p4_factor_enabled();
+    PolyFamilyR fam{};
+    if (need_poly_family) {
+        auto coeff_begin = V2Clock::now();
+        fam = p_coeffs_in_R((qf)a, (qf)m0, (qf)X, (qf)Y, (qf)rho);
+        if (prof) v2_profile_add_ms(&V2Profile::d14_coeff_ms, coeff_begin,
+                                    V2Clock::now());
+    }
     // D14 low-degree block form (memo sec 2): exact, cancellation-free.
     // Used for the polish evaluator and -- unless HOLO_D14_STRUCT_LEGACY=1
     // -- as the source of the expanded coefficient vector too.
+    auto struct_begin = V2Clock::now();
     D14StructQf d14s =
         d14_struct_build((qf)a, (qf)m0, (qf)X, (qf)Y, (qf)rho);
-    std::vector<qf> d14 = holo_d14_struct_enabled()
-                              ? d14_expanded_from_struct(d14s)
-                              : d14_coeffs(fam);  // ascending in v
+    if (prof) v2_profile_add_ms(&V2Profile::d14_struct_build_ms, struct_begin,
+                                V2Clock::now());
+    std::vector<qf> d14;
+    if (holo_d14_struct_enabled()) {
+        auto expand_begin = V2Clock::now();
+        d14 = d14_expanded_from_struct(d14s);
+        if (prof) v2_profile_add_ms(&V2Profile::d14_expand_ms, expand_begin,
+                                    V2Clock::now());
+    } else {
+        auto expand_begin = V2Clock::now();
+        d14 = d14_coeffs(fam);  // ascending in v
+        if (prof) v2_profile_add_ms(&V2Profile::d14_expand_ms, expand_begin,
+                                    V2Clock::now());
+    }
     if (!d14.empty()) {
         int deg = (int)d14.size() - 1;
         std::vector<qf> desc(deg + 1);
@@ -658,6 +967,9 @@ inline std::vector<RadialEvent> radial_events(
                                      ? d14_warm
                                      : nullptr,
                                  &d14s);
+        if (prof) {
+            if (sol.warm_seeded) ++prof->d14_warm_seeded;
+        }
         std::vector<Cplx<qf>>& roots = sol.roots;
         if (d14_roots_out) *d14_roots_out = roots;
         auto rv = positive_real_roots(roots, 1e-8, 1e-9);
@@ -751,6 +1063,20 @@ inline std::vector<RadialEvent> radial_events(
             std::fabs(e.radius - merged.back().radius) < merge_tol)
             continue;
         merged.push_back(e);
+    }
+    if (prof) {
+        for (const auto& e : merged) {
+            if (e.kind == "physical_real") ++prof->physical_real_events;
+            else if (e.kind == "physical_complex") {
+                ++prof->physical_complex_events;
+                if (e.detail.find("complex") != std::string::npos)
+                    ++prof->d14_soft_events;
+            } else if (e.kind == "chart_p4") ++prof->chart_p4_events;
+            else if (e.kind == "R_eq_a" || e.kind == "R_eq_sqrt_m0")
+                ++prof->radial_eq_events;
+            else if (e.kind == "L_root") ++prof->l_root_events;
+            else ++prof->representation_events;
+        }
     }
     return merged;
 }

@@ -1,0 +1,7 @@
+cases                  108
+root-set checks        14
+worst coefficient id   2.763e-16
+worst derivative id    2.556e-16
+worst mapped root diff  3.884e-16
+
+PASS
