@@ -283,3 +283,17 @@ add_executable(bench_gm_lauricella6 "${CMAKE_CURRENT_SOURCE_DIR}/bench_gm_lauric
 target_include_directories(bench_gm_lauricella6 PRIVATE "${_SRC}")
 target_compile_options(bench_gm_lauricella6 PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_gm_lauricella6 PRIVATE quadmath)
+
+# Phase 7: shared V2 geometry/D14/root/F0 plan; pure LD evaluator A/B between
+# the incumbent 16-node K-rule and the equation-derived PF6/fold packet.
+add_executable(bench_gm_phase7_shared
+    "${CMAKE_CURRENT_SOURCE_DIR}/bench_gm_phase7_shared.cpp")
+target_include_directories(bench_gm_phase7_shared PRIVATE "${_SRC}")
+target_compile_options(bench_gm_phase7_shared PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_gm_phase7_shared PRIVATE quadmath)
+add_executable(test_gm_phase7_shared
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_gm_phase7_shared.cpp")
+target_include_directories(test_gm_phase7_shared PRIVATE "${_SRC}")
+target_compile_options(test_gm_phase7_shared PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_gm_phase7_shared PRIVATE quadmath)
+add_test(NAME holonomic_gm_phase7_shared COMMAND test_gm_phase7_shared)

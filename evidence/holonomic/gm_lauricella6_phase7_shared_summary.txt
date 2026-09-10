@@ -1,0 +1,38 @@
+# Lauricella6 Phase 7 shared-geometry A/B evidence
+# base=dev/holonomic, Phase 6 HEAD=f71d85e, isolated harness only
+# input=gm_coverage_cases.tsv cases=108 (uniform=54, limb=54) nr=64 order=20
+# reference=independent angular, ntheta=2048, all 54 LD rows attempted
+
+RESULT same_plan=1 production_router=unchanged
+clean_topology_status=52/54 value_and_jac
+angular_reference=54/54 clean_comparable=52
+worst_reference_relative_error_v2=1.910e-08
+worst_reference_relative_error_pf6=3.249e-09
+worst_pf6_vs_v2_value=2.087e-08
+worst_pf6_vs_v2_jac_mu=2.087e-08
+worst_pf6_vs_v2_jac_component=1.912e-03
+
+MEDIAN_MS lane shared_topology_D14 shared_root_tracking shared_F0_endpoint shared_total V2_K_LD PF6_fold_LD whole_V2 whole_PF6
+value_cold 0.883 0.323 0.047 1.393 0.075 0.932 1.421 2.493
+value_warm 0.713 0.338 0.047 1.235 0.075 0.936 1.315 2.347
+jac_cold 0.893 0.331 0.056 1.401 0.112 2.081 1.483 3.684
+jac_warm 0.727 0.353 0.056 1.244 0.112 2.073 1.357 3.420
+
+COUNTS value_cold_or_warm shared_arc_nodes=13888
+PF6_transported=13888 PF6_failed=0 PF6_fallback=0
+V2_K_success=9214 V2_K_quality_reject=4674 V2_angular_rescue=4674
+fold_construct=184 fold_accept=122 fold_reject=62
+PF6_construct=2559 PF6_accept=1223 PF6_reject=1425
+
+COUNTS jac_cold_or_warm shared_arc_nodes=13888
+PF6_transported=13888 PF6_failed=0 PF6_fallback=0
+fold_construct=184 fold_accept=118 fold_reject=66
+PF6_construct=2730 PF6_accept=1303 PF6_reject=1520
+
+JAC_MARGINAL_COLD_MS eval_V2=0.036 eval_PF6=0.654 whole_V2=0.046 whole_PF6=0.673
+DECISION=FREEZE_PF6_RESEARCH_NO_PRODUCTION_ROUTER_CHANGE
+
+REPRO:
+cmake --build build-holonomic-m7 -j2
+ctest --test-dir build-holonomic-m7 --output-on-failure
+./build-holonomic-m7/bench_gm_phase7_shared evidence/holonomic/gm_coverage_cases.tsv 64 108 108 20 2048
