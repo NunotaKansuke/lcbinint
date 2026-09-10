@@ -273,3 +273,13 @@ add_executable(bench_gm_connection_coverage "${CMAKE_CURRENT_SOURCE_DIR}/bench_g
 target_include_directories(bench_gm_connection_coverage PRIVATE "${_SRC}")
 target_compile_options(bench_gm_connection_coverage PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_gm_connection_coverage PRIVATE quadmath)
+
+add_executable(test_gm_lauricella6 "${CMAKE_CURRENT_SOURCE_DIR}/test_gm_lauricella6.cpp")
+target_include_directories(test_gm_lauricella6 PRIVATE "${_SRC}")
+target_compile_options(test_gm_lauricella6 PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_gm_lauricella6 PRIVATE quadmath)
+add_test(NAME holonomic_gm_lauricella6 COMMAND test_gm_lauricella6)
+add_executable(bench_gm_lauricella6 "${CMAKE_CURRENT_SOURCE_DIR}/bench_gm_lauricella6.cpp")
+target_include_directories(bench_gm_lauricella6 PRIVATE "${_SRC}")
+target_compile_options(bench_gm_lauricella6 PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_gm_lauricella6 PRIVATE quadmath)

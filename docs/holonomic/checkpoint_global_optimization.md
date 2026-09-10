@@ -64,3 +64,7 @@ V0/V1/V2/V3のwhole epoch、value-only、微分込み、D14単体、GM本体の�
 Phase 3のtrue GM coverage / analytic sensitivity / cold-warm結果は
 [checkpoint_global_optimization_phase3.md](checkpoint_global_optimization_phase3.md)を参照。
 valueの全ノード輸送は成立したが、速度と解析Jacobianの全面受理は未達。
+
+Phase 4のphysical Lauricella FD6 -> FD5 six-state transport、独立13952-node監査、
+chart/fold認証、cold/warm whole-epoch測定は
+[checkpoint_lauricella6_phase4.md](checkpoint_lauricella6_phase4.md)に記録した。
