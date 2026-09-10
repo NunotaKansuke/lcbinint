@@ -211,7 +211,8 @@ inline bool gc2_accum_G(const GC2Rule& gc, int n, double m, double s,
 // `vK` carries the 16-node value.
 inline bool k_rule_converged(double m, double v, double s, const DeflatedQuad& q,
                              double Rma, double Rpa2, double two_over_rho,
-                             double& vK, KRejectReason* why = nullptr) {
+                             double& vK, KRejectReason* why = nullptr,
+                             double* estimated_error = nullptr) {
     if (why) *why = KRejectReason::none;
     double G16 = 0.0, G8 = 0.0;
     if (!gc2_accum_G(gc2_rule16(), kHoloNK, m, s, q, Rma, Rpa2, G16, why)) return false;
@@ -222,6 +223,7 @@ inline bool k_rule_converged(double m, double v, double s, const DeflatedQuad& q
         if (why) *why = KRejectReason::nonfinite;
         return false;
     }
+    if (estimated_error) *estimated_error = std::fabs(vK16-vK8);
     const double denom = std::fabs(vK16) > 0.0 ? std::fabs(vK16) : 1.0;
     if (std::fabs(vK16 - vK8) > kHoloKRelTol * denom) {
         if (holo_k_three_gate_enabled()) {
@@ -241,6 +243,7 @@ inline bool k_rule_converged(double m, double v, double s, const DeflatedQuad& q
                 v2_profile_add_ms(&V2Profile::k_mid_ms, mid_begin,
                                   V2Clock::now());
             if (agree24) {
+                if (estimated_error) *estimated_error=std::fabs(vK16-vK24);
                 if (prof) ++prof->k_mid_success;
                 vK = vK16;
                 return true;
@@ -362,6 +365,7 @@ inline ArcPairJac arc_pair_jac_reciprocal(
 struct VKValue {
     double vK;
     bool ok;
+    double estimated_error=0;
 };
 inline VKValue v_times_K(double m, double v, double R, const PrimaryFrame& pf,
                          const std::array<double, 5>& pc,
@@ -385,10 +389,10 @@ inline VKValue v_times_K(double m, double v, double R, const PrimaryFrame& pf,
     const double Rma = R - pf.a, Rpa = R + pf.a;
     const double b0 = reciprocal ? Rpa : Rma;
     const double b2 = reciprocal ? Rma * Rma : Rpa * Rpa;
-    double vK = 0.0;
+    double vK = 0.0, estimated_error=0.0;
     KRejectReason why = KRejectReason::none;
     auto k_begin = V2Clock::now();
-    if (!k_rule_converged(m, v, s, q, b0, b2, 2.0 / pf.rho, vK, &why)) {
+    if (!k_rule_converged(m, v, s, q, b0, b2, 2.0 / pf.rho, vK, &why, &estimated_error)) {
         if (prof) v2_profile_add_ms(&V2Profile::k_ms, k_begin, V2Clock::now());
         profile_k_reject(why);
         return {0.0, false};
@@ -397,7 +401,7 @@ inline VKValue v_times_K(double m, double v, double R, const PrimaryFrame& pf,
         ++prof->k_success;
         v2_profile_add_ms(&V2Profile::k_ms, k_begin, V2Clock::now());
     }
-    return {vK, true};
+    return {vK, true, estimated_error};
 }
 
 // v K and its analytic d/dP_j (param order X, Y, rho, m0, a).  `dpc` is
@@ -414,9 +418,10 @@ inline VKJacobian v_times_K_jac(
     const std::array<double, 5>& dv, double R, const PrimaryFrame& pf,
     const std::array<double, 5>& pc,
     const std::array<std::array<double, 5>, 5>& dpc,
-    bool reciprocal = false) {
+    bool reciprocal = false, int error_rule_nodes = kHoloNK) {
     VKJacobian out{};
     out.ok = false;
+    if(error_rule_nodes!=8 && error_rule_nodes!=16) return out;
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->k_attempts;
     if (!std::isfinite(v) || !std::isfinite(m)) {
@@ -466,10 +471,10 @@ inline VKJacobian v_times_K_jac(
                  (2.0 * m * dm[j] - dv[j]) * p4 - (m * m - v) * dp4[j];
     }
 
-    const GC2Rule& gc = gc2_rule16();
+    const GC2Rule& gc = error_rule_nodes==8 ? gc2_rule8() : gc2_rule16();
     double G = 0.0;
     std::array<double, 5> dG{};
-    for (int i = 0; i < kHoloNK; ++i) {
+    for (int i = 0; i < error_rule_nodes; ++i) {
         const double xi = gc.x[i], wi = gc.w[i];
         const double t = m + s * xi;
         const double S2 = -(d0 + t * (d1 + t * p4));

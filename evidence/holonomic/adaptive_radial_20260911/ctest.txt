@@ -1,0 +1,20 @@
+Internal ctest changing into directory: /rogue1_8/nunota/lcbinint/build-holonomic-m7
+Test project /rogue1_8/nunota/lcbinint/build-holonomic-m7
+    Start  3: holonomic_m7_reference
+1/7 Test  #3: holonomic_m7_reference ...........   Passed    0.03 sec
+    Start  4: holonomic_transport
+2/7 Test  #4: holonomic_transport ..............   Passed    0.04 sec
+    Start  5: holonomic_finite_source_binary
+3/7 Test  #5: holonomic_finite_source_binary ...   Passed    4.18 sec
+    Start  6: holonomic_root_pair
+4/7 Test  #6: holonomic_root_pair ..............   Passed    0.22 sec
+    Start 10: holonomic_chart_p4
+5/7 Test #10: holonomic_chart_p4 ...............   Passed    0.03 sec
+    Start 11: holonomic_reciprocal_chart
+6/7 Test #11: holonomic_reciprocal_chart .......   Passed    0.01 sec
+    Start 15: holonomic_adaptive_radial
+7/7 Test #15: holonomic_adaptive_radial ........   Passed    0.05 sec
+
+100% tests passed, 0 tests failed out of 7
+
+Total Test time (real) =   4.55 sec
