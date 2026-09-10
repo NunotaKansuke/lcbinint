@@ -179,7 +179,7 @@ void run_pf6_case(const Case& c, int nr, Row& row) {
     }
 }
 
-using StageSamples = std::array<std::vector<double>, 8>;
+using StageSamples = std::array<std::vector<double>, 20>;
 
 struct PacketAggregate {
     long long candidates = 0;
@@ -229,6 +229,18 @@ void append_stages(StageSamples& samples, const GmLauricella6Epoch& epoch) {
     samples[5].push_back(epoch.cost.transport_ms);
     samples[6].push_back(epoch.cost.analytic_jacobian_ms);
     samples[7].push_back(epoch.cost.physical_fallback_ms);
+    samples[8].push_back(epoch.cost.total_ms);
+    samples[9].push_back(epoch.cost.f0_arc_geometry_ms);
+    samples[10].push_back(epoch.cost.f0_endpoint_ms);
+    samples[11].push_back(epoch.cost.arc_prepare_ms);
+    samples[12].push_back(epoch.cost.packet_cover_ms);
+    samples[13].push_back(epoch.cost.node_loop_ms);
+    samples[14].push_back(epoch.cost.fold_packet_ms);
+    samples[15].push_back(epoch.cost.fold_packet_evaluation_ms);
+    samples[16].push_back(epoch.cost.fold_pair_series_ms);
+    samples[17].push_back(epoch.cost.fold_smooth_series_ms);
+    samples[18].push_back(epoch.cost.fold_quality_ms);
+    samples[19].push_back(epoch.cost.unclassified_overhead_ms);
 }
 
 double jac_error(const GmLauricella6Epoch& a, const EpochJacobian& b) {
@@ -277,6 +289,11 @@ int main(int argc, char** argv) {
     long long cold_seeds = 0, warm_seeds = 0;
     long long cold_connections = 0, warm_connections = 0;
     long long cold_fallbacks = 0, warm_fallbacks = 0;
+    long long cold_fold_constructions = 0, warm_fold_constructions = 0;
+    long long cold_fold_accepted = 0, warm_fold_accepted = 0;
+    long long cold_fold_rejected = 0, warm_fold_rejected = 0;
+    long long cold_fold_blocks = 0, warm_fold_blocks = 0;
+    long long cold_fold_nodes = 0, warm_fold_nodes = 0;
     long long cold_reseeds = 0, warm_reseeds = 0;
     long long cold_promotions = 0, warm_promotions = 0;
     long long cold_precision_failures = 0, warm_precision_failures = 0;
@@ -284,6 +301,11 @@ int main(int argc, char** argv) {
     long long jac_cold_seeds = 0, jac_warm_seeds = 0;
     long long jac_cold_connections = 0, jac_warm_connections = 0;
     long long jac_cold_fallbacks = 0, jac_warm_fallbacks = 0;
+    long long jac_cold_fold_constructions = 0, jac_warm_fold_constructions = 0;
+    long long jac_cold_fold_accepted = 0, jac_warm_fold_accepted = 0;
+    long long jac_cold_fold_rejected = 0, jac_warm_fold_rejected = 0;
+    long long jac_cold_fold_blocks = 0, jac_warm_fold_blocks = 0;
+    long long jac_cold_fold_nodes = 0, jac_warm_fold_nodes = 0;
     long long jac_cold_reseeds = 0, jac_warm_reseeds = 0;
     long long jac_cold_promotions = 0, jac_warm_promotions = 0;
     long long jac_cold_precision_failures = 0, jac_warm_precision_failures = 0;
@@ -378,6 +400,16 @@ int main(int argc, char** argv) {
         warm_connections += row.warm.cost.connection_constructions;
         cold_fallbacks += row.cold.cost.physical_fallback;
         warm_fallbacks += row.warm.cost.physical_fallback;
+        cold_fold_constructions += row.cold.cost.fold_packet_constructions;
+        warm_fold_constructions += row.warm.cost.fold_packet_constructions;
+        cold_fold_accepted += row.cold.cost.fold_packet_accepted;
+        warm_fold_accepted += row.warm.cost.fold_packet_accepted;
+        cold_fold_rejected += row.cold.cost.fold_packet_rejected;
+        warm_fold_rejected += row.warm.cost.fold_packet_rejected;
+        cold_fold_blocks += row.cold.cost.fold_blocks;
+        warm_fold_blocks += row.warm.cost.fold_blocks;
+        cold_fold_nodes += row.cold.cost.fold_nodes;
+        warm_fold_nodes += row.warm.cost.fold_nodes;
         cold_reseeds += row.cold.cost.reseeds;
         warm_reseeds += row.warm.cost.reseeds;
         cold_promotions += row.cold.cost.precision_promotions;
@@ -392,6 +424,18 @@ int main(int argc, char** argv) {
         jac_warm_connections += row.warm_jac.cost.connection_constructions;
         jac_cold_fallbacks += row.cold_jac.cost.physical_fallback;
         jac_warm_fallbacks += row.warm_jac.cost.physical_fallback;
+        jac_cold_fold_constructions +=
+            row.cold_jac.cost.fold_packet_constructions;
+        jac_warm_fold_constructions +=
+            row.warm_jac.cost.fold_packet_constructions;
+        jac_cold_fold_accepted += row.cold_jac.cost.fold_packet_accepted;
+        jac_warm_fold_accepted += row.warm_jac.cost.fold_packet_accepted;
+        jac_cold_fold_rejected += row.cold_jac.cost.fold_packet_rejected;
+        jac_warm_fold_rejected += row.warm_jac.cost.fold_packet_rejected;
+        jac_cold_fold_blocks += row.cold_jac.cost.fold_blocks;
+        jac_warm_fold_blocks += row.warm_jac.cost.fold_blocks;
+        jac_cold_fold_nodes += row.cold_jac.cost.fold_nodes;
+        jac_warm_fold_nodes += row.warm_jac.cost.fold_nodes;
         jac_cold_reseeds += row.cold_jac.cost.reseeds;
         jac_warm_reseeds += row.warm_jac.cost.reseeds;
         jac_cold_promotions += row.cold_jac.cost.precision_promotions;
@@ -412,6 +456,20 @@ int main(int argc, char** argv) {
             row.cold.cost.blocks, row.warm.cost.blocks,
             row.cold.cost.nodes, row.warm.cost.nodes,
             row.cold.cost.transported, row.warm.cost.transported);
+        std::printf(
+            "  fold(c/w) constructions=%d/%d accepted=%d/%d rejected=%d/%d "
+            "blocks=%d/%d nodes=%d/%d build_ms=%.6f/%.6f eval_ms=%.6f/%.6f\n",
+            row.cold.cost.fold_packet_constructions,
+            row.warm.cost.fold_packet_constructions,
+            row.cold.cost.fold_packet_accepted,
+            row.warm.cost.fold_packet_accepted,
+            row.cold.cost.fold_packet_rejected,
+            row.warm.cost.fold_packet_rejected,
+            row.cold.cost.fold_blocks, row.warm.cost.fold_blocks,
+            row.cold.cost.fold_nodes, row.warm.cost.fold_nodes,
+            row.cold.cost.fold_packet_ms, row.warm.cost.fold_packet_ms,
+            row.cold.cost.fold_packet_evaluation_ms,
+            row.warm.cost.fold_packet_evaluation_ms);
         if (c.u != 0.0) {
             std::printf(
                 "  jac cold=% .9g warm=% .9g v2=% .9g err(c/w)=%.3e/%.3e "
@@ -430,6 +488,29 @@ int main(int argc, char** argv) {
                 row.warm_jac.cost.jacobian_nodes,
                 jac_error(row.cold_jac, row.v2_jac),
                 jac_error(row.warm_jac, row.v2_jac));
+            std::printf(
+                "  fold_jac(c/w) constructions=%d/%d accepted=%d/%d "
+                "rejected=%d/%d blocks=%d/%d nodes=%d/%d build_ms=%.6f/%.6f "
+                "eval_ms=%.6f/%.6f pair/smooth/quality=%.6f/%.6f/%.6f "
+                "%.6f/%.6f/%.6f\n",
+                row.cold_jac.cost.fold_packet_constructions,
+                row.warm_jac.cost.fold_packet_constructions,
+                row.cold_jac.cost.fold_packet_accepted,
+                row.warm_jac.cost.fold_packet_accepted,
+                row.cold_jac.cost.fold_packet_rejected,
+                row.warm_jac.cost.fold_packet_rejected,
+                row.cold_jac.cost.fold_blocks, row.warm_jac.cost.fold_blocks,
+                row.cold_jac.cost.fold_nodes, row.warm_jac.cost.fold_nodes,
+                row.cold_jac.cost.fold_packet_ms,
+                row.warm_jac.cost.fold_packet_ms,
+                row.cold_jac.cost.fold_packet_evaluation_ms,
+                row.warm_jac.cost.fold_packet_evaluation_ms,
+                row.cold_jac.cost.fold_pair_series_ms,
+                row.cold_jac.cost.fold_smooth_series_ms,
+                row.cold_jac.cost.fold_quality_ms,
+                row.warm_jac.cost.fold_pair_series_ms,
+                row.warm_jac.cost.fold_smooth_series_ms,
+                row.warm_jac.cost.fold_quality_ms);
             std::printf(
                 "  cost(value) cold topo/arc/geom/seed/conn/trans/jac/fallback="
                 "%.3f/%.3f/%.3f/%.3f/%.3f/%.3f/%.3f/%.3f "
@@ -563,6 +644,26 @@ int main(int argc, char** argv) {
         jac_warm_fallbacks, jac_cold_reseeds, jac_warm_reseeds,
         jac_cold_promotions, jac_warm_promotions,
         jac_cold_precision_failures, jac_warm_precision_failures);
+    std::printf(
+        "FOLD_COUNTS(value) constructions(c/w)=%lld/%lld accepted=%lld/%lld "
+        "rejected=%lld/%lld blocks=%lld/%lld nodes=%lld/%lld\n",
+        cold_fold_constructions, warm_fold_constructions,
+        cold_fold_accepted, warm_fold_accepted, cold_fold_rejected,
+        warm_fold_rejected, cold_fold_blocks, warm_fold_blocks,
+        cold_fold_nodes, warm_fold_nodes);
+    std::printf(
+        "FOLD_COUNTS(jac) constructions(c/w)=%lld/%lld accepted=%lld/%lld "
+        "rejected=%lld/%lld blocks=%lld/%lld nodes=%lld/%lld\n",
+        jac_cold_fold_constructions, jac_warm_fold_constructions,
+        jac_cold_fold_accepted, jac_warm_fold_accepted,
+        jac_cold_fold_rejected, jac_warm_fold_rejected,
+        jac_cold_fold_blocks, jac_warm_fold_blocks, jac_cold_fold_nodes,
+        jac_warm_fold_nodes);
+    std::printf(
+        "PF6_COUNTS(value) constructions(c/w)=%lld/%lld\n"
+        "PF6_COUNTS(jac) constructions(c/w)=%lld/%lld\n",
+        cold_connections, warm_connections, jac_cold_connections,
+        jac_warm_connections);
     print_median_pair("jacobian_marginal_ms", cold_jac_marginal_ms,
                       warm_jac_marginal_ms);
     print_median_pair("analytic_jacobian_cost_ms", cold_analytic_jac_ms,
@@ -585,6 +686,27 @@ int main(int argc, char** argv) {
     print_stage_medians("value_warm", value_warm_stages);
     print_stage_medians("jac_cold", jac_cold_stages);
     print_stage_medians("jac_warm", jac_warm_stages);
+
+    auto print_phase6_medians = [](const char* label,
+                                   const StageSamples& samples) {
+        std::array<double, 12> m{};
+        for (int i = 0; i < 12; ++i) {
+            std::vector<double> values = samples[8 + i];
+            std::sort(values.begin(), values.end());
+            m[i] = values.empty() ? 0.0 : values[values.size() / 2];
+        }
+        std::printf(
+            "PHASE6_COST_MEDIAN(%s) total=%.3f f0_arc=%.3f "
+            "f0_endpoint=%.3f arc_prepare=%.3f cover=%.3f node_loop=%.3f "
+            "fold_build=%.3f fold_eval=%.3f fold_pair=%.3f "
+            "fold_smooth=%.3f fold_quality=%.3f unclassified=%.3f ms\n",
+            label, m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7],
+            m[8], m[9], m[10], m[11]);
+    };
+    print_phase6_medians("value_cold", value_cold_stages);
+    print_phase6_medians("value_warm", value_warm_stages);
+    print_phase6_medians("jac_cold", jac_cold_stages);
+    print_phase6_medians("jac_warm", jac_warm_stages);
 
     auto print_packet_aggregate = [&](const char* label, auto getter) {
         PacketAggregate sum;
@@ -634,7 +756,7 @@ int main(int argc, char** argv) {
     const char* packet_path = std::getenv("GM6_PACKET_PROFILE_PATH");
     if (packet_path && packet_path[0] != '\0') {
         std::ofstream profile(packet_path);
-        profile << "# PF6 Phase 5 packet profile; timing requires "
+        profile << "# Lauricella6 Phase 6 hybrid packet profile; timing requires "
                    "GM6_PACKET_PROFILE=1\n";
         profile << "SUMMARY lane case u candidates built accepted rejected "
                    "quality_rejected build_failed max_depth endpoint_root_ms "
@@ -650,7 +772,11 @@ int main(int argc, char** argv) {
                    "first_failed_packet_center first_failed_packet_lo "
                    "first_failed_packet_hi first_failed_block_lo "
                    "first_failed_block_hi first_failed_phase_error "
-                   "first_failed_packet_tail construction_ms\n";
+                   "first_failed_packet_tail construction_ms fold_constructions "
+                   "fold_accepted fold_rejected fold_construction_ms "
+                   "fold_taylor_tail fold_moment_tail fold_pair_residual "
+                   "fold_v_center fold_v_side fold_v_ratio fold_event_radius "
+                   "fold_failure_reason\n";
         auto write_profile = [&](const char* lane,
                                  const GmLauricella6Epoch& epoch,
                                  const Case& c) {
@@ -689,7 +815,14 @@ int main(int argc, char** argv) {
                         << a.first_failed_block_hi << ' '
                         << a.first_failed_phase_error << ' '
                         << a.first_failed_packet_tail << ' '
-                        << a.construction_ms
+                        << a.construction_ms << ' ' << a.fold_constructions
+                        << ' ' << a.fold_accepted << ' ' << a.fold_rejected
+                        << ' ' << a.fold_construction_ms << ' '
+                        << a.fold_taylor_tail << ' ' << a.fold_moment_tail
+                        << ' ' << a.fold_pair_residual << ' ' << a.fold_v_center
+                        << ' ' << a.fold_v_side << ' ' << a.fold_v_ratio
+                        << ' ' << a.fold_event_radius << ' '
+                        << a.fold_failure_reason
                         << '\n';
             }
         };

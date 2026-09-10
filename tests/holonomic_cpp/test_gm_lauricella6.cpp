@@ -276,6 +276,161 @@ void check_fold_and_chart_authentication(const Case& c) {
                 "chart/branch certificate survives both chart_p4 sides");
 }
 
+void check_regular_fold_packet(const Case& c) {
+    const PrimaryFrame pf = PrimaryFrame::from(c.p);
+    const auto topo = classify_cells(pf);
+    bool checked = false;
+    for (const auto& cell : topo.cells) {
+        if (cell.kind != ArcKind::kArcs ||
+            !l6::cell_touches_physical_fold(cell, topo.events))
+            continue;
+        const double inset = 1e-9 * (cell.r_hi - cell.r_lo);
+        const double lo = cell.r_lo + inset;
+        const double hi = cell.r_hi - inset;
+        const double center = 0.5 * (lo + hi);
+        const ArcSet arcs = arc_intervals(center, pf);
+        if (arcs.kind != ArcKind::kArcs) continue;
+        for (const auto& arc : arcs.arcs) {
+            auto chart = l6::prepare_arc(pf, arc);
+            if (!chart.ok || !l6::certify_arc(center, pf, arc, chart))
+                continue;
+            const auto params = l6::params_for_chart<double>(
+                chart.chart_pf, false);
+            l6::FoldPacket<20> fold;
+            l6::FoldPacketBuildBreakdown timing;
+            if (!l6::build_fold_packet(
+                    center, lo, hi, chart.t_lo, chart.t_hi, params, pf,
+                    chart.chart2, true, fold, &timing))
+                continue;
+            const auto fn = l6::evaluate_fold_node(fold, center, true);
+            double angular = 0.0;
+            require(fn.ok && gm_physical_arc_angular(
+                                center, pf, arc, 4096, angular),
+                    "regular fold packet has an independent angular reference");
+            if (!fn.ok) continue;
+            const double value_rel = relerr(fn.value, angular);
+            require(value_rel < 3e-8,
+                    "regular fold packet value agrees with angular reference");
+            double fold_fd_jac = 0.0;
+            const std::array<double, 5> base =
+                {{pf.X, pf.Y, pf.rho, pf.m0, pf.a}};
+            for (int j = 0; j < 5; ++j) {
+                PrimaryFrame plus = pf, minus = pf;
+                const double d = 2e-6 * std::max(1.0, std::fabs(base[j]));
+                double* vp[5] = {&plus.X, &plus.Y, &plus.rho,
+                                  &plus.m0, &plus.a};
+                double* vm[5] = {&minus.X, &minus.Y, &minus.rho,
+                                  &minus.m0, &minus.a};
+                *vp[j] += d;
+                *vm[j] -= d;
+                const ArcSet ap = arc_intervals(center, plus);
+                const ArcSet am = arc_intervals(center, minus);
+                const auto* arp = nearest_arc(ap, arc_midpoint(arc));
+                const auto* arm = nearest_arc(am, arc_midpoint(arc));
+                double fp = 0.0, fm = 0.0;
+                if (arp && arm && gm_physical_arc_angular(
+                                  center, plus, *arp, 4096, fp) &&
+                    gm_physical_arc_angular(center, minus, *arm, 4096, fm)) {
+                    fold_fd_jac = std::max(
+                        fold_fd_jac,
+                        relerr(fn.deriv[j], (fp - fm) / (2.0 * d)));
+                } else {
+                    fold_fd_jac = std::numeric_limits<double>::infinity();
+                }
+            }
+            require(fold_fd_jac < 3e-4,
+                    "regular fold packet Jacobian agrees with angular FD");
+
+            const auto geometry = l6::geometry_scalar(
+                center, chart.t_lo, chart.t_hi, params);
+            const auto seed = l6::physical_seed(geometry, 1024);
+            l6::TaylorPacket<20> pf6;
+            const bool pf6_ok = geometry.ok && seed.ok && l6::build_packet(
+                center, center - 0.05 * (hi - lo),
+                center + 0.05 * (hi - lo), chart.t_lo, chart.t_hi, params,
+                seed.state.z, pf6);
+            require(pf6_ok, "PF6 overlap packet builds near the fold lane");
+            if (pf6_ok) {
+                const auto pn = l6::evaluate_node(
+                    pf6, center, pf, chart.chart2, true);
+                require(pn.ok, "PF6 overlap point evaluates");
+                if (pn.ok) {
+                    require(relerr(fn.value, pn.value) < 3e-8,
+                            "fold/PF6 overlap values agree");
+                    double max_jac = 0.0;
+                    for (int j = 0; j < 5; ++j)
+                        max_jac = std::max(max_jac,
+                                           relerr(fn.deriv[j], pn.deriv[j]));
+                    require(max_jac < 3e-5,
+                            "fold/PF6 overlap analytic Jacobians agree");
+                    std::printf("fold %-9s center=%.9g value_rel=%.3e "
+                                "fd_jac=%.3e overlap_rel=%.3e "
+                                "jac_rel=%.3e tail=%.3e\n",
+                                c.name, center, value_rel, fold_fd_jac,
+                                relerr(fn.value, pn.value), max_jac,
+                                fold.taylor_tail);
+                    for (double frac : {-0.02, 0.02}) {
+                        const double Rtest = center + frac * (hi - lo);
+                        const auto ftest = l6::evaluate_fold_node(
+                            fold, Rtest, true);
+                        const auto ptest = l6::evaluate_node(
+                            pf6, Rtest, pf, chart.chart2, true);
+                        double off_jac = 0.0;
+                        double off_fd = 0.0;
+                        const std::array<double, 5> pbase =
+                            {{pf.X, pf.Y, pf.rho, pf.m0, pf.a}};
+                        for (int j = 0; j < 5; ++j) {
+                            PrimaryFrame plus = pf, minus = pf;
+                            const double d = 2e-6 *
+                                std::max(1.0, std::fabs(pbase[j]));
+                            double* vp[5] = {&plus.X, &plus.Y, &plus.rho,
+                                              &plus.m0, &plus.a};
+                            double* vm[5] = {&minus.X, &minus.Y, &minus.rho,
+                                              &minus.m0, &minus.a};
+                            *vp[j] += d;
+                            *vm[j] -= d;
+                            const ArcSet ap = arc_intervals(Rtest, plus);
+                            const ArcSet am = arc_intervals(Rtest, minus);
+                            const auto* arp = nearest_arc(
+                                ap, arc_midpoint(arc));
+                            const auto* arm = nearest_arc(
+                                am, arc_midpoint(arc));
+                            double vpv = 0.0, vmv = 0.0;
+                            if (arp && arm && gm_physical_arc_angular(
+                                      Rtest, plus, *arp, 2048, vpv) &&
+                                gm_physical_arc_angular(
+                                      Rtest, minus, *arm, 2048, vmv)) {
+                                off_fd = std::max(
+                                    off_fd,
+                                    relerr(ftest.deriv[j],
+                                           (vpv - vmv) / (2.0 * d)));
+                            } else {
+                                off_fd = std::numeric_limits<double>::infinity();
+                            }
+                        }
+                        if (ftest.ok && ptest.ok)
+                            for (int j = 0; j < 5; ++j)
+                                off_jac = std::max(
+                                    off_jac,
+                                    relerr(ftest.deriv[j], ptest.deriv[j]));
+                        std::printf("  fold_off frac=%+.3f value_rel=%.3e "
+                                    "jac_rel=%.3e fd_jac=%.3e ok=%d/%d\n",
+                                    frac, ftest.ok && ptest.ok
+                                        ? relerr(ftest.value, ptest.value)
+                                        : -1.0,
+                                    off_jac, off_fd, (int)ftest.ok,
+                                    (int)ptest.ok);
+                    }
+                }
+            }
+            checked = true;
+            break;
+        }
+        if (checked) break;
+    }
+    require(checked, "a regular fold packet is constructed");
+}
+
 void check_whole_epoch() {
     const LensParams p = kCases[0].p;
     holo_holonomic_transport_override() = 0;
@@ -304,6 +459,12 @@ void check_whole_epoch() {
             "whole epoch Jac value matches V2");
     require(grad_error < 2e-6,
             "whole epoch analytic Jac matches V2 on the diagnostic case");
+    std::printf("epoch_grad gm=%.9g,%.9g,%.9g,%.9g,%.9g "
+                "v2=%.9g,%.9g,%.9g,%.9g,%.9g\n",
+                jac.grad_mu[0], jac.grad_mu[1], jac.grad_mu[2],
+                jac.grad_mu[3], jac.grad_mu[4], v2.grad_mu[0],
+                v2.grad_mu[1], v2.grad_mu[2], v2.grad_mu[3],
+                v2.grad_mu[4]);
     std::printf("epoch value=%.12g v2=%.12g rel=%.3e jac_rel=%.3e "
                 "grad_rel=%.3e nodes=%d/%d jacnodes=%d fallback=%d\n",
                 value.mu, v2.mu, relerr(value.mu, v2.mu),
@@ -318,6 +479,7 @@ int main() {
     for (const auto& c : kCases) {
         check_seed_and_local_transport(c);
         check_fold_and_chart_authentication(c);
+        check_regular_fold_packet(c);
     }
     check_whole_epoch();
     std::printf("gm_lauricella6 %s failures=%d\n",
