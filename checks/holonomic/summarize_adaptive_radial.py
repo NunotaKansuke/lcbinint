@@ -45,8 +45,10 @@ groups = defaultdict(list)
 for key, repeats in by_case.items():
     name,u,jac,warm,tol,cache = key
     r = dict(repeats[0])
-    for column in ['whole_ms','fixed64_ms','topology_ms','setup_ms','physics_ms','estimator_ms','scheduler_ms']:
+    for column in ['whole_ms','fixed64_ms','topology_ms','setup_ms','setup_frame_ms','setup_cuts_ms','setup_event_ms','setup_panel_ms','physics_ms','estimator_ms','scheduler_ms']:
         r[column] = statistics.median(float(x[column]) for x in repeats)
+    for column in ['event_double_checks','event_dd_checks','event_dd_accepts','event_qf_refinements','qf_family_constructions']:
+        r[column] = statistics.median(int(x[column]) for x in repeats)
     r['repeat_status_consistent'] = len({x['stop'] for x in repeats}) == 1
     ref = refs[(warm,name,u,tol)]
     budget = max(1e-8,tol*abs(float(r['mu'])))
@@ -69,7 +71,8 @@ for key, data in sorted(groups.items()):
         'repeat_status_consistent':all(r['repeat_status_consistent'] for r in data),
         'whole_attempt_ms':distribution([r['whole_ms'] for r in data]),
         'fixed64_attempt_ms':distribution([r['fixed64_ms'] for r in data]),
-        'stage_medians_ms':{c:statistics.median(r[c] for r in data) for c in ['topology_ms','setup_ms','physics_ms','estimator_ms','scheduler_ms']},
+        'stage_medians_ms':{c:statistics.median(r[c] for r in data) for c in ['topology_ms','setup_ms','setup_frame_ms','setup_cuts_ms','setup_event_ms','setup_panel_ms','physics_ms','estimator_ms','scheduler_ms']},
+        'event_medians':{c:statistics.median(r[c] for r in data) for c in ['event_double_checks','event_dd_checks','event_dd_accepts','event_qf_refinements','qf_family_constructions']},
         'median_nodes':statistics.median(int(r['nodes']) for r in data),
         'median_evaluations':statistics.median(int(r['evaluations']) for r in data),
         'value_accuracy_qualified_pairs':len(qualified),
@@ -93,7 +96,30 @@ jac_summary = {name:{'rows':len(data), 'finite_reference_rows':sum(math.isfinite
                for name in sorted({r['name'] for r in jac_ref})
                for data in [[r for r in jac_ref if r['name']==name]]}
 
-out = {'reference':ref_summary,'paired':summary,'controls':controls,'jacobian_reference':jac_summary,
+contract_summary = []
+contracts_path = root/'contracts.csv'
+if contracts_path.exists():
+    contract_rows = rows('contracts.csv')
+    grouped = defaultdict(list)
+    for r in contract_rows:
+        grouped[(r['policy'],int(r['warm']),float(r['rtol']))].append(r)
+    for (policy,warm,tol), data in sorted(grouped.items()):
+        contract_summary.append({
+            'policy':policy,'warm':warm,'rtol':tol,'cases':len(data),
+            'stops':dict(Counter(r['stop'] for r in data)),
+            'value_stops':dict(Counter(r['value_stop'] for r in data)),
+            'gradient_stops':dict(Counter(r['gradient_stop'] for r in data)),
+            'value_converged':sum(r['value_converged']=='1' for r in data),
+            'whole_attempt_ms':distribution([float(r['whole_ms']) for r in data]),
+            'stage_medians_ms':{c:statistics.median(float(r[c]) for r in data)
+                                for c in ['topology_ms','setup_ms','setup_frame_ms','setup_cuts_ms','setup_event_ms','setup_panel_ms']},
+            'event_medians':{c:statistics.median(int(r[c]) for r in data)
+                             for c in ['event_double_checks','event_dd_checks','event_dd_accepts','qf_family_constructions','event_qf_refinements']},
+            'gradient_quality':{q:sum(r[f'gq{i}']==q for r in data for i in range(5))
+                                for q in ['NotRequested','ToleranceMet','FiniteUncertified','Invalid']},
+        })
+
+out = {'reference':ref_summary,'paired':summary,'contracts':contract_summary,'controls':controls,'jacobian_reference':jac_summary,
     'precision':'binary64 nodes and observables, qf local event correction',
     'error_budget':'Eabs <= max(Tol, RelTol * abs(Q)) independently for every requested output',
     'limitations':['Estimated, not Bounded. require_bound returns BoundUnavailable.',

@@ -1,5 +1,6 @@
 #pragma once
 #include "lcbinint/magnification/holonomic/adaptive_radial.hpp"
+#include <memory>
 
 namespace lcbinint::holonomic::adaptive_detail {
 // Estimate the uncertainty of a physical event from P=Pt=0 using the
@@ -10,13 +11,100 @@ inline bool valid_epoch_config(const LensParams& p,double u,const AdaptiveConfig
         std::isfinite(p.xs)&&std::isfinite(p.ys)&&std::isfinite(p.rho)&&p.rho>0&&
         std::isfinite(p.q)&&p.q>0&&std::isfinite(p.a)&&p.a>0;
 }
-struct EventLocation { double radius,uncertainty; };
+struct EventLocation {
+    double radius,uncertainty,radius_lo=0;
+    bool needs_qf=true;
+    bool qf_refined=false;
+    int precision_tier=0; // 0=double, 1=DD, 2=__float128
+};
+inline double eval_poly5(const std::array<double,5>& c,double x) {
+    return c[4]*x+c[3]*x*x+c[2]*x*x*x+c[1]*x*x*x*x+c[0];
+}
+inline double eval_poly5_derivative(const std::array<double,5>& c,double x) {
+    return c[1]+x*(2*c[2]+x*(3*c[3]+x*4*c[4]));
+}
+inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,double value_budget) {
+    const auto q=boundary_quartic(R,pf);
+    const auto qr=boundary_quartic_dR(R,pf);
+    auto roots=aberth<double>(q.p.data(),4,32);
+    EventLocation best{R,std::numeric_limits<double>::infinity(),0,true,false,0};
+    double best_res=std::numeric_limits<double>::infinity();
+    double best_t=0,best_ap=1,best_at=1,best_ar=1;
+    auto consider=[&](double t) {
+        double ap=0,at=0,ar=0,att=0,pow=1,dpow=1;
+        for(int k=0;k<5;++k) {
+            ap+=std::fabs(q.p[k])*pow;
+            ar+=std::fabs(qr.p[k])*pow;
+            if(k>0)at+=k*std::fabs(q.p[k])*dpow;
+            if(k>1)att+=k*(k-1)*std::fabs(q.p[k])*((k==2)?1:std::pow(std::fabs(t),k-2));
+            pow*=std::fabs(t);
+            if(k>0)dpow*=std::fabs(t);
+        }
+        ap=std::max(1.0,ap);at=std::max(1.0,at);ar=std::max(1.0,ar);att=std::max(1.0,att);
+        const double P=eval_poly5(q.p,t),Pt=eval_poly5_derivative(q.p,t),PR=eval_poly5(qr.p,t);
+        const double p_res=std::fabs(P)/ap,t_res=std::fabs(Pt)/at,res=std::max(p_res,t_res);
+        if(res>=best_res)return;
+        best_res=res;
+        best_t=t;best_ap=ap;best_at=at;best_ar=ar;
+        const double ulp=std::fabs(std::nextafter(R,std::numeric_limits<double>::infinity())-R);
+        const double radius_shift=std::fabs(PR)>64*eps*ar?std::fabs(P)/std::fabs(PR):std::numeric_limits<double>::infinity();
+        best.uncertainty=std::max(8*ulp,64*eps*(1+std::fabs(R))+radius_shift);
+        const bool numerically_clean=res<=4096*eps&&std::fabs(PR)>64*eps*ar&&
+            std::fabs(eval_poly5(q.p,t+std::sqrt(eps))-2*P+eval_poly5(q.p,t-std::sqrt(eps)))>
+            64*eps*att;
+        // Spend qf only when the double event uncertainty can consume a
+        // visible fraction of the requested value ledger. This is a local
+        // numerical budget test; it is independent of physical parameters.
+        const double budget_radius=0.05*value_budget*std::max(1.0,std::fabs(R));
+        best.needs_qf=!(numerically_clean||best.uncertainty<=std::max(256*ulp,budget_radius));
+    };
+    for(const auto& z:roots) {
+        if(std::fabs(z.im)>1e-7*(1+std::fabs(z.re)))continue;
+        consider(z.re);
+    }
+    // At an ordinary fold the quartic has a double real root, which a
+    // binary64 all-root solve may report as a complex pair. The stationary
+    // root of P' is simple and is a cheaper, branch-independent local probe.
+    if(!std::isfinite(best_res)) {
+        double dc[4]={4*q.p[4],3*q.p[3],2*q.p[2],q.p[1]};
+        int deg=3;while(deg&&dc[0]==0){for(int j=0;j<deg;++j)dc[j]=dc[j+1];--deg;}
+        if(deg>0)for(const auto& z:aberth<double>(dc,deg,32))
+            if(std::fabs(z.im)<=1e-7*(1+std::fabs(z.re)))consider(z.re);
+    }
+    if(std::isfinite(best_res)&&best.needs_qf) {
+        const DD tt(best_t);
+        auto dd_eval=[&](const std::array<double,5>& c) {
+            DD v(c[4]);
+            for(int k=3;k>=0;--k)v=v*tt+DD(c[k]);
+            return v;
+        };
+        auto dd_deriv=[&](const std::array<double,5>& c) {
+            DD v(c[4]*4.0);
+            for(int k=3;k>=1;--k)v=v*tt+DD(c[k]*k);
+            return v;
+        };
+        const __float128 pdd=fabsq(qf_from_dd(dd_eval(q.p)));
+        const __float128 tdd=fabsq(qf_from_dd(dd_deriv(q.p)));
+        const __float128 rdd=fabsq(qf_from_dd(dd_eval(qr.p)));
+        const double dd_res=std::max((double)(pdd/(__float128)best_ap),
+                                     (double)(tdd/(__float128)best_at));
+        const double ulp=std::fabs(std::nextafter(R,std::numeric_limits<double>::infinity())-R);
+        const double dd_shift=(double)(rdd>0?pdd/rdd:1e300L);
+        const double budget_radius=0.05*value_budget*std::max(1.0,std::fabs(R));
+        if(dd_res<=1e-14&&rdd>64*(__float128)eps*(__float128)best_ar&&
+           std::max(8*ulp,64*eps*(1+std::fabs(R))+dd_shift)<=std::max(256*ulp,budget_radius)) {
+            best.needs_qf=false;best.precision_tier=1;
+            best.uncertainty=std::max(8*ulp,64*eps*(1+std::fabs(R))+dd_shift);
+        }
+    }
+    return best;
+}
 inline EventLocation refine_event(double R,const PrimaryFrame& pf,const re_detail::PolyFamilyR& fam) {
     using Q=__float128;
     auto q=boundary_quartic(R,pf);
     double dc[4]={4*q.p[4],3*q.p[3],2*q.p[2],q.p[1]};
     int deg=3;while(deg && dc[0]==0){for(int j=0;j<deg;++j)dc[j]=dc[j+1];--deg;}
-    EventLocation best{R,std::numeric_limits<double>::infinity()};
+    EventLocation best{R,std::numeric_limits<double>::infinity(),0,true,true,2};
     if(!deg)return best;
     auto roots=aberth<double>(dc,deg,24);
     Q nearest=HUGE_VALQ;
@@ -40,7 +128,7 @@ inline EventLocation refine_event(double R,const PrimaryFrame& pf,const re_detai
         if(!regular||!finiteq(r)||last>1e-25Q*(1+fabsq(r)))continue;
         Q shift=fabsq(r-Q(R));
         if(shift<nearest){nearest=shift;double rounded=double(r);
-            best={rounded,double(fabsq(Q(rounded)-r)+last)+std::fabs(std::nextafter(rounded,INFINITY)-rounded)};}
+            best={rounded,double(fabsq(Q(rounded)-r)+last)+std::fabs(std::nextafter(rounded,INFINITY)-rounded),double(r-Q(rounded)),false,true,2};}
     }
     return best;
 }
@@ -175,44 +263,84 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     const TopologyResult& topo,const AdaptiveConfig& cfg,AdaptiveWorkspace& workspace) {
     const ScopedFlushDenormals fp_guard;
     workspace.reset();
-    if(!adaptive_detail::valid_epoch_config(p,u,cfg)) {AdaptiveResult r;r.stop=AdaptiveStop::InvalidConfig;return r;}
-    if(cfg.require_bound){AdaptiveResult r;r.stop=AdaptiveStop::BoundUnavailable;return r;}
-    if(topo.status!=Status::OK){AdaptiveResult r;r.stop=AdaptiveStop::TopologyUnresolved;return r;}
+    const auto policy=cfg.effective_gradient_policy();
+    if(!adaptive_detail::valid_epoch_config(p,u,cfg)) return adaptive_detail::failure_result(AdaptiveStop::InvalidConfig,policy);
+    if(cfg.require_bound) return adaptive_detail::failure_result(AdaptiveStop::BoundUnavailable,policy);
+    if(topo.status!=Status::OK) return adaptive_detail::failure_result(AdaptiveStop::TopologyUnresolved,policy);
     auto setup_start=adaptive_detail::Clock::now();
+    auto frame_start=adaptive_detail::Clock::now();
     const auto pf=PrimaryFrame::from(p);
-    if(near_origin_source(pf)){AdaptiveResult r;r.stop=AdaptiveStop::TopologyUnresolved;return r;}
-    const auto fam=re_detail::p_coeffs_in_R(pf.a,pf.m0,pf.X,pf.Y,pf.rho);
-    std::vector<CellPlan> cells;
-    if(!adaptive_detail::restore_physical_cuts(topo,pf,cells)){AdaptiveResult r;r.stop=AdaptiveStop::TopologyUnresolved;return r;}
+    const double setup_frame_ms=adaptive_detail::ms(frame_start);
+    if(near_origin_source(pf)) return adaptive_detail::failure_result(AdaptiveStop::TopologyUnresolved,policy);
+    auto& cells=workspace.cells;
+    auto cuts_start=adaptive_detail::Clock::now();
+    if(!adaptive_detail::restore_physical_cuts(topo,pf,cells)) return adaptive_detail::failure_result(AdaptiveStop::TopologyUnresolved,policy);
+    const double setup_cuts_ms=adaptive_detail::ms(cuts_start);
     // A squared map is a valid substitution even if a physical event is a
     // higher contact: we make no smooth-fold guarantee from its label alone.
     auto physical=[&](double R){for(const auto& e:topo.events)if(e.radius==R && e.physically_real && e.kind=="physical_real")return true;return false;};
     std::vector<std::pair<double,adaptive_detail::EventLocation>> event_errors;
-    auto uncertainty=[&](double R){for(auto e:event_errors)if(e.first==R)return e.second;
-        auto d=adaptive_detail::refine_event(R,pf,fam);event_errors.emplace_back(R,d);return d;};
+    std::unique_ptr<re_detail::PolyFamilyR> fam;
+    bool fam_ready=false;
+    size_t event_double_checks=0,event_dd_checks=0,event_dd_accepts=0,event_qf_refinements=0,qf_family_constructions=0;
+    double setup_event_ms=0;
+    double event_budget=cfg.tol.budget(0,1.0);
+    if(policy==GradientPolicy::Strict)for(int j=1;j<6;++j)event_budget=std::min(event_budget,cfg.tol.budget(j,1.0));
+    auto uncertainty=[&](double R){
+        auto event_call_start=adaptive_detail::Clock::now();
+        for(const auto& e:event_errors)if(e.first==R){setup_event_ms+=adaptive_detail::ms(event_call_start);return e.second;}
+        ++event_double_checks;
+        auto d=adaptive_detail::double_event_estimate(R,pf,event_budget);
+        if(d.precision_tier>=1)++event_dd_checks;
+        if(d.precision_tier==1)++event_dd_accepts;
+        if(d.needs_qf) {
+            if(!fam_ready) {
+                fam=std::make_unique<re_detail::PolyFamilyR>(re_detail::p_coeffs_in_R(pf.a,pf.m0,pf.X,pf.Y,pf.rho));
+                fam_ready=true;
+                ++qf_family_constructions;
+            }
+            d=adaptive_detail::refine_event(R,pf,*fam);
+            ++event_qf_refinements;
+        }
+        event_errors.emplace_back(R,d);
+        setup_event_ms+=adaptive_detail::ms(event_call_start);
+        return d;};
+    auto panel_start=adaptive_detail::Clock::now();
     for(size_t i=0;i<cells.size();++i){const auto& c=cells[i];if(c.kind==ArcKind::kEmpty)continue;
-        if(workspace.panels.size()>=cfg.max_panels){AdaptiveResult r;r.stop=AdaptiveStop::BudgetExceeded;return r;}
-        AdaptivePanel panel;panel.cell=i;panel.map={c.r_lo,c.r_hi,cfg.fold_maps&&physical(c.r_lo),cfg.fold_maps&&physical(c.r_hi)};if(physical(c.r_lo)){auto e=uncertainty(c.r_lo);panel.map.a=e.radius;panel.left_uncertainty=e.uncertainty;}
-        if(physical(c.r_hi)){auto e=uncertainty(c.r_hi);panel.map.b=e.radius;panel.right_uncertainty=e.uncertainty;}
+        if(workspace.panels.size()>=cfg.max_panels) return adaptive_detail::failure_result(AdaptiveStop::BudgetExceeded,policy);
+        AdaptivePanel panel;panel.cell=i;panel.map={c.r_lo,c.r_hi,cfg.fold_maps&&physical(c.r_lo),cfg.fold_maps&&physical(c.r_hi)};if(physical(c.r_lo)){auto e=uncertainty(c.r_lo);panel.map.a=e.radius;panel.left_radius_lo=e.radius_lo;panel.left_uncertainty=e.uncertainty;}
+        if(physical(c.r_hi)){auto e=uncertainty(c.r_hi);panel.map.b=e.radius;panel.right_radius_lo=e.radius_lo;panel.right_uncertainty=e.uncertainty;}
         // A local correction may not jump across another cell/event.
-        if(std::fabs(panel.map.a-c.r_lo)>.25*(c.r_hi-c.r_lo)||std::fabs(panel.map.b-c.r_hi)>.25*(c.r_hi-c.r_lo)||!(panel.map.a<panel.map.b)){AdaptiveResult r;r.stop=AdaptiveStop::EventLocationLimited;return r;}
-        if(!std::isfinite(panel.left_uncertainty+panel.right_uncertainty)){AdaptiveResult r;r.stop=AdaptiveStop::EventLocationLimited;return r;}
+        if(std::fabs(panel.map.a-c.r_lo)>.25*(c.r_hi-c.r_lo)||std::fabs(panel.map.b-c.r_hi)>.25*(c.r_hi-c.r_lo)||!(panel.map.a<panel.map.b)) return adaptive_detail::failure_result(AdaptiveStop::EventLocationLimited,policy);
+        if(!std::isfinite(panel.left_uncertainty+panel.right_uncertainty)) return adaptive_detail::failure_result(AdaptiveStop::EventLocationLimited,policy);
         workspace.panels.push_back(panel);}
-    double setup_ms=adaptive_detail::ms(setup_start);
-    auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed){return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],cfg.with_jacobian,topo.from_warm_d14,seed);});
-    result.stats.setup_ms=setup_ms;return result;
+    const bool with_jacobian=policy!=GradientPolicy::None;
+    const double panel_total_ms=adaptive_detail::ms(panel_start);
+    const double setup_panel_ms=std::max(0.0,panel_total_ms-setup_event_ms);
+    auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed){return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],with_jacobian,topo.from_warm_d14,seed);});
+    result.stats.setup_ms=adaptive_detail::ms(setup_start);
+    result.stats.setup_frame_ms=setup_frame_ms;
+    result.stats.setup_cuts_ms=setup_cuts_ms;
+    result.stats.setup_event_ms=setup_event_ms;
+    result.stats.setup_panel_ms=setup_panel_ms;
+    result.stats.event_double_checks=event_double_checks;
+    result.stats.event_dd_checks=event_dd_checks;
+    result.stats.event_dd_accepts=event_dd_accepts;
+    result.stats.event_qf_refinements=event_qf_refinements;
+    result.stats.qf_family_constructions=qf_family_constructions;
+    return result;
 }
 inline AdaptiveResult epoch_adaptive(const LensParams& p,double u,const AdaptiveConfig& cfg,AdaptiveWorkspace& w) {
-    if(!adaptive_detail::valid_epoch_config(p,u,cfg)){w.reset();AdaptiveResult r;r.stop=AdaptiveStop::InvalidConfig;return r;}
-    if(cfg.require_bound){w.reset();AdaptiveResult r;r.stop=AdaptiveStop::BoundUnavailable;return r;}
+    if(!adaptive_detail::valid_epoch_config(p,u,cfg)){w.reset();return adaptive_detail::failure_result(AdaptiveStop::InvalidConfig,cfg.effective_gradient_policy());}
+    if(cfg.require_bound){w.reset();return adaptive_detail::failure_result(AdaptiveStop::BoundUnavailable,cfg.effective_gradient_policy());}
     auto start=adaptive_detail::Clock::now();auto topo=classify_cells(PrimaryFrame::from(p));double t=adaptive_detail::ms(start);
     auto out=flux_adaptive_integrate(p,u,topo,cfg,w);out.stats.topology_ms=t;return out;
 }
-inline AdaptiveResult epoch_value_adaptive(const LensParams& p,double u,AdaptiveConfig cfg,AdaptiveWorkspace& w) {cfg.with_jacobian=false;return epoch_adaptive(p,u,cfg,w);}
+inline AdaptiveResult epoch_value_adaptive(const LensParams& p,double u,AdaptiveConfig cfg,AdaptiveWorkspace& w) {cfg.gradient_policy=GradientPolicy::None;cfg.with_jacobian=false;return epoch_adaptive(p,u,cfg,w);}
 inline AdaptiveResult epoch_jacobian_adaptive(const LensParams& p,double u,AdaptiveConfig cfg,AdaptiveWorkspace& w) {cfg.with_jacobian=true;return epoch_adaptive(p,u,cfg,w);}
 inline AdaptiveResult epoch_adaptive_prepared(const LensParams& p,double u,const AdaptiveConfig& cfg,AdaptiveWorkspace& w,PreparedEpochGeometry& state,const PreparedReuseConfig& reuse=PreparedReuseConfig{}) {
-    if(!adaptive_detail::valid_epoch_config(p,u,cfg)){w.reset();AdaptiveResult r;r.stop=AdaptiveStop::InvalidConfig;return r;}
-    if(cfg.require_bound){w.reset();AdaptiveResult r;r.stop=AdaptiveStop::BoundUnavailable;return r;}
+    if(!adaptive_detail::valid_epoch_config(p,u,cfg)){w.reset();return adaptive_detail::failure_result(AdaptiveStop::InvalidConfig,cfg.effective_gradient_policy());}
+    if(cfg.require_bound){w.reset();return adaptive_detail::failure_result(AdaptiveStop::BoundUnavailable,cfg.effective_gradient_policy());}
     auto start=adaptive_detail::Clock::now();auto topo=prepared_topology(PrimaryFrame::from(p),state,reuse,nullptr);double t=adaptive_detail::ms(start);
     auto out=flux_adaptive_integrate(p,u,topo,cfg,w);out.stats.topology_ms=t;return out;
 }

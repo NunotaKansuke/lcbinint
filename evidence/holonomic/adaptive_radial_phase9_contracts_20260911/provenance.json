@@ -1,0 +1,23 @@
+{
+  "base_head": "50f39729407d1687af0aab10c283bbaeafd4a0b8",
+  "branch": "dev/holonomic",
+  "scope": "isolated holonomic adaptive radial V2",
+  "command": "bash checks/holonomic/run_adaptive_radial.sh evidence/holonomic/adaptive_radial_phase9_contracts_20260911 1",
+  "case_inputs": {
+    "whole_epoch": "evidence/holonomic/gm_coverage_cases.tsv",
+    "contract": "reference_cases.tsv and reference_warm_cases.tsv copied from the prior adaptive reference set"
+  },
+  "policies": ["None", "Strict", "ValueFirst"],
+  "tolerances": ["1e-3", "1e-4"],
+  "timing": {
+    "repeats": 1,
+    "cold_and_warm": true,
+    "lens_initialization_excluded_from_timed_call": true,
+    "warmup_epoch_excluded": true
+  },
+  "host": "rogue1, Linux 5.14.0-570.23.1.el9_6.x86_64",
+  "compiler": "GCC 11.5.0",
+  "cmake": "3.26.5",
+  "error_contract": "Eabs <= max(Tol, RelTol * abs(Q))",
+  "assurance": "Estimated; require_bound remains fail-closed"
+}

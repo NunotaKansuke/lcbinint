@@ -25,6 +25,28 @@ int main(){
     auto result=adaptive_detail::integrate(w,cfg,model);
     check(result.stop==AdaptiveStop::Converged,"fold model converges");check(std::fabs(result.mu-2./3)<1e-12,"fold value");check(std::fabs(result.grad_mu[0]-2)<1e-12,"fold derivative");
     check(result.stats.unique_nodes==w.samples.size(),"only new nodes counted");
+    AdaptiveConfig value_first;value_first.gradient_policy=GradientPolicy::ValueFirst;
+    value_first.value_first_gradient_node_budget=0;value_first.value_first_gradient_round_budget=0;
+    value_first.tol.mu_atol=1e-12;value_first.tol.mu_rtol=1e-10;
+    w.reset();AdaptivePanel value_panel;value_panel.map={0,1,false,false};w.panels.push_back(value_panel);
+    auto finite_unverified=[](double R,double J,int,const AdaptiveSample*){AdaptiveSample s;s.value[0]=J;s.value[1]=J*std::sin(100*R);return s;};
+    auto value_first_result=adaptive_detail::integrate(w,value_first,finite_unverified);
+    check(value_first_result.value_converged&&value_first_result.stop==AdaptiveStop::Converged,"ValueFirst keeps converged value");
+    check(value_first_result.grad_quality[0]==GradientQuality::FiniteUncertified&&
+          value_first_result.grad_reason[0]==GradientReason::BudgetExceeded,"ValueFirst separates finite gradient quality");
+    check(value_first_result.numerical_status==Status::OK,"finite uncertified gradient does not invalidate value");
+    w.reset();w.panels.push_back(value_panel);
+    auto invalid_gradient=[](double,double J,int,const AdaptiveSample*){AdaptiveSample s;s.value[0]=J;s.value[1]=NAN;return s;};
+    auto invalid_gradient_result=adaptive_detail::integrate(w,value_first,invalid_gradient);
+    check(invalid_gradient_result.value_converged&&invalid_gradient_result.stop==AdaptiveStop::Nonfinite,"invalid gradient preserves value but fails status");
+    check(invalid_gradient_result.grad_quality[0]==GradientQuality::Invalid&&
+          invalid_gradient_result.grad_reason[0]==GradientReason::Nonfinite,"invalid gradient is not uncertified");
+    w.reset();w.panels.push_back(value_panel);
+    auto one_invalid_gradient=[](double,double J,int,const AdaptiveSample*){AdaptiveSample s;s.value[0]=J;s.value[1]=NAN;s.value[2]=J;return s;};
+    auto one_invalid_result=adaptive_detail::integrate(w,value_first,one_invalid_gradient);
+    check(one_invalid_result.grad_quality[0]==GradientQuality::Invalid&&
+          one_invalid_result.grad_quality[1]!=GradientQuality::Invalid,
+          "gradient invalidity is tracked per component");
     // A forced four-level walk checks cache exactly without an acceptance shortcut.
     w.reset();w.panels.push_back(p);int evals=0;
     for(int l=3;l<=6;++l){auto& pp=w.panels[0];int m=1<<l,step=256/m;
