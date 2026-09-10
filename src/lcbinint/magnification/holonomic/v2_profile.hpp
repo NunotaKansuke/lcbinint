@@ -63,6 +63,14 @@ struct V2Profile {
     u64 topology_escalations = 0;
     u64 topology_uncertain = 0;
     u64 quartic_probe_calls = 0;
+    u64 sturm_calls = 0;
+    u64 sturm_double_accepts = 0;
+    u64 sturm_dd_accepts = 0;
+    u64 sturm_qf_accepts = 0;
+    u64 sturm_ambiguous = 0;
+    u64 sturm_root_count_mismatch = 0;
+    u64 sturm_isolation_repairs = 0;
+    u64 sturm_isolation_failures = 0;
     u64 grid512_calls = 0;
     u64 grid3072_calls = 0;
     u64 grid4096_calls = 0;
@@ -83,6 +91,9 @@ struct V2Profile {
     u64 arc_empty = 0;
     u64 arc_full = 0;
     u64 arc_degenerate = 0;
+    u64 arc_reciprocal_attempts = 0;
+    u64 arc_reciprocal_success = 0;
+    u64 arc_reciprocal_failures = 0;
     u64 arc_sets = 0;
     u64 arc_count = 0;
     u64 endpoint_calls = 0;

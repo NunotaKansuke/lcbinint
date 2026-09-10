@@ -3,8 +3,8 @@
 // ATPT holonomic solver (M7) -- one radius: value + derivative integrands.
 // Ports python/lcbinint/holonomic_ref/jacobian.py:
 //   polish_endpoint, _real_root_thetas, arc_intervals, _grid_intervals,
-//   _full_circle_terms, radius_terms
-// and topology.arcs_at (grid fallback / cell kind).
+//   _full_circle_terms, radius_terms.  The fixed-grid helper remains only as
+// an independent diagnostic; production arc discovery is quartic-based.
 //
 //   f0    = R * sum_arcs (theta_leave - theta_enter)
 //   fh    = R * sum_arcs int_arc sqrt(phi) dtheta        (GC-1(64) angular)
@@ -29,6 +29,7 @@
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
 #include "lcbinint/magnification/holonomic/phi.hpp"
 #include "lcbinint/magnification/holonomic/poly_roots.hpp"
+#include "lcbinint/magnification/holonomic/quartic_sturm.hpp"
 #include "lcbinint/magnification/holonomic/root_pair.hpp"
 #include "lcbinint/magnification/holonomic/v2_profile.hpp"
 
@@ -111,6 +112,38 @@ inline std::vector<double> real_root_thetas(const std::array<double, 5>& pc) {
     int deg = quartic_descending(pc, c);
     if (deg <= 0) return {};
     return thetas_from_complex(aberth<double>(c, deg, 40));
+}
+
+// Roots in the reflected projective chart u = -1/t = tan((theta-pi)/2).
+// Mapping through theta = pi + 2 atan(u) keeps roots near theta=pi finite,
+// including the exact u=0 representative of the t=+/-infinity root.  This
+// path is used only when the t-chart leading coefficient is numerically small;
+// it is an algebraic chart change, never an angular-grid rescue.
+inline std::vector<double> thetas_from_reciprocal_complex(
+    const std::vector<Cplx<double>>& z) {
+    std::vector<double> out;
+    out.reserve(z.size());
+    for (const auto& r : z) {
+        if (std::fabs(r.im) > kRootImRel * (1.0 + std::fabs(r.re))) continue;
+        double theta = 0.5 * kTwoPi + 2.0 * std::atan(r.re);
+        theta = std::fmod(theta, kTwoPi);
+        if (theta < 0.0) theta += kTwoPi;
+        out.push_back(theta);
+    }
+    std::sort(out.begin(), out.end());
+    std::vector<double> merged;
+    for (double x : out)
+        if (merged.empty() || x - merged.back() > 1e-11)
+            merged.push_back(x);
+    return merged;
+}
+
+inline std::vector<double> real_root_thetas_reciprocal(
+    const std::array<double, 5>& pc) {
+    double c[5];
+    int deg = quartic_descending(pc, c);
+    if (deg <= 0) return {};
+    return thetas_from_reciprocal_complex(aberth<double>(c, deg, 40));
 }
 
 // Warm-start state for the per-radial-node quartic solve inside one cell.
@@ -656,11 +689,56 @@ struct ArcSet {
     std::vector<std::array<double, 2>> arcs;  // (theta_enter, theta_leave)
 };
 
+// Build the physical positive-phi intervals from a certified/solved angular
+// root list.  This is shared by the ordinary t chart and the reciprocal chart
+// so the chart switch cannot alter the interval convention.  The fixed-grid
+// sampler remains a diagnostic API and is deliberately absent here.
+inline ArcSet arc_set_from_root_thetas(double R, const PrimaryFrame& pf,
+                                       const std::vector<double>& th) {
+    V2Profile* prof = v2_profile_current();
+    if (th.empty()) {
+        const double ph0 = phi_lens(R, 0.0, pf);
+        if (!std::isfinite(ph0) || ph0 == 0.0) {
+            if (prof) ++prof->arc_degenerate;
+            return {ArcKind::kDegenerate, {}};
+        }
+        if (ph0 > 0.0) {
+            if (prof) ++prof->arc_full;
+            return {ArcKind::kFull, {}};
+        }
+        if (prof) ++prof->arc_empty;
+        return {ArcKind::kEmpty, {}};
+    }
+    if (th.size() % 2 != 0) {
+        if (prof) ++prof->arc_degenerate;
+        return {ArcKind::kDegenerate, {}};
+    }
+    ArcSet out{ArcKind::kArcs, {}};
+    const int n = static_cast<int>(th.size());
+    for (int i = 0; i < n; ++i) {
+        const double lo = th[i];
+        double hi = th[(i + 1) % n];
+        if (hi <= lo) hi += kTwoPi;
+        if (phi_lens(R, 0.5 * (lo + hi), pf) > 0.0)
+            out.arcs.push_back({lo, hi});
+    }
+    if (prof) {
+        ++prof->arc_sets;
+        prof->arc_count += static_cast<V2Profile::u64>(out.arcs.size());
+    }
+    return out;
+}
+
 // ---- topology.arcs_at : grid sign-scan + bisection refine ------------
 struct GridArcs {
     ArcKind kind;  // kArcs / kFull / kEmpty
     int n_crossings;
     std::vector<std::array<double, 2>> arcs;
+    // These fields describe quartic_topology results.  arcs_at() remains a
+    // diagnostic angular sampler and leaves them false/zero.
+    bool certified = false;
+    int sturm_tier = -1;  // 0=double, 1=DD, 2=__float128
+    bool reciprocal_chart = false;
 };
 inline GridArcs arcs_at(double R, const PrimaryFrame& pf, int n_grid = 3072) {
     V2Profile* prof = v2_profile_current();
@@ -754,6 +832,24 @@ inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
     if (amax == 0.0 || std::fabs(q.p[4]) < kP4DegenRel * amax) {
         if (w) w->valid = false;  // chart radius -> break the warm chain
         if (rpw) rpw->valid = false;
+        // p4 is the coefficient of the t^4 term.  Near p4=0 the missing
+        // finite t root is the projective point theta=pi, so the t chart is
+        // the wrong numerical representation.  Re-solve the same quartic in
+        // u=-1/t and map u roots with theta=pi+2 atan(u).  The reciprocal
+        // polynomial has no angular sampling and remains valid at the exact
+        // p4=0 event whenever p0 (the reciprocal leading coefficient) is
+        // nonzero.
+        if (q.p[0] != 0.0 && std::isfinite(q.p[0])) {
+            if (prof) ++prof->arc_reciprocal_attempts;
+            const QuarticCoeffs uq = boundary_quartic_reciprocal(q);
+            const std::vector<double> uth = real_root_thetas_reciprocal(uq.p);
+            const ArcSet reciprocal = arc_set_from_root_thetas(R, pf, uth);
+            if (reciprocal.kind != ArcKind::kDegenerate) {
+                if (prof) ++prof->arc_reciprocal_success;
+                return reciprocal;
+            }
+            if (prof) ++prof->arc_reciprocal_failures;
+        }
         if (prof) ++prof->arc_degenerate;
         return {ArcKind::kDegenerate, {}};
     }
@@ -763,46 +859,58 @@ inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
     auto th = use_transport ? real_root_thetas_transport(q.p, R, pf, *rpw, w)
               : w           ? real_root_thetas_warm(q.p, *w)
                             : real_root_thetas(q.p);
-    if (th.empty()) {
-        if (prof) {
-            if (q.p[4] > 0.0) ++prof->arc_full;
-            else ++prof->arc_empty;
-        }
-        return {q.p[4] > 0.0 ? ArcKind::kFull : ArcKind::kEmpty, {}};
-    }
-    if (th.size() % 2 != 0) {
-        if (prof) ++prof->arc_degenerate;
-        return {ArcKind::kDegenerate, {}};
-    }
-    ArcSet out{ArcKind::kArcs, {}};
-    int n = (int)th.size();
-    for (int i = 0; i < n; ++i) {
-        double lo = th[i];
-        double hi = th[(i + 1) % n];
-        if (hi <= lo) hi += kTwoPi;
-        if (phi_lens(R, 0.5 * (lo + hi), pf) > 0.0) out.arcs.push_back({lo, hi});
-    }
-    if (prof) {
-        ++prof->arc_sets;
-        prof->arc_count += (V2Profile::u64)out.arcs.size();
-    }
-    return out;
+    return arc_set_from_root_thetas(R, pf, th);
 }
 
-// Cheap cell-topology probe: (kind, crossing count) straight from the
-// boundary quartic's real roots -- no 3072-point grid.  Falls back to the
-// grid only at a p4~0 (degenerate) probe radius.  Used by classify_cells.
+// Certified cell-topology probe.  The fixed angular sampler above is kept for
+// independent diagnostics only; it is never consulted here.  The D14 event
+// partition removes interior discriminant crossings, so one certified
+// Sturm count at the cell probe determines the angular crossing count.
 inline GridArcs quartic_topology(double R, const PrimaryFrame& pf) {
-    if (V2Profile* prof = v2_profile_current()) ++prof->quartic_probe_calls;
+    V2Profile* prof = v2_profile_current();
+    if (prof) {
+        ++prof->quartic_probe_calls;
+        ++prof->sturm_calls;
+    }
     QuarticCoeffs q = boundary_quartic(R, pf);
-    double amax = 0.0;
-    for (double c : q.p) amax = std::max(amax, std::fabs(c));
-    if (amax == 0.0 || std::fabs(q.p[4]) < kP4DegenRel * amax)
-        return arcs_at(R, pf, 3072);
+    QuarticSturmCertificate cert = certify_quartic(q.p);
+    if (prof) {
+        if (cert.precision_tier == 0) ++prof->sturm_double_accepts;
+        else if (cert.precision_tier == 1) ++prof->sturm_dd_accepts;
+        else if (cert.precision_tier == 2) ++prof->sturm_qf_accepts;
+        if (!cert.certified) ++prof->sturm_ambiguous;
+    }
+    if (!cert.certified)
+        return {ArcKind::kDegenerate, 0, {}, false, cert.precision_tier,
+                cert.reciprocal};
+
+    // Keep the incumbent complex root path for endpoint seeds, but never let
+    // its imaginary-part filter decide whether the cell contains an arc.
+    // When it disagrees with the certified count, isolate the real roots in
+    // the selected projective chart with the qf Sturm chain.  Topology only
+    // needs the count, so the isolated coordinates are discarded here.
     auto th = real_root_thetas(q.p);
-    if (th.empty())
-        return {q.p[4] > 0.0 ? ArcKind::kFull : ArcKind::kEmpty, 0, {}};
-    return {ArcKind::kArcs, (int)th.size(), {}};
+    if (static_cast<int>(th.size()) != cert.root_count) {
+        if (prof) ++prof->sturm_root_count_mismatch;
+        const auto isolated =
+            sturm_isolate_real_roots(cert.chart_coeffs, cert.root_count);
+        if (static_cast<int>(isolated.size()) != cert.root_count) {
+            if (prof) ++prof->sturm_isolation_failures;
+            return {ArcKind::kDegenerate, 0, {}, false,
+                    cert.precision_tier, cert.reciprocal};
+        }
+        if (prof) ++prof->sturm_isolation_repairs;
+    }
+    if (cert.root_count == 0) {
+        const double ph0 = phi_lens(R, 0.0, pf);
+        if (!std::isfinite(ph0) || ph0 == 0.0)
+            return {ArcKind::kDegenerate, 0, {}, false,
+                    cert.precision_tier, cert.reciprocal};
+        return {ph0 > 0.0 ? ArcKind::kFull : ArcKind::kEmpty, 0, {}, true,
+                cert.precision_tier, cert.reciprocal};
+    }
+    return {ArcKind::kArcs, cert.root_count, {}, true, cert.precision_tier,
+            cert.reciprocal};
 }
 
 inline ArcSet grid_intervals(double R, const PrimaryFrame& pf) {
@@ -861,15 +969,11 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
     }
     if (as.kind == ArcKind::kDegenerate) {
         if (prof) ++prof->arc_degenerate;
-        ArcSet g = grid_intervals(R, pf);
+        // A chart/root ambiguity is a numerical failure, not permission to
+        // replace the quartic with a fixed angular sampler.  The caller keeps
+        // the result but receives reliable=false, so the epoch fails closed.
         rt.reliable = false;
-        if (g.kind == ArcKind::kEmpty) return rt;
-        if (g.kind == ArcKind::kFull) {
-            RadiusTerms f = full_circle_terms(R, pf);
-            f.reliable = false;
-            return f;
-        }
-        as = g;
+        return rt;
     }
 
     const double tan_thresh = tan_rel * pf.rho / std::max(R, 1e-9);
@@ -1067,14 +1171,11 @@ inline RadiusValue radius_value(double R, const PrimaryFrame& pf, bool want_fh,
         return rt;
     }
     if (as.kind == ArcKind::kDegenerate) {
-        ArcSet g = grid_intervals(R, pf);
+        // Keep the value/status contract fail-closed.  A fixed angular grid
+        // may be retained through grid_intervals() for independent diagnostics
+        // but cannot manufacture a production value at a chart ambiguity.
         rt.reliable = false;
-        if (g.kind == ArcKind::kEmpty) return rt;
-        if (g.kind == ArcKind::kFull) {
-            radius_value_detail::full_circle_value(R, pf, want_fh, &rt);
-            return rt;
-        }
-        as = g;
+        return rt;
     }
 
     const double tan_thresh = tan_rel * pf.rho / std::max(R, 1e-9);

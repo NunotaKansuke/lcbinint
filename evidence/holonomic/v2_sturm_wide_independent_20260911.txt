@@ -1,0 +1,17 @@
+Independent wide-planet check after the Sturm topology change.
+
+Input: LensParams(xs=1.4, ys=0.10, rho=0.03, q=0.001, a=2.5, barycentric=false), n_r=64.
+H is the current holonomic epoch_jacobian path. A is the pre-existing algebraic-boundary evaluator built from the isolated algebraic benchmark worktree. The A and H values use the same physical source convention; only the value is used as the independent topology check here.
+
+u=0.0
+H mu=1.1591934443442478 F0=0.0032775422479572039 Fhalf=0.0021850128751613406
+A mu=1.1591934443402698
+abs(H-A)=3.978e-12
+
+u=0.5
+H mu=1.1591901996750309 F0=0.0032775422479572039 Fhalf=0.0021850128751613406
+A mu=1.1591902291365628
+abs(H-A)=2.946e-08
+
+The previous fixed-grid fixture values were 1.1591894859661327 and
+1.1591862424231485, respectively, and missed the certified outer arc.

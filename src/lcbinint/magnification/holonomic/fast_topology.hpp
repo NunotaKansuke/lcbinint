@@ -84,8 +84,9 @@ inline int quartic_disc_sign(double R, const PrimaryFrame& pf) {
 
 // Sign of the boundary quartic's leading coefficient p4 at radius R.  p4
 // changes sign at a chart_p4 radial_event (a boundary point crosses theta = pi;
-// quartic_topology returns kDegenerate there and the arc geometry has a
-// sqrt-type feature).  One boundary_quartic evaluation, no root solve.
+// the t chart is ill-conditioned there, while the reciprocal chart handles a
+// simple projective root and leaves a multiple contact fail-closed).  One
+// boundary_quartic evaluation, no root solve.
 inline int quartic_p4_sign(double R, const PrimaryFrame& pf) {
     const double p4 = boundary_quartic(R, pf).p[4];
     return p4 > 0.0 ? 1 : (p4 < 0.0 ? -1 : 0);
@@ -233,26 +234,25 @@ inline TopologyResult classify_cells_fast(const PrimaryFrame& pf,
             const double lo = edges[i - 1], hi = edges[i];
             if (!(hi > lo)) continue;
 
-            // Per-sub-cell validation, identical in spirit to classify_cells'
-            // own per-cell check (cells.hpp): the boundary-quartic topology at
-            // fractions 0.18 / 0.50 / 0.82 must be uniform, and the mid probe
-            // must agree with an independent 512-point grid.  A sub-cell that
-            // fails either test is one the planner + cheap-cut partition cannot
-            // certify (a razor arc classify_cells itself resolves differently,
-            // e.g. a wide-binary secondary band below the 3072-grid; a fold
-            // radius the disc-sign bisection placed too coarsely).  Fail closed
-            // -- hand the WHOLE epoch to the D14 oracle, never integrate a lone
-            // unchecked quartic guess (checkpoint sec.17).
+            // Per-sub-cell validation: the boundary quartic topology at
+            // fractions 0.18 / 0.50 / 0.82 must be uniform, and a second
+            // certified midpoint probe must agree.  A sub-cell that fails is
+            // one the planner + cheap-cut partition cannot certify.  Fail
+            // closed -- hand the WHOLE epoch to the D14 oracle, never integrate
+            // a lone unchecked quartic guess.  No fixed angular sampler is
+            // part of this authority path.
             const double fr[3] = {0.18, 0.50, 0.82};
             GridArcs pr[3];
             for (int k = 0; k < 3; ++k)
                 pr[k] = quartic_topology(lo + fr[k] * (hi - lo), pf);
-            const bool uniform =
+            const bool uniform = pr[0].certified && pr[1].certified &&
+                pr[2].certified &&
                 pr[1].kind == pr[0].kind && pr[1].kind == pr[2].kind &&
                 pr[1].n_crossings == pr[0].n_crossings &&
                 pr[1].n_crossings == pr[2].n_crossings;
-            GridArcs mg = arcs_at(0.5 * (lo + hi), pf, 512);
-            const bool mid_ok = mg.kind == pr[1].kind &&
+            const GridArcs mg = quartic_topology(0.5 * (lo + hi), pf);
+            const bool mid_ok = mg.certified &&
+                                mg.kind == pr[1].kind &&
                                 mg.n_crossings == pr[1].n_crossings;
             if (!uniform || !mid_ok) {
                 s.fell_back = true;

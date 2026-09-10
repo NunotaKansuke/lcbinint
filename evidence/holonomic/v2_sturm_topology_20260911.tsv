@@ -1,0 +1,69 @@
+key	value	details
+base_commit	c688400	V2 production candidate before this change
+case_set	108	gm_coverage_cases.tsv
+n_r	64	all production-profile lanes
+matched_profile_reps	1	bench_v2_profile ... 1 4
+matched_profile_trajectory_epochs	4	warm epoch zero excluded from steady-state statistics
+cold_value_p50_ms	0.887760	new path
+cold_value_p90_ms	1.640995	new path
+cold_value_p95_ms	1.887266	new path
+cold_value_p99_ms	2.113679	new path
+cold_value_max_ms	2.643815	new path
+cold_value_status	108/108	status_ok/status_total
+cold_value_jac_p50_ms	1.001845	new path
+cold_value_jac_p90_ms	2.006393	new path
+cold_value_jac_p95_ms	2.228298	new path
+cold_value_jac_p99_ms	2.910420	new path
+cold_value_jac_max_ms	3.103779	new path
+cold_value_jac_status	108/108	status_ok/status_total
+warm_value_p50_ms	0.718360	new path; 324 steady-state measurements
+warm_value_p90_ms	1.064033	new path
+warm_value_p95_ms	1.251262	new path
+warm_value_p99_ms	2.092208	new path
+warm_value_max_ms	2.632161	new path
+warm_value_status	316/324	matched four-epoch trajectory; status includes existing prepared-path difficult lanes
+warm_value_jac_p50_ms	0.786458	new path; 324 steady-state measurements
+warm_value_jac_p90_ms	1.396122	new path
+warm_value_jac_p95_ms	1.774123	new path
+warm_value_jac_p99_ms	3.287203	new path
+warm_value_jac_max_ms	3.309978	new path
+warm_value_jac_status	316/324	matched four-epoch trajectory
+stable_profile_reps	3	bench_v2_profile ... 3 3
+stable_cold_value_p50_ms	0.799810	three-repetition best-of-repetition profile
+stable_cold_value_jac_p50_ms	0.927326	three-repetition best-of-repetition profile
+stable_warm_value_p50_ms	0.732325	216 steady-state measurements
+stable_warm_value_jac_p50_ms	0.856256	216 steady-state measurements
+cold_cells	1370	production classify_cells calls
+cold_sturm_calls	1370	one certified midpoint per open radial cell
+cold_sturm_double_accepts	1370	DD=0 qf=0 ambiguous=0
+cold_topology_uncertain	0	fail-closed uncertainty count
+production_grid512_calls	0	new production profile
+production_grid3072_calls	0	new production profile
+production_grid4096_calls	0	new production profile
+old_grid512_calls	1370	Phase 8 baseline profile
+old_grid3072_calls	138	Phase 8 baseline profile
+old_grid4096_calls	0	Phase 8 baseline profile
+old_topology_escalations	46	Phase 8 baseline profile
+old_topology_uncertain	4	Phase 8 baseline profile
+old_cold_value_status	104/108	Phase 8 baseline profile
+old_cold_value_p50_ms	0.969483	Phase 8 baseline profile
+old_cold_value_jac_p50_ms	1.124730	Phase 8 baseline profile
+old_warm_value_p50_ms	0.875327	Phase 8 baseline profile
+old_warm_value_jac_p50_ms	0.993879	Phase 8 baseline profile
+thin_arc_case	wide-planet	R=2.5013971414257967
+thin_arc_width_rad	4.7814372984511522e-05	certified quartic arc; 3072 sampler returns empty
+thin_arc_grid_crossings	0	arcs_at(...,3072)
+thin_arc_sturm_crossings	2	quartic_topology
+wide_old_grid_mu_u0	1.1591894859661327	legacy m7_reference.tsv value before update
+wide_new_sturm_mu_u0	1.1591934443442478	current production value
+wide_old_grid_mu_u05	1.1591862424231485	legacy m7_reference.tsv value before update
+wide_new_sturm_mu_u05	1.1591901996750309	current production value
+wide_independent_algebraic_mu_u0	1.1591934443402698	independent algebraic-boundary probe
+wide_independent_algebraic_mu_u05	1.1591902291365628	independent algebraic-boundary probe
+wide_holonomic_algebraic_absdiff_u0	3.978e-12	independent probe versus current Sturm-path value
+wide_holonomic_algebraic_absdiff_u05	2.946e-08	independent probe versus current Sturm-path value
+reciprocal_identity_worst	2.763e-16	test_reciprocal_chart coefficient identity
+reciprocal_derivative_identity_worst	2.556e-16	test_reciprocal_chart derivative identity
+reciprocal_mapped_root_worst	3.884e-16	test_reciprocal_chart mapped roots
+legacy_fixture_failures_before_update	18	all were the two wide-planet EPOCH rows; samples/events/radius terms passed
+legacy_fixture_failures_after_update	0	test_holonomic_m7

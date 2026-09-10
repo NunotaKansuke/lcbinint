@@ -1,6 +1,7 @@
 // Exact algebra/parity checks for the reciprocal boundary chart u=-1/t.
-// The production V2 router remains on the t chart; this test proves the
-// representation primitive before any condition-driven switch is considered.
+// The production V2 arc path uses this chart only when the t-chart leading
+// coefficient is numerically small; the test also proves the representation
+// primitive independently of that condition-driven switch.
 
 #include <algorithm>
 #include <cmath>

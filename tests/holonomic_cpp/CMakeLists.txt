@@ -63,6 +63,14 @@ target_compile_options(test_point_images PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_point_images PRIVATE quadmath)
 add_test(NAME holonomic_point_images COMMAND test_point_images)
 
+# Certified degree-4 Sturm topology authority and thin-arc regression.
+add_executable(test_quartic_sturm
+    "${CMAKE_CURRENT_SOURCE_DIR}/test_quartic_sturm.cpp")
+target_include_directories(test_quartic_sturm PRIVATE "${_SRC}")
+target_compile_options(test_quartic_sturm PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_quartic_sturm PRIVATE quadmath)
+add_test(NAME holonomic_quartic_sturm COMMAND test_quartic_sturm)
+
 # Phase A step 2: fast seed-anchored band planner vs classify_cells (parity).
 add_executable(bench_fast_bands "${CMAKE_CURRENT_SOURCE_DIR}/bench_fast_bands.cpp")
 target_include_directories(bench_fast_bands PRIVATE "${_SRC}")

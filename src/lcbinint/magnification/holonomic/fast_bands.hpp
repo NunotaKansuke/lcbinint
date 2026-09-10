@@ -21,14 +21,14 @@
 //   "radius has image"  ==  arc_intervals(R, pf) yields a non-empty phi>0 arc
 //                           set, or the full circle (kFull).
 //   kEmpty / empty kArcs                       ->  no image.
-//   kDegenerate (p4~0 chart radius)            ->  UNCERTAIN -> fail closed.
+//   kDegenerate (unresolved chart/root ambiguity) -> UNCERTAIN -> fail closed.
 //
 // This is a HEURISTIC discovery path, not a completeness proof: it assumes
 // every finite-source image band contains at least one point-source image
 // radius (true unless the source straddles a caustic at this rho).  It can
-// also legitimately report MORE bands than classify_cells: the boundary
-// quartic resolves razor-thin image arcs (angular width below the 3072-grid
-// step) that classify_cells' grid cross-check overrules to kEmpty.  The caller
+// also legitimately report MORE bands than an old sampling implementation:
+// the boundary quartic resolves razor-thin image arcs that a fixed angular
+// grid can miss.  The caller
 // must run the checkpoint sec.5.2 confidence screen and fall back to
 // classify_cells / D14 when `reliable` is false or the screen does not pass.
 // No solver is replaced: classify_cells stays the oracle.
@@ -72,20 +72,11 @@ inline Img has_image(double R, const PrimaryFrame& pf, int* calls) {
             return Img::kNo;
         case ArcKind::kDegenerate:
         default:
-            break;
+            // A chart/root ambiguity is not an image classification.  The
+            // reciprocal chart is attempted inside arc_intervals(); if it
+            // still cannot certify the result, fail closed to the D14 oracle.
+            return Img::kUncertain;
     }
-    // p4~0 is the t=tan(theta/2) chart singularity (a boundary crossing at
-    // theta=pi), NOT a real degeneracy -- resolve it on an independent grid,
-    // exactly as quartic_topology / classify_cells do.  Odd crossing count
-    // there is a genuine "cannot decide" -> UNCERTAIN -> fail closed.
-    GridArcs g = arcs_at(R, pf, 2048);
-    if (g.kind == ArcKind::kFull) return Img::kYes;
-    if (g.kind == ArcKind::kEmpty) return Img::kNo;
-    if (g.kind == ArcKind::kArcs && (g.n_crossings % 2 == 0) &&
-        !g.arcs.empty())
-        return Img::kYes;
-    if (g.kind == ArcKind::kArcs && g.n_crossings == 0) return Img::kNo;
-    return Img::kUncertain;
 }
 
 // Bisect the [a,b] bracket (a in-image, b out) for the in->out transition.

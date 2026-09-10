@@ -158,12 +158,18 @@ void add_profile(V2Profile& d, const V2Profile& s) {
     ADD(quartic_cold_calls); ADD(quartic_warm_calls); ADD(quartic_warm_hits);
     ADD(quartic_cold_falls); ADD(classify_calls); ADD(classified_cells);
     ADD(topology_escalations); ADD(topology_uncertain); ADD(quartic_probe_calls);
+    ADD(sturm_calls); ADD(sturm_double_accepts); ADD(sturm_dd_accepts);
+    ADD(sturm_qf_accepts); ADD(sturm_ambiguous);
+    ADD(sturm_root_count_mismatch); ADD(sturm_isolation_repairs);
+    ADD(sturm_isolation_failures);
     ADD(grid512_calls); ADD(grid3072_calls); ADD(grid4096_calls);
     ADD(grid_total_nodes); ADD(physical_real_events); ADD(physical_complex_events);
     ADD(d14_soft_events); ADD(chart_p4_events); ADD(representation_events);
     ADD(radial_eq_events); ADD(l_root_events); ADD(radius_terms_calls);
     ADD(radius_value_calls); ADD(radial_nodes); ADD(arc_interval_calls);
-    ADD(arc_empty); ADD(arc_full); ADD(arc_degenerate); ADD(arc_sets);
+    ADD(arc_empty); ADD(arc_full); ADD(arc_degenerate);
+    ADD(arc_reciprocal_attempts); ADD(arc_reciprocal_success);
+    ADD(arc_reciprocal_failures); ADD(arc_sets);
     ADD(arc_count); ADD(endpoint_calls); ADD(endpoint_unreliable);
     ADD(f0_arcs); ADD(full_circle_calls); ADD(radius_unreliable);
     ADD(rootpair_calls); ADD(rootpair_warm_success); ADD(rootpair_cold_falls);
@@ -257,13 +263,22 @@ void print_profile(const LaneSummary& s) {
         p.d14_hybrid_ms);
     std::fprintf(stderr,
         "  topology probes=%llu grid512/3072/4096=%llu/%llu/%llu "
-        "escalations=%llu uncertain=%llu\n",
+        "escalations=%llu uncertain=%llu sturm calls/double/dd/qf/ambig=%llu/%llu/%llu/%llu/%llu "
+        "mismatch/repair/fail=%llu/%llu/%llu\n",
         (unsigned long long)p.quartic_probe_calls,
         (unsigned long long)p.grid512_calls,
         (unsigned long long)p.grid3072_calls,
         (unsigned long long)p.grid4096_calls,
         (unsigned long long)p.topology_escalations,
-        (unsigned long long)p.topology_uncertain);
+        (unsigned long long)p.topology_uncertain,
+        (unsigned long long)p.sturm_calls,
+        (unsigned long long)p.sturm_double_accepts,
+        (unsigned long long)p.sturm_dd_accepts,
+        (unsigned long long)p.sturm_qf_accepts,
+        (unsigned long long)p.sturm_ambiguous,
+        (unsigned long long)p.sturm_root_count_mismatch,
+        (unsigned long long)p.sturm_isolation_repairs,
+        (unsigned long long)p.sturm_isolation_failures);
     std::fprintf(stderr,
         "  roots quartic warm/cold/hits=%llu/%llu/%llu "
         "pair calls/warm/cold=%llu/%llu/%llu pred/newton/branch=%llu/%llu/%llu "
@@ -284,7 +299,8 @@ void print_profile(const LaneSummary& s) {
         (unsigned long long)p.rootpair_residual_reject);
     std::fprintf(stderr,
         "  radial terms/value calls=%llu/%llu jac_nodes=%llu "
-        "f0_arcs=%llu endpoint=%llu full=%llu empty=%llu degenerate=%llu\n",
+        "f0_arcs=%llu endpoint=%llu full=%llu empty=%llu degenerate=%llu "
+        "reciprocal attempts/success/fail=%llu/%llu/%llu\n",
         (unsigned long long)p.radius_terms_calls,
         (unsigned long long)p.radius_value_calls,
         (unsigned long long)p.jacobian_nodes,
@@ -292,7 +308,10 @@ void print_profile(const LaneSummary& s) {
         (unsigned long long)p.endpoint_calls,
         (unsigned long long)p.full_circle_calls,
         (unsigned long long)p.arc_empty,
-        (unsigned long long)p.arc_degenerate);
+        (unsigned long long)p.arc_degenerate,
+        (unsigned long long)p.arc_reciprocal_attempts,
+        (unsigned long long)p.arc_reciprocal_success,
+        (unsigned long long)p.arc_reciprocal_failures);
     std::fprintf(stderr,
         "  K attempts/success/reject=%llu/%llu/%llu mid_attempt/success/reject=%llu/%llu/%llu "
         "reason nonfinite/vfloor/tmax/S2/B/disagree=%llu/%llu/%llu/%llu/%llu/%llu "
