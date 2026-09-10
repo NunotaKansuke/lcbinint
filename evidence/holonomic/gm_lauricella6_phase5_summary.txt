@@ -1,0 +1,49 @@
+# PF6 Phase 5 evidence summary
+# base=dev/holonomic@781e0501754de8b362bb35a279200875ce6dbaf9
+# input=evidence/holonomic/gm_coverage_cases.tsv cases=108 (uniform=54, limb=54) nr=64
+# timing=Release, one process, profile disabled for wall measurements
+
+RESULT order=20 clean_cases_cold=104/108 clean_cases_warm=104/108 \
+transported_cold=13888/13888 transported_warm=13888/13888 \
+value_ld_ms_cold=4.544 value_ld_ms_warm=4.370 value_ld_ms_v2=1.144 \
+jac_ld_ms_cold=4.631 jac_ld_ms_warm=4.487 jac_ld_ms_v2=1.316 \
+connections_cold=7206 connections_warm=7206 physical_seeds=217 fallback=0 reseed=0
+
+COST value_cold_topology_d14_ms=0.841 arc_ms=0.014 geometry_ms=0.001 \
+seed_ms=0.170 connection_ms=2.179 transport_ms=0.069
+COST value_warm_topology_d14_ms=0.683 arc_ms=0.013 geometry_ms=0.001 \
+seed_ms=0.168 connection_ms=2.174 transport_ms=0.069
+COST jac_cold_analytic_ms=0.166 jac_warm_analytic_ms=0.160 \
+jac_marginal_cold_ms=0.172 jac_marginal_warm_ms=0.203
+
+PROFILE candidates=7206 built=7206 accepted=3405 rejected=3801 \
+quality_rejected=3801 build_failed=0 max_depth=13 \
+endpoint_root_ms=25.072950 algebraic_geometry_ms=51.472351 \
+log_derivative_ms=38.795602 pfaffian_recurrence_ms=43.486680 \
+quality_tail_ms=6.650025 accepted_ms=78.704940 rejected_ms=88.838784
+PROFILE_DEPTH 0:217 1:422 2:716 3:690 4:668 5:668 6:660 7:648 \
+8:640 9:636 10:628 11:312 12:280 13:21
+PROFILE_ACCEPTED_NODES 1:1590 2:334 3:336 4:4 5:340 6:345 7:4 \
+11:358 15:11 21:13 32:64 64:6
+PROFILE_CLASS fold_arcs=149 fold_constructions=5794 \
+chart_p4_arcs=31 chart_p4_constructions=615 \
+d14_soft_arcs=26 d14_soft_constructions=543 other_arcs=11 other_constructions=254
+PROFILE_ARC_CONSTRUCTIONS min=1 median=42 mean=33.2074 p90=43 max=45
+
+ORDER order=8 clean=84/108 transport_rate=0.883356 connections=22126 \
+value_ld_ms_cold=4.162 value_ld_ms_warm=3.988 value_ld_ms_v2=1.139
+ORDER order=10 clean=93/108 transport_rate=0.929435 connections=16653 \
+value_ld_ms_cold=4.151 value_ld_ms_warm=3.956 value_ld_ms_v2=1.143
+ORDER order=12 clean=95/108 transport_rate=0.977175 connections=12806 \
+value_ld_ms_cold=4.076 value_ld_ms_warm=3.754 value_ld_ms_v2=1.145
+ORDER order=14 clean=100/108 transport_rate=0.992944 connections=10639 \
+value_ld_ms_cold=4.130 value_ld_ms_warm=3.949 value_ld_ms_v2=1.146
+ORDER order=16 clean=103/108 transport_rate=0.998488 connections=8619 \
+value_ld_ms_cold=4.272 value_ld_ms_warm=4.004 value_ld_ms_v2=1.161
+ORDER order=20 clean=104/108 transport_rate=1.000000 connections=7206 \
+value_ld_ms_cold=4.544 value_ld_ms_warm=4.370 value_ld_ms_v2=1.144
+
+REFERENCE angular_ntheta=512 first12_valid=12/12 max_relative_error=1.716e-09
+TEST gm_lauricella6=PASS ctest=11/11
+ROUTER v2_v3_production=unchanged
+GATE default=strict_all_state projected_experiment=not_adopted

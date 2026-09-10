@@ -23,7 +23,9 @@
 #include <cmath>
 #include <complex>
 #include <cstddef>
+#include <cstdlib>
 #include <limits>
+#include <string>
 #include <type_traits>
 #include <vector>
 
@@ -237,6 +239,44 @@ inline Complex<GmSeries<Order, Scalar>> complex_sqrt_series_clean(
     return r;
 }
 
+// Coefficient recurrence for division in the double series lane.  The
+// generic GmSeries division forms an inverse series and then multiplies a
+// second full series.  Geometry has several fixed complex quotients per
+// packet, so the direct recurrence removes both the duplicate convolution
+// and the temporary inverse.
+template <int Order>
+inline GmSeries<Order, double> series_div_coeff(
+    const GmSeries<Order, double>& a, const GmSeries<Order, double>& b) {
+    GmSeries<Order, double> q;
+    q.c[0] = a.c[0] / b.c[0];
+    for (int n = 1; n <= Order; ++n) {
+        double rhs = a.c[n];
+        for (int k = 1; k <= n; ++k) rhs -= b.c[k] * q.c[n - k];
+        q.c[n] = rhs / b.c[0];
+    }
+    return q;
+}
+
+template <int Order>
+inline Complex<GmSeries<Order, double>> complex_series_div_coeff(
+    const Complex<GmSeries<Order, double>>& a,
+    const Complex<GmSeries<Order, double>>& b) {
+    Complex<GmSeries<Order, double>> q;
+    const Complex<double> b0{b.re.c[0], b.im.c[0]};
+    std::array<Complex<double>, Order + 1> qc{};
+    for (int n = 0; n <= Order; ++n) {
+        Complex<double> rhs{a.re.c[n], a.im.c[n]};
+        for (int k = 1; k <= n; ++k) {
+            const Complex<double> bk{b.re.c[k], b.im.c[k]};
+            rhs = rhs - bk * qc[n - k];
+        }
+        qc[n] = rhs / b0;
+        q.re.c[n] = qc[n].re;
+        q.im.c[n] = qc[n].im;
+    }
+    return q;
+}
+
 template <class T>
 inline Complex<T> complex_pow(const Complex<T>& x, double exponent);
 
@@ -306,6 +346,118 @@ inline std::array<S, 5> boundary_P(const S& R, const Params<S>& p) {
                 - S(2) * (c0.re * c2.re + c0.im * c2.im),
             -S(2) * (c1.re * c2.re + c1.im * c2.im),
             k * bp - (c2.re * c2.re + c2.im * c2.im)};
+}
+
+template <int Order>
+inline GmSeries<Order, double> l6_scale_series(
+    const GmSeries<Order, double>& a, double x) {
+    return gm_series_scale_scalar(a, x);
+}
+
+// Multiplication by R=R0+h in the packet jet.  The radius series is always
+// affine, so a general O(Order^2) convolution is unnecessary here.
+template <int Order>
+inline GmSeries<Order, double> l6_radius_mul(
+    const GmSeries<Order, double>& a, double R0) {
+    GmSeries<Order, double> out;
+    out.c[0] = R0 * a.c[0];
+    for (int n = 1; n <= Order; ++n)
+        out.c[n] = R0 * a.c[n] + a.c[n - 1];
+    return out;
+}
+
+template <int Order>
+inline GmSeries<Order, double> l6_linear_square(double x0) {
+    GmSeries<Order, double> x(x0);
+    if constexpr (Order >= 1) x.c[1] = 1.0;
+    return l6_radius_mul(x, x0);
+}
+
+template <int DA, int DB, int Order, class Scalar>
+inline GmSeries<Order, Scalar> l6_mul_low(
+    const GmSeries<Order, Scalar>& a, const GmSeries<Order, Scalar>& b) {
+    GmSeries<Order, Scalar> out;
+    const int degree = std::min(Order, DA + DB);
+    for (int n = 0; n <= degree; ++n) {
+        const int first = std::max(0, n - DB);
+        const int last = std::min(DA, n);
+        for (int k = first; k <= last; ++k)
+            out.c[n] += a.c[k] * b.c[n - k];
+    }
+    return out;
+}
+
+template <int DB, int Order, class Scalar>
+inline GmSeries<Order, Scalar> l6_mul_low_right(
+    const GmSeries<Order, Scalar>& full,
+    const GmSeries<Order, Scalar>& low) {
+    GmSeries<Order, Scalar> out;
+    for (int n = 0; n <= Order; ++n) {
+        const int first = std::max(0, n - DB);
+        for (int k = first; k <= n; ++k)
+            out.c[n] += full.c[k] * low.c[n - k];
+    }
+    return out;
+}
+
+template <int Order, class Scalar>
+inline GmSeries<Order, Scalar> l6_mul_affine(
+    const GmSeries<Order, Scalar>& full, const Scalar& b0,
+    const Scalar& b1) {
+    GmSeries<Order, Scalar> out;
+    out.c[0] = full.c[0] * b0;
+    for (int n = 1; n <= Order; ++n)
+        out.c[n] = full.c[n] * b0 + full.c[n - 1] * b1;
+    return out;
+}
+
+template <int Order>
+inline std::array<GmSeries<Order, double>, 5> boundary_P_radius_series(
+    double R0, const Params<GmSeries<Order, double>>& p) {
+    using S = GmSeries<Order, double>;
+    using C = Complex<S>;
+    S R(R0);
+    if constexpr (Order >= 1) R.c[1] = 1.0;
+    const S R2 = l6_radius_mul(R, R0);
+    const double a = p.a.c[0];
+    const double m0 = p.m0.c[0];
+    const double X = p.X.c[0];
+    const double Y = p.Y.c[0];
+    const double rho = p.rho.c[0];
+    const C zeta{S(X), S(Y)};
+    const C n0{l6_scale_series(R2, -X), l6_scale_series(R2, -Y)};
+    const S aR = l6_scale_series(R, a);
+    const C n1{l6_scale_series(aR, X) +
+                   l6_radius_mul(R2 - S(1), R0),
+               l6_scale_series(aR, Y)};
+    const C n2{l6_scale_series(S(m0) - R2, a), S(0)};
+    const C c0 = n0 + n1 + n2;
+    const C d = n2 - n0;
+    const C c1{l6_scale_series(-d.im, 2.0),
+               l6_scale_series(d.re, 2.0)};
+    const C c2 = n1 - n0 - n2;
+    const S rho2 = S(rho * rho);
+    const S k = l6_scale_series(R2, rho2.c[0]);
+    const S bm = l6_linear_square<Order>(R0 - a);
+    const S bp = l6_linear_square<Order>(R0 + a);
+    const S c0norm = l6_mul_low<3, 3>(c0.re, c0.re) +
+                     l6_mul_low<3, 3>(c0.im, c0.im);
+    const S c1norm = l6_mul_low<2, 2>(c1.re, c1.re) +
+                     l6_mul_low<2, 2>(c1.im, c1.im);
+    const S c2norm = l6_mul_low<3, 3>(c2.re, c2.re) +
+                     l6_mul_low<3, 3>(c2.im, c2.im);
+    const S c0c1 = l6_mul_low<3, 2>(c0.re, c1.re) +
+                  l6_mul_low<3, 2>(c0.im, c1.im);
+    const S c0c2 = l6_mul_low<3, 3>(c0.re, c2.re) +
+                  l6_mul_low<3, 3>(c0.im, c2.im);
+    const S c1c2 = l6_mul_low<2, 3>(c1.re, c2.re) +
+                  l6_mul_low<2, 3>(c1.im, c2.im);
+    return {l6_mul_low<2, 2>(k, bm) - c0norm,
+            l6_scale_series(-c0c1, 2.0),
+            l6_mul_low<2, 2>(k, bm + bp) - c1norm -
+                l6_scale_series(c0c2, 2.0),
+            l6_scale_series(-c1c2, 2.0),
+            l6_mul_low<2, 2>(k, bp) - c2norm};
 }
 
 template <class S>
@@ -426,13 +578,14 @@ struct SeriesGeometry {
 template <int Order, class Scalar>
 inline SeriesGeometry<Order, Scalar> geometry_series(
     const GmSeries<Order, Scalar>& R, const GmSeries<Order, Scalar>& l,
-    const GmSeries<Order, Scalar>& r, const Params<GmSeries<Order, Scalar>>& p) {
+    const GmSeries<Order, Scalar>& r,
+    const Params<GmSeries<Order, Scalar>>& p,
+    const std::array<GmSeries<Order, Scalar>, 5>& P) {
     using S = GmSeries<Order, Scalar>;
     using C = Complex<S>;
     SeriesGeometry<Order, Scalar> out;
-    const auto P = boundary_P(R, p);
     const S delta = r - l;
-    const S half = delta / S(2);
+    const S half = gm_series_scale_scalar(delta, Scalar(0.5));
     out.v = half * half;
     const S beta2 = -(l + r);
     const S gamma = l * r;
@@ -445,24 +598,69 @@ inline SeriesGeometry<Order, Scalar> geometry_series(
     const S Bleft = bm + bp * l * l;
     if (!(out.S_left.c[0] > 0.0) || !(Aleft.c[0] > 0.0) ||
         !(Bleft.c[0] > 0.0) || !(p.rho.c[0] > 0.0)) return out;
-    const S S1left = -(d1 + S(2) * P[4] * l);
-    const S L = delta * S1left / out.S_left;
-    const S M = delta * delta * (-P[4]) / out.S_left;
-    const C discr{L * L - S(4) * M, S(0)};
+    const S S1left = -(d1 +
+                       l6_mul_low_right<6>(l,
+                                           gm_series_scale_scalar(P[4],
+                                                                  Scalar(2))));
+    const S L = [&] {
+        if constexpr (std::is_same_v<Scalar, double>)
+            return series_div_coeff(delta * S1left, out.S_left);
+        else
+            return delta * S1left / out.S_left;
+    }();
+    const S M = [&] {
+        if constexpr (std::is_same_v<Scalar, double>)
+            return series_div_coeff(
+                l6_mul_low_right<6>(delta * delta, -P[4]), out.S_left);
+        else
+            return delta * delta * (-P[4]) / out.S_left;
+    }();
+    const C discr{L * L - gm_series_scale_scalar(M, Scalar(4)), S(0)};
     const C sq = complex_sqrt_series_clean(discr);
-    const C zS1{(-L + sq.re) / S(2), sq.im / S(2)};
-    const C zS2{(-L - sq.re) / S(2), -sq.im / S(2)};
+    const C zS1{gm_series_scale_scalar(-L + sq.re, Scalar(0.5)),
+                gm_series_scale_scalar(sq.im, Scalar(0.5))};
+    const C zS2{gm_series_scale_scalar(-L - sq.re, Scalar(0.5)),
+                gm_series_scale_scalar(-sq.im, Scalar(0.5))};
     const C dz{delta, S(0)};
-    const C zstar = dz / C{-l, S(1)};
-    const C zaminus = dz / C{-l, S(-1)};
-    const C bnum{delta * (R + p.a), S(0)};
-    const C zbplus{-l * (R + p.a), R - p.a};
-    const C zbminus{-l * (R + p.a), -(R - p.a)};
-    out.z = {zS1, zS2, zstar, zaminus, bnum / zbplus, bnum / zbminus};
+    const C zstar = [&] {
+        const C den{-l, S(1)};
+        if constexpr (std::is_same_v<Scalar, double>)
+            return complex_series_div_coeff(dz, den);
+        else
+            return dz / den;
+    }();
+    const C zaminus = [&] {
+        const C den{-l, S(-1)};
+        if constexpr (std::is_same_v<Scalar, double>)
+            return complex_series_div_coeff(dz, den);
+        else
+            return dz / den;
+    }();
+    const C bnum{l6_mul_affine(delta, R.c[0] + p.a.c[0], 1.0), S(0)};
+    const C zbp = [&] {
+        const C den{-l * (R + p.a), R - p.a};
+        if constexpr (std::is_same_v<Scalar, double>)
+            return complex_series_div_coeff(bnum, den);
+        else
+            return bnum / den;
+    }();
+    const C zbm = [&] {
+        const C den{-l * (R + p.a), -(R - p.a)};
+        if constexpr (std::is_same_v<Scalar, double>)
+            return complex_series_div_coeff(bnum, den);
+        else
+            return bnum / den;
+    }();
+    out.z = {zS1, zS2, zstar, zaminus, zbp, zbm};
     out.q = {S(1) - zstar.re, -zstar.im};
     const C den{S(1) - zstar.re, -zstar.im};
-    for (int j = 0; j < 5; ++j)
-        out.xi[j] = (out.z[j < 2 ? j : j + 1] - zstar) / den;
+    for (int j = 0; j < 5; ++j) {
+        const C numerator = out.z[j < 2 ? j : j + 1] - zstar;
+        if constexpr (std::is_same_v<Scalar, double>)
+            out.xi[j] = complex_series_div_coeff(numerator, den);
+        else
+            out.xi[j] = numerator / den;
+    }
     out.ok = series_finite(out.v) && series_finite(out.S_left) &&
              complex_series_finite(out.q);
     for (const auto& x : out.xi) out.ok = out.ok && complex_series_finite(x);
@@ -773,17 +971,42 @@ inline double poly_derivative_at(const std::array<GmSeries<Order, double>, 5>& p
 
 template <int Order>
 inline bool root_series(const std::array<GmSeries<Order, double>, 5>& p,
-                        double t0, GmSeries<Order, double>& out) {
+                        double t0, GmSeries<Order, double>& out,
+                        int p_degree = Order) {
     out = GmSeries<Order, double>(t0);
     const double pt = poly_derivative_at(p, t0);
     if (!std::isfinite(pt) || std::fabs(pt) < 1e-15) return false;
+
+    // Coefficient-only implicit composition.  The old path evaluated a
+    // complete Horner polynomial in series arithmetic for every n, which
+    // repeatedly recomputed all coefficients below n.  `powers[k][n]` is the
+    // coefficient of t(h)^k at the current order; its linear dependence on
+    // the newly solved t_n is restored after the residual is measured.
+    std::array<std::array<double, Order + 1>, 5> powers{};
+    powers[0][0] = 1.0;
+    for (int k = 1; k <= 4; ++k)
+        powers[k][0] = powers[k - 1][0] * t0;
     for (int n = 1; n <= Order; ++n) {
-        // With t_n set to zero, the coefficient of h^n is the known part.
-        // The missing linear term is P_t(t0) t_n and is divided out below.
-        out.c[n] = 0.0;
-        const auto residual = eval_poly_series(p, out);
-        out.c[n] = -residual.c[n] / pt;
+        // First form all t^k coefficients with t_n set to zero.  Lower
+        // powers at order n are already available because k increases here.
+        for (int k = 1; k <= 4; ++k) {
+            double v = 0.0;
+            for (int j = 0; j < n; ++j)
+                v += out.c[j] * powers[k - 1][n - j];
+            powers[k][n] = v;
+        }
+        double residual = 0.0;
+        const int degree = std::min(n, p_degree);
+        for (int k = 0; k <= 4; ++k)
+            for (int j = 0; j <= degree; ++j)
+                residual += p[k].c[j] * powers[k][n - j];
+        out.c[n] = -residual / pt;
         if (!std::isfinite(out.c[n])) return false;
+        double t0_power = 1.0;
+        for (int k = 1; k <= 4; ++k) {
+            powers[k][n] += k * t0_power * out.c[n];
+            t0_power *= t0;
+        }
     }
     return true;
 }
@@ -793,16 +1016,16 @@ inline std::array<Complex<double>, Order> log_derivative_series(
     const Complex<GmSeries<Order, double>>& g) {
     std::array<Complex<double>, Order> ell{};
     const Complex<double> g0{g.re.c[0], g.im.c[0]};
+    const double g0_norm = g0.re * g0.re + g0.im * g0.im;
+    const Complex<double> inv_g0{g0.re / g0_norm, -g0.im / g0_norm};
     for (int n = 0; n < Order; ++n) {
-        Complex<double> rhs{(n + 1 < Order + 1 ? (n + 1) * g.re.c[n + 1]
-                                                : 0.0),
-                            (n + 1 < Order + 1 ? (n + 1) * g.im.c[n + 1]
-                                                : 0.0)};
+        Complex<double> rhs{(n + 1) * g.re.c[n + 1],
+                            (n + 1) * g.im.c[n + 1]};
         for (int k = 1; k <= n; ++k) {
             const Complex<double> gk{g.re.c[k], g.im.c[k]};
             rhs = rhs - gk * ell[n - k];
         }
-        ell[n] = rhs / g0;
+        ell[n] = rhs * inv_g0;
     }
     return ell;
 }
@@ -820,6 +1043,9 @@ struct TaylorPacket {
     SeriesGeometry<Order, double> geometry{};
     std::array<Complex<double>, Order + 1> coeff[kStateDim]{};
     double tail = std::numeric_limits<double>::infinity();
+    double strict_tail = std::numeric_limits<double>::infinity();
+    double projected_tail = std::numeric_limits<double>::infinity();
+    double pfaffian_residual = std::numeric_limits<double>::infinity();
 };
 
 template <int Order>
@@ -846,6 +1072,150 @@ inline std::array<Complex<double>, 5> eval_xi(
     return out;
 }
 
+// Packet construction is the Phase 5 hot path.  Keep its accounting in the
+// isolated PF6 kernel so that the benchmark can separate mathematical work
+// from the surrounding epoch stages.  Timing is opt-in; counters and
+// certificates are collected on every PF6 call.
+struct PacketBuildBreakdown {
+    double endpoint_root_ms = 0.0;
+    double algebraic_geometry_ms = 0.0;
+    double log_derivative_ms = 0.0;
+    double pfaffian_recurrence_ms = 0.0;
+    double quality_tail_ms = 0.0;
+    double total_ms = 0.0;
+};
+
+struct PacketArcProfile {
+    int arc_index = -1;
+    int cell_index = -1;
+    double cell_lo = 0.0;
+    double cell_hi = 0.0;
+    double radial_center = 0.0;
+    double theta_lo = 0.0;
+    double theta_hi = 0.0;
+    double event_gap_ratio = std::numeric_limits<double>::infinity();
+    double xi_min_divisor = std::numeric_limits<double>::infinity();
+    int nearest_event_kind = 0;  // 1=fold, 2=chart_p4, 3=D14, 4=other
+    int chart2 = 0;
+    int constructions = 0;
+    int built = 0;
+    int accepted = 0;
+    int rejected = 0;
+    int quality_rejected = 0;
+    int build_failed = 0;
+    int max_depth = 0;
+    int accepted_node_sum = 0;
+    int accepted_node_min = 0;
+    int accepted_node_max = 0;
+    int node_failed = 0;
+    double first_failed_R = std::numeric_limits<double>::quiet_NaN();
+    double first_failed_packet_center = std::numeric_limits<double>::quiet_NaN();
+    double first_failed_packet_lo = std::numeric_limits<double>::quiet_NaN();
+    double first_failed_packet_hi = std::numeric_limits<double>::quiet_NaN();
+    double first_failed_block_lo = std::numeric_limits<double>::quiet_NaN();
+    double first_failed_block_hi = std::numeric_limits<double>::quiet_NaN();
+    double first_failed_phase_error = std::numeric_limits<double>::quiet_NaN();
+    double first_failed_packet_tail = std::numeric_limits<double>::quiet_NaN();
+    double construction_ms = 0.0;
+};
+
+struct PacketProfile {
+    bool timing_enabled = false;
+    long long candidates = 0;
+    long long built = 0;
+    long long accepted = 0;
+    long long rejected = 0;
+    long long quality_rejected = 0;
+    long long build_failed = 0;
+    std::array<long long, 17> depth_hist{};
+    std::array<long long, 65> accepted_node_hist{};
+    double endpoint_root_ms = 0.0;
+    double algebraic_geometry_ms = 0.0;
+    double log_derivative_ms = 0.0;
+    double pfaffian_recurrence_ms = 0.0;
+    double quality_tail_ms = 0.0;
+    double accepted_candidate_ms = 0.0;
+    double rejected_candidate_ms = 0.0;
+};
+
+inline void record_packet_build(
+    PacketProfile* profile, PacketArcProfile* arc,
+    const PacketBuildBreakdown* timing, bool built, bool accepted,
+    bool quality_rejected, int depth) {
+    if (profile) {
+        ++profile->candidates;
+        if (built) ++profile->built;
+        if (accepted) {
+            ++profile->accepted;
+        } else {
+            ++profile->rejected;
+        }
+        if (quality_rejected) ++profile->quality_rejected;
+        if (!built) ++profile->build_failed;
+        const int d = std::max(0, std::min(depth,
+                                           (int)profile->depth_hist.size() - 1));
+        ++profile->depth_hist[d];
+        if (timing) {
+            profile->endpoint_root_ms += timing->endpoint_root_ms;
+            profile->algebraic_geometry_ms += timing->algebraic_geometry_ms;
+            profile->log_derivative_ms += timing->log_derivative_ms;
+            profile->pfaffian_recurrence_ms += timing->pfaffian_recurrence_ms;
+            profile->quality_tail_ms += timing->quality_tail_ms;
+            if (accepted) profile->accepted_candidate_ms += timing->total_ms;
+            else profile->rejected_candidate_ms += timing->total_ms;
+        }
+    }
+    if (arc) {
+        ++arc->constructions;
+        if (built) ++arc->built;
+        if (accepted) {
+            ++arc->accepted;
+        } else {
+            ++arc->rejected;
+        }
+        if (quality_rejected) ++arc->quality_rejected;
+        if (!built) ++arc->build_failed;
+        arc->max_depth = std::max(arc->max_depth, depth);
+        if (timing) arc->construction_ms += timing->total_ms;
+    }
+}
+
+inline bool packet_profile_enabled() {
+    const char* e = std::getenv("GM6_PACKET_PROFILE");
+    return e && e[0] != '\0' && e[0] != '0';
+}
+
+inline double xi_divisor_distance(const Geometry<double>& geometry) {
+    double d = std::numeric_limits<double>::infinity();
+    for (int i = 0; i < 5; ++i) {
+        d = std::min(d, cabs_value(geometry.xi[i]));
+        d = std::min(d, cabs_value(geometry.xi[i] -
+                                   Complex<double>{1.0, 0.0}));
+        for (int j = i + 1; j < 5; ++j)
+            d = std::min(d, cabs_value(geometry.xi[i] - geometry.xi[j]));
+    }
+    return d;
+}
+
+inline int radial_event_kind(const std::string& kind) {
+    if (kind == "physical_real") return 1;  // a physical fold
+    if (kind == "chart_p4") return 2;
+    if (kind == "physical_complex") return 3;  // D14 soft event
+    return 4;
+}
+
+inline void classify_packet_arc(PacketArcProfile& arc,
+                                const std::vector<RadialEvent>& events) {
+    const double scale = std::max(arc.cell_hi - arc.cell_lo, 1e-300);
+    for (const auto& event : events) {
+        const double gap = std::fabs(event.radius - arc.radial_center) / scale;
+        if (gap < arc.event_gap_ratio) {
+            arc.event_gap_ratio = gap;
+            arc.nearest_event_kind = radial_event_kind(event.kind);
+        }
+    }
+}
+
 template <int Order>
 inline double eval_root(const GmSeries<Order, double>& root, double h,
                         int degree = Order) {
@@ -866,11 +1236,155 @@ inline double state_tail(const ValueState& a, const ValueState& b) {
 }
 
 template <int Order>
+inline double eval_series_derivative_value(
+    const GmSeries<Order, double>& a, double h, int degree = Order) {
+    if (degree <= 0) return 0.0;
+    double r = degree * a.c[degree];
+    for (int n = degree - 1; n >= 1; --n) r = r * h + n * a.c[n];
+    return r;
+}
+
+inline double complex_rel_tail(const Complex<double>& a,
+                               const Complex<double>& b) {
+    const double na = std::hypot(a.re, a.im);
+    const double nb = std::hypot(b.re, b.im);
+    return std::hypot(a.re - b.re, a.im - b.im) /
+           (1.0 + std::max(na, nb));
+}
+
+struct PacketProjection {
+    Complex<double> value{};
+    std::array<Complex<double>, 5> dF_dxi{};
+};
+
+template <int Order>
+inline PacketProjection eval_packet_projection(
+    const TaylorPacket<Order>& packet, double h, int degree) {
+    const ValueState state = eval_state(packet, h, degree);
+    PacketProjection out;
+    // The prefactor C is a deterministic algebraic function of the same
+    // geometry and is rebuilt by evaluate_node.  The transported scalar is
+    // F; keeping the gate in the normalized state avoids adding a second
+    // prefactor series to every packet.
+    out.value = state[0];
+    const auto xi_all = eval_xi(packet, h, degree);
+    for (int i = 0; i < 5; ++i) {
+        const auto xi = xi_all[i];
+        const Complex<double> denominator{1.0 - xi.re, -xi.im};
+        out.dF_dxi[i] = cscale(
+            (state[0] - state[i + 1]) / denominator, kBeta[i]);
+    }
+    return out;
+}
+
+template <int Order>
+inline double packet_projected_tail_at(const TaylorPacket<Order>& packet,
+                                       double h, int degree) {
+    const PacketProjection full = eval_packet_projection(packet, h, Order);
+    const PacketProjection low = eval_packet_projection(packet, h, degree);
+    double e = complex_rel_tail(full.value, low.value);
+    for (int i = 0; i < 5; ++i) {
+        e = std::max(e, complex_rel_tail(full.dF_dxi[i], low.dF_dxi[i]));
+    }
+    return e;
+}
+
+template <int Order>
+inline double packet_divisor_distance_at(const TaylorPacket<Order>& packet,
+                                         double h, int degree) {
+    const auto xi = eval_xi(packet, h, degree);
+    double d = std::numeric_limits<double>::infinity();
+    for (int i = 0; i < 5; ++i) {
+        d = std::min(d, std::hypot(xi[i].re, xi[i].im));
+        d = std::min(d, std::hypot(xi[i].re - 1.0, xi[i].im));
+        for (int j = i + 1; j < 5; ++j)
+            d = std::min(d, std::hypot(xi[i].re - xi[j].re,
+                                       xi[i].im - xi[j].im));
+    }
+    return d;
+}
+
+template <int Order>
+inline double packet_pfaffian_residual_at(const TaylorPacket<Order>& packet,
+                                          double h) {
+    const ValueState state = eval_state(packet, h, Order);
+    ValueState derivative{};
+    for (int i = 0; i < kStateDim; ++i) {
+        derivative[i] = {};
+        if constexpr (Order > 0) {
+            derivative[i] = packet.coeff[i][Order];
+            derivative[i] = cscale(derivative[i], (double)Order);
+            for (int n = Order - 1; n >= 1; --n)
+                derivative[i] = derivative[i] * Complex<double>{h, 0.0} +
+                                cscale(packet.coeff[i][n], (double)n);
+        }
+    }
+    std::array<Complex<double>, 5> xi{};
+    std::array<Complex<double>, 5> xi_r{};
+    for (int i = 0; i < 5; ++i) {
+        xi[i] = {eval_series_value(packet.geometry.xi[i].re, h),
+                 eval_series_value(packet.geometry.xi[i].im, h)};
+        xi_r[i] = {eval_series_derivative_value(packet.geometry.xi[i].re, h),
+                   eval_series_derivative_value(packet.geometry.xi[i].im, h)};
+    }
+    std::array<Complex<double>, 5> ell0{};
+    std::array<Complex<double>, 5> ell1{};
+    Complex<double> ellij[5][5]{};
+    for (int i = 0; i < 5; ++i) {
+        ell0[i] = xi_r[i] / xi[i];
+        ell1[i] = xi_r[i] / Complex<double>{xi[i].re - 1.0, xi[i].im};
+        for (int j = i + 1; j < 5; ++j) {
+            ellij[i][j] = (xi_r[i] - xi_r[j]) / (xi[i] - xi[j]);
+            ellij[j][i] = ellij[i][j];
+        }
+    }
+    const Complex<double> F = state[0];
+    Complex<double> M0 = F;
+    for (int i = 0; i < 5; ++i)
+        M0 = M0 - cscale(state[i + 1], kBeta[i] / kAlpha);
+    ValueState rhs{};
+    for (int i = 0; i < 5; ++i) {
+        const Complex<double> Mi = state[i + 1];
+        rhs[0] = rhs[0] + cscale(ell1[i] * (Mi - F), kBeta[i]);
+        rhs[i + 1] = rhs[i + 1] -
+                     cscale(ell0[i] * (Mi - M0), kAlpha);
+        rhs[i + 1] = rhs[i + 1] +
+                     cscale(ell1[i] * (Mi - F), kAlpha);
+        for (int j = 0; j < 5; ++j) {
+            if (j == i) continue;
+            rhs[i + 1] = rhs[i + 1] -
+                         cscale(ellij[i][j] * (Mi - state[j + 1]),
+                                kBeta[j]);
+        }
+    }
+    double e = 0.0;
+    for (int i = 0; i < kStateDim; ++i) {
+        e = std::max(e, std::hypot(derivative[i].re - rhs[i].re,
+                                   derivative[i].im - rhs[i].im) /
+                           (1.0 + std::max(std::hypot(derivative[i].re,
+                                                       derivative[i].im),
+                                           std::hypot(rhs[i].re, rhs[i].im))));
+    }
+    return e;
+}
+
+inline bool projected_packet_gate_enabled() {
+    static const bool enabled = [] {
+        const char* e = std::getenv("GM6_PACKET_GATE");
+        return e && std::string(e) == "projected";
+    }();
+    return enabled;
+}
+
+template <int Order>
 inline void build_pfaffian_coefficients(
     const SeriesGeometry<Order, double>& geometry, const ValueState& seed,
-    std::array<Complex<double>, Order + 1> coeff[kStateDim]) {
+    std::array<Complex<double>, Order + 1> coeff[kStateDim],
+    PacketBuildBreakdown* timing = nullptr) {
+    using Clock = std::chrono::steady_clock;
     for (int i = 0; i < kStateDim; ++i) coeff[i][0] = seed[i];
     if constexpr (Order == 0) return;
+    const auto log_start = timing ? Clock::now() : Clock::time_point{};
     std::array<Complex<double>, Order> ell0[5]{};
     std::array<Complex<double>, Order> ell1[5]{};
     std::array<Complex<double>, Order> ellij[5][5]{};
@@ -885,6 +1399,13 @@ inline void build_pfaffian_coefficients(
             ellij[j][i] = ellij[i][j];
         }
     }
+    if (timing) {
+        timing->log_derivative_ms +=
+            std::chrono::duration<double, std::milli>(
+                Clock::now() - log_start).count();
+    }
+    const auto recurrence_start = timing ? Clock::now() : Clock::time_point{};
+
     for (int n = 0; n < Order; ++n) {
         ValueState rhs{};
         for (int j = 0; j <= n; ++j) {
@@ -912,12 +1433,18 @@ inline void build_pfaffian_coefficients(
         for (int i = 0; i < kStateDim; ++i)
             coeff[i][n + 1] = cscale(rhs[i], 1.0 / (n + 1.0));
     }
+    if (timing) {
+        timing->pfaffian_recurrence_ms +=
+            std::chrono::duration<double, std::milli>(
+                Clock::now() - recurrence_start).count();
+    }
 }
 
 template <int Order>
 inline bool packet_quality(TaylorPacket<Order>& packet) {
     if constexpr (Order < 2) {
         packet.tail = 0.0;
+        packet.strict_tail = 0.0;
         return packet.ok;
     } else {
         const double span = 0.98 *
@@ -926,38 +1453,89 @@ inline bool packet_quality(TaylorPacket<Order>& packet) {
         const auto low_p = eval_state(packet, span, Order - 2);
         const auto full_m = eval_state(packet, -span, Order);
         const auto low_m = eval_state(packet, -span, Order - 2);
-        packet.tail = std::max(state_tail<Order>(full_p, low_p),
-                               state_tail<Order>(full_m, low_m));
-        return packet.ok && std::isfinite(packet.tail) && packet.tail < 2e-11;
+        packet.strict_tail = std::max(state_tail<Order>(full_p, low_p),
+                                      state_tail<Order>(full_m, low_m));
+        packet.tail = packet.strict_tail;
+        if (!projected_packet_gate_enabled()) {
+            return packet.ok && std::isfinite(packet.tail) &&
+                   packet.tail < 2e-11;
+        }
+        packet.projected_tail = std::max(
+            packet_projected_tail_at(packet, span, Order - 2),
+            packet_projected_tail_at(packet, -span, Order - 2));
+        packet.pfaffian_residual = std::max(
+            packet_pfaffian_residual_at(packet, span),
+            packet_pfaffian_residual_at(packet, -span));
+        const double divisor = std::min(
+            packet_divisor_distance_at(packet, span, Order),
+            packet_divisor_distance_at(packet, -span, Order));
+        packet.tail = packet.projected_tail;
+        return packet.ok && std::isfinite(packet.tail) &&
+               packet.tail < 2e-11 && std::isfinite(packet.pfaffian_residual) &&
+               packet.pfaffian_residual < 1e-8 && std::isfinite(divisor) &&
+               divisor > 1e-14;
     }
 }
 
 template <int Order>
 inline bool build_packet(double center, double lo, double hi, double tlo,
                          double thi, const Params<double>& params,
-                         const ValueState& seed, TaylorPacket<Order>& out) {
+                         const ValueState& seed, TaylorPacket<Order>& out,
+                         PacketBuildBreakdown* timing = nullptr) {
+    using Clock = std::chrono::steady_clock;
     using Series = GmSeries<Order, double>;
+    const auto build_start = timing ? Clock::now() : Clock::time_point{};
+    auto finish = [&](bool ok) {
+        if (timing) {
+            timing->total_ms = std::chrono::duration<double, std::milli>(
+                Clock::now() - build_start).count();
+        }
+        return ok;
+    };
     out = TaylorPacket<Order>{};
     out.center = center;
     out.lo = lo;
     out.hi = hi;
+    const auto endpoint_start = timing ? Clock::now() : Clock::time_point{};
     Series R(center);
     if constexpr (Order >= 1) R.c[1] = 1.0;
     const Params<Series> ps{Series(params.a), Series(params.m0),
                             Series(params.X), Series(params.Y),
                             Series(params.rho)};
-    const auto P = boundary_P(R, ps);
-    if (!root_series(P, tlo, out.t_lo) || !root_series(P, thi, out.t_hi))
-        return false;
-    out.geometry = geometry_series(R, out.t_lo, out.t_hi, ps);
-    if (!out.geometry.ok) return false;
-    build_pfaffian_coefficients(out.geometry, seed, out.coeff);
+    const auto P = boundary_P_radius_series<Order>(center, ps);
+    // `boundary_P_radius_series` is a degree-six polynomial in the packet
+    // variable h even when the state order is 20.  Avoid reading the known
+    // zero high coefficients during every implicit-root residual step.
+    const bool roots_ok = root_series(P, tlo, out.t_lo, 6) &&
+                          root_series(P, thi, out.t_hi, 6);
+    if (timing) {
+        timing->endpoint_root_ms +=
+            std::chrono::duration<double, std::milli>(
+                Clock::now() - endpoint_start).count();
+    }
+    if (!roots_ok) return finish(false);
+    const auto geometry_start = timing ? Clock::now() : Clock::time_point{};
+    out.geometry = geometry_series(R, out.t_lo, out.t_hi, ps, P);
+    if (timing) {
+        timing->algebraic_geometry_ms +=
+            std::chrono::duration<double, std::milli>(
+                Clock::now() - geometry_start).count();
+    }
+    if (!out.geometry.ok) return finish(false);
+    build_pfaffian_coefficients(out.geometry, seed, out.coeff, timing);
     for (int i = 0; i < kStateDim; ++i)
         for (const auto& c : out.coeff[i])
-            if (!std::isfinite(c.re) || !std::isfinite(c.im)) return false;
+            if (!std::isfinite(c.re) || !std::isfinite(c.im))
+                return finish(false);
     out.ok = true;
+    const auto quality_start = timing ? Clock::now() : Clock::time_point{};
     packet_quality(out);
-    return true;
+    if (timing) {
+        timing->quality_tail_ms +=
+            std::chrono::duration<double, std::milli>(
+                Clock::now() - quality_start).count();
+    }
+    return finish(true);
 }
 
 struct NodeResult {
@@ -1087,28 +1665,75 @@ template <int Order>
 inline bool cover_interval(const TaylorPacket<Order>& source,
                            double lo, double hi, const Params<double>& params,
                            int depth, std::vector<Block<Order>>& blocks,
-                           int& constructions) {
+                           int& constructions,
+                           PacketProfile* profile = nullptr,
+                           PacketArcProfile* arc_profile = nullptr,
+                           bool reuse_source = false,
+                           const PacketBuildBreakdown* source_timing = nullptr,
+                           const std::vector<double>* node_radii = nullptr) {
+    if (!(hi > lo)) return true;
+    if (node_radii) {
+        bool has_node = false;
+        for (double R : *node_radii) {
+            if (R >= lo && R <= hi) {
+                has_node = true;
+                break;
+            }
+        }
+        if (!has_node) return true;
+    }
     const double center = 0.5 * (lo + hi);
-    const double h = center - source.center;
-    const ValueState seed = eval_state(source, h);
-    const double tlo = eval_root(source.t_lo, h);
-    const double thi = eval_root(source.t_hi, h);
     TaylorPacket<Order> candidate;
-    ++constructions;
-    if (!build_packet(center, lo, hi, tlo, thi, params, seed, candidate))
-        return false;
-    if (candidate.tail < 2e-11) {
+    PacketBuildBreakdown timing;
+    const bool centered_source = reuse_source &&
+        std::fabs(source.center - center) <=
+            4.0 * std::numeric_limits<double>::epsilon() *
+                std::max(1.0, std::fabs(center));
+    bool built = false;
+    PacketBuildBreakdown* build_timing_ptr = nullptr;
+    const PacketBuildBreakdown* record_timing_ptr = nullptr;
+    if (centered_source) {
+        candidate = source;
+        record_timing_ptr = source_timing;
+        built = true;
+    } else {
+        const double h = center - source.center;
+        const ValueState seed = eval_state(source, h);
+        const double tlo = eval_root(source.t_lo, h);
+        const double thi = eval_root(source.t_hi, h);
+        ++constructions;
+        build_timing_ptr = profile && profile->timing_enabled ? &timing : nullptr;
+        record_timing_ptr = build_timing_ptr;
+        if (!build_packet(center, lo, hi, tlo, thi, params, seed, candidate,
+                          build_timing_ptr)) {
+            record_packet_build(profile, arc_profile, record_timing_ptr,
+                                false, false, false, depth);
+            return false;
+        }
+        built = true;
+    }
+
+    const bool accepted = candidate.tail < 2e-11;
+    if (accepted) {
+        record_packet_build(profile, arc_profile, record_timing_ptr, built,
+                            true, false, depth);
         blocks.push_back({lo, hi, std::move(candidate)});
         return true;
     }
-    if (depth >= 16 || !(hi > lo) || blocks.size() > 4096) return false;
-    // The candidate is still used as a local source.  The two child centres
-    // lie in its central region even when the edge tail rejected the parent.
+    if (depth >= 16 || blocks.size() > 4096) {
+        record_packet_build(profile, arc_profile, record_timing_ptr, built,
+                            false, true, depth);
+        return false;
+    }
+    record_packet_build(profile, arc_profile, record_timing_ptr, built, false,
+                        true, depth);
     const double mid = center;
     return cover_interval(candidate, lo, mid, params, depth + 1, blocks,
-                          constructions) &&
+                          constructions, profile, arc_profile, false, nullptr,
+                          node_radii) &&
            cover_interval(candidate, mid, hi, params, depth + 1, blocks,
-                          constructions);
+                          constructions, profile, arc_profile, false, nullptr,
+                          node_radii);
 }
 
 template <int Order>
@@ -1117,6 +1742,31 @@ inline const TaylorPacket<Order>* find_block(
     for (const auto& b : blocks)
         if (R >= b.lo && (R <= b.hi || &b == &blocks.back())) return &b.packet;
     return nullptr;
+}
+
+template <int Order>
+inline void record_packet_node_coverage(
+    PacketProfile* profile, PacketArcProfile* arc,
+    const std::vector<Block<Order>>& blocks,
+    const std::vector<double>& radii) {
+    if (!profile && !arc) return;
+    for (const auto& block : blocks) {
+        int count = 0;
+        for (double R : radii)
+            if (R >= block.lo && R <= block.hi)
+                ++count;
+        if (profile) {
+            const int h = std::max(0, std::min(
+                count, (int)profile->accepted_node_hist.size() - 1));
+            ++profile->accepted_node_hist[h];
+        }
+        if (arc) {
+            arc->accepted_node_sum += count;
+            if (arc->accepted_node_min == 0 || count < arc->accepted_node_min)
+                arc->accepted_node_min = count;
+            arc->accepted_node_max = std::max(arc->accepted_node_max, count);
+        }
+    }
 }
 
 inline std::array<double, 5> internal_to_user(
@@ -1136,6 +1786,9 @@ inline std::array<double, 5> internal_to_user(
 }
 
 }  // namespace gm_l6_detail
+
+using GmLauricella6PacketProfile = gm_l6_detail::PacketProfile;
+using GmLauricella6ArcProfile = gm_l6_detail::PacketArcProfile;
 
 struct GmLauricella6Cost {
     double topology_ms = 0.0;
@@ -1168,6 +1821,8 @@ struct GmLauricella6Cost {
     int coverage_failed = 0;
     int node_failed = 0;
     std::vector<std::array<double, 2>> coverage_failed_ranges;
+    GmLauricella6PacketProfile packet_profile{};
+    std::vector<GmLauricella6ArcProfile> packet_arcs;
 };
 
 struct GmLauricella6Epoch {
@@ -1195,6 +1850,7 @@ inline GmLauricella6Epoch gm_lauricella6_epoch(
         out.local_status = out.status;
         return out;
     }
+    out.cost.packet_profile.timing_enabled = packet_profile_enabled();
     const PrimaryFrame pf = PrimaryFrame::from(p);
     const auto ttop = Clock::now();
     std::vector<Cplx<__float128>> roots;
@@ -1226,6 +1882,9 @@ inline GmLauricella6Epoch gm_lauricella6_epoch(
             *std::min_element(rr.x.begin(), rr.x.end());
         const double node_hi = center + half *
             *std::max_element(rr.x.begin(), rr.x.end());
+        std::vector<double> node_radii(n_r);
+        for (int n = 0; n < n_r; ++n)
+            node_radii[n] = center + half * rr.x[n];
         if (cell.kind == ArcKind::kEmpty) continue;
         if (cell.kind == ArcKind::kFull) {
             // A full circle has no finite endpoint pair.  Keep this explicit
@@ -1315,6 +1974,18 @@ inline GmLauricella6Epoch gm_lauricella6_epoch(
         if (u == 0.0) continue;
 
         for (const auto& arc : center_arcs.arcs) {
+            PacketArcProfile arc_profile;
+            arc_profile.arc_index = out.cost.arcs;
+            arc_profile.cell_index = cell.index;
+            arc_profile.cell_lo = cell.r_lo;
+            arc_profile.cell_hi = cell.r_hi;
+            arc_profile.radial_center = center;
+            arc_profile.theta_lo = arc[0];
+            arc_profile.theta_hi = arc[1];
+            classify_packet_arc(arc_profile, topo.events);
+            auto finish_arc_profile = [&] {
+                out.cost.packet_arcs.push_back(std::move(arc_profile));
+            };
             ++out.cost.arcs;
             const ArcSeed preferred = prepare_arc(pf, arc);
             const bool first_chart = preferred.ok ? preferred.chart2 : false;
@@ -1340,6 +2011,8 @@ inline GmLauricella6Epoch gm_lauricella6_epoch(
                 out.cost.algebraic_geometry_ms +=
                     std::chrono::duration<double, std::milli>(
                         Clock::now() - tg).count();
+                if (cand_geometry.ok)
+                    arc_profile.xi_min_divisor = xi_divisor_distance(cand_geometry);
                 SeedResult cand_seed;
                 if (cand_geometry.ok) {
                     const auto ts = Clock::now();
@@ -1393,38 +2066,56 @@ inline GmLauricella6Epoch gm_lauricella6_epoch(
                 ++out.cost.chart_failed;
                 all = false;
                 out.status = Status::BASIS_DEGENERATE;
+                finish_arc_profile();
                 continue;
             }
+            arc_profile.chart2 = seed_geometry.chart2 ? 1 : 0;
             const auto tc = Clock::now();
             TaylorPacket<Order> initial;
+            PacketBuildBreakdown initial_timing;
+            PacketBuildBreakdown* initial_timing_ptr =
+                out.cost.packet_profile.timing_enabled ? &initial_timing : nullptr;
             const bool initial_ok = build_packet(
                 center, node_lo, node_hi, seed_geometry.t_lo, seed_geometry.t_hi,
-                params, seed.state.z, initial);
+                params, seed.state.z, initial, initial_timing_ptr);
             ++out.cost.connection_constructions;
             if (!initial_ok) {
+                record_packet_build(
+                    &out.cost.packet_profile, &arc_profile, initial_timing_ptr,
+                    false, false, false, 0);
                 ++out.cost.connection_failed;
                 all = false;
                 out.status = Status::CONNECTION_ILL_CONDITIONED;
+                finish_arc_profile();
                 continue;
             }
             std::vector<Block<Order>> blocks;
             blocks.reserve(8);
-            blocks.push_back({lo, hi, initial});
-            if (initial.tail >= 2e-11) {
+            if (initial.tail < 2e-11) {
+                record_packet_build(
+                    &out.cost.packet_profile, &arc_profile, initial_timing_ptr,
+                    true, true, false, 0);
+                blocks.push_back({lo, hi, std::move(initial)});
+            } else {
                 blocks.clear();
                 const bool covered = cover_interval(
                     initial, node_lo, node_hi, params, 0, blocks,
-                    out.cost.connection_constructions);
+                    out.cost.connection_constructions,
+                    &out.cost.packet_profile, &arc_profile, true,
+                    initial_timing_ptr, &node_radii);
                 if (!covered) {
                     ++out.cost.coverage_failed;
                     out.cost.coverage_failed_ranges.push_back(
                         {cell.r_lo, cell.r_hi});
                     all = false;
                     out.status = Status::TRANSPORT_TOLERANCE_FAILED;
+                    finish_arc_profile();
                     continue;
                 }
             }
             out.cost.blocks += (int)blocks.size();
+            record_packet_node_coverage(&out.cost.packet_profile, &arc_profile,
+                                        blocks, node_radii);
             out.cost.connection_ms +=
                 std::chrono::duration<double, std::milli>(
                     Clock::now() - tc).count();
@@ -1444,6 +2135,22 @@ inline GmLauricella6Epoch gm_lauricella6_epoch(
                 out.cost.transport_ms += node.value_ms;
                 out.cost.analytic_jacobian_ms += node.jacobian_ms;
                 if (!node.ok) {
+                    if (arc_profile.node_failed == 0 && packet) {
+                        arc_profile.first_failed_R = R;
+                        arc_profile.first_failed_packet_center = packet->center;
+                        arc_profile.first_failed_packet_lo = packet->lo;
+                        arc_profile.first_failed_packet_hi = packet->hi;
+                        for (const auto& b : blocks) {
+                            if (&b.packet == packet) {
+                                arc_profile.first_failed_block_lo = b.lo;
+                                arc_profile.first_failed_block_hi = b.hi;
+                                break;
+                            }
+                        }
+                        arc_profile.first_failed_phase_error = node.phase_error;
+                        arc_profile.first_failed_packet_tail = packet->tail;
+                    }
+                    ++arc_profile.node_failed;
                     ++out.cost.node_failed;
                     all = false;
                     out.status = with_jacobian ? Status::GRADIENT_UNRELIABLE
@@ -1458,6 +2165,7 @@ inline GmLauricella6Epoch gm_lauricella6_epoch(
                     for (int j = 0; j < 5; ++j) dFh[j] += wk * node.deriv[j];
                 }
             }
+            finish_arc_profile();
         }
     }
     const double denom = gm_l6_detail::kPi * p.rho * p.rho * (1.0 - u / 3.0);

@@ -153,7 +153,72 @@ struct Row {
     double angular_ms = 0.0;
 };
 
+template <int Order>
+void run_pf6_case(const Case& c, int nr, Row& row) {
+    std::vector<Cplx<__float128>> roots;
+    row.cold_ms = elapsed([&] {
+        row.cold = gm_lauricella6_epoch<Order>(c.p, c.u, nr, &roots, false);
+        return row.cold.mu;
+    });
+    row.warm_ms = elapsed([&] {
+        row.warm = gm_lauricella6_epoch<Order>(c.p, c.u, nr, &roots, false);
+        return row.warm.mu;
+    });
+    if (c.u != 0.0) {
+        std::vector<Cplx<__float128>> jac_roots;
+        row.cold_jac_ms = elapsed([&] {
+            row.cold_jac = gm_lauricella6_epoch<Order>(
+                c.p, c.u, nr, &jac_roots, true);
+            return row.cold_jac.mu;
+        });
+        row.warm_jac_ms = elapsed([&] {
+            row.warm_jac = gm_lauricella6_epoch<Order>(
+                c.p, c.u, nr, &jac_roots, true);
+            return row.warm_jac.mu;
+        });
+    }
+}
+
 using StageSamples = std::array<std::vector<double>, 8>;
+
+struct PacketAggregate {
+    long long candidates = 0;
+    long long built = 0;
+    long long accepted = 0;
+    long long rejected = 0;
+    long long quality_rejected = 0;
+    long long build_failed = 0;
+    std::array<long long, 17> depth_hist{};
+    std::array<long long, 65> accepted_node_hist{};
+    double endpoint_root_ms = 0.0;
+    double algebraic_geometry_ms = 0.0;
+    double log_derivative_ms = 0.0;
+    double pfaffian_recurrence_ms = 0.0;
+    double quality_tail_ms = 0.0;
+    double accepted_candidate_ms = 0.0;
+    double rejected_candidate_ms = 0.0;
+};
+
+void append_packet(PacketAggregate& sum, const GmLauricella6Cost& cost) {
+    const auto& p = cost.packet_profile;
+    sum.candidates += p.candidates;
+    sum.built += p.built;
+    sum.accepted += p.accepted;
+    sum.rejected += p.rejected;
+    sum.quality_rejected += p.quality_rejected;
+    sum.build_failed += p.build_failed;
+    for (size_t i = 0; i < sum.depth_hist.size(); ++i)
+        sum.depth_hist[i] += p.depth_hist[i];
+    for (size_t i = 0; i < sum.accepted_node_hist.size(); ++i)
+        sum.accepted_node_hist[i] += p.accepted_node_hist[i];
+    sum.endpoint_root_ms += p.endpoint_root_ms;
+    sum.algebraic_geometry_ms += p.algebraic_geometry_ms;
+    sum.log_derivative_ms += p.log_derivative_ms;
+    sum.pfaffian_recurrence_ms += p.pfaffian_recurrence_ms;
+    sum.quality_tail_ms += p.quality_tail_ms;
+    sum.accepted_candidate_ms += p.accepted_candidate_ms;
+    sum.rejected_candidate_ms += p.rejected_candidate_ms;
+}
 
 void append_stages(StageSamples& samples, const GmLauricella6Epoch& epoch) {
     samples[0].push_back(epoch.cost.topology_ms);
@@ -178,7 +243,14 @@ int main(int argc, char** argv) {
     const char* path = argc > 1 ? argv[1] : "evidence/holonomic/gm_coverage_cases.tsv";
     const int nr = argc > 2 ? std::max(4, std::atoi(argv[2])) : 64;
     const int limit = argc > 3 ? std::atoi(argv[3]) : 0;
-    const int angular_n = argc > 4 ? std::max(32, std::atoi(argv[4])) : 0;
+    const int angular_arg = argc > 4 ? std::atoi(argv[4]) : 0;
+    const int angular_n = angular_arg > 0 ? std::max(32, angular_arg) : 0;
+    const int order = argc > 5 ? std::atoi(argv[5]) : 20;
+    if (order != 8 && order != 10 && order != 12 && order != 14 &&
+        order != 16 && order != 20) {
+        std::fprintf(stderr, "order must be one of 8,10,12,14,16,20\n");
+        return 2;
+    }
     const auto cases = load(path, limit);
     if (cases.empty()) {
         std::fprintf(stderr, "no cases in %s\n", path);
@@ -232,27 +304,15 @@ int main(int argc, char** argv) {
             return v.mu;
         });
         row.v2_jac = epoch_jacobian(c.p, c.u, nr, false);
-        std::vector<Cplx<__float128>> roots;
-        row.cold_ms = elapsed([&] {
-            row.cold = gm_lauricella6_epoch<20>(c.p, c.u, nr, &roots, false);
-            return row.cold.mu;
-        });
-        row.warm_ms = elapsed([&] {
-            row.warm = gm_lauricella6_epoch<20>(c.p, c.u, nr, &roots, false);
-            return row.warm.mu;
-        });
+        switch (order) {
+            case 8: run_pf6_case<8>(c, nr, row); break;
+            case 10: run_pf6_case<10>(c, nr, row); break;
+            case 12: run_pf6_case<12>(c, nr, row); break;
+            case 14: run_pf6_case<14>(c, nr, row); break;
+            case 16: run_pf6_case<16>(c, nr, row); break;
+            case 20: run_pf6_case<20>(c, nr, row); break;
+        }
         if (c.u != 0.0) {
-            std::vector<Cplx<__float128>> jac_roots;
-            row.cold_jac_ms = elapsed([&] {
-                row.cold_jac = gm_lauricella6_epoch<20>(
-                    c.p, c.u, nr, &jac_roots, true);
-                return row.cold_jac.mu;
-            });
-            row.warm_jac_ms = elapsed([&] {
-                row.warm_jac = gm_lauricella6_epoch<20>(
-                    c.p, c.u, nr, &jac_roots, true);
-                return row.warm_jac.mu;
-            });
             cold_jac_marginal_ms.push_back(
                 std::max(0.0, row.cold_jac_ms - row.cold_ms));
             warm_jac_marginal_ms.push_back(
@@ -526,6 +586,124 @@ int main(int argc, char** argv) {
     print_stage_medians("jac_cold", jac_cold_stages);
     print_stage_medians("jac_warm", jac_warm_stages);
 
+    auto print_packet_aggregate = [&](const char* label, auto getter) {
+        PacketAggregate sum;
+        for (const auto& r : rows)
+            if (r.c->u != 0.0) append_packet(sum, getter(r));
+        int max_depth = 0;
+        for (int d = 0; d < (int)sum.depth_hist.size(); ++d)
+            if (sum.depth_hist[d] != 0) max_depth = d;
+        std::printf(
+            "PACKET_SUMMARY(%s) candidates=%lld built=%lld accepted=%lld "
+            "rejected=%lld quality_rejected=%lld build_failed=%lld "
+            "max_depth=%d stages_ms(endpoint/root=%.6f algebraic=%.6f "
+            "logderiv=%.6f pfaffian=%.6f quality=%.6f "
+            "accepted=%.6f rejected=%.6f)\n",
+            label, sum.candidates, sum.built, sum.accepted, sum.rejected,
+            sum.quality_rejected, sum.build_failed, max_depth,
+            sum.endpoint_root_ms, sum.algebraic_geometry_ms,
+            sum.log_derivative_ms, sum.pfaffian_recurrence_ms,
+            sum.quality_tail_ms, sum.accepted_candidate_ms,
+            sum.rejected_candidate_ms);
+        std::printf("PACKET_DEPTH(%s)", label);
+        for (int d = 0; d <= max_depth; ++d)
+            std::printf(" %d:%lld", d, sum.depth_hist[d]);
+        std::printf("\nPACKET_ACCEPTED_NODES(%s)", label);
+        for (int n = 0; n < (int)sum.accepted_node_hist.size(); ++n)
+            if (sum.accepted_node_hist[n] != 0)
+                std::printf(" %d:%lld", n, sum.accepted_node_hist[n]);
+        std::printf("\n");
+    };
+    print_packet_aggregate("value_cold",
+                           [](const auto& r) -> const GmLauricella6Cost& {
+                               return r.cold.cost;
+                           });
+    print_packet_aggregate("value_warm",
+                           [](const auto& r) -> const GmLauricella6Cost& {
+                               return r.warm.cost;
+                           });
+    print_packet_aggregate("jac_cold",
+                           [](const auto& r) -> const GmLauricella6Cost& {
+                               return r.cold_jac.cost;
+                           });
+    print_packet_aggregate("jac_warm",
+                           [](const auto& r) -> const GmLauricella6Cost& {
+                               return r.warm_jac.cost;
+                           });
+
+    const char* packet_path = std::getenv("GM6_PACKET_PROFILE_PATH");
+    if (packet_path && packet_path[0] != '\0') {
+        std::ofstream profile(packet_path);
+        profile << "# PF6 Phase 5 packet profile; timing requires "
+                   "GM6_PACKET_PROFILE=1\n";
+        profile << "SUMMARY lane case u candidates built accepted rejected "
+                   "quality_rejected build_failed max_depth endpoint_root_ms "
+                   "algebraic_geometry_ms log_derivative_ms "
+                   "pfaffian_recurrence_ms quality_tail_ms accepted_ms "
+                   "rejected_ms\n";
+        profile << "ARC lane case u arc_index cell_index cell_lo cell_hi "
+                   "radial_center theta_lo theta_hi event_gap_ratio "
+                   "nearest_event_kind xi_min_divisor chart2 constructions "
+                   "built accepted rejected quality_rejected build_failed "
+                   "max_depth accepted_node_sum accepted_node_min "
+                   "accepted_node_max node_failed first_failed_R "
+                   "first_failed_packet_center first_failed_packet_lo "
+                   "first_failed_packet_hi first_failed_block_lo "
+                   "first_failed_block_hi first_failed_phase_error "
+                   "first_failed_packet_tail construction_ms\n";
+        auto write_profile = [&](const char* lane,
+                                 const GmLauricella6Epoch& epoch,
+                                 const Case& c) {
+            const auto& p = epoch.cost.packet_profile;
+            profile << "SUMMARY " << lane << ' ' << c.name << ' ' << c.u << ' '
+                    << p.candidates << ' ' << p.built << ' ' << p.accepted
+                    << ' ' << p.rejected << ' ' << p.quality_rejected << ' '
+                    << p.build_failed << ' ';
+            int max_depth = 0;
+            for (int d = 0; d < (int)p.depth_hist.size(); ++d)
+                if (p.depth_hist[d] != 0) max_depth = d;
+            profile << max_depth << ' ' << std::setprecision(17)
+                    << p.endpoint_root_ms << ' ' << p.algebraic_geometry_ms
+                    << ' ' << p.log_derivative_ms << ' '
+                    << p.pfaffian_recurrence_ms << ' ' << p.quality_tail_ms
+                    << ' ' << p.accepted_candidate_ms << ' '
+                    << p.rejected_candidate_ms << '\n';
+            for (const auto& a : epoch.cost.packet_arcs) {
+                profile << "ARC " << lane << ' ' << c.name << ' ' << c.u << ' '
+                        << a.arc_index << ' ' << a.cell_index << ' '
+                        << a.cell_lo << ' ' << a.cell_hi << ' '
+                        << a.radial_center << ' ' << a.theta_lo << ' '
+                        << a.theta_hi << ' ' << a.event_gap_ratio << ' '
+                        << a.nearest_event_kind << ' ' << a.xi_min_divisor
+                        << ' ' << a.chart2 << ' ' << a.constructions << ' '
+                        << a.built << ' ' << a.accepted << ' ' << a.rejected
+                        << ' ' << a.quality_rejected << ' ' << a.build_failed
+                        << ' ' << a.max_depth << ' ' << a.accepted_node_sum
+                        << ' ' << a.accepted_node_min << ' '
+                        << a.accepted_node_max << ' ' << a.node_failed << ' '
+                        << a.first_failed_R << ' '
+                        << a.first_failed_packet_center << ' '
+                        << a.first_failed_packet_lo << ' '
+                        << a.first_failed_packet_hi << ' '
+                        << a.first_failed_block_lo << ' '
+                        << a.first_failed_block_hi << ' '
+                        << a.first_failed_phase_error << ' '
+                        << a.first_failed_packet_tail << ' '
+                        << a.construction_ms
+                        << '\n';
+            }
+        };
+        for (const auto& r : rows) {
+            write_profile("value_cold", r.cold, *r.c);
+            write_profile("value_warm", r.warm, *r.c);
+            if (r.c->u != 0.0) {
+                write_profile("jac_cold", r.cold_jac, *r.c);
+                write_profile("jac_warm", r.warm_jac, *r.c);
+            }
+        }
+        std::printf("PACKET_PROFILE_FILE %s\n", packet_path);
+    }
+
     if (angular_n > 0) {
         std::printf("ANGULAR_REFERENCE ntheta=%d only_first12=1\n", angular_n);
         for (const auto& r : rows) {
@@ -536,5 +714,6 @@ int main(int argc, char** argv) {
                         rel(r.warm.mu, r.angular.mu), (int)r.angular.ok);
         }
     }
+    std::printf("ORDER %d\n", order);
     return 0;
 }

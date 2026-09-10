@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <utility>
 #include <vector>
 
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
@@ -55,6 +56,10 @@ struct TopologyResult {
     // perturbation is amplified ((m, v) transport, i.e. not
     // HOLO_MV_TRANSPORT_LEGACY=1).
     bool from_warm_d14 = false;
+    // Retain the already computed radial event list for isolated diagnostic
+    // consumers.  This avoids a second D14/event solve when they classify
+    // their local work by the nearest fold, chart, or soft divisor.
+    std::vector<RadialEvent> events;
 };
 
 namespace cells_detail {
@@ -91,6 +96,7 @@ inline TopologyResult classify_cells(
 
     TopologyResult out;
     out.r_max = r_max;
+    out.events = std::move(events);
     Status worst = Status::OK;
 
     const double fr[3] = {0.18, 0.50, 0.82};
