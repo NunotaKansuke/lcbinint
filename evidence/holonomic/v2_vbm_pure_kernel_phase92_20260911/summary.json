@@ -1,0 +1,283 @@
+{
+  "purpose": "Fair four-way pure-kernel comparison using current V2 flux_value_integrate and existing VBM direct-kernel timing; error against existing VBM RelTol=1e-6 reference.",
+  "v2_commit": "8a9f701217003e49ec95ec13ab97b15b7fd95886",
+  "v2_runner": "/tmp/v2_pure_kernel_phase92_runner",
+  "v2_runner_sha256": "a13074ffbe94aa1f7572063ad2a3a65abde0aab7ef444ef554fe5890d8ed61a6",
+  "inputs": {
+    "v2_results": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/v2_results.tsv",
+    "v2_results_sha256": "027da38126418bffe6a95bd309ea50da6713f979dd8aa66f170fc78a783a0423",
+    "vbm_speed_results": "/tmp/lcbinint_pure_kernel_confirm_full_20260909/merged_final/results.json",
+    "vbm_speed_results_sha256": "7233f909e2539dd5331acc5d412efc94a04238f5c9f3dbc7c031c88a5ade6027",
+    "vbm_reference_root": "/tmp/lcbinint_pure_kernel_reference_all_1e-6_20260909/plot_parts_vbm_reltol_1e-6_reference"
+  },
+  "matching": {
+    "speed_rows": 3608,
+    "reference_rows": 1804,
+    "v2_rows": 7216,
+    "joined_rows": 14432,
+    "reference_indices": [
+      0,
+      7,
+      15,
+      23
+    ],
+    "v2_calls_added": 7216,
+    "speed_comparison": "VBM RelTol=1e-3 and 1e-4, uniform and linear profiles",
+    "error_reference": "VBM RelTol=1e-6 reference values",
+    "v2_timing_scope": "flux_value_integrate(64,u,pf,topo) body; LensParams, PrimaryFrame, classify_cells (D14+topology), epoch_value_blend, and TSV parsing/output excluded; no epoch_value",
+    "profiles": {
+      "uniform": "LD off, c=0.0",
+      "linear": "LD on, c=0.5"
+    }
+  },
+  "plot": {
+    "min_cell_population": 8,
+    "speed_ratio": "VBM selected_seconds * 1000 / V2 ms; finite positive V2 outputs enter the paper-style runtime cells, regardless of status",
+    "error": "abs(V2 mu - VBM 1e-6 reference) / abs(VBM 1e-6 reference); all finite V2 values enter the paper-style p95 cells",
+    "nonok_diagnostic": "non-OK points are retained in joined TSV and status_counts; hatched cells identify incomplete status coverage"
+  },
+  "system": {
+    "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+    "python": "3.10.19"
+  },
+  "figures": [
+    {
+      "profile": "uniform",
+      "target": 0.001,
+      "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/figures/q_rho_uniform_1e-3_v2_current_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/figures/q_rho_uniform_1e-3_v2_current_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3366,
+      "status_ok_fraction": 0.9329268292682927
+    },
+    {
+      "profile": "uniform",
+      "target": 0.0001,
+      "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/figures/q_rho_uniform_1e-4_v2_current_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/figures/q_rho_uniform_1e-4_v2_current_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3366,
+      "status_ok_fraction": 0.9329268292682927
+    },
+    {
+      "profile": "linear",
+      "target": 0.001,
+      "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/figures/q_rho_linear_1e-3_v2_current_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/figures/q_rho_linear_1e-3_v2_current_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3366,
+      "status_ok_fraction": 0.9329268292682927
+    },
+    {
+      "profile": "linear",
+      "target": 0.0001,
+      "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/figures/q_rho_linear_1e-4_v2_current_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_phase92_20260911/figures/q_rho_linear_1e-4_v2_current_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3366,
+      "status_ok_fraction": 0.9329268292682927
+    }
+  ],
+  "summary_by_condition": {
+    "linear:target=0.0001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3366,
+        "GRADIENT_UNRELIABLE": 242
+      },
+      "status_ok": 3366,
+      "status_ok_fraction": 0.9329268292682927,
+      "v2_ms": {
+        "p50": 0.371947,
+        "p90": 1.1188361000000002,
+        "p95": 1.3946591499999985,
+        "p99": 2.11338858,
+        "max": 2.41095
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 3.643652513760729,
+        "p90": 14.831990847204017,
+        "win_fraction_ratio_gt_1": 0.8625277161862528
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 3.643652513760729,
+        "p90": 14.831990847204017,
+        "p95": 22.01008352546169,
+        "p99": 47.292683315084766,
+        "max": 183.7918049331878,
+        "win_fraction_ratio_gt_1": 0.8625277161862528
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 3.801577902075871,
+        "p90": 15.292183260612296,
+        "p95": 22.79738021419375,
+        "p99": 48.67008062461515,
+        "max": 183.7918049331878,
+        "win_fraction_ratio_gt_1": 0.8707664884135472
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 2.901625483182337e-05,
+        "p95": 0.00020309358924419185,
+        "p99": 0.0013464283330103736,
+        "max": 0.0024957782238922946
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 2.5367759487069812e-05,
+        "p95": 0.00021065861556043115,
+        "p99": 0.001365237965862167,
+        "max": 0.0024957782238922946
+      }
+    },
+    "linear:target=0.001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3366,
+        "GRADIENT_UNRELIABLE": 242
+      },
+      "status_ok": 3366,
+      "status_ok_fraction": 0.9329268292682927,
+      "v2_ms": {
+        "p50": 0.371947,
+        "p90": 1.1188361000000002,
+        "p95": 1.3946591499999985,
+        "p99": 2.11338858,
+        "max": 2.41095
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 0.8951477805452928,
+        "p90": 3.5080384376625426,
+        "win_fraction_ratio_gt_1": 0.4487250554323725
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 0.8951477805452928,
+        "p90": 3.5080384376625426,
+        "p95": 4.988423538222452,
+        "p99": 9.86847781515308,
+        "max": 16.90732300217648,
+        "win_fraction_ratio_gt_1": 0.4487250554323725
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 0.9298633713319115,
+        "p90": 3.6345056818755284,
+        "p95": 5.160069884331918,
+        "p99": 9.953018524887042,
+        "max": 16.90732300217648,
+        "win_fraction_ratio_gt_1": 0.47237076648841353
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 2.901625483182337e-05,
+        "p95": 0.00020309358924419185,
+        "p99": 0.0013464283330103736,
+        "max": 0.0024957782238922946
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 2.5367759487069812e-05,
+        "p95": 0.00021065861556043115,
+        "p99": 0.001365237965862167,
+        "max": 0.0024957782238922946
+      }
+    },
+    "uniform:target=0.0001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3366,
+        "GRADIENT_UNRELIABLE": 242
+      },
+      "status_ok": 3366,
+      "status_ok_fraction": 0.9329268292682927,
+      "v2_ms": {
+        "p50": 0.264211,
+        "p90": 0.6490925,
+        "p95": 0.7270659999999999,
+        "p99": 0.8980164599999991,
+        "max": 1.178041
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 0.4823181705361066,
+        "p90": 0.8351521673860538,
+        "win_fraction_ratio_gt_1": 0.054046563192904656
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 0.4823181705361066,
+        "p90": 0.8351521673860538,
+        "p95": 1.0133996221534414,
+        "p99": 1.526477029747369,
+        "max": 4.191499235111581,
+        "win_fraction_ratio_gt_1": 0.054046563192904656
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 0.5008953967136937,
+        "p90": 0.8557566443342657,
+        "p95": 1.02353419895704,
+        "p99": 1.5467720172049926,
+        "max": 4.191499235111581,
+        "win_fraction_ratio_gt_1": 0.057932263814616754
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 3.012870759690218e-05,
+        "p95": 0.00021084329614187312,
+        "p99": 0.0013410463939021035,
+        "max": 0.0026335107246759424
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 2.6517494338454652e-05,
+        "p95": 0.00021869410711776034,
+        "p99": 0.001376842535843902,
+        "max": 0.0026335107246759424
+      }
+    },
+    "uniform:target=0.001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3366,
+        "GRADIENT_UNRELIABLE": 242
+      },
+      "status_ok": 3366,
+      "status_ok_fraction": 0.9329268292682927,
+      "v2_ms": {
+        "p50": 0.264211,
+        "p90": 0.6490925,
+        "p95": 0.7270659999999999,
+        "p99": 0.8980164599999991,
+        "max": 1.178041
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 0.2769881833918534,
+        "p90": 0.4737136240792043,
+        "win_fraction_ratio_gt_1": 0.007760532150776054
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 0.2769881833918534,
+        "p90": 0.4737136240792043,
+        "p95": 0.5583683532556913,
+        "p99": 0.8879419717416208,
+        "max": 2.3592532370243524,
+        "win_fraction_ratio_gt_1": 0.007760532150776054
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 0.2873339400938,
+        "p90": 0.4810360649223062,
+        "p95": 0.5731480015361381,
+        "p99": 0.9048147188871589,
+        "max": 2.3592532370243524,
+        "win_fraction_ratio_gt_1": 0.008318478906714201
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 3.012870759690218e-05,
+        "p95": 0.00021084329614187312,
+        "p99": 0.0013410463939021035,
+        "max": 0.0026335107246759424
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 2.6517494338454652e-05,
+        "p95": 0.00021869410711776034,
+        "p99": 0.001376842535843902,
+        "max": 0.0026335107246759424
+      }
+    }
+  }
+}
