@@ -52,6 +52,7 @@ struct TopologyResult {
     // consumers.  This avoids a second D14/event solve when they classify
     // their local work by the nearest fold, chart, or soft divisor.
     std::vector<RadialEvent> events;
+    PositiveD14Result positive_roots{};
 };
 
 // `d14_warm` / `d14_roots_out` (optional, Phase B2 / E): forwarded to
@@ -61,21 +62,24 @@ inline TopologyResult classify_cells(
     const PrimaryFrame& pf,
     const std::vector<Cplx<__float128>>* d14_warm = nullptr,
     std::vector<Cplx<__float128>>* d14_roots_out = nullptr,
-    bool retain_adaptive_metadata = false) {
+    bool retain_adaptive_metadata = false,
+    const PositiveD14Cache* positive_cache = nullptr) {
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->classify_calls;
     V2ProfileTimer topology_timer(&V2Profile::topology_ms);
     double r_max = 0.0;
+    PositiveD14Result positive;
     auto events = radial_events(pf, &r_max, 1e-7, d14_warm, d14_roots_out,
-                                retain_adaptive_metadata);
+                                retain_adaptive_metadata,positive_cache,&positive);
 
+    const bool strict_boundaries=positive.assurance==PositiveRootAssurance::PositiveRealCertified;
     // merge events sharing a radius (tol max(1e-9, 1e-7 * radius))
     std::vector<double> radii;
     for (const auto& e : events) radii.push_back(e.radius);
     std::sort(radii.begin(), radii.end());
     std::vector<double> merged;
     for (double r : radii) {
-        double tol = std::max(1e-9, 1e-7 * r);
+        double tol = strict_boundaries ? 0.0 : std::max(1e-9, 1e-7 * r);
         if (merged.empty() || r - merged.back() > tol) merged.push_back(r);
     }
 
@@ -87,12 +91,24 @@ inline TopologyResult classify_cells(
 
     TopologyResult out;
     out.r_max = r_max;
+    out.positive_roots=positive;
     out.events = std::move(events);
     Status worst = Status::OK;
 
     for (size_t i = 0; i + 1 < bounds.size(); ++i) {
         double lo = bounds[i], hi = bounds[i + 1];
-        if (hi - lo < 1e-11) continue;
+        if (!strict_boundaries && hi - lo < 1e-11) continue;
+        bool interior_certified=0.5*(lo+hi)>lo && 0.5*(lo+hi)<hi;
+        if(strict_boundaries)for(const auto& e:out.events)if(e.positive_certified) {
+            const __float128 mid=0.5*(lo+hi);
+            if(e.radius==lo && !(mid>e.certified_radius_hi))interior_certified=false;
+            if(e.radius==hi && !(mid<e.certified_radius_lo))interior_certified=false;
+        }
+        if (strict_boundaries && !interior_certified) {
+            worst=Status::TOPOLOGY_UNCERTAIN;
+            out.cells.push_back(CellPlan{(int)out.cells.size(),lo,hi,lo,ArcKind::kDegenerate,0,Status::TOPOLOGY_UNCERTAIN});
+            continue;
+        }
         auto probe_begin = V2Clock::now();
 
         // D14 has removed every radial event from the open cell.  One

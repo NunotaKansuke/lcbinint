@@ -44,6 +44,7 @@ struct EpochPlan {
 struct RunCapture {
     AdaptiveResult result;
     PreparedReuseStats reuse{};
+    PositiveD14Result positive{};
     double whole_ms = 0.0;
 };
 
@@ -116,6 +117,7 @@ static RunCapture run_full_warm(const EpochPlan& e, const AdaptiveConfig& cfg,
     TopologyResult topo = prepared_topology(
         PrimaryFrame::from(e.params), state, reuse, &capture.reuse);
     const double topology_ms = elapsed_ms(topology_start);
+    capture.positive=topo.positive_roots;
     capture.result = flux_adaptive_integrate(
         e.params, e.input.u, topo, cfg, workspace);
     capture.result.stats.topology_ms = topology_ms;
@@ -154,7 +156,11 @@ static void print_header(std::ofstream& out) {
            "cold_stop warm_stop radial_stop cold_status warm_status radial_status "
            "cold_nodes warm_nodes radial_nodes cold_evaluations warm_evaluations radial_evaluations "
            "cold_panels warm_panels radial_panels cold_splits warm_splits radial_splits "
-           "warm_l1 warm_l2 warm_l3 warm_rescreen_fail warm_seed_used\n";
+           "warm_l1 warm_l2 warm_l3 warm_rescreen_fail warm_seed_used "
+           "prebuilt_assurance prebuilt_count prebuilt_tier prebuilt_reason prebuilt_legacy "
+           "prebuilt_coefficient_ms prebuilt_chain_ms prebuilt_isolation_ms prebuilt_refine_ms "
+           "warm_assurance warm_count warm_tier warm_reason warm_legacy warm_attempts warm_direct "
+           "warm_repaired warm_subdivisions warm_count_queries warm_sign_queries prebuilt_variation_ms prebuilt_event_ms warm_variation_ms warm_event_ms\n";
 }
 
 static void print_result_fields(std::ofstream& out, const RunCapture& cold,
@@ -199,7 +205,19 @@ static void print_result_fields(std::ofstream& out, const RunCapture& cold,
         << r.stats.panels << ' ' << c.stats.splits << ' ' << w.stats.splits << ' '
         << r.stats.splits << ' ' << warm.reuse.l1_topology_reuse << ' '
         << warm.reuse.l2_warm_recompute << ' ' << warm.reuse.l3_cold_recompute << ' '
-        << warm.reuse.rescreen_fail << ' ' << warm.reuse.warm_solve_used << '\n';
+        << warm.reuse.rescreen_fail << ' ' << warm.reuse.warm_solve_used;
+    const auto& a=e.radial_topology.positive_roots;const auto& b=warm.positive;
+    out << ' ' << int(a.assurance) << ' ' << a.root_count << ' ' << a.stats.chain_tier
+        << ' ' << a.stats.reason << ' ' << a.stats.legacy_backend_calls
+        << ' ' << a.stats.coefficient_ms << ' ' << a.stats.chain_ms
+        << ' ' << a.stats.isolation_ms << ' ' << a.stats.refine_ms
+        << ' ' << int(b.assurance) << ' ' << b.root_count << ' ' << b.stats.chain_tier
+        << ' ' << b.stats.reason << ' ' << b.stats.legacy_backend_calls
+        << ' ' << b.stats.warm_attempts << ' ' << b.stats.warm_direct_complete
+        << ' ' << b.stats.repaired_intervals << ' ' << b.stats.subdivisions
+        << ' ' << b.stats.count_queries << ' ' << b.stats.sign_queries
+        << ' ' << a.stats.variation_ms << ' ' << a.stats.event_classification_ms
+        << ' ' << b.stats.variation_ms << ' ' << b.stats.event_classification_ms << '\n';
 }
 
 int main(int argc, char** argv) {

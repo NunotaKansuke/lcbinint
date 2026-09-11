@@ -834,6 +834,16 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
             d.double_residual=double_residual;d.dd_residual=dd_residual;
             if(!d.t_seed_valid)d.qf_reason=EventDecisionReason::QfFailed;
         }
+        // A local stationary-point solve must not replace a certified D14
+        // event by another root. Keep the incumbent path unchanged.
+        if(topology_event && topology_event->positive_certified) {
+            const __float128 corrected=(__float128)d.radius+d.radius_lo;
+            if(!(corrected>=topology_event->certified_radius_lo &&
+                 corrected<=topology_event->certified_radius_hi)) {
+                d.uncertainty=std::numeric_limits<double>::infinity();
+                d.t_seed_valid=false;d.qf_reason=EventDecisionReason::QfFailed;
+            }
+        }
         if(cfg.collect_diagnostics) {
             AdaptiveEventDiagnostic record;
             record.input_radius=R;record.selected_radius=d.radius;

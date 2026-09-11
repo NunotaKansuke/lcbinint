@@ -66,6 +66,7 @@ struct PreparedEpochGeometry {
     std::vector<CellPlan> cells;              // the quadrature panel plan
     std::vector<RadialEvent> events;          // certified event metadata
     std::vector<Cplx<__float128>> d14_roots;  // all 14 (incl. complex) -- B2 seed
+    PositiveD14Cache positive_cache{};
     int d14_deg = 0;
     ConditioningMargins margins;
     Status status = Status::OK;
@@ -253,6 +254,22 @@ inline TopologyResult prepared_topology(const PrimaryFrame& pf,
     };
 
     const bool want_margins = cfg.allow_topology_reuse;
+    if(d14_event_policy==D14EventPolicy::PositiveReal) {
+        std::vector<Cplx<__float128>> fresh;
+        const bool warm=cfg.allow_warm_d14 && state.positive_cache.valid;
+        const auto* legacy_seed=cfg.allow_warm_d14 && state.d14_roots.size()==14 ? &state.d14_roots : nullptr;
+        auto topo=classify_cells(pf,legacy_seed,&fresh,true,warm?&state.positive_cache:nullptr);
+        auto next=finalize_prepared(pf,topo,fresh,false);
+        next.positive_cache=state.positive_cache;
+        if(topo.status==Status::OK && topo.positive_roots.assurance==PositiveRootAssurance::PositiveRealCertified) {
+            next.positive_cache.valid=true;next.positive_cache.result=topo.positive_roots;next.positive_cache.anchor=pf;
+        }
+        if(warm){bump(&PreparedReuseStats::l2_warm_recompute);
+            if(topo.positive_roots.stats.warm_direct_complete)bump(&PreparedReuseStats::warm_solve_used);}
+        else bump(&PreparedReuseStats::l3_cold_recompute);
+        state=std::move(next);return topo;
+    }
+
 
     // First epoch / no valid cache -> cold build.
     if (!state.valid) {

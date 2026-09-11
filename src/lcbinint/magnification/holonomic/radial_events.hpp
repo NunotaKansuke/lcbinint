@@ -37,6 +37,7 @@
 
 #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
 #include "lcbinint/magnification/holonomic/d14_structure.hpp"
+#include "lcbinint/magnification/holonomic/d14_positive_roots.hpp"
 #include "lcbinint/magnification/holonomic/dd_real.hpp"
 #include "lcbinint/magnification/holonomic/d14_lifted.hpp"
 #include "lcbinint/magnification/holonomic/d14_hybrid.hpp"
@@ -61,6 +62,9 @@ struct RadialEvent {
     double fold_t_seed = 0.0;
     bool fold_t_seed_valid = false;
     int precision_tier = 0;  // 0=double, 1=DD, 2=__float128 source
+    bool positive_certified = false;
+    int positive_root_id = -1;
+    __float128 certified_radius_lo=0, certified_radius_hi=0;
     double d14_condition = std::numeric_limits<double>::infinity();
 };
 
@@ -1201,7 +1205,9 @@ inline std::vector<RadialEvent> radial_events(
     const PrimaryFrame& pf, double* r_max_out, double merge_tol = 1e-7,
     const std::vector<Cplx<__float128>>* d14_warm = nullptr,
     std::vector<Cplx<__float128>>* d14_roots_out = nullptr,
-    bool retain_adaptive_metadata = false) {
+    bool retain_adaptive_metadata = false,
+    const PositiveD14Cache* positive_cache = nullptr,
+    PositiveD14Result* positive_out = nullptr) {
     using namespace re_detail;
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->radial_event_calls;
@@ -1213,6 +1219,40 @@ inline std::vector<RadialEvent> radial_events(
 
     std::vector<RadialEvent> ev;
 
+    PositiveD14Result positive;
+    bool certified = false;
+    if (retain_adaptive_metadata && d14_event_policy == D14EventPolicy::PositiveReal) {
+        positive = positive_d14_roots(pf, Rmax, positive_cache);
+        certified = positive.assurance == PositiveRootAssurance::PositiveRealCertified;
+        if (certified) {
+            positive_detail::StageTimer classification_timer{&positive.stats.event_classification_ms};
+            double previous = -1;
+            for (unsigned i=0;i<positive.root_count;++i) {
+                const auto& bracket=positive.roots[i];
+                if(bracket.v_lo >= (qf)Rmax*Rmax) continue;
+                if(bracket.v_hi >= (qf)Rmax*Rmax || bracket.v_lo<=0) { certified=false; break; }
+                qf low=nextafterq(sqrtq(bracket.v_lo),-HUGE_VALQ);
+                qf high=nextafterq(sqrtq(bracket.v_hi),HUGE_VALQ);
+                qf Rq=(low+high)/2;double R=(double)Rq;
+                if(!(R>previous)) {certified=false;break;} previous=R;
+                auto probe=probe_double_root(R,pf);
+                RadialEvent event{R,probe.physically_real?"physical_real":"physical_complex",
+                    probe.physically_real,"D14 certified positive real root"};
+                event.radius_lo=(double)(Rq-(qf)R);
+                event.radius_uncertainty=std::nextafter((double)((high-low)/2),INFINITY);
+                event.precision_tier=positive.stats.chain_tier;
+                event.fold_t_seed=probe.stationary_t;event.fold_t_seed_valid=probe.stationary_valid;
+                event.positive_certified=true;event.positive_root_id=(int)i;
+                event.certified_radius_lo=low;event.certified_radius_hi=high;
+                ev.push_back(event);
+            }
+            if(!certified){ev.clear();positive.stats.reason="RepresentationLimited";}
+        }
+        if(!certified){positive.assurance=PositiveRootAssurance::LegacyValidated;
+            ++positive.stats.legacy_backend_calls;}
+        if(positive_out)*positive_out=positive;
+        if(certified && d14_roots_out)d14_roots_out->clear();
+    }
     // The structured D14 block and exact chart_p4 factorization do not need
     // the generic polynomial family.  Construct it only for the explicitly
     // requested legacy lanes; this removes a duplicate generic-series build
@@ -1226,6 +1266,7 @@ inline std::vector<RadialEvent> radial_events(
         if (prof) v2_profile_add_ms(&V2Profile::d14_coeff_ms, coeff_begin,
                                     V2Clock::now());
     }
+    if (!certified) {
     // D14 low-degree block form (memo sec 2): exact, cancellation-free.
     // Used for the polish evaluator and -- unless HOLO_D14_STRUCT_LEGACY=1
     // -- as the source of the expanded coefficient vector too.
@@ -1343,6 +1384,8 @@ inline std::vector<RadialEvent> radial_events(
         }
     }
 
+    } // incumbent backend only when positive isolation was not certified
+
     if (a > 0.0 && a < Rmax)
         ev.push_back({a, "R_eq_a", false, "P<->B factor clash"});
     const double rm0 = std::sqrt(m0);
@@ -1417,7 +1460,7 @@ inline std::vector<RadialEvent> radial_events(
             merged.size() > 0 &&
             merged.back().kind == "physical_real" &&
             e.kind == "physical_real";
-        if (!preserve_adaptive_physical_pair && !merged.empty() &&
+        if (!e.positive_certified && !preserve_adaptive_physical_pair && !merged.empty() && !merged.back().positive_certified &&
             merged.back().kind == e.kind &&
             std::fabs(e.radius - merged.back().radius) < merge_tol)
             continue;
