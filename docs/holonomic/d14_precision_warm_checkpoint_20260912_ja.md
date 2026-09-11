@@ -84,6 +84,14 @@ stage timingは全14,432行で、全 laneについて nonfinite 0、負値 0、`
 
 図の入力は standard script [make_figures.py](../../evidence/holonomic/d14_precision_warm_20260912/trajectory/make_figures.py) で固定し、図だけの都合でケースや精度を除外していない。
 
+速度改善そのものを確認する図として、旧V2とD14 candidateの両方にD14/topologyを含めたA/Bも追加した。上段は `R=t_{old\ V2}/t_{D14\ V2}` で、1より大きいセルほどcandidateが速い。VBMのpure-kernel時間を分子に入れていないため、D14最適化の速度差をこの図で直接読める。
+
+- [linear / 1e-3 / full-warm D14 A/B PNG](../../evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_linear_1e-3_d14_ab_full-warm.png)
+- [linear / 1e-4 / full-warm D14 A/B PNG](../../evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab/q_rho_linear_1e-4_d14_ab_full-warm.png)
+- [D14 A/B全図の一覧](../../evidence/holonomic/d14_precision_warm_20260912/trajectory/figures_d14_ab.json)
+
+このA/B図の作成元は [make_figures_d14_ab.py](../../evidence/holonomic/d14_precision_warm_20260912/trajectory/make_figures_d14_ab.py) で、旧版とcandidateの同一14,432行を結合している。
+
 ## 未実装・不採用
 
 - qf係数生成と qf global certificate の完全除去。独立した outward enclosure がまだないため保留。
