@@ -19,7 +19,7 @@ SPEED_PATH = Path('/tmp/lcbinint_pure_kernel_confirm_full_20260909/merged_final/
 REF_ROOT = Path('/tmp/lcbinint_pure_kernel_reference_all_1e-6_20260909/plot_parts_vbm_reltol_1e-6_reference')
 ROOT = Path(__file__).resolve().parent
 V2_PATH = ROOT / 'v2_results.tsv'
-INPUT_SNAPSHOT = Path('/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_20260911/input_snapshot.tsv')
+INPUT_SNAPSHOT = ROOT / 'input_snapshot.tsv'
 OUT = ROOT
 FIG_DIR = OUT / 'figures'
 OUT.mkdir(parents=True, exist_ok=True)
@@ -589,7 +589,7 @@ def main():
         prof, targettxt = key.split(':target=')
         report.append(f"| {prof} | {targettxt} | {s['rows']} | {s['status_ok']} ({100*s['status_ok_fraction']:.1f}%) | {s['v2_ms']['p50']:.6g} | {s['v2_ms']['p95']:.6g} | {s['speed_ratio_vbm_over_v2_positive']['p50']:.6g} | {s['speed_ratio_vbm_over_v2_status_ok']['p50']:.6g} | {s['relative_error_v2_over_vbm_1e-6_all_statuses']['p95']:.6g} | {s['relative_error_v2_over_vbm_1e-6_status_ok']['p95']:.6g} |")
     report.append('\n## Reproduction\n')
-    report.append('The V2 runner was compiled at the current branch HEAD and run as:\n\n```bash\n/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_adaptive_value_runner.cpp -o /tmp/v2_adaptive_value_qrho_runner -lquadmath\n/tmp/v2_adaptive_value_qrho_runner evidence/holonomic/v2_vbm_pure_kernel_20260911/input_snapshot.tsv /tmp/v2_adaptive_value_qrho_results.tsv 2> evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_run.log\ncp /tmp/v2_adaptive_value_qrho_results.tsv evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_results.tsv\npython3 evidence/holonomic/v2_vbm_adaptive_qrho_20260911/make_figures.py\n```\n')
+    report.append('The V2 runner was compiled at the current branch HEAD and run as:\n\n```bash\n/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_adaptive_value_runner.cpp -o /tmp/v2_adaptive_value_qrho_runner -lquadmath\n/tmp/v2_adaptive_value_qrho_runner evidence/holonomic/v2_vbm_adaptive_qrho_20260911/input_snapshot.tsv /tmp/v2_adaptive_value_qrho_results.tsv 2> evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_run.log\ncp /tmp/v2_adaptive_value_qrho_results.tsv evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_results.tsv\npython3 evidence/holonomic/v2_vbm_adaptive_qrho_20260911/make_figures.py\n```\n')
     report.append('## Figures\n')
     for f in figures:
         report.append(f"- `{f['png']}`\n- `{f['pdf']}`")

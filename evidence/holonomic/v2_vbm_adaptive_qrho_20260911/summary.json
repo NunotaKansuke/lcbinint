@@ -1,10 +1,10 @@
 {
   "purpose": "Fair four-way pure-kernel comparison using current V2 adaptive value-only integration and existing VBM direct-kernel timing; error against existing VBM RelTol=1e-6 reference.",
-  "v2_commit": "fd4b0da009f61230de7809b9595e4785098d68e9",
+  "v2_commit": "7a11850a8c525c6156bc40d4b49fd4d70179824e",
   "v2_runner": "/tmp/v2_adaptive_value_qrho_runner",
   "v2_runner_sha256": "86b12c7281d30ad2c088e5ed8978dd1367f0b1e8f592ba54767dbda9773acc22",
   "inputs": {
-    "input_snapshot": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_20260911/input_snapshot.tsv",
+    "input_snapshot": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_adaptive_qrho_20260911/input_snapshot.tsv",
     "input_snapshot_sha256": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
     "v2_results": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_results.tsv",
     "v2_results_sha256": "93c6e72b906d90bb80d89efa79a70c87cdd7a95b614c0f257085995e12ca039d",

@@ -1,4 +1,4 @@
-# Current V2 adaptive value-only vs existing VBM four-way comparison (HEAD `fd4b0da009f61230de7809b9595e4785098d68e9`)
+# Current V2 adaptive value-only vs existing VBM four-way comparison (HEAD `7a11850a8c525c6156bc40d4b49fd4d70179824e`)
 
 The four speed conditions are VBM `RelTol=1e-3` and `RelTol=1e-4`, each for uniform (LD off) and linear (LD on, `c=0.5`). Only current V2 was evaluated in this step. Relative error is evaluated against the existing VBM `RelTol=1e-6` reference.
 
@@ -27,7 +27,7 @@ The V2 runner was compiled at the current branch HEAD and run as:
 
 ```bash
 /usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_adaptive_value_runner.cpp -o /tmp/v2_adaptive_value_qrho_runner -lquadmath
-/tmp/v2_adaptive_value_qrho_runner evidence/holonomic/v2_vbm_pure_kernel_20260911/input_snapshot.tsv /tmp/v2_adaptive_value_qrho_results.tsv 2> evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_run.log
+/tmp/v2_adaptive_value_qrho_runner evidence/holonomic/v2_vbm_adaptive_qrho_20260911/input_snapshot.tsv /tmp/v2_adaptive_value_qrho_results.tsv 2> evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_run.log
 cp /tmp/v2_adaptive_value_qrho_results.tsv evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_results.tsv
 python3 evidence/holonomic/v2_vbm_adaptive_qrho_20260911/make_figures.py
 ```
