@@ -180,6 +180,84 @@ inline QuarticParamJac boundary_quartic_dp(double R, const PrimaryFrame& pf) {
     return out;
 }
 
+// Direct local P(R,t) quantities for the physical-fold event refinement.
+// This is deliberately separate from the generic R-polynomial family: the
+// event solver only needs P, P_t, P_R, P_tt and P_tR at one (R,t), and the
+// explicit construction preserves the input precision all the way through.
+// T is double, DD, or __float128.  The formulas are the same ones used by
+// boundary_quartic()/boundary_quartic_dR(), written without std::complex so
+// the DD path does not round high-precision coefficients through binary64.
+template <class T>
+struct LocalFoldQuantities {
+    T P{};
+    T Pt{};
+    T PR{};
+    T Ptt{};
+    T Ptr{};
+};
+
+template <class T>
+inline LocalFoldQuantities<T> local_fold_quantities(T R, T t,
+                                                    const PrimaryFrame& pf) {
+    const T a = T(pf.a), m0 = T(pf.m0), X = T(pf.X), Y = T(pf.Y);
+    const T rho = T(pf.rho);
+    const T R2 = R * R;
+    const T n0r = -X * R2, n0i = -Y * R2;
+    const T n1r = R * (R2 - T(1.0) + a * X), n1i = R * a * Y;
+    const T n2r = a * (m0 - R2), n2i = T(0.0);
+    const T c0r = n0r + n1r + n2r, c0i = n0i + n1i;
+    const T c1r = -T(2.0) * (n2i - n0i);
+    const T c1i = T(2.0) * (n2r - n0r);
+    const T c2r = n1r - n0r - n2r, c2i = n1i - n0i - n2i;
+
+    const T dn0r = -T(2.0) * X * R, dn0i = -T(2.0) * Y * R;
+    const T dn1r = T(3.0) * R2 - T(1.0) + a * X, dn1i = a * Y;
+    const T dn2r = -T(2.0) * a * R, dn2i = T(0.0);
+    const T dc0r = dn0r + dn1r + dn2r, dc0i = dn0i + dn1i;
+    const T dc1r = -T(2.0) * (dn2i - dn0i);
+    const T dc1i = T(2.0) * (dn2r - dn0r);
+    const T dc2r = dn1r - dn0r - dn2r, dc2i = dn1i - dn0i - dn2i;
+
+    const T dot00 = c0r * c0r + c0i * c0i;
+    const T dot01 = c0r * c1r + c0i * c1i;
+    const T dot02 = c0r * c2r + c0i * c2i;
+    const T dot11 = c1r * c1r + c1i * c1i;
+    const T dot12 = c1r * c2r + c1i * c2i;
+    const T dot22 = c2r * c2r + c2i * c2i;
+    const T d00 = c0r * dc0r + c0i * dc0i;
+    const T d01 = dc0r * c1r + dc0i * c1i + c0r * dc1r + c0i * dc1i;
+    const T d02 = dc0r * c2r + dc0i * c2i + c0r * dc2r + c0i * dc2i;
+    const T d11 = c1r * dc1r + c1i * dc1i;
+    const T d12 = dc1r * c2r + dc1i * c2i + c1r * dc2r + c1i * dc2i;
+    const T d22 = c2r * dc2r + c2i * dc2i;
+
+    const T k = rho * rho * R2, dk = T(2.0) * rho * rho * R;
+    const T rm = R - a, rp = R + a;
+    const T bm = rm * rm, bp = rp * rp;
+    const T dbm = T(2.0) * rm, dbp = T(2.0) * rp;
+    const T p0 = k * bm - dot00;
+    const T p1 = -T(2.0) * dot01;
+    const T p2 = k * (bm + bp) - dot11 - T(2.0) * dot02;
+    const T p3 = -T(2.0) * dot12;
+    const T p4 = k * bp - dot22;
+    const T r0 = dk * bm + k * dbm - T(2.0) * d00;
+    const T r1 = -T(2.0) * d01;
+    const T r2 = dk * (bm + bp) + k * (dbm + dbp) -
+                 T(2.0) * d11 - T(2.0) * d02;
+    const T r3 = -T(2.0) * d12;
+    const T r4 = dk * bp + k * dbp - T(2.0) * d22;
+
+    LocalFoldQuantities<T> out;
+    out.P = (((p4 * t + p3) * t + p2) * t + p1) * t + p0;
+    out.Pt = ((T(4.0) * p4 * t + T(3.0) * p3) * t +
+              T(2.0) * p2) * t + p1;
+    out.PR = (((r4 * t + r3) * t + r2) * t + r1) * t + r0;
+    out.Ptt = (T(12.0) * p4 * t + T(6.0) * p3) * t + T(2.0) * p2;
+    out.Ptr = ((T(4.0) * r4 * t + T(3.0) * r3) * t +
+               T(2.0) * r2) * t + r1;
+    return out;
+}
+
 inline double poly_eval(const std::array<double, 5>& c, double t) {
     double r = 0.0;
     for (int i = 4; i >= 0; --i) r = r * t + c[i];

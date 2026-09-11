@@ -8,13 +8,21 @@ using namespace lcbinint::holonomic;
 AdaptiveResult mapped_fixed(const LensParams& p,double u,bool jac,const TopologyResult& topo){
     AdaptiveResult r;auto pf=PrimaryFrame::from(p);std::vector<CellPlan> cells;
     if(!adaptive_detail::restore_physical_cuts(topo,pf,cells))return r;
-    auto fam=re_detail::p_coeffs_in_R(pf.a,pf.m0,pf.X,pf.Y,pf.rho);
     auto fold=[&](double R){for(auto&e:topo.events)if(e.radius==R&&e.physically_real&&e.kind=="physical_real")return true;return false;};
+    auto event_radius=[&](double R) {
+        for(const auto& e:topo.events)
+            if(e.radius==R&&e.physically_real&&e.kind=="physical_real")
+                return adaptive_detail::topology_event_estimate(e,pf,1e-4).radius;
+        auto d=adaptive_detail::double_event_estimate(R,pf,1e-4);
+        if(d.needs_qf&&d.t_seed_valid)
+            d=adaptive_detail::refine_event(R,d.radius_lo,d.t_seed,pf,1e-4,d);
+        return d.radius;
+    };
     std::array<adaptive_detail::Sum,6> sums;const auto& rule=fejer_rule(6);
     for(auto& c:cells)if(c.kind!=ArcKind::kEmpty){
         FoldRadialMap map{c.r_lo,c.r_hi,fold(c.r_lo),fold(c.r_hi)};
-        if(map.left)map.a=adaptive_detail::refine_event(map.a,pf,fam).radius;
-        if(map.right)map.b=adaptive_detail::refine_event(map.b,pf,fam).radius;
+        if(map.left)map.a=event_radius(map.a);
+        if(map.right)map.b=event_radius(map.b);
         AdaptiveSample previous;bool seeded=false;
         for(size_t k=0;k<rule.x.size();++k){auto rr=map(rule.x[k]);
             auto v=adaptive_detail::mapped_radius(rr[0],rr[1],p,u,pf,c,jac,topo.from_warm_d14,seeded?&previous:nullptr);
@@ -30,7 +38,7 @@ int main(int argc,char**argv){if(argc<2)return 2;std::ifstream f(argv[1]);std::s
         for(bool jac:{false,true})for(bool warm:{false,true})for(int rep=0;rep<3;++rep)for(int ii=0;ii<3;++ii){
             int mode=rep%2?2-ii:ii;auto runp=p;PreparedEpochGeometry prepared;
             if(warm){(void)prepared_topology(PrimaryFrame::from(p),prepared,PreparedReuseConfig{},nullptr);runp.xs+=.01*p.rho;}
-            auto start=adaptive_detail::Clock::now();auto topo=warm?prepared_topology(PrimaryFrame::from(runp),prepared,PreparedReuseConfig{},nullptr):classify_cells(PrimaryFrame::from(runp));double tm=adaptive_detail::ms(start);
+            auto start=adaptive_detail::Clock::now();auto topo=warm?prepared_topology(PrimaryFrame::from(runp),prepared,PreparedReuseConfig{},nullptr):classify_cells(PrimaryFrame::from(runp),nullptr,nullptr,true);double tm=adaptive_detail::ms(start);
             AdaptiveResult r;
             if(mode==0)r=mapped_fixed(runp,u,jac,topo);
             else{AdaptiveConfig c;c.with_jacobian=jac;c.fold_maps=mode==2;c.tol.mu_rtol=1e-4;c.tol.grad_rtol.fill(1e-4);AdaptiveWorkspace w;r=flux_adaptive_integrate(runp,u,topo,c,w);}

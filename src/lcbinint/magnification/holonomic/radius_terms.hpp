@@ -17,6 +17,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <vector>
 
 #include <cstdio>
@@ -393,6 +394,29 @@ inline bool transport_is_root(const std::array<double, 5>& pc, double t) {
     return std::fabs(P) <= kTransportRootRel * (S > 0.0 ? S : 1.0);
 }
 
+// A quartic can contribute at most two bounded (m,v) pairs.  Keep the
+// transport state inline so adding a radial sample cannot allocate/copy a
+// heap-backed vector just to carry two roots.
+struct RootPairSet {
+    std::array<RootPair, 2> data{};
+    std::uint8_t count = 0;
+
+    std::size_t size() const { return count; }
+    bool empty() const { return count == 0; }
+    void clear() { count = 0; }
+    bool push_back(const RootPair& p) {
+        if (count >= data.size()) return false;
+        data[count++] = p;
+        return true;
+    }
+    RootPair& operator[](std::size_t i) { return data[i]; }
+    const RootPair& operator[](std::size_t i) const { return data[i]; }
+    auto begin() { return data.begin(); }
+    auto end() { return data.begin() + count; }
+    auto begin() const { return data.begin(); }
+    auto end() const { return data.begin() + count; }
+};
+
 // Branch-aware acceptance for a transported pair set: the pairs must still be
 // the same ascending, non-overlapping family of *real inside* arcs they were
 // seeded as.  Rejects a corrector basin-flip that converges to a different
@@ -401,7 +425,8 @@ inline bool transport_is_root(const std::array<double, 5>& pc, double t) {
 // ascending order with a real t-gap to the previous arc; both endpoints
 // genuine roots of P; phi > 0 at the arc's t-midpoint (a real inside arc,
 // not an outside gap).
-inline bool transport_pairs_valid(const std::vector<RootPair>& ps,
+template <class PairSet>
+inline bool transport_pairs_valid(const PairSet& ps,
                                   size_t n_expect,
                                   const std::array<double, 5>& pc, double R,
                                   const PrimaryFrame& pf) {
@@ -431,7 +456,7 @@ inline bool transport_pairs_valid(const std::vector<RootPair>& ps,
 }
 
 struct RootPairWarm {
-    std::vector<RootPair> pairs;        // tracked t-bounded pairs, ascending in t
+    RootPairSet pairs;                  // tracked t-bounded pairs, ascending in t
     std::array<double, 5> pc_prev{};    // boundary_quartic(R_prev) coeffs
     std::array<double, 5> pcR_prev{};   // boundary_quartic_dR(R_prev) coeffs
     double R_prev = 0.0;
@@ -473,7 +498,7 @@ inline std::vector<double> real_root_thetas_transport(
     }
     if (w.valid && !w.pairs.empty()) {
         const double dR = R - w.R_prev;
-        std::vector<RootPair> next = w.pairs;
+        RootPairSet next = w.pairs;
         const bool dbg = holo_mv_debug();
         bool ok = true;
         for (auto& rp : next) {
@@ -657,15 +682,16 @@ inline std::vector<double> real_root_thetas_transport(
         // inside arcs are the non-wrapping "even" gaps (t0,t1),(t2,t3),...
         // iff phi > 0 at the (t0,t1) t-midpoint; the "odd" set owns the
         // theta = pi (t = +-inf) arc, which (m, v) cannot represent.
-        std::vector<RootPair> cand;
-        cand.reserve(tr.size() / 2);
+        RootPairSet cand;
+        bool capacity_ok = true;
         for (size_t i = 0; i + 1 < tr.size(); i += 2)
-            cand.push_back(root_pair_from_endpoints(tr[i], tr[i + 1]));
+            capacity_ok = cand.push_back(
+                root_pair_from_endpoints(tr[i], tr[i + 1])) && capacity_ok;
         // Accept the seed only if EVERY candidate arc is a real inside arc
         // (phi > 0 at its t-midpoint) and the family is ascending / non-
         // overlapping -- same predicate the warm step must keep satisfying.
-        if (transport_pairs_valid(cand, cand.size(), pc, R, pf)) {
-            w.pairs = std::move(cand);
+        if (capacity_ok && transport_pairs_valid(cand, cand.size(), pc, R, pf)) {
+            w.pairs = cand;
             w.pc_prev = pc;
             w.pcR_prev = boundary_quartic_dR(R, pf).p;
             w.R_prev = R;
@@ -822,11 +848,13 @@ inline GridArcs arcs_at(double R, const PrimaryFrame& pf, int n_grid = 3072) {
 //                   default, `w` / cold with HOLO_MV_TRANSPORT_LEGACY=1.
 inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
                             QuarticWarm* w = nullptr,
-                            RootPairWarm* rpw = nullptr) {
+                            RootPairWarm* rpw = nullptr,
+                            QuarticCoeffs* out_pc = nullptr) {
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->arc_interval_calls;
     V2ProfileTimer arc_timer(&V2Profile::arc_ms);
     QuarticCoeffs q = boundary_quartic(R, pf);
+    if (out_pc) *out_pc = q;
     double amax = 0.0;
     for (double c : q.p) amax = std::max(amax, std::fabs(c));
     if (amax == 0.0 || std::fabs(q.p[4]) < kP4DegenRel * amax) {
@@ -961,7 +989,8 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
     }
     V2ProfileTimer jac_timer(&V2Profile::jacobian_ms);
     RadiusTerms rt;
-    ArcSet as = arc_intervals(R, pf, w, rpw);
+    QuarticCoeffs arc_pc{};
+    ArcSet as = arc_intervals(R, pf, w, rpw, &arc_pc);
     if (as.kind == ArcKind::kEmpty) return rt;
     if (as.kind == ArcKind::kFull) {
         if (prof) ++prof->full_circle_calls;
@@ -980,8 +1009,7 @@ inline RadiusTerms radius_terms(double R, const PrimaryFrame& pf,
     const auto& AR = ang_rule();
     const bool holo_on = holo_holonomic_transport_enabled();
     // holonomic transport works on the raw primary frame quartic P(.; R)
-    const QuarticCoeffs holo_pc =
-        holo_on ? boundary_quartic(R, pf) : QuarticCoeffs{};
+    const QuarticCoeffs holo_pc = holo_on ? arc_pc : QuarticCoeffs{};
     const QuarticParamJac holo_dpc =
         holo_on ? boundary_quartic_dp(R, pf) : QuarticParamJac{};
     const bool reciprocal_on = holo_on && holo_reciprocal_chart_enabled();
@@ -1163,7 +1191,8 @@ inline RadiusValue radius_value(double R, const PrimaryFrame& pf, bool want_fh,
     }
     V2ProfileTimer value_timer(&V2Profile::value_angular_ms);
     RadiusValue rt;
-    ArcSet as = arc_intervals(R, pf, w, rpw);
+    QuarticCoeffs arc_pc{};
+    ArcSet as = arc_intervals(R, pf, w, rpw, &arc_pc);
     if (as.kind == ArcKind::kEmpty) return rt;
     if (as.kind == ArcKind::kFull) {
         if (prof) ++prof->full_circle_calls;
@@ -1182,8 +1211,7 @@ inline RadiusValue radius_value(double R, const PrimaryFrame& pf, bool want_fh,
     const auto& AR = ang_rule();
     const bool holo_on = holo_holonomic_transport_enabled();
     const bool reciprocal_on = holo_on && holo_reciprocal_chart_enabled();
-    const QuarticCoeffs holo_pc =
-        holo_on ? boundary_quartic(R, pf) : QuarticCoeffs{};
+    const QuarticCoeffs holo_pc = holo_on ? arc_pc : QuarticCoeffs{};
     const QuarticCoeffs holo_rpc =
         reciprocal_on ? boundary_quartic_reciprocal(holo_pc)
                        : QuarticCoeffs{};

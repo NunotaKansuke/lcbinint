@@ -64,6 +64,7 @@ struct PreparedEpochGeometry {
     PrimaryFrame anchor{};                    // geometry the plan was built at
     double r_max = 0.0;
     std::vector<CellPlan> cells;              // the quadrature panel plan
+    std::vector<RadialEvent> events;          // certified event metadata
     std::vector<Cplx<__float128>> d14_roots;  // all 14 (incl. complex) -- B2 seed
     int d14_deg = 0;
     ConditioningMargins margins;
@@ -204,6 +205,7 @@ inline PreparedEpochGeometry finalize_prepared(
     s.anchor = pf;
     s.r_max = topo.r_max;
     s.cells = topo.cells;
+    s.events = topo.events;
     s.status = topo.status;
     s.d14_roots = roots;
     s.d14_deg = (int)roots.size();
@@ -232,7 +234,8 @@ inline PreparedEpochGeometry finalize_prepared(
 inline PreparedEpochGeometry build_prepared_geometry(const PrimaryFrame& pf,
                                                      bool want_margins = true) {
     std::vector<Cplx<__float128>> roots;
-    TopologyResult topo = classify_cells(pf, nullptr, &roots);
+    TopologyResult topo = classify_cells(pf, nullptr, &roots,
+                                         /*retain_adaptive_metadata=*/true);
     PreparedEpochGeometry s = finalize_prepared(pf, topo, roots, want_margins);
     s.provenance = PreparedEpochGeometry::kColdOracle;
     return s;
@@ -256,7 +259,9 @@ inline TopologyResult prepared_topology(const PrimaryFrame& pf,
         state = build_prepared_geometry(pf, want_margins);
         state.provenance = PreparedEpochGeometry::kColdOracle;
         bump(&PreparedReuseStats::l3_cold_recompute);
-        return TopologyResult{state.r_max, state.cells, state.status};
+        TopologyResult r{state.r_max, state.cells, state.status};
+        r.events = state.events;
+        return r;
     }
 
     const double drift = prep_detail::drift_norm(state.anchor, pf);
@@ -270,6 +275,7 @@ inline TopologyResult prepared_topology(const PrimaryFrame& pf,
         bump(&PreparedReuseStats::l1_topology_reuse);
         TopologyResult r{state.r_max, state.cells, state.status};
         r.from_warm_d14 = true;
+        r.events = state.events;
         return r;
     }
     if (cfg.allow_topology_reuse && drift <= cfg.l1_drift)
@@ -280,7 +286,8 @@ inline TopologyResult prepared_topology(const PrimaryFrame& pf,
     if (cfg.allow_warm_d14 && drift <= cfg.l2_drift &&
         (int)state.d14_roots.size() > 0) {
         std::vector<Cplx<__float128>> fresh;
-        TopologyResult topo = classify_cells(pf, &state.d14_roots, &fresh);
+        TopologyResult topo = classify_cells(pf, &state.d14_roots, &fresh,
+                                             /*retain_adaptive_metadata=*/true);
         PreparedEpochGeometry next =
             finalize_prepared(pf, topo, fresh, want_margins);
         next.provenance = PreparedEpochGeometry::kWarmRecomputed;
@@ -294,7 +301,8 @@ inline TopologyResult prepared_topology(const PrimaryFrame& pf,
     // L3: cold recompute (the authority).
     {
         std::vector<Cplx<__float128>> fresh;
-        TopologyResult topo = classify_cells(pf, nullptr, &fresh);
+        TopologyResult topo = classify_cells(pf, nullptr, &fresh,
+                                             /*retain_adaptive_metadata=*/true);
         PreparedEpochGeometry next =
             finalize_prepared(pf, topo, fresh, want_margins);
         next.provenance = PreparedEpochGeometry::kColdRecomputed;

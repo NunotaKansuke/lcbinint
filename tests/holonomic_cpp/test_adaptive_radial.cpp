@@ -6,6 +6,28 @@ using namespace lcbinint::holonomic;
 int failures=0,checks=0;
 void check(bool x,const char* msg){++checks;if(!x){++failures;std::fprintf(stderr,"FAIL %s\n",msg);}}
 int main(){
+    // The local DD/qf fold kernel must reproduce the incumbent explicit
+    // double quartic and its R derivative before it is used to replace the
+    // generic polynomial-family fallback.
+    LensParams fold_probe_lens{.31,-.17,.043,.27,.83,false};
+    const auto fold_pf=PrimaryFrame::from(fold_probe_lens);
+    for(double R:{.07,.41,1.3}) for(double t:{-.8,.2,2.1}) {
+        const auto pc=boundary_quartic(R,fold_pf);
+        const auto pr=boundary_quartic_dR(R,fold_pf);
+        const auto g=local_fold_quantities<double>(R,t,fold_pf);
+        const double scale=1+std::fabs(g.P)+std::fabs(g.Pt)+std::fabs(g.PR)+
+                           std::fabs(g.Ptt)+std::fabs(g.Ptr);
+        check(std::fabs(g.P-adaptive_detail::eval_poly5(pc.p,t))<2e-13*scale,
+              "local fold P parity");
+        check(std::fabs(g.Pt-adaptive_detail::eval_poly5_derivative(pc.p,t))<2e-13*scale,
+              "local fold Pt parity");
+        check(std::fabs(g.PR-adaptive_detail::eval_poly5(pr.p,t))<2e-13*scale,
+              "local fold PR parity");
+        const double ptt=2*pc.p[2]+t*(6*pc.p[3]+t*12*pc.p[4]);
+        const double ptr=pr.p[1]+t*(2*pr.p[2]+t*(3*pr.p[3]+t*4*pr.p[4]));
+        check(std::fabs(g.Ptt-ptt)<2e-13*scale,"local fold Ptt parity");
+        check(std::fabs(g.Ptr-ptr)<2e-13*scale,"local fold Ptr parity");
+    }
     AdaptiveTolerance tol;tol.mu_atol=.1;tol.mu_rtol=.2;
     check(tol.budget(0,1)==.2,"max budget, not additive");
     check(tol.budget(0,0)==.1,"absolute tolerance near zero");
@@ -106,6 +128,41 @@ int main(){
     // tolerance accepts.  Test both requested policies and both u values.
     LensParams rand033{.14772949073990987,.0025702291249036745,.022382854740423824,
                        .24663546751963286,.4390801625936331,false};
+    // The D14/topology hand-off must make both local tiers independently
+    // usable.  Exercise the retained qf radius remainder and stationary seed
+    // directly, including the explicit qf fallback kernel; neither path may
+    // rebuild the generic PolyFamilyR.
+    const auto rand_pf=PrimaryFrame::from(rand033);
+    const auto production_topology=classify_cells(rand_pf);
+    const auto rand_topology=classify_cells(rand_pf,nullptr,nullptr,true);
+    check(production_topology.status==rand_topology.status&&
+          production_topology.cells.size()==rand_topology.cells.size(),
+          "adaptive metadata keeps production topology");
+    check(production_topology.events.size()==rand_topology.events.size(),
+          "adaptive metadata keeps production event count");
+    for(size_t i=0;i<production_topology.events.size()&&
+                    i<rand_topology.events.size();++i) {
+        const auto& a=production_topology.events[i];
+        const auto& b=rand_topology.events[i];
+        check(a.kind==b.kind&&a.physically_real==b.physically_real&&
+              std::fabs(a.radius-b.radius)<=2e-14*(1+std::fabs(a.radius)),
+              "adaptive metadata keeps production event parity");
+    }
+    size_t physical_events=0;
+    for(const auto& event:rand_topology.events) {
+        if(!event.physically_real||event.kind!="physical_real")continue;
+        ++physical_events;
+        check(event.fold_t_seed_valid,"topology retains physical stationary seed");
+        auto local=adaptive_detail::topology_event_estimate(event,rand_pf,1e-4);
+        check(local.dd_reason==EventDecisionReason::DDAccepted&&
+              !local.needs_qf,"topology DD coupled fold correction");
+        auto qf=adaptive_detail::refine_event(event.radius,event.radius_lo,
+                                               event.fold_t_seed,rand_pf,1e-4,local);
+        check(qf.qf_reason==EventDecisionReason::QfRefined&&!qf.needs_qf&&
+              std::isfinite(qf.radius)&&std::isfinite(qf.uncertainty),
+              "direct qf coupled fold correction");
+    }
+    check(physical_events>0,"physical event metadata fixture");
     for(double u:{0.0,.5}) for(GradientPolicy policy:{GradientPolicy::None,GradientPolicy::ValueFirst}) {
         AdaptiveConfig ladder;ladder.gradient_policy=policy;ladder.with_jacobian=policy!=GradientPolicy::None;
         if(policy==GradientPolicy::ValueFirst){ladder.value_first_gradient_node_budget=0;ladder.value_first_gradient_round_budget=0;}

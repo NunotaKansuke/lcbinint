@@ -1,18 +1,30 @@
 #pragma once
 #include "lcbinint/magnification/holonomic/adaptive_radial.hpp"
-#include <memory>
+#include <cstdlib>
+#include <type_traits>
 
 namespace lcbinint::holonomic::adaptive_detail {
-// Estimate the uncertainty of a physical event from P=Pt=0 using the
-// original-frame qf polynomial family. qf stationary-root correction and
-// nonzero Ptt/PR are local ordinary-fold checks, not D14 completeness proof.
+inline bool topology_event_reuse_enabled() {
+    static const bool enabled = [] {
+        const char* value = std::getenv("HOLO_ADAPTIVE_EVENT_REUSE");
+        return !(value && value[0] == '0');
+    }();
+    return enabled;
+}
+
+// Estimate/refine a physical event from P=Pt=0.  The topology/D14 path can
+// supply both the event radius and a stationary-root seed; the local kernels
+// below then use explicit quartic formulas at DD/qf precision.  They do not
+// construct the generic R-polynomial family.
 inline bool valid_epoch_config(const LensParams& p,double u,const AdaptiveConfig& cfg) {
     return valid_config(cfg)&&std::isfinite(u)&&u>=0&&u<=1&&
         std::isfinite(p.xs)&&std::isfinite(p.ys)&&std::isfinite(p.rho)&&p.rho>0&&
         std::isfinite(p.q)&&p.q>0&&std::isfinite(p.a)&&p.a>0;
 }
 struct EventLocation {
-    double radius,uncertainty,radius_lo=0;
+    double radius=0,uncertainty=std::numeric_limits<double>::infinity(),radius_lo=0;
+    double t_seed=0;
+    bool t_seed_valid=false;
     bool needs_qf=true;
     bool qf_refined=false;
     int precision_tier=0; // 0=double, 1=DD, 2=__float128
@@ -23,21 +35,142 @@ struct EventLocation {
     double dd_residual=std::numeric_limits<double>::infinity();
 };
 inline double eval_poly5(const std::array<double,5>& c,double x) {
-    return c[4]*x+c[3]*x*x+c[2]*x*x*x+c[1]*x*x*x*x+c[0];
+    double value=c[4];
+    for(int k=3;k>=0;--k)value=value*x+c[k];
+    return value;
 }
 inline double eval_poly5_derivative(const std::array<double,5>& c,double x) {
     return c[1]+x*(2*c[2]+x*(3*c[3]+x*4*c[4]));
 }
+
+template <class T>
+inline double event_abs(T x) {
+    return std::fabs(static_cast<double>(x));
+}
+
+template <class T>
+inline bool event_finite(T x) {
+    return std::isfinite(static_cast<double>(x));
+}
+
+// The reflected projective chart u=-1/t is used only when the supplied local
+// stationary seed is large.  It keeps the coupled fold solve conditioned near
+// theta=pi without changing the topology or physical routing policy.
+template <class T>
+inline LocalFoldQuantities<T> reciprocal_local_fold_quantities(
+    T R, T u, const PrimaryFrame& pf) {
+    const T t = -T(1.0) / u;
+    const auto g = local_fold_quantities<T>(R, t, pf);
+    const T u2 = u * u, u3 = u2 * u, u4 = u2 * u2;
+    LocalFoldQuantities<T> out;
+    out.P = u4 * g.P;
+    out.Pt = T(4.0) * u3 * g.P + u2 * g.Pt;
+    out.PR = u4 * g.PR;
+    out.Ptt = T(12.0) * u2 * g.P + T(6.0) * u * g.Pt + g.Ptt;
+    out.Ptr = T(4.0) * u3 * g.PR + u2 * g.Ptr;
+    return out;
+}
+
+// Newton on the exact local system P(R,t)=P_t(R,t)=0.  The equations are
+// evaluated in T; only the stopping/certification screen is reduced to a
+// double magnitude.  `last_step` is retained as part of the local event
+// uncertainty, so a successful Newton correction cannot be mistaken for a
+// mere higher-precision re-evaluation at the old seed.
+template <class T, bool Reciprocal = false>
+inline bool coupled_fold_newton(T& r, T& t, const PrimaryFrame& pf,
+                                int max_iter, double step_tol,
+                                double residual_tol, int* iterations = nullptr,
+                                double* residual_out = nullptr,
+                                double* last_step_out = nullptr) {
+    double last_step = std::numeric_limits<double>::infinity();
+    bool step_converged = false;
+    int used = 0;
+    for (; used < max_iter; ++used) {
+        const auto g = [&] {
+            if constexpr (Reciprocal)
+                return reciprocal_local_fold_quantities<T>(r, t, pf);
+            else
+                return local_fold_quantities<T>(r, t, pf);
+        }();
+        const T det = g.PR * g.Ptt - g.Pt * g.Ptr;
+        const double det_scale = event_abs(g.PR * g.Ptt) + event_abs(g.Pt * g.Ptr);
+        const double det_rel_floor =
+            std::is_same_v<T, __float128>
+                ? 64.0 * (double)FLT128_EPSILON
+                : 64.0 * std::numeric_limits<double>::epsilon();
+        if (!event_finite(det) || event_abs(det) <=
+                det_rel_floor *
+                    std::max(1.0, det_scale))
+            break;
+        const T dr = (g.P * g.Ptt - g.Pt * g.Pt) / det;
+        const T dt = (g.PR * g.Pt - g.Ptr * g.P) / det;
+        if (!event_finite(dr) || !event_finite(dt)) break;
+        r = r - dr;
+        t = t - dt;
+        last_step = event_abs(dr) + event_abs(dt);
+        if (last_step <= step_tol *
+                (1.0 + event_abs(r) + event_abs(t))) {
+            step_converged = true;
+            ++used;
+            break;
+        }
+    }
+    const auto final = [&] {
+        if constexpr (Reciprocal)
+            return reciprocal_local_fold_quantities<T>(r, t, pf);
+        else
+            return local_fold_quantities<T>(r, t, pf);
+    }();
+    const double pscale = 1.0 + event_abs(final.P) + event_abs(final.PR) *
+                                    (1.0 + event_abs(r));
+    const double tscale = 1.0 + event_abs(final.Pt) + event_abs(final.Ptt) *
+                                    (1.0 + event_abs(t));
+    const double residual = std::max(event_abs(final.P) / pscale,
+                                     event_abs(final.Pt) / tscale);
+    if (iterations) *iterations = used;
+    if (residual_out) *residual_out = residual;
+    if (last_step_out) *last_step_out = last_step;
+    return step_converged && event_finite(r) && event_finite(t) &&
+           residual <= residual_tol;
+}
+
+template <class T>
+inline void store_refined_radius(EventLocation& out, T r, double last_step,
+                                 int tier) {
+    const double rounded = static_cast<double>(r);
+    const T hi(rounded);
+    const double lo = static_cast<double>(r - hi);
+    const double ulp = std::fabs(std::nextafter(
+        rounded, std::numeric_limits<double>::infinity()) - rounded);
+    // `radius_lo` is retained and added back in the long-double map.  The
+    // uncertainty must therefore describe the error of that split, rather
+    // than the binary64 spacing of the unsplit radius.  A blanket
+    // 64*eps*(1+R) floor is much larger than the actual DD/qf correction and
+    // rejects valid fold-adjacent gradient nodes in high-magnification cases.
+    const double lo_ulp = std::fabs(std::nextafter(
+        lo, std::numeric_limits<double>::infinity()) - lo);
+    out.radius = rounded;
+    out.radius_lo = lo;
+    out.uncertainty = std::max({ulp, 0.5 * lo_ulp,
+                                std::fabs(lo) +
+                                    (std::isfinite(last_step) ? last_step : 0.0)});
+    out.precision_tier = tier;
+    out.needs_qf = tier < 2;
+    out.qf_refined = tier >= 2;
+}
 inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,double value_budget) {
     const auto q=boundary_quartic(R,pf);
     const auto qr=boundary_quartic_dR(R,pf);
-    auto roots=aberth<double>(q.p.data(),4,32);
-    EventLocation best{R,std::numeric_limits<double>::infinity(),0,true,false,0,
-                       EventDecisionReason::NoRealCandidate,
-                       EventDecisionReason::NotAttempted,
-                       EventDecisionReason::NotAttempted};
+    // boundary_quartic stores ascending coefficients; Aberth consumes
+    // descending coefficients.  Passing q.p directly here solved the
+    // reciprocal polynomial and could select a spurious huge stationary root.
+    double qdesc[5]={q.p[4],q.p[3],q.p[2],q.p[1],q.p[0]};
+    auto roots=aberth<double>(qdesc,4,32);
+    EventLocation best;
+    best.radius = R;
+    best.double_reason = EventDecisionReason::NoRealCandidate;
     double best_res=std::numeric_limits<double>::infinity();
-    double best_t=0,best_ap=1,best_at=1,best_ar=1;
+    double best_t=0;
     auto consider=[&](double t) {
         double ap=0,at=0,ar=0,att=0,pow=1,dpow=1;
         for(int k=0;k<5;++k) {
@@ -53,11 +186,13 @@ inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,doubl
         const double p_res=std::fabs(P)/ap,t_res=std::fabs(Pt)/at,res=std::max(p_res,t_res);
         if(res>=best_res)return;
         best_res=res;
-        best_t=t;best_ap=ap;best_at=at;best_ar=ar;
+        best_t=t;
+        best.t_seed=t;
+        best.t_seed_valid=std::isfinite(t);
         best.double_residual=res;
         const double ulp=std::fabs(std::nextafter(R,std::numeric_limits<double>::infinity())-R);
         const double radius_shift=std::fabs(PR)>64*eps*ar?std::fabs(P)/std::fabs(PR):std::numeric_limits<double>::infinity();
-        best.uncertainty=std::max(8*ulp,64*eps*(1+std::fabs(R))+radius_shift);
+        best.uncertainty=std::max(ulp,radius_shift);
         const bool numerically_clean=res<=4096*eps&&std::fabs(PR)>64*eps*ar&&
             std::fabs(eval_poly5(q.p,t+std::sqrt(eps))-2*P+eval_poly5(q.p,t-std::sqrt(eps)))>
             64*eps*att;
@@ -69,7 +204,7 @@ inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,doubl
         // inside the reported event uncertainty).  The minimum is a local
         // ULP/conditioning test, not a physical-parameter route.
         const double budget_radius=0.05*value_budget*std::max(1.0,std::fabs(R));
-        const double ulp_budget=std::max(256*ulp,64*eps*(1+std::fabs(R)));
+        const double ulp_budget=std::max(256*ulp,ulp);
         const double anchor_budget=std::min(ulp_budget,budget_radius);
         if(numerically_clean && best.uncertainty<=anchor_budget) {
             best.double_reason=EventDecisionReason::CleanDouble;
@@ -99,37 +234,31 @@ inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,doubl
             if(std::fabs(z.im)<=1e-7*(1+std::fabs(z.re)))consider(z.re);
     }
     if(std::isfinite(best_res)&&best.needs_qf) {
-        const DD tt(best_t);
-        auto dd_eval=[&](const std::array<double,5>& c) {
-            DD v(c[4]);
-            for(int k=3;k>=0;--k)v=v*tt+DD(c[k]);
-            return v;
-        };
-        auto dd_deriv=[&](const std::array<double,5>& c) {
-            DD v(c[4]*4.0);
-            for(int k=3;k>=1;--k)v=v*tt+DD(c[k]*k);
-            return v;
-        };
-        const __float128 pdd=fabsq(qf_from_dd(dd_eval(q.p)));
-        const __float128 tdd=fabsq(qf_from_dd(dd_deriv(q.p)));
-        const __float128 rdd=fabsq(qf_from_dd(dd_eval(qr.p)));
-        const double dd_res=std::max((double)(pdd/(__float128)best_ap),
-                                     (double)(tdd/(__float128)best_at));
+        DD rr(R), tt(best_t);
+        int dd_iterations=0;
+        double dd_res=std::numeric_limits<double>::infinity();
+        double dd_step=std::numeric_limits<double>::infinity();
+        const bool dd_converged = coupled_fold_newton(
+            rr, tt, pf, 8, 1e-24, 1e-14, &dd_iterations, &dd_res,
+            &dd_step);
         best.dd_residual=dd_res;
+        const auto dd_final=local_fold_quantities<DD>(rr,tt,pf);
         const double ulp=std::fabs(std::nextafter(R,std::numeric_limits<double>::infinity())-R);
-        const double dd_shift=(double)(rdd>0?pdd/rdd:1e300L);
+        const double dd_shift=event_abs(rr-DD(R));
+        const double dd_radius_res=event_abs(dd_final.P)/
+            std::max(event_abs(dd_final.PR),64*eps);
         const double budget_radius=0.05*value_budget*std::max(1.0,std::fabs(R));
-        const double anchor_budget=std::min(std::max(256*ulp,64*eps*(1+std::fabs(R))),budget_radius);
-        const bool dd_residual_ok=dd_res<=1e-14;
-        const bool dd_derivative_ok=rdd>64*(__float128)eps*(__float128)best_ar;
-        const bool dd_budget_ok=std::max(8*ulp,64*eps*(1+std::fabs(R))+dd_shift)<=anchor_budget;
-        if(dd_residual_ok&&dd_derivative_ok&&dd_budget_ok) {
-            best.needs_qf=false;best.precision_tier=1;
+        const double anchor_budget=std::min(256*ulp,budget_radius);
+        const bool dd_derivative_ok=event_abs(dd_final.PR)>64*eps*std::max(1.0,event_abs(dd_final.P));
+        const bool dd_budget_ok=std::max({ulp,dd_shift+dd_radius_res})<=anchor_budget;
+        if(dd_converged&&dd_derivative_ok&&dd_budget_ok) {
+            store_refined_radius(best,rr,dd_step,1);
+            best.needs_qf=false;best.qf_refined=false;
             best.dd_reason=EventDecisionReason::DDAccepted;
             best.qf_reason=EventDecisionReason::NotAttempted;
-            best.uncertainty=std::max(8*ulp,64*eps*(1+std::fabs(R))+dd_shift);
+            best.uncertainty=std::max(best.uncertainty,dd_radius_res);
         } else {
-            best.dd_reason=!dd_residual_ok ? EventDecisionReason::DDResidualRejected :
+            best.dd_reason=!dd_converged ? EventDecisionReason::DDResidualRejected :
                 (!dd_derivative_ok ? EventDecisionReason::DDDerivativeRejected :
                  EventDecisionReason::DDBudgetRejected);
         }
@@ -138,43 +267,135 @@ inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,doubl
         best.qf_reason=EventDecisionReason::QfFailed;
     return best;
 }
-inline EventLocation refine_event(double R,const PrimaryFrame& pf,const re_detail::PolyFamilyR& fam) {
-    using Q=__float128;
-    auto q=boundary_quartic(R,pf);
-    double dc[4]={4*q.p[4],3*q.p[3],2*q.p[2],q.p[1]};
-    int deg=3;while(deg && dc[0]==0){for(int j=0;j<deg;++j)dc[j]=dc[j+1];--deg;}
-    EventLocation best{R,std::numeric_limits<double>::infinity(),0,true,true,2,
-                       EventDecisionReason::NotAttempted,
-                       EventDecisionReason::NotAttempted,
-                       EventDecisionReason::QfRequired};
-    if(!deg)return best;
-    auto roots=aberth<double>(dc,deg,24);
-    Q nearest=HUGE_VALQ;
-    for(auto z:roots)if(std::fabs(z.im)<1e-7*(1+std::fabs(z.re))){
-        Q t=z.re,r=R,last=HUGE_VALQ;
-        bool regular=true;
-        for(int it=0;it<16;++it){
-            Q pc[5]{},pr[5]{};
-            for(int j=0;j<5;++j){auto& f=fam.p[j];for(int k=f.deg;k>=0;--k)pc[j]=pc[j]*r+f.c[k];for(int k=f.deg;k>0;--k)pr[j]=pr[j]*r+Q(k)*f.c[k];}
-            Q P=pc[4],PR=pr[4];for(int j=3;j>=0;--j){P=P*t+pc[j];PR=PR*t+pr[j];}
-            Q Pt=pc[1]+t*(2*pc[2]+t*(3*pc[3]+t*4*pc[4]));
-            Q Ptt=2*pc[2]+t*(6*pc[3]+t*12*pc[4]);
-            Q Ptr=pr[1]+t*(2*pr[2]+t*(3*pr[3]+t*4*pr[4]));
-            Q det=PR*Ptt-Pt*Ptr;
-            // Numerical separation screen in qf; this remains Estimated.
-            if(fabsq(det)<=64*FLT128_EPSILON*(fabsq(PR*Ptt)+fabsq(Pt*Ptr))||PR==0||Ptt==0){regular=false;break;}
-            Q dr=(P*Ptt-Pt*Pt)/det,dt=(PR*Pt-Ptr*P)/det;
-            r-=dr;t-=dt;last=fabsq(dr);
-            if(last<1e-30Q*(1+fabsq(r))&&fabsq(dt)<1e-30Q*(1+fabsq(t)))break;
-        }
-        if(!regular||!finiteq(r)||last>1e-25Q*(1+fabsq(r)))continue;
-        Q shift=fabsq(r-Q(R));
-        if(shift<nearest){nearest=shift;double rounded=double(r);
-            best={rounded,double(fabsq(Q(rounded)-r)+last)+std::fabs(std::nextafter(rounded,INFINITY)-rounded),double(r-Q(rounded)),false,true,2,
-                  EventDecisionReason::NotAttempted,EventDecisionReason::NotAttempted,
-                  EventDecisionReason::QfRefined};}
+inline EventLocation refine_event(double R, double radius_lo, double t_seed,
+                                  const PrimaryFrame& pf, double value_budget,
+                                  EventLocation best = EventLocation{}) {
+    using Q = __float128;
+    Q r = (Q)R + (Q)radius_lo;
+    const bool reciprocal = std::fabs(t_seed) > 64.0;
+    Q t = reciprocal ? -Q(1.0) / (Q)t_seed : (Q)t_seed;
+    // Re-polish the supplied stationary seed at the retained radius before
+    // entering the coupled solve.  This is a one-dimensional local Newton,
+    // not a second global derivative-cubic search; it is useful when the
+    // binary64 event anchor has lost the qf remainder and |t| is large.
+    for (int it = 0; !reciprocal && it < 12; ++it) {
+        const auto g = reciprocal
+                           ? reciprocal_local_fold_quantities<Q>(r, t, pf)
+                           : local_fold_quantities<Q>(r, t, pf);
+        const double ptt = event_abs(g.Ptt);
+        if (!event_finite(g.Ptt) || ptt <= 64.0 * (double)FLT128_EPSILON)
+            break;
+        const Q dt = g.Pt / g.Ptt;
+        if (!event_finite(dt)) break;
+        t = t - dt;
+        if (event_abs(dt) <= 1e-30 * (1.0 + event_abs(t))) break;
     }
+    int iterations = 0;
+    double residual = std::numeric_limits<double>::infinity();
+    double last_step = std::numeric_limits<double>::infinity();
+    const bool ok = reciprocal
+        ? coupled_fold_newton<Q, true>(r, t, pf, 20, 1e-28, 1e-24,
+                                       &iterations, &residual, &last_step)
+        : coupled_fold_newton<Q, false>(r, t, pf, 20, 1e-28, 1e-24,
+                                        &iterations, &residual, &last_step);
+    best.radius = R;
+    best.radius_lo = radius_lo;
+    best.needs_qf = true;
+    best.qf_refined = false;
+    best.precision_tier = 2;
+    best.qf_reason = ok ? EventDecisionReason::QfRefined
+                        : EventDecisionReason::QfFailed;
+    if (!ok) {
+        // A failed local high-precision solve must not leave the finite
+        // binary64 probe uncertainty in place.  The caller's panel guard then
+        // fails closed instead of integrating across an uncertified event.
+        best.uncertainty = std::numeric_limits<double>::infinity();
+        best.needs_qf = true;
+        return best;
+    }
+    store_refined_radius(best, r, last_step, 2);
+    best.needs_qf = false;
+    best.qf_refined = true;
+    const auto final = reciprocal
+                           ? reciprocal_local_fold_quantities<Q>(r, t, pf)
+                           : local_fold_quantities<Q>(r, t, pf);
+    const double radius_res = event_abs(final.P) /
+        std::max(event_abs(final.PR), 64.0 * (double)FLT128_EPSILON);
+    // Keep the qf root as a certified local result, while exposing the local
+    // residual to the event ledger.  Whether this fits the value/gradient
+    // budget is decided by the caller, never hidden inside the refinement.
+    best.uncertainty = std::max(best.uncertainty, radius_res);
     return best;
+}
+
+// Consume the qf D14 radius and the stationary-root seed retained by
+// radial_events().  The first local correction is DD; qf is entered only if
+// the DD coupled solve cannot certify the event.  This is the cheap path that
+// removes the duplicate quartic/cubic search in adaptive setup.
+inline EventLocation topology_event_estimate(const RadialEvent& event,
+                                             const PrimaryFrame& pf,
+                                             double value_budget) {
+    EventLocation out;
+    out.radius = event.radius;
+    out.radius_lo = event.radius_lo;
+    out.uncertainty = event.radius_uncertainty;
+    out.t_seed = event.fold_t_seed;
+    out.t_seed_valid = event.fold_t_seed_valid;
+    out.precision_tier = event.precision_tier;
+    out.double_reason = event.fold_t_seed_valid
+                            ? EventDecisionReason::TopologySeedReused
+                            : EventDecisionReason::NoRealCandidate;
+    out.qf_reason = EventDecisionReason::NotAttempted;
+    if (!event.fold_t_seed_valid || !std::isfinite(event.fold_t_seed)) {
+        auto fallback = double_event_estimate(event.radius, pf, value_budget);
+        if (fallback.t_seed_valid) {
+            // Preserve the D14 root remainder even if topology did not retain
+            // a usable stationary seed.  The direct qf fallback can then
+            // start from the same event anchor.
+            fallback.radius_lo = event.radius_lo;
+            fallback.uncertainty = std::max(
+                fallback.uncertainty, std::fabs(event.radius_lo));
+        }
+        return fallback;
+    }
+
+    DD r = DD(event.radius) + DD(event.radius_lo);
+    DD t(event.fold_t_seed);
+    int iterations = 0;
+    double residual = std::numeric_limits<double>::infinity();
+    double last_step = std::numeric_limits<double>::infinity();
+    const bool dd_ok = coupled_fold_newton(
+        r, t, pf, 8, 1e-24, 1e-14, &iterations, &residual, &last_step);
+    out.dd_residual = residual;
+    const auto dd_final = local_fold_quantities<DD>(r, t, pf);
+    const double radius_res = event_abs(dd_final.P) /
+        std::max(event_abs(dd_final.PR), 64.0 * eps);
+    const double ulp = std::fabs(std::nextafter(
+        event.radius, std::numeric_limits<double>::infinity()) - event.radius);
+    const double budget_radius = 0.05 * value_budget *
+                                 std::max(1.0, std::fabs(event.radius));
+    const double anchor_budget = std::min(256.0 * ulp, budget_radius);
+    const bool derivative_ok = event_abs(dd_final.PR) >
+        64.0 * eps * std::max(1.0, event_abs(dd_final.P));
+    const double uncertainty = std::max({
+        ulp, std::fabs(event.radius_lo) + radius_res});
+    if (dd_ok && derivative_ok && uncertainty <= anchor_budget) {
+        store_refined_radius(out, r, last_step, 1);
+        out.needs_qf = false;
+        out.qf_refined = false;
+        out.dd_reason = EventDecisionReason::DDAccepted;
+        out.qf_reason = EventDecisionReason::NotAttempted;
+        out.uncertainty = std::max(out.uncertainty, radius_res);
+        return out;
+    }
+    out.dd_reason = !dd_ok ? EventDecisionReason::DDResidualRejected
+                           : (!derivative_ok
+                                  ? EventDecisionReason::DDDerivativeRejected
+                                  : EventDecisionReason::DDBudgetRejected);
+    // qf starts from the same high/low radius and the corrected DD stationary
+    // seed.  No polynomial-family reconstruction or derivative-cubic search.
+    return refine_event(event.radius, event.radius_lo,
+                        static_cast<double>(t), pf, value_budget, out);
 }
 // The fixed-resolution planner merges close representation / physical
 // events. Restore retained physical cuts for adaptive integration; otherwise
@@ -209,13 +430,14 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     AdaptiveSample out;
     if(seed){out.quartic=seed->quartic;out.roots=seed->roots;}
     out.roots.certify=warm;
-    auto arcs=arc_intervals(R,pf,&out.quartic,&out.roots);
+    QuarticCoeffs arc_pc{};
+    auto arcs=arc_intervals(R,pf,&out.quartic,&out.roots,&arc_pc);
     if(arcs.kind!=cell.kind || (arcs.kind==ArcKind::kArcs && int(arcs.arcs.size()*2)!=cell.n_crossings)) {out.reliable=false;return out;}
     if(arcs.kind==ArcKind::kFull || arcs.kind==ArcKind::kDegenerate){out.reliable=false;return out;}
     const double D=kPi*p.rho*p.rho*(1-u/3),scale=jac/D;
     double f0=0,fh=0,ef0=0,efh=0;
     std::array<double,5> df0{},dfh{},edf0{},edfh{};
-    const auto pc=u!=0?boundary_quartic(R,pf):QuarticCoeffs{};
+    const auto pc=u!=0?arc_pc:QuarticCoeffs{};
     QuarticParamJac dpc{};if(with_jac)dpc=boundary_quartic_dp(R,pf);
     for(auto a:arcs.arcs) {
         auto pe=polish_endpoint(R,a[0],pf),pl=polish_endpoint(R,a[1],pf);
@@ -322,11 +544,21 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     const double setup_cuts_ms=adaptive_detail::ms(cuts_start);
     // A squared map is a valid substitution even if a physical event is a
     // higher contact: we make no smooth-fold guarantee from its label alone.
-    auto physical=[&](double R){for(const auto& e:topo.events)if(e.radius==R && e.physically_real && e.kind=="physical_real")return true;return false;};
+    // The exact boundary values are copied from topology, so return the
+    // metadata record as well as the boolean.  This avoids reconstructing the
+    // same D14/stationary-root event in adaptive setup.
+    auto physical_event=[&](double R)->const RadialEvent* {
+        for(const auto& e:topo.events)
+            if(e.radius==R && e.physically_real && e.kind=="physical_real")
+                return &e;
+        return nullptr;
+    };
+    auto physical=[&](double R){return physical_event(R)!=nullptr;};
     std::vector<std::pair<double,adaptive_detail::EventLocation>> event_errors;
-    std::unique_ptr<re_detail::PolyFamilyR> fam;
-    bool fam_ready=false;
-    size_t event_double_checks=0,event_dd_checks=0,event_dd_accepts=0,event_qf_refinements=0,qf_family_constructions=0;
+    size_t event_double_checks=0,event_dd_checks=0,event_dd_accepts=0,
+           event_qf_refinements=0,qf_family_constructions=0,
+           event_topology_reuses=0,event_radius_reuses=0,
+           event_direct_qf_failures=0;
     std::vector<AdaptiveEventDiagnostic> event_diagnostics;
     double setup_event_ms=0;
     double event_budget=cfg.tol.budget(0,1.0);
@@ -334,30 +566,48 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     auto uncertainty=[&](double R){
         auto event_call_start=adaptive_detail::Clock::now();
         for(const auto& e:event_errors)if(e.first==R){setup_event_ms+=adaptive_detail::ms(event_call_start);return e.second;}
-        ++event_double_checks;
-        auto d=adaptive_detail::double_event_estimate(R,pf,event_budget);
-        if(d.precision_tier>=1)++event_dd_checks;
-        if(d.precision_tier==1)++event_dd_accepts;
+        const RadialEvent* topology_event=physical_event(R);
+        adaptive_detail::EventLocation d;
+        if(topology_event && topology_event->fold_t_seed_valid &&
+           adaptive_detail::topology_event_reuse_enabled()) {
+            ++event_topology_reuses;
+            ++event_radius_reuses;
+            d=adaptive_detail::topology_event_estimate(*topology_event,pf,event_budget);
+            if(d.dd_reason!=EventDecisionReason::NotAttempted)++event_dd_checks;
+            if(d.dd_reason==EventDecisionReason::DDAccepted)++event_dd_accepts;
+        } else {
+            ++event_double_checks;
+            d=adaptive_detail::double_event_estimate(R,pf,event_budget);
+            if(d.precision_tier>=1)++event_dd_checks;
+            if(d.precision_tier==1)++event_dd_accepts;
+        }
         if(d.needs_qf) {
-            if(!fam_ready) {
-                fam=std::make_unique<re_detail::PolyFamilyR>(re_detail::p_coeffs_in_R(pf.a,pf.m0,pf.X,pf.Y,pf.rho));
-                fam_ready=true;
-                ++qf_family_constructions;
-            }
             const auto double_reason=d.double_reason;
             const auto dd_reason=d.dd_reason;
             const double double_residual=d.double_residual;
             const double dd_residual=d.dd_residual;
-            d=adaptive_detail::refine_event(R,pf,*fam);
+            if(d.t_seed_valid) {
+                d=adaptive_detail::refine_event(
+                    R,d.radius_lo,d.t_seed,pf,event_budget,d);
+                ++event_qf_refinements;
+                if(d.qf_reason==EventDecisionReason::QfFailed)
+                    ++event_direct_qf_failures;
+            }
             d.double_reason=double_reason;d.dd_reason=dd_reason;
             d.double_residual=double_residual;d.dd_residual=dd_residual;
-            d.qf_reason=d.needs_qf?EventDecisionReason::QfFailed:EventDecisionReason::QfRefined;
-            ++event_qf_refinements;
+            if(!d.t_seed_valid)d.qf_reason=EventDecisionReason::QfFailed;
         }
         if(cfg.collect_diagnostics) {
             AdaptiveEventDiagnostic record;
             record.input_radius=R;record.selected_radius=d.radius;
             record.radius_lo=d.radius_lo;record.uncertainty=d.uncertainty;
+            record.t_seed=d.t_seed;record.t_seed_valid=d.t_seed_valid;
+            record.d14_condition=topology_event
+                                    ? topology_event->d14_condition
+                                    : std::numeric_limits<double>::infinity();
+            record.topology_reused=topology_event &&
+                                   topology_event->fold_t_seed_valid &&
+                                   adaptive_detail::topology_event_reuse_enabled();
             record.precision_tier=d.precision_tier;
             record.double_reason=d.double_reason;record.dd_reason=d.dd_reason;
             record.qf_reason=d.qf_reason;
@@ -379,8 +629,12 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     const bool with_jacobian=policy!=GradientPolicy::None;
     const double panel_total_ms=adaptive_detail::ms(panel_start);
     const double setup_panel_ms=std::max(0.0,panel_total_ms-setup_event_ms);
+    // Stop the setup clock before adaptive quadrature starts.  Previously the
+    // assignment happened after integrate(), so setup_ms double-counted the
+    // entire adaptive physics/estimator phase.
+    const double setup_total_ms=adaptive_detail::ms(setup_start);
     auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed){return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],with_jacobian,topo.from_warm_d14,seed);});
-    result.stats.setup_ms=adaptive_detail::ms(setup_start);
+    result.stats.setup_ms=setup_total_ms;
     result.stats.setup_frame_ms=setup_frame_ms;
     result.stats.setup_cuts_ms=setup_cuts_ms;
     result.stats.setup_event_ms=setup_event_ms;
@@ -390,13 +644,19 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     result.stats.event_dd_accepts=event_dd_accepts;
     result.stats.event_qf_refinements=event_qf_refinements;
     result.stats.qf_family_constructions=qf_family_constructions;
+    result.stats.event_topology_reuses=event_topology_reuses;
+    result.stats.event_radius_reuses=event_radius_reuses;
+    result.stats.event_direct_qf_failures=event_direct_qf_failures;
     if(cfg.collect_diagnostics) result.stats.event_diagnostics=std::move(event_diagnostics);
     return result;
 }
 inline AdaptiveResult epoch_adaptive(const LensParams& p,double u,const AdaptiveConfig& cfg,AdaptiveWorkspace& w) {
     if(!adaptive_detail::valid_epoch_config(p,u,cfg)){w.reset();return adaptive_detail::failure_result(AdaptiveStop::InvalidConfig,cfg.effective_gradient_policy());}
     if(cfg.require_bound){w.reset();return adaptive_detail::failure_result(AdaptiveStop::BoundUnavailable,cfg.effective_gradient_policy());}
-    auto start=adaptive_detail::Clock::now();auto topo=classify_cells(PrimaryFrame::from(p));double t=adaptive_detail::ms(start);
+    auto start=adaptive_detail::Clock::now();
+    auto topo=classify_cells(PrimaryFrame::from(p),nullptr,nullptr,
+                             /*retain_adaptive_metadata=*/true);
+    double t=adaptive_detail::ms(start);
     auto out=flux_adaptive_integrate(p,u,topo,cfg,w);out.stats.topology_ms=t;return out;
 }
 inline AdaptiveResult epoch_value_adaptive(const LensParams& p,double u,AdaptiveConfig cfg,AdaptiveWorkspace& w) {cfg.gradient_policy=GradientPolicy::None;cfg.with_jacobian=false;return epoch_adaptive(p,u,cfg,w);}

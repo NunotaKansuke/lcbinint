@@ -16,7 +16,8 @@ struct DiagnosticCase {
     std::string name;
 };
 
-static std::vector<DiagnosticCase> read_cases(const char* path) {
+static std::vector<DiagnosticCase> read_cases(const char* path,
+                                              const std::string& wanted_name) {
     std::ifstream input(path);
     std::vector<DiagnosticCase> cases;
     std::string line;
@@ -26,7 +27,7 @@ static std::vector<DiagnosticCase> read_cases(const char* path) {
         double old=0;
         std::istringstream s(line);
         if(s>>c.p.xs>>c.p.ys>>c.p.rho>>c.p.q>>c.p.a>>bary>>c.u>>old>>c.name &&
-           c.name=="rand033") {
+           c.name==wanted_name) {
             c.p.barycentric=bary;
             cases.push_back(std::move(c));
         }
@@ -36,7 +37,9 @@ static std::vector<DiagnosticCase> read_cases(const char* path) {
 
 int main(int argc,char** argv) {
     if(argc<3) return 2;
-    const auto cases=read_cases(argv[1]);
+    // Keep rand033 as the historical default, while allowing a named hard
+    // case to be captured without rewriting its provenance in the TSV.
+    const auto cases=read_cases(argv[1],argc>3?argv[3]:"rand033");
     const std::string outdir=argv[2];
     std::ofstream epochs(outdir+"/epochs.csv");
     std::ofstream events(outdir+"/events.csv");
@@ -46,8 +49,8 @@ int main(int argc,char** argv) {
     events << std::setprecision(17);
     refinements << std::setprecision(17);
 
-    epochs << "name,u,policy,warm,rtol,stop,value_stop,gradient_stop,value_converged,mu,value_error,nodes,evaluations,event_count,refinement_count,topology_ms,setup_ms,physics_ms,estimator_ms,scheduler_ms\n";
-    events << "name,u,policy,warm,rtol,index,input_radius,selected_radius,radius_lo,uncertainty,precision_tier,double_reason,dd_reason,qf_reason,double_residual,dd_residual\n";
+    epochs << "name,u,policy,warm,rtol,stop,value_stop,gradient_stop,value_converged,mu,value_error,nodes,evaluations,event_count,refinement_count,topology_ms,setup_ms,physics_ms,estimator_ms,scheduler_ms,event_double_checks,event_dd_checks,event_dd_accepts,event_qf_refinements,qf_family_constructions,event_topology_reuses,event_radius_reuses,event_direct_qf_failures\n";
+    events << "name,u,policy,warm,rtol,index,input_radius,selected_radius,radius_lo,uncertainty,t_seed,d14_condition,t_seed_valid,topology_reused,precision_tier,double_reason,dd_reason,qf_reason,double_residual,dd_residual\n";
     refinements << "name,u,policy,warm,rtol,index,panel,cell,parent,depth,level,node_evaluations,value_error,gradient_error0,gradient_error1,gradient_error2,gradient_error3,gradient_error4,gradient_phase,value_resolved,gradient_resolved0,gradient_resolved1,gradient_resolved2,gradient_resolved3,gradient_resolved4\n";
 
     const GradientPolicy policies[]={GradientPolicy::None,GradientPolicy::ValueFirst};
@@ -81,12 +84,18 @@ int main(int argc,char** argv) {
                    << r.stats.event_diagnostics.size() << ',' << r.stats.refinement_history.size() << ','
                    << r.stats.topology_ms << ',' << r.stats.setup_ms << ','
                    << r.stats.physical_ms << ',' << r.stats.estimator_ms << ','
-                   << r.stats.scheduler_ms << '\n';
+                   << r.stats.scheduler_ms << ',' << r.stats.event_double_checks << ','
+                   << r.stats.event_dd_checks << ',' << r.stats.event_dd_accepts << ','
+                   << r.stats.event_qf_refinements << ',' << r.stats.qf_family_constructions << ','
+                   << r.stats.event_topology_reuses << ',' << r.stats.event_radius_reuses << ','
+                   << r.stats.event_direct_qf_failures << '\n';
             for(size_t i=0;i<r.stats.event_diagnostics.size();++i) {
                 const auto& e=r.stats.event_diagnostics[i];
                 events << c.name << ',' << c.u << ',' << gradient_policy_name(policy) << ',' << int(warm)
                        << ',' << tol << ',' << i << ',' << e.input_radius << ','
                        << e.selected_radius << ',' << e.radius_lo << ',' << e.uncertainty << ','
+                       << e.t_seed << ',' << e.d14_condition << ',' << int(e.t_seed_valid) << ','
+                       << int(e.topology_reused) << ','
                        << e.precision_tier << ',' << event_decision_reason_name(e.double_reason) << ','
                        << event_decision_reason_name(e.dd_reason) << ','
                        << event_decision_reason_name(e.qf_reason) << ',' << e.double_residual << ','

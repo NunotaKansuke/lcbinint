@@ -27,6 +27,12 @@ def percentile(values, p):
 def distribution(values):
     return {key: percentile(values, p) for key, p in [('p50', .5), ('p90', .9), ('p95', .95), ('p99', .99), ('max', 1)]}
 
+def median_int(data, column):
+    """Read a newly added counter without breaking older evidence files."""
+    if not data or column not in data[0]:
+        return None
+    return statistics.median(int(r[column]) for r in data)
+
 refs = {}
 ref_summary = {}
 for warm, name in [(0, 'reference.csv'), (1, 'reference_warm.csv')]:
@@ -50,8 +56,11 @@ for key, repeats in by_case.items():
     r = dict(repeats[0])
     for column in ['whole_ms','fixed64_ms','topology_ms','setup_ms','setup_frame_ms','setup_cuts_ms','setup_event_ms','setup_panel_ms','physics_ms','estimator_ms','scheduler_ms']:
         r[column] = statistics.median(float(x[column]) for x in repeats)
-    for column in ['event_double_checks','event_dd_checks','event_dd_accepts','event_qf_refinements','qf_family_constructions']:
-        r[column] = statistics.median(int(x[column]) for x in repeats)
+    for column in ['event_double_checks','event_dd_checks','event_dd_accepts','event_qf_refinements','qf_family_constructions',
+                   'event_topology_reuses','event_radius_reuses','event_direct_qf_failures']:
+        value = median_int(repeats, column)
+        if value is not None:
+            r[column] = value
     r['repeat_status_consistent'] = len({x['stop'] for x in repeats}) == 1
     ref = refs[(warm,name,u,tol)]
     budget = max(1e-8,tol*abs(float(r['mu'])))
@@ -75,7 +84,8 @@ for key, data in sorted(groups.items()):
         'whole_attempt_ms':distribution([r['whole_ms'] for r in data]),
         'fixed64_attempt_ms':distribution([r['fixed64_ms'] for r in data]),
         'stage_medians_ms':{c:statistics.median(r[c] for r in data) for c in ['topology_ms','setup_ms','setup_frame_ms','setup_cuts_ms','setup_event_ms','setup_panel_ms','physics_ms','estimator_ms','scheduler_ms']},
-        'event_medians':{c:statistics.median(r[c] for r in data) for c in ['event_double_checks','event_dd_checks','event_dd_accepts','event_qf_refinements','qf_family_constructions']},
+        'event_medians':{c:median_int(data, c) for c in ['event_double_checks','event_dd_checks','event_dd_accepts','event_qf_refinements','qf_family_constructions',
+                                                          'event_topology_reuses','event_radius_reuses','event_direct_qf_failures']},
         'median_nodes':statistics.median(int(r['nodes']) for r in data),
         'median_evaluations':statistics.median(int(r['evaluations']) for r in data),
         'value_accuracy_qualified_pairs':len(qualified),
@@ -121,8 +131,9 @@ if contracts_path.exists():
             'whole_attempt_ms':distribution([float(r['whole_ms']) for r in data]),
             'stage_medians_ms':{c:statistics.median(float(r[c]) for r in data)
                                 for c in ['topology_ms','setup_ms','setup_frame_ms','setup_cuts_ms','setup_event_ms','setup_panel_ms']},
-            'event_medians':{c:statistics.median(int(r[c]) for r in data)
-                             for c in ['event_double_checks','event_dd_checks','event_dd_accepts','qf_family_constructions','event_qf_refinements']},
+            'event_medians':{c:median_int(data, c)
+                             for c in ['event_double_checks','event_dd_checks','event_dd_accepts','qf_family_constructions','event_qf_refinements',
+                                       'event_topology_reuses','event_radius_reuses','event_direct_qf_failures']},
             'gradient_quality':{q:sum(r[f'gq{i}']==q for r in data for i in range(5))
                                 for q in ['NotRequested','ToleranceMet','FiniteUncertified','Invalid']},
         })
@@ -144,6 +155,11 @@ def summarize_diagnostic_epochs(path):
             'median_evaluations': statistics.median(int(r['evaluations']) for r in group),
             'median_event_count': statistics.median(int(r['event_count']) for r in group),
             'median_refinement_count': statistics.median(int(r['refinement_count']) for r in group),
+            'event_medians': {c: median_int(group, c) for c in
+                              ['event_double_checks','event_dd_checks','event_dd_accepts',
+                               'event_qf_refinements','qf_family_constructions',
+                               'event_topology_reuses','event_radius_reuses',
+                               'event_direct_qf_failures']},
         })
     return result
 
@@ -160,6 +176,9 @@ def summarize_diagnostic_events(path):
             'double_reason': dict(Counter(r['double_reason'] for r in group)),
             'dd_reason': dict(Counter(r['dd_reason'] for r in group)),
             'qf_reason': dict(Counter(r['qf_reason'] for r in group)),
+            'topology_reused': dict(Counter(r.get('topology_reused', '0') for r in group)),
+            'd14_condition': distribution([float(r['d14_condition']) for r in group
+                                           if math.isfinite(float(r['d14_condition']))]),
             'uncertainty': distribution([float(r['uncertainty']) for r in group]),
             'radius': distribution([float(r['selected_radius']) for r in group]),
         })

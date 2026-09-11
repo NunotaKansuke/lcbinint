@@ -60,7 +60,8 @@ inline const char* gradient_reason_name(GradientReason r) {
 }
 enum class EventDecisionReason { NotAttempted, NoRealCandidate, CleanDouble,
     DoubleBudgetAccepted, DoubleAmbiguous, DDAccepted, DDResidualRejected,
-    DDDerivativeRejected, DDBudgetRejected, QfRequired, QfRefined, QfFailed };
+    DDDerivativeRejected, DDBudgetRejected, TopologySeedReused, QfRequired,
+    QfRefined, QfFailed };
 inline const char* event_decision_reason_name(EventDecisionReason r) {
     switch (r) {
     case EventDecisionReason::NotAttempted: return "NotAttempted";
@@ -72,6 +73,7 @@ inline const char* event_decision_reason_name(EventDecisionReason r) {
     case EventDecisionReason::DDResidualRejected: return "DDResidualRejected";
     case EventDecisionReason::DDDerivativeRejected: return "DDDerivativeRejected";
     case EventDecisionReason::DDBudgetRejected: return "DDBudgetRejected";
+    case EventDecisionReason::TopologySeedReused: return "TopologySeedReused";
     case EventDecisionReason::QfRequired: return "QfRequired";
     case EventDecisionReason::QfRefined: return "QfRefined";
     case EventDecisionReason::QfFailed: return "QfFailed";
@@ -110,6 +112,9 @@ struct AdaptiveConfig {
 };
 struct AdaptiveEventDiagnostic {
     double input_radius=0,selected_radius=0,radius_lo=0,uncertainty=std::numeric_limits<double>::infinity();
+    double t_seed=0;
+    double d14_condition=std::numeric_limits<double>::infinity();
+    bool t_seed_valid=false,topology_reused=false;
     int precision_tier=0;
     EventDecisionReason double_reason=EventDecisionReason::NotAttempted;
     EventDecisionReason dd_reason=EventDecisionReason::NotAttempted;
@@ -129,6 +134,7 @@ struct AdaptiveStats {
     size_t unique_nodes=0,node_evaluations=0,reused_nodes=0,split_discarded_nodes=0,splits=0;
     size_t root_anchors=0,panels=0;
     size_t event_double_checks=0,event_dd_checks=0,event_dd_accepts=0,event_qf_refinements=0,qf_family_constructions=0;
+    size_t event_topology_reuses=0,event_radius_reuses=0,event_direct_qf_failures=0;
     size_t first_value_pass_nodes=0,first_gradient_error_pass_nodes=0,first_gradient_contract_nodes=0;
     unsigned gradient_error_pass_mask=0,gradient_contract_mask=0;
     std::array<size_t,9> level_histogram{};
@@ -373,8 +379,8 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         double q=0,error=std::numeric_limits<double>::infinity();
         std::array<double,5> ledger{};
     } value_snapshot;
-    auto allocated_bytes=[&](){size_t n=w.samples.capacity()*sizeof(AdaptiveSample)+w.panels.capacity()*sizeof(AdaptivePanel);
-        for(const auto& s:w.samples)n+=s.roots.pairs.capacity()*sizeof(RootPair);return n;};
+    auto allocated_bytes=[&](){return w.samples.capacity()*sizeof(AdaptiveSample)+
+        w.panels.capacity()*sizeof(AdaptivePanel);};
     auto refine=[&](size_t ip,int level)->AdaptiveStop {
         auto& p=w.panels[ip];const int m=1<<level,step=256/m;
         size_t needed=0;for(int k=1;k<m;++k)needed+=!cfg.reuse_samples||p.samples[k*step]<0;
@@ -387,9 +393,9 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             return AdaptiveStop::BudgetExceeded;
         const size_t target=w.samples.size()+needed;
         const size_t growth=target>w.samples.capacity()?(target-w.samples.capacity())*sizeof(AdaptiveSample):0;
-        // Quartic has at most two pairs; allow four slots for the existing
-        // tracker vector capacity. This budget covers retained sample storage.
-        if(allocated_bytes()+growth+needed*4*sizeof(RootPair)>cfg.max_bytes)return AdaptiveStop::BudgetExceeded;
+        // RootPairWarm uses two inline slots, so there is no per-sample heap
+        // growth to reserve here; the AdaptiveSample size already includes it.
+        if(allocated_bytes()+growth>cfg.max_bytes)return AdaptiveStop::BudgetExceeded;
         if(target>w.samples.capacity())w.samples.reserve(target);
         for(int k=1;k<m;++k) {
             int slot=k*step;

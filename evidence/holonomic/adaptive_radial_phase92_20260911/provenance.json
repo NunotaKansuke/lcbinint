@@ -1,0 +1,19 @@
+{
+  "phase": "9.2",
+  "date": "2026-09-11",
+  "repository": "NunotaKansuke/lcbinint",
+  "branch": "dev/holonomic",
+  "base_commit": "7b296fe",
+  "benchmark": "evidence/holonomic/gm_coverage_cases.tsv",
+  "case_count": 110,
+  "repeats": 1,
+  "build_type": "Release",
+  "precision": "binary64 adaptive observables with DD/qf local event correction",
+  "error_definition": "Eabs <= max(Tol, RelTol * abs(Q))",
+  "reuse_on_env": "HOLO_ADAPTIVE_EVENT_REUSE=1",
+  "reuse_off_env": "HOLO_ADAPTIVE_EVENT_REUSE=0",
+  "reference_note": "128/256 radial and 256/512 angular self-difference estimates are diagnostics, not a verified enclosure",
+  "production_router_changed": false,
+  "fixed_nr_production_changed": false,
+  "pf6_gm_changed": false
+}

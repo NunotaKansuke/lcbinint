@@ -60,12 +60,14 @@ struct TopologyResult {
 inline TopologyResult classify_cells(
     const PrimaryFrame& pf,
     const std::vector<Cplx<__float128>>* d14_warm = nullptr,
-    std::vector<Cplx<__float128>>* d14_roots_out = nullptr) {
+    std::vector<Cplx<__float128>>* d14_roots_out = nullptr,
+    bool retain_adaptive_metadata = false) {
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->classify_calls;
     V2ProfileTimer topology_timer(&V2Profile::topology_ms);
     double r_max = 0.0;
-    auto events = radial_events(pf, &r_max, 1e-7, d14_warm, d14_roots_out);
+    auto events = radial_events(pf, &r_max, 1e-7, d14_warm, d14_roots_out,
+                                retain_adaptive_metadata);
 
     // merge events sharing a radius (tol max(1e-9, 1e-7 * radius))
     std::vector<double> radii;

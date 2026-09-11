@@ -47,10 +47,20 @@
 namespace lcbinint::holonomic {
 
 struct RadialEvent {
-    double radius;
+    double radius = 0.0;
     std::string kind;
-    bool physically_real;
+    bool physically_real = false;
     std::string detail;
+    // Optional high-precision/local data retained for adaptive consumers.
+    // `radius` remains the public binary64 cell boundary; `radius_lo` is the
+    // unevaluated qf remainder relative to that boundary.  These fields are
+    // metadata only and do not change the topology merge policy.
+    double radius_lo = 0.0;
+    double radius_uncertainty = std::numeric_limits<double>::infinity();
+    double fold_t_seed = 0.0;
+    bool fold_t_seed_valid = false;
+    int precision_tier = 0;  // 0=double, 1=DD, 2=__float128 source
+    double d14_condition = std::numeric_limits<double>::infinity();
 };
 
 namespace re_detail {
@@ -318,10 +328,20 @@ inline std::vector<double> chart_p4_factor_roots(const PrimaryFrame& pf) {
     return out;
 }
 
-// classify: at a discriminant zero P has a double root t*; real?
-// Port of radial_events._double_root_is_real.
-inline bool double_root_is_real(double R, const PrimaryFrame& pf,
-                                double tol = 1e-6) {
+// At a discriminant zero P has a double root t*.  Keep the stationary-root
+// probe instead of returning only a bool: adaptive event refinement can use
+// the same branch seed without solving the derivative cubic again.
+struct PhysicalRootProbe {
+    bool physically_real = false;
+    bool stationary_valid = false;
+    double stationary_t = 0.0;
+    double normalized_residual = std::numeric_limits<double>::infinity();
+};
+
+// Port of radial_events._double_root_is_real, with the selected stationary
+// root retained for downstream local P=P_t refinement.
+inline PhysicalRootProbe probe_double_root(double R, const PrimaryFrame& pf,
+                                            double tol = 1e-6) {
     QuarticCoeffs q = boundary_quartic(R, pf);  // ascending
     double Pdesc[5] = {q.p[4], q.p[3], q.p[2], q.p[1], q.p[0]};
     double scale = 0.0;
@@ -333,7 +353,7 @@ inline bool double_root_is_real(double R, const PrimaryFrame& pf,
         for (int i = 0; i < dd; ++i) dc[i] = dc[i + 1];
         --dd;
     }
-    if (dd <= 0) return false;
+    if (dd <= 0) return {};
     auto z = aberth<double>(dc, dd, 120);
     double best_re = 0, best_im = 0, best_res = 1e300;
     for (const auto& r : z) {
@@ -345,8 +365,20 @@ inline bool double_root_is_real(double R, const PrimaryFrame& pf,
             best_im = r.im;
         }
     }
-    return best_res < tol &&
-           std::fabs(best_im) < 1e-4 * (std::fabs(best_re) + 1.0);
+    PhysicalRootProbe out;
+    out.stationary_t = best_re;
+    out.normalized_residual = best_res;
+    out.stationary_valid = std::isfinite(best_res) && std::isfinite(best_re) &&
+                            std::isfinite(best_im);
+    out.physically_real = out.stationary_valid && best_res < tol &&
+                          std::fabs(best_im) <
+                              1e-4 * (std::fabs(best_re) + 1.0);
+    return out;
+}
+
+inline bool double_root_is_real(double R, const PrimaryFrame& pf,
+                                double tol = 1e-6) {
+    return probe_double_root(R, pf, tol).physically_real;
 }
 
 // Process-wide opt-out: HOLO_D14_LEGACY_SOLVE=1 forces the original
@@ -904,7 +936,8 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
 inline std::vector<RadialEvent> radial_events(
     const PrimaryFrame& pf, double* r_max_out, double merge_tol = 1e-7,
     const std::vector<Cplx<__float128>>* d14_warm = nullptr,
-    std::vector<Cplx<__float128>>* d14_roots_out = nullptr) {
+    std::vector<Cplx<__float128>>* d14_roots_out = nullptr,
+    bool retain_adaptive_metadata = false) {
     using namespace re_detail;
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->radial_event_calls;
@@ -972,13 +1005,59 @@ inline std::vector<RadialEvent> radial_events(
         }
         std::vector<Cplx<qf>>& roots = sol.roots;
         if (d14_roots_out) *d14_roots_out = roots;
-        auto rv = positive_real_roots(roots, 1e-8, 1e-9);
-        for (double v : rv) {
-            double R = std::sqrt(v);
-            if (!(R > 0.0 && R < Rmax)) continue;
-            bool is_real = double_root_is_real(R, pf);
-            ev.push_back({R, is_real ? "physical_real" : "physical_complex",
-                          is_real, "D14 real root"});
+        // The fixed-resolution V2 path needs the same event radii and
+        // physical classification as before.  Adaptive callers opt in to the
+        // extra qf radius split, stationary-root seed, and D/D' metadata;
+        // keeping that work optional prevents the adaptive hand-off from
+        // adding cost to fixed-n_r production consumers of classify_cells().
+        if (!retain_adaptive_metadata) {
+            auto rv = positive_real_roots(roots, 1e-8, 1e-9);
+            for (double v : rv) {
+                const double R = std::sqrt(v);
+                if (!(R > 0.0 && R < Rmax)) continue;
+                const bool is_real = double_root_is_real(R, pf);
+                ev.push_back({R, is_real ? "physical_real" : "physical_complex",
+                              is_real, "D14 real root"});
+            }
+        } else {
+            // Keep the qf D14 root through the event hand-off.  Casting to a
+            // double before forming R loses precisely the small event
+            // remainder needed by adaptive near-fold maps.  The stationary-
+            // root probe is still the physical/soft classifier, but its t
+            // seed is retained.
+            for (const auto& z : roots) {
+                const qf av = fabsq(z.re), ai = fabsq(z.im);
+                if (!(z.re > 0) || ai > (qf)1e-8 * (qf(1) + av)) continue;
+                const qf vq = z.re;
+                const qf Rq = sqrtq(vq);
+                const double R = (double)Rq;
+                if (!(R > 0.0 && R < Rmax)) continue;
+                const PhysicalRootProbe probe = probe_double_root(R, pf);
+                RadialEvent event{R,
+                                  probe.physically_real ? "physical_real"
+                                                         : "physical_complex",
+                                  probe.physically_real, "D14 real root"};
+                event.radius_lo = (double)(Rq - (qf)R);
+                event.precision_tier = 2;
+                if (probe.stationary_valid) {
+                    event.fold_t_seed = probe.stationary_t;
+                    event.fold_t_seed_valid =
+                        std::isfinite(probe.stationary_t);
+                }
+                // A simple D14 root supplies a cheap radius-conditioning
+                // estimate. It is only metadata: the adaptive consumer still
+                // verifies the coupled P=P_t equations before accepting it.
+                Cplx<qf> D{}, Dp{};
+                d14_struct_eval(d14s, Cplx<qf>(vq, qf(0)), D, Dp);
+                const qf adp = fabsq(Dp.re), ad = fabsq(D.re);
+                if (adp > 0 && finiteq(adp) && finiteq(ad)) {
+                    const qf vshift = ad / adp;
+                    event.d14_condition = (double)(adp / (qf(1) + ad));
+                    event.radius_uncertainty =
+                        (double)(vshift / (qf(2) * Rq));
+                }
+                ev.push_back(event);
+            }
         }
         // complex roots (Re v > 0) -> soft boundaries
         std::vector<double> cv;
