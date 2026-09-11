@@ -384,8 +384,13 @@ def make_figure(rows, profile, target):
                    if finite(r['speed_ratio_vbm_over_v2_all_finite'])
                    and r['speed_ratio_vbm_over_v2_all_finite'] > 0.0
                    and finite(r['v2_mu']) and r['v2_mu'] > 0.0]
+    # A non-converged adaptive call may still expose a finite partial mu. It
+    # remains in the joined raw data and all-status summary, but must not be
+    # presented as an accuracy result. The paper-style error panel uses only
+    # value-converged rows; hatching still exposes incomplete coverage.
     error_group = [r for r in group
-                   if finite(r['relative_error_v2_over_vbm_1e-6'])]
+                   if r['v2_value_converged'] == 1
+                   and finite(r['relative_error_v2_over_vbm_1e-6'])]
     if not group:
         raise RuntimeError(f'no rows for {profile} {target}')
     speed_cmap = ListedColormap(SPEED_COLORS, name='speed')
@@ -438,10 +443,10 @@ def make_figure(rows, profile, target):
     fig.text(0.5, 0.905,
              f'current V2 adaptive: flux_adaptive_integrate body only; topology prebuilt; '
              f'value-converged {len(ok)}/{len(group)} ({100*valid_fraction:.1f}%), '
-             f'map keeps finite positive V2 outputs; hatched cells contain at least one non-OK V2 point',
+             f'map keeps finite positive V2 outputs; hatched cells contain at least one non-converged value',
              ha='center', va='center', fontsize=11)
     fig.text(0.5, 0.135,
-             'Grey cells: fewer than 8 mapped points. Error uses all finite V2 values against the existing VBM RelTol=1e-6 reference.',
+             'Grey cells: fewer than 8 converged mapped points. Error uses value-converged V2 values against the existing VBM RelTol=1e-6 reference; hatching marks incomplete value coverage.',
              ha='center', va='center', fontsize=10)
     stem = f'q_rho_{profile}_{"1e-3" if target == 1e-3 else "1e-4"}_v2_adaptive_current_vbm1e-6'
     png = FIG_DIR / f'{stem}.png'
@@ -527,7 +532,7 @@ def main():
         'plot': {
             'min_cell_population': MIN_CELL_POPULATION,
             'speed_ratio': 'VBM selected_seconds * 1000 / V2 ms; finite positive V2 outputs enter the paper-style runtime cells, regardless of status',
-            'error': 'abs(V2 mu - VBM 1e-6 reference) / abs(VBM 1e-6 reference); all finite V2 values enter the paper-style p95 cells',
+            'error': 'abs(V2 mu - VBM 1e-6 reference) / abs(VBM 1e-6 reference); only value-converged V2 values enter the paper-style p95 cells; all finite values remain in the all-status diagnostic summary',
             'nonok_diagnostic': 'non-OK points are retained in joined TSV and status_counts; topology status and uncertain-cell counts are retained separately; hatched cells identify incomplete value coverage',
         },
         'system': {'platform': platform.platform(), 'python': platform.python_version()},
@@ -539,10 +544,10 @@ def main():
     report.append(f'# Current V2 adaptive value-only vs existing VBM four-way comparison (HEAD `{head}`)\n')
     report.append('The four speed conditions are VBM `RelTol=1e-3` and `RelTol=1e-4`, each for uniform (LD off) and linear (LD on, `c=0.5`). Only current V2 was evaluated in this step. Relative error is evaluated against the existing VBM `RelTol=1e-6` reference.\n')
     report.append('V2 timing covers the value-only adaptive `flux_adaptive_integrate(p,u,topo,cfg,workspace)` path. The radial node count is selected by the adaptive value contract `Eabs <= max(1e-16, RelTol * abs(mu))`; this is not a fixed-64 run. `classify_cells` (D14+topology), `LensParams`, input parsing, and output formatting are outside the timer, while adaptive setup, event handling, panel refinement, physics, estimator, and scheduler are inside. No gradient/Jacobian is requested or timed, and this remains the same pure-kernel boundary as the VBM timing rather than a full epoch. The existing VBM timing is the warmed direct `BinaryMag`/`BinaryMagDark` kernel.\n')
-    report.append('Non-OK V2 points remain in the machine-readable join and status counts. The paper-style runtime map keeps finite positive V2 outputs, while the p95 error map keeps all finite V2 outputs; hatched cells identify incomplete value coverage.\n')
+    report.append('Non-OK V2 points remain in the machine-readable join and status counts. The paper-style runtime map keeps finite positive V2 outputs. The p95 error map uses value-converged V2 values only; all-status finite-value error distributions remain in `summary.json`, and hatched cells identify incomplete value coverage.\n')
     report.append('The 636 non-converged rows have `topology_status=OK`, zero uncertain topology cells, and positive node/panel counts. They therefore passed the topology classifier and stopped later when an adaptive sample evaluator returned `reliable=false`; the current evaluator reports those internal subreasons through the aggregate `TopologyUnresolved` stop label.\n')
     report.append('## Conditions\n')
-    report.append('| profile | VBM timing target | rows | V2 OK | V2 p50 ms | V2 p95 ms | median VBM/V2 (finite positive) | median VBM/V2 (OK) | all p95 error | OK p95 error |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|')
+    report.append('| profile | VBM timing target | rows | V2 value-converged | V2 p50 ms | V2 p95 ms | median VBM/V2 (finite positive) | median VBM/V2 (value-converged) | all-finite p95 error | converged p95 error |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|')
     for key, s in summary['summary_by_condition'].items():
         prof, targettxt = key.split(':target=')
         report.append(f"| {prof} | {targettxt} | {s['rows']} | {s['status_ok']} ({100*s['status_ok_fraction']:.1f}%) | {s['v2_ms']['p50']:.6g} | {s['v2_ms']['p95']:.6g} | {s['speed_ratio_vbm_over_v2_positive']['p50']:.6g} | {s['speed_ratio_vbm_over_v2_status_ok']['p50']:.6g} | {s['relative_error_v2_over_vbm_1e-6_all_statuses']['p95']:.6g} | {s['relative_error_v2_over_vbm_1e-6_status_ok']['p95']:.6g} |")

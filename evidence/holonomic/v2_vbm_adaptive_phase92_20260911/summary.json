@@ -1,6 +1,6 @@
 {
   "purpose": "Fair four-way pure-kernel comparison using current V2 adaptive value-only integration and existing VBM direct-kernel timing; error against existing VBM RelTol=1e-6 reference.",
-  "v2_commit": "46b82b92eddb724cfa14bea0efd326c616d1c485",
+  "v2_commit": "6a8ec865fec675c2d37230eba5d701e8c138c3f1",
   "v2_runner": "/tmp/v2_adaptive_value_phase92_runner",
   "v2_runner_sha256": "4410ca4ce7f2824c08300134b824257a573252025289d5f9a8174129e9763ce1",
   "inputs": {
@@ -62,7 +62,7 @@
   "plot": {
     "min_cell_population": 8,
     "speed_ratio": "VBM selected_seconds * 1000 / V2 ms; finite positive V2 outputs enter the paper-style runtime cells, regardless of status",
-    "error": "abs(V2 mu - VBM 1e-6 reference) / abs(VBM 1e-6 reference); all finite V2 values enter the paper-style p95 cells",
+    "error": "abs(V2 mu - VBM 1e-6 reference) / abs(VBM 1e-6 reference); only value-converged V2 values enter the paper-style p95 cells; all finite values remain in the all-status diagnostic summary",
     "nonok_diagnostic": "non-OK points are retained in joined TSV and status_counts; topology status and uncertain-cell counts are retained separately; hatched cells identify incomplete value coverage"
   },
   "system": {
