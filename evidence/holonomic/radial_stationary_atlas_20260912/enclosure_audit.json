@@ -1,0 +1,11 @@
+{
+  "status": "PASS",
+  "coefficient_enclosures": 1680,
+  "boxes": 16,
+  "tiers": [
+    "double interval",
+    "D14Real ball",
+    "qf interval"
+  ],
+  "oracle": "SymPy exact rational; hexadecimal bounds exact parsed"
+}

@@ -194,11 +194,13 @@ struct LocalFoldQuantities {
     T PR{};
     T Ptt{};
     T Ptr{};
+    T Psss{},Pssss{};
 };
 
 template <class T>
 inline LocalFoldQuantities<T> local_fold_quantities(T R, T t,
-                                                    const PrimaryFrame& pf) {
+                                                    const PrimaryFrame& pf,
+                                                    bool reciprocal = false) {
     const T a = T(pf.a), m0 = T(pf.m0), X = T(pf.X), Y = T(pf.Y);
     const T rho = T(pf.rho);
     const T R2 = R * R;
@@ -247,14 +249,21 @@ inline LocalFoldQuantities<T> local_fold_quantities(T R, T t,
     const T r3 = -T(2.0) * d12;
     const T r4 = dk * bp + k * dbp - T(2.0) * d22;
 
+    // Exact homogeneous reversal; no division by the chart coordinate.
+    const T c0=reciprocal?p4:p0,c1=reciprocal?-p3:p1,c2=p2;
+    const T c3=reciprocal?-p1:p3,c4=reciprocal?p0:p4;
+    const T d0=reciprocal?r4:r0,d1=reciprocal?-r3:r1,d2=r2;
+    const T d3=reciprocal?-r1:r3,d4=reciprocal?r0:r4;
     LocalFoldQuantities<T> out;
-    out.P = (((p4 * t + p3) * t + p2) * t + p1) * t + p0;
-    out.Pt = ((T(4.0) * p4 * t + T(3.0) * p3) * t +
-              T(2.0) * p2) * t + p1;
-    out.PR = (((r4 * t + r3) * t + r2) * t + r1) * t + r0;
-    out.Ptt = (T(12.0) * p4 * t + T(6.0) * p3) * t + T(2.0) * p2;
-    out.Ptr = ((T(4.0) * r4 * t + T(3.0) * r3) * t +
-               T(2.0) * r2) * t + r1;
+    out.P = (((c4 * t + c3) * t + c2) * t + c1) * t + c0;
+    out.Pt = ((T(4.0) * c4 * t + T(3.0) * c3) * t +
+              T(2.0) * c2) * t + c1;
+    out.PR = (((d4 * t + d3) * t + d2) * t + d1) * t + d0;
+    out.Ptt = (T(12.0) * c4 * t + T(6.0) * c3) * t + T(2.0) * c2;
+    out.Psss=T(6.0)*c3+T(24.0)*c4*t;
+    out.Pssss=T(24.0)*c4;
+    out.Ptr = ((T(4.0) * d4 * t + T(3.0) * d3) * t +
+               T(2.0) * d2) * t + d1;
     return out;
 }
 
