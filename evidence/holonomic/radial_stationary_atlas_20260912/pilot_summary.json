@@ -1,0 +1,51 @@
+{
+  "scope": "development pilots, pre event-ID fix and final outer destructor-inclusive timer; not final adoption timings",
+  "variants": {
+    "double_bisection_2048": {
+      "rows": 32,
+      "cold_ms_p50": 48.107851,
+      "warm_ms_p50": 48.4510415,
+      "cover": {
+        "BudgetExceeded": 32
+      },
+      "value_coverage": 0,
+      "cold_boxes_p50": 2049.0,
+      "sha256": "a018ee13c3456ef82ffbdbd2b0259003a442aa4ae3d2b938e49b12f132b52051"
+    },
+    "double_contract_2048": {
+      "rows": 32,
+      "cold_ms_p50": 55.9337405,
+      "warm_ms_p50": 55.755257,
+      "cover": {
+        "BudgetExceeded": 30,
+        "Complete": 2
+      },
+      "value_coverage": 2,
+      "cold_boxes_p50": 2049.0,
+      "sha256": "ce1fc8741a2c5b2cd2280bb7e8e496624a0d236c51c83e8e377c70d834112196"
+    },
+    "dd_contract_2048": {
+      "rows": 32,
+      "cold_ms_p50": 133.858802,
+      "warm_ms_p50": 147.00649249999998,
+      "cover": {
+        "Complete": 16,
+        "BudgetExceeded": 16
+      },
+      "value_coverage": 16,
+      "cold_boxes_p50": 1875.5,
+      "sha256": "1d010fce8db2a4265af57339dd0ff6e6f74c3f1bddbd903ae16bf564e4f12dca"
+    },
+    "double_bisection_20000": {
+      "rows": 8,
+      "cold_ms_p50": 209.29074250000002,
+      "warm_ms_p50": 120.96999500000001,
+      "cover": {
+        "Complete": 8
+      },
+      "value_coverage": 8,
+      "cold_boxes_p50": 6041.0,
+      "sha256": "fdfd0e01a98ecaa48eb4535dd45733e7e24a8c51a7d3706af75676a6486e06f2"
+    }
+  }
+}

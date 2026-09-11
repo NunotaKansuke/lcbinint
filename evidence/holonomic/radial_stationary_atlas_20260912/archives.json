@@ -1,0 +1,102 @@
+{
+  "trajectory/atlas.tsv.gz": {
+    "raw_sha256": "f7f4e8030fc2899fa882af88c008903acd11e3641999a8e489deeb51a37fde10",
+    "gzip_sha256": "82aeb06e4a2a6e777b1dae0a47dd9ae91374f84f08676404247d26ff28d4b0df",
+    "raw_bytes": 13541985
+  },
+  "trajectory/atlas_0.tsv.gz": {
+    "raw_sha256": "2b9ad7dbadaa94fa805ff2a950d60ad10827cd68457dea9d302c5252912d9cf2",
+    "gzip_sha256": "dd579b50004e7814b3a96a443df05a78a860d3d63f005581016dfeb162af0783",
+    "raw_bytes": 3389050
+  },
+  "trajectory/atlas_1.tsv.gz": {
+    "raw_sha256": "99fece46c04024edee9f6da103404899ac39ef88dc48e26e165094ecbafe9e84",
+    "gzip_sha256": "9de6c9cce8bfd03c37069a4b321e4c81f2e88719b8d04dc8d284f9da8a2a90f8",
+    "raw_bytes": 3380699
+  },
+  "trajectory/atlas_2.tsv.gz": {
+    "raw_sha256": "4929d1ad825dd687e6756f36f18498a2599d814c11a7158306fa5c74bc187a81",
+    "gzip_sha256": "3c90d2d167e8d799e15070e910b557c9006e77e9861e349af4c9edcb3bf47f85",
+    "raw_bytes": 3389686
+  },
+  "trajectory/atlas_3.tsv.gz": {
+    "raw_sha256": "2f324e5d64e2e91c1ec03956fb08a596133922754cff6a158946f6a0f5633b54",
+    "gzip_sha256": "afec1cb48b75d90364d21ac6ec37fa9c1d5e6e799b9c98e727bb8a2deba15fc6",
+    "raw_bytes": 3388403
+  },
+  "trajectory/incumbent.tsv.gz": {
+    "raw_sha256": "4b942bd111b3f23d9a49521c252b6779b37a82edca0ea6dbc8786b09887598c7",
+    "gzip_sha256": "ec9f549b65a55e40ec3ee0b066cf99ac57c8faadb7d40ada15054d7364c90e2f",
+    "raw_bytes": 13731181
+  },
+  "trajectory/incumbent_0.tsv.gz": {
+    "raw_sha256": "658a572f97b6ec1d17b71dd3d0c0b7906acf691fff69f9848ae52522861e7689",
+    "gzip_sha256": "eac8201697864740aff1ea0eb948a23713dbe1b2e21d397126cb0ad58141dd25",
+    "raw_bytes": 3432529
+  },
+  "trajectory/incumbent_1.tsv.gz": {
+    "raw_sha256": "2ecfff29d37c45a20b7f431f607e1d44a9e265185213b4d9c8669d17d185e117",
+    "gzip_sha256": "cc4f683a816ba1cb1f40ae9d0a29a301f861e696cd3b1977b3cc0b8850d4789d",
+    "raw_bytes": 3435029
+  },
+  "trajectory/incumbent_2.tsv.gz": {
+    "raw_sha256": "f03ae8c3d1dc82d712acb96d4a6d7865f8406d7736ef8bcd3d960293979a541e",
+    "gzip_sha256": "f3a9163a10c2808df226fedebb823023fc3f1eaddde89a883363d41c920d1a58",
+    "raw_bytes": 3434778
+  },
+  "trajectory/incumbent_3.tsv.gz": {
+    "raw_sha256": "639ecb2225aa2c5d797dbbae07892f79b463b2cafb4a3f69e258fa478adbf7ff",
+    "gzip_sha256": "4d11b7a872041ae3d37d52b2477ff8a8e44265e270e26d1432006f1a48fa428a",
+    "raw_bytes": 3434698
+  },
+  "trajectory/input_0.tsv.gz": {
+    "raw_sha256": "4b0e3a821071846b527dcbf052e730c0250b431035d97c219a0a0a874f7246d4",
+    "gzip_sha256": "4632c6c6ae2811f20aae7c2dfec65d4d302fec55e5db29c3ca6336facd130389",
+    "raw_bytes": 331493
+  },
+  "trajectory/input_1.tsv.gz": {
+    "raw_sha256": "fe980b760607303f346af6500779be4d4a1c62fb337d70d8269beb2bc836d628",
+    "gzip_sha256": "7451129d70993784cc09dd54c50c4718755f52c6f5eb8eec49202ce940c5e9d4",
+    "raw_bytes": 331325
+  },
+  "trajectory/input_2.tsv.gz": {
+    "raw_sha256": "1f89581993d7b913fb5d15d7f90106955eb580ab3bfb23086cde440089182604",
+    "gzip_sha256": "5a2a40ace158493a1340196865650647c8845cd8ceeffb88ec96afc9edd1b185",
+    "raw_bytes": 330948
+  },
+  "trajectory/input_3.tsv.gz": {
+    "raw_sha256": "345f73d6e39a89bcab7fcba1c1dd53b470aae34f6e8bad15642ba4851fc06a4b",
+    "gzip_sha256": "e5468b03d2de96b64301b1148ea0e95bb4b1ccdf8acacd8e1cdf9658ac17136d",
+    "raw_bytes": 330951
+  },
+  "ab/boxes8192.tsv.gz": {
+    "raw_sha256": "6c4645b94b80b3000b5a02d2134321543ecb696234a5e2b33e66ec93944d932b",
+    "gzip_sha256": "9735c656ff54d5a8e716ac18845680de6dbe0ab9ef9071f04cade117a48380ce",
+    "raw_bytes": 132787
+  },
+  "ab/default.tsv.gz": {
+    "raw_sha256": "06510e8e630e806f295fe5fbb4eb69ae2e60e0a331992304a9839a02f5180840",
+    "gzip_sha256": "8b1726689e9d7c7dcbc7c4ca6cfe61d2b761a6bcadb2dbf015162b2ba7b576ca",
+    "raw_bytes": 119373
+  },
+  "ab/initial_dd.tsv.gz": {
+    "raw_sha256": "e5cc9a68df6e1680dc16d108f5a7ce349e758845ecf2fcb518ae9f2178a61f73",
+    "gzip_sha256": "2ed220806cb19b0915d9c1b2333fd42a89db7472aa4966825ce00990203ba25a",
+    "raw_bytes": 120724
+  },
+  "ab/no_contract.tsv.gz": {
+    "raw_sha256": "488324881f75115cc60fef8b26328c15cf8bd3f2f98523fb05504c441bff00aa",
+    "gzip_sha256": "810d11eb76372cd03ab4313d84f9bd297371b972d386612fee1c8344a251dc38",
+    "raw_bytes": 118713
+  },
+  "ab/no_range_probe.tsv.gz": {
+    "raw_sha256": "f4fefb1e4d8c3854b4bdd4be6348ed5814ae91d318118db285762019c63e43e7",
+    "gzip_sha256": "9e97aa22d1ebe6127191d00d3c4e9d83f3a37af0233e30331688a417faa1cc13",
+    "raw_bytes": 119683
+  },
+  "ab/no_tubes.tsv.gz": {
+    "raw_sha256": "afe4ce943423df3cab9bfdc44719a51cea2de71da5e876f56e3e96b6546f6b49",
+    "gzip_sha256": "0438a97801ca5771dcf67f3fa7951f7d661bdd3c6cd2ed8018788995bb6b6023",
+    "raw_bytes": 118804
+  }
+}

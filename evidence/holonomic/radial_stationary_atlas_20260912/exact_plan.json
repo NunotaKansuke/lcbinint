@@ -1,0 +1,42 @@
+{
+  "status": "PASS",
+  "checks": 27,
+  "validated": [
+    "boundary bidegree at most (6,4)",
+    "reciprocal polynomial uses coefficient reversal, not 1/u evaluation",
+    "nonzero boundary numerator at first lens R=0",
+    "nonzero boundary numerator at second lens",
+    "axis polynomial is even",
+    "direct real polynomial construction",
+    "root-pair E is symmetric even polynomial",
+    "root-pair O has no sqrt(w) division",
+    "E_M at w=0 is P_s",
+    "E_w at w=0 is P_ss/2",
+    "O_M at w=0 is P_ss",
+    "O_w at w=0 is P_sss/6",
+    "cubic lift discriminant identity",
+    "stationary-value scaled discriminant identity",
+    "cubic stationary branch -1 identity",
+    "cubic stationary branch 1 identity",
+    "equal endpoint topology does not certify an event-free slab",
+    "stationary branch envelope derivative has no branch derivative term",
+    "two crossings need a derivative/cover test, not one endpoint sign test",
+    "even contact is not an ordinary fold",
+    "Bernstein derivative tensor identity",
+    "exact de Casteljau subdivision left",
+    "exact de Casteljau subdivision right",
+    "Bernstein hull sample 1/3,2/7",
+    "Bernstein hull sample 0,1",
+    "Bernstein hull sample 1,0",
+    "ordinary-fold Krawczyk toy contraction and strict inclusion"
+  ],
+  "scope": "Exact algebra and small theorem witnesses for a design; no production solver run.",
+  "not_validated": [
+    "floating point outward enclosures",
+    "global coverage implementation",
+    "new C++ performance",
+    "14432-row corpus",
+    "new full-epoch speed",
+    "soft-hint removal correctness"
+  ]
+}

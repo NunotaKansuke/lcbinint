@@ -1,0 +1,15 @@
+progress trajectories 32/451 rows=256
+progress trajectories 64/451 rows=512
+progress trajectories 96/451 rows=768
+progress trajectories 128/451 rows=1024
+progress trajectories 160/451 rows=1280
+progress trajectories 192/451 rows=1536
+progress trajectories 224/451 rows=1792
+progress trajectories 256/451 rows=2048
+progress trajectories 288/451 rows=2304
+progress trajectories 320/451 rows=2560
+progress trajectories 352/451 rows=2816
+progress trajectories 384/451 rows=3072
+progress trajectories 416/451 rows=3328
+progress trajectories 448/451 rows=3584
+wrote 3608 rows from 451 trajectories, reps=1, sink=53840.9
