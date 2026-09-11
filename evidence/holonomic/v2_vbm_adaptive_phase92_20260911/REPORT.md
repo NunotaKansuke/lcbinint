@@ -8,6 +8,8 @@ Non-OK V2 points remain in the machine-readable join and status counts. The pape
 
 The 636 non-converged rows have `topology_status=OK`, zero uncertain topology cells, and positive node/panel counts. They therefore passed the topology classifier and stopped later when an adaptive sample evaluator returned `reliable=false`; the current evaluator reports those internal subreasons through the aggregate `TopologyUnresolved` stop label.
 
+The failure breakdown is now explicit. 624/636 rows (98.1%) belong to a geometry whose restored cell plan contains at least one `kFull` cell. In `adaptive_epoch.hpp`, `mapped_radius()` has no full-circle evaluator because it expects endpoint arcs and returns `reliable=false` for `kFull`/`kDegenerate`; the fixed V2 `radius_terms()` path does have `full_circle_terms()`. Thus these rows are an adaptive representation coverage gap, not failure of the nested value estimator. The remaining 12 rows are two tiny-source/near-axis geometries (`case_id=9, d_bin=2, epoch=7` and `case_id=92, d_bin=0`) at the stricter target or both targets; the current evaluator does not expose which of its arc reliability guards fired. The topology and arc diagnostic raw files are retained beside this report.
+
 ## Conditions
 
 | profile | VBM timing target | rows | V2 value-converged | V2 p50 ms | V2 p95 ms | median VBM/V2 (finite positive) | median VBM/V2 (value-converged) | all-finite p95 error | converged p95 error |
