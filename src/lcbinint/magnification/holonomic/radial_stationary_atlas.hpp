@@ -128,7 +128,7 @@ inline RadialAtlasResult build_radial_event_atlas(const PrimaryFrame& pf,const R
   int axis=node.box.depth%2;Box left=node.box,right=node.box;left.depth=right.depth=node.box.depth+1;
   if(axis){Q mid=(left.s0+left.s1)/2;if(mid==left.s0||mid==left.s1){out.status=AtlasStatus::RepresentationLimited;return finish();}left.s1=right.s0=mid;}
   else{Q mid=(left.r0+left.r1)/2;if(mid==left.r0||mid==left.r1){out.status=AtlasStatus::RepresentationLimited;return finish();}left.r1=right.r0=mid;}
-  std::visit([&](const auto& p){auto parts=split(p,axis);ws.stack.push_back({right,std::move(parts.second),false});ws.stack.push_back({left,std::move(parts.first),false});},node.data);
+  std::visit([&](const auto& p){auto parts=split_physical(p,node.box,axis);ws.stack.push_back({right,std::move(parts.second),false});ws.stack.push_back({left,std::move(parts.first),false});},node.data);
  }
  out.stats.contacts=out.contacts.size();out.status=AtlasStatus::Complete;
  out.stats.contacts=out.contacts.size();

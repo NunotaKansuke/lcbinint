@@ -49,10 +49,25 @@ template<class I> Tensor<I> power_derivative(const Tensor<I>& p,int axis){Tensor
 template<class I> Tensor<I> derivative(const Tensor<I>& b,int axis){Tensor<I> d;d.nr=axis==0?std::max(0,b.nr-1):b.nr;d.ns=axis==1?std::max(0,b.ns-1):b.ns;int n=axis?b.ns:b.nr;if(!n)return d;for(int i=0;i<=d.nr;++i)for(int j=0;j<=d.ns;++j)d.c[i][j]=(b.c[i+(axis==0)][j+(axis==1)]-b.c[i][j])*I(double(n));return d;}
 template<class I> IQ hull(const Tensor<I>& b){IQ v(HUGE_VALQ,-HUGE_VALQ);for(int i=0;i<=b.nr;++i)for(int j=0;j<=b.ns;++j){auto a=bounds(b.c[i][j]);if(!a.valid())return {-HUGE_VALQ,HUGE_VALQ};v.lo=fminq(v.lo,a.lo);v.hi=fmaxq(v.hi,a.hi);}return v;}
 template<class I> I evaluate(const Tensor<I>& b,I x,I y){std::array<I,7> c{};for(int i=0;i<=b.nr;++i){auto row=b.c[i];for(int n=b.ns;n>0;--n)for(int j=0;j<n;++j)row[j]=(I(1)-y)*row[j]+y*row[j+1];c[i]=row[0];}for(int n=b.nr;n>0;--n)for(int i=0;i<n;++i)c[i]=(I(1)-x)*c[i]+x*c[i+1];return c[0];}
-template<class I> std::pair<Tensor<I>,Tensor<I>> split(const Tensor<I>& p,int axis){Tensor<I> a=p,b=p;int n=axis?p.ns:p.nr,other=axis?p.nr:p.ns;for(int k=0;k<=other;++k){std::array<I,7> v{};for(int j=0;j<=n;++j)v[j]=axis?p.c[k][j]:p.c[j][k];for(int level=0;level<=n;++level){if(axis){a.c[k][level]=v[0];b.c[k][n-level]=v[n-level];}else{a.c[level][k]=v[0];b.c[n-level][k]=v[n-level];}for(int j=0;j<n-level;++j)v[j]=(v[j]+v[j+1])*I(.5);}}return {a,b};}
+template<class I> std::pair<Tensor<I>,Tensor<I>> split(const Tensor<I>& p,int axis,I fraction=I(.5)){bool half=false;if constexpr(std::is_same_v<I,Ball>)half=fraction.c.hi==.5&&fraction.c.lo==0&&fraction.r==0;else half=fraction.lo==.5&&fraction.hi==.5;Tensor<I> a=p,b=p;int n=axis?p.ns:p.nr,other=axis?p.nr:p.ns;for(int k=0;k<=other;++k){std::array<I,7> v{};for(int j=0;j<=n;++j)v[j]=axis?p.c[k][j]:p.c[j][k];for(int level=0;level<=n;++level){if(axis){a.c[k][level]=v[0];b.c[k][n-level]=v[n-level];}else{a.c[level][k]=v[0];b.c[n-level][k]=v[n-level];}for(int j=0;j<n-level;++j)v[j]=half?(v[j]+v[j+1])*I(.5):(I(1)-fraction)*v[j]+fraction*v[j+1];}}return {a,b};}
 inline IQ inverse(IQ a){if(a.sign()!=1&&a.sign()!=-1)return {-HUGE_VALQ,HUGE_VALQ};return {down(1/a.hi),up(1/a.lo)};}
 inline Q midpoint(IQ a){return a.lo+(a.hi-a.lo)/2;}
 inline Q mag(IQ a){return fmaxq(fabsq(a.lo),fabsq(a.hi));}
+// After a non-dyadic contraction the rounded physical midpoint need not
+// represent exactly half the parent interval. Enclose the true split ratio.
+// The EFT fast test is evaluated with contraction disabled by this header.
+template<class I> I interval_cast(IQ v){
+ if constexpr(std::is_same_v<I,IQ>)return v;
+ else if constexpr(std::is_same_v<I,Interval<double>>)return {down(double(v.lo)),up(double(v.hi))};
+ else{Q m=midpoint(v);I b=positive_detail::point<I>(m);Q r=fmaxq(up(m-v.lo),up(v.hi-m));b.r=up(b.r+up(double(r)));return b;}
+}
+template<class I> std::pair<Tensor<I>,Tensor<I>> split_physical(const Tensor<I>& p,const Box& box,int axis){
+ Q a=axis?box.s0:box.r0,b=axis?box.s1:box.r1;
+ Q sum=a+b,mid=sum/2,bv=sum-a,error=(a-(sum-bv))+(b-bv);
+ if(error==0&&mid*2==sum)return split(p,axis);
+ IQ f=(IQ(mid,mid)-IQ(a,a))*inverse(IQ(b,b)-IQ(a,a));
+ return split(p,axis,interval_cast<I>(f));
+}
 struct LocalProof {int kind=0; // 0 unknown,1 no-boundary,2 no-tangency,3 unique
  IQ x{0,1},y{0,1};bool tube=false;};
 template<class I> LocalProof prove_jets(const Tensor<I>& p,const Tensor<I>& py,const Tensor<I>& px,const Tensor<I>& pyy,const Tensor<I>& pyx,bool tubes=true){

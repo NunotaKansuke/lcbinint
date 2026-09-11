@@ -1,7 +1,7 @@
 {
   "status": "PASS",
-  "coefficient_enclosures": 1680,
-  "boxes": 16,
+  "coefficient_enclosures": 3360,
+  "boxes": 32,
   "tiers": [
     "double interval",
     "D14Real ball",
