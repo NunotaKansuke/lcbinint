@@ -1,29 +1,66 @@
 # V2 adaptive value-only benchmark checkpoint — 2026-09-11
 
-前回の固定 `n_r=64` pure-kernel結果ではなく、現行V2の adaptive value path を同じ論文用入力へ適用した。対象は既存VBM benchmarkの1,804 geometry/profile/epoch行で、各行について VBM speed target `RelTol=1e-3` と `1e-4` をV2の `mu_rtol`へ対応させ、uniform/linearの4条件、合計14,432 timed V2 callsを作成した。
+これは、論文用 q–rho corpus で現行 adaptive V2 を再実行した結果である。以前の固定 `n_r=64` 実行とは異なり、V2 は value tolerance に応じて radial node 数を選ぶ adaptive path を使用した。VBM の `RelTol=1e-3` / `1e-4` の速度結果と、既存の `RelTol=1e-6` reference は再利用し、今回追加で計算したのは現行 V2 の14,432 callsである。
 
-V2は `flux_adaptive_integrate(p,u,topo,cfg,workspace)` を測定した。`LensParams`、`PrimaryFrame`、`classify_cells`（D14/topology）、入力処理、出力処理はtimer外、adaptive setup、event handling、panel refinement、physics、estimator、schedulerはtimer内である。`mu_atol=1e-16`、gradient policy `None`、Jacobianなし、workspace warm-up後3回の中央値を使った。従って固定64ではなく、要求RelTolに応じてnode数を決めるvalue-only測定であり、既存VBMのwarm direct-kernel timingと同じpure-kernel境界である。full epochのD14/topology時間は含めていない。
+## 計時条件
 
-| profile | target | value-converged | V2 p50 ms | V2 p95 ms | median VBM/V2 |
+測定対象は `flux_adaptive_integrate(p,u,topo,cfg,workspace)` の本体である。`LensParams`、`PrimaryFrame`、`classify_cells`（D14/topology）、入力処理、出力処理はtimer外、adaptive setup、event handling、panel refinement、physics、estimator、schedulerはtimer内とした。`mu_atol=1e-16`、gradient policy `None`、Jacobianなし、workspace warm-up後3回の中央値である。したがって、これは full epoch の比較ではなく、既存 VBM direct-kernel timingと同じ pure-kernel境界の比較である。
+
+入力は1,804 geometry/profile/epoch行で、uniform（LDなし）とlinear（LDあり、`c=0.5`）をそれぞれ `RelTol=1e-3`、`1e-4` で評価した。各条件は3,608行、合計14,432行である。
+
+## 結果
+
+全条件で `value_converged=1`、`stop=Converged`、`numerical_status=OK` が3,608/3,608となった。前回の636件失敗は、現行の full-circle評価と近接physical fold保持を反映する前の古いrawであり、今回の結果には残っていない。
+
+| profile | RelTol | rows | V2 p50 ms | V2 p95 ms | median VBM/V2 |
 |---|---:|---:|---:|---:|---:|
-| uniform (LD off) | 1e-3 | 3451/3608 (95.6%) | 0.1166 | 0.2601 | 0.535 |
-| uniform (LD off) | 1e-4 | 3447/3608 (95.5%) | 0.1480 | 0.3578 | 0.753 |
-| linear (LD on, c=0.5) | 1e-3 | 3451/3608 (95.6%) | 0.1555 | 0.3592 | 2.076 |
-| linear (LD on, c=0.5) | 1e-4 | 3447/3608 (95.5%) | 0.1917 | 0.5027 | 7.049 |
+| uniform (LD off) | 1e-3 | 3608/3608 | 0.122137 | 0.260495 | 0.513567 |
+| uniform (LD off) | 1e-4 | 3608/3608 | 0.155332 | 0.362237 | 0.721356 |
+| linear (LD on, c=0.5) | 1e-3 | 3608/3608 | 0.168019 | 0.385226 | 1.98919 |
+| linear (LD on, c=0.5) | 1e-4 | 3608/3608 | 0.204459 | 0.547826 | 6.59370 |
 
-速度比は `VBM selected_seconds * 1000 / V2 ms` で、1より大きいとV2が速い。LDなしでは今回のadaptive pathはVBMより遅く、LDありでは速い。`RelTol=1e-4`のuniformだけは中央値で0.753倍、linearでは7.049倍だった。
+速度比は `VBM selected_seconds * 1000 / V2 ms` で、1より大きいとV2が速い。LDなしではこの純粋なadaptive evaluatorはVBM direct kernelより遅く、LDありではV2が速い。
 
-既存VBM `RelTol=1e-6` referenceとの相対誤差は、value-converged行で次の通りだった。
+## VBM 1e-6 referenceとの精度分布
 
-| profile | target | p50 | p95 | max |
-|---|---:|---:|---:|---:|
-| uniform | 1e-3 | 6.56e-8 | 3.32e-6 | 1.15e-5 |
-| uniform | 1e-4 | 2.71e-8 | 3.11e-7 | 2.71e-4 |
-| linear | 1e-3 | 8.08e-7 | 9.22e-6 | 2.18e-4 |
-| linear | 1e-4 | 6.42e-7 | 7.82e-6 | 2.18e-4 |
+相対誤差は各V2値と同一入力の既存 VBM `RelTol=1e-6` referenceについて
 
-全体で636行がvalue non-convergedになった。これらはすべて `topology_status=OK`、`topology_uncertain_cells=0`、node/panel生成済みであり、topology classifierの失敗ではない。adaptive sample evaluatorの`reliable=false`が現在のAPIで`TopologyUnresolved`へ集約されている。したがって、このベンチでは636行を成功扱いへ変えていない。より細かい内部reject理由は現行evaluatorのraw schemaにないため、今回の結果からは個別原因を推定していない。
+```text
+abs(V2 - VBM_1e-6) / abs(VBM_1e-6)
+```
 
-この636行のうち624行（98.1%）は、topologyのcell planに少なくとも1つ`kFull` cellを持つgeometryだった。`kFull`はその半径で円周全体が有効で、arcの端点が存在しない状態である。固定V2の`radius_terms()`には`full_circle_terms()`処理がある一方、adaptiveの`mapped_radius()`は端点arcを前提にしており、`kFull`/`kDegenerate`を`reliable=false`として停止する。このため大きな`rho`領域の斜線は、value estimatorの収束不足というよりadaptive側のfull-circle表現未対応を示している。残り12行はtiny-source/near-axisの2 geometry（`case_id=9, d_bin=2, epoch=7` と `case_id=92, d_bin=0`）で、現行evaluatorが内部arc guardの細分類を出していないため、個別reject条件は未確定である。詳細は`topology_diagnostic.tsv`と`arc_reliability_diagnostic.tsv`に保存した。
+で計算した。以下は全3,608行の分布で、value-converged行だけを含む。`max`は少数の難しい点を含むため、p95/p99と分けて読む。
 
-成果物は [REPORT.md](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/REPORT.md)、[summary.json](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/summary.json)、[joined_v2_vbm.tsv](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/joined_v2_vbm.tsv)、[v2_results.tsv](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/v2_results.tsv) と `figures/` に保存した。VBM speed sourceと1e-6 referenceは前回ベンチの固定artifactを再利用し、今回追加計算はV2 adaptiveのみである。
+| profile | RelTol | p50 | p95 | p99 | max |
+|---|---:|---:|---:|---:|---:|
+| uniform | 1e-3 | 6.97574e-8 | 4.40694e-6 | 1.31369e-5 | 2.70588e-4 |
+| uniform | 1e-4 | 2.88546e-8 | 3.36594e-7 | 1.01237e-6 | 2.70697e-4 |
+| linear | 1e-3 | 8.48743e-7 | 9.34684e-6 | 1.67362e-5 | 2.17776e-4 |
+| linear | 1e-4 | 6.46191e-7 | 7.84223e-6 | 1.52542e-5 | 2.17773e-4 |
+
+要求値よりかなり小さい誤差が多いのは、adaptive estimatorが安全側の停止点を選ぶことと、nested Fejér detailが実際の局所誤差より保守的になることによる。これは今回の分布からの解釈であり、要求 toleranceがreference誤差の上限を直接保証するという意味ではない。誤差図では小さい領域を確認できるよう、cell p95の階級を `1e-8` 以下から `3e-4` まで拡張した。
+
+## 図の集計条件
+
+q–rhoパネルは runbook の canonical edge
+
+```text
+q   = geomspace(1e-4, 1, 13)
+rho = geomspace(3e-5, 1, 13)
+```
+
+による12×12 binで、各cellの最低人口は8点である。4条件とも144/144 cellが充填されている。したがって、今回のq–rho図に穴はなく、A–rho / A–qで灰色になる領域は別の座標射影で最低人口に達しないcellである。灰色とadaptive non-convergenceを同じ意味には扱っていない。
+
+図の誤差カラーバーは cell p95 relative error の境界を
+
+```text
+0, 1e-8, 1e-7, 1e-6, 3e-6, 1e-5, 3e-5, 1e-4, 3e-4
+```
+
+に設定した。reference、誤差式、p95 reducer、raw値は変更していない。
+
+## 再現と成果物
+
+実行コマンド、入力hash、runner hash、raw hashは [evidence/holonomic/v2_vbm_adaptive_qrho_20260911/command.txt](../../evidence/holonomic/v2_vbm_adaptive_qrho_20260911/command.txt) と [provenance.txt](../../evidence/holonomic/v2_vbm_adaptive_qrho_20260911/provenance.txt) に保存した。機械可読結果は [summary.json](../../evidence/holonomic/v2_vbm_adaptive_qrho_20260911/summary.json)、結合済み行データは [joined_v2_vbm.tsv](../../evidence/holonomic/v2_vbm_adaptive_qrho_20260911/joined_v2_vbm.tsv)、V2 rawは [v2_results.tsv](../../evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_results.tsv)、生成レポートは [REPORT.md](../../evidence/holonomic/v2_vbm_adaptive_qrho_20260911/REPORT.md) である。
+
+4条件のPNG/PDFは evidence の `figures/` にある。VBM速度artifactと `RelTol=1e-6` referenceは runbookに記載された既存 `/tmp` artifactを使用した。

@@ -422,18 +422,253 @@ inline bool restore_physical_cuts(const TopologyResult& topo,const PrimaryFrame&
     }
     return end==topo.r_max;
 }
+struct FullCircleLevel {
+    double integral=0;
+    std::array<double,5> derivative{};
+};
+struct FullCircleNode {
+    double value=0;
+    std::array<double,5> derivative{};
+    bool valid=false;
+};
+
+// Nested periodic trapezoid levels for a certified full-circle cell.  The
+// finest lattice is fixed at 256 slots, so M=64/128/256 reuses the samples
+// already evaluated at the coarser level.  The cell topology is supplied by
+// D14/quartic classification; this routine only checks the physical phi>0
+// integrand and estimates its inner quadrature error.
+inline bool full_circle_periodic_level(
+    int M,double R,const PrimaryFrame& pf,bool with_jac,
+    std::array<FullCircleNode,256>& nodes,FullCircleLevel& level) {
+    const int stride=256/M;
+    Sum value_sum;
+    std::array<Sum,5> derivative_sum;
+    for(int i=0;i<M;++i) {
+        const int slot=i*stride;
+        auto& node=nodes[slot];
+        if(!node.valid) {
+            const double theta=kTwoPi*static_cast<double>(slot)/256.0;
+            if(with_jac) {
+                const PhiValDP g=phi_val_dP(R,theta,pf);
+                if(!(g.phi>0.0)||!std::isfinite(g.phi))return false;
+                node.value=std::sqrt(g.phi);
+                if(!std::isfinite(node.value))return false;
+                for(int j=0;j<5;++j) {
+                    node.derivative[j]=g.dP[j]/(2.0*node.value);
+                    if(!std::isfinite(node.derivative[j]))return false;
+                }
+            } else {
+                const double phi=phi_val(R,theta,pf);
+                if(!(phi>0.0)||!std::isfinite(phi))return false;
+                node.value=std::sqrt(phi);
+                if(!std::isfinite(node.value))return false;
+            }
+            node.valid=true;
+        }
+        value_sum.add(node.value);
+        if(with_jac)for(int j=0;j<5;++j)derivative_sum[j].add(node.derivative[j]);
+    }
+    const double weight=kTwoPi/static_cast<double>(M);
+    level.integral=weight*value_sum.get();
+    if(with_jac)for(int j=0;j<5;++j)level.derivative[j]=weight*derivative_sum[j].get();
+    if(!std::isfinite(level.integral))return false;
+    if(with_jac)for(double d:level.derivative)if(!std::isfinite(d))return false;
+    return true;
+}
+
+inline AdaptiveSample mapped_full_circle(
+    double R,double jac,const LensParams& p,double u,const PrimaryFrame& pf,
+    bool with_jac,const AdaptiveConfig* adaptive_cfg=nullptr) {
+    AdaptiveSample out;
+    auto reject=[&](AdaptiveSampleRejectReason reason) {
+        out.reliable=false;out.reject_reason=reason;return out;
+    };
+    const double D=kPi*p.rho*p.rho*(1.0-u/3.0);
+    if(!(R>0.0)||!std::isfinite(R)||!std::isfinite(jac)||!(D>0.0)||
+       !std::isfinite(D))return reject(AdaptiveSampleRejectReason::Nonfinite);
+    const double scale=jac/D;
+    const double f0=R*kTwoPi;
+    double fh=0,efh=0;
+    std::array<double,5> dfh{},edfh{};
+    if(u!=0.0) {
+        std::array<FullCircleNode,256> nodes{};
+        FullCircleLevel l32{},l64{},l128{},l256{};
+        if(!full_circle_periodic_level(32,R,pf,with_jac,nodes,l32) ||
+           !full_circle_periodic_level(64,R,pf,with_jac,nodes,l64))
+            return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
+        const double atol=adaptive_cfg?adaptive_cfg->tol.mu_atol:1e-8;
+        const double rtol=adaptive_cfg?adaptive_cfg->tol.mu_rtol:1e-4;
+        const bool strict=adaptive_cfg &&
+            adaptive_cfg->effective_gradient_policy()==GradientPolicy::Strict;
+        const auto abs_map=[&](const std::array<double,5>& v) {
+            std::array<double,5> e{};
+            for(int k=0;k<5;++k) {
+                std::array<double,5> unit{};unit[k]=v[k];
+                const auto col=internal_to_user_jac(unit,p);
+                for(int j=0;j<5;++j)e[j]+=std::fabs(col[j]);
+            }
+            return e;
+        };
+        const auto level_meets=[&](const FullCircleLevel& low,
+                                   const FullCircleLevel& high) {
+            const double high_fh=R*high.integral;
+            const double estimate=scale*((1.0-u)*f0+u*high_fh);
+            const double target=std::max(atol,rtol*std::fabs(estimate));
+            const double value_error=std::fabs(scale*u)*R*
+                                     std::fabs(high.integral-low.integral);
+            if(!(value_error<=0.25*target))return false;
+            if(!strict||!with_jac)return true;
+            for(int j=0;j<5;++j) {
+                std::array<double,5> raw{},raw_error{};
+                raw[j]=jac*R*high.derivative[j];
+                raw_error[j]=std::fabs(jac*R)*
+                    std::fabs(high.derivative[j]-low.derivative[j]);
+                const auto user=internal_to_user_jac(raw,p);
+                const auto user_error=abs_map(raw_error);
+                double gradient= u*user[j]/D;
+                if(j==2)gradient-=2.0*estimate/p.rho;
+                double gradient_error=std::fabs(u/D)*user_error[j];
+                gradient_error+=2.0*value_error/p.rho*(j==2);
+                const double gt=std::max(adaptive_cfg->tol.grad_atol[j],
+                    adaptive_cfg->tol.grad_rtol[j]*std::fabs(gradient));
+                if(!(gradient_error<=0.25*gt))return false;
+            }
+            return true;
+        };
+        const FullCircleLevel*low=&l32,*high=&l64;
+        if(!level_meets(*low,*high)) {
+            if(!full_circle_periodic_level(128,R,pf,with_jac,nodes,l128))
+                return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
+            low=high;high=&l128;
+            if(!level_meets(*low,*high)) {
+                if(!full_circle_periodic_level(256,R,pf,with_jac,nodes,l256))
+                    return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
+                low=high;high=&l256;
+            }
+        }
+        fh=R*high->integral;
+        efh=R*std::fabs(high->integral-low->integral);
+        if(with_jac)for(int j=0;j<5;++j) {
+            dfh[j]=jac*R*high->derivative[j];
+            edfh[j]=std::fabs(jac*R)*
+                std::fabs(high->derivative[j]-low->derivative[j]);
+        }
+    }
+    out.value[0]=scale*((1.0-u)*f0+u*fh);
+    out.inner[0]=std::fabs(scale*u)*efh;
+    out.geometry[0]=0.0;
+    out.roundoff[0]=eps*std::fabs(scale)*
+        (std::fabs((1.0-u)*f0)+std::fabs(u*fh));
+    if(with_jac) {
+        const auto dh=internal_to_user_jac(dfh,p);
+        const auto abs_map=[&](const std::array<double,5>& v) {
+            std::array<double,5> e{};
+            for(int k=0;k<5;++k) {
+                std::array<double,5> unit{};unit[k]=v[k];
+                const auto col=internal_to_user_jac(unit,p);
+                for(int j=0;j<5;++j)e[j]+=std::fabs(col[j]);
+            }
+            return e;
+        };
+        const auto eh=abs_map(edfh);
+        for(int j=0;j<5;++j) {
+            out.value[j+1]=(u*dh[j])/D;
+            out.inner[j+1]=std::fabs(u/D)*eh[j];
+            out.geometry[j+1]=0.0;
+            out.roundoff[j+1]=eps/std::fabs(D)*std::fabs(u*dh[j]);
+        }
+        out.value[3]-=2.0*out.value[0]/p.rho;
+        out.inner[3]+=2.0*out.inner[0]/p.rho;
+        out.roundoff[3]+=2.0*(out.roundoff[0]+eps*std::fabs(out.value[0]))/p.rho;
+    }
+    for(int j=0;j<(with_jac?6:1);++j) {
+        if(!std::isfinite(out.value[j])||!std::isfinite(out.inner[j])||
+           !std::isfinite(out.geometry[j])||!std::isfinite(out.roundoff[j])||
+           out.inner[j]<0.0||out.geometry[j]<0.0||out.roundoff[j]<0.0)
+            return reject(AdaptiveSampleRejectReason::Nonfinite);
+    }
+    return out;
+}
+
+// The incumbent arc_intervals() intentionally keeps its historical complex
+// Aberth path for the fixed V2 route.  Adaptive samples have a stronger
+// local contract: when that path returns an odd/incorrect real-root set,
+// repair only this sample from the already available degree-4 Sturm
+// certificate.  No angular grid is involved, and failure remains a hard
+// rejection.
+inline std::vector<double> adaptive_sturm_thetas(
+    const QuarticSturmCertificate& cert) {
+    if(!cert.certified || cert.root_count<0 || cert.root_count>4 ||
+       (cert.root_count&1)) return {};
+    const auto roots=sturm_isolate_real_roots(cert.chart_coeffs,cert.root_count);
+    if(static_cast<int>(roots.size())!=cert.root_count)return {};
+    std::vector<double> out;
+    out.reserve(roots.size());
+    for(double x:roots) {
+        double theta=(cert.reciprocal?kPi:0.0)+2.0*std::atan(x);
+        theta=std::fmod(theta,kTwoPi);
+        if(theta<0.0)theta+=kTwoPi;
+        out.push_back(theta);
+    }
+    std::sort(out.begin(),out.end());
+    for(size_t i=1;i<out.size();++i)
+        if(!(out[i]>out[i-1]) ||
+           out[i]-out[i-1]<=1e-11*(1.0+std::fabs(out[i]))) return {};
+    return out;
+}
+
+inline ArcSet adaptive_arc_intervals(
+    double R,const PrimaryFrame& pf,QuarticWarm* qw,RootPairWarm* rpw,
+    QuarticCoeffs* out_pc,int expected_crossings) {
+    ArcSet arcs=arc_intervals(R,pf,qw,rpw,out_pc);
+    const bool mismatch = arcs.kind==ArcKind::kDegenerate ||
+        (expected_crossings>0 && arcs.kind!=ArcKind::kArcs) ||
+        (arcs.kind==ArcKind::kArcs &&
+         static_cast<int>(arcs.arcs.size()*2)!=expected_crossings);
+    if(!mismatch)return arcs;
+    QuarticCoeffs q=out_pc?*out_pc:boundary_quartic(R,pf);
+    const QuarticSturmCertificate cert=certify_quartic(q.p);
+    if(!cert.certified || cert.root_count!=expected_crossings)return arcs;
+    const auto theta=adaptive_sturm_thetas(cert);
+    if(static_cast<int>(theta.size())!=expected_crossings)return arcs;
+    const ArcSet repaired=arc_set_from_root_thetas(R,pf,theta);
+    if(repaired.kind==ArcKind::kArcs &&
+       static_cast<int>(repaired.arcs.size()*2)==expected_crossings)
+        return repaired;
+    return arcs;
+}
+
 // Reuses V2 arc/root continuation, endpoint IFT and vK. The adapter carries
 // numerical estimates separately from the radial interpolation detail.
 inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     double u,const PrimaryFrame& pf,const CellPlan& cell,bool with_jac,
-    bool warm,const AdaptiveSample* seed) {
+    bool warm,const AdaptiveSample* seed,
+    const AdaptiveConfig* adaptive_cfg=nullptr) {
     AdaptiveSample out;
+    auto reject=[&](AdaptiveSampleRejectReason reason) {
+        out.reliable=false;out.reject_reason=reason;return out;
+    };
+    // D14/cell classification certifies that a full-circle cell has no
+    // boundary crossing throughout its open radial interval.  Do not redo a
+    // quartic solve at every Fejer node; the periodic integrand is smooth and
+    // receives its own nested error estimate below.
+    if(cell.kind==ArcKind::kFull)
+        return mapped_full_circle(R,jac,p,u,pf,with_jac,adaptive_cfg);
+    if(cell.kind==ArcKind::kEmpty)return out;
+    if(cell.kind==ArcKind::kDegenerate)
+        return reject(AdaptiveSampleRejectReason::DegenerateChart);
     if(seed){out.quartic=seed->quartic;out.roots=seed->roots;}
     out.roots.certify=warm;
     QuarticCoeffs arc_pc{};
-    auto arcs=arc_intervals(R,pf,&out.quartic,&out.roots,&arc_pc);
-    if(arcs.kind!=cell.kind || (arcs.kind==ArcKind::kArcs && int(arcs.arcs.size()*2)!=cell.n_crossings)) {out.reliable=false;return out;}
-    if(arcs.kind==ArcKind::kFull || arcs.kind==ArcKind::kDegenerate){out.reliable=false;return out;}
+    auto arcs=adaptive_arc_intervals(R,pf,&out.quartic,&out.roots,&arc_pc,
+                                     cell.n_crossings);
+    if(arcs.kind==ArcKind::kDegenerate)
+        return reject(AdaptiveSampleRejectReason::DegenerateChart);
+    if(arcs.kind!=cell.kind)
+        return reject(AdaptiveSampleRejectReason::ArcKindMismatch);
+    if(arcs.kind==ArcKind::kArcs &&
+       int(arcs.arcs.size()*2)!=cell.n_crossings)
+        return reject(AdaptiveSampleRejectReason::RootContinuationMismatch);
     const double D=kPi*p.rho*p.rho*(1-u/3),scale=jac/D;
     double f0=0,fh=0,ef0=0,efh=0;
     std::array<double,5> df0{},dfh{},edf0{},edfh{};
@@ -443,7 +678,8 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         auto pe=polish_endpoint(R,a[0],pf),pl=polish_endpoint(R,a[1],pf);
         double te=pe.theta,tl=pl.theta;if(tl<=te)tl+=kTwoPi;
         // No flag override: transformed arithmetic still requires resolvable endpoints.
-        if(!pe.reliable||!pl.reliable){out.reliable=false;return out;}
+        if(!pe.reliable||!pl.reliable)
+            return reject(AdaptiveSampleRejectReason::EndpointUnreliable);
         PhiGrad ge{},gl{};
         if(with_jac){ge=phi_grad(R,te,pf);gl=phi_grad(R,tl,pf);}
         else{auto e=phi_val_dtheta(R,te,pf),l=phi_val_dtheta(R,tl,pf);ge.phi=e.phi;ge.dphi_dtheta=e.dphi_dtheta;gl.phi=l.phi;gl.dphi_dtheta=l.dphi_dtheta;}
@@ -454,7 +690,8 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         de+=(map_noise+eps*std::fabs(te)*std::fabs(ge.dphi_dtheta))/std::fabs(ge.dphi_dtheta);
         dl+=(map_noise+eps*std::fabs(tl)*std::fabs(gl.dphi_dtheta))/std::fabs(gl.dphi_dtheta);
         const double width=tl-te;
-        if(!(width>de+dl) || !std::isfinite(de+dl)){out.reliable=false;return out;}
+        if(!(width>de+dl) || !std::isfinite(de+dl))
+            return reject(AdaptiveSampleRejectReason::ArcWidthUnresolved);
         f0+=R*width;ef0+=R*(de+dl);
         std::array<double,5> dte{},dtl{};
         if(with_jac)for(int j=0;j<5;++j){
@@ -497,11 +734,11 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             double vh=0,vl=0;std::array<double,5> dh{},dd{};
             double half=0.5*width,mid=te+half;
             for(int k=0;k<64;++k){double th=mid+half*high.x[k];
-                if(with_jac){auto g=phi_val_dP(R,th,pf);if(!(g.phi>0)){out.reliable=false;return out;}double sq=std::sqrt(g.phi);vh+=high.w[k]*sq;for(int j=0;j<5;++j)dh[j]+=high.w[k]*(jac*g.dP[j])/(2*sq);}
-                else{double ph=phi_val(R,th,pf);if(!(ph>0)){out.reliable=false;return out;}vh+=high.w[k]*std::sqrt(ph);}}
+                if(with_jac){auto g=phi_val_dP(R,th,pf);if(!(g.phi>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);double sq=std::sqrt(g.phi);vh+=high.w[k]*sq;for(int j=0;j<5;++j)dh[j]+=high.w[k]*(jac*g.dP[j])/(2*sq);}
+                else{double ph=phi_val(R,th,pf);if(!(ph>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);vh+=high.w[k]*std::sqrt(ph);}}
             for(int k=0;k<32;++k){double th=mid+half*low.x[k];
-                if(with_jac){auto g=phi_val_dP(R,th,pf);if(!(g.phi>0)){out.reliable=false;return out;}double sq=std::sqrt(g.phi);vl+=low.w[k]*sq;for(int j=0;j<5;++j)dd[j]+=low.w[k]*(jac*g.dP[j])/(2*sq);}
-                else{double ph=phi_val(R,th,pf);if(!(ph>0)){out.reliable=false;return out;}vl+=low.w[k]*std::sqrt(ph);}}
+                if(with_jac){auto g=phi_val_dP(R,th,pf);if(!(g.phi>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);double sq=std::sqrt(g.phi);vl+=low.w[k]*sq;for(int j=0;j<5;++j)dd[j]+=low.w[k]*(jac*g.dP[j])/(2*sq);}
+                else{double ph=phi_val(R,th,pf);if(!(ph>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);vl+=low.w[k]*std::sqrt(ph);}}
             fh+=R*half*vh;efh+=R*half*std::fabs(vh-vl);
             if(with_jac)for(int j=0;j<5;++j){dfh[j]+=R*half*dh[j];edfh[j]+=R*half*std::fabs(dh[j]-dd[j]);}
         }
@@ -633,7 +870,11 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     // assignment happened after integrate(), so setup_ms double-counted the
     // entire adaptive physics/estimator phase.
     const double setup_total_ms=adaptive_detail::ms(setup_start);
-    auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed){return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],with_jacobian,topo.from_warm_d14,seed);});
+    auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed,bool force_cold){
+        return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],with_jacobian,
+                                              force_cold?false:topo.from_warm_d14,
+                                              force_cold?nullptr:seed,&cfg);
+    });
     result.stats.setup_ms=setup_total_ms;
     result.stats.setup_frame_ms=setup_frame_ms;
     result.stats.setup_cuts_ms=setup_cuts_ms;

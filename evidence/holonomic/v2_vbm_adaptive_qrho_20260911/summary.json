@@ -1,0 +1,471 @@
+{
+  "purpose": "Fair four-way pure-kernel comparison using current V2 adaptive value-only integration and existing VBM direct-kernel timing; error against existing VBM RelTol=1e-6 reference.",
+  "v2_commit": "fd4b0da009f61230de7809b9595e4785098d68e9",
+  "v2_runner": "/tmp/v2_adaptive_value_qrho_runner",
+  "v2_runner_sha256": "86b12c7281d30ad2c088e5ed8978dd1367f0b1e8f592ba54767dbda9773acc22",
+  "inputs": {
+    "input_snapshot": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_pure_kernel_20260911/input_snapshot.tsv",
+    "input_snapshot_sha256": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
+    "v2_results": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_results.tsv",
+    "v2_results_sha256": "93c6e72b906d90bb80d89efa79a70c87cdd7a95b614c0f257085995e12ca039d",
+    "vbm_speed_results": "/tmp/lcbinint_pure_kernel_confirm_full_20260909/merged_final/results.json",
+    "vbm_speed_results_sha256": "7233f909e2539dd5331acc5d412efc94a04238f5c9f3dbc7c031c88a5ade6027",
+    "vbm_reference_root": "/tmp/lcbinint_pure_kernel_reference_all_1e-6_20260909/plot_parts_vbm_reltol_1e-6_reference"
+  },
+  "matching": {
+    "speed_rows": 3608,
+    "reference_rows": 1804,
+    "v2_rows": 14432,
+    "joined_rows": 14432,
+    "reference_indices": [
+      0,
+      7,
+      15,
+      23
+    ],
+    "v2_calls_added": 14432,
+    "speed_comparison": "VBM RelTol=1e-3 and 1e-4, uniform and linear profiles",
+    "error_reference": "VBM RelTol=1e-6 reference values",
+    "v2_timing_scope": "flux_adaptive_integrate(p,u,topo,cfg,workspace) body; LensParams, PrimaryFrame, classify_cells (D14+topology), and TSV parsing/output excluded; adaptive setup, event handling, panels, physics, estimator, and scheduler included; no gradient/Jacobian",
+    "v2_adaptive_config": {
+      "gradient_policy": "None",
+      "with_jacobian": false,
+      "mu_atol": 1e-16,
+      "mu_rtol": "matched VBM target (1e-3 or 1e-4)",
+      "workspace_reuse": true,
+      "timed_repetitions": 3,
+      "timing_reducer": "median"
+    },
+    "profiles": {
+      "uniform": "LD off, c=0.0",
+      "linear": "LD on, c=0.5"
+    }
+  },
+  "failure_summary": {
+    "rows": 0,
+    "stop_counts": {},
+    "value_stop_counts": {},
+    "topology_status_counts": {},
+    "topology_uncertain_cell_counts": {},
+    "all_had_positive_nodes": true,
+    "all_had_positive_panels": true,
+    "interpretation": "No value-convergence failures were present in this rerun."
+  },
+  "plot": {
+    "min_cell_population": 8,
+    "q_rho_edges": {
+      "q": "geomspace(1e-4, 1, 13)",
+      "rho": "geomspace(3e-5, 1, 13)"
+    },
+    "q_rho_bins": "12 x 12; cells require at least 8 points",
+    "q_rho_population": {
+      "uniform:target=0.001": {
+        "cells": 144,
+        "populated_cells": 144,
+        "empty_or_underpopulated_cells": 0,
+        "min_nonzero_population": 8,
+        "max_population": 80
+      },
+      "uniform:target=0.0001": {
+        "cells": 144,
+        "populated_cells": 144,
+        "empty_or_underpopulated_cells": 0,
+        "min_nonzero_population": 8,
+        "max_population": 80
+      },
+      "linear:target=0.001": {
+        "cells": 144,
+        "populated_cells": 144,
+        "empty_or_underpopulated_cells": 0,
+        "min_nonzero_population": 8,
+        "max_population": 80
+      },
+      "linear:target=0.0001": {
+        "cells": 144,
+        "populated_cells": 144,
+        "empty_or_underpopulated_cells": 0,
+        "min_nonzero_population": 8,
+        "max_population": 80
+      }
+    },
+    "error_color_bounds": [
+      0,
+      1e-08,
+      1e-07,
+      1e-06,
+      3e-06,
+      1e-05,
+      3e-05,
+      0.0001,
+      0.0003
+    ],
+    "error_color_scale": "cell p95 relative error; lower bins expanded to 1e-8, 1e-7, 1e-6, 3e-6, 1e-5, 3e-5, 1e-4, 3e-4",
+    "speed_ratio": "VBM selected_seconds * 1000 / V2 ms; finite positive V2 outputs enter the paper-style runtime cells, regardless of status",
+    "error": "abs(V2 mu - VBM 1e-6 reference) / abs(VBM 1e-6 reference); only value-converged V2 values enter the paper-style p95 cells; all finite values remain in the all-status diagnostic summary",
+    "nonok_diagnostic": "non-OK points are retained in joined TSV and status_counts; topology status and uncertain-cell counts are retained separately; hatched cells identify incomplete value coverage"
+  },
+  "system": {
+    "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+    "python": "3.10.19"
+  },
+  "figures": [
+    {
+      "profile": "uniform",
+      "target": 0.001,
+      "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_adaptive_qrho_20260911/figures/q_rho_uniform_1e-3_v2_adaptive_current_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_adaptive_qrho_20260911/figures/q_rho_uniform_1e-3_v2_adaptive_current_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3608,
+      "status_ok_fraction": 1.0
+    },
+    {
+      "profile": "uniform",
+      "target": 0.0001,
+      "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_adaptive_qrho_20260911/figures/q_rho_uniform_1e-4_v2_adaptive_current_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_adaptive_qrho_20260911/figures/q_rho_uniform_1e-4_v2_adaptive_current_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3608,
+      "status_ok_fraction": 1.0
+    },
+    {
+      "profile": "linear",
+      "target": 0.001,
+      "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_adaptive_qrho_20260911/figures/q_rho_linear_1e-3_v2_adaptive_current_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_adaptive_qrho_20260911/figures/q_rho_linear_1e-3_v2_adaptive_current_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3608,
+      "status_ok_fraction": 1.0
+    },
+    {
+      "profile": "linear",
+      "target": 0.0001,
+      "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_adaptive_qrho_20260911/figures/q_rho_linear_1e-4_v2_adaptive_current_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/v2_vbm_adaptive_qrho_20260911/figures/q_rho_linear_1e-4_v2_adaptive_current_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3608,
+      "status_ok_fraction": 1.0
+    }
+  ],
+  "summary_by_condition": {
+    "linear:target=0.0001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3608
+      },
+      "numerical_status_counts": {
+        "OK": 3608
+      },
+      "value_stop_counts": {
+        "Converged": 3608
+      },
+      "topology_status_counts": {
+        "OK": 3608
+      },
+      "topology_uncertain_cell_counts": {
+        "0": 3608
+      },
+      "status_ok": 3608,
+      "status_ok_fraction": 1.0,
+      "adaptive_nodes": {
+        "p50": 115.0,
+        "p90": 195.30000000000018,
+        "p95": 230.0,
+        "p99": 370.0,
+        "max": 700.0
+      },
+      "adaptive_evaluations": {
+        "p50": 115.0,
+        "p95": 230.0,
+        "max": 700.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.008348000000000001,
+        "physics_p50": 0.16244599999999998,
+        "estimator_p50": 0.004621999999999999,
+        "scheduler_p50": 0.001168,
+        "setup_event_p50": 0.0066015
+      },
+      "v2_ms": {
+        "p50": 0.204459,
+        "p90": 0.4408221,
+        "p95": 0.5478258999999999,
+        "p99": 0.8502717799999995,
+        "max": 1.551818
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 6.593704635426096,
+        "p90": 27.771982086898102,
+        "win_fraction_ratio_gt_1": 0.9210088691796009
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 6.593704635426096,
+        "p90": 27.771982086898102,
+        "p95": 41.86106022586006,
+        "p99": 86.09857994802721,
+        "max": 382.99452858024034,
+        "win_fraction_ratio_gt_1": 0.9210088691796009
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 6.593704635426096,
+        "p90": 27.771982086898102,
+        "p95": 41.86106022586006,
+        "p99": 86.09857994802721,
+        "max": 382.99452858024034,
+        "win_fraction_ratio_gt_1": 0.9210088691796009
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 6.461908810119422e-07,
+        "p95": 7.842226686605294e-06,
+        "p99": 1.5254164696383952e-05,
+        "max": 0.00021777292365563318
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 6.461908810119422e-07,
+        "p95": 7.842226686605294e-06,
+        "p99": 1.5254164696383952e-05,
+        "max": 0.00021777292365563318
+      }
+    },
+    "linear:target=0.001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3608
+      },
+      "numerical_status_counts": {
+        "OK": 3608
+      },
+      "value_stop_counts": {
+        "Converged": 3608
+      },
+      "topology_status_counts": {
+        "OK": 3608
+      },
+      "topology_uncertain_cell_counts": {
+        "0": 3608
+      },
+      "status_ok": 3608,
+      "status_ok_fraction": 1.0,
+      "adaptive_nodes": {
+        "p50": 90.0,
+        "p90": 139.0,
+        "p95": 159.0,
+        "p99": 199.7899999999995,
+        "max": 382.0
+      },
+      "adaptive_evaluations": {
+        "p50": 90.0,
+        "p95": 159.0,
+        "max": 382.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.0085645,
+        "physics_p50": 0.129809,
+        "estimator_p50": 0.003533,
+        "scheduler_p50": 0.0008910000000000001,
+        "setup_event_p50": 0.0066565
+      },
+      "v2_ms": {
+        "p50": 0.168019,
+        "p90": 0.32495589999999996,
+        "p95": 0.3852256999999996,
+        "p99": 0.5174639899999998,
+        "max": 0.878835
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 1.989191696125775,
+        "p90": 8.800149604603886,
+        "win_fraction_ratio_gt_1": 0.7134146341463414
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 1.989191696125775,
+        "p90": 8.800149604603886,
+        "p95": 12.996734266998663,
+        "p99": 24.352612415985885,
+        "max": 43.665617253578155,
+        "win_fraction_ratio_gt_1": 0.7134146341463414
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 1.989191696125775,
+        "p90": 8.800149604603886,
+        "p95": 12.996734266998663,
+        "p99": 24.352612415985885,
+        "max": 43.665617253578155,
+        "win_fraction_ratio_gt_1": 0.7134146341463414
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 8.487431871428393e-07,
+        "p95": 9.346840191928084e-06,
+        "p99": 1.6736172529829264e-05,
+        "max": 0.0002177763059073192
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 8.487431871428393e-07,
+        "p95": 9.346840191928084e-06,
+        "p99": 1.6736172529829264e-05,
+        "max": 0.0002177763059073192
+      }
+    },
+    "uniform:target=0.0001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3608
+      },
+      "numerical_status_counts": {
+        "OK": 3608
+      },
+      "value_stop_counts": {
+        "Converged": 3608
+      },
+      "topology_status_counts": {
+        "OK": 3608
+      },
+      "topology_uncertain_cell_counts": {
+        "0": 3608
+      },
+      "status_ok": 3608,
+      "status_ok_fraction": 1.0,
+      "adaptive_nodes": {
+        "p50": 107.0,
+        "p90": 190.0,
+        "p95": 230.0,
+        "p99": 369.0,
+        "max": 756.0
+      },
+      "adaptive_evaluations": {
+        "p50": 107.0,
+        "p95": 230.0,
+        "max": 756.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.008277,
+        "physics_p50": 0.11639599999999997,
+        "estimator_p50": 0.004250500000000001,
+        "scheduler_p50": 0.001076,
+        "setup_event_p50": 0.00655
+      },
+      "v2_ms": {
+        "p50": 0.1553315,
+        "p90": 0.2906397,
+        "p95": 0.3622369,
+        "p99": 0.6235588399999988,
+        "max": 2.04677
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 0.7213563539815758,
+        "p90": 1.316186490782142,
+        "win_fraction_ratio_gt_1": 0.20426829268292682
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 0.7213563539815758,
+        "p90": 1.316186490782142,
+        "p95": 1.6785696271973676,
+        "p99": 2.658222614009571,
+        "max": 4.974349278033061,
+        "win_fraction_ratio_gt_1": 0.20426829268292682
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 0.7213563539815758,
+        "p90": 1.316186490782142,
+        "p95": 1.6785696271973676,
+        "p99": 2.658222614009571,
+        "max": 4.974349278033061,
+        "win_fraction_ratio_gt_1": 0.20426829268292682
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 2.8854559452993218e-08,
+        "p95": 3.365935925707669e-07,
+        "p99": 1.0123676655998564e-06,
+        "max": 0.0002706966682087104
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 2.8854559452993218e-08,
+        "p95": 3.365935925707669e-07,
+        "p99": 1.0123676655998564e-06,
+        "max": 0.0002706966682087104
+      }
+    },
+    "uniform:target=0.001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3608
+      },
+      "numerical_status_counts": {
+        "OK": 3608
+      },
+      "value_stop_counts": {
+        "Converged": 3608
+      },
+      "topology_status_counts": {
+        "OK": 3608
+      },
+      "topology_uncertain_cell_counts": {
+        "0": 3608
+      },
+      "status_ok": 3608,
+      "status_ok_fraction": 1.0,
+      "adaptive_nodes": {
+        "p50": 82.0,
+        "p90": 134.0,
+        "p95": 159.0,
+        "p99": 202.85999999999967,
+        "max": 390.0
+      },
+      "adaptive_evaluations": {
+        "p50": 82.0,
+        "p95": 159.0,
+        "max": 390.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.008655,
+        "physics_p50": 0.090446,
+        "estimator_p50": 0.0030185,
+        "scheduler_p50": 0.0008230000000000001,
+        "setup_event_p50": 0.006677000000000001
+      },
+      "v2_ms": {
+        "p50": 0.122137,
+        "p90": 0.21819490000000002,
+        "p95": 0.26049514999999973,
+        "p99": 0.3738331199999999,
+        "max": 0.653244
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 0.513566988258572,
+        "p90": 0.9257490705988176,
+        "win_fraction_ratio_gt_1": 0.08314855875831485
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3608,
+        "p50": 0.513566988258572,
+        "p90": 0.9257490705988176,
+        "p95": 1.2007515747762985,
+        "p99": 1.9003658963316425,
+        "max": 3.9334220566234968,
+        "win_fraction_ratio_gt_1": 0.08314855875831485
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 0.513566988258572,
+        "p90": 0.9257490705988176,
+        "p95": 1.2007515747762985,
+        "p99": 1.9003658963316425,
+        "max": 3.9334220566234968,
+        "win_fraction_ratio_gt_1": 0.08314855875831485
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 6.975740384252468e-08,
+        "p95": 4.4069435092082975e-06,
+        "p99": 1.3136852136596988e-05,
+        "max": 0.0002705880476791277
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 6.975740384252468e-08,
+        "p95": 4.4069435092082975e-06,
+        "p99": 1.3136852136596988e-05,
+        "max": 0.0002705880476791277
+      }
+    }
+  }
+}

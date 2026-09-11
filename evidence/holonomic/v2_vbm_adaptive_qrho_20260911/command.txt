@@ -1,0 +1,6 @@
+# Current checkout: dev/holonomic at the HEAD recorded in provenance.txt
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_adaptive_value_runner.cpp -o /tmp/v2_adaptive_value_qrho_runner -lquadmath
+sha256sum /tmp/v2_adaptive_value_qrho_runner > evidence/holonomic/v2_vbm_adaptive_qrho_20260911/binary.sha256
+/tmp/v2_adaptive_value_qrho_runner evidence/holonomic/v2_vbm_pure_kernel_20260911/input_snapshot.tsv /tmp/v2_adaptive_value_qrho_results.tsv > evidence/holonomic/v2_vbm_adaptive_qrho_20260911/runner_stdout.log 2> evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_run.log
+cp /tmp/v2_adaptive_value_qrho_results.tsv evidence/holonomic/v2_vbm_adaptive_qrho_20260911/v2_results.tsv
+python3 evidence/holonomic/v2_vbm_adaptive_qrho_20260911/make_figures.py

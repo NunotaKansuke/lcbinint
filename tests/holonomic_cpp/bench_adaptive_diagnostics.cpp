@@ -44,14 +44,20 @@ int main(int argc,char** argv) {
     std::ofstream epochs(outdir+"/epochs.csv");
     std::ofstream events(outdir+"/events.csv");
     std::ofstream refinements(outdir+"/refinements.csv");
-    if(!epochs||!events||!refinements) return 3;
+    std::ofstream samples(outdir+"/samples.csv");
+    std::ofstream sample_counts(outdir+"/sample_reason_counts.csv");
+    if(!epochs||!events||!refinements||!samples||!sample_counts) return 3;
     epochs << std::setprecision(17);
     events << std::setprecision(17);
     refinements << std::setprecision(17);
+    samples << std::setprecision(17);
+    sample_counts << std::setprecision(17);
 
     epochs << "name,u,policy,warm,rtol,stop,value_stop,gradient_stop,value_converged,mu,value_error,nodes,evaluations,event_count,refinement_count,topology_ms,setup_ms,physics_ms,estimator_ms,scheduler_ms,event_double_checks,event_dd_checks,event_dd_accepts,event_qf_refinements,qf_family_constructions,event_topology_reuses,event_radius_reuses,event_direct_qf_failures\n";
     events << "name,u,policy,warm,rtol,index,input_radius,selected_radius,radius_lo,uncertainty,t_seed,d14_condition,t_seed_valid,topology_reused,precision_tier,double_reason,dd_reason,qf_reason,double_residual,dd_residual\n";
     refinements << "name,u,policy,warm,rtol,index,panel,cell,parent,depth,level,node_evaluations,value_error,gradient_error0,gradient_error1,gradient_error2,gradient_error3,gradient_error4,gradient_phase,value_resolved,gradient_resolved0,gradient_resolved1,gradient_resolved2,gradient_resolved3,gradient_resolved4\n";
+    samples << "name,u,policy,warm,rtol,index,panel,node_slot,cell,level,R,reason,cold_retry,cold_retry_succeeded\n";
+    sample_counts << "name,u,policy,warm,rtol,reason,count,cold_count,cold_retries,cold_retry_successes\n";
 
     const GradientPolicy policies[]={GradientPolicy::None,GradientPolicy::ValueFirst};
     for(const auto& c:cases) for(const auto policy:policies) for(bool warm:{false,true}) {
@@ -111,6 +117,27 @@ int main(int argc,char** argv) {
                 refinements << ',' << int(h.gradient_phase) << ',' << int(h.value_resolved);
                 for(bool x:h.gradient_resolved) refinements << ',' << int(x);
                 refinements << '\n';
+            }
+            for(size_t i=0;i<r.stats.sample_diagnostics.size();++i) {
+                const auto& d=r.stats.sample_diagnostics[i];
+                samples << c.name << ',' << c.u << ',' << gradient_policy_name(policy)
+                        << ',' << int(warm) << ',' << tol << ',' << i << ','
+                        << d.panel << ',' << d.node_slot << ',' << d.cell << ','
+                        << d.level << ',' << d.R << ','
+                        << adaptive_sample_reject_reason_name(d.reason) << ','
+                        << int(d.cold_retry) << ',' << int(d.cold_retry_succeeded)
+                        << '\n';
+            }
+            for(std::size_t i=0;i<r.stats.sample_reject_counts.size();++i) {
+                const auto reason=static_cast<AdaptiveSampleRejectReason>(i);
+                sample_counts << c.name << ',' << c.u << ','
+                              << gradient_policy_name(policy) << ',' << int(warm)
+                              << ',' << tol << ','
+                              << adaptive_sample_reject_reason_name(reason) << ','
+                              << r.stats.sample_reject_counts[i] << ','
+                              << r.stats.sample_cold_reject_counts[i] << ','
+                              << r.stats.sample_cold_retries << ','
+                              << r.stats.sample_cold_retry_successes << '\n';
             }
         }
     }

@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstdint>
 #include <limits>
+#include <type_traits>
 
 namespace lcbinint::holonomic {
 using AdaptiveVector = std::array<double,6>;
@@ -80,6 +81,44 @@ inline const char* event_decision_reason_name(EventDecisionReason r) {
     }
     return "Unknown";
 }
+// Reasons returned by one adaptive mapped-radius sample.  These are kept
+// separate from AdaptiveStop::TopologyUnresolved: the latter is the stable
+// external stop label, while this enum identifies the local representation or
+// continuation failure that caused it.
+enum class AdaptiveSampleRejectReason {
+    None,
+    ArcKindMismatch,
+    DegenerateChart,
+    EndpointUnreliable,
+    ArcWidthUnresolved,
+    InnerPhiNonpositive,
+    Nonfinite,
+    RootContinuationMismatch,
+};
+inline const char* adaptive_sample_reject_reason_name(
+    AdaptiveSampleRejectReason r) {
+    switch (r) {
+    case AdaptiveSampleRejectReason::None: return "None";
+    case AdaptiveSampleRejectReason::ArcKindMismatch: return "ArcKindMismatch";
+    case AdaptiveSampleRejectReason::DegenerateChart: return "DegenerateChart";
+    case AdaptiveSampleRejectReason::EndpointUnreliable: return "EndpointUnreliable";
+    case AdaptiveSampleRejectReason::ArcWidthUnresolved: return "ArcWidthUnresolved";
+    case AdaptiveSampleRejectReason::InnerPhiNonpositive: return "InnerPhiNonpositive";
+    case AdaptiveSampleRejectReason::Nonfinite: return "Nonfinite";
+    case AdaptiveSampleRejectReason::RootContinuationMismatch: return "RootContinuationMismatch";
+    }
+    return "Unknown";
+}
+inline constexpr std::size_t adaptive_sample_reject_reason_count = 8;
+inline constexpr std::size_t adaptive_sample_reject_reason_index(
+    AdaptiveSampleRejectReason r) {
+    return static_cast<std::size_t>(r);
+}
+inline bool adaptive_sample_reject_retryable(AdaptiveSampleRejectReason r) {
+    return r == AdaptiveSampleRejectReason::ArcKindMismatch ||
+           r == AdaptiveSampleRejectReason::DegenerateChart ||
+           r == AdaptiveSampleRejectReason::RootContinuationMismatch;
+}
 struct AdaptiveTolerance {
     double mu_atol=1e-8,mu_rtol=1e-4;
     std::array<double,5> grad_atol{{1e-6,1e-6,1e-6,1e-6,1e-6}};
@@ -130,6 +169,13 @@ struct AdaptiveRefinementRecord {
     bool gradient_phase=false,value_resolved=false;
     std::array<bool,5> gradient_resolved{};
 };
+struct AdaptiveSampleDiagnostic {
+    std::size_t panel=0,node_slot=0;
+    int cell=0,level=0;
+    double R=0;
+    AdaptiveSampleRejectReason reason=AdaptiveSampleRejectReason::None;
+    bool cold_retry=false,cold_retry_succeeded=false;
+};
 struct AdaptiveStats {
     size_t unique_nodes=0,node_evaluations=0,reused_nodes=0,split_discarded_nodes=0,splits=0;
     size_t root_anchors=0,panels=0;
@@ -138,9 +184,13 @@ struct AdaptiveStats {
     size_t first_value_pass_nodes=0,first_gradient_error_pass_nodes=0,first_gradient_contract_nodes=0;
     unsigned gradient_error_pass_mask=0,gradient_contract_mask=0;
     std::array<size_t,9> level_histogram{};
+    std::array<size_t,adaptive_sample_reject_reason_count> sample_reject_counts{};
+    std::array<size_t,adaptive_sample_reject_reason_count> sample_cold_reject_counts{};
+    size_t sample_cold_retries=0,sample_cold_retry_successes=0;
     double physical_ms=0,estimator_ms=0,scheduler_ms=0,topology_ms=0,setup_ms=0;
     double setup_frame_ms=0,setup_cuts_ms=0,setup_event_ms=0,setup_panel_ms=0;
     std::vector<AdaptiveEventDiagnostic> event_diagnostics;
+    std::vector<AdaptiveSampleDiagnostic> sample_diagnostics;
     std::vector<AdaptiveRefinementRecord> refinement_history;
 };
 struct AdaptiveResult {
@@ -173,6 +223,7 @@ struct AdaptiveSample {
     RootPairWarm roots{};
     std::array<bool,6> component_finite{{true,true,true,true,true,true}};
     bool reliable=true;
+    AdaptiveSampleRejectReason reject_reason=AdaptiveSampleRejectReason::None;
 };
 struct AdaptivePanel {
     FoldRadialMap map;
@@ -381,6 +432,34 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
     } value_snapshot;
     auto allocated_bytes=[&](){return w.samples.capacity()*sizeof(AdaptiveSample)+
         w.panels.capacity()*sizeof(AdaptivePanel);};
+    auto invoke_eval=[&](double R,double jac,int cell,const AdaptiveSample* seed,
+                         bool force_cold)->AdaptiveSample {
+        // The fifth argument is an opt-in extension for the production
+        // adaptive epoch adapter.  Keep the four-argument callback source
+        // compatible for the small radial-controller tests and research
+        // callers that do not own a warm/cold path.
+        if constexpr(std::is_invocable_v<Evaluate,double,double,int,
+                                         const AdaptiveSample*,bool>)
+            return eval(R,jac,cell,seed,force_cold);
+        else
+            return eval(R,jac,cell,seed);
+    };
+    auto record_sample_reject=[&](std::size_t panel,std::size_t slot,int cell,
+                                  int level,double R,
+                                  const AdaptiveSample& sample,bool cold_retry,
+                                  bool cold_retry_succeeded) {
+        const auto reason=sample.reject_reason;
+        if(reason==AdaptiveSampleRejectReason::None)return;
+        const std::size_t ri=adaptive_sample_reject_reason_index(reason);
+        if(ri<stats.sample_reject_counts.size()) {
+            if(cold_retry)++stats.sample_cold_reject_counts[ri];
+            else ++stats.sample_reject_counts[ri];
+        }
+        if(cfg.collect_diagnostics) {
+            stats.sample_diagnostics.push_back(AdaptiveSampleDiagnostic{
+                panel,slot,cell,level,R,reason,cold_retry,cold_retry_succeeded});
+        }
+    };
     auto refine=[&](size_t ip,int level)->AdaptiveStop {
         auto& p=w.panels[ip];const int m=1<<level,step=256/m;
         size_t needed=0;for(int k=1;k<m;++k)needed+=!cfg.reuse_samples||p.samples[k*step]<0;
@@ -424,10 +503,40 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 double d=std::fabs(w.samples[idx].R-mapped[0]);
                 if(d<distance && w.samples[idx].reliable){distance=d;anchor=&w.samples[idx];}
             }
-            auto start=Clock::now();AdaptiveSample s=eval(mapped[0],mapped[1],p.cell,anchor);
+            auto start=Clock::now();
+            AdaptiveSample s=invoke_eval(mapped[0],mapped[1],p.cell,anchor,false);
             stats.physical_ms+=ms(start); if(anchor)++stats.root_anchors;
+            ++stats.node_evaluations;
+            const AdaptiveSampleRejectReason initial_reason=s.reject_reason;
+            bool cold_retry_succeeded=false;
+            // A warm continuation is an optimization layer.  If it reports a
+            // topology/continuation representation failure, retry this same R
+            // from fresh quartic/root state once.  A failure from an already
+            // cold evaluation is retained and remains fail-closed.
+            if(!s.reliable && anchor &&
+               adaptive_sample_reject_retryable(initial_reason) &&
+               stats.node_evaluations<cfg.max_node_evals) {
+                ++stats.sample_cold_retries;
+                auto cold_start=Clock::now();
+                AdaptiveSample cold=invoke_eval(mapped[0],mapped[1],p.cell,nullptr,true);
+                stats.physical_ms+=ms(cold_start);
+                ++stats.node_evaluations;
+                cold.R=mapped[0];
+                cold_retry_succeeded=cold.reliable;
+                if(cold_retry_succeeded)++stats.sample_cold_retry_successes;
+                s=std::move(cold);
+                AdaptiveSample initial_failed;
+                initial_failed.reject_reason=initial_reason;
+                record_sample_reject(ip,slot,p.cell,level,mapped[0],
+                                     initial_failed,false,cold_retry_succeeded);
+                if(!s.reliable)record_sample_reject(ip,slot,p.cell,level,
+                                                    mapped[0],s,true,false);
+            } else if(!s.reliable) {
+                record_sample_reject(ip,slot,p.cell,level,mapped[0],s,false,false);
+            }
             s.R=mapped[0];
-            p.samples[slot]=int(w.samples.size());w.samples.push_back(std::move(s));++stats.node_evaluations;if(fresh)++stats.unique_nodes;
+            p.samples[slot]=int(w.samples.size());w.samples.push_back(std::move(s));
+            if(fresh)++stats.unique_nodes;
             auto& stored=w.samples.back();
             bool value_finite=true;
             for(int j=0;j<nc;++j) {
@@ -438,7 +547,11 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 if(j==0)value_finite=value_finite&&ok;
                 else if(!ok) gradient_invalid_seen[j-1]=true;
             }
-            if(!value_finite){invalid=true;return AdaptiveStop::Nonfinite;}
+            if(!value_finite){
+                if(stored.reject_reason==AdaptiveSampleRejectReason::None)
+                    stored.reject_reason=AdaptiveSampleRejectReason::Nonfinite;
+                invalid=true;return AdaptiveStop::Nonfinite;
+            }
             if(!stored.reliable){invalid=true;return AdaptiveStop::TopologyUnresolved;}
         }
         p.level=level;auto start=Clock::now();estimate(p,w,nc);stats.estimator_ms+=ms(start);

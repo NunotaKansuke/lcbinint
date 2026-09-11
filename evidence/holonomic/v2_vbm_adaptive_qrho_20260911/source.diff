@@ -1,0 +1,774 @@
+diff --git a/docs/holonomic/v2_vbm_adaptive_value_benchmark_20260911.md b/docs/holonomic/v2_vbm_adaptive_value_benchmark_20260911.md
+index cb03e16..4065243 100644
+--- a/docs/holonomic/v2_vbm_adaptive_value_benchmark_20260911.md
++++ b/docs/holonomic/v2_vbm_adaptive_value_benchmark_20260911.md
+@@ -1,7 +1,11 @@
+ # V2 adaptive value-only benchmark checkpoint — 2026-09-11
+
++> これは結果の記録であり、記載された branch / HEAD を checkout する指示ではない。新しい実装を測るときは、渡された現在の checkout の指定 kernel をそのまま compile し、[指定 kernel 用 runbook](../../tests/diagnostics/recal2026/HANDOFF_vbm_filled_qrho_kernel_runbook_20260911.md) に従って provenance と計時条件を残す。
++
+ 前回の固定 `n_r=64` pure-kernel結果ではなく、現行V2の adaptive value path を同じ論文用入力へ適用した。対象は既存VBM benchmarkの1,804 geometry/profile/epoch行で、各行について VBM speed target `RelTol=1e-3` と `1e-4` をV2の `mu_rtol`へ対応させ、uniform/linearの4条件、合計14,432 timed V2 callsを作成した。
+
++q–rho の図は coverage extension と同じ protocol-clamped edge `q=geomspace(1e-4,1,13)`、`rho=geomspace(3e-5,1,13)` の12×12 binを使う。入力 coverage 自体は uniform/linear とも144/144 cell（`min_cell_population=8`）で、`rho<1e-4` の行も下限 `3e-5` 以上の有効なサンプルである。adaptive の未収束点による斜線と、bin定義を誤った灰色を混同しないため、protocol-edge replot は evidence の `protocol_edges/` に保存した。
++
+ V2は `flux_adaptive_integrate(p,u,topo,cfg,workspace)` を測定した。`LensParams`、`PrimaryFrame`、`classify_cells`（D14/topology）、入力処理、出力処理はtimer外、adaptive setup、event handling、panel refinement、physics、estimator、schedulerはtimer内である。`mu_atol=1e-16`、gradient policy `None`、Jacobianなし、workspace warm-up後3回の中央値を使った。従って固定64ではなく、要求RelTolに応じてnode数を決めるvalue-only測定であり、既存VBMのwarm direct-kernel timingと同じpure-kernel境界である。full epochのD14/topology時間は含めていない。
+
+ | profile | target | value-converged | V2 p50 ms | V2 p95 ms | median VBM/V2 |
+@@ -26,4 +30,4 @@ V2は `flux_adaptive_integrate(p,u,topo,cfg,workspace)` を測定した。`LensP
+
+ この636行のうち624行（98.1%）は、topologyのcell planに少なくとも1つ`kFull` cellを持つgeometryだった。`kFull`はその半径で円周全体が有効で、arcの端点が存在しない状態である。固定V2の`radius_terms()`には`full_circle_terms()`処理がある一方、adaptiveの`mapped_radius()`は端点arcを前提にしており、`kFull`/`kDegenerate`を`reliable=false`として停止する。このため大きな`rho`領域の斜線は、value estimatorの収束不足というよりadaptive側のfull-circle表現未対応を示している。残り12行はtiny-source/near-axisの2 geometry（`case_id=9, d_bin=2, epoch=7` と `case_id=92, d_bin=0`）で、現行evaluatorが内部arc guardの細分類を出していないため、個別reject条件は未確定である。詳細は`topology_diagnostic.tsv`と`arc_reliability_diagnostic.tsv`に保存した。
+
+-成果物は [REPORT.md](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/REPORT.md)、[summary.json](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/summary.json)、[joined_v2_vbm.tsv](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/joined_v2_vbm.tsv)、[v2_results.tsv](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/v2_results.tsv) と `figures/` に保存した。VBM speed sourceと1e-6 referenceは前回ベンチの固定artifactを再利用し、今回追加計算はV2 adaptiveのみである。
++成果物は [REPORT.md](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/REPORT.md)、[summary.json](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/summary.json)、[joined_v2_vbm.tsv](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/joined_v2_vbm.tsv)、[v2_results.tsv](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/v2_results.tsv) と `figures/` に保存した。protocol-edgeで描き直した一式は [protocol_edges/](../../evidence/holonomic/v2_vbm_adaptive_phase92_20260911/protocol_edges/) にある。VBM speed sourceと1e-6 referenceは前回ベンチの固定artifactを再利用し、今回追加計算はV2 adaptiveのみである。
+diff --git a/evidence/holonomic/v2_vbm_adaptive_phase92_20260911/make_figures.py b/evidence/holonomic/v2_vbm_adaptive_phase92_20260911/make_figures.py
+index c208408..f1aec1a 100644
+--- a/evidence/holonomic/v2_vbm_adaptive_phase92_20260911/make_figures.py
++++ b/evidence/holonomic/v2_vbm_adaptive_phase92_20260911/make_figures.py
+@@ -3,6 +3,7 @@ import csv
+ import hashlib
+ import json
+ import math
++import os
+ import platform
+ import subprocess
+ from collections import defaultdict, Counter
+@@ -15,11 +16,11 @@ import matplotlib.pyplot as plt
+ from matplotlib.colors import BoundaryNorm, ListedColormap
+ from matplotlib.patches import Rectangle
+
+-SPEED_PATH = Path('/tmp/lcbinint_pure_kernel_confirm_full_20260909/merged_final/results.json')
+-REF_ROOT = Path('/tmp/lcbinint_pure_kernel_reference_all_1e-6_20260909/plot_parts_vbm_reltol_1e-6_reference')
++SPEED_PATH = Path(os.environ.get('V2_VBM_SPEED_PATH', '/tmp/lcbinint_pure_kernel_confirm_full_20260909/merged_final/results.json'))
++REF_ROOT = Path(os.environ.get('V2_VBM_REF_ROOT', '/tmp/lcbinint_pure_kernel_reference_all_1e-6_20260909/plot_parts_vbm_reltol_1e-6_reference'))
+ ROOT = Path(__file__).resolve().parent
+ V2_PATH = ROOT / 'v2_results.tsv'
+-OUT = ROOT
++OUT = Path(os.environ.get('V2_VBM_OUT', str(ROOT)))
+ FIG_DIR = OUT / 'figures'
+ OUT.mkdir(parents=True, exist_ok=True)
+ FIG_DIR.mkdir(parents=True, exist_ok=True)
+@@ -294,9 +295,9 @@ ERROR_LABELS = ['≤ 10⁻⁴', '2 × 10⁻⁴', '5 × 10⁻⁴', '10⁻³',
+
+ def edges_for(kind):
+     if kind == 'q':
+-        return np.logspace(-4, 0, 13), r'$q$'
++        return np.geomspace(1e-4, 1, 13), r'$q$'
+     if kind == 'rho':
+-        return np.logspace(-4, 0, 11), r'$\rho$'
++        return np.geomspace(3e-5, 1, 13), r'$\rho$'
+     if kind == 'A':
+         return np.logspace(0, 5, 13), r'$A_{\rm fs}$'
+     raise ValueError(kind)
+@@ -531,6 +532,7 @@ def main():
+         'failure_summary': failure_summary,
+         'plot': {
+             'min_cell_population': MIN_CELL_POPULATION,
++            'q_rho_edges': 'q=np.geomspace(1e-4,1,13), rho=np.geomspace(3e-5,1,13); 12x12 protocol-clamped bins',
+             'speed_ratio': 'VBM selected_seconds * 1000 / V2 ms; finite positive V2 outputs enter the paper-style runtime cells, regardless of status',
+             'error': 'abs(V2 mu - VBM 1e-6 reference) / abs(VBM 1e-6 reference); only value-converged V2 values enter the paper-style p95 cells; all finite values remain in the all-status diagnostic summary',
+             'nonok_diagnostic': 'non-OK points are retained in joined TSV and status_counts; topology status and uncertain-cell counts are retained separately; hatched cells identify incomplete value coverage',
+@@ -545,6 +547,7 @@ def main():
+     report.append('The four speed conditions are VBM `RelTol=1e-3` and `RelTol=1e-4`, each for uniform (LD off) and linear (LD on, `c=0.5`). Only current V2 was evaluated in this step. Relative error is evaluated against the existing VBM `RelTol=1e-6` reference.\n')
+     report.append('V2 timing covers the value-only adaptive `flux_adaptive_integrate(p,u,topo,cfg,workspace)` path. The radial node count is selected by the adaptive value contract `Eabs <= max(1e-16, RelTol * abs(mu))`; this is not a fixed-64 run. `classify_cells` (D14+topology), `LensParams`, input parsing, and output formatting are outside the timer, while adaptive setup, event handling, panel refinement, physics, estimator, and scheduler are inside. No gradient/Jacobian is requested or timed, and this remains the same pure-kernel boundary as the VBM timing rather than a full epoch. The existing VBM timing is the warmed direct `BinaryMag`/`BinaryMagDark` kernel.\n')
+     report.append('Non-OK V2 points remain in the machine-readable join and status counts. The paper-style runtime map keeps finite positive V2 outputs. The p95 error map uses value-converged V2 values only; all-status finite-value error distributions remain in `summary.json`, and hatched cells identify incomplete value coverage.\n')
++    report.append('The q-rho panels use the coverage-extension protocol edges `q=geomspace(1e-4,1,13)` and `rho=geomspace(3e-5,1,13)`, giving 12x12 bins. This is distinct from a decade-floored rho axis starting at 1e-4.\n')
+     report.append('The 636 non-converged rows have `topology_status=OK`, zero uncertain topology cells, and positive node/panel counts. They therefore passed the topology classifier and stopped later when an adaptive sample evaluator returned `reliable=false`; the current evaluator reports those internal subreasons through the aggregate `TopologyUnresolved` stop label.\n')
+     report.append('## Conditions\n')
+     report.append('| profile | VBM timing target | rows | V2 value-converged | V2 p50 ms | V2 p95 ms | median VBM/V2 (finite positive) | median VBM/V2 (value-converged) | all-finite p95 error | converged p95 error |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|')
+diff --git a/src/lcbinint/magnification/holonomic/adaptive_epoch.hpp b/src/lcbinint/magnification/holonomic/adaptive_epoch.hpp
+index f54cc18..779334a 100644
+--- a/src/lcbinint/magnification/holonomic/adaptive_epoch.hpp
++++ b/src/lcbinint/magnification/holonomic/adaptive_epoch.hpp
+@@ -422,18 +422,253 @@ inline bool restore_physical_cuts(const TopologyResult& topo,const PrimaryFrame&
+     }
+     return end==topo.r_max;
+ }
++struct FullCircleLevel {
++    double integral=0;
++    std::array<double,5> derivative{};
++};
++struct FullCircleNode {
++    double value=0;
++    std::array<double,5> derivative{};
++    bool valid=false;
++};
++
++// Nested periodic trapezoid levels for a certified full-circle cell.  The
++// finest lattice is fixed at 256 slots, so M=64/128/256 reuses the samples
++// already evaluated at the coarser level.  The cell topology is supplied by
++// D14/quartic classification; this routine only checks the physical phi>0
++// integrand and estimates its inner quadrature error.
++inline bool full_circle_periodic_level(
++    int M,double R,const PrimaryFrame& pf,bool with_jac,
++    std::array<FullCircleNode,256>& nodes,FullCircleLevel& level) {
++    const int stride=256/M;
++    Sum value_sum;
++    std::array<Sum,5> derivative_sum;
++    for(int i=0;i<M;++i) {
++        const int slot=i*stride;
++        auto& node=nodes[slot];
++        if(!node.valid) {
++            const double theta=kTwoPi*static_cast<double>(slot)/256.0;
++            if(with_jac) {
++                const PhiValDP g=phi_val_dP(R,theta,pf);
++                if(!(g.phi>0.0)||!std::isfinite(g.phi))return false;
++                node.value=std::sqrt(g.phi);
++                if(!std::isfinite(node.value))return false;
++                for(int j=0;j<5;++j) {
++                    node.derivative[j]=g.dP[j]/(2.0*node.value);
++                    if(!std::isfinite(node.derivative[j]))return false;
++                }
++            } else {
++                const double phi=phi_val(R,theta,pf);
++                if(!(phi>0.0)||!std::isfinite(phi))return false;
++                node.value=std::sqrt(phi);
++                if(!std::isfinite(node.value))return false;
++            }
++            node.valid=true;
++        }
++        value_sum.add(node.value);
++        if(with_jac)for(int j=0;j<5;++j)derivative_sum[j].add(node.derivative[j]);
++    }
++    const double weight=kTwoPi/static_cast<double>(M);
++    level.integral=weight*value_sum.get();
++    if(with_jac)for(int j=0;j<5;++j)level.derivative[j]=weight*derivative_sum[j].get();
++    if(!std::isfinite(level.integral))return false;
++    if(with_jac)for(double d:level.derivative)if(!std::isfinite(d))return false;
++    return true;
++}
++
++inline AdaptiveSample mapped_full_circle(
++    double R,double jac,const LensParams& p,double u,const PrimaryFrame& pf,
++    bool with_jac,const AdaptiveConfig* adaptive_cfg=nullptr) {
++    AdaptiveSample out;
++    auto reject=[&](AdaptiveSampleRejectReason reason) {
++        out.reliable=false;out.reject_reason=reason;return out;
++    };
++    const double D=kPi*p.rho*p.rho*(1.0-u/3.0);
++    if(!(R>0.0)||!std::isfinite(R)||!std::isfinite(jac)||!(D>0.0)||
++       !std::isfinite(D))return reject(AdaptiveSampleRejectReason::Nonfinite);
++    const double scale=jac/D;
++    const double f0=R*kTwoPi;
++    double fh=0,efh=0;
++    std::array<double,5> dfh{},edfh{};
++    if(u!=0.0) {
++        std::array<FullCircleNode,256> nodes{};
++        FullCircleLevel l32{},l64{},l128{},l256{};
++        if(!full_circle_periodic_level(32,R,pf,with_jac,nodes,l32) ||
++           !full_circle_periodic_level(64,R,pf,with_jac,nodes,l64))
++            return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
++        const double atol=adaptive_cfg?adaptive_cfg->tol.mu_atol:1e-8;
++        const double rtol=adaptive_cfg?adaptive_cfg->tol.mu_rtol:1e-4;
++        const bool strict=adaptive_cfg &&
++            adaptive_cfg->effective_gradient_policy()==GradientPolicy::Strict;
++        const auto abs_map=[&](const std::array<double,5>& v) {
++            std::array<double,5> e{};
++            for(int k=0;k<5;++k) {
++                std::array<double,5> unit{};unit[k]=v[k];
++                const auto col=internal_to_user_jac(unit,p);
++                for(int j=0;j<5;++j)e[j]+=std::fabs(col[j]);
++            }
++            return e;
++        };
++        const auto level_meets=[&](const FullCircleLevel& low,
++                                   const FullCircleLevel& high) {
++            const double high_fh=R*high.integral;
++            const double estimate=scale*((1.0-u)*f0+u*high_fh);
++            const double target=std::max(atol,rtol*std::fabs(estimate));
++            const double value_error=std::fabs(scale*u)*R*
++                                     std::fabs(high.integral-low.integral);
++            if(!(value_error<=0.25*target))return false;
++            if(!strict||!with_jac)return true;
++            for(int j=0;j<5;++j) {
++                std::array<double,5> raw{},raw_error{};
++                raw[j]=jac*R*high.derivative[j];
++                raw_error[j]=std::fabs(jac*R)*
++                    std::fabs(high.derivative[j]-low.derivative[j]);
++                const auto user=internal_to_user_jac(raw,p);
++                const auto user_error=abs_map(raw_error);
++                double gradient= u*user[j]/D;
++                if(j==2)gradient-=2.0*estimate/p.rho;
++                double gradient_error=std::fabs(u/D)*user_error[j];
++                gradient_error+=2.0*value_error/p.rho*(j==2);
++                const double gt=std::max(adaptive_cfg->tol.grad_atol[j],
++                    adaptive_cfg->tol.grad_rtol[j]*std::fabs(gradient));
++                if(!(gradient_error<=0.25*gt))return false;
++            }
++            return true;
++        };
++        const FullCircleLevel*low=&l32,*high=&l64;
++        if(!level_meets(*low,*high)) {
++            if(!full_circle_periodic_level(128,R,pf,with_jac,nodes,l128))
++                return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
++            low=high;high=&l128;
++            if(!level_meets(*low,*high)) {
++                if(!full_circle_periodic_level(256,R,pf,with_jac,nodes,l256))
++                    return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);
++                low=high;high=&l256;
++            }
++        }
++        fh=R*high->integral;
++        efh=R*std::fabs(high->integral-low->integral);
++        if(with_jac)for(int j=0;j<5;++j) {
++            dfh[j]=jac*R*high->derivative[j];
++            edfh[j]=std::fabs(jac*R)*
++                std::fabs(high->derivative[j]-low->derivative[j]);
++        }
++    }
++    out.value[0]=scale*((1.0-u)*f0+u*fh);
++    out.inner[0]=std::fabs(scale*u)*efh;
++    out.geometry[0]=0.0;
++    out.roundoff[0]=eps*std::fabs(scale)*
++        (std::fabs((1.0-u)*f0)+std::fabs(u*fh));
++    if(with_jac) {
++        const auto dh=internal_to_user_jac(dfh,p);
++        const auto abs_map=[&](const std::array<double,5>& v) {
++            std::array<double,5> e{};
++            for(int k=0;k<5;++k) {
++                std::array<double,5> unit{};unit[k]=v[k];
++                const auto col=internal_to_user_jac(unit,p);
++                for(int j=0;j<5;++j)e[j]+=std::fabs(col[j]);
++            }
++            return e;
++        };
++        const auto eh=abs_map(edfh);
++        for(int j=0;j<5;++j) {
++            out.value[j+1]=(u*dh[j])/D;
++            out.inner[j+1]=std::fabs(u/D)*eh[j];
++            out.geometry[j+1]=0.0;
++            out.roundoff[j+1]=eps/std::fabs(D)*std::fabs(u*dh[j]);
++        }
++        out.value[3]-=2.0*out.value[0]/p.rho;
++        out.inner[3]+=2.0*out.inner[0]/p.rho;
++        out.roundoff[3]+=2.0*(out.roundoff[0]+eps*std::fabs(out.value[0]))/p.rho;
++    }
++    for(int j=0;j<(with_jac?6:1);++j) {
++        if(!std::isfinite(out.value[j])||!std::isfinite(out.inner[j])||
++           !std::isfinite(out.geometry[j])||!std::isfinite(out.roundoff[j])||
++           out.inner[j]<0.0||out.geometry[j]<0.0||out.roundoff[j]<0.0)
++            return reject(AdaptiveSampleRejectReason::Nonfinite);
++    }
++    return out;
++}
++
++// The incumbent arc_intervals() intentionally keeps its historical complex
++// Aberth path for the fixed V2 route.  Adaptive samples have a stronger
++// local contract: when that path returns an odd/incorrect real-root set,
++// repair only this sample from the already available degree-4 Sturm
++// certificate.  No angular grid is involved, and failure remains a hard
++// rejection.
++inline std::vector<double> adaptive_sturm_thetas(
++    const QuarticSturmCertificate& cert) {
++    if(!cert.certified || cert.root_count<0 || cert.root_count>4 ||
++       (cert.root_count&1)) return {};
++    const auto roots=sturm_isolate_real_roots(cert.chart_coeffs,cert.root_count);
++    if(static_cast<int>(roots.size())!=cert.root_count)return {};
++    std::vector<double> out;
++    out.reserve(roots.size());
++    for(double x:roots) {
++        double theta=(cert.reciprocal?kPi:0.0)+2.0*std::atan(x);
++        theta=std::fmod(theta,kTwoPi);
++        if(theta<0.0)theta+=kTwoPi;
++        out.push_back(theta);
++    }
++    std::sort(out.begin(),out.end());
++    for(size_t i=1;i<out.size();++i)
++        if(!(out[i]>out[i-1]) ||
++           out[i]-out[i-1]<=1e-11*(1.0+std::fabs(out[i]))) return {};
++    return out;
++}
++
++inline ArcSet adaptive_arc_intervals(
++    double R,const PrimaryFrame& pf,QuarticWarm* qw,RootPairWarm* rpw,
++    QuarticCoeffs* out_pc,int expected_crossings) {
++    ArcSet arcs=arc_intervals(R,pf,qw,rpw,out_pc);
++    const bool mismatch = arcs.kind==ArcKind::kDegenerate ||
++        (expected_crossings>0 && arcs.kind!=ArcKind::kArcs) ||
++        (arcs.kind==ArcKind::kArcs &&
++         static_cast<int>(arcs.arcs.size()*2)!=expected_crossings);
++    if(!mismatch)return arcs;
++    QuarticCoeffs q=out_pc?*out_pc:boundary_quartic(R,pf);
++    const QuarticSturmCertificate cert=certify_quartic(q.p);
++    if(!cert.certified || cert.root_count!=expected_crossings)return arcs;
++    const auto theta=adaptive_sturm_thetas(cert);
++    if(static_cast<int>(theta.size())!=expected_crossings)return arcs;
++    const ArcSet repaired=arc_set_from_root_thetas(R,pf,theta);
++    if(repaired.kind==ArcKind::kArcs &&
++       static_cast<int>(repaired.arcs.size()*2)==expected_crossings)
++        return repaired;
++    return arcs;
++}
++
+ // Reuses V2 arc/root continuation, endpoint IFT and vK. The adapter carries
+ // numerical estimates separately from the radial interpolation detail.
+ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
+     double u,const PrimaryFrame& pf,const CellPlan& cell,bool with_jac,
+-    bool warm,const AdaptiveSample* seed) {
++    bool warm,const AdaptiveSample* seed,
++    const AdaptiveConfig* adaptive_cfg=nullptr) {
+     AdaptiveSample out;
++    auto reject=[&](AdaptiveSampleRejectReason reason) {
++        out.reliable=false;out.reject_reason=reason;return out;
++    };
++    // D14/cell classification certifies that a full-circle cell has no
++    // boundary crossing throughout its open radial interval.  Do not redo a
++    // quartic solve at every Fejer node; the periodic integrand is smooth and
++    // receives its own nested error estimate below.
++    if(cell.kind==ArcKind::kFull)
++        return mapped_full_circle(R,jac,p,u,pf,with_jac,adaptive_cfg);
++    if(cell.kind==ArcKind::kEmpty)return out;
++    if(cell.kind==ArcKind::kDegenerate)
++        return reject(AdaptiveSampleRejectReason::DegenerateChart);
+     if(seed){out.quartic=seed->quartic;out.roots=seed->roots;}
+     out.roots.certify=warm;
+     QuarticCoeffs arc_pc{};
+-    auto arcs=arc_intervals(R,pf,&out.quartic,&out.roots,&arc_pc);
+-    if(arcs.kind!=cell.kind || (arcs.kind==ArcKind::kArcs && int(arcs.arcs.size()*2)!=cell.n_crossings)) {out.reliable=false;return out;}
+-    if(arcs.kind==ArcKind::kFull || arcs.kind==ArcKind::kDegenerate){out.reliable=false;return out;}
++    auto arcs=adaptive_arc_intervals(R,pf,&out.quartic,&out.roots,&arc_pc,
++                                     cell.n_crossings);
++    if(arcs.kind==ArcKind::kDegenerate)
++        return reject(AdaptiveSampleRejectReason::DegenerateChart);
++    if(arcs.kind!=cell.kind)
++        return reject(AdaptiveSampleRejectReason::ArcKindMismatch);
++    if(arcs.kind==ArcKind::kArcs &&
++       int(arcs.arcs.size()*2)!=cell.n_crossings)
++        return reject(AdaptiveSampleRejectReason::RootContinuationMismatch);
+     const double D=kPi*p.rho*p.rho*(1-u/3),scale=jac/D;
+     double f0=0,fh=0,ef0=0,efh=0;
+     std::array<double,5> df0{},dfh{},edf0{},edfh{};
+@@ -443,7 +678,8 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
+         auto pe=polish_endpoint(R,a[0],pf),pl=polish_endpoint(R,a[1],pf);
+         double te=pe.theta,tl=pl.theta;if(tl<=te)tl+=kTwoPi;
+         // No flag override: transformed arithmetic still requires resolvable endpoints.
+-        if(!pe.reliable||!pl.reliable){out.reliable=false;return out;}
++        if(!pe.reliable||!pl.reliable)
++            return reject(AdaptiveSampleRejectReason::EndpointUnreliable);
+         PhiGrad ge{},gl{};
+         if(with_jac){ge=phi_grad(R,te,pf);gl=phi_grad(R,tl,pf);}
+         else{auto e=phi_val_dtheta(R,te,pf),l=phi_val_dtheta(R,tl,pf);ge.phi=e.phi;ge.dphi_dtheta=e.dphi_dtheta;gl.phi=l.phi;gl.dphi_dtheta=l.dphi_dtheta;}
+@@ -454,7 +690,8 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
+         de+=(map_noise+eps*std::fabs(te)*std::fabs(ge.dphi_dtheta))/std::fabs(ge.dphi_dtheta);
+         dl+=(map_noise+eps*std::fabs(tl)*std::fabs(gl.dphi_dtheta))/std::fabs(gl.dphi_dtheta);
+         const double width=tl-te;
+-        if(!(width>de+dl) || !std::isfinite(de+dl)){out.reliable=false;return out;}
++        if(!(width>de+dl) || !std::isfinite(de+dl))
++            return reject(AdaptiveSampleRejectReason::ArcWidthUnresolved);
+         f0+=R*width;ef0+=R*(de+dl);
+         std::array<double,5> dte{},dtl{};
+         if(with_jac)for(int j=0;j<5;++j){
+@@ -497,11 +734,11 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
+             double vh=0,vl=0;std::array<double,5> dh{},dd{};
+             double half=0.5*width,mid=te+half;
+             for(int k=0;k<64;++k){double th=mid+half*high.x[k];
+-                if(with_jac){auto g=phi_val_dP(R,th,pf);if(!(g.phi>0)){out.reliable=false;return out;}double sq=std::sqrt(g.phi);vh+=high.w[k]*sq;for(int j=0;j<5;++j)dh[j]+=high.w[k]*(jac*g.dP[j])/(2*sq);}
+-                else{double ph=phi_val(R,th,pf);if(!(ph>0)){out.reliable=false;return out;}vh+=high.w[k]*std::sqrt(ph);}}
++                if(with_jac){auto g=phi_val_dP(R,th,pf);if(!(g.phi>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);double sq=std::sqrt(g.phi);vh+=high.w[k]*sq;for(int j=0;j<5;++j)dh[j]+=high.w[k]*(jac*g.dP[j])/(2*sq);}
++                else{double ph=phi_val(R,th,pf);if(!(ph>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);vh+=high.w[k]*std::sqrt(ph);}}
+             for(int k=0;k<32;++k){double th=mid+half*low.x[k];
+-                if(with_jac){auto g=phi_val_dP(R,th,pf);if(!(g.phi>0)){out.reliable=false;return out;}double sq=std::sqrt(g.phi);vl+=low.w[k]*sq;for(int j=0;j<5;++j)dd[j]+=low.w[k]*(jac*g.dP[j])/(2*sq);}
+-                else{double ph=phi_val(R,th,pf);if(!(ph>0)){out.reliable=false;return out;}vl+=low.w[k]*std::sqrt(ph);}}
++                if(with_jac){auto g=phi_val_dP(R,th,pf);if(!(g.phi>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);double sq=std::sqrt(g.phi);vl+=low.w[k]*sq;for(int j=0;j<5;++j)dd[j]+=low.w[k]*(jac*g.dP[j])/(2*sq);}
++                else{double ph=phi_val(R,th,pf);if(!(ph>0))return reject(AdaptiveSampleRejectReason::InnerPhiNonpositive);vl+=low.w[k]*std::sqrt(ph);}}
+             fh+=R*half*vh;efh+=R*half*std::fabs(vh-vl);
+             if(with_jac)for(int j=0;j<5;++j){dfh[j]+=R*half*dh[j];edfh[j]+=R*half*std::fabs(dh[j]-dd[j]);}
+         }
+@@ -633,7 +870,11 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
+     // assignment happened after integrate(), so setup_ms double-counted the
+     // entire adaptive physics/estimator phase.
+     const double setup_total_ms=adaptive_detail::ms(setup_start);
+-    auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed){return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],with_jacobian,topo.from_warm_d14,seed);});
++    auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed,bool force_cold){
++        return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],with_jacobian,
++                                              force_cold?false:topo.from_warm_d14,
++                                              force_cold?nullptr:seed,&cfg);
++    });
+     result.stats.setup_ms=setup_total_ms;
+     result.stats.setup_frame_ms=setup_frame_ms;
+     result.stats.setup_cuts_ms=setup_cuts_ms;
+diff --git a/src/lcbinint/magnification/holonomic/adaptive_radial.hpp b/src/lcbinint/magnification/holonomic/adaptive_radial.hpp
+index 54c2b42..8a28ad3 100644
+--- a/src/lcbinint/magnification/holonomic/adaptive_radial.hpp
++++ b/src/lcbinint/magnification/holonomic/adaptive_radial.hpp
+@@ -5,6 +5,7 @@
+ #include <chrono>
+ #include <cstdint>
+ #include <limits>
++#include <type_traits>
+
+ namespace lcbinint::holonomic {
+ using AdaptiveVector = std::array<double,6>;
+@@ -80,6 +81,44 @@ inline const char* event_decision_reason_name(EventDecisionReason r) {
+     }
+     return "Unknown";
+ }
++// Reasons returned by one adaptive mapped-radius sample.  These are kept
++// separate from AdaptiveStop::TopologyUnresolved: the latter is the stable
++// external stop label, while this enum identifies the local representation or
++// continuation failure that caused it.
++enum class AdaptiveSampleRejectReason {
++    None,
++    ArcKindMismatch,
++    DegenerateChart,
++    EndpointUnreliable,
++    ArcWidthUnresolved,
++    InnerPhiNonpositive,
++    Nonfinite,
++    RootContinuationMismatch,
++};
++inline const char* adaptive_sample_reject_reason_name(
++    AdaptiveSampleRejectReason r) {
++    switch (r) {
++    case AdaptiveSampleRejectReason::None: return "None";
++    case AdaptiveSampleRejectReason::ArcKindMismatch: return "ArcKindMismatch";
++    case AdaptiveSampleRejectReason::DegenerateChart: return "DegenerateChart";
++    case AdaptiveSampleRejectReason::EndpointUnreliable: return "EndpointUnreliable";
++    case AdaptiveSampleRejectReason::ArcWidthUnresolved: return "ArcWidthUnresolved";
++    case AdaptiveSampleRejectReason::InnerPhiNonpositive: return "InnerPhiNonpositive";
++    case AdaptiveSampleRejectReason::Nonfinite: return "Nonfinite";
++    case AdaptiveSampleRejectReason::RootContinuationMismatch: return "RootContinuationMismatch";
++    }
++    return "Unknown";
++}
++inline constexpr std::size_t adaptive_sample_reject_reason_count = 8;
++inline constexpr std::size_t adaptive_sample_reject_reason_index(
++    AdaptiveSampleRejectReason r) {
++    return static_cast<std::size_t>(r);
++}
++inline bool adaptive_sample_reject_retryable(AdaptiveSampleRejectReason r) {
++    return r == AdaptiveSampleRejectReason::ArcKindMismatch ||
++           r == AdaptiveSampleRejectReason::DegenerateChart ||
++           r == AdaptiveSampleRejectReason::RootContinuationMismatch;
++}
+ struct AdaptiveTolerance {
+     double mu_atol=1e-8,mu_rtol=1e-4;
+     std::array<double,5> grad_atol{{1e-6,1e-6,1e-6,1e-6,1e-6}};
+@@ -130,6 +169,13 @@ struct AdaptiveRefinementRecord {
+     bool gradient_phase=false,value_resolved=false;
+     std::array<bool,5> gradient_resolved{};
+ };
++struct AdaptiveSampleDiagnostic {
++    std::size_t panel=0,node_slot=0;
++    int cell=0,level=0;
++    double R=0;
++    AdaptiveSampleRejectReason reason=AdaptiveSampleRejectReason::None;
++    bool cold_retry=false,cold_retry_succeeded=false;
++};
+ struct AdaptiveStats {
+     size_t unique_nodes=0,node_evaluations=0,reused_nodes=0,split_discarded_nodes=0,splits=0;
+     size_t root_anchors=0,panels=0;
+@@ -138,9 +184,13 @@ struct AdaptiveStats {
+     size_t first_value_pass_nodes=0,first_gradient_error_pass_nodes=0,first_gradient_contract_nodes=0;
+     unsigned gradient_error_pass_mask=0,gradient_contract_mask=0;
+     std::array<size_t,9> level_histogram{};
++    std::array<size_t,adaptive_sample_reject_reason_count> sample_reject_counts{};
++    std::array<size_t,adaptive_sample_reject_reason_count> sample_cold_reject_counts{};
++    size_t sample_cold_retries=0,sample_cold_retry_successes=0;
+     double physical_ms=0,estimator_ms=0,scheduler_ms=0,topology_ms=0,setup_ms=0;
+     double setup_frame_ms=0,setup_cuts_ms=0,setup_event_ms=0,setup_panel_ms=0;
+     std::vector<AdaptiveEventDiagnostic> event_diagnostics;
++    std::vector<AdaptiveSampleDiagnostic> sample_diagnostics;
+     std::vector<AdaptiveRefinementRecord> refinement_history;
+ };
+ struct AdaptiveResult {
+@@ -173,6 +223,7 @@ struct AdaptiveSample {
+     RootPairWarm roots{};
+     std::array<bool,6> component_finite{{true,true,true,true,true,true}};
+     bool reliable=true;
++    AdaptiveSampleRejectReason reject_reason=AdaptiveSampleRejectReason::None;
+ };
+ struct AdaptivePanel {
+     FoldRadialMap map;
+@@ -381,6 +432,34 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
+     } value_snapshot;
+     auto allocated_bytes=[&](){return w.samples.capacity()*sizeof(AdaptiveSample)+
+         w.panels.capacity()*sizeof(AdaptivePanel);};
++    auto invoke_eval=[&](double R,double jac,int cell,const AdaptiveSample* seed,
++                         bool force_cold)->AdaptiveSample {
++        // The fifth argument is an opt-in extension for the production
++        // adaptive epoch adapter.  Keep the four-argument callback source
++        // compatible for the small radial-controller tests and research
++        // callers that do not own a warm/cold path.
++        if constexpr(std::is_invocable_v<Evaluate,double,double,int,
++                                         const AdaptiveSample*,bool>)
++            return eval(R,jac,cell,seed,force_cold);
++        else
++            return eval(R,jac,cell,seed);
++    };
++    auto record_sample_reject=[&](std::size_t panel,std::size_t slot,int cell,
++                                  int level,double R,
++                                  const AdaptiveSample& sample,bool cold_retry,
++                                  bool cold_retry_succeeded) {
++        const auto reason=sample.reject_reason;
++        if(reason==AdaptiveSampleRejectReason::None)return;
++        const std::size_t ri=adaptive_sample_reject_reason_index(reason);
++        if(ri<stats.sample_reject_counts.size()) {
++            if(cold_retry)++stats.sample_cold_reject_counts[ri];
++            else ++stats.sample_reject_counts[ri];
++        }
++        if(cfg.collect_diagnostics) {
++            stats.sample_diagnostics.push_back(AdaptiveSampleDiagnostic{
++                panel,slot,cell,level,R,reason,cold_retry,cold_retry_succeeded});
++        }
++    };
+     auto refine=[&](size_t ip,int level)->AdaptiveStop {
+         auto& p=w.panels[ip];const int m=1<<level,step=256/m;
+         size_t needed=0;for(int k=1;k<m;++k)needed+=!cfg.reuse_samples||p.samples[k*step]<0;
+@@ -424,10 +503,40 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
+                 double d=std::fabs(w.samples[idx].R-mapped[0]);
+                 if(d<distance && w.samples[idx].reliable){distance=d;anchor=&w.samples[idx];}
+             }
+-            auto start=Clock::now();AdaptiveSample s=eval(mapped[0],mapped[1],p.cell,anchor);
++            auto start=Clock::now();
++            AdaptiveSample s=invoke_eval(mapped[0],mapped[1],p.cell,anchor,false);
+             stats.physical_ms+=ms(start); if(anchor)++stats.root_anchors;
++            ++stats.node_evaluations;
++            const AdaptiveSampleRejectReason initial_reason=s.reject_reason;
++            bool cold_retry_succeeded=false;
++            // A warm continuation is an optimization layer.  If it reports a
++            // topology/continuation representation failure, retry this same R
++            // from fresh quartic/root state once.  A failure from an already
++            // cold evaluation is retained and remains fail-closed.
++            if(!s.reliable && anchor &&
++               adaptive_sample_reject_retryable(initial_reason) &&
++               stats.node_evaluations<cfg.max_node_evals) {
++                ++stats.sample_cold_retries;
++                auto cold_start=Clock::now();
++                AdaptiveSample cold=invoke_eval(mapped[0],mapped[1],p.cell,nullptr,true);
++                stats.physical_ms+=ms(cold_start);
++                ++stats.node_evaluations;
++                cold.R=mapped[0];
++                cold_retry_succeeded=cold.reliable;
++                if(cold_retry_succeeded)++stats.sample_cold_retry_successes;
++                s=std::move(cold);
++                AdaptiveSample initial_failed;
++                initial_failed.reject_reason=initial_reason;
++                record_sample_reject(ip,slot,p.cell,level,mapped[0],
++                                     initial_failed,false,cold_retry_succeeded);
++                if(!s.reliable)record_sample_reject(ip,slot,p.cell,level,
++                                                    mapped[0],s,true,false);
++            } else if(!s.reliable) {
++                record_sample_reject(ip,slot,p.cell,level,mapped[0],s,false,false);
++            }
+             s.R=mapped[0];
+-            p.samples[slot]=int(w.samples.size());w.samples.push_back(std::move(s));++stats.node_evaluations;if(fresh)++stats.unique_nodes;
++            p.samples[slot]=int(w.samples.size());w.samples.push_back(std::move(s));
++            if(fresh)++stats.unique_nodes;
+             auto& stored=w.samples.back();
+             bool value_finite=true;
+             for(int j=0;j<nc;++j) {
+@@ -438,7 +547,11 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
+                 if(j==0)value_finite=value_finite&&ok;
+                 else if(!ok) gradient_invalid_seen[j-1]=true;
+             }
+-            if(!value_finite){invalid=true;return AdaptiveStop::Nonfinite;}
++            if(!value_finite){
++                if(stored.reject_reason==AdaptiveSampleRejectReason::None)
++                    stored.reject_reason=AdaptiveSampleRejectReason::Nonfinite;
++                invalid=true;return AdaptiveStop::Nonfinite;
++            }
+             if(!stored.reliable){invalid=true;return AdaptiveStop::TopologyUnresolved;}
+         }
+         p.level=level;auto start=Clock::now();estimate(p,w,nc);stats.estimator_ms+=ms(start);
+diff --git a/src/lcbinint/magnification/holonomic/radial_events.hpp b/src/lcbinint/magnification/holonomic/radial_events.hpp
+index 19270ba..49cc5a0 100644
+--- a/src/lcbinint/magnification/holonomic/radial_events.hpp
++++ b/src/lcbinint/magnification/holonomic/radial_events.hpp
+@@ -1138,7 +1138,22 @@ inline std::vector<RadialEvent> radial_events(
+               });
+     std::vector<RadialEvent> merged;
+     for (const auto& e : ev) {
+-        if (!merged.empty() && merged.back().kind == e.kind &&
++        // The fixed-resolution route keeps its historical same-kind merge
++        // policy.  Adaptive topology, however, needs every distinct
++        // physical fold: two physical D14 roots can be closer than the old
++        // absolute merge tolerance while still enclosing a real, thin
++        // four-crossing band.  Collapsing that pair makes a supposedly open
++        // cell contain a topology change and causes the adaptive evaluator to
++        // fail closed at the first node in the band.  The D14 root solve and
++        // downstream quartic probe remain the certificates; retaining the
++        // roots here does not introduce a sampling heuristic.
++        const bool preserve_adaptive_physical_pair =
++            retain_adaptive_metadata &&
++            merged.size() > 0 &&
++            merged.back().kind == "physical_real" &&
++            e.kind == "physical_real";
++        if (!preserve_adaptive_physical_pair && !merged.empty() &&
++            merged.back().kind == e.kind &&
+             std::fabs(e.radius - merged.back().radius) < merge_tol)
+             continue;
+         merged.push_back(e);
+diff --git a/tests/holonomic_cpp/bench_adaptive_diagnostics.cpp b/tests/holonomic_cpp/bench_adaptive_diagnostics.cpp
+index 552c077..4c26c7e 100644
+--- a/tests/holonomic_cpp/bench_adaptive_diagnostics.cpp
++++ b/tests/holonomic_cpp/bench_adaptive_diagnostics.cpp
+@@ -44,14 +44,20 @@ int main(int argc,char** argv) {
+     std::ofstream epochs(outdir+"/epochs.csv");
+     std::ofstream events(outdir+"/events.csv");
+     std::ofstream refinements(outdir+"/refinements.csv");
+-    if(!epochs||!events||!refinements) return 3;
++    std::ofstream samples(outdir+"/samples.csv");
++    std::ofstream sample_counts(outdir+"/sample_reason_counts.csv");
++    if(!epochs||!events||!refinements||!samples||!sample_counts) return 3;
+     epochs << std::setprecision(17);
+     events << std::setprecision(17);
+     refinements << std::setprecision(17);
++    samples << std::setprecision(17);
++    sample_counts << std::setprecision(17);
+
+     epochs << "name,u,policy,warm,rtol,stop,value_stop,gradient_stop,value_converged,mu,value_error,nodes,evaluations,event_count,refinement_count,topology_ms,setup_ms,physics_ms,estimator_ms,scheduler_ms,event_double_checks,event_dd_checks,event_dd_accepts,event_qf_refinements,qf_family_constructions,event_topology_reuses,event_radius_reuses,event_direct_qf_failures\n";
+     events << "name,u,policy,warm,rtol,index,input_radius,selected_radius,radius_lo,uncertainty,t_seed,d14_condition,t_seed_valid,topology_reused,precision_tier,double_reason,dd_reason,qf_reason,double_residual,dd_residual\n";
+     refinements << "name,u,policy,warm,rtol,index,panel,cell,parent,depth,level,node_evaluations,value_error,gradient_error0,gradient_error1,gradient_error2,gradient_error3,gradient_error4,gradient_phase,value_resolved,gradient_resolved0,gradient_resolved1,gradient_resolved2,gradient_resolved3,gradient_resolved4\n";
++    samples << "name,u,policy,warm,rtol,index,panel,node_slot,cell,level,R,reason,cold_retry,cold_retry_succeeded\n";
++    sample_counts << "name,u,policy,warm,rtol,reason,count,cold_count,cold_retries,cold_retry_successes\n";
+
+     const GradientPolicy policies[]={GradientPolicy::None,GradientPolicy::ValueFirst};
+     for(const auto& c:cases) for(const auto policy:policies) for(bool warm:{false,true}) {
+@@ -112,6 +118,27 @@ int main(int argc,char** argv) {
+                 for(bool x:h.gradient_resolved) refinements << ',' << int(x);
+                 refinements << '\n';
+             }
++            for(size_t i=0;i<r.stats.sample_diagnostics.size();++i) {
++                const auto& d=r.stats.sample_diagnostics[i];
++                samples << c.name << ',' << c.u << ',' << gradient_policy_name(policy)
++                        << ',' << int(warm) << ',' << tol << ',' << i << ','
++                        << d.panel << ',' << d.node_slot << ',' << d.cell << ','
++                        << d.level << ',' << d.R << ','
++                        << adaptive_sample_reject_reason_name(d.reason) << ','
++                        << int(d.cold_retry) << ',' << int(d.cold_retry_succeeded)
++                        << '\n';
++            }
++            for(std::size_t i=0;i<r.stats.sample_reject_counts.size();++i) {
++                const auto reason=static_cast<AdaptiveSampleRejectReason>(i);
++                sample_counts << c.name << ',' << c.u << ','
++                              << gradient_policy_name(policy) << ',' << int(warm)
++                              << ',' << tol << ','
++                              << adaptive_sample_reject_reason_name(reason) << ','
++                              << r.stats.sample_reject_counts[i] << ','
++                              << r.stats.sample_cold_reject_counts[i] << ','
++                              << r.stats.sample_cold_retries << ','
++                              << r.stats.sample_cold_retry_successes << '\n';
++            }
+         }
+     }
+ }
+diff --git a/tests/holonomic_cpp/check_adaptive_reference.cpp b/tests/holonomic_cpp/check_adaptive_reference.cpp
+index de3fe9a..f4b109d 100644
+--- a/tests/holonomic_cpp/check_adaptive_reference.cpp
++++ b/tests/holonomic_cpp/check_adaptive_reference.cpp
+@@ -1,7 +1,9 @@
+ #include "adaptive_reference.hpp"
+ int main(int argc,char**argv){if(argc<2)return 2;std::ifstream f(argv[1]);std::string line;puts("name,u,rtol,stop,mu,error,reference128,reference256,reference_uncertainty,actual_difference,reference_usable,violation");
+     while(std::getline(f,line)){LensParams p;double u,dummy;int b;std::string name;std::istringstream s(line);if(!(s>>p.xs>>p.ys>>p.rho>>p.q>>p.a>>b>>u>>dummy>>name))continue;p.barycentric=b;
+-        auto topo=classify_cells(PrimaryFrame::from(p));double lo=reference(p,u,topo,128),hi=reference(p,u,topo,256),unc=std::fabs(hi-lo);AdaptiveWorkspace w;
++        auto topo=classify_cells(PrimaryFrame::from(p),nullptr,nullptr,
++                                 /*retain_adaptive_metadata=*/true);
++        double lo=reference(p,u,topo,128),hi=reference(p,u,topo,256),unc=std::fabs(hi-lo);AdaptiveWorkspace w;
+         for(double tol:{1e-3,1e-4,1e-5,1e-6,1e-8}){AdaptiveConfig c;c.tol.mu_rtol=tol;auto r=flux_adaptive_integrate(p,u,topo,c,w);double diff=std::fabs(r.mu-hi),T=c.tol.budget(0,r.mu);int usable=std::isfinite(lo)&&std::isfinite(hi)&&unc<T;int violation=usable?(r.value_converged&&diff>T+unc):-1;
+             printf("%s,%g,%g,%s,%.17g,%.9g,%.17g,%.17g,%.9g,%.9g,%d,%d\n",name.c_str(),u,tol,adaptive_stop_name(r.stop),r.mu,r.estimated_abs_error_mu,lo,hi,unc,diff,usable,violation);fflush(stdout);}}
+ }
+diff --git a/tests/holonomic_cpp/test_adaptive_radial.cpp b/tests/holonomic_cpp/test_adaptive_radial.cpp
+index 1c23592..e93edce 100644
+--- a/tests/holonomic_cpp/test_adaptive_radial.cpp
++++ b/tests/holonomic_cpp/test_adaptive_radial.cpp
+@@ -171,5 +171,100 @@ int main(){
+         check(loose.value_converged&&tight.value_converged,"looser event tolerance is monotone");
+         check(std::isfinite(loose.mu)&&std::isfinite(tight.mu),"monotone fixture remains finite");
+     }
++    // Adaptive full-circle cells use their own nested periodic evaluator;
++    // compare its equation evaluation with the incumbent fixed 256-node
++    // diagnostic for a deliberately smooth all-positive circle.  The fixed
++    // helper is an oracle here only; the adaptive path must remain reliable.
++    LensParams full_lens{.31,.17,100.0,.5,.83,false};
++    const auto full_pf=PrimaryFrame::from(full_lens);
++    const double full_R=1.2,full_u=.5;
++    AdaptiveConfig full_cfg;full_cfg.tol.mu_rtol=1e-10;
++    const auto full_adaptive=adaptive_detail::mapped_full_circle(
++        full_R,1.0,full_lens,full_u,full_pf,false,&full_cfg);
++    const auto full_fixed=full_circle_terms(full_R,full_pf);
++    const double full_D=kPi*full_lens.rho*full_lens.rho*(1-full_u/3);
++    const double full_expected=((1-full_u)*full_fixed.f0+
++                                full_u*full_fixed.fh)/full_D;
++    check(full_adaptive.reliable&&
++          full_adaptive.reject_reason==AdaptiveSampleRejectReason::None,
++          "adaptive full-circle evaluator is reliable");
++    check(std::fabs(full_adaptive.value[0]-full_expected)<1e-12,
++          "adaptive full-circle value matches fixed diagnostic");
++    // The full-circle derivative lane is checked against an independent
++    // central difference of the physical user parameters.  This exercises
++    // the internal->user chain rule and the rho normalization without using
++    // the incumbent derivative implementation as its oracle.
++    full_lens.barycentric=true;
++    const auto full_value=[&](LensParams pp) {
++        const auto ppf=PrimaryFrame::from(pp);
++        return adaptive_detail::mapped_full_circle(
++            full_R,1.0,pp,full_u,ppf,false,&full_cfg).value[0];
++    };
++    const std::array<double,5> full_params{
++        full_lens.xs,full_lens.ys,full_lens.rho,full_lens.q,full_lens.a};
++    for(int j=0;j<5;++j) {
++        const double h=2e-6*std::max(1.0,std::fabs(full_params[j]));
++        LensParams plus=full_lens,minus=full_lens;
++        auto set=[&](LensParams& pp,double value) {
++            if(j==0)pp.xs=value; else if(j==1)pp.ys=value;
++            else if(j==2)pp.rho=value; else if(j==3)pp.q=value;
++            else pp.a=value;
++        };
++        set(plus,full_params[j]+h);set(minus,full_params[j]-h);
++        const double fd=(full_value(plus)-full_value(minus))/(2*h);
++        const auto deriv=adaptive_detail::mapped_full_circle(
++            full_R,1.0,full_lens,full_u,PrimaryFrame::from(full_lens),true,
++            &full_cfg);
++        check(std::fabs(deriv.value[j+1]-fd)<
++                  2e-6*std::max(1.0,std::fabs(fd)),
++              "adaptive full-circle derivative chain rule");
++    }
++    // Regression fixtures for the two residual Phase-9 failures.  c9 has
++    // two distinct physical folds closer than the historical fixed-route
++    // merge tolerance; c92 has a direct-chart Aberth false real root that
++    // adaptive_sturm_thetas must repair without an angular grid.
++    LensParams c9{1.1422819920252716,.09455346559252209,
++                  5.470597280025246e-05,992.0790840775868,
++                  .57986328980431667,true};
++    const auto c9_pf=PrimaryFrame::from(c9);
++    const auto c9_topology=classify_cells(c9_pf,nullptr,nullptr,true);
++    std::vector<double> c9_folds;
++    for(const auto& e:c9_topology.events)
++        if(e.physically_real&&e.kind=="physical_real")c9_folds.push_back(e.radius);
++    std::sort(c9_folds.begin(),c9_folds.end());
++    bool close_pair=false;
++    for(size_t i=1;i<c9_folds.size();++i)
++        if(c9_folds[i]-c9_folds[i-1]>9e-8&&
++           c9_folds[i]-c9_folds[i-1]<1.1e-7)close_pair=true;
++    check(close_pair,"adaptive metadata retains close physical folds");
++    bool c9_four_cell=false;
++    const CellPlan* c9_cell=nullptr;
++    const double c9_R=.015950887178690351;
++    for(const auto& c:c9_topology.cells)
++        if(c9_R>c.r_lo&&c9_R<c.r_hi){c9_cell=&c;c9_four_cell|=c.n_crossings==4;}
++    check(c9_four_cell&&c9_cell,"close-fold band has a four-crossing cell");
++    if(c9_cell) {
++        AdaptiveConfig c9_cfg;c9_cfg.tol.mu_rtol=1e-4;
++        const auto sample=adaptive_detail::mapped_radius(
++            c9_R,1.0,c9,.5,c9_pf,*c9_cell,false,false,nullptr,&c9_cfg);
++        check(sample.reliable,"close-fold adaptive sample remains usable");
++    }
++    LensParams c92{.016817436700993973,-1.7129651189458623e-05,
++                   3.1430126951461966e-05,218.24104917640977,
++                   3.8691964055932191,true};
++    const auto c92_pf=PrimaryFrame::from(c92);
++    const auto c92_topology=classify_cells(c92_pf,nullptr,nullptr,true);
++    const double c92_R=4.6917422948319514;
++    const CellPlan* c92_cell=nullptr;
++    for(const auto& c:c92_topology.cells)
++        if(c92_R>c.r_lo&&c92_R<c.r_hi){c92_cell=&c;break;}
++    check(c92_cell,"Sturm repair fixture is inside a classified cell");
++    if(c92_cell) {
++        AdaptiveConfig c92_cfg;c92_cfg.tol.mu_rtol=1e-4;
++        const auto sample=adaptive_detail::mapped_radius(
++            c92_R,1.0,c92,.5,c92_pf,*c92_cell,false,false,nullptr,&c92_cfg);
++        check(sample.reliable&&sample.reject_reason==AdaptiveSampleRejectReason::None,
++              "adaptive Sturm repair resolves false odd root set");
++    }
+     std::printf("%d checks %d failures\n",checks,failures);return failures?1:0;
+ }

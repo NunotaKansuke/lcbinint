@@ -171,5 +171,100 @@ int main(){
         check(loose.value_converged&&tight.value_converged,"looser event tolerance is monotone");
         check(std::isfinite(loose.mu)&&std::isfinite(tight.mu),"monotone fixture remains finite");
     }
+    // Adaptive full-circle cells use their own nested periodic evaluator;
+    // compare its equation evaluation with the incumbent fixed 256-node
+    // diagnostic for a deliberately smooth all-positive circle.  The fixed
+    // helper is an oracle here only; the adaptive path must remain reliable.
+    LensParams full_lens{.31,.17,100.0,.5,.83,false};
+    const auto full_pf=PrimaryFrame::from(full_lens);
+    const double full_R=1.2,full_u=.5;
+    AdaptiveConfig full_cfg;full_cfg.tol.mu_rtol=1e-10;
+    const auto full_adaptive=adaptive_detail::mapped_full_circle(
+        full_R,1.0,full_lens,full_u,full_pf,false,&full_cfg);
+    const auto full_fixed=full_circle_terms(full_R,full_pf);
+    const double full_D=kPi*full_lens.rho*full_lens.rho*(1-full_u/3);
+    const double full_expected=((1-full_u)*full_fixed.f0+
+                                full_u*full_fixed.fh)/full_D;
+    check(full_adaptive.reliable&&
+          full_adaptive.reject_reason==AdaptiveSampleRejectReason::None,
+          "adaptive full-circle evaluator is reliable");
+    check(std::fabs(full_adaptive.value[0]-full_expected)<1e-12,
+          "adaptive full-circle value matches fixed diagnostic");
+    // The full-circle derivative lane is checked against an independent
+    // central difference of the physical user parameters.  This exercises
+    // the internal->user chain rule and the rho normalization without using
+    // the incumbent derivative implementation as its oracle.
+    full_lens.barycentric=true;
+    const auto full_value=[&](LensParams pp) {
+        const auto ppf=PrimaryFrame::from(pp);
+        return adaptive_detail::mapped_full_circle(
+            full_R,1.0,pp,full_u,ppf,false,&full_cfg).value[0];
+    };
+    const std::array<double,5> full_params{
+        full_lens.xs,full_lens.ys,full_lens.rho,full_lens.q,full_lens.a};
+    for(int j=0;j<5;++j) {
+        const double h=2e-6*std::max(1.0,std::fabs(full_params[j]));
+        LensParams plus=full_lens,minus=full_lens;
+        auto set=[&](LensParams& pp,double value) {
+            if(j==0)pp.xs=value; else if(j==1)pp.ys=value;
+            else if(j==2)pp.rho=value; else if(j==3)pp.q=value;
+            else pp.a=value;
+        };
+        set(plus,full_params[j]+h);set(minus,full_params[j]-h);
+        const double fd=(full_value(plus)-full_value(minus))/(2*h);
+        const auto deriv=adaptive_detail::mapped_full_circle(
+            full_R,1.0,full_lens,full_u,PrimaryFrame::from(full_lens),true,
+            &full_cfg);
+        check(std::fabs(deriv.value[j+1]-fd)<
+                  2e-6*std::max(1.0,std::fabs(fd)),
+              "adaptive full-circle derivative chain rule");
+    }
+    // Regression fixtures for the two residual Phase-9 failures.  c9 has
+    // two distinct physical folds closer than the historical fixed-route
+    // merge tolerance; c92 has a direct-chart Aberth false real root that
+    // adaptive_sturm_thetas must repair without an angular grid.
+    LensParams c9{1.1422819920252716,.09455346559252209,
+                  5.470597280025246e-05,992.0790840775868,
+                  .57986328980431667,true};
+    const auto c9_pf=PrimaryFrame::from(c9);
+    const auto c9_topology=classify_cells(c9_pf,nullptr,nullptr,true);
+    std::vector<double> c9_folds;
+    for(const auto& e:c9_topology.events)
+        if(e.physically_real&&e.kind=="physical_real")c9_folds.push_back(e.radius);
+    std::sort(c9_folds.begin(),c9_folds.end());
+    bool close_pair=false;
+    for(size_t i=1;i<c9_folds.size();++i)
+        if(c9_folds[i]-c9_folds[i-1]>9e-8&&
+           c9_folds[i]-c9_folds[i-1]<1.1e-7)close_pair=true;
+    check(close_pair,"adaptive metadata retains close physical folds");
+    bool c9_four_cell=false;
+    const CellPlan* c9_cell=nullptr;
+    const double c9_R=.015950887178690351;
+    for(const auto& c:c9_topology.cells)
+        if(c9_R>c.r_lo&&c9_R<c.r_hi){c9_cell=&c;c9_four_cell|=c.n_crossings==4;}
+    check(c9_four_cell&&c9_cell,"close-fold band has a four-crossing cell");
+    if(c9_cell) {
+        AdaptiveConfig c9_cfg;c9_cfg.tol.mu_rtol=1e-4;
+        const auto sample=adaptive_detail::mapped_radius(
+            c9_R,1.0,c9,.5,c9_pf,*c9_cell,false,false,nullptr,&c9_cfg);
+        check(sample.reliable,"close-fold adaptive sample remains usable");
+    }
+    LensParams c92{.016817436700993973,-1.7129651189458623e-05,
+                   3.1430126951461966e-05,218.24104917640977,
+                   3.8691964055932191,true};
+    const auto c92_pf=PrimaryFrame::from(c92);
+    const auto c92_topology=classify_cells(c92_pf,nullptr,nullptr,true);
+    const double c92_R=4.6917422948319514;
+    const CellPlan* c92_cell=nullptr;
+    for(const auto& c:c92_topology.cells)
+        if(c92_R>c.r_lo&&c92_R<c.r_hi){c92_cell=&c;break;}
+    check(c92_cell,"Sturm repair fixture is inside a classified cell");
+    if(c92_cell) {
+        AdaptiveConfig c92_cfg;c92_cfg.tol.mu_rtol=1e-4;
+        const auto sample=adaptive_detail::mapped_radius(
+            c92_R,1.0,c92,.5,c92_pf,*c92_cell,false,false,nullptr,&c92_cfg);
+        check(sample.reliable&&sample.reject_reason==AdaptiveSampleRejectReason::None,
+              "adaptive Sturm repair resolves false odd root set");
+    }
     std::printf("%d checks %d failures\n",checks,failures);return failures?1:0;
 }

@@ -1138,7 +1138,22 @@ inline std::vector<RadialEvent> radial_events(
               });
     std::vector<RadialEvent> merged;
     for (const auto& e : ev) {
-        if (!merged.empty() && merged.back().kind == e.kind &&
+        // The fixed-resolution route keeps its historical same-kind merge
+        // policy.  Adaptive topology, however, needs every distinct
+        // physical fold: two physical D14 roots can be closer than the old
+        // absolute merge tolerance while still enclosing a real, thin
+        // four-crossing band.  Collapsing that pair makes a supposedly open
+        // cell contain a topology change and causes the adaptive evaluator to
+        // fail closed at the first node in the band.  The D14 root solve and
+        // downstream quartic probe remain the certificates; retaining the
+        // roots here does not introduce a sampling heuristic.
+        const bool preserve_adaptive_physical_pair =
+            retain_adaptive_metadata &&
+            merged.size() > 0 &&
+            merged.back().kind == "physical_real" &&
+            e.kind == "physical_real";
+        if (!preserve_adaptive_physical_pair && !merged.empty() &&
+            merged.back().kind == e.kind &&
             std::fabs(e.radius - merged.back().radius) < merge_tol)
             continue;
         merged.push_back(e);
