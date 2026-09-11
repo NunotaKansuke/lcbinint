@@ -1,5 +1,6 @@
 #pragma once
 #include "lcbinint/magnification/holonomic/adaptive_radial.hpp"
+#include "atlas_near_fold.hpp"
 #include <cstdlib>
 #include <type_traits>
 
@@ -336,6 +337,12 @@ inline EventLocation topology_event_estimate(const RadialEvent& event,
                                              const PrimaryFrame& pf,
                                              double value_budget) {
     EventLocation out;
+    if(event.atlas_anchor){
+        out.radius=event.radius;out.radius_lo=event.radius_lo;out.uncertainty=event.radius_uncertainty;
+        out.t_seed=event.fold_t_seed;out.t_seed_valid=event.fold_t_seed_valid;out.precision_tier=2;
+        out.needs_qf=false;out.double_reason=EventDecisionReason::TopologySeedReused;
+        return out;
+    }
     out.radius = event.radius;
     out.radius_lo = event.radius_lo;
     out.uncertainty = event.radius_uncertainty;
@@ -643,8 +650,23 @@ inline ArcSet adaptive_arc_intervals(
 inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     double u,const PrimaryFrame& pf,const CellPlan& cell,bool with_jac,
     bool warm,const AdaptiveSample* seed,
-    const AdaptiveConfig* adaptive_cfg=nullptr) {
+    const AdaptiveConfig* adaptive_cfg=nullptr,double radius_lo=0) {
     AdaptiveSample out;
+    if(!with_jac && atlas_detail::try_pair_sample(R,radius_lo,jac,p,u,pf,cell,out))return out;
+    out=AdaptiveSample{};
+    // If rounding the abscissa can change its side of an atlas fold, the
+    // ordinary double endpoint path is not a substitute for the pair proof.
+    if(active_atlas_samples && active_atlas_samples->contacts){
+        for(const auto& anchor:*active_atlas_samples->contacts){
+            const __float128 r=(__float128)R;
+            if(r>=anchor.R.lo-fabsq((__float128)radius_lo) &&
+               r<=anchor.R.hi+fabsq((__float128)radius_lo)){
+                out.reliable=false;
+                out.reject_reason=AdaptiveSampleRejectReason::EndpointUnreliable;
+                return out;
+            }
+        }
+    }
     auto reject=[&](AdaptiveSampleRejectReason reason) {
         out.reliable=false;out.reject_reason=reason;return out;
     };
@@ -805,8 +827,8 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
         for(const auto& e:event_errors)if(e.first==R){setup_event_ms+=adaptive_detail::ms(event_call_start);return e.second;}
         const RadialEvent* topology_event=physical_event(R);
         adaptive_detail::EventLocation d;
-        if(topology_event && topology_event->fold_t_seed_valid &&
-           adaptive_detail::topology_event_reuse_enabled()) {
+        if(topology_event && (topology_event->atlas_anchor || (topology_event->fold_t_seed_valid &&
+           adaptive_detail::topology_event_reuse_enabled()))) {
             ++event_topology_reuses;
             ++event_radius_reuses;
             d=adaptive_detail::topology_event_estimate(*topology_event,pf,event_budget);
@@ -880,10 +902,10 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     // assignment happened after integrate(), so setup_ms double-counted the
     // entire adaptive physics/estimator phase.
     const double setup_total_ms=adaptive_detail::ms(setup_start);
-    auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed,bool force_cold){
+    auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed,bool force_cold,double radius_lo){
         return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],with_jacobian,
                                               force_cold?false:topo.from_warm_d14,
-                                              force_cold?nullptr:seed,&cfg);
+                                              force_cold?nullptr:seed,&cfg,radius_lo);
     });
     result.stats.setup_ms=setup_total_ms;
     result.stats.setup_frame_ms=setup_frame_ms;

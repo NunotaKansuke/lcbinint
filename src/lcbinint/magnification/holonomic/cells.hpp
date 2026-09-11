@@ -55,24 +55,9 @@ struct TopologyResult {
     PositiveD14Result positive_roots{};
 };
 
-// `d14_warm` / `d14_roots_out` (optional, Phase B2 / E): forwarded to
-// `radial_events` -- a previous epoch's D14 root set to warm-seed the solve,
-// and an out-slot for this epoch's full root set for a prepared-geometry cache.
-inline TopologyResult classify_cells(
-    const PrimaryFrame& pf,
-    const std::vector<Cplx<__float128>>* d14_warm = nullptr,
-    std::vector<Cplx<__float128>>* d14_roots_out = nullptr,
-    bool retain_adaptive_metadata = false,
-    const PositiveD14Cache* positive_cache = nullptr) {
-    V2Profile* prof = v2_profile_current();
-    if (prof) ++prof->classify_calls;
-    V2ProfileTimer topology_timer(&V2Profile::topology_ms);
-    double r_max = 0.0;
-    PositiveD14Result positive;
-    auto events = radial_events(pf, &r_max, 1e-7, d14_warm, d14_roots_out,
-                                retain_adaptive_metadata,positive_cache,&positive);
-
-    const bool strict_boundaries=positive.assurance==PositiveRootAssurance::PositiveRealCertified;
+inline TopologyResult classify_event_cells(const PrimaryFrame& pf,std::vector<RadialEvent> events,double r_max,PositiveD14Result positive={},bool atlas=false){
+    V2Profile* prof=v2_profile_current();
+    const bool strict_boundaries=atlas || positive.assurance==PositiveRootAssurance::PositiveRealCertified;
     // merge events sharing a radius (tol max(1e-9, 1e-7 * radius))
     std::vector<double> radii;
     for (const auto& e : events) radii.push_back(e.radius);
@@ -134,4 +119,24 @@ inline TopologyResult classify_cells(
     return out;
 }
 
-}  // namespace lcbinint::holonomic
+// `d14_warm` / `d14_roots_out` (optional, Phase B2 / E): forwarded to
+// `radial_events` -- a previous epoch's D14 root set to warm-seed the solve,
+// and an out-slot for this epoch's full root set for a prepared-geometry cache.
+inline TopologyResult classify_cells(
+    const PrimaryFrame& pf,
+    const std::vector<Cplx<__float128>>* d14_warm = nullptr,
+    std::vector<Cplx<__float128>>* d14_roots_out = nullptr,
+    bool retain_adaptive_metadata = false,
+    const PositiveD14Cache* positive_cache = nullptr) {
+    V2Profile* prof = v2_profile_current();
+    if (prof) ++prof->classify_calls;
+    V2ProfileTimer topology_timer(&V2Profile::topology_ms);
+    double r_max = 0.0;
+    PositiveD14Result positive;
+    auto events = radial_events(pf, &r_max, 1e-7, d14_warm, d14_roots_out,
+                                retain_adaptive_metadata,positive_cache,&positive);
+
+    return classify_event_cells(pf,std::move(events),r_max,positive);
+}
+
+} // namespace lcbinint::holonomic

@@ -63,6 +63,7 @@ struct RadialEvent {
     bool fold_t_seed_valid = false;
     int precision_tier = 0;  // 0=double, 1=DD, 2=__float128 source
     bool positive_certified = false;
+    bool atlas_anchor = false;
     int positive_root_id = -1;
     __float128 certified_radius_lo=0, certified_radius_hi=0;
     double d14_condition = std::numeric_limits<double>::infinity();

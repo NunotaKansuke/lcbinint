@@ -141,6 +141,7 @@ struct AdaptiveConfig {
     size_t value_first_gradient_node_budget=4096;
     int value_first_gradient_round_budget=4;
     bool collect_diagnostics=false;
+    bool preserve_radial_offset=false; // explicit atlas experiment only
     GradientPolicy effective_gradient_policy() const {
         // Keep the old bool source-compatible for isolated callers. New code
         // should select the policy explicitly.
@@ -217,7 +218,8 @@ struct AdaptiveResult {
     AdaptiveStats stats;
 };
 struct AdaptiveSample {
-    double R=0;
+    double R=0,R_lo=0;
+    bool precise_R=false;
     AdaptiveVector value{},inner{},geometry{},roundoff{};
     QuarticWarm quartic{};
     RootPairWarm roots{};
@@ -372,7 +374,7 @@ inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc) {
             if(p.map.right)return std::array<double,2>{(double)(bb-wid*(1.0L-t)*(1.0L-t)),(double)(wid*(1.0L-t))};
             return std::array<double,2>{(double)(aa+wid*t),(double)(wid*0.5L)};
         }();
-        double distance=side?p.map.b-sample.R:sample.R-p.map.a;
+        double distance=sample.precise_R?double(side?((__float128)p.map.b+p.right_radius_lo-((__float128)sample.R+sample.R_lo)):((__float128)sample.R+sample.R_lo-((__float128)p.map.a+p.left_radius_lo))):(side?p.map.b-sample.R:sample.R-p.map.a);
         double map_jac=mapped[1]*0.5*(p.xr-p.xl);
         // Local endpoint model, not a verified coefficient envelope. For
         // derivatives use the integrable 1/sqrt(distance) worst case.
@@ -433,12 +435,14 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
     auto allocated_bytes=[&](){return w.samples.capacity()*sizeof(AdaptiveSample)+
         w.panels.capacity()*sizeof(AdaptivePanel);};
     auto invoke_eval=[&](double R,double jac,int cell,const AdaptiveSample* seed,
-                         bool force_cold)->AdaptiveSample {
+                         bool force_cold,double radius_lo)->AdaptiveSample {
         // The fifth argument is an opt-in extension for the production
         // adaptive epoch adapter.  Keep the four-argument callback source
         // compatible for the small radial-controller tests and research
         // callers that do not own a warm/cold path.
-        if constexpr(std::is_invocable_v<Evaluate,double,double,int,
+        if constexpr(std::is_invocable_v<Evaluate,double,double,int,const AdaptiveSample*,bool,double>)
+            return eval(R,jac,cell,seed,force_cold,radius_lo);
+        else if constexpr(std::is_invocable_v<Evaluate,double,double,int,
                                          const AdaptiveSample*,bool>)
             return eval(R,jac,cell,seed,force_cold);
         else
@@ -481,7 +485,21 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             bool fresh=p.samples[slot]<0;
             if(!fresh&&cfg.reuse_samples){++stats.reused_nodes;continue;}
             const double x=0.5*(p.xl+p.xr)+0.5*(p.xr-p.xl)*fejer_rule(level).x[k-1];
+            double radius_lo=0;
             auto mapped=[&] {
+                if(cfg.preserve_radial_offset){
+                    const long double t=(1.0L+x)*.5L;
+                    const D14Real wid=D14Real(p.map.b,p.right_radius_lo)-D14Real(p.map.a,p.left_radius_lo);
+                    long double factor=t,J=.5L;bool right=false;
+                    constexpr long double pi=3.1415926535897932384626433832795029L;
+                    if(p.map.left&&p.map.right){right=t>.5L;long double z=std::sin(pi*.5L*(right?1-t:t));factor=z*z;J=pi*.25L*std::sin(pi*t);}
+                    else if(p.map.left){factor=t*t;J=t;}
+                    else if(p.map.right){right=true;factor=(1-t)*(1-t);J=1-t;}
+                    D14Real f(double(factor),double(factor-(long double)double(factor)));
+                    D14Real rr=right?D14Real(p.map.b,p.right_radius_lo)-wid*f:D14Real(p.map.a,p.left_radius_lo)+wid*f;
+                    radius_lo=rr.lo;
+                    return std::array<double,2>{rr.hi,double((long double)double(wid)*J)};
+                }
                 const long double aa=(long double)p.map.a+p.left_radius_lo;
                 const long double bb=(long double)p.map.b+p.right_radius_lo;
                 const long double t=(1.0L+x)*0.5L,wid=bb-aa;
@@ -496,7 +514,10 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 return std::array<double,2>{(double)(aa+wid*t),(double)(wid*0.5L)};
             }();
             mapped[1]*=0.5*(p.xr-p.xl);
-            if(!(mapped[0]>p.map.a+p.left_uncertainty && mapped[0]<p.map.b-p.right_uncertainty))return AdaptiveStop::EventLocationLimited;
+            if(cfg.preserve_radial_offset){
+                const __float128 rr=(__float128)mapped[0]+radius_lo;
+                if(!(rr>(__float128)p.map.a+p.left_radius_lo+p.left_uncertainty && rr<(__float128)p.map.b+p.right_radius_lo-p.right_uncertainty))return AdaptiveStop::EventLocationLimited;
+            }else if(!(mapped[0]>p.map.a+p.left_uncertainty && mapped[0]<p.map.b-p.right_uncertainty))return AdaptiveStop::EventLocationLimited;
             const AdaptiveSample* anchor=nullptr;double distance=std::numeric_limits<double>::infinity();
             for(int ancestor=int(ip);ancestor>=0;ancestor=w.panels[ancestor].parent)
             for(int idx:w.panels[ancestor].samples) if(idx>=0) {
@@ -504,7 +525,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 if(d<distance && w.samples[idx].reliable){distance=d;anchor=&w.samples[idx];}
             }
             auto start=Clock::now();
-            AdaptiveSample s=invoke_eval(mapped[0],mapped[1],p.cell,anchor,false);
+            AdaptiveSample s=invoke_eval(mapped[0],mapped[1],p.cell,anchor,false,radius_lo);
             stats.physical_ms+=ms(start); if(anchor)++stats.root_anchors;
             ++stats.node_evaluations;
             const AdaptiveSampleRejectReason initial_reason=s.reject_reason;
@@ -518,10 +539,10 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                stats.node_evaluations<cfg.max_node_evals) {
                 ++stats.sample_cold_retries;
                 auto cold_start=Clock::now();
-                AdaptiveSample cold=invoke_eval(mapped[0],mapped[1],p.cell,nullptr,true);
+                AdaptiveSample cold=invoke_eval(mapped[0],mapped[1],p.cell,nullptr,true,radius_lo);
                 stats.physical_ms+=ms(cold_start);
                 ++stats.node_evaluations;
-                cold.R=mapped[0];
+                cold.R=mapped[0];cold.R_lo=radius_lo;cold.precise_R=cfg.preserve_radial_offset;
                 cold_retry_succeeded=cold.reliable;
                 if(cold_retry_succeeded)++stats.sample_cold_retry_successes;
                 s=std::move(cold);
@@ -534,7 +555,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             } else if(!s.reliable) {
                 record_sample_reject(ip,slot,p.cell,level,mapped[0],s,false,false);
             }
-            s.R=mapped[0];
+            s.R=mapped[0];s.R_lo=radius_lo;s.precise_R=cfg.preserve_radial_offset;
             p.samples[slot]=int(w.samples.size());w.samples.push_back(std::move(s));
             if(fresh)++stats.unique_nodes;
             auto& stored=w.samples.back();
