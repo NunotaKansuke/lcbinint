@@ -1,0 +1,6 @@
+# Current V2 adaptive value-only pure-kernel benchmark, matched to the existing
+# VBM four-way paper benchmark.  Topology/D14 is prepared outside the timer.
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/v2_vbm_adaptive_phase92_20260911/v2_adaptive_value_runner.cpp -o /tmp/v2_adaptive_value_phase92_runner -lquadmath
+/tmp/v2_adaptive_value_phase92_runner evidence/holonomic/v2_vbm_adaptive_phase92_20260911/input_snapshot.tsv /tmp/v2_adaptive_value_phase92_results.tsv 2> evidence/holonomic/v2_vbm_adaptive_phase92_20260911/v2_run.log
+cp /tmp/v2_adaptive_value_phase92_results.tsv evidence/holonomic/v2_vbm_adaptive_phase92_20260911/v2_results.tsv
+MPLCONFIGDIR=/tmp/matplotlib-v2-adaptive python3 evidence/holonomic/v2_vbm_adaptive_phase92_20260911/make_figures.py
