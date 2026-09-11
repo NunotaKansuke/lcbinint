@@ -10,7 +10,10 @@ import sys
 root = Path(sys.argv[1] if len(sys.argv) > 1 else 'evidence/holonomic/adaptive_radial_20260911')
 
 def rows(name):
-    with (root/name).open() as f:
+    path = Path(name)
+    if not path.is_absolute() and not path.exists():
+        path = root/path
+    with path.open() as f:
         return list(csv.DictReader(f))
 
 def percentile(values, p):
@@ -96,6 +99,11 @@ jac_summary = {name:{'rows':len(data), 'finite_reference_rows':sum(math.isfinite
                for name in sorted({r['name'] for r in jac_ref})
                for data in [[r for r in jac_ref if r['name']==name]]}
 
+timing_sanity = None
+timing_path = root/'timing_sanity.json'
+if timing_path.exists():
+    timing_sanity = json.loads(timing_path.read_text())
+
 contract_summary = []
 contracts_path = root/'contracts.csv'
 if contracts_path.exists():
@@ -119,7 +127,71 @@ if contracts_path.exists():
                                 for q in ['NotRequested','ToleranceMet','FiniteUncertified','Invalid']},
         })
 
+def summarize_diagnostic_epochs(path):
+    data = rows(path)
+    grouped = defaultdict(list)
+    for r in data:
+        grouped[(r['policy'], int(r['warm']), float(r['rtol']))].append(r)
+    result = []
+    for (policy, warm, tol), group in sorted(grouped.items()):
+        result.append({
+            'policy': policy, 'warm': warm, 'rtol': tol, 'cases': len(group),
+            'value_converged': sum(r['value_converged'] == '1' for r in group),
+            'stops': dict(Counter(r['stop'] for r in group)),
+            'value_stops': dict(Counter(r['value_stop'] for r in group)),
+            'gradient_stops': dict(Counter(r['gradient_stop'] for r in group)),
+            'median_nodes': statistics.median(int(r['nodes']) for r in group),
+            'median_evaluations': statistics.median(int(r['evaluations']) for r in group),
+            'median_event_count': statistics.median(int(r['event_count']) for r in group),
+            'median_refinement_count': statistics.median(int(r['refinement_count']) for r in group),
+        })
+    return result
+
+def summarize_diagnostic_events(path):
+    data = rows(path)
+    grouped = defaultdict(list)
+    for r in data:
+        grouped[(r['policy'], int(r['warm']), float(r['rtol']))].append(r)
+    result = []
+    for (policy, warm, tol), group in sorted(grouped.items()):
+        result.append({
+            'policy': policy, 'warm': warm, 'rtol': tol, 'records': len(group),
+            'precision_tier': dict(Counter(r['precision_tier'] for r in group)),
+            'double_reason': dict(Counter(r['double_reason'] for r in group)),
+            'dd_reason': dict(Counter(r['dd_reason'] for r in group)),
+            'qf_reason': dict(Counter(r['qf_reason'] for r in group)),
+            'uncertainty': distribution([float(r['uncertainty']) for r in group]),
+            'radius': distribution([float(r['selected_radius']) for r in group]),
+        })
+    return result
+
+phase91_diagnostics = None
+diagnostic_dir = root/'diagnostics'
+if (diagnostic_dir/'epochs.csv').exists() and (diagnostic_dir/'events.csv').exists():
+    phase91_diagnostics = {
+        'epoch_rows': len(rows(diagnostic_dir/'epochs.csv')),
+        'event_rows': len(rows(diagnostic_dir/'events.csv')),
+        'refinement_rows': len(rows(diagnostic_dir/'refinements.csv')) if (diagnostic_dir/'refinements.csv').exists() else 0,
+        'epochs': summarize_diagnostic_epochs(diagnostic_dir/'epochs.csv'),
+        'events': summarize_diagnostic_events(diagnostic_dir/'events.csv'),
+        'files': ['diagnostics/epochs.csv', 'diagnostics/events.csv', 'diagnostics/refinements.csv'],
+    }
+
+diagnostics_before = None
+before_dir = root/'diagnostics_before'
+if (before_dir/'epochs.csv').exists():
+    before_epochs = rows(before_dir/'epochs.csv')
+    diagnostics_before = {
+        'epoch_rows': len(before_epochs),
+        'value_failures': [{k: r[k] for k in ['name','u','policy','warm','rtol','stop','value_stop','value_converged','mu','value_error','nodes','evaluations']}
+                           for r in before_epochs if r['value_converged'] != '1'],
+        'files': ['diagnostics_before/epochs.csv', 'diagnostics_before/events.csv', 'diagnostics_before/refinements.csv'],
+    }
+
 out = {'reference':ref_summary,'paired':summary,'contracts':contract_summary,'controls':controls,'jacobian_reference':jac_summary,
+    'timing_sanity':timing_sanity,
+    'phase91_diagnostics':phase91_diagnostics,
+    'phase91_diagnostics_before':diagnostics_before,
     'precision':'binary64 nodes and observables, qf local event correction',
     'error_budget':'Eabs <= max(Tol, RelTol * abs(Q)) independently for every requested output',
     'limitations':['Estimated, not Bounded. require_bound returns BoundUnavailable.',

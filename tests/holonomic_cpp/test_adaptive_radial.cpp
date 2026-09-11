@@ -101,5 +101,18 @@ int main(){
     result=epoch_value_adaptive(invalid,0,cfg,w);check(result.stop==AdaptiveStop::InvalidConfig,"reject invalid input before topology");
     LensParams origin{0,0,.1,.5,1,false};
     result=epoch_value_adaptive(origin,0,cfg,w);check(!result.value_converged,"retain near-origin fail-closed policy");
+    // Regression fixture for the Phase 9.1 non-monotone event ladder: the
+    // loose value tolerance must not reject the event anchor that the tighter
+    // tolerance accepts.  Test both requested policies and both u values.
+    LensParams rand033{.14772949073990987,.0025702291249036745,.022382854740423824,
+                       .24663546751963286,.4390801625936331,false};
+    for(double u:{0.0,.5}) for(GradientPolicy policy:{GradientPolicy::None,GradientPolicy::ValueFirst}) {
+        AdaptiveConfig ladder;ladder.gradient_policy=policy;ladder.with_jacobian=policy!=GradientPolicy::None;
+        if(policy==GradientPolicy::ValueFirst){ladder.value_first_gradient_node_budget=0;ladder.value_first_gradient_round_budget=0;}
+        ladder.tol.mu_rtol=1e-3;auto loose=epoch_adaptive(rand033,u,ladder,w);
+        ladder.tol.mu_rtol=1e-4;auto tight=epoch_adaptive(rand033,u,ladder,w);
+        check(loose.value_converged&&tight.value_converged,"looser event tolerance is monotone");
+        check(std::isfinite(loose.mu)&&std::isfinite(tight.mu),"monotone fixture remains finite");
+    }
     std::printf("%d checks %d failures\n",checks,failures);return failures?1:0;
 }

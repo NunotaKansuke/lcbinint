@@ -1,0 +1,3 @@
+bash checks/holonomic/run_adaptive_radial.sh evidence/holonomic/adaptive_radial_phase91_20260911 1
+python checks/holonomic/check_adaptive_timing.py evidence/holonomic/adaptive_radial_phase91_20260911/paired.csv
+python checks/holonomic/summarize_adaptive_radial.py evidence/holonomic/adaptive_radial_phase91_20260911

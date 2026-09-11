@@ -58,6 +58,26 @@ inline const char* gradient_reason_name(GradientReason r) {
     }
     return "Unknown";
 }
+enum class EventDecisionReason { NotAttempted, NoRealCandidate, CleanDouble,
+    DoubleBudgetAccepted, DoubleAmbiguous, DDAccepted, DDResidualRejected,
+    DDDerivativeRejected, DDBudgetRejected, QfRequired, QfRefined, QfFailed };
+inline const char* event_decision_reason_name(EventDecisionReason r) {
+    switch (r) {
+    case EventDecisionReason::NotAttempted: return "NotAttempted";
+    case EventDecisionReason::NoRealCandidate: return "NoRealCandidate";
+    case EventDecisionReason::CleanDouble: return "CleanDouble";
+    case EventDecisionReason::DoubleBudgetAccepted: return "DoubleBudgetAccepted";
+    case EventDecisionReason::DoubleAmbiguous: return "DoubleAmbiguous";
+    case EventDecisionReason::DDAccepted: return "DDAccepted";
+    case EventDecisionReason::DDResidualRejected: return "DDResidualRejected";
+    case EventDecisionReason::DDDerivativeRejected: return "DDDerivativeRejected";
+    case EventDecisionReason::DDBudgetRejected: return "DDBudgetRejected";
+    case EventDecisionReason::QfRequired: return "QfRequired";
+    case EventDecisionReason::QfRefined: return "QfRefined";
+    case EventDecisionReason::QfFailed: return "QfFailed";
+    }
+    return "Unknown";
+}
 struct AdaptiveTolerance {
     double mu_atol=1e-8,mu_rtol=1e-4;
     std::array<double,5> grad_atol{{1e-6,1e-6,1e-6,1e-6,1e-6}};
@@ -79,6 +99,7 @@ struct AdaptiveConfig {
     size_t max_node_evals=32768,max_panels=512,max_bytes=64*1024*1024;
     size_t value_first_gradient_node_budget=4096;
     int value_first_gradient_round_budget=4;
+    bool collect_diagnostics=false;
     GradientPolicy effective_gradient_policy() const {
         // Keep the old bool source-compatible for isolated callers. New code
         // should select the policy explicitly.
@@ -86,6 +107,23 @@ struct AdaptiveConfig {
                                                         : (with_jacobian ? GradientPolicy::Strict
                                                                          : GradientPolicy::None);
     }
+};
+struct AdaptiveEventDiagnostic {
+    double input_radius=0,selected_radius=0,radius_lo=0,uncertainty=std::numeric_limits<double>::infinity();
+    int precision_tier=0;
+    EventDecisionReason double_reason=EventDecisionReason::NotAttempted;
+    EventDecisionReason dd_reason=EventDecisionReason::NotAttempted;
+    EventDecisionReason qf_reason=EventDecisionReason::NotAttempted;
+    double double_residual=std::numeric_limits<double>::infinity();
+    double dd_residual=std::numeric_limits<double>::infinity();
+};
+struct AdaptiveRefinementRecord {
+    size_t panel=0,node_evaluations=0;
+    int cell=0,parent=-1,depth=0,level=0;
+    double value_error=std::numeric_limits<double>::infinity();
+    std::array<double,5> gradient_error{};
+    bool gradient_phase=false,value_resolved=false;
+    std::array<bool,5> gradient_resolved{};
 };
 struct AdaptiveStats {
     size_t unique_nodes=0,node_evaluations=0,reused_nodes=0,split_discarded_nodes=0,splits=0;
@@ -96,6 +134,8 @@ struct AdaptiveStats {
     std::array<size_t,9> level_histogram{};
     double physical_ms=0,estimator_ms=0,scheduler_ms=0,topology_ms=0,setup_ms=0;
     double setup_frame_ms=0,setup_cuts_ms=0,setup_event_ms=0,setup_panel_ms=0;
+    std::vector<AdaptiveEventDiagnostic> event_diagnostics;
+    std::vector<AdaptiveRefinementRecord> refinement_history;
 };
 struct AdaptiveResult {
     double mu=0,estimated_abs_error_mu=std::numeric_limits<double>::infinity();
@@ -396,6 +436,15 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             if(!stored.reliable){invalid=true;return AdaptiveStop::TopologyUnresolved;}
         }
         p.level=level;auto start=Clock::now();estimate(p,w,nc);stats.estimator_ms+=ms(start);
+        if(cfg.collect_diagnostics) {
+            AdaptiveRefinementRecord record;
+            record.panel=ip;record.node_evaluations=stats.node_evaluations;
+            record.cell=p.cell;record.parent=p.parent;record.depth=p.depth;record.level=p.level;
+            record.value_error=p.error[0];record.gradient_phase=gradient_phase;
+            record.value_resolved=p.value_resolved;record.gradient_resolved=p.gradient_resolved;
+            for(int j=0;j<5;++j)record.gradient_error[j]=nc>j+1?p.error[j+1]:0;
+            stats.refinement_history.push_back(record);
+        }
         if(gradient_phase)++gradient_rounds;
         return AdaptiveStop::Converged;
     };

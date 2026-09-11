@@ -16,6 +16,11 @@ struct EventLocation {
     bool needs_qf=true;
     bool qf_refined=false;
     int precision_tier=0; // 0=double, 1=DD, 2=__float128
+    EventDecisionReason double_reason=EventDecisionReason::NotAttempted;
+    EventDecisionReason dd_reason=EventDecisionReason::NotAttempted;
+    EventDecisionReason qf_reason=EventDecisionReason::NotAttempted;
+    double double_residual=std::numeric_limits<double>::infinity();
+    double dd_residual=std::numeric_limits<double>::infinity();
 };
 inline double eval_poly5(const std::array<double,5>& c,double x) {
     return c[4]*x+c[3]*x*x+c[2]*x*x*x+c[1]*x*x*x*x+c[0];
@@ -27,7 +32,10 @@ inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,doubl
     const auto q=boundary_quartic(R,pf);
     const auto qr=boundary_quartic_dR(R,pf);
     auto roots=aberth<double>(q.p.data(),4,32);
-    EventLocation best{R,std::numeric_limits<double>::infinity(),0,true,false,0};
+    EventLocation best{R,std::numeric_limits<double>::infinity(),0,true,false,0,
+                       EventDecisionReason::NoRealCandidate,
+                       EventDecisionReason::NotAttempted,
+                       EventDecisionReason::NotAttempted};
     double best_res=std::numeric_limits<double>::infinity();
     double best_t=0,best_ap=1,best_at=1,best_ar=1;
     auto consider=[&](double t) {
@@ -46,17 +54,36 @@ inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,doubl
         if(res>=best_res)return;
         best_res=res;
         best_t=t;best_ap=ap;best_at=at;best_ar=ar;
+        best.double_residual=res;
         const double ulp=std::fabs(std::nextafter(R,std::numeric_limits<double>::infinity())-R);
         const double radius_shift=std::fabs(PR)>64*eps*ar?std::fabs(P)/std::fabs(PR):std::numeric_limits<double>::infinity();
         best.uncertainty=std::max(8*ulp,64*eps*(1+std::fabs(R))+radius_shift);
         const bool numerically_clean=res<=4096*eps&&std::fabs(PR)>64*eps*ar&&
             std::fabs(eval_poly5(q.p,t+std::sqrt(eps))-2*P+eval_poly5(q.p,t-std::sqrt(eps)))>
             64*eps*att;
-        // Spend qf only when the double event uncertainty can consume a
-        // visible fraction of the requested value ledger. This is a local
-        // numerical budget test; it is independent of physical parameters.
+        // A physical event is used as the endpoint of a squared fold map.
+        // Its binary64 anchor therefore needs a representation-level
+        // certificate in addition to the value ledger: allowing a coarse
+        // event merely because a loose value tolerance can absorb it makes
+        // the controller non-monotone (the first mapped Fejer node can lie
+        // inside the reported event uncertainty).  The minimum is a local
+        // ULP/conditioning test, not a physical-parameter route.
         const double budget_radius=0.05*value_budget*std::max(1.0,std::fabs(R));
-        best.needs_qf=!(numerically_clean||best.uncertainty<=std::max(256*ulp,budget_radius));
+        const double ulp_budget=std::max(256*ulp,64*eps*(1+std::fabs(R)));
+        const double anchor_budget=std::min(ulp_budget,budget_radius);
+        if(numerically_clean && best.uncertainty<=anchor_budget) {
+            best.double_reason=EventDecisionReason::CleanDouble;
+            best.qf_reason=EventDecisionReason::NotAttempted;
+            best.needs_qf=false;
+        } else if(best.uncertainty<=anchor_budget) {
+            best.double_reason=EventDecisionReason::DoubleBudgetAccepted;
+            best.qf_reason=EventDecisionReason::NotAttempted;
+            best.needs_qf=false;
+        } else {
+            best.double_reason=EventDecisionReason::DoubleAmbiguous;
+            best.qf_reason=EventDecisionReason::QfRequired;
+            best.needs_qf=true;
+        }
     };
     for(const auto& z:roots) {
         if(std::fabs(z.im)>1e-7*(1+std::fabs(z.re)))continue;
@@ -88,15 +115,27 @@ inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,doubl
         const __float128 rdd=fabsq(qf_from_dd(dd_eval(qr.p)));
         const double dd_res=std::max((double)(pdd/(__float128)best_ap),
                                      (double)(tdd/(__float128)best_at));
+        best.dd_residual=dd_res;
         const double ulp=std::fabs(std::nextafter(R,std::numeric_limits<double>::infinity())-R);
         const double dd_shift=(double)(rdd>0?pdd/rdd:1e300L);
         const double budget_radius=0.05*value_budget*std::max(1.0,std::fabs(R));
-        if(dd_res<=1e-14&&rdd>64*(__float128)eps*(__float128)best_ar&&
-           std::max(8*ulp,64*eps*(1+std::fabs(R))+dd_shift)<=std::max(256*ulp,budget_radius)) {
+        const double anchor_budget=std::min(std::max(256*ulp,64*eps*(1+std::fabs(R))),budget_radius);
+        const bool dd_residual_ok=dd_res<=1e-14;
+        const bool dd_derivative_ok=rdd>64*(__float128)eps*(__float128)best_ar;
+        const bool dd_budget_ok=std::max(8*ulp,64*eps*(1+std::fabs(R))+dd_shift)<=anchor_budget;
+        if(dd_residual_ok&&dd_derivative_ok&&dd_budget_ok) {
             best.needs_qf=false;best.precision_tier=1;
+            best.dd_reason=EventDecisionReason::DDAccepted;
+            best.qf_reason=EventDecisionReason::NotAttempted;
             best.uncertainty=std::max(8*ulp,64*eps*(1+std::fabs(R))+dd_shift);
+        } else {
+            best.dd_reason=!dd_residual_ok ? EventDecisionReason::DDResidualRejected :
+                (!dd_derivative_ok ? EventDecisionReason::DDDerivativeRejected :
+                 EventDecisionReason::DDBudgetRejected);
         }
     }
+    if(best.needs_qf && best.double_reason==EventDecisionReason::NoRealCandidate)
+        best.qf_reason=EventDecisionReason::QfFailed;
     return best;
 }
 inline EventLocation refine_event(double R,const PrimaryFrame& pf,const re_detail::PolyFamilyR& fam) {
@@ -104,7 +143,10 @@ inline EventLocation refine_event(double R,const PrimaryFrame& pf,const re_detai
     auto q=boundary_quartic(R,pf);
     double dc[4]={4*q.p[4],3*q.p[3],2*q.p[2],q.p[1]};
     int deg=3;while(deg && dc[0]==0){for(int j=0;j<deg;++j)dc[j]=dc[j+1];--deg;}
-    EventLocation best{R,std::numeric_limits<double>::infinity(),0,true,true,2};
+    EventLocation best{R,std::numeric_limits<double>::infinity(),0,true,true,2,
+                       EventDecisionReason::NotAttempted,
+                       EventDecisionReason::NotAttempted,
+                       EventDecisionReason::QfRequired};
     if(!deg)return best;
     auto roots=aberth<double>(dc,deg,24);
     Q nearest=HUGE_VALQ;
@@ -128,7 +170,9 @@ inline EventLocation refine_event(double R,const PrimaryFrame& pf,const re_detai
         if(!regular||!finiteq(r)||last>1e-25Q*(1+fabsq(r)))continue;
         Q shift=fabsq(r-Q(R));
         if(shift<nearest){nearest=shift;double rounded=double(r);
-            best={rounded,double(fabsq(Q(rounded)-r)+last)+std::fabs(std::nextafter(rounded,INFINITY)-rounded),double(r-Q(rounded)),false,true,2};}
+            best={rounded,double(fabsq(Q(rounded)-r)+last)+std::fabs(std::nextafter(rounded,INFINITY)-rounded),double(r-Q(rounded)),false,true,2,
+                  EventDecisionReason::NotAttempted,EventDecisionReason::NotAttempted,
+                  EventDecisionReason::QfRefined};}
     }
     return best;
 }
@@ -283,6 +327,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     std::unique_ptr<re_detail::PolyFamilyR> fam;
     bool fam_ready=false;
     size_t event_double_checks=0,event_dd_checks=0,event_dd_accepts=0,event_qf_refinements=0,qf_family_constructions=0;
+    std::vector<AdaptiveEventDiagnostic> event_diagnostics;
     double setup_event_ms=0;
     double event_budget=cfg.tol.budget(0,1.0);
     if(policy==GradientPolicy::Strict)for(int j=1;j<6;++j)event_budget=std::min(event_budget,cfg.tol.budget(j,1.0));
@@ -299,8 +344,25 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
                 fam_ready=true;
                 ++qf_family_constructions;
             }
+            const auto double_reason=d.double_reason;
+            const auto dd_reason=d.dd_reason;
+            const double double_residual=d.double_residual;
+            const double dd_residual=d.dd_residual;
             d=adaptive_detail::refine_event(R,pf,*fam);
+            d.double_reason=double_reason;d.dd_reason=dd_reason;
+            d.double_residual=double_residual;d.dd_residual=dd_residual;
+            d.qf_reason=d.needs_qf?EventDecisionReason::QfFailed:EventDecisionReason::QfRefined;
             ++event_qf_refinements;
+        }
+        if(cfg.collect_diagnostics) {
+            AdaptiveEventDiagnostic record;
+            record.input_radius=R;record.selected_radius=d.radius;
+            record.radius_lo=d.radius_lo;record.uncertainty=d.uncertainty;
+            record.precision_tier=d.precision_tier;
+            record.double_reason=d.double_reason;record.dd_reason=d.dd_reason;
+            record.qf_reason=d.qf_reason;
+            record.double_residual=d.double_residual;record.dd_residual=d.dd_residual;
+            event_diagnostics.push_back(record);
         }
         event_errors.emplace_back(R,d);
         setup_event_ms+=adaptive_detail::ms(event_call_start);
@@ -328,6 +390,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     result.stats.event_dd_accepts=event_dd_accepts;
     result.stats.event_qf_refinements=event_qf_refinements;
     result.stats.qf_family_constructions=qf_family_constructions;
+    if(cfg.collect_diagnostics) result.stats.event_diagnostics=std::move(event_diagnostics);
     return result;
 }
 inline AdaptiveResult epoch_adaptive(const LensParams& p,double u,const AdaptiveConfig& cfg,AdaptiveWorkspace& w) {
