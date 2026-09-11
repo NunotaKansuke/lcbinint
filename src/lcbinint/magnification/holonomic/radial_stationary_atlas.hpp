@@ -51,9 +51,35 @@ inline RadialAtlasResult build_radial_event_atlas(const PrimaryFrame& pf,const R
  out.rmax=outer_radius(pf);if(!std::isfinite(out.rmax)){out.status=AtlasStatus::ArithmeticUncertain;return finish();}
  out.generation=cache&&cache->valid?cache->result.generation+1:1;ws.stack.clear();ws.stack.reserve(std::min(cfg.max_boxes,4096));
  auto make=[&](Box b,bool old=false){positive_detail::StageTimer timer{&out.stats.coefficient_ms};if(cfg.initial_tier==1){ws.stack.push_back(Node{b,boundary<Ball>(pf,b),old});++out.stats.dd_boxes;}else ws.stack.push_back(Node{b,boundary<Interval<double>>(pf,b),old});};
+ bool warm=cache&&cache->valid&&cfg.warm_proofs;
  unsigned next_id=0;
- // Step B: cold whole-domain cover. Warm proof update is added separately.
- for(int chart=0;chart<2;++chart)make(Box{0,out.rmax,-1,1,chart,0});
+ if(cache&&cache->valid)for(const auto& c:cache->result.contacts)next_id=std::max(next_id,c.id+1);
+ if(warm){
+  // Event seeds update against CURRENT G; never preserve old uniqueness.
+  for(const auto& old:cache->result.contacts){ContactAnchor c=old;Box b=old.uniqueness;
+   positive_detail::StageTimer timer{&out.stats.refine_ms};
+   auto proof=prove(boundary<Ball>(pf,b),cfg.tubes);
+   if(proof.kind==3 && refine_contact(pf,b,c)){c.generation=out.generation;out.contacts.push_back(c);++out.stats.event_seed_updates;}
+  }
+  // Rebuild each old leaf in its local coordinates. This is conservative
+  // proof reuse, not unverified L1 topology reuse or an old sign lookup.
+  for(const auto& leaf:cache->result.leaves){
+   bool excluded=false;
+   if(cfg.warm_range_probe && leaf.reason!=3){
+    positive_detail::StageTimer timer{&out.stats.proof_ms};
+    auto r=positive_detail::bounds(positive_detail::point<Interval<double>>(leaf.box.r0));
+    auto h=positive_detail::bounds(positive_detail::point<Interval<double>>(leaf.box.r1));
+    auto l=positive_detail::bounds(positive_detail::point<Interval<double>>(leaf.box.s0));
+    auto u=positive_detail::bounds(positive_detail::point<Interval<double>>(leaf.box.s1));
+    // Outward conversions, current physical polynomial, whole old box.
+    auto g=local_fold_quantities(Interval<double>(double(r.lo),double(h.hi)),Interval<double>(double(l.lo),double(u.hi)),pf,bool(leaf.box.chart));
+    auto v=leaf.reason==1?g.P:g.Pt;int sign=v.sign();
+    if(sign==1||sign==-1){out.leaves.push_back({leaf.box,leaf.reason,double(fminq(fabsq(v.lo),fabsq(v.hi)))});++out.stats.warm_reused;++out.stats.warm_range_accepted;++out.stats.excluded;excluded=true;}
+   }
+   if(!excluded)make(leaf.box,true);
+  }
+  if(out.rmax>cache->result.rmax)for(int chart=0;chart<2;++chart)make(Box{cache->result.rmax,out.rmax,-1,1,chart,0});
+ }else for(int chart=0;chart<2;++chart)make(Box{0,out.rmax,-1,1,chart,0});
  while(!ws.stack.empty()){
   Node node=std::move(ws.stack.back());ws.stack.pop_back();out.unresolved=node.box;if(++out.stats.box_created>cfg.max_boxes){out.status=AtlasStatus::BudgetExceeded;return finish();}
   bool covered=false;for(const auto& c:out.contacts)if(contains(c.uniqueness,node.box)){covered=true;break;}
