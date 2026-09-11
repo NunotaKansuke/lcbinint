@@ -1187,6 +1187,16 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
 // (v = R^2 space, all 14 incl. complex) used to warm-seed the solve.
 // `d14_roots_out` (optional): receives this epoch's full post-symmetrised
 // D14 root set for the next epoch / a prepared-geometry cache (Phase E).
+// Explicit isolated research scope; fixed-n_r callers never consult this policy.
+enum class D14EventPolicy { AllComplexSoft, NoProjectedComplexSoft, PositiveReal };
+inline thread_local D14EventPolicy d14_event_policy = D14EventPolicy::AllComplexSoft;
+struct D14EventPolicyScope {
+    D14EventPolicy previous;
+    explicit D14EventPolicyScope(D14EventPolicy p) : previous(d14_event_policy) { d14_event_policy = p; }
+    ~D14EventPolicyScope() { d14_event_policy = previous; }
+    D14EventPolicyScope(const D14EventPolicyScope&) = delete;
+};
+
 inline std::vector<RadialEvent> radial_events(
     const PrimaryFrame& pf, double* r_max_out, double merge_tol = 1e-7,
     const std::vector<Cplx<__float128>>* d14_warm = nullptr,
@@ -1316,6 +1326,7 @@ inline std::vector<RadialEvent> radial_events(
         // complex roots (Re v > 0) -> soft boundaries
         std::vector<double> cv;
         for (const auto& r : roots) {
+            if (retain_adaptive_metadata && d14_event_policy != D14EventPolicy::AllComplexSoft) break;
             double re = (double)r.re, im = (double)r.im;
             if (re > 0.0 && std::fabs(im) >= 1e-8 * (1.0 + std::fabs(re)))
                 cv.push_back(re);
