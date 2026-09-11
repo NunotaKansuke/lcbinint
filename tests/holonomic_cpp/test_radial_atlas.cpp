@@ -23,6 +23,9 @@ int main(){
   for(size_t i=0;i<current.contacts.size();++i)for(size_t j=0;j<i;++j)check(current.contacts[i].id!=current.contacts[j].id,"warm partial seed survival keeps IDs unique");
  }
  auto old=cache.result.generation;auto limit=cfg;limit.max_boxes=0;auto failed=build_radial_event_atlas(pf,limit,ws,&cache);check(failed.status!=AtlasStatus::Complete&&cache.result.generation==old,"failure preserves cache");
+ auto aliased=cold;aliased.contacts.resize(2);
+ for(int i=0;i<2;++i){Q rr=1+(i?1e-18Q:-1e-18Q);aliased.contacts[i].R={rr-1e-20Q,rr+1e-20Q};aliased.contacts[i].R_center=d14_from_qf(rr);}
+ check(classify_cells_from_atlas(pf,aliased).status==Status::TOPOLOGY_UNCERTAIN,"distinct contacts aliased by binary64 endpoints fail closed");
  auto topo=classify_cells_from_atlas(pf,cold);check(topo.status==Status::OK,"atlas cells");AdaptiveConfig ac;ac.tol.mu_rtol=1e-4;ac.preserve_radial_offset=true;AdaptiveWorkspace aw;AtlasSampleContext ctx{&cold.contacts};AdaptiveResult val;
  {AtlasSampleScope scope(&ctx);val=flux_adaptive_integrate(p,.6,topo,ac,aw);}
  ac.preserve_radial_offset=false;

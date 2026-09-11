@@ -17,7 +17,13 @@ inline TopologyResult classify_cells_from_atlas(const PrimaryFrame& pf,const Rad
    if(symmetry)continue;
    TopologyResult t;t.status=Status::TOPOLOGY_UNCERTAIN;return t;
   }
-  double r=double(c.R_center);RadialEvent e{r,"physical_real",true,"stationary atlas unique contact"};
+  double r=double(c.R_center);
+  // CellPlan still uses binary64 endpoints. Distinct certified contacts
+  // that round to one endpoint MUST NOT be merged by the common classifier.
+  if(!events.empty() && !(r>events.back().radius)){
+   TopologyResult t;t.status=Status::TOPOLOGY_UNCERTAIN;return t;
+  }
+  RadialEvent e{r,"physical_real",true,"stationary atlas unique contact"};
   e.radius_lo=double(d14_to_qf(c.R_center)-(__float128)r);
   e.radius_uncertainty=std::nextafter(double(fmaxq(atlas_detail::up(d14_to_qf(c.R_center)-c.R.lo),atlas_detail::up(c.R.hi-d14_to_qf(c.R_center)))),INFINITY);
   e.atlas_anchor=true;e.positive_certified=true;e.positive_root_id=int(c.id);e.precision_tier=2;e.certified_radius_lo=c.R.lo;e.certified_radius_hi=c.R.hi;
