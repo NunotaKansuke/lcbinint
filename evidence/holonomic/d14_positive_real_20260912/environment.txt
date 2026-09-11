@@ -1,0 +1,23 @@
+Linux rogue1 5.14.0-570.23.1.el9_6.x86_64 #1 SMP PREEMPT_DYNAMIC Thu Jun 26 19:29:53 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux
+c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+Architecture:                         x86_64
+CPU op-mode(s):                       32-bit, 64-bit
+Address sizes:                        46 bits physical, 57 bits virtual
+Byte Order:                           Little Endian
+CPU(s):                               64
+On-line CPU(s) list:                  0-63
+Vendor ID:                            GenuineIntel
+Model name:                           INTEL(R) XEON(R) GOLD 6530
+CPU family:                           6
+Model:                                207
+Thread(s) per core:                   1
+Core(s) per socket:                   32
+Socket(s):                            2
+Stepping:                             2
+CPU(s) scaling MHz:                   96%
+CPU max MHz:                          4000.0000
+CPU min MHz:                          800.0000
+BogoMIPS:                             4200.00
+41ba6efa7ef0dc48b6f732cc4a4bc01c6e290b99
+56db0ed53720ce0fe1d3e95b2554a67bddf97c3688e7ae8a8b2c9e0d0d5b5b8e  /tmp/d14-positive-final
+6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b  evidence/holonomic/d14_precision_warm_20260912/trajectory/input_snapshot.tsv

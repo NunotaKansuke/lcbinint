@@ -1,0 +1,148 @@
+{
+  "status": "PASS",
+  "cases": [
+    {
+      "id": -1,
+      "assurance": 2,
+      "reason": "Certified",
+      "tier": 1,
+      "roots": 6,
+      "coefficients": 45,
+      "exact_count": 6
+    },
+    {
+      "id": 1,
+      "assurance": 0,
+      "reason": "ChainPivotUncertain",
+      "tier": 2,
+      "roots": 0,
+      "coefficients": 45
+    },
+    {
+      "id": 452,
+      "assurance": 2,
+      "reason": "Certified",
+      "tier": 1,
+      "roots": 6,
+      "coefficients": 45,
+      "exact_count": 6
+    },
+    {
+      "id": 903,
+      "assurance": 2,
+      "reason": "Certified",
+      "tier": 2,
+      "roots": 6,
+      "coefficients": 45,
+      "exact_count": 6
+    },
+    {
+      "id": 1354,
+      "assurance": 2,
+      "reason": "Certified",
+      "tier": 1,
+      "roots": 6,
+      "coefficients": 45,
+      "exact_count": 6
+    },
+    {
+      "id": 1805,
+      "assurance": 0,
+      "reason": "ChainPivotUncertain",
+      "tier": 2,
+      "roots": 0,
+      "coefficients": 45
+    },
+    {
+      "id": 2256,
+      "assurance": 0,
+      "reason": "ChainPivotUncertain",
+      "tier": 2,
+      "roots": 0,
+      "coefficients": 45
+    },
+    {
+      "id": 2707,
+      "assurance": 0,
+      "reason": "ChainPivotUncertain",
+      "tier": 2,
+      "roots": 0,
+      "coefficients": 45
+    },
+    {
+      "id": 3158,
+      "assurance": 0,
+      "reason": "ChainPivotUncertain",
+      "tier": 2,
+      "roots": 0,
+      "coefficients": 45
+    },
+    {
+      "id": 3609,
+      "assurance": 2,
+      "reason": "Certified",
+      "tier": 1,
+      "roots": 8,
+      "coefficients": 45,
+      "exact_count": 8
+    },
+    {
+      "id": 4060,
+      "assurance": 0,
+      "reason": "ChainPivotUncertain",
+      "tier": 2,
+      "roots": 0,
+      "coefficients": 45
+    },
+    {
+      "id": 4511,
+      "assurance": 0,
+      "reason": "ChainPivotUncertain",
+      "tier": 2,
+      "roots": 0,
+      "coefficients": 45
+    },
+    {
+      "id": 4962,
+      "assurance": 0,
+      "reason": "ChainPivotUncertain",
+      "tier": 2,
+      "roots": 0,
+      "coefficients": 45
+    },
+    {
+      "id": 5413,
+      "assurance": 0,
+      "reason": "ChainPivotUncertain",
+      "tier": 2,
+      "roots": 0,
+      "coefficients": 45
+    },
+    {
+      "id": 5864,
+      "assurance": 0,
+      "reason": "ChainPivotUncertain",
+      "tier": 2,
+      "roots": 0,
+      "coefficients": 45
+    },
+    {
+      "id": 6315,
+      "assurance": 2,
+      "reason": "Certified",
+      "tier": 1,
+      "roots": 6,
+      "coefficients": 45,
+      "exact_count": 6
+    },
+    {
+      "id": 6766,
+      "assurance": 0,
+      "reason": "ChainPivotUncertain",
+      "tier": 2,
+      "roots": 0,
+      "coefficients": 45
+    }
+  ],
+  "note": "Exact dyadic H*, independent count and each output enclosure; hexadecimal endpoints preserve every bit"
+}

@@ -1,0 +1,135 @@
+[  1%] Building CXX object CMakeFiles/test_holonomic_m7.dir/test_holonomic_m7.cpp.o
+[  2%] Building CXX object CMakeFiles/bench_v0v1v2.dir/bench_v0v1v2.cpp.o
+[  3%] Building CXX object CMakeFiles/bench_holonomic_m7.dir/bench_holonomic_m7.cpp.o
+[  4%] Building CXX object CMakeFiles/bench_planner_split.dir/bench_planner_split.cpp.o
+[  5%] Linking CXX executable bench_planner_split
+[  5%] Built target bench_planner_split
+[  7%] Built target test_point_images
+[  8%] Building CXX object CMakeFiles/test_quartic_sturm.dir/test_quartic_sturm.cpp.o
+[  9%] Linking CXX executable bench_v0v1v2
+[  9%] Built target bench_v0v1v2
+[ 10%] Building CXX object CMakeFiles/bench_fast_bands.dir/bench_fast_bands.cpp.o
+[ 11%] Linking CXX executable bench_holonomic_m7
+[ 11%] Built target bench_holonomic_m7
+[ 12%] Building CXX object CMakeFiles/bench_fast_bands_screen.dir/bench_fast_bands_screen.cpp.o
+[ 13%] Linking CXX executable test_quartic_sturm
+[ 13%] Built target test_quartic_sturm
+[ 14%] Building CXX object CMakeFiles/bench_fast_topology.dir/bench_fast_topology.cpp.o
+[ 15%] Linking CXX executable test_holonomic_m7
+[ 15%] Built target test_holonomic_m7
+[ 16%] Building CXX object CMakeFiles/bench_d14_split.dir/bench_d14_split.cpp.o
+[ 17%] Linking CXX executable bench_fast_bands
+[ 17%] Built target bench_fast_bands
+[ 18%] Building CXX object CMakeFiles/bench_d14_compensated.dir/bench_d14_compensated.cpp.o
+[ 19%] Linking CXX executable bench_fast_bands_screen
+[ 19%] Built target bench_fast_bands_screen
+[ 20%] Building CXX object CMakeFiles/bench_d14_structure.dir/bench_d14_structure.cpp.o
+[ 21%] Linking CXX executable bench_fast_topology
+[ 21%] Built target bench_fast_topology
+[ 22%] Building CXX object CMakeFiles/bench_holonomic_trajectory.dir/bench_holonomic_trajectory.cpp.o
+[ 23%] Linking CXX executable bench_d14_split
+[ 23%] Built target bench_d14_split
+[ 24%] Building CXX object CMakeFiles/bench_radius_terms_split.dir/bench_radius_terms_split.cpp.o
+[ 25%] Linking CXX executable bench_d14_compensated
+[ 25%] Built target bench_d14_compensated
+[ 26%] Building CXX object CMakeFiles/test_finite_source_binary.dir/test_finite_source_binary.cpp.o
+[ 27%] Linking CXX executable bench_d14_structure
+[ 27%] Built target bench_d14_structure
+[ 28%] Building CXX object CMakeFiles/test_root_pair.dir/test_root_pair.cpp.o
+[ 29%] Linking CXX executable bench_holonomic_trajectory
+[ 29%] Built target bench_holonomic_trajectory
+[ 30%] Building CXX object CMakeFiles/test_holonomic_transport.dir/test_holonomic_transport.cpp.o
+[ 31%] Linking CXX executable bench_radius_terms_split
+[ 31%] Built target bench_radius_terms_split
+[ 32%] Building CXX object CMakeFiles/bench_value_lane.dir/bench_value_lane.cpp.o
+[ 33%] Linking CXX executable test_root_pair
+[ 33%] Built target test_root_pair
+[ 34%] Building CXX object CMakeFiles/bench_holonomic_3solver.dir/bench_holonomic_3solver.cpp.o
+[ 35%] Linking CXX executable test_finite_source_binary
+[ 35%] Built target test_finite_source_binary
+[ 36%] Building CXX object CMakeFiles/bench_holonomic_ode.dir/bench_holonomic_ode.cpp.o
+[ 37%] Linking CXX executable test_holonomic_transport
+[ 37%] Built target test_holonomic_transport
+[ 38%] Building CXX object CMakeFiles/test_holonomic_ode.dir/test_holonomic_ode.cpp.o
+[ 39%] Linking CXX executable bench_value_lane
+[ 39%] Built target bench_value_lane
+[ 41%] Built target test_gm_taylor
+[ 43%] Built target test_gm_physical
+[ 45%] Built target bench_gm_taylor
+[ 46%] Building CXX object CMakeFiles/bench_gm_e2e.dir/bench_gm_e2e.cpp.o
+[ 47%] Linking CXX executable bench_holonomic_3solver
+[ 47%] Built target bench_holonomic_3solver
+[ 48%] Building CXX object CMakeFiles/test_chart_p4.dir/test_chart_p4.cpp.o
+[ 50%] Linking CXX executable test_chart_p4
+[ 50%] Built target test_chart_p4
+[ 51%] Building CXX object CMakeFiles/bench_chart_p4.dir/bench_chart_p4.cpp.o
+[ 52%] Linking CXX executable bench_chart_p4
+[ 52%] Built target bench_chart_p4
+[ 54%] Built target test_reciprocal_chart
+[ 55%] Building CXX object CMakeFiles/bench_gm_coverage.dir/bench_gm_coverage.cpp.o
+[ 56%] Linking CXX executable bench_holonomic_ode
+[ 56%] Built target bench_holonomic_ode
+[ 57%] Building CXX object CMakeFiles/test_gm_coverage.dir/test_gm_coverage.cpp.o
+[ 58%] Linking CXX executable test_holonomic_ode
+[ 58%] Built target test_holonomic_ode
+[ 59%] Building CXX object CMakeFiles/bench_gm_cold_warm.dir/bench_gm_cold_warm.cpp.o
+[ 60%] Linking CXX executable bench_gm_coverage
+[ 60%] Built target bench_gm_coverage
+[ 61%] Building CXX object CMakeFiles/bench_gm_angular_jac.dir/bench_gm_angular_jac.cpp.o
+[ 62%] Linking CXX executable bench_gm_e2e
+[ 62%] Built target bench_gm_e2e
+[ 63%] Building CXX object CMakeFiles/bench_gm_connection_coverage.dir/bench_gm_connection_coverage.cpp.o
+[ 64%] Linking CXX executable test_gm_coverage
+[ 64%] Built target test_gm_coverage
+[ 65%] Building CXX object CMakeFiles/test_gm_lauricella6.dir/test_gm_lauricella6.cpp.o
+[ 66%] Linking CXX executable bench_gm_cold_warm
+[ 66%] Built target bench_gm_cold_warm
+[ 67%] Building CXX object CMakeFiles/bench_gm_lauricella6.dir/bench_gm_lauricella6.cpp.o
+[ 68%] Linking CXX executable bench_gm_angular_jac
+[ 68%] Built target bench_gm_angular_jac
+[ 69%] Building CXX object CMakeFiles/bench_gm_phase7_shared.dir/bench_gm_phase7_shared.cpp.o
+[ 70%] Linking CXX executable bench_gm_connection_coverage
+[ 70%] Built target bench_gm_connection_coverage
+[ 71%] Building CXX object CMakeFiles/test_gm_phase7_shared.dir/test_gm_phase7_shared.cpp.o
+[ 72%] Linking CXX executable test_gm_lauricella6
+[ 72%] Built target test_gm_lauricella6
+[ 73%] Building CXX object CMakeFiles/bench_v2_profile.dir/bench_v2_profile.cpp.o
+[ 74%] Linking CXX executable test_gm_phase7_shared
+[ 74%] Built target test_gm_phase7_shared
+[ 75%] Building CXX object CMakeFiles/bench_v2_whole.dir/bench_v2_whole.cpp.o
+[ 76%] Linking CXX executable bench_v2_profile
+[ 76%] Built target bench_v2_profile
+[ 77%] Building CXX object CMakeFiles/bench_d14_matrix.dir/bench_d14_matrix.cpp.o
+[ 78%] Linking CXX executable bench_d14_matrix
+[ 78%] Built target bench_d14_matrix
+[ 80%] Built target test_adaptive_radial
+[ 81%] Building CXX object CMakeFiles/bench_adaptive_radial.dir/bench_adaptive_radial.cpp.o
+[ 82%] Linking CXX executable bench_v2_whole
+[ 82%] Built target bench_v2_whole
+[ 83%] Building CXX object CMakeFiles/check_adaptive_reference.dir/check_adaptive_reference.cpp.o
+[ 84%] Linking CXX executable bench_gm_lauricella6
+[ 84%] Built target bench_gm_lauricella6
+[ 85%] Building CXX object CMakeFiles/check_adaptive_jacobian.dir/check_adaptive_jacobian.cpp.o
+[ 86%] Linking CXX executable bench_gm_phase7_shared
+[ 86%] Built target bench_gm_phase7_shared
+[ 87%] Building CXX object CMakeFiles/bench_adaptive_contracts.dir/bench_adaptive_contracts.cpp.o
+[ 88%] Linking CXX executable bench_adaptive_radial
+[ 88%] Built target bench_adaptive_radial
+[ 89%] Building CXX object CMakeFiles/bench_adaptive_diagnostics.dir/bench_adaptive_diagnostics.cpp.o
+[ 90%] Linking CXX executable check_adaptive_reference
+[ 90%] Built target check_adaptive_reference
+[ 91%] Building CXX object CMakeFiles/bench_adaptive_controls.dir/bench_adaptive_controls.cpp.o
+[ 92%] Linking CXX executable check_adaptive_jacobian
+[ 92%] Built target check_adaptive_jacobian
+[ 93%] Building CXX object CMakeFiles/check_adaptive_limits.dir/check_adaptive_limits.cpp.o
+[ 94%] Linking CXX executable bench_adaptive_contracts
+[ 94%] Built target bench_adaptive_contracts
+[ 95%] Building CXX object CMakeFiles/test_d14_positive.dir/test_d14_positive.cpp.o
+[ 96%] Linking CXX executable bench_adaptive_diagnostics
+[ 96%] Built target bench_adaptive_diagnostics
+[ 97%] Linking CXX executable test_d14_positive
+[ 97%] Built target test_d14_positive
+[ 98%] Linking CXX executable bench_adaptive_controls
+[ 98%] Built target bench_adaptive_controls
+[100%] Linking CXX executable check_adaptive_limits
+[100%] Built target check_adaptive_limits

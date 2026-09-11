@@ -14,9 +14,14 @@ int main(int argc,char**argv){
    auto r=flux_adaptive_integrate(p,row.u,topo,cfg,ws);
    std::cout<<"CASE "<<row.case_id<<' '<<row.profile<<' '<<row.epoch_index<<' '<<target<<" MODE "<<int(mode)<<" topology="<<to_string(topo.status)<<" stop="<<adaptive_stop_name(r.stop)<<" nodes="<<r.stats.unique_nodes<<'\n';
    for(const auto& e:topo.events)std::cout<<"EVENT "<<e.kind<<' '<<e.radius<<' '<<e.detail<<'\n';
+   for(const auto& e:r.stats.event_diagnostics)std::cout<<"EVENT_PREC "<<e.input_radius<<' '<<e.selected_radius<<' '<<e.radius_lo<<' '<<e.uncertainty<<'\n';
+   std::vector<CellPlan> actual_cells;
+   if(!adaptive_detail::restore_physical_cuts(topo,PrimaryFrame::from(p),actual_cells))return 3;
    for(const auto& d:r.stats.sample_diagnostics) {
     std::cout<<"REJECT "<<d.cell<<' '<<d.panel<<' '<<d.level<<' '<<d.node_slot<<' '<<d.R<<' '<<adaptive_sample_reject_reason_name(d.reason)<<' '<<d.cold_retry<<' '<<d.cold_retry_succeeded<<'\n';
-    for(const auto& cell:topo.cells)if(d.R>cell.r_lo&&d.R<cell.r_hi) {
+    if(d.cell>=0&&size_t(d.cell)<actual_cells.size()) {
+     const auto& cell=actual_cells[d.cell];
+     std::cout<<"ORIGINAL_CELL "<<cell.r_lo<<' '<<cell.r_hi<<' '<<cell.n_crossings<<'\n';
      auto cold=adaptive_detail::mapped_radius(d.R,1,p,row.u,PrimaryFrame::from(p),cell,false,false,nullptr,&cfg);
      std::cout<<"SAME_R_COLD "<<adaptive_sample_reject_reason_name(cold.reject_reason)<<" reliable="<<cold.reliable<<'\n';
     }

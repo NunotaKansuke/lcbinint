@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "checks": 391,
+  "polynomial_cases": 33,
+  "d14_examples": [
+    {
+      "degree": 14,
+      "positive_roots_in_0_16": 8,
+      "axis": false
+    },
+    {
+      "degree": 14,
+      "positive_roots_in_0_16": 10,
+      "axis": false
+    },
+    {
+      "degree": 14,
+      "positive_roots_in_0_16": 8,
+      "axis": true
+    }
+  ],
+  "validated": [
+    "positive-scaling PRS equals positive multiples of Euclidean remainder",
+    "Sturm open-interval counts against independent SymPy chain",
+    "multiple roots, close roots, complex near-real pair, endpoint atoms",
+    "global-count + disjoint sign-bracket completeness conditions",
+    "exact Z=0 factorization and absence of general +/-v symmetry"
+  ],
+  "not_validated": [
+    "floating-point enclosure implementation",
+    "C++ runtime",
+    "lcbinint corpus accuracy",
+    "soft-cut removal"
+  ],
+  "elapsed_seconds": 4.77648149500601
+}
