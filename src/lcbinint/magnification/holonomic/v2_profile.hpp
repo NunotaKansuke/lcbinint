@@ -47,6 +47,18 @@ struct V2Profile {
     u64 d14_hybrid_cheap_calls = 0;
     u64 d14_hybrid_structural_calls = 0;
     u64 d14_hybrid_unsafe_calls = 0;
+    u64 d14_real_calls = 0;
+    u64 d14_real_mixed_pairs = 0;
+    u64 d14_real_dangerous_pairs = 0;
+    u64 d14_real_nonconverged = 0;
+    u64 d14_direct_warm_attempts = 0;
+    u64 d14_direct_warm_success = 0;
+    u64 d14_direct_warm_reject = 0;
+    u64 d14_direct_newton_converged = 0;
+    u64 d14_direct_newton_nonfinite = 0;
+    u64 d14_fold_seed_attempts = 0;
+    u64 d14_fold_seed_success = 0;
+    u64 d14_fold_seed_fallback = 0;
 
     u64 d14_presearch_sweeps = 0;
     u64 d14_dd_sweeps = 0;
@@ -170,6 +182,9 @@ struct V2Profile {
     double value_angular_ms = 0.0;
     double jacobian_ms = 0.0;
     double d14_hybrid_ms = 0.0;
+    double d14_real_ms = 0.0;
+    double d14_warm_screen_ms = 0.0;
+    double d14_fold_seed_ms = 0.0;
     double d14_lifted_max_reconstruct = 0.0;
 
     void reset() { *this = V2Profile{}; }

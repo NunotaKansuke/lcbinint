@@ -154,6 +154,12 @@ void add_profile(V2Profile& d, const V2Profile& s) {
     ADD(d14_hybrid_attempts); ADD(d14_hybrid_success);
     ADD(d14_hybrid_certificate_fail); ADD(d14_hybrid_cheap_calls);
     ADD(d14_hybrid_structural_calls); ADD(d14_hybrid_unsafe_calls);
+    ADD(d14_real_calls); ADD(d14_real_mixed_pairs);
+    ADD(d14_real_dangerous_pairs); ADD(d14_real_nonconverged);
+    ADD(d14_direct_warm_attempts); ADD(d14_direct_warm_success);
+    ADD(d14_direct_warm_reject); ADD(d14_fold_seed_attempts);
+    ADD(d14_fold_seed_success); ADD(d14_fold_seed_fallback);
+    ADD(d14_direct_newton_converged); ADD(d14_direct_newton_nonfinite);
     ADD(d14_qf_warm_sweeps); ADD(d14_qf_cold_sweeps);
     ADD(quartic_cold_calls); ADD(quartic_warm_calls); ADD(quartic_warm_hits);
     ADD(quartic_cold_falls); ADD(classify_calls); ADD(classified_cells);
@@ -197,7 +203,8 @@ void add_profile(V2Profile& d, const V2Profile& s) {
     ADDT(rootpair_ms); ADDT(endpoint_ms); ADDT(f0_ms); ADDT(k_ms); ADDT(k_mid_ms);
     ADDT(k_reciprocal_ms); ADDT(angular_rescue_ms); ADDT(value_angular_ms);
     ADDT(jacobian_ms);
-    ADDT(d14_hybrid_ms);
+    ADDT(d14_hybrid_ms); ADDT(d14_real_ms); ADDT(d14_warm_screen_ms);
+    ADDT(d14_fold_seed_ms);
 #undef ADDT
     d.d14_lifted_max_reconstruct =
         std::max(d.d14_lifted_max_reconstruct, s.d14_lifted_max_reconstruct);
@@ -226,6 +233,22 @@ void print_profile(const LaneSummary& s) {
         (unsigned long long)p.d14_dd_sweeps,
         (unsigned long long)p.d14_qf_warm_sweeps,
         (unsigned long long)p.d14_qf_cold_sweeps);
+    std::fprintf(stderr,
+        "  D14Real calls=%llu mixed/dangerous pairs=%llu/%llu nonconverged=%llu "
+        "direct-warm attempt/success/reject=%llu/%llu/%llu newton-ok/nonfinite=%llu/%llu "
+        "fold-seed attempt/success/fallback=%llu/%llu/%llu\n",
+        (unsigned long long)p.d14_real_calls,
+        (unsigned long long)p.d14_real_mixed_pairs,
+        (unsigned long long)p.d14_real_dangerous_pairs,
+        (unsigned long long)p.d14_real_nonconverged,
+        (unsigned long long)p.d14_direct_warm_attempts,
+        (unsigned long long)p.d14_direct_warm_success,
+        (unsigned long long)p.d14_direct_warm_reject,
+        (unsigned long long)p.d14_direct_newton_converged,
+        (unsigned long long)p.d14_direct_newton_nonfinite,
+        (unsigned long long)p.d14_fold_seed_attempts,
+        (unsigned long long)p.d14_fold_seed_success,
+        (unsigned long long)p.d14_fold_seed_fallback);
     std::fprintf(stderr,
         "  D14 certificate root_count/conjugacy/vieta/completeness/close_pairs="
         "%llu/%llu/%llu/%llu/%llu\n",
@@ -369,6 +392,9 @@ void print_profile(const LaneSummary& s) {
         p.arc_ms, p.rootpair_ms, p.endpoint_ms, p.f0_ms, p.k_ms,
         p.k_mid_ms,
         p.angular_rescue_ms);
+    std::fprintf(stderr,
+        "  D14Real/screen/fold-seed ms=%g/%g/%g\n",
+        p.d14_real_ms, p.d14_warm_screen_ms, p.d14_fold_seed_ms);
     std::fprintf(stderr,
         "  event physical_real/complex/soft/chart_p4/rep=%llu/%llu/%llu/%llu/%llu\n",
         (unsigned long long)p.physical_real_events,

@@ -29,6 +29,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -338,11 +339,76 @@ struct PhysicalRootProbe {
     double normalized_residual = std::numeric_limits<double>::infinity();
 };
 
+// The degree-one polynomial in the quartic/subresultant PRS is a cheap
+// stationary-root seed at an ordinary double root.  It is only a seed: the
+// residual check below decides whether it is usable, and the existing cubic
+// probe remains the fail-closed fallback for a vanishing or ill-conditioned
+// subresultant.
+struct FoldSubresultantSeed {
+    bool valid = false;
+    double t = 0.0;
+    double normalized_residual = std::numeric_limits<double>::infinity();
+};
+
+inline FoldSubresultantSeed quartic_fold_subresultant_seed(
+    const QuarticCoeffs& q) {
+    const double a = q.p[4], b = q.p[3], c = q.p[2], d = q.p[1], e = q.p[0];
+    const double scale = std::max({1.0, std::fabs(a), std::fabs(b),
+                                   std::fabs(c), std::fabs(d), std::fabs(e)});
+    if (!std::isfinite(scale) || a == 0.0) return {};
+
+    // S_3(t) = -a (U t + V), from the exact subresultant sequence of P,P_t.
+    const double U =
+        32.0 * a * a * c * e - 36.0 * a * a * d * d -
+        12.0 * a * b * b * e + 28.0 * a * b * c * d -
+        8.0 * a * c * c * c - 6.0 * b * b * b * d +
+        2.0 * b * b * c * c;
+    const double V =
+        -48.0 * a * a * d * e + 32.0 * a * b * c * e +
+        3.0 * a * b * d * d - 4.0 * a * c * c * d -
+        9.0 * b * b * b * e + b * b * c * d;
+    if (!std::isfinite(U) || !std::isfinite(V) ||
+        std::fabs(U) <= 64.0 * std::numeric_limits<double>::epsilon() * scale)
+        return {};
+    const double t = -V / U;
+    if (!std::isfinite(t)) return {};
+
+    const double p = ((a * t + b) * t + c) * t * t + d * t + e;
+    const double pt = (4.0 * a * t + 3.0 * b) * t * t + 2.0 * c * t + d;
+    const double pscale = std::max(
+        {1.0, std::fabs(a * t * t * t * t), std::fabs(b * t * t * t),
+         std::fabs(c * t * t), std::fabs(d * t), std::fabs(e)});
+    const double residual = std::hypot(p, pt) / pscale;
+    return {std::isfinite(residual), t, residual};
+}
+
 // Port of radial_events._double_root_is_real, with the selected stationary
 // root retained for downstream local P=P_t refinement.
 inline PhysicalRootProbe probe_double_root(double R, const PrimaryFrame& pf,
                                             double tol = 1e-6) {
     QuarticCoeffs q = boundary_quartic(R, pf);  // ascending
+    V2Profile* prof = v2_profile_current();
+    if (prof) ++prof->d14_fold_seed_attempts;
+    auto fold_seed_begin = V2Clock::now();
+    const FoldSubresultantSeed sub = quartic_fold_subresultant_seed(q);
+    if (sub.valid && sub.normalized_residual < tol) {
+        if (prof) {
+            ++prof->d14_fold_seed_success;
+            v2_profile_add_ms(&V2Profile::d14_fold_seed_ms, fold_seed_begin,
+                              V2Clock::now());
+        }
+        PhysicalRootProbe out;
+        out.stationary_t = sub.t;
+        out.normalized_residual = sub.normalized_residual;
+        out.stationary_valid = true;
+        out.physically_real = true;
+        return out;
+    }
+    if (prof) {
+        ++prof->d14_fold_seed_fallback;
+        v2_profile_add_ms(&V2Profile::d14_fold_seed_ms, fold_seed_begin,
+                          V2Clock::now());
+    }
     double Pdesc[5] = {q.p[4], q.p[3], q.p[2], q.p[1], q.p[0]};
     double scale = 0.0;
     for (double x : q.p) scale += std::fabs(x);
@@ -488,6 +554,73 @@ inline bool holo_d14_skip_warm_presearch() {
     return on;
 }
 
+// Dedicated D14Real polish is the selected isolated D14 kernel after the
+// matched root-set and whole-epoch A/B.  `HOLO_D14_REAL=0` retains the
+// incumbent DD path for regression comparisons.
+inline bool holo_d14_real_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_REAL");
+        return !(e && e[0] == '0');
+    }();
+    return on;
+}
+
+inline D14Real holo_d14_real_tol() {
+    static const D14Real tol = [] {
+        const char* e = std::getenv("HOLO_D14_REAL_TOL");
+        if (!e || !*e) return D14Real(1e-14);
+        char* end = nullptr;
+        const double x = std::strtod(e, &end);
+        if (end == e || *end != '\0' || !std::isfinite(x) ||
+            !(x > 0.0) || x > 1e-10 || x < 1e-30)
+            return D14Real(1e-14);
+        return D14Real(x);
+    }();
+    return tol;
+}
+
+inline bool holo_d14_direct_warm_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_DIRECT_WARM");
+        return e && e[0] == '1';
+    }();
+    return on;
+}
+
+inline qf holo_d14_warm_screen_rel() {
+    static const qf rel = [] {
+        const char* e = std::getenv("HOLO_D14_WARM_SCREEN_REL");
+        if (!e || !*e) return (qf)1e-5;
+        char* end = nullptr;
+        const double x = std::strtod(e, &end);
+        if (end == e || *end != '\0' || !std::isfinite(x) ||
+            !(x > 0.0) || x > 1e-2)
+            return (qf)1e-5;
+        return (qf)x;
+    }();
+    return rel;
+}
+
+// A warm seed is a basin locator only.  This screen is a numerical residual
+// and finiteness check against the current coefficients; it is never the
+// final acceptance condition.  A rejected seed simply uses the incumbent
+// balanced double presearch, while a direct candidate still has the exact
+// qf residual, conjugacy and completeness gates below.
+inline bool d14_warm_seed_screen(const D14StructQf& sc,
+                                 const std::vector<Cplx<qf>>& warm,
+                                 int deg, qf dscale) {
+    if (deg != 14 || static_cast<int>(warm.size()) != deg) return false;
+    const qf limit = holo_d14_warm_screen_rel() * (dscale + (qf)1e-300);
+    for (const auto& root : warm) {
+        if (!finiteq(root.re) || !finiteq(root.im)) return false;
+        Cplx<qf> value, deriv;
+        d14_struct_eval(sc, root, value, deriv);
+        if (!finiteq(value.re) || !finiteq(value.im)) return false;
+        if (cabs(value) > limit) return false;
+    }
+    return true;
+}
+
 // Result of the multi-tier D14 root solve.
 struct D14Solve {
     std::vector<Cplx<qf>> roots;
@@ -554,6 +687,16 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         sscale = std::pow(ratio, 1.0 / deg);
         if (!(sscale > 0.0) || !std::isfinite(sscale)) sscale = 1.0;
     }
+    bool direct_warm = false;
+    if (warm_seed && sc && compensated && holo_d14_direct_warm_enabled()) {
+        if (prof) ++prof->d14_direct_warm_attempts;
+        const auto screen_begin = V2Clock::now();
+        direct_warm = d14_warm_seed_screen(*sc, *warm_seed, deg, dscale);
+        if (prof)
+            v2_profile_add_ms(&V2Profile::d14_warm_screen_ms, screen_begin,
+                              V2Clock::now());
+        if (!direct_warm && prof) ++prof->d14_direct_warm_reject;
+    }
     std::vector<double> descd(deg + 1);
     {
         double sp = 1.0;
@@ -580,18 +723,29 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     int pre_iters = 0;
     auto pre_begin = V2Clock::now();
     const int pre_max = holo_d14_presearch_max(!presearch_seed.empty());
+    const double pre_tol = !presearch_seed.empty()
+                               ? holo_d14_presearch_tol()
+                               : 0.0;
     std::vector<Cplx<double>> zd;
-    if (!presearch_seed.empty() && holo_d14_skip_warm_presearch()) {
+    if (direct_warm) {
+        // Keep a rounded copy for optional research candidates.  The
+        // production D14Real path below uses the original qf seed so its
+        // low limb is not discarded.
+        zd.resize(deg);
+        for (int i = 0; i < deg; ++i)
+            zd[i] = Cplx<double>(static_cast<double>((*warm_seed)[i].re) / sscale,
+                                 static_cast<double>((*warm_seed)[i].im) / sscale);
+    } else if (!presearch_seed.empty() && holo_d14_skip_warm_presearch()) {
         // The seed was produced by a previously certified D14 solve.  This
         // is a research-only warm trajectory experiment: the DD/qf polish,
         // residual gate, and global certificate still own correctness.
         zd = presearch_seed;
     } else if (presearch_seed.empty()) {
         zd = aberth<double>(descd.data(), deg, pre_max, nullptr,
-                            holo_d14_presearch_tol(), nullptr, &pre_iters);
+                            pre_tol, nullptr, &pre_iters);
     } else {
         zd = aberth<double>(descd.data(), deg, pre_max, presearch_seed.data(),
-                            holo_d14_presearch_tol(), nullptr, &pre_iters);
+                            pre_tol, nullptr, &pre_iters);
     }
     if (prof) {
         prof->d14_presearch_sweeps += (V2Profile::u64)pre_iters;
@@ -612,9 +766,11 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     if (prof && use_struct) ++prof->d14_struct_calls;
     if (prof && holo_d14_horner_enabled()) ++prof->d14_horner_calls;
     D14StructC<DD> scdd;
+    D14StructC<D14Real> screal;
     D14StructQf scqf;
     if (use_struct) {
         scdd = d14_struct_cast<DD>(*sc);
+        if (holo_d14_real_enabled()) screal = d14_struct_cast<D14Real>(*sc);
         scqf = *sc;
     }
 
@@ -681,15 +837,91 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         }
     }
 
-    if (!used_hybrid && !used_lifted && seed_ok && compensated) {
+    bool used_real = false;
+    if (!used_hybrid && !used_lifted && seed_ok && compensated &&
+        use_struct && holo_d14_real_enabled()) {
+        ScopedNoFlushDenormals _eft;
+        std::array<Cplx<D14Real>, 14> seed{};
+        for (int i = 0; i < deg; ++i) {
+            if (direct_warm) {
+                seed[i] = Cplx<D14Real>(d14_from_qf((*warm_seed)[i].re),
+                                        d14_from_qf((*warm_seed)[i].im));
+            } else {
+                seed[i] = Cplx<D14Real>(D14Real(zd[i].re * sscale),
+                                        D14Real(zd[i].im * sscale));
+            }
+        }
+        auto real_begin = V2Clock::now();
+        D14RealAberthResult real;
+        if (direct_warm) {
+            const D14RealNewtonResult warm =
+                d14_real_warm_newton(screal, seed, 16, holo_d14_real_tol());
+            real.roots = warm.roots;
+            real.iterations = warm.iterations;
+            real.finite = warm.finite;
+            real.converged = warm.converged;
+        } else {
+            real = aberth_d14_real_mixed(screal, seed, 25,
+                                         holo_d14_real_tol());
+        }
+        if (prof) {
+            ++prof->d14_real_calls;
+            prof->d14_real_mixed_pairs +=
+                static_cast<V2Profile::u64>(real.mixed_pairs);
+            prof->d14_real_dangerous_pairs +=
+                static_cast<V2Profile::u64>(real.dangerous_pairs);
+            if (!real.converged) ++prof->d14_real_nonconverged;
+            if (direct_warm && real.converged)
+                ++prof->d14_direct_newton_converged;
+            if (direct_warm && !real.finite)
+                ++prof->d14_direct_newton_nonfinite;
+            v2_profile_add_ms(&V2Profile::d14_real_ms, real_begin,
+                              V2Clock::now());
+        }
+        if (real.finite) {
+            out.roots.resize(deg);
+            for (int i = 0; i < deg; ++i)
+                out.roots[i] = Cplx<qf>(d14_to_qf(real.roots[i].re),
+                                        d14_to_qf(real.roots[i].im));
+            out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+            out.tier = 0;
+            used_real = true;
+            if (!(out.worst_res <= (qf)1e-13)) {
+                int qf_iters = 0;
+                auto qf_begin = V2Clock::now();
+                out.roots = aberth_d14_struct<qf>(
+                    scqf, nullptr, 24, out.roots.data(), (qf)1e-20,
+                    &qf_iters);
+                if (prof) {
+                    ++prof->d14_qf_warm_calls;
+                    prof->d14_qf_warm_sweeps +=
+                        static_cast<V2Profile::u64>(qf_iters);
+                    v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin,
+                                      V2Clock::now());
+                }
+                out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+                out.tier = 1;
+                if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
+            }
+        } else {
+            seed_ok = false;
+        }
+    }
+    if (!used_hybrid && !used_lifted && !used_real && seed_ok && compensated) {
         // FTZ/DAZ off so the error-free transforms keep their lo limbs.
         ScopedNoFlushDenormals _eft;
         std::vector<DD> descdd(deg + 1);
         for (int i = 0; i <= deg; ++i) descdd[i] = dd_from_qf(desc[i]);
         std::vector<Cplx<DD>> seed(deg);
-        for (int i = 0; i < deg; ++i)
-            seed[i] = Cplx<DD>(DD((double)zd[i].re * sscale),
-                               DD((double)zd[i].im * sscale));
+        for (int i = 0; i < deg; ++i) {
+            if (direct_warm) {
+                seed[i] = Cplx<DD>(dd_from_qf((*warm_seed)[i].re),
+                                   dd_from_qf((*warm_seed)[i].im));
+            } else {
+                seed[i] = Cplx<DD>(DD((double)zd[i].re * sscale),
+                                   DD((double)zd[i].im * sscale));
+            }
+        }
         // The balanced double presearch seeds every basin to ~1e-13 rel;
         // dd Aberth is locally cubic, so ~3 sweeps reach the ~1e-30 dd
         // floor.  tol 1e-26 is inside that floor (a step norm below it for
@@ -734,7 +966,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             out.tier = 1;
             if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
         }
-    } else if (!used_hybrid && !used_lifted && seed_ok) {
+    } else if (!used_hybrid && !used_lifted && !used_real && seed_ok) {
         std::vector<Cplx<qf>> seed(deg);
         for (int i = 0; i < deg; ++i)
             seed[i] = Cplx<qf>((qf)zd[i].re * (qf)sscale,
@@ -755,6 +987,16 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
         out.tier = 3;
         if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
+    }
+
+    // A direct warm corrector is a performance shortcut, not a reason to
+    // jump straight to the expensive qf cold solve.  If it leaves the
+    // incumbent residual gate, retry the normal balanced warm/cold basin
+    // search once.  This keeps the warm path fail-closed while avoiding a
+    // pathological "shortcut failed -> full qf" latency spike.
+    if (!seed_ok && direct_warm) {
+        if (prof) ++prof->d14_direct_warm_reject;
+        return solve_d14(desc_v, deg, compensated, nullptr, sc);
     }
 
     if (!seed_ok) {
@@ -811,6 +1053,18 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     }
     if (prof) v2_profile_add_ms(&V2Profile::d14_validate_ms, validation_begin,
                                 V2Clock::now());
+
+    if (direct_warm && out.tier == 2) {
+        if (prof) ++prof->d14_direct_warm_reject;
+        return solve_d14(desc_v, deg, compensated, nullptr, sc);
+    }
+
+    if (prof && direct_warm) {
+        if (out.tier == 0 || out.tier == 1)
+            ++prof->d14_direct_warm_success;
+        else
+            ++prof->d14_direct_warm_reject;
+    }
 
     // D14 has real coefficients: its non-real roots are exact conjugate
     // pairs, so a pair's two real parts are mathematically identical.  A

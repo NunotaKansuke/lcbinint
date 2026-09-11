@@ -37,11 +37,13 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 #include <vector>
 
 #include <quadmath.h>
 
 #include "lcbinint/magnification/holonomic/dd_real.hpp"
+#include "lcbinint/magnification/holonomic/d14_real.hpp"
 #include "lcbinint/magnification/holonomic/poly_roots.hpp"
 
 namespace lcbinint::holonomic {
@@ -130,6 +132,14 @@ template <>
 inline D14StructC<__float128> d14_struct_cast<__float128>(const D14StructQf& s) {
     return s;
 }
+template <>
+inline D14StructC<D14Real> d14_struct_cast<D14Real>(const D14StructQf& s) {
+    D14StructC<D14Real> r;
+    for (int i = 0; i < 4; ++i) r.c3[i] = d14_from_qf(s.c3[i]);
+    for (int i = 0; i < 5; ++i) r.g4[i] = d14_from_qf(s.g4[i]);
+    for (int i = 0; i < 4; ++i) r.z3[i] = d14_from_qf(s.z3[i]);
+    return r;
+}
 
 // Horner value + derivative of an ascending-coeff real poly at complex x.
 template <class T, std::size_t N>
@@ -183,47 +193,57 @@ inline void d14_struct_eval(const D14StructC<T>& s, const Cplx<T>& v,
 // degeneracy (matches d14_coeffs' empty-on-degeneracy contract).
 inline std::vector<__float128> d14_expanded_from_struct(const D14StructQf& s) {
     using q = __float128;
-    auto pmul = [](const std::vector<q>& x, const std::vector<q>& y) {
-        std::vector<q> r(x.size() + y.size() - 1, q(0));
-        for (std::size_t i = 0; i < x.size(); ++i)
-            for (std::size_t j = 0; j < y.size(); ++j) r[i + j] += x[i] * y[j];
+    // All intermediate products fit in 15 coefficients.  Keeping the
+    // coefficient storage fixed is material here: this function is called
+    // once per D14 event and the old temporary vector algebra performed a
+    // series of small heap allocations before returning the final vector.
+    using P = std::array<q, 15>;
+    auto zero = [] { return P{}; };
+    auto add = [](const P& x, const P& y) {
+        P r{};
+        for (int i = 0; i < 15; ++i) r[i] = x[i] + y[i];
         return r;
     };
-    auto padd = [](std::vector<q> x, const std::vector<q>& y) {
-        if (x.size() < y.size()) x.resize(y.size(), q(0));
-        for (std::size_t i = 0; i < y.size(); ++i) x[i] += y[i];
-        return x;
+    auto scale_poly = [](const P& x, q k) {
+        P r{};
+        for (int i = 0; i < 15; ++i) r[i] = x[i] * k;
+        return r;
     };
-    auto pscale = [](std::vector<q> x, q k) {
-        for (auto& v : x) v *= k;
-        return x;
+    auto shift = [](const P& x, int n) {
+        P r{};
+        for (int i = n; i < 15; ++i) r[i] = x[i - n];
+        return r;
     };
-    auto pshift = [](const std::vector<q>& x) {  // * v
-        std::vector<q> r(x.size() + 1, q(0));
-        for (std::size_t i = 0; i < x.size(); ++i) r[i + 1] = x[i];
+    auto mul = [](const P& x, int dx, const P& y, int dy) {
+        P r{};
+        for (int i = 0; i <= dx; ++i)
+            for (int j = 0; j <= dy && i + j < 15; ++j)
+                r[i + j] += x[i] * y[j];
         return r;
     };
 
-    std::vector<q> C3(s.c3.begin(), s.c3.end());
-    std::vector<q> G4(s.g4.begin(), s.g4.end());
-    std::vector<q> Z3(s.z3.begin(), s.z3.end());
+    P C3 = zero(), G4 = zero(), Z3 = zero();
+    for (int i = 0; i < 4; ++i) C3[i] = s.c3[i];
+    for (int i = 0; i < 5; ++i) G4[i] = s.g4[i];
+    for (int i = 0; i < 4; ++i) Z3[i] = s.z3[i];
 
-    std::vector<q> F6 = padd(pmul(C3, C3), pscale(pshift(G4), q(-4)));
-    std::vector<q> G4sq = pmul(G4, G4);
-    std::vector<q> term1 = pmul(F6, G4sq);
-    std::vector<q> inner = padd(pscale(pmul(C3, C3), q(2)), pscale(pshift(G4), q(-9)));
-    std::vector<q> term2 = pscale(pmul(pmul(C3, inner), Z3), q(8));
-    std::vector<q> term3 = pscale(pshift(pshift(pmul(Z3, Z3))), q(-432));
-    std::vector<q> Dhat = padd(padd(term1, term2), term3);
-    std::vector<q> D14 = pscale(Dhat, q(4096));
+    const P C3sq = mul(C3, 3, C3, 3);
+    const P F6 = add(C3sq, scale_poly(shift(G4, 1), q(-4)));
+    const P G4sq = mul(G4, 4, G4, 4);
+    const P term1 = mul(F6, 6, G4sq, 8);
+    const P inner = add(scale_poly(C3sq, q(2)), scale_poly(shift(G4, 1), q(-9)));
+    const P term2 = scale_poly(mul(mul(C3, 3, inner, 6), 9, Z3, 3), q(8));
+    const P term3 = scale_poly(shift(mul(Z3, 3, Z3, 3), 2), q(-432));
+    const P Dhat = add(add(term1, term2), term3);
+    const P D14 = scale_poly(Dhat, q(4096));
 
-    D14.resize(15, q(0));  // deg 14 by construction
     q scale = 0;
     for (q c : D14) { q av = fabsq(c); if (av > scale) scale = av; }
     if (scale == 0) return {};
-    while (D14.size() > 1 && fabsq(D14.back()) < (q)1e-18 * scale) D14.pop_back();
-    if ((int)D14.size() - 1 < 1) return {};
-    return D14;  // ascending in v
+    int degree = 14;
+    while (degree > 0 && fabsq(D14[degree]) < (q)1e-18 * scale) --degree;
+    if (degree < 1) return {};
+    return std::vector<q>(D14.begin(), D14.begin() + degree + 1);
 }
 
 // Aberth-Ehrlich on the structural D14 evaluator.  Mirrors
@@ -295,6 +315,159 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
         if (maxstep2 < tol * tol) break;
     }
     return z;
+}
+
+// Fixed-capacity D14 kernel.  The residual and derivative remain twofold,
+// while the root interaction sum uses compensated double arithmetic unless a
+// pair is numerically dangerous.  A dangerous pair is recomputed in the
+// same D14Real arithmetic; this decision depends only on the current root
+// separation and scale.  The in-place update order is identical to the
+// incumbent Aberth loop, and the caller still performs the independent qf
+// residual/completeness certificate.
+struct D14RealAberthResult {
+    std::array<Cplx<D14Real>, 14> roots{};
+    int iterations = 0;
+    bool finite = true;
+    bool converged = false;
+    int mixed_pairs = 0;
+    int dangerous_pairs = 0;
+};
+
+struct D14RealNewtonResult {
+    std::array<Cplx<D14Real>, 14> roots{};
+    int iterations = 0;
+    bool finite = true;
+    bool converged = false;
+};
+
+// Warm-only local corrector.  Each previous root is corrected independently
+// with D/D' from the current structural polynomial.  It is intentionally
+// never used as a cold all-root method: the qf residual, conjugacy, Vieta and
+// completeness checks in solve_d14 decide whether this cheap trajectory
+// candidate is usable.  A stale seed therefore falls back to the incumbent
+// basin search.
+inline D14RealNewtonResult d14_real_warm_newton(
+    const D14StructC<D14Real>& s,
+    const std::array<Cplx<D14Real>, 14>& initial,
+    int max_iter = 10, D14Real tol = D14Real(1e-26)) {
+    D14RealNewtonResult out;
+    out.roots = initial;
+    constexpr int deg = 14;
+    for (int it = 0; it < max_iter; ++it) {
+        out.iterations = it + 1;
+        bool all_small = true;
+        for (int i = 0; i < deg; ++i) {
+            Cplx<D14Real> p, dp;
+            d14_struct_eval(s, out.roots[i], p, dp);
+            if (!qfinite_(p.re) || !qfinite_(p.im) ||
+                !qfinite_(dp.re) || !qfinite_(dp.im) ||
+                (qabs_(dp.re) == D14Real(0.0) &&
+                 qabs_(dp.im) == D14Real(0.0))) {
+                out.finite = false;
+                return out;
+            }
+            const Cplx<D14Real> step = p / dp;
+            if (!qfinite_(step.re) || !qfinite_(step.im)) {
+                out.finite = false;
+                return out;
+            }
+            out.roots[i] = out.roots[i] - step;
+            if (!(cabs2(step) < tol * tol)) all_small = false;
+        }
+        if (all_small) {
+            out.converged = true;
+            break;
+        }
+    }
+    return out;
+}
+
+inline void d14_kahan_add(double x, double& sum, double& correction) {
+    const double y = x - correction;
+    const double t = sum + y;
+    correction = (t - sum) - y;
+    sum = t;
+}
+
+inline D14RealAberthResult aberth_d14_real_mixed(
+    const D14StructC<D14Real>& s,
+    const std::array<Cplx<D14Real>, 14>& initial,
+    int max_iter = 25, D14Real tol = D14Real(1e-26)) {
+    constexpr int deg = 14;
+    D14RealAberthResult out;
+    out.roots = initial;
+    const double separation_factor = 64.0 * std::sqrt(std::numeric_limits<double>::epsilon());
+
+    for (int it = 0; it < max_iter; ++it) {
+        out.iterations = it + 1;
+        D14Real max_step2(0.0);
+        for (int i = 0; i < deg; ++i) {
+            Cplx<D14Real> p, dp;
+            d14_struct_eval(s, out.roots[i], p, dp);
+            if (!qfinite_(p.re) || !qfinite_(p.im) ||
+                !qfinite_(dp.re) || !qfinite_(dp.im)) {
+                out.finite = false;
+                return out;
+            }
+
+            double sr = 0.0, si = 0.0, cr = 0.0, ci = 0.0;
+            bool dangerous = false;
+            const double xir = static_cast<double>(out.roots[i].re);
+            const double xii = static_cast<double>(out.roots[i].im);
+            if (!std::isfinite(xir) || !std::isfinite(xii)) {
+                out.finite = false;
+                return out;
+            }
+            for (int j = 0; j < deg; ++j) {
+                if (j == i) continue;
+                const double xjr = static_cast<double>(out.roots[j].re);
+                const double xji = static_cast<double>(out.roots[j].im);
+                const double dr = xir - xjr, di = xii - xji;
+                const double dn = std::hypot(dr, di);
+                const double scale = std::max({1.0, std::fabs(xir),
+                                               std::fabs(xii), std::fabs(xjr),
+                                               std::fabs(xji)});
+                if (!(dn > 0.0) || !std::isfinite(dn)) {
+                    out.finite = false;
+                    return out;
+                }
+                if (dn <= separation_factor * scale) {
+                    dangerous = true;
+                } else {
+                    const double inv = 1.0 / (dr * dr + di * di);
+                    d14_kahan_add(dr * inv, sr, cr);
+                    d14_kahan_add(-di * inv, si, ci);
+                    ++out.mixed_pairs;
+                }
+            }
+
+            Cplx<D14Real> sum;
+            if (!dangerous) {
+                sum = Cplx<D14Real>(D14Real(sr), D14Real(si));
+            } else {
+                sum = Cplx<D14Real>(D14Real(0.0), D14Real(0.0));
+                for (int j = 0; j < deg; ++j) {
+                    if (j == i) continue;
+                    sum = sum + Cplx<D14Real>(D14Real(1.0), D14Real(0.0)) /
+                                      (out.roots[i] - out.roots[j]);
+                    ++out.dangerous_pairs;
+                }
+            }
+            const Cplx<D14Real> step = p / (dp - p * sum);
+            if (!qfinite_(step.re) || !qfinite_(step.im)) {
+                out.finite = false;
+                return out;
+            }
+            out.roots[i] = out.roots[i] - step;
+            const D14Real step2 = cabs2(step);
+            if (step2 > max_step2) max_step2 = step2;
+        }
+        if (max_step2 < tol * tol) {
+            out.converged = true;
+            break;
+        }
+    }
+    return out;
 }
 
 }  // namespace re_detail
