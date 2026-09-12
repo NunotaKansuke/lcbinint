@@ -184,11 +184,26 @@ inline void horner_vd(const std::array<T, N>& c, int deg, const Cplx<T>& x,
 // 4096*Dhat and 4096*Dhat'.  Pure holomorphic block arithmetic.
 template <class T>
 inline void d14_struct_eval(const D14StructC<T>& s, const Cplx<T>& v,
-                            Cplx<T>& D, Cplx<T>& Dp) {
+                            Cplx<T>& D, Cplx<T>& Dp, bool enable_shared=true) {
     Cplx<T> c, cp, g, gp, z, zp;
+#ifdef HOLO_D14_SHARED_POWERS
+    if(std::is_same_v<T,D14Real> && enable_shared) {
+        const Cplx<T> v2=v*v,v3=v2*v,v4=v2*v2;
+        auto scale=[](T a,Cplx<T> x){return Cplx<T>(a*x.re,a*x.im);};
+        auto cubic=[&](const std::array<T,4>& a,Cplx<T>& f,Cplx<T>& df){
+            f=((Cplx<T>(a[0],T(0))+scale(a[1],v))+scale(a[2],v2))+scale(a[3],v3);
+            df=(Cplx<T>(a[1],T(0))+scale(T(2)*a[2],v))+scale(T(3)*a[3],v2);
+        };
+        cubic(s.c3,c,cp);cubic(s.z3,z,zp);
+        g=(((Cplx<T>(s.g4[0],T(0))+scale(s.g4[1],v))+scale(s.g4[2],v2))+scale(s.g4[3],v3))+scale(s.g4[4],v4);
+        gp=((Cplx<T>(s.g4[1],T(0))+scale(T(2)*s.g4[2],v))+scale(T(3)*s.g4[3],v2))+scale(T(4)*s.g4[4],v3);
+    } else
+#endif
+    {
     horner_vd(s.c3, 3, v, c, cp);
     horner_vd(s.g4, 4, v, g, gp);
     horner_vd(s.z3, 3, v, z, zp);
+    }
 
 #ifdef HOLO_D14_SCALAR_CONSTANTS
     struct RealScale {
@@ -1125,7 +1140,11 @@ inline D14RealAberthResult aberth_d14_real_mixed(
             }
             ++active_count;
             Cplx<D14Real> p, dp;
+#ifdef HOLO_D14_POWER_SWEEPS
+            d14_struct_eval(s,out.roots[i],p,dp,it<HOLO_D14_POWER_SWEEPS);
+#else
             d14_struct_eval(s, out.roots[i], p, dp);
+#endif
             if (!qfinite_(p.re) || !qfinite_(p.im) ||
                 !qfinite_(dp.re) || !qfinite_(dp.im)) {
                 out.finite = false;

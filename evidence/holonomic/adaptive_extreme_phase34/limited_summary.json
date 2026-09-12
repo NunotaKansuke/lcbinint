@@ -1,0 +1,38 @@
+{
+  "rows": 7216,
+  "status_mismatch": 0,
+  "node_mismatch": 0,
+  "max_scaled_mu": 3.904749898126433e-12,
+  "p50_ms": {
+    "whole": {
+      "baseline": 0.307739,
+      "candidate": 0.30584900000000004
+    },
+    "topology": {
+      "baseline": 0.124961,
+      "candidate": 0.122801
+    },
+    "real": {
+      "baseline": 0.02151349999999995,
+      "candidate": 0.0193669999999999
+    },
+    "qf": {
+      "baseline": 0.0,
+      "candidate": 0.0
+    }
+  },
+  "sum_ms": {
+    "whole": {
+      "baseline": 4260.868869999999,
+      "candidate": 4108.7768129999995
+    },
+    "real": {
+      "baseline": 229.77166999999974,
+      "candidate": 218.25600299999974
+    },
+    "qf": {
+      "baseline": 1391.664985,
+      "candidate": 1248.93558
+    }
+  }
+}
