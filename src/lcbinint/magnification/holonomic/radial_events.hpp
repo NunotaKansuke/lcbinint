@@ -1515,18 +1515,97 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                 auto qf_begin = V2Clock::now();
                 out.roots = aberth_d14_struct<qf>(
                     scqf, nullptr, qf_warm_max_iter, out.roots.data(), (qf)1e-20,
-                    &qf_iters, &qf_converged);
+                    &qf_iters, &qf_converged, role_hints.data());
+                out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+                out.tier = 1;
+#if defined(HOLO_D14_QF_PAIR_POLISH_RESEARCH)
+                int pair_verify_iters = 0;
+                bool pair_attempted = false;
+                bool pair_accepted = false;
+                bool pair_scalar_certificate = false;
+                int pair_i = -1, pair_j = -1;
+                qf pair_driver_step = 0;
+                qf pair_check_residual = out.worst_res;
+                D14QfPairPolishResearchResult pair_result;
+                const char* pair_switch = std::getenv(
+                    "HOLO_D14_QF_PAIR_POLISH_RESEARCH");
+                const bool pair_research_enabled =
+                    pair_switch && pair_switch[0] == '1';
+                if (!qf_converged && out.worst_res <= (qf)1e-12 &&
+                    pair_research_enabled &&
+                    d14_qf_aberth_driver_pair(scqf, out.roots, &pair_i,
+                                              &pair_j, &pair_driver_step)) {
+                    pair_attempted = true;
+                    pair_result = d14_qf_pair_polish_research(
+                        scqf, out.roots, pair_i, pair_j, 8, (qf)1e-20);
+                    // A non-converged local pair trial is not a useful seed
+                    // for the global verification sweep.  In the captured
+                    // qf-tail traces, global verification never passed when
+                    // this local step gate failed, so keep the original
+                    // candidate and go directly to the existing fallback.
+                    if (pair_result.finite && pair_result.converged) {
+                        bool verify_converged = false;
+                        std::vector<Cplx<qf>> verified =
+                            aberth_d14_struct<qf>(
+                                scqf, nullptr, 1, pair_result.roots.data(),
+                                (qf)1e-20, &pair_verify_iters,
+                                &verify_converged, role_hints.data());
+                        pair_check_residual =
+                            d14_worst_res(desc, deg, verified, dscale);
+                        qf scalar_residual = 0;
+                        int scalar_reason = 0;
+                        pair_scalar_certificate = d14_scalar_certificate(
+                            &scqf, desc_v, verified, &scalar_residual,
+                            &scalar_reason);
+                        if (verify_converged &&
+                            pair_check_residual <= (qf)1e-12 &&
+                            pair_scalar_certificate) {
+                            out.roots = std::move(verified);
+                            out.worst_res = pair_check_residual;
+                            qf_converged = true;
+                            pair_accepted = true;
+                        }
+                    }
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+                    if (re_detail::d14_qf_trace_enabled()) {
+                        std::fprintf(stderr,
+                            "D14QF_PAIRPOLISH\tpair=%d,%d\tattempted=%d"
+                            "\taccepted=%d\tpair_finite=%d\tpair_converged=%d"
+                            "\tpair_iters=%d\tbacktracks=%d\tverify_iters=%d"
+                            "\tverify_converged=%d\tscalar_certificate=%d",
+                            pair_i, pair_j, int(pair_attempted),
+                            int(pair_accepted), int(pair_result.finite),
+                            int(pair_result.converged), pair_result.iterations,
+                            pair_result.backtracks, pair_verify_iters,
+                            int(qf_converged), int(pair_scalar_certificate));
+                        re_detail::d14_qf_trace_value("driver_step",
+                                                      pair_driver_step);
+                        re_detail::d14_qf_trace_value(
+                            "start_pair_residual", pair_result.start_residual);
+                        re_detail::d14_qf_trace_value(
+                            "end_pair_residual", pair_result.end_residual);
+                        re_detail::d14_qf_trace_value(
+                            "pair_step", pair_result.last_pair_step);
+                        re_detail::d14_qf_trace_value(
+                            "check_worst_residual", pair_check_residual);
+                        std::fputc('\n', stderr);
+                    }
+#endif
+                }
+#endif
                 if (prof) {
                     ++prof->d14_qf_warm_calls;
                     prof->d14_qf_warm_sweeps +=
-                        static_cast<V2Profile::u64>(qf_iters);
+                        static_cast<V2Profile::u64>(qf_iters
+#if defined(HOLO_D14_QF_PAIR_POLISH_RESEARCH)
+                                                    + pair_verify_iters
+#endif
+                                                    );
                     const auto qf_end = V2Clock::now();
                     v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, qf_end);
                     v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin,
                                       qf_end);
                 }
-                out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
-                out.tier = 1;
                 if (!qf_converged || !(out.worst_res <= (qf)1e-12)) {
                     seed_ok = false;
 #if defined(HOLO_D14_TRACE_QF_ITERATIONS)

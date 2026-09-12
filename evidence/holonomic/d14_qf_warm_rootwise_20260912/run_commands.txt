@@ -1,0 +1,131 @@
+# D14 qf-warm root-wise trace and local pair polish A/B
+# Repository: NunotaKansuke/lcbinint
+# Branch/base HEAD: dev/holonomic @ c8c319e6a1ecb0093f03ac42a37406c5e016a265
+# Host: Intel Xeon Gold 6530; compiler: GCC 11.5.0; CPU affinity: core 0
+# Full input source SHA256:
+# 6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b
+# The whole-epoch subset consists of case149/uniform/dbin1 and
+# case9/uniform/dbin2, four epochs each.  The runner uses adaptive value-only
+# RelTol 1e-3 and 1e-4 and measures full-cold/full-warm/radial-only.
+
+cd /rogue1_8/nunota/lcbinint
+
+# Recreate the retained eight-row, two-trajectory adaptive subset.
+python3 - <<'PY'
+from pathlib import Path
+src = Path("evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv")
+dst = Path("evidence/holonomic/d14_qf_warm_rootwise_20260912/pair_whole_epoch_input.tsv")
+keep = {(149, "uniform", 1), (9, "uniform", 2)}
+rows = []
+for line in src.read_text().splitlines():
+    if not line or line.startswith("#"):
+        continue
+    cols = line.split()
+    if (int(cols[0]), cols[2], int(cols[3])) in keep:
+        rows.append(line)
+dst.write_text("# filtered matched whole-epoch subset: case149/uniform/dbin1 and case9/uniform/dbin2; 4 epochs each\n" + "\n".join(rows) + "\n")
+assert len(rows) == 8
+PY
+
+# Baseline whole-epoch runner. Pair-research code is compile-time absent.
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp \
+  -o /tmp/d14_qf_pair_base -lquadmath
+
+# Research candidate. It requires both this define and the runtime environment
+# variable below. Without the define, regular builds have no pair path.
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -DHOLO_D14_QF_PAIR_POLISH_RESEARCH=1 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp \
+  -o /tmp/d14_qf_pair_candidate_v2 -lquadmath
+
+# Baseline root-wise trace build (pair route absent).
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -DHOLO_D14_TRACE_QF_ITERATIONS=1 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  benchmarks/holonomic/bench_d14_root_work_detail.cpp \
+  -o /tmp/bench_d14_qf_rootwise -lquadmath
+
+# Root-wise qf-warm trace plus pair research build.
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -DHOLO_D14_TRACE_QF_ITERATIONS=1 \
+  -DHOLO_D14_QF_PAIR_POLISH_RESEARCH=1 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  benchmarks/holonomic/bench_d14_root_work_detail.cpp \
+  -o /tmp/bench_d14_qf_pair_v2 -lquadmath
+
+# Baseline and research root-work tables plus traces for all four cases.
+while read case_id dbin profile; do
+  taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+    HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+    HOLO_D14_QF_TRACE=1 HOLO_D14_QF_TRACE_ROOTWISE=1 \
+    /tmp/bench_d14_qf_rootwise \
+    evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv \
+    evidence/holonomic/d14_qf_warm_rootwise_20260912/case${case_id}_roots.tsv \
+    evidence/holonomic/d14_qf_warm_rootwise_20260912/case${case_id}_timing.tsv \
+    1 both "${case_id}" "${dbin}" "${profile}" \
+    2> evidence/holonomic/d14_qf_warm_rootwise_20260912/case${case_id}_trace.log
+
+  taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+    HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+    HOLO_D14_QF_TRACE=1 HOLO_D14_QF_TRACE_ROOTWISE=1 \
+    HOLO_D14_QF_PAIR_POLISH_RESEARCH=1 /tmp/bench_d14_qf_pair_v2 \
+    evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv \
+    evidence/holonomic/d14_qf_warm_rootwise_20260912/case${case_id}_pair_v2_roots.tsv \
+    evidence/holonomic/d14_qf_warm_rootwise_20260912/case${case_id}_pair_v2_timing.tsv \
+    1 both "${case_id}" "${dbin}" "${profile}" \
+    2> evidence/holonomic/d14_qf_warm_rootwise_20260912/case${case_id}_pair_v2_trace.log
+done <<'CASES'
+149 1 uniform
+0 0 linear
+64 0 linear
+9 2 uniform
+CASES
+
+# Losslessly compress the large raw stderr traces before regenerating summaries.
+gzip -9 -f evidence/holonomic/d14_qf_warm_rootwise_20260912/case*_trace.log
+
+# The retained case*_pair_* files are an earlier pilot before verification was
+# gated on local pair convergence. The final A/B and summary use pair_v2 files.
+
+# The filtered whole-epoch input is retained verbatim as
+# pair_whole_epoch_input.tsv. Each arm gets two process runs; every process
+# internally measures three repeats per row. The second process order is
+# reversed relative to the first pair of runs.
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  /tmp/d14_qf_pair_base \
+  evidence/holonomic/d14_qf_warm_rootwise_20260912/pair_whole_epoch_input.tsv \
+  evidence/holonomic/d14_qf_warm_rootwise_20260912/pair_whole_epoch_base.tsv 3
+
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  HOLO_D14_QF_PAIR_POLISH_RESEARCH=1 /tmp/d14_qf_pair_candidate_v2 \
+  evidence/holonomic/d14_qf_warm_rootwise_20260912/pair_whole_epoch_input.tsv \
+  evidence/holonomic/d14_qf_warm_rootwise_20260912/pair_whole_epoch_candidate_v2.tsv 3
+
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  HOLO_D14_QF_PAIR_POLISH_RESEARCH=1 /tmp/d14_qf_pair_candidate_v2 \
+  evidence/holonomic/d14_qf_warm_rootwise_20260912/pair_whole_epoch_input.tsv \
+  evidence/holonomic/d14_qf_warm_rootwise_20260912/pair_whole_epoch_candidate_v2_repeat.tsv 3
+
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 \
+  HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 \
+  /tmp/d14_qf_pair_base \
+  evidence/holonomic/d14_qf_warm_rootwise_20260912/pair_whole_epoch_input.tsv \
+  evidence/holonomic/d14_qf_warm_rootwise_20260912/pair_whole_epoch_base_repeat.tsv 3
+
+# Rebuild summaries from raw root-work tables, trace logs, and whole-epoch TSVs.
+python3 evidence/holonomic/d14_qf_warm_rootwise_20260912/analyze_rootwise_trace.py
+python3 evidence/holonomic/d14_qf_warm_rootwise_20260912/summarize_pair_polish.py
+
+# Validation performed after the experiment.
+cmake --build build-holonomic-global -j2
+ctest --test-dir build-holonomic-global --output-on-failure -j2

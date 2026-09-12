@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "attempts": 24,
+  "accepted": 2,
+  "local_pair_converged": 4,
+  "global_verification_sweeps": 4,
+  "qf_cold_avoided_rows": [
+    {
+      "case_id": "149",
+      "configuration_id": "149",
+      "profile": "uniform",
+      "d_bin_index": "1",
+      "epoch_index": "15",
+      "rep": "0",
+      "lane": "warm"
+    },
+    {
+      "case_id": "9",
+      "configuration_id": "9",
+      "profile": "uniform",
+      "d_bin_index": "2",
+      "epoch_index": "7",
+      "rep": "0",
+      "lane": "warm"
+    }
+  ],
+  "accepted_root_set_checks": [
+    {
+      "case_id": "149",
+      "configuration_id": "149",
+      "profile": "uniform",
+      "d_bin_index": "1",
+      "epoch_index": "15",
+      "rep": "0",
+      "lane": "warm",
+      "count_match": true,
+      "max_abs_root_delta": 1.2042572040036374e-16,
+      "max_scaled_root_delta": 1.2042572040036374e-16,
+      "role_mismatches": 0,
+      "base_completeness_fails": 0,
+      "candidate_completeness_fails": 0,
+      "base_root_count_bad": 0,
+      "candidate_root_count_bad": 0,
+      "base_conjugacy_bad": 0,
+      "candidate_conjugacy_bad": 0,
+      "base_vieta_bad": 0,
+      "candidate_vieta_bad": 0
+    },
+    {
+      "case_id": "9",
+      "configuration_id": "9",
+      "profile": "uniform",
+      "d_bin_index": "2",
+      "epoch_index": "7",
+      "rep": "0",
+      "lane": "warm",
+      "count_match": true,
+      "max_abs_root_delta": 5.717540156602308e-16,
+      "max_scaled_root_delta": 5.717540156602308e-16,
+      "role_mismatches": 0,
+      "base_completeness_fails": 0,
+      "candidate_completeness_fails": 0,
+      "base_root_count_bad": 0,
+      "candidate_root_count_bad": 0,
+      "base_conjugacy_bad": 0,
+      "candidate_conjugacy_bad": 0,
+      "base_vieta_bad": 0,
+      "candidate_vieta_bad": 0
+    }
+  ],
+  "whole_epoch": {
+    "lanes": {
+      "cold": {
+        "rows": 16,
+        "base_ms_percentiles": {
+          "0.5": 2.36104375,
+          "0.9": 55.2980725,
+          "0.95": 56.166128375,
+          "0.99": 56.186716475,
+          "1.0": 56.1918635
+        },
+        "candidate_ms_percentiles": {
+          "0.5": 2.36014025,
+          "0.9": 55.736782250000005,
+          "0.95": 56.650656624999996,
+          "0.99": 56.742024924999996,
+          "1.0": 56.764866999999995
+        },
+        "base_sum_ms": 341.48697400000003,
+        "candidate_sum_ms": 344.3074615,
+        "sum_delta_ms": 2.820487499999956
+      },
+      "warm": {
+        "rows": 16,
+        "base_ms_percentiles": {
+          "0.5": 53.29891325,
+          "0.9": 55.48767675,
+          "0.95": 56.043974750000004,
+          "0.99": 56.146042550000004,
+          "1.0": 56.1715595
+        },
+        "candidate_ms_percentiles": {
+          "0.5": 4.751747,
+          "0.9": 55.51355325,
+          "0.95": 56.5016025,
+          "0.99": 56.564466900000006,
+          "1.0": 56.580183000000005
+        },
+        "base_sum_ms": 549.4472625,
+        "candidate_sum_ms": 353.5294935,
+        "sum_delta_ms": -195.91776899999996
+      },
+      "radial": {
+        "rows": 16,
+        "base_ms_percentiles": {
+          "0.5": 0.293823,
+          "0.9": 0.44082750000000004,
+          "0.95": 0.5159285,
+          "0.99": 0.6145708999999999,
+          "1.0": 0.6392315
+        },
+        "candidate_ms_percentiles": {
+          "0.5": 0.28831525,
+          "0.9": 0.438826,
+          "0.95": 0.51503575,
+          "0.99": 0.6122027499999999,
+          "1.0": 0.6364945
+        },
+        "base_sum_ms": 5.264292,
+        "candidate_sum_ms": 5.2278305000000005,
+        "sum_delta_ms": -0.0364614999999997
+      }
+    },
+    "parity": {
+      "cold": {
+        "checked_field_mismatches": 0,
+        "max_scaled_mu_delta": 0.0,
+        "max_abs_estimated_error_delta": 0.0
+      },
+      "warm": {
+        "checked_field_mismatches": 0,
+        "max_scaled_mu_delta": 1.9136696921034755e-12,
+        "max_abs_estimated_error_delta": 6.204730479408838e-11
+      },
+      "radial": {
+        "checked_field_mismatches": 0,
+        "max_scaled_mu_delta": 0.0,
+        "max_abs_estimated_error_delta": 0.0
+      }
+    },
+    "input_trajectories": 2,
+    "epochs_per_trajectory": 4,
+    "targets": [
+      0.001,
+      0.0001
+    ],
+    "rows_per_lane": 16,
+    "timing_note": "Each process used 3 repeats/row; summary takes median of the two process medians. This is a deliberately tail-targeted 8-epoch subset, not a population benchmark."
+  },
+  "scope": "compile-time research candidate; production route unchanged"
+}

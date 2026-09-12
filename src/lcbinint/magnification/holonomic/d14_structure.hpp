@@ -61,6 +61,14 @@ inline bool d14_qf_trace_enabled() {
     return enabled;
 }
 
+inline bool d14_qf_rootwise_trace_enabled() {
+    static const bool enabled = [] {
+        const char* e = std::getenv("HOLO_D14_QF_TRACE_ROOTWISE");
+        return e && e[0] == '1';
+    }();
+    return enabled;
+}
+
 inline void d14_qf_trace_value(const char* label, __float128 value) {
     char text[96];
     quadmath_snprintf(text, sizeof(text), "%+.36Qe", value);
@@ -207,6 +215,176 @@ inline void d14_struct_eval(const D14StructC<T>& s, const Cplx<T>& v,
     Dp = k * Dhatp;
 }
 
+#if defined(HOLO_D14_QF_PAIR_POLISH_RESEARCH)
+struct D14QfPairPolishResearchResult {
+    std::vector<Cplx<__float128>> roots;
+    int i = -1;
+    int j = -1;
+    int iterations = 0;
+    int backtracks = 0;
+    bool finite = false;
+    bool converged = false;
+    __float128 start_residual = 0;
+    __float128 end_residual = 0;
+    __float128 last_pair_step = 0;
+};
+
+inline __float128 d14_qf_norm(Cplx<__float128> z) {
+    return hypotq(z.re, z.im);
+}
+
+inline bool d14_qf_isfinite(Cplx<__float128> z) {
+    return finiteq(z.re) && finiteq(z.im);
+}
+
+inline Cplx<__float128> d14_qf_scale(Cplx<__float128> z, __float128 a) {
+    return {z.re * a, z.im * a};
+}
+
+inline Cplx<__float128> d14_qf_sqrt_near(Cplx<__float128> z,
+                                         Cplx<__float128> reference) {
+    const __float128 r = hypotq(z.re, z.im);
+    const __float128 re2 = std::max((__float128)0, (r + z.re) / 2);
+    const __float128 im2 = std::max((__float128)0, (r - z.re) / 2);
+    Cplx<__float128> root(sqrtq(re2), sqrtq(im2));
+    if (z.im < 0) root.im = -root.im;
+    const Cplx<__float128> opposite(-root.re, -root.im);
+    if (d14_qf_norm(opposite - reference) < d14_qf_norm(root - reference))
+        root = opposite;
+    return root;
+}
+
+inline bool d14_qf_aberth_driver_pair(const D14StructQf& s,
+                                      const std::vector<Cplx<__float128>>& roots,
+                                      int* pair_i, int* pair_j,
+                                      __float128* max_step = nullptr) {
+    constexpr int n = 14;
+    if (roots.size() != n || !pair_i || !pair_j) return false;
+    __float128 largest = -1;
+    int best_i = -1, best_j = -1;
+    for (int i = 0; i < n; ++i) {
+        Cplx<__float128> p, dp;
+        d14_struct_eval(s, roots[i], p, dp);
+        Cplx<__float128> sum(0, 0);
+        __float128 nearest = HUGE_VALQ;
+        int partner = -1;
+        for (int j = 0; j < n; ++j) {
+            if (j == i) continue;
+            const Cplx<__float128> diff = roots[i] - roots[j];
+            sum = sum + Cplx<__float128>(1, 0) / diff;
+            const __float128 separation = d14_qf_norm(diff);
+            if (separation < nearest) {
+                nearest = separation;
+                partner = j;
+            }
+        }
+        const Cplx<__float128> step = p / (dp - p * sum);
+        const __float128 magnitude = d14_qf_norm(step);
+        if (!finiteq(magnitude)) return false;
+        if (magnitude > largest) {
+            largest = magnitude;
+            best_i = i;
+            best_j = partner;
+        }
+    }
+    if (best_i < 0 || best_j < 0) return false;
+    *pair_i = best_i;
+    *pair_j = best_j;
+    if (max_step) *max_step = largest;
+    return true;
+}
+
+// Research-only symmetric two-root corrector. For a selected pair
+// a=m+d, b=m-d, solve E=(P(a)+P(b))/2=0 and
+// O=(P(a)-P(b))/(2d)=0 in (m,d^2). It never certifies a root set; callers
+// must run the unchanged global Aberth-step, residual, completeness, and
+// topology gates before using its result.
+inline D14QfPairPolishResearchResult d14_qf_pair_polish_research(
+    const D14StructQf& s, const std::vector<Cplx<__float128>>& input,
+    int i, int j, int max_iter, __float128 step_tolerance) {
+    using q = __float128;
+    D14QfPairPolishResearchResult out;
+    out.roots = input;
+    out.i = i;
+    out.j = j;
+    if (input.size() != 14 || i < 0 || i >= 14 || j < 0 || j >= 14 ||
+        i == j || max_iter < 1) return out;
+    const Cplx<q> two(2, 0), four(4, 0);
+    auto pair_residual = [&](Cplx<q> a, Cplx<q> b) {
+        Cplx<q> pa, da, pb, db;
+        d14_struct_eval(s, a, pa, da);
+        d14_struct_eval(s, b, pb, db);
+        if (!d14_qf_isfinite(pa) || !d14_qf_isfinite(pb))
+            return HUGE_VALQ;
+        return std::max(d14_qf_norm(pa), d14_qf_norm(pb));
+    };
+
+    Cplx<q> a = out.roots[i], b = out.roots[j];
+    out.start_residual = pair_residual(a, b);
+    out.end_residual = out.start_residual;
+    if (!finiteq(out.start_residual)) return out;
+    out.finite = true;
+    for (int it = 0; it < max_iter; ++it) {
+        const Cplx<q> d = d14_qf_scale(a - b, q(0.5));
+        if (!(d14_qf_norm(d) > 0) || !d14_qf_isfinite(d)) break;
+        const Cplx<q> m = d14_qf_scale(a + b, q(0.5));
+        const Cplx<q> d2 = d * d;
+        Cplx<q> pa, da, pb, db;
+        d14_struct_eval(s, a, pa, da);
+        d14_struct_eval(s, b, pb, db);
+        const Cplx<q> two_d = two * d;
+        const Cplx<q> four_d = four * d;
+        const Cplx<q> four_d2 = four * d2;
+        const Cplx<q> four_d3 = four_d2 * d;
+        if (!d14_qf_isfinite(pa) || !d14_qf_isfinite(pb) ||
+            !d14_qf_isfinite(da) || !d14_qf_isfinite(db) ||
+            d14_qf_norm(two_d) == 0 || d14_qf_norm(four_d3) == 0)
+            break;
+        const Cplx<q> E = d14_qf_scale(pa + pb, q(0.5));
+        const Cplx<q> O = (pa - pb) / two_d;
+        const Cplx<q> J11 = d14_qf_scale(da + db, q(0.5));
+        const Cplx<q> J12 = (da - db) / four_d;
+        const Cplx<q> J21 = (da - db) / two_d;
+        const Cplx<q> J22 = (da + db) / four_d2 - (pa - pb) / four_d3;
+        const Cplx<q> det = J11 * J22 - J12 * J21;
+        if (!d14_qf_isfinite(E) || !d14_qf_isfinite(O) ||
+            !d14_qf_isfinite(det) || d14_qf_norm(det) == 0)
+            break;
+        const Cplx<q> dm = (Cplx<q>(-E.re, -E.im) * J22 + J12 * O) / det;
+        const Cplx<q> ds = (Cplx<q>(-J11.re, -J11.im) * O + E * J21) / det;
+        if (!d14_qf_isfinite(dm) || !d14_qf_isfinite(ds)) break;
+
+        q alpha = 1;
+        bool accepted = false;
+        for (int bt = 0; bt <= 16; ++bt, alpha /= 2) {
+            const Cplx<q> next_m = m + d14_qf_scale(dm, alpha);
+            const Cplx<q> next_d2 = d2 + d14_qf_scale(ds, alpha);
+            Cplx<q> next_d = d14_qf_sqrt_near(next_d2, d);
+            Cplx<q> next_a = next_m + next_d;
+            Cplx<q> next_b = next_m - next_d;
+            const q next_res = pair_residual(next_a, next_b);
+            if (finiteq(next_res) && next_res < out.end_residual) {
+                const q move = std::max(d14_qf_norm(next_a - a),
+                                        d14_qf_norm(next_b - b));
+                a = next_a;
+                b = next_b;
+                out.roots[i] = a;
+                out.roots[j] = b;
+                out.end_residual = next_res;
+                out.last_pair_step = move;
+                out.backtracks += bt;
+                ++out.iterations;
+                accepted = true;
+                if (move <= step_tolerance) out.converged = true;
+                break;
+            }
+        }
+        if (!accepted || out.converged) break;
+    }
+    return out;
+}
+#endif
+
 // Assemble the expanded ascending-in-v degree-14 coefficient vector from
 // the blocks (exact).  Returns {} on the a==x, y==0 leading-term
 // degeneracy (matches d14_coeffs' empty-on-degeneracy contract).
@@ -277,7 +455,8 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
                                               const Cplx<T>* seed,
                                               T tol_override,
                                               int* iterations = nullptr,
-                                              bool* converged = nullptr) {
+                                              bool* converged = nullptr,
+                                              const int* trace_role_hints = nullptr) {
     constexpr int deg = 14;
     std::vector<Cplx<T>> z(deg);
     if (iterations) *iterations = 0;
@@ -320,6 +499,8 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
             std::fputc('\n', stderr);
         }
     }
+    const bool trace_rootwise = trace_qf && seed &&
+                                d14_qf_rootwise_trace_enabled();
     bool trace_bad_seen = false;
 #endif
     for (int it = 0; it < max_iter; ++it) {
@@ -332,6 +513,7 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
         Cplx<T> trace_max_b{}, trace_max_w{}, trace_max_z{};
         T trace_max_nearest = T(0);
         int trace_max_partner = -1;
+        std::array<T, deg> trace_steps{};
 #endif
         for (int i = 0; i < deg; ++i) {
             Cplx<T> p, dp;
@@ -387,6 +569,7 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
             if (trace_qf) {
                 if constexpr (std::is_same<T, __float128>::value) {
                     const __float128 step = hypotq(w.re, w.im);
+                    trace_steps[i] = static_cast<T>(step);
                     const bool finite = qfinite_(p.re) && qfinite_(p.im) &&
                         qfinite_(dp.re) && qfinite_(dp.im) &&
                         qfinite_(sum.re) && qfinite_(sum.im) &&
@@ -400,6 +583,8 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
                             it + 1, i, trace_nearest_partner);
                         d14_qf_trace_value("z_re", old_z.re);
                         d14_qf_trace_value("z_im", old_z.im);
+                        d14_qf_trace_value("new_re", z[i].re);
+                        d14_qf_trace_value("new_im", z[i].im);
                         d14_qf_trace_value("absP", hypotq(p.re, p.im));
                         d14_qf_trace_value("absDP", hypotq(dp.re, dp.im));
                         d14_qf_trace_value("absS", hypotq(sum.re, sum.im));
@@ -408,6 +593,30 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
                         d14_qf_trace_value("absStep", step);
                         d14_qf_trace_value("nearestSep", trace_nearest);
                         std::fputc('\n', stderr);
+                    }
+                    if (trace_rootwise) {
+                        const Cplx<__float128> newton = p / dp;
+                        std::fprintf(stderr,
+                            "D14QF_ROOTSTEP\tseed=warm\tit=%d\tindex=%d"
+                            "\trole_hint=%d",
+                            it + 1, i,
+                            trace_role_hints ? trace_role_hints[i] : -1);
+                        d14_qf_trace_value("z_re", old_z.re);
+                        d14_qf_trace_value("z_im", old_z.im);
+                        d14_qf_trace_value("new_re", z[i].re);
+                        d14_qf_trace_value("new_im", z[i].im);
+                        d14_qf_trace_value("p_abs", hypotq(p.re, p.im));
+                        d14_qf_trace_value("dp_abs", hypotq(dp.re, dp.im));
+                        d14_qf_trace_value("step_re", w.re);
+                        d14_qf_trace_value("step_im", w.im);
+                        d14_qf_trace_value("step_abs", step);
+                        d14_qf_trace_value("newton_re", newton.re);
+                        d14_qf_trace_value("newton_im", newton.im);
+                        d14_qf_trace_value("newton_abs",
+                                           hypotq(newton.re, newton.im));
+                        d14_qf_trace_value("nearest_sep", trace_nearest);
+                        std::fprintf(stderr, "\tnearest_index=%d\n",
+                                     trace_nearest_partner);
                     }
                     if (step >= trace_max_step || trace_max_root < 0) {
                         trace_max_root = i;
@@ -463,6 +672,31 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
                 d14_qf_trace_value("maxRoot_zIm", trace_max_z.im);
                 d14_qf_trace_value("min_pair_sep", min_sep);
                 std::fputc('\n', stderr);
+                if (trace_rootwise && trace_max_root >= 0 &&
+                    trace_max_partner >= 0) {
+                    const int pair_i = trace_max_root;
+                    const int pair_j = trace_max_partner;
+                    const auto& zi = z[pair_i];
+                    const auto& zj = z[pair_j];
+                    const __float128 m_re = (zi.re + zj.re) / 2;
+                    const __float128 m_im = (zi.im + zj.im) / 2;
+                    const __float128 d_re = zi.re - zj.re;
+                    const __float128 d_im = zi.im - zj.im;
+                    const __float128 sep = hypotq(d_re, d_im);
+                    std::fprintf(stderr,
+                        "D14QF_PAIR\tseed=warm\tit=%d\ti=%d\tj=%d",
+                        it + 1, pair_i, pair_j);
+                    d14_qf_trace_value("sep", sep);
+                    d14_qf_trace_value("m_re", m_re);
+                    d14_qf_trace_value("m_im", m_im);
+                    d14_qf_trace_value("d2_re", d_re * d_re - d_im * d_im);
+                    d14_qf_trace_value("d2_im", (__float128)2 * d_re * d_im);
+                    d14_qf_trace_value("step_i", trace_steps[pair_i]);
+                    d14_qf_trace_value("step_j", trace_steps[pair_j]);
+                    std::fprintf(stderr, "\trole_i=%d\trole_j=%d\n",
+                        trace_role_hints ? trace_role_hints[pair_i] : -1,
+                        trace_role_hints ? trace_role_hints[pair_j] : -1);
+                }
             }
         }
 #endif
