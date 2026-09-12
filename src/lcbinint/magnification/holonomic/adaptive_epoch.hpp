@@ -670,6 +670,27 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     auto reject=[&](AdaptiveSampleRejectReason reason) {
         out.reliable=false;out.reject_reason=reason;return out;
     };
+    // A negative crossing count is reserved for the certified-component
+    // research path.  Its radial support is complete, but it deliberately
+    // has no D14 interior-event partition, so topology is certified locally
+    // at every adaptive node.
+    if(cell.n_crossings<0) {
+        const QuarticCoeffs pc=boundary_quartic(R,pf);
+        const QuarticSturmCertificate cert=certify_quartic(pc.p);
+        if(!cert.certified || cert.root_count<0 || (cert.root_count&1))
+            return reject(AdaptiveSampleRejectReason::DegenerateChart);
+        if(cert.root_count==0) {
+            const double theta=0.371;
+            if(phi_val(R,theta,pf)>0.0)
+                return mapped_full_circle(R,jac,p,u,pf,with_jac,adaptive_cfg);
+            return out;
+        }
+        CellPlan local=cell;
+        local.kind=ArcKind::kArcs;
+        local.n_crossings=cert.root_count;
+        return mapped_radius(R,jac,p,u,pf,local,with_jac,warm,seed,
+                             adaptive_cfg,radius_lo);
+    }
     // D14/cell classification certifies that a full-circle cell has no
     // boundary crossing throughout its open radial interval.  Do not redo a
     // quartic solve at every Fejer node; the periodic integrand is smooth and

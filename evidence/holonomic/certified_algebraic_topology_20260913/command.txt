@@ -1,0 +1,3 @@
+cmake --build build -j4 --target lcbinint_magnification
+PATH=/rogue1_8/nunota/local/gsl/bin:$PATH g++ -std=c++17 -O3 -march=native -funroll-loops -ffp-contract=fast -fno-math-errno -fext-numeric-literals -Isrc -Iinclude benchmarks/holonomic/bench_certified_algebraic_topology.cpp -Wl,--start-group build/liblcbinint_magnification.a build/liblcbinint_lightcurve.a -Wl,--end-group $(/rogue1_8/nunota/local/gsl/bin/gsl-config --libs) -lquadmath -fopenmp -o /tmp/bench_certified_algebraic_topology
+LD_LIBRARY_PATH=/rogue1_8/nunota/local/gsl/lib taskset -c 0 /tmp/bench_certified_algebraic_topology evidence/holonomic/d14_precision_warm_20260912/trajectory/input_snapshot.tsv evidence/holonomic/certified_algebraic_topology_20260913/results_current_rep1.tsv 1
