@@ -227,6 +227,20 @@ struct D14QfPairPolishResearchResult {
     __float128 start_residual = 0;
     __float128 end_residual = 0;
     __float128 last_pair_step = 0;
+    bool probe_available = false;
+    bool probe_finite = false;
+    bool probe_driver_stable = false;
+    bool probe_viable = false;
+    bool probe_global_ready = false;
+    int probe_backtracks = -1;
+    int probe_driver_i = -1;
+    int probe_driver_j = -1;
+    __float128 probe_full_step_ratio = -1;
+    __float128 probe_accepted_ratio = -1;
+    __float128 probe_step_over_separation = -1;
+    __float128 probe_det_fraction = -1;
+    __float128 probe_post_driver_step = -1;
+    __float128 probe_post_outer_step = -1;
 };
 
 inline __float128 d14_qf_norm(Cplx<__float128> z) {
@@ -257,11 +271,13 @@ inline Cplx<__float128> d14_qf_sqrt_near(Cplx<__float128> z,
 inline bool d14_qf_aberth_driver_pair(const D14StructQf& s,
                                       const std::vector<Cplx<__float128>>& roots,
                                       int* pair_i, int* pair_j,
-                                      __float128* max_step = nullptr) {
+                                      __float128* max_step = nullptr,
+                                      __float128* outer_max_step = nullptr) {
     constexpr int n = 14;
     if (roots.size() != n || !pair_i || !pair_j) return false;
     __float128 largest = -1;
     int best_i = -1, best_j = -1;
+    __float128 step_magnitudes[n]{};
     for (int i = 0; i < n; ++i) {
         Cplx<__float128> p, dp;
         d14_struct_eval(s, roots[i], p, dp);
@@ -281,6 +297,7 @@ inline bool d14_qf_aberth_driver_pair(const D14StructQf& s,
         const Cplx<__float128> step = p / (dp - p * sum);
         const __float128 magnitude = d14_qf_norm(step);
         if (!finiteq(magnitude)) return false;
+        if (outer_max_step) step_magnitudes[i] = magnitude;
         if (magnitude > largest) {
             largest = magnitude;
             best_i = i;
@@ -291,6 +308,13 @@ inline bool d14_qf_aberth_driver_pair(const D14StructQf& s,
     *pair_i = best_i;
     *pair_j = best_j;
     if (max_step) *max_step = largest;
+    if (outer_max_step) {
+        __float128 outer = 0;
+        for (int k = 0; k < n; ++k)
+            if (k != best_i && k != best_j)
+                outer = std::max(outer, step_magnitudes[k]);
+        *outer_max_step = outer;
+    }
     return true;
 }
 
@@ -301,7 +325,8 @@ inline bool d14_qf_aberth_driver_pair(const D14StructQf& s,
 // topology gates before using its result.
 inline D14QfPairPolishResearchResult d14_qf_pair_polish_research(
     const D14StructQf& s, const std::vector<Cplx<__float128>>& input,
-    int i, int j, int max_iter, __float128 step_tolerance) {
+    int i, int j, int max_iter, __float128 step_tolerance,
+    bool viability_probe = false) {
     using q = __float128;
     D14QfPairPolishResearchResult out;
     out.roots = input;
@@ -325,6 +350,7 @@ inline D14QfPairPolishResearchResult d14_qf_pair_polish_research(
     if (!finiteq(out.start_residual)) return out;
     out.finite = true;
     for (int it = 0; it < max_iter; ++it) {
+        bool stop_after_probe = false;
         const Cplx<q> d = d14_qf_scale(a - b, q(0.5));
         if (!(d14_qf_norm(d) > 0) || !d14_qf_isfinite(d)) break;
         const Cplx<q> m = d14_qf_scale(a + b, q(0.5));
@@ -354,18 +380,47 @@ inline D14QfPairPolishResearchResult d14_qf_pair_polish_research(
         const Cplx<q> ds = (Cplx<q>(-J11.re, -J11.im) * O + E * J21) / det;
         if (!d14_qf_isfinite(dm) || !d14_qf_isfinite(ds)) break;
 
+        const bool first_step = out.iterations == 0;
+        if (first_step && viability_probe) {
+            const q det_scale = d14_qf_norm(J11 * J22) +
+                                d14_qf_norm(J12 * J21);
+            out.probe_det_fraction = det_scale > 0
+                ? d14_qf_norm(det) / det_scale : 0;
+        }
+
         q alpha = 1;
         bool accepted = false;
-        for (int bt = 0; bt <= 16; ++bt, alpha /= 2) {
+        const int max_backtracks = viability_probe && out.iterations == 0
+            ? 3 : 16;
+        for (int bt = 0; bt <= max_backtracks; ++bt, alpha /= 2) {
             const Cplx<q> next_m = m + d14_qf_scale(dm, alpha);
             const Cplx<q> next_d2 = d2 + d14_qf_scale(ds, alpha);
             Cplx<q> next_d = d14_qf_sqrt_near(next_d2, d);
             Cplx<q> next_a = next_m + next_d;
             Cplx<q> next_b = next_m - next_d;
             const q next_res = pair_residual(next_a, next_b);
+            if (first_step && viability_probe && bt == 0) {
+                out.probe_available = true;
+                out.probe_finite = finiteq(next_res) &&
+                    d14_qf_isfinite(next_a) && d14_qf_isfinite(next_b);
+                out.probe_full_step_ratio = out.start_residual > 0
+                    ? next_res / out.start_residual
+                    : (next_res == 0 ? q(0) : HUGE_VALQ);
+            }
             if (finiteq(next_res) && next_res < out.end_residual) {
                 const q move = std::max(d14_qf_norm(next_a - a),
                                         d14_qf_norm(next_b - b));
+                if (first_step && viability_probe) {
+                    out.probe_backtracks = bt;
+                    out.probe_finite = finiteq(next_res) && finiteq(move) &&
+                        d14_qf_isfinite(next_a) && d14_qf_isfinite(next_b);
+                    out.probe_accepted_ratio = out.start_residual > 0
+                        ? next_res / out.start_residual
+                        : (next_res == 0 ? q(0) : HUGE_VALQ);
+                    const q separation = d14_qf_norm(a - b);
+                    out.probe_step_over_separation = separation > 0
+                        ? move / separation : HUGE_VALQ;
+                }
                 a = next_a;
                 b = next_b;
                 out.roots[i] = a;
@@ -375,11 +430,45 @@ inline D14QfPairPolishResearchResult d14_qf_pair_polish_research(
                 out.backtracks += bt;
                 ++out.iterations;
                 accepted = true;
+                if (first_step && viability_probe) {
+                    int post_i = -1, post_j = -1;
+                    q post_step = 0, post_outer = 0;
+                    if (d14_qf_aberth_driver_pair(
+                            s, out.roots, &post_i, &post_j,
+                            &post_step, &post_outer)) {
+                        out.probe_driver_i = post_i;
+                        out.probe_driver_j = post_j;
+                        out.probe_post_driver_step = post_step;
+                        out.probe_post_outer_step = post_outer;
+                        out.probe_driver_stable =
+                            ((post_i == i && post_j == j) ||
+                             (post_i == j && post_j == i));
+                        const bool driver_budget_ok =
+                            out.probe_driver_stable
+                                ? (post_outer <= step_tolerance)
+                                : (post_step <= step_tolerance);
+                        out.probe_viable =
+                            out.probe_finite &&
+                            out.probe_backtracks >= 0 &&
+                            out.probe_accepted_ratio >= 0 &&
+                            out.probe_accepted_ratio <= q(0.5) &&
+                            driver_budget_ok;
+                        out.probe_global_ready = viability_probe &&
+                            out.probe_viable &&
+                            !out.probe_driver_stable &&
+                            post_step <= step_tolerance;
+                        stop_after_probe = viability_probe &&
+                            (!out.probe_viable || out.probe_global_ready);
+                    }
+                }
+                if (first_step && viability_probe && !out.probe_viable)
+                    stop_after_probe = true;
                 if (move <= step_tolerance) out.converged = true;
                 break;
             }
         }
-        if (!accepted || out.converged) break;
+        if (!accepted || out.converged || stop_after_probe ||
+            (viability_probe && out.iterations == 0)) break;
     }
     return out;
 }

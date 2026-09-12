@@ -1,0 +1,3 @@
+case_id	configuration_id	profile	d_bin_index	epoch_index	rep	lane	count_match	max_abs_root_delta	max_scaled_root_delta	role_mismatches	base_completeness_fails	probe_completeness_fails	base_root_count_bad	probe_root_count_bad	base_conjugacy_bad	probe_conjugacy_bad	base_vieta_bad	probe_vieta_bad
+149	149	uniform	1	15	0	warm	True	1.2042572040036374e-16	1.2042572040036374e-16	0	0	0	0	0	0	0	0	0
+9	9	uniform	2	7	0	warm	True	5.717540156602308e-16	5.717540156602308e-16	0	0	0	0	0	0	0	0	0

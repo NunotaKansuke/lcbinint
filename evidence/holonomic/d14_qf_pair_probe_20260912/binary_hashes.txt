@@ -1,0 +1,16 @@
+Host: INTEL(R) XEON(R) GOLD 6530, 2 sockets x 32 cores, GCC 11.5.0 (Red Hat 11.5.0-5)
+CPU affinity: taskset -c 0
+Base source revision: 64a291a7cccc2d0793cb8ddbf7e0ba86a3bb3092
+
+SHA256  binary / source
+a0286a9344eeb1f1c6b687e5777a0d1af4a19f9a409774a178a66b9b2f214063  /tmp/d14_qf_pair_candidate_v2 (pre-existing v2 whole-epoch binary)
+96b421cfa9786cd642e6d19aedba33ef87cc1fd1429850f38412966bbaa3d30c  /tmp/d14_qf_pair_probe_v3 (final-source probe whole-epoch binary)
+335f16f9b280cc14aca734efd39e8f6a71550e56f8e16f74f82f72ce7f16bb29  /tmp/bench_d14_qf_pair_v2 (pre-existing v2 root-work binary)
+aea90d0a93049934c41b3d1eca31fe31ea2593d063a5cecc53f6cb048381c1b7  /tmp/bench_d14_qf_pair_probe_candidate (final-source probe root-work binary)
+
+4d3f449c97c48968555ce82f73e295e2dfb7c9932b280007a96037d04e76827a  benchmarks/holonomic/bench_d14_root_work_detail.cpp
+c32f57e9167aa3e6584b37203f979fb80ff186cdf7cbf81490d2f1e0b022b11f  evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp
+6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b  evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv
+cebfb714c15c67249ce0c4c0b59e492628d524feb1c0e80de9f86539b6c274ca  evidence/holonomic/d14_qf_pair_probe_20260912/pair_whole_epoch_input.tsv
+74d76e6962eb2baf1d5aecb744527efe19df13bacd46f0610295400d3ef8b3d8  src/lcbinint/magnification/holonomic/d14_structure.hpp (probe implementation)
+dffaf0d617e4f241995067cfe81d1291d17b7e2b7849d38812fb043474abd62c  src/lcbinint/magnification/holonomic/radial_events.hpp (probe routing and trace)

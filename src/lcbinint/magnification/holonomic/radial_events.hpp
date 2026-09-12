@@ -1531,19 +1531,27 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                     "HOLO_D14_QF_PAIR_POLISH_RESEARCH");
                 const bool pair_research_enabled =
                     pair_switch && pair_switch[0] == '1';
+                const char* pair_probe_switch = std::getenv(
+                    "HOLO_D14_QF_PAIR_PROBE");
+                const bool pair_probe_enabled =
+                    pair_probe_switch && pair_probe_switch[0] == '1';
                 if (!qf_converged && out.worst_res <= (qf)1e-12 &&
                     pair_research_enabled &&
                     d14_qf_aberth_driver_pair(scqf, out.roots, &pair_i,
                                               &pair_j, &pair_driver_step)) {
                     pair_attempted = true;
                     pair_result = d14_qf_pair_polish_research(
-                        scqf, out.roots, pair_i, pair_j, 8, (qf)1e-20);
+                        scqf, out.roots, pair_i, pair_j, 8, (qf)1e-20,
+                        pair_probe_enabled);
                     // A non-converged local pair trial is not a useful seed
-                    // for the global verification sweep.  In the captured
-                    // qf-tail traces, global verification never passed when
-                    // this local step gate failed, so keep the original
-                    // candidate and go directly to the existing fallback.
-                    if (pair_result.finite && pair_result.converged) {
+                    // for the global verification sweep, except when the
+                    // one-step probe certifies that the complete post-probe
+                    // Aberth correction is already within the incumbent
+                    // global step tolerance. The probe itself never accepts
+                    // a root set; all existing global gates still run below.
+                    if (pair_result.finite &&
+                        (pair_result.converged ||
+                         pair_result.probe_global_ready)) {
                         bool verify_converged = false;
                         std::vector<Cplx<qf>> verified =
                             aberth_d14_struct<qf>(
@@ -1572,12 +1580,24 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                             "D14QF_PAIRPOLISH\tpair=%d,%d\tattempted=%d"
                             "\taccepted=%d\tpair_finite=%d\tpair_converged=%d"
                             "\tpair_iters=%d\tbacktracks=%d\tverify_iters=%d"
-                            "\tverify_converged=%d\tscalar_certificate=%d",
+                            "\tverify_converged=%d\tscalar_certificate=%d"
+                            "\tprobe_available=%d\tprobe_finite=%d"
+                            "\tprobe_backtracks=%d\tprobe_driver_stable=%d"
+                            "\tprobe_viable=%d\tprobe_global_ready=%d"
+                            "\tprobe_driver=%d,%d",
                             pair_i, pair_j, int(pair_attempted),
                             int(pair_accepted), int(pair_result.finite),
                             int(pair_result.converged), pair_result.iterations,
                             pair_result.backtracks, pair_verify_iters,
-                            int(qf_converged), int(pair_scalar_certificate));
+                            int(qf_converged), int(pair_scalar_certificate),
+                            int(pair_result.probe_available),
+                            int(pair_result.probe_finite),
+                            pair_result.probe_backtracks,
+                            int(pair_result.probe_driver_stable),
+                            int(pair_result.probe_viable),
+                            int(pair_result.probe_global_ready),
+                            pair_result.probe_driver_i,
+                            pair_result.probe_driver_j);
                         re_detail::d14_qf_trace_value("driver_step",
                                                       pair_driver_step);
                         re_detail::d14_qf_trace_value(
@@ -1586,6 +1606,24 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                             "end_pair_residual", pair_result.end_residual);
                         re_detail::d14_qf_trace_value(
                             "pair_step", pair_result.last_pair_step);
+                        re_detail::d14_qf_trace_value(
+                            "probe_full_ratio",
+                            pair_result.probe_full_step_ratio);
+                        re_detail::d14_qf_trace_value(
+                            "probe_accepted_ratio",
+                            pair_result.probe_accepted_ratio);
+                        re_detail::d14_qf_trace_value(
+                            "probe_step_over_sep",
+                            pair_result.probe_step_over_separation);
+                        re_detail::d14_qf_trace_value(
+                            "probe_det_fraction",
+                            pair_result.probe_det_fraction);
+                        re_detail::d14_qf_trace_value(
+                            "probe_post_driver_step",
+                            pair_result.probe_post_driver_step);
+                        re_detail::d14_qf_trace_value(
+                            "probe_post_outer_step",
+                            pair_result.probe_post_outer_step);
                         re_detail::d14_qf_trace_value(
                             "check_worst_residual", pair_check_residual);
                         std::fputc('\n', stderr);
