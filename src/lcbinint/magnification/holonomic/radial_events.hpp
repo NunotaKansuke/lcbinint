@@ -1286,6 +1286,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->d14_solve_calls;
     V2ProfileTimer solve_timer(&V2Profile::d14_solve_ms);
+    const auto prepare_begin = prof ? V2Clock::now() : V2Clock::time_point{};
 
     qf dscale = 0;
     for (int i = 0; i <= deg; ++i) {
@@ -1334,6 +1335,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     }
     int pre_iters = 0;
     auto pre_begin = V2Clock::now();
+    if(prof) v2_profile_add_ms(&V2Profile::d14_prepare_ms,prepare_begin,pre_begin);
     const int pre_max = holo_d14_presearch_max(!presearch_seed.empty());
     const double pre_tol = !presearch_seed.empty()
                                ? holo_d14_presearch_tol()
@@ -2139,6 +2141,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     // far below the dedup gap); it makes the compensated path's event
     // list identical.
     {
+        V2ProfileTimer conjugate_timer(&V2Profile::d14_conjugate_ms);
         std::vector<char> done(deg, 0);
         for (int i = 0; i < deg; ++i) {
             if (done[i]) continue;
@@ -2313,6 +2316,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     // it identifies the clusters that drive the DD/qf ladder without adding
     // another heuristic to the production root path.
     if (prof) {
+        V2ProfileTimer diagnostic_timer(&V2Profile::d14_diagnostic_ms);
         if ((int)out.roots.size() != deg) ++prof->d14_root_count_bad;
         for (size_t i = 0; i < out.roots.size(); ++i) {
             const auto& a = out.roots[i];
@@ -2572,6 +2576,7 @@ inline std::vector<RadialEvent> radial_events(
                                   probe.physically_real ? "physical_real"
                                                          : "physical_complex",
                                   probe.physically_real, "D14 real root"};
+                const auto metadata_begin=prof?V2Clock::now():V2Clock::time_point{};
                 event.radius_lo = (double)(Rq - (qf)R);
                 event.precision_tier = 2;
                 if (probe.stationary_valid) {
@@ -2595,6 +2600,7 @@ inline std::vector<RadialEvent> radial_events(
                     event.radius_uncertainty =
                         (double)(vshift / (qf(2) * Rq));
                 }
+                if(prof)v2_profile_add_ms(&V2Profile::d14_metadata_ms,metadata_begin,V2Clock::now());
                 ev.push_back(event);
             }
         }
@@ -2671,6 +2677,7 @@ inline std::vector<RadialEvent> radial_events(
     // D14 parameter regime; the old degree-6 Aberth solve remains the A/B
     // oracle under HOLO_CHART_P4_LEGACY=1.
     {
+        V2ProfileTimer chart_timer(&V2Profile::chart_event_ms);
         std::vector<double> rv;
         if (holo_chart_p4_factor_enabled()) {
             rv = chart_p4_factor_roots(pf);

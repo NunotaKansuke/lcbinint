@@ -235,6 +235,9 @@ struct V2Profile {
     double d14_struct_build_ms = 0.0;
     double d14_expand_ms = 0.0;
     double d14_solve_ms = 0.0;
+    double d14_prepare_ms = 0.0, d14_conjugate_ms = 0.0;
+    double d14_metadata_ms = 0.0, chart_event_ms = 0.0;
+    double d14_diagnostic_ms = 0.0;
     double d14_presearch_ms = 0.0;
     double d14_dd_ms = 0.0;
     double d14_qf_ms = 0.0;

@@ -1,0 +1,13 @@
+{
+  "profile_rows": 7216,
+  "steady_rows": 5412,
+  "solve_unassigned_ms": {
+    "0.5": 0.002276000000000104,
+    "0.9": 0.0023830000000002872,
+    "0.99": 0.0025549999999999965
+  },
+  "profile_topology_minus_diagnostic_p50_ms": 0.126359,
+  "unprofiled_steady_topology_p50_ms": 0.11729049999999995,
+  "unprofiled_steady_whole_p50_ms": 0.2842549999999999,
+  "limitation": "Different run / median of stages is not additive. Profile-minus-diagnostic still includes timers and other profiling work. Whole comparison continues to include first epochs."
+}
