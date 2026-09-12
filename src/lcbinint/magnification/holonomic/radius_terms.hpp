@@ -71,7 +71,21 @@ inline PolishResult polish_endpoint(double R, double theta,
             return {th, dth, false};
         }
         double step = g.phi / dth;
+#ifdef HOLO_ADAPTIVE_STATIONARY_ENDPOINT
+        const double previous = th;
+#endif
         th -= step;
+#ifdef HOLO_ADAPTIVE_STATIONARY_ENDPOINT
+        // Adaptive caller requests the final phi. Reuse only an identical
+        // argument, including the sign of zero; this is not a looser gate.
+        if (final_phi && th == previous &&
+            std::signbit(th) == std::signbit(previous)) {
+            *final_phi = g;
+            const bool reliable = std::fabs(g.dphi_dtheta) >= 1e-13;
+            if (prof && !reliable) ++prof->endpoint_unreliable;
+            return {th, g.dphi_dtheta, reliable};
+        }
+#endif
         if (std::fabs(step) < 1e-15) break;
     }
     PhiValDtheta g = phi_val_dtheta(R, th, pf);
