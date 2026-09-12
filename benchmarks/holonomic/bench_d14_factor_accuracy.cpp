@@ -3,6 +3,8 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
+#include <chrono>
+#include <vector>
 using namespace lcbinint::holonomic;
 using namespace lcbinint::holonomic::re_detail;
 template<class T> struct Jet {
@@ -37,7 +39,40 @@ template<class A,class B> Cplx<B> mixed_correction(const D14StructC<A>& s,Cplx<A
  auto dp=fp*gg+two*(f*(g*gp))+eight*((cp*b+c*bp)*z+c*b*zp)-k864*(vb*zz)-k864*(vv*(z*zp));
  return dh/dp; // common exact factor 4096 cancels
 }
+struct TimingPoint {D14StructC<double> sd;D14StructC<D14Real> sr;Cplx<double> v;};
+int timing_probe(const char* input){
+ std::ifstream in(input);std::vector<TimingPoint> points;
+ int id,root,stage;double time,y,rho,q,s,re,im,sep;
+ while(in>>id>>root>>stage>>time>>y>>rho>>q>>s>>re>>im>>sep){
+  if((id*17+root*3+stage)%97!=0)continue;
+  auto p=PrimaryFrame::from(LensParams{time,y,rho,1/q,s,true});
+  auto sq=d14_struct_build(p.a,p.m0,p.X,p.Y,p.rho);
+  points.push_back({d14_struct_cast<double>(sq),d14_struct_cast<D14Real>(sq),{re,im}});
+ }
+ if(points.empty())return 3;
+ using Clock=std::chrono::steady_clock;
+ volatile double sink=0;
+ std::cout<<std::setprecision(17)<<"repeat method points cycles ns_per_correction nonfinite\n";
+ for(int rep=-1;rep<8;++rep){
+  for(int order=0;order<2;++order){
+   const int method=(order+(rep&1))%2;int bad=0;double sum=0;
+   auto begin=Clock::now();
+   for(int cycle=0;cycle<32;++cycle)for(const auto& p:points){
+    Cplx<D14Real> w;
+    if(method==0){Cplx<D14Real> f,d;d14_struct_eval(p.sr,Cplx<D14Real>(D14Real(p.v.re),D14Real(p.v.im)),f,d);w=f/d;}
+    else w=mixed_correction<double,D14Real>(p.sd,p.v);
+    double value=double(w.re);
+    if(std::isfinite(value))sum+=value;else ++bad;
+   }
+   const double ns=std::chrono::duration<double,std::nano>(Clock::now()-begin).count()/(32*points.size());
+   sink=sum;
+   if(rep>=0)std::cout<<rep<<' '<<method<<' '<<points.size()<<" 32 "<<ns<<' '<<bad<<'\n';
+  }
+ }
+ std::cerr<<"sink "<<sink<<"\n";return 0;
+}
 int main(int argc,char**argv){
+ if(argc==3 && std::string(argv[2])=="timing")return timing_probe(argv[1]);
  if(argc<2 || argc>3)return 2;const int method_count=argc==3?std::atoi(argv[2]):3;if(method_count<3 || method_count>8)return 2;std::ifstream in(argv[1]);
  int id,root,stage;double max_identity_error=0;double time,y,rho,q,s,re,im,sep;
  std::cout<<std::setprecision(17)<<"sample root stage method correction_error scaled_error separation_ratio\n";

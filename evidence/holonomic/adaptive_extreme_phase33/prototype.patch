@@ -1,0 +1,83 @@
+diff --git a/src/lcbinint/magnification/holonomic/d14_structure.hpp b/src/lcbinint/magnification/holonomic/d14_structure.hpp
+index 7e29aa0..0bb7f0c 100644
+--- a/src/lcbinint/magnification/holonomic/d14_structure.hpp
++++ b/src/lcbinint/magnification/holonomic/d14_structure.hpp
+@@ -247,6 +247,39 @@ inline void d14_struct_eval(const D14StructC<T>& s, const Cplx<T>& v,
+ #endif
+ }
+ 
++#ifdef HOLO_D14_FIRST_MIXED_SWEEP
++inline void d14_first_mixed_eval(const D14StructC<double>& s,
++ const Cplx<D14Real>& arg,Cplx<D14Real>& D,Cplx<D14Real>& Dp){
++ Cplx<double> vd(double(arg.re),double(arg.im)),cd,cpd,gd,gpd,zd,zpd;
++ horner_vd(s.c3,3,vd,cd,cpd);horner_vd(s.g4,4,vd,gd,gpd);horner_vd(s.z3,3,vd,zd,zpd);
++ auto lift=[](Cplx<double> x){return Cplx<D14Real>(D14Real(x.re),D14Real(x.im));};
++ auto c=lift(cd),cp=lift(cpd),g=lift(gd),gp=lift(gpd),z=lift(zd),zp=lift(zpd),v=lift(vd);
++    const Cplx<D14Real> two(D14Real(2), D14Real(0)), four(D14Real(4), D14Real(0)), nine(D14Real(9), D14Real(0));
++    Cplx<D14Real> cc = c * c;
++    Cplx<D14Real> vg = v * g;
++    Cplx<D14Real> f = cc - four * vg;
++    Cplx<D14Real> b = two * cc - nine * vg;
++    Cplx<D14Real> gg = g * g;
++    Cplx<D14Real> zz = z * z;
++    Cplx<D14Real> vv = v * v;
++
++    Cplx<D14Real> Dhat = f * gg + Cplx<D14Real>(D14Real(8), D14Real(0)) * (c * b * z)
++                 - Cplx<D14Real>(D14Real(432), D14Real(0)) * (vv * zz);
++
++    Cplx<D14Real> ccp = c * cp;
++    Cplx<D14Real> fp = two * ccp - four * g - four * (v * gp);
++    Cplx<D14Real> bp = four * ccp - nine * g - nine * (v * gp);
++    Cplx<D14Real> Dhatp = fp * gg + two * (f * (g * gp))
++                  + Cplx<D14Real>(D14Real(8), D14Real(0)) * ((cp * b + c * bp) * z + c * b * zp)
++                  - Cplx<D14Real>(D14Real(864), D14Real(0)) * (v * zz)
++                  - Cplx<D14Real>(D14Real(864), D14Real(0)) * (vv * (z * zp));
++
++    const Cplx<D14Real> k(D14Real(4096), D14Real(0));
++    D = k * Dhat;
++    Dp = k * Dhatp;
++}
++#endif
++
+ // Real argument specialization for adaptive event conditioning metadata.
+ // Retains the operation grouping of the complex expression.
+ template<class T>
+@@ -1002,6 +1035,11 @@ inline D14RealAberthResult aberth_d14_real_mixed(
+     active.fill(true);
+     last_aberth_step.fill(std::numeric_limits<double>::infinity());
+ 
++#ifdef HOLO_D14_FIRST_MIXED_SWEEP
++    D14StructC<double> first_blocks;
++    for(int k=0;k<4;++k){first_blocks.c3[k]=double(s.c3[k]);first_blocks.z3[k]=double(s.z3[k]);}
++    for(int k=0;k<5;++k)first_blocks.g4[k]=double(s.g4[k]);
++#endif
+     auto abs_complex = [](const Cplx<D14Real>& z) {
+         return std::hypot(static_cast<double>(z.re), static_cast<double>(z.im));
+     };
+@@ -1125,6 +1163,13 @@ inline D14RealAberthResult aberth_d14_real_mixed(
+             }
+             ++active_count;
+             Cplx<D14Real> p, dp;
++#ifdef HOLO_D14_FIRST_MIXED_SWEEP
++            if(it==0 && !scheduled) {
++                d14_first_mixed_eval(first_blocks,out.roots[i],p,dp);
++                if(!qfinite_(p.re)||!qfinite_(p.im)||!qfinite_(dp.re)||!qfinite_(dp.im))
++                    d14_struct_eval(s,out.roots[i],p,dp);
++            } else
++#endif
+             d14_struct_eval(s, out.roots[i], p, dp);
+             if (!qfinite_(p.re) || !qfinite_(p.im) ||
+                 !qfinite_(dp.re) || !qfinite_(dp.im)) {
+@@ -1266,7 +1311,11 @@ inline D14RealAberthResult aberth_d14_real_mixed(
+             bool any_active = false;
+             for (bool value : active) any_active = any_active || value;
+             if (!any_active) break;
+-        } else if (max_step2 < tol * tol) {
++        } else if (max_step2 < tol * tol
++#ifdef HOLO_D14_FIRST_MIXED_SWEEP
++                   && it>0 // a cheap sweep alone never establishes convergence
++#endif
++        ) {
+             out.converged = true;
+             break;
+         }
