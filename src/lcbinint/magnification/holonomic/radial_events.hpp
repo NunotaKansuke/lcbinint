@@ -505,16 +505,14 @@ inline bool holo_d14_compensated_enabled() {
     return on;
 }
 
-// Research-only mixed-interaction experiment.  The default path keeps the
-// incumbent row-wise escalation: if one separation is dangerous, all 13
-// interaction terms for that root are recomputed in D14Real.  This switch
-// keeps the same separation certificate and D14Real D/D' evaluation, but
-// promotes only the dangerous pair terms.  It is deliberately opt-in until
-// the whole-root certificate and trajectory parity have been measured.
+// Mixed-interaction production path.  Keep the same separation certificate
+// and D14Real D/D' evaluation, but promote only dangerous pair terms instead
+// of recomputing an entire interaction row.  HOLO_D14_LOCAL_PAIRS=0 is the
+// retained A/B escape hatch.
 inline bool holo_d14_local_pairs_enabled() {
     static const bool on = [] {
         const char* e = std::getenv("HOLO_D14_LOCAL_PAIRS");
-        return e && e[0] == '1';
+        return !(e && e[0] == '0');
     }();
     return on;
 }
@@ -672,16 +670,17 @@ inline bool holo_d14_skip_warm_presearch() {
     return on;
 }
 
-// Research-only root-wise early-stop for the balanced double basin search.
+// Root-wise early-stop for the balanced double basin search.
 // The usual all-root Aberth interaction is retained for active roots and
 // inactive roots remain in every interaction sum.  A later D14Real/qf
 // residual and global root-set certificate still owns acceptance; an active
-// candidate can therefore only save work or fall back, never silently lower
-// the precision contract.
+// candidate can therefore only save work or fall back.  The 1e-12/patience=2
+// defaults have full 14,432-row trajectory parity; setting
+// HOLO_D14_ACTIVE_PRESEARCH=0 restores the fixed-work A/B path.
 inline bool holo_d14_active_presearch_enabled() {
     static const bool on = [] {
         const char* e = std::getenv("HOLO_D14_ACTIVE_PRESEARCH");
-        return e && e[0] == '1';
+        return !(e && e[0] == '0');
     }();
     return on;
 }
