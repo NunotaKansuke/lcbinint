@@ -1,0 +1,5 @@
+g++ -std=gnu++17 -fext-numeric-literals -O3 -march=native -I src benchmarks/holonomic/bench_d14_event_continuation.cpp -lquadmath -o /tmp/bench_d14_event_continuation
+taskset -c 0 /tmp/bench_d14_event_continuation evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/input_snapshot.tsv OUTPUT.tsv
+# For the exclusive profile, copy bench_d14_root_work_detail.cpp, set capture_d14_root_work=false, compile with the same flags, then run:
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 /tmp/bench_d14_profile_nocapture evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/input_snapshot.tsv ROOTS.tsv TIMING.tsv 1 both
+python3 evidence/holonomic/d14_trajectory_certificate_final_20260913/summarize.py

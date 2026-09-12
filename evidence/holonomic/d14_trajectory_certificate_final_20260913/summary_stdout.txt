@@ -1,0 +1,161 @@
+{
+  "exclusive_profile": {
+    "cold": {
+      "cell_topology_remainder_ms": {
+        "p50_ms": 0.038113499999999995,
+        "p90_ms": 0.0679084999999999
+      },
+      "completeness_check_ms": {
+        "p50_ms": 0.000795,
+        "p90_ms": 0.000894
+      },
+      "d14_expand_ms": {
+        "p50_ms": 0.009874,
+        "p90_ms": 0.011203000000000001
+      },
+      "d14_solve_ms": {
+        "p50_ms": 0.30490149999999994,
+        "p90_ms": 0.385226
+      },
+      "d14_struct_build_ms": {
+        "p50_ms": 0.002462,
+        "p90_ms": 0.002895
+      },
+      "d14real_ms": {
+        "p50_ms": 0.0248939999999999,
+        "p90_ms": 0.08942249999999996
+      },
+      "physical_classify_ms": {
+        "p50_ms": 0.0020675,
+        "p90_ms": 0.21324399999999993
+      },
+      "presearch_ms": {
+        "p50_ms": 0.2110235,
+        "p90_ms": 0.24106349999999996
+      },
+      "qf_polish_ms": {
+        "p50_ms": 0.0,
+        "p90_ms": 0.0
+      },
+      "radial_events_ms": {
+        "p50_ms": 0.3749559999999999,
+        "p90_ms": 0.6092825
+      },
+      "residual_eval_ms": {
+        "p50_ms": 0.029229,
+        "p90_ms": 0.031945
+      },
+      "soft_event_ms": {
+        "p50_ms": 0.0009479999999999,
+        "p90_ms": 0.001139
+      },
+      "whole_classify_ms": {
+        "p50_ms": 0.41621850000000005,
+        "p90_ms": 0.669143
+      }
+    },
+    "warm": {
+      "cell_topology_remainder_ms": {
+        "p50_ms": 0.037807,
+        "p90_ms": 0.0678179999999999
+      },
+      "completeness_check_ms": {
+        "p50_ms": 0.00079,
+        "p90_ms": 0.000885
+      },
+      "d14_expand_ms": {
+        "p50_ms": 0.009815500000000001,
+        "p90_ms": 0.0109529999999999
+      },
+      "d14_solve_ms": {
+        "p50_ms": 0.14797749999999996,
+        "p90_ms": 0.319853
+      },
+      "d14_struct_build_ms": {
+        "p50_ms": 0.002448,
+        "p90_ms": 0.0028479999999999
+      },
+      "d14real_ms": {
+        "p50_ms": 0.024598499999999898,
+        "p90_ms": 0.06828699999999996
+      },
+      "physical_classify_ms": {
+        "p50_ms": 0.002047,
+        "p90_ms": 0.21285699999999996
+      },
+      "presearch_ms": {
+        "p50_ms": 0.056250999999999954,
+        "p90_ms": 0.2200475
+      },
+      "qf_polish_ms": {
+        "p50_ms": 0.0,
+        "p90_ms": 0.0
+      },
+      "radial_events_ms": {
+        "p50_ms": 0.25139899999999993,
+        "p90_ms": 0.49014199999999997
+      },
+      "residual_eval_ms": {
+        "p50_ms": 0.029206499999999948,
+        "p90_ms": 0.03162849999999995
+      },
+      "soft_event_ms": {
+        "p50_ms": 0.0009489999999999,
+        "p90_ms": 0.001142
+      },
+      "whole_classify_ms": {
+        "p50_ms": 0.29016050000000004,
+        "p90_ms": 0.5427609999999999
+      }
+    }
+  },
+  "local_event_continuation": {
+    "cell_plan_match": 3734,
+    "cell_plan_match_rate": 0.6899482631189948,
+    "p50_ms": 0.063045,
+    "p90_ms": 0.17505770000000007,
+    "previous_plan_guard_accepts": 3820,
+    "previous_plan_guard_false_accepts": 308,
+    "rows": 5412,
+    "shift_guard_01_accepts": 1438,
+    "shift_guard_01_false_accepts": 24
+  },
+  "neumaier_point_qf": {
+    "3": {
+      "classifiable": 3992,
+      "false_topology_matches": 72,
+      "p50_ms": 0.509735,
+      "p90_ms": 0.5592955000000001,
+      "p99_ms": 0.60809228,
+      "pairwise_disjoint": 3994,
+      "rows": 5412
+    },
+    "4": {
+      "classifiable": 4362,
+      "false_topology_matches": 38,
+      "p50_ms": 0.592705,
+      "p90_ms": 0.6520168999999999,
+      "p99_ms": 0.69577918,
+      "pairwise_disjoint": 4362,
+      "rows": 5412
+    },
+    "6": {
+      "classifiable": 4728,
+      "false_topology_matches": 22,
+      "p50_ms": 0.7964964999999999,
+      "p90_ms": 0.8795123,
+      "p99_ms": 0.95109878,
+      "pairwise_disjoint": 4728,
+      "rows": 5412
+    },
+    "8": {
+      "classifiable": 4858,
+      "false_topology_matches": 18,
+      "p50_ms": 1.0016764999999999,
+      "p90_ms": 1.1037755999999999,
+      "p99_ms": 1.1965753900000002,
+      "pairwise_disjoint": 4858,
+      "rows": 5412
+    }
+  }
+}
