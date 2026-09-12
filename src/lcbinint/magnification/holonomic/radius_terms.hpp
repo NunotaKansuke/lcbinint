@@ -56,7 +56,8 @@ struct PolishResult {
     bool reliable;
 };
 inline PolishResult polish_endpoint(double R, double theta,
-                                    const PrimaryFrame& pf, int iters = 6) {
+                                    const PrimaryFrame& pf, int iters = 6,
+                                    PhiValDtheta* final_phi = nullptr) {
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->endpoint_calls;
     V2ProfileTimer endpoint_timer(&V2Profile::endpoint_ms);
@@ -73,6 +74,7 @@ inline PolishResult polish_endpoint(double R, double theta,
         if (std::fabs(step) < 1e-15) break;
     }
     PhiValDtheta g = phi_val_dtheta(R, th, pf);
+    if (final_phi) *final_phi = g;
     const bool reliable = std::fabs(g.dphi_dtheta) >= 1e-13;
     if (prof && !reliable) ++prof->endpoint_unreliable;
     return {th, g.dphi_dtheta, reliable};

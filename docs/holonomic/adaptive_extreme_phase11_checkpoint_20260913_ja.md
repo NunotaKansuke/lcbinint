@@ -77,3 +77,43 @@ taskset -c 0 /tmp/phase11_base evidence/holonomic/v2_adaptive_best_trajectory_20
 taskset -c 0 /tmp/phase11_recip evidence/holonomic/v2_adaptive_best_trajectory_20260913/input_snapshot.tsv evidence/holonomic/adaptive_extreme_phase11/whole_recip.tsv 3
 python3 benchmarks/holonomic/summarize_adaptive_reciprocal.py
 ```
+
+## Root audit完了と端点再利用（追記）
+
+全14,432 root setsを最小費用一対一対応で比較した。
+root座標のscaled差最大3.10e-14、role/physical分類不一致0、
+cell/event/physical/soft個数・topology status不一致0。
+qf cold総数は102→100（14行で回数の差）。rawはp11_*tsv.gzに保存。
+この比較はbinary64へexportした最終座標の比較であり、包含区間の証明や
+全cell endpoint比較ではない。既存solverの最終gateは変更していない。
+このauditと前節のwhole/reference結果をもとにreciprocalを既定ONとした。
+現ソースで旧baselineを再現するには
+`-DHOLO_D14_DISABLE_PRESEARCH_RECIPROCAL` を指定する。
+
+端点polishが最後に計算したphi/dthetaをadaptive value側に渡し、
+直後の同一評価を省いた。leave角を2piだけwrapした場合は旧通り再評価する。
+微分側のphi_gradは従来通り。fixed-n_r側の呼び出しとrouterは変更しない。
+`HOLO_ADAPTIVE_DISABLE_ENDPOINT_CACHE`で旧挙動へ戻せる。
+
+whole_recip vs whole_endpoint（同じ入力、CPU0、3 repeats、逐次実行）:
+
+| RelTol | cold p50 ms | warm p50 ms | radial p50 ms |
+|---|---|---|---|
+| 1e-3 | .484884→.483153 | .435863→.433158 | .126015→.122869 |
+| 1e-4 | .529382→.526939 | .498131→.493633 | .163639→.158911 |
+
+全laneでmu差0、node/status不一致0、各tol 7216/7216 convergence。
+VBM1e-6 reference超過は1e-3で0、1e-4で既存の3件のまま。
+wholeの効果は1%未満。cold p99は約0.6%増えており全分位改善とは言わない。
+端点再利用を既定ONにした。D14込みでVBMへ全面勝利する目標は依然未達。
+
+再集計:
+```sh
+python benchmarks/holonomic/check_d14_reciprocal_parity.py
+python benchmarks/holonomic/summarize_adaptive_reciprocal.py --baseline whole_recip.tsv --candidate whole_endpoint.tsv --output endpoint_summary.json
+taskset -c 2 cmake --build build-holonomic-m7 --target test_d14_root_scheduling test_adaptive_radial -j1
+taskset -c 2 ctest --test-dir build-holonomic-m7 -R 'holonomic_(d14_root_scheduling|adaptive_radial)' --output-on-failure
+```
+現ソースでwhole_recip（端点再利用前）を作るときは前節compile flagsに
+`-DHOLO_ADAPTIVE_DISABLE_ENDPOINT_CACHE`を加える。whole_baseはさらに
+`-DHOLO_D14_DISABLE_PRESEARCH_RECIPROCAL`を加える。

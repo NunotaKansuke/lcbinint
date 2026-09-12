@@ -1084,7 +1084,7 @@ inline D14ActivePresearchResult d14_active_presearch(
                          Cplx<double>(0.0, 0.0), Cplx<double>(0.0, 0.0));
                     return out;
                 }
-#if defined(HOLO_D14_PRESEARCH_RECIPROCAL)
+#if !defined(HOLO_D14_DISABLE_PRESEARCH_RECIPROCAL)
                 // The preceding guard has already checked the squared
                 // norm. For numerator one no numerator product can overflow;
                 // reuse dn2 instead of repeating generic division checks.

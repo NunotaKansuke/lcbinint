@@ -718,14 +718,26 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     const auto pc=u!=0?arc_pc:QuarticCoeffs{};
     QuarticParamJac dpc{};if(with_jac)dpc=boundary_quartic_dp(R,pf);
     for(auto a:arcs.arcs) {
+#if !defined(HOLO_ADAPTIVE_DISABLE_ENDPOINT_CACHE)
+        PhiValDtheta endpoint_e{},endpoint_l{};
+        auto pe=polish_endpoint(R,a[0],pf,6,&endpoint_e),
+             pl=polish_endpoint(R,a[1],pf,6,&endpoint_l);
+#else
         auto pe=polish_endpoint(R,a[0],pf),pl=polish_endpoint(R,a[1],pf);
+#endif
         double te=pe.theta,tl=pl.theta;if(tl<=te)tl+=kTwoPi;
         // No flag override: transformed arithmetic still requires resolvable endpoints.
         if(!pe.reliable||!pl.reliable)
             return reject(AdaptiveSampleRejectReason::EndpointUnreliable);
         PhiGrad ge{},gl{};
         if(with_jac){ge=phi_grad(R,te,pf);gl=phi_grad(R,tl,pf);}
-        else{auto e=phi_val_dtheta(R,te,pf),l=phi_val_dtheta(R,tl,pf);ge.phi=e.phi;ge.dphi_dtheta=e.dphi_dtheta;gl.phi=l.phi;gl.dphi_dtheta=l.dphi_dtheta;}
+        else{
+#if !defined(HOLO_ADAPTIVE_DISABLE_ENDPOINT_CACHE)
+            auto e=endpoint_e,l=tl==pl.theta?endpoint_l:phi_val_dtheta(R,tl,pf);
+#else
+            auto e=phi_val_dtheta(R,te,pf),l=phi_val_dtheta(R,tl,pf);
+#endif
+            ge.phi=e.phi;ge.dphi_dtheta=e.dphi_dtheta;gl.phi=l.phi;gl.dphi_dtheta=l.dphi_dtheta;}
         double de=std::fabs(ge.phi/ge.dphi_dtheta),dl=std::fabs(gl.phi/gl.dphi_dtheta);
         // Floating point lens-map cancellation grows as 1/rho. This is an
         // arithmetic sensitivity estimate, NOT an interval enclosure.
