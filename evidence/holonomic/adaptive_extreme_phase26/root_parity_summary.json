@@ -1,0 +1,20 @@
+{
+  "rows": 14432,
+  "max_scaled_root_delta": 3.0892118924181996e-14,
+  "role_mismatches": 0,
+  "physical_mismatches": 0,
+  "event_counter_mismatches": {
+    "topology_status": 0,
+    "cells": 0,
+    "events": 0,
+    "physical_real_events": 0,
+    "soft_events": 0,
+    "qf_cold_calls": 14,
+    "completeness_fails": 0
+  },
+  "qf_cold_total": {
+    "baseline": 100,
+    "candidate": 98
+  },
+  "limitation": "Final root coordinates captured as binary64; compares roles and event counts, not interval enclosures or every cell endpoint."
+}

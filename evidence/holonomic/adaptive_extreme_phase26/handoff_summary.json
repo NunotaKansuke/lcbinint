@@ -1,0 +1,29 @@
+{
+  "rows": 7216,
+  "value_converged": 7216,
+  "status_mismatch": 0,
+  "node_mismatch": 0,
+  "mu_scaled_difference": 1.8964566722085444e-12,
+  "steady_ms": {
+    "presearch": {
+      "base": 0.0337975,
+      "candidate": 0.0079909999999999
+    },
+    "real": {
+      "base": 0.022718000000000002,
+      "candidate": 0.02279899999999995
+    },
+    "qf": {
+      "base": 0.0,
+      "candidate": 0.0
+    },
+    "topology": {
+      "base": 0.156338,
+      "candidate": 0.12639699999999995
+    },
+    "whole": {
+      "base": 0.3390265,
+      "candidate": 0.30990049999999997
+    }
+  }
+}

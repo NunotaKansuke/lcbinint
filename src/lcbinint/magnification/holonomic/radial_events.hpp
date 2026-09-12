@@ -1222,6 +1222,35 @@ inline D14ActivePresearchResult d14_active_presearch(
             }
         }
         if (preserve_last_finite) out.last_finite_roots = out.roots;
+#if defined(HOLO_D14_NOISE_AUDIT) || defined(HOLO_D14_NOISE_HANDOFF)
+        if((it+1)%8==0 || it+1==max_iter) {
+            auto* audit=v2_profile_current();
+            double worst=0;bool valid=true;
+            for(const auto& z:out.roots){
+                const double radius=std::hypot(z.re,z.im);
+                double mass=std::fabs(coeffs[0]);
+                for(int k=1;k<=deg;++k)mass=mass*radius+std::fabs(coeffs[k]);
+                const auto value=poly_eval_c(coeffs,deg,z);
+                const double scale=8*deg*std::numeric_limits<double>::epsilon()*mass;
+                const double ratio=std::hypot(value.re,value.im)/scale;
+                valid=valid && std::isfinite(radius) && std::isfinite(mass) &&
+                      std::isfinite(scale) && std::isfinite(ratio) && scale>0;
+                worst=std::max(worst,ratio);
+            }
+            if(audit){
+                ++audit->d14_noise_checks;
+                if(valid){
+                    ++audit->d14_noise_valid;
+                    audit->d14_noise_max_ratio=worst;
+                    if(worst<=1){++audit->d14_noise_all;
+                        if(!audit->d14_noise_first_sweep)audit->d14_noise_first_sweep=it+1;}
+                }
+            }
+#ifdef HOLO_D14_NOISE_HANDOFF
+            if(valid && worst<=1)break; // candidate handoff, never solve acceptance
+#endif
+        }
+#endif
         if (active_count == 0 || max_step2 < tol2) break;
     }
     if (trace)

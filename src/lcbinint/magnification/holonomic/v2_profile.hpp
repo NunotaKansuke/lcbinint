@@ -119,6 +119,9 @@ struct V2Profile {
 
     u64 d14_presearch_sweeps = 0;
     u64 d14_presearch_active_calls = 0;
+    u64 d14_noise_checks = 0, d14_noise_all = 0, d14_noise_valid = 0;
+    int d14_noise_first_sweep = 0;
+    double d14_noise_max_ratio = 0;
     u64 d14_presearch_active_sweeps = 0;
     u64 d14_presearch_active_skips = 0;
     u64 d14_presearch_active_fallbacks = 0;
