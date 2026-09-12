@@ -256,7 +256,8 @@ int main(int argc,char** argv) {
          "candidate_value_converged oracle_value_converged candidate_mu oracle_mu mu_absdiff "
          "local_attempts local_successes local_max_shift event_build_ms "
          "positive_certificate positive_count positive_certificate_ms positive_reason "
-         "rouche_certificate rouche_disks rouche_min_margin rouche_ms\n";
+         "rouche_certificate rouche_disks rouche_min_margin rouche_ms "
+         "interval_rouche_certificate interval_rouche_disks interval_rouche_ratio interval_rouche_ms\n";
     for(bool warm:{false,true}) {
         std::vector<Cplx<__float128>> previous;
         for(size_t k=0;k<rows.size();++k) {
@@ -288,6 +289,8 @@ int main(int argc,char** argv) {
               double positive_ms=0;
               RoucheCertificate rouche;
               double rouche_ms=0;
+              re_detail::D14RoucheCertificate interval_rouche;
+              double interval_rouche_ms=0;
               if(c.stage=="qf_warm" && !c.converged) {
                   const auto begin=std::chrono::steady_clock::now();
                   positive=positive_d14_roots(pf,capture.r_max);
@@ -298,6 +301,10 @@ int main(int argc,char** argv) {
                   rouche=rouche_root_certificate(ascending,c.roots);
                   rouche_ms=std::chrono::duration<double,std::milli>(
                       std::chrono::steady_clock::now()-rouche_begin).count();
+                  const auto interval_begin=std::chrono::steady_clock::now();
+                  interval_rouche=re_detail::d14_rouche_certificate(pf,c.roots);
+                  interval_rouche_ms=std::chrono::duration<double,std::milli>(
+                      std::chrono::steady_clock::now()-interval_begin).count();
               }
               for(int variant=0;variant<3;++variant) {
                 if(c.stage=="oracle" && variant!=2) continue;
@@ -336,7 +343,10 @@ int main(int argc,char** argv) {
                        <<int(positive.assurance==PositiveRootAssurance::PositiveRealCertified)
                        <<' '<<positive.root_count<<' '<<positive_ms<<' '
                        <<positive.stats.reason<<' '<<rouche.certified<<' '
-                       <<rouche.disks<<' '<<rouche.min_margin<<' '<<rouche_ms<<'\n';
+                       <<rouche.disks<<' '<<rouche.min_margin<<' '<<rouche_ms<<' '
+                       <<interval_rouche.certified<<' '<<interval_rouche.isolated_disks
+                       <<' '<<(double)interval_rouche.minimum_ratio<<' '
+                       <<interval_rouche_ms<<'\n';
                 }
               }
             }

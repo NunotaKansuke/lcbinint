@@ -40,6 +40,9 @@
 #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
 #include "lcbinint/magnification/holonomic/d14_structure.hpp"
 #include "lcbinint/magnification/holonomic/d14_positive_roots.hpp"
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+#include "lcbinint/magnification/holonomic/d14_rouche.hpp"
+#endif
 #include "lcbinint/magnification/holonomic/dd_real.hpp"
 #include "lcbinint/magnification/holonomic/d14_lifted.hpp"
 #include "lcbinint/magnification/holonomic/d14_hybrid.hpp"
@@ -1168,68 +1171,12 @@ inline D14ActivePresearchResult d14_active_presearch(
 // stale or wrong seed still fails closed to the cold solve.
 #if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
 inline bool d14_event_contract_screen(
-    const D14StructQf& sc, const std::vector<qf>& desc_v,
+    const PrimaryFrame& pf,const D14StructQf& sc,
+    const std::vector<qf>& desc_v,
     std::vector<Cplx<qf>>& roots) {
-    if (roots.size()!=14 || desc_v.size()!=15) return false;
-    std::array<Cplx<qf>,14> centers{};
-    for(std::size_t i=0;i<roots.size();++i) {
-        if(!finiteq(roots[i].re)||!finiteq(roots[i].im))return false;
-        const qf real_cut=(qf)1e-8*((qf)1+fabsq(roots[i].re));
-        centers[i]=fabsq(roots[i].im)<=real_cut
-            ? Cplx<qf>{roots[i].re,0}:roots[i];
-    }
-    std::array<qf,14> disk_radius{};
-    for(std::size_t i=0;i<centers.size();++i) {
-        std::array<Cplx<qf>,15> shifted{};
-        for(int k=0;k<=14;++k) {
-            Cplx<qf> power{1,0};
-            for(int exponent=k;exponent>=0;--exponent) {
-                int choose=1;
-                for(int j=1;j<=exponent;++j)choose=choose*(k-j+1)/j;
-                shifted[exponent]=shifted[exponent]+power*Cplx<qf>{
-                    desc_v[14-k]*(qf)choose,0};
-                power=power*centers[i];
-            }
-        }
-        qf separation=HUGE_VALQ;
-        for(std::size_t j=0;j<centers.size();++j)if(i!=j)
-            separation=std::min(separation,cabs(centers[i]-centers[j]));
-        const qf linear=cabs(shifted[1]);
-        if(!finiteq(linear)||!(linear>0)||!finiteq(separation)||
-           !(separation>0))return false;
-        qf radius=std::max((qf)16*cabs(shifted[0])/linear,
-                           (qf)1e-30*((qf)1+cabs(centers[i])));
-        bool isolated=false;
-        for(int attempt=0;attempt<24&&radius<separation/(qf)3;++attempt) {
-            const qf lhs=linear*radius;
-            qf rhs=cabs(shifted[0]),power=radius*radius;
-            for(int k=2;k<=14;++k){rhs+=cabs(shifted[k])*power;power*=radius;}
-            // A large strict margin keeps binary128 rounding far from the
-            // Rouche decision boundary.  The route remains research-only
-            // until an outward-rounded implementation replaces this margin.
-            if(finiteq(lhs)&&finiteq(rhs)&&lhs>(qf)16*rhs) {
-                isolated=true;disk_radius[i]=radius;break;
-            }
-            radius*=2;
-        }
-        if(!isolated)return false;
-    }
-    // Each disjoint disk contains exactly one root.  Finish its location by
-    // independent Newton while requiring every correction to stay inside
-    // the certified disk; no deflation or root identity change is allowed.
-    for(std::size_t i=0;i<roots.size();++i) {
-        Cplx<qf> z=centers[i];
-        for(int iteration=0;iteration<2;++iteration) {
-            Cplx<qf> p,dp;d14_struct_eval(sc,z,p,dp);
-            if(!(cabs(dp)>0)||!finiteq(cabs(p))||!finiteq(cabs(dp)))return false;
-            const Cplx<qf> step=p/dp;
-            if(!finiteq(step.re)||!finiteq(step.im)||
-               cabs((z-step)-centers[i])>=disk_radius[i])return false;
-            z=z-step;
-        }
-        roots[i]=z;
-    }
-    return true;
+    if(!d14_rouche_fast_screen(desc_v,roots))return false;
+    const auto certificate=d14_rouche_certificate(pf,roots);
+    return d14_rouche_refine(sc,certificate,roots);
 }
 #endif
 
@@ -1770,7 +1717,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                     const bool scalar=d14_scalar_certificate(
                         &scqf,desc_v,out.roots,&scalar_residual,&scalar_reason);
                     if(scalar) {
-                        if(d14_event_contract_screen(scqf,desc_v,out.roots)) {
+                        if(d14_event_contract_screen(*event_pf,scqf,desc_v,out.roots)) {
                             out.event_contract_accepted=true;
                             event_contract_accept=true;
                             if(prof)++prof->d14_event_contract_accepts;

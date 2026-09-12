@@ -406,6 +406,14 @@ target_compile_options(test_d14_event_contract PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_d14_event_contract PRIVATE quadmath)
 add_test(NAME holonomic_d14_event_contract COMMAND test_d14_event_contract)
 
+add_executable(bench_d14_rouche_clusters
+  "${CMAKE_CURRENT_LIST_DIR}/../../benchmarks/holonomic/bench_d14_rouche_clusters.cpp")
+target_include_directories(bench_d14_rouche_clusters PRIVATE "${_SRC}")
+target_compile_definitions(bench_d14_rouche_clusters PRIVATE
+  HOLO_D14_EVENT_CONTRACT_RESEARCH=1)
+target_compile_options(bench_d14_rouche_clusters PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_d14_rouche_clusters PRIVATE quadmath)
+
 add_executable(test_radial_atlas test_radial_atlas.cpp)
 target_include_directories(test_radial_atlas PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../src)
 target_compile_options(test_radial_atlas PRIVATE ${_M7_FLAGS})
