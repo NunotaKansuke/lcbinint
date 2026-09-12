@@ -1,0 +1,6 @@
+# Preliminary matched A/B raw, retained as an auxiliary record only.
+# Its original binary hashes did not match a rebuild from the frozen runner,
+# so these rows are excluded from whole_epoch_summary.json.
+safe measured binary SHA256:   4a93852abc56dad786eda5edccb93da6300cae997fa4b6f986cc60ecdf5182a4
+legacy measured binary SHA256: dd147d3cb41a4ba2cd91c721c782082b8290ba4e38466227654575069bf2d226
+Corresponding raw: overflow_safe_initial_binary.tsv.gz, overflow_legacy_initial_binary.tsv.gz

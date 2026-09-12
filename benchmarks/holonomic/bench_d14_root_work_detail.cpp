@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
@@ -189,6 +190,16 @@ int main(int argc, char** argv) {
                     TopologyResult topology;
                     std::vector<Cplx<__float128>> current_roots;
                     double wall_ms = 0.0;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+                    if (std::getenv("HOLO_D14_QF_TRACE") &&
+                        std::getenv("HOLO_D14_QF_TRACE")[0] == '1')
+                        std::fprintf(stderr,
+                            "D14TRACE_ROW\tcase=%d\tconfig=%d\tprofile=%s"
+                            "\td_bin=%d\tepoch=%d\trep=%d\tlane=%s\n",
+                            row.case_id, row.configuration_id, row.profile.c_str(),
+                            row.d_bin_index, row.epoch_index, rep,
+                            lane_name(warm_lane));
+#endif
                     {
                         V2ProfileScope scope(profile);
                         const auto start = Clock::now();

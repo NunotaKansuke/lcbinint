@@ -1282,6 +1282,9 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             seed_ok = false;
             break;
         }
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+    const char* seed_reject_reason = seed_ok ? "" : "presearch_nonfinite_seed";
+#endif
     // Block-form D/D' polish (memo section 3): exact C3/G4/Z3 evaluation
     // in place of Horner on the cancellation-carrying expanded vector.
     const bool use_struct = sc && holo_d14_struct_enabled() && deg == 14 &&
@@ -1524,11 +1527,44 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                 }
                 out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
                 out.tier = 1;
-                if (!qf_converged || !(out.worst_res <= (qf)1e-12))
+                if (!qf_converged || !(out.worst_res <= (qf)1e-12)) {
                     seed_ok = false;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+                    seed_reject_reason = !qf_converged
+                        ? "qf_warm_step_tolerance_not_met"
+                        : "qf_warm_residual_gate_failed";
+#endif
+                }
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+                if (re_detail::d14_qf_trace_enabled()) {
+                    int finite_roots = 0;
+                    for (const auto& root : out.roots)
+                        if (qfinite_(root.re) && qfinite_(root.im)) ++finite_roots;
+                    qf certificate_residual = 0;
+                    int certificate_reason = 0;
+                    const bool scalar_certificate = d14_scalar_certificate(
+                        use_struct ? &scqf : nullptr, desc_v, out.roots,
+                        &certificate_residual, &certificate_reason);
+                    std::fprintf(stderr,
+                        "D14QF_STAGE\tkind=warm\tconverged=%d\tfinite_roots=%d"
+                        "\titers=%d\tresidual=",
+                        int(qf_converged), finite_roots, qf_iters);
+                    re_detail::d14_qf_trace_value("worst", out.worst_res);
+                    std::fprintf(stderr, "\tgate=1e-12\trejected=%d"
+                        "\tscalar_certificate=%d\tcertificate_reason=%d",
+                        int(!qf_converged || !(out.worst_res <= (qf)1e-12)),
+                        int(scalar_certificate), certificate_reason);
+                    re_detail::d14_qf_trace_value("certificate_residual",
+                                                  certificate_residual);
+                    std::fputc('\n', stderr);
+                }
+#endif
             }
         } else {
             seed_ok = false;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+            seed_reject_reason = "d14real_nonfinite";
+#endif
         }
     }
     if (!used_hybrid && !used_lifted && !used_real && seed_ok && compensated) {
@@ -1590,7 +1626,12 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             }
             out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
             out.tier = 1;
-            if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
+            if (!(out.worst_res <= (qf)1e-12)) {
+                seed_ok = false;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+                seed_reject_reason = "dd_qf_warm_residual_gate_failed";
+#endif
+            }
         }
     } else if (!used_hybrid && !used_lifted && !used_real && seed_ok) {
         std::vector<Cplx<qf>> seed(deg);
@@ -1614,7 +1655,12 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         }
         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
         out.tier = 3;
-        if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
+        if (!(out.worst_res <= (qf)1e-12)) {
+            seed_ok = false;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+            seed_reject_reason = "qf_warm_residual_gate_failed";
+#endif
+        }
     }
 
     // A direct warm corrector is a performance shortcut, not a reason to
@@ -1629,11 +1675,18 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
 
     if (!seed_ok) {
         int qf_iters = 0;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+        bool qf_converged = false;
+#endif
         auto qf_begin = V2Clock::now();
         out.roots =
             use_struct
                 ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22,
-                                        &qf_iters)
+                                        &qf_iters
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+                                        , &qf_converged
+#endif
+                                        )
                 : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22, nullptr,
                              &qf_iters);
         if (prof) {
@@ -1645,6 +1698,28 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         }
         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
         out.tier = (out.tier == 0 && !compensated) ? -1 : 2;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+        if (re_detail::d14_qf_trace_enabled()) {
+            int finite_roots = 0;
+            for (const auto& root : out.roots)
+                if (qfinite_(root.re) && qfinite_(root.im)) ++finite_roots;
+            qf certificate_residual = 0;
+            int certificate_reason = 0;
+            const bool scalar_certificate = d14_scalar_certificate(
+                use_struct ? &scqf : nullptr, desc_v, out.roots,
+                &certificate_residual, &certificate_reason);
+            std::fprintf(stderr,
+                "D14QF_STAGE\tkind=cold\tseed_source=cauchy\treason=%s\tconverged=%d"
+                "\tfinite_roots=%d\titers=%d\tresidual=",
+                seed_reject_reason, int(qf_converged), finite_roots, qf_iters);
+            re_detail::d14_qf_trace_value("worst", out.worst_res);
+            std::fprintf(stderr, "\tscalar_certificate=%d\tcertificate_reason=%d",
+                         int(scalar_certificate), certificate_reason);
+            re_detail::d14_qf_trace_value("certificate_residual",
+                                          certificate_residual);
+            std::fputc('\n', stderr);
+        }
+#endif
     }
 
     // Completeness sanity check (separate from the per-root residual gate,
@@ -1672,11 +1747,18 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     if (completeness_failure) {
         if (prof) ++prof->d14_completeness_fails;
         int qf_iters = 0;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+        bool qf_converged = false;
+#endif
         auto qf_begin = V2Clock::now();
         out.roots =
             use_struct
                 ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22,
-                                        &qf_iters)
+                                        &qf_iters
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+                                        , &qf_converged
+#endif
+                                        )
                 : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22, nullptr,
                              &qf_iters);
         if (prof) {
@@ -1688,6 +1770,16 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         }
         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
         out.tier = 2;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+        if (re_detail::d14_qf_trace_enabled()) {
+            std::fprintf(stderr,
+                "D14QF_STAGE\tkind=cold\treason=completeness_gate\tconverged=%d"
+                "\titers=%d\tresidual=",
+                int(qf_converged), qf_iters);
+            re_detail::d14_qf_trace_value("worst", out.worst_res);
+            std::fprintf(stderr, "\n");
+        }
+#endif
     }
     if (prof) v2_profile_add_ms(&V2Profile::d14_validate_ms, validation_begin,
                                 V2Clock::now());

@@ -37,7 +37,10 @@
 
 #include <array>
 #include <cmath>
+#include <cstdio>
+#include <cstdlib>
 #include <limits>
+#include <type_traits>
 #include <vector>
 
 #include <quadmath.h>
@@ -48,6 +51,22 @@
 
 namespace lcbinint::holonomic {
 namespace re_detail {
+
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+inline bool d14_qf_trace_enabled() {
+    static const bool enabled = [] {
+        const char* e = std::getenv("HOLO_D14_QF_TRACE");
+        return e && e[0] == '1';
+    }();
+    return enabled;
+}
+
+inline void d14_qf_trace_value(const char* label, __float128 value) {
+    char text[96];
+    quadmath_snprintf(text, sizeof(text), "%+.36Qe", value);
+    std::fprintf(stderr, "\t%s=%s", label, text);
+}
+#endif
 
 // Low-degree block coefficients (ascending in v), scalar type T.
 template <class T>
@@ -290,35 +309,186 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
                       ? tol_override
                       : ((sizeof(T) > 8) ? T(1e-24) : T(1e-15));
     const bool legacy = holo_legacy_complex_ops();
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+    bool trace_qf = false;
+    if constexpr (std::is_same<T, __float128>::value) {
+        trace_qf = d14_qf_trace_enabled();
+        if (trace_qf) {
+            std::fprintf(stderr, "D14QF_BEGIN\tseed=%s\tmax_iter=%d",
+                         seed ? "warm" : "cold", max_iter);
+            d14_qf_trace_value("tol", tol);
+            std::fputc('\n', stderr);
+        }
+    }
+    bool trace_bad_seen = false;
+#endif
     for (int it = 0; it < max_iter; ++it) {
         if (iterations) *iterations = it + 1;
         T maxstep2 = T(0);
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+        int trace_max_root = -1;
+        T trace_max_step = T(0);
+        Cplx<T> trace_max_p{}, trace_max_dp{}, trace_max_sum{};
+        Cplx<T> trace_max_b{}, trace_max_w{}, trace_max_z{};
+        T trace_max_nearest = T(0);
+        int trace_max_partner = -1;
+#endif
         for (int i = 0; i < deg; ++i) {
             Cplx<T> p, dp;
             d14_struct_eval(s, z[i], p, dp);
             Cplx<T> sum(T(0), T(0));
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+            T trace_nearest = T(0);
+            int trace_nearest_partner = -1;
+            if (trace_qf) {
+                if constexpr (std::is_same<T, __float128>::value) {
+                    trace_nearest = __builtin_huge_valq();
+                    for (int j = 0; j < deg; ++j) {
+                        if (j == i) continue;
+                        const __float128 sep = hypotq(z[i].re - z[j].re,
+                                                      z[i].im - z[j].im);
+                        if (sep < trace_nearest) {
+                            trace_nearest = sep;
+                            trace_nearest_partner = j;
+                        }
+                    }
+                }
+            }
+#endif
             for (int j = 0; j < deg; ++j) {
                 if (j == i) continue;
                 Cplx<T> d = z[i] - z[j];
                 sum = sum + Cplx<T>(T(1), T(0)) / d;
             }
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+            Cplx<T> denominator;
+            const Cplx<T> old_z = z[i];
+#endif
             Cplx<T> w;
             if (legacy) {
                 Cplx<T> ratio = p / dp;
                 Cplx<T> denom = Cplx<T>(T(1), T(0)) - ratio * sum;
                 w = ratio / denom;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+                denominator = dp - p * sum;
+#endif
             } else {
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+                denominator = dp - p * sum;
+                w = p / denominator;
+#else
                 w = p / (dp - p * sum);
+#endif
             }
             z[i] = z[i] - w;
             T sabs2 = cabs2(w);
             if (sabs2 > maxstep2) maxstep2 = sabs2;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+            if (trace_qf) {
+                if constexpr (std::is_same<T, __float128>::value) {
+                    const __float128 step = hypotq(w.re, w.im);
+                    const bool finite = qfinite_(p.re) && qfinite_(p.im) &&
+                        qfinite_(dp.re) && qfinite_(dp.im) &&
+                        qfinite_(sum.re) && qfinite_(sum.im) &&
+                        qfinite_(denominator.re) && qfinite_(denominator.im) &&
+                        qfinite_(w.re) && qfinite_(w.im) &&
+                        qfinite_(z[i].re) && qfinite_(z[i].im);
+                    if (!finite && !trace_bad_seen) {
+                        trace_bad_seen = true;
+                        std::fprintf(stderr,
+                            "D14QF_FIRST_BAD\tsweep=%d\troot=%d\tpartner=%d",
+                            it + 1, i, trace_nearest_partner);
+                        d14_qf_trace_value("z_re", old_z.re);
+                        d14_qf_trace_value("z_im", old_z.im);
+                        d14_qf_trace_value("absP", hypotq(p.re, p.im));
+                        d14_qf_trace_value("absDP", hypotq(dp.re, dp.im));
+                        d14_qf_trace_value("absS", hypotq(sum.re, sum.im));
+                        d14_qf_trace_value("absB", hypotq(denominator.re,
+                                                           denominator.im));
+                        d14_qf_trace_value("absStep", step);
+                        d14_qf_trace_value("nearestSep", trace_nearest);
+                        std::fputc('\n', stderr);
+                    }
+                    if (step >= trace_max_step || trace_max_root < 0) {
+                        trace_max_root = i;
+                        trace_max_step = step;
+                        trace_max_p = p;
+                        trace_max_dp = dp;
+                        trace_max_sum = sum;
+                        trace_max_b = denominator;
+                        trace_max_w = w;
+                        trace_max_z = old_z;
+                        trace_max_nearest = trace_nearest;
+                        trace_max_partner = trace_nearest_partner;
+                    }
+                }
+            }
+#endif
         }
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+        if (trace_qf) {
+            if constexpr (std::is_same<T, __float128>::value) {
+                __float128 min_sep = __builtin_huge_valq();
+                int min_i = -1, min_j = -1, finite_roots = 0;
+                for (int i = 0; i < deg; ++i) {
+                    if (qfinite_(z[i].re) && qfinite_(z[i].im)) ++finite_roots;
+                    for (int j = i + 1; j < deg; ++j) {
+                        const __float128 sep = hypotq(z[i].re - z[j].re,
+                                                      z[i].im - z[j].im);
+                        if (sep < min_sep) {
+                            min_sep = sep;
+                            min_i = i;
+                            min_j = j;
+                        }
+                    }
+                }
+                std::fprintf(stderr,
+                    "D14QF_SWEEP\tit=%d\tfinite_roots=%d\tmax_root=%d"
+                    "\tnearest_partner=%d\tmin_pair=%d,%d",
+                    it + 1, finite_roots, trace_max_root, trace_max_partner,
+                    min_i, min_j);
+                d14_qf_trace_value("maxStep", trace_max_step);
+                d14_qf_trace_value("maxRoot_nearest", trace_max_nearest);
+                d14_qf_trace_value("maxRoot_absP",
+                                   hypotq(trace_max_p.re, trace_max_p.im));
+                d14_qf_trace_value("maxRoot_absDP",
+                                   hypotq(trace_max_dp.re, trace_max_dp.im));
+                d14_qf_trace_value("maxRoot_absS",
+                                   hypotq(trace_max_sum.re, trace_max_sum.im));
+                d14_qf_trace_value("maxRoot_absB",
+                                   hypotq(trace_max_b.re, trace_max_b.im));
+                d14_qf_trace_value("maxRoot_absStep",
+                                   hypotq(trace_max_w.re, trace_max_w.im));
+                d14_qf_trace_value("maxRoot_zRe", trace_max_z.re);
+                d14_qf_trace_value("maxRoot_zIm", trace_max_z.im);
+                d14_qf_trace_value("min_pair_sep", min_sep);
+                std::fputc('\n', stderr);
+            }
+        }
+#endif
         if (maxstep2 < tol * tol) {
             if (converged) *converged = true;
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+            if (trace_qf) std::fprintf(stderr, "D14QF_STOP\tit=%d\treason=step_tol\n", it + 1);
+#endif
             break;
         }
     }
+#if defined(HOLO_D14_TRACE_QF_ITERATIONS)
+    if (trace_qf) {
+        std::fprintf(stderr, "D14QF_END\tsweeps=%d\n",
+                     iterations ? *iterations : max_iter);
+        if constexpr (std::is_same<T, __float128>::value) {
+            for (int i = 0; i < deg; ++i) {
+                std::fprintf(stderr, "D14QF_ROOT\tseed=%s\tindex=%d",
+                             seed ? "warm" : "cold", i);
+                d14_qf_trace_value("re", z[i].re);
+                d14_qf_trace_value("im", z[i].im);
+                std::fputc('\n', stderr);
+            }
+        }
+    }
+#endif
     return z;
 }
 
