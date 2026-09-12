@@ -326,13 +326,38 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
 // residual/completeness certificate.
 struct D14RealAberthResult {
     std::array<Cplx<D14Real>, 14> roots{};
+    std::array<int, 14> root_updates{};
+    std::array<int, 14> root_freezes{};
+    std::array<int, 14> root_reactivations{};
+    std::array<int, 14> cluster_id{};
+    std::array<int, 14> cluster_size{};
+    std::array<double, 14> final_newton_correction{};
+    std::array<double, 14> nearest_separation{};
+    std::array<double, 14> relative_newton_correction{};
     int iterations = 0;
+    int skipped_updates = 0;
+    int reactivations = 0;
+    int cluster_wakeups = 0;
     bool finite = true;
     bool converged = false;
     int mixed_pairs = 0;
     int dangerous_pairs = 0;
     int dangerous_rows = 0;
     int full_recompute_rows = 0;
+};
+
+struct D14RealScheduleConfig {
+    bool enabled = false;
+    bool capture_diagnostics = false;
+    double absolute_correction_tolerance = 0.0;
+    double relative_correction_separation_tolerance = 0.0;
+    int patience = 2;
+    double cluster_relative_separation = 0.0;
+    double reactivate_step_separation = 0.0;
+    bool consumer_precision = false;
+    double physical_position_rtol = 0.0;
+    double soft_cut_position_rtol = 0.0;
+    double other_correction_separation_rtol = 0.0;
 };
 
 struct D14RealNewtonResult {
@@ -395,16 +420,144 @@ inline D14RealAberthResult aberth_d14_real_mixed(
     const D14StructC<D14Real>& s,
     const std::array<Cplx<D14Real>, 14>& initial,
     int max_iter = 25, D14Real tol = D14Real(1e-26),
-    bool pair_local = false) {
+    bool pair_local = false,
+    const D14RealScheduleConfig* schedule = nullptr,
+    const std::array<int, 14>* root_roles = nullptr) {
     constexpr int deg = 14;
     D14RealAberthResult out;
     out.roots = initial;
     const double separation_factor = 64.0 * std::sqrt(std::numeric_limits<double>::epsilon());
+    const bool scheduled = schedule && schedule->enabled;
+    const bool capture_diagnostics = schedule && schedule->capture_diagnostics;
+    const bool track_roots = scheduled || capture_diagnostics;
+    std::array<bool, deg> active{};
+    std::array<int, deg> stable{};
+    std::array<double, deg> last_aberth_step{};
+    active.fill(true);
+    last_aberth_step.fill(std::numeric_limits<double>::infinity());
+
+    auto abs_complex = [](const Cplx<D14Real>& z) {
+        return std::hypot(static_cast<double>(z.re), static_cast<double>(z.im));
+    };
+    auto make_clusters = [&](double relative_separation,
+                             std::array<int, deg>& ids,
+                             std::array<int, deg>& sizes) {
+        std::array<int, deg> parent{};
+        for (int i = 0; i < deg; ++i) parent[i] = i;
+        auto root_of = [&](int x) {
+            while (parent[x] != x) x = parent[x];
+            return x;
+        };
+        auto join = [&](int a, int b) {
+            const int ra = root_of(a), rb = root_of(b);
+            if (ra != rb) parent[rb] = ra;
+        };
+        if (relative_separation > 0.0) {
+            for (int i = 0; i < deg; ++i) {
+                for (int j = i + 1; j < deg; ++j) {
+                    const double dr = static_cast<double>(out.roots[i].re) -
+                                      static_cast<double>(out.roots[j].re);
+                    const double di = static_cast<double>(out.roots[i].im) -
+                                      static_cast<double>(out.roots[j].im);
+                    const double distance = std::hypot(dr, di);
+                    const double scale = std::max(
+                        {1.0, std::fabs(static_cast<double>(out.roots[i].re)),
+                         std::fabs(static_cast<double>(out.roots[i].im)),
+                         std::fabs(static_cast<double>(out.roots[j].re)),
+                         std::fabs(static_cast<double>(out.roots[j].im))});
+                    if (distance <= relative_separation * scale) join(i, j);
+                }
+            }
+        }
+        ids.fill(-1);
+        sizes.fill(0);
+        std::array<int, deg> compact{};
+        compact.fill(-1);
+        int count = 0;
+        for (int i = 0; i < deg; ++i) {
+            const int r = root_of(i);
+            if (compact[r] < 0) compact[r] = count++;
+            ids[i] = compact[r];
+            ++sizes[ids[i]];
+        }
+    };
+
+    auto criterion_met = [&](int i, double newton_correction,
+                             double nearest_separation) {
+        if (!scheduled) return false;
+        bool has_criterion = false;
+        bool accepted = true;
+        if (schedule->absolute_correction_tolerance > 0.0) {
+            has_criterion = true;
+            accepted = accepted &&
+                newton_correction <= schedule->absolute_correction_tolerance;
+        }
+        if (schedule->relative_correction_separation_tolerance > 0.0) {
+            has_criterion = true;
+            const double ratio = nearest_separation > 0.0
+                ? newton_correction / nearest_separation
+                : std::numeric_limits<double>::infinity();
+            accepted = accepted && ratio <=
+                schedule->relative_correction_separation_tolerance;
+        }
+        if (schedule->consumer_precision && root_roles) {
+            const int role = (*root_roles)[i];
+            const double vr = static_cast<double>(out.roots[i].re);
+            const double vi = static_cast<double>(out.roots[i].im);
+            const double projected_r = std::sqrt(std::max(0.0, vr));
+            const double position_error = projected_r > 0.0
+                ? newton_correction / (2.0 * projected_r)
+                : std::numeric_limits<double>::infinity();
+            double budget = 0.0;
+            if (role == 1) budget = schedule->physical_position_rtol;
+            else if (role == 2) budget = schedule->soft_cut_position_rtol;
+            else budget = schedule->other_correction_separation_rtol;
+            if (budget > 0.0) {
+                has_criterion = true;
+                if (role == 1 || role == 2) {
+                    accepted = accepted && position_error /
+                        (1.0 + projected_r) <= budget;
+                } else {
+                    const double ratio = nearest_separation > 0.0
+                        ? newton_correction / nearest_separation
+                        : std::numeric_limits<double>::infinity();
+                    accepted = accepted && ratio <= budget;
+                }
+            }
+            (void)vi;
+        }
+        return has_criterion && accepted;
+    };
 
     for (int it = 0; it < max_iter; ++it) {
         out.iterations = it + 1;
         D14Real max_step2(0.0);
+        std::array<int, deg> sweep_cluster{};
+        std::array<int, deg> sweep_cluster_size{};
+        std::array<bool, deg> reactivate_cluster{};
+        if (scheduled) {
+            make_clusters(schedule->cluster_relative_separation,
+                          sweep_cluster, sweep_cluster_size);
+            std::array<bool, deg> component_active{};
+            for (int i = 0; i < deg; ++i)
+                if (active[i]) component_active[sweep_cluster[i]] = true;
+            for (int i = 0; i < deg; ++i) {
+                if (!active[i] && component_active[sweep_cluster[i]]) {
+                    active[i] = true;
+                    stable[i] = 0;
+                    ++out.root_reactivations[i];
+                    ++out.reactivations;
+                    ++out.cluster_wakeups;
+                }
+            }
+        }
+        int active_count = 0;
         for (int i = 0; i < deg; ++i) {
+            if (scheduled && !active[i]) {
+                ++out.skipped_updates;
+                continue;
+            }
+            ++active_count;
             Cplx<D14Real> p, dp;
             d14_struct_eval(s, out.roots[i], p, dp);
             if (!qfinite_(p.re) || !qfinite_(p.im) ||
@@ -412,11 +565,19 @@ inline D14RealAberthResult aberth_d14_real_mixed(
                 out.finite = false;
                 return out;
             }
+            double newton_correction = std::numeric_limits<double>::infinity();
+            if (scheduled &&
+                !(dp.re == D14Real(0.0) && dp.im == D14Real(0.0))) {
+                const Cplx<D14Real> newton = p / dp;
+                if (qfinite_(newton.re) && qfinite_(newton.im))
+                    newton_correction = abs_complex(newton);
+            }
 
             double sr = 0.0, si = 0.0, cr = 0.0, ci = 0.0;
             bool dangerous = false;
             std::array<int, deg - 1> dangerous_index{};
             int dangerous_count = 0;
+            double nearest_separation = std::numeric_limits<double>::infinity();
             const double xir = static_cast<double>(out.roots[i].re);
             const double xii = static_cast<double>(out.roots[i].im);
             if (!std::isfinite(xir) || !std::isfinite(xii)) {
@@ -432,6 +593,7 @@ inline D14RealAberthResult aberth_d14_real_mixed(
                 const double scale = std::max({1.0, std::fabs(xir),
                                                std::fabs(xii), std::fabs(xjr),
                                                std::fabs(xji)});
+                if (scheduled) nearest_separation = std::min(nearest_separation, dn);
                 if (!(dn > 0.0) || !std::isfinite(dn)) {
                     out.finite = false;
                     return out;
@@ -492,10 +654,104 @@ inline D14RealAberthResult aberth_d14_real_mixed(
             out.roots[i] = out.roots[i] - step;
             const D14Real step2 = cabs2(step);
             if (step2 > max_step2) max_step2 = step2;
+            const double step_abs = track_roots ? abs_complex(step) : 0.0;
+            if (track_roots) {
+                last_aberth_step[i] = step_abs;
+                ++out.root_updates[i];
+            }
+
+            if (scheduled) {
+                if (criterion_met(i, newton_correction, nearest_separation)) {
+                    if (stable[i] < schedule->patience) ++stable[i];
+                    if (stable[i] >= schedule->patience && active[i]) {
+                        active[i] = false;
+                        ++out.root_freezes[i];
+                    }
+                } else {
+                    stable[i] = 0;
+                }
+                if (schedule->reactivate_step_separation > 0.0 &&
+                    nearest_separation > 0.0 &&
+                    step_abs / nearest_separation >=
+                        schedule->reactivate_step_separation) {
+                    reactivate_cluster[sweep_cluster[i]] = true;
+                }
+            }
         }
-        if (max_step2 < tol * tol) {
+        if (scheduled) {
+            for (int i = 0; i < deg; ++i) {
+                if (!reactivate_cluster[sweep_cluster[i]] || active[i]) continue;
+                active[i] = true;
+                stable[i] = 0;
+                ++out.root_reactivations[i];
+                ++out.reactivations;
+                ++out.cluster_wakeups;
+            }
+            if (active_count == 0) break;
+            bool all_below_incumbent_tolerance = true;
+            const double tol_double = static_cast<double>(tol);
+            for (int i = 0; i < deg; ++i)
+                all_below_incumbent_tolerance = all_below_incumbent_tolerance &&
+                    last_aberth_step[i] < tol_double;
+            if (all_below_incumbent_tolerance) {
+                out.converged = true;
+                break;
+            }
+            bool any_active = false;
+            for (bool value : active) any_active = any_active || value;
+            if (!any_active) break;
+        } else if (max_step2 < tol * tol) {
             out.converged = true;
             break;
+        }
+    }
+
+    // Final per-root estimates are retained only for the opt-in research
+    // report.  The scheduled production experiment needs the aggregate
+    // update/freeze counters above, but does not consume these estimates; in
+    // particular, do not pay for another 14 D14Real polynomial evaluations
+    // and nearest-neighbor scan on every scheduled solve.  They are not
+    // acceptance gates: the caller still runs the unchanged qf residual and
+    // global completeness checks.
+    if (capture_diagnostics) for (int i = 0; i < deg; ++i) {
+        Cplx<D14Real> p, dp;
+        d14_struct_eval(s, out.roots[i], p, dp);
+        if (!qfinite_(p.re) || !qfinite_(p.im) ||
+            !qfinite_(dp.re) || !qfinite_(dp.im) ||
+            (dp.re == D14Real(0.0) && dp.im == D14Real(0.0))) {
+            out.finite = false;
+            continue;
+        }
+        const Cplx<D14Real> correction = p / dp;
+        if (!qfinite_(correction.re) || !qfinite_(correction.im)) {
+            out.finite = false;
+            continue;
+        }
+        out.final_newton_correction[i] = abs_complex(correction);
+        double nearest = std::numeric_limits<double>::infinity();
+        for (int j = 0; j < deg; ++j) {
+            if (i == j) continue;
+            nearest = std::min(nearest, std::hypot(
+                static_cast<double>(out.roots[i].re) -
+                    static_cast<double>(out.roots[j].re),
+                static_cast<double>(out.roots[i].im) -
+                    static_cast<double>(out.roots[j].im)));
+        }
+        out.nearest_separation[i] = nearest;
+        out.relative_newton_correction[i] = nearest > 0.0
+            ? out.final_newton_correction[i] / nearest
+            : std::numeric_limits<double>::infinity();
+    }
+    if (capture_diagnostics) {
+        std::array<int, deg> final_cluster{};
+        std::array<int, deg> final_cluster_size{};
+        const double final_cluster_relative = scheduled &&
+            schedule->cluster_relative_separation > 0.0
+                ? schedule->cluster_relative_separation : separation_factor;
+        make_clusters(final_cluster_relative, final_cluster, final_cluster_size);
+        for (int i = 0; i < deg; ++i) {
+            out.cluster_id[i] = final_cluster[i];
+            out.cluster_size[i] = final_cluster_size[final_cluster[i]];
         }
     }
     return out;

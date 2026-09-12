@@ -1,0 +1,188 @@
+{
+  "file_count": 36,
+  "files": [
+    {
+      "bytes": 2398,
+      "path": "baseline_safe.log",
+      "sha256": "f963c16a6c0c04217476f8902e2d44af89bfe001385b3d8b4009b687392f8ded"
+    },
+    {
+      "bytes": 2077380,
+      "path": "baseline_safe.tsv.gz",
+      "sha256": "81bd27e353c5e5ef5dbbb5e39d7268b067d4ae2e040f06fc63539cb7c02123b1"
+    },
+    {
+      "bytes": 276637,
+      "path": "case92_final_safe_roots.tsv",
+      "sha256": "44f2ba83f8b23f3c1daf5e7d98e011f2420c57089ebc9dcb71ed5046f1ebb401"
+    },
+    {
+      "bytes": 31831,
+      "path": "case92_final_safe_stages.tsv",
+      "sha256": "2d41bf1f1d6a4f7c64645dada0a7031d356ac74c388d8b4d551b6bbe5d22e434"
+    },
+    {
+      "bytes": 276237,
+      "path": "case92_final_scheduled_roots.tsv",
+      "sha256": "1c5b66a3b42ce9f80541d73d948194ac16e8c23efc500279c611dfb8e9623c51"
+    },
+    {
+      "bytes": 32115,
+      "path": "case92_final_scheduled_stages.tsv",
+      "sha256": "033c723198e77c8ec24242a60082181d41447192a74475b64760c7dd760e424b"
+    },
+    {
+      "bytes": 11012,
+      "path": "case92_safe_roots.tsv.gz",
+      "sha256": "f6863df41a5451ec06bccd52d1f964b417961894035cba194c33de3102063780"
+    },
+    {
+      "bytes": 4973,
+      "path": "case92_safe_stages.tsv.gz",
+      "sha256": "6ecf4b94ba520ad1d579f78580a6cf80b4b16ac71751608bd3fc06a8c738948a"
+    },
+    {
+      "bytes": 10959,
+      "path": "case92_scheduled_roots.tsv.gz",
+      "sha256": "bccb8066ab2848c17877c188efdd7634752ab4b7f22082089c3767f11eb36159"
+    },
+    {
+      "bytes": 4980,
+      "path": "case92_scheduled_stages.tsv.gz",
+      "sha256": "02c949f013a18b9d43dedc47918c931c32fee5db3c2d0a95b06f3d595743140d"
+    },
+    {
+      "bytes": 1324933,
+      "path": "input_snapshot.tsv",
+      "sha256": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b"
+    },
+    {
+      "bytes": 10761,
+      "path": "profiles/profile_abs1e-10_rel1e-8.log",
+      "sha256": "f11a5e0fb1b97580aa8df56176e2be10b9d87e7f2ed68cdefa2242fa01313f81"
+    },
+    {
+      "bytes": 10762,
+      "path": "profiles/profile_abs1e-8_rel1e-6_p1.log",
+      "sha256": "71f31ccbe648aaac0b91424300e68db5540f8a9381a70c9df098cdb6d914cb5f"
+    },
+    {
+      "bytes": 10712,
+      "path": "profiles/profile_baseline_after_diag_elide.log",
+      "sha256": "b20c445227d2b665cc72e7efdf597442fec2f2e246dc0d470a46f0c0df13cd22"
+    },
+    {
+      "bytes": 10711,
+      "path": "profiles/profile_baseline_safe.log",
+      "sha256": "00330c83f00e821d645854492dd450b039f2f18e2d7f349869a606ab67751808"
+    },
+    {
+      "bytes": 10758,
+      "path": "profiles/profile_rel1e-10.log",
+      "sha256": "32b4aabd62dbd251d209800d62a45b52d24cc709d0278f08880ed383fa052446"
+    },
+    {
+      "bytes": 10782,
+      "path": "profiles/profile_role_1e-8_1e-6_1e-8.log",
+      "sha256": "3c9566c3d63f04009d6598e5bf1cc3b7bd14ae43908f7a3eea13aa4f3612f8a8"
+    },
+    {
+      "bytes": 10757,
+      "path": "profiles/profile_scheduled_after_diag_elide.log",
+      "sha256": "c76e75c380d197082b5315f38af173636d37e92df4435dec0333b1cf6f5d827c"
+    },
+    {
+      "bytes": 10804,
+      "path": "profiles/profile_scheduled_fast_gate.log",
+      "sha256": "e6a5b074668cde9ecee2edebf098cfdfe0e24f765e155ae0055592baf49ab3ce"
+    },
+    {
+      "bytes": 16874090,
+      "path": "root_work_safe.tsv.gz",
+      "sha256": "a9ff492420f85af370ded0e3298a209089ad614eb96f8710e9a8b619ad880ee6"
+    },
+    {
+      "bytes": 16900781,
+      "path": "root_work_scheduled.tsv.gz",
+      "sha256": "202274e1626f608f86877ad0e9e4e57e0abc16015264258c43769b4184d43aa1"
+    },
+    {
+      "bytes": 4129,
+      "path": "run_metadata.json",
+      "sha256": "382c252551651ad2f6040480d4e1bdabc7920aaf663e9086e8aaa841a6c56d9e"
+    },
+    {
+      "bytes": 2398,
+      "path": "scheduled_abs1e-10_rel1e-8.log",
+      "sha256": "f963c16a6c0c04217476f8902e2d44af89bfe001385b3d8b4009b687392f8ded"
+    },
+    {
+      "bytes": 2079608,
+      "path": "scheduled_abs1e-10_rel1e-8.tsv.gz",
+      "sha256": "81781e504f592deb9b8ff8fb3ede02d96b7c3d78cdec150e44bc6c44c532ebca"
+    },
+    {
+      "bytes": 2398,
+      "path": "scheduled_after_diag_elide.log",
+      "sha256": "f963c16a6c0c04217476f8902e2d44af89bfe001385b3d8b4009b687392f8ded"
+    },
+    {
+      "bytes": 2077528,
+      "path": "scheduled_after_diag_elide.tsv.gz",
+      "sha256": "7e01a06fb027051b13aaada34e59e5c07e8acf0917c5e7170f3eb5517255866f"
+    },
+    {
+      "bytes": 45761,
+      "path": "softpair_case0_dbin2_cluster1e5_roots.tsv",
+      "sha256": "d77b6768a40f823cde6f81b1c5ba14dbb6df4d06746dd2b803985b60bcbe51d9"
+    },
+    {
+      "bytes": 4463,
+      "path": "softpair_case0_dbin2_cluster1e5_stages.tsv",
+      "sha256": "343892a53a7d8fa3fe418baa6a12ef30bf1cba49f42ac17a5d0264918f103bca"
+    },
+    {
+      "bytes": 45640,
+      "path": "softpair_case0_dbin2_safe_roots.tsv",
+      "sha256": "1f9aafbcec809390eb50acfe323cfab1d4d009b0a0c0a7067f7034da09365396"
+    },
+    {
+      "bytes": 4462,
+      "path": "softpair_case0_dbin2_safe_stages.tsv",
+      "sha256": "39577cc9ffa7b7002851d571439702cdafee8dcaeec081ab5f78a417fd824082"
+    },
+    {
+      "bytes": 45772,
+      "path": "softpair_case0_dbin2_scheduled_roots.tsv",
+      "sha256": "795ee15bfdfe72d1f76f7100400413906068cd73aa1bbfe05ebe35add25c3d11"
+    },
+    {
+      "bytes": 4562,
+      "path": "softpair_case0_dbin2_scheduled_stages.tsv",
+      "sha256": "6f5d4cf2b34c7c890ed495b7a509215ca5b61aa58ff97617d47b6385326f45e1"
+    },
+    {
+      "bytes": 1322077,
+      "path": "stages_safe.tsv.gz",
+      "sha256": "f54dc6a33c51fe45df8c4e5728d95ca4aa1cadb3bdf97ae64ce21b623914dc2e"
+    },
+    {
+      "bytes": 1321994,
+      "path": "stages_scheduled.tsv.gz",
+      "sha256": "2eeee9160599a33e259e53f96039f3ab92d05e7a8805325bc447400414c7e8dc"
+    },
+    {
+      "bytes": 201607,
+      "path": "summary_before_diagnostic_elision.json",
+      "sha256": "39976a65b5ff05a529670f6b25d2f1748832393683383f4af5a18cc6749eadf2"
+    },
+    {
+      "bytes": 419595,
+      "path": "summary_phase2.json",
+      "sha256": "61f21730e71c0f7ac8ebd91327e35156a1d54c5c0030e986f0c4fa33abfa01e7"
+    }
+  ],
+  "root": "evidence/holonomic/d14_root_scheduling_phase2_20260912",
+  "schema": 1,
+  "total_bytes": 45496367
+}

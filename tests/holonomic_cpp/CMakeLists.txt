@@ -323,6 +323,14 @@ target_include_directories(bench_v2_profile PRIVATE "${_SRC}")
 target_compile_options(bench_v2_profile PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_v2_profile PRIVATE quadmath)
 
+# Opt-in D14 per-root scheduling diagnostics.  This records root work and
+# non-overlapping D14/topology stages for cold and trajectory-warm calls.
+add_executable(bench_d14_root_work_detail
+    "${_REPO_ROOT}/benchmarks/holonomic/bench_d14_root_work_detail.cpp")
+target_include_directories(bench_d14_root_work_detail PRIVATE "${_SRC}")
+target_compile_options(bench_d14_root_work_detail PRIVATE ${_M7_FLAGS})
+target_link_libraries(bench_d14_root_work_detail PRIVATE quadmath)
+
 # Uninstrumented V2 whole-epoch value/value+5Jac cold/warm timing.  The
 # angular reference is used only for parity; transport overrides force the
 # measured route to the current V2 production candidate.
@@ -375,6 +383,12 @@ target_include_directories(test_d14_positive PRIVATE "${_SRC}")
 target_compile_options(test_d14_positive PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_d14_positive PRIVATE quadmath)
 add_test(NAME holonomic_d14_positive COMMAND test_d14_positive)
+
+add_executable(test_d14_root_scheduling test_d14_root_scheduling.cpp)
+target_include_directories(test_d14_root_scheduling PRIVATE "${_SRC}")
+target_compile_options(test_d14_root_scheduling PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_d14_root_scheduling PRIVATE quadmath)
+add_test(NAME holonomic_d14_root_scheduling COMMAND test_d14_root_scheduling)
 
 add_executable(test_radial_atlas test_radial_atlas.cpp)
 target_include_directories(test_radial_atlas PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../src)

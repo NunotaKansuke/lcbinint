@@ -1,0 +1,87 @@
+{
+  "schema": 1,
+  "task": "D14 root-wise and cluster-wise D14Real polish scheduling",
+  "repository": "NunotaKansuke/lcbinint",
+  "branch": "dev/holonomic",
+  "base_commit": "ef7df6d7eea904f89ac1ae72cd1a75478d3027e1",
+  "run_date": "2026-09-12",
+  "machine": {
+    "architecture": "x86_64",
+    "cpu": "Intel Xeon Gold 6530",
+    "logical_cpu_pinned": 0,
+    "compiler": "GCC 11.5.0"
+  },
+  "input": {
+    "path": "evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv",
+    "sha256": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
+    "trajectory_groups": 1804,
+    "epoch_rows_per_tolerance": 7216
+  },
+  "whole_epoch_benchmark": {
+    "source": "benchmarks/holonomic/bench_d14_positive_trajectory.cpp",
+    "tolerances": [0.001, 0.0001],
+    "gradient_policy": "None",
+    "mu_atol": 1e-16,
+    "mu_rtol": "target tolerance",
+    "n_r": "adaptive",
+    "fold_maps": true,
+    "reuse_samples": true,
+    "repeats": 3,
+    "timed_output_rows": 14432,
+    "lanes": {
+      "cold": "D14 and topology regenerated for every epoch",
+      "warm": "L2 previous-epoch D14 root seed; topology recomputed and certified every epoch",
+      "radial": "prebuilt topology; adaptive integration only"
+    },
+    "build_command": "g++ -O3 -march=native -funroll-loops -ffp-contract=fast -fno-math-errno -DNDEBUG -std=gnu++17 -I src benchmarks/holonomic/bench_d14_positive_trajectory.cpp -o /tmp/bench_d14_root_schedule_after_diag_elide -lquadmath",
+    "baseline_command": "taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 /tmp/bench_d14_root_schedule_after_diag_elide evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv evidence/holonomic/d14_root_scheduling_phase2_20260912/baseline_safe.tsv 3",
+    "scheduled_command": "taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_REAL_ACTIVE=1 HOLO_D14_REAL_ABS_TOL=1e-10 HOLO_D14_REAL_REL_TOL=1e-8 HOLO_D14_REAL_PATIENCE=2 /tmp/bench_d14_root_schedule_after_diag_elide evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv evidence/holonomic/d14_root_scheduling_phase2_20260912/scheduled_after_diag_elide.tsv 3"
+  },
+  "root_work_benchmark": {
+    "source": "benchmarks/holonomic/bench_d14_root_work_detail.cpp",
+    "root_sets": 14432,
+    "roots": 202048,
+    "schedule_default": "disabled unless HOLO_D14_REAL_ACTIVE=1",
+    "scheduled_settings": {
+      "absolute_correction_tolerance": 1e-10,
+      "relative_correction_separation_tolerance": 1e-8,
+      "patience": 2,
+      "cluster_relative_separation": "64*sqrt(binary64 epsilon)",
+      "reactivate_step_separation": 0.25
+    },
+    "qf_residual_and_completeness_gates_changed": false,
+    "frozen_roots_remain_in_aberth_interaction": true,
+    "deflation": false
+  },
+  "artifacts": {
+    "main_summary": "summary_phase2.json",
+    "profiles_directory": "profiles/",
+    "trajectory_baseline": "baseline_safe.tsv.gz",
+    "trajectory_scheduled": "scheduled_after_diag_elide.tsv.gz",
+    "root_work_baseline": "root_work_safe.tsv.gz",
+    "root_work_scheduled": "root_work_scheduled.tsv.gz",
+    "stage_timings_baseline": "stages_safe.tsv.gz",
+    "stage_timings_scheduled": "stages_scheduled.tsv.gz",
+    "case92_root_and_stage_rows": [
+      "case92_final_safe_roots.tsv",
+      "case92_final_safe_stages.tsv",
+      "case92_final_scheduled_roots.tsv",
+      "case92_final_scheduled_stages.tsv"
+    ],
+    "near_soft_pair_root_rows": [
+      "softpair_case0_dbin2_safe_roots.tsv",
+      "softpair_case0_dbin2_scheduled_roots.tsv",
+      "softpair_case0_dbin2_cluster1e5_roots.tsv"
+    ]
+  },
+  "summary": {
+    "matched_trajectory_rows": 14432,
+    "value_convergence_mismatches": 0,
+    "status_mismatches": 0,
+    "topology_status_cell_event_mismatches": 0,
+    "adaptive_node_evaluation_panel_split_mismatches": 0,
+    "whole_epoch_p50_change": "0.39% to 0.74% slower in full cold/warm lanes",
+    "d14real_root_update_change": "16.4% fewer updates",
+    "production_default_changed": false
+  }
+}

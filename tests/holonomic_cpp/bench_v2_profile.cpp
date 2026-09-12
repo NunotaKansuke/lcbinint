@@ -157,9 +157,12 @@ void add_profile(V2Profile& d, const V2Profile& s) {
     ADD(d14_hybrid_attempts); ADD(d14_hybrid_success);
     ADD(d14_hybrid_certificate_fail); ADD(d14_hybrid_cheap_calls);
     ADD(d14_hybrid_structural_calls); ADD(d14_hybrid_unsafe_calls);
-    ADD(d14_real_calls); ADD(d14_real_mixed_pairs);
+    ADD(d14_real_calls); ADD(d14_real_finite_calls); ADD(d14_real_mixed_pairs);
     ADD(d14_real_dangerous_pairs); ADD(d14_real_full_recompute_rows);
     ADD(d14_real_local_pair_calls); ADD(d14_real_local_pair_rows);
+    ADD(d14_real_root_updates); ADD(d14_real_root_skips);
+    ADD(d14_real_root_freezes); ADD(d14_real_root_reactivations);
+    ADD(d14_real_cluster_wakeups);
     ADD(d14_real_nonconverged);
     ADD(d14_direct_warm_attempts); ADD(d14_direct_warm_success);
     ADD(d14_direct_warm_reject); ADD(d14_fold_seed_attempts);
@@ -204,6 +207,9 @@ void add_profile(V2Profile& d, const V2Profile& s) {
     ADDT(radial_events_ms); ADDT(d14_coeff_ms); ADDT(d14_struct_build_ms);
     ADDT(d14_expand_ms); ADDT(d14_solve_ms); ADDT(d14_presearch_ms);
     ADDT(d14_dd_ms); ADDT(d14_qf_ms); ADDT(d14_validate_ms); ADDT(topology_ms);
+    ADDT(d14_qf_polish_ms); ADDT(d14_residual_eval_ms);
+    ADDT(d14_completeness_check_ms); ADDT(d14_event_classify_ms);
+    ADDT(d14_soft_event_ms);
     ADDT(topology_probe_ms); ADDT(topology_grid_ms); ADDT(arc_ms);
     ADDT(rootpair_ms); ADDT(endpoint_ms); ADDT(f0_ms); ADDT(k_ms); ADDT(k_mid_ms);
     ADDT(k_reciprocal_ms); ADDT(angular_rescue_ms); ADDT(value_angular_ms);
@@ -244,17 +250,24 @@ void print_profile(const LaneSummary& s) {
         (unsigned long long)p.d14_presearch_active_skips,
         (unsigned long long)p.d14_presearch_active_fallbacks);
     std::fprintf(stderr,
-        "  D14Real calls=%llu mixed/dangerous pairs=%llu/%llu nonconverged=%llu "
+        "  D14Real calls/finite/nonconverged=%llu/%llu/%llu mixed/dangerous pairs=%llu/%llu "
         "full-recompute-rows=%llu local-calls/rows=%llu/%llu "
+        "root-updates/skips/freezes/reactivations/cluster-wakeups=%llu/%llu/%llu/%llu/%llu "
         "direct-warm attempt/success/reject=%llu/%llu/%llu newton-ok/nonfinite=%llu/%llu "
         "fold-seed attempt/success/fallback=%llu/%llu/%llu\n",
         (unsigned long long)p.d14_real_calls,
+        (unsigned long long)p.d14_real_finite_calls,
+        (unsigned long long)p.d14_real_nonconverged,
         (unsigned long long)p.d14_real_mixed_pairs,
         (unsigned long long)p.d14_real_dangerous_pairs,
-        (unsigned long long)p.d14_real_nonconverged,
         (unsigned long long)p.d14_real_full_recompute_rows,
         (unsigned long long)p.d14_real_local_pair_calls,
         (unsigned long long)p.d14_real_local_pair_rows,
+        (unsigned long long)p.d14_real_root_updates,
+        (unsigned long long)p.d14_real_root_skips,
+        (unsigned long long)p.d14_real_root_freezes,
+        (unsigned long long)p.d14_real_root_reactivations,
+        (unsigned long long)p.d14_real_cluster_wakeups,
         (unsigned long long)p.d14_direct_warm_attempts,
         (unsigned long long)p.d14_direct_warm_success,
         (unsigned long long)p.d14_direct_warm_reject,
@@ -409,6 +422,12 @@ void print_profile(const LaneSummary& s) {
     std::fprintf(stderr,
         "  D14Real/screen/fold-seed ms=%g/%g/%g\n",
         p.d14_real_ms, p.d14_warm_screen_ms, p.d14_fold_seed_ms);
+    std::fprintf(stderr,
+        "  D14 stage ms presearch/real/qf-polish/residual/completeness/physical/soft="
+        "%g/%g/%g/%g/%g/%g/%g (validate inclusive=%g)\n",
+        p.d14_presearch_ms, p.d14_real_ms, p.d14_qf_polish_ms,
+        p.d14_residual_eval_ms, p.d14_completeness_check_ms,
+        p.d14_event_classify_ms, p.d14_soft_event_ms, p.d14_validate_ms);
     std::fprintf(stderr,
         "  event physical_real/complex/soft/chart_p4/rep=%llu/%llu/%llu/%llu/%llu\n",
         (unsigned long long)p.physical_real_events,

@@ -8,8 +8,54 @@
 
 #include <chrono>
 #include <cstdint>
+#include <vector>
 
 namespace lcbinint::holonomic {
+
+enum class D14RootUse : std::uint8_t {
+    OtherWarmCompleteness = 0,
+    PositiveRealCandidate = 1,
+    ComplexSoftCut = 2
+};
+
+// Opt-in per-root evidence record.  Production profiling does not allocate
+// these rows unless capture_d14_root_work is explicitly enabled by a research
+// harness.
+struct D14RootWorkRecord {
+    int root_index = -1;
+    int source_root_index = -1;
+    int role = static_cast<int>(D14RootUse::OtherWarmCompleteness);
+    int physical_real = -1;  // -1 not classified, 0 no, 1 yes
+    int d14real_updates = 0;
+    int cluster_id = -1;
+    int cluster_size = 1;
+    int freeze_count = 0;
+    int reactivation_count = 0;
+    int role_hint = static_cast<int>(D14RootUse::OtherWarmCompleteness);
+    double v_re = 0.0;
+    double v_im = 0.0;
+    int double_seed_index = -1;
+    double double_seed_v_re = 0.0;
+    double double_seed_v_im = 0.0;
+    bool double_seed_valid = false;
+    int expanded_seed_source_index = -1;
+    double expanded_seed_displacement = 0.0;
+    bool expanded_seed_match_valid = false;
+    double final_v_re = 0.0;
+    double final_v_im = 0.0;
+    double d14real_newton_correction = 0.0;
+    double d14real_nearest_separation = 0.0;
+    double d14real_relative_correction = 0.0;
+    double d14real_position_error = 0.0;
+    double qf_displacement = 0.0;
+    double qf_newton_correction = 0.0;
+    double qf_nearest_separation = 0.0;
+    double qf_position_error = 0.0;
+    double qf_expanded_relative_residual = 0.0;
+    bool qf_escalated = false;
+    bool qf_displacement_valid = false;
+    bool qf_source_match_valid = false;
+};
 
 struct V2Profile {
     using u64 = std::uint64_t;
@@ -48,11 +94,17 @@ struct V2Profile {
     u64 d14_hybrid_structural_calls = 0;
     u64 d14_hybrid_unsafe_calls = 0;
     u64 d14_real_calls = 0;
+    u64 d14_real_finite_calls = 0;
     u64 d14_real_mixed_pairs = 0;
     u64 d14_real_dangerous_pairs = 0;
     u64 d14_real_full_recompute_rows = 0;
     u64 d14_real_local_pair_calls = 0;
     u64 d14_real_local_pair_rows = 0;
+    u64 d14_real_root_updates = 0;
+    u64 d14_real_root_skips = 0;
+    u64 d14_real_root_freezes = 0;
+    u64 d14_real_root_reactivations = 0;
+    u64 d14_real_cluster_wakeups = 0;
     u64 d14_real_nonconverged = 0;
     u64 d14_direct_warm_attempts = 0;
     u64 d14_direct_warm_success = 0;
@@ -174,7 +226,12 @@ struct V2Profile {
     double d14_presearch_ms = 0.0;
     double d14_dd_ms = 0.0;
     double d14_qf_ms = 0.0;
+    double d14_qf_polish_ms = 0.0;
     double d14_validate_ms = 0.0;
+    double d14_residual_eval_ms = 0.0;
+    double d14_completeness_check_ms = 0.0;
+    double d14_event_classify_ms = 0.0;
+    double d14_soft_event_ms = 0.0;
     double topology_ms = 0.0;
     double topology_probe_ms = 0.0;
     double topology_grid_ms = 0.0;
@@ -193,6 +250,9 @@ struct V2Profile {
     double d14_warm_screen_ms = 0.0;
     double d14_fold_seed_ms = 0.0;
     double d14_lifted_max_reconstruct = 0.0;
+
+    bool capture_d14_root_work = false;
+    std::vector<D14RootWorkRecord> d14_root_work;
 
     void reset() { *this = V2Profile{}; }
 };

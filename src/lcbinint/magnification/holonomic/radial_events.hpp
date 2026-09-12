@@ -30,6 +30,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <limits>
+#include <numeric>
 #include <string>
 #include <vector>
 
@@ -480,6 +481,56 @@ inline bool holo_d14_local_pairs_enabled() {
     return on;
 }
 
+inline double holo_d14_schedule_env_double(const char* name, double fallback,
+                                           double maximum) {
+    const char* e = std::getenv(name);
+    if (!e || !*e) return fallback;
+    char* end = nullptr;
+    const double value = std::strtod(e, &end);
+    if (end == e || *end != '\0' || !std::isfinite(value) || value < 0.0 ||
+        value > maximum)
+        return fallback;
+    return value;
+}
+
+inline D14RealScheduleConfig holo_d14_real_schedule_config() {
+    static const D14RealScheduleConfig config = [] {
+        D14RealScheduleConfig value;
+        const char* active = std::getenv("HOLO_D14_REAL_ACTIVE");
+        if (!active || active[0] != '1') return value;
+        value.absolute_correction_tolerance = holo_d14_schedule_env_double(
+            "HOLO_D14_REAL_ABS_TOL", 0.0, 1.0);
+        value.relative_correction_separation_tolerance =
+            holo_d14_schedule_env_double("HOLO_D14_REAL_REL_TOL", 0.0, 1.0);
+        value.patience = std::clamp(std::atoi(
+            std::getenv("HOLO_D14_REAL_PATIENCE")
+                ? std::getenv("HOLO_D14_REAL_PATIENCE") : "2"), 1, 8);
+        value.cluster_relative_separation = holo_d14_schedule_env_double(
+            "HOLO_D14_REAL_CLUSTER_REL", 64.0 *
+                std::sqrt(std::numeric_limits<double>::epsilon()), 1.0);
+        value.reactivate_step_separation = holo_d14_schedule_env_double(
+            "HOLO_D14_REAL_REACTIVATE_RATIO", 0.25, 1e6);
+        const char* role = std::getenv("HOLO_D14_ROLE_PRECISION");
+        value.consumer_precision = role && role[0] == '1';
+        if (value.consumer_precision) {
+            value.physical_position_rtol = holo_d14_schedule_env_double(
+                "HOLO_D14_ROLE_PHYSICAL_RTOL", 1e-10, 1.0);
+            value.soft_cut_position_rtol = holo_d14_schedule_env_double(
+                "HOLO_D14_ROLE_SOFT_RTOL", 1e-8, 1.0);
+            value.other_correction_separation_rtol = holo_d14_schedule_env_double(
+                "HOLO_D14_ROLE_OTHER_RATIO", 1e-12, 1.0);
+        }
+        const bool has_budget = value.absolute_correction_tolerance > 0.0 ||
+            value.relative_correction_separation_tolerance > 0.0 ||
+            value.physical_position_rtol > 0.0 ||
+            value.soft_cut_position_rtol > 0.0 ||
+            value.other_correction_separation_rtol > 0.0;
+        value.enabled = has_budget;
+        return value;
+    }();
+    return config;
+}
+
 // Process-wide opt-out: HOLO_D14_STRUCT_LEGACY=1 forces Horner on the
 // expanded degree-14 coefficient vector.  Default: run the Aberth polish
 // against the C3/G4/Z3 block-form D/D' evaluator (d14_structure.hpp), and
@@ -681,6 +732,9 @@ inline bool d14_warm_seed_screen(const D14StructQf& sc,
 // Result of the multi-tier D14 root solve.
 struct D14Solve {
     std::vector<Cplx<qf>> roots;
+    std::array<D14RootWorkRecord, 14> root_work{};
+    std::array<Cplx<qf>, 14> d14real_roots{};
+    bool has_d14real_roots = false;
     qf worst_res = 0;
     int tier = 0;  // 0 dd-sufficed, 1 qf-warm escalation, 2 cold quad,
                    // 3 legacy qf-warm, -1 cold (seed non-finite)
@@ -688,15 +742,87 @@ struct D14Solve {
                                // previous epoch's root set (Phase B2)
 };
 
+// Minimum-cost bijection used only by the opt-in per-root diagnostic when a
+// cold qf restart has changed Aberth root ordering.  The assignment does not
+// affect solver acceptance or ordering.  A separate separation test marks
+// ambiguous matches invalid for displacement reporting.
+inline std::array<int, 14> d14_diagnostic_root_assignment(
+    const std::vector<Cplx<qf>>& final_roots,
+    const std::array<Cplx<qf>, 14>& source_roots) {
+    constexpr int n = 14;
+    std::array<int, n> assignment{};
+    assignment.fill(-1);
+    if (final_roots.size() != n) return assignment;
+
+    std::array<std::array<double, n>, n> cost{};
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            const qf scale = std::max((qf)1, cabs(final_roots[i]));
+            cost[i][j] = static_cast<double>(
+                cabs(final_roots[i] - source_roots[j]) / scale);
+        }
+    }
+    // Hungarian assignment, 1-based internal indices.
+    std::array<double, n + 1> u{}, v{}, minv{};
+    std::array<int, n + 1> p{}, way{};
+    std::array<bool, n + 1> used{};
+    for (int i = 1; i <= n; ++i) {
+        p[0] = i;
+        int j0 = 0;
+        minv.fill(std::numeric_limits<double>::infinity());
+        used.fill(false);
+        do {
+            used[j0] = true;
+            const int i0 = p[j0];
+            double delta = std::numeric_limits<double>::infinity();
+            int j1 = 0;
+            for (int j = 1; j <= n; ++j) {
+                if (used[j]) continue;
+                const double cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+                if (cur < minv[j]) {
+                    minv[j] = cur;
+                    way[j] = j0;
+                }
+                if (minv[j] < delta) {
+                    delta = minv[j];
+                    j1 = j;
+                }
+            }
+            for (int j = 0; j <= n; ++j) {
+                if (used[j]) {
+                    u[p[j]] += delta;
+                    v[j] -= delta;
+                } else {
+                    minv[j] -= delta;
+                }
+            }
+            j0 = j1;
+        } while (p[j0] != 0);
+        do {
+            const int j1 = way[j0];
+            p[j0] = p[j1];
+            j0 = j1;
+        } while (j0 != 0);
+    }
+    for (int j = 1; j <= n; ++j)
+        if (p[j] > 0) assignment[p[j] - 1] = j - 1;
+    return assignment;
+}
+
 // worst relative residual of `roots` against the degree-`deg` descending
 // __float128 polynomial `desc`.
 inline qf d14_worst_res(const qf* desc, int deg,
                         const std::vector<Cplx<qf>>& roots, qf dscale) {
+    V2Profile* prof = v2_profile_current();
+    const auto residual_begin = prof ? V2Clock::now() : V2Clock::time_point{};
     qf worst = 0;
     for (const auto& r : roots) {
         qf res = cabs(poly_eval_c(desc, deg, r)) / (dscale + (qf)1e-300);
         if (res > worst) worst = res;
     }
+    if (prof)
+        v2_profile_add_ms(&V2Profile::d14_residual_eval_ms, residual_begin,
+                          V2Clock::now());
     return worst;
 }
 
@@ -947,6 +1073,17 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         v2_profile_add_ms(&V2Profile::d14_presearch_ms, pre_begin, V2Clock::now());
     }
     out.warm_seeded = !presearch_seed.empty();
+    if (prof && prof->capture_d14_root_work &&
+        static_cast<int>(zd.size()) == deg) {
+        for (int i = 0; i < deg; ++i) {
+            auto& work = out.root_work[i];
+            work.double_seed_index = i;
+            work.double_seed_v_re = zd[i].re * sscale;
+            work.double_seed_v_im = zd[i].im * sscale;
+            work.double_seed_valid = std::isfinite(work.double_seed_v_re) &&
+                                     std::isfinite(work.double_seed_v_im);
+        }
+    }
     bool seed_ok = static_cast<int>(zd.size()) == deg;
     for (int i = 0; seed_ok && i < deg; ++i)
         if (!std::isfinite(zd[i].re) || !std::isfinite(zd[i].im)) {
@@ -1037,6 +1174,21 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         use_struct && holo_d14_real_enabled()) {
         ScopedNoFlushDenormals _eft;
         std::array<Cplx<D14Real>, 14> seed{};
+        std::array<int, 14> role_hints{};
+        D14RealScheduleConfig schedule = holo_d14_real_schedule_config();
+        const bool capture_root_work = prof && prof->capture_d14_root_work;
+        schedule.capture_diagnostics = capture_root_work;
+        if ((schedule.enabled && schedule.consumer_precision) || capture_root_work) {
+            for (int i = 0; i < deg; ++i) {
+                const double vr = zd[i].re * sscale;
+                const double vi = zd[i].im * sscale;
+                const double real_cut = 1e-8 * (1.0 + std::fabs(vr));
+                if (vr > 0.0 && std::fabs(vi) <= real_cut)
+                    role_hints[i] = static_cast<int>(D14RootUse::PositiveRealCandidate);
+                else if (vr > 0.0 && std::fabs(vi) > real_cut)
+                    role_hints[i] = static_cast<int>(D14RootUse::ComplexSoftCut);
+            }
+        }
         for (int i = 0; i < deg; ++i) {
             if (direct_warm) {
                 seed[i] = Cplx<D14Real>(d14_from_qf((*warm_seed)[i].re),
@@ -1055,10 +1207,42 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             real.iterations = warm.iterations;
             real.finite = warm.finite;
             real.converged = warm.converged;
+            if (capture_root_work && real.finite) {
+                for (int i = 0; i < deg; ++i) {
+                    real.root_updates[i] = warm.iterations;
+                    Cplx<D14Real> p, dp;
+                    d14_struct_eval(screal, real.roots[i], p, dp);
+                    if (qfinite_(p.re) && qfinite_(p.im) &&
+                        qfinite_(dp.re) && qfinite_(dp.im) &&
+                        !(dp.re == D14Real(0.0) && dp.im == D14Real(0.0))) {
+                        const Cplx<D14Real> correction = p / dp;
+                        real.final_newton_correction[i] = std::hypot(
+                            static_cast<double>(correction.re),
+                            static_cast<double>(correction.im));
+                    }
+                    double nearest = std::numeric_limits<double>::infinity();
+                    for (int j = 0; j < deg; ++j) {
+                        if (i == j) continue;
+                        nearest = std::min(nearest, std::hypot(
+                            static_cast<double>(real.roots[i].re) -
+                                static_cast<double>(real.roots[j].re),
+                            static_cast<double>(real.roots[i].im) -
+                                static_cast<double>(real.roots[j].im)));
+                    }
+                    real.nearest_separation[i] = nearest;
+                    real.relative_newton_correction[i] = nearest > 0.0
+                        ? real.final_newton_correction[i] / nearest
+                        : std::numeric_limits<double>::infinity();
+                    real.cluster_id[i] = i;
+                    real.cluster_size[i] = 1;
+                }
+            }
         } else {
-            real = aberth_d14_real_mixed(screal, seed, 25,
-                                         holo_d14_real_tol(),
-                                         holo_d14_local_pairs_enabled());
+            real = aberth_d14_real_mixed(
+                screal, seed, 25, holo_d14_real_tol(),
+                holo_d14_local_pairs_enabled(),
+                (schedule.enabled || capture_root_work) ? &schedule : nullptr,
+                &role_hints);
         }
         if (prof) {
             ++prof->d14_real_calls;
@@ -1073,6 +1257,18 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                 static_cast<V2Profile::u64>(real.dangerous_pairs);
             prof->d14_real_full_recompute_rows +=
                 static_cast<V2Profile::u64>(real.full_recompute_rows);
+            prof->d14_real_root_updates += static_cast<V2Profile::u64>(
+                std::accumulate(real.root_updates.begin(), real.root_updates.end(), 0));
+            prof->d14_real_root_skips +=
+                static_cast<V2Profile::u64>(real.skipped_updates);
+            prof->d14_real_root_reactivations +=
+                static_cast<V2Profile::u64>(real.reactivations);
+            prof->d14_real_cluster_wakeups +=
+                static_cast<V2Profile::u64>(real.cluster_wakeups);
+            for (int i = 0; i < deg; ++i)
+                prof->d14_real_root_freezes +=
+                    static_cast<V2Profile::u64>(real.root_freezes[i]);
+            if (real.finite) ++prof->d14_real_finite_calls;
             if (!real.converged) ++prof->d14_real_nonconverged;
             if (direct_warm && real.converged)
                 ++prof->d14_direct_newton_converged;
@@ -1083,9 +1279,33 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         }
         if (real.finite) {
             out.roots.resize(deg);
-            for (int i = 0; i < deg; ++i)
+            for (int i = 0; i < deg; ++i) {
                 out.roots[i] = Cplx<qf>(d14_to_qf(real.roots[i].re),
                                         d14_to_qf(real.roots[i].im));
+                if (capture_root_work) {
+                    out.d14real_roots[i] = out.roots[i];
+                    out.has_d14real_roots = true;
+                    auto& work = out.root_work[i];
+                    work.root_index = i;
+                    work.role_hint = role_hints[i];
+                    work.d14real_updates = real.root_updates[i];
+                    work.cluster_id = real.cluster_id[i];
+                    work.cluster_size = real.cluster_size[i];
+                    work.freeze_count = real.root_freezes[i];
+                    work.reactivation_count = real.root_reactivations[i];
+                    work.v_re = static_cast<double>(out.roots[i].re);
+                    work.v_im = static_cast<double>(out.roots[i].im);
+                    work.d14real_newton_correction =
+                        real.final_newton_correction[i];
+                    work.d14real_nearest_separation = real.nearest_separation[i];
+                    work.d14real_relative_correction =
+                        real.relative_newton_correction[i];
+                    const double projected_r = std::sqrt(std::max(0.0, work.v_re));
+                    work.d14real_position_error = projected_r > 0.0
+                        ? work.d14real_newton_correction / (2.0 * projected_r)
+                        : -1.0;
+                }
+            }
             out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
             out.tier = 0;
             used_real = true;
@@ -1099,8 +1319,10 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                     ++prof->d14_qf_warm_calls;
                     prof->d14_qf_warm_sweeps +=
                         static_cast<V2Profile::u64>(qf_iters);
-                    v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin,
-                                      V2Clock::now());
+                    const auto qf_end = V2Clock::now();
+                    v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, qf_end);
+                    v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin,
+                                      qf_end);
                 }
                 out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
                 out.tier = 1;
@@ -1163,7 +1385,9 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             if (prof) {
                 ++prof->d14_qf_warm_calls;
                 prof->d14_qf_warm_sweeps += (V2Profile::u64)qf_iters;
-                v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, V2Clock::now());
+                const auto qf_end = V2Clock::now();
+                v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, qf_end);
+                v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin, qf_end);
             }
             out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
             out.tier = 1;
@@ -1185,7 +1409,9 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         if (prof) {
             ++prof->d14_qf_warm_calls;
             prof->d14_qf_warm_sweeps += (V2Profile::u64)qf_iters;
-            v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, V2Clock::now());
+            const auto qf_end = V2Clock::now();
+            v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, qf_end);
+            v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin, qf_end);
         }
         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
         out.tier = 3;
@@ -1214,7 +1440,9 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         if (prof) {
             ++prof->d14_qf_cold_calls;
             prof->d14_qf_cold_sweeps += (V2Profile::u64)qf_iters;
-            v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, V2Clock::now());
+            const auto qf_end = V2Clock::now();
+            v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, qf_end);
+            v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin, qf_end);
         }
         out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
         out.tier = (out.tier == 0 && !compensated) ? -1 : 2;
@@ -1227,7 +1455,9 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     // the power sum well outside rounding.  The residual is scale-free;
     // the roots are O(1..10) so an absolute 1e-6 slack on a deg-14 sum is
     // ~1e5 x the honest error.  On failure redo cold (once).
-    auto validation_begin = V2Clock::now();
+    auto validation_begin = prof ? V2Clock::now() : V2Clock::time_point{};
+    bool completeness_failure = false;
+    const auto completeness_begin = prof ? V2Clock::now() : V2Clock::time_point{};
     if (out.tier != 2 && out.tier != -1 && deg >= 1 &&
         (double)fabsq(desc[0]) > 0.0) {
         Cplx<qf> s{(qf)0, (qf)0};
@@ -1235,24 +1465,30 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         qf want = -desc[1] / desc[0];
         qf err = fabsq(s.re - want) + fabsq(s.im);
         qf tolsum = (qf)1e-6 * ((qf)1 + fabsq(want));
-        if (!(err <= tolsum)) {
-            if (prof) ++prof->d14_completeness_fails;
-            int qf_iters = 0;
-            auto qf_begin = V2Clock::now();
-            out.roots =
-                use_struct
-                    ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22,
-                                            &qf_iters)
-                    : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22, nullptr,
-                                 &qf_iters);
-            if (prof) {
-                ++prof->d14_qf_cold_calls;
-                prof->d14_qf_cold_sweeps += (V2Profile::u64)qf_iters;
-                v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, V2Clock::now());
-            }
-            out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
-            out.tier = 2;
+        completeness_failure = !(err <= tolsum);
+    }
+    if (prof)
+        v2_profile_add_ms(&V2Profile::d14_completeness_check_ms,
+                          completeness_begin, V2Clock::now());
+    if (completeness_failure) {
+        if (prof) ++prof->d14_completeness_fails;
+        int qf_iters = 0;
+        auto qf_begin = V2Clock::now();
+        out.roots =
+            use_struct
+                ? aberth_d14_struct<qf>(scqf, desc, 400, nullptr, (qf)1e-22,
+                                        &qf_iters)
+                : aberth<qf>(desc, deg, 400, nullptr, (qf)1e-22, nullptr,
+                             &qf_iters);
+        if (prof) {
+            ++prof->d14_qf_cold_calls;
+            prof->d14_qf_cold_sweeps += (V2Profile::u64)qf_iters;
+            const auto qf_end = V2Clock::now();
+            v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, qf_end);
+            v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin, qf_end);
         }
+        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+        out.tier = 2;
     }
     if (prof) v2_profile_add_ms(&V2Profile::d14_validate_ms, validation_begin,
                                 V2Clock::now());
@@ -1304,6 +1540,149 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             out.roots[i] = Cplx<qf>(re_avg, si * im_mag);
             out.roots[j] = Cplx<qf>(re_avg, -si * im_mag);
             done[i] = done[j] = 1;
+        }
+    }
+
+    // Per-root consumer evidence is diagnostic only. qf escalation remains
+    // an all-root operation and every existing residual/completeness gate is
+    // evaluated before this block. A cold qf restart can change root order,
+    // so the opt-in report first obtains a minimum-distance bijection and
+    // marks close/ambiguous matches explicitly.
+    if (prof && prof->capture_d14_root_work) {
+        std::array<int, 14> final_to_real{};
+        std::array<bool, 14> match_valid{};
+        final_to_real.fill(-1);
+        if (out.has_d14real_roots && out.roots.size() == 14) {
+            if (out.tier == 2)
+                final_to_real = d14_diagnostic_root_assignment(
+                    out.roots, out.d14real_roots);
+            else
+                for (int i = 0; i < deg; ++i) final_to_real[i] = i;
+
+            for (int i = 0; i < deg; ++i) {
+                const int source = final_to_real[i];
+                if (source < 0) continue;
+                if (out.tier != 2) {
+                    match_valid[i] = true;
+                    continue;
+                }
+                const qf distance = cabs(out.roots[i] - out.d14real_roots[source]);
+                qf final_nearest = HUGE_VALQ, source_nearest = HUGE_VALQ;
+                for (int j = 0; j < deg; ++j) {
+                    if (j != i)
+                        final_nearest = std::min(final_nearest,
+                                                cabs(out.roots[i] - out.roots[j]));
+                    if (j != source)
+                        source_nearest = std::min(
+                            source_nearest,
+                            cabs(out.d14real_roots[source] - out.d14real_roots[j]));
+                }
+                const qf local_scale = std::min(final_nearest, source_nearest);
+                match_valid[i] = finiteq(distance) && finiteq(local_scale) &&
+                                 local_scale > 0 && distance <= (qf)0.25 * local_scale;
+            }
+
+            const auto source_work = out.root_work;
+            for (int i = 0; i < deg; ++i) {
+                const int source = final_to_real[i];
+                if (source >= 0) out.root_work[i] = source_work[source];
+                out.root_work[i].root_index = i;
+                out.root_work[i].source_root_index = source;
+                out.root_work[i].qf_source_match_valid = match_valid[i];
+                if (source >= 0) {
+                    out.root_work[i].qf_displacement = static_cast<double>(
+                        cabs(out.roots[i] - out.d14real_roots[source]));
+                    out.root_work[i].qf_displacement_valid = match_valid[i] &&
+                        std::isfinite(out.root_work[i].qf_displacement);
+                }
+            }
+        }
+        if (out.roots.size() == deg) {
+            std::array<Cplx<qf>, 14> expanded_seed_roots{};
+            bool all_seeds_valid = true;
+            for (int i = 0; i < deg; ++i) {
+                const auto& work = out.root_work[i];
+                all_seeds_valid = all_seeds_valid && work.double_seed_valid;
+                expanded_seed_roots[i] = Cplx<qf>(
+                    static_cast<qf>(work.double_seed_v_re),
+                    static_cast<qf>(work.double_seed_v_im));
+            }
+            if (all_seeds_valid) {
+                const auto final_to_seed = d14_diagnostic_root_assignment(
+                    out.roots, expanded_seed_roots);
+                for (int i = 0; i < deg; ++i) {
+                    const int source = final_to_seed[i];
+                    if (source < 0) continue;
+                    auto& work = out.root_work[i];
+                    const qf distance = cabs(
+                        out.roots[i] - expanded_seed_roots[source]);
+                    qf final_nearest = HUGE_VALQ, source_nearest = HUGE_VALQ;
+                    for (int j = 0; j < deg; ++j) {
+                        if (j == i)
+                            continue;
+                        final_nearest = std::min(
+                            final_nearest, cabs(out.roots[i] - out.roots[j]));
+                    }
+                    for (int j = 0; j < deg; ++j) {
+                        if (j == source)
+                            continue;
+                        source_nearest = std::min(
+                            source_nearest,
+                            cabs(expanded_seed_roots[source] -
+                                 expanded_seed_roots[j]));
+                    }
+                    const qf local_scale = std::min(final_nearest, source_nearest);
+                    work.expanded_seed_source_index =
+                        out.root_work[source].double_seed_index;
+                    work.expanded_seed_displacement = static_cast<double>(distance);
+                    work.expanded_seed_match_valid = finiteq(distance) &&
+                        finiteq(local_scale) && local_scale > 0 &&
+                        distance <= (qf)0.25 * local_scale;
+                }
+            }
+        }
+        for (int i = 0; i < deg && i < static_cast<int>(out.roots.size()); ++i) {
+            auto& work = out.root_work[i];
+            work.root_index = i;
+            work.final_v_re = static_cast<double>(out.roots[i].re);
+            work.final_v_im = static_cast<double>(out.roots[i].im);
+            work.qf_escalated = out.tier > 0;
+            Cplx<qf> p, dp;
+            if (use_struct) d14_struct_eval(scqf, out.roots[i], p, dp);
+            else {
+                p = poly_eval_c(desc, deg, out.roots[i]);
+                dp = polyder_eval_c(desc, deg, out.roots[i]);
+            }
+            const qf dp_abs = cabs(dp);
+            if (finiteq(dp_abs) && dp_abs > 0 && finiteq(cabs(p))) {
+                const qf correction = cabs(p / dp);
+                work.qf_newton_correction = static_cast<double>(correction);
+                if (!std::isfinite(work.qf_newton_correction))
+                    work.qf_newton_correction = -1.0;
+            } else {
+                work.qf_newton_correction = -1.0;
+            }
+            const Cplx<qf> expanded_value =
+                poly_eval_c(desc, deg, out.roots[i]);
+            const qf expanded_residual = cabs(expanded_value) /
+                (dscale + (qf)1e-300);
+            work.qf_expanded_relative_residual = finiteq(expanded_residual)
+                ? static_cast<double>(expanded_residual) : -1.0;
+            qf nearest = HUGE_VALQ;
+            for (int j = 0; j < deg && j < static_cast<int>(out.roots.size()); ++j)
+                if (i != j)
+                    nearest = std::min(nearest, cabs(out.roots[i] - out.roots[j]));
+            work.qf_nearest_separation = finiteq(nearest)
+                ? static_cast<double>(nearest) : -1.0;
+            const double projected_r = std::sqrt(std::max(0.0, work.final_v_re));
+            work.qf_position_error = projected_r > 0.0 &&
+                                     work.qf_newton_correction >= 0.0
+                ? work.qf_newton_correction / (2.0 * projected_r) : -1.0;
+            if (!out.has_d14real_roots) {
+                work.v_re = work.final_v_re;
+                work.v_im = work.final_v_im;
+                work.source_root_index = -1;
+            }
         }
     }
 
@@ -1374,8 +1753,9 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             if (prof) {
                 ++prof->d14_qf_cold_calls;
                 prof->d14_qf_cold_sweeps += (V2Profile::u64)qf_iters;
-                v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin,
-                                  V2Clock::now());
+                const auto qf_end = V2Clock::now();
+                v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, qf_end);
+                v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin, qf_end);
             }
         }
     }
@@ -1434,7 +1814,10 @@ inline std::vector<RadialEvent> radial_events(
                 qf high=nextafterq(sqrtq(bracket.v_hi),HUGE_VALQ);
                 qf Rq=(low+high)/2;double R=(double)Rq;
                 if(!(R>previous)) {certified=false;break;} previous=R;
+                const auto probe_begin = prof ? V2Clock::now() : V2Clock::time_point{};
                 auto probe=probe_double_root(R,pf);
+                if (prof) v2_profile_add_ms(&V2Profile::d14_event_classify_ms,
+                                            probe_begin, V2Clock::now());
                 RadialEvent event{R,probe.physically_real?"physical_real":"physical_complex",
                     probe.physically_real,"D14 certified positive real root"};
                 event.radius_lo=(double)(Rq-(qf)R);
@@ -1519,7 +1902,10 @@ inline std::vector<RadialEvent> radial_events(
             for (double v : rv) {
                 const double R = std::sqrt(v);
                 if (!(R > 0.0 && R < Rmax)) continue;
+                const auto probe_begin = prof ? V2Clock::now() : V2Clock::time_point{};
                 const bool is_real = double_root_is_real(R, pf);
+                if (prof) v2_profile_add_ms(&V2Profile::d14_event_classify_ms,
+                                            probe_begin, V2Clock::now());
                 ev.push_back({R, is_real ? "physical_real" : "physical_complex",
                               is_real, "D14 real root"});
             }
@@ -1529,14 +1915,24 @@ inline std::vector<RadialEvent> radial_events(
             // remainder needed by adaptive near-fold maps.  The stationary-
             // root probe is still the physical/soft classifier, but its t
             // seed is retained.
-            for (const auto& z : roots) {
+            for (std::size_t root_index = 0; root_index < roots.size(); ++root_index) {
+                const auto& z = roots[root_index];
                 const qf av = fabsq(z.re), ai = fabsq(z.im);
                 if (!(z.re > 0) || ai > (qf)1e-8 * (qf(1) + av)) continue;
                 const qf vq = z.re;
                 const qf Rq = sqrtq(vq);
                 const double R = (double)Rq;
                 if (!(R > 0.0 && R < Rmax)) continue;
+                const auto probe_begin = prof ? V2Clock::now() : V2Clock::time_point{};
                 const PhysicalRootProbe probe = probe_double_root(R, pf);
+                if (prof) v2_profile_add_ms(&V2Profile::d14_event_classify_ms,
+                                            probe_begin, V2Clock::now());
+                if (prof && prof->capture_d14_root_work &&
+                    root_index < sol.root_work.size()) {
+                    auto& work = sol.root_work[root_index];
+                    work.role = static_cast<int>(D14RootUse::PositiveRealCandidate);
+                    work.physical_real = probe.physically_real ? 1 : 0;
+                }
                 RadialEvent event{R,
                                   probe.physically_real ? "physical_real"
                                                          : "physical_complex",
@@ -1564,12 +1960,20 @@ inline std::vector<RadialEvent> radial_events(
             }
         }
         // complex roots (Re v > 0) -> soft boundaries
+        const auto soft_begin = prof ? V2Clock::now() : V2Clock::time_point{};
         std::vector<double> cv;
-        for (const auto& r : roots) {
+        for (std::size_t root_index = 0; root_index < roots.size(); ++root_index) {
+            const auto& r = roots[root_index];
             if (retain_adaptive_metadata && d14_event_policy != D14EventPolicy::AllComplexSoft) break;
             double re = (double)r.re, im = (double)r.im;
-            if (re > 0.0 && std::fabs(im) >= 1e-8 * (1.0 + std::fabs(re)))
+            if (re > 0.0 && std::fabs(im) >= 1e-8 * (1.0 + std::fabs(re))) {
                 cv.push_back(re);
+                if (prof && prof->capture_d14_root_work &&
+                    retain_adaptive_metadata && d14_event_policy == D14EventPolicy::AllComplexSoft &&
+                    std::sqrt(re) < Rmax && root_index < sol.root_work.size())
+                    sol.root_work[root_index].role =
+                        static_cast<int>(D14RootUse::ComplexSoftCut);
+            }
         }
         std::sort(cv.begin(), cv.end());
         std::vector<double> cvd;
@@ -1580,6 +1984,15 @@ inline std::vector<RadialEvent> radial_events(
             if (R > 0.0 && R < Rmax)
                 ev.push_back({R, "physical_complex", false,
                               "D14 complex root (Re v)"});
+        }
+        if (prof) v2_profile_add_ms(&V2Profile::d14_soft_event_ms,
+                                    soft_begin, V2Clock::now());
+        if (prof && prof->capture_d14_root_work && retain_adaptive_metadata) {
+            const std::size_t count = std::min<std::size_t>(
+                roots.size(), sol.root_work.size());
+            prof->d14_root_work.insert(prof->d14_root_work.end(),
+                                       sol.root_work.begin(),
+                                       sol.root_work.begin() + count);
         }
     }
 
