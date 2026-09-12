@@ -1222,8 +1222,12 @@ inline D14ActivePresearchResult d14_active_presearch(
             }
         }
         if (preserve_last_finite) out.last_finite_roots = out.roots;
-#if defined(HOLO_D14_NOISE_AUDIT) || defined(HOLO_D14_NOISE_HANDOFF)
-        if((it+1)%8==0 || it+1==max_iter) {
+#if defined(HOLO_D14_NOISE_AUDIT) || defined(HOLO_D14_NOISE_HANDOFF) || defined(HOLO_D14_WARM_NOISE_HANDOFF)
+        if(((it+1)%8==0 || it+1==max_iter)
+#if defined(HOLO_D14_WARM_NOISE_HANDOFF) && !defined(HOLO_D14_NOISE_HANDOFF) && !defined(HOLO_D14_NOISE_AUDIT)
+           && seed != nullptr
+#endif
+        ) {
             auto* audit=v2_profile_current();
             double worst=0;bool valid=true;
             for(const auto& z:out.roots){
@@ -1246,8 +1250,12 @@ inline D14ActivePresearchResult d14_active_presearch(
                         if(!audit->d14_noise_first_sweep)audit->d14_noise_first_sweep=it+1;}
                 }
             }
-#ifdef HOLO_D14_NOISE_HANDOFF
-            if(valid && worst<=1)break; // candidate handoff, never solve acceptance
+#if defined(HOLO_D14_NOISE_HANDOFF) || defined(HOLO_D14_WARM_NOISE_HANDOFF)
+            if(valid && worst<=1
+#if defined(HOLO_D14_WARM_NOISE_HANDOFF) && !defined(HOLO_D14_NOISE_HANDOFF)
+               && seed != nullptr
+#endif
+            )break; // candidate handoff, never solve acceptance
 #endif
         }
 #endif
