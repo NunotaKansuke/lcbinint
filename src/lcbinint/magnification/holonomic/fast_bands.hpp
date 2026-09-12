@@ -269,7 +269,8 @@ inline void solidify(const PrimaryFrame& pf, double lo, double hi,
 }  // namespace fast_bands_detail
 
 inline FastBands fast_bands(const PrimaryFrame& pf, const PointImages& seeds,
-                            int bisection_iters = 26) {
+                            int bisection_iters = 26,
+                            bool march_covered_seeds = false) {
     using fast_bands_detail::has_image;
     using fast_bands_detail::Img;
     using fast_bands_detail::march_side;
@@ -335,7 +336,7 @@ inline FastBands fast_bands(const PrimaryFrame& pf, const PointImages& seeds,
         bool covered = false;
         for (const auto& b : raw)
             if (seed_r >= b.lo && seed_r <= b.hi) covered = true;
-        if (covered) continue;
+        if (covered && !march_covered_seeds) continue;
 
         const double lo_lim = (i == 0) ? 0.0 : S[i - 1];
         const double hi_lim = (i + 1 < S.size())

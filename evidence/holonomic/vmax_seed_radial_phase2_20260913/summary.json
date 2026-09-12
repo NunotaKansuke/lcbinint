@@ -1,0 +1,113 @@
+{
+  "d14-jac": {
+    "rows": 1600,
+    "status_ok": 1584,
+    "value_converged": 1600,
+    "timing_ms": {
+      "p50": 0.988701,
+      "p90": 2.429201700000002,
+      "p95": 3.3558151499999993,
+      "p99": 54.291374330000004,
+      "max": 56.763805
+    },
+    "stops": {
+      "Converged": 1584,
+      "TopologyUnresolved": 16
+    },
+    "median_radius_probes": 0.0
+  },
+  "d14-value": {
+    "rows": 1600,
+    "status_ok": 1600,
+    "value_converged": 1600,
+    "timing_ms": {
+      "p50": 0.6923980000000001,
+      "p90": 1.4257335,
+      "p95": 2.9541096,
+      "p99": 53.70069052,
+      "max": 55.41195
+    },
+    "stops": {
+      "Converged": 1600
+    },
+    "median_radius_probes": 0.0
+  },
+  "seed-cold-jac": {
+    "rows": 1600,
+    "status_ok": 1191,
+    "value_converged": 1207,
+    "timing_ms": {
+      "p50": 2.946448,
+      "p90": 26.8010931,
+      "p95": 49.998291849999994,
+      "p99": 97.23605216,
+      "max": 461.178053
+    },
+    "stops": {
+      "TopologyUnresolved": 62,
+      "Converged": 1191,
+      "EventLocationLimited": 342,
+      "InnerAccuracyLimited": 1,
+      "Nonfinite": 4
+    },
+    "median_radius_probes": 79.0
+  },
+  "seed-cold-value": {
+    "rows": 1600,
+    "status_ok": 1210,
+    "value_converged": 1210,
+    "timing_ms": {
+      "p50": 2.529184,
+      "p90": 25.689912700000008,
+      "p95": 45.31379379999999,
+      "p99": 88.23442508,
+      "max": 402.357004
+    },
+    "stops": {
+      "Converged": 1210,
+      "TopologyUnresolved": 46,
+      "EventLocationLimited": 340,
+      "Nonfinite": 4
+    },
+    "median_radius_probes": 79.0
+  },
+  "seed-warm-jac": {
+    "rows": 1600,
+    "status_ok": 1191,
+    "value_converged": 1207,
+    "timing_ms": {
+      "p50": 1.52454,
+      "p90": 24.161944800000004,
+      "p95": 41.308122749999995,
+      "p99": 82.08415393,
+      "max": 454.75574
+    },
+    "stops": {
+      "TopologyUnresolved": 62,
+      "Converged": 1191,
+      "EventLocationLimited": 342,
+      "InnerAccuracyLimited": 1,
+      "Nonfinite": 4
+    },
+    "median_radius_probes": 79.0
+  },
+  "seed-warm-value": {
+    "rows": 1600,
+    "status_ok": 1210,
+    "value_converged": 1210,
+    "timing_ms": {
+      "p50": 1.6082779999999999,
+      "p90": 23.446533100000003,
+      "p95": 41.702230449999874,
+      "p99": 82.25520693999998,
+      "max": 403.052164
+    },
+    "stops": {
+      "Converged": 1210,
+      "TopologyUnresolved": 46,
+      "EventLocationLimited": 340,
+      "Nonfinite": 4
+    },
+    "median_radius_probes": 79.0
+  }
+}
