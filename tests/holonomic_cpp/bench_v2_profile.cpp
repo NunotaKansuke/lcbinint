@@ -141,6 +141,7 @@ void add_profile(V2Profile& d, const V2Profile& s) {
 #define ADD(name) d.name += s.name
     ADD(radial_event_calls); ADD(d14_solve_calls); ADD(d14_empty);
     ADD(d14_dd_calls); ADD(d14_qf_warm_calls); ADD(d14_qf_cold_calls);
+    ADD(d14_event_contract_attempts); ADD(d14_event_contract_accepts);
     ADD(d14_completeness_fails); ADD(d14_struct_calls); ADD(d14_horner_calls);
     ADD(d14_root_clusters); ADD(d14_root_count_bad); ADD(d14_conjugacy_bad);
     ADD(d14_vieta_bad); ADD(d14_lifted_attempts); ADD(d14_lifted_success);

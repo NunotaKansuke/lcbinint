@@ -1,0 +1,10 @@
+base_commit=b5abcfec2806bc44205231f6bfbed58a5c061161
+host=rogue1
+kernel=Linux 5.14.0-570.23.1.el9_6.x86_64
+compiler=g++ 11.5.0 20240719 (Red Hat 11.5.0-5)
+cpu_affinity=taskset -c 0
+input=evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv
+whole_repetitions=3 (per-row median)
+production_router_changed=false
+research_compile_flag=HOLO_D14_EVENT_CONTRACT_RESEARCH=1
+research_runtime_flag=HOLO_D14_EVENT_CONTRACT_ACCEPT=1

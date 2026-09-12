@@ -797,6 +797,7 @@ struct D14Solve {
                                // previous epoch's root set (Phase B2)
 #if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
     std::vector<D14EventContractCandidate> event_contract_candidates;
+    bool event_contract_accepted = false;
 #endif
 };
 
@@ -1165,10 +1166,79 @@ inline D14ActivePresearchResult d14_active_presearch(
 // converges in a handful of sweeps.  Every downstream gate (residual,
 // Newton-sum completeness, cold __float128 backstop) is unchanged, so a
 // stale or wrong seed still fails closed to the cold solve.
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+inline bool d14_event_contract_screen(
+    const D14StructQf& sc, const std::vector<qf>& desc_v,
+    std::vector<Cplx<qf>>& roots) {
+    if (roots.size()!=14 || desc_v.size()!=15) return false;
+    std::array<Cplx<qf>,14> centers{};
+    for(std::size_t i=0;i<roots.size();++i) {
+        if(!finiteq(roots[i].re)||!finiteq(roots[i].im))return false;
+        const qf real_cut=(qf)1e-8*((qf)1+fabsq(roots[i].re));
+        centers[i]=fabsq(roots[i].im)<=real_cut
+            ? Cplx<qf>{roots[i].re,0}:roots[i];
+    }
+    std::array<qf,14> disk_radius{};
+    for(std::size_t i=0;i<centers.size();++i) {
+        std::array<Cplx<qf>,15> shifted{};
+        for(int k=0;k<=14;++k) {
+            Cplx<qf> power{1,0};
+            for(int exponent=k;exponent>=0;--exponent) {
+                int choose=1;
+                for(int j=1;j<=exponent;++j)choose=choose*(k-j+1)/j;
+                shifted[exponent]=shifted[exponent]+power*Cplx<qf>{
+                    desc_v[14-k]*(qf)choose,0};
+                power=power*centers[i];
+            }
+        }
+        qf separation=HUGE_VALQ;
+        for(std::size_t j=0;j<centers.size();++j)if(i!=j)
+            separation=std::min(separation,cabs(centers[i]-centers[j]));
+        const qf linear=cabs(shifted[1]);
+        if(!finiteq(linear)||!(linear>0)||!finiteq(separation)||
+           !(separation>0))return false;
+        qf radius=std::max((qf)16*cabs(shifted[0])/linear,
+                           (qf)1e-30*((qf)1+cabs(centers[i])));
+        bool isolated=false;
+        for(int attempt=0;attempt<24&&radius<separation/(qf)3;++attempt) {
+            const qf lhs=linear*radius;
+            qf rhs=cabs(shifted[0]),power=radius*radius;
+            for(int k=2;k<=14;++k){rhs+=cabs(shifted[k])*power;power*=radius;}
+            // A large strict margin keeps binary128 rounding far from the
+            // Rouche decision boundary.  The route remains research-only
+            // until an outward-rounded implementation replaces this margin.
+            if(finiteq(lhs)&&finiteq(rhs)&&lhs>(qf)16*rhs) {
+                isolated=true;disk_radius[i]=radius;break;
+            }
+            radius*=2;
+        }
+        if(!isolated)return false;
+    }
+    // Each disjoint disk contains exactly one root.  Finish its location by
+    // independent Newton while requiring every correction to stay inside
+    // the certified disk; no deflation or root identity change is allowed.
+    for(std::size_t i=0;i<roots.size();++i) {
+        Cplx<qf> z=centers[i];
+        for(int iteration=0;iteration<2;++iteration) {
+            Cplx<qf> p,dp;d14_struct_eval(sc,z,p,dp);
+            if(!(cabs(dp)>0)||!finiteq(cabs(p))||!finiteq(cabs(dp)))return false;
+            const Cplx<qf> step=p/dp;
+            if(!finiteq(step.re)||!finiteq(step.im)||
+               cabs((z-step)-centers[i])>=disk_radius[i])return false;
+            z=z-step;
+        }
+        roots[i]=z;
+    }
+    return true;
+}
+#endif
+
 inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                           bool compensated,
                           const std::vector<Cplx<qf>>* warm_seed = nullptr,
-                          const D14StructQf* sc = nullptr) {
+                          const D14StructQf* sc = nullptr,
+                          const PrimaryFrame* event_pf = nullptr,
+                          double event_rmax = 0.0) {
 #if defined(HOLO_D14_QF_WARM_MAX_ITER_OVERRIDE)
     constexpr int qf_warm_max_iter = HOLO_D14_QF_WARM_MAX_ITER_OVERRIDE;
 #else
@@ -1691,6 +1761,22 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
 #if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
                 d14_capture_event_contract_candidate(
                     out, "qf_warm", out.roots, out.worst_res, qf_converged);
+                bool event_contract_accept=false;
+                const char* event_switch=std::getenv("HOLO_D14_EVENT_CONTRACT_ACCEPT");
+                if(!qf_converged&&out.worst_res<=(qf)1e-12&&event_pf&&
+                   event_rmax>0&&event_switch&&event_switch[0]=='1') {
+                    if(prof)++prof->d14_event_contract_attempts;
+                    qf scalar_residual=0;int scalar_reason=0;
+                    const bool scalar=d14_scalar_certificate(
+                        &scqf,desc_v,out.roots,&scalar_residual,&scalar_reason);
+                    if(scalar) {
+                        if(d14_event_contract_screen(scqf,desc_v,out.roots)) {
+                            out.event_contract_accepted=true;
+                            event_contract_accept=true;
+                            if(prof)++prof->d14_event_contract_accepts;
+                        }
+                    }
+                }
 #endif
                 if (prof) {
                     ++prof->d14_qf_warm_calls;
@@ -1705,7 +1791,11 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                     v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin,
                                       qf_end);
                 }
-                if (!qf_converged || !(out.worst_res <= (qf)1e-12)) {
+                if ((!qf_converged
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+                     && !event_contract_accept
+#endif
+                    ) || !(out.worst_res <= (qf)1e-12)) {
                     seed_ok = false;
 #if defined(HOLO_D14_TRACE_QF_ITERATIONS)
                     seed_reject_reason = !qf_converged
@@ -1848,7 +1938,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     // pathological "shortcut failed -> full qf" latency spike.
     if (!seed_ok && direct_warm) {
         if (prof) ++prof->d14_direct_warm_reject;
-        return solve_d14(desc_v, deg, compensated, nullptr, sc);
+        return solve_d14(desc_v, deg, compensated, nullptr, sc,event_pf,event_rmax);
     }
 
     if (!seed_ok) {
@@ -1964,7 +2054,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
 
     if (direct_warm && out.tier == 2) {
         if (prof) ++prof->d14_direct_warm_reject;
-        return solve_d14(desc_v, deg, compensated, nullptr, sc);
+        return solve_d14(desc_v, deg, compensated, nullptr, sc,event_pf,event_rmax);
     }
 
     if (prof && direct_warm) {
@@ -2355,7 +2445,11 @@ inline std::vector<RadialEvent> radial_events(
                                  (d14_warm && (int)d14_warm->size() == deg)
                                      ? d14_warm
                                      : nullptr,
-                                 &d14s);
+                                 &d14s
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+                                 , &pf, Rmax
+#endif
+                                 );
 #if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
         if (d14_event_contract_capture) {
             d14_event_contract_capture->candidates =

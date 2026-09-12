@@ -398,6 +398,14 @@ target_compile_options(test_d14_root_scheduling PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_d14_root_scheduling PRIVATE quadmath)
 add_test(NAME holonomic_d14_root_scheduling COMMAND test_d14_root_scheduling)
 
+add_executable(test_d14_event_contract test_d14_event_contract.cpp)
+target_include_directories(test_d14_event_contract PRIVATE "${_SRC}")
+target_compile_definitions(test_d14_event_contract PRIVATE
+  HOLO_D14_EVENT_CONTRACT_RESEARCH=1)
+target_compile_options(test_d14_event_contract PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_d14_event_contract PRIVATE quadmath)
+add_test(NAME holonomic_d14_event_contract COMMAND test_d14_event_contract)
+
 add_executable(test_radial_atlas test_radial_atlas.cpp)
 target_include_directories(test_radial_atlas PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../../src)
 target_compile_options(test_radial_atlas PRIVATE ${_M7_FLAGS})

@@ -67,6 +67,8 @@ struct V2Profile {
     u64 d14_dd_calls = 0;
     u64 d14_qf_warm_calls = 0;
     u64 d14_qf_cold_calls = 0;
+    u64 d14_event_contract_attempts = 0;
+    u64 d14_event_contract_accepts = 0;
     u64 d14_completeness_fails = 0;
     u64 d14_struct_calls = 0;
     u64 d14_horner_calls = 0;

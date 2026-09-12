@@ -69,6 +69,7 @@ static void write_timing_header(std::ofstream& out) {
            "d14_expand_ms d14_solve_ms presearch_ms d14real_ms "
            "qf_polish_ms residual_eval_ms completeness_check_ms "
            "physical_classify_ms soft_event_ms qf_warm_calls qf_cold_calls "
+           "event_contract_attempts event_contract_accepts "
            "warm_seeded presearch_sweeps dd_sweeps qf_warm_sweeps "
            "presearch_active_fallbacks presearch_nonfinite_failures "
            "presearch_failure_code presearch_failure_sweep "
@@ -242,6 +243,8 @@ int main(int argc, char** argv) {
                         << profile.d14_soft_event_ms << ' '
                         << profile.d14_qf_warm_calls << ' '
                         << profile.d14_qf_cold_calls << ' '
+                        << profile.d14_event_contract_attempts << ' '
+                        << profile.d14_event_contract_accepts << ' '
                         << profile.d14_warm_seeded << ' '
                         << profile.d14_presearch_sweeps << ' '
                         << profile.d14_dd_sweeps << ' '

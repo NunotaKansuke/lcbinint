@@ -1,0 +1,9 @@
+g++ -O3 -DNDEBUG -std=gnu++17 -DHOLO_D14_EVENT_CONTRACT_RESEARCH=1 -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp -o /tmp/d14_event_final_whole -lquadmath
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 /tmp/d14_event_final_whole evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv evidence/holonomic/d14_event_contract_phase2_20260913/whole_baseline_rep3.tsv 3
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_EVENT_CONTRACT_ACCEPT=1 /tmp/d14_event_final_whole evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv evidence/holonomic/d14_event_contract_phase2_20260913/whole_rouche_rep3.tsv 3
+g++ -O3 -DNDEBUG -std=gnu++17 -DHOLO_D14_EVENT_CONTRACT_RESEARCH=1 -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno benchmarks/holonomic/bench_d14_root_work_detail.cpp -o /tmp/d14_event_rouche2_rootwork -lquadmath
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_EVENT_CONTRACT_ACCEPT=1 /tmp/d14_event_rouche2_rootwork evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv /tmp/rootwork_r2_roots.tsv /tmp/rootwork_r2_timing.tsv 1 both
+python3 evidence/holonomic/d14_event_contract_phase2_20260913/summarize.py
+cmake -S tests/holonomic_cpp -B build-holonomic-m7
+cmake --build build-holonomic-m7 -j2
+ctest --test-dir build-holonomic-m7 --output-on-failure

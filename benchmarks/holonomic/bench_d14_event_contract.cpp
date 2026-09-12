@@ -159,6 +159,69 @@ static int ambiguous_roots(const re_detail::D14StructQf& sc,
     return ambiguous;
 }
 
+// Research certificate for a finite candidate root set.  Around every
+// candidate c, expand D14(c+w)=sum a_k w^k and search for a disjoint disk on
+// which the linear term dominates all other terms.  Rouche's theorem then
+// gives exactly one polynomial root in each disk; fourteen disjoint disks
+// certify completeness without requiring the Aberth iterates themselves to
+// satisfy a global step threshold.
+struct RoucheCertificate {
+    bool certified=false;
+    int disks=0;
+    double min_margin=0;
+};
+
+static RoucheCertificate rouche_root_certificate(
+    const std::vector<__float128>& ascending,
+    const std::vector<Cplx<__float128>>& roots) {
+    using qf=__float128;
+    RoucheCertificate out;
+    if(ascending.size()!=15 || roots.size()!=14) return out;
+    qf min_margin=HUGE_VALQ;
+    for(size_t i=0;i<roots.size();++i) {
+        const auto c=roots[i];
+        if(!finiteq(c.re)||!finiteq(c.im)) return out;
+        std::array<Cplx<qf>,15> shifted{};
+        // Direct degree-14 shift is small and keeps this diagnostic simple.
+        for(int k=0;k<=14;++k) {
+            Cplx<qf> power{1,0};
+            for(int exponent=k;exponent>=0;--exponent) {
+                int choose=1;
+                for(int j=1;j<=exponent;++j) choose=choose*(k-j+1)/j;
+                shifted[exponent]=shifted[exponent]+
+                    power*Cplx<qf>{ascending[k]*(qf)choose,0};
+                power=power*c;
+            }
+        }
+        qf sep=HUGE_VALQ;
+        for(size_t j=0;j<roots.size();++j) if(i!=j)
+            sep=std::min(sep,cabs(c-roots[j]));
+        if(!finiteq(sep)||!(sep>0)) return out;
+        const qf linear=cabs(shifted[1]);
+        if(!finiteq(linear)||!(linear>0)) return out;
+        qf radius=std::max((qf)16*cabs(shifted[0])/linear,
+                           (qf)1e-30*((qf)1+cabs(c)));
+        bool one=false;
+        for(int attempt=0;attempt<24 && radius<sep/(qf)3;++attempt) {
+            qf lhs=linear*radius;
+            qf rhs=cabs(shifted[0]), power=radius*radius;
+            for(int k=2;k<=14;++k) { rhs+=cabs(shifted[k])*power; power*=radius; }
+            // Require a wide margin so binary128 rounding cannot decide a
+            // near equality.  This is a research gate, not an interval proof.
+            if(finiteq(lhs)&&finiteq(rhs)&&lhs>(qf)16*rhs) {
+                min_margin=std::min(min_margin,lhs/(rhs+FLT128_MIN));
+                one=true; break;
+            }
+            radius*=2;
+        }
+        if(!one) return out;
+        ++out.disks;
+    }
+    out.certified=out.disks==14;
+    out.min_margin=(double)min_margin;
+    return out;
+}
+
 static AdaptiveResult integrate(const InputRow& row,const TopologyResult& topo,
                                 double rtol) {
     const LensParams p{row.time,row.y,row.rho,1.0/row.q,row.s,true};
@@ -192,7 +255,8 @@ int main(int argc,char** argv) {
          "candidate_topology_status oracle_topology_status rtol candidate_stop oracle_stop "
          "candidate_value_converged oracle_value_converged candidate_mu oracle_mu mu_absdiff "
          "local_attempts local_successes local_max_shift event_build_ms "
-         "positive_certificate positive_count positive_certificate_ms positive_reason\n";
+         "positive_certificate positive_count positive_certificate_ms positive_reason "
+         "rouche_certificate rouche_disks rouche_min_margin rouche_ms\n";
     for(bool warm:{false,true}) {
         std::vector<Cplx<__float128>> previous;
         for(size_t k=0;k<rows.size();++k) {
@@ -222,11 +286,18 @@ int main(int argc,char** argv) {
                 if(!c.finite) continue;
               PositiveD14Result positive;
               double positive_ms=0;
+              RoucheCertificate rouche;
+              double rouche_ms=0;
               if(c.stage=="qf_warm" && !c.converged) {
                   const auto begin=std::chrono::steady_clock::now();
                   positive=positive_d14_roots(pf,capture.r_max);
                   positive_ms=std::chrono::duration<double,std::milli>(
                       std::chrono::steady_clock::now()-begin).count();
+                  auto ascending=descv; std::reverse(ascending.begin(),ascending.end());
+                  const auto rouche_begin=std::chrono::steady_clock::now();
+                  rouche=rouche_root_certificate(ascending,c.roots);
+                  rouche_ms=std::chrono::duration<double,std::milli>(
+                      std::chrono::steady_clock::now()-rouche_begin).count();
               }
               for(int variant=0;variant<3;++variant) {
                 if(c.stage=="oracle" && variant!=2) continue;
@@ -264,7 +335,8 @@ int main(int argc,char** argv) {
                        <<event_build_ms<<' '
                        <<int(positive.assurance==PositiveRootAssurance::PositiveRealCertified)
                        <<' '<<positive.root_count<<' '<<positive_ms<<' '
-                       <<positive.stats.reason<<'\n';
+                       <<positive.stats.reason<<' '<<rouche.certified<<' '
+                       <<rouche.disks<<' '<<rouche.min_margin<<' '<<rouche_ms<<'\n';
                 }
               }
             }
