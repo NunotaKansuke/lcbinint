@@ -222,6 +222,24 @@ int main() {
     check(d14_worst_res(desc.data(), 14, woken_qf, scale) < qf(1e-10),
           "reactivated root set remains a valid D14 candidate");
 
+    // The residual reduction must preserve the legacy value, including
+    // roots with unequal norms. Test actual solved and perturbed sets.
+    for (int exponent : {-80, -20, 0, 20, 80}) {
+        auto probe = woken_qf;
+        for (int i=0; i<14; ++i) {
+            probe[i].re += scalbnq(qf(i+1), exponent);
+            probe[i].im -= scalbnq(qf(14-i), exponent-2);
+        }
+        qf expected = 0;
+        for (const auto& root : probe) {
+            qf residual = cabs(poly_eval_c(desc.data(),14,root)) /
+                          (scale + qf(1e-300));
+            if (residual > expected) expected = residual;
+        }
+        check(d14_worst_res(desc.data(),14,probe,scale)==expected,
+              "max-norm reduction preserves original qf residual");
+    }
+
     std::cout << "D14 root-wise freeze/cluster wake checks passed; freezes="
               << std::accumulate(frozen.root_freezes.begin(), frozen.root_freezes.end(), 0)
               << " wakeups=" << woken.cluster_wakeups << '\n';

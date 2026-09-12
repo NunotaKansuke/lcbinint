@@ -903,7 +903,7 @@ inline qf d14_worst_res(const qf* desc, int deg,
     V2Profile* prof = v2_profile_current();
     const auto residual_begin = prof ? V2Clock::now() : V2Clock::time_point{};
     qf worst = 0;
-#if defined(HOLO_D14_RESIDUAL_MAX_NORM)
+#if !defined(HOLO_D14_DISABLE_RESIDUAL_MAX_NORM)
     // sqrt and division by the same positive scale are monotone. Select
     // the largest squared residual before applying these expensive qf ops.
     for (const auto& r : roots) {
@@ -1064,7 +1064,7 @@ inline D14ActivePresearchResult d14_active_presearch(
                 continue;
             }
             ++active_count;
-#if defined(HOLO_D14_INTERLEAVED_HORNER)
+#if !defined(HOLO_D14_DISABLE_INTERLEAVED_HORNER)
             // Independent Horner chains: preserve each chain's operation
             // order, expose their independent multiplies to the compiler.
             const auto z = out.roots[i];
