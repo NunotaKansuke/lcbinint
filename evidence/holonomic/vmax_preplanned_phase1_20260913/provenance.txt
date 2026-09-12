@@ -1,0 +1,9 @@
+dev/holonomic
+81ccad2bc50963be4ef6b531e66203ad1f9671c7
+eb4743d0f8f59d7dedf1085b0942b114fff11c1483bd899454947019807a5c28  benchmarks/holonomic/bench_vmax_preplanned.cpp
+c9e0931201f1c9eb6fcca7554ea972c60db30145979e93723eb28ad7ecf0410f  evidence/holonomic/vmax_preplanned_phase1_20260913/plan.tsv
+6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b  evidence/holonomic/v2_vbm_pure_kernel_20260911/input_snapshot.tsv
+  14433 evidence/holonomic/vmax_preplanned_phase1_20260913/plan.tsv
+  14433 evidence/holonomic/vmax_preplanned_phase1_20260913/raw_rep1.tsv
+  14433 evidence/holonomic/vmax_preplanned_phase1_20260913/raw_nested_rep1.tsv
+  43299 total
