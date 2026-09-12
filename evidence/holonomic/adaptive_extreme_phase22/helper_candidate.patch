@@ -1,0 +1,62 @@
+diff --git a/src/lcbinint/magnification/holonomic/radial_events.hpp b/src/lcbinint/magnification/holonomic/radial_events.hpp
+index 4414f6a..e90016b 100644
+--- a/src/lcbinint/magnification/holonomic/radial_events.hpp
++++ b/src/lcbinint/magnification/holonomic/radial_events.hpp
+@@ -968,6 +968,21 @@ inline qf d14_screened_residual(const qf* desc,int deg,
+     return result;
+ }
+ 
++#if defined(HOLO_D14_BATCH_INTERACTIONS)
++__attribute__((noinline)) inline bool d14_batch_inverse(
++    const Cplx<double>* roots,int i,Cplx<double>* diffs,double* norms,double* inv) {
++    unsigned bad=0;
++    for(int j=0;j<14;++j){
++        const auto d=roots[i]-roots[j];diffs[j]=d;
++        const double n=j==i?1.0:d.re*d.re+d.im*d.im;
++        norms[j]=n;bad|=unsigned(!(n>0.0)||!std::isfinite(n));
++    }
++    if(bad)return false;
++    for(int j=0;j<14;++j)inv[j]=1.0/norms[j];
++    return true;
++}
++#endif
++
+ struct D14ActivePresearchResult {
+     std::vector<Cplx<double>> roots;
+     std::vector<Cplx<double>> last_finite_roots;
+@@ -1134,10 +1149,23 @@ inline D14ActivePresearchResult d14_active_presearch(
+             Cplx<double> sum(0.0, 0.0);
+             double nearest_separation = std::numeric_limits<double>::infinity();
+             int nearest_partner = -1;
++#if defined(HOLO_D14_BATCH_INTERACTIONS) && !defined(HOLO_D14_DISABLE_PRESEARCH_RECIPROCAL)
++            std::array<Cplx<double>,14> batch_diff{};
++            std::array<double,14> batch_norm{},batch_inv{};
++            bool batch_ready=false;
++            if (!legacy && !trace && deg==14) {
++                batch_ready=d14_batch_inverse(out.roots.data(),i,batch_diff.data(),batch_norm.data(),batch_inv.data());
++            }
++#endif
+             for (int j = 0; j < deg; ++j) {
+                 if (j == i) continue;
++#if defined(HOLO_D14_BATCH_INTERACTIONS) && !defined(HOLO_D14_DISABLE_PRESEARCH_RECIPROCAL)
++                const Cplx<double> d = batch_ready ? batch_diff[j] : out.roots[i]-out.roots[j];
++                const double dn2 = batch_ready ? batch_norm[j] : d.re*d.re+d.im*d.im;
++#else
+                 const Cplx<double> d = out.roots[i] - out.roots[j];
+                 const double dn2 = d.re * d.re + d.im * d.im;
++#endif
+                 if (trace) {
+                     const double separation = std::hypot(d.re, d.im);
+                     if (separation < nearest_separation) {
+@@ -1156,7 +1184,11 @@ inline D14ActivePresearchResult d14_active_presearch(
+                 // norm. For numerator one no numerator product can overflow;
+                 // reuse dn2 instead of repeating generic division checks.
+                 if (!legacy) {
++#if defined(HOLO_D14_BATCH_INTERACTIONS)
++                    const double inv = batch_ready ? batch_inv[j] : 1.0/dn2;
++#else
+                     const double inv = 1.0 / dn2;
++#endif
+                     sum = sum + Cplx<double>(d.re * inv, -d.im * inv);
+                 } else
+ #endif

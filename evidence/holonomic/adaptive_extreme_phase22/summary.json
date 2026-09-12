@@ -1,0 +1,32 @@
+{
+  "rows": 7216,
+  "mu_max_relative_delta": 0.0,
+  "ok_mismatch": 0,
+  "node_mismatch": 0,
+  "steady_medians_ms": {
+    "presearch": {
+      "base": 0.0337975,
+      "candidate": 0.0523564999999999
+    },
+    "real": {
+      "base": 0.022718000000000002,
+      "candidate": 0.022098
+    },
+    "qf": {
+      "base": 0.0,
+      "candidate": 0.0
+    },
+    "topology": {
+      "base": 0.156338,
+      "candidate": 0.17960299999999996
+    },
+    "whole": {
+      "base": 0.3390265,
+      "candidate": 0.35777849999999994
+    },
+    "residual": {
+      "base": 0.012035,
+      "candidate": 0.01201399999999995
+    }
+  }
+}
