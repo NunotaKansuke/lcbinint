@@ -466,6 +466,20 @@ inline bool holo_d14_compensated_enabled() {
     return on;
 }
 
+// Research-only mixed-interaction experiment.  The default path keeps the
+// incumbent row-wise escalation: if one separation is dangerous, all 13
+// interaction terms for that root are recomputed in D14Real.  This switch
+// keeps the same separation certificate and D14Real D/D' evaluation, but
+// promotes only the dangerous pair terms.  It is deliberately opt-in until
+// the whole-root certificate and trajectory parity have been measured.
+inline bool holo_d14_local_pairs_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_LOCAL_PAIRS");
+        return e && e[0] == '1';
+    }();
+    return on;
+}
+
 // Process-wide opt-out: HOLO_D14_STRUCT_LEGACY=1 forces Horner on the
 // expanded degree-14 coefficient vector.  Default: run the Aberth polish
 // against the C3/G4/Z3 block-form D/D' evaluator (d14_structure.hpp), and
@@ -559,6 +573,44 @@ inline bool holo_d14_skip_warm_presearch() {
     return on;
 }
 
+// Research-only root-wise early-stop for the balanced double basin search.
+// The usual all-root Aberth interaction is retained for active roots and
+// inactive roots remain in every interaction sum.  A later D14Real/qf
+// residual and global root-set certificate still owns acceptance; an active
+// candidate can therefore only save work or fall back, never silently lower
+// the precision contract.
+inline bool holo_d14_active_presearch_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_ACTIVE_PRESEARCH");
+        return e && e[0] == '1';
+    }();
+    return on;
+}
+
+inline double holo_d14_active_presearch_tol() {
+    static const double tol = [] {
+        const char* e = std::getenv("HOLO_D14_ACTIVE_TOL");
+        if (!e || !*e) return 1e-12;
+        char* end = nullptr;
+        const double x = std::strtod(e, &end);
+        if (end == e || *end != '\0' || !std::isfinite(x) ||
+            !(x > 0.0) || x > 1e-8)
+            return 1e-12;
+        return x;
+    }();
+    return tol;
+}
+
+inline int holo_d14_active_presearch_patience() {
+    static const int patience = [] {
+        const char* e = std::getenv("HOLO_D14_ACTIVE_PATIENCE");
+        if (!e || !*e) return 2;
+        const int x = std::atoi(e);
+        return x >= 1 && x <= 8 ? x : 2;
+    }();
+    return patience;
+}
+
 // Dedicated D14Real polish is the selected isolated D14 kernel after the
 // matched root-set and whole-epoch A/B.  `HOLO_D14_REAL=0` retains the
 // incumbent DD path for regression comparisons.
@@ -646,6 +698,114 @@ inline qf d14_worst_res(const qf* desc, int deg,
         if (res > worst) worst = res;
     }
     return worst;
+}
+
+struct D14ActivePresearchResult {
+    std::vector<Cplx<double>> roots;
+    int iterations = 0;
+    int skipped_updates = 0;
+    bool finite = true;
+};
+
+// Fixed-degree research variant of the balanced double Aberth basin search.
+// A root whose correction is small for `patience` consecutive sweeps is
+// temporarily made inactive.  It remains in every other root's interaction
+// sum, so this is a work scheduler rather than deflation.  The inactive roots
+// are not a proof of convergence; solve_d14's D14Real polish and independent
+// qf residual/completeness checks decide whether the candidate is accepted.
+inline D14ActivePresearchResult d14_active_presearch(
+    const double* coeffs, int deg, int max_iter,
+    const Cplx<double>* seed, double tol, int patience) {
+    D14ActivePresearchResult out;
+    if (!coeffs || deg <= 0 || max_iter <= 0 || !(tol > 0.0) || patience <= 0) {
+        out.finite = false;
+        return out;
+    }
+    out.roots.resize(deg);
+
+    double bound = 1.0;
+    if (!seed) {
+        const double an = std::fabs(coeffs[0]);
+        if (!(an > 0.0) || !std::isfinite(an)) {
+            out.finite = false;
+            return out;
+        }
+        for (int i = 1; i <= deg; ++i)
+            bound = std::max(bound, 1.0 + std::fabs(coeffs[i]) / an);
+    }
+    const double pi = 3.14159265358979323846264338327950288;
+    for (int i = 0; i < deg; ++i) {
+        if (seed) {
+            out.roots[i] = seed[i];
+        } else {
+            const double angle = 2.0 * pi * static_cast<double>(i) /
+                                     static_cast<double>(deg) + 0.4;
+            const double radius = bound * (0.5 + 0.5 * static_cast<double>(i) /
+                                                   static_cast<double>(deg));
+            out.roots[i] = Cplx<double>(
+                radius * std::cos(angle), radius * std::sin(angle));
+        }
+        if (!std::isfinite(out.roots[i].re) ||
+            !std::isfinite(out.roots[i].im)) {
+            out.finite = false;
+            return out;
+        }
+    }
+
+    std::vector<unsigned char> active(deg, 1), stable(deg, 0);
+    const double tol2 = tol * tol;
+    const bool legacy = holo_legacy_complex_ops();
+    for (int it = 0; it < max_iter; ++it) {
+        out.iterations = it + 1;
+        double max_step2 = 0.0;
+        int active_count = 0;
+        for (int i = 0; i < deg; ++i) {
+            if (!active[i]) {
+                ++out.skipped_updates;
+                continue;
+            }
+            ++active_count;
+            const Cplx<double> p = poly_eval_c(coeffs, deg, out.roots[i]);
+            const Cplx<double> dp = polyder_eval_c(coeffs, deg, out.roots[i]);
+            Cplx<double> sum(0.0, 0.0);
+            for (int j = 0; j < deg; ++j) {
+                if (j == i) continue;
+                const Cplx<double> d = out.roots[i] - out.roots[j];
+                const double dn2 = d.re * d.re + d.im * d.im;
+                if (!(dn2 > 0.0) || !std::isfinite(dn2)) {
+                    out.finite = false;
+                    return out;
+                }
+                sum = sum + Cplx<double>(1.0, 0.0) / d;
+            }
+            const Cplx<double> w = [&] {
+                if (legacy) {
+                    const Cplx<double> ratio = p / dp;
+                    return ratio / (Cplx<double>(1.0, 0.0) - ratio * sum);
+                }
+                return p / (dp - p * sum);
+            }();
+            if (!std::isfinite(w.re) || !std::isfinite(w.im)) {
+                out.finite = false;
+                return out;
+            }
+            out.roots[i] = out.roots[i] - w;
+            const double step2 = cabs2(w);
+            if (!std::isfinite(step2)) {
+                out.finite = false;
+                return out;
+            }
+            max_step2 = std::max(max_step2, step2);
+            if (step2 < tol2) {
+                if (stable[i] < 255) ++stable[i];
+                if (stable[i] >= patience) active[i] = 0;
+            } else {
+                stable[i] = 0;
+            }
+        }
+        if (active_count == 0 || max_step2 < tol2) break;
+    }
+    return out;
 }
 
 // Two/three-tier D14 solve.  `desc` descending __float128, length deg+1.
@@ -745,6 +905,36 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         // is a research-only warm trajectory experiment: the DD/qf polish,
         // residual gate, and global certificate still own correctness.
         zd = presearch_seed;
+    } else if (holo_d14_active_presearch_enabled()) {
+        const auto active = d14_active_presearch(
+            descd.data(), deg, pre_max,
+            presearch_seed.empty() ? nullptr : presearch_seed.data(),
+            holo_d14_active_presearch_tol(),
+            holo_d14_active_presearch_patience());
+        zd = active.roots;
+        pre_iters = active.iterations;
+        if (prof) {
+            ++prof->d14_presearch_active_calls;
+            prof->d14_presearch_active_sweeps +=
+                static_cast<V2Profile::u64>(active.iterations);
+            prof->d14_presearch_active_skips +=
+                static_cast<V2Profile::u64>(active.skipped_updates);
+        }
+        if (!active.finite || static_cast<int>(zd.size()) != deg) {
+            // Scheduler failure is not a reason to jump directly to the
+            // expensive qf cold solve.  Re-run the incumbent double basin
+            // search from the same certified warm seed (or cold spread),
+            // then keep all existing D14Real/qf and root-set certificates.
+            int fallback_iters = 0;
+            zd = !presearch_seed.empty()
+                     ? aberth<double>(descd.data(), deg, pre_max,
+                                      presearch_seed.data(), pre_tol, nullptr,
+                                      &fallback_iters)
+                     : aberth<double>(descd.data(), deg, pre_max, nullptr,
+                                      0.0, nullptr, &fallback_iters);
+            pre_iters += fallback_iters;
+            if (prof) ++prof->d14_presearch_active_fallbacks;
+        }
     } else if (presearch_seed.empty()) {
         zd = aberth<double>(descd.data(), deg, pre_max, nullptr,
                             pre_tol, nullptr, &pre_iters);
@@ -757,8 +947,8 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         v2_profile_add_ms(&V2Profile::d14_presearch_ms, pre_begin, V2Clock::now());
     }
     out.warm_seeded = !presearch_seed.empty();
-    bool seed_ok = true;
-    for (int i = 0; i < deg; ++i)
+    bool seed_ok = static_cast<int>(zd.size()) == deg;
+    for (int i = 0; seed_ok && i < deg; ++i)
         if (!std::isfinite(zd[i].re) || !std::isfinite(zd[i].im)) {
             seed_ok = false;
             break;
@@ -867,14 +1057,22 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             real.converged = warm.converged;
         } else {
             real = aberth_d14_real_mixed(screal, seed, 25,
-                                         holo_d14_real_tol());
+                                         holo_d14_real_tol(),
+                                         holo_d14_local_pairs_enabled());
         }
         if (prof) {
             ++prof->d14_real_calls;
+            if (holo_d14_local_pairs_enabled()) {
+                ++prof->d14_real_local_pair_calls;
+                prof->d14_real_local_pair_rows +=
+                    static_cast<V2Profile::u64>(real.dangerous_rows);
+            }
             prof->d14_real_mixed_pairs +=
                 static_cast<V2Profile::u64>(real.mixed_pairs);
             prof->d14_real_dangerous_pairs +=
                 static_cast<V2Profile::u64>(real.dangerous_pairs);
+            prof->d14_real_full_recompute_rows +=
+                static_cast<V2Profile::u64>(real.full_recompute_rows);
             if (!real.converged) ++prof->d14_real_nonconverged;
             if (direct_warm && real.converged)
                 ++prof->d14_direct_newton_converged;

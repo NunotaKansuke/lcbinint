@@ -1,0 +1,21 @@
+loaded 115 cases (108 bench + 7 ref), reps=15  block-form=1
+
+== solve_d14  A/B (base = expansion+Horner, strt = blocks+block-eval; best-of-15) ==
+  cases with a D14 : 115
+  base : median   0.7062  p90   0.7495  p99  21.6897  max  27.0422  ms
+  strt : median   0.2630  p90   0.4284  p99   0.6216  max   0.6487  ms
+  speedup  median 2.69x  p90 1.75x  p99 34.89x
+
+  base tier hist : dd 113  qf-escal 2  cold 0
+  strt tier hist : dd 109  qf-escal 6  cold 0
+
+  PARITY:
+    coeff vector (blocks vs expansion) worst rel : 1.657e-29  (deg-mismatch 0)
+    root-set rel diff (strt vs base) worst       : 1.142e-09
+    worst __float128 residual  base 2.540e-14  strt 9.595e-14
+    parity failures : 0 / 115
+
+  whole radial_events (compiled path, block-form=1) : median   0.2734  p90   0.4385  p99   0.6431  max   0.6580  ms
+  full value+5-Jac epoch  (block-form=1)             : median   0.7497  p90   1.5225  p99   2.2683  max   2.2994  ms
+
+checksum 67154.123878

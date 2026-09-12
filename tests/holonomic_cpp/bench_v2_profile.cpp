@@ -145,7 +145,10 @@ void add_profile(V2Profile& d, const V2Profile& s) {
     ADD(d14_root_clusters); ADD(d14_root_count_bad); ADD(d14_conjugacy_bad);
     ADD(d14_vieta_bad); ADD(d14_lifted_attempts); ADD(d14_lifted_success);
     ADD(d14_lifted_certificate_fail); ADD(d14_matrix_attempts);
-    ADD(d14_matrix_success); ADD(d14_presearch_sweeps); ADD(d14_dd_sweeps);
+    ADD(d14_matrix_success); ADD(d14_presearch_sweeps);
+    ADD(d14_presearch_active_calls); ADD(d14_presearch_active_sweeps);
+    ADD(d14_presearch_active_skips); ADD(d14_presearch_active_fallbacks);
+    ADD(d14_dd_sweeps);
     ADD(d14_warm_seeded);
     ADD(d14_lifted_fail_seed); ADD(d14_lifted_fail_newton);
     ADD(d14_lifted_fail_scalar); ADD(d14_lifted_fail_lift);
@@ -155,7 +158,9 @@ void add_profile(V2Profile& d, const V2Profile& s) {
     ADD(d14_hybrid_certificate_fail); ADD(d14_hybrid_cheap_calls);
     ADD(d14_hybrid_structural_calls); ADD(d14_hybrid_unsafe_calls);
     ADD(d14_real_calls); ADD(d14_real_mixed_pairs);
-    ADD(d14_real_dangerous_pairs); ADD(d14_real_nonconverged);
+    ADD(d14_real_dangerous_pairs); ADD(d14_real_full_recompute_rows);
+    ADD(d14_real_local_pair_calls); ADD(d14_real_local_pair_rows);
+    ADD(d14_real_nonconverged);
     ADD(d14_direct_warm_attempts); ADD(d14_direct_warm_success);
     ADD(d14_direct_warm_reject); ADD(d14_fold_seed_attempts);
     ADD(d14_fold_seed_success); ADD(d14_fold_seed_fallback);
@@ -221,7 +226,8 @@ void print_profile(const LaneSummary& s) {
         (unsigned long long)p.radial_nodes);
     std::fprintf(stderr,
         "  D14 calls=%llu struct=%llu horner=%llu dd=%llu qf_warm=%llu qf_cold=%llu "
-        "warm_seed=%llu sweeps(pre/dd/qfw/qfc)=%llu/%llu/%llu/%llu\n",
+        "warm_seed=%llu sweeps(pre/dd/qfw/qfc)=%llu/%llu/%llu/%llu "
+        "active(calls/sweeps/skips/fallbacks)=%llu/%llu/%llu/%llu\n",
         (unsigned long long)p.d14_solve_calls,
         (unsigned long long)p.d14_struct_calls,
         (unsigned long long)p.d14_horner_calls,
@@ -232,15 +238,23 @@ void print_profile(const LaneSummary& s) {
         (unsigned long long)p.d14_presearch_sweeps,
         (unsigned long long)p.d14_dd_sweeps,
         (unsigned long long)p.d14_qf_warm_sweeps,
-        (unsigned long long)p.d14_qf_cold_sweeps);
+        (unsigned long long)p.d14_qf_cold_sweeps,
+        (unsigned long long)p.d14_presearch_active_calls,
+        (unsigned long long)p.d14_presearch_active_sweeps,
+        (unsigned long long)p.d14_presearch_active_skips,
+        (unsigned long long)p.d14_presearch_active_fallbacks);
     std::fprintf(stderr,
         "  D14Real calls=%llu mixed/dangerous pairs=%llu/%llu nonconverged=%llu "
+        "full-recompute-rows=%llu local-calls/rows=%llu/%llu "
         "direct-warm attempt/success/reject=%llu/%llu/%llu newton-ok/nonfinite=%llu/%llu "
         "fold-seed attempt/success/fallback=%llu/%llu/%llu\n",
         (unsigned long long)p.d14_real_calls,
         (unsigned long long)p.d14_real_mixed_pairs,
         (unsigned long long)p.d14_real_dangerous_pairs,
         (unsigned long long)p.d14_real_nonconverged,
+        (unsigned long long)p.d14_real_full_recompute_rows,
+        (unsigned long long)p.d14_real_local_pair_calls,
+        (unsigned long long)p.d14_real_local_pair_rows,
         (unsigned long long)p.d14_direct_warm_attempts,
         (unsigned long long)p.d14_direct_warm_success,
         (unsigned long long)p.d14_direct_warm_reject,

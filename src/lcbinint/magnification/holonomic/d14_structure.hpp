@@ -331,6 +331,8 @@ struct D14RealAberthResult {
     bool converged = false;
     int mixed_pairs = 0;
     int dangerous_pairs = 0;
+    int dangerous_rows = 0;
+    int full_recompute_rows = 0;
 };
 
 struct D14RealNewtonResult {
@@ -392,7 +394,8 @@ inline void d14_kahan_add(double x, double& sum, double& correction) {
 inline D14RealAberthResult aberth_d14_real_mixed(
     const D14StructC<D14Real>& s,
     const std::array<Cplx<D14Real>, 14>& initial,
-    int max_iter = 25, D14Real tol = D14Real(1e-26)) {
+    int max_iter = 25, D14Real tol = D14Real(1e-26),
+    bool pair_local = false) {
     constexpr int deg = 14;
     D14RealAberthResult out;
     out.roots = initial;
@@ -412,6 +415,8 @@ inline D14RealAberthResult aberth_d14_real_mixed(
 
             double sr = 0.0, si = 0.0, cr = 0.0, ci = 0.0;
             bool dangerous = false;
+            std::array<int, deg - 1> dangerous_index{};
+            int dangerous_count = 0;
             const double xir = static_cast<double>(out.roots[i].re);
             const double xii = static_cast<double>(out.roots[i].im);
             if (!std::isfinite(xir) || !std::isfinite(xii)) {
@@ -433,6 +438,7 @@ inline D14RealAberthResult aberth_d14_real_mixed(
                 }
                 if (dn <= separation_factor * scale) {
                     dangerous = true;
+                    dangerous_index[dangerous_count++] = j;
                 } else {
                     const double inv = 1.0 / (dr * dr + di * di);
                     d14_kahan_add(dr * inv, sr, cr);
@@ -442,15 +448,40 @@ inline D14RealAberthResult aberth_d14_real_mixed(
             }
 
             Cplx<D14Real> sum;
+            if (dangerous) ++out.dangerous_rows;
             if (!dangerous) {
-                sum = Cplx<D14Real>(D14Real(sr), D14Real(si));
+                if (pair_local) {
+                    // Kahan's residual has the opposite sign to the lost
+                    // low part: exact ~= sum - correction.  Retain it in the
+                    // D14Real low limb when the local-pair path is active.
+                    sum = Cplx<D14Real>(D14Real(sr, -cr),
+                                        D14Real(si, -ci));
+                } else {
+                    sum = Cplx<D14Real>(D14Real(sr), D14Real(si));
+                }
             } else {
-                sum = Cplx<D14Real>(D14Real(0.0), D14Real(0.0));
-                for (int j = 0; j < deg; ++j) {
-                    if (j == i) continue;
-                    sum = sum + Cplx<D14Real>(D14Real(1.0), D14Real(0.0)) /
-                                      (out.roots[i] - out.roots[j]);
-                    ++out.dangerous_pairs;
+                if (pair_local) {
+                    // Keep the safe interaction sum in double and promote
+                    // only the genuinely close differences.  The close
+                    // terms are accumulated in D14Real and remain in the
+                    // same denominator as the D14Real D/D' evaluation.
+                    sum = Cplx<D14Real>(D14Real(sr, -cr),
+                                        D14Real(si, -ci));
+                    for (int k = 0; k < dangerous_count; ++k) {
+                        const int j = dangerous_index[k];
+                        sum = sum + Cplx<D14Real>(D14Real(1.0), D14Real(0.0)) /
+                                          (out.roots[i] - out.roots[j]);
+                        ++out.dangerous_pairs;
+                    }
+                } else {
+                    ++out.full_recompute_rows;
+                    sum = Cplx<D14Real>(D14Real(0.0), D14Real(0.0));
+                    for (int j = 0; j < deg; ++j) {
+                        if (j == i) continue;
+                        sum = sum + Cplx<D14Real>(D14Real(1.0), D14Real(0.0)) /
+                                          (out.roots[i] - out.roots[j]);
+                        ++out.dangerous_pairs;
+                    }
                 }
             }
             const Cplx<D14Real> step = p / (dp - p * sum);

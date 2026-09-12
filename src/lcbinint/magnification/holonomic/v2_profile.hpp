@@ -50,6 +50,9 @@ struct V2Profile {
     u64 d14_real_calls = 0;
     u64 d14_real_mixed_pairs = 0;
     u64 d14_real_dangerous_pairs = 0;
+    u64 d14_real_full_recompute_rows = 0;
+    u64 d14_real_local_pair_calls = 0;
+    u64 d14_real_local_pair_rows = 0;
     u64 d14_real_nonconverged = 0;
     u64 d14_direct_warm_attempts = 0;
     u64 d14_direct_warm_success = 0;
@@ -61,6 +64,10 @@ struct V2Profile {
     u64 d14_fold_seed_fallback = 0;
 
     u64 d14_presearch_sweeps = 0;
+    u64 d14_presearch_active_calls = 0;
+    u64 d14_presearch_active_sweeps = 0;
+    u64 d14_presearch_active_skips = 0;
+    u64 d14_presearch_active_fallbacks = 0;
     u64 d14_dd_sweeps = 0;
     u64 d14_qf_warm_sweeps = 0;
     u64 d14_qf_cold_sweeps = 0;
