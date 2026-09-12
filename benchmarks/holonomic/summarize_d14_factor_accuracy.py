@@ -8,6 +8,7 @@ p=argparse.ArgumentParser()
 p.add_argument('mode',choices=['prepare','summary'])
 p.add_argument('--input',required=True)
 p.add_argument('--roots')
+p.add_argument('--methods',type=int,default=3)
 p.add_argument('--output',required=True)
 a=p.parse_args()
 if a.mode=='prepare':
@@ -22,7 +23,7 @@ if a.mode=='prepare':
     print(r.sample,r.root_index,stage,r.time,r.y,r.rho,r.q,r.s,re,im,r.qf_nearest_sep,file=f)
 else:
  x=pd.read_csv(a.input,sep=r'\s+',float_precision='round_trip');out=[]
- assert len(x)==7216*14*2*3
+ assert len(x)==7216*14*2*a.methods
  for (stage,method),g in x.groupby(['stage','method']):
   finite=np.isfinite(g.correction_error)
   good=finite & (g.scaled_error<1e-12) & (g.separation_ratio<1e-6)
