@@ -1362,7 +1362,12 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             descd.data(), deg, pre_max,
             presearch_seed.empty() ? nullptr : presearch_seed.data(),
             holo_d14_active_presearch_tol(),
-            holo_d14_active_presearch_patience(), preserve_last_finite);
+#ifdef HOLO_D14_WARM_SINGLE_CONFIRM
+            presearch_seed.empty() ? holo_d14_active_presearch_patience() : 1,
+#else
+            holo_d14_active_presearch_patience(),
+#endif
+            preserve_last_finite);
         zd = active.roots;
         pre_iters = active.iterations;
         if (prof) {
