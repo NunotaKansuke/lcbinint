@@ -215,6 +215,29 @@ inline void d14_struct_eval(const D14StructC<T>& s, const Cplx<T>& v,
     Dp = k * Dhatp;
 }
 
+// Real argument specialization for adaptive event conditioning metadata.
+// Retains the operation grouping of the complex expression.
+template<class T>
+inline void d14_struct_eval_real(const D14StructC<T>& s,T v,T& D,T& Dp) {
+    auto horner = [v](const auto& a,int n,T& f,T& df) {
+        f=a[n];df=T(0);
+        for(int i=n-1;i>=0;--i){df=df*v+f;f=f*v+a[i];}
+    };
+    T c,cp,g,gp,z,zp;
+    horner(s.c3,3,c,cp);horner(s.g4,4,g,gp);horner(s.z3,3,z,zp);
+    const T two=T(2),four=T(4),nine=T(9);
+    T cc=c*c,vg=v*g,f=cc-four*vg,b=two*cc-nine*vg;
+    T gg=g*g,zz=z*z,vv=v*v;
+    T dh=f*gg+T(8)*(c*b*z)-T(432)*(vv*zz);
+    T ccp=c*cp;
+    T fp=two*ccp-four*g-four*(v*gp);
+    T bp=four*ccp-nine*g-nine*(v*gp);
+    T dp=fp*gg+two*(f*(g*gp))
+        +T(8)*((cp*b+c*bp)*z+c*b*zp)
+        -T(864)*(v*zz)-T(864)*(vv*(z*zp));
+    D=T(4096)*dh;Dp=T(4096)*dp;
+}
+
 #if defined(HOLO_D14_QF_PAIR_POLISH_RESEARCH)
 struct D14QfPairPolishResearchResult {
     std::vector<Cplx<__float128>> roots;

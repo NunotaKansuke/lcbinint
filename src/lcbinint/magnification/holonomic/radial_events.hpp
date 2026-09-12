@@ -2583,7 +2583,11 @@ inline std::vector<RadialEvent> radial_events(
                 // estimate. It is only metadata: the adaptive consumer still
                 // verifies the coupled P=P_t equations before accepting it.
                 Cplx<qf> D{}, Dp{};
+#if !defined(HOLO_D14_DISABLE_REAL_EVENT_EVAL)
+                d14_struct_eval_real(d14s, vq, D.re, Dp.re);
+#else
                 d14_struct_eval(d14s, Cplx<qf>(vq, qf(0)), D, Dp);
+#endif
                 const qf adp = fabsq(Dp.re), ad = fabsq(D.re);
                 if (adp > 0 && finiteq(adp) && finiteq(ad)) {
                     const qf vshift = ad / adp;

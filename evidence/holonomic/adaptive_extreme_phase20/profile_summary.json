@@ -1,0 +1,30 @@
+{
+  "0.0001/linear": {
+    "cold_ms": 0.4642749999999999,
+    "warm_ms": 0.39749049999999997,
+    "radial_ms": 0.18505699999999997,
+    "warm_topology_ms": 0.15837249999999997,
+    "warm_adaptive_ms": 0.2152165
+  },
+  "0.0001/uniform": {
+    "cold_ms": 0.4047449999999999,
+    "warm_ms": 0.3355615,
+    "radial_ms": 0.136943,
+    "warm_topology_ms": 0.1569095,
+    "warm_adaptive_ms": 0.16058749999999994
+  },
+  "0.001/linear": {
+    "cold_ms": 0.41542049999999997,
+    "warm_ms": 0.3402685,
+    "radial_ms": 0.13856699999999994,
+    "warm_topology_ms": 0.158508,
+    "warm_adaptive_ms": 0.1617405
+  },
+  "0.001/uniform": {
+    "cold_ms": 0.36745150000000004,
+    "warm_ms": 0.291227,
+    "radial_ms": 0.1055015,
+    "warm_topology_ms": 0.1576554999999999,
+    "warm_adaptive_ms": 0.12141249999999995
+  }
+}
