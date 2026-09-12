@@ -1084,6 +1084,15 @@ inline D14ActivePresearchResult d14_active_presearch(
                          Cplx<double>(0.0, 0.0), Cplx<double>(0.0, 0.0));
                     return out;
                 }
+#if defined(HOLO_D14_PRESEARCH_RECIPROCAL)
+                // The preceding guard has already checked the squared
+                // norm. For numerator one no numerator product can overflow;
+                // reuse dn2 instead of repeating generic division checks.
+                if (!legacy) {
+                    const double inv = 1.0 / dn2;
+                    sum = sum + Cplx<double>(d.re * inv, -d.im * inv);
+                } else
+#endif
                 sum = sum + Cplx<double>(1.0, 0.0) / d;
                 if (!std::isfinite(sum.re) || !std::isfinite(sum.im)) {
                     fail(5, it, i, j, p, dp, trace ? nearest_separation :
