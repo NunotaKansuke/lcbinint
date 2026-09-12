@@ -1,0 +1,20 @@
+{
+  "rows": 7216,
+  "status_mismatch": 0,
+  "node_mismatch": 0,
+  "max_scaled_mu": 0.0,
+  "p50_ms": {
+    "whole": {
+      "baseline": 0.30793950000000003,
+      "candidate": 0.31226699999999985
+    },
+    "physics": {
+      "baseline": 0.12482299999999995,
+      "candidate": 0.12606199999999995
+    },
+    "arc": {
+      "baseline": 0.07693249999999999,
+      "candidate": 0.07777049999999995
+    }
+  }
+}

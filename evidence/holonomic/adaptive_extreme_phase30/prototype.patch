@@ -1,0 +1,17 @@
+diff --git a/src/lcbinint/magnification/holonomic/radius_terms.hpp b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+index ba0cec6..0800c8e 100644
+--- a/src/lcbinint/magnification/holonomic/radius_terms.hpp
++++ b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+@@ -543,6 +543,12 @@ inline std::vector<double> real_root_thetas_transport(
+                     std::fabs(m_pred) + std::sqrt(std::fabs(v_pred)) > kTransportTMax)
+                     ++prof->rootpair_tmax_reject;
+             }
++#ifdef HOLO_MV_SKIP_REJECTED_PREDICTOR
++            // The existing final gate rejects pred_wild unconditionally.
++            // Do not spend Newton work on a copy that will be discarded.
++            // Debug mode retains its historical correction trace.
++            if(pred_wild && !dbg) { ok=false; break; }
++#endif
+             // corrector: Newton on (E, O) = 0 at the new node
+             bool conv = false;
+             double det_lo = std::numeric_limits<double>::infinity();

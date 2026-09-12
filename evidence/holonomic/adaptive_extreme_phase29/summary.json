@@ -1,0 +1,27 @@
+{
+  "rows": 7216,
+  "steady_rows": 5412,
+  "status_mismatch": 0,
+  "node_mismatch": 0,
+  "max_scaled_mu": 0.0,
+  "hits": 145571,
+  "evaluations": 3793566,
+  "p50_ms": {
+    "whole": {
+      "baseline": 0.30793950000000003,
+      "candidate": 0.30798549999999997
+    },
+    "physics": {
+      "baseline": 0.12482299999999995,
+      "candidate": 0.12481049999999995
+    },
+    "endpoint": {
+      "baseline": 0.02322949999999995,
+      "candidate": 0.0229875
+    },
+    "arc": {
+      "baseline": 0.07693249999999999,
+      "candidate": 0.0772324999999999
+    }
+  }
+}
