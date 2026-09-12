@@ -1,0 +1,9 @@
+date=2026-09-13
+host=rogue1
+cpu=Intel Xeon Gold 6530
+compiler=GCC 11.5.0
+affinity=taskset single CPU for final timing runs
+input=evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv
+input_sha256=6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b
+rows=14432
+production_defaults_changed=no
