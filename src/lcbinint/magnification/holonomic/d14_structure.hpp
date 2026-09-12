@@ -502,9 +502,22 @@ inline std::vector<__float128> d14_expanded_from_struct(const D14StructQf& s) {
     };
     auto mul = [](const P& x, int dx, const P& y, int dy) {
         P r{};
+#ifdef HOLO_D14_DIRECT_CONVOLUTION
+        // Same ascending-i sum as the incumbent, but no initial +0.
+        // Iterate by output coefficient so its accumulator stays local.
+        for (int k = 0; k <= std::min(dx + dy, 14); ++k) {
+            const int first = std::max(0, k - dy);
+            const int last = std::min(dx, k);
+            q sum = x[first] * y[k - first];
+            for (int i = first + 1; i <= last; ++i)
+                sum += x[i] * y[k - i];
+            r[k] = sum;
+        }
+#else
         for (int i = 0; i <= dx; ++i)
             for (int j = 0; j <= dy && i + j < 15; ++j)
                 r[i + j] += x[i] * y[j];
+#endif
         return r;
     };
 
