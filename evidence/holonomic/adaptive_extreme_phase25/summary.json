@@ -1,0 +1,26 @@
+{
+  "rows": 7216,
+  "cycle_rows": 2,
+  "skipped_sweeps": 100,
+  "mu_max_rel": 0.0,
+  "status_diff": 0,
+  "node_diff": 0,
+  "steady": {
+    "presearch": {
+      "base": 0.0337975,
+      "candidate": 0.03590499999999995
+    },
+    "real": {
+      "base": 0.022718000000000002,
+      "candidate": 0.0227135
+    },
+    "topology": {
+      "base": 0.156338,
+      "candidate": 0.15881799999999996
+    },
+    "whole": {
+      "base": 0.3390265,
+      "candidate": 0.3400964999999999
+    }
+  }
+}
