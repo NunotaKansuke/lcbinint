@@ -69,6 +69,9 @@ static void write_timing_header(std::ofstream& out) {
            "qf_polish_ms residual_eval_ms completeness_check_ms "
            "physical_classify_ms soft_event_ms qf_warm_calls qf_cold_calls "
            "warm_seeded presearch_sweeps dd_sweeps qf_warm_sweeps "
+           "presearch_active_fallbacks presearch_nonfinite_failures "
+           "presearch_failure_code presearch_failure_sweep "
+           "presearch_failure_root presearch_last_finite_handoffs "
            "qf_cold_sweeps d14real_calls d14real_finite_calls "
            "d14real_nonconverged completeness_fails root_count_bad "
            "conjugacy_bad vieta_bad root_clusters captured_root_records "
@@ -232,6 +235,12 @@ int main(int argc, char** argv) {
                         << profile.d14_presearch_sweeps << ' '
                         << profile.d14_dd_sweeps << ' '
                         << profile.d14_qf_warm_sweeps << ' '
+                        << profile.d14_presearch_active_fallbacks << ' '
+                        << profile.d14_presearch_nonfinite_failures << ' '
+                        << profile.d14_presearch_failure_code << ' '
+                        << profile.d14_presearch_failure_iteration << ' '
+                        << profile.d14_presearch_failure_root << ' '
+                        << profile.d14_presearch_last_finite_handoffs << ' '
                         << profile.d14_qf_cold_sweeps << ' '
                         << profile.d14_real_calls << ' '
                         << profile.d14_real_finite_calls << ' '

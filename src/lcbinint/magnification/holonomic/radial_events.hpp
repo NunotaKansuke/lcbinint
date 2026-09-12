@@ -27,6 +27,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <limits>
@@ -662,6 +663,26 @@ inline int holo_d14_active_presearch_patience() {
     return patience;
 }
 
+// Research-only recovery for a non-finite double presearch update.  The
+// default remains the incumbent retry/cold behavior; when enabled, a fully
+// finite checkpoint is promoted to the existing D14Real all-root polish.
+inline bool holo_d14_last_finite_handoff_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_LAST_FINITE_HANDOFF");
+        return e && e[0] == '1';
+    }();
+    return on;
+}
+
+// Emits per-root Aberth quantities only for a one-case diagnostic replay.
+inline bool holo_d14_presearch_trace_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_PRESEARCH_TRACE");
+        return e && e[0] == '1';
+    }();
+    return on;
+}
+
 // Dedicated D14Real polish is the selected isolated D14 kernel after the
 // matched root-set and whole-epoch A/B.  `HOLO_D14_REAL=0` retains the
 // incumbent DD path for regression comparisons.
@@ -828,8 +849,20 @@ inline qf d14_worst_res(const qf* desc, int deg,
 
 struct D14ActivePresearchResult {
     std::vector<Cplx<double>> roots;
+    std::vector<Cplx<double>> last_finite_roots;
     int iterations = 0;
     int skipped_updates = 0;
+    int failure_code = 0;
+    int failure_iteration = 0;
+    int failure_root = -1;
+    int failure_partner = -1;
+    double failure_abs_p = std::numeric_limits<double>::quiet_NaN();
+    double failure_abs_dp = std::numeric_limits<double>::quiet_NaN();
+    double failure_nearest_separation = std::numeric_limits<double>::quiet_NaN();
+    double failure_abs_sum = std::numeric_limits<double>::quiet_NaN();
+    double failure_abs_denominator = std::numeric_limits<double>::quiet_NaN();
+    double failure_abs_correction = std::numeric_limits<double>::quiet_NaN();
+    bool has_last_finite_roots = false;
     bool finite = true;
 };
 
@@ -841,10 +874,14 @@ struct D14ActivePresearchResult {
 // qf residual/completeness checks decide whether the candidate is accepted.
 inline D14ActivePresearchResult d14_active_presearch(
     const double* coeffs, int deg, int max_iter,
-    const Cplx<double>* seed, double tol, int patience) {
+    const Cplx<double>* seed, double tol, int patience,
+    bool preserve_last_finite = false) {
     D14ActivePresearchResult out;
+    const bool trace = holo_d14_presearch_trace_enabled();
+    preserve_last_finite = preserve_last_finite || trace;
     if (!coeffs || deg <= 0 || max_iter <= 0 || !(tol > 0.0) || patience <= 0) {
         out.finite = false;
+        out.failure_code = 1;
         return out;
     }
     out.roots.resize(deg);
@@ -854,6 +891,7 @@ inline D14ActivePresearchResult d14_active_presearch(
         const double an = std::fabs(coeffs[0]);
         if (!(an > 0.0) || !std::isfinite(an)) {
             out.finite = false;
+            out.failure_code = 2;
             return out;
         }
         for (int i = 1; i <= deg; ++i)
@@ -874,15 +912,74 @@ inline D14ActivePresearchResult d14_active_presearch(
         if (!std::isfinite(out.roots[i].re) ||
             !std::isfinite(out.roots[i].im)) {
             out.finite = false;
+            out.failure_code = 2;
+            out.failure_root = i;
             return out;
         }
+    }
+    if (preserve_last_finite) {
+        out.last_finite_roots = out.roots;
+        out.has_last_finite_roots = true;
     }
 
     std::vector<unsigned char> active(deg, 1), stable(deg, 0);
     const double tol2 = tol * tol;
     const bool legacy = holo_legacy_complex_ops();
+    auto abs_complex = [](const Cplx<double>& z) {
+        return std::hypot(z.re, z.im);
+    };
+    auto fail = [&](int code, int it, int root, int partner,
+                    const Cplx<double>& p, const Cplx<double>& dp,
+                    double nearest, const Cplx<double>& sum,
+                    const Cplx<double>& denominator,
+                    const Cplx<double>& correction) {
+        out.finite = false;
+        out.failure_code = code;
+        out.failure_iteration = it + 1;
+        out.failure_root = root;
+        out.failure_partner = partner;
+        out.failure_abs_p = abs_complex(p);
+        out.failure_abs_dp = abs_complex(dp);
+        out.failure_nearest_separation = nearest;
+        out.failure_abs_sum = abs_complex(sum);
+        out.failure_abs_denominator = abs_complex(denominator);
+        out.failure_abs_correction = abs_complex(correction);
+        if (preserve_last_finite && out.has_last_finite_roots)
+            out.roots = out.last_finite_roots;
+        if (trace) {
+            const Cplx<double> z = root >= 0 && root < deg
+                ? out.roots[root] : Cplx<double>(0.0, 0.0);
+            const Cplx<double> scaled_correction = p * crecip(denominator);
+            const double p_scale = std::max(std::fabs(p.re), std::fabs(p.im));
+            const double b_scale = std::max(std::fabs(denominator.re),
+                                            std::fabs(denominator.im));
+            const int product_exponent = p_scale > 0.0 && b_scale > 0.0 &&
+                                         std::isfinite(p_scale) &&
+                                         std::isfinite(b_scale)
+                ? std::ilogb(p_scale) + std::ilogb(b_scale) : -9999;
+            std::fprintf(stderr,
+                "D14PRE_FAIL\tcode=%d\tsweep=%d\troot=%d\tpartner=%d"
+                "\tzRe=%.17g\tzIm=%.17g\tabsZ=%.17g"
+                "\tabsP=%.17g\tabsDP=%.17g\tminSep=%.17g\tabsS=%.17g"
+                "\tabsB=%.17g\tabsW=%.17g\tscaledWRe=%.17g"
+                "\tscaledWIm=%.17g\tproductExponent=%d\tcheckpoint=%d\n",
+                code, it + 1, root, partner, z.re, z.im, abs_complex(z),
+                out.failure_abs_p,
+                out.failure_abs_dp, nearest, out.failure_abs_sum,
+                out.failure_abs_denominator, out.failure_abs_correction,
+                scaled_correction.re, scaled_correction.im,
+                product_exponent, int(out.has_last_finite_roots));
+        }
+    };
     for (int it = 0; it < max_iter; ++it) {
         out.iterations = it + 1;
+        if (preserve_last_finite) {
+            // This snapshot is the last complete finite sweep.  An in-place
+            // update that fails halfway through must not leak a partial root
+            // set into the higher-precision interaction sum.
+            out.last_finite_roots = out.roots;
+            out.has_last_finite_roots = true;
+        }
         double max_step2 = 0.0;
         int active_count = 0;
         for (int i = 0; i < deg; ++i) {
@@ -893,17 +990,43 @@ inline D14ActivePresearchResult d14_active_presearch(
             ++active_count;
             const Cplx<double> p = poly_eval_c(coeffs, deg, out.roots[i]);
             const Cplx<double> dp = polyder_eval_c(coeffs, deg, out.roots[i]);
+            if (!std::isfinite(p.re) || !std::isfinite(p.im) ||
+                !std::isfinite(dp.re) || !std::isfinite(dp.im)) {
+                fail(3, it, i, -1, p, dp,
+                     std::numeric_limits<double>::quiet_NaN(),
+                     Cplx<double>(0.0, 0.0), Cplx<double>(0.0, 0.0),
+                     Cplx<double>(0.0, 0.0));
+                return out;
+            }
             Cplx<double> sum(0.0, 0.0);
+            double nearest_separation = std::numeric_limits<double>::infinity();
+            int nearest_partner = -1;
             for (int j = 0; j < deg; ++j) {
                 if (j == i) continue;
                 const Cplx<double> d = out.roots[i] - out.roots[j];
                 const double dn2 = d.re * d.re + d.im * d.im;
+                if (trace) {
+                    const double separation = std::hypot(d.re, d.im);
+                    if (separation < nearest_separation) {
+                        nearest_separation = separation;
+                        nearest_partner = j;
+                    }
+                }
                 if (!(dn2 > 0.0) || !std::isfinite(dn2)) {
-                    out.finite = false;
+                    fail(4, it, i, j, p, dp, trace ? nearest_separation :
+                         std::numeric_limits<double>::quiet_NaN(), sum,
+                         Cplx<double>(0.0, 0.0), Cplx<double>(0.0, 0.0));
                     return out;
                 }
                 sum = sum + Cplx<double>(1.0, 0.0) / d;
+                if (!std::isfinite(sum.re) || !std::isfinite(sum.im)) {
+                    fail(5, it, i, j, p, dp, trace ? nearest_separation :
+                         std::numeric_limits<double>::quiet_NaN(), sum,
+                         Cplx<double>(0.0, 0.0), Cplx<double>(0.0, 0.0));
+                    return out;
+                }
             }
+            const Cplx<double> denominator = dp - p * sum;
             const Cplx<double> w = [&] {
                 if (legacy) {
                     const Cplx<double> ratio = p / dp;
@@ -912,15 +1035,42 @@ inline D14ActivePresearchResult d14_active_presearch(
                 return p / (dp - p * sum);
             }();
             if (!std::isfinite(w.re) || !std::isfinite(w.im)) {
-                out.finite = false;
+                fail(6, it, i, nearest_partner, p, dp,
+                     trace ? nearest_separation :
+                         std::numeric_limits<double>::quiet_NaN(),
+                     sum, denominator, w);
                 return out;
             }
-            out.roots[i] = out.roots[i] - w;
             const double step2 = cabs2(w);
-            if (!std::isfinite(step2)) {
-                out.finite = false;
+            const Cplx<double> candidate = out.roots[i] - w;
+            if (!std::isfinite(candidate.re) || !std::isfinite(candidate.im)) {
+                fail(7, it, i, nearest_partner, p, dp,
+                     trace ? nearest_separation :
+                         std::numeric_limits<double>::quiet_NaN(),
+                     sum, denominator, w);
                 return out;
             }
+            if (!std::isfinite(step2)) {
+                fail(8, it, i, nearest_partner, p, dp,
+                     trace ? nearest_separation :
+                         std::numeric_limits<double>::quiet_NaN(),
+                     sum, denominator, w);
+                return out;
+            }
+            if (trace) {
+                std::fprintf(stderr,
+                    "D14PRE\tstatus=commit\tsweep=%d\troot=%d"
+                    "\tzRe=%.17g\tzIm=%.17g\tabsP=%.17g\tabsDP=%.17g"
+                    "\tminSep=%.17g\tnearest=%d\tabsS=%.17g\tabsB=%.17g"
+                    "\tabsW=%.17g\tstepSep=%.17g\tcandidateFinite=1\n",
+                    it + 1, i, out.roots[i].re, out.roots[i].im,
+                    abs_complex(p), abs_complex(dp), nearest_separation,
+                    nearest_partner, abs_complex(sum), abs_complex(denominator),
+                    abs_complex(w), nearest_separation > 0.0
+                        ? abs_complex(w) / nearest_separation
+                        : std::numeric_limits<double>::infinity());
+            }
+            out.roots[i] = candidate;
             max_step2 = std::max(max_step2, step2);
             if (step2 < tol2) {
                 if (stable[i] < 255) ++stable[i];
@@ -929,8 +1079,14 @@ inline D14ActivePresearchResult d14_active_presearch(
                 stable[i] = 0;
             }
         }
+        if (preserve_last_finite) out.last_finite_roots = out.roots;
         if (active_count == 0 || max_step2 < tol2) break;
     }
+    if (trace)
+        std::fprintf(stderr,
+            "D14PRE_DONE\tfinite=%d\tsweeps=%d\tlastFinite=%d\tfailureCode=%d\n",
+            int(out.finite), out.iterations, int(out.has_last_finite_roots),
+            out.failure_code);
     return out;
 }
 
@@ -960,6 +1116,16 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                           bool compensated,
                           const std::vector<Cplx<qf>>* warm_seed = nullptr,
                           const D14StructQf* sc = nullptr) {
+#if defined(HOLO_D14_QF_WARM_MAX_ITER_OVERRIDE)
+    constexpr int qf_warm_max_iter = HOLO_D14_QF_WARM_MAX_ITER_OVERRIDE;
+#else
+    constexpr int qf_warm_max_iter = 24;
+#endif
+#if defined(HOLO_D14_REAL_MAX_ITER_OVERRIDE)
+    constexpr int d14_real_max_iter = HOLO_D14_REAL_MAX_ITER_OVERRIDE;
+#else
+    constexpr int d14_real_max_iter = 25;
+#endif
     const qf* desc = desc_v.data();
     D14Solve out;
     V2Profile* prof = v2_profile_current();
@@ -1032,11 +1198,14 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         // residual gate, and global certificate still own correctness.
         zd = presearch_seed;
     } else if (holo_d14_active_presearch_enabled()) {
+        const bool preserve_last_finite =
+            holo_d14_last_finite_handoff_enabled() ||
+            holo_d14_presearch_trace_enabled();
         const auto active = d14_active_presearch(
             descd.data(), deg, pre_max,
             presearch_seed.empty() ? nullptr : presearch_seed.data(),
             holo_d14_active_presearch_tol(),
-            holo_d14_active_presearch_patience());
+            holo_d14_active_presearch_patience(), preserve_last_finite);
         zd = active.roots;
         pre_iters = active.iterations;
         if (prof) {
@@ -1045,21 +1214,44 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                 static_cast<V2Profile::u64>(active.iterations);
             prof->d14_presearch_active_skips +=
                 static_cast<V2Profile::u64>(active.skipped_updates);
+            if (active.failure_code != 0) {
+                ++prof->d14_presearch_nonfinite_failures;
+                if (prof->d14_presearch_failure_code == 0) {
+                    prof->d14_presearch_failure_code = active.failure_code;
+                    prof->d14_presearch_failure_iteration =
+                        active.failure_iteration;
+                    prof->d14_presearch_failure_root = active.failure_root;
+                }
+            }
         }
-        if (!active.finite || static_cast<int>(zd.size()) != deg) {
+        bool active_roots_finite = static_cast<int>(zd.size()) == deg;
+        for (int i = 0; active_roots_finite && i < deg; ++i)
+            active_roots_finite = std::isfinite(zd[i].re) &&
+                                  std::isfinite(zd[i].im);
+        if (!active.finite || !active_roots_finite) {
+            bool checkpoint_finite = active.has_last_finite_roots &&
+                static_cast<int>(active.last_finite_roots.size()) == deg;
+            for (int i = 0; checkpoint_finite && i < deg; ++i)
+                checkpoint_finite = std::isfinite(active.last_finite_roots[i].re) &&
+                                    std::isfinite(active.last_finite_roots[i].im);
+            if (holo_d14_last_finite_handoff_enabled() && checkpoint_finite) {
+                zd = active.last_finite_roots;
+                if (prof) ++prof->d14_presearch_last_finite_handoffs;
+            } else {
             // Scheduler failure is not a reason to jump directly to the
             // expensive qf cold solve.  Re-run the incumbent double basin
             // search from the same certified warm seed (or cold spread),
             // then keep all existing D14Real/qf and root-set certificates.
-            int fallback_iters = 0;
-            zd = !presearch_seed.empty()
-                     ? aberth<double>(descd.data(), deg, pre_max,
-                                      presearch_seed.data(), pre_tol, nullptr,
-                                      &fallback_iters)
-                     : aberth<double>(descd.data(), deg, pre_max, nullptr,
-                                      0.0, nullptr, &fallback_iters);
-            pre_iters += fallback_iters;
-            if (prof) ++prof->d14_presearch_active_fallbacks;
+                int fallback_iters = 0;
+                zd = !presearch_seed.empty()
+                         ? aberth<double>(descd.data(), deg, pre_max,
+                                          presearch_seed.data(), pre_tol, nullptr,
+                                          &fallback_iters)
+                         : aberth<double>(descd.data(), deg, pre_max, nullptr,
+                                          0.0, nullptr, &fallback_iters);
+                pre_iters += fallback_iters;
+                if (prof) ++prof->d14_presearch_active_fallbacks;
+            }
         }
     } else if (presearch_seed.empty()) {
         zd = aberth<double>(descd.data(), deg, pre_max, nullptr,
@@ -1090,7 +1282,6 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             seed_ok = false;
             break;
         }
-
     // Block-form D/D' polish (memo section 3): exact C3/G4/Z3 evaluation
     // in place of Horner on the cancellation-carrying expanded vector.
     const bool use_struct = sc && holo_d14_struct_enabled() && deg == 14 &&
@@ -1239,7 +1430,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             }
         } else {
             real = aberth_d14_real_mixed(
-                screal, seed, 25, holo_d14_real_tol(),
+                screal, seed, d14_real_max_iter, holo_d14_real_tol(),
                 holo_d14_local_pairs_enabled(),
                 (schedule.enabled || capture_root_work) ? &schedule : nullptr,
                 &role_hints);
@@ -1309,12 +1500,19 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
             out.tier = 0;
             used_real = true;
-            if (!(out.worst_res <= (qf)1e-13)) {
+            // A finite D14Real iterate is not necessarily a usable complete
+            // root set. In particular, ill-conditioned small roots can have
+            // tiny polynomial residuals far from their correct locations.
+            // Keep the finite roots as a seed and try the bounded qf warm
+            // polish whenever D14Real failed its convergence test; only then
+            // use the existing qf cold solve.
+            if (!real.converged || !(out.worst_res <= (qf)1e-13)) {
                 int qf_iters = 0;
+                bool qf_converged = false;
                 auto qf_begin = V2Clock::now();
                 out.roots = aberth_d14_struct<qf>(
-                    scqf, nullptr, 24, out.roots.data(), (qf)1e-20,
-                    &qf_iters);
+                    scqf, nullptr, qf_warm_max_iter, out.roots.data(), (qf)1e-20,
+                    &qf_iters, &qf_converged);
                 if (prof) {
                     ++prof->d14_qf_warm_calls;
                     prof->d14_qf_warm_sweeps +=
@@ -1326,7 +1524,8 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                 }
                 out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
                 out.tier = 1;
-                if (!(out.worst_res <= (qf)1e-12)) seed_ok = false;
+                if (!qf_converged || !(out.worst_res <= (qf)1e-12))
+                    seed_ok = false;
             }
         } else {
             seed_ok = false;

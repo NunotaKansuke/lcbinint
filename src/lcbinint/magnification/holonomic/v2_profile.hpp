@@ -120,6 +120,11 @@ struct V2Profile {
     u64 d14_presearch_active_sweeps = 0;
     u64 d14_presearch_active_skips = 0;
     u64 d14_presearch_active_fallbacks = 0;
+    u64 d14_presearch_nonfinite_failures = 0;
+    u64 d14_presearch_last_finite_handoffs = 0;
+    int d14_presearch_failure_code = 0;
+    int d14_presearch_failure_iteration = 0;
+    int d14_presearch_failure_root = -1;
     u64 d14_dd_sweeps = 0;
     u64 d14_qf_warm_sweeps = 0;
     u64 d14_qf_cold_sweeps = 0;

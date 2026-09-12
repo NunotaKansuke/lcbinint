@@ -257,10 +257,12 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
                                               int max_iter,
                                               const Cplx<T>* seed,
                                               T tol_override,
-                                              int* iterations = nullptr) {
+                                              int* iterations = nullptr,
+                                              bool* converged = nullptr) {
     constexpr int deg = 14;
     std::vector<Cplx<T>> z(deg);
     if (iterations) *iterations = 0;
+    if (converged) *converged = false;
 
     T bound = T(1);
     if (bound_coeffs) {
@@ -312,7 +314,10 @@ inline std::vector<Cplx<T>> aberth_d14_struct(const D14StructC<T>& s,
             T sabs2 = cabs2(w);
             if (sabs2 > maxstep2) maxstep2 = sabs2;
         }
-        if (maxstep2 < tol * tol) break;
+        if (maxstep2 < tol * tol) {
+            if (converged) *converged = true;
+            break;
+        }
     }
     return z;
 }

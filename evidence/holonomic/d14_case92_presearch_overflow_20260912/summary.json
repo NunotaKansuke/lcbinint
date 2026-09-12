@@ -1,0 +1,705 @@
+{
+  "schema": 1,
+  "task": "Case 92 D14 binary64 complex-division overflow recovery and full-corpus parity audit",
+  "date": "2026-09-12",
+  "base_commit": "f643fd8029334cc56531d6f59bce96d22efab327",
+  "machine": {
+    "cpu": "Intel Xeon Gold 6530",
+    "pinned_cpu": 0,
+    "compiler": "GCC 11.5.0",
+    "build": "Release, -O3 -march=native -funroll-loops -ffp-contract=fast -fno-math-errno"
+  },
+  "input": {
+    "path": "evidence/holonomic/d14_root_scheduling_phase2_20260912/input_snapshot.tsv",
+    "sha256": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
+    "input_rows_per_lane": 7216
+  },
+  "matched_ab": {
+    "baseline": "same source and flags with HOLO_D14_FORCE_LEGACY_DOUBLE_DIV=1 (restores only the old double quotient); DD/D14Real/qf use same code",
+    "keys_equal": true,
+    "full_topology_parity": true,
+    "full_by_lane": {
+      "cold": {
+        "rows": 7216,
+        "status_ok_safe": 7216,
+        "status_ok_legacy": 7216,
+        "parity_mismatches": {
+          "topology_status": 0,
+          "cells": 0,
+          "events": 0,
+          "physical_real_events": 0,
+          "soft_events": 0,
+          "qf_root_count": 0
+        },
+        "timing_ms": {
+          "whole_classify_ms": {
+            "safe": {
+              "n": 7216,
+              "p50": 0.8449040000000001,
+              "p90": 1.098352,
+              "p99": 3.686932,
+              "max": 56.483841
+            },
+            "legacy_double": {
+              "n": 7216,
+              "p50": 0.8048255,
+              "p90": 9.963417,
+              "p99": 19.357498,
+              "max": 56.515782
+            }
+          },
+          "d14_solve_ms": {
+            "safe": {
+              "n": 7216,
+              "p50": 0.726361,
+              "p90": 0.807106,
+              "p99": 3.482364,
+              "max": 56.344646
+            },
+            "legacy_double": {
+              "n": 7216,
+              "p50": 0.6816125,
+              "p90": 9.825135,
+              "p99": 19.053778,
+              "max": 56.386972
+            }
+          },
+          "presearch_ms": {
+            "safe": {
+              "n": 7216,
+              "p50": 0.2050095,
+              "p90": 0.234125,
+              "p99": 0.244958,
+              "max": 0.358892
+            },
+            "legacy_double": {
+              "n": 7216,
+              "p50": 0.1481265,
+              "p90": 0.175077,
+              "p99": 0.208143,
+              "max": 0.371365
+            }
+          },
+          "d14real_ms": {
+            "safe": {
+              "n": 7216,
+              "p50": 0.038188,
+              "p90": 0.104777,
+              "p99": 0.300317,
+              "max": 0.465765
+            },
+            "legacy_double": {
+              "n": 7216,
+              "p50": 0.0377,
+              "p90": 0.07073,
+              "p99": 0.175851,
+              "max": 0.456594
+            }
+          },
+          "qf_polish_ms": {
+            "safe": {
+              "n": 7216,
+              "p50": 0.0,
+              "p90": 0.0,
+              "p99": 2.394068,
+              "max": 55.011124
+            },
+            "legacy_double": {
+              "n": 7216,
+              "p50": 0.0,
+              "p90": 9.553415,
+              "p99": 18.786251,
+              "max": 55.090386
+            }
+          }
+        },
+        "fallbacks": {
+          "safe": {
+            "qf_cold_calls": 58,
+            "qf_cold_sweeps": 12498,
+            "qf_warm_calls": 136,
+            "qf_warm_sweeps": 2470,
+            "d14real_nonconverged_rows": 136
+          },
+          "legacy_double": {
+            "qf_cold_calls": 944,
+            "qf_cold_sweeps": 87140,
+            "qf_warm_calls": 34,
+            "qf_warm_sweeps": 816,
+            "d14real_nonconverged_rows": 34
+          }
+        },
+        "epoch_index_gt0_whole_classify_ms": {
+          "safe": {
+            "n": 5412,
+            "p50": 0.8434495,
+            "p90": 1.094055,
+            "p99": 3.728195,
+            "max": 56.483841
+          },
+          "legacy_double": {
+            "n": 5412,
+            "p50": 0.803018,
+            "p90": 9.99302,
+            "p99": 19.522508,
+            "max": 56.515782
+          }
+        }
+      },
+      "warm": {
+        "rows": 7216,
+        "status_ok_safe": 7216,
+        "status_ok_legacy": 7216,
+        "parity_mismatches": {
+          "topology_status": 0,
+          "cells": 0,
+          "events": 0,
+          "physical_real_events": 0,
+          "soft_events": 0,
+          "qf_root_count": 0
+        },
+        "timing_ms": {
+          "whole_classify_ms": {
+            "safe": {
+              "n": 7216,
+              "p50": 0.734529,
+              "p90": 0.98264,
+              "p99": 1.426076,
+              "max": 59.576678
+            },
+            "legacy_double": {
+              "n": 7216,
+              "p50": 0.7093805,
+              "p90": 0.963454,
+              "p99": 14.005268,
+              "max": 54.619716
+            }
+          },
+          "d14_solve_ms": {
+            "safe": {
+              "n": 7216,
+              "p50": 0.5738055,
+              "p90": 0.746295,
+              "p99": 1.076655,
+              "max": 59.453409
+            },
+            "legacy_double": {
+              "n": 7216,
+              "p50": 0.561758,
+              "p90": 0.694761,
+              "p99": 13.888349,
+              "max": 54.498871
+            }
+          },
+          "presearch_ms": {
+            "safe": {
+              "n": 7216,
+              "p50": 0.055167999999999995,
+              "p90": 0.214968,
+              "p99": 0.239816,
+              "max": 0.340608
+            },
+            "legacy_double": {
+              "n": 7216,
+              "p50": 0.0407665,
+              "p90": 0.156758,
+              "p99": 0.17855,
+              "max": 0.250654
+            }
+          },
+          "d14real_ms": {
+            "safe": {
+              "n": 7216,
+              "p50": 0.037859000000000004,
+              "p90": 0.082433,
+              "p99": 0.242972,
+              "max": 0.453661
+            },
+            "legacy_double": {
+              "n": 7216,
+              "p50": 0.0379035,
+              "p90": 0.071925,
+              "p99": 0.175572,
+              "max": 0.427422
+            }
+          },
+          "qf_polish_ms": {
+            "safe": {
+              "n": 7216,
+              "p50": 0.0,
+              "p90": 0.0,
+              "p99": 0.0,
+              "max": 58.11471
+            },
+            "legacy_double": {
+              "n": 7216,
+              "p50": 0.0,
+              "p90": 0.0,
+              "p99": 13.619022,
+              "max": 53.335356
+            }
+          }
+        },
+        "fallbacks": {
+          "safe": {
+            "qf_cold_calls": 44,
+            "qf_cold_sweeps": 12912,
+            "qf_warm_calls": 68,
+            "qf_warm_sweeps": 1352,
+            "d14real_nonconverged_rows": 68
+          },
+          "legacy_double": {
+            "qf_cold_calls": 256,
+            "qf_cold_sweeps": 28876,
+            "qf_warm_calls": 40,
+            "qf_warm_sweeps": 916,
+            "d14real_nonconverged_rows": 40
+          }
+        },
+        "epoch_index_gt0_whole_classify_ms": {
+          "safe": {
+            "n": 5412,
+            "p50": 0.6826654999999999,
+            "p90": 0.916042,
+            "p99": 1.197769,
+            "max": 59.576678
+          },
+          "legacy_double": {
+            "n": 5412,
+            "p50": 0.667138,
+            "p90": 0.892107,
+            "p99": 1.153169,
+            "max": 54.619716
+          }
+        }
+      }
+    },
+    "case92_dbin0_linear": {
+      "cold": {
+        "rows": 40,
+        "status_mismatches": 0,
+        "cell_mismatches": 0,
+        "event_mismatches": 0,
+        "physical_real_event_mismatches": 0,
+        "timing_ms": {
+          "whole_classify_ms": {
+            "safe": {
+              "n": 40,
+              "p50": 1.2156120000000001,
+              "p90": 1.628028,
+              "p99": 1.672655,
+              "max": 1.672655
+            },
+            "legacy_double": {
+              "n": 40,
+              "p50": 28.371212999999997,
+              "p90": 28.628884,
+              "p99": 30.651692,
+              "max": 30.651692
+            }
+          },
+          "d14_solve_ms": {
+            "safe": {
+              "n": 40,
+              "p50": 0.856078,
+              "p90": 1.126871,
+              "p99": 1.17531,
+              "max": 1.17531
+            },
+            "legacy_double": {
+              "n": 40,
+              "p50": 28.006536500000003,
+              "p90": 28.265775,
+              "p99": 30.199757,
+              "max": 30.199757
+            }
+          },
+          "presearch_ms": {
+            "safe": {
+              "n": 40,
+              "p50": 0.233084,
+              "p90": 0.320528,
+              "p99": 0.326107,
+              "max": 0.326107
+            },
+            "legacy_double": {
+              "n": 40,
+              "p50": 0.004609,
+              "p90": 0.005177,
+              "p99": 0.020607,
+              "max": 0.020607
+            }
+          },
+          "d14real_ms": {
+            "safe": {
+              "n": 40,
+              "p50": 0.15230549999999998,
+              "p90": 0.183682,
+              "p99": 0.211171,
+              "max": 0.211171
+            },
+            "legacy_double": {
+              "n": 40,
+              "p50": 0.0,
+              "p90": 0.0,
+              "p99": 0.0,
+              "max": 0.0
+            }
+          },
+          "qf_polish_ms": {
+            "safe": {
+              "n": 40,
+              "p50": 0.0,
+              "p90": 0.0,
+              "p99": 0.0,
+              "max": 0.0
+            },
+            "legacy_double": {
+              "n": 40,
+              "p50": 27.757336,
+              "p90": 28.017429,
+              "p99": 29.919881,
+              "max": 29.919881
+            }
+          }
+        },
+        "qf_cold_calls": {
+          "safe": 0,
+          "legacy_double": 40
+        },
+        "d14real_finite_calls": 40,
+        "d14real_nonconverged": 0,
+        "steady_epoch_gt0_whole_classify_ms": {
+          "safe": {
+            "n": 30,
+            "p50": 1.2182355,
+            "p90": 1.628028,
+            "p99": 1.672655,
+            "max": 1.672655
+          },
+          "legacy_double": {
+            "n": 30,
+            "p50": 28.378678,
+            "p90": 28.628884,
+            "p99": 30.651692,
+            "max": 30.651692
+          }
+        }
+      },
+      "warm": {
+        "rows": 40,
+        "status_mismatches": 0,
+        "cell_mismatches": 0,
+        "event_mismatches": 0,
+        "physical_real_event_mismatches": 0,
+        "timing_ms": {
+          "whole_classify_ms": {
+            "safe": {
+              "n": 40,
+              "p50": 1.0604735,
+              "p90": 1.261804,
+              "p99": 1.514699,
+              "max": 1.514699
+            },
+            "legacy_double": {
+              "n": 40,
+              "p50": 1.0073135,
+              "p90": 28.294021,
+              "p99": 28.360321,
+              "max": 28.360321
+            }
+          },
+          "d14_solve_ms": {
+            "safe": {
+              "n": 40,
+              "p50": 0.692076,
+              "p90": 0.85902,
+              "p99": 1.045016,
+              "max": 1.045016
+            },
+            "legacy_double": {
+              "n": 40,
+              "p50": 0.6694515,
+              "p90": 27.935245,
+              "p99": 28.000491,
+              "max": 28.000491
+            }
+          },
+          "presearch_ms": {
+            "safe": {
+              "n": 40,
+              "p50": 0.06482650000000001,
+              "p90": 0.234098,
+              "p99": 0.303671,
+              "max": 0.303671
+            },
+            "legacy_double": {
+              "n": 40,
+              "p50": 0.04889,
+              "p90": 0.048985,
+              "p99": 0.051193,
+              "max": 0.051193
+            }
+          },
+          "d14real_ms": {
+            "safe": {
+              "n": 40,
+              "p50": 0.1498175,
+              "p90": 0.173077,
+              "p99": 0.2012,
+              "max": 0.2012
+            },
+            "legacy_double": {
+              "n": 40,
+              "p50": 0.130446,
+              "p90": 0.154593,
+              "p99": 0.167706,
+              "max": 0.167706
+            }
+          },
+          "qf_polish_ms": {
+            "safe": {
+              "n": 40,
+              "p50": 0.0,
+              "p90": 0.0,
+              "p99": 0.0,
+              "max": 0.0
+            },
+            "legacy_double": {
+              "n": 40,
+              "p50": 0.0,
+              "p90": 27.688306,
+              "p99": 27.751827,
+              "max": 27.751827
+            }
+          }
+        },
+        "qf_cold_calls": {
+          "safe": 0,
+          "legacy_double": 10
+        },
+        "d14real_finite_calls": 40,
+        "d14real_nonconverged": 0,
+        "steady_epoch_gt0_whole_classify_ms": {
+          "safe": {
+            "n": 30,
+            "p50": 1.0472355,
+            "p90": 1.210934,
+            "p99": 1.264322,
+            "max": 1.264322
+          },
+          "legacy_double": {
+            "n": 30,
+            "p50": 1.004584,
+            "p90": 1.012398,
+            "p99": 1.019122,
+            "max": 1.019122
+          }
+        }
+      }
+    },
+    "root_set_greedy_bijection": {
+      "full_groups": 14432,
+      "max_abs_delta": 9.217637503972087e-14,
+      "max_relative_delta_scaled_by_max(1,max_abs_root)": 1.7370968717261522e-14,
+      "argmax_key": [
+        "9",
+        "9",
+        "linear",
+        "2",
+        "7",
+        "0",
+        "cold"
+      ],
+      "case92_groups": 80,
+      "case92_max_abs_delta": 2.7005948665185577e-47
+    }
+  },
+  "experiments_not_selected": {
+    "qf_warm_max_64_hard_subset": {
+      "cold": {
+        "rows": 336,
+        "qf_cold_calls": 20,
+        "qf_cold_sweeps": 6824,
+        "qf_warm_calls": 132,
+        "qf_warm_sweeps": 3766,
+        "whole_classify_ms": {
+          "n": 336,
+          "p50": 1.1363735,
+          "p90": 6.578602,
+          "p99": 60.357522,
+          "max": 66.19058
+        },
+        "topology_status_nonzero": 0
+      },
+      "warm": {
+        "rows": 336,
+        "qf_cold_calls": 22,
+        "qf_cold_sweeps": 8170,
+        "qf_warm_calls": 62,
+        "qf_warm_sweeps": 2576,
+        "whole_classify_ms": {
+          "n": 336,
+          "p50": 0.8555355,
+          "p90": 6.218799,
+          "p99": 61.184777,
+          "max": 66.712413
+        },
+        "topology_status_nonzero": 0
+      }
+    },
+    "d14real_max_100_hard_subset": {
+      "cold": {
+        "rows": 336,
+        "qf_cold_calls": 24,
+        "qf_cold_sweeps": 8784,
+        "qf_warm_calls": 24,
+        "qf_warm_sweeps": 576,
+        "whole_classify_ms": {
+          "n": 336,
+          "p50": 1.1367475,
+          "p90": 1.722514,
+          "p99": 57.80762,
+          "max": 72.925885
+        },
+        "topology_status_nonzero": 0
+      },
+      "warm": {
+        "rows": 336,
+        "qf_cold_calls": 24,
+        "qf_cold_sweeps": 8784,
+        "qf_warm_calls": 24,
+        "qf_warm_sweeps": 576,
+        "whole_classify_ms": {
+          "n": 336,
+          "p50": 0.8556064999999999,
+          "p90": 1.520959,
+          "p99": 56.528187,
+          "max": 58.342071
+        },
+        "topology_status_nonzero": 0
+      }
+    },
+    "qf_warm_max_400_case149": {
+      "cold": {
+        "rows": 4,
+        "qf_cold_calls": 1,
+        "qf_cold_sweeps": 400,
+        "qf_warm_calls": 3,
+        "qf_warm_sweeps": 486,
+        "whole_classify_ms": {
+          "n": 4,
+          "p50": 6.439029,
+          "p90": 100.309673,
+          "p99": 100.309673,
+          "max": 100.309673
+        },
+        "topology_status_nonzero": 0
+      },
+      "warm": {
+        "rows": 4,
+        "qf_cold_calls": 3,
+        "qf_cold_sweeps": 1200,
+        "qf_warm_calls": 4,
+        "qf_warm_sweeps": 1240,
+        "whole_classify_ms": {
+          "n": 4,
+          "p50": 102.92166850000001,
+          "p90": 106.483756,
+          "p99": 106.483756,
+          "max": 106.483756
+        },
+        "topology_status_nonzero": 0
+      }
+    },
+    "last_finite_checkpoint_handoff_case92": {
+      "rows": 12,
+      "repeats": 3,
+      "epochs": [
+        0,
+        7,
+        15,
+        23
+      ],
+      "lane": "cold, no trajectory root seed",
+      "all_rows": {
+        "presearch_failure_code": 6,
+        "presearch_failure_sweep": 1,
+        "presearch_failure_root": 0,
+        "last_finite_handoff_count": 1,
+        "d14real_finite_calls": 0,
+        "d14real_nonconverged": 1,
+        "qf_cold_calls": 1,
+        "qf_cold_sweeps": 198
+      },
+      "whole_classify_ms": {
+        "min": 28.551447,
+        "median": 28.626645,
+        "max": 28.789644
+      },
+      "conclusion": "The last-finite double seed alone did not enter a usable D14Real basin; the existing qf cold solve remained necessary.",
+      "raw_files": [
+        "case92_checkpoint_handoff_roots.tsv",
+        "case92_checkpoint_handoff_timing.tsv"
+      ]
+    }
+  },
+  "direct_failure": {
+    "sweep": 1,
+    "root": 0,
+    "nearest_partner": 1,
+    "abs_P": 7.386400282192971e+159,
+    "abs_Pprime": 1.5093491796268012e+149,
+    "nearest_separation": 319383603125.5584,
+    "abs_interaction_sum": 5.239018298132238e-12,
+    "abs_Aberth_denominator": 1.2025602607257584e+149,
+    "old_complex_division_product_exponent": 1025,
+    "old_quotient": "nonfinite",
+    "scaled_reciprocal_quotient_re": 51535345575.51934,
+    "scaled_reciprocal_quotient_im": 33418642026.83778,
+    "interpretation": "unscaled numerator products overflowed although the quotient was finite; in-place update then poisoned later interaction sums.",
+    "trace_artifacts": {
+      "legacy_failure": [
+        "case92_first_bad_active_presearch.log",
+        "case92_first_bad_update_detail.log",
+        "case92_first_bad_generic_trace.log"
+      ],
+      "safe_candidate_trace": "case92_safe_active_presearch_trace.log",
+      "note": "The safe candidate trace is a finite corrected-path trace and must not be read as the legacy-division failure trace."
+    }
+  },
+  "tests": {
+    "build": "full Release build passed",
+    "ctest_total": 18,
+    "ctest_passed": 18,
+    "ctest_failed": 0,
+    "status": "passed"
+  },
+  "artifacts": [
+    "case149_qfwarm400_roots.tsv",
+    "case149_qfwarm400_timing.tsv",
+    "case6_qfwarm24_roots.tsv",
+    "case6_qfwarm24_timing.tsv",
+    "case92_10rep_legacy_roots.tsv",
+    "case92_10rep_legacy_timing.tsv",
+    "case92_10rep_safe_roots.tsv",
+    "case92_10rep_safe_timing.tsv",
+    "case92_checkpoint_handoff_roots.tsv",
+    "case92_checkpoint_handoff_timing.tsv",
+    "case92_dbin0_linear_input.tsv",
+    "case92_first_bad_active_presearch.log",
+    "case92_first_bad_generic_trace.log",
+    "case92_first_bad_update_detail.log",
+    "case92_safe_active_presearch_trace.log",
+    "d14real100_hard_subset_input.tsv",
+    "d14real100_hard_subset_timing.tsv.gz",
+    "full_legacy_double_roots.tsv.gz",
+    "full_legacy_double_timing.tsv.gz",
+    "full_safe_roots.tsv.gz",
+    "full_safe_timing.tsv.gz",
+    "qfwarm64_hard_subset_timing.tsv.gz",
+    "run_commands.txt",
+    "sha256_manifest.txt",
+    "summary.json"
+  ]
+}

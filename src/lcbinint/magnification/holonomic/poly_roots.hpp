@@ -26,7 +26,10 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <cstdio>
 #include <cstdlib>
+#include <limits>
+#include <type_traits>
 #include <vector>
 
 #include <quadmath.h>
@@ -100,15 +103,36 @@ inline Cplx<R> cdiv_fast(Cplx<R> a, Cplx<R> b) {
     // remains available for tiny/large denominators.
     const R d = b.re * b.re + b.im * b.im;
     if (d > R(0) && qfinite_(d)) {
-        const R inv = R(1) / d;
-        return {(a.re * b.re + a.im * b.im) * inv,
-                (a.im * b.re - a.re * b.im) * inv};
+        if constexpr (std::is_same<R, double>::value) {
+            // A finite denominator norm does not make the numerator
+            // products safe.  Overflow can occur in a.re*b.re before the
+            // final 1/|b|^2 scaling, even when the quotient itself is
+            // moderate.  Detect that rare case and use a scaled reciprocal.
+            const double nr1 = a.re * b.re, nr2 = a.im * b.im;
+            const double ni1 = a.im * b.re, ni2 = a.re * b.im;
+            const double nr = nr1 + nr2, ni = ni1 - ni2;
+            if (std::isfinite(nr) && std::isfinite(ni)) {
+                const double inv = 1.0 / d;
+                return {nr * inv, ni * inv};
+            }
+        } else {
+            const R inv = R(1) / d;
+            return {(a.re * b.re + a.im * b.im) * inv,
+                    (a.im * b.re - a.re * b.im) * inv};
+        }
     }
     return a * crecip(b);
 }
 
 template <class R>
 inline Cplx<R> operator/(Cplx<R> a, Cplx<R> b) {
+#if defined(HOLO_D14_FORCE_LEGACY_DOUBLE_DIV)
+    // Compile-time-only A/B hook: restore the pre-fix binary64 quotient while
+    // leaving DD/D14Real/qf arithmetic identical to the candidate build.
+    // It is intentionally absent from normal production builds.
+    if constexpr (std::is_same<R, double>::value)
+        return cdiv_legacy(a, b);
+#endif
     return holo_legacy_complex_ops() ? cdiv_legacy(a, b) : cdiv_fast(a, b);
 }
 
@@ -170,6 +194,11 @@ inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
             : ((sizeof(R) > 8) ? R(1e-24) : R(1e-15));
     R maxstep2 = R(0);
     const bool legacy = holo_legacy_complex_ops();
+    bool trace_d14_double = false;
+    if constexpr (std::is_same<R, double>::value) {
+        const char* trace = std::getenv("HOLO_D14_PRESEARCH_TRACE");
+        trace_d14_double = deg == 14 && trace && trace[0] == '1';
+    }
     for (int it = 0; it < max_iter; ++it) {
         if (iterations) *iterations = it + 1;
         maxstep2 = R(0);
@@ -177,6 +206,20 @@ inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
             Cplx<R> p = poly_eval_c(coeffs, deg, z[i]);
             Cplx<R> dp = polyder_eval_c(coeffs, deg, z[i]);
             Cplx<R> sum(R(0), R(0));
+            double nearest_separation = std::numeric_limits<double>::infinity();
+            int nearest_root = -1;
+            if (trace_d14_double) {
+                for (int j = 0; j < deg; ++j) {
+                    if (j == i) continue;
+                    const Cplx<R> d = z[i] - z[j];
+                    const double separation = std::hypot(
+                        static_cast<double>(d.re), static_cast<double>(d.im));
+                    if (separation < nearest_separation) {
+                        nearest_separation = separation;
+                        nearest_root = j;
+                    }
+                }
+            }
             for (int j = 0; j < deg; ++j) {
                 if (j == i) continue;
                 Cplx<R> d = z[i] - z[j];
@@ -194,7 +237,29 @@ inline std::vector<Cplx<R>> aberth(const R* coeffs, int deg, int max_iter = 200,
             } else {
                 w = p / (dp - p * sum);
             }
-            z[i] = z[i] - w;
+            Cplx<R> candidate = z[i] - w;
+            if (trace_d14_double) {
+                const Cplx<R> denominator = dp - p * sum;
+                std::fprintf(stderr,
+                    "D14GEN\tstatus=%s\tsweep=%d\troot=%d\tnearest=%d"
+                    "\tzRe=%.17g\tzIm=%.17g\tabsP=%.17g\tabsDP=%.17g"
+                    "\tminSep=%.17g\tabsS=%.17g\tabsB=%.17g\tabsW=%.17g"
+                    "\tcandidateRe=%.17g\tcandidateIm=%.17g\n",
+                    qfinite_(candidate.re) && qfinite_(candidate.im)
+                        ? "commit" : "nonfinite",
+                    it + 1, i, nearest_root, static_cast<double>(z[i].re),
+                    static_cast<double>(z[i].im),
+                    std::hypot(static_cast<double>(p.re), static_cast<double>(p.im)),
+                    std::hypot(static_cast<double>(dp.re), static_cast<double>(dp.im)),
+                    nearest_separation,
+                    std::hypot(static_cast<double>(sum.re), static_cast<double>(sum.im)),
+                    std::hypot(static_cast<double>(denominator.re),
+                               static_cast<double>(denominator.im)),
+                    std::hypot(static_cast<double>(w.re), static_cast<double>(w.im)),
+                    static_cast<double>(candidate.re),
+                    static_cast<double>(candidate.im));
+            }
+            z[i] = candidate;
             R s2 = cabs2(w);
             if (s2 > maxstep2) maxstep2 = s2;
         }
