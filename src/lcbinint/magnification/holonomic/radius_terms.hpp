@@ -31,6 +31,7 @@
 #include "lcbinint/magnification/holonomic/phi.hpp"
 #include "lcbinint/magnification/holonomic/poly_roots.hpp"
 #include "lcbinint/magnification/holonomic/quartic_sturm.hpp"
+#include "lcbinint/magnification/holonomic/quartic_local_bracket.hpp"
 #include "lcbinint/magnification/holonomic/root_pair.hpp"
 #include "lcbinint/magnification/holonomic/v2_profile.hpp"
 
@@ -606,6 +607,16 @@ inline std::vector<double> real_root_thetas_transport(
                     double v_min = std::numeric_limits<double>::infinity();
                     for (const auto& rp : next) v_min = std::fmin(v_min, rp.v);
                     if (v_min < kTransportCertifyV) {
+                        bool local_certified=false;
+#if !defined(HOLO_WARM_DISABLE_LOCAL_BRACKET)
+                        if(prof)++prof->local_bracket_attempts;
+                        std::array<double,4> tracked{};int count=0;
+                        for(const auto& pair:next){tracked[count++]=pair.t_minus();tracked[count++]=pair.t_plus();}
+                        std::sort(tracked.begin(),tracked.begin()+count);
+                        local_certified=local_bracket_detail::certify(pc,tracked,count);
+                        if(prof&&local_certified)++prof->local_bracket_successes;
+#endif
+                        if(!local_certified){
                         std::vector<double> cold = real_root_thetas(pc);
                         std::sort(cold.begin(), cold.end());
                         for (double thc : merged) {
@@ -620,6 +631,7 @@ inline std::vector<double> real_root_thetas_transport(
                         if (!cert_ok) {
                             ++w.certify_falls;
                             if (prof) ++prof->rootpair_certify_falls;
+                        }
                         }
                     }
                 }
