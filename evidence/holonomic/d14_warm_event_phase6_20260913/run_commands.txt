@@ -1,0 +1,6 @@
+g++ -O3 -DNDEBUG -std=gnu++17 -DHOLO_D14_EVENT_CONTRACT_RESEARCH=1 -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/whole_epoch_runner.cpp -o /tmp/d14_lazydd_whole -lquadmath
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 HOLO_D14_EAGER_DD_BLOCK=1 /tmp/d14_lazydd_whole INPUT whole_eager_dd.tsv 3
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 /tmp/d14_lazydd_whole INPUT whole_lazy_dd.tsv 3
+g++ -O3 -DNDEBUG -std=gnu++17 -DHOLO_D14_EVENT_CONTRACT_RESEARCH=1 -Isrc -march=native -funroll-loops -ffp-contract=fast -fno-math-errno benchmarks/holonomic/bench_d14_event_contract.cpp -o /tmp/d14_presearch_contract -lquadmath
+taskset -c 0 env HOLO_D14_LOCAL_PAIRS=1 HOLO_D14_ACTIVE_PRESEARCH=1 HOLO_D14_ACTIVE_TOL=1e-12 HOLO_D14_ACTIVE_PATIENCE=2 /tmp/d14_presearch_contract INPUT presearch_newton_case0.tsv 0
+python3 evidence/holonomic/d14_warm_event_phase6_20260913/summarize.py

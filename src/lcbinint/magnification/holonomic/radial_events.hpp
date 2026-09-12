@@ -519,6 +519,16 @@ inline bool holo_d14_local_pairs_enabled() {
     return on;
 }
 
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+inline bool holo_d14_eager_dd_block_research_enabled() {
+    static const bool on = [] {
+        const char* e = std::getenv("HOLO_D14_EAGER_DD_BLOCK");
+        return e && e[0] == '1';
+    }();
+    return on;
+}
+#endif
+
 inline double holo_d14_schedule_env_double(const char* name, double fallback,
                                            double maximum) {
     const char* e = std::getenv(name);
@@ -1352,6 +1362,21 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             seed_ok = false;
             break;
         }
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+    // Diagnostic snapshot of the balanced binary64 basin locator before any
+    // D14Real/qf polish.  This candidate is never accepted here; the event
+    // contract harness compares its downstream events and adaptive value with
+    // the fully certified oracle produced below.
+    if (d14_event_contract_capture && seed_ok) {
+        std::vector<Cplx<qf>> presearch_roots(deg);
+        for (int i = 0; i < deg; ++i)
+            presearch_roots[i] = Cplx<qf>((qf)zd[i].re * (qf)sscale,
+                                          (qf)zd[i].im * (qf)sscale);
+        d14_capture_event_contract_candidate(
+            out, "presearch", presearch_roots,
+            (qf)d14_worst_res(desc, deg, presearch_roots, dscale), false);
+    }
+#endif
 #if defined(HOLO_D14_TRACE_QF_ITERATIONS)
     const char* seed_reject_reason = seed_ok ? "" : "presearch_nonfinite_seed";
 #endif
@@ -1365,8 +1390,19 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     D14StructC<D14Real> screal;
     D14StructQf scqf;
     if (use_struct) {
-        scdd = d14_struct_cast<DD>(*sc);
-        if (holo_d14_real_enabled()) screal = d14_struct_cast<D14Real>(*sc);
+        // Only one compensated kernel is entered below.  Constructing both
+        // converted coefficient blocks charged every normal epoch for a DD
+        // block that the default D14Real path never reads.
+        if (holo_d14_real_enabled()) {
+            screal = d14_struct_cast<D14Real>(*sc);
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+            // A/B oracle for the removed zero work.  This branch is absent
+            // from ordinary builds and never changes the selected solver.
+            if (holo_d14_eager_dd_block_research_enabled())
+                scdd = d14_struct_cast<DD>(*sc);
+#endif
+        } else
+            scdd = d14_struct_cast<DD>(*sc);
         scqf = *sc;
     }
 

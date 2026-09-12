@@ -159,6 +159,35 @@ static int ambiguous_roots(const re_detail::D14StructQf& sc,
     return ambiguous;
 }
 
+static D14EventContractCandidate rootwise_newton_candidate(
+    const re_detail::D14StructQf& sc,
+    const std::vector<__float128>& descending,
+    const D14EventContractCandidate& source,int sweeps) {
+    using qf=__float128;
+    D14EventContractCandidate out=source;
+    out.stage="presearch_newton"+std::to_string(sweeps);
+    out.finite=out.roots.size()==14;
+    for(int sweep=0;sweep<sweeps && out.finite;++sweep) {
+        for(auto& root:out.roots) {
+            Cplx<qf> p,dp; re_detail::d14_struct_eval(sc,root,p,dp);
+            if(!finiteq(p.re)||!finiteq(p.im)||!finiteq(dp.re)||!finiteq(dp.im)||
+               (dp.re==0 && dp.im==0)) { out.finite=false; break; }
+            const auto step=p/dp;
+            root=root-step;
+            if(!finiteq(root.re)||!finiteq(root.im)) { out.finite=false; break; }
+        }
+    }
+    qf scale=0,worst=0;
+    for(qf c:descending) scale=std::max(scale,fabsq(c));
+    if(out.finite) for(const auto& root:out.roots) {
+        Cplx<qf> p,dp;re_detail::d14_struct_eval(sc,root,p,dp);
+        worst=std::max(worst,cabs(p)/(scale+(qf)1e-300));
+    }
+    out.worst_residual=(double)worst;
+    out.converged=false;
+    return out;
+}
+
 // Research certificate for a finite candidate root set.  Around every
 // candidate c, expand D14(c+w)=sum a_k w^k and search for a disjoint disk on
 // which the linear term dominates all other terms.  Rouche's theorem then
@@ -277,6 +306,13 @@ int main(int argc,char** argv) {
             std::reverse(descv.begin(),descv.end());
             const auto os=summarize_events(oracle.events);
             auto candidates=capture.candidates;
+            for(const auto& candidate:capture.candidates) {
+                if(candidate.stage!="presearch" || !candidate.finite) continue;
+                for(int sweeps:{1,2,4})
+                    candidates.push_back(
+                        rootwise_newton_candidate(sc,descv,candidate,sweeps));
+                break;
+            }
             D14EventContractCandidate oracle_candidate;
             oracle_candidate.stage="oracle";
             oracle_candidate.roots=capture.oracle_roots;
