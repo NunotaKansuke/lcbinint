@@ -200,6 +200,14 @@ inline bool gc2_accum_G(const GC2Rule& gc, int n, double m, double s,
             if (why) *why = KRejectReason::b;
             return false;
         }
+#if !defined(HOLO_K_DISABLE_SINGLE_SQRT)
+        const double ab = A * B;
+        const double ratio = S2 / ab;
+        // Preserve the original arithmetic at the exponent-range edges.
+        if (std::isnormal(ab) && std::isnormal(ratio))
+            G += gc.w[i] * std::sqrt(ratio) / A;
+        else
+#endif
         G += gc.w[i] * std::sqrt(S2) / (A * std::sqrt(A) * std::sqrt(B));
     }
     return true;
