@@ -914,11 +914,11 @@ inline GridArcs quartic_topology(double R, const PrimaryFrame& pf) {
         return {ArcKind::kDegenerate, 0, {}, false, cert.precision_tier,
                 cert.reciprocal};
 
-    // Keep the incumbent complex root path for endpoint seeds, but never let
-    // its imaginary-part filter decide whether the cell contains an arc.
-    // When it disagrees with the certified count, isolate the real roots in
-    // the selected projective chart with the qf Sturm chain.  Topology only
-    // needs the count, so the isolated coordinates are discarded here.
+#if defined(HOLO_TOPOLOGY_VERIFY_UNUSED_ROOTS)
+    // Optional legacy A/B cross-check. This count-only consumer does not
+    // use or return endpoint coordinates; actual radial evaluation still
+    // solves its own certified arc boundaries. Keep the old redundant
+    // root solve/isolation available for diagnostics.
     auto th = real_root_thetas(q.p);
     if (static_cast<int>(th.size()) != cert.root_count) {
         if (prof) ++prof->sturm_root_count_mismatch;
@@ -931,6 +931,7 @@ inline GridArcs quartic_topology(double R, const PrimaryFrame& pf) {
         }
         if (prof) ++prof->sturm_isolation_repairs;
     }
+#endif
     if (cert.root_count == 0) {
         const double ph0 = phi_lens(R, 0.0, pf);
         if (!std::isfinite(ph0) || ph0 == 0.0)
