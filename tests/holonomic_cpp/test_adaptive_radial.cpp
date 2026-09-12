@@ -75,6 +75,18 @@ int main(){
         for(int k=1;k<m;++k){auto& id=pp.samples[k*step];if(id>=0)continue;id=w.samples.size();AdaptiveSample s;s.R=fejer_rule(l).x[k-1];s.value[0]=std::exp(s.R);w.samples.push_back(s);++evals;}
         check(evals==m-1,"7/15/31/63 cumulative calls");pp.level=l;adaptive_detail::estimate(pp,w,1);
         double q=0;for(int k=1;k<m;++k)q+=fejer_rule(l).w[k-1]*std::exp(fejer_rule(l).x[k-1]);check(std::fabs(pp.q[0]-q)<1e-14,"reweighted samples");}
+    {
+        auto hybrid_panel=w.panels[0],weighted_panel=w.panels[0];
+        AdaptiveConfig hybrid_cfg,weighted_cfg;
+        weighted_cfg.radial_error_estimator=RadialErrorEstimator::WeightedDetail;
+        adaptive_detail::estimate(hybrid_panel,w,1,hybrid_cfg);
+        adaptive_detail::estimate(weighted_panel,w,1,weighted_cfg);
+        check(hybrid_panel.radial[0]>=
+                  hybrid_cfg.weighted_detail_floor_fraction*weighted_panel.radial[0],
+              "hybrid estimator retains weighted-detail safety floor");
+        check(hybrid_panel.radial[0]<=weighted_panel.radial[0],
+              "hybrid estimator never exceeds conservative detail");
+    }
     cfg.require_bound=true;w.reset();w.panels.push_back(p);result=adaptive_detail::integrate(w,cfg,model);check(result.stop==AdaptiveStop::BoundUnavailable,"no false rigorous bound");
     cfg.require_bound=false;cfg.max_node_evals=6;result=adaptive_detail::integrate(w,cfg,model);check(result.stop==AdaptiveStop::BudgetExceeded&&!result.value_converged,"budget is not success");
     cfg.max_node_evals=32768;w.reset();w.panels.push_back(p);result=adaptive_detail::integrate(w,cfg,[](double,double,int,const AdaptiveSample*){AdaptiveSample s;s.value[0]=NAN;return s;});check(result.stop==AdaptiveStop::Nonfinite,"nonfinite");

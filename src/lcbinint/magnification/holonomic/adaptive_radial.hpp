@@ -22,6 +22,7 @@ inline const char* adaptive_stop_name(AdaptiveStop s) {
     } return "Unknown";
 }
 enum class GradientPolicy { None, Strict, ValueFirst };
+enum class RadialErrorEstimator { WeightedDetail, HybridEmbedded };
 inline const char* gradient_policy_name(GradientPolicy p) {
     switch (p) {
     case GradientPolicy::None: return "None";
@@ -141,6 +142,13 @@ struct AdaptiveConfig {
     size_t value_first_gradient_node_budget=4096;
     int value_first_gradient_round_budget=4;
     bool collect_diagnostics=false;
+    // HybridEmbedded retains a fixed fraction of the weighted interpolation
+    // detail while also using the actual embedded Fejer integral difference.
+    // The floor prevents an accidentally cancelling embedded difference from
+    // hiding unresolved radial structure.
+    RadialErrorEstimator radial_error_estimator=RadialErrorEstimator::HybridEmbedded;
+    double nested_difference_safety=2.0;
+    double weighted_detail_floor_fraction=0.125;
     bool preserve_radial_offset=false; // explicit atlas experiment only
     GradientPolicy effective_gradient_policy() const {
         // Keep the old bool source-compatible for isolated callers. New code
@@ -271,6 +279,11 @@ inline bool valid_config(const AdaptiveConfig& c) {
     }
     if(c.effective_gradient_policy()==GradientPolicy::ValueFirst &&
        c.value_first_gradient_round_budget<0) return false;
+    if(!std::isfinite(c.nested_difference_safety)||c.nested_difference_safety<1.0)
+        return false;
+    if(!std::isfinite(c.weighted_detail_floor_fraction)||
+       c.weighted_detail_floor_fraction<0.0||c.weighted_detail_floor_fraction>1.0)
+        return false;
     return true;
 }
 inline GradientReason gradient_reason(AdaptiveStop s) {
@@ -308,7 +321,8 @@ inline AdaptiveResult failure_result(AdaptiveStop stop,GradientPolicy policy) {
     }
     return r;
 }
-inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc) {
+inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc,
+                     const AdaptiveConfig& cfg) {
     const int m=1<<p.level,step=256/m;
     const auto& rule=fejer_rule(p.level);
     std::array<Sum,6> q,inn,geo,rnd;
@@ -324,7 +338,7 @@ inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc) {
             geo[j].add(wt*s.geometry[j]);rnd[j].add(wt*s.roundoff[j]+eps*std::fabs(wt*s.value[j]));
         }
     }
-    AdaptiveVector detail{},previous{};
+    AdaptiveVector detail{},previous{},nested_difference{};
     for(int lev=p.level-1;lev<=p.level;++lev) {
         const int mm=1<<lev,st=256/mm,coarse=mm/2-1;
         const auto& r=fejer_rule(lev);
@@ -352,6 +366,18 @@ inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc) {
             }
         }
         for(int j=0;j<nc;++j) (lev==p.level?detail:previous)[j]=std::sqrt(3.14159265358979323846*norm[j]);
+    }
+    if(cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded) {
+        const int coarse_m=m/2,coarse_step=256/coarse_m;
+        const auto& coarse_rule=fejer_rule(p.level-1);
+        std::array<Sum,6> coarse_q;
+        for(int k=1;k<coarse_m;++k) {
+            const auto& s=w.samples[p.samples[k*coarse_step]];
+            for(int j=0;j<nc;++j) if(s.component_finite[j])
+                coarse_q[j].add(coarse_rule.w[k-1]*s.value[j]);
+        }
+        for(int j=0;j<nc;++j)
+            nested_difference[j]=std::fabs(q[j].get()-coarse_q[j].get());
     }
     p.event.fill(0);
     for(int side=0;side<2;++side) {
@@ -396,12 +422,22 @@ inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc) {
         if(j==0) p.value_resolved=decays;
         else p.gradient_resolved[j-1]=!p.gradient_invalid[j-1]&&decays;
         // Unresolved panels must refine even if their integral difference cancels.
-        p.radial[j]=detail[j];p.error[j]=(j>0&&p.gradient_invalid[j-1])
+        // Gradient contracts retain the conservative estimator in this
+        // phase.  Only the independently validated primal value uses the
+        // embedded integral difference.
+        const double radial=j==0&&cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded
+            ? std::max(cfg.weighted_detail_floor_fraction*detail[j],
+                       std::min(detail[j],cfg.nested_difference_safety*nested_difference[j]))
+            : detail[j];
+        p.radial[j]=radial;p.error[j]=(j>0&&p.gradient_invalid[j-1])
             ? std::numeric_limits<double>::infinity()
-            : detail[j]+floor+p.event[j];
+            : radial+floor+p.event[j];
     }
     p.resolved=p.value_resolved;
     for(int j=0;j<nc-1;++j) p.resolved=p.resolved&&p.gradient_resolved[j];
+}
+inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc) {
+    estimate(p,w,nc,AdaptiveConfig{});
 }
 // Callback evaluates a NEW mapped node. Existing sample values never change.
 // sample snapshots remain available after a split as same-cell root anchors.
@@ -575,7 +611,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             }
             if(!stored.reliable){invalid=true;return AdaptiveStop::TopologyUnresolved;}
         }
-        p.level=level;auto start=Clock::now();estimate(p,w,nc);stats.estimator_ms+=ms(start);
+        p.level=level;auto start=Clock::now();estimate(p,w,nc,cfg);stats.estimator_ms+=ms(start);
         if(cfg.collect_diagnostics) {
             AdaptiveRefinementRecord record;
             record.panel=ip;record.node_evaluations=stats.node_evaluations;
