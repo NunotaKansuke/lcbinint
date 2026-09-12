@@ -1,0 +1,34 @@
+{
+  "0": {
+    "cold": {
+      "baseline_p50": 1.064162,
+      "candidate_p50": 1.0461345,
+      "baseline_max": 54.034172,
+      "candidate_max": 53.882904,
+      "max_mu_difference": 0.0
+    },
+    "warm": {
+      "baseline_p50": 0.9895295,
+      "candidate_p50": 0.9744815,
+      "baseline_max": 53.893987,
+      "candidate_max": 53.807376,
+      "max_mu_difference": 0.0
+    }
+  },
+  "149": {
+    "cold": {
+      "baseline_p50": 0.5457289999999999,
+      "candidate_p50": 0.530492,
+      "baseline_max": 56.2367,
+      "candidate_max": 57.28649,
+      "max_mu_difference": 0.0
+    },
+    "warm": {
+      "baseline_p50": 0.550378,
+      "candidate_p50": 0.5488974999999998,
+      "baseline_max": 56.148175,
+      "candidate_max": 56.429107,
+      "max_mu_difference": 0.0
+    }
+  }
+}

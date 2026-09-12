@@ -1,0 +1,11 @@
+{
+  "host": "rogue1",
+  "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "compiler": "c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "affinity": "taskset -c 0, sequential runs",
+  "baseline_commit": "c118a2a",
+  "research_flags": [
+    "HOLO_D14_INTERLEAVED_HORNER",
+    "HOLO_D14_RESIDUAL_MAX_NORM"
+  ]
+}

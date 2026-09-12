@@ -903,10 +903,20 @@ inline qf d14_worst_res(const qf* desc, int deg,
     V2Profile* prof = v2_profile_current();
     const auto residual_begin = prof ? V2Clock::now() : V2Clock::time_point{};
     qf worst = 0;
+#if defined(HOLO_D14_RESIDUAL_MAX_NORM)
+    // sqrt and division by the same positive scale are monotone. Select
+    // the largest squared residual before applying these expensive qf ops.
+    for (const auto& r : roots) {
+        qf res2 = cabs2(poly_eval_c(desc, deg, r));
+        if (res2 > worst) worst = res2;
+    }
+    worst = sqrtq(worst) / (dscale + (qf)1e-300);
+#else
     for (const auto& r : roots) {
         qf res = cabs(poly_eval_c(desc, deg, r)) / (dscale + (qf)1e-300);
         if (res > worst) worst = res;
     }
+#endif
     if (prof)
         v2_profile_add_ms(&V2Profile::d14_residual_eval_ms, residual_begin,
                           V2Clock::now());
@@ -1054,8 +1064,20 @@ inline D14ActivePresearchResult d14_active_presearch(
                 continue;
             }
             ++active_count;
+#if defined(HOLO_D14_INTERLEAVED_HORNER)
+            // Independent Horner chains: preserve each chain's operation
+            // order, expose their independent multiplies to the compiler.
+            const auto z = out.roots[i];
+            Cplx<double> p(coeffs[0], 0.0), dp(coeffs[0] * deg, 0.0);
+            for (int k = 1; k < deg; ++k) {
+                p = p * z + Cplx<double>(coeffs[k], 0.0);
+                dp = dp * z + Cplx<double>(coeffs[k] * (deg-k), 0.0);
+            }
+            p = p * z + Cplx<double>(coeffs[deg], 0.0);
+#else
             const Cplx<double> p = poly_eval_c(coeffs, deg, out.roots[i]);
             const Cplx<double> dp = polyder_eval_c(coeffs, deg, out.roots[i]);
+#endif
             if (!std::isfinite(p.re) || !std::isfinite(p.im) ||
                 !std::isfinite(dp.re) || !std::isfinite(dp.im)) {
                 fail(3, it, i, -1, p, dp,
