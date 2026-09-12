@@ -190,6 +190,37 @@ inline void d14_struct_eval(const D14StructC<T>& s, const Cplx<T>& v,
     horner_vd(s.g4, 4, v, g, gp);
     horner_vd(s.z3, 3, v, z, zp);
 
+#ifdef HOLO_D14_SCALAR_CONSTANTS
+    struct RealScale {
+        T a;
+        Cplx<T> operator*(const Cplx<T>& x) const {
+            return {a*x.re,a*x.im};
+        }
+    };
+    const RealScale two{T(2)}, four{T(4)}, nine{T(9)};
+    Cplx<T> cc = c * c;
+    Cplx<T> vg = v * g;
+    Cplx<T> f = cc - four * vg;
+    Cplx<T> b = two * cc - nine * vg;
+    Cplx<T> gg = g * g;
+    Cplx<T> zz = z * z;
+    Cplx<T> vv = v * v;
+
+    Cplx<T> Dhat = f * gg + RealScale{T(8)} * (c * b * z)
+                 - RealScale{T(432)} * (vv * zz);
+
+    Cplx<T> ccp = c * cp;
+    Cplx<T> fp = two * ccp - four * g - four * (v * gp);
+    Cplx<T> bp = four * ccp - nine * g - nine * (v * gp);
+    Cplx<T> Dhatp = fp * gg + two * (f * (g * gp))
+                  + RealScale{T(8)} * ((cp * b + c * bp) * z + c * b * zp)
+                  - RealScale{T(864)} * (v * zz)
+                  - RealScale{T(864)} * (vv * (z * zp));
+
+    const RealScale k{T(4096)};
+    D = k * Dhat;
+    Dp = k * Dhatp;
+#else
     const Cplx<T> two(T(2), T(0)), four(T(4), T(0)), nine(T(9), T(0));
     Cplx<T> cc = c * c;
     Cplx<T> vg = v * g;
@@ -213,6 +244,7 @@ inline void d14_struct_eval(const D14StructC<T>& s, const Cplx<T>& v,
     const Cplx<T> k(T(4096), T(0));
     D = k * Dhat;
     Dp = k * Dhatp;
+#endif
 }
 
 // Real argument specialization for adaptive event conditioning metadata.

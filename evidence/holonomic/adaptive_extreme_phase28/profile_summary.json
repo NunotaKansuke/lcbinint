@@ -1,0 +1,37 @@
+{
+  "rows": 7216,
+  "steady_rows": 5412,
+  "status_mismatch": 0,
+  "node_mismatch": 0,
+  "max_scaled_mu": 0.0,
+  "steady_p50_ms": {
+    "whole": {
+      "baseline": 0.30915699999999996,
+      "candidate": 0.30829949999999995
+    },
+    "topology": {
+      "baseline": 0.12599849999999996,
+      "candidate": 0.124836
+    },
+    "presearch": {
+      "baseline": 0.008011,
+      "candidate": 0.00800749999999995
+    },
+    "real": {
+      "baseline": 0.022774499999999948,
+      "candidate": 0.02171
+    },
+    "qf": {
+      "baseline": 0.0,
+      "candidate": 0.0
+    },
+    "residual": {
+      "baseline": 0.012103499999999951,
+      "candidate": 0.01214949999999995
+    },
+    "classification": {
+      "baseline": 0.0020074999999999997,
+      "candidate": 0.0020249999999999
+    }
+  }
+}
