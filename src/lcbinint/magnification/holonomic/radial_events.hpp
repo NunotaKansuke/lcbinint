@@ -71,6 +71,40 @@ struct RadialEvent {
     double d14_condition = std::numeric_limits<double>::infinity();
 };
 
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+// Research-only snapshots taken before the incumbent qf-cold backstop may
+// replace a finite lower-tier root set.  They never participate in solver
+// acceptance.  A standalone harness uses them to ask whether the downstream
+// event/cell contract agrees with the final, fully certified root set.
+struct D14EventContractCandidate {
+    std::string stage;
+    std::vector<Cplx<__float128>> roots;
+    double worst_residual = std::numeric_limits<double>::infinity();
+    bool converged = false;
+    bool finite = false;
+};
+
+struct D14EventContractCapture {
+    std::vector<D14EventContractCandidate> candidates;
+    std::vector<Cplx<__float128>> oracle_roots;
+    int oracle_tier = -99;
+    double r_max = 0.0;
+};
+
+inline thread_local D14EventContractCapture* d14_event_contract_capture = nullptr;
+
+struct D14EventContractCaptureScope {
+    D14EventContractCapture* previous;
+    explicit D14EventContractCaptureScope(D14EventContractCapture& capture)
+        : previous(d14_event_contract_capture) {
+        capture = D14EventContractCapture{};
+        d14_event_contract_capture = &capture;
+    }
+    ~D14EventContractCaptureScope() { d14_event_contract_capture = previous; }
+    D14EventContractCaptureScope(const D14EventContractCaptureScope&) = delete;
+};
+#endif
+
 namespace re_detail {
 
 using qf = __float128;
@@ -761,7 +795,26 @@ struct D14Solve {
                    // 3 legacy qf-warm, -1 cold (seed non-finite)
     bool warm_seeded = false;  // the double presearch was seeded by a
                                // previous epoch's root set (Phase B2)
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+    std::vector<D14EventContractCandidate> event_contract_candidates;
+#endif
 };
+
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+inline void d14_capture_event_contract_candidate(
+    D14Solve& out, const char* stage,
+    const std::vector<Cplx<qf>>& roots, qf residual, bool converged) {
+    D14EventContractCandidate candidate;
+    candidate.stage = stage;
+    candidate.roots = roots;
+    candidate.worst_residual = static_cast<double>(residual);
+    candidate.converged = converged;
+    candidate.finite = roots.size() == 14;
+    for (const auto& root : roots)
+        candidate.finite = candidate.finite && finiteq(root.re) && finiteq(root.im);
+    out.event_contract_candidates.push_back(std::move(candidate));
+}
+#endif
 
 // Minimum-cost bijection used only by the opt-in per-root diagnostic when a
 // cold qf restart has changed Aberth root ordering.  The assignment does not
@@ -1503,6 +1556,10 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
             out.tier = 0;
             used_real = true;
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+            d14_capture_event_contract_candidate(
+                out, "d14real", out.roots, out.worst_res, real.converged);
+#endif
             // A finite D14Real iterate is not necessarily a usable complete
             // root set. In particular, ill-conditioned small roots can have
             // tiny polynomial residuals far from their correct locations.
@@ -1630,6 +1687,10 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                     }
 #endif
                 }
+#endif
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+                d14_capture_event_contract_candidate(
+                    out, "qf_warm", out.roots, out.worst_res, qf_converged);
 #endif
                 if (prof) {
                     ++prof->d14_qf_warm_calls;
@@ -2295,6 +2356,15 @@ inline std::vector<RadialEvent> radial_events(
                                      ? d14_warm
                                      : nullptr,
                                  &d14s);
+#if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+        if (d14_event_contract_capture) {
+            d14_event_contract_capture->candidates =
+                sol.event_contract_candidates;
+            d14_event_contract_capture->oracle_roots = sol.roots;
+            d14_event_contract_capture->oracle_tier = sol.tier;
+            d14_event_contract_capture->r_max = Rmax;
+        }
+#endif
         if (prof) {
             if (sol.warm_seeded) ++prof->d14_warm_seeded;
         }

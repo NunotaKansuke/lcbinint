@@ -331,6 +331,14 @@ target_include_directories(bench_d14_root_work_detail PRIVATE "${_SRC}")
 target_compile_options(bench_d14_root_work_detail PRIVATE ${_M7_FLAGS})
 target_link_libraries(bench_d14_root_work_detail PRIVATE quadmath)
 
+add_executable(bench_d14_event_contract
+    "${_REPO_ROOT}/benchmarks/holonomic/bench_d14_event_contract.cpp")
+target_include_directories(bench_d14_event_contract PRIVATE "${_SRC}")
+target_compile_options(bench_d14_event_contract PRIVATE ${_M7_FLAGS})
+target_compile_definitions(bench_d14_event_contract PRIVATE
+    HOLO_D14_EVENT_CONTRACT_RESEARCH=1)
+target_link_libraries(bench_d14_event_contract PRIVATE quadmath)
+
 # Uninstrumented V2 whole-epoch value/value+5Jac cold/warm timing.  The
 # angular reference is used only for parity; transport overrides force the
 # measured route to the current V2 production candidate.

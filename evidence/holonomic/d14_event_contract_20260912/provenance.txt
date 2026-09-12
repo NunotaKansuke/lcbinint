@@ -1,0 +1,14 @@
+repository=NunotaKansuke/lcbinint
+branch=dev/holonomic
+base_commit=c5582b12678797da9d33af7ce90343989a5a0743
+date=2026-09-12
+host=rogue1
+cpu=Intel Xeon Gold 6530
+affinity=core 0
+compiler=GCC 11.5.0
+input=evidence/holonomic/d14_overflow_whole_epoch_tail_20260912/input_snapshot.tsv
+input_rows=7216
+gradient_policy=None
+rtol=1e-3,1e-4
+oracle=incumbent final qf-backed D14 roots and production event/cell path
+production_router_changed=false
