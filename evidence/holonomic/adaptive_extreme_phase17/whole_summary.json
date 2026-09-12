@@ -1,0 +1,147 @@
+{
+  "rows": 14432,
+  "groups": {
+    "0.001": {
+      "cold": {
+        "baseline_ms": {
+          "p50": 0.4308084999999999,
+          "p90": 0.7245524999999999,
+          "p95": 0.8439442500000001,
+          "p99": 3.2148821500000015,
+          "max": 57.138498
+        },
+        "candidate_ms": {
+          "p50": 0.41484200000000004,
+          "p90": 0.7112944999999999,
+          "p95": 0.8278855,
+          "p99": 3.192341950000003,
+          "max": 55.917197
+        },
+        "baseline_converged": 7216,
+        "candidate_converged": 7216,
+        "status_mismatches": 0,
+        "nodes_mismatches": 0,
+        "max_relative_mu_difference": 0.0,
+        "baseline_reference_over_target": 0,
+        "candidate_reference_over_target": 0
+      },
+      "warm": {
+        "baseline_ms": {
+          "p50": 0.35718150000000004,
+          "p90": 0.648764,
+          "p95": 0.75858375,
+          "p99": 1.1758924500000112,
+          "max": 55.855502
+        },
+        "candidate_ms": {
+          "p50": 0.341652,
+          "p90": 0.6347464999999999,
+          "p95": 0.7440279999999999,
+          "p99": 1.1384093500000052,
+          "max": 58.862919
+        },
+        "baseline_converged": 7216,
+        "candidate_converged": 7216,
+        "status_mismatches": 0,
+        "nodes_mismatches": 0,
+        "max_relative_mu_difference": 0.0,
+        "baseline_reference_over_target": 0,
+        "candidate_reference_over_target": 0
+      },
+      "radial": {
+        "baseline_ms": {
+          "p50": 0.12172150000000001,
+          "p90": 0.23939300000000002,
+          "p95": 0.28858524999999996,
+          "p99": 0.3777212500000003,
+          "max": 0.700539
+        },
+        "candidate_ms": {
+          "p50": 0.1210875,
+          "p90": 0.2393015,
+          "p95": 0.2876612499999999,
+          "p99": 0.37901425000000033,
+          "max": 0.6965639999999998
+        },
+        "baseline_converged": 7216,
+        "candidate_converged": 7216,
+        "status_mismatches": 0,
+        "nodes_mismatches": 0,
+        "max_relative_mu_difference": 0.0,
+        "baseline_reference_over_target": 0,
+        "candidate_reference_over_target": 0
+      }
+    },
+    "0.0001": {
+      "cold": {
+        "baseline_ms": {
+          "p50": 0.4755035,
+          "p90": 0.7928599999999999,
+          "p95": 0.934871,
+          "p99": 3.2479444000000077,
+          "max": 56.125451
+        },
+        "candidate_ms": {
+          "p50": 0.45847599999999994,
+          "p90": 0.777754,
+          "p95": 0.9177095,
+          "p99": 3.234625750000005,
+          "max": 55.980731
+        },
+        "baseline_converged": 7216,
+        "candidate_converged": 7216,
+        "status_mismatches": 0,
+        "nodes_mismatches": 0,
+        "max_relative_mu_difference": 0.0,
+        "baseline_reference_over_target": 3,
+        "candidate_reference_over_target": 3
+      },
+      "warm": {
+        "baseline_ms": {
+          "p50": 0.40685799999999994,
+          "p90": 0.721313,
+          "p95": 0.85570525,
+          "p99": 1.4391171500000008,
+          "max": 55.916288
+        },
+        "candidate_ms": {
+          "p50": 0.39014249999999995,
+          "p90": 0.706331,
+          "p95": 0.8404804999999999,
+          "p99": 1.4253982500000002,
+          "max": 55.823236
+        },
+        "baseline_converged": 7216,
+        "candidate_converged": 7216,
+        "status_mismatches": 0,
+        "nodes_mismatches": 0,
+        "max_relative_mu_difference": 0.0,
+        "baseline_reference_over_target": 3,
+        "candidate_reference_over_target": 3
+      },
+      "radial": {
+        "baseline_ms": {
+          "p50": 0.157684,
+          "p90": 0.316496,
+          "p95": 0.38176175,
+          "p99": 0.5501577500000003,
+          "max": 1.055549
+        },
+        "candidate_ms": {
+          "p50": 0.15728,
+          "p90": 0.3152065,
+          "p95": 0.3791247499999999,
+          "p99": 0.5470653500000016,
+          "max": 1.127569
+        },
+        "baseline_converged": 7216,
+        "candidate_converged": 7216,
+        "status_mismatches": 0,
+        "nodes_mismatches": 0,
+        "max_relative_mu_difference": 0.0,
+        "baseline_reference_over_target": 3,
+        "candidate_reference_over_target": 3
+      }
+    }
+  }
+}

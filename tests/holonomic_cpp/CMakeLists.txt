@@ -77,6 +77,12 @@ target_compile_options(test_quartic_local_bracket PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_quartic_local_bracket PRIVATE quadmath)
 add_test(NAME holonomic_quartic_local_bracket COMMAND test_quartic_local_bracket)
 
+add_executable(test_d14_native_residual "${CMAKE_CURRENT_SOURCE_DIR}/test_d14_native_residual.cpp")
+target_include_directories(test_d14_native_residual PRIVATE "${_SRC}")
+target_compile_options(test_d14_native_residual PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_d14_native_residual PRIVATE quadmath)
+add_test(NAME holonomic_d14_native_residual COMMAND test_d14_native_residual)
+
 # Phase A step 2: fast seed-anchored band planner vs classify_cells (parity).
 add_executable(bench_fast_bands "${CMAKE_CURRENT_SOURCE_DIR}/bench_fast_bands.cpp")
 target_include_directories(bench_fast_bands PRIVATE "${_SRC}")

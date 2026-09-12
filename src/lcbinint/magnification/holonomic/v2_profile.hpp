@@ -130,6 +130,9 @@ struct V2Profile {
     u64 d14_dd_sweeps = 0;
     u64 d14_qf_warm_sweeps = 0;
     u64 d14_qf_cold_sweeps = 0;
+    u64 native_residual_calls=0,native_residual_pass=0,native_residual_violations=0;
+    u64 native_residual_root_pass=0,native_residual_root_violations=0;
+    double native_residual_ms=0;
     u64 local_bracket_attempts = 0;
     u64 local_bracket_successes = 0;
     u64 quartic_cold_calls = 0;

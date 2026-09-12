@@ -49,6 +49,7 @@
 #include "lcbinint/magnification/holonomic/fp_env.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
 #include "lcbinint/magnification/holonomic/poly_roots.hpp"
+#include "lcbinint/magnification/holonomic/d14_native_residual.hpp"
 #include "lcbinint/magnification/holonomic/v2_profile.hpp"
 
 namespace lcbinint::holonomic {
@@ -803,6 +804,7 @@ struct D14Solve {
     std::array<Cplx<qf>, 14> d14real_roots{};
     bool has_d14real_roots = false;
     qf worst_res = 0;
+    bool worst_res_is_upper_bound = false;
     int tier = 0;  // 0 dd-sufficed, 1 qf-warm escalation, 2 cold quad,
                    // 3 legacy qf-warm, -1 cold (seed non-finite)
     bool warm_seeded = false;  // the double presearch was seeded by a
@@ -903,6 +905,16 @@ inline qf d14_worst_res(const qf* desc, int deg,
     V2Profile* prof = v2_profile_current();
     const auto residual_begin = prof ? V2Clock::now() : V2Clock::time_point{};
     qf worst = 0;
+#if defined(HOLO_D14_NATIVE_RESIDUAL_AUDIT)
+    const auto native_begin=V2Clock::now();
+    const auto native=native_residual_detail::evaluate(desc,deg,roots,dscale);
+    if(prof){
+        ++prof->native_residual_calls;
+        if(native.valid && (__float128)native.upper<=(__float128)1e-13)++prof->native_residual_pass;
+        for(int i=0;i<deg;++i)if((native.mask&(1u<<i))&&(__float128)native.root_upper[i]<=(__float128)1e-13)++prof->native_residual_root_pass;
+        v2_profile_add_ms(&V2Profile::native_residual_ms,native_begin,V2Clock::now());
+    }
+#endif
 #if !defined(HOLO_D14_DISABLE_RESIDUAL_MAX_NORM)
     // sqrt and division by the same positive scale are monotone. Select
     // the largest squared residual before applying these expensive qf ops.
@@ -917,10 +929,43 @@ inline qf d14_worst_res(const qf* desc, int deg,
         if (res > worst) worst = res;
     }
 #endif
+#if defined(HOLO_D14_NATIVE_RESIDUAL_AUDIT)
+    if(prof && native.valid && !((__float128)native.upper>=worst))++prof->native_residual_violations;
+    if(prof)for(int i=0;i<deg;++i)if(native.mask&(1u<<i)){
+        qf exact=cabs(poly_eval_c(desc,deg,roots[i]))/(dscale+(qf)1e-300);
+        if(!((qf)native.root_upper[i]>=exact))++prof->native_residual_root_violations;
+    }
+#endif
     if (prof)
         v2_profile_add_ms(&V2Profile::d14_residual_eval_ms, residual_begin,
                           V2Clock::now());
     return worst;
+}
+
+// Root-wise screen. Only bounds below the existing 1e-13 gate replace qf
+// evaluations. The aggregate explicitly reports whether it is an upper bound.
+inline qf d14_screened_residual(const qf* desc,int deg,
+    const std::vector<Cplx<qf>>& roots,qf scale,bool& is_bound){
+    if(deg<1||deg>14||roots.size()!=static_cast<size_t>(deg)||!(scale>0)||!finiteq(scale)){
+        is_bound=false;return d14_worst_res(desc,deg,roots,scale);
+    }
+    auto* prof=v2_profile_current();
+    const auto begin=prof?V2Clock::now():V2Clock::time_point{};
+    const auto native=native_residual_detail::evaluate(desc,deg,roots,scale);
+    if(prof){++prof->native_residual_calls;v2_profile_add_ms(&V2Profile::native_residual_ms,begin,V2Clock::now());}
+    qf exact_square=0,upper=0;is_bound=false;
+    for(int i=0;i<deg;++i){
+        if((native.mask&(1u<<i))&&(qf)native.root_upper[i]<=(qf)1e-13){
+            upper=fmaxq(upper,(qf)native.root_upper[i]);is_bound=true;
+            if(prof)++prof->native_residual_root_pass;
+        }else{
+            exact_square=fmaxq(exact_square,cabs2(poly_eval_c(desc,deg,roots[i])));
+        }
+    }
+    const qf actual=sqrtq(exact_square)/(scale+(qf)1e-300);
+    const qf result=finiteq(actual)?fmaxq(upper,actual):actual;
+    if(prof)v2_profile_add_ms(&V2Profile::d14_residual_eval_ms,begin,V2Clock::now());
+    return result;
 }
 
 struct D14ActivePresearchResult {
@@ -1636,7 +1681,12 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                         : -1.0;
                 }
             }
-            out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+#if defined(HOLO_D14_NATIVE_RESIDUAL_SCREEN) && !defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
+            if(real.converged)
+                out.worst_res=d14_screened_residual(desc,deg,out.roots,dscale,out.worst_res_is_upper_bound);
+            else
+#endif
+            {out.worst_res = d14_worst_res(desc, deg, out.roots, dscale); out.worst_res_is_upper_bound=false;}
             out.tier = 0;
             used_real = true;
 #if defined(HOLO_D14_EVENT_CONTRACT_RESEARCH)
@@ -1656,7 +1706,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                 out.roots = aberth_d14_struct<qf>(
                     scqf, nullptr, qf_warm_max_iter, out.roots.data(), (qf)1e-20,
                     &qf_iters, &qf_converged, role_hints.data());
-                out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+                out.worst_res = d14_worst_res(desc, deg, out.roots, dscale); out.worst_res_is_upper_bound=false;
                 out.tier = 1;
 #if defined(HOLO_D14_QF_PAIR_POLISH_RESEARCH)
                 int pair_verify_iters = 0;
@@ -1884,7 +1934,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
         out.roots.resize(deg);
         for (int i = 0; i < deg; ++i)
             out.roots[i] = Cplx<qf>(qf_from_dd(zdd[i].re), qf_from_dd(zdd[i].im));
-        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale); out.worst_res_is_upper_bound=false;
         out.tier = 0;
         // dd normally reaches ~1e-15 rel residual; a worse result signals a
         // near-multiple cluster past ~106 bits -> escalate that solve to an
@@ -1905,7 +1955,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
                 v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, qf_end);
                 v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin, qf_end);
             }
-            out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+            out.worst_res = d14_worst_res(desc, deg, out.roots, dscale); out.worst_res_is_upper_bound=false;
             out.tier = 1;
             if (!(out.worst_res <= (qf)1e-12)) {
                 seed_ok = false;
@@ -1934,7 +1984,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, qf_end);
             v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin, qf_end);
         }
-        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale); out.worst_res_is_upper_bound=false;
         out.tier = 3;
         if (!(out.worst_res <= (qf)1e-12)) {
             seed_ok = false;
@@ -1977,7 +2027,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, qf_end);
             v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin, qf_end);
         }
-        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale); out.worst_res_is_upper_bound=false;
         out.tier = (out.tier == 0 && !compensated) ? -1 : 2;
 #if defined(HOLO_D14_TRACE_QF_ITERATIONS)
         if (re_detail::d14_qf_trace_enabled()) {
@@ -2049,7 +2099,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             v2_profile_add_ms(&V2Profile::d14_qf_ms, qf_begin, qf_end);
             v2_profile_add_ms(&V2Profile::d14_qf_polish_ms, qf_begin, qf_end);
         }
-        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+        out.worst_res = d14_worst_res(desc, deg, out.roots, dscale); out.worst_res_is_upper_bound=false;
         out.tier = 2;
 #if defined(HOLO_D14_TRACE_QF_ITERATIONS)
         if (re_detail::d14_qf_trace_enabled()) {
@@ -2320,7 +2370,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
             auto qf_begin = V2Clock::now();
             out.roots = aberth_d14_struct<qf>(*sc, desc, 400, nullptr,
                                               (qf)1e-22, &qf_iters);
-            out.worst_res = d14_worst_res(desc, deg, out.roots, dscale);
+            out.worst_res = d14_worst_res(desc, deg, out.roots, dscale); out.worst_res_is_upper_bound=false;
             out.tier = 2;
             if (prof) {
                 ++prof->d14_qf_cold_calls;

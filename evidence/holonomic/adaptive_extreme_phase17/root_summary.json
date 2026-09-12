@@ -1,0 +1,9 @@
+{
+  "rows": 7216,
+  "calls": 7330,
+  "root_evaluations": 102620,
+  "qualified_roots": 72186,
+  "root_bound_violations": 0,
+  "global_bound_violations": 0,
+  "native_p50_ms": 0.0029689999999999
+}

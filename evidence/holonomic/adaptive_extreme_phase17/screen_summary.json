@@ -1,0 +1,19 @@
+{
+  "baseline_p50_ms": {
+    "whole": 0.3890789999999999,
+    "topology": 0.19569550000000002,
+    "physics": 0.1268784999999999,
+    "residual": 0.026379
+  },
+  "candidate_p50_ms": {
+    "whole": 0.368329,
+    "topology": 0.17865299999999995,
+    "physics": 0.12747099999999995,
+    "residual": 0.010985
+  },
+  "native_calls": 7146,
+  "skipped_qf_roots": 70724,
+  "mu_relative_delta": 0.0,
+  "node_mismatch": 0,
+  "convergence_mismatch": 0
+}
