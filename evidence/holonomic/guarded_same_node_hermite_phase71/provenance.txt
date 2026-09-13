@@ -1,0 +1,63 @@
+Phase 71 reproducibility metadata
+=================================
+
+Repository: NunotaKansuke/lcbinint
+Branch: dev/holonomic
+Plan/source baseline: 9e409a3c096bab7ca2cec7c9a8d87e47c0cc1d6d
+Working tree implementation: Phase 71 changes recorded in this directory/checkpoint
+
+Input
+-----
+Path: evidence/holonomic/v2_adaptive_best_trajectory_20260913/input_snapshot.tsv
+SHA-256: 6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b
+The trajectory runner selects profile=uniform and u=0.0, and uses the existing
+corpus mapping LensParams{time, y, rho, 1/q, s, true}.
+
+Host and compiler
+-----------------
+CPU: Intel Xeon Gold 6530, 64 logical CPUs
+Affinity: taskset -c 0
+Compiler: c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+No other benchmark launched by this task overlapped the timed passes.
+
+Runner flags
+------------
+-O3 -DHOLO_ADAPTIVE_FOLD_QUARTIC_SEED -DNDEBUG -std=gnu++17
+-fext-numeric-literals -Isrc -DHOLO_D14_NATIVE_RESIDUAL_SCREEN
+-DHOLO_D14_DIRECT_CONVOLUTION -DHOLO_ADAPTIVE_STATIONARY_ENDPOINT
+-DHOLO_D14_WARM_NOISE_HANDOFF -DHOLO_D14_SCALAR_CONSTANTS
+-DHOLO_ARC_COMPACT_STORAGE -DHOLO_ADAPTIVE_SPARSE_ANCHOR
+-DHOLO_ADAPTIVE_SAMPLE_GROWTH -DHOLO_MV_RATIONAL_MIDPOINT
+-DHOLO_QUARTIC_WARM_SOLVE_TOL=1e-11 -march=native -funroll-loops
+-ffp-contract=fast -fno-math-errno -lquadmath
+
+The primary trajectory.tsv and trajectory_rep2.tsv binaries omit
+HOLO_ADAPTIVE_HERMITE_MICROTIMING. trajectory_microtimed.tsv is a separate
+diagnostic binary with that define; its whole-wall values are excluded from
+the primary comparison because per-call clock reads perturb the measured path.
+
+Comparison protocol
+-------------------
+RelTol: 1e-3 and 1e-4; atol=1e-16; GradientPolicy::None; HybridEmbedded;
+nested_difference_safety=2. For each input/tolerance, baseline and shadow are
+measured in alternating order. Full cold rebuilds D14/topology each epoch.
+Full warm uses prepared L2 D14 roots with topology reuse disabled. Radial-only
+builds each row's topology outside the timer and times flux_adaptive_integrate;
+its AdaptiveWorkspace is reused within the trajectory. Each primary pass has
+3608 uniform epochs per tolerance. The two untimed passes are pooled for the
+primary quantiles; the instrumented run is component timing only.
+
+Relevant source hashes at benchmark rebuild time
+-----------------------------------------------
+trajectory.cpp 2837ebbceb448f9a2623d9516bae190f97c6447c361c720d625110b92624e3f3
+panel_audit.cpp ef803e25f0a509393ae08e210c7f7bca3983ac521d1a8615f187f1985bbf7e6d
+run_trajectory.sh 8b4b9cc7c84c3cc5e74399e19e6582b380f2a573eebbb848860e649c63745244
+summarize.py a2376b6d363a8f0fa4b0c01d30e0a74d24eadb0df76a244c06ae22982bfc2916
+same_node_hermite.hpp 7ffdf0d8c2b6d86f25eac7bc1310e55630ac486f680b554bfd9b88eb34954329
+adaptive_epoch.hpp 9fdd62633f879e33f27c31520eadc2a17a40ccf93fab5ca96bd559e44769d840
+adaptive_radial.hpp f7770d3783358319f92e784b538c62042a0d3cc6dc894131acbf8210317b784b
+test_adaptive_radial.cpp c49001d6feaa5577e5cf5d910a00ec988461e70d3e10346ad463827a64dda744
+Primary raw hashes are listed in SHA256SUMS.
+
+Validation commands and output files are recorded in
+docs/holonomic/guarded_same_node_hermite_phase71_checkpoint_20260913_ja.md.

@@ -650,8 +650,13 @@ inline ArcSet adaptive_arc_intervals(
 inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     double u,const PrimaryFrame& pf,const CellPlan& cell,bool with_jac,
     bool warm,const AdaptiveSample* seed,
-    const AdaptiveConfig* adaptive_cfg=nullptr,double radius_lo=0) {
+    const AdaptiveConfig* adaptive_cfg=nullptr,double radius_lo=0,
+    bool request_radial_hermite_jet=false,
+    AdaptiveHermiteJet* hermite_jet_out=nullptr) {
     AdaptiveSample out;
+    if(hermite_jet_out)*hermite_jet_out=AdaptiveHermiteJet{};
+    const bool request_jet=request_radial_hermite_jet && hermite_jet_out && adaptive_cfg &&
+        adaptive_cfg->same_node_hermite_shadow && !with_jac && u==0.0;
     if(!with_jac && atlas_detail::try_pair_sample(R,radius_lo,jac,p,u,pf,cell,out))return out;
     out=AdaptiveSample{};
     // If rounding the abscissa can change its side of an atlas fold, the
@@ -689,7 +694,8 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         local.kind=ArcKind::kArcs;
         local.n_crossings=cert.root_count;
         return mapped_radius(R,jac,p,u,pf,local,with_jac,warm,seed,
-                             adaptive_cfg,radius_lo);
+                             adaptive_cfg,radius_lo,request_radial_hermite_jet,
+                             hermite_jet_out);
     }
     // D14/cell classification certifies that a full-circle cell has no
     // boundary crossing throughout its open radial interval.  Do not redo a
@@ -714,6 +720,22 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         return reject(AdaptiveSampleRejectReason::RootContinuationMismatch);
     const double D=kPi*p.rho*p.rho*(1-u/3),scale=jac/D;
     double f0=0,fh=0,ef0=0,efh=0;
+    const bool radial_hermite_requested=request_jet;
+    if(radial_hermite_requested)hermite_jet_out->attempted=true;
+    double radial_jet_elapsed=0;
+    adaptive_detail::Sum width_R_sum,weighted_width_R_sum;
+    bool width_R_finite=true,weighted_width_R_finite=true;
+    bool radial_jet_ok=radial_hermite_requested && arcs.kind==ArcKind::kArcs;
+    QuarticCoeffs pc_R{};
+    if(radial_hermite_requested) {
+#ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
+        const auto radial_jet_start=adaptive_detail::Clock::now();
+#endif
+        pc_R=boundary_quartic_dR(R,pf);
+#ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
+        radial_jet_elapsed+=adaptive_detail::ms(radial_jet_start);
+#endif
+    }
     std::array<double,5> df0{},dfh{},edf0{},edfh{};
     const auto pc=u!=0?arc_pc:QuarticCoeffs{};
     QuarticParamJac dpc{};if(with_jac)dpc=boundary_quartic_dp(R,pf);
@@ -748,6 +770,47 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         if(!(width>de+dl) || !std::isfinite(de+dl))
             return reject(AdaptiveSampleRejectReason::ArcWidthUnresolved);
         f0+=R*width;ef0+=R*(de+dl);
+        if(radial_hermite_requested) {
+#ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
+            const auto radial_jet_start=adaptive_detail::Clock::now();
+#endif
+            bool pair_ok=false;
+            const std::array<double,5> zero{};
+            for(bool reciprocal:{false,true}) {
+                const auto ap=reciprocal
+                    ? arc_pair_jac_reciprocal(te,tl,zero,zero)
+                    : arc_pair_jac(te,tl,zero,zero);
+                if(!ap.ok || !(ap.v>0) || !std::isfinite(ap.v))continue;
+                const RootPair rp{ap.m,ap.v};
+                const double pair_width=rp.delta_theta();
+                if(std::fabs(pair_width-width)>2e-9*(1+width))continue;
+                const QuarticCoeffs coeff=reciprocal
+                    ? boundary_quartic_reciprocal(arc_pc) : arc_pc;
+                const QuarticCoeffs coeff_R=reciprocal
+                    ? boundary_quartic_reciprocal(pc_R) : pc_R;
+                const auto dr=root_pair_dR(rp,coeff.p,coeff_R.p);
+                if(!dr.ok || !std::isfinite(dr.dm_dR) ||
+                   !std::isfinite(dr.dv_dR))continue;
+                const double sv=std::sqrt(ap.v);
+                const double den=(1+ap.m*ap.m-ap.v)*(1+ap.m*ap.m-ap.v)+4*ap.v;
+                if(!(sv>0) || !(den>0) || !std::isfinite(den))continue;
+                const double numerator=2*((1+ap.m*ap.m+ap.v)*dr.dv_dR-
+                                          4*ap.m*ap.v*dr.dm_dR);
+                const double wr=numerator/(sv*den);
+                if(std::isfinite(wr))width_R_sum.add(wr);
+                else width_R_finite=false;
+                const double wr_j2=hermite_scaled_product_ratio(
+                    std::array<double,4>{{R,numerator,jac,jac}},
+                    std::array<double,3>{{D,sv,den}});
+                if(std::isfinite(wr_j2))weighted_width_R_sum.add(wr_j2);
+                else weighted_width_R_finite=false;
+                pair_ok=std::isfinite(wr_j2);if(pair_ok)break;
+            }
+            radial_jet_ok=radial_jet_ok&&pair_ok;
+#ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
+            radial_jet_elapsed+=adaptive_detail::ms(radial_jet_start);
+#endif
+        }
         std::array<double,5> dte{},dtl{};
         if(with_jac)for(int j=0;j<5;++j){
             // Form the mapped derivative before division by the small fold
@@ -799,6 +862,27 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         }
     }
     out.value[0]=scale*((1-u)*f0+u*fh);
+    if(radial_hermite_requested) {
+        hermite_jet_out->elapsed_ms=radial_jet_elapsed;
+        if(radial_jet_ok) {
+            hermite_jet_out->F_over_norm=f0/D;
+            const double base_width_j2=hermite_scaled_product_ratio(
+                std::array<double,3>{{f0/R,jac,jac}},std::array<double,1>{{D}});
+            const double radial_width_j2=base_width_j2+weighted_width_R_sum.get();
+            hermite_jet_out->FR_J2_over_norm=radial_width_j2;
+            hermite_jet_out->radial_jet=std::isfinite(hermite_jet_out->F_over_norm)&&
+                                         weighted_width_R_finite&&
+                                         std::isfinite(base_width_j2)&&
+                                         std::isfinite(radial_width_j2);
+            if(width_R_finite) {
+                const double fr=(f0/R+R*width_R_sum.get())/D;
+                if(std::isfinite(fr)) {
+                    hermite_jet_out->FR_over_norm=fr;
+                    hermite_jet_out->fixed_r_derivative_finite=true;
+                }
+            }
+        }
+    }
     out.inner[0]=std::fabs(scale*u)*efh;
     out.geometry[0]=std::fabs(scale*(1-u))*ef0+std::fabs(scale*u)*ef0;
     out.roundoff[0]=eps*std::fabs(scale)*(std::fabs((1-u)*f0)+std::fabs(u*fh));
@@ -935,7 +1019,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     // assignment happened after integrate(), so setup_ms double-counted the
     // entire adaptive physics/estimator phase.
     const double setup_total_ms=adaptive_detail::ms(setup_start);
-    auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed,bool force_cold,double radius_lo){
+    auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed,bool force_cold,double radius_lo,int target_level,AdaptiveHermiteJet* hermite_jet){
 #ifdef HOLO_ADAPTIVE_FOLD_QUARTIC_SEED
         // Approximate initialization only. The ordinary quartic warm solve,
         // crossing-count check and physical endpoint gates still decide use.
@@ -980,7 +1064,11 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
 #endif
         return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],with_jacobian,
                                               force_cold?false:topo.from_warm_d14,
-                                              force_cold?nullptr:seed,&cfg,radius_lo);
+                                              force_cold?nullptr:seed,&cfg,radius_lo,
+                                              cfg.same_node_hermite_shadow &&
+                                              cfg.effective_gradient_policy()==GradientPolicy::None &&
+                                              !cfg.with_jacobian && u==0.0 && target_level==3,
+                                              hermite_jet);
     });
     result.stats.setup_ms=setup_total_ms;
     result.stats.setup_frame_ms=setup_frame_ms;

@@ -6,6 +6,74 @@ using namespace lcbinint::holonomic;
 int failures=0,checks=0;
 void check(bool x,const char* msg){++checks;if(!x){++failures;std::fprintf(stderr,"FAIL %s\n",msg);}}
 int main(){
+    {
+        const double over=hermite_scaled_product_ratio(
+            std::array<double,2>{{1e300,1e300}},std::array<double,1>{{1e300}});
+        const double under=hermite_scaled_product_ratio(
+            std::array<double,2>{{1e-200,1e-200}},std::array<double,1>{{1e-200}});
+        const double fold=hermite_scaled_product_ratio(
+            std::array<double,2>{{1e-200,1e-200}},
+            std::array<double,1>{{std::sqrt(1e-300)}});
+        check(std::isfinite(over)&&std::fabs(over/1e300-1)<2e-15,
+              "fold-regular product ratio avoids intermediate overflow");
+        check(under>0&&std::fabs(under/1e-200-1)<2e-15,
+              "fold-regular product ratio avoids intermediate underflow");
+        check(fold>0&&std::fabs(fold/1e-250-1)<2e-15,
+              "J squared over square-root v stays finite near a fold");
+    }
+    // Fixed Hermite integral weights reproduce every polynomial through
+    // degree 13 from the seven Fejer-II values and their same-node slopes.
+    for(int degree=0;degree<=13;++degree) {
+        std::array<double,7> f{},df{};
+        for(int i=1;i<=7;++i) {
+            const double x=std::cos(kPi*i/8.0);
+            f[i-1]=std::pow(x,degree);
+            df[i-1]=degree?degree*std::pow(x,degree-1):0.0;
+        }
+        const double exact=degree%2?0.0:2.0/(degree+1);
+        check(std::fabs(SameNodeHermite7::integrate7(f,df)-exact)<3e-13,
+              "same-node Hermite7 polynomial exactness");
+    }
+    for(int degree=0;degree<=5;++degree) {
+        std::array<double,7> f{},df{};
+        for(int i=1;i<=7;++i) {
+            const double x=std::cos(kPi*i/8.0);
+            f[i-1]=std::pow(x,degree);
+            df[i-1]=degree?degree*std::pow(x,degree-1):0.0;
+        }
+        const double exact=degree%2?0.0:2.0/(degree+1);
+        check(std::fabs(SameNodeHermite7::integrate3(f,df)-exact)<3e-13,
+              "same-node Hermite3 polynomial exactness");
+    }
+    {
+        const double h=.37,x=.42,R=1.7+.8*x+.3*x*x;
+        const double dR_dxi=h*(.8+.6*x),d2R_dx2=.6;
+        const double expected=2*R*dR_dxi*dR_dxi+R*R*d2R_dx2*h*h;
+        check(std::fabs(SameNodeHermite7::mapped_slope(R*R,2*R,dR_dxi,
+                                                       d2R_dx2,h)-expected)<1e-14,
+              "Hermite mapped slope includes child-panel scale exactly once");
+    }
+    {
+        // A degree-14 nonnegative bump has both value and first derivative
+        // zero at every H7 node, while its integral is positive.  Same-node
+        // data therefore cannot by themselves certify a rigorous remainder.
+        std::array<double,7> f{},df{};
+        const auto& rule=fejer_rule(3);
+        double q7=0;
+        for(int i=0;i<7;++i)q7+=rule.w[i]*f[i];
+        constexpr int n=32768;
+        double bump_integral=0;
+        for(int k=0;k<n;++k) {
+            const double x=-1.0+(2.0*k+1.0)/n;
+            double product=1.0;
+            for(int j=1;j<=7;++j)product*=x-std::cos(kPi*j/8.0);
+            bump_integral+=product*product;
+        }
+        bump_integral*=2.0/n;
+        check(q7==0.0&&SameNodeHermite7::integrate7(f,df)==0.0&&
+              bump_integral>0.0,
+              "same-node Hermite detail is not a certified remainder bound");
+    }
     // The local DD/qf fold kernel must reproduce the incumbent explicit
     // double quartic and its R derivative before it is used to replace the
     // generic polynomial-family fallback.
@@ -166,6 +234,33 @@ int main(){
     cfg.reuse_samples=false;w.reset();w.panels.push_back(p);auto uncached=adaptive_detail::integrate(w,cfg,exponential);
     check(std::fabs(cached.mu-uncached.mu)<1e-12,"cached and recomputed parity");
     check(uncached.stats.node_evaluations>uncached.stats.unique_nodes,"no-cache control really recomputes");
+    {
+        auto run_shadow=[](bool shadow,int max_level,double atol,double rtol) {
+            AdaptiveWorkspace hw;AdaptivePanel hp;hp.map={0,1,false,false};
+            hw.panels.push_back(hp);AdaptiveConfig hc;hc.initial_level=3;hc.max_level=max_level;
+            hc.max_depth=0;hc.same_node_hermite_shadow=shadow;
+            hc.tol.mu_atol=atol;hc.tol.mu_rtol=rtol;
+            return adaptive_detail::integrate(hw,hc,[](double x,double,int,const AdaptiveSample*,
+                    bool,double,int,AdaptiveHermiteJet* jet) {
+                AdaptiveSample s;s.value[0]=std::exp(.3*x);
+                if(jet){jet->attempted=true;jet->radial_jet=true;jet->g_xi=.3*s.value[0];}
+                return s;
+            });
+        };
+        const auto off=run_shadow(false,3,1,1),on=run_shadow(true,3,1,1);
+        check(off.value_converged&&on.value_converged&&off.mu==on.mu,
+              "Hermite shadow leaves accepted value bitwise unchanged");
+        check(off.stats.node_evaluations==on.stats.node_evaluations&&
+              off.stop==on.stop&&off.assurance==on.assurance,
+              "Hermite shadow leaves work and assurance unchanged");
+        check(on.stats.hermite_shadow_panels>0&&on.stats.hermite_shadow_local_budget_passes>0,
+              "Hermite shadow records a candidate without accepting it");
+        const auto off15=run_shadow(false,4,1e-30,1e-30);
+        const auto on15=run_shadow(true,4,1e-30,1e-30);
+        check(off15.stats.unique_nodes==15&&on15.stats.unique_nodes==15&&
+              off15.stats.node_evaluations==15&&on15.stats.node_evaluations==15,
+              "Hermite-rejected panel preserves seven nodes and adds only eight for level 4");
+    }
     cfg.reuse_samples=true;cfg.max_level=3;cfg.tol.mu_rtol=1e-5;
     w.reset();w.panels.push_back(p);auto split=adaptive_detail::integrate(w,cfg,exponential);
     check(split.stop==AdaptiveStop::Converged&&split.stats.splits>0,"h split converges");

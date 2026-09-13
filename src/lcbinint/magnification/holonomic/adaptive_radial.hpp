@@ -1,6 +1,7 @@
 #pragma once
 #include "lcbinint/magnification/holonomic/epoch_jacobian.hpp"
 #include "lcbinint/magnification/holonomic/nested_fejer2.hpp"
+#include "lcbinint/magnification/holonomic/same_node_hermite.hpp"
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
@@ -143,6 +144,9 @@ struct AdaptiveConfig {
     size_t value_first_gradient_node_budget=4096;
     int value_first_gradient_round_budget=4;
     bool collect_diagnostics=false;
+    // Diagnostic-only: records a same-node radial-Hermite candidate without
+    // changing returned values, stopping, status, or assurance.
+    bool same_node_hermite_shadow=false;
     // Experimental derivative-only controller. Primal mesh and tolerance are
     // unchanged; retain the incumbent for matched research comparisons.
     bool gradient_local_refinement=false;
@@ -204,6 +208,9 @@ struct AdaptiveStats {
     size_t sample_cold_retries=0,sample_cold_retry_successes=0;
     double physical_ms=0,estimator_ms=0,scheduler_ms=0,topology_ms=0,setup_ms=0;
     double setup_frame_ms=0,setup_cuts_ms=0,setup_event_ms=0,setup_panel_ms=0;
+    size_t hermite_jet_attempts=0,hermite_jet_successes=0,
+           hermite_shadow_panels=0,hermite_shadow_local_budget_passes=0;
+    double hermite_jet_ms=0,hermite_shadow_ms=0;
     std::vector<AdaptiveEventDiagnostic> event_diagnostics;
     std::vector<AdaptiveSampleDiagnostic> sample_diagnostics;
     std::vector<AdaptiveRefinementRecord> refinement_history;
@@ -241,6 +248,16 @@ struct AdaptiveSample {
     bool reliable=true;
     AdaptiveSampleRejectReason reject_reason=AdaptiveSampleRejectReason::None;
 };
+// Optional research diagnostics live in workspace sidecars so the default
+// production sample/panel storage does not grow when the feature is disabled.
+struct AdaptiveHermiteJet {
+    double F_over_norm=0,FR_over_norm=0,FR_J2_over_norm=0,g_xi=0,elapsed_ms=0;
+    bool attempted=false,radial_jet=false,fixed_r_derivative_finite=false;
+};
+struct AdaptiveHermitePanel {
+    bool attempted=false,seen=false,valid=false;
+    double q3=0,q7=0,correction=0,model_error=0,elapsed_ms=0;
+};
 struct AdaptivePanel {
     FoldRadialMap map;
     double xl=-1,xr=1;
@@ -262,8 +279,11 @@ struct AdaptiveWorkspace {
     std::vector<AdaptiveSample> samples;
     std::vector<AdaptivePanel> panels;
     std::vector<CellPlan> cells;
+    std::vector<AdaptiveHermiteJet> hermite_jets;
+    std::vector<AdaptiveHermitePanel> hermite_panels;
     std::uint64_t generation=0;
-    void reset() { samples.clear();panels.clear();cells.clear();++generation; }
+    void reset() { samples.clear();panels.clear();cells.clear();
+        hermite_jets.clear();hermite_panels.clear();++generation; }
 };
 namespace adaptive_detail {
 using Clock=std::chrono::steady_clock;
@@ -329,8 +349,9 @@ inline AdaptiveResult failure_result(AdaptiveStop stop,GradientPolicy policy) {
     }
     return r;
 }
-inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc,
-                     const AdaptiveConfig& cfg) {
+inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int nc,
+                     const AdaptiveConfig& cfg,
+                     size_t panel_index=std::numeric_limits<size_t>::max()) {
     const int m=1<<p.level,step=256/m;
     const auto& rule=fejer_rule(p.level);
     std::array<Sum,6> q,inn,geo,rnd;
@@ -445,10 +466,43 @@ inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc,
             ? std::numeric_limits<double>::infinity()
             : radial+floor+p.event[j];
     }
+    if(cfg.same_node_hermite_shadow && nc==1 && p.level==3 &&
+       panel_index<w.hermite_panels.size()) {
+#ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
+        const auto begin=Clock::now();
+#endif
+        auto& hp=w.hermite_panels[panel_index];
+        hp=AdaptiveHermitePanel{};
+        hp.attempted=true;
+        hp.seen=true;
+        std::array<double,7> f{},df{};
+        bool available=true;
+        for(int k=1;k<8;++k) {
+            const int id=p.samples[k*32];
+            if(id<0 || !w.samples[id].component_finite[0] ||
+               static_cast<size_t>(id)>=w.hermite_jets.size() ||
+               !w.hermite_jets[id].radial_jet) {available=false;break;}
+            f[k-1]=w.samples[id].value[0];
+            df[k-1]=w.hermite_jets[id].g_xi;
+        }
+        if(available) {
+            hp.q7=SameNodeHermite7::integrate7(f,df);
+            hp.q3=SameNodeHermite7::integrate3(f,df);
+            hp.correction=std::fabs(hp.q7-p.q[0]);
+            const double D7=detail[0];
+            hp.model_error=std::max(cfg.weighted_detail_floor_fraction*D7,
+                std::min(D7,cfg.nested_difference_safety*
+                              std::fabs(hp.q7-hp.q3)));
+            hp.valid=std::isfinite(hp.q7)&&std::isfinite(hp.model_error);
+        }
+#ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
+        hp.elapsed_ms=ms(begin);
+#endif
+    }
     p.resolved=p.value_resolved;
     for(int j=0;j<nc-1;++j) p.resolved=p.resolved&&p.gradient_resolved[j];
 }
-inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc) {
+inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int nc) {
     estimate(p,w,nc,AdaptiveConfig{});
 }
 // Callback evaluates a NEW mapped node. Existing sample values never change.
@@ -480,15 +534,38 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         double q=0,error=std::numeric_limits<double>::infinity();
         std::array<double,5> ledger{};
     } value_snapshot;
+    if(cfg.same_node_hermite_shadow) {
+        const size_t existing_bytes=w.samples.capacity()*sizeof(AdaptiveSample)+
+            w.panels.capacity()*sizeof(AdaptivePanel)+
+            w.hermite_jets.capacity()*sizeof(AdaptiveHermiteJet)+
+            w.hermite_panels.capacity()*sizeof(AdaptiveHermitePanel);
+        const size_t jet_growth=w.samples.size()>w.hermite_jets.capacity()
+            ? (w.samples.size()-w.hermite_jets.capacity())*sizeof(AdaptiveHermiteJet):0;
+        const size_t panel_growth=w.panels.size()>w.hermite_panels.capacity()
+            ? (w.panels.size()-w.hermite_panels.capacity())*sizeof(AdaptiveHermitePanel):0;
+        if(existing_bytes>cfg.max_bytes || jet_growth>cfg.max_bytes-existing_bytes ||
+           panel_growth>cfg.max_bytes-existing_bytes-jet_growth)
+            return failure_result(AdaptiveStop::BudgetExceeded,policy);
+        w.hermite_jets.resize(w.samples.size());
+        w.hermite_panels.resize(w.panels.size());
+    } else {
+        w.hermite_jets.clear();w.hermite_panels.clear();
+    }
     auto allocated_bytes=[&](){return w.samples.capacity()*sizeof(AdaptiveSample)+
-        w.panels.capacity()*sizeof(AdaptivePanel);};
+        w.panels.capacity()*sizeof(AdaptivePanel)+
+        w.hermite_jets.capacity()*sizeof(AdaptiveHermiteJet)+
+        w.hermite_panels.capacity()*sizeof(AdaptiveHermitePanel);};
     auto invoke_eval=[&](double R,double jac,int cell,const AdaptiveSample* seed,
-                         bool force_cold,double radius_lo)->AdaptiveSample {
-        // The fifth argument is an opt-in extension for the production
-        // adaptive epoch adapter.  Keep the four-argument callback source
-        // compatible for the small radial-controller tests and research
-        // callers that do not own a warm/cold path.
-        if constexpr(std::is_invocable_v<Evaluate,double,double,int,const AdaptiveSample*,bool,double>)
+                         bool force_cold,double radius_lo,int target_level,
+                         AdaptiveHermiteJet* hermite_jet)->AdaptiveSample {
+        // The target-level and optional jet output are opt-in extensions for
+        // the production adaptive epoch adapter. Preserve older callback
+        // shapes used by radial-controller tests and research callers.
+        if constexpr(std::is_invocable_v<Evaluate,double,double,int,const AdaptiveSample*,bool,double,int,AdaptiveHermiteJet*>)
+            return eval(R,jac,cell,seed,force_cold,radius_lo,target_level,hermite_jet);
+        else if constexpr(std::is_invocable_v<Evaluate,double,double,int,const AdaptiveSample*,bool,double,int>)
+            return eval(R,jac,cell,seed,force_cold,radius_lo,target_level);
+        else if constexpr(std::is_invocable_v<Evaluate,double,double,int,const AdaptiveSample*,bool,double>)
             return eval(R,jac,cell,seed,force_cold,radius_lo);
         else if constexpr(std::is_invocable_v<Evaluate,double,double,int,
                                          const AdaptiveSample*,bool>)
@@ -515,15 +592,19 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
     auto refine=[&](size_t ip,int level)->AdaptiveStop {
         auto& p=w.panels[ip];const int m=1<<level,step=256/m;
         size_t needed=0;for(int k=1;k<m;++k)needed+=!cfg.reuse_samples||p.samples[k*step]<0;
-        if(stats.node_evaluations+needed>cfg.max_node_evals ||
-           (w.samples.size()+needed)*sizeof(AdaptiveSample)+w.panels.size()*sizeof(AdaptivePanel)>cfg.max_bytes)
+        const size_t target=w.samples.size()+needed;
+        const size_t projected=target*sizeof(AdaptiveSample)+w.panels.size()*sizeof(AdaptivePanel)+
+            (cfg.same_node_hermite_shadow ?
+                target*sizeof(AdaptiveHermiteJet)+w.panels.size()*sizeof(AdaptiveHermitePanel) : 0);
+        if(stats.node_evaluations+needed>cfg.max_node_evals || projected>cfg.max_bytes)
             return AdaptiveStop::BudgetExceeded;
         if(gradient_phase && policy==GradientPolicy::ValueFirst &&
            (stats.node_evaluations-gradient_start_nodes+needed>cfg.value_first_gradient_node_budget ||
             gradient_rounds>=cfg.value_first_gradient_round_budget))
             return AdaptiveStop::BudgetExceeded;
-        const size_t target=w.samples.size()+needed;
-        const size_t growth=target>w.samples.capacity()?(target-w.samples.capacity())*sizeof(AdaptiveSample):0;
+        const size_t growth=(target>w.samples.capacity()?(target-w.samples.capacity())*sizeof(AdaptiveSample):0)+
+            (cfg.same_node_hermite_shadow && target>w.hermite_jets.capacity()
+                ? (target-w.hermite_jets.capacity())*sizeof(AdaptiveHermiteJet):0);
         // RootPairWarm uses two inline slots, so there is no per-sample heap
         // growth to reserve here; the AdaptiveSample size already includes it.
         if(allocated_bytes()+growth>cfg.max_bytes)return AdaptiveStop::BudgetExceeded;
@@ -534,7 +615,8 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             // samples and panels fit. Extra capacity must not steal a later
             // panel's budget or cause an earlier BudgetExceeded result.
             const size_t panel_slots=std::max(w.panels.capacity(),cfg.max_panels);
-            if(panel_slots<=cfg.max_bytes/sizeof(AdaptivePanel)) {
+            if(!cfg.same_node_hermite_shadow && w.hermite_jets.capacity()==0 &&
+               w.hermite_panels.capacity()==0 && panel_slots<=cfg.max_bytes/sizeof(AdaptivePanel)) {
                 const size_t remaining=cfg.max_bytes-panel_slots*sizeof(AdaptivePanel);
                 if(cfg.max_node_evals<=remaining/sizeof(AdaptiveSample) && target<=cfg.max_node_evals)
                     reserve_target=target+std::min(target/2,cfg.max_node_evals-target);
@@ -542,6 +624,8 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
 #endif
             w.samples.reserve(reserve_target);
         }
+        if(cfg.same_node_hermite_shadow && target>w.hermite_jets.capacity())
+            w.hermite_jets.reserve(target);
         for(int k=1;k<m;++k) {
             int slot=k*step;
             bool fresh=p.samples[slot]<0;
@@ -612,7 +696,9 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             }
 #endif
             auto start=Clock::now();
-            AdaptiveSample s=invoke_eval(mapped[0],mapped[1],p.cell,anchor,false,radius_lo);
+            AdaptiveHermiteJet sample_jet{};
+            AdaptiveSample s=invoke_eval(mapped[0],mapped[1],p.cell,anchor,false,radius_lo,level,
+                cfg.same_node_hermite_shadow?&sample_jet:nullptr);
             stats.physical_ms+=ms(start); if(anchor)++stats.root_anchors;
             ++stats.node_evaluations;
             const AdaptiveSampleRejectReason initial_reason=s.reject_reason;
@@ -626,13 +712,16 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                stats.node_evaluations<cfg.max_node_evals) {
                 ++stats.sample_cold_retries;
                 auto cold_start=Clock::now();
-                AdaptiveSample cold=invoke_eval(mapped[0],mapped[1],p.cell,nullptr,true,radius_lo);
+                AdaptiveHermiteJet cold_jet{};
+                AdaptiveSample cold=invoke_eval(mapped[0],mapped[1],p.cell,nullptr,true,radius_lo,level,
+                    cfg.same_node_hermite_shadow?&cold_jet:nullptr);
                 stats.physical_ms+=ms(cold_start);
                 ++stats.node_evaluations;
                 cold.R=mapped[0];cold.R_lo=radius_lo;cold.precise_R=cfg.preserve_radial_offset;
                 cold_retry_succeeded=cold.reliable;
                 if(cold_retry_succeeded)++stats.sample_cold_retry_successes;
                 s=std::move(cold);
+                sample_jet=cold_jet;
                 AdaptiveSample initial_failed;
                 initial_failed.reject_reason=initial_reason;
                 record_sample_reject(ip,slot,p.cell,level,mapped[0],
@@ -642,8 +731,40 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             } else if(!s.reliable) {
                 record_sample_reject(ip,slot,p.cell,level,mapped[0],s,false,false);
             }
+            if(cfg.same_node_hermite_shadow && policy==GradientPolicy::None) {
+                double mapped_jet_ms=0;
+                if(sample_jet.radial_jet) {
+#ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
+                    const auto mapped_jet_start=Clock::now();
+#endif
+                    const double h=.5*(p.xr-p.xl);
+                    const double t=.5*(1+x),width=p.map.b-p.map.a;
+                    double Rxx=0;
+                    if(p.map.left&&p.map.right)
+                        Rxx=(3.14159265358979323846*3.14159265358979323846)*
+                            width*.125*std::cos(3.14159265358979323846*t);
+                    else if(p.map.left)Rxx=.5*width;
+                    else if(p.map.right)Rxx=-.5*width;
+                    if(!cfg.preserve_radial_offset) {
+                        // mapped_radius combines (F_R/N)*(dR/dxi)^2 in scaled
+                        // arithmetic before adding the smooth map-curvature term.
+                        sample_jet.g_xi=SameNodeHermite7::mapped_slope_fold_regular(
+                            sample_jet.FR_J2_over_norm,sample_jet.F_over_norm,Rxx,h);
+                        sample_jet.radial_jet=std::isfinite(sample_jet.g_xi);
+                    } else sample_jet.radial_jet=false;
+#ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
+                    mapped_jet_ms=ms(mapped_jet_start);
+#endif
+                    if(sample_jet.radial_jet)++stats.hermite_jet_successes;
+                }
+                if(sample_jet.attempted) {
+                    ++stats.hermite_jet_attempts;
+                    stats.hermite_jet_ms+=sample_jet.elapsed_ms+mapped_jet_ms;
+                }
+            }
             s.R=mapped[0];s.R_lo=radius_lo;s.precise_R=cfg.preserve_radial_offset;
             p.samples[slot]=int(w.samples.size());w.samples.push_back(std::move(s));
+            if(cfg.same_node_hermite_shadow)w.hermite_jets.push_back(sample_jet);
             if(fresh)++stats.unique_nodes;
             auto& stored=w.samples.back();
             bool value_finite=true;
@@ -662,7 +783,19 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             }
             if(!stored.reliable){invalid=true;return AdaptiveStop::TopologyUnresolved;}
         }
-        p.level=level;auto start=Clock::now();estimate(p,w,nc,cfg);stats.estimator_ms+=ms(start);
+        p.level=level;auto start=Clock::now();estimate(p,w,nc,cfg,ip);stats.estimator_ms+=ms(start);
+        if(cfg.same_node_hermite_shadow && ip<w.hermite_panels.size() &&
+           w.hermite_panels[ip].attempted) {
+            const auto& hp=w.hermite_panels[ip];
+            ++stats.hermite_shadow_panels;stats.hermite_shadow_ms+=hp.elapsed_ms;
+            if(hp.valid) {
+                const double candidate_error=hp.model_error+p.inner[0]+
+                    p.geometry[0]+p.event[0]+p.roundoff[0];
+                if(p.value_resolved && candidate_error<=cfg.tol.budget(0,hp.q7))
+                    ++stats.hermite_shadow_local_budget_passes;
+            }
+            w.hermite_panels[ip].attempted=false;
+        }
         if(cfg.collect_diagnostics) {
             AdaptiveRefinementRecord record;
             record.panel=ip;record.node_evaluations=stats.node_evaluations;
@@ -773,7 +906,9 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         }
         if(p.level<cfg.max_level && !split_gradient){failure=refine(worst,p.level+1);continue;}
         if(p.depth>=cfg.max_depth||w.panels.size()+2>cfg.max_panels){failure=AdaptiveStop::BudgetExceeded;break;}
-        if(allocated_bytes()+2*sizeof(AdaptivePanel)>cfg.max_bytes){failure=AdaptiveStop::BudgetExceeded;break;}
+        const size_t split_growth=2*sizeof(AdaptivePanel)+
+            (cfg.same_node_hermite_shadow?2*sizeof(AdaptiveHermitePanel):0);
+        if(allocated_bytes()+split_growth>cfg.max_bytes){failure=AdaptiveStop::BudgetExceeded;break;}
         AdaptivePanel l,r;l.parent=r.parent=int(worst);l.map=r.map=p.map;l.cell=r.cell=p.cell;l.depth=r.depth=p.depth+1;
         l.left_uncertainty=p.left_uncertainty;r.right_uncertainty=p.right_uncertainty;
         l.left_radius_lo=p.left_radius_lo;r.right_radius_lo=p.right_radius_lo;
@@ -785,6 +920,11 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         const int parent_level=p.level;
         if(w.panels.capacity()<w.panels.size()+2)w.panels.reserve(w.panels.size()+2);
         w.panels.push_back(l);w.panels.push_back(r);
+        if(cfg.same_node_hermite_shadow) {
+            if(w.hermite_panels.capacity()<w.hermite_panels.size()+2)
+                w.hermite_panels.reserve(w.hermite_panels.size()+2);
+            w.hermite_panels.emplace_back();w.hermite_panels.emplace_back();
+        }
         failure=refine(w.panels.size()-2,cfg.initial_level);if(failure==AdaptiveStop::Converged)failure=refine(w.panels.size()-1,cfg.initial_level);
         if(failure==AdaptiveStop::Converged){
             w.panels[worst].active=false;
