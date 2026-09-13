@@ -1,0 +1,8 @@
+0 31.9444 -2.7996 107 2
+1 31.9444 -3.33557 171 2
+2 31.9444 -3.60353 299 2
+3 31.9444 -2.87051 315 2
+4 31.9444 27.7546 322 2
+terminate called after throwing an instance of 'std::invalid_argument'
+  what():  Fejer level must be 1..8
+evidence/holonomic/gradient_nodes_phase67/run.sh: line 5:    12 Aborted                 (core dumped) taskset -c 0 /tmp/p67_probe > evidence/holonomic/gradient_nodes_phase67/raw.tsv

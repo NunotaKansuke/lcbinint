@@ -1,0 +1,10 @@
+Internal ctest changing into directory: /tmp/lcbinint-holonomic-adaptive-build
+Test project /tmp/lcbinint-holonomic-adaptive-build
+    Start  2: holonomic_quartic_sturm
+1/2 Test  #2: holonomic_quartic_sturm ..........   Passed    0.00 sec
+    Start 17: holonomic_adaptive_radial
+2/2 Test #17: holonomic_adaptive_radial ........   Passed    0.07 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   0.07 sec

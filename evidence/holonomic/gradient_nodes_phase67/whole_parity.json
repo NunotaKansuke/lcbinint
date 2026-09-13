@@ -1,0 +1,17 @@
+{
+  "cold": {
+    "converged": 14432,
+    "mu_max_relative_difference": 0.0,
+    "status_changes": 0
+  },
+  "warm": {
+    "converged": 14432,
+    "mu_max_relative_difference": 0.0,
+    "status_changes": 0
+  },
+  "radial": {
+    "converged": 14432,
+    "mu_max_relative_difference": 0.0,
+    "status_changes": 0
+  }
+}

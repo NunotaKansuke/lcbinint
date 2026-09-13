@@ -69,6 +69,51 @@ int main(){
     check(one_invalid_result.grad_quality[0]==GradientQuality::Invalid&&
           one_invalid_result.grad_quality[1]!=GradientQuality::Invalid,
           "gradient invalidity is tracked per component");
+    // A fully converged gradient must terminate at the initial rule, rather
+    // than refining forever because the all-components AND starts at false.
+    {
+        AdaptiveWorkspace aw;AdaptivePanel ap;ap.map={0,1,false,false};aw.panels.push_back(ap);
+        AdaptiveConfig ac;ac.gradient_policy=GradientPolicy::Strict;
+        auto ar=adaptive_detail::integrate(aw,ac,[](double,double J,int,const AdaptiveSample*){
+            AdaptiveSample s;for(int j=0;j<6;++j)s.value[j]=(j+1)*J;return s;
+        });
+        check(ar.stop==AdaptiveStop::Converged&&ar.stats.unique_nodes==7,
+              "all converged gradients stop at initial rule");
+        check(ar.stats.first_gradient_contract_nodes==7,
+              "gradient convergence records first successful mesh");
+    }
+    // The primal integral is constant but its parameter derivative has a
+    // sharp boundary layer (f(R,p)=1+p*exp(20R), evaluated at p=0).
+    // Interrupt a split after one child: the complete parent must survive.
+    {
+        auto trial=[&](int rounds,size_t budget,bool fail_right){
+            AdaptiveWorkspace aw;AdaptivePanel ap;ap.map={0,1,false,false};aw.panels.push_back(ap);
+            AdaptiveConfig ac;ac.gradient_policy=GradientPolicy::ValueFirst;
+            ac.max_level=3;ac.value_first_gradient_round_budget=rounds;
+            ac.value_first_gradient_node_budget=budget;int calls=0;
+            auto ar=adaptive_detail::integrate(aw,ac,[&](double R,double J,int,const AdaptiveSample*){
+                AdaptiveSample s;s.value[0]=J;s.value[1]=J*std::exp(20*R);
+                if(fail_right&&++calls==15)s.reliable=false;
+                return s;
+            });
+            double covered=0;bool complete=true;
+            for(const auto& panel:aw.panels)if(panel.active){
+                covered+=(panel.xr-panel.xl)/2;complete=complete&&panel.level>=3;
+            }
+            check(covered==1&&complete,"interrupted split retains full domain coverage");
+            return ar;
+        };
+        const auto before=trial(0,4096,false);
+        for(const auto& ar:{trial(1,4096,false),trial(4,7,false)}){
+            check(ar.mu==before.mu&&ar.grad_mu[0]==before.grad_mu[0],
+                  "budget interruption preserves complete primal and derivative");
+            check(ar.grad_quality[0]==GradientQuality::FiniteUncertified,
+                  "budget interruption retains uncertified complete derivative");
+        }
+        const auto bad=trial(4,4096,true);
+        check(bad.grad_quality[0]==GradientQuality::Invalid,
+              "split rollback must not hide numerical invalidity");
+    }
     // A forced four-level walk checks cache exactly without an acceptance shortcut.
     w.reset();w.panels.push_back(p);int evals=0;
     for(int l=3;l<=6;++l){auto& pp=w.panels[0];int m=1<<l,step=256/m;

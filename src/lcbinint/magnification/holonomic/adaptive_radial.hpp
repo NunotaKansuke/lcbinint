@@ -698,9 +698,9 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             value_snapshot.ledger[0]=out.radial_error[0];value_snapshot.ledger[1]=out.inner_error[0];value_snapshot.ledger[2]=out.geometry_error[0];value_snapshot.ledger[3]=out.event_error[0];value_snapshot.ledger[4]=out.roundoff_error[0];
             if(gradients){gradient_phase=true;gradient_start_nodes=stats.node_evaluations;gradient_rounds=0;}
         }
-        bool all_gradient_pass=!gradients;
+        bool all_gradient_pass=true;
         if(gradients)for(bool x:gradient_pass)all_gradient_pass=all_gradient_pass&&x;
-        bool all_gradient_error_pass=!gradients;
+        bool all_gradient_error_pass=true;
         if(gradients)for(bool x:gradient_error_pass)all_gradient_error_pass=all_gradient_error_pass&&x;
         if(value_pass&&stats.first_value_pass_nodes==0)stats.first_value_pass_nodes=stats.node_evaluations;
         if(all_gradient_error_pass&&stats.first_gradient_error_pass_nodes==0)stats.first_gradient_error_pass_nodes=stats.node_evaluations;
@@ -759,11 +759,21 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         AdaptivePanel l,r;l.parent=r.parent=int(worst);l.map=r.map=p.map;l.cell=r.cell=p.cell;l.depth=r.depth=p.depth+1;
         l.left_uncertainty=p.left_uncertainty;r.right_uncertainty=p.right_uncertainty;
         l.left_radius_lo=p.left_radius_lo;r.right_radius_lo=p.right_radius_lo;
-        l.xl=p.xl;l.xr=r.xl=0.5*(p.xl+p.xr);r.xr=p.xr;p.active=false;
-        stats.split_discarded_nodes+=(1<<p.level)-1;++stats.splits;
+        l.xl=p.xl;l.xr=r.xl=0.5*(p.xl+p.xr);r.xr=p.xr;
+        // Commit the replacement only after BOTH children have estimates.
+        // A budget or numerical failure between the two evaluations must not
+        // turn the missing half of the integral into a zero contribution.
+        l.active=r.active=false;
+        const int parent_level=p.level;
         if(w.panels.capacity()<w.panels.size()+2)w.panels.reserve(w.panels.size()+2);
         w.panels.push_back(l);w.panels.push_back(r);
         failure=refine(w.panels.size()-2,cfg.initial_level);if(failure==AdaptiveStop::Converged)failure=refine(w.panels.size()-1,cfg.initial_level);
+        if(failure==AdaptiveStop::Converged){
+            w.panels[worst].active=false;
+            w.panels[w.panels.size()-2].active=true;
+            w.panels.back().active=true;
+            stats.split_discarded_nodes+=(1<<parent_level)-1;++stats.splits;
+        }
     }
     bool final_value_pass=false,final_gradient_pass=false;
     gather(&final_value_pass,&final_gradient_pass);
