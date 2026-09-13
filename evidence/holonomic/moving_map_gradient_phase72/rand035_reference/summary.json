@@ -1,0 +1,102 @@
+{
+  "comparisons": [
+    {
+      "axis": "X",
+      "case": "rand035",
+      "cross_checks": {
+        "coarser_resolution_mid_step": 17.042609569144428,
+        "coarser_resolution_same_step": 17.042609580090993,
+        "large_step_resolution4": 17.042609577897355,
+        "same_resolution_mid_step": 17.042609577879666
+      },
+      "reference": {
+        "chosen_resolution": {
+          "angular_nodes": 1024,
+          "radial_order": 160,
+          "radial_subdivisions": 32
+        },
+        "chosen_step": 0.00025,
+        "estimator": "5-point central FD of direct physical-value integral",
+        "observed_stability_spread": 8.73523831046441e-09,
+        "value_gradient": 17.04260957790129
+      },
+      "u": 0.0
+    },
+    {
+      "axis": "X",
+      "case": "rand035",
+      "cross_checks": {
+        "coarser_resolution_mid_step": 16.918289945863954,
+        "coarser_resolution_same_step": 16.918289952387862,
+        "large_step_resolution4": 16.91828995111512,
+        "same_resolution_mid_step": 16.91828995110824
+      },
+      "reference": {
+        "chosen_resolution": {
+          "angular_nodes": 1024,
+          "radial_order": 160,
+          "radial_subdivisions": 32
+        },
+        "chosen_step": 0.00025,
+        "estimator": "5-point central FD of direct physical-value integral",
+        "observed_stability_spread": 5.2442850062561774e-09,
+        "value_gradient": 16.918289951078755
+      },
+      "u": 0.5
+    },
+    {
+      "axis": "Y",
+      "case": "rand035",
+      "cross_checks": {
+        "coarser_resolution_mid_step": 36.01020644696949,
+        "coarser_resolution_same_step": 36.010206446955735,
+        "large_step_resolution4": 36.010185283057126,
+        "same_resolution_mid_step": 36.010206446983254
+      },
+      "reference": {
+        "chosen_resolution": {
+          "angular_nodes": 1024,
+          "radial_order": 128,
+          "radial_subdivisions": 16
+        },
+        "chosen_step": 0.00025,
+        "estimator": "5-point central FD of direct physical-value integral",
+        "observed_stability_spread": 4.718003765447065e-11,
+        "value_gradient": 36.010206446936074
+      },
+      "u": 0.0
+    },
+    {
+      "axis": "Y",
+      "case": "rand035",
+      "cross_checks": {
+        "coarser_resolution_mid_step": 35.747525136548894,
+        "coarser_resolution_same_step": 35.747525136517446,
+        "large_step_resolution4": 35.74751243820894,
+        "same_resolution_mid_step": 35.74752513658427
+      },
+      "reference": {
+        "chosen_resolution": {
+          "angular_nodes": 1024,
+          "radial_order": 128,
+          "radial_subdivisions": 16
+        },
+        "chosen_step": 0.00025,
+        "estimator": "5-point central FD of direct physical-value integral",
+        "observed_stability_spread": 5.896794164073071e-11,
+        "value_gradient": 35.747525136525304
+      },
+      "u": 0.5
+    }
+  ],
+  "phase": "Phase72 moving-map independent rand035 FD reference",
+  "reference_method": {
+    "all_direct_integrals_ok": true,
+    "all_topology_status_ok": true,
+    "direct_value_integrals": 144,
+    "finite_difference": "5-point central difference with fresh topology at each +/-h and +/-2h",
+    "fresh_cold_topology_rows": 32,
+    "note": "Observed stability spread is diagnostic, not a formal interval enclosure.",
+    "observable": "direct phi and independently reconstructed angular boundary; no production analytic gradient or K-rule"
+  }
+}

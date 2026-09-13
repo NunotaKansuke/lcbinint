@@ -1,0 +1,6 @@
+case	u	parameter	fd_reference	observed_spread	method	source
+caustic-cross	0.0	a	-2.4046891642370833	8.2600593032111647e-08	fresh topology + direct arc flux, Gauss-Legendre radial value FD	evidence/holonomic/moving_map_gradient_phase72/reference_fd.tsv
+rand035	0.0	X	17.042609577901288	8.7352383104644105e-09	5-point central FD of direct physical-value integral	rand035_reference/summary.json
+rand035	0.0	Y	36.010206446936074	4.7180037654470652e-11	5-point central FD of direct physical-value integral	rand035_reference/summary.json
+rand035	0.5	X	16.918289951078755	5.2442850062561774e-09	5-point central FD of direct physical-value integral	rand035_reference/summary.json
+rand035	0.5	Y	35.747525136525304	5.8967941640730714e-11	5-point central FD of direct physical-value integral	rand035_reference/summary.json
