@@ -2357,7 +2357,7 @@ inline D14Solve solve_d14(const std::vector<qf>& desc_v, int deg,
     // conjugacy snap.  This is deliberately outside all solver decisions;
     // it identifies the clusters that drive the DD/qf ladder without adding
     // another heuristic to the production root path.
-    if (prof) {
+    if (prof && prof->collect_d14_posthoc) {
         V2ProfileTimer diagnostic_timer(&V2Profile::d14_diagnostic_ms);
         if ((int)out.roots.size() != deg) ++prof->d14_root_count_bad;
         for (size_t i = 0; i < out.roots.size(); ++i) {

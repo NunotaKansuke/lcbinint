@@ -58,6 +58,8 @@ struct D14RootWorkRecord {
 };
 
 struct V2Profile {
+    // Optional post-solve observational counters; never solver certificates.
+    bool collect_d14_posthoc = true;
     using u64 = std::uint64_t;
 
     // D14 / radial-event oracle.

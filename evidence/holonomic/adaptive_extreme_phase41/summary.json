@@ -1,0 +1,168 @@
+{
+  "rows": 7216,
+  "ok_mismatches": 0,
+  "nodes_mismatches": 0,
+  "max_mu_difference": 0.0,
+  "profiles": {
+    "uniform": {
+      "rows": 2706,
+      "stages": {
+        "whole": {
+          "diagnostic_median_ms": 0.2839025,
+          "timing_median_ms": 0.2512355,
+          "paired_median_difference_ms": 0.0333745
+        },
+        "topology": {
+          "diagnostic_median_ms": 0.12466050000000001,
+          "timing_median_ms": 0.0923705,
+          "paired_median_difference_ms": 0.032472
+        },
+        "physics": {
+          "diagnostic_median_ms": 0.1073695,
+          "timing_median_ms": 0.106777,
+          "paired_median_difference_ms": 0.0004135000000000527
+        },
+        "arc": {
+          "diagnostic_median_ms": 0.0717665,
+          "timing_median_ms": 0.071737,
+          "paired_median_difference_ms": 0.0003214999999999954
+        },
+        "endpoint": {
+          "diagnostic_median_ms": 0.02127599999999999,
+          "timing_median_ms": 0.021264999999999996,
+          "paired_median_difference_ms": 4.1000000000001105e-05
+        },
+        "setup": {
+          "diagnostic_median_ms": 0.0100535,
+          "timing_median_ms": 0.009791000000000001,
+          "paired_median_difference_ms": 0.0002199999999999997
+        },
+        "real": {
+          "diagnostic_median_ms": 0.021956499999999997,
+          "timing_median_ms": 0.021868,
+          "paired_median_difference_ms": 0.00019399999999999973
+        },
+        "residual": {
+          "diagnostic_median_ms": 0.012046,
+          "timing_median_ms": 0.011799,
+          "paired_median_difference_ms": 0.0002009999999999998
+        },
+        "metadata": {
+          "diagnostic_median_ms": 0.012057,
+          "timing_median_ms": 0.0119805,
+          "paired_median_difference_ms": 0.00020300000000000092
+        },
+        "presearch": {
+          "diagnostic_median_ms": 0.008014,
+          "timing_median_ms": 0.0079515,
+          "paired_median_difference_ms": 6.399999999999982e-05
+        },
+        "diagnostic": {
+          "diagnostic_median_ms": 0.030718,
+          "timing_median_ms": 0.0,
+          "paired_median_difference_ms": 0.030718
+        },
+        "conjugate": {
+          "diagnostic_median_ms": 0.0034995,
+          "timing_median_ms": 0.003389,
+          "paired_median_difference_ms": 9.299999999999955e-05
+        },
+        "classification": {
+          "diagnostic_median_ms": 0.002018,
+          "timing_median_ms": 0.0019915,
+          "paired_median_difference_ms": 1.1999999999999858e-05
+        },
+        "probes": {
+          "diagnostic_median_ms": 0.0032375,
+          "timing_median_ms": 0.0031754999999999995,
+          "paired_median_difference_ms": 5.9000000000000025e-05
+        },
+        "k": {
+          "diagnostic_median_ms": 0.0,
+          "timing_median_ms": 0.0,
+          "paired_median_difference_ms": 0.0
+        }
+      }
+    },
+    "linear": {
+      "rows": 2706,
+      "stages": {
+        "whole": {
+          "diagnostic_median_ms": 0.34201499999999996,
+          "timing_median_ms": 0.309476,
+          "paired_median_difference_ms": 0.03317300000000001
+        },
+        "topology": {
+          "diagnostic_median_ms": 0.12535849999999998,
+          "timing_median_ms": 0.0932335,
+          "paired_median_difference_ms": 0.032267
+        },
+        "physics": {
+          "diagnostic_median_ms": 0.14713749999999998,
+          "timing_median_ms": 0.1463975,
+          "paired_median_difference_ms": 0.0003975000000000159
+        },
+        "arc": {
+          "diagnostic_median_ms": 0.082225,
+          "timing_median_ms": 0.08194649999999999,
+          "paired_median_difference_ms": 0.0003049999999999997
+        },
+        "endpoint": {
+          "diagnostic_median_ms": 0.02472749999999999,
+          "timing_median_ms": 0.0246205,
+          "paired_median_difference_ms": 3.5999999999992635e-05
+        },
+        "setup": {
+          "diagnostic_median_ms": 0.0100805,
+          "timing_median_ms": 0.009821,
+          "paired_median_difference_ms": 0.00020800000000000072
+        },
+        "real": {
+          "diagnostic_median_ms": 0.0220445,
+          "timing_median_ms": 0.0219385,
+          "paired_median_difference_ms": 0.00017200000000000375
+        },
+        "residual": {
+          "diagnostic_median_ms": 0.0121295,
+          "timing_median_ms": 0.011921,
+          "paired_median_difference_ms": 0.00016750000000000011
+        },
+        "metadata": {
+          "diagnostic_median_ms": 0.012218,
+          "timing_median_ms": 0.012098999999999999,
+          "paired_median_difference_ms": 0.0001860000000000004
+        },
+        "presearch": {
+          "diagnostic_median_ms": 0.008012499999999999,
+          "timing_median_ms": 0.007976500000000001,
+          "paired_median_difference_ms": 5.10000000000007e-05
+        },
+        "diagnostic": {
+          "diagnostic_median_ms": 0.030826,
+          "timing_median_ms": 0.0,
+          "paired_median_difference_ms": 0.030826
+        },
+        "conjugate": {
+          "diagnostic_median_ms": 0.0035455,
+          "timing_median_ms": 0.0034515,
+          "paired_median_difference_ms": 7.900000000000008e-05
+        },
+        "classification": {
+          "diagnostic_median_ms": 0.002029,
+          "timing_median_ms": 0.0020235,
+          "paired_median_difference_ms": 1.0999999999999942e-05
+        },
+        "probes": {
+          "diagnostic_median_ms": 0.0032500000000000003,
+          "timing_median_ms": 0.003206,
+          "paired_median_difference_ms": 4.2999999999999636e-05
+        },
+        "k": {
+          "diagnostic_median_ms": 0.009146000000000001,
+          "timing_median_ms": 0.009156000000000004,
+          "paired_median_difference_ms": 8.673617379884035e-19
+        }
+      }
+    }
+  }
+}
