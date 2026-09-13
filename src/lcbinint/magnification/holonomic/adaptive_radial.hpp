@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
+#include <cstdlib>
 #include <limits>
 #include <type_traits>
 
@@ -555,11 +556,36 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 if(!(rr>(__float128)p.map.a+p.left_radius_lo+p.left_uncertainty && rr<(__float128)p.map.b+p.right_radius_lo-p.right_uncertainty))return AdaptiveStop::EventLocationLimited;
             }else if(!(mapped[0]>p.map.a+p.left_uncertainty && mapped[0]<p.map.b-p.right_uncertainty))return AdaptiveStop::EventLocationLimited;
             const AdaptiveSample* anchor=nullptr;double distance=std::numeric_limits<double>::infinity();
+#ifdef HOLO_ADAPTIVE_SPARSE_ANCHOR
+            for(int ancestor=int(ip);ancestor>=0;ancestor=w.panels[ancestor].parent) {
+                const auto& panel=w.panels[ancestor];
+                // A level-L sample occupies k*(256/2^L), 1<=k<2^L.
+                // While refining this panel, include both old and new levels.
+                // Ascending slot order preserves the incumbent tie-breaking.
+                const int populated_level=ancestor==int(ip)?std::max(level,panel.level):panel.level;
+                const int stride=256/(1<<populated_level);
+                for(int pos=stride;pos<256;pos+=stride) {
+                    const int idx=panel.samples[pos];if(idx<0)continue;
+                    const double d=std::fabs(w.samples[idx].R-mapped[0]);
+                    if(d<distance && w.samples[idx].reliable){distance=d;anchor=&w.samples[idx];}
+                }
+            }
+#ifdef HOLO_ADAPTIVE_ANCHOR_AUDIT
+            const AdaptiveSample* reference=nullptr;double best=std::numeric_limits<double>::infinity();
+            for(int ancestor=int(ip);ancestor>=0;ancestor=w.panels[ancestor].parent)
+                for(int idx:w.panels[ancestor].samples)if(idx>=0){
+                    const double d=std::fabs(w.samples[idx].R-mapped[0]);
+                    if(d<best && w.samples[idx].reliable){best=d;reference=&w.samples[idx];}
+                }
+            if(reference!=anchor)std::abort();
+#endif
+#else
             for(int ancestor=int(ip);ancestor>=0;ancestor=w.panels[ancestor].parent)
             for(int idx:w.panels[ancestor].samples) if(idx>=0) {
                 double d=std::fabs(w.samples[idx].R-mapped[0]);
                 if(d<distance && w.samples[idx].reliable){distance=d;anchor=&w.samples[idx];}
             }
+#endif
             auto start=Clock::now();
             AdaptiveSample s=invoke_eval(mapped[0],mapped[1],p.cell,anchor,false,radius_lo);
             stats.physical_ms+=ms(start); if(anchor)++stats.root_anchors;
