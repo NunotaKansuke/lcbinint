@@ -548,6 +548,7 @@ inline std::vector<double> real_root_thetas_transport(
             double det_lo = std::numeric_limits<double>::infinity();
             double detsc_lo = std::numeric_limits<double>::infinity();
             for (int it = 0; it < kTransportNewton; ++it) {
+                if (prof) ++prof->rootpair_newton_iterations;
                 const EO f = eo_residuals(rp, pc);
                 const EOJac J = eo_jacobian(rp, pc);
                 const double det = J.E_m * J.O_v - J.E_v * J.O_m;
@@ -588,7 +589,7 @@ inline std::vector<double> real_root_thetas_transport(
                 ok = false;
                 break;
             }
-            if (prof) ++prof->rootpair_newton_iterations;
+            if (prof) ++prof->rootpair_newton_pairs_accepted;
         }
         // branch-aware acceptance: still the same ascending, non-overlapping
         // family of real inside arcs (rejects a corrector basin-flip whose

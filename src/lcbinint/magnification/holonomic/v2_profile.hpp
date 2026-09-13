@@ -204,7 +204,8 @@ struct V2Profile {
     u64 rootpair_vfloor_reject = 0;
     u64 rootpair_gap_reject = 0;
     u64 rootpair_residual_reject = 0;
-    u64 rootpair_newton_iterations = 0;
+    u64 rootpair_newton_iterations = 0; // attempted corrector loop iterations
+    u64 rootpair_newton_pairs_accepted = 0;
 
     // Limb-darkening evaluator and fallback reasons.
     u64 k_attempts = 0;
