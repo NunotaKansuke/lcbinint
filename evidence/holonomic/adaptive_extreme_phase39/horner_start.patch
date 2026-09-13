@@ -1,0 +1,24 @@
+diff --git a/src/lcbinint/magnification/holonomic/d14_structure.hpp b/src/lcbinint/magnification/holonomic/d14_structure.hpp
+index 862be5e..1fe61dd 100644
+--- a/src/lcbinint/magnification/holonomic/d14_structure.hpp
++++ b/src/lcbinint/magnification/holonomic/d14_structure.hpp
+@@ -172,6 +172,19 @@ inline D14StructC<D14Real> d14_struct_cast<D14Real>(const D14StructQf& s) {
+ template <class T, std::size_t N>
+ inline void horner_vd(const std::array<T, N>& c, int deg, const Cplx<T>& x,
+                       Cplx<T>& val, Cplx<T>& der) {
++#ifdef HOLO_D14_HORNER_START
++    // The first Horner step has a real leading coefficient and zero derivative.
++    // Research only: avoid multiplying these known zero components.
++    if(deg>0) {
++        der=Cplx<T>(c[deg],T(0));
++        val=Cplx<T>(c[deg]*x.re+c[deg-1],c[deg]*x.im);
++        for(int i=deg-2;i>=0;--i){
++            der=der*x+val;
++            val=val*x+Cplx<T>(c[i],T(0));
++        }
++        return;
++    }
++#endif
+     val = Cplx<T>(c[deg], T(0));
+     der = Cplx<T>(T(0), T(0));
+     for (int i = deg - 1; i >= 0; --i) {

@@ -1,0 +1,12 @@
+{
+  "base_commit": "800200b4e4cf425deb6288b96218ad1e58df8b64",
+  "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "compiler": "c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "timing_cpu": 0,
+  "repeats": 3,
+  "run_order": [
+    "candidate",
+    "baseline"
+  ],
+  "notes": "Reference, gradient and unit checks on CPU1 overlapped whole timing; shared cache/power interference possible. Baseline compilation overlapped candidate run. Not an interleaved randomized experiment."
+}
