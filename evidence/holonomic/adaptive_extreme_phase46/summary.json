@@ -1,0 +1,38 @@
+{
+  "rows": 7216,
+  "ok_mismatches": 0,
+  "node_mismatches": 0,
+  "max_scaled_mu_difference": 9.684796462903853e-12,
+  "old_certificate_mu_difference": 0.0,
+  "old_certificate_cold_count_differences": 0,
+  "profiles": {
+    "uniform": {
+      "whole": {
+        "baseline": 0.247007,
+        "candidate": 0.2486035
+      },
+      "arc": {
+        "baseline": 0.06891749999999999,
+        "candidate": 0.07059750000000001
+      },
+      "rootpair_ms": {
+        "baseline": 0.05237050000000001,
+        "candidate": 0.053779499999999994
+      }
+    },
+    "linear": {
+      "whole": {
+        "baseline": 0.30604549999999997,
+        "candidate": 0.30770450000000005
+      },
+      "arc": {
+        "baseline": 0.0793855,
+        "candidate": 0.08024649999999996
+      },
+      "rootpair_ms": {
+        "baseline": 0.0607785,
+        "candidate": 0.0626795
+      }
+    }
+  }
+}
