@@ -1,0 +1,38 @@
+{
+  "baseline": {
+    "quartic_cold": {
+      "linear": 15037,
+      "uniform": 15037
+    },
+    "quartic_cold_sweeps": {
+      "linear": 353459,
+      "uniform": 353459
+    },
+    "quartic_warm": {
+      "linear": 49307,
+      "uniform": 45555
+    },
+    "quartic_warm_sweeps": {
+      "linear": 261046,
+      "uniform": 236736
+    }
+  },
+  "candidate": {
+    "quartic_cold": {
+      "linear": 15037,
+      "uniform": 15037
+    },
+    "quartic_cold_sweeps": {
+      "linear": 296896,
+      "uniform": 296896
+    },
+    "quartic_warm": {
+      "linear": 41534,
+      "uniform": 37852
+    },
+    "quartic_warm_sweeps": {
+      "linear": 228780,
+      "uniform": 203552
+    }
+  }
+}
