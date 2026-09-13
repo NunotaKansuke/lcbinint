@@ -185,6 +185,11 @@ struct V2Profile {
     u64 arc_sets = 0;
     u64 arc_count = 0;
     u64 endpoint_calls = 0;
+    u64 endpoint_evaluations = 0;
+    u64 endpoint_repeated_arguments = 0;
+    u64 endpoint_stationary_stops = 0;
+    u64 endpoint_small_step_stops = 0;
+    u64 endpoint_limit_stops = 0;
     u64 endpoint_unreliable = 0;
     u64 f0_arcs = 0;
     u64 full_circle_calls = 0;

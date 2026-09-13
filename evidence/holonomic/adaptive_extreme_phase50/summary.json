@@ -1,0 +1,35 @@
+{
+  "rows": 7216,
+  "changed": {
+    "mu": 0,
+    "ok": 0,
+    "nodes": 0
+  },
+  "profiles": {
+    "linear": {
+      "endpoint_calls": 484366,
+      "endpoint_evaluations": 1556971,
+      "endpoint_repeated": 87701,
+      "endpoint_stationary": 154309,
+      "endpoint_small_step": 239061,
+      "endpoint_limit": 90996,
+      "limit_fraction": 0.1878662003526259,
+      "repeated_evaluation_fraction": 0.05632795986566224,
+      "evaluations_per_call": 3.2144514685176087,
+      "rows": 2706
+    },
+    "uniform": {
+      "endpoint_calls": 437614,
+      "endpoint_evaluations": 1397642,
+      "endpoint_repeated": 79481,
+      "endpoint_stationary": 139086,
+      "endpoint_small_step": 217284,
+      "endpoint_limit": 81244,
+      "limit_fraction": 0.18565219577070202,
+      "repeated_evaluation_fraction": 0.056867924690299804,
+      "evaluations_per_call": 3.1937780783978575,
+      "rows": 2706
+    }
+  },
+  "timing_warning": "Probe includes diagnostic argument scans; not a speed A/B."
+}
