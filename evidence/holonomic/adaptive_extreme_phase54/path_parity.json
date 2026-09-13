@@ -1,0 +1,9 @@
+{
+  "rootpair_calls": 0,
+  "rootpair_success": 0,
+  "rootpair_cold": 0,
+  "branch_reject": 0,
+  "newton_iterations": 0,
+  "quartic_cold": 0,
+  "quartic_warm": 0
+}

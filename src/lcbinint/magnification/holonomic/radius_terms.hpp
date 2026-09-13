@@ -487,9 +487,23 @@ inline bool transport_pairs_valid(const PairSet& ps,
         prev_w = w;
         if (!transport_is_root(pc, tlo) || !transport_is_root(pc, thi))
             return false;
+#ifdef HOLO_MV_RATIONAL_MIDPOINT
+        // Research only: theta=2 atan(m), evaluated without transcendental
+        // round trips. The TMax guard above bounds m. This changes rounding;
+        // it is not a stronger sign certificate than the incumbent phi test.
+        using phi_detail::C;
+        const double t=rp.m, den=1.0+t*t;
+        const C z{R*((1.0-t*t)/den), R*((2.0*t)/den)};
+        const C zb{z.re,-z.im}, zba=zb-C{pf.a,0.0};
+        const C f=z-C{pf.m0,0.0}/zb-C{1.0-pf.m0,0.0}/zba;
+        const C d=f-C{pf.X,pf.Y};
+        const double ph=1.0-(d.re*d.re+d.im*d.im)/(pf.rho*pf.rho);
+        if(!(ph>0.0))return false;
+#else
         double thm = std::fmod(2.0 * std::atan(rp.m), kTwoPi);
         if (thm < 0.0) thm += kTwoPi;
         if (!(phi_lens(R, thm, pf) > 0.0)) return false;
+#endif
     }
     return true;
 }
