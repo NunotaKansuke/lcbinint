@@ -1,0 +1,5 @@
+progress trajectories 32/64 rows=256
+progress trajectories 64/64 rows=512
+wrote 512 rows from 64 trajectories, reps=20, sink=460182
+[ perf record: Woken up 162 times to write data ]
+[ perf record: Captured and wrote 40.531 MB /tmp/p57.perf.data (4989 samples) ]
