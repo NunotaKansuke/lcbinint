@@ -28,6 +28,23 @@ int main(){
   auto duplicate=cap.oracle_roots;duplicate[0]=duplicate[1];
   if(tight_certificate(pf,duplicate).certified)++failures;
   if(tight_certificate(pf,duplicate,false,true).certified)++failures;
+  for(int order: {2,4,6,8}){
+   if(remainder_certificate(pf,duplicate,order).certified)++failures;
+   for(const auto& candidate:cap.candidates)if(k==1&&candidate.stage=="qf_warm")
+    if(remainder_certificate(pf,candidate.roots,order).certified)++failures;
+   auto cert=remainder_certificate(pf,cap.oracle_roots,order);
+   std::cout<<k<<" remainder "<<order<<' '<<cert.certified<<' '<<cert.isolated_disks<<'\n';
+   // Independently expand the entire polynomial at every accepted disk,
+   // and check the original full Taylor inequality at that same radius.
+   auto poly=positive_detail::polynomial<D14RoucheInterval>(pf);
+   for(int i=0;i<14;++i)if(cert.isolated[i]){
+    auto b=d14_rouche_shift(poly,cert.center[i]);qf r=cert.radius[i];
+    using positive_detail::up;using positive_detail::down;
+    qf rhs=d14_rouche_abs_upper(b[0]),power=up(r*r);
+    for(int j=2;j<=14;++j){rhs=up(rhs+up(d14_rouche_abs_upper(b[j])*power));power=up(power*r);}
+    if(!(down(d14_rouche_abs_lower(b[1])*r)>rhs))++failures;
+   }
+  }
   auto poly=positive_detail::polynomial<D14RoucheInterval>(pf);
   for(auto center:cap.oracle_roots){
    auto reference=d14_rouche_shift(poly,center),candidate=point_interval_shift(poly,center);

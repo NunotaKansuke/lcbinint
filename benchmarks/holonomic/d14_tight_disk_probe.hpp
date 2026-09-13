@@ -169,4 +169,65 @@ inline D14RoucheCertificate tight_certificate(
 }
 
 
+// Research Taylor-remainder certificate. For |w|<=r,
+// |P(c+w)-P(c)-P'(c)w| <= r^2 sum k(k-1)/2 |p_k| (|c|+r)^(k-2).
+// General order m keeps Taylor terms 0..m-1 and bounds the remainder by
+// r^m sum binom(k,m)|p_k|(|c|+r)^(k-m), using the integral Taylor remainder.
+// All bounds are outward; no sampling of the circle is used.
+inline D14RoucheCertificate remainder_certificate(
+    const PrimaryFrame& pf,const std::vector<Cplx<qf>>& roots,int order=2) {
+    using positive_detail::down;using positive_detail::up;
+    D14RoucheCertificate out;
+    if(roots.size()!=14||order<2||order>14||!positive_detail::environment_ok())return out;
+    const auto p=positive_detail::polynomial<D14RoucheInterval>(pf);
+    if(p.degree!=14)return out;
+    for(int i=0;i<14;++i){
+        if(!finiteq(roots[i].re)||!finiteq(roots[i].im))return out;
+        const qf cut=(qf)1e-8*(1+fabsq(roots[i].re));
+        out.center[i]=fabsq(roots[i].im)<=cut?Cplx<qf>{roots[i].re,0}:roots[i];
+    }
+    auto mul=[](D14RoucheComplex x,Cplx<qf> c){
+        return D14RoucheComplex{
+            point_times_interval(c.re,x.re)-point_times_interval(c.im,x.im),
+            point_times_interval(c.re,x.im)+point_times_interval(c.im,x.re)};
+    };
+    for(int i=0;i<14;++i){
+        const auto c=out.center[i];std::array<D14RoucheComplex,14> jet{};jet[0]={p.c[14],{}};
+        for(int k=13;k>=0;--k){
+            for(int j=order-1;j>=1;--j)jet[j]=mul(jet[j],c)+jet[j-1];
+            jet[0]=mul(jet[0],c)+D14RoucheComplex{p.c[k],{}};
+        }
+        qf sep=HUGE_VALQ;
+        for(int j=0;j<14;++j)if(i!=j)sep=fminq(sep,d14_rouche_abs_lower(
+            d14_rouche_point(c)-d14_rouche_point(out.center[j])));
+        const qf linear=d14_rouche_abs_lower(jet[1]);
+        const qf constant=d14_rouche_abs_upper(jet[0]);
+        const qf center_norm=d14_rouche_abs_upper(d14_rouche_point(c));
+        if(!(linear>0)||!finiteq(linear)||!(sep>0)||!finiteq(sep))return out;
+        qf radius=fmaxq(up(up(2*constant)/linear),(qf)1e-30*(1+cabs(c)));
+        bool isolated=false;
+        for(int attempt=0;attempt<24&&up(3*radius)<sep;++attempt){
+            const qf extent=up(center_norm+radius);qf majorant=0;
+            for(int k=14;k>=order;--k){
+                int choose=1;for(int j=1;j<=order;++j)choose=choose*(k-j+1)/j;
+                const qf coeff=fmaxq(fabsq(p.c[k].lo),fabsq(p.c[k].hi));
+                majorant=up(up(majorant*extent)+up((qf)choose*coeff));
+            }
+            qf rhs=constant,power=up(radius*radius);
+            for(int k=2;k<order;++k){
+                rhs=up(rhs+up(d14_rouche_abs_upper(jet[k])*power));power=up(power*radius);
+            }
+            rhs=up(rhs+up(power*majorant));
+            const qf lhs=down(linear*radius);
+            if(finiteq(lhs)&&finiteq(rhs)&&lhs>rhs){isolated=true;break;}
+            radius=up(2*radius);
+        }
+        out.radius[i]=radius;
+        if(!isolated){out.failed_root=i;return out;}
+        out.isolated[i]=true;++out.isolated_disks;
+    }
+    out.certified=out.isolated_disks==14;return out;
+}
+
+
 }
