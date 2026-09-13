@@ -1,0 +1,831 @@
+[
+  {
+    "source": "/tmp/lcbinint_pure_kernel_reference_all_1e-6_20260909/plot_parts_vbm_reltol_1e-6_reference/d10_c2/results.json",
+    "data": {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm_direct_xy",
+      "coordinate_mode": "direct_internal_source_xy",
+      "point_source_hint_mode": "reuse_preplanned_point_magnification",
+      "comparison_mode": "forced_inverse_ray_vs_forced_vbm_contour",
+      "lcbinint_kernel_mode": "forced_inverse_ray_cartesian_or_polar",
+      "vbm_kernel_mode": "BinaryMagDark_annular_contour",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 115,
+      "s": 1.9599718681909375,
+      "q": 0.0007606575340568715,
+      "rho": 0.0004224285403319365,
+      "x": 0.0016332206677331243,
+      "y": 0.00024733848153663933,
+      "d_over_rho": 1.0,
+      "point_magnification": 1758.663144355869,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.001,
+      "reference_mode": "accuracy_only_vbm_call_at_reltol",
+      "reference": [
+        2430.3365436125264,
+        1936.1101048538053,
+        1581.2061363808323,
+        1417.94411066708
+      ],
+      "reference_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "grid": {
+        "cartesian": {
+          "required": [
+            13,
+            13,
+            13,
+            13
+          ],
+          "samples": {
+            "0": {
+              "nbin": [
+                13,
+                25,
+                50
+              ],
+              "magnification": [
+                2430.342008922706,
+                2430.38600487294,
+                2430.3736124231764
+              ],
+              "successive_relative_change": [
+                null,
+                1.8102453744171143e-05,
+                5.098989595700451e-06
+              ],
+              "confirmation_run": [
+                13,
+                25,
+                50
+              ],
+              "status": "self_converged"
+            },
+            "1": {
+              "nbin": [
+                13,
+                25,
+                50
+              ],
+              "magnification": [
+                1935.8934267468942,
+                1935.9585990345827,
+                1935.9882547724908
+              ],
+              "successive_relative_change": [
+                null,
+                3.366409163965757e-05,
+                1.5318139371460216e-05
+              ],
+              "confirmation_run": [
+                13,
+                25,
+                50
+              ],
+              "status": "self_converged"
+            },
+            "2": {
+              "nbin": [
+                13,
+                25,
+                50
+              ],
+              "magnification": [
+                1580.7023130786724,
+                1580.839521417539,
+                1580.8587743139697
+              ],
+              "successive_relative_change": [
+                null,
+                8.679460312544758e-05,
+                1.2178757991286233e-05
+              ],
+              "confirmation_run": [
+                13,
+                25,
+                50
+              ],
+              "status": "self_converged"
+            },
+            "3": {
+              "nbin": [
+                13,
+                25,
+                50
+              ],
+              "magnification": [
+                1417.8314427494574,
+                1417.926692168348,
+                1417.9396371460139
+              ],
+              "successive_relative_change": [
+                null,
+                6.717513635689463e-05,
+                9.129427887349108e-06
+              ],
+              "confirmation_run": [
+                13,
+                25,
+                50
+              ],
+              "status": "self_converged"
+            }
+          },
+          "source": "self_convergence_search",
+          "confirmation_points": 3,
+          "point_timeout": 30.0,
+          "predicted": [
+            50,
+            50,
+            50,
+            50
+          ],
+          "kernel_mode": "forced_inverse_ray_cartesian",
+          "seconds": [
+            0.062102297,
+            0.061842715,
+            0.109954749,
+            0.061112172
+          ],
+          "errors": [
+            2.2487873928735565e-06,
+            0.00011191414494862375,
+            0.0003186322710035948,
+            7.945864493170836e-05
+          ],
+          "vbm_reference_errors": [
+            2.2487873928735565e-06,
+            0.00011191414494862375,
+            0.0003186322710035948,
+            7.945864493170836e-05
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        },
+        "polar": {
+          "required": [
+            27,
+            27,
+            27,
+            27
+          ],
+          "samples": {
+            "0": {
+              "nbin": [
+                27,
+                53,
+                106
+              ],
+              "magnification": [
+                2430.22195291496,
+                2430.3960036793856,
+                2430.356222459397
+              ],
+              "successive_relative_change": [
+                null,
+                7.161415841775489e-05,
+                1.636847290981484e-05
+              ],
+              "confirmation_run": [
+                27,
+                53,
+                106
+              ],
+              "status": "self_converged"
+            },
+            "1": {
+              "nbin": [
+                27,
+                53,
+                106
+              ],
+              "magnification": [
+                1935.6778203245265,
+                1935.985090564197,
+                1935.9802730079416
+              ],
+              "successive_relative_change": [
+                null,
+                0.00015871518906220952,
+                2.488432512739454e-06
+              ],
+              "confirmation_run": [
+                27,
+                53,
+                106
+              ],
+              "status": "self_converged"
+            },
+            "2": {
+              "nbin": [
+                27,
+                53,
+                106
+              ],
+              "magnification": [
+                1580.2375643092687,
+                1580.785426864962,
+                1580.850779688074
+              ],
+              "successive_relative_change": [
+                null,
+                0.0003465761680127136,
+                4.134028584595589e-05
+              ],
+              "confirmation_run": [
+                27,
+                53,
+                106
+              ],
+              "status": "self_converged"
+            },
+            "3": {
+              "nbin": [
+                27,
+                53,
+                106
+              ],
+              "magnification": [
+                1417.534433943879,
+                1417.8969512004978,
+                1417.9366351274296
+              ],
+              "successive_relative_change": [
+                null,
+                0.0002556724988454175,
+                2.7987094732313863e-05
+              ],
+              "confirmation_run": [
+                27,
+                53,
+                106
+              ],
+              "status": "self_converged"
+            }
+          },
+          "source": "self_convergence_search",
+          "confirmation_points": 3,
+          "point_timeout": 30.0,
+          "predicted": [
+            106,
+            106,
+            106,
+            106
+          ],
+          "kernel_mode": "forced_inverse_ray_polar",
+          "seconds": [
+            0.023324437,
+            0.019668712,
+            0.014052102,
+            0.011483934
+          ],
+          "errors": [
+            4.715013559227851e-05,
+            0.00022327476531169344,
+            0.0006125526895440187,
+            0.0002889230401388044
+          ],
+          "vbm_reference_errors": [
+            4.715013559227851e-05,
+            0.00022327476531169344,
+            0.0006125526895440187,
+            0.0002889230401388044
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.005527307977899909,
+          0.005207259964663535,
+          0.0048578010173514485,
+          0.0012939479784108698
+        ],
+        "selected_reltol": [
+          0.001,
+          0.001,
+          0.001,
+          0.001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "timing_values": [
+          2429.3562627860897,
+          1935.8545629603318,
+          1580.3832004403523,
+          1418.017706509165
+        ],
+        "timing_reference_errors": [
+          0.0004033518851589022,
+          0.00013198727326139723,
+          0.0005204482335007595,
+          5.190320375211807e-05
+        ],
+        "reference_values": [
+          2430.3365436125264,
+          1936.1101048538053,
+          1581.2061363808323,
+          1417.94411066708
+        ],
+        "reference_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "accuracy_reference_reltol": 1e-06
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        27,
+        27,
+        27,
+        27
+      ],
+      "chosen_seconds": [
+        0.023324437,
+        0.019668712,
+        0.014052102,
+        0.011483934
+      ],
+      "chosen_vbm_errors": [
+        4.715013559227851e-05,
+        0.00022327476531169344,
+        0.0006125526895440187,
+        0.0002889230401388044
+      ],
+      "vbm_mismatch": [
+        false,
+        false,
+        false,
+        false
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.23697497941321838,
+        0.2647483965733768,
+        0.3456992425297972,
+        0.11267462686661817
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "resolution_mode": "lcbinint_self_convergence_three_points",
+      "resolution_cap": 400,
+      "accuracy_reference_reltol": 1e-06
+    }
+  },
+  {
+    "source": "/tmp/lcbinint_pure_kernel_reference_all_1e-6_20260909/plot_parts_vbm_reltol_1e-6_reference/d10_c2/results.json",
+    "data": {
+      "status": "completed",
+      "timing_mode": "pure_kernel_cache_warm_direct_xy",
+      "coordinate_mode": "direct_internal_source_xy",
+      "point_source_hint_mode": "reuse_preplanned_point_magnification",
+      "comparison_mode": "forced_inverse_ray_vs_forced_vbm_contour",
+      "lcbinint_kernel_mode": "forced_inverse_ray_cartesian_or_polar",
+      "vbm_kernel_mode": "BinaryMagDark_annular_contour",
+      "build_extension": "/rogue1_8/nunota/lcbinint/build/lcbinint/_lcbinint.cpython-310-x86_64-linux-gnu.so",
+      "case_id": 115,
+      "s": 1.9599718681909375,
+      "q": 0.0007606575340568715,
+      "rho": 0.0004224285403319365,
+      "x": 0.0016332206677331243,
+      "y": 0.00024733848153663933,
+      "d_over_rho": 1.0,
+      "point_magnification": 1758.663144355869,
+      "profile": "linear",
+      "limb_darkening_c": 0.5,
+      "target": 0.0001,
+      "reference_mode": "accuracy_only_vbm_call_at_reltol",
+      "reference": [
+        2430.3365436125264,
+        1936.1101048538053,
+        1581.2061363808323,
+        1417.94411066708
+      ],
+      "reference_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "grid": {
+        "cartesian": {
+          "required": [
+            null,
+            null,
+            38,
+            null
+          ],
+          "samples": {
+            "0": {
+              "nbin": [
+                38,
+                75
+              ],
+              "magnification": [
+                2430.369766859502,
+                2430.357624445262
+              ],
+              "successive_relative_change": [
+                null,
+                4.996143002876996e-06
+              ],
+              "confirmation_run": null,
+              "status": "self_timeout"
+            },
+            "1": {
+              "nbin": [
+                38,
+                75
+              ],
+              "magnification": [
+                1935.9753650131695,
+                1935.9943562356113
+              ],
+              "successive_relative_change": [
+                null,
+                9.809544320563958e-06
+              ],
+              "confirmation_run": null,
+              "status": "self_timeout"
+            },
+            "2": {
+              "nbin": [
+                38,
+                75,
+                149
+              ],
+              "magnification": [
+                1580.8572226948045,
+                1580.8615412884492,
+                1580.861670561618
+              ],
+              "successive_relative_change": [
+                null,
+                2.7317975242739298e-06,
+                8.177386497673874e-08
+              ],
+              "confirmation_run": [
+                38,
+                75,
+                149
+              ],
+              "status": "self_converged"
+            },
+            "3": {
+              "nbin": [
+                38,
+                75
+              ],
+              "magnification": [
+                1417.938132247036,
+                1417.9430957597258
+              ],
+              "successive_relative_change": [
+                null,
+                3.500502033261192e-06
+              ],
+              "confirmation_run": null,
+              "status": "self_timeout"
+            }
+          },
+          "source": "self_convergence_search",
+          "confirmation_points": 3,
+          "point_timeout": 30.0,
+          "predicted": [
+            149,
+            149,
+            149,
+            149
+          ],
+          "kernel_mode": "forced_inverse_ray_cartesian",
+          "seconds": [
+            null,
+            null,
+            0.307235079,
+            null
+          ],
+          "errors": [
+            null,
+            null,
+            0.00022066299769517457,
+            null
+          ],
+          "vbm_reference_errors": [
+            null,
+            null,
+            0.00022066299769517457,
+            null
+          ],
+          "converged": [
+            false,
+            false,
+            true,
+            false
+          ],
+          "statuses": [
+            "unavailable",
+            "unavailable",
+            "completed",
+            "unavailable"
+          ]
+        },
+        "polar": {
+          "required": [
+            100,
+            100,
+            100,
+            100
+          ],
+          "samples": {
+            "0": {
+              "nbin": [
+                100,
+                200,
+                400
+              ],
+              "magnification": [
+                2430.361915044654,
+                2430.3649764648476,
+                2430.365910980461
+              ],
+              "successive_relative_change": [
+                null,
+                1.2596545059540742e-06,
+                3.8451642585407926e-07
+              ],
+              "confirmation_run": [
+                100,
+                200,
+                400
+              ],
+              "status": "self_converged"
+            },
+            "1": {
+              "nbin": [
+                100,
+                200,
+                400
+              ],
+              "magnification": [
+                1935.9948453337965,
+                1935.9968442888767,
+                1935.9977351647817
+              ],
+              "successive_relative_change": [
+                null,
+                1.032519802923463e-06,
+                4.601637124161974e-07
+              ],
+              "confirmation_run": [
+                100,
+                200,
+                400
+              ],
+              "status": "self_converged"
+            },
+            "2": {
+              "nbin": [
+                100,
+                200,
+                400
+              ],
+              "magnification": [
+                1580.8516833172903,
+                1580.8607226689417,
+                1580.8616152743296
+              ],
+              "successive_relative_change": [
+                null,
+                5.717993699103597e-06,
+                5.646322102232799e-07
+              ],
+              "confirmation_run": [
+                100,
+                200,
+                400
+              ],
+              "status": "self_converged"
+            },
+            "3": {
+              "nbin": [
+                100,
+                200,
+                400
+              ],
+              "magnification": [
+                1417.9346507600894,
+                1417.9422832084188,
+                1417.9429604495283
+              ],
+              "successive_relative_change": [
+                null,
+                5.382763755420146e-06,
+                4.776222516933175e-07
+              ],
+              "confirmation_run": [
+                100,
+                200,
+                400
+              ],
+              "status": "self_converged"
+            }
+          },
+          "source": "self_convergence_search",
+          "confirmation_points": 3,
+          "point_timeout": 30.0,
+          "predicted": [
+            400,
+            400,
+            400,
+            400
+          ],
+          "kernel_mode": "forced_inverse_ray_polar",
+          "seconds": [
+            0.2133588,
+            0.178573579,
+            0.135459967,
+            0.113904272
+          ],
+          "errors": [
+            1.043947275292694e-05,
+            5.953149034230785e-05,
+            0.00022416625852040474,
+            6.67156548650136e-06
+          ],
+          "vbm_reference_errors": [
+            1.043947275292694e-05,
+            5.953149034230785e-05,
+            0.00022416625852040474,
+            6.67156548650136e-06
+          ],
+          "converged": [
+            true,
+            true,
+            true,
+            true
+          ],
+          "statuses": [
+            "completed",
+            "completed",
+            "completed",
+            "completed"
+          ]
+        }
+      },
+      "vbm": {
+        "selected_seconds": [
+          0.025101074017584324,
+          0.018393368984106928,
+          0.015145405021030456,
+          0.005403567978646606
+        ],
+        "selected_reltol": [
+          0.0001,
+          0.0001,
+          0.0001,
+          0.0001
+        ],
+        "selected_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "timing_values": [
+          2430.292961442266,
+          1936.0020889034677,
+          1580.8782105913347,
+          1417.9822290154673
+        ],
+        "timing_reference_errors": [
+          1.793256591352449e-05,
+          5.5790189858952784e-05,
+          0.0002073896514518914,
+          2.6882828526584065e-05
+        ],
+        "reference_values": [
+          2430.3365436125264,
+          1936.1101048538053,
+          1581.2061363808323,
+          1417.94411066708
+        ],
+        "reference_status": [
+          "completed",
+          "completed",
+          "completed",
+          "completed"
+        ],
+        "accuracy_reference_reltol": 1e-06
+      },
+      "chosen_grid": [
+        "polar",
+        "polar",
+        "polar",
+        "polar"
+      ],
+      "chosen_nbin": [
+        100,
+        100,
+        100,
+        100
+      ],
+      "chosen_seconds": [
+        0.2133588,
+        0.178573579,
+        0.135459967,
+        0.113904272
+      ],
+      "chosen_vbm_errors": [
+        1.043947275292694e-05,
+        5.953149034230785e-05,
+        0.00022416625852040474,
+        6.67156548650136e-06
+      ],
+      "vbm_mismatch": [
+        false,
+        false,
+        true,
+        false
+      ],
+      "ratios_vbm_over_lcbinint": [
+        0.11764724031811355,
+        0.10300162592421876,
+        0.11180723985434352,
+        0.047439555020786284
+      ],
+      "ratio_status": [
+        "measured",
+        "measured",
+        "measured",
+        "measured"
+      ],
+      "vbm_status": [
+        "completed",
+        "completed",
+        "completed",
+        "completed"
+      ],
+      "vbm_lower_bound_seconds": [
+        null,
+        null,
+        null,
+        null
+      ],
+      "resolution_mode": "lcbinint_self_convergence_three_points",
+      "resolution_cap": 400,
+      "accuracy_reference_reltol": 1e-06
+    }
+  }
+]

@@ -1,0 +1,27 @@
+{
+  "base": {
+    "cold": 14432,
+    "warm": 14432,
+    "radial": 14432
+  },
+  "safety1": {
+    "cold": 14432,
+    "warm": 14432,
+    "radial": 14432
+  },
+  "initial15": {
+    "cold": 14432,
+    "warm": 14432,
+    "radial": 14432
+  },
+  "k12": {
+    "cold": 14432,
+    "warm": 14432,
+    "radial": 14432
+  },
+  "initial3": {
+    "cold": 14432,
+    "warm": 14432,
+    "radial": 14432
+  }
+}

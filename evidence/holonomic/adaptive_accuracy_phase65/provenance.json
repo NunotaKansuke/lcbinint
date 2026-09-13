@@ -1,0 +1,11 @@
+{
+  "/rogue1_8/nunota/lcbinint/evidence/holonomic/adaptive_accuracy_phase65/ab.cpp": "2341d9b3031321929a8f3517d3ad9209df62486c7925b9f3e3822c9af8b32793",
+  "/rogue1_8/nunota/lcbinint/evidence/holonomic/adaptive_accuracy_phase65/base.tsv": "0b88a7b6a68e4184f2c7a303e987a9153b101e85ed97c60748369c0516ba9466",
+  "/rogue1_8/nunota/lcbinint/evidence/holonomic/adaptive_accuracy_phase65/safety1.tsv": "117e0890d216ffea4a9a75e6f0708fd9b15515bdc220a9ca4366d8931fd8a851",
+  "/rogue1_8/nunota/lcbinint/evidence/holonomic/adaptive_accuracy_phase65/initial15.tsv": "9e28a648a75738c849ba14d71e6cdd16d38c1444d7e721a50db5e773aa5a358f",
+  "/rogue1_8/nunota/lcbinint/evidence/holonomic/adaptive_accuracy_phase65/initial3.tsv": "a5fd1151a94415d37c947ddcf1ba1f5abe58e563ba2b07d85f90be2475828625",
+  "/rogue1_8/nunota/lcbinint/evidence/holonomic/adaptive_accuracy_phase65/k12.tsv": "daffc1415e5e118a22f39dbf0f7020b999325e3c6e76774c21c787a6b23b28e6",
+  "evidence/holonomic/v2_adaptive_best_trajectory_20260913/input_snapshot.tsv": "6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b",
+  "head": "e16d1de1e0b0f5dc029dad2a6ecb032b9cb56f20",
+  "compiler": "c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)"
+}
