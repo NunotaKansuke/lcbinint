@@ -516,7 +516,21 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         // RootPairWarm uses two inline slots, so there is no per-sample heap
         // growth to reserve here; the AdaptiveSample size already includes it.
         if(allocated_bytes()+growth>cfg.max_bytes)return AdaptiveStop::BudgetExceeded;
-        if(target>w.samples.capacity())w.samples.reserve(target);
+        if(target>w.samples.capacity()) {
+            size_t reserve_target=target;
+#ifdef HOLO_ADAPTIVE_SAMPLE_GROWTH
+            // Only spend spare capacity if even the configured maximum live
+            // samples and panels fit. Extra capacity must not steal a later
+            // panel's budget or cause an earlier BudgetExceeded result.
+            const size_t panel_slots=std::max(w.panels.capacity(),cfg.max_panels);
+            if(panel_slots<=cfg.max_bytes/sizeof(AdaptivePanel)) {
+                const size_t remaining=cfg.max_bytes-panel_slots*sizeof(AdaptivePanel);
+                if(cfg.max_node_evals<=remaining/sizeof(AdaptiveSample) && target<=cfg.max_node_evals)
+                    reserve_target=target+std::min(target/2,cfg.max_node_evals-target);
+            }
+#endif
+            w.samples.reserve(reserve_target);
+        }
         for(int k=1;k<m;++k) {
             int slot=k*step;
             bool fresh=p.samples[slot]<0;

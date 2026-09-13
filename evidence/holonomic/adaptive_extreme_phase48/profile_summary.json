@@ -1,0 +1,58 @@
+{
+  "profile": {
+    "rows": 7216,
+    "mu_difference": 0.0,
+    "ok_mismatches": 0,
+    "node_mismatches": 0,
+    "groups": {
+      "uniform": {
+        "whole": {
+          "baseline": 0.242801,
+          "candidate": 0.2419005
+        },
+        "physics": {
+          "baseline": 0.10382850000000002,
+          "candidate": 0.1032265
+        }
+      },
+      "linear": {
+        "whole": {
+          "baseline": 0.30274999999999996,
+          "candidate": 0.302249
+        },
+        "physics": {
+          "baseline": 0.143754,
+          "candidate": 0.1436135
+        }
+      }
+    }
+  },
+  "cold": {
+    "rows": 7216,
+    "mu_difference": 0.0,
+    "ok_mismatches": 0,
+    "node_mismatches": 0,
+    "groups": {
+      "uniform": {
+        "whole": {
+          "baseline": 0.3860455,
+          "candidate": 0.380768
+        },
+        "physics": {
+          "baseline": 0.08535649999999997,
+          "candidate": 0.08521600000000001
+        }
+      },
+      "linear": {
+        "whole": {
+          "baseline": 0.4402825,
+          "candidate": 0.4328835
+        },
+        "physics": {
+          "baseline": 0.11791950000000001,
+          "candidate": 0.11779450000000002
+        }
+      }
+    }
+  }
+}

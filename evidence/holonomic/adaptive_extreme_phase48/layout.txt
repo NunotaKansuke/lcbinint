@@ -1,0 +1,1 @@
+sample=504 panel=1464 maximum=17264640 budget=67108864
