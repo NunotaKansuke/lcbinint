@@ -1,0 +1,153 @@
+{
+  "rows": 14432,
+  "sources": {
+    "vbm": "/tmp/lcbinint_pure_kernel_confirm_full_20260909/merged_final/results.json",
+    "v2": "evidence/holonomic/adaptive_extreme_phase48/whole_candidate.tsv"
+  },
+  "groups": {
+    "0.0001/linear": {
+      "rows": 3608,
+      "vbm_p50_ms": 1.3053735019639134,
+      "lanes": {
+        "cold": {
+          "p50_ms": 0.4451235,
+          "p90_ms": 0.7644306000000001,
+          "paired_speedup_median": 3.0099047087015904,
+          "faster_rows": 2936
+        },
+        "warm": {
+          "p50_ms": 0.358556,
+          "p90_ms": 0.6751684000000001,
+          "paired_speedup_median": 3.9981605228671606,
+          "faster_rows": 3074
+        },
+        "radial": {
+          "p50_ms": 0.17093799999999998,
+          "p90_ms": 0.33712280000000006,
+          "paired_speedup_median": 8.316155451258354,
+          "faster_rows": 3351
+        },
+        "warm_without_topology": {
+          "p50_ms": 0.200399,
+          "p90_ms": 0.37217140000000004,
+          "paired_speedup_median": 7.365903622079122,
+          "faster_rows": 3331
+        },
+        "warm_physical": {
+          "p50_ms": 0.1640605,
+          "p90_ms": 0.3268162,
+          "paired_speedup_median": 9.238620650298323,
+          "faster_rows": 3369
+        }
+      }
+    },
+    "0.0001/uniform": {
+      "rows": 3608,
+      "vbm_p50_ms": 0.10750297224149108,
+      "lanes": {
+        "cold": {
+          "p50_ms": 0.38870000000000005,
+          "p90_ms": 0.6789748000000001,
+          "paired_speedup_median": 0.2777463427280826,
+          "faster_rows": 46
+        },
+        "warm": {
+          "p50_ms": 0.30016149999999997,
+          "p90_ms": 0.5893676000000003,
+          "paired_speedup_median": 0.3929244301859916,
+          "faster_rows": 98
+        },
+        "radial": {
+          "p50_ms": 0.124537,
+          "p90_ms": 0.2256484000000001,
+          "paired_speedup_median": 0.8806809799282584,
+          "faster_rows": 1350
+        },
+        "warm_without_topology": {
+          "p50_ms": 0.1472675,
+          "p90_ms": 0.2567903000000001,
+          "paired_speedup_median": 0.7722778736262466,
+          "faster_rows": 971
+        },
+        "warm_physical": {
+          "p50_ms": 0.11635500000000001,
+          "p90_ms": 0.21542810000000007,
+          "paired_speedup_median": 0.9996513001346291,
+          "faster_rows": 1802
+        }
+      }
+    },
+    "0.001/linear": {
+      "rows": 3608,
+      "vbm_p50_ms": 0.31445600325241685,
+      "lanes": {
+        "cold": {
+          "p50_ms": 0.40041899999999997,
+          "p90_ms": 0.6942564,
+          "paired_speedup_median": 0.783920026321404,
+          "faster_rows": 1575
+        },
+        "warm": {
+          "p50_ms": 0.30682200000000004,
+          "p90_ms": 0.5990352000000001,
+          "paired_speedup_median": 1.0948547522596046,
+          "faster_rows": 1909
+        },
+        "radial": {
+          "p50_ms": 0.1280425,
+          "p90_ms": 0.25725430000000005,
+          "paired_speedup_median": 2.5695063998639975,
+          "faster_rows": 2793
+        },
+        "warm_without_topology": {
+          "p50_ms": 0.1500265,
+          "p90_ms": 0.28281720000000005,
+          "paired_speedup_median": 2.3095904137852887,
+          "faster_rows": 2696
+        },
+        "warm_physical": {
+          "p50_ms": 0.12148549999999997,
+          "p90_ms": 0.24710230000000005,
+          "paired_speedup_median": 2.9899163281509136,
+          "faster_rows": 2848
+        }
+      }
+    },
+    "0.001/uniform": {
+      "rows": 3608,
+      "vbm_p50_ms": 0.061368540627881885,
+      "lanes": {
+        "cold": {
+          "p50_ms": 0.3547585,
+          "p90_ms": 0.6329102000000003,
+          "paired_speedup_median": 0.17402903886926208,
+          "faster_rows": 5
+        },
+        "warm": {
+          "p50_ms": 0.257403,
+          "p90_ms": 0.5415015000000002,
+          "paired_speedup_median": 0.26631293176838766,
+          "faster_rows": 18
+        },
+        "radial": {
+          "p50_ms": 0.096026,
+          "p90_ms": 0.1772775,
+          "paired_speedup_median": 0.6929504508496438,
+          "faster_rows": 632
+        },
+        "warm_without_topology": {
+          "p50_ms": 0.11121800000000001,
+          "p90_ms": 0.1977728,
+          "paired_speedup_median": 0.6028045319782288,
+          "faster_rows": 354
+        },
+        "warm_physical": {
+          "p50_ms": 0.0855425,
+          "p90_ms": 0.1617169,
+          "paired_speedup_median": 0.7883251678483081,
+          "faster_rows": 1070
+        }
+      }
+    }
+  }
+}
