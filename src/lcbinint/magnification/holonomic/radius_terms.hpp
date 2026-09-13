@@ -536,6 +536,7 @@ inline std::vector<double> real_root_thetas_transport(
                     kTransportVJumpRel * v_seed + kTransportVFloor ||
                 std::fabs(m_pred) + std::sqrt(std::fabs(v_pred)) >
                     kTransportTMax;
+            if(prof && v_pred<=0.0)++prof->rootpair_predictor_nonpositive;
             if (pred_wild && prof) {
                 ++prof->rootpair_predictor_reject;
                 if (v_pred <= kTransportVFloor) ++prof->rootpair_vfloor_reject;
@@ -569,6 +570,8 @@ inline std::vector<double> real_root_thetas_transport(
                     break;
                 }
             }
+            if(prof && rp.v<=0.0)++prof->rootpair_corrected_nonpositive;
+            if(prof && rp.v>0.0 && rp.v<=kTransportVFloor)++prof->rootpair_corrected_tiny_positive;
             if (dbg) {
                 std::fprintf(stderr,
                     "[mvT] R=%.15g dR=%.3e seed(m=%.12g v=%.6e) "

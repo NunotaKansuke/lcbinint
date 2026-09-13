@@ -1,0 +1,27 @@
+--- a/src/lcbinint/magnification/holonomic/radius_terms.hpp
++++ b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+@@ -529,7 +529,7 @@
+             const double m_pred = rp.m, v_pred = rp.v;
+             // predictor sanity: the linear IFT step must not blow v up (a fold
+             // the linear model cannot see) nor push the arc toward theta = pi.
+-            const bool pred_wild =
++            bool pred_wild =
+                 !std::isfinite(v_pred) || !std::isfinite(m_pred) ||
+                 v_pred <= 0.0 ||
+                 std::fabs(v_pred - v_seed) >
+@@ -544,6 +544,15 @@
+                     std::fabs(m_pred) + std::sqrt(std::fabs(v_pred)) > kTransportTMax)
+                     ++prof->rootpair_tmax_reject;
+             }
++#ifdef HOLO_MV_RESTART_FROM_SEED
++            // A failed linear prediction is not the physical root state.
++            // Retry the same bounded corrector from the last accepted pair.
++            if(pred_wild && v_pred<=0.0 && std::isfinite(m_seed) &&
++               std::isfinite(v_seed) && v_seed>kTransportVFloor &&
++               std::fabs(m_seed)+std::sqrt(v_seed)<=kTransportTMax) {
++                rp.m=m_seed;rp.v=v_seed;pred_wild=false;
++            }
++#endif
+             // corrector: Newton on (E, O) = 0 at the new node
+             bool conv = false;
+             double det_lo = std::numeric_limits<double>::infinity();
