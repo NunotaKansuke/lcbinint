@@ -1,0 +1,56 @@
+Phase 72 gradient radial h-split A/B provenance
+Date: 2026-09-13 (Asia/Tokyo)
+Repository: /rogue1_8/nunota/lcbinint
+Branch/base: dev/holonomic @ 64bb1e3dd88d66be6a98eb9d77c20da6c45733e9
+No tracked solver source was modified for this phase. The existing experimental
+gradient_local_refinement flag and Phase 67 transactional split are measured.
+
+Host/runtime:
+  Linux rogue1, x86_64, kernel 5.14.0-570.23.1.el9_6.x86_64
+  Intel Xeon Gold 6530; 64 logical CPUs; measured with taskset -c 0
+  GCC 11.5.0 (Red Hat 11.5.0-5)
+
+Input:
+  evidence/holonomic/adaptive_radial_20260911/reference_cases.tsv
+  SHA256 5d625cbc9f4dc16de2a81754bbff131f1cb1ba9780fccdff4ddb210417347548
+  110 input rows; each run uses both value RelTol=1e-3 and 1e-4.
+
+The two standalone harnesses compile with the exact flags in their scripts:
+  bash evidence/holonomic/gradient_radial_split_phase72/run_panel_audit.sh \
+    evidence/holonomic/adaptive_radial_20260911/reference_cases.tsv \
+    evidence/holonomic/gradient_radial_split_phase72/panel_audit.tsv
+  bash evidence/holonomic/gradient_radial_split_phase72/run_corpus.sh \
+    evidence/holonomic/adaptive_radial_20260911/reference_cases.tsv \
+    evidence/holonomic/gradient_radial_split_phase72/corpus.tsv
+
+Both scripts use C++17, -O3, -march=native, -funroll-loops,
+-ffp-contract=fast, -fno-math-errno, -DNDEBUG, -lquadmath and pin execution
+to CPU 0. Four A/B arms: pure p-refinement (threshold 0), conditional split
+after level 4, after level 5, and level-8 no-split estimator control. Each
+corpus arm has 110 inputs * 2 tolerances * 2 repeats * 2 paths = 880 rows.
+Each path/tolerance has 220 paired rows. Runs are rotated in order by case,
+repeat, tolerance and path.
+
+Cold path calls epoch_adaptive: fresh D14/topology plus adaptive value and
+ValueFirst five-gradient integration. Warm path first makes one unmeasured
+same-input epoch_adaptive_prepared call, then times prepared calls; D14 roots
+are warm-started, while topology is reclassified (topology-plan reuse remains
+off). The AdaptiveWorkspace is reused within each arm. Whole time includes
+topology/D14 and integration; it does not include the unmeasured warm-up.
+
+Panel study:
+  Value RelTol=1e-3; ValueFirst; gradient atol=1e-4, rtol=1e-2;
+  64 gradient rounds; 8192 gradient node budget; max node evals=16384;
+  p-only vs h-split thresholds 4 and 5. Independent FD references use fresh
+  topology and GL radial order 128/256 + direct angular integration, with
+  parameter steps rho*{1e-3,3e-4,1e-4}.
+
+Existing checks captured by run_all.sh:
+  adaptive_unit.log
+  ctest.log (quartic Sturm, local bracket, adaptive radial)
+  value_reference_check.tsv (550 value rows)
+  gradient_reference_corpus.tsv (120 finite-difference rows)
+  panel_audit.tsv, corpus.tsv, summary.json, summary_stdout.json
+
+Full reproduction from the repository root:
+  bash evidence/holonomic/gradient_radial_split_phase72/run_all.sh
