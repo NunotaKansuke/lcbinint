@@ -141,6 +141,9 @@ struct V2Profile {
     u64 local_bracket_attempts = 0;
     u64 local_bracket_successes = 0;
     u64 quartic_cold_calls = 0;
+    u64 quartic_cold_unseeded = 0, quartic_cold_disabled = 0;
+    u64 quartic_cold_after_warm = 0, quartic_cold_degree_change = 0;
+    u64 quartic_cold_sweeps = 0, quartic_warm_sweeps = 0;
     u64 quartic_warm_calls = 0;
     u64 quartic_warm_hits = 0;
     u64 quartic_cold_falls = 0;

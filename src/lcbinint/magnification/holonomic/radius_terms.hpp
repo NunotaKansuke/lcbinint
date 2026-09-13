@@ -222,6 +222,13 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
     int deg = quartic_descending(pc, c);
     if (deg <= 0) { w.valid = false; return {}; }
 
+#ifdef HOLO_QUARTIC_WORK_PROBE
+    const int cold_reason=!w.valid?0:(w.deg!=deg?1:(w.cold_streak>=kColdStreak?2:3));
+    int probe_sweeps=0;
+    int* sweep_counter=prof?&probe_sweeps:nullptr;
+#else
+    int* sweep_counter=nullptr;
+#endif
     if (w.valid && w.deg == deg && w.cold_streak < kColdStreak) {
         if (prof) ++prof->quartic_warm_calls;
         double step = 1.0;
@@ -230,9 +237,12 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
         static_assert(HOLO_QUARTIC_WARM_SOLVE_TOL > 0.0 &&
                       HOLO_QUARTIC_WARM_SOLVE_TOL <= kWarmStepTol);
         auto z = aberth<double>(c, deg, kWarmIters, w.z,
-                                HOLO_QUARTIC_WARM_SOLVE_TOL, &step);
+                                HOLO_QUARTIC_WARM_SOLVE_TOL, &step, sweep_counter);
 #else
-        auto z = aberth<double>(c, deg, kWarmIters, w.z, 0.0, &step);
+        auto z = aberth<double>(c, deg, kWarmIters, w.z, 0.0, &step, sweep_counter);
+#endif
+#ifdef HOLO_QUARTIC_WORK_PROBE
+        if(prof)prof->quartic_warm_sweeps+=probe_sweeps;
 #endif
         if (step <= kWarmStepTol) {
             auto th = thetas_from_complex(z);
@@ -249,7 +259,16 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
     }
 
     // cold path -- identical roots to real_root_thetas()
-    auto z = aberth<double>(c, deg, 40);
+    auto z = aberth<double>(c, deg, 40, nullptr, 0.0, nullptr, sweep_counter);
+#ifdef HOLO_QUARTIC_WORK_PROBE
+    if(prof) {
+        prof->quartic_cold_sweeps+=probe_sweeps;
+        if(cold_reason==0)++prof->quartic_cold_unseeded;
+        else if(cold_reason==1)++prof->quartic_cold_degree_change;
+        else if(cold_reason==2)++prof->quartic_cold_disabled;
+        else ++prof->quartic_cold_after_warm;
+    }
+#endif
     auto th = thetas_from_complex(z);
     for (int i = 0; i < deg && i < 4; ++i) w.z[i] = z[i];
     w.deg = deg;
