@@ -1,0 +1,11 @@
+{
+  "reference_rows": 550,
+  "reference_usable": 466,
+  "reference_violations": 0,
+  "unit": "1484 checks 0 failures",
+  "jac_rows": 220,
+  "jac_quality_changed": 0,
+  "jac_stop_changed": 0,
+  "jac_max_scaled_difference": 1.88311297604703e-08,
+  "quality_changes": []
+}

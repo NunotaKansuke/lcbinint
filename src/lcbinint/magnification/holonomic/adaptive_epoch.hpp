@@ -936,6 +936,48 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     // entire adaptive physics/estimator phase.
     const double setup_total_ms=adaptive_detail::ms(setup_start);
     auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed,bool force_cold,double radius_lo){
+#ifdef HOLO_ADAPTIVE_FOLD_QUARTIC_SEED
+        // Approximate initialization only. The ordinary quartic warm solve,
+        // crossing-count check and physical endpoint gates still decide use.
+        // A forced cold retry must not repeat this same speculative seed.
+        AdaptiveSample fold_seed;
+        if(!seed && !force_cold && cells[i].kind==ArcKind::kArcs) {
+            const RadialEvent* event=nullptr;
+            for(const auto& e:topo.events) {
+                if(e.kind!="physical_real" || !e.physically_real || !e.fold_t_seed_valid)continue;
+                if(e.radius!=cells[i].r_lo && e.radius!=cells[i].r_hi)continue;
+                if(!event || std::fabs(R-e.radius)<std::fabs(R-event->radius))event=&e;
+            }
+            if(event) {
+                const double m=event->fold_t_seed;
+                const auto pc=boundary_quartic(event->radius,pf).p;
+                const auto dp=boundary_quartic_dR(event->radius,pf).p;
+                const auto motion=root_pair_dR(RootPair{m,0.0},pc,dp);
+                const double dr=(R-event->radius)-event->radius_lo;
+                const double mp=m+motion.dm_dR*dr, v=motion.dv_dR*dr;
+                const double a=pc[4],b=pc[3]+2*m*a,c=pc[2]+2*m*pc[3]+3*m*m*a;
+                const double disc=b*b-4*a*c;
+                if(motion.ok && v!=0.0 && a!=0.0 && std::isfinite(disc)) {
+                    auto& q=fold_seed.quartic;
+                    const double gap=std::sqrt(std::fabs(v));
+                    q.z[0]={mp+(v>0?gap:0),v<0?gap:0};
+                    q.z[1]={mp-(v>0?gap:0),v<0?-gap:0};
+                    if(disc>=0) {
+                        const double z=-0.5*(b+std::copysign(std::sqrt(disc),b));
+                        q.z[2]={z/a,0};q.z[3]={c/z,0};
+                    } else {
+                        q.z[2]={-b/(2*a),std::sqrt(-disc)/(2*a)};
+                        q.z[3]={q.z[2].re,-q.z[2].im};
+                    }
+                    bool finite=true;
+                    for(const auto& z:q.z)finite=finite&&std::isfinite(z.re)&&std::isfinite(z.im);
+                    for(int j=0;j<4;++j)for(int k=0;k<j;++k)
+                        finite=finite&&(q.z[j].re!=q.z[k].re || q.z[j].im!=q.z[k].im);
+                    if(finite) {q.deg=4;q.n_real=cells[i].n_crossings;q.valid=true;seed=&fold_seed;}
+                }
+            }
+        }
+#endif
         return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],with_jacobian,
                                               force_cold?false:topo.from_warm_d14,
                                               force_cold?nullptr:seed,&cfg,radius_lo);
