@@ -1,0 +1,90 @@
+[
+  {
+    "profile": "uniform",
+    "target": 0.001,
+    "lane": "cold",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_uniform_1e-3_v2_adaptive_full-cold_vbm1e-6.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_uniform_1e-3_v2_adaptive_full-cold_vbm1e-6.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "uniform",
+    "target": 0.001,
+    "lane": "warm",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_uniform_1e-3_v2_adaptive_full-warm_vbm1e-6.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_uniform_1e-3_v2_adaptive_full-warm_vbm1e-6.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "uniform",
+    "target": 0.0001,
+    "lane": "cold",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_uniform_1e-4_v2_adaptive_full-cold_vbm1e-6.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_uniform_1e-4_v2_adaptive_full-cold_vbm1e-6.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "uniform",
+    "target": 0.0001,
+    "lane": "warm",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_uniform_1e-4_v2_adaptive_full-warm_vbm1e-6.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_uniform_1e-4_v2_adaptive_full-warm_vbm1e-6.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "linear",
+    "target": 0.001,
+    "lane": "cold",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_linear_1e-3_v2_adaptive_full-cold_vbm1e-6.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_linear_1e-3_v2_adaptive_full-cold_vbm1e-6.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "linear",
+    "target": 0.001,
+    "lane": "warm",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_linear_1e-3_v2_adaptive_full-warm_vbm1e-6.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_linear_1e-3_v2_adaptive_full-warm_vbm1e-6.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "linear",
+    "target": 0.0001,
+    "lane": "cold",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_linear_1e-4_v2_adaptive_full-cold_vbm1e-6.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_linear_1e-4_v2_adaptive_full-cold_vbm1e-6.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  },
+  {
+    "profile": "linear",
+    "target": 0.0001,
+    "lane": "warm",
+    "png": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_linear_1e-4_v2_adaptive_full-warm_vbm1e-6.png",
+    "pdf": "/rogue1_8/nunota/lcbinint/evidence/holonomic/phase64_final_benchmark/figures/q_rho_linear_1e-4_v2_adaptive_full-warm_vbm1e-6.pdf",
+    "rows": 3608,
+    "value_converged": 3608,
+    "speed_rows": 3608,
+    "error_rows": 3608
+  }
+]
