@@ -1,0 +1,48 @@
+{
+  "rows": 7216,
+  "mu_max_difference": 0.0,
+  "ok_mismatches": 0,
+  "node_mismatches": 0,
+  "groups": {
+    "uniform": {
+      "whole": {
+        "baseline_median": 0.2516719999999999,
+        "candidate_median": 0.24776299999999996,
+        "baseline_p99": 0.8456254999999988,
+        "candidate_p99": 0.8467072499999987
+      },
+      "physics": {
+        "baseline_median": 0.10677699999999996,
+        "candidate_median": 0.10392149999999989,
+        "baseline_p99": 0.37142234999999985,
+        "candidate_p99": 0.3707172499999998
+      },
+      "arc": {
+        "baseline_median": 0.071244,
+        "candidate_median": 0.06936149999999995,
+        "baseline_p99": 0.2674746999999998,
+        "candidate_p99": 0.2681129999999998
+      }
+    },
+    "linear": {
+      "whole": {
+        "baseline_median": 0.31068749999999995,
+        "candidate_median": 0.30728749999999994,
+        "baseline_p99": 0.9170721999999997,
+        "candidate_p99": 0.9066577499999983
+      },
+      "physics": {
+        "baseline_median": 0.14646199999999995,
+        "candidate_median": 0.143816,
+        "baseline_p99": 0.46920749999999783,
+        "candidate_p99": 0.45532814999999965
+      },
+      "arc": {
+        "baseline_median": 0.0821969999999999,
+        "candidate_median": 0.07953649999999995,
+        "baseline_p99": 0.26624970000000003,
+        "candidate_p99": 0.26103569999999987
+      }
+    }
+  }
+}

@@ -604,10 +604,18 @@ inline std::vector<double> real_root_thetas_transport(
                     out.push_back(th);
                 }
             std::sort(out.begin(), out.end());
+#ifdef HOLO_ARC_COMPACT_STORAGE
+            size_t count=0;
+            for(double x:out)
+                if(count==0 || x-out[count-1]>1e-11)out[count++]=x;
+            out.resize(count);
+            auto merged=std::move(out);
+#else
             std::vector<double> merged;
             for (double x : out)
                 if (merged.empty() || x - merged.back() > 1e-11)
                     merged.push_back(x);
+#endif
             if ((int)merged.size() == 2 * (int)next.size()) {
                 // Certify the continuation on a warm-D14-reused cell plan when
                 // an arc is thin enough for the reused-boundary seed
@@ -699,6 +707,9 @@ inline std::vector<double> real_root_thetas_transport(
     if (prof) ++prof->rootpair_cold_falls;
 
     std::vector<double> tr;  // real t-roots, same filter thetas_from_complex uses
+#ifdef HOLO_ARC_COMPACT_STORAGE
+    tr.reserve(4);
+#endif
     for (int i = 0; i < deg && i < 4; ++i)
         if (std::fabs(zbuf[i].im) <= kRootImRel * (1.0 + std::fabs(zbuf[i].re)))
             tr.push_back(zbuf[i].re);
@@ -768,6 +779,9 @@ inline ArcSet arc_set_from_root_thetas(double R, const PrimaryFrame& pf,
         return {ArcKind::kDegenerate, {}};
     }
     ArcSet out{ArcKind::kArcs, {}};
+#ifdef HOLO_ARC_COMPACT_STORAGE
+    out.arcs.reserve(th.size()/2);
+#endif
     const int n = static_cast<int>(th.size());
     for (int i = 0; i < n; ++i) {
         const double lo = th[i];
