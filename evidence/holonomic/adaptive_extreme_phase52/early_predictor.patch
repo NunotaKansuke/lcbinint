@@ -1,0 +1,16 @@
+diff --git a/src/lcbinint/magnification/holonomic/radius_terms.hpp b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+index 49c7e55..a7e9aab 100644
+--- a/src/lcbinint/magnification/holonomic/radius_terms.hpp
++++ b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+@@ -566,6 +566,11 @@ inline std::vector<double> real_root_thetas_transport(
+                     std::fabs(m_pred) + std::sqrt(std::fabs(v_pred)) > kTransportTMax)
+                     ++prof->rootpair_tmax_reject;
+             }
++#ifdef HOLO_MV_EARLY_PREDICTOR_REJECT
++            // pred_wild is an unconditional rejection below, regardless of
++            // Newton's result. Keep diagnostic traces when explicitly enabled.
++            if(pred_wild && !dbg) {ok=false;break;}
++#endif
+             // corrector: Newton on (E, O) = 0 at the new node
+             bool conv = false;
+             double det_lo = std::numeric_limits<double>::infinity();
