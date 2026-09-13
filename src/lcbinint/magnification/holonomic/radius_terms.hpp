@@ -582,6 +582,15 @@ inline std::vector<double> real_root_thetas_transport(
                     std::fabs(rp.m - m_pred) + std::fabs(rp.v - v_pred),
                     det_lo, detsc_lo > 0.0 ? det_lo / detsc_lo : 0.0);
             }
+#ifdef HOLO_MV_TINY_BRACKET_PROBE
+            if(prof && !pred_wild && conv && std::isfinite(rp.m) &&
+               rp.v>0.0 && rp.v<=kTransportVFloor) {
+                ++prof->rootpair_tiny_eligible;
+                std::array<double,4> endpoints{rp.t_minus(),rp.t_plus(),0,0};
+                if(local_bracket_detail::certify(pc,endpoints,2))
+                    ++prof->rootpair_tiny_bracket_pass;
+            }
+#endif
             if (pred_wild || !conv || !std::isfinite(rp.m) ||
                 !std::isfinite(rp.v) || rp.v <= kTransportVFloor) {
                 if (prof && !pred_wild) {

@@ -205,6 +205,8 @@ struct V2Profile {
     u64 rootpair_predictor_nonpositive = 0;
     u64 rootpair_corrected_nonpositive = 0;
     u64 rootpair_corrected_tiny_positive = 0;
+    u64 rootpair_tiny_eligible = 0;
+    u64 rootpair_tiny_bracket_pass = 0;
     u64 rootpair_gap_reject = 0;
     u64 rootpair_residual_reject = 0;
     u64 rootpair_newton_iterations = 0; // attempted corrector loop iterations
