@@ -225,7 +225,15 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
     if (w.valid && w.deg == deg && w.cold_streak < kColdStreak) {
         if (prof) ++prof->quartic_warm_calls;
         double step = 1.0;
+#ifdef HOLO_QUARTIC_WARM_SOLVE_TOL
+        // Research seed precision, not the final endpoint/value tolerance.
+        static_assert(HOLO_QUARTIC_WARM_SOLVE_TOL > 0.0 &&
+                      HOLO_QUARTIC_WARM_SOLVE_TOL <= kWarmStepTol);
+        auto z = aberth<double>(c, deg, kWarmIters, w.z,
+                                HOLO_QUARTIC_WARM_SOLVE_TOL, &step);
+#else
         auto z = aberth<double>(c, deg, kWarmIters, w.z, 0.0, &step);
+#endif
         if (step <= kWarmStepTol) {
             auto th = thetas_from_complex(z);
             if (w.n_real < 0 || (int)th.size() == w.n_real) {
