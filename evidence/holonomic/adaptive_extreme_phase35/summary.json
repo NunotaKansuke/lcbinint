@@ -1,0 +1,29 @@
+[
+  {
+    "stage": 0,
+    "rows": 7216,
+    "finite": 7216,
+    "all_roots_error_below_1e8": 0,
+    "all_roots_error_below_1e10": 0,
+    "nearest_assignment_duplicate_cases": 6514,
+    "positive_real_count_mismatch": 5962
+  },
+  {
+    "stage": 2,
+    "rows": 7216,
+    "finite": 7216,
+    "all_roots_error_below_1e8": 84,
+    "all_roots_error_below_1e10": 26,
+    "nearest_assignment_duplicate_cases": 6650,
+    "positive_real_count_mismatch": 5980
+  },
+  {
+    "stage": 4,
+    "rows": 7216,
+    "finite": 7216,
+    "all_roots_error_below_1e8": 268,
+    "all_roots_error_below_1e10": 220,
+    "nearest_assignment_duplicate_cases": 6696,
+    "positive_real_count_mismatch": 5942
+  }
+]
