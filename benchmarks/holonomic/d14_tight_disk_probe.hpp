@@ -45,9 +45,72 @@ inline bool tight_fast_screen(const std::vector<qf>& desc_v,
     return true;
 }
 
+// Reject-only native screen. A pass always requires the qf interval verifier.
+inline bool native_tight_screen(const std::vector<qf>& desc,
+                               const std::vector<Cplx<qf>>& roots) {
+    if(desc.size()!=15 || roots.size()!=14)return false;
+    using R=long double;using C=Cplx<R>;
+    auto norm=[](C z){return std::hypot(z.re,z.im);};
+    std::array<C,14> centers{};std::array<R,15> coeff{};
+    for(int k=0;k<15;++k){coeff[k]=R(desc[k]);if(!std::isfinite(coeff[k]))return false;}
+    for(int i=0;i<14;++i){
+        const qf cut=(qf)1e-8*((qf)1+fabsq(roots[i].re));
+        centers[i]={R(roots[i].re),fabsq(roots[i].im)<=cut?R(0):R(roots[i].im)};
+        if(!std::isfinite(centers[i].re)||!std::isfinite(centers[i].im))return false;
+    }
+    for(int i=0;i<14;++i){
+        // Triangular Taylor shift, sharing the polynomial's Horner work.
+        std::array<C,15> b{};b[0]={coeff[0],0};
+        for(int k=1;k<=14;++k){
+            b[k]=b[k-1];
+            for(int j=k-1;j>=1;--j)b[j]=b[j]*centers[i]+b[j-1];
+            b[0]=b[0]*centers[i]+C(coeff[k],0);
+        }
+        R separation=INFINITY;
+        for(int j=0;j<14;++j)if(i!=j)separation=std::min(separation,norm(centers[i]-centers[j]));
+        const R linear=norm(b[1]);
+        if(!(linear>0)||!std::isfinite(linear)||!(separation>0)||!std::isfinite(separation))return false;
+        R radius=std::max(2*norm(b[0])/linear,R(1e-30L)*(1+norm(centers[i])));bool isolated=false;
+        for(int attempt=0;attempt<24&&radius<separation/3;++attempt){
+            R lhs=linear*radius,rhs=norm(b[0]),power=radius*radius;
+            for(int k=2;k<=14;++k){rhs+=norm(b[k])*power;power*=radius;}
+            if(std::isfinite(lhs)&&std::isfinite(rhs)&&lhs>rhs){isolated=true;break;}
+            radius*=2;
+        }
+        if(!isolated)return false;
+    }
+    return true;
+}
+
+inline D14RoucheInterval point_times_interval(qf a,D14RoucheInterval b) {
+    using positive_detail::down;using positive_detail::up;
+    if(a==0 || b.zero())return {};
+    // Preserve the incumbent behavior on invalid/unbounded operands.
+    if(!finiteq(a)||!finiteq(b.lo)||!finiteq(b.hi)||b.lo>b.hi)
+        return D14RoucheInterval(a,a)*b;
+    if(a>0)return {down(a*b.lo),up(a*b.hi)};
+    return {down(a*b.hi),up(a*b.lo)};
+}
+inline std::array<D14RoucheComplex,15> point_interval_shift(
+    const positive_detail::Poly<D14RoucheInterval>& polynomial,Cplx<qf> center) {
+    std::array<D14RoucheComplex,15> b{};
+    for(int k=0;k<=14;++k)b[k]={polynomial.c[k],{}};
+    for(int k=0;k<14;++k)for(int j=13;j>=k;--j){
+        const auto x=b[j+1];D14RoucheComplex product;
+        if(center.im==0){
+            product={point_times_interval(center.re,x.re),point_times_interval(center.re,x.im)};
+        } else {
+            product={point_times_interval(center.re,x.re)-point_times_interval(center.im,x.im),
+                     point_times_interval(center.re,x.im)+point_times_interval(center.im,x.re)};
+        }
+        b[j]=b[j]+product;
+    }
+    return b;
+}
+
 inline D14RoucheCertificate tight_certificate(
     const PrimaryFrame& pf,const std::vector<Cplx<qf>>& roots,
-    bool collect_all=false) {
+    bool collect_all=false,bool point_shift=false) {
     using positive_detail::down;
     using positive_detail::up;
     D14RoucheCertificate out;
@@ -61,7 +124,7 @@ inline D14RoucheCertificate tight_certificate(
     const auto polynomial=positive_detail::polynomial<D14RoucheInterval>(pf);
     if(polynomial.degree!=14)return out;
     for(size_t i=0;i<roots.size();++i) {
-        const auto shifted=d14_rouche_shift(polynomial,out.center[i]);
+        const auto shifted=point_shift?point_interval_shift(polynomial,out.center[i]):d14_rouche_shift(polynomial,out.center[i]);
         qf separation=HUGE_VALQ;
         for(size_t j=0;j<roots.size();++j)if(i!=j) {
             const auto difference=d14_rouche_point(out.center[i])-
