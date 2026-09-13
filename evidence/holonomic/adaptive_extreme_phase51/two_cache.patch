@@ -1,0 +1,46 @@
+diff --git a/src/lcbinint/magnification/holonomic/radius_terms.hpp b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+index 49c7e55..acdbcce 100644
+--- a/src/lcbinint/magnification/holonomic/radius_terms.hpp
++++ b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+@@ -63,6 +63,23 @@ inline PolishResult polish_endpoint(double R, double theta,
+     if (prof) ++prof->endpoint_calls;
+     V2ProfileTimer endpoint_timer(&V2Profile::endpoint_ms);
+     double th = theta, dth = 1.0;
++#ifdef HOLO_ENDPOINT_TWO_CACHE
++    // Exact argument reuse only: preserve all Newton updates and stop gates.
++    double cached_theta[2]{};
++    PhiValDtheta cached_phi[2]{};
++    int cache_count=0, cache_next=0;
++    auto evaluate=[&](double arg) {
++        for(int k=0;k<cache_count;++k)
++            if(arg==cached_theta[k] && std::signbit(arg)==std::signbit(cached_theta[k]))
++                return cached_phi[k];
++        auto g=phi_val_dtheta(R,arg,pf);
++        cached_theta[cache_next]=arg;cached_phi[cache_next]=g;
++        cache_next^=1;if(cache_count<2)++cache_count;
++        return g;
++    };
++#else
++    auto evaluate=[&](double arg) {return phi_val_dtheta(R,arg,pf);};
++#endif
+ #ifdef HOLO_ENDPOINT_WORK_PROBE
+     double visited[7]{}; int nvisited=0;
+     auto record=[&](double arg) {
+@@ -78,7 +95,7 @@ inline PolishResult polish_endpoint(double R, double theta,
+ #ifdef HOLO_ENDPOINT_WORK_PROBE
+         record(th);
+ #endif
+-        PhiValDtheta g = phi_val_dtheta(R, th, pf);
++        PhiValDtheta g = evaluate(th);
+         dth = g.dphi_dtheta;
+         if (std::fabs(dth) < 1e-13) {
+             if (prof) ++prof->endpoint_unreliable;
+@@ -110,7 +127,7 @@ inline PolishResult polish_endpoint(double R, double theta,
+ #ifdef HOLO_ENDPOINT_WORK_PROBE
+     record(th);
+ #endif
+-    PhiValDtheta g = phi_val_dtheta(R, th, pf);
++    PhiValDtheta g = evaluate(th);
+     if (final_phi) *final_phi = g;
+     const bool reliable = std::fabs(g.dphi_dtheta) >= 1e-13;
+     if (prof && !reliable) ++prof->endpoint_unreliable;
