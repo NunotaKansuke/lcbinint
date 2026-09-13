@@ -1,0 +1,57 @@
+{
+  "rows": 7216,
+  "ok_mismatches": 0,
+  "nodes_mismatches": 0,
+  "max_scaled_mu_difference": 6.818826162870335e-13,
+  "steady_rows": 5412,
+  "steady": {
+    "whole": {
+      "baseline_median": 0.31687049999999994,
+      "candidate_median": 0.3317855,
+      "baseline_sum": 2880.792162,
+      "candidate_sum": 3105.350122,
+      "baseline_p99": 0.9513489800000001,
+      "candidate_p99": 0.9519037300000005
+    },
+    "topology": {
+      "baseline_median": 0.126721,
+      "candidate_median": 0.14816099999999996,
+      "baseline_sum": 1899.547952,
+      "candidate_sum": 2140.858203,
+      "baseline_p99": 0.5811353900000007,
+      "candidate_p99": 0.5572327899999999
+    },
+    "prepare": {
+      "baseline_median": 0.001188,
+      "candidate_median": 0.023251499999999953,
+      "baseline_sum": 6.603653999999851,
+      "candidate_sum": 126.62029499999981,
+      "baseline_p99": 0.001824,
+      "candidate_p99": 0.028057349999999995
+    },
+    "presearch": {
+      "baseline_median": 0.008018,
+      "candidate_median": 0.00788449999999995,
+      "baseline_sum": 43.24674599999976,
+      "candidate_sum": 42.07318599999976,
+      "baseline_p99": 0.014944550000000053,
+      "candidate_p99": 0.014875970000000023
+    },
+    "real": {
+      "baseline_median": 0.0218559999999999,
+      "candidate_median": 0.02160449999999995,
+      "baseline_sum": 166.1014919999998,
+      "candidate_sum": 161.5107979999998,
+      "baseline_p99": 0.14593595999999995,
+      "candidate_p99": 0.12902616
+    },
+    "qf": {
+      "baseline_median": 0.0,
+      "candidate_median": 0.0,
+      "baseline_sum": 884.1833799999999,
+      "candidate_sum": 1018.6443519999999,
+      "baseline_p99": 0.0,
+      "candidate_p99": 0.0
+    }
+  }
+}
