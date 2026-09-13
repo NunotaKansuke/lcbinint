@@ -114,6 +114,28 @@ int main(){
         check(bad.grad_quality[0]==GradientQuality::Invalid,
               "split rollback must not hide numerical invalidity");
     }
+    // Independent derivative refinement of a narrow rational peak. The
+    // primal is constant; the derivative integral has an exact atan oracle.
+    {
+        const double k=1000,center=.31;
+        const double exact=(std::atan(k*(1-center))+std::atan(k*center))/k;
+        for(auto policy:{GradientPolicy::Strict,GradientPolicy::ValueFirst}) {
+            AdaptiveWorkspace gw;AdaptivePanel gp;gp.map={0,1,false,false};gw.panels.push_back(gp);
+            AdaptiveConfig gc;gc.gradient_policy=policy;gc.gradient_local_refinement=true;
+            gc.tol.grad_atol.fill(1e-8);gc.tol.grad_rtol.fill(1e-3);
+            gc.value_first_gradient_round_budget=256;
+            auto gr=adaptive_detail::integrate(gw,gc,[&](double R,double J,int,const AdaptiveSample*) {
+                AdaptiveSample s;s.value[0]=J;s.value[1]=J/(1+k*k*(R-center)*(R-center));return s;
+            });
+            check(gr.value_converged&&std::fabs(gr.mu-1)<1e-14,"gradient mesh preserves constant primal");
+            check(gr.grad_quality[0]==GradientQuality::ToleranceMet,"local gradient peak meets independent contract");
+            check(std::fabs(gr.grad_mu[0]-exact)<=gc.tol.budget(1,exact),"local gradient peak exact atan reference");
+            check(gr.stats.splits>0,"unresolved derivative peak causes local split");
+            check(gr.stats.reused_nodes>0,"gradient refinement reuses inherited nodes");
+        }
+        AdaptiveConfig bad;bad.gradient_difference_safety=.5;
+        check(!adaptive_detail::valid_config(bad),"reject unsafe derivative estimator factor");
+    }
     // A forced four-level walk checks cache exactly without an acceptance shortcut.
     w.reset();w.panels.push_back(p);int evals=0;
     for(int l=3;l<=6;++l){auto& pp=w.panels[0];int m=1<<l,step=256/m;

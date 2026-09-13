@@ -143,6 +143,11 @@ struct AdaptiveConfig {
     size_t value_first_gradient_node_budget=4096;
     int value_first_gradient_round_budget=4;
     bool collect_diagnostics=false;
+    // Experimental derivative-only controller. Primal mesh and tolerance are
+    // unchanged; retain the incumbent for matched research comparisons.
+    bool gradient_local_refinement=false;
+    int gradient_split_min_level=4;
+    double gradient_difference_safety=2.0;
     // HybridEmbedded retains a fixed fraction of the weighted interpolation
     // detail while also using the actual embedded Fejer integral difference.
     // The floor prevents an accidentally cancelling embedded difference from
@@ -280,6 +285,8 @@ inline bool valid_config(const AdaptiveConfig& c) {
     }
     if(c.effective_gradient_policy()==GradientPolicy::ValueFirst &&
        c.value_first_gradient_round_budget<0) return false;
+    if(c.gradient_split_min_level<3 || c.gradient_split_min_level>8 ||
+       !std::isfinite(c.gradient_difference_safety) || c.gradient_difference_safety<1) return false;
     if(!std::isfinite(c.nested_difference_safety)||c.nested_difference_safety<1.0)
         return false;
     if(!std::isfinite(c.weighted_detail_floor_fraction)||
@@ -368,7 +375,7 @@ inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc,
         }
         for(int j=0;j<nc;++j) (lev==p.level?detail:previous)[j]=std::sqrt(3.14159265358979323846*norm[j]);
     }
-    if(cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded) {
+    if(cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded || cfg.gradient_local_refinement) {
         const int coarse_m=m/2,coarse_step=256/coarse_m;
         const auto& coarse_rule=fejer_rule(p.level-1);
         std::array<Sum,6> coarse_q;
@@ -424,12 +431,16 @@ inline void estimate(AdaptivePanel& p,const AdaptiveWorkspace& w,int nc,
         else p.gradient_resolved[j-1]=!p.gradient_invalid[j-1]&&decays;
         // Unresolved panels must refine even if their integral difference cancels.
         // Gradient contracts retain the conservative estimator in this
-        // phase.  Only the independently validated primal value uses the
-        // embedded integral difference.
-        const double radial=j==0&&cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded
+        // phase. Only the independently validated primal may REDUCE its
+        // detail estimate using an embedded integral difference.
+        double radial=j==0&&cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded
             ? std::max(cfg.weighted_detail_floor_fraction*detail[j],
                        std::min(detail[j],cfg.nested_difference_safety*nested_difference[j]))
             : detail[j];
+        // Separate derivative estimate: neither cancellation in the embedded
+        // difference nor a small interpolation detail may hide the other.
+        if(j>0 && cfg.gradient_local_refinement)
+            radial=std::max(detail[j],cfg.gradient_difference_safety*nested_difference[j]);
         p.radial[j]=radial;p.error[j]=(j>0&&p.gradient_invalid[j-1])
             ? std::numeric_limits<double>::infinity()
             : radial+floor+p.event[j];
@@ -719,7 +730,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
     while(failure==AdaptiveStop::Converged) {
         bool value_pass=false,gradient_pass=false;
         gather(&value_pass,&gradient_pass);
-        if(value_pass && gradient_pass)break;
+        if(value_snapshot.valid && gradient_pass)break;
         const bool any_gradient_invalid=std::any_of(gradient_invalid_seen.begin(),gradient_invalid_seen.end(),[](bool x){return x;});
         if(value_snapshot.valid && any_gradient_invalid) {
             failure=AdaptiveStop::Nonfinite;
@@ -733,7 +744,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         }
         size_t worst=0;double priority=-1;
         for(size_t i=0;i<w.panels.size();++i)if(w.panels[i].active){auto& p=w.panels[i];double score=0;
-            if(!value_pass || !value_snapshot.valid){
+            if(!value_snapshot.valid){
                 score=p.error[0]/cfg.tol.budget(0,out.mu);
                 if(!p.value_resolved)score=std::max(score,1.0);
             } else {
@@ -744,7 +755,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             }
             if(score>priority){priority=score;worst=i;}}
         auto& p=w.panels[worst];
-        const int first_component=(!value_pass || !value_snapshot.valid)?0:1;
+        const int first_component=(!value_snapshot.valid)?0:1;
         bool inner_dominant=false,geometry_dominant=false,event_dominant=false;
         for(int j=first_component;j<nc;++j){double T=cfg.tol.budget(j,j?out.grad_mu[j-1]:out.mu);
             inner_dominant=inner_dominant||(out.inner_error[j]>T && p.inner[j]>p.radial[j]);
@@ -753,7 +764,14 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         if(event_dominant){failure=AdaptiveStop::EventLocationLimited;break;}
         if(inner_dominant){failure=AdaptiveStop::InnerAccuracyLimited;break;}
         if(geometry_dominant){failure=AdaptiveStop::RoundoffLimited;break;}
-        if(p.level<cfg.max_level){failure=refine(worst,p.level+1);continue;}
+        bool split_gradient=false;
+        if(gradient_phase && cfg.gradient_local_refinement &&
+           p.level>=cfg.gradient_split_min_level) {
+            for(int j=1;j<nc;++j)
+                if(!p.gradient_resolved[j-1] &&
+                   p.radial[j]>cfg.tol.budget(j,out.grad_mu[j-1])) split_gradient=true;
+        }
+        if(p.level<cfg.max_level && !split_gradient){failure=refine(worst,p.level+1);continue;}
         if(p.depth>=cfg.max_depth||w.panels.size()+2>cfg.max_panels){failure=AdaptiveStop::BudgetExceeded;break;}
         if(allocated_bytes()+2*sizeof(AdaptivePanel)>cfg.max_bytes){failure=AdaptiveStop::BudgetExceeded;break;}
         AdaptivePanel l,r;l.parent=r.parent=int(worst);l.map=r.map=p.map;l.cell=r.cell=p.cell;l.depth=r.depth=p.depth+1;
