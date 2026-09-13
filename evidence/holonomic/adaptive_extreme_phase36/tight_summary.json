@@ -1,0 +1,50 @@
+[
+  {
+    "stage": 0,
+    "rows": 5412,
+    "finite": 5412,
+    "screened": 1156,
+    "certified": 1156,
+    "p50_ms": {
+      "prepare_ms": 0.013804,
+      "correction_ms": 0.0,
+      "screen_ms": 0.12853150000000002,
+      "interval_ms": 0.0
+    },
+    "total_p50_ms": 0.1426145,
+    "total_mean_ms": 0.37444103954175906,
+    "interval_mean_when_screened_ms": 0.8611372603806228
+  },
+  {
+    "stage": 1,
+    "rows": 5412,
+    "finite": 5412,
+    "screened": 2040,
+    "certified": 2040,
+    "p50_ms": {
+      "prepare_ms": 0.013804,
+      "correction_ms": 0.00654,
+      "screen_ms": 0.2189865,
+      "interval_ms": 0.0
+    },
+    "total_p50_ms": 0.239534,
+    "total_mean_ms": 0.5997441419068735,
+    "interval_mean_when_screened_ms": 0.8726079950980391
+  },
+  {
+    "stage": 2,
+    "rows": 5412,
+    "finite": 5412,
+    "screened": 2630,
+    "certified": 2630,
+    "p50_ms": {
+      "prepare_ms": 0.013804,
+      "correction_ms": 0.013292,
+      "screen_ms": 0.344872,
+      "interval_ms": 0.0
+    },
+    "total_p50_ms": 0.3706345,
+    "total_mean_ms": 0.7464226023651146,
+    "interval_mean_when_screened_ms": 0.8792415908745246
+  }
+]
