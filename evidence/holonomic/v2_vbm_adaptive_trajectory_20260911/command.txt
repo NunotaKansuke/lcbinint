@@ -1,0 +1,29 @@
+# V2 adaptive full-epoch trajectory benchmark
+# repository: NunotaKansuke/lcbinint
+# branch: dev/holonomic
+# measured source HEAD: 26593fa005ac0c82eb13c11dd7c7ef79dd976867
+# host timing: taskset -c 0-7; Release-style -O3 -march=native build
+# value-only; targets 1e-3 and 1e-4; 3 timed repetitions per epoch/lane
+# input has 1804 trajectories x 4 ordered epochs x 2 targets = 14432 rows
+
+/usr/bin/c++ -O3 -DNDEBUG -std=gnu++17 \
+  -I/rogue1_8/nunota/lcbinint/src -march=native -funroll-loops \
+  -ffp-contract=fast -fno-math-errno \
+  evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/v2_adaptive_trajectory_runner.cpp \
+  -o /tmp/v2_adaptive_trajectory_runner -lquadmath
+
+sha256sum /tmp/v2_adaptive_trajectory_runner \
+  > evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/binary.sha256
+
+taskset -c 0-7 /tmp/v2_adaptive_trajectory_runner \
+  evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/input_snapshot.tsv \
+  evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/results.tsv 3 \
+  > evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/runner_stdout.log \
+  2> evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/runner_stderr.log
+
+python3 evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/summarize.py
+sha256sum evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/results.tsv \
+  > evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/results.sha256
+
+MPLCONFIGDIR=/tmp/mpl-v2-trajectory python3 evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/make_figures.py \
+  > evidence/holonomic/v2_vbm_adaptive_trajectory_20260911/figures.log

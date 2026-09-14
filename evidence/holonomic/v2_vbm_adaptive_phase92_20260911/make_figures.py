@@ -3,6 +3,7 @@ import csv
 import hashlib
 import json
 import math
+import os
 import platform
 import subprocess
 from collections import defaultdict, Counter
@@ -15,11 +16,11 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import BoundaryNorm, ListedColormap
 from matplotlib.patches import Rectangle
 
-SPEED_PATH = Path('/tmp/lcbinint_pure_kernel_confirm_full_20260909/merged_final/results.json')
-REF_ROOT = Path('/tmp/lcbinint_pure_kernel_reference_all_1e-6_20260909/plot_parts_vbm_reltol_1e-6_reference')
+SPEED_PATH = Path(os.environ.get('V2_VBM_SPEED_PATH', '/tmp/lcbinint_pure_kernel_confirm_full_20260909/merged_final/results.json'))
+REF_ROOT = Path(os.environ.get('V2_VBM_REF_ROOT', '/tmp/lcbinint_pure_kernel_reference_all_1e-6_20260909/plot_parts_vbm_reltol_1e-6_reference'))
 ROOT = Path(__file__).resolve().parent
 V2_PATH = ROOT / 'v2_results.tsv'
-OUT = ROOT
+OUT = Path(os.environ.get('V2_VBM_OUT', str(ROOT)))
 FIG_DIR = OUT / 'figures'
 OUT.mkdir(parents=True, exist_ok=True)
 FIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -294,9 +295,9 @@ ERROR_LABELS = ['≤ 10⁻⁴', '2 × 10⁻⁴', '5 × 10⁻⁴', '10⁻³',
 
 def edges_for(kind):
     if kind == 'q':
-        return np.logspace(-4, 0, 13), r'$q$'
+        return np.geomspace(1e-4, 1, 13), r'$q$'
     if kind == 'rho':
-        return np.logspace(-4, 0, 11), r'$\rho$'
+        return np.geomspace(3e-5, 1, 13), r'$\rho$'
     if kind == 'A':
         return np.logspace(0, 5, 13), r'$A_{\rm fs}$'
     raise ValueError(kind)
@@ -531,6 +532,7 @@ def main():
         'failure_summary': failure_summary,
         'plot': {
             'min_cell_population': MIN_CELL_POPULATION,
+            'q_rho_edges': 'q=np.geomspace(1e-4,1,13), rho=np.geomspace(3e-5,1,13); 12x12 protocol-clamped bins',
             'speed_ratio': 'VBM selected_seconds * 1000 / V2 ms; finite positive V2 outputs enter the paper-style runtime cells, regardless of status',
             'error': 'abs(V2 mu - VBM 1e-6 reference) / abs(VBM 1e-6 reference); only value-converged V2 values enter the paper-style p95 cells; all finite values remain in the all-status diagnostic summary',
             'nonok_diagnostic': 'non-OK points are retained in joined TSV and status_counts; topology status and uncertain-cell counts are retained separately; hatched cells identify incomplete value coverage',
@@ -545,6 +547,7 @@ def main():
     report.append('The four speed conditions are VBM `RelTol=1e-3` and `RelTol=1e-4`, each for uniform (LD off) and linear (LD on, `c=0.5`). Only current V2 was evaluated in this step. Relative error is evaluated against the existing VBM `RelTol=1e-6` reference.\n')
     report.append('V2 timing covers the value-only adaptive `flux_adaptive_integrate(p,u,topo,cfg,workspace)` path. The radial node count is selected by the adaptive value contract `Eabs <= max(1e-16, RelTol * abs(mu))`; this is not a fixed-64 run. `classify_cells` (D14+topology), `LensParams`, input parsing, and output formatting are outside the timer, while adaptive setup, event handling, panel refinement, physics, estimator, and scheduler are inside. No gradient/Jacobian is requested or timed, and this remains the same pure-kernel boundary as the VBM timing rather than a full epoch. The existing VBM timing is the warmed direct `BinaryMag`/`BinaryMagDark` kernel.\n')
     report.append('Non-OK V2 points remain in the machine-readable join and status counts. The paper-style runtime map keeps finite positive V2 outputs. The p95 error map uses value-converged V2 values only; all-status finite-value error distributions remain in `summary.json`, and hatched cells identify incomplete value coverage.\n')
+    report.append('The q-rho panels use the coverage-extension protocol edges `q=geomspace(1e-4,1,13)` and `rho=geomspace(3e-5,1,13)`, giving 12x12 bins. This is distinct from a decade-floored rho axis starting at 1e-4.\n')
     report.append('The 636 non-converged rows have `topology_status=OK`, zero uncertain topology cells, and positive node/panel counts. They therefore passed the topology classifier and stopped later when an adaptive sample evaluator returned `reliable=false`; the current evaluator reports those internal subreasons through the aggregate `TopologyUnresolved` stop label.\n')
     report.append('## Conditions\n')
     report.append('| profile | VBM timing target | rows | V2 value-converged | V2 p50 ms | V2 p95 ms | median VBM/V2 (finite positive) | median VBM/V2 (value-converged) | all-finite p95 error | converged p95 error |\n|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|')

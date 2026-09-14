@@ -1,0 +1,20 @@
+loaded 115 cases (108 bench + 7 ref), reps=3
+
+== solve_d14  A/B  (best-of-3 per case) ==
+  cases with a D14 : 115
+  legacy (__float128 warm)  : median   0.7825  p90   2.5295  p99   2.5740  max   2.5835  ms
+  compensated (double-double): median   0.4926  p90   0.5054  p99   2.5518  max   2.8731  ms
+  speedup   median 1.59x   p90 5.01x
+
+  compensated tier histogram : dd-sufficed 113   qf-escalate 2   cold-quad 0
+  legacy cold-quad fallbacks : 0
+
+  PARITY vs legacy:
+    worst root-set rel diff (comp vs legacy) : 2.277e-09
+    worst __float128 residual  legacy 3.804e-15   comp 5.625e-14
+    parity failures : 0 / 115
+
+  whole radial_events (compiled default path) : median   0.4806  p90   0.7387  p99   0.8996  max   0.9037  ms
+  full value+5-Jac epoch                      : median   1.0743  p90   1.5959  p99   2.2509  max   2.2791  ms
+
+checksum 13429.867351
