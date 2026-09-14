@@ -1,0 +1,67 @@
+Phase 74 projective physical-fold provenance
+Date: 2026-09-14 (Asia/Tokyo)
+Repository: /rogue1_8/nunota/lcbinint
+Branch: dev/holonomic
+Base HEAD: f928e3b42d25635195c7fba985cb72b811c383f3
+
+Environment
+  OS/kernel: Linux 5.14.0-570.23.1.el9_6.x86_64, x86_64
+  CPU: Intel Xeon Gold 6530, 64 logical CPUs, 2 sockets, 1 thread/core
+  Compiler: c++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)
+  Runtime affinity: taskset -c 0
+  Common flags (from run_phase74.sh):
+    -O3 -DNDEBUG -std=gnu++17 -fext-numeric-literals -I<repo>/src
+    -DHOLO_D14_NATIVE_RESIDUAL_SCREEN -DHOLO_D14_DIRECT_CONVOLUTION
+    -DHOLO_ADAPTIVE_STATIONARY_ENDPOINT -DHOLO_D14_WARM_NOISE_HANDOFF
+    -DHOLO_D14_SCALAR_CONSTANTS -DHOLO_ARC_COMPACT_STORAGE
+    -DHOLO_ADAPTIVE_SPARSE_ANCHOR -DHOLO_ADAPTIVE_SAMPLE_GROWTH
+    -DHOLO_MV_RATIONAL_MIDPOINT -DHOLO_QUARTIC_WARM_SOLVE_TOL=1e-11
+    -march=native -funroll-loops -ffp-contract=fast -fno-math-errno -lquadmath
+  Baseline adaptive binary additionally defines HOLO_ADAPTIVE_FOLD_QUARTIC_SEED.
+  Candidate additionally defines HOLO_ADAPTIVE_PROJECTIVE_P4_FOLD_RESEARCH.
+  VBM/GM environment overrides are unset for all runs, as in the script.
+
+Inputs
+  evidence/holonomic/adaptive_radial_20260911/reference_cases.tsv
+  SHA256: 5d625cbc9f4dc16de2a81754bbff131f1cb1ba9780fccdff4ddb210417347548
+  110 rows; corpus evaluator emits None and ValueFirst per row, 220 outputs
+  per variant. Value tolerance is mu_rtol=1e-4; ValueFirst gradient rtol=1e-3.
+  Target independent FD/GL materials are retained in
+  evidence/holonomic/gradient_cell_attribution_phase73/; see its provenance.txt
+  and Phase 73 checkpoint. Their observed convergence/spread is not a formal
+  error bound.
+
+Reproduction
+  bash evidence/holonomic/projective_fold_phase74/run_phase74.sh
+  cmake --build build-holonomic-m7 --target test_projective_fold -j2
+  ctest --test-dir build-holonomic-m7 -R \
+    'holonomic_(quartic_sturm|quartic_local_bracket|root_pair|adaptive_radial|projective_fold)' \
+    --output-on-failure
+  sha256sum -c evidence/holonomic/gradient_cell_attribution_phase73/SHA256SUMS
+
+run_phase74.sh builds baseline and research-candidate diagnostics using the
+same compiler flags, then pins all executions to CPU 0. The A/B epoch timer
+includes epoch_value_adaptive/epoch_jacobian_adaptive (including topology),
+but the one-case timing is a single observation and is not used as a speed
+claim. The per-row corpus timing has one pass per binary in fixed order and is
+diagnostic only. The research compile define does not alter a production
+router/default.
+
+Raw outputs
+  projective_fold_probe.tsv: all chart_p4 reciprocal contact / D14-match decisions
+  adaptive_baseline.tsv, adaptive_projective.tsv: same-topology target A/B
+  adaptive_*_panels.tsv: fold-map flags and split event radii/uncertainties
+  adaptive_*_epoch.tsv: whole adaptive epoch cold A/B
+  corpus_baseline.tsv, corpus_projective.tsv: Phase 9 110-row None/ValueFirst A/B
+  summary.json and summary_stdout.json: machine-readable summaries
+  run.log: complete run script output
+
+Numerical policy/limitations
+  Local p4 refinement and reciprocal residual/curvature/transversality screens
+  are evaluated in __float128 and cross-checked against the existing D14
+  positive-real event. This is a strict floating-point numerical gate, not an
+  outward-rounded interval proof. The event remains chart_p4 unless all gates
+  pass. No high-order projective contact fixture occurred in the scanned
+  corpus; unit tests exercise the fail-closed branch predicates directly.
+  Phase 73 independent FD and Gauss-Legendre sequences are observed
+  convergence references, not formal bounds. rand035 cell 3 was not changed.

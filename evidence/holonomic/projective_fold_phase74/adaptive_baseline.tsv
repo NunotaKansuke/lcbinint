@@ -1,0 +1,3 @@
+lane	policy	topology_status	event_count	cell_count	value_converged	value_stop	mu	value_error	numerical_status	stop	grad_a	grad_a_quality	grad_a_reason	grad_a_error	grad_a_converged	nodes	panels	splits	projective_map_cells	map_cell5_left	map_cell7_left	map_cell7_right
+baseline	None	0	16	14	1	Converged	31.943948575450037	0.0016355269017124957	0	Converged	0	NotRequested	NotRequested	0	0	195	5	0	0	0	0	1
+baseline	ValueFirst	0	16	14	1	Converged	31.943948575450037	0.0016355269017125935	0	Converged	-0.10529004808979975	FiniteUncertified	BudgetExceeded	16.093818245420106	0	345	6	1	0	0	0	1

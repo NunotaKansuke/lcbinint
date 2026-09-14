@@ -67,6 +67,13 @@ struct RadialEvent {
     double radius_uncertainty = std::numeric_limits<double>::infinity();
     double fold_t_seed = 0.0;
     bool fold_t_seed_valid = false;
+    // A chart_p4 event is normally only a representation boundary.  The
+    // adaptive research lane may set this certificate when the reciprocal
+    // quartic has an ordinary double root at u=-1/t=0 and a co-located D14
+    // event independently confirms the repeated projective root.
+    bool projective_fold_certified = false;
+    double fold_u_seed = 0.0;
+    bool fold_u_seed_valid = false;
     int precision_tier = 0;  // 0=double, 1=DD, 2=__float128 source
     bool positive_certified = false;
     bool atlas_anchor = false;

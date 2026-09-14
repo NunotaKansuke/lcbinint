@@ -170,9 +170,10 @@ struct AdaptiveConfig {
 };
 struct AdaptiveEventDiagnostic {
     double input_radius=0,selected_radius=0,radius_lo=0,uncertainty=std::numeric_limits<double>::infinity();
-    double t_seed=0;
+    double t_seed=0,u_seed=0;
     double d14_condition=std::numeric_limits<double>::infinity();
-    bool t_seed_valid=false,topology_reused=false;
+    bool t_seed_valid=false,u_seed_valid=false,seed_reciprocal=false;
+    bool topology_reused=false,projective_fold_certified=false;
     int precision_tier=0;
     EventDecisionReason double_reason=EventDecisionReason::NotAttempted;
     EventDecisionReason dd_reason=EventDecisionReason::NotAttempted;

@@ -375,6 +375,16 @@ target_compile_options(test_adaptive_radial PRIVATE ${_M7_FLAGS})
 target_link_libraries(test_adaptive_radial PRIVATE quadmath)
 add_test(NAME holonomic_adaptive_radial COMMAND test_adaptive_radial)
 
+# Reciprocal-chart certification for actual theta=pi folds.  The test covers
+# the caustic-cross positive control and a generic chart_p4 negative control;
+# adaptive integration is A/B-tested separately by the Phase 74 evidence
+# harness under HOLO_ADAPTIVE_PROJECTIVE_P4_FOLD_RESEARCH.
+add_executable(test_projective_fold test_projective_fold.cpp)
+target_include_directories(test_projective_fold PRIVATE "${_SRC}")
+target_compile_options(test_projective_fold PRIVATE ${_M7_FLAGS})
+target_link_libraries(test_projective_fold PRIVATE quadmath)
+add_test(NAME holonomic_projective_fold COMMAND test_projective_fold)
+
 foreach(adaptive_target bench_adaptive_radial check_adaptive_reference check_adaptive_jacobian)
     add_executable(${adaptive_target} ${adaptive_target}.cpp)
     target_include_directories(${adaptive_target} PRIVATE "${_SRC}")

@@ -1,0 +1,340 @@
+{
+  "phase": "Phase74 reciprocal projective fold classification and adaptive A/B",
+  "production_default_changed": false,
+  "candidate_compile_gate": "HOLO_ADAPTIVE_PROJECTIVE_P4_FOLD_RESEARCH",
+  "reference_corpus": {
+    "chart_event_records": 70,
+    "case_row_event_records": 70,
+    "accepted_projective_fold_records": 8,
+    "accepted_case_radius_locations": 4,
+    "rejected_chart_event_records": 62,
+    "accepts": [
+      {
+        "case_row": 11,
+        "case": "on-axis-off",
+        "event_index": 0,
+        "radius": 0.672810055540046,
+        "contact_relative": 0.0,
+        "angular_curvature_relative": 0.9963874176038447,
+        "radial_crossing_relative": 0.3617064425571211,
+        "D14_delta": 2.5459830899827064e-30,
+        "D14_match_budget": 2.0291610533796883e-29
+      },
+      {
+        "case_row": 11,
+        "case": "on-axis-off",
+        "event_index": 2,
+        "radius": 0.7115551481859994,
+        "contact_relative": 0.0,
+        "angular_curvature_relative": 0.9999406133181558,
+        "radial_crossing_relative": 0.4478372459471183,
+        "D14_delta": 1.1334903724400609e-27,
+        "D14_match_budget": 8.996986681139736e-27
+      },
+      {
+        "case_row": 12,
+        "case": "on-axis-off",
+        "event_index": 0,
+        "radius": 0.672810055540046,
+        "contact_relative": 0.0,
+        "angular_curvature_relative": 0.9963874176038447,
+        "radial_crossing_relative": 0.3617064425571211,
+        "D14_delta": 2.5459830899827064e-30,
+        "D14_match_budget": 2.0291610533796883e-29
+      },
+      {
+        "case_row": 12,
+        "case": "on-axis-off",
+        "event_index": 2,
+        "radius": 0.7115551481859994,
+        "contact_relative": 0.0,
+        "angular_curvature_relative": 0.9999406133181558,
+        "radial_crossing_relative": 0.4478372459471183,
+        "D14_delta": 1.1334903724400609e-27,
+        "D14_match_budget": 8.996986681139736e-27
+      },
+      {
+        "case_row": 17,
+        "case": "caustic-cross",
+        "event_index": 4,
+        "radius": 0.8374637895746331,
+        "contact_relative": 0.0,
+        "angular_curvature_relative": 0.2603393347417156,
+        "radial_crossing_relative": 1.9923199627636616,
+        "D14_delta": 3.307977272479516e-30,
+        "D14_match_budget": 2.6550889564229843e-29
+      },
+      {
+        "case_row": 17,
+        "case": "caustic-cross",
+        "event_index": 7,
+        "radius": 0.857203785752395,
+        "contact_relative": 0.0,
+        "angular_curvature_relative": 0.17990320826779083,
+        "radial_crossing_relative": 2.1135331147940937,
+        "D14_delta": 9.227130363559247e-31,
+        "D14_match_budget": 7.554897557194724e-30
+      },
+      {
+        "case_row": 18,
+        "case": "caustic-cross",
+        "event_index": 4,
+        "radius": 0.8374637895746331,
+        "contact_relative": 0.0,
+        "angular_curvature_relative": 0.2603393347417156,
+        "radial_crossing_relative": 1.9923199627636616,
+        "D14_delta": 3.307977272479516e-30,
+        "D14_match_budget": 2.6550889564229843e-29
+      },
+      {
+        "case_row": 18,
+        "case": "caustic-cross",
+        "event_index": 7,
+        "radius": 0.857203785752395,
+        "contact_relative": 0.0,
+        "angular_curvature_relative": 0.17990320826779083,
+        "radial_crossing_relative": 2.1135331147940937,
+        "D14_delta": 9.227130363559247e-31,
+        "D14_match_budget": 7.554897557194724e-30
+      }
+    ],
+    "reject_reason_counts": {
+      "accepted": 8,
+      "no_coincident_d14_event": 62
+    },
+    "rand006_row41_negative_count": 2,
+    "rand006_row41_decisions": [
+      "no_coincident_d14_event",
+      "no_coincident_d14_event"
+    ],
+    "false_promotions_observed": 0
+  },
+  "adaptive_AB": {
+    "value_only": {
+      "topology_status_equal": true,
+      "event_count_equal": true,
+      "cell_count_equal": true,
+      "value_converged": {
+        "baseline": true,
+        "projective": true
+      },
+      "value_stop": {
+        "baseline": "Converged",
+        "projective": "Converged"
+      },
+      "mu": {
+        "baseline": 31.943948575450037,
+        "projective": 31.943882703752212,
+        "difference": -6.587169782434898e-05,
+        "independent_central_FD_midpoint_proxy": 31.943882689839185,
+        "proxy_method": "mean of the independent n_r=1024 direct-integral values at a\u00b12e-6; not a formal bound",
+        "baseline_abs_difference_from_proxy": 6.588561085152378e-05,
+        "projective_abs_difference_from_proxy": 1.3913027174794479e-08
+      },
+      "map_certificates": {
+        "candidate_cell5_left": true,
+        "candidate_cell7_left": true,
+        "candidate_cell7_right_existing_fold": true,
+        "baseline_cell5_left": false,
+        "baseline_cell7_left": false
+      },
+      "nodes": {
+        "baseline": 195,
+        "projective": 91
+      },
+      "projective_cell_panels": 2,
+      "gradient": "not requested in value-only lane"
+    },
+    "value_plus_5jac": {
+      "topology_status_equal": true,
+      "event_count_equal": true,
+      "cell_count_equal": true,
+      "value_converged": {
+        "baseline": true,
+        "projective": true
+      },
+      "value_stop": {
+        "baseline": "Converged",
+        "projective": "Converged"
+      },
+      "mu": {
+        "baseline": 31.943948575450037,
+        "projective": 31.943882703752212,
+        "difference": -6.587169782434898e-05,
+        "independent_central_FD_midpoint_proxy": 31.943882689839185,
+        "proxy_method": "mean of the independent n_r=1024 direct-integral values at a\u00b12e-6; not a formal bound",
+        "baseline_abs_difference_from_proxy": 6.588561085152378e-05,
+        "projective_abs_difference_from_proxy": 1.3913027174794479e-08
+      },
+      "map_certificates": {
+        "candidate_cell5_left": true,
+        "candidate_cell7_left": true,
+        "candidate_cell7_right_existing_fold": true,
+        "baseline_cell5_left": false,
+        "baseline_cell7_left": false
+      },
+      "nodes": {
+        "baseline": 345,
+        "projective": 139
+      },
+      "projective_cell_panels": 2,
+      "grad_a": {
+        "baseline": -0.10529004808979975,
+        "projective": -2.4046891773126045,
+        "fd_reference": -2.4046891642370833,
+        "fd_observed_spread_not_formal_bound": 8.260059303211165e-08,
+        "baseline_abs_error": 2.2993991161472835,
+        "projective_abs_error": 1.3075521110295085e-08,
+        "quality": {
+          "baseline": "FiniteUncertified",
+          "projective": "ToleranceMet"
+        },
+        "estimated_error": {
+          "baseline": 16.093818245420106,
+          "projective": 0.002285531843942204
+        }
+      }
+    }
+  },
+  "whole_adaptive_epoch_AB": {
+    "value_only": {
+      "topology_status_is_returned_status_unchanged": true,
+      "value_converged": {
+        "baseline": true,
+        "projective": true
+      },
+      "value_stop": {
+        "baseline": "Converged",
+        "projective": "Converged"
+      },
+      "numerical_status": {
+        "baseline": "0",
+        "projective": "0"
+      },
+      "mu": {
+        "baseline": 31.943948575450037,
+        "projective": 31.943882703752212,
+        "difference": -6.587169782434898e-05,
+        "baseline_abs_difference_from_independent_midpoint_proxy": 6.588561085152378e-05,
+        "projective_abs_difference_from_independent_midpoint_proxy": 1.3913027174794479e-08
+      },
+      "grad_a": null,
+      "wall_ms": {
+        "baseline": 0.940935,
+        "projective": 0.750739
+      },
+      "nodes": {
+        "baseline": 195,
+        "projective": 91
+      }
+    },
+    "value_plus_5jac": {
+      "topology_status_is_returned_status_unchanged": true,
+      "value_converged": {
+        "baseline": true,
+        "projective": true
+      },
+      "value_stop": {
+        "baseline": "Converged",
+        "projective": "Converged"
+      },
+      "numerical_status": {
+        "baseline": "0",
+        "projective": "0"
+      },
+      "mu": {
+        "baseline": 31.943948575450037,
+        "projective": 31.943882703752212,
+        "difference": -6.587169782434898e-05,
+        "baseline_abs_difference_from_independent_midpoint_proxy": 6.588561085152378e-05,
+        "projective_abs_difference_from_independent_midpoint_proxy": 1.3913027174794479e-08
+      },
+      "grad_a": {
+        "baseline": -0.10529004808979975,
+        "projective": -2.4046891773126045,
+        "fd_reference": -2.4046891642370833,
+        "baseline_abs_error": 2.2993991161472835,
+        "projective_abs_error": 1.3075521110295085e-08,
+        "fd_observed_spread_not_formal_bound": 8.260059303211165e-08,
+        "quality": {
+          "baseline": "FiniteUncertified",
+          "projective": "ToleranceMet"
+        }
+      },
+      "wall_ms": {
+        "baseline": 1.492105,
+        "projective": 0.867863
+      },
+      "nodes": {
+        "baseline": 345,
+        "projective": 139
+      }
+    }
+  },
+  "phase9_adaptive_corpus_AB": {
+    "input_rows": 110,
+    "policy_rows_per_lane": 220,
+    "policies": [
+      "None",
+      "ValueFirst"
+    ],
+    "topology": {
+      "event_count_changed": 0,
+      "event_identity_changed": 0,
+      "cell_plan_changed": 0,
+      "projective_promotions_per_input_row": {
+        "min": 0,
+        "max": 2
+      }
+    },
+    "value_and_status": {
+      "baseline_value_converged": 200,
+      "projective_value_converged": 200,
+      "new_value_convergence_regressions": [],
+      "numerical_status_changes": [],
+      "value_stop_changes": [],
+      "abs_mu_delta": {
+        "p50": 0.0,
+        "p90": 0.0,
+        "max": 6.587169782434898e-05,
+        "nonzero_row_count": 8
+      },
+      "delta_exceeds_sum_of_reported_error_estimates": []
+    },
+    "ValueFirst_gradient_quality_change_counts": {
+      "quality_x": {
+        "FiniteUncertified -> ToleranceMet": 2
+      },
+      "quality_y": {},
+      "quality_rho": {
+        "FiniteUncertified -> ToleranceMet": 3
+      },
+      "quality_q": {
+        "FiniteUncertified -> ToleranceMet": 2
+      },
+      "quality_a": {
+        "FiniteUncertified -> ToleranceMet": 3
+      }
+    },
+    "single_run_epoch_wall_ms_diagnostic_only": {
+      "baseline": {
+        "p50": 0.4641015,
+        "p90": 0.8424264
+      },
+      "projective": {
+        "p50": 0.48893149999999996,
+        "p90": 0.8334313
+      }
+    },
+    "limits": [
+      "Per-row corpus timing is one pass per binary in fixed lane order; it is diagnostic, not a performance comparison.",
+      "The reference_cases input column is not treated as an independent value oracle in this experiment.",
+      "Reported adaptive error estimates are not formal upper bounds; delta-vs-error-sum is an audit only."
+    ]
+  },
+  "limits": [
+    "The independent value finite difference has an observed spread, not a formal error bound.",
+    "The scan is over the Phase 9 reference_cases corpus, not all possible lens parameters.",
+    "The A/B compiles the existing adaptive API with a research-only build define; the default router is unchanged."
+  ]
+}

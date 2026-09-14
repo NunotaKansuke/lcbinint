@@ -1,0 +1,3 @@
+lane	policy	wall_ms	value_converged	value_stop	mu	value_error	numerical_status	stop	grad_a	grad_a_quality	grad_a_reason	grad_a_error	grad_a_converged	nodes	panels	topology_ms	physical_ms
+baseline	None	0.94093499999999997	1	Converged	31.943948575450037	0.0016355269017124957	0	Converged	0	NotRequested	NotRequested	0	0	195	5	0.56078499999999998	0.24735599999999991
+baseline	ValueFirst	1.492105	1	Converged	31.943948575450037	0.0016355269017125935	0	Converged	-0.10529004808979975	FiniteUncertified	BudgetExceeded	16.093818245420106	0	345	6	0.53857500000000003	0.44647899999999985

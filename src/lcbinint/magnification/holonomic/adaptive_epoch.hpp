@@ -26,6 +26,9 @@ struct EventLocation {
     double radius=0,uncertainty=std::numeric_limits<double>::infinity(),radius_lo=0;
     double t_seed=0;
     bool t_seed_valid=false;
+    double u_seed=0;
+    bool u_seed_valid=false;
+    bool seed_reciprocal=false;
     bool needs_qf=true;
     bool qf_refined=false;
     int precision_tier=0; // 0=double, 1=DD, 2=__float128
@@ -35,6 +38,191 @@ struct EventLocation {
     double double_residual=std::numeric_limits<double>::infinity();
     double dd_residual=std::numeric_limits<double>::infinity();
 };
+
+enum class ProjectiveFoldReject {
+    None,
+    NotChartP4,
+    P4RootRefinementFailed,
+    NoCoincidentD14Event,
+    ProjectiveContactUnresolved,
+    DegenerateAngularContact,
+    NoRadialCrossing
+};
+
+inline const char* projective_fold_reject_name(ProjectiveFoldReject r) {
+    switch (r) {
+        case ProjectiveFoldReject::None: return "accepted";
+        case ProjectiveFoldReject::NotChartP4: return "not_chart_p4";
+        case ProjectiveFoldReject::P4RootRefinementFailed: return "p4_refinement_failed";
+        case ProjectiveFoldReject::NoCoincidentD14Event: return "no_coincident_d14_event";
+        case ProjectiveFoldReject::ProjectiveContactUnresolved: return "projective_contact_unresolved";
+        case ProjectiveFoldReject::DegenerateAngularContact: return "degenerate_angular_contact";
+        case ProjectiveFoldReject::NoRadialCrossing: return "no_radial_crossing";
+    }
+    return "unknown";
+}
+
+struct ProjectiveFoldProbe {
+    ProjectiveFoldReject reject=ProjectiveFoldReject::NotChartP4;
+    double radius=0.0, radius_lo=0.0, uncertainty=std::numeric_limits<double>::infinity();
+    double p4_relative=std::numeric_limits<double>::infinity();
+    double contact_relative=std::numeric_limits<double>::infinity();
+    double angular_curvature_relative=std::numeric_limits<double>::infinity();
+    double radial_crossing_relative=std::numeric_limits<double>::infinity();
+    double d14_delta=std::numeric_limits<double>::infinity();
+    double d14_match_budget=0.0;
+    int d14_event_index=-1;
+    int p4_newton_steps=0;
+    bool accepted() const { return reject==ProjectiveFoldReject::None; }
+};
+
+inline ProjectiveFoldReject projective_fold_contact_gate(
+    __float128 contact_relative,__float128 angular_curvature_relative,
+    __float128 radial_crossing_relative) {
+    const __float128 eps=(__float128)FLT128_EPSILON;
+    if(!finiteq(contact_relative)||!finiteq(angular_curvature_relative)||
+       !finiteq(radial_crossing_relative))
+        return ProjectiveFoldReject::ProjectiveContactUnresolved;
+    if(contact_relative>(__float128)8192*eps)
+        return ProjectiveFoldReject::ProjectiveContactUnresolved;
+    const __float128 nondegenerate_floor=(__float128)4096*sqrtq(eps);
+    if(angular_curvature_relative<=nondegenerate_floor)
+        return ProjectiveFoldReject::DegenerateAngularContact;
+    if(radial_crossing_relative<=nondegenerate_floor)
+        return ProjectiveFoldReject::NoRadialCrossing;
+    return ProjectiveFoldReject::None;
+}
+
+// Test whether a chart_p4 event is also a true projective fold.  In the
+// reciprocal polynomial Q(u)=u^4 P(-1/u), u=0 is a double angular root iff
+// Q(0)=Q_u(0)=0.  The nonzero Q_uu and Q_R tests exclude higher contact and a
+// tangential radial touch.  Finally, the existing positive-real D14 event
+// must have a high/low radius overlapping this locally polished p4 root;
+// that independent discriminant event prevents a small Q_u residual alone
+// from promoting a near-fold chart crossing.
+inline ProjectiveFoldProbe probe_projective_p4_fold(
+    const RadialEvent& chart_event, const std::vector<RadialEvent>& events,
+    const PrimaryFrame& pf) {
+    using Q=__float128;
+    ProjectiveFoldProbe out;
+    out.radius=chart_event.radius;
+    if(chart_event.kind!="chart_p4")return out;
+
+    const Q qeps=(Q)FLT128_EPSILON;
+    const Q start=(Q)chart_event.radius;
+    Q r=start, last_step=Q(0);
+    bool converged=false;
+    for(int k=0;k<12;++k) {
+        const auto g=local_fold_quantities<Q>(r,Q(0),pf,true);
+        if(!finiteq(g.P)||!finiteq(g.PR)||g.PR==Q(0))break;
+        const Q step=g.P/g.PR;
+        if(!finiteq(step)||fabsq(step)>Q(1e-8)*(Q(1)+fabsq(start)))break;
+        r-=step;
+        last_step=fabsq(step);
+        ++out.p4_newton_steps;
+        if(last_step<=Q(16)*qeps*(Q(1)+fabsq(r))) {
+            converged=true;
+            break;
+        }
+    }
+    const auto g=local_fold_quantities<Q>(r,Q(0),pf,true);
+    const Q q0=g.P, q1=g.Pt, q2=g.Ptt/Q(2);
+    const Q q3=g.Psss/Q(6), q4=g.Pssss/Q(24);
+    const Q qscale=fabsq(q0)+fabsq(q1)+fabsq(q2)+fabsq(q3)+fabsq(q4);
+    if(!(converged&&finiteq(qscale)&&qscale>Q(0)&&finiteq(g.PR)&&g.PR!=Q(0))) {
+        out.reject=ProjectiveFoldReject::P4RootRefinementFailed;
+        return out;
+    }
+    const Q p4_rel=fabsq(q0)/qscale;
+    const Q contact_rel=fabsq(q1)/qscale;
+    const Q angular_rel=fabsq(q2)/qscale;
+    const Q radial_rel=fabsq(g.PR)*fmaxq(Q(1),fabsq(r))/qscale;
+    out.p4_relative=(double)p4_rel;
+    out.contact_relative=(double)contact_rel;
+    out.angular_curvature_relative=(double)angular_rel;
+    out.radial_crossing_relative=(double)radial_rel;
+    const Q p4_limit=Q(8192)*qeps;
+    if(p4_rel>p4_limit) {
+        out.reject=ProjectiveFoldReject::P4RootRefinementFailed;
+        return out;
+    }
+
+    const Q p4_radius_error=fabsq(g.P/g.PR)+last_step+Q(128)*qeps*(Q(1)+fabsq(r));
+    if(!finiteq(p4_radius_error)) {
+        out.reject=ProjectiveFoldReject::P4RootRefinementFailed;
+        return out;
+    }
+    Q best_delta=Q(1e100), best_budget=Q(0);
+    for(std::size_t i=0;i<events.size();++i) {
+        const auto& candidate=events[i];
+        if((candidate.kind!="physical_real"&&candidate.kind!="physical_complex")||
+           candidate.detail!="D14 real root"||candidate.precision_tier<2||
+           !std::isfinite(candidate.radius)||candidate.radius_uncertainty<0.0||
+           !std::isfinite(candidate.radius_lo)||
+           !std::isfinite(candidate.radius_uncertainty))continue;
+        const Q d14_r=(Q)candidate.radius+(Q)candidate.radius_lo;
+        const Q delta=fabsq(r-d14_r);
+        const Q allowed=Q(8)*((Q)candidate.radius_uncertainty+p4_radius_error)+
+                        Q(512)*qeps*(Q(1)+fabsq(r));
+        if(delta<best_delta) {
+            best_delta=delta;
+            best_budget=allowed;
+            out.d14_event_index=(int)i;
+        }
+    }
+    out.d14_delta=(double)best_delta;
+    out.d14_match_budget=(double)best_budget;
+    if(out.d14_event_index<0||best_delta>best_budget) {
+        out.reject=ProjectiveFoldReject::NoCoincidentD14Event;
+        return out;
+    }
+
+    // This is intentionally much tighter than a geometry-quality heuristic:
+    // the D14 coincidence above identifies a repeated root, while Q_u(0)
+    // verifies that this is the projective root at infinity.  Anything not
+    // resolved at qf scale stays a chart event (fail closed).
+    out.reject=projective_fold_contact_gate(contact_rel,angular_rel,radial_rel);
+    if(out.reject!=ProjectiveFoldReject::None) {
+        return out;
+    }
+
+    const double hi=chart_event.radius;
+    const Q loq=r-(Q)hi;
+    const double lo=(double)loq;
+    const double ulp=std::fabs(std::nextafter(
+        hi,std::numeric_limits<double>::infinity())-hi);
+    out.radius=hi;
+    out.radius_lo=lo;
+    out.uncertainty=std::max(ulp,std::fabs(lo)+(double)p4_radius_error);
+    if(!std::isfinite(lo)||!std::isfinite(out.uncertainty)) {
+        out.reject=ProjectiveFoldReject::P4RootRefinementFailed;
+        return out;
+    }
+    out.reject=ProjectiveFoldReject::None;
+    return out;
+}
+
+inline void certify_projective_p4_events(TopologyResult& topo,
+                                         const PrimaryFrame& pf) {
+    for(auto& event:topo.events) {
+        if(event.kind!="chart_p4")continue;
+        const auto probe=probe_projective_p4_fold(event,topo.events,pf);
+        if(!probe.accepted())continue;
+        event.radius_lo=probe.radius_lo;
+        event.radius_uncertainty=probe.uncertainty;
+        event.precision_tier=2;
+        event.physically_real=true;
+        event.projective_fold_certified=true;
+        event.fold_u_seed=0.0;
+        event.fold_u_seed_valid=true;
+        event.detail="p4 chart boundary; certified ordinary projective fold at u=0";
+    }
+}
+
+inline bool adaptive_physical_fold_event(const RadialEvent& event) {
+    return event.physically_real &&
+           (event.kind=="physical_real" || event.projective_fold_certified);
+}
 inline double eval_poly5(const std::array<double,5>& c,double x) {
     double value=c[4];
     for(int k=3;k>=0;--k)value=value*x+c[k];
@@ -337,6 +525,20 @@ inline EventLocation topology_event_estimate(const RadialEvent& event,
                                              const PrimaryFrame& pf,
                                              double value_budget) {
     EventLocation out;
+    if(event.projective_fold_certified && event.fold_u_seed_valid) {
+        out.radius=event.radius;
+        out.radius_lo=event.radius_lo;
+        out.uncertainty=event.radius_uncertainty;
+        out.u_seed=event.fold_u_seed;
+        out.u_seed_valid=true;
+        out.seed_reciprocal=true;
+        out.precision_tier=event.precision_tier;
+        out.needs_qf=false;
+        out.qf_refined=true;
+        out.double_reason=EventDecisionReason::TopologySeedReused;
+        out.qf_reason=EventDecisionReason::NotAttempted;
+        return out;
+    }
     if(event.atlas_anchor){
         out.radius=event.radius;out.radius_lo=event.radius_lo;out.uncertainty=event.radius_uncertainty;
         out.t_seed=event.fold_t_seed;out.t_seed_valid=event.fold_t_seed_valid;out.precision_tier=2;
@@ -416,7 +618,7 @@ inline bool restore_physical_cuts(const TopologyResult& topo,const PrimaryFrame&
         if(c.r_lo!=end)return false;
         end=c.r_hi;
         std::vector<double> cuts{c.r_lo,c.r_hi};
-        for(const auto& e:topo.events)if(e.physically_real&&e.kind=="physical_real"&&e.radius>c.r_lo&&e.radius<c.r_hi)cuts.push_back(e.radius);
+        for(const auto& e:topo.events)if(adaptive_physical_fold_event(e)&&e.radius>c.r_lo&&e.radius<c.r_hi)cuts.push_back(e.radius);
         std::sort(cuts.begin(),cuts.end());cuts.erase(std::unique(cuts.begin(),cuts.end()),cuts.end());
         if(cuts.size()==2){cells.push_back(c);continue;}
         for(size_t j=1;j<cuts.size();++j) {
@@ -912,11 +1114,18 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     auto setup_start=adaptive_detail::Clock::now();
     auto frame_start=adaptive_detail::Clock::now();
     const auto pf=PrimaryFrame::from(p);
+#if defined(HOLO_ADAPTIVE_PROJECTIVE_P4_FOLD_RESEARCH)
+    TopologyResult projective_topology=topo;
+    adaptive_detail::certify_projective_p4_events(projective_topology,pf);
+    const TopologyResult& active_topology=projective_topology;
+#else
+    const TopologyResult& active_topology=topo;
+#endif
     const double setup_frame_ms=adaptive_detail::ms(frame_start);
     if(near_origin_source(pf)) return adaptive_detail::failure_result(AdaptiveStop::TopologyUnresolved,policy);
     auto& cells=workspace.cells;
     auto cuts_start=adaptive_detail::Clock::now();
-    if(!adaptive_detail::restore_physical_cuts(topo,pf,cells)) return adaptive_detail::failure_result(AdaptiveStop::TopologyUnresolved,policy);
+    if(!adaptive_detail::restore_physical_cuts(active_topology,pf,cells)) return adaptive_detail::failure_result(AdaptiveStop::TopologyUnresolved,policy);
     const double setup_cuts_ms=adaptive_detail::ms(cuts_start);
     // A squared map is a valid substitution even if a physical event is a
     // higher contact: we make no smooth-fold guarantee from its label alone.
@@ -924,8 +1133,8 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     // metadata record as well as the boolean.  This avoids reconstructing the
     // same D14/stationary-root event in adaptive setup.
     auto physical_event=[&](double R)->const RadialEvent* {
-        for(const auto& e:topo.events)
-            if(e.radius==R && e.physically_real && e.kind=="physical_real")
+        for(const auto& e:active_topology.events)
+            if(e.radius==R && adaptive_detail::adaptive_physical_fold_event(e))
                 return &e;
         return nullptr;
     };
@@ -944,7 +1153,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
         for(const auto& e:event_errors)if(e.first==R){setup_event_ms+=adaptive_detail::ms(event_call_start);return e.second;}
         const RadialEvent* topology_event=physical_event(R);
         adaptive_detail::EventLocation d;
-        if(topology_event && (topology_event->atlas_anchor || (topology_event->fold_t_seed_valid &&
+        if(topology_event && (topology_event->projective_fold_certified || topology_event->atlas_anchor || (topology_event->fold_t_seed_valid &&
            adaptive_detail::topology_event_reuse_enabled()))) {
             ++event_topology_reuses;
             ++event_radius_reuses;
@@ -988,12 +1197,17 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
             record.input_radius=R;record.selected_radius=d.radius;
             record.radius_lo=d.radius_lo;record.uncertainty=d.uncertainty;
             record.t_seed=d.t_seed;record.t_seed_valid=d.t_seed_valid;
+            record.u_seed=d.u_seed;record.u_seed_valid=d.u_seed_valid;
+            record.seed_reciprocal=d.seed_reciprocal;
+            record.projective_fold_certified=topology_event &&
+                topology_event->projective_fold_certified;
             record.d14_condition=topology_event
                                     ? topology_event->d14_condition
                                     : std::numeric_limits<double>::infinity();
             record.topology_reused=topology_event &&
-                                   topology_event->fold_t_seed_valid &&
-                                   adaptive_detail::topology_event_reuse_enabled();
+                                   (topology_event->projective_fold_certified ||
+                                    (topology_event->fold_t_seed_valid &&
+                                     adaptive_detail::topology_event_reuse_enabled()));
             record.precision_tier=d.precision_tier;
             record.double_reason=d.double_reason;record.dd_reason=d.dd_reason;
             record.qf_reason=d.qf_reason;
@@ -1027,8 +1241,9 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
         AdaptiveSample fold_seed;
         if(!seed && !force_cold && cells[i].kind==ArcKind::kArcs) {
             const RadialEvent* event=nullptr;
-            for(const auto& e:topo.events) {
-                if(e.kind!="physical_real" || !e.physically_real || !e.fold_t_seed_valid)continue;
+            for(const auto& e:active_topology.events) {
+                if(!adaptive_detail::adaptive_physical_fold_event(e) ||
+                   e.projective_fold_certified || !e.fold_t_seed_valid)continue;
                 if(e.radius!=cells[i].r_lo && e.radius!=cells[i].r_hi)continue;
                 if(!event || std::fabs(R-e.radius)<std::fabs(R-event->radius))event=&e;
             }
@@ -1063,7 +1278,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
         }
 #endif
         return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],with_jacobian,
-                                              force_cold?false:topo.from_warm_d14,
+                                              force_cold?false:active_topology.from_warm_d14,
                                               force_cold?nullptr:seed,&cfg,radius_lo,
                                               cfg.same_node_hermite_shadow &&
                                               cfg.effective_gradient_policy()==GradientPolicy::None &&
