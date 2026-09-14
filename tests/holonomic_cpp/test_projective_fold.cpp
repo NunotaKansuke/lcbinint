@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <iostream>
 #include <cmath>
 
@@ -119,6 +120,47 @@ int main() {
     }
     check(chart_count==2,"caustic-cross control has two chart_p4 events");
     check(certified_count==2,"both theta=pi contacts are certified projective folds");
+    for(const auto& event:caustic_topology.events)if(event.kind=="chart_p4") {
+        const auto screen=adaptive_detail::projective_p4_fast_screen(
+            event,caustic_topology.events,caustic_pf);
+        check(screen.result==adaptive_detail::ProjectiveFastScreen::Possible,
+              "outward necessary-condition screen preserves a true projective fold");
+        check(std::isfinite(screen.p3_lo)&&std::isfinite(screen.p3_hi)&&
+              screen.p3_lo<=0.0&&screen.p3_hi>=0.0,
+              "true fold p3 interval contains zero");
+    }
+    const auto p3_tol=(double)(8192*FLT128_EPSILON);
+    check(!adaptive_detail::projective_screen_detail::outside_qf_projective_contact_gate(
+              {-0.5*p3_tol,0.5*p3_tol},1.0),
+          "fast contact screen preserves values inside incumbent qf tolerance");
+    check(!adaptive_detail::projective_screen_detail::outside_qf_projective_contact_gate(
+              {1.0*p3_tol,2.0*p3_tol},1.0),
+          "fast contact screen fails open on an interval touching qf tolerance");
+    check(adaptive_detail::projective_screen_detail::outside_qf_projective_contact_gate(
+              {2.0*p3_tol,3.0*p3_tol},1.0),
+          "fast contact screen rejects only beyond incumbent qf tolerance");
+
+    // A farther candidate may have a wider uncertainty budget than the
+    // nearest candidate.  The screen must accept if any candidate overlaps,
+    // rather than testing only the nearest center.
+    auto synthetic_candidates=caustic_topology.events;
+    synthetic_candidates.erase(std::remove_if(synthetic_candidates.begin(),
+        synthetic_candidates.end(),[](const RadialEvent& e) {
+            return e.detail=="D14 real root";
+        }),synthetic_candidates.end());
+    for(const auto& event:caustic_topology.events)if(event.kind=="chart_p4") {
+        RadialEvent near;near.radius=event.radius+0.1;near.radius_lo=0;
+        near.radius_uncertainty=0;near.precision_tier=2;
+        near.kind="physical_real";near.detail="D14 real root";
+        RadialEvent wider=near;wider.radius=event.radius+1.0;
+        wider.radius_uncertainty=1.0;
+        synthetic_candidates.push_back(near);synthetic_candidates.push_back(wider);
+        const auto screen=adaptive_detail::projective_p4_fast_screen(
+            event,synthetic_candidates,caustic_pf);
+        check(screen.result!=adaptive_detail::ProjectiveFastScreen::NoD14Overlap,
+              "screen honors any overlapping D14 radius candidate");
+        break;
+    }
     adaptive_detail::certify_projective_p4_events(caustic_topology,caustic_pf);
     check(caustic_topology.events.size()==original_events&&
           caustic_topology.cells.size()==original_cells,
@@ -149,9 +191,49 @@ int main() {
               "rand006 chart crossing is rejected by the independent D14 coincidence gate");
         check(probe.contact_relative>1e-2,
               "rand006 chart crossing has nonzero reciprocal contact coefficient Q_u(0)");
+        const auto screen=adaptive_detail::projective_p4_fast_screen(
+            event,crossing_topology.events,crossing_pf);
+        if(screen.result==adaptive_detail::ProjectiveFastScreen::NoD14Overlap||
+           screen.result==adaptive_detail::ProjectiveFastScreen::NoReciprocalContact)
+            check(!probe.accepted(),
+                  "fast necessary-condition reject agrees with full projective probe");
     }
     check(crossing_charts>0,"negative control contains chart_p4 events");
     check(crossing_promotions==0,"pure chart crossing is never promoted");
+
+    // Check the interval p3 expression against the independent reciprocal
+    // derivative from the binary128 local quartic at exact binary64 radii.
+    for(int i=0;i<12;++i) {
+        const double R=0.23+0.137*i;
+        const auto g=local_fold_quantities<Q>((Q)R,Q(0),parity_pf,false);
+        const Q p3q=g.Psss/Q(6);
+        const auto p3i=adaptive_detail::projective_screen_detail::p3_over_radius(
+            {R,R},parity_pf);
+        const long double p3ref=(long double)p3q;
+        check(p3i.lo<=p3ref&&p3ref<=p3i.hi,
+              "outward p3 interval encloses binary128 reciprocal coefficient");
+    }
+
+    // Moving off the symmetry axis must not be promoted; either fast screen
+    // may reject a certified necessary condition, otherwise the incumbent
+    // qf gate remains responsible for the decision.
+    LensParams off_axis{0.12,1e-6,0.02,0.5,1.0,false};
+    const auto off_axis_pf=PrimaryFrame::from(off_axis);
+    const auto off_axis_topology=classify_cells(off_axis_pf,nullptr,nullptr,true);
+    int off_axis_charts=0;
+    for(const auto& event:off_axis_topology.events)if(event.kind=="chart_p4") {
+        ++off_axis_charts;
+        const auto full=adaptive_detail::probe_projective_p4_fold(
+            event,off_axis_topology.events,off_axis_pf);
+        const auto screen=adaptive_detail::projective_p4_fast_screen(
+            event,off_axis_topology.events,off_axis_pf);
+        if(screen.result==adaptive_detail::ProjectiveFastScreen::NoD14Overlap||
+           screen.result==adaptive_detail::ProjectiveFastScreen::NoReciprocalContact)
+            check(!full.accepted(),
+                  "off-axis interval screen does not reject a full-probe promotion");
+        check(!full.accepted(),"off-axis perturbation is not promoted as a projective fold");
+    }
+    check(off_axis_charts==2,"off-axis trajectory sample retains both chart events");
 
     if(failures==0)std::cout<<"projective fold certificate tests passed\n";
     return failures?1:0;

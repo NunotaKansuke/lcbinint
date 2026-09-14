@@ -1,5 +1,6 @@
 #pragma once
 #include "lcbinint/magnification/holonomic/adaptive_radial.hpp"
+#include "lcbinint/magnification/holonomic/projective_fold_screen.hpp"
 #include "atlas_near_fold.hpp"
 #include <cstdlib>
 #include <type_traits>
@@ -44,6 +45,7 @@ enum class ProjectiveFoldReject {
     NotChartP4,
     P4RootRefinementFailed,
     NoCoincidentD14Event,
+    NoReciprocalContact,
     ProjectiveContactUnresolved,
     DegenerateAngularContact,
     NoRadialCrossing
@@ -55,6 +57,7 @@ inline const char* projective_fold_reject_name(ProjectiveFoldReject r) {
         case ProjectiveFoldReject::NotChartP4: return "not_chart_p4";
         case ProjectiveFoldReject::P4RootRefinementFailed: return "p4_refinement_failed";
         case ProjectiveFoldReject::NoCoincidentD14Event: return "no_coincident_d14_event";
+        case ProjectiveFoldReject::NoReciprocalContact: return "no_reciprocal_contact";
         case ProjectiveFoldReject::ProjectiveContactUnresolved: return "projective_contact_unresolved";
         case ProjectiveFoldReject::DegenerateAngularContact: return "degenerate_angular_contact";
         case ProjectiveFoldReject::NoRadialCrossing: return "no_radial_crossing";
@@ -73,6 +76,16 @@ struct ProjectiveFoldProbe {
     double d14_match_budget=0.0;
     int d14_event_index=-1;
     int p4_newton_steps=0;
+    ProjectiveFastScreen fast_screen=ProjectiveFastScreen::Disabled;
+    double fast_p4_radius_lo=std::numeric_limits<double>::quiet_NaN();
+    double fast_p4_radius_hi=std::numeric_limits<double>::quiet_NaN();
+    double fast_p3_lo=std::numeric_limits<double>::quiet_NaN();
+    double fast_p3_hi=std::numeric_limits<double>::quiet_NaN();
+    double fast_p3_gate_hi=std::numeric_limits<double>::quiet_NaN();
+    double fast_d14_gap=std::numeric_limits<double>::infinity();
+    double fast_d14_budget=0.0;
+    int fast_p4_factor_roots=0;
+    int fast_expansions=0;
     bool accepted() const { return reject==ProjectiveFoldReject::None; }
 };
 
@@ -107,6 +120,30 @@ inline ProjectiveFoldProbe probe_projective_p4_fold(
     ProjectiveFoldProbe out;
     out.radius=chart_event.radius;
     if(chart_event.kind!="chart_p4")return out;
+
+#if defined(HOLO_ADAPTIVE_PROJECTIVE_P4_FAST_SCREEN)
+    const auto screen=projective_p4_fast_screen(chart_event,events,pf);
+    out.fast_screen=screen.result;
+    out.fast_p4_radius_lo=screen.radius_lo;
+    out.fast_p4_radius_hi=screen.radius_hi;
+    out.fast_p3_lo=screen.p3_lo;
+    out.fast_p3_hi=screen.p3_hi;
+    out.fast_p3_gate_hi=screen.p3_gate_hi;
+    out.fast_d14_gap=screen.nearest_d14_gap;
+    out.fast_d14_budget=screen.overlap_budget;
+    out.fast_p4_factor_roots=screen.factor_roots;
+    out.fast_expansions=screen.expansions;
+    if(screen.result==ProjectiveFastScreen::NoD14Overlap) {
+        out.reject=ProjectiveFoldReject::NoCoincidentD14Event;
+        out.d14_delta=screen.nearest_d14_gap;
+        out.d14_match_budget=screen.overlap_budget;
+        return out;
+    }
+    if(screen.result==ProjectiveFastScreen::NoReciprocalContact) {
+        out.reject=ProjectiveFoldReject::NoReciprocalContact;
+        return out;
+    }
+#endif
 
     const Q qeps=(Q)FLT128_EPSILON;
     const Q start=(Q)chart_event.radius;
