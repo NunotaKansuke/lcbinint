@@ -1,0 +1,15 @@
+In file included from /rogue1_8/nunota/lcbinint/evidence/holonomic/gradient_cell_attribution_phase73/direct_derivative.cpp:7:
+/rogue1_8/nunota/lcbinint/evidence/holonomic/gradient_cell_attribution_phase73/../moving_map_gradient_phase72/rand035_reference/reference.cpp: In function ‘int phase72_reference_main(int, char**)’:
+/rogue1_8/nunota/lcbinint/evidence/holonomic/gradient_cell_attribution_phase73/../moving_map_gradient_phase72/rand035_reference/reference.cpp:424:1: warning: control reaches end of non-void function [-Wreturn-type]
+  424 | }
+      | ^
+In file included from /rogue1_8/nunota/lcbinint/evidence/holonomic/gradient_cell_attribution_phase73/endpoint_audit.cpp:4:
+/rogue1_8/nunota/lcbinint/evidence/holonomic/gradient_cell_attribution_phase73/../moving_map_gradient_phase72/rand035_reference/reference.cpp: In function ‘int phase72_reference_main(int, char**)’:
+/rogue1_8/nunota/lcbinint/evidence/holonomic/gradient_cell_attribution_phase73/../moving_map_gradient_phase72/rand035_reference/reference.cpp:424:1: warning: control reaches end of non-void function [-Wreturn-type]
+  424 | }
+      | ^
+In file included from /rogue1_8/nunota/lcbinint/evidence/holonomic/gradient_cell_attribution_phase73/same_node_audit.cpp:5:
+/rogue1_8/nunota/lcbinint/evidence/holonomic/gradient_cell_attribution_phase73/../moving_map_gradient_phase72/rand035_reference/reference.cpp: In function ‘int phase72_reference_main(int, char**)’:
+/rogue1_8/nunota/lcbinint/evidence/holonomic/gradient_cell_attribution_phase73/../moving_map_gradient_phase72/rand035_reference/reference.cpp:424:1: warning: control reaches end of non-void function [-Wreturn-type]
+  424 | }
+      | ^
