@@ -1,9 +1,9 @@
 # 引き継ぎ資料：multi-run Cartesian fill のアルゴリズムとベンチマーク
 
-作成日: 2026-09-09  
-対象ブランチ: `multi-run-cartesian-fill`  
-HEAD: `08c9e399ba026d4b8ffde0a9f706238612f6b3e6` (`Harden multi-run component refinement`)  
-remote: `origin/multi-run-cartesian-fill` は同じコミットを指す。  
+作成日: 2026-09-09
+対象ブランチ: `multi-run-cartesian-fill`
+HEAD: `08c9e399ba026d4b8ffde0a9f706238612f6b3e6` (`Harden multi-run component refinement`)
+remote: `origin/multi-run-cartesian-fill` は同じコミットを指す。
 対象ホスト: `rogue1`
 
 この資料は、次の作業者が「なぜこの実装にしたか」「何をベンチしたか」「どこまで検証済みか」を再調査せずに再開するためのメモである。アルゴリズムの説明は現在の作業ツリーを基準にする。現在の作業ツリーには、HEAD 後の未コミット変更もある。
@@ -705,3 +705,31 @@ src/lcbinint/magnification/finite_source_magnifier.cpp
 ```
 
 まず「seed completeness は certificate/probe」「topology は run union」「accuracy は refinement/error model」という三つを混ぜないこと。ここを守る限り、中心 image seed だけで全 finite-source image が必ず発見できる、あるいは parity を外せば seed 問題も自動的に解決する、という誤った一般化を避けられる。
+
+## 11. 現ブランチの確認（2026-09-14）
+
+以下は commit `e50337d` のソースを再ビルドして確認した結果であり、上の
+§7 の古い実行記録に対する更新である。
+
+- `cmake --build build -j2` は成功し、`ctest --test-dir build
+  --output-on-failure` は `unit_core` 1/1 passed。
+- `test_component_refinement.py`、`test_binary_cusp_component.py`、
+  `test_vbm_consistency.py` は合計 112 passed。
+- 全 Python 回帰は 458 passed、3 skipped、1 failed。失敗は
+  `tests/jax_ir/test_multipole.py::test_hybrid_keeps_calibrated_tiny_high_magnification_polar_path`
+  で、実測 `95.432129` と固定期待値 `95.4330060008795` の差は約
+  `9.19e-6` relative。`master` の `207c22c` を JAX FFI 有効で別ビルドしても
+  同じテストが同じ値で失敗したため、このブランチによる回帰ではない。
+- Python の通常起動では editable install が `build/` より先に stale な
+  site-packages の native extension を読み込む環境だった。今回の回帰検証は
+  `python3 -S` で site の `.pth` を読まず、`site.getsitepackages()` を
+  `sys.path` に追加して `build/lcbinint/_lcbinint` を確実に使用した。
+- `test_point_source_safety.py::test_forced_cartesian_high_magnification_does_not_truncate_image_area`
+  と run-budget の C++ unit test は全体検証で通過した。
+- §8.9/8.11 の速度・精度値は controlled pure-kernel 比較であり、
+  end-to-end の LightCurve 性能ではない。profile 依存で、uniform source は
+  VBM 優位、linear limb darkening は lcbinint 優位という結果である。
+
+本ブランチでは multi-run fill が native Cartesian 経路の既定であることを
+確認し、説明を `docs/numerical-methods.md` に追加した。JAX は別の tile
+discovery 経路であり、native fill と同一実装・同一 topology と主張しない。

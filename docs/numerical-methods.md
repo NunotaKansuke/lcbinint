@@ -45,6 +45,26 @@ pair, together with the quadrupole and cusp checks, follows the safety logic in
 [Bozza et al. (2018)](#references) (Section 5). Contour-integration error
 control and adaptive sampling background are given by [Bozza (2010)](#references).
 
+## Native Cartesian image fill
+
+The native Cartesian inverse-ray path maps image-plane lattice cells into the
+finite source and traverses maximal horizontal runs with 8-neighbor
+connectivity. A row can contain multiple disjoint runs; connected components
+are joined as the traversal reaches neighboring rows. This integrates the
+shared-cell union once, including fold partners that meet on the same lattice.
+Thin components can be refined separately, with one exactly aligned fine-grid
+seed lifted from every coarse run so pieces that split at finer resolution are
+still discovered.
+
+The deterministic multi-run fill is the default for native Cartesian
+inverse-ray calculations. Set `LCBININT_CARTESIAN_FILL=legacy` to select the
+previous walker for diagnostic comparisons. The JAX inverse-ray implementation
+uses a separate tile-discovery path, so its topology traversal remains
+independent. In either implementation, support certification and probes must
+provide seeds for every image piece; the fill traversal alone cannot prove that
+the seed set is complete. `lcbinint.binary_cartesian_trace()` exposes the native
+run-discovery order for diagnostics and visualization.
+
 ## Automatic `nbin`
 
 Finite-source accuracy uses one combined absolute budget,
