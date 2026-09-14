@@ -20,8 +20,56 @@ int main() {
           "radial tangency is rejected");
     check(adaptive_detail::projective_fold_contact_gate(
               (__float128)1e-20,(__float128)1,(__float128)1)==
-              adaptive_detail::ProjectiveFoldReject::ProjectiveContactUnresolved,
+          adaptive_detail::ProjectiveFoldReject::ProjectiveContactUnresolved,
           "unresolved projective contact fails closed");
+
+    // Synthetic reciprocal polynomials Q(u,R), expanded at (u,R)=(0,1).
+    // Coefficients q[k] are the u^k Taylor coefficients, so q[2]=Q_uu/2.
+    // This exercises the same normalized gate with explicit local geometry,
+    // including near-degenerate contacts that do not occur in the lens corpus.
+    using Q=__float128;
+    struct SyntheticContact { std::array<Q,5> q{}; Q qR=0, R=1; };
+    auto synthetic_gate=[&](const SyntheticContact& f) {
+        Q scale=0;
+        for(Q x:f.q)scale+=fabsq(x);
+        if(!(scale>0)||!finiteq(scale))
+            return adaptive_detail::ProjectiveFoldReject::ProjectiveContactUnresolved;
+        const Q contact=fabsq(f.q[1])/scale;
+        const Q angular=fabsq(f.q[2])/scale;
+        const Q radial=fabsq(f.qR)*fmaxq(Q(1),fabsq(f.R))/scale;
+        return adaptive_detail::projective_fold_contact_gate(contact,angular,radial);
+    };
+    SyntheticContact ordinary;
+    ordinary.q[2]=1; ordinary.qR=1; // Q=(R-1)+u^2
+    check(synthetic_gate(ordinary)==adaptive_detail::ProjectiveFoldReject::None,
+          "synthetic ordinary projective fold is accepted");
+    SyntheticContact high_order;
+    high_order.q[4]=1; high_order.qR=1; // Q=(R-1)+u^4, Q_uu=0
+    check(synthetic_gate(high_order)==
+              adaptive_detail::ProjectiveFoldReject::DegenerateAngularContact,
+          "synthetic Q_uu=0 high-order contact is rejected");
+    SyntheticContact near_high_order;
+    near_high_order.q[2]=Q(1024)*sqrtq(Q(FLT128_EPSILON));
+    near_high_order.q[4]=1; near_high_order.qR=1;
+    check(synthetic_gate(near_high_order)==
+              adaptive_detail::ProjectiveFoldReject::DegenerateAngularContact,
+          "synthetic near-zero Q_uu contact is rejected");
+    SyntheticContact radial_tangent;
+    radial_tangent.q[2]=1; radial_tangent.qR=0; // Q=(R-1)^2+u^2
+    check(synthetic_gate(radial_tangent)==
+              adaptive_detail::ProjectiveFoldReject::NoRadialCrossing,
+          "synthetic Q_R=0 radial tangency is rejected");
+    SyntheticContact near_radial_tangent;
+    near_radial_tangent.q[2]=1;
+    near_radial_tangent.qR=Q(1024)*sqrtq(Q(FLT128_EPSILON));
+    check(synthetic_gate(near_radial_tangent)==
+              adaptive_detail::ProjectiveFoldReject::NoRadialCrossing,
+          "synthetic near-zero Q_R radial crossing is rejected");
+    SyntheticContact simple_projective_crossing;
+    simple_projective_crossing.q[1]=1; simple_projective_crossing.qR=1;
+    check(synthetic_gate(simple_projective_crossing)==
+              adaptive_detail::ProjectiveFoldReject::ProjectiveContactUnresolved,
+          "synthetic simple chart crossing is not promoted to a fold");
 
     // Verify the local reciprocal derivatives are the exact coefficient
     // reversal Q(u)=u^4 P(-1/u), not the original t-chart derivatives.
