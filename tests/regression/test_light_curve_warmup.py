@@ -1,4 +1,5 @@
 import importlib
+import pickle
 import warnings
 
 import numpy as np
@@ -69,7 +70,24 @@ def test_warmup_plan_is_reused_for_nearby_parameters_without_warning():
     assert not hasattr(curve, "_warmup_values")
 
 
-def test_large_geometry_drift_warns_but_keeps_the_plan():
+def test_warmup_report_can_be_reused_by_a_matching_native_curve():
+    source = _curve()
+    report = source.warmup(TIMES, PARAMETERS)
+    report = pickle.loads(pickle.dumps(report))
+    replica = _curve()
+
+    assert replica.use_warmup_report(report, TIMES) is report
+    np.testing.assert_array_equal(
+        replica(TIMES, PARAMETERS), source(TIMES, PARAMETERS)
+    )
+
+    with np.testing.assert_raises_regex(ValueError, "times do not match"):
+        replica.use_warmup_report(report, TIMES + 1.0)
+    with np.testing.assert_raises_regex(ValueError, "configuration does not match"):
+        _curve(max_source_bins=200).use_warmup_report(report, TIMES)
+
+
+def test_large_geometry_drift_falls_back_to_auto_and_keeps_the_plan():
     curve = _curve()
     report = curve.warmup(TIMES, PARAMETERS)
     changed = dict(PARAMETERS, s=3.0)
@@ -79,13 +97,17 @@ def test_large_geometry_drift_warns_but_keeps_the_plan():
     assert drift.topology_changed
     with np.testing.assert_warns(RuntimeWarning):
         actual = curve(TIMES, changed)
-    expected = curve._native._magnification_preplanned(
+    automatic = _curve()(TIMES, changed)
+    np.testing.assert_array_equal(actual, automatic)
+
+    expected_plan = curve._native._magnification_preplanned(
         TIMES,
-        changed,
+        PARAMETERS,
         curve._warmup_methods.tolist(),
         report.resolutions.tolist(),
     )
-    np.testing.assert_allclose(actual, expected, rtol=0.0, atol=0.0)
+    np.testing.assert_array_equal(curve(TIMES, PARAMETERS), expected_plan)
+    assert curve.warmup_profile is report
 
 
 def test_shared_model_changes_invalidate_warmup_plan():
@@ -143,6 +165,47 @@ def test_inverse_ray_warmup_uses_self_converged_reference_not_auto_value():
 
     assert report.all_calibrated
     assert abs(report.reference[166] - auto_reference[166]) > 5.0e-4
+    actual = np.asarray(curve(times, params))
+    np.testing.assert_array_less(
+        np.abs(actual - report.reference),
+        report.budget + np.finfo(float).eps,
+    )
+
+
+def test_warmup_calibrates_caustic_segments_crossing_between_vertices():
+    # These epochs reproduce Roman event 9910005's near-planetary-caustic
+    # geometry. The closest caustic point lies inside the source disk, but no
+    # sampled caustic vertex need lie there. Segment distance must therefore
+    # count as a crossing instead of triggering the tangent fail-closed floor.
+    params = {
+        "t0": 53.75,
+        "tE": 15.61343359860521,
+        "u0": -0.006,
+        "alpha": np.deg2rad(-156.0),
+        "s": 1.05,
+        "q": 1.0e-4,
+        "rho": 0.00011890493804166856,
+    }
+    times = np.asarray([53.930215486, 53.989238125])
+    curve = lcbinint.LightCurve(
+        options=lcbinint.Options(
+            coordinates="vbm",
+            nbin="auto",
+            tol=1.0e-3,
+            reltol=1.0e-3,
+        )
+    )
+
+    automatic = curve.info(times, params)
+    assert all(automatic.finite_source_converged)
+    assert all(
+        distance < params["rho"]
+        for distance in automatic.caustic_distances
+    )
+
+    report = curve.warmup(times, params)
+    assert report.all_calibrated
+    assert report.statuses == ("calibrated", "calibrated")
     actual = np.asarray(curve(times, params))
     np.testing.assert_array_less(
         np.abs(actual - report.reference),

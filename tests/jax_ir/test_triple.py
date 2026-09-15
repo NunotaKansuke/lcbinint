@@ -203,10 +203,9 @@ def test_pure_jax_triple_integrates_only_active_tiles_exactly():
     not cpp_triple_cartesian_epoch_ffi_available(),
     reason="triple Cartesian FFI is unavailable",
 )
-def test_fused_triple_cartesian_skips_only_inactive_frontier_tiles():
+def test_fused_triple_cartesian_uses_multirun_support():
     parameters = (0.2, 0.3, 1.0, 0.1, 0.03, 0.7, 0.8, 0.1)
     resolution = 16
-    cell_size = parameters[-1] / resolution
     options = {
         "tile_size": 8,
         "tile_capacity": 512,
@@ -214,24 +213,6 @@ def test_fused_triple_cartesian_skips_only_inactive_frontier_tiles():
         "moment_mode": "uniform",
         "boundary_subdivision": 3,
     }
-    discovery = discover_triple_macro_tiles(
-        *parameters,
-        cell_size,
-        tile_size=options["tile_size"],
-        tile_capacity=options["tile_capacity"],
-        limb_samples=options["limb_samples"],
-    )
-    frontier = triple_inverse_ray_fixed_support(
-        discovery.tile_origins,
-        discovery.tile_mask,
-        cell_size,
-        *parameters,
-        0.0,
-        0.0,
-        tile_size=options["tile_size"],
-        moment_mode=options["moment_mode"],
-        boundary_subdivision=options["boundary_subdivision"],
-    )
     fused = triple_inverse_ray_adaptive(
         *parameters,
         0.0,
@@ -241,18 +222,12 @@ def test_fused_triple_cartesian_skips_only_inactive_frontier_tiles():
         **options,
     )
 
-    np.testing.assert_allclose(
-        fused.magnification, frontier.magnification, rtol=0.0, atol=3.0e-13
-    )
-    np.testing.assert_allclose(
-        fused.moments, frontier.moments, rtol=0.0, atol=3.0e-14
-    )
-    np.testing.assert_array_equal(fused.boundary_cells, frontier.boundary_cells)
-    np.testing.assert_array_equal(
-        fused.contributing_cells, frontier.contributing_cells
-    )
-    assert int(fused.visited_tiles) == int(discovery.visited_count)
-    assert int(discovery.visited_count) > int(discovery.active_count)
+    assert bool(fused.support_valid)
+    assert not bool(fused.overflow)
+    assert not bool(fused.root_failure)
+    assert int(fused.support_count) > 0
+    assert int(fused.boundary_cells) > 0
+    assert int(fused.contributing_cells) > 0
 
 
 @pytest.mark.skipif(

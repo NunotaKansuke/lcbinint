@@ -1,24 +1,14 @@
-"""The macro-tile frontier test must bound the lens map, not sample it.
+"""Binary/triple FFI multi-run support and the pure-JAX tile fallback.
 
-``tile_size`` picks how coarsely the flood fill walks the image plane.  It is a
-performance knob: it decides how many tiles the walk visits, and nothing about
-which region of the image plane the images occupy.  The magnification must not
-depend on it.
+Binary and triple Cartesian FFI trace the native horizontal multi-run topology
+on a cell lattice. ``tile_size`` remains accepted for compatibility and work
+budget sizing, but it does not partition FFI support. The optional pure-JAX
+triple path still uses macro-tiles and retains its conservative Lipschitz
+frontier.
 
-The previous frontier test sampled nine points per tile and admitted the tile if
-one of them landed in the source disk.  That answers a different question, and a
-thin image component that passes between the nine fails all nine -- the walk
-stops on the component it was following, and still reports ``support_valid``.
-On the tangency below it made the answer move with ``tile_size`` and made the
-resolution ladder non-monotone: at 64/128/256/512 the sampled probe gave
--4.5e-4/-8.5e-4/-2.9e-4/-4.7e-5 relative to the reference, i.e. resolution 128
-was *worse* than 64.
-
-The native component certificate replaces the old nine
-samples with a Lipschitz lower bound on ``|f(z) - zeta|`` over the whole tile,
-which can over-admit but never under-admit.  These tests pin the two properties
-that follow, not the calibration: the answer stops depending on ``tile_size``,
-and the resolution ladder becomes monotone.
+The shallow cusp below checks that changing the legacy binary tile-size
+argument cannot change the covered image support or the resulting magnification.
+The resolution ladder separately checks that refinement improves the value.
 """
 
 import numpy as np
@@ -26,6 +16,7 @@ import pytest
 
 from lcbinint_jax import (
     binary_inverse_ray_uniform,
+    cpp_triple_cartesian_epoch_ffi_available,
     triple_inverse_ray_adaptive,
 )
 
@@ -38,7 +29,7 @@ CUSP_SOURCE = (0.653, 0.020)
 CUSP_RADIUS = 0.020
 
 
-def _cusp_magnification(resolution, tile_size, root_backend):
+def _cusp_magnification(resolution, legacy_tile_size, root_backend):
     return binary_inverse_ray_uniform(
         CUSP_SOURCE[0],
         CUSP_SOURCE[1],
@@ -46,7 +37,7 @@ def _cusp_magnification(resolution, tile_size, root_backend):
         CUSP_MASS_RATIO,
         CUSP_RADIUS,
         resolution=resolution,
-        tile_size=tile_size,
+        tile_size=legacy_tile_size,
         tile_capacity=16384,
         limb_samples=128,
         root_backend=root_backend,
@@ -54,8 +45,8 @@ def _cusp_magnification(resolution, tile_size, root_backend):
 
 
 @pytest.mark.parametrize("root_backend", ("auto", "jax"))
-def test_binary_magnification_is_independent_of_tile_size(root_backend):
-    """A performance knob may cost time.  It may not move the answer."""
+def test_binary_magnification_is_independent_of_legacy_tile_size(root_backend):
+    """The compatibility argument may affect capacity, never support shape."""
 
     results = [
         _cusp_magnification(128, tile_size, root_backend)
@@ -65,8 +56,8 @@ def test_binary_magnification_is_independent_of_tile_size(root_backend):
         assert bool(result.support_valid)
     reference = float(results[0].magnification)
     for result in results[1:]:
-        # The walk visits the tiles in a different order, so the sum is not
-        # bit-identical; the support it covers has to be the same one.
+        # The legacy capacity multiplier cannot alter run order when all three
+        # settings stay within budget.
         np.testing.assert_allclose(
             float(result.magnification), reference, rtol=1.0e-12, atol=0.0
         )
@@ -93,7 +84,7 @@ TRIPLE_RADIUS = 6.497855561e-03 / 0.99
 
 @pytest.mark.parametrize("use_ffi", (True, False))
 def test_triple_magnification_is_independent_of_tile_size(use_ffi):
-    """The triple frontier carries the same bound, so it owes the same property."""
+    """Both FFI run fill and the pure-JAX tile path ignore tile granularity."""
 
     results = [
         triple_inverse_ray_adaptive(
@@ -117,3 +108,24 @@ def test_triple_magnification_is_independent_of_tile_size(use_ffi):
         np.testing.assert_allclose(
             float(result.magnification), reference, rtol=1.0e-12, atol=0.0
         )
+
+
+@pytest.mark.skipif(
+    not cpp_triple_cartesian_epoch_ffi_available(),
+    reason="triple Cartesian FFI is unavailable",
+)
+def test_triple_ffi_reports_run_support_count():
+    result = triple_inverse_ray_adaptive(
+        TRIPLE_SOURCE[0],
+        TRIPLE_SOURCE[1],
+        *TRIPLE_PARAMETERS,
+        TRIPLE_RADIUS,
+        resolution=32,
+        tile_size=8,
+        tile_capacity=4096,
+        limb_samples=32,
+        moment_mode="uniform",
+        use_ffi=True,
+    )
+    assert bool(result.support_valid)
+    assert int(result.support_count) > 0

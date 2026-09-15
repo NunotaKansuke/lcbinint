@@ -154,7 +154,9 @@ def test_calibrated_dispatcher_keeps_grazing_source_on_image_plane():
     )
     assert int(result.method) == 1
     assert not bool(result.used_source_plane)
-    assert bool(result.chord_band)
+    # The segment-interior minimum is inside the disk, so this is a crossing
+    # handled by the image-plane path rather than the chord-only band.
+    assert not bool(result.chord_band)
     assert bool(result.support_valid)
     assert bool(result.value_converged)
     assert abs(float(result.magnification) - 241.85340579542768) < 2.43e-2

@@ -62,6 +62,29 @@ def test_public_cartesian_value_and_gradient_are_finite():
     np.testing.assert_allclose(gradient, finite_difference, rtol=6.0e-2, atol=2.0e-2)
 
 
+def test_binary_ffi_uses_row_runs_and_ignores_legacy_tile_size():
+    _require_cartesian_ffi()
+    parameters = (0.2, 0.1, 1.2, 0.1, 0.05, 0.4, 0.0)
+    results = [
+        binary_inverse_ray(
+            *parameters,
+            resolution=16,
+            tile_size=tile_size,
+            tile_capacity=512,
+            limb_samples=8,
+        )
+        for tile_size in (8, 16, 32)
+    ]
+    for result in results:
+        assert bool(result.support_valid)
+        assert int(result.support_count) > 0
+        assert int(result.support_count) == int(result.tile_count)
+    for result in results[1:]:
+        np.testing.assert_array_equal(
+            result.moments, results[0].moments
+        )
+
+
 def test_uniform_and_linear_specializations_match_general_kernel():
     _require_cartesian_ffi()
     options = dict(resolution=16, tile_size=8, tile_capacity=128, limb_samples=8)

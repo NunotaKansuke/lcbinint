@@ -7190,7 +7190,10 @@ FiniteSourceMagnifier::binary_routing_diagnostics_for_source(
         out.scan_min_distance = scan.min_distance;
         out.any_vertex_inside = scan.any_vertex_inside;
         out.has_crossing_probes = !scan.crossing_probes.empty();
+        // The closest point may be inside the disk along a segment even when
+        // every sampled vertex and crossing probe is outside it.
         const bool caustic_enters_disk =
+            scan.min_distance < source_radius ||
             out.any_vertex_inside || out.has_crossing_probes;
         out.chord_band =
             !caustic_enters_disk &&
@@ -8266,7 +8269,10 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         refined_dist < kGrazeQuadratureDistanceFactor * source_radius) {
         const auto scan = scan_caustic_branches(
             binary_caustic_branches(separation, mass_ratio), source, source_radius);
+        // Segment-interior minima prove a caustic entry that vertex-only
+        // flags cannot see when both endpoints remain outside the disk.
         const bool caustic_enters_disk =
+            scan.min_distance < source_radius ||
             scan.any_vertex_inside || !scan.crossing_probes.empty();
         // Split the near-limb regimes by how deep the nearest polyline chord
         // dips into the disk.  The shallow band stays on the ordinary seeded

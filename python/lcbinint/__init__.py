@@ -380,6 +380,52 @@ class LightCurve:
         self._warmup_drift_warned = False
         return report
 
+    def use_warmup_report(self, report, times):
+        """Install a compatible native warm-up report on this curve.
+
+        This lets multiprocessing workers reuse the exact route and
+        resolution choices calibrated by one ``LightCurve``. The epoch array
+        and numerical configuration must match the report; nearby parameter
+        proposals remain subject to the usual warm-up drift warning.
+        """
+        import numpy as np
+
+        from .warmup import METHOD_NAMES, WarmupReport
+
+        if self._options.jax:
+            raise NotImplementedError(
+                "reusing a native warm-up report is only supported by the native backend"
+            )
+        if not isinstance(report, WarmupReport):
+            raise TypeError("report must be a WarmupReport")
+        concrete_times = np.asarray(times, dtype=float)
+        if concrete_times.ndim == 0:
+            concrete_times = concrete_times.reshape(1)
+        self._validate_time_limit(concrete_times)
+        if not np.array_equal(concrete_times, np.asarray(report.times, dtype=float)):
+            raise ValueError("warm-up report times do not match the requested epochs")
+        if report.configuration_fingerprint != self._warmup_configuration_fingerprint():
+            raise ValueError("warm-up report configuration does not match this curve")
+        if not report.all_calibrated:
+            raise ValueError("only fully calibrated warm-up reports can be reused")
+
+        methods = tuple(report.methods)
+        resolutions = np.asarray(report.resolutions, dtype=int)
+        if len(methods) != concrete_times.size or resolutions.shape != concrete_times.shape:
+            raise ValueError("warm-up report arrays do not match the requested epochs")
+        if any(method not in METHOD_NAMES for method in methods):
+            raise ValueError("warm-up report contains an unknown finite-source method")
+        if np.any(resolutions < 0):
+            raise ValueError("warm-up report contains an uncalibrated resolution")
+
+        self.clear_warmup()
+        self._warmup_profile = report
+        self._warmup_methods = np.asarray(
+            [METHOD_NAMES.index(method) for method in methods], dtype=np.int64
+        )
+        self._warmup_drift_warned = False
+        return report
+
     def _matching_warmup(self, times, merged):
         profile = self._warmup_profile
         if profile is None or self._warmup_methods is None:
@@ -418,7 +464,8 @@ class LightCurve:
             warnings.warn(
                 "warmup geometry has moved outside its calibrated neighbourhood: "
                 + "; ".join(report.reasons)
-                + ". The retained epoch methods/resolutions are still being used.",
+                + ". This evaluation is using the automatic dispatcher; the retained "
+                "plan remains available when the geometry returns to its calibrated neighbourhood.",
                 RuntimeWarning,
                 stacklevel=3,
             )
@@ -432,18 +479,19 @@ class LightCurve:
             from .jax_backend import magnification
 
             if self._matching_warmup(times, merged):
-                self._warn_if_warmup_drift(times, merged)
-                if self._warmup_jax_function is not None:
+                drift = self._warn_if_warmup_drift(times, merged)
+                if not drift.warn and self._warmup_jax_function is not None:
                     return self._warmup_jax_function(times, merged)
             return magnification(self._native, self._options, times, merged)
         if self._matching_warmup(times, merged):
-            self._warn_if_warmup_drift(times, merged)
-            return self._native._magnification_preplanned(
-                times,
-                merged,
-                self._warmup_methods.tolist(),
-                self._warmup_profile.resolutions.tolist(),
-            )
+            drift = self._warn_if_warmup_drift(times, merged)
+            if not drift.warn:
+                return self._native._magnification_preplanned(
+                    times,
+                    merged,
+                    self._warmup_methods.tolist(),
+                    self._warmup_profile.resolutions.tolist(),
+                )
         return self._native(times, merged)
 
     def magnification(self, times, params=None, **kwargs):

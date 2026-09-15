@@ -70,6 +70,12 @@ class TripleAdaptiveInverseRayResult(NamedTuple):
     overflow: jax.Array
     root_failure: jax.Array
 
+    @property
+    def support_count(self) -> jax.Array:
+        """Reported support count (runs in FFI, visited tiles in pure JAX)."""
+
+        return self.visited_tiles
+
 
 class TripleMagnificationResult(NamedTuple):
     magnification: jax.Array

@@ -40,7 +40,13 @@ def test_binary_routing_diagnostics_classify_point_chord_and_crossing():
 
     assert not bool(result.point_safe[1])
     assert bool(result.scan_performed[1])
-    assert bool(result.chord_band[1])
+    # The segment minimum is just inside the source disk even though neither
+    # endpoint/probe is inside; the conservative scan must classify this as a
+    # crossing rather than a chord-only grazing case.
+    assert float(result.scan_min_distance[1]) < 1.0e-4
+    assert not bool(result.any_vertex_inside[1])
+    assert not bool(result.has_crossing_probes[1])
+    assert not bool(result.chord_band[1])
     assert not bool(result.grazing_ring_band[1])
 
     assert bool(result.scan_performed[2])

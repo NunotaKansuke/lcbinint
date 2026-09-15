@@ -29,7 +29,7 @@ class DiscoveryResult(NamedTuple):
 
 
 class InverseRayResult(NamedTuple):
-    """Magnification and discovery diagnostics from the automatic MVP path."""
+    """Magnification and support diagnostics from a Cartesian FFI path."""
 
     magnification: jax.Array
     moments: jax.Array
@@ -39,6 +39,12 @@ class InverseRayResult(NamedTuple):
     discovery_overflow: jax.Array
     root_failure: jax.Array
     support_valid: jax.Array
+
+    @property
+    def support_count(self) -> jax.Array:
+        """Support-element count (``tile_count`` is kept for compatibility)."""
+
+        return self.tile_count
 
 
 class AutoInverseRayResult(NamedTuple):

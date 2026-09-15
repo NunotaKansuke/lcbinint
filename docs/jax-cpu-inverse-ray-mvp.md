@@ -33,15 +33,33 @@ print(result.moments)
 print(result.support_valid)
 ```
 
-The calculation:
+The binary Cartesian calculation:
 
 1. solves the binary-lens quintic, or its real-axis quartic limit, at the
    source centre and fixed source-limb angles;
 2. filters physical images with the original lens equation;
-3. discovers a fixed-capacity set of Cartesian macro-tiles;
-4. integrates uniform and limb-darkening image-plane moments in one pass;
-5. differentiates the ray integral while stopping gradients through discrete
-   root and tile-support selection.
+3. snaps those image roots to the Cartesian cell lattice and traces their
+   support with the native shared horizontal multi-run fill;
+4. integrates each run's uniform or limb-darkening moments in the C++ FFI;
+5. propagates Jet derivatives through the cell moments while stopping
+   gradients through discrete roots and run-support selection.
+
+The binary Cartesian FFI no longer uses macro-tile discovery. ``tile_size``
+remains accepted for compatibility and scales the cell-work budget together
+with ``tile_capacity``; once that budget is sufficient, changing it cannot
+change the selected support or value. ``InverseRayResult.tile_count`` is
+retained as a compatibility field; ``InverseRayResult.support_count`` is its
+descriptive alias. For binary Cartesian results, that count is the number of
+maximal horizontal runs.
+
+The triple Cartesian FFI follows the same shared `fill_cartesian_runs` path.
+It uses the triple-lens map's conservative cell bound and certified triple
+image seeds, then propagates Jet derivatives through the triple cell moments.
+Its legacy `visited_tiles` result field and `support_count` alias report the
+number of maximal horizontal runs on this FFI path. `tile_size` only scales
+the work budget here as well. The optional pure-JAX triple fallback and the
+explicit macro-tile discovery API remain separate compatibility and diagnostic
+paths.
 
 For a scalar loss:
 
@@ -175,12 +193,12 @@ The JAX forward breakdown was:
 | regular, square-root limb | 11.13 ms | 70.39 ms |
 | resonant cusp, uniform | 5.76 ms | 45.97 ms |
 
-The current bottleneck is thus the ray integral, not polynomial roots or
-macro-tile discovery. The native grid's reference error is non-monotonic in
-some bins, so choosing the first oracle-passing setting is optimistic; the
-full calibration arrays are retained in the JSON benchmark output. Even with
-more conservative native settings, the present JAX kernel is not yet
-competitive on scalar CPU latency.
+In this pre-multi-run measurement the bottleneck was the ray integral, not
+polynomial roots or macro-tile discovery. The native grid's reference error is
+non-monotonic in some bins, so choosing the first oracle-passing setting is
+optimistic; the full calibration arrays are retained in the JSON benchmark
+output. Even with more conservative native settings, the present JAX kernel is
+not yet competitive on scalar CPU latency.
 
 VBMicrolensing uniform-source forward times were about 0.16--0.18 ms at the
 same requested error budget. Its installed Python API did not reproduce
@@ -189,14 +207,14 @@ limb-darkened VBMicrolensing timing is presented as a matched physical case.
 
 ## Optimized comparison with microLUX
 
-The linear-limb-darkening path was optimized after the initial benchmark:
+The linear-limb-darkening integration was optimized after the initial benchmark:
 
-- tiles without boundary cells bypass the affine positive-part formula;
-- cells just inside the limb on a boundary tile retain affine moment
+- cells without boundary intersections bypass the affine positive-part formula;
+- cells just inside the limb retain affine moment
   integration instead of reverting to midpoint brightness;
 - the linear specialization removes the unused \(M_{1/4}\) graph;
 - constant moment powers allow XLA to simplify the closed-form expressions;
-- checkpointing the active-tile body reduces reverse-pass memory traffic.
+- checkpointing the integration body reduces reverse-pass memory traffic.
 
 The reproducible harness is
 [`benchmark_microlux_linear.py`](../tests/diagnostics/jax_ir/benchmark_microlux_linear.py).
@@ -305,7 +323,7 @@ Forward, JVP, and reverse-mode differentiation all pass.
 
 `binary_inverse_ray_auto` hides the coordinate choice:
 
-- ordinary sources use the Cartesian macro-tile path;
+- ordinary sources use the Cartesian multi-run path;
 - tiny sources above a stopped-gradient point-magnification threshold are sent
   directly to polar integration;
 - Cartesian discovery overflow triggers a polar fallback.
@@ -625,7 +643,7 @@ boundary cells fell back to a different midpoint rule.  The corrected kernel:
   \(\Delta\phi=-2\|J_u\|_F^2/\rho^2\), requiring no extra lens-map call;
 - includes both \(f'(\phi)\Delta\phi\) and
   \(f''(\phi)|\nabla\phi|^2\) in every interior brightness moment;
-- applies one consistent interior rule in boundary and boundary-free tiles;
+- applies one consistent interior rule in boundary and boundary-free support cells;
 - evaluates only detailed cells on a true curved lens map, using a calibrated
   3-by-3 subcell rule for uniform/linear profiles and retaining 4-by-4 when
   the singular square-root term is active;

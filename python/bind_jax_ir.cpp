@@ -2,6 +2,7 @@
 
 #include "lcbinint/math/polynomial_roots.hpp"
 #include "lcbinint/magnification/component_certificate.hpp"
+#include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/model/triple_lens_geometry.hpp"
@@ -577,6 +578,145 @@ void add_interior_moments(
 }
 
 template <MomentMode Mode, int BoundarySubdivision, typename Scalar>
+void integrate_fixed_support_cell(
+    KernelResult<Scalar>& result,
+    double image_x,
+    double image_y,
+    double cell_size,
+    const PhiDerivatives<double>& classification,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const LensConstants<Scalar>& lens,
+    const Scalar& inverse_source_radius_squared,
+    const Scalar& limb_d,
+    const std::array<double, BoundarySubdivision>& subcell_offsets,
+    bool force_detail_if_affine_outside)
+{
+    const double half_delta_x =
+        0.5 * classification.gradient_x * cell_size;
+    const double half_delta_y =
+        0.5 * classification.gradient_y * cell_size;
+    const double extent = std::abs(half_delta_x) + std::abs(half_delta_y);
+    const double phi_value = classification.phi;
+    const bool fully_inside = phi_value - extent > 0.0;
+    const bool fully_outside = phi_value + extent <= 0.0;
+    const bool geometric_boundary = !(fully_inside || fully_outside);
+    bool detailed = geometric_boundary
+        || (force_detail_if_affine_outside && fully_outside);
+    if constexpr (Mode == MomentMode::two_coefficient) {
+        if (scalar_value(limb_d) != 0.0 && fully_inside) {
+            const double relative_variation =
+                (extent
+                 + 0.125 * std::abs(classification.laplacian)
+                               * cell_size * cell_size)
+                / std::max(phi_value, 1.0e-30);
+            detailed = relative_variation > 0.2;
+        }
+    }
+
+    if (detailed) {
+        ++result.boundary_cells;
+        ++result.active_cells;
+        const double subcell_size = cell_size / BoundarySubdivision;
+        for (int sy = 0; sy < BoundarySubdivision; ++sy) {
+            const double offset_y = subcell_offsets[sy];
+            for (int sx = 0; sx < BoundarySubdivision; ++sx) {
+                const double offset_x = subcell_offsets[sx];
+                const auto sub_values = phi_derivatives<false>(
+                    image_x + offset_x, image_y + offset_y,
+                    source_x, source_y, lens,
+                    inverse_source_radius_squared);
+                add_affine_moments<Mode>(
+                    result.moments, sub_values, subcell_size);
+            }
+        }
+    } else if (fully_inside) {
+        ++result.active_cells;
+        if constexpr (Mode == MomentMode::uniform) {
+            result.moments[0] += cell_size * cell_size;
+        } else if constexpr (std::is_same_v<Scalar, double>) {
+            add_interior_moments<Mode>(
+                result.moments, classification, cell_size);
+        } else {
+            const auto values = phi_derivatives(
+                image_x, image_y, source_x, source_y, lens,
+                inverse_source_radius_squared);
+            add_interior_moments<Mode>(result.moments, values, cell_size);
+        }
+    }
+}
+
+template <MomentMode Mode, int BoundarySubdivision, typename Scalar>
+void integrate_triple_fixed_support_cell(
+    KernelResult<Scalar>& result,
+    double image_x,
+    double image_y,
+    double cell_size,
+    const PhiDerivatives<double>& classification,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const TripleLensConstants<Scalar>& lens,
+    const Scalar& inverse_source_radius_squared,
+    const Scalar& limb_d,
+    const std::array<double, BoundarySubdivision>& subcell_offsets,
+    bool force_detail_if_affine_outside)
+{
+    const double half_delta_x =
+        0.5 * classification.gradient_x * cell_size;
+    const double half_delta_y =
+        0.5 * classification.gradient_y * cell_size;
+    const double extent = std::abs(half_delta_x) + std::abs(half_delta_y);
+    const double phi_value = classification.phi;
+    const bool fully_inside = phi_value - extent > 0.0;
+    const bool fully_outside = phi_value + extent <= 0.0;
+    const bool geometric_boundary = !(fully_inside || fully_outside);
+    bool detailed = geometric_boundary
+        || (force_detail_if_affine_outside && fully_outside);
+    if constexpr (Mode == MomentMode::two_coefficient) {
+        if (scalar_value(limb_d) != 0.0 && fully_inside) {
+            const double relative_variation =
+                (extent
+                 + 0.125 * std::abs(classification.laplacian)
+                       * cell_size * cell_size)
+                / std::max(phi_value, 1.0e-30);
+            detailed = relative_variation > 0.2;
+        }
+    }
+
+    if (detailed) {
+        ++result.boundary_cells;
+        ++result.active_cells;
+        const double subcell_size = cell_size / BoundarySubdivision;
+        for (int sy = 0; sy < BoundarySubdivision; ++sy) {
+            const double offset_y = subcell_offsets[sy];
+            for (int sx = 0; sx < BoundarySubdivision; ++sx) {
+                const double offset_x = subcell_offsets[sx];
+                const auto sub_values = triple_phi_derivatives<false>(
+                    image_x + offset_x, image_y + offset_y,
+                    source_x, source_y, lens,
+                    inverse_source_radius_squared);
+                add_affine_moments<Mode>(
+                    result.moments, sub_values, subcell_size);
+            }
+        }
+    } else if (fully_inside) {
+        ++result.active_cells;
+        if constexpr (Mode == MomentMode::uniform) {
+            result.moments[0] += cell_size * cell_size;
+        } else if constexpr (std::is_same_v<Scalar, double>) {
+            add_interior_moments<Mode>(
+                result.moments, classification, cell_size);
+        } else {
+            const auto values = triple_phi_derivatives(
+                image_x, image_y, source_x, source_y, lens,
+                inverse_source_radius_squared);
+            add_interior_moments<Mode>(
+                result.moments, values, cell_size);
+        }
+    }
+}
+
+template <MomentMode Mode, int BoundarySubdivision, typename Scalar>
 KernelResult<Scalar> fixed_support_kernel_for_mode(
     const double* origins,
     const bool* mask,
@@ -608,7 +748,6 @@ KernelResult<Scalar> fixed_support_kernel_for_mode(
     };
     const double classification_inverse_source_radius_squared =
         scalar_value(inverse_source_radius_squared);
-    const double subcell_size = cell_size / BoundarySubdivision;
     std::array<double, BoundarySubdivision> subcell_offsets{};
     for (int subcell = 0; subcell < BoundarySubdivision; ++subcell) {
         subcell_offsets[subcell] =
@@ -662,58 +801,11 @@ KernelResult<Scalar> fixed_support_kernel_for_mode(
                     classification_gradient_y[static_cast<std::size_t>(ix)],
                     classification_laplacian[static_cast<std::size_t>(ix)],
                 };
-                const double half_delta_x =
-                    0.5 * classification.gradient_x * cell_size;
-                const double half_delta_y =
-                    0.5 * classification.gradient_y * cell_size;
-                const double extent =
-                    std::abs(half_delta_x) + std::abs(half_delta_y);
-                const double phi_value = classification.phi;
-                const bool fully_inside = phi_value - extent > 0.0;
-                const bool fully_outside = phi_value + extent <= 0.0;
-                const bool geometric_boundary = !(fully_inside || fully_outside);
-                bool detailed = geometric_boundary;
-                if constexpr (Mode == MomentMode::two_coefficient) {
-                    if (scalar_value(limb_d) != 0.0 && fully_inside) {
-                        const double relative_variation =
-                            (extent
-                             + 0.125 * std::abs(classification.laplacian)
-                                          * cell_size * cell_size)
-                            / std::max(phi_value, 1.0e-30);
-                        detailed = relative_variation > 0.2;
-                    }
-                }
-
-                if (detailed) {
-                    ++result.boundary_cells;
-                    ++result.active_cells;
-                    for (int sy = 0; sy < BoundarySubdivision; ++sy) {
-                        const double offset_y = subcell_offsets[sy];
-                        for (int sx = 0; sx < BoundarySubdivision; ++sx) {
-                            const double offset_x = subcell_offsets[sx];
-                            const auto sub_values = phi_derivatives<false>(
-                                image_x + offset_x, image_y + offset_y,
-                                source_x, source_y, lens,
-                                inverse_source_radius_squared);
-                            add_affine_moments<Mode>(
-                                result.moments, sub_values, subcell_size);
-                        }
-                    }
-                } else if (fully_inside) {
-                    ++result.active_cells;
-                    if constexpr (Mode == MomentMode::uniform) {
-                        result.moments[0] += cell_size * cell_size;
-                    } else if constexpr (std::is_same_v<Scalar, double>) {
-                        add_interior_moments<Mode>(
-                            result.moments, classification, cell_size);
-                    } else {
-                        const auto values = phi_derivatives(
-                            image_x, image_y, source_x, source_y, lens,
-                            inverse_source_radius_squared);
-                        add_interior_moments<Mode>(
-                            result.moments, values, cell_size);
-                    }
-                }
+                integrate_fixed_support_cell<Mode, BoundarySubdivision>(
+                    result, image_x, image_y, cell_size, classification,
+                    source_x, source_y, lens,
+                    inverse_source_radius_squared, limb_d, subcell_offsets,
+                    false);
             }
         }
     }
@@ -2482,20 +2574,20 @@ std::uint64_t tile_key(std::int32_t x, std::int32_t y)
         | static_cast<std::uint32_t>(y);
 }
 
-// Whether the tile may contain a point that maps into the source disk, and so
-// has to stay on the flood-fill frontier.
+// Whether an axis-aligned square may contain a point that maps into the source
+// disk.  The same bound is used by the legacy tile diagnostic and the binary
+// run fill below; cell-level calls make the run fill's support independent of
+// a macro-tile size.
 //
-// Sampling nine points in the tile answers a different question -- whether one
-// of those nine happens to land in the disk -- and a thin image component that
-// merely passes between them fails all nine, which stops the expansion on the
-// component the walk was following.  That is the same defect class as the limb
-// raster the certificate replaced: a sample count used as a decision about a
-// set it does not cover.  It is silent, too; the walk still reports
-// `support_valid`.  Measured on the tangent cusp at resolution 128, tile_size
-// 2/4/8/16/32 gave 3.960953/3.960857/3.959864/3.955731/3.945949 against a
-// reference of 3.960888.
+// This square bound backs the legacy tile diagnostic and the new cell-level
+// binary run fill. Sampling nine points in a tile answers a different question
+// -- whether one of those points happens to land in the disk -- and a thin
+// image component can pass between them. The old test silently stopped there
+// while still reporting `support_valid`. At resolution 128 on the tangent cusp,
+// its tile_size 2/4/8/16/32 results were 3.960953/3.960857/3.959864/3.955731/
+// 3.945949 against a reference of 3.960888.
 //
-// Bound the map instead of sampling it.  The tile is convex, so for every `z`
+// Bound the map instead of sampling it. A square is convex, so for every `z`
 // in it
 //
 //     |f(z) - zeta| >= |f(c) - zeta| - L |z - c| >= |f(c) - zeta| - L r
@@ -2504,13 +2596,94 @@ std::uint64_t tile_key(std::int32_t x, std::int32_t y)
 // `f(z) = z - sum_i m_i / conj(z - z_i)` the differential is the identity plus
 // `df/dconj(z) = sum_i m_i / conj(z - z_i)^2`, so
 //
-//     L = 1 + sum_i m_i / d_i^2,   d_i = dist(tile, z_i)
+//     L = 1 + sum_i m_i / d_i^2,   d_i = dist(square, z_i)
 //
-// bounds it over the whole tile.  Rejecting only when the lower bound exceeds
+// bounds it over the whole square. Rejecting only when the lower bound exceeds
 // the source radius can over-admit but never under-admit, which is the
-// direction that keeps the support honest.  A tile containing a lens has
+// direction that keeps the support honest. A square containing a lens has
 // `d_i = 0`; it is admitted outright, as its neighbourhood of images requires.
-// One lens-map evaluation replaces nine.
+bool binary_square_may_intersect_source(
+    double centre_x,
+    double centre_y,
+    double half_width,
+    double mapped_distance,
+    double source_radius,
+    const LensConstants<double>& lens)
+{
+    // Both lenses sit on the real axis, so the distance from the square to a
+    // lens is the usual clamped box distance.
+    const auto lens_distance_squared = [&](double lens_x) {
+        const double dx = std::max(0.0, std::abs(centre_x - lens_x) - half_width);
+        const double dy = std::max(0.0, std::abs(centre_y) - half_width);
+        return dx * dx + dy * dy;
+    };
+    const double lens_1_distance_squared =
+        lens_distance_squared(lens.lens_1_x);
+    const double lens_2_distance_squared =
+        lens_distance_squared(lens.lens_2_x);
+    if (lens_1_distance_squared <= 0.0 || lens_2_distance_squared <= 0.0) {
+        return true;
+    }
+
+    if (!std::isfinite(mapped_distance)) {
+        return true;
+    }
+
+    const double lipschitz =
+        1.0 + lens.mass_1 / lens_1_distance_squared
+        + lens.mass_2 / lens_2_distance_squared;
+    const double half_diagonal = half_width * std::sqrt(2.0);
+    const double lipschitz_extent = lipschitz * half_diagonal;
+    const double lower_bound = mapped_distance - lipschitz_extent;
+    const double roundoff_margin = 16.0
+        * std::numeric_limits<double>::epsilon()
+        * std::max({
+            1.0, source_radius, mapped_distance,
+            std::abs(lipschitz_extent)});
+    return lower_bound <= source_radius + roundoff_margin;
+}
+
+// Conservative cell-level support test for a triple lens.  The differential
+// norm is bounded by 1 + sum_i m_i / d_i^2, where d_i is the distance from
+// the square to lens i.  This admits some cells outside the inverse image, but
+// cannot reject a cell that may intersect the source disk.
+bool triple_square_may_intersect_source(
+    double centre_x,
+    double centre_y,
+    double half_width,
+    double mapped_distance,
+    double source_radius,
+    const TripleLensConstants<double>& lens)
+{
+    double lipschitz = 1.0;
+    for (std::size_t lens_index = 0; lens_index < 3; ++lens_index) {
+        const double dx = std::max(
+            0.0,
+            std::abs(centre_x - lens.lens_x[lens_index]) - half_width);
+        const double dy = std::max(
+            0.0,
+            std::abs(centre_y - lens.lens_y[lens_index]) - half_width);
+        const double distance_squared = dx * dx + dy * dy;
+        if (distance_squared <= 0.0) {
+            return true;
+        }
+        lipschitz += lens.mass[lens_index] / distance_squared;
+    }
+    if (!std::isfinite(mapped_distance) || !std::isfinite(lipschitz)) {
+        return true;
+    }
+
+    const double lipschitz_extent =
+        lipschitz * half_width * std::sqrt(2.0);
+    const double lower_bound = mapped_distance - lipschitz_extent;
+    const double roundoff_margin = 16.0
+        * std::numeric_limits<double>::epsilon()
+        * std::max({
+            1.0, source_radius, mapped_distance,
+            std::abs(lipschitz_extent)});
+    return lower_bound <= source_radius + roundoff_margin;
+}
+
 bool tile_has_inside_probe(
     std::int32_t tile_x,
     std::int32_t tile_y,
@@ -2522,49 +2695,31 @@ bool tile_has_inside_probe(
     double source_radius)
 {
     const double total_mass = 1.0 + mass_ratio;
-    const double lens_1_x = -mass_ratio / total_mass * separation;
-    const double lens_2_x = separation / total_mass;
-    const double mass_1 = 1.0 / total_mass;
-    const double mass_2 = mass_ratio / total_mass;
+    const LensConstants<double> lens{
+        -mass_ratio / total_mass * separation,
+        separation / total_mass,
+        1.0 / total_mass,
+        mass_ratio / total_mass,
+    };
     const double half_width = 0.5 * tile_width;
     const double centre_x =
         static_cast<double>(tile_x) * tile_width + half_width;
     const double centre_y =
         static_cast<double>(tile_y) * tile_width + half_width;
-
-    // Both lenses sit on the real axis, so the distance from the tile to a lens
-    // is the usual clamped box distance.
-    const auto lens_distance_squared = [&](double lens_x) {
-        const double dx = std::max(0.0, std::abs(centre_x - lens_x) - half_width);
-        const double dy = std::max(0.0, std::abs(centre_y) - half_width);
-        return dx * dx + dy * dy;
-    };
-    const double lens_1_distance_squared = lens_distance_squared(lens_1_x);
-    const double lens_2_distance_squared = lens_distance_squared(lens_2_x);
-    if (lens_1_distance_squared <= 0.0 || lens_2_distance_squared <= 0.0) {
-        return true;
-    }
-
-    const double dx_1 = centre_x - lens_1_x;
-    const double dx_2 = centre_x - lens_2_x;
+    const double dx_1 = centre_x - lens.lens_1_x;
+    const double dx_2 = centre_x - lens.lens_2_x;
     const double radius_1_squared = dx_1 * dx_1 + centre_y * centre_y;
     const double radius_2_squared = dx_2 * dx_2 + centre_y * centre_y;
     const double mapped_x =
-        centre_x - mass_1 * dx_1 / radius_1_squared
-        - mass_2 * dx_2 / radius_2_squared;
+        centre_x - lens.mass_1 * dx_1 / radius_1_squared
+        - lens.mass_2 * dx_2 / radius_2_squared;
     const double mapped_y =
-        centre_y - mass_1 * centre_y / radius_1_squared
-        - mass_2 * centre_y / radius_2_squared;
-    const double distance =
+        centre_y - lens.mass_1 * centre_y / radius_1_squared
+        - lens.mass_2 * centre_y / radius_2_squared;
+    const double mapped_distance =
         std::hypot(mapped_x - source_x, mapped_y - source_y);
-    if (!std::isfinite(distance)) {
-        return true;
-    }
-
-    const double lipschitz =
-        1.0 + mass_1 / lens_1_distance_squared + mass_2 / lens_2_distance_squared;
-    const double half_diagonal = half_width * std::sqrt(2.0);
-    return distance - lipschitz * half_diagonal <= source_radius;
+    return binary_square_may_intersect_source(
+        centre_x, centre_y, half_width, mapped_distance, source_radius, lens);
 }
 
 struct CartesianDiscovery {
@@ -3181,10 +3336,312 @@ CartesianDiscovery discover_triple_cartesian_support(
 template <typename Scalar>
 struct CartesianEpochResult {
     KernelResult<Scalar> integration;
+    // Legacy FFI result slot; Cartesian run-fill paths report maximal row runs.
     std::int32_t tile_count = 0;
     bool overflow = false;
     bool root_failure = false;
 };
+
+struct CartesianRunCellState {
+    PhiDerivatives<double> derivatives{};
+    bool may_intersect_support = false;
+};
+
+struct TripleCartesianRunCellState {
+    PhiDerivatives<double> derivatives{};
+    bool may_intersect_support = false;
+};
+
+bool floor_to_cartesian_cell(
+    double coordinate,
+    double cell_size,
+    std::int64_t& index)
+{
+    const long double scaled =
+        static_cast<long double>(coordinate)
+        / static_cast<long double>(cell_size);
+    if (!std::isfinite(scaled)) return false;
+    const long double floored = std::floor(scaled);
+    if (floored < static_cast<long double>(
+                      std::numeric_limits<std::int64_t>::min())
+        || floored > static_cast<long double>(
+                         std::numeric_limits<std::int64_t>::max())) {
+        return false;
+    }
+    index = static_cast<std::int64_t>(floored);
+    return true;
+}
+
+std::int64_t saturated_positive_product(
+    std::int64_t left,
+    std::int64_t right)
+{
+    const auto maximum = std::numeric_limits<std::int64_t>::max();
+    return left > maximum / right ? maximum : left * right;
+}
+
+template <MomentMode Mode, int BoundarySubdivision, typename Scalar>
+CartesianEpochResult<Scalar> cartesian_epoch_run_fill_for_mode(
+    double cell_size,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& source_radius,
+    const Scalar& limb_d,
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    const CartesianSeedSupport& prepared)
+{
+    CartesianEpochResult<Scalar> result;
+    result.root_failure = prepared.root_failure;
+
+    const LensConstants<Scalar> lens{
+        -mass_ratio / (1.0 + mass_ratio) * separation,
+        separation / (1.0 + mass_ratio),
+        1.0 / (1.0 + mass_ratio),
+        mass_ratio / (1.0 + mass_ratio),
+    };
+    const LensConstants<double> classification_lens{
+        scalar_value(lens.lens_1_x), scalar_value(lens.lens_2_x),
+        scalar_value(lens.mass_1), scalar_value(lens.mass_2),
+    };
+    const Scalar inverse_source_radius_squared =
+        1.0 / (source_radius * source_radius);
+    const double source_x_value = scalar_value(source_x);
+    const double source_y_value = scalar_value(source_y);
+    const double source_radius_value = scalar_value(source_radius);
+    const double inverse_source_radius_squared_value =
+        scalar_value(inverse_source_radius_squared);
+
+    std::vector<lcbinint::magnification::detail::CartesianLatticeSeed> seeds;
+    seeds.reserve(prepared.image_coordinates.size());
+    for (const auto& image : prepared.image_coordinates) {
+        std::int64_t ix = 0;
+        std::int64_t iy = 0;
+        if (!floor_to_cartesian_cell(image.real(), cell_size, ix)
+            || !floor_to_cartesian_cell(image.imag(), cell_size, iy)) {
+            result.overflow = true;
+            return result;
+        }
+        seeds.push_back({ix, iy});
+    }
+
+    // `tile_capacity` and `tile_size` remain accepted for API compatibility.
+    // Their product bounds the maximum cell work; neither selects a search
+    // granularity or changes which cells the multi-run walk admits.
+    const std::int64_t cell_budget = saturated_positive_product(
+        saturated_positive_product(tile_capacity, tile_size), tile_size);
+    constexpr std::size_t maximum_run_budget = 1U << 21;
+    const std::size_t run_budget = static_cast<std::size_t>(
+        std::min<std::int64_t>(
+            cell_budget, static_cast<std::int64_t>(maximum_run_budget)));
+    const std::size_t expected_rows = seeds.size() * 4U;
+
+    std::array<double, BoundarySubdivision> subcell_offsets{};
+    for (int subcell = 0; subcell < BoundarySubdivision; ++subcell) {
+        subcell_offsets[subcell] =
+            ((static_cast<double>(subcell) + 0.5) / BoundarySubdivision
+             - 0.5)
+            * cell_size;
+    }
+
+    const auto run_fill =
+        lcbinint::magnification::detail::fill_cartesian_runs<
+            CartesianRunCellState>(
+            std::move(seeds),
+            [&](std::int64_t ix, std::int64_t iy) {
+                const double image_x =
+                    (static_cast<double>(ix) + 0.5) * cell_size;
+                const double image_y =
+                    (static_cast<double>(iy) + 0.5) * cell_size;
+                const auto derivatives = phi_derivatives<
+                    Mode != MomentMode::uniform>(
+                    image_x, image_y, source_x_value, source_y_value,
+                    classification_lens,
+                    inverse_source_radius_squared_value);
+                const double normalized_distance_squared =
+                    1.0 - derivatives.phi;
+                const double mapped_distance =
+                    std::isfinite(normalized_distance_squared)
+                    ? source_radius_value * std::sqrt(std::max(
+                          0.0, normalized_distance_squared))
+                    : std::numeric_limits<double>::quiet_NaN();
+                return CartesianRunCellState{
+                    derivatives,
+                    binary_square_may_intersect_source(
+                        image_x, image_y, 0.5 * cell_size,
+                        mapped_distance, source_radius_value,
+                        classification_lens),
+                };
+            },
+            [](const CartesianRunCellState& state) {
+                return state.may_intersect_support;
+            },
+            [&](std::int64_t ix, std::int64_t iy,
+                const CartesianRunCellState& state) {
+                const double image_x =
+                    (static_cast<double>(ix) + 0.5) * cell_size;
+                const double image_y =
+                    (static_cast<double>(iy) + 0.5) * cell_size;
+                integrate_fixed_support_cell<Mode, BoundarySubdivision>(
+                    result.integration, image_x, image_y, cell_size,
+                    state.derivatives, source_x, source_y, lens,
+                    inverse_source_radius_squared, limb_d, subcell_offsets,
+                    true);
+                return 0.0;
+            },
+            [](const lcbinint::magnification::detail::CartesianRun&,
+               const CartesianRunCellState&,
+               const CartesianRunCellState&,
+               const CartesianRunCellState&,
+               const CartesianRunCellState&) {
+                return lcbinint::magnification::detail::
+                    CartesianBoundaryContribution{};
+            },
+            lcbinint::magnification::detail::CartesianRunFillLimits{
+                cell_budget, run_budget, expected_rows});
+
+    result.tile_count = static_cast<std::int32_t>(std::min<std::size_t>(
+        run_fill.runs.size(),
+        static_cast<std::size_t>(std::numeric_limits<std::int32_t>::max())));
+    result.overflow = !run_fill.ok();
+    return result;
+}
+
+template <MomentMode Mode, int BoundarySubdivision, typename Scalar>
+CartesianEpochResult<Scalar> triple_cartesian_epoch_run_fill_for_mode(
+    double cell_size,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& tertiary_mass_ratio,
+    const Scalar& tertiary_separation,
+    const Scalar& tertiary_angle,
+    const Scalar& source_radius,
+    const Scalar& limb_d,
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t convention,
+    const TripleSeedSupport& prepared)
+{
+    CartesianEpochResult<Scalar> result;
+    result.root_failure = prepared.root_failure;
+
+    const auto lens = make_triple_lens_constants(
+        separation, mass_ratio, tertiary_mass_ratio,
+        tertiary_separation, tertiary_angle, convention);
+    TripleLensConstants<double> classification_lens;
+    for (std::size_t index = 0; index < 3; ++index) {
+        classification_lens.lens_x[index] =
+            scalar_value(lens.lens_x[index]);
+        classification_lens.lens_y[index] =
+            scalar_value(lens.lens_y[index]);
+        classification_lens.mass[index] = scalar_value(lens.mass[index]);
+    }
+    const Scalar inverse_source_radius_squared =
+        1.0 / (source_radius * source_radius);
+    const double source_x_value = scalar_value(source_x);
+    const double source_y_value = scalar_value(source_y);
+    const double source_radius_value = scalar_value(source_radius);
+    const double inverse_source_radius_squared_value =
+        scalar_value(inverse_source_radius_squared);
+
+    std::vector<lcbinint::magnification::detail::CartesianLatticeSeed> seeds;
+    seeds.reserve(prepared.image_coordinates.size());
+    for (const auto& image : prepared.image_coordinates) {
+        std::int64_t ix = 0;
+        std::int64_t iy = 0;
+        if (!floor_to_cartesian_cell(image.x, cell_size, ix)
+            || !floor_to_cartesian_cell(image.y, cell_size, iy)) {
+            result.overflow = true;
+            return result;
+        }
+        seeds.push_back({ix, iy});
+    }
+
+    // Preserve the old arguments as a work-budget control only. The run
+    // lattice and conservative cell predicate do not depend on macro-tiles.
+    const std::int64_t cell_budget = saturated_positive_product(
+        saturated_positive_product(tile_capacity, tile_size), tile_size);
+    constexpr std::size_t maximum_run_budget = 1U << 21;
+    const std::size_t run_budget = static_cast<std::size_t>(
+        std::min<std::int64_t>(
+            cell_budget, static_cast<std::int64_t>(maximum_run_budget)));
+    const std::size_t expected_rows = seeds.size() * 4U;
+
+    std::array<double, BoundarySubdivision> subcell_offsets{};
+    for (int subcell = 0; subcell < BoundarySubdivision; ++subcell) {
+        subcell_offsets[subcell] =
+            ((static_cast<double>(subcell) + 0.5) / BoundarySubdivision
+             - 0.5)
+            * cell_size;
+    }
+
+    const auto run_fill =
+        lcbinint::magnification::detail::fill_cartesian_runs<
+            TripleCartesianRunCellState>(
+            std::move(seeds),
+            [&](std::int64_t ix, std::int64_t iy) {
+                const double image_x =
+                    (static_cast<double>(ix) + 0.5) * cell_size;
+                const double image_y =
+                    (static_cast<double>(iy) + 0.5) * cell_size;
+                const auto derivatives = triple_phi_derivatives<
+                    Mode != MomentMode::uniform>(
+                    image_x, image_y, source_x_value, source_y_value,
+                    classification_lens,
+                    inverse_source_radius_squared_value);
+                const double normalized_distance_squared =
+                    1.0 - derivatives.phi;
+                const double mapped_distance =
+                    std::isfinite(normalized_distance_squared)
+                    ? source_radius_value * std::sqrt(std::max(
+                          0.0, normalized_distance_squared))
+                    : std::numeric_limits<double>::quiet_NaN();
+                return TripleCartesianRunCellState{
+                    derivatives,
+                    triple_square_may_intersect_source(
+                        image_x, image_y, 0.5 * cell_size,
+                        mapped_distance, source_radius_value,
+                        classification_lens),
+                };
+            },
+            [](const TripleCartesianRunCellState& state) {
+                return state.may_intersect_support;
+            },
+            [&](std::int64_t ix, std::int64_t iy,
+                const TripleCartesianRunCellState& state) {
+                const double image_x =
+                    (static_cast<double>(ix) + 0.5) * cell_size;
+                const double image_y =
+                    (static_cast<double>(iy) + 0.5) * cell_size;
+                integrate_triple_fixed_support_cell<
+                    Mode, BoundarySubdivision>(
+                    result.integration, image_x, image_y, cell_size,
+                    state.derivatives, source_x, source_y, lens,
+                    inverse_source_radius_squared, limb_d, subcell_offsets,
+                    true);
+                return 0.0;
+            },
+            [](const lcbinint::magnification::detail::CartesianRun&,
+               const TripleCartesianRunCellState&,
+               const TripleCartesianRunCellState&,
+               const TripleCartesianRunCellState&,
+               const TripleCartesianRunCellState&) {
+                return lcbinint::magnification::detail::
+                    CartesianBoundaryContribution{};
+            },
+            lcbinint::magnification::detail::CartesianRunFillLimits{
+                cell_budget, run_budget, expected_rows});
+
+    result.tile_count = static_cast<std::int32_t>(std::min<std::size_t>(
+        run_fill.runs.size(),
+        static_cast<std::size_t>(std::numeric_limits<std::int32_t>::max())));
+    result.overflow = !run_fill.ok();
+    return result;
+}
 
 template <typename Scalar>
 CartesianEpochResult<Scalar> cartesian_epoch_kernel_from_prepared(
@@ -3201,32 +3658,35 @@ CartesianEpochResult<Scalar> cartesian_epoch_kernel_from_prepared(
     std::int64_t boundary_subdivision,
     const CartesianSeedSupport& prepared)
 {
-    const double tile_width =
-        cell_size * static_cast<double>(tile_size);
-    const auto discovery = discover_cartesian_support_from_prepared(
-        tile_width,
-        scalar_value(source_x), scalar_value(source_y),
-        scalar_value(separation), scalar_value(mass_ratio),
-        scalar_value(source_radius), tile_capacity, prepared);
-    std::vector<double> origins(2 * discovery.queue.size());
-    for (std::size_t index = 0; index < discovery.queue.size(); ++index) {
-        origins[2 * index] =
-            discovery.queue[index][0] * tile_width;
-        origins[2 * index + 1] =
-            discovery.queue[index][1] * tile_width;
+    const auto dispatch = [&](auto mode_tag, auto subdivision_tag) {
+        constexpr MomentMode Mode = decltype(mode_tag)::value;
+        constexpr int BoundarySubdivision = decltype(subdivision_tag)::value;
+        return cartesian_epoch_run_fill_for_mode<
+            Mode, BoundarySubdivision>(
+            cell_size, source_x, source_y, separation, mass_ratio,
+            source_radius, limb_d, tile_size, tile_capacity, prepared);
+    };
+    const auto dispatch_subdivision = [&](auto mode_tag) {
+        switch (boundary_subdivision) {
+        case 1: return dispatch(mode_tag, std::integral_constant<int, 1>{});
+        case 2: return dispatch(mode_tag, std::integral_constant<int, 2>{});
+        case 3: return dispatch(mode_tag, std::integral_constant<int, 3>{});
+        case 8: return dispatch(mode_tag, std::integral_constant<int, 8>{});
+        default: return dispatch(mode_tag, std::integral_constant<int, 4>{});
+        }
+    };
+    switch (mode) {
+    case MomentMode::uniform:
+        return dispatch_subdivision(
+            std::integral_constant<MomentMode, MomentMode::uniform>{});
+    case MomentMode::linear:
+        return dispatch_subdivision(
+            std::integral_constant<MomentMode, MomentMode::linear>{});
+    default:
+        return dispatch_subdivision(
+            std::integral_constant<
+                MomentMode, MomentMode::two_coefficient>{});
     }
-    CartesianEpochResult<Scalar> result;
-    result.integration = fixed_support_kernel(
-        origins.data(), nullptr,
-        static_cast<std::int64_t>(discovery.queue.size()), cell_size,
-        source_x, source_y, separation, mass_ratio, source_radius, limb_d,
-        static_cast<int>(tile_size), mode,
-        static_cast<int>(boundary_subdivision));
-    result.tile_count =
-        discovery.visited_count;
-    result.overflow = discovery.overflow;
-    result.root_failure = discovery.root_failure;
-    return result;
 }
 
 template <typename Scalar>
@@ -3255,6 +3715,58 @@ CartesianEpochResult<Scalar> cartesian_epoch_kernel(
 }
 
 template <typename Scalar>
+CartesianEpochResult<Scalar> triple_cartesian_epoch_kernel_from_prepared(
+    double cell_size,
+    const Scalar& source_x,
+    const Scalar& source_y,
+    const Scalar& separation,
+    const Scalar& mass_ratio,
+    const Scalar& tertiary_mass_ratio,
+    const Scalar& tertiary_separation,
+    const Scalar& tertiary_angle,
+    const Scalar& source_radius,
+    const Scalar& limb_d,
+    std::int64_t tile_size,
+    std::int64_t tile_capacity,
+    std::int64_t convention,
+    MomentMode mode,
+    std::int64_t boundary_subdivision,
+    const TripleSeedSupport& prepared)
+{
+    const auto dispatch = [&](auto mode_tag, auto subdivision_tag) {
+        constexpr MomentMode Mode = decltype(mode_tag)::value;
+        constexpr int BoundarySubdivision = decltype(subdivision_tag)::value;
+        return triple_cartesian_epoch_run_fill_for_mode<
+            Mode, BoundarySubdivision>(
+            cell_size, source_x, source_y, separation, mass_ratio,
+            tertiary_mass_ratio, tertiary_separation, tertiary_angle,
+            source_radius, limb_d, tile_size, tile_capacity, convention,
+            prepared);
+    };
+    const auto dispatch_subdivision = [&](auto mode_tag) {
+        switch (boundary_subdivision) {
+        case 1: return dispatch(mode_tag, std::integral_constant<int, 1>{});
+        case 2: return dispatch(mode_tag, std::integral_constant<int, 2>{});
+        case 3: return dispatch(mode_tag, std::integral_constant<int, 3>{});
+        case 8: return dispatch(mode_tag, std::integral_constant<int, 8>{});
+        default: return dispatch(mode_tag, std::integral_constant<int, 4>{});
+        }
+    };
+    switch (mode) {
+    case MomentMode::uniform:
+        return dispatch_subdivision(
+            std::integral_constant<MomentMode, MomentMode::uniform>{});
+    case MomentMode::linear:
+        return dispatch_subdivision(
+            std::integral_constant<MomentMode, MomentMode::linear>{});
+    default:
+        return dispatch_subdivision(
+            std::integral_constant<
+                MomentMode, MomentMode::two_coefficient>{});
+    }
+}
+
+template <typename Scalar>
 CartesianEpochResult<Scalar> triple_cartesian_epoch_kernel(
     double cell_size,
     const Scalar& source_x,
@@ -3273,31 +3785,17 @@ CartesianEpochResult<Scalar> triple_cartesian_epoch_kernel(
     MomentMode mode,
     std::int64_t boundary_subdivision)
 {
-    const double tile_width =
-        cell_size * static_cast<double>(tile_size);
-    const auto discovery = discover_triple_cartesian_support(
-        tile_width, scalar_value(source_x), scalar_value(source_y),
+    const auto prepared = cached_triple_seed_support(
+        scalar_value(source_x), scalar_value(source_y),
         scalar_value(separation), scalar_value(mass_ratio),
         scalar_value(tertiary_mass_ratio),
         scalar_value(tertiary_separation), scalar_value(tertiary_angle),
-        scalar_value(source_radius), tile_capacity, limb_samples, convention);
-    std::vector<double> origins(2 * discovery.queue.size());
-    for (std::size_t index = 0; index < discovery.queue.size(); ++index) {
-        origins[2 * index] = discovery.queue[index][0] * tile_width;
-        origins[2 * index + 1] = discovery.queue[index][1] * tile_width;
-    }
-    CartesianEpochResult<Scalar> result;
-    result.integration = triple_fixed_support_kernel(
-        origins.data(), static_cast<std::int64_t>(discovery.queue.size()),
+        scalar_value(source_radius), limb_samples, convention);
+    return triple_cartesian_epoch_kernel_from_prepared(
         cell_size, source_x, source_y, separation, mass_ratio,
         tertiary_mass_ratio, tertiary_separation, tertiary_angle,
-        source_radius, limb_d, static_cast<int>(tile_size), convention,
-        mode, static_cast<int>(boundary_subdivision));
-    result.tile_count =
-        discovery.visited_count;
-    result.overflow = discovery.overflow;
-    result.root_failure = discovery.root_failure;
-    return result;
+        source_radius, limb_d, tile_size, tile_capacity, convention,
+        mode, boundary_subdivision, prepared);
 }
 
 struct PolarFloodRun {

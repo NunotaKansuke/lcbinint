@@ -386,6 +386,9 @@ def test_expanded_cartesian_attempt_is_reported():
         3.0e-4,
         0.4,
         0.0,
+        # Force the primary run fill over budget so the explicit retry path
+        # remains covered after run support reduced ordinary discovery work.
+        tile_capacity=1,
         expanded_cartesian_fallback=True,
         moment_mode="linear",
     )

@@ -1,0 +1,3199 @@
+{
+  "metadata": {
+    "benchmark": "master binary multi-run JAX FFI vs microLUX",
+    "input": "/rogue1_8/nunota/lcbinint/tests/diagnostics/results/recal2026/jax_microlux_binary_multirun_qrho_20260915/input_for_benchmark.json",
+    "input_sha256": "868901b620894ea96d88d115f65ed541725dba7bbb32caa361b95cf0e1d3c646",
+    "reference_source": "runbook_vbm_reltol_1e-6",
+    "reference_policy": "all value-accuracy errors use the runbook VBM RelTol=1e-6 values; lane target controls kernel/microLUX timing setting",
+    "timing_patterns": {
+      "values_only": "forward block only",
+      "values_plus_dA_dt": "forward block + separate synchronized dA/dt block",
+      "warmup_excluded": true,
+      "repeats": 2,
+      "batch_epochs": 4
+    },
+    "q_rho_bins": {
+      "q_edges": [
+        0.0001,
+        0.00021544346900318845,
+        0.00046415888336127773,
+        0.001,
+        0.002154434690031882,
+        0.004641588833612777,
+        0.01,
+        0.021544346900318822,
+        0.046415888336127774,
+        0.1,
+        0.21544346900318823,
+        0.46415888336127775,
+        1.0
+      ],
+      "rho_edges": [
+        3e-05,
+        7.145420914664649e-05,
+        0.00017019013349242338,
+        0.0004053600464421104,
+        0.0009654893846056293,
+        0.002299609347215923,
+        0.005477225575051662,
+        0.013045694059436745,
+        0.03107232505953858,
+        0.07400828044922853,
+        0.1762734383267614,
+        0.4198493043066298,
+        1.0
+      ],
+      "min_cell_population": 8,
+      "coverage_note": "block rows have two or more rows per cell; four reference epochs per block give the runbook's minimum population of eight for epoch-level maps"
+    },
+    "rows": 3608,
+    "lanes": [
+      "linear:target=0.001",
+      "linear:target=0.0001",
+      "uniform:target=0.001",
+      "uniform:target=0.0001"
+    ],
+    "checkpoint_audit": {
+      "expected_keys": 3608,
+      "lanes": {
+        "linear_t1e-3.jsonl": {
+          "line_count": 902,
+          "unique_key_count": 902,
+          "duplicate_key_count": 0,
+          "duplicate_keys": [],
+          "missing_expected_key_count": 0,
+          "missing_expected_keys": [],
+          "status_counts": {
+            "completed": 902
+          }
+        },
+        "linear_t1e-4.jsonl": {
+          "line_count": 1039,
+          "unique_key_count": 902,
+          "duplicate_key_count": 137,
+          "duplicate_keys": [
+            {
+              "case_id": 1530,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1531,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1532,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1533,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1534,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1540,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1541,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1542,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1543,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1544,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1550,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1551,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1552,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1553,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1554,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1560,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1561,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1562,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1563,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1564,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1570,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1571,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1572,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1573,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1574,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1580,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1581,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1582,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1583,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1584,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1590,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1591,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1592,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1593,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1594,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1600,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1601,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1604,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1605,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1608,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1609,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1612,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1613,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1616,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1617,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1620,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1621,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1624,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1625,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1628,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1629,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1632,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1633,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1636,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1637,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1640,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1641,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1644,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1645,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1648,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1649,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1652,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1653,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1656,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1657,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1660,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1661,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1664,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1665,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1668,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1669,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1672,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1673,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1676,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1677,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1680,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1681,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1684,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1685,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1688,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1689,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1692,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1693,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1696,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1697,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1700,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1701,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1704,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1705,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1708,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1709,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1712,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1713,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1716,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1717,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1720,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1721,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1724,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1725,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1728,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1729,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1732,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1733,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1736,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1737,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1740,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1741,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1744,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1745,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1748,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1749,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1752,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1753,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1756,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1757,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1760,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1761,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1764,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1765,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1768,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1769,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1772,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1773,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1776,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1777,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1780,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1781,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1784,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1785,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1788,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1789,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1792,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1793,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1796,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1797,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1800,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            },
+            {
+              "case_id": 1801,
+              "profile": "linear",
+              "target": 0.0001,
+              "rows": 2
+            }
+          ],
+          "missing_expected_key_count": 0,
+          "missing_expected_keys": [],
+          "status_counts": {
+            "completed": 1032,
+            "timeout": 7
+          }
+        },
+        "uniform_t1e-3.jsonl": {
+          "line_count": 902,
+          "unique_key_count": 902,
+          "duplicate_key_count": 0,
+          "duplicate_keys": [],
+          "missing_expected_key_count": 0,
+          "missing_expected_keys": [],
+          "status_counts": {
+            "completed": 902
+          }
+        },
+        "uniform_t1e-4.jsonl": {
+          "line_count": 902,
+          "unique_key_count": 902,
+          "duplicate_key_count": 0,
+          "duplicate_keys": [],
+          "missing_expected_key_count": 0,
+          "missing_expected_keys": [],
+          "status_counts": {
+            "completed": 898,
+            "timeout": 4
+          }
+        }
+      }
+    }
+  },
+  "summary": {
+    "linear:target=0.001": {
+      "jobs": 902,
+      "completed": 902,
+      "timeout": 0,
+      "status_counts": {
+        "completed": 902
+      },
+      "timeout_cases": [],
+      "timeout_stages": {},
+      "coverage_all_input_rows": {
+        "cells": 144,
+        "total_cells": 144,
+        "minimum_nonzero_count": 2,
+        "minimum_count": 2,
+        "maximum_count": 20,
+        "counts_row_major": [
+          [
+            2,
+            2,
+            2,
+            10,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5,
+            15
+          ],
+          [
+            15,
+            5,
+            2,
+            2,
+            5,
+            2,
+            5,
+            2,
+            5,
+            15,
+            5,
+            2
+          ],
+          [
+            10,
+            5,
+            10,
+            2,
+            10,
+            10,
+            10,
+            2,
+            2,
+            2,
+            5,
+            5
+          ],
+          [
+            2,
+            2,
+            15,
+            5,
+            5,
+            5,
+            5,
+            15,
+            2,
+            5,
+            2,
+            5
+          ],
+          [
+            2,
+            5,
+            5,
+            2,
+            5,
+            2,
+            2,
+            5,
+            2,
+            20,
+            2,
+            2
+          ],
+          [
+            5,
+            2,
+            10,
+            2,
+            15,
+            10,
+            2,
+            2,
+            20,
+            10,
+            5,
+            15
+          ],
+          [
+            5,
+            15,
+            5,
+            15,
+            10,
+            10,
+            15,
+            15,
+            2,
+            2,
+            2,
+            5
+          ],
+          [
+            2,
+            2,
+            5,
+            2,
+            2,
+            2,
+            2,
+            2,
+            5,
+            5,
+            5,
+            10
+          ],
+          [
+            5,
+            10,
+            2,
+            10,
+            10,
+            2,
+            15,
+            5,
+            2,
+            15,
+            10,
+            5
+          ],
+          [
+            10,
+            5,
+            2,
+            15,
+            5,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5
+          ],
+          [
+            2,
+            5,
+            2,
+            10,
+            20,
+            2,
+            2,
+            5,
+            5,
+            10,
+            5,
+            2
+          ],
+          [
+            5,
+            5,
+            2,
+            10,
+            10,
+            5,
+            5,
+            2,
+            10,
+            2,
+            10,
+            10
+          ]
+        ]
+      },
+      "coverage_completed_rows": {
+        "cells": 144,
+        "total_cells": 144,
+        "minimum_nonzero_count": 2,
+        "minimum_count": 2,
+        "maximum_count": 20,
+        "counts_row_major": [
+          [
+            2,
+            2,
+            2,
+            10,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5,
+            15
+          ],
+          [
+            15,
+            5,
+            2,
+            2,
+            5,
+            2,
+            5,
+            2,
+            5,
+            15,
+            5,
+            2
+          ],
+          [
+            10,
+            5,
+            10,
+            2,
+            10,
+            10,
+            10,
+            2,
+            2,
+            2,
+            5,
+            5
+          ],
+          [
+            2,
+            2,
+            15,
+            5,
+            5,
+            5,
+            5,
+            15,
+            2,
+            5,
+            2,
+            5
+          ],
+          [
+            2,
+            5,
+            5,
+            2,
+            5,
+            2,
+            2,
+            5,
+            2,
+            20,
+            2,
+            2
+          ],
+          [
+            5,
+            2,
+            10,
+            2,
+            15,
+            10,
+            2,
+            2,
+            20,
+            10,
+            5,
+            15
+          ],
+          [
+            5,
+            15,
+            5,
+            15,
+            10,
+            10,
+            15,
+            15,
+            2,
+            2,
+            2,
+            5
+          ],
+          [
+            2,
+            2,
+            5,
+            2,
+            2,
+            2,
+            2,
+            2,
+            5,
+            5,
+            5,
+            10
+          ],
+          [
+            5,
+            10,
+            2,
+            10,
+            10,
+            2,
+            15,
+            5,
+            2,
+            15,
+            10,
+            5
+          ],
+          [
+            10,
+            5,
+            2,
+            15,
+            5,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5
+          ],
+          [
+            2,
+            5,
+            2,
+            10,
+            20,
+            2,
+            2,
+            5,
+            5,
+            10,
+            5,
+            2
+          ],
+          [
+            5,
+            5,
+            2,
+            10,
+            10,
+            5,
+            5,
+            2,
+            10,
+            2,
+            10,
+            10
+          ]
+        ]
+      },
+      "values_only": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 902,
+          "median": 0.01761621125115198,
+          "p10": 0.003265453151834663,
+          "p50": 0.01761621125115198,
+          "p90": 0.4297211081509884,
+          "p95": 0.8171209034295309,
+          "p99": 1.3440565457336928,
+          "minimum": 0.0022258975004660897,
+          "maximum": 17.511407439498726
+        },
+        "microLUX_block_seconds": {
+          "count": 902,
+          "median": 0.018320014500204707,
+          "p10": 0.009192815147616783,
+          "p50": 0.018320014500204707,
+          "p90": 0.08388454554988128,
+          "p95": 0.1853407397222326,
+          "p99": 0.33590378708482616,
+          "minimum": 0.0008237215006374754,
+          "maximum": 0.5006863989983685
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 902,
+          "median": 0.7860202571001982,
+          "p10": 0.23726511530076277,
+          "p50": 0.7860202571001982,
+          "p90": 8.304096957913565,
+          "p95": 14.474979553661862,
+          "p99": 50.206853714717695,
+          "minimum": 0.09894494324070878,
+          "maximum": 734.0490431158792
+        },
+        "lcbinint_speedup_vs_microLUX": {
+          "count": 902,
+          "median": 1.2722318496956322,
+          "p10": 0.1204229991585643,
+          "p50": 1.2722318496956322,
+          "p90": 4.21469592102889,
+          "p95": 4.819601300088454,
+          "p99": 7.058298737848093,
+          "minimum": 0.001362306795953601,
+          "maximum": 10.106630690233914
+        }
+      },
+      "dA_dt_only": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 902,
+          "median": 0.05480221349898784,
+          "p10": 0.010038280749722617,
+          "p50": 0.05480221349898784,
+          "p90": 1.0151596851505016,
+          "p95": 1.7601668464734748,
+          "p99": 2.5076218036048887,
+          "minimum": 0.007021215496934019,
+          "maximum": 21.2679519609992
+        },
+        "microLUX_block_seconds": {
+          "count": 902,
+          "median": 0.031882315250186366,
+          "p10": 0.019706682801552234,
+          "p50": 0.031882315250186366,
+          "p90": 0.1077236830980837,
+          "p95": 0.22222687560079032,
+          "p99": 0.3972850726531036,
+          "minimum": 0.0008770304993959144,
+          "maximum": 0.5636840859988297
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 902,
+          "median": 1.3699022649479762,
+          "p10": 0.40349185622920664,
+          "p50": 1.3699022649479762,
+          "p90": 13.902366315361329,
+          "p95": 23.224082580608947,
+          "p99": 56.80561806691309,
+          "minimum": 0.15296904167786052,
+          "maximum": 491.5827955252148
+        }
+      },
+      "dA_dt_cross_engine_disagreement": {
+        "relative_difference": {
+          "count": 3608,
+          "median": 0.005299914656145703,
+          "p10": 0.00044735737666517025,
+          "p50": 0.005299914656145703,
+          "p90": 0.06829468563523974,
+          "p95": 0.23625234303032774,
+          "p99": 90.94799722790725,
+          "minimum": 5.89091035341216e-07,
+          "maximum": 89367.82058168795
+        },
+        "definition": "abs(FFI dA/dt - microLUX dA/dt) / max(abs(FFI dA/dt), 1)",
+        "interpretation": "diagnostic only; no VBM dA/dt reference is present in the runbook"
+      },
+      "values_plus_dA_dt": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 902,
+          "median": 0.07209504775164532,
+          "p10": 0.013273660500635743,
+          "p50": 0.07209504775164532,
+          "p90": 1.400558068949249,
+          "p95": 2.623326733947033,
+          "p99": 3.866645403695222,
+          "minimum": 0.009247112997400109,
+          "maximum": 38.779359400497924
+        },
+        "microLUX_block_seconds": {
+          "count": 902,
+          "median": 0.04999065274751047,
+          "p10": 0.028706765203241957,
+          "p50": 0.04999065274751047,
+          "p90": 0.19178547009614705,
+          "p95": 0.40809996132102194,
+          "p99": 0.7331888597379297,
+          "minimum": 0.0017007520000333898,
+          "maximum": 1.0643704849971982
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 902,
+          "median": 1.1635565593097081,
+          "p10": 0.33847809512171245,
+          "p50": 1.1635565593097081,
+          "p90": 11.566876204190951,
+          "p95": 19.746731135956633,
+          "p99": 54.81625504144508,
+          "minimum": 0.13103933683648292,
+          "maximum": 580.0236057669604
+        },
+        "lcbinint_speedup_vs_microLUX": {
+          "count": 902,
+          "median": 0.8594372114817548,
+          "p10": 0.0864538974085895,
+          "p50": 0.8594372114817548,
+          "p90": 2.9544012730700637,
+          "p95": 3.235342026253314,
+          "p99": 4.413341272087561,
+          "minimum": 0.0017240677621692799,
+          "maximum": 7.631296251505358
+        }
+      },
+      "accuracy_against_vbm_reltol_1e-6": {
+        "reference_source": "runbook_vbm_reltol_1e-6",
+        "lcbinint_jax_ffi": {
+          "block_max_relative_error": {
+            "count": 902,
+            "median": 1.1723087000993035e-05,
+            "p10": 8.388764454104705e-06,
+            "p50": 1.1723087000993035e-05,
+            "p90": 2.7598121889578545e-05,
+            "p95": 5.45221478546847e-05,
+            "p99": 0.00041667908047220945,
+            "minimum": 1.6796686682826604e-06,
+            "maximum": 0.0038441046121923876
+          },
+          "epoch_relative_error": {
+            "count": 3608,
+            "median": 1.0511256311306477e-05,
+            "p10": 7.918550590548187e-06,
+            "p50": 1.0511256311306477e-05,
+            "p90": 2.183281563290909e-05,
+            "p95": 4.407184192147916e-05,
+            "p99": 0.00031111061381324055,
+            "minimum": 2.0585840944125775e-07,
+            "maximum": 0.0038441046121923876
+          },
+          "block_pass_le_1e-6": 0,
+          "block_pass_le_1e-4": 876
+        },
+        "microLUX": {
+          "block_max_relative_error": {
+            "count": 902,
+            "median": 0.00012252074566429356,
+            "p10": 7.193433613521014e-06,
+            "p50": 0.00012252074566429356,
+            "p90": 0.0008822469407048276,
+            "p95": 0.001639264072649575,
+            "p99": 0.03571706339712095,
+            "minimum": 8.341898072541783e-07,
+            "maximum": 1.0337994029272481
+          },
+          "epoch_relative_error": {
+            "count": 3608,
+            "median": 5.823927058582221e-05,
+            "p10": 4.8099385337933575e-06,
+            "p50": 5.823927058582221e-05,
+            "p90": 0.00041565983741264343,
+            "p95": 0.000732334289817975,
+            "p99": 0.009621311288189915,
+            "minimum": 3.855502897061064e-08,
+            "maximum": 1.0337994029272481
+          },
+          "block_pass_le_1e-6": 1,
+          "block_pass_le_1e-4": 411
+        },
+        "derivative_reference": "unavailable in the runbook; dA/dt is timed and cross-engine comparison only"
+      }
+    },
+    "linear:target=0.0001": {
+      "jobs": 902,
+      "completed": 898,
+      "timeout": 4,
+      "status_counts": {
+        "completed": 898,
+        "timeout": 4
+      },
+      "timeout_cases": [
+        1,
+        124,
+        742,
+        1625
+      ],
+      "timeout_stages": {
+        "external_row_watchdog": 2,
+        "jax_timing": 2
+      },
+      "coverage_all_input_rows": {
+        "cells": 144,
+        "total_cells": 144,
+        "minimum_nonzero_count": 2,
+        "minimum_count": 2,
+        "maximum_count": 20,
+        "counts_row_major": [
+          [
+            2,
+            2,
+            2,
+            10,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5,
+            15
+          ],
+          [
+            15,
+            5,
+            2,
+            2,
+            5,
+            2,
+            5,
+            2,
+            5,
+            15,
+            5,
+            2
+          ],
+          [
+            10,
+            5,
+            10,
+            2,
+            10,
+            10,
+            10,
+            2,
+            2,
+            2,
+            5,
+            5
+          ],
+          [
+            2,
+            2,
+            15,
+            5,
+            5,
+            5,
+            5,
+            15,
+            2,
+            5,
+            2,
+            5
+          ],
+          [
+            2,
+            5,
+            5,
+            2,
+            5,
+            2,
+            2,
+            5,
+            2,
+            20,
+            2,
+            2
+          ],
+          [
+            5,
+            2,
+            10,
+            2,
+            15,
+            10,
+            2,
+            2,
+            20,
+            10,
+            5,
+            15
+          ],
+          [
+            5,
+            15,
+            5,
+            15,
+            10,
+            10,
+            15,
+            15,
+            2,
+            2,
+            2,
+            5
+          ],
+          [
+            2,
+            2,
+            5,
+            2,
+            2,
+            2,
+            2,
+            2,
+            5,
+            5,
+            5,
+            10
+          ],
+          [
+            5,
+            10,
+            2,
+            10,
+            10,
+            2,
+            15,
+            5,
+            2,
+            15,
+            10,
+            5
+          ],
+          [
+            10,
+            5,
+            2,
+            15,
+            5,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5
+          ],
+          [
+            2,
+            5,
+            2,
+            10,
+            20,
+            2,
+            2,
+            5,
+            5,
+            10,
+            5,
+            2
+          ],
+          [
+            5,
+            5,
+            2,
+            10,
+            10,
+            5,
+            5,
+            2,
+            10,
+            2,
+            10,
+            10
+          ]
+        ]
+      },
+      "coverage_completed_rows": {
+        "cells": 144,
+        "total_cells": 144,
+        "minimum_nonzero_count": 1,
+        "minimum_count": 1,
+        "maximum_count": 20,
+        "counts_row_major": [
+          [
+            2,
+            2,
+            2,
+            10,
+            15,
+            2,
+            5,
+            5,
+            5,
+            9,
+            5,
+            14
+          ],
+          [
+            15,
+            5,
+            2,
+            2,
+            5,
+            1,
+            5,
+            2,
+            5,
+            15,
+            5,
+            2
+          ],
+          [
+            10,
+            5,
+            10,
+            2,
+            10,
+            10,
+            10,
+            2,
+            2,
+            2,
+            5,
+            4
+          ],
+          [
+            2,
+            2,
+            15,
+            5,
+            5,
+            5,
+            5,
+            15,
+            2,
+            5,
+            2,
+            5
+          ],
+          [
+            2,
+            5,
+            5,
+            2,
+            5,
+            2,
+            2,
+            5,
+            2,
+            20,
+            2,
+            2
+          ],
+          [
+            5,
+            2,
+            10,
+            2,
+            15,
+            10,
+            2,
+            2,
+            20,
+            10,
+            5,
+            15
+          ],
+          [
+            5,
+            15,
+            5,
+            15,
+            10,
+            10,
+            15,
+            15,
+            2,
+            2,
+            2,
+            5
+          ],
+          [
+            2,
+            2,
+            5,
+            2,
+            2,
+            2,
+            2,
+            2,
+            5,
+            5,
+            5,
+            10
+          ],
+          [
+            5,
+            10,
+            2,
+            10,
+            10,
+            2,
+            15,
+            5,
+            2,
+            15,
+            10,
+            5
+          ],
+          [
+            10,
+            5,
+            2,
+            15,
+            5,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5
+          ],
+          [
+            2,
+            5,
+            2,
+            10,
+            20,
+            2,
+            2,
+            5,
+            5,
+            10,
+            5,
+            2
+          ],
+          [
+            5,
+            5,
+            2,
+            10,
+            10,
+            5,
+            5,
+            2,
+            10,
+            2,
+            10,
+            10
+          ]
+        ]
+      },
+      "values_only": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 898,
+          "median": 0.09539034500267007,
+          "p10": 0.018213887298770715,
+          "p50": 0.09539034500267007,
+          "p90": 2.0869968157014234,
+          "p95": 3.4028004784995534,
+          "p99": 9.554563760715956,
+          "minimum": 0.013863201995263807,
+          "maximum": 49.87891035749999
+        },
+        "microLUX_block_seconds": {
+          "count": 898,
+          "median": 0.029662408747753943,
+          "p10": 0.016667095950469956,
+          "p50": 0.029662408747753943,
+          "p90": 0.14504980854799215,
+          "p95": 0.42030755467494596,
+          "p99": 1.0438411943464956,
+          "minimum": 0.012301194001338445,
+          "maximum": 1.2665646609966643
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 898,
+          "median": 2.5189766961743,
+          "p10": 0.7252537412258435,
+          "p50": 2.5189766961743,
+          "p90": 25.255770246663648,
+          "p95": 53.373497257654506,
+          "p99": 192.54741347267927,
+          "minimum": 0.15400380573274974,
+          "maximum": 1525.2017377657153
+        },
+        "lcbinint_speedup_vs_microLUX": {
+          "count": 898,
+          "median": 0.39698687088614815,
+          "p10": 0.03959598605552918,
+          "p50": 0.39698687088614815,
+          "p90": 1.3788278890188905,
+          "p95": 1.6383226518512877,
+          "p99": 2.315273310790625,
+          "minimum": 0.0006556509707790597,
+          "maximum": 6.493346026366052
+        }
+      },
+      "dA_dt_only": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 898,
+          "median": 0.3153934762449353,
+          "p10": 0.06310503094864543,
+          "p50": 0.3153934762449353,
+          "p90": 4.529409022853362,
+          "p95": 8.483880098476398,
+          "p99": 21.589524647747435,
+          "minimum": 0.0486275490038679,
+          "maximum": 55.10050449700066
+        },
+        "microLUX_block_seconds": {
+          "count": 898,
+          "median": 0.05509272999552195,
+          "p10": 0.03745150300055684,
+          "p50": 0.05509272999552195,
+          "p90": 0.18276997070170192,
+          "p95": 0.4717659484984322,
+          "p99": 1.1298278629152625,
+          "minimum": 0.02808196750265779,
+          "maximum": 1.3419909849981195
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 898,
+          "median": 4.423207482242166,
+          "p10": 1.3424779200988541,
+          "p50": 4.423207482242166,
+          "p90": 44.464928216562306,
+          "p95": 80.73634257880457,
+          "p99": 204.69855584426492,
+          "minimum": 0.24372419610745397,
+          "maximum": 930.427663611291
+        }
+      },
+      "dA_dt_cross_engine_disagreement": {
+        "relative_difference": {
+          "count": 3592,
+          "median": 0.0021182593896772123,
+          "p10": 0.00023103755403101504,
+          "p50": 0.0021182593896772123,
+          "p90": 0.03995509664872052,
+          "p95": 0.10244656810022913,
+          "p99": 44.44417837116457,
+          "minimum": 5.297324191522179e-07,
+          "maximum": 137275.21918051262
+        },
+        "definition": "abs(FFI dA/dt - microLUX dA/dt) / max(abs(FFI dA/dt), 1)",
+        "interpretation": "diagnostic only; no VBM dA/dt reference is present in the runbook"
+      },
+      "values_plus_dA_dt": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 898,
+          "median": 0.4117090937506873,
+          "p10": 0.08132377759793599,
+          "p50": 0.4117090937506873,
+          "p90": 6.796060518897868,
+          "p95": 11.804396137201,
+          "p99": 32.346209619006494,
+          "minimum": 0.06250647900014883,
+          "maximum": 104.97941485450065
+        },
+        "microLUX_block_seconds": {
+          "count": 898,
+          "median": 0.08479866800189484,
+          "p10": 0.05424167804412718,
+          "p50": 0.08479866800189484,
+          "p90": 0.32829537029974765,
+          "p95": 0.89289263089704,
+          "p99": 2.1736690572617583,
+          "minimum": 0.040383161503996234,
+          "maximum": 2.608555645994784
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 898,
+          "median": 3.6685285400204517,
+          "p10": 1.1410154667297159,
+          "p50": 3.6685285400204517,
+          "p90": 36.29574986387906,
+          "p95": 71.96101688207268,
+          "p99": 204.03034184627518,
+          "minimum": 0.20016113238906824,
+          "maximum": 1142.0267717032168
+        },
+        "lcbinint_speedup_vs_microLUX": {
+          "count": 898,
+          "median": 0.27258895403521,
+          "p10": 0.027557137117203714,
+          "p50": 0.27258895403521,
+          "p90": 0.8764131865548436,
+          "p95": 0.96473639593662,
+          "p99": 1.4290358400975056,
+          "minimum": 0.0008756362151726108,
+          "maximum": 4.99597493311651
+        }
+      },
+      "accuracy_against_vbm_reltol_1e-6": {
+        "reference_source": "runbook_vbm_reltol_1e-6",
+        "lcbinint_jax_ffi": {
+          "block_max_relative_error": {
+            "count": 898,
+            "median": 1.8730851580622532e-06,
+            "p10": 6.661588433824974e-07,
+            "p50": 1.8730851580622532e-06,
+            "p90": 1.1565415320343446e-05,
+            "p95": 1.6673493863227038e-05,
+            "p99": 6.0362365617982195e-05,
+            "minimum": 3.202366176957427e-07,
+            "maximum": 0.003872574485093784
+          },
+          "epoch_relative_error": {
+            "count": 3592,
+            "median": 1.1484581026781153e-06,
+            "p10": 5.75909582154812e-07,
+            "p50": 1.1484581026781153e-06,
+            "p90": 7.76801015041097e-06,
+            "p95": 1.138439542020446e-05,
+            "p99": 4.1670577073022654e-05,
+            "minimum": 3.1809106909973163e-09,
+            "maximum": 0.003872574485093784
+          },
+          "block_pass_le_1e-6": 346,
+          "block_pass_le_1e-4": 893
+        },
+        "microLUX": {
+          "block_max_relative_error": {
+            "count": 898,
+            "median": 8.448173357856414e-05,
+            "p10": 1.9861309284906564e-06,
+            "p50": 8.448173357856414e-05,
+            "p90": 0.0008012089145875227,
+            "p95": 0.0014471174168882797,
+            "p99": 0.042139582799772694,
+            "minimum": 8.734131072589359e-10,
+            "maximum": 0.7728959686045005
+          },
+          "epoch_relative_error": {
+            "count": 3592,
+            "median": 4.446174031295028e-05,
+            "p10": 1.078419549493826e-06,
+            "p50": 4.446174031295028e-05,
+            "p90": 0.00038558119555376607,
+            "p95": 0.0006523007417359511,
+            "p99": 0.00280812406241402,
+            "minimum": 9.858368684400731e-11,
+            "maximum": 0.7728959686045005
+          },
+          "block_pass_le_1e-6": 69,
+          "block_pass_le_1e-4": 477
+        },
+        "derivative_reference": "unavailable in the runbook; dA/dt is timed and cross-engine comparison only"
+      }
+    },
+    "uniform:target=0.001": {
+      "jobs": 902,
+      "completed": 902,
+      "timeout": 0,
+      "status_counts": {
+        "completed": 902
+      },
+      "timeout_cases": [],
+      "timeout_stages": {},
+      "coverage_all_input_rows": {
+        "cells": 144,
+        "total_cells": 144,
+        "minimum_nonzero_count": 2,
+        "minimum_count": 2,
+        "maximum_count": 20,
+        "counts_row_major": [
+          [
+            2,
+            2,
+            2,
+            10,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5,
+            15
+          ],
+          [
+            15,
+            5,
+            2,
+            2,
+            5,
+            2,
+            5,
+            2,
+            5,
+            15,
+            5,
+            2
+          ],
+          [
+            10,
+            5,
+            10,
+            2,
+            10,
+            10,
+            10,
+            2,
+            2,
+            2,
+            5,
+            5
+          ],
+          [
+            2,
+            2,
+            15,
+            5,
+            5,
+            5,
+            5,
+            15,
+            2,
+            5,
+            2,
+            5
+          ],
+          [
+            2,
+            5,
+            5,
+            2,
+            5,
+            2,
+            2,
+            5,
+            2,
+            20,
+            2,
+            2
+          ],
+          [
+            5,
+            2,
+            10,
+            2,
+            15,
+            10,
+            2,
+            2,
+            20,
+            10,
+            5,
+            15
+          ],
+          [
+            5,
+            15,
+            5,
+            15,
+            10,
+            10,
+            15,
+            15,
+            2,
+            2,
+            2,
+            5
+          ],
+          [
+            2,
+            2,
+            5,
+            2,
+            2,
+            2,
+            2,
+            2,
+            5,
+            5,
+            5,
+            10
+          ],
+          [
+            5,
+            10,
+            2,
+            10,
+            10,
+            2,
+            15,
+            5,
+            2,
+            15,
+            10,
+            5
+          ],
+          [
+            10,
+            5,
+            2,
+            15,
+            5,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5
+          ],
+          [
+            2,
+            5,
+            2,
+            10,
+            20,
+            2,
+            2,
+            5,
+            5,
+            10,
+            5,
+            2
+          ],
+          [
+            5,
+            5,
+            2,
+            10,
+            10,
+            5,
+            5,
+            2,
+            10,
+            2,
+            10,
+            10
+          ]
+        ]
+      },
+      "coverage_completed_rows": {
+        "cells": 144,
+        "total_cells": 144,
+        "minimum_nonzero_count": 2,
+        "minimum_count": 2,
+        "maximum_count": 20,
+        "counts_row_major": [
+          [
+            2,
+            2,
+            2,
+            10,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5,
+            15
+          ],
+          [
+            15,
+            5,
+            2,
+            2,
+            5,
+            2,
+            5,
+            2,
+            5,
+            15,
+            5,
+            2
+          ],
+          [
+            10,
+            5,
+            10,
+            2,
+            10,
+            10,
+            10,
+            2,
+            2,
+            2,
+            5,
+            5
+          ],
+          [
+            2,
+            2,
+            15,
+            5,
+            5,
+            5,
+            5,
+            15,
+            2,
+            5,
+            2,
+            5
+          ],
+          [
+            2,
+            5,
+            5,
+            2,
+            5,
+            2,
+            2,
+            5,
+            2,
+            20,
+            2,
+            2
+          ],
+          [
+            5,
+            2,
+            10,
+            2,
+            15,
+            10,
+            2,
+            2,
+            20,
+            10,
+            5,
+            15
+          ],
+          [
+            5,
+            15,
+            5,
+            15,
+            10,
+            10,
+            15,
+            15,
+            2,
+            2,
+            2,
+            5
+          ],
+          [
+            2,
+            2,
+            5,
+            2,
+            2,
+            2,
+            2,
+            2,
+            5,
+            5,
+            5,
+            10
+          ],
+          [
+            5,
+            10,
+            2,
+            10,
+            10,
+            2,
+            15,
+            5,
+            2,
+            15,
+            10,
+            5
+          ],
+          [
+            10,
+            5,
+            2,
+            15,
+            5,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5
+          ],
+          [
+            2,
+            5,
+            2,
+            10,
+            20,
+            2,
+            2,
+            5,
+            5,
+            10,
+            5,
+            2
+          ],
+          [
+            5,
+            5,
+            2,
+            10,
+            10,
+            5,
+            5,
+            2,
+            10,
+            2,
+            10,
+            10
+          ]
+        ]
+      },
+      "values_only": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 902,
+          "median": 0.012995282499105087,
+          "p10": 0.0024118923509377057,
+          "p50": 0.012995282499105087,
+          "p90": 0.3350276920991745,
+          "p95": 0.6638458943734794,
+          "p99": 1.3199753827288097,
+          "minimum": 0.0016613564985163976,
+          "maximum": 18.263060407498415
+        },
+        "microLUX_block_seconds": {
+          "count": 902,
+          "median": 0.0030108535011095228,
+          "p10": 0.001810935148387216,
+          "p50": 0.0030108535011095228,
+          "p90": 0.01190763464765041,
+          "p95": 0.021168202223088867,
+          "p99": 0.0388336953984981,
+          "minimum": 0.0005526644999918062,
+          "maximum": 0.050959659998625284
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 902,
+          "median": 3.4642087452962125,
+          "p10": 1.0372457755508353,
+          "p50": 3.4642087452962125,
+          "p90": 41.15499820521681,
+          "p95": 84.43964644177152,
+          "p99": 271.9471868661828,
+          "minimum": 0.3597095449047412,
+          "maximum": 3594.561678182596
+        },
+        "lcbinint_speedup_vs_microLUX": {
+          "count": 902,
+          "median": 0.2886677464316709,
+          "p10": 0.024298548124187268,
+          "p50": 0.2886677464316709,
+          "p90": 0.96411104929683,
+          "p95": 1.152901383393133,
+          "p99": 1.578249352421051,
+          "minimum": 0.00027819803623611714,
+          "maximum": 2.7800207533131247
+        }
+      },
+      "dA_dt_only": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 902,
+          "median": 0.03202835100091761,
+          "p10": 0.005188580298636225,
+          "p50": 0.03202835100091761,
+          "p90": 0.6298232466499029,
+          "p95": 1.1954996414979173,
+          "p99": 1.7147668837286985,
+          "minimum": 0.0032568565002293326,
+          "maximum": 20.01401516849728
+        },
+        "microLUX_block_seconds": {
+          "count": 902,
+          "median": 0.004397527500259457,
+          "p10": 0.0029438862457027426,
+          "p50": 0.004397527500259457,
+          "p90": 0.014444349251061786,
+          "p95": 0.024434860748624457,
+          "p99": 0.044654524567013146,
+          "minimum": 0.0006230680010048673,
+          "maximum": 0.05687691650018678
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 902,
+          "median": 5.559778275964295,
+          "p10": 1.425292862757766,
+          "p50": 5.559778275964295,
+          "p90": 62.57396462623721,
+          "p95": 109.95748314192673,
+          "p99": 272.3307771014179,
+          "minimum": 0.5633193962056081,
+          "maximum": 2779.931731633884
+        }
+      },
+      "dA_dt_cross_engine_disagreement": {
+        "relative_difference": {
+          "count": 3608,
+          "median": 0.0031283304746918387,
+          "p10": 0.0002172155523455601,
+          "p50": 0.0031283304746918387,
+          "p90": 0.04975649031803503,
+          "p95": 0.16691743323607963,
+          "p99": 4.091230595606934,
+          "minimum": 2.434872034690061e-07,
+          "maximum": 3987.5439050379414
+        },
+        "definition": "abs(FFI dA/dt - microLUX dA/dt) / max(abs(FFI dA/dt), 1)",
+        "interpretation": "diagnostic only; no VBM dA/dt reference is present in the runbook"
+      },
+      "values_plus_dA_dt": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 902,
+          "median": 0.044978324747717124,
+          "p10": 0.007608036346209701,
+          "p50": 0.044978324747717124,
+          "p90": 0.9570874238994284,
+          "p95": 1.8492543006965192,
+          "p99": 3.036978503752507,
+          "minimum": 0.004921568997815484,
+          "maximum": 38.277075575995696
+        },
+        "microLUX_block_seconds": {
+          "count": 902,
+          "median": 0.007406088250718312,
+          "p10": 0.004744938452131464,
+          "p50": 0.007406088250718312,
+          "p90": 0.02639059479697607,
+          "p95": 0.0452072466279787,
+          "p99": 0.08324389142821019,
+          "minimum": 0.0011757325009966735,
+          "maximum": 0.10783657649881206
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 902,
+          "median": 4.6105495774265135,
+          "p10": 1.288012832945385,
+          "p50": 4.6105495774265135,
+          "p90": 52.58576495509888,
+          "p95": 101.45227971851433,
+          "p99": 264.0156799504798,
+          "minimum": 0.4751144717302773,
+          "maximum": 3119.176724355552
+        },
+        "lcbinint_speedup_vs_microLUX": {
+          "count": 902,
+          "median": 0.2169001000120991,
+          "p10": 0.019016696767923637,
+          "p50": 0.2169001000120991,
+          "p90": 0.7763898523593189,
+          "p95": 0.9323436767769109,
+          "p99": 1.2478424135089974,
+          "minimum": 0.0003205974166810341,
+          "maximum": 2.1047559262048754
+        }
+      },
+      "accuracy_against_vbm_reltol_1e-6": {
+        "reference_source": "runbook_vbm_reltol_1e-6",
+        "lcbinint_jax_ffi": {
+          "block_max_relative_error": {
+            "count": 902,
+            "median": 6.335461434676438e-06,
+            "p10": 4.2239425101960066e-06,
+            "p50": 6.335461434676438e-06,
+            "p90": 1.1785586397926098e-05,
+            "p95": 1.952459501910918e-05,
+            "p99": 0.0002691615273009213,
+            "minimum": 5.201021733440269e-07,
+            "maximum": 0.0009014296254485127
+          },
+          "epoch_relative_error": {
+            "count": 3608,
+            "median": 5.960999967109511e-06,
+            "p10": 3.7803848715647915e-06,
+            "p50": 5.960999967109511e-06,
+            "p90": 9.525232510636452e-06,
+            "p95": 1.302342669476979e-05,
+            "p99": 8.727782763486812e-05,
+            "minimum": 3.1878515691502033e-07,
+            "maximum": 0.0009014296254485127
+          },
+          "block_pass_le_1e-6": 13,
+          "block_pass_le_1e-4": 889
+        },
+        "microLUX": {
+          "block_max_relative_error": {
+            "count": 902,
+            "median": 2.6129672922324173e-05,
+            "p10": 4.727813418160706e-06,
+            "p50": 2.6129672922324173e-05,
+            "p90": 0.00015835220301396605,
+            "p95": 0.0002451720535607492,
+            "p99": 0.011374617610045316,
+            "minimum": 5.573426848332964e-07,
+            "maximum": 1.201438004378512
+          },
+          "epoch_relative_error": {
+            "count": 3608,
+            "median": 1.1797268630539477e-05,
+            "p10": 3.7170014273145003e-06,
+            "p50": 1.1797268630539477e-05,
+            "p90": 7.21606833439442e-05,
+            "p95": 0.00012701816707069515,
+            "p99": 0.0004678663356465625,
+            "minimum": 1.790154050051793e-08,
+            "maximum": 1.201438004378512
+          },
+          "block_pass_le_1e-6": 2,
+          "block_pass_le_1e-4": 755
+        },
+        "derivative_reference": "unavailable in the runbook; dA/dt is timed and cross-engine comparison only"
+      }
+    },
+    "uniform:target=0.0001": {
+      "jobs": 902,
+      "completed": 898,
+      "timeout": 4,
+      "status_counts": {
+        "completed": 898,
+        "timeout": 4
+      },
+      "timeout_cases": [
+        6,
+        129,
+        747,
+        1627
+      ],
+      "timeout_stages": {
+        "external_row_watchdog": 2,
+        "jax_timing": 2
+      },
+      "coverage_all_input_rows": {
+        "cells": 144,
+        "total_cells": 144,
+        "minimum_nonzero_count": 2,
+        "minimum_count": 2,
+        "maximum_count": 20,
+        "counts_row_major": [
+          [
+            2,
+            2,
+            2,
+            10,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5,
+            15
+          ],
+          [
+            15,
+            5,
+            2,
+            2,
+            5,
+            2,
+            5,
+            2,
+            5,
+            15,
+            5,
+            2
+          ],
+          [
+            10,
+            5,
+            10,
+            2,
+            10,
+            10,
+            10,
+            2,
+            2,
+            2,
+            5,
+            5
+          ],
+          [
+            2,
+            2,
+            15,
+            5,
+            5,
+            5,
+            5,
+            15,
+            2,
+            5,
+            2,
+            5
+          ],
+          [
+            2,
+            5,
+            5,
+            2,
+            5,
+            2,
+            2,
+            5,
+            2,
+            20,
+            2,
+            2
+          ],
+          [
+            5,
+            2,
+            10,
+            2,
+            15,
+            10,
+            2,
+            2,
+            20,
+            10,
+            5,
+            15
+          ],
+          [
+            5,
+            15,
+            5,
+            15,
+            10,
+            10,
+            15,
+            15,
+            2,
+            2,
+            2,
+            5
+          ],
+          [
+            2,
+            2,
+            5,
+            2,
+            2,
+            2,
+            2,
+            2,
+            5,
+            5,
+            5,
+            10
+          ],
+          [
+            5,
+            10,
+            2,
+            10,
+            10,
+            2,
+            15,
+            5,
+            2,
+            15,
+            10,
+            5
+          ],
+          [
+            10,
+            5,
+            2,
+            15,
+            5,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5
+          ],
+          [
+            2,
+            5,
+            2,
+            10,
+            20,
+            2,
+            2,
+            5,
+            5,
+            10,
+            5,
+            2
+          ],
+          [
+            5,
+            5,
+            2,
+            10,
+            10,
+            5,
+            5,
+            2,
+            10,
+            2,
+            10,
+            10
+          ]
+        ]
+      },
+      "coverage_completed_rows": {
+        "cells": 144,
+        "total_cells": 144,
+        "minimum_nonzero_count": 1,
+        "minimum_count": 1,
+        "maximum_count": 20,
+        "counts_row_major": [
+          [
+            2,
+            2,
+            2,
+            10,
+            15,
+            2,
+            5,
+            5,
+            5,
+            9,
+            5,
+            14
+          ],
+          [
+            15,
+            5,
+            2,
+            2,
+            5,
+            1,
+            5,
+            2,
+            5,
+            15,
+            5,
+            2
+          ],
+          [
+            10,
+            5,
+            10,
+            2,
+            10,
+            10,
+            10,
+            2,
+            2,
+            2,
+            5,
+            4
+          ],
+          [
+            2,
+            2,
+            15,
+            5,
+            5,
+            5,
+            5,
+            15,
+            2,
+            5,
+            2,
+            5
+          ],
+          [
+            2,
+            5,
+            5,
+            2,
+            5,
+            2,
+            2,
+            5,
+            2,
+            20,
+            2,
+            2
+          ],
+          [
+            5,
+            2,
+            10,
+            2,
+            15,
+            10,
+            2,
+            2,
+            20,
+            10,
+            5,
+            15
+          ],
+          [
+            5,
+            15,
+            5,
+            15,
+            10,
+            10,
+            15,
+            15,
+            2,
+            2,
+            2,
+            5
+          ],
+          [
+            2,
+            2,
+            5,
+            2,
+            2,
+            2,
+            2,
+            2,
+            5,
+            5,
+            5,
+            10
+          ],
+          [
+            5,
+            10,
+            2,
+            10,
+            10,
+            2,
+            15,
+            5,
+            2,
+            15,
+            10,
+            5
+          ],
+          [
+            10,
+            5,
+            2,
+            15,
+            5,
+            15,
+            2,
+            5,
+            5,
+            5,
+            10,
+            5
+          ],
+          [
+            2,
+            5,
+            2,
+            10,
+            20,
+            2,
+            2,
+            5,
+            5,
+            10,
+            5,
+            2
+          ],
+          [
+            5,
+            5,
+            2,
+            10,
+            10,
+            5,
+            5,
+            2,
+            10,
+            2,
+            10,
+            10
+          ]
+        ]
+      },
+      "values_only": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 898,
+          "median": 0.07328642274842423,
+          "p10": 0.013890795400584466,
+          "p50": 0.07328642274842423,
+          "p90": 1.60672622500024,
+          "p95": 2.952181279002434,
+          "p99": 8.609710429700351,
+          "minimum": 0.010597133499686606,
+          "maximum": 49.73765705000187
+        },
+        "microLUX_block_seconds": {
+          "count": 898,
+          "median": 0.004373584251879947,
+          "p10": 0.0025984765012253773,
+          "p50": 0.004373584251879947,
+          "p90": 0.021441797549050533,
+          "p95": 0.04250297295166091,
+          "p99": 0.1111668293755065,
+          "minimum": 0.002129470998625038,
+          "maximum": 0.14631465400088928
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 898,
+          "median": 12.401147672220965,
+          "p10": 3.9340495339633677,
+          "p50": 12.401147672220965,
+          "p90": 141.8648178959015,
+          "p95": 287.1392616053812,
+          "p99": 1391.311663340028,
+          "minimum": 1.0510480301623375,
+          "maximum": 9524.040997760772
+        },
+        "lcbinint_speedup_vs_microLUX": {
+          "count": 898,
+          "median": 0.08063878907706823,
+          "p10": 0.007049036257346861,
+          "p50": 0.08063878907706823,
+          "p90": 0.2541910175367363,
+          "p95": 0.29328456853615453,
+          "p99": 0.5168406445828139,
+          "minimum": 0.00010499744806171174,
+          "maximum": 0.9514313059942151
+        }
+      },
+      "dA_dt_only": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 898,
+          "median": 0.13013681700067536,
+          "p10": 0.022685472648663562,
+          "p50": 0.13013681700067536,
+          "p90": 2.4977679728985156,
+          "p95": 4.086891940999884,
+          "p99": 11.761694631755816,
+          "minimum": 0.015590138002153253,
+          "maximum": 50.91358804599804
+        },
+        "microLUX_block_seconds": {
+          "count": 898,
+          "median": 0.006924101000549854,
+          "p10": 0.004724865653770394,
+          "p50": 0.006924101000549854,
+          "p90": 0.026256965498032525,
+          "p95": 0.04931775457662289,
+          "p99": 0.11824888203689622,
+          "minimum": 0.0036902579995512497,
+          "maximum": 0.15268552850102424
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 898,
+          "median": 13.901816684229775,
+          "p10": 3.9958589344430973,
+          "p50": 13.901816684229775,
+          "p90": 145.95440255266905,
+          "p95": 288.29527737814124,
+          "p99": 1047.7753691968924,
+          "minimum": 1.680600038381012,
+          "maximum": 5894.808323428596
+        }
+      },
+      "dA_dt_cross_engine_disagreement": {
+        "relative_difference": {
+          "count": 3592,
+          "median": 0.00047485189513263217,
+          "p10": 3.492289245618508e-05,
+          "p50": 0.00047485189513263217,
+          "p90": 0.009084648861505418,
+          "p95": 0.042853144518882384,
+          "p99": 1.7038735528052877,
+          "minimum": 2.3773971186136222e-07,
+          "maximum": 64589.02384395482
+        },
+        "definition": "abs(FFI dA/dt - microLUX dA/dt) / max(abs(FFI dA/dt), 1)",
+        "interpretation": "diagnostic only; no VBM dA/dt reference is present in the runbook"
+      },
+      "values_plus_dA_dt": {
+        "lcbinint_jax_ffi_block_seconds": {
+          "count": 898,
+          "median": 0.20460551500036672,
+          "p10": 0.03664606484817341,
+          "p50": 0.20460551500036672,
+          "p90": 4.064995174098665,
+          "p95": 7.040125813671872,
+          "p99": 20.017411718669234,
+          "minimum": 0.026219091003440553,
+          "maximum": 100.65124509599991
+        },
+        "microLUX_block_seconds": {
+          "count": 898,
+          "median": 0.011281210001470754,
+          "p10": 0.007316247698327061,
+          "p50": 0.011281210001470754,
+          "p90": 0.04754918325015753,
+          "p95": 0.09211223762522415,
+          "p99": 0.22919582728718524,
+          "minimum": 0.005819728998176288,
+          "maximum": 0.2990001825019135
+        },
+        "microLUX_speedup_vs_lcbinint": {
+          "count": 898,
+          "median": 13.446452414607954,
+          "p10": 3.981758894069473,
+          "p50": 13.446452414607954,
+          "p90": 142.0839562513456,
+          "p95": 282.5430062530333,
+          "p99": 1188.1857145144204,
+          "minimum": 1.375156214720403,
+          "maximum": 7256.577430502708
+        },
+        "lcbinint_speedup_vs_microLUX": {
+          "count": 898,
+          "median": 0.07436916257879556,
+          "p10": 0.00703814358396223,
+          "p50": 0.07436916257879556,
+          "p90": 0.2511453335787684,
+          "p95": 0.28690272970759756,
+          "p99": 0.42944453008841116,
+          "minimum": 0.00013780601248689824,
+          "maximum": 0.7271901106910389
+        }
+      },
+      "accuracy_against_vbm_reltol_1e-6": {
+        "reference_source": "runbook_vbm_reltol_1e-6",
+        "lcbinint_jax_ffi": {
+          "block_max_relative_error": {
+            "count": 898,
+            "median": 6.453182828459922e-07,
+            "p10": 4.673840390721336e-07,
+            "p50": 6.453182828459922e-07,
+            "p90": 1.2648364901906777e-06,
+            "p95": 2.2902826036666992e-06,
+            "p99": 4.001538249599231e-05,
+            "minimum": 3.200106694808834e-08,
+            "maximum": 0.0010946885206133852
+          },
+          "epoch_relative_error": {
+            "count": 3592,
+            "median": 5.959603845606824e-07,
+            "p10": 3.8841084782096283e-07,
+            "p50": 5.959603845606824e-07,
+            "p90": 9.900086097487115e-07,
+            "p95": 1.3061347929465285e-06,
+            "p99": 2.578889346957019e-05,
+            "minimum": 4.2492902461000207e-10,
+            "maximum": 0.0010946885206133852
+          },
+          "block_pass_le_1e-6": 755,
+          "block_pass_le_1e-4": 895
+        },
+        "microLUX": {
+          "block_max_relative_error": {
+            "count": 898,
+            "median": 1.6133978390116433e-06,
+            "p10": 2.1130073350342917e-07,
+            "p50": 1.6133978390116433e-06,
+            "p90": 1.5465594340853678e-05,
+            "p95": 2.6973221883290364e-05,
+            "p99": 0.0013397311098124177,
+            "minimum": 5.974175250023529e-08,
+            "maximum": 1.079692471259367
+          },
+          "epoch_relative_error": {
+            "count": 3592,
+            "median": 6.318628691601857e-07,
+            "p10": 1.9477228131987297e-07,
+            "p50": 6.318628691601857e-07,
+            "p90": 7.20931873596993e-06,
+            "p95": 1.3725251633448345e-05,
+            "p99": 5.527520795148589e-05,
+            "minimum": 4.028855032439346e-10,
+            "maximum": 1.079692471259367
+          },
+          "block_pass_le_1e-6": 375,
+          "block_pass_le_1e-4": 886
+        },
+        "derivative_reference": "unavailable in the runbook; dA/dt is timed and cross-engine comparison only"
+      }
+    }
+  }
+}
