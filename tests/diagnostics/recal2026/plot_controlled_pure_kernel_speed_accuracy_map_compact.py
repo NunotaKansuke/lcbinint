@@ -34,6 +34,12 @@ import numpy as np
 from matplotlib.colors import BoundaryNorm, ListedColormap
 
 
+AXIS_TICK_SIZE = 13
+AXIS_LABEL_SIZE = 15
+COLOURBAR_TICK_SIZE = 13
+COLOURBAR_LABEL_SIZE = 16
+
+
 SPEED_BOUNDARIES = np.asarray(
     (1.0 / 64.0, 1.0 / 32.0, 1.0 / 16.0, 1.0 / 8.0,
      1.0 / 4.0, 1.0 / 2.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0),
@@ -270,7 +276,7 @@ def _error_class(values: np.ndarray) -> np.ndarray:
 def _style_axis(axis: plt.Axes) -> None:
     axis.set_facecolor("#e5e5e5")
     axis.grid(True, which="major", color="#9ca3af", alpha=0.28, linewidth=0.55)
-    axis.tick_params(axis="both", labelsize=10)
+    axis.tick_params(axis="both", labelsize=AXIS_TICK_SIZE)
     for spine in axis.spines.values():
         spine.set_color("#374151")
         spine.set_linewidth(0.8)
@@ -317,8 +323,8 @@ def _draw_map(
 
 
 def _format_axis(axis: plt.Axes, x_label: str, y_label: str) -> None:
-    axis.set_xlabel(x_label, fontsize=12)
-    axis.set_ylabel(y_label, fontsize=12)
+    axis.set_xlabel(x_label, fontsize=AXIS_LABEL_SIZE, labelpad=5)
+    axis.set_ylabel(y_label, fontsize=AXIS_LABEL_SIZE, labelpad=5)
 
 
 def _add_colourbar(
@@ -338,10 +344,14 @@ def _add_colourbar(
     )
     colourbar.set_ticks(np.arange(len(labels), dtype=float))
     colourbar.set_ticklabels(labels)
-    colourbar.ax.tick_params(labelsize=10, length=3, pad=4)
+    colourbar.ax.tick_params(
+        labelsize=COLOURBAR_TICK_SIZE, length=3, pad=5,
+    )
     if label_position == "top":
         colourbar.ax.xaxis.set_label_position("top")
-    colourbar.set_label(label, fontsize=11, labelpad=5)
+    colourbar.set_label(
+        label, fontsize=COLOURBAR_LABEL_SIZE, labelpad=7,
+    )
 
 
 def _write_summary(
@@ -416,7 +426,7 @@ def make_figure(
         4,
         3,
         height_ratios=(1.0, 0.15, 1.0, 0.15),
-        hspace=0.48,
+        hspace=0.55,
         wspace=0.20,
         left=0.075,
         right=0.975,
