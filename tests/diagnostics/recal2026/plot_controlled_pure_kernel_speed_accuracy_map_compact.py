@@ -421,12 +421,12 @@ def make_figure(
     )
     edges = {"q": q_edges, "rho": rho_edges, "a_finite": a_edges}
 
-    figure = plt.figure(figsize=(15.5, 7.6), facecolor="white")
+    figure = plt.figure(figsize=(15.5, 8.1), facecolor="white")
     grid = figure.add_gridspec(
         4,
         3,
         height_ratios=(1.0, 0.15, 1.0, 0.15),
-        hspace=0.55,
+        hspace=0.68,
         wspace=0.20,
         left=0.075,
         right=0.975,
