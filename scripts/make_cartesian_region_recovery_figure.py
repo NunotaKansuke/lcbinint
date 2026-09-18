@@ -18,7 +18,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.lines import Line2D
-from matplotlib.patches import Patch, Rectangle
+from matplotlib.patches import FancyArrowPatch, Patch, Rectangle
 
 
 N_COLS = 19
@@ -40,6 +40,7 @@ COLOURS = {
 }
 
 CANDIDATE_LINESTYLE = (0, (2.4, 1.4))
+PROPAGATION_ARROW_LENGTH = 1.35
 
 
 def build_inside_mask() -> np.ndarray:
@@ -186,6 +187,28 @@ def add_seed(axis: mpl.axes.Axes) -> None:
     )
 
 
+def add_propagation_arrow(
+    axis: mpl.axes.Axes,
+    start: tuple[float, float],
+    end: tuple[float, float],
+) -> None:
+    """Draw a compact propagation arrow between cell centres."""
+
+    axis.add_patch(
+        FancyArrowPatch(
+            start,
+            end,
+            arrowstyle="-|>",
+            mutation_scale=13,
+            linewidth=1.5,
+            color=COLOURS["propagation"],
+            shrinkA=0.0,
+            shrinkB=0.0,
+            zorder=7,
+        )
+    )
+
+
 def add_propagation_highlights(
     axis: mpl.axes.Axes,
     mask: np.ndarray,
@@ -275,6 +298,26 @@ def add_propagation_highlights(
                 linewidth=1.45,
                 linestyle=CANDIDATE_LINESTYLE,
         )
+        add_propagation_arrow(
+            axis,
+            (right_candidate_band[1] + 1, right_candidate_row),
+            (
+                right_candidate_band[1] + 1,
+                right_candidate_row - PROPAGATION_ARROW_LENGTH,
+            ),
+        )
+
+    arrow_x = seed_run[0] - 2
+    add_propagation_arrow(
+        axis,
+        (arrow_x, SEED_ROW + steps + 1),
+        (arrow_x, SEED_ROW + steps + 1 + PROPAGATION_ARROW_LENGTH),
+    )
+    add_propagation_arrow(
+        axis,
+        (arrow_x, SEED_ROW - steps - 1),
+        (arrow_x, SEED_ROW - steps - 1 - PROPAGATION_ARROW_LENGTH),
+    )
 
 
 def make_figure() -> mpl.figure.Figure:
@@ -319,6 +362,17 @@ def make_figure() -> mpl.figure.Figure:
             linewidth=1.35,
             linestyle=CANDIDATE_LINESTYLE,
         )
+    arrow_x = active_run[0] - 2
+    add_propagation_arrow(
+        first_axis,
+        (arrow_x, SEED_ROW + 1),
+        (arrow_x, SEED_ROW + 1 + PROPAGATION_ARROW_LENGTH),
+    )
+    add_propagation_arrow(
+        first_axis,
+        (arrow_x, SEED_ROW - 1),
+        (arrow_x, SEED_ROW - 1 - PROPAGATION_ARROW_LENGTH),
+    )
     add_seed(first_axis)
 
     # Panel (b): follow the same seed through three rows in both directions.
