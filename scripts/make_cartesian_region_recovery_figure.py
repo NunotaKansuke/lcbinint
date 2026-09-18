@@ -393,7 +393,7 @@ def make_figure() -> mpl.figure.Figure:
         Patch(
             facecolor=COLOURS["run"],
             edgecolor=COLOURS["run_edge"],
-            label="reached run",
+            label="reached cells",
         ),
         Line2D(
             [],
