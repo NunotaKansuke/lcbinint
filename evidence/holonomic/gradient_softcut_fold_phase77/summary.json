@@ -1,0 +1,206 @@
+{
+  "affected_rows": {
+    "100": {
+      "baseline_nodes": 782,
+      "candidate_merge_count": 4,
+      "candidate_nodes": 244,
+      "name": "rand035",
+      "u": "0.5"
+    },
+    "99": {
+      "baseline_nodes": 782,
+      "candidate_merge_count": 4,
+      "candidate_nodes": 244,
+      "name": "rand035",
+      "u": "0"
+    }
+  },
+  "groups": {
+    "0.0001/None": {
+      "baseline": {
+        "node_sum": 9134,
+        "rows": 110,
+        "stop_counts": {
+          "Converged": 100,
+          "TopologyUnresolved": 10
+        },
+        "value_converged": 100
+      },
+      "candidate": {
+        "node_sum": 9056,
+        "rows": 110,
+        "stop_counts": {
+          "Converged": 100,
+          "TopologyUnresolved": 10
+        },
+        "value_converged": 100
+      }
+    },
+    "0.0001/ValueFirst": {
+      "baseline": {
+        "node_sum": 14644,
+        "rows": 110,
+        "stop_counts": {
+          "Converged": 100,
+          "TopologyUnresolved": 10
+        },
+        "value_converged": 100
+      },
+      "candidate": {
+        "node_sum": 14154,
+        "rows": 110,
+        "stop_counts": {
+          "Converged": 100,
+          "TopologyUnresolved": 10
+        },
+        "value_converged": 100
+      }
+    },
+    "0.001/None": {
+      "baseline": {
+        "node_sum": 6406,
+        "rows": 110,
+        "stop_counts": {
+          "Converged": 100,
+          "TopologyUnresolved": 10
+        },
+        "value_converged": 100
+      },
+      "candidate": {
+        "node_sum": 6360,
+        "rows": 110,
+        "stop_counts": {
+          "Converged": 100,
+          "TopologyUnresolved": 10
+        },
+        "value_converged": 100
+      }
+    },
+    "0.001/ValueFirst": {
+      "baseline": {
+        "node_sum": 13429,
+        "rows": 110,
+        "stop_counts": {
+          "Converged": 100,
+          "TopologyUnresolved": 10
+        },
+        "value_converged": 100
+      },
+      "candidate": {
+        "node_sum": 12967,
+        "rows": 110,
+        "stop_counts": {
+          "Converged": 100,
+          "TopologyUnresolved": 10
+        },
+        "value_converged": 100
+      }
+    }
+  },
+  "input_rows": 110,
+  "paired_rows": 440,
+  "pairwise": {
+    "baseline_node_sum": 43613,
+    "candidate_merges": 8,
+    "candidate_node_sum": 42537,
+    "gradient_quality_downgrades": 0,
+    "gradient_quality_upgrades": 12,
+    "mu_bitwise_mismatches": 8,
+    "mu_mismatch_rows": [
+      "99",
+      "100"
+    ],
+    "node_change_percent": -2.4671542888588305,
+    "non_target_node_mismatches": 0,
+    "value_only_vs_valuefirst_mu_mismatches": 19,
+    "value_or_status_changes": 0
+  },
+  "targeted_rand035": {
+    "u=0,rtol=0.0001": {
+      "baseline_abs_mu_error": 3.026851334020364e-06,
+      "baseline_grad_xy_abs_error": [
+        3.0938862138896184e-07,
+        6.538264258892923e-07
+      ],
+      "baseline_nodes": 300,
+      "candidate_abs_mu_error": 2.6645352591003757e-15,
+      "candidate_grad_xy_abs_error": [
+        1.9603874079621164e-11,
+        6.194511570356553e-11
+      ],
+      "candidate_merge_count": 1,
+      "candidate_nodes": 69,
+      "candidate_quality_xy": [
+        "ToleranceMet",
+        "ToleranceMet"
+      ]
+    },
+    "u=0,rtol=0.001": {
+      "baseline_abs_mu_error": 7.268976037888564e-05,
+      "baseline_grad_xy_abs_error": [
+        3.0938862138896184e-07,
+        6.538264258892923e-07
+      ],
+      "baseline_nodes": 300,
+      "candidate_abs_mu_error": 1.6830183469096482e-08,
+      "candidate_grad_xy_abs_error": [
+        1.9603874079621164e-11,
+        6.194511570356553e-11
+      ],
+      "candidate_merge_count": 1,
+      "candidate_nodes": 69,
+      "candidate_quality_xy": [
+        "ToleranceMet",
+        "ToleranceMet"
+      ]
+    },
+    "u=0.5,rtol=0.0001": {
+      "baseline_abs_mu_error": 1.8161107986358616e-06,
+      "baseline_grad_xy_abs_error": [
+        1.8566903392525091e-07,
+        3.9230964432590554e-07
+      ],
+      "baseline_nodes": 300,
+      "candidate_abs_mu_error": 2.6645352591003757e-15,
+      "candidate_grad_xy_abs_error": [
+        2.41051623106614e-11,
+        5.0945914153999183e-11
+      ],
+      "candidate_merge_count": 1,
+      "candidate_nodes": 69,
+      "candidate_quality_xy": [
+        "ToleranceMet",
+        "ToleranceMet"
+      ]
+    },
+    "u=0.5,rtol=0.001": {
+      "baseline_abs_mu_error": 4.3545424378343967e-05,
+      "baseline_grad_xy_abs_error": [
+        1.8566903392525091e-07,
+        3.9230964432590554e-07
+      ],
+      "baseline_nodes": 300,
+      "candidate_abs_mu_error": 1.0053409393862012e-07,
+      "candidate_grad_xy_abs_error": [
+        2.41051623106614e-11,
+        5.0945914153999183e-11
+      ],
+      "candidate_merge_count": 1,
+      "candidate_nodes": 69,
+      "candidate_quality_xy": [
+        "ToleranceMet",
+        "ToleranceMet"
+      ]
+    }
+  },
+  "value_only_valuefirst_parity": {
+    "baseline": {
+      "bitwise_mu_mismatches": 10,
+      "ulp_or_roundoff_only": true
+    },
+    "candidate": {
+      "bitwise_mu_mismatches": 9,
+      "ulp_or_roundoff_only": true
+    }
+  }
+}

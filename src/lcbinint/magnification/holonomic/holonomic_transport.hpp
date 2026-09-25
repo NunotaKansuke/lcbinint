@@ -38,6 +38,7 @@
 #include <array>
 #include <cmath>
 #include <cstdlib>
+#include <vector>
 
 #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
@@ -100,6 +101,89 @@ struct GC2Rule {
     double x[32];
     double w[32];
 };
+
+// Fixed-size research rules for the local angular-resolution ladder.  The
+// incumbent 8/16/24 rules above remain unchanged.  These rules deliberately
+// use static storage: an angular upgrade must not introduce a rule-table
+// allocation at every radial sample.  The ordinary 16/32/... sequence is not
+// nested; the separate 15/31/... ladder below is used when point reuse is
+// explicitly requested.
+template <int N>
+struct GC2RuleFixed {
+    std::array<double, N> x{};
+    std::array<double, N> w{};
+    GC2RuleFixed() {
+        for (int k = 1; k <= N; ++k) {
+            const double a = k * kHoloPi / (N + 1);
+            const double s = std::sin(a);
+            x[k - 1] = std::cos(a);
+            w[k - 1] = (kHoloPi / (N + 1)) * s * s;
+        }
+    }
+};
+
+template <int N>
+inline const GC2RuleFixed<N>& gc2_rule_fixed() {
+    static const GC2RuleFixed<N> r;
+    return r;
+}
+
+// A nested research ladder for the same second-kind Gauss rule.  The usual
+// 16 -> 32 -> 64 sequence is not nested because its denominators are 17, 33,
+// and 65.  Choosing N = 2^k - 1 gives denominators 2^k, so the old nodes are
+// exactly the odd-indexed nodes of the next rule:
+//
+//   cos(j*pi/2^k) = cos((2*j)*pi/2^(k+1)).
+//
+// This is still the Gauss--Chebyshev rule for the sqrt(1-x^2) weight.  It is
+// research-only; the incumbent 8/16 production gate and its callers are
+// unchanged.
+constexpr int kHoloNestedAngularMaxOrder = 511;
+struct NestedAngularPoint {
+    double value=0.0;
+    std::array<double,5> derivative{};
+    bool valid=false;
+};
+struct NestedAngularCache {
+    // Points are stored in the current rule's order.  On L -> 2L+1, old
+    // entries are moved to odd slots and the even slots are newly evaluated;
+    // no old point is sent through the lens/phi kernel again.  The cache is
+    // research-only, so a failed upgrade can mark it invalid and fall back
+    // without weakening the incumbent path.
+    std::vector<NestedAngularPoint> points;
+    // [0] is the current high-order vK, [1..5] its unscaled d(vK)/dP.
+    // Keeping this aggregate makes the preceding rule the low-order result
+    // on an upgrade without re-summing or re-evaluating it.
+    std::array<double,6> aggregate{};
+    int order=0;
+    bool with_jac=false,valid=false;
+};
+inline bool nested_angular_order_valid(int n) {
+    return n==7 || n==15 || n==31 || n==63 || n==127 || n==255 || n==511;
+}
+inline int nested_angular_previous_order(int n) {
+    switch (n) {
+        case 15: return 7;
+        case 31: return 15;
+        case 63: return 31;
+        case 127: return 63;
+        case 255: return 127;
+        case 511: return 255;
+        default: return 0;
+    }
+}
+inline int nested_angular_next_order(int n) {
+    switch (n) {
+        case 7: return 15;
+        case 15: return 31;
+        case 31: return 63;
+        case 63: return 127;
+        case 127: return 255;
+        case 255: return 511;
+        case 511: return 511;
+        default: return 15;
+    }
+}
 inline void gc2_fill(GC2Rule& t, int n) {
     for (int k = 1; k <= n; ++k) {
         const double a = k * kHoloPi / (n + 1);
@@ -183,7 +267,8 @@ inline DeflatedQuad deflate_mv(const std::array<double, 5>& pc, double m,
 
 // G = sum_i w_i sqrt(S2(t_i)) / (A(t_i)^{3/2} sqrt(B(t_i))),  t_i = m + s x_i,
 // over the first `n` nodes of `gc`.  Returns false on S2 < 0 or B <= 0.
-inline bool gc2_accum_G(const GC2Rule& gc, int n, double m, double s,
+template <class Rule>
+inline bool gc2_accum_G(const Rule& gc, int n, double m, double s,
                         const DeflatedQuad& q, double Rma, double Rpa2,
                         double& G, KRejectReason* why = nullptr) {
     G = 0.0;
@@ -429,7 +514,7 @@ inline VKJacobian v_times_K_jac(
     bool reciprocal = false, int error_rule_nodes = kHoloNK) {
     VKJacobian out{};
     out.ok = false;
-    if(error_rule_nodes!=8 && error_rule_nodes!=16) return out;
+    if(error_rule_nodes!=8 && error_rule_nodes!=16 && error_rule_nodes!=24) return out;
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->k_attempts;
     if (!std::isfinite(v) || !std::isfinite(m)) {
@@ -479,7 +564,8 @@ inline VKJacobian v_times_K_jac(
                  (2.0 * m * dm[j] - dv[j]) * p4 - (m * m - v) * dp4[j];
     }
 
-    const GC2Rule& gc = error_rule_nodes==8 ? gc2_rule8() : gc2_rule16();
+    const GC2Rule& gc = error_rule_nodes==8 ? gc2_rule8() :
+                        error_rule_nodes==16 ? gc2_rule16() : gc2_rule24();
     double G = 0.0;
     std::array<double, 5> dG{};
     for (int i = 0; i < error_rule_nodes; ++i) {
@@ -531,6 +617,458 @@ inline VKJacobian v_times_K_jac(
         else profile_k_reject(KRejectReason::nonfinite);
     }
     return out;
+}
+
+// Un-gated fixed-order K evaluators for the experimental two-dimensional
+// adaptive controller.  The production V2 entry points above keep their
+// 8-vs-16 fail-closed gate.  These helpers only evaluate one requested order;
+// the caller compares it with the previously cached order and records the
+// difference in the existing inner-error ledger.  This separation is
+// important: an angular upgrade must not recompute the lower-order rule just
+// to discover the same error a second time.
+template <int N>
+inline VKValue v_times_K_order_fixed(double m, double v, double R,
+                                     const PrimaryFrame& pf,
+                                     const std::array<double, 5>& pc,
+                                     bool reciprocal = false) {
+    if (!std::isfinite(v) || !std::isfinite(m) || !(v > kHoloVFloor))
+        return {0.0, false, 0.0};
+    const double s = std::sqrt(v);
+    if (!std::isfinite(s) || std::fabs(m) + s > kHoloTMax)
+        return {0.0, false, 0.0};
+    const DeflatedQuad q = deflate_mv(pc, m, v);
+    const double Rma = R - pf.a, Rpa = R + pf.a;
+    const double b0 = reciprocal ? Rpa : Rma;
+    const double b2 = reciprocal ? Rma * Rma : Rpa * Rpa;
+    double G = 0.0;
+    if (!gc2_accum_G(gc2_rule_fixed<N>(), N, m, s, q, b0, b2, G, nullptr))
+        return {0.0, false, 0.0};
+    const double vK = (2.0 / pf.rho) * v * G;
+    return {vK, std::isfinite(vK), 0.0};
+}
+
+inline VKValue v_times_K_order(double m, double v, double R,
+                               const PrimaryFrame& pf,
+                               const std::array<double, 5>& pc,
+                               bool reciprocal, int order) {
+    switch (order) {
+    case 8: return v_times_K_order_fixed<8>(m, v, R, pf, pc, reciprocal);
+    case 16: return v_times_K_order_fixed<16>(m, v, R, pf, pc, reciprocal);
+    case 24: return v_times_K_order_fixed<24>(m, v, R, pf, pc, reciprocal);
+    case 32: return v_times_K_order_fixed<32>(m, v, R, pf, pc, reciprocal);
+    case 64: return v_times_K_order_fixed<64>(m, v, R, pf, pc, reciprocal);
+    case 128: return v_times_K_order_fixed<128>(m, v, R, pf, pc, reciprocal);
+    case 256: return v_times_K_order_fixed<256>(m, v, R, pf, pc, reciprocal);
+    case 512: return v_times_K_order_fixed<512>(m, v, R, pf, pc, reciprocal);
+    default: return {0.0, false, 0.0};
+    }
+}
+
+template <int N>
+inline VKJacobian v_times_K_jac_order_fixed(
+    double m, double v, const std::array<double, 5>& dm,
+    const std::array<double, 5>& dv, double R, const PrimaryFrame& pf,
+    const std::array<double, 5>& pc,
+    const std::array<std::array<double, 5>, 5>& dpc,
+    bool reciprocal = false) {
+    VKJacobian out{};
+    out.ok = false;
+    if (!std::isfinite(v) || !std::isfinite(m) || !(v > kHoloVFloor))
+        return out;
+    const double s = std::sqrt(v);
+    if (!std::isfinite(s) || std::fabs(m) + s > kHoloTMax)
+        return out;
+
+    const DeflatedQuad q = deflate_mv(pc, m, v);
+    const double p4 = q.p4, d1 = q.d1, d0 = q.d0;
+    const double Rma = R - pf.a, Rpa = R + pf.a;
+    const double b0 = reciprocal ? Rpa : Rma;
+    const double b2 = reciprocal ? Rma * Rma : Rpa * Rpa;
+    const double inv_rho = 1.0 / pf.rho;
+    const double two_over_rho = 2.0 * inv_rho;
+    const double inv_2s = 0.5 / s;
+
+    std::array<double, 5> dp4{}, dd1{}, dd0{};
+    for (int j = 0; j < 5; ++j) {
+        dp4[j] = dpc[j][4];
+        dd1[j] = dpc[j][3] + 2.0 * (dm[j] * p4 + m * dp4[j]);
+        dd0[j] = dpc[j][2] + 2.0 * (dm[j] * d1 + m * dd1[j]) -
+                 (2.0 * m * dm[j] - dv[j]) * p4 -
+                 (m * m - v) * dp4[j];
+    }
+
+    double G = 0.0;
+    std::array<double, 5> dG{};
+    const auto& gc = gc2_rule_fixed<N>();
+    for (int i = 0; i < N; ++i) {
+        const double xi = gc.x[i], wi = gc.w[i];
+        const double t = m + s * xi;
+        const double S2 = -(d0 + t * (d1 + t * p4));
+        if (!(S2 > 0.0)) return out;
+        const double A = 1.0 + t * t;
+        const double B = b0 * b0 + b2 * t * t;
+        if (!(B > 0.0)) return out;
+        const double wv = std::sqrt(S2) /
+                          (A * std::sqrt(A) * std::sqrt(B));
+        if (!std::isfinite(wv)) return out;
+        G += wi * wv;
+
+        const double dS2_dt = -(d1 + 2.0 * t * p4);
+        const double dA_dt = 2.0 * t;
+        const double dB_dt = 2.0 * b2 * t;
+        const double c_S2 = 0.5 / S2;
+        const double c_A = -1.5 / A;
+        const double c_B = -0.5 / B;
+        for (int j = 0; j < 5; ++j) {
+            const double dt = dm[j] + xi * inv_2s * dv[j];
+            const double dS2 = -(dd0[j] + t * (dd1[j] + t * dp4[j])) +
+                               dS2_dt * dt;
+            const double dA = dA_dt * dt;
+            double dB = dB_dt * dt;
+            if (j == 4) {
+                dB += reciprocal ? 2.0 * Rpa - 2.0 * Rma * t * t
+                                  : -2.0 * Rma + 2.0 * Rpa * t * t;
+            }
+            const double dw = wv * (c_S2 * dS2 + c_A * dA + c_B * dB);
+            if (!std::isfinite(dw)) return out;
+            dG[j] += wi * dw;
+        }
+    }
+
+    const double vK = two_over_rho * v * G;
+    if (!std::isfinite(vK)) return out;
+    out.vK = vK;
+    out.ok = true;
+    for (int j = 0; j < 5; ++j) {
+        double d = two_over_rho * (dv[j] * G + v * dG[j]);
+        if (j == 2) d += (-2.0 * inv_rho * inv_rho) * v * G;
+        out.dvK[j] = d;
+        out.ok = out.ok && std::isfinite(d);
+    }
+    return out;
+}
+
+inline VKJacobian v_times_K_jac_order(
+    double m, double v, const std::array<double, 5>& dm,
+    const std::array<double, 5>& dv, double R, const PrimaryFrame& pf,
+    const std::array<double, 5>& pc,
+    const std::array<std::array<double, 5>, 5>& dpc,
+    bool reciprocal, int order) {
+    switch (order) {
+    case 8: return v_times_K_jac_order_fixed<8>(m, v, dm, dv, R, pf, pc, dpc, reciprocal);
+    case 16: return v_times_K_jac_order_fixed<16>(m, v, dm, dv, R, pf, pc, dpc, reciprocal);
+    case 24: return v_times_K_jac_order_fixed<24>(m, v, dm, dv, R, pf, pc, dpc, reciprocal);
+    case 32: return v_times_K_jac_order_fixed<32>(m, v, dm, dv, R, pf, pc, dpc, reciprocal);
+    case 64: return v_times_K_jac_order_fixed<64>(m, v, dm, dv, R, pf, pc, dpc, reciprocal);
+    case 128: return v_times_K_jac_order_fixed<128>(m, v, dm, dv, R, pf, pc, dpc, reciprocal);
+    case 256: return v_times_K_jac_order_fixed<256>(m, v, dm, dv, R, pf, pc, dpc, reciprocal);
+    case 512: return v_times_K_jac_order_fixed<512>(m, v, dm, dv, R, pf, pc, dpc, reciprocal);
+    default: return VKJacobian{};
+    }
+}
+
+// --------------------------------------------------------------------------
+// Nested angular research evaluator
+// --------------------------------------------------------------------------
+// These routines use the same deflated GC2 integrand as the fixed-order
+// research evaluator above, but choose the nested orders 7, 15, 31, ... .
+// A cache contains the point values (and, on the Jacobian lane, their five
+// point derivatives) for the current high rule.  When the order is raised
+// from L to 2L+1, the L old values are placed at the odd high-rule locations
+// and only the L+1 even locations are evaluated.  The
+// high-order weighted sum still gets recomputed from cached values because
+// the quadrature weights change; this is only a short arithmetic pass and
+// does not call the lens/phi kernel.  On an upgrade the previous high-order
+// aggregate is the low-order result, so even that lower weighted sum is not
+// recomputed.
+struct NestedVKValueResult {
+    VKValue high{},low{};
+    bool ok=false,weighted_sum_reused=false,low_available=false;
+    std::size_t point_evaluations=0,cached_point_reuses=0;
+};
+struct NestedVKJacobianResult {
+    VKJacobian high{},low{};
+    bool ok=false,weighted_sum_reused=false,low_available=false;
+    std::size_t point_evaluations=0,cached_point_reuses=0;
+};
+
+inline bool gc2_nested_value_point(const DeflatedQuad& q,double m,double s,
+                                   double b0,double b2,double xi,
+                                   NestedAngularPoint& point) {
+    const double t=m+s*xi;
+    const double S2=-(q.d0+t*(q.d1+t*q.p4));
+    if(!(S2>=0.0))return false;
+    const double A=1.0+t*t;
+    const double B=b0*b0+b2*t*t;
+    if(!(A>0.0)||!(B>0.0)||!std::isfinite(A)||!std::isfinite(B))return false;
+    double value=0.0;
+#if !defined(HOLO_K_DISABLE_SINGLE_SQRT)
+    const double ab=A*B,ratio=S2/ab;
+    if(std::isnormal(ab)&&std::isnormal(ratio))
+        value=std::sqrt(ratio)/A;
+    else
+#endif
+        value=std::sqrt(S2)/(A*std::sqrt(A)*std::sqrt(B));
+    if(!std::isfinite(value))return false;
+    point.value=value;point.derivative.fill(0.0);point.valid=true;
+    return true;
+}
+
+inline bool gc2_nested_jac_point(
+    const DeflatedQuad& q,double m,double s,double b0,double b2,
+    double Rma,double Rpa,double xi,const std::array<double,5>& dm,
+    const std::array<double,5>& dv,const std::array<double,5>& dp4,
+    const std::array<double,5>& dd1,const std::array<double,5>& dd0,
+    bool reciprocal,NestedAngularPoint& point) {
+    const double t=m+s*xi;
+    const double S2=-(q.d0+t*(q.d1+t*q.p4));
+    if(!(S2>0.0))return false;
+    const double A=1.0+t*t;
+    const double B=b0*b0+b2*t*t;
+    if(!(A>0.0)||!(B>0.0)||!std::isfinite(A)||!std::isfinite(B))return false;
+    double wv=0.0;
+#if !defined(HOLO_K_DISABLE_SINGLE_SQRT)
+    const double ab=A*B,ratio=S2/ab;
+    if(std::isnormal(ab)&&std::isnormal(ratio))
+        wv=std::sqrt(ratio)/A;
+    else
+#endif
+        wv=std::sqrt(S2)/(A*std::sqrt(A)*std::sqrt(B));
+    if(!std::isfinite(wv))return false;
+    const double dS2_dt=-(q.d1+2.0*t*q.p4);
+    const double dA_dt=2.0*t;
+    const double dB_dt=2.0*b2*t;
+    const double c_S2=0.5/S2,c_A=-1.5/A,c_B=-0.5/B;
+    const double inv_2s=0.5/s;
+    for(int j=0;j<5;++j) {
+        const double dt=dm[j]+xi*inv_2s*dv[j];
+        const double dS2=-(dd0[j]+t*(dd1[j]+t*dp4[j]))+dS2_dt*dt;
+        const double dA=dA_dt*dt;
+        double dB=dB_dt*dt;
+        if(j==4)
+            dB+=reciprocal ? 2.0*Rpa-2.0*Rma*t*t
+                            : -2.0*Rma+2.0*Rpa*t*t;
+        const double dw=wv*(c_S2*dS2+c_A*dA+c_B*dB);
+        if(!std::isfinite(dw))return false;
+        point.derivative[j]=dw;
+    }
+    point.value=wv;point.valid=true;
+    return true;
+}
+
+template <int N>
+inline bool nested_weighted_sum(const NestedAngularCache& cache,double v,
+                                double two_over_rho,
+                                const std::array<double,5>& dv,
+                                bool with_jac,bool low,
+                                std::array<double,6>& result) {
+    const auto& rule=gc2_rule_fixed<N>();
+    double G=0.0;std::array<double,5> dG{};
+    for(int i=0;i<N;++i) {
+        const int point_index=low ? 2*i+1 : i;
+        if(point_index<0||static_cast<std::size_t>(point_index)>=cache.points.size()||
+           !cache.points[static_cast<std::size_t>(point_index)].valid)return false;
+        const auto& point=cache.points[point_index];
+        G+=rule.w[i]*point.value;
+        if(with_jac)for(int j=0;j<5;++j)dG[j]+=rule.w[i]*point.derivative[j];
+    }
+    result.fill(0.0);
+    result[0]=two_over_rho*v*G;
+    if(!std::isfinite(result[0]))return false;
+    if(with_jac)for(int j=0;j<5;++j) {
+        double d=two_over_rho*(dv[j]*G+v*dG[j]);
+        if(j==2)d+=(-0.5*two_over_rho*two_over_rho)*v*G;
+        result[j+1]=d;
+        if(!std::isfinite(d))return false;
+    }
+    return true;
+}
+
+inline bool nested_cache_shape_ok(const NestedAngularCache& cache,
+                                  int high_order,int previous_order,
+                                  bool with_jac) {
+    if(!nested_angular_order_valid(high_order))return false;
+    if(previous_order==0)
+        return high_order==7 || high_order==15;
+    return nested_angular_order_valid(previous_order) &&
+           nested_angular_previous_order(high_order)==previous_order &&
+           cache.valid && cache.order==previous_order &&
+           cache.with_jac==with_jac;
+}
+
+template <int N>
+inline NestedVKValueResult v_times_K_nested_value_fixed(
+    double m,double v,double R,const PrimaryFrame& pf,
+    const std::array<double,5>& pc,int previous_order,
+    NestedAngularCache& cache,bool reciprocal=false) {
+    NestedVKValueResult out;
+    if(!nested_cache_shape_ok(cache,N,previous_order,false))return out;
+    if(!std::isfinite(v)||!std::isfinite(m)||!(v>kHoloVFloor))return out;
+    const double s=std::sqrt(v);
+    if(!std::isfinite(s)||std::fabs(m)+s>kHoloTMax)return out;
+    const DeflatedQuad q=deflate_mv(pc,m,v);
+    const double Rma=R-pf.a,Rpa=R+pf.a;
+    const double b0=reciprocal?Rpa:Rma;
+    const double b2=reciprocal?Rma*Rma:Rpa*Rpa;
+    const double two_over_rho=2.0/pf.rho;
+    if(!std::isfinite(two_over_rho))return out;
+
+    if(previous_order==0) {
+        cache=NestedAngularCache{};
+        cache.points.resize(N);
+    } else {
+        // Invalidate before mutating the old layout.  If any new point is
+        // rejected below, callers will fail closed and will not reuse this
+        // partially upgraded cache.
+        cache.valid=false;
+        cache.points.resize(N);
+        for(int i=previous_order-1;i>=0;--i)
+            cache.points[2*i+1]=cache.points[i];
+    }
+    for(int i=0;i<N;++i) {
+        if(previous_order>0 && (i&1)) {
+            if(!cache.points[static_cast<std::size_t>(i)].valid)return out;
+            ++out.cached_point_reuses;
+            continue;
+        }
+        const auto& rule=gc2_rule_fixed<N>();
+        if(!gc2_nested_value_point(q,m,s,b0,b2,rule.x[i],cache.points[static_cast<std::size_t>(i)]))return out;
+        ++out.point_evaluations;
+    }
+    std::array<double,6> high{};
+    if(!nested_weighted_sum<N>(cache,v,two_over_rho,
+                               std::array<double,5>{},false,false,high))return out;
+    std::array<double,6> low{};
+    if(previous_order>0) {
+        low=cache.aggregate;
+        out.weighted_sum_reused=true;
+        out.low_available=true;
+    } else if(N==15) {
+        if(!nested_weighted_sum<7>(cache,v,two_over_rho,
+                                    std::array<double,5>{},false,true,low))return out;
+        out.low_available=true;
+    }
+    cache.aggregate=high;cache.order=N;cache.with_jac=false;
+    cache.valid=true;
+    out.high={high[0],true,0.0};
+    out.ok=std::isfinite(out.high.vK);
+    if(out.low_available) {
+        out.low={low[0],true,std::fabs(high[0]-low[0])};
+        out.ok=out.ok&&std::isfinite(out.low.vK);
+    }
+    return out;
+}
+
+inline NestedVKValueResult v_times_K_nested_value(
+    double m,double v,double R,const PrimaryFrame& pf,
+    const std::array<double,5>& pc,int previous_order,
+    NestedAngularCache& cache,bool reciprocal,int order) {
+    switch(order) {
+        case 7:return v_times_K_nested_value_fixed<7>(m,v,R,pf,pc,previous_order,cache,reciprocal);
+        case 15:return v_times_K_nested_value_fixed<15>(m,v,R,pf,pc,previous_order,cache,reciprocal);
+        case 31:return v_times_K_nested_value_fixed<31>(m,v,R,pf,pc,previous_order,cache,reciprocal);
+        case 63:return v_times_K_nested_value_fixed<63>(m,v,R,pf,pc,previous_order,cache,reciprocal);
+        case 127:return v_times_K_nested_value_fixed<127>(m,v,R,pf,pc,previous_order,cache,reciprocal);
+        case 255:return v_times_K_nested_value_fixed<255>(m,v,R,pf,pc,previous_order,cache,reciprocal);
+        case 511:return v_times_K_nested_value_fixed<511>(m,v,R,pf,pc,previous_order,cache,reciprocal);
+        default:return {};
+    }
+}
+
+template <int N>
+inline NestedVKJacobianResult v_times_K_nested_jac_fixed(
+    double m,double v,const std::array<double,5>& dm,
+    const std::array<double,5>& dv,double R,const PrimaryFrame& pf,
+    const std::array<double,5>& pc,
+    const std::array<std::array<double,5>,5>& dpc,int previous_order,
+    NestedAngularCache& cache,bool reciprocal=false) {
+    NestedVKJacobianResult out;
+    if(!nested_cache_shape_ok(cache,N,previous_order,true))return out;
+    if(!std::isfinite(v)||!std::isfinite(m)||!(v>kHoloVFloor))return out;
+    const double s=std::sqrt(v);
+    if(!std::isfinite(s)||std::fabs(m)+s>kHoloTMax)return out;
+    const DeflatedQuad q=deflate_mv(pc,m,v);
+    const double p4=q.p4,d1=q.d1,d0=q.d0;
+    const double Rma=R-pf.a,Rpa=R+pf.a;
+    const double b0=reciprocal?Rpa:Rma;
+    const double b2=reciprocal?Rma*Rma:Rpa*Rpa;
+    const double inv_rho=1.0/pf.rho,two_over_rho=2.0*inv_rho;
+    if(!std::isfinite(two_over_rho))return out;
+    std::array<double,5> dp4{},dd1{},dd0{};
+    for(int j=0;j<5;++j) {
+        dp4[j]=dpc[j][4];
+        dd1[j]=dpc[j][3]+2.0*(dm[j]*p4+m*dp4[j]);
+        dd0[j]=dpc[j][2]+2.0*(dm[j]*d1+m*dd1[j])-
+               (2.0*m*dm[j]-dv[j])*p4-(m*m-v)*dp4[j];
+    }
+
+    if(previous_order==0) {
+        cache=NestedAngularCache{};
+        cache.points.resize(N);
+    } else {
+        cache.valid=false;
+        cache.points.resize(N);
+        for(int i=previous_order-1;i>=0;--i)
+            cache.points[2*i+1]=cache.points[i];
+    }
+    const auto& rule=gc2_rule_fixed<N>();
+    for(int i=0;i<N;++i) {
+        if(previous_order>0 && (i&1)) {
+            if(!cache.points[static_cast<std::size_t>(i)].valid)return out;
+            ++out.cached_point_reuses;
+            continue;
+        }
+        if(!gc2_nested_jac_point(q,m,s,b0,b2,Rma,Rpa,rule.x[i],dm,dv,
+                                 dp4,dd1,dd0,reciprocal,
+                                 cache.points[static_cast<std::size_t>(i)]))return out;
+        ++out.point_evaluations;
+    }
+    std::array<double,6> high{};
+    if(!nested_weighted_sum<N>(cache,v,two_over_rho,dv,true,false,high))return out;
+    std::array<double,6> low{};
+    if(previous_order>0) {
+        low=cache.aggregate;
+        out.weighted_sum_reused=true;
+        out.low_available=true;
+    } else if(N==15) {
+        if(!nested_weighted_sum<7>(cache,v,two_over_rho,dv,true,true,low))return out;
+        out.low_available=true;
+    }
+    cache.aggregate=high;cache.order=N;cache.with_jac=true;
+    cache.valid=true;
+    out.high.vK=high[0];out.low.vK=low[0];
+    for(int j=0;j<5;++j) {
+        out.high.dvK[j]=high[j+1];out.low.dvK[j]=low[j+1];
+    }
+    out.high.ok=std::isfinite(out.high.vK);
+    for(int j=0;j<5;++j)
+        out.high.ok=out.high.ok&&std::isfinite(out.high.dvK[j]);
+    out.ok=out.high.ok;
+    if(out.low_available) {
+        out.low.ok=std::isfinite(out.low.vK);
+        for(int j=0;j<5;++j)
+            out.low.ok=out.low.ok&&std::isfinite(out.low.dvK[j]);
+        out.ok=out.ok&&out.low.ok;
+    }
+    return out;
+}
+
+inline NestedVKJacobianResult v_times_K_nested_jac(
+    double m,double v,const std::array<double,5>& dm,
+    const std::array<double,5>& dv,double R,const PrimaryFrame& pf,
+    const std::array<double,5>& pc,
+    const std::array<std::array<double,5>,5>& dpc,int previous_order,
+    NestedAngularCache& cache,bool reciprocal,int order) {
+    switch(order) {
+        case 7:return v_times_K_nested_jac_fixed<7>(m,v,dm,dv,R,pf,pc,dpc,previous_order,cache,reciprocal);
+        case 15:return v_times_K_nested_jac_fixed<15>(m,v,dm,dv,R,pf,pc,dpc,previous_order,cache,reciprocal);
+        case 31:return v_times_K_nested_jac_fixed<31>(m,v,dm,dv,R,pf,pc,dpc,previous_order,cache,reciprocal);
+        case 63:return v_times_K_nested_jac_fixed<63>(m,v,dm,dv,R,pf,pc,dpc,previous_order,cache,reciprocal);
+        case 127:return v_times_K_nested_jac_fixed<127>(m,v,dm,dv,R,pf,pc,dpc,previous_order,cache,reciprocal);
+        case 255:return v_times_K_nested_jac_fixed<255>(m,v,dm,dv,R,pf,pc,dpc,previous_order,cache,reciprocal);
+        case 511:return v_times_K_nested_jac_fixed<511>(m,v,dm,dv,R,pf,pc,dpc,previous_order,cache,reciprocal);
+        default:return {};
+    }
 }
 
 }  // namespace lcbinint::holonomic

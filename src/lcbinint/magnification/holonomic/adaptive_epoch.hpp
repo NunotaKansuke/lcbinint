@@ -668,6 +668,96 @@ inline bool restore_physical_cuts(const TopologyResult& topo,const PrimaryFrame&
     }
     return end==topo.r_max;
 }
+
+// Keep D14/topology's complete cell partition intact, but allow one narrowly
+// certified integration span across a soft complex-root cut.  This addresses
+// the case where a nonphysical cut lies between two physical folds: splitting
+// there leaves the second panel starting just beyond the first fold, so its
+// fixed-R fold derivative is still singular at the panel's nearby left edge.
+// Only an adjacent, same-topology arcs pair bracketed by physical folds can
+// be coalesced, and only when the configured initial rule cannot sample the
+// fold-to-cut gap. Other soft cuts and all physical/chart events remain cuts.
+struct AdaptiveIntegrationSpan {
+    CellPlan cell{};
+    int first_source_cell=0,last_source_cell=0;
+};
+struct AdaptiveIntegrationPlan {
+    std::vector<AdaptiveIntegrationSpan> spans;
+    std::size_t softcut_fold_merges=0;
+};
+inline bool physical_fold_at_boundary(const TopologyResult& topo,double R) {
+    for(const auto& event:topo.events)
+        if(event.radius==R && adaptive_physical_fold_event(event))return true;
+    return false;
+}
+inline bool soft_complex_cut_only_at(const TopologyResult& topo,double R) {
+    bool found=false;
+    for(const auto& event:topo.events)if(event.radius==R) {
+        if(event.kind!="physical_complex" || event.physically_real)return false;
+        found=true;
+    }
+    return found;
+}
+inline bool softcut_inside_fold_map_resolution(const CellPlan& left,
+                                              const CellPlan& right,
+                                              int initial_level,
+                                              bool fold_maps_enabled) {
+    if(!fold_maps_enabled)return false;
+    if(initial_level<1 || initial_level>8)return false;
+    // On the cell next to the cut, the omitted physical fold is an exterior
+    // square-root singularity of the fixed-R derivative.  Its distance from
+    // the artificial edge matters only when it lies inside the first
+    // Fejer-II radial sample stride of that cell.  Compute that stride from
+    // the actual configured nested rule and the one-fold map used by the
+    // adjacent panel; this avoids a lens-parameter or fixed-radius heuristic.
+    const auto& rule=fejer_rule(initial_level);
+    const double t_near=0.5*(1.0+rule.x.back());
+    const double mapped_stride_fraction=2.0*t_near-t_near*t_near;
+    const double left_width=left.r_hi-left.r_lo;
+    const double right_width=right.r_hi-right.r_lo;
+    if(!(left_width>0.0 && right_width>0.0 &&
+         std::isfinite(left_width+right_width)))return false;
+    return left_width<=mapped_stride_fraction*right_width ||
+           right_width<=mapped_stride_fraction*left_width;
+}
+inline AdaptiveIntegrationPlan make_adaptive_integration_plan(
+    const TopologyResult& topo,const std::vector<CellPlan>& source_cells,
+    int initial_level=3,bool fold_maps_enabled=true) {
+    AdaptiveIntegrationPlan out;
+    out.spans.reserve(source_cells.size());
+    for(std::size_t i=0;i<source_cells.size();) {
+        const auto& left=source_cells[i];
+        if(left.kind==ArcKind::kEmpty) {++i;continue;}
+        const bool pair=i+1<source_cells.size();
+        if(pair) {
+            const auto& right=source_cells[i+1];
+            const bool same_certified_arcs=
+                left.status==Status::OK && right.status==Status::OK &&
+                left.kind==ArcKind::kArcs && right.kind==ArcKind::kArcs &&
+                left.n_crossings>0 && left.n_crossings==right.n_crossings &&
+                !(left.n_crossings&1);
+            const bool exact_shared_boundary=left.r_hi==right.r_lo;
+            if(same_certified_arcs && exact_shared_boundary &&
+               soft_complex_cut_only_at(topo,left.r_hi) &&
+               physical_fold_at_boundary(topo,left.r_lo) &&
+               physical_fold_at_boundary(topo,right.r_hi) &&
+               softcut_inside_fold_map_resolution(left,right,initial_level,
+                                                  fold_maps_enabled)) {
+                CellPlan joined=left;
+                joined.r_hi=right.r_hi;
+                joined.r_mid=left.r_lo+0.5*(right.r_hi-left.r_lo);
+                out.spans.push_back({joined,static_cast<int>(i),
+                                     static_cast<int>(i+1)});
+                ++out.softcut_fold_merges;
+                i+=2;
+                continue;
+            }
+        }
+        out.spans.push_back({left,static_cast<int>(i),static_cast<int>(i)});
+        ++i;
+    }
+    return out;
+}
 struct FullCircleLevel {
     double integral=0;
     std::array<double,5> derivative{};
@@ -893,11 +983,202 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     bool request_radial_hermite_jet=false,
     AdaptiveHermiteJet* hermite_jet_out=nullptr) {
     AdaptiveSample out;
+    out.jac=jac;
     if(hermite_jet_out)*hermite_jet_out=AdaptiveHermiteJet{};
     const bool request_jet=request_radial_hermite_jet && hermite_jet_out && adaptive_cfg &&
         adaptive_cfg->same_node_hermite_shadow && !with_jac && u==0.0;
-    if(!with_jac && atlas_detail::try_pair_sample(R,radius_lo,jac,p,u,pf,cell,out))return out;
+    const bool angular_research_requested=adaptive_cfg &&
+        adaptive_cfg->angular_adaptive && u!=0.0;
+    // Gradient-adaptive mode starts from the incumbent 8/16 K-rule result.
+    // It only enters the higher-order research path when the scheduler asks
+    // to upgrade this exact cached sample.  This keeps the common initial
+    // sample cost unchanged while still allowing a same-R angular correction.
+    const bool angular_deferred_requested=adaptive_cfg &&
+        adaptive_cfg->gradient_adaptive &&
+        adaptive_cfg->effective_gradient_policy()!=GradientPolicy::None &&
+        u!=0.0;
+    const bool angular_mode_requested=angular_research_requested ||
+        angular_deferred_requested;
+    const bool angular_nested_requested=angular_mode_requested &&
+        adaptive_cfg->angular_nested;
+    bool nested_angular_attempted=false;
+    if(!with_jac && !angular_mode_requested &&
+       atlas_detail::try_pair_sample(R,radius_lo,jac,p,u,pf,cell,out))return out;
     out=AdaptiveSample{};
+    out.jac=jac;
+    out.angular_nested_attempted=nested_angular_attempted;
+    // Preserve the same atlas-contact guard for a same-node angular upgrade
+    // as for a newly reconstructed radial sample.
+    if(angular_mode_requested && active_atlas_samples &&
+       active_atlas_samples->contacts) {
+        for(const auto& anchor:*active_atlas_samples->contacts) {
+            const __float128 r=(__float128)R;
+            if(r>=anchor.R.lo-fabsq((__float128)radius_lo) &&
+               r<=anchor.R.hi+fabsq((__float128)radius_lo)) {
+                out.reliable=false;
+                out.reject_reason=AdaptiveSampleRejectReason::EndpointUnreliable;
+                return out;
+            }
+        }
+    }
+
+#if !defined(HOLO_ADAPTIVE_DISABLE_ANGULAR_STATE_REUSE)
+    // An angular upgrade is a same-node operation.  The previous sample has
+    // already passed all radial topology, endpoint, and root-pair checks at
+    // this exact R.  Reuse that immutable state and evaluate only the next
+    // fixed GC2 rule; rebuilding the quartic/root pair here would erase the
+    // main benefit of the two-dimensional controller.
+    if(angular_mode_requested && seed && seed->angular_valid &&
+       seed->angular_state_valid && seed->angular_order>0 &&
+       ((!angular_nested_requested && seed->angular_order<adaptive_cfg->angular_max_order) ||
+        (angular_nested_requested && seed->angular_nested &&
+         seed->angular_nested_cache &&
+         seed->angular_order<adaptive_cfg->angular_nested_max_order)) &&
+       seed->R==R && seed->jac==jac) {
+        const int next=angular_nested_requested
+            ? adaptive_detail::next_nested_angular_order(seed->angular_order)
+            : (angular_deferred_requested && seed->angular_order==16
+                ? 32 : adaptive_detail::next_angular_order(seed->angular_order));
+        const int max_order=angular_nested_requested
+            ? adaptive_cfg->angular_nested_max_order
+            : adaptive_cfg->angular_max_order;
+        if(next>seed->angular_order &&
+           next<=max_order) {
+            const double D=kPi*p.rho*p.rho*(1.0-u/3.0);
+            const double scale=jac/D;
+            auto abs_map=[&](const std::array<double,5>& v) {
+                std::array<double,5> e{};
+                for(int k=0;k<5;++k) {
+                    std::array<double,5> unit{};unit[k]=v[k];
+                    const auto col=internal_to_user_jac(unit,p);
+                    for(int j=0;j<5;++j)e[j]+=std::fabs(col[j]);
+                }
+                return e;
+            };
+            bool ok=std::isfinite(D)&&std::isfinite(scale)&&
+                    std::isfinite(seed->angular_m)&&
+                    std::isfinite(seed->angular_v)&&
+                    std::isfinite(seed->R);
+            VKValue vh{};
+            VKJacobian jh{};
+            std::array<double,5> high_derivative{};
+            std::shared_ptr<NestedAngularCache> nested_cache;
+            std::size_t nested_point_evaluations=0;
+            std::size_t nested_cached_point_reuses=0;
+            if(ok && angular_nested_requested) {
+                // Same-R upgrades mutate the existing common-lattice cache
+                // in place.  No point kernel is evaluated for an old node.
+                nested_cache=seed->angular_nested_cache;
+                nested_angular_attempted=true;
+                if(with_jac) {
+                    const auto nr=v_times_K_nested_jac(
+                        seed->angular_m,seed->angular_v,seed->angular_dm,
+                        seed->angular_dv,R,pf,seed->angular_pc,
+                        seed->angular_dpc,seed->angular_order,*nested_cache,
+                        seed->angular_reciprocal,next);
+                    ok=nr.ok;
+                    if(ok)for(int j=0;j<5;++j)high_derivative[j]=nr.high.dvK[j];
+                    if(ok) {
+                        nested_point_evaluations=nr.point_evaluations;
+                        nested_cached_point_reuses=nr.cached_point_reuses;
+                    }
+                } else {
+                    const auto nr=v_times_K_nested_value(
+                        seed->angular_m,seed->angular_v,R,pf,seed->angular_pc,
+                        seed->angular_order,*nested_cache,
+                        seed->angular_reciprocal,next);
+                    ok=nr.ok;
+                    if(ok) {
+                        nested_point_evaluations=nr.point_evaluations;
+                        nested_cached_point_reuses=nr.cached_point_reuses;
+                    }
+                }
+            } else if(ok && with_jac) {
+                jh=v_times_K_jac_order(seed->angular_m,seed->angular_v,
+                    seed->angular_dm,seed->angular_dv,R,pf,seed->angular_pc,
+                    seed->angular_dpc,seed->angular_reciprocal,next);
+                ok=jh.ok;
+                if(ok)for(int j=0;j<5;++j)high_derivative[j]=jh.dvK[j];
+            } else if(ok) {
+                vh=v_times_K_order(seed->angular_m,seed->angular_v,R,pf,
+                    seed->angular_pc,seed->angular_reciprocal,next);
+                ok=vh.ok;
+            }
+            if(ok) {
+                AdaptiveSample fast=*seed;
+                const double high0=angular_nested_requested
+                    ? (nested_cache->aggregate[0])
+                    : (with_jac?jh.vK:vh.vK);
+                const double delta_value=scale*u*(high0-
+                    seed->angular_result[0]);
+                fast.value[0]+=delta_value;
+                fast.inner[0]=std::fabs(scale*u)*
+                    std::fabs(high0-seed->angular_result[0]);
+                fast.roundoff[0]+=eps*std::fabs(delta_value);
+                if(with_jac) {
+                    std::array<double,5> delta_internal{},mapped_abs{};
+                    for(int j=0;j<5;++j)
+                        delta_internal[j]=high_derivative[j]*jac-
+                            seed->angular_result[j+1];
+                    mapped_abs=abs_map(delta_internal);
+                    const auto mapped=internal_to_user_jac(delta_internal,p);
+                    for(int j=0;j<5;++j) {
+                        fast.value[j+1]+=u* mapped[j]/D;
+                        fast.inner[j+1]=std::fabs(u/D)*mapped_abs[j];
+                        fast.roundoff[j+1]+=eps*std::fabs(u/D)*mapped_abs[j];
+                    }
+                    // The rho derivative contains the normalization term
+                    // -2*value/rho.  Apply the same delta to that term and
+                    // keep its cancellation error in the local ledger.
+                    fast.value[3]-=2.0*delta_value/p.rho;
+                    fast.inner[3]+=2.0*fast.inner[0]/p.rho;
+                    fast.roundoff[3]+=2.0*(fast.roundoff[0]+
+                        eps*std::fabs(delta_value))/p.rho;
+                    for(int j=0;j<5;++j)
+                        ok=ok&&std::isfinite(fast.value[j+1])&&
+                           std::isfinite(fast.inner[j+1])&&
+                           std::isfinite(fast.roundoff[j+1]);
+                }
+                ok=ok&&std::isfinite(fast.value[0])&&
+                    std::isfinite(fast.inner[0])&&
+                    std::isfinite(fast.roundoff[0]);
+                if(ok) {
+                    fast.angular_result.fill(0.0);
+                    fast.angular_result[0]=high0;
+                    fast.angular_error.fill(0.0);
+                    fast.angular_error[0]=std::fabs(high0-
+                        seed->angular_result[0]);
+                    if(with_jac)for(int j=0;j<5;++j) {
+                        fast.angular_result[j+1]=high_derivative[j]*jac;
+                        fast.angular_error[j+1]=std::fabs(
+                            fast.angular_result[j+1]-
+                            seed->angular_result[j+1]);
+                    }
+                    fast.angular_order=next;
+                    fast.angular_work=angular_nested_requested
+                        ? nested_point_evaluations : static_cast<size_t>(next);
+                    fast.angular_point_evaluations=angular_nested_requested
+                        ? nested_point_evaluations : 0;
+                    fast.angular_cached_point_reuses=angular_nested_requested
+                        ? nested_cached_point_reuses : 0;
+                    fast.angular_valid=true;
+                    fast.angular_state_valid=true;
+                    fast.angular_state_reused=true;
+                    if(angular_nested_requested) {
+                        fast.angular_nested_cache=nested_cache;
+                        fast.angular_nested=true;
+                    }
+                    fast.angular_nested_attempted=nested_angular_attempted;
+                    fast.reject_reason=AdaptiveSampleRejectReason::None;
+                    return fast;
+                }
+            }
+        }
+    }
+#endif
+    out=AdaptiveSample{};
+    out.jac=jac;
+    out.angular_nested_attempted=nested_angular_attempted;
     // If rounding the abscissa can change its side of an atlas fold, the
     // ordinary double endpoint path is not a substitute for the pair proof.
     if(active_atlas_samples && active_atlas_samples->contacts){
@@ -978,6 +1259,50 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     std::array<double,5> df0{},dfh{},edf0{},edfh{};
     const auto pc=u!=0?arc_pc:QuarticCoeffs{};
     QuarticParamJac dpc{};if(with_jac)dpc=boundary_quartic_dp(R,pf);
+    // The K-rule is a one-arc representation.  Keep the existing path for
+    // multi-arc samples; this prevents a failed experimental chart/order on
+    // one arc from forcing a second reconstruction of earlier arcs.  The
+    // radial sample, root pair, endpoint data and the aggregate from the
+    // previous order are still reused for the common one-arc case.
+    const bool seed_angular_upgrade=angular_deferred_requested && seed &&
+        seed->angular_valid && seed->angular_state_valid && seed->R==R &&
+        seed->jac==jac &&
+        ((!angular_nested_requested && !seed->angular_nested) ||
+         (angular_nested_requested && seed->angular_nested &&
+          seed->angular_nested_cache));
+    bool use_angular_research=(angular_research_requested ||
+                               seed_angular_upgrade) &&
+                              arcs.arcs.size()==1;
+    const bool use_nested_angular=use_angular_research &&
+                                  adaptive_cfg->angular_nested;
+    const bool angular_upgrade=use_angular_research && seed &&
+        seed->angular_valid && seed->angular_order>0 && seed->R==R &&
+        seed->jac==jac &&
+        ((!use_nested_angular && !seed->angular_nested) ||
+         (use_nested_angular && seed->angular_nested &&
+          seed->angular_nested_cache));
+    int angular_order=use_angular_research
+        ? (angular_upgrade
+            ? (use_nested_angular
+                ? adaptive_detail::next_nested_angular_order(seed->angular_order)
+                : (angular_deferred_requested && seed->angular_order==16
+                    ? 32 : adaptive_detail::next_angular_order(seed->angular_order)))
+            : (use_nested_angular
+                ? adaptive_cfg->angular_nested_initial_order
+                : adaptive_cfg->angular_initial_order))
+        : 0;
+    std::array<double,6> angular_low{},angular_high{};
+    double angular_m=0,angular_v=0;
+    std::array<double,5> angular_dm{},angular_dv{};
+    std::array<double,5> angular_pc{};
+    std::array<std::array<double,5>,5> angular_dpc{};
+    bool angular_reciprocal=false,angular_state_valid=false;
+    bool angular_path_used=false;
+    bool angular_error_available=true;
+    bool angular_nested_used=false;
+    std::shared_ptr<NestedAngularCache> angular_nested_cache;
+    size_t angular_point_evaluations=0,angular_cached_point_reuses=0;
+    size_t angular_work=0;
     for(auto a:arcs.arcs) {
 #if !defined(HOLO_ADAPTIVE_DISABLE_ENDPOINT_CACHE)
         PhiValDtheta endpoint_e{},endpoint_l{};
@@ -1060,6 +1385,191 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             edf0[j]+=R*(std::fabs(dte[j])+std::fabs(dtl[j]))*((de+dl)/width+eps);
         }
         if(u==0)continue;
+        if(use_angular_research) {
+            // Try the existing t chart and then the reciprocal chart.  A
+            // requested angular order is evaluated exactly once.  On an
+            // upgrade, the lower order is read from the cached aggregate;
+            // it is never recomputed here.  The nested branch additionally
+            // reuses every old angular point at the same R.
+            bool arc_ok=false;
+            for(bool reciprocal:{false,true}) {
+                // A same-R upgrade must stay in the representation that
+                // produced the cached point values.  A chart switch starts a
+                // fresh cache; reinterpreting t-chart values as reciprocal
+                // values would be a silent numerical corruption.
+                if(angular_upgrade && reciprocal!=seed->angular_reciprocal)
+                    continue;
+                const auto ap=reciprocal
+                    ? arc_pair_jac_reciprocal(te,tl,
+                                              std::array<double,5>{},
+                                              std::array<double,5>{})
+                    : arc_pair_jac(te,tl,std::array<double,5>{},
+                                   std::array<double,5>{});
+                if(!ap.ok)continue;
+                auto cp=reciprocal?boundary_quartic_reciprocal(pc):pc;
+                    if(use_nested_angular) {
+                    std::shared_ptr<NestedAngularCache> candidate_cache;
+                    size_t candidate_points=0,candidate_cached=0;
+                    if(angular_upgrade)
+                        // The cache is attached to the sample that is about
+                        // to be replaced.  Reuse it in place: its points
+                        // live on the common denominator-512 lattice, so an
+                        // upgrade only fills previously unused slots and
+                        // cannot invalidate the old aggregate on failure.
+                        candidate_cache=seed->angular_nested_cache;
+                    else
+                        candidate_cache=std::make_shared<NestedAngularCache>();
+                    bool nested_ok=false;
+                    if(with_jac) {
+                        auto aj=ap;
+                        bool regular=true;
+                        const auto dp=reciprocal
+                            ? boundary_quartic_reciprocal_dp(dpc) : dpc;
+                        for(int j=0;j<5;++j) {
+                            const auto d=root_pair_dR(RootPair{aj.m,aj.v},
+                                                      cp.p,dp.dp[j]);
+                            regular=regular&&d.ok&&std::isfinite(d.dm_dR)&&
+                                     std::isfinite(d.dv_dR);
+                            aj.dm[j]=d.dm_dR;aj.dv[j]=d.dv_dR;
+                        }
+                        if(!regular)continue;
+                        nested_angular_attempted=true;
+                        const auto nr=v_times_K_nested_jac(
+                            aj.m,aj.v,aj.dm,aj.dv,R,pf,cp.p,dp.dp,
+                            angular_upgrade?seed->angular_order:0,
+                            *candidate_cache,reciprocal,angular_order);
+                        if(!nr.ok)continue;
+                        angular_high[0]=nr.high.vK;
+                        for(int j=0;j<5;++j)
+                            angular_high[j+1]=jac*nr.high.dvK[j];
+                        if(angular_upgrade) {
+                            angular_low=seed->angular_result;
+                        } else {
+                            angular_error_available=nr.low_available;
+                            if(angular_error_available) {
+                                angular_low[0]=nr.low.vK;
+                                for(int j=0;j<5;++j)
+                                    angular_low[j+1]=jac*nr.low.dvK[j];
+                            }
+                        }
+                        angular_m=aj.m;angular_v=aj.v;
+                        angular_dm=aj.dm;angular_dv=aj.dv;
+                        angular_pc=cp.p;angular_dpc=dp.dp;
+                        angular_reciprocal=reciprocal;
+                        angular_state_valid=true;
+                        candidate_points=nr.point_evaluations;
+                        candidate_cached=nr.cached_point_reuses;
+                        nested_ok=true;
+                    } else {
+                        nested_angular_attempted=true;
+                        const auto nr=v_times_K_nested_value(
+                            ap.m,ap.v,R,pf,cp.p,
+                            angular_upgrade?seed->angular_order:0,
+                            *candidate_cache,reciprocal,angular_order);
+                        if(!nr.ok)continue;
+                        angular_high[0]=nr.high.vK;
+                        if(angular_upgrade)angular_low=seed->angular_result;
+                        else if(nr.low_available)angular_low[0]=nr.low.vK;
+                        else angular_error_available=false;
+                        angular_m=ap.m;angular_v=ap.v;
+                        angular_pc=cp.p;
+                        angular_reciprocal=reciprocal;
+                        angular_state_valid=true;
+                        candidate_points=nr.point_evaluations;
+                        candidate_cached=nr.cached_point_reuses;
+                        nested_ok=true;
+                    }
+                    if(nested_ok) {
+                        angular_nested_cache=std::move(candidate_cache);
+                        angular_point_evaluations=candidate_points;
+                        angular_cached_point_reuses=candidate_cached;
+                        angular_work+=candidate_points;
+                        angular_nested_used=true;
+                        arc_ok=true;
+                        break;
+                    }
+                    continue;
+                }
+                if(with_jac) {
+                    auto aj=ap;
+                    bool regular=true;
+                    const auto dp=reciprocal
+                        ? boundary_quartic_reciprocal_dp(dpc) : dpc;
+                    for(int j=0;j<5;++j) {
+                        const auto d=root_pair_dR(RootPair{aj.m,aj.v},
+                                                  cp.p,dp.dp[j]);
+                        regular=regular&&d.ok&&std::isfinite(d.dm_dR)&&
+                                 std::isfinite(d.dv_dR);
+                        aj.dm[j]=d.dm_dR;aj.dv[j]=d.dv_dR;
+                    }
+                    if(!regular)continue;
+                    const auto hi=v_times_K_jac_order(
+                        aj.m,aj.v,aj.dm,aj.dv,R,pf,cp.p,dp.dp,
+                        reciprocal,angular_order);
+                    if(!hi.ok)continue;
+                    angular_high[0]=hi.vK;
+                    for(int j=0;j<5;++j)angular_high[j+1]=jac*hi.dvK[j];
+                    if(!angular_upgrade) {
+                        const auto lo=v_times_K_jac_order(
+                            aj.m,aj.v,aj.dm,aj.dv,R,pf,cp.p,dp.dp,
+                            reciprocal,8);
+                        if(!lo.ok)continue;
+                        angular_low[0]=lo.vK;
+                        for(int j=0;j<5;++j)angular_low[j+1]=jac*lo.dvK[j];
+                        angular_work+=static_cast<size_t>(angular_order)+8;
+                    } else {
+                        angular_low=seed->angular_result;
+                        angular_work+=static_cast<size_t>(angular_order);
+                    }
+                    angular_m=aj.m;angular_v=aj.v;
+                    angular_dm=aj.dm;angular_dv=aj.dv;
+                    angular_pc=cp.p;angular_dpc=dp.dp;
+                    angular_reciprocal=reciprocal;
+                    angular_state_valid=true;
+                } else {
+                    const auto hi=v_times_K_order(ap.m,ap.v,R,pf,cp.p,
+                                                   reciprocal,angular_order);
+                    if(!hi.ok)continue;
+                    angular_high[0]=hi.vK;
+                    if(!angular_upgrade) {
+                        const auto lo=v_times_K_order(ap.m,ap.v,R,pf,cp.p,
+                                                      reciprocal,8);
+                        if(!lo.ok)continue;
+                        angular_low[0]=lo.vK;
+                        angular_work+=static_cast<size_t>(angular_order)+8;
+                    } else {
+                        angular_low=seed->angular_result;
+                        angular_work+=static_cast<size_t>(angular_order);
+                    }
+                    angular_m=ap.m;angular_v=ap.v;
+                    angular_pc=cp.p;angular_reciprocal=reciprocal;
+                    angular_state_valid=true;
+                }
+                arc_ok=true;break;
+            }
+            if(arc_ok) {
+                angular_path_used=true;
+                fh=angular_high[0];
+                if(angular_error_available) {
+                    efh=std::fabs(angular_high[0]-angular_low[0]);
+                    if(with_jac)for(int j=0;j<5;++j) {
+                        dfh[j]=angular_high[j+1];
+                        edfh[j]=std::fabs(angular_high[j+1]-angular_low[j+1]);
+                    }
+                } else {
+                    efh=kAdaptiveUnresolvedError;
+                    edfh.fill(kAdaptiveUnresolvedError);
+                    if(with_jac)for(int j=0;j<5;++j)
+                        dfh[j]=angular_high[j+1];
+                }
+                continue;
+            }
+            // The ordinary V2 path remains the fail-closed backstop.  Since
+            // this branch is restricted to one arc, no partial angular
+            // aggregate has to be rolled back when the experimental order
+            // cannot be evaluated.
+            use_angular_research=false;
+        }
         bool success=false;
         // Same exact t / reciprocal choices and gates as V2. Parameter
         // derivatives come from regular E=O=0, not singular endpoint IFTs.
@@ -1077,9 +1587,51 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                     ap.dm[j]=d.dm_dR;ap.dv[j]=d.dv_dR;
                 }
                 if(!regular)continue;
+#ifdef HOLO_ADAPTIVE_KJAC_24_DIAGNOSTIC
+                // Shadow-only derivative quadrature A/B.  Keep the incumbent
+                // 16-node value exactly; use 24 nodes only for the analytic
+                // derivative and compare its local estimate against 16.
+                auto hi=v_times_K_jac(ap.m,ap.v,ap.dm,ap.dv,R,pf,cp.p,dp.dp,reciprocal);
+                auto dhi=v_times_K_jac(ap.m,ap.v,ap.dm,ap.dv,R,pf,cp.p,dp.dp,reciprocal,24);
+                auto lo=v_times_K_jac(ap.m,ap.v,ap.dm,ap.dv,R,pf,cp.p,dp.dp,reciprocal,16);
+                if(hi.ok&&dhi.ok&&lo.ok){
+                    fh+=hi.vK;efh+=std::fabs(hi.vK-lo.vK);
+                    for(int j=0;j<5;++j){dfh[j]+=jac*dhi.dvK[j];edfh[j]+=jac*std::fabs(dhi.dvK[j]-hi.dvK[j]);}
+                    success=true;
+                }
+#else
                 auto hi=v_times_K_jac(ap.m,ap.v,ap.dm,ap.dv,R,pf,cp.p,dp.dp,reciprocal);
                 if(hi.ok){auto lo=v_times_K_jac(ap.m,ap.v,ap.dm,ap.dv,R,pf,cp.p,dp.dp,reciprocal,8);
-                    if(lo.ok){fh+=hi.vK;efh+=std::fabs(hi.vK-lo.vK);for(int j=0;j<5;++j){dfh[j]+=jac*hi.dvK[j];edfh[j]+=jac*std::fabs(hi.dvK[j]-lo.dvK[j]);}success=true;}}
+                    if(lo.ok){
+                        fh+=hi.vK;efh+=std::fabs(hi.vK-lo.vK);
+                        for(int j=0;j<5;++j){
+                            dfh[j]+=jac*hi.dvK[j];
+                            edfh[j]+=jac*std::fabs(hi.dvK[j]-lo.dvK[j]);
+                        }
+                        // Deferred gradient mode exposes the incumbent
+                        // 8/16 state so a later same-R angular upgrade can
+                        // reuse the already computed geometry and K-rule
+                        // aggregate.  No extra kernel work is introduced on
+                        // this initial path.
+                        if(angular_deferred_requested && arcs.arcs.size()==1) {
+                            angular_path_used=true;
+                            angular_order=16;
+                            angular_high[0]=hi.vK;
+                            angular_low[0]=lo.vK;
+                            for(int j=0;j<5;++j) {
+                                angular_high[j+1]=jac*hi.dvK[j];
+                                angular_low[j+1]=jac*lo.dvK[j];
+                            }
+                            angular_m=ap.m;angular_v=ap.v;
+                            angular_dm=ap.dm;angular_dv=ap.dv;
+                            angular_pc=cp.p;angular_dpc=dp.dp;
+                            angular_reciprocal=reciprocal;
+                            angular_state_valid=true;
+                            angular_work+=24;
+                        }
+                        success=true;
+                    }}
+#endif
             }else{auto vk=v_times_K(ap.m,ap.v,R,pf,cp.p,reciprocal);if(vk.ok){fh+=vk.vK;efh+=vk.estimated_error;success=true;}}
             if(success)break;
         }
@@ -1100,6 +1652,29 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             if(with_jac)for(int j=0;j<5;++j){dfh[j]+=R*half*dh[j];edfh[j]+=R*half*std::fabs(dh[j]-dd[j]);}
         }
     }
+    if(angular_path_used) {
+        out.angular_result=angular_high;
+        if(angular_error_available) {
+            for(int j=0;j<6;++j)
+                out.angular_error[j]=std::fabs(angular_high[j]-angular_low[j]);
+        } else {
+            out.angular_error.fill(kAdaptiveUnresolvedError);
+        }
+        out.angular_order=angular_order;
+        out.angular_work=angular_work;
+        out.angular_valid=true;
+        out.angular_m=angular_m;out.angular_v=angular_v;
+        out.angular_dm=angular_dm;out.angular_dv=angular_dv;
+        out.angular_pc=angular_pc;out.angular_dpc=angular_dpc;
+        out.angular_reciprocal=angular_reciprocal;
+        out.angular_state_valid=angular_state_valid;
+        out.angular_nested_cache=std::move(angular_nested_cache);
+        out.angular_nested=angular_nested_used;
+        out.angular_error_available=angular_error_available;
+        out.angular_point_evaluations=angular_point_evaluations;
+        out.angular_cached_point_reuses=angular_cached_point_reuses;
+    }
+    out.angular_nested_attempted=nested_angular_attempted;
     out.value[0]=scale*((1-u)*f0+u*fh);
     if(radial_hermite_requested) {
         hermite_jet_out->elapsed_ms=radial_jet_elapsed;
@@ -1122,7 +1697,12 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             }
         }
     }
-    out.inner[0]=std::fabs(scale*u)*efh;
+    if(angular_error_available) {
+        const double inner=std::fabs(scale*u)*efh;
+        out.inner[0]=std::isfinite(inner)?inner:kAdaptiveUnresolvedError;
+    } else {
+        out.inner[0]=kAdaptiveUnresolvedError;
+    }
     out.geometry[0]=std::fabs(scale*(1-u))*ef0+std::fabs(scale*u)*ef0;
     out.roundoff[0]=eps*std::fabs(scale)*(std::fabs((1-u)*f0)+std::fabs(u*fh));
     if(with_jac){
@@ -1131,10 +1711,11 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         auto abs_map=[&](const std::array<double,5>& v){std::array<double,5> e{};
             for(int k=0;k<5;++k){std::array<double,5> unit{};unit[k]=1;auto col=internal_to_user_jac(unit,p);for(int j=0;j<5;++j)e[j]+=std::fabs(col[j])*v[k];}return e;};
         auto e0=abs_map(edf0),eh=abs_map(edfh);
-        for(int j=0;j<5;++j){out.value[j+1]=((1-u)*d0[j]+u*dh[j])/D;out.inner[j+1]=std::fabs(u/D)*eh[j];out.geometry[j+1]=std::fabs((1-u)/D)*e0[j];
+        for(int j=0;j<5;++j){out.value[j+1]=((1-u)*d0[j]+u*dh[j])/D;out.inner[j+1]=angular_error_available?std::fabs(u/D)*eh[j]:kAdaptiveUnresolvedError;out.geometry[j+1]=std::fabs((1-u)/D)*e0[j];
             out.roundoff[j+1]=eps/std::fabs(D)*(std::fabs((1-u)*d0[j])+std::fabs(u*dh[j]));}
         out.value[3]-=2*out.value[0]/p.rho;
-        out.inner[3]+=2*out.inner[0]/p.rho;out.geometry[3]+=2*out.geometry[0]/p.rho;out.roundoff[3]+=2*(out.roundoff[0]+eps*std::fabs(out.value[0]))/p.rho;
+        if(angular_error_available)out.inner[3]+=2*out.inner[0]/p.rho;
+        out.geometry[3]+=2*out.geometry[0]/p.rho;out.roundoff[3]+=2*(out.roundoff[0]+eps*std::fabs(out.value[0]))/p.rho;
     }
     return out;
 }
@@ -1255,9 +1836,15 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
         setup_event_ms+=adaptive_detail::ms(event_call_start);
         return d;};
     auto panel_start=adaptive_detail::Clock::now();
-    for(size_t i=0;i<cells.size();++i){const auto& c=cells[i];if(c.kind==ArcKind::kEmpty)continue;
+    const auto integration_plan=
+        adaptive_detail::make_adaptive_integration_plan(
+            active_topology,cells,cfg.initial_level,cfg.fold_maps);
+    for(size_t i=0;i<integration_plan.spans.size();++i){
+        const auto& span=integration_plan.spans[i];const auto& c=span.cell;
         if(workspace.panels.size()>=cfg.max_panels) return adaptive_detail::failure_result(AdaptiveStop::BudgetExceeded,policy);
-        AdaptivePanel panel;panel.cell=i;panel.map={c.r_lo,c.r_hi,cfg.fold_maps&&physical(c.r_lo),cfg.fold_maps&&physical(c.r_hi)};if(physical(c.r_lo)){auto e=uncertainty(c.r_lo);panel.map.a=e.radius;panel.left_radius_lo=e.radius_lo;panel.left_uncertainty=e.uncertainty;}
+        AdaptivePanel panel;panel.cell=span.first_source_cell;
+        panel.cell_end=span.last_source_cell;panel.evaluator_cell=static_cast<int>(i);
+        panel.map={c.r_lo,c.r_hi,cfg.fold_maps&&physical(c.r_lo),cfg.fold_maps&&physical(c.r_hi)};if(physical(c.r_lo)){auto e=uncertainty(c.r_lo);panel.map.a=e.radius;panel.left_radius_lo=e.radius_lo;panel.left_uncertainty=e.uncertainty;}
         if(physical(c.r_hi)){auto e=uncertainty(c.r_hi);panel.map.b=e.radius;panel.right_radius_lo=e.radius_lo;panel.right_uncertainty=e.uncertainty;}
         // A local correction may not jump across another cell/event.
         if(std::fabs(panel.map.a-c.r_lo)>.25*(c.r_hi-c.r_lo)||std::fabs(panel.map.b-c.r_hi)>.25*(c.r_hi-c.r_lo)||!(panel.map.a<panel.map.b)) return adaptive_detail::failure_result(AdaptiveStop::EventLocationLimited,policy);
@@ -1271,17 +1858,23 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     // entire adaptive physics/estimator phase.
     const double setup_total_ms=adaptive_detail::ms(setup_start);
     auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed,bool force_cold,double radius_lo,int target_level,AdaptiveHermiteJet* hermite_jet){
+        if(i<0||static_cast<std::size_t>(i)>=integration_plan.spans.size()) {
+            AdaptiveSample invalid;invalid.reliable=false;
+            invalid.reject_reason=AdaptiveSampleRejectReason::Nonfinite;
+            return invalid;
+        }
+        const CellPlan& cell=integration_plan.spans[static_cast<std::size_t>(i)].cell;
 #ifdef HOLO_ADAPTIVE_FOLD_QUARTIC_SEED
         // Approximate initialization only. The ordinary quartic warm solve,
         // crossing-count check and physical endpoint gates still decide use.
         // A forced cold retry must not repeat this same speculative seed.
         AdaptiveSample fold_seed;
-        if(!seed && !force_cold && cells[i].kind==ArcKind::kArcs) {
+        if(!seed && !force_cold && cell.kind==ArcKind::kArcs) {
             const RadialEvent* event=nullptr;
             for(const auto& e:active_topology.events) {
                 if(!adaptive_detail::adaptive_physical_fold_event(e) ||
                    e.projective_fold_certified || !e.fold_t_seed_valid)continue;
-                if(e.radius!=cells[i].r_lo && e.radius!=cells[i].r_hi)continue;
+                if(e.radius!=cell.r_lo && e.radius!=cell.r_hi)continue;
                 if(!event || std::fabs(R-e.radius)<std::fabs(R-event->radius))event=&e;
             }
             if(event) {
@@ -1309,12 +1902,12 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
                     for(const auto& z:q.z)finite=finite&&std::isfinite(z.re)&&std::isfinite(z.im);
                     for(int j=0;j<4;++j)for(int k=0;k<j;++k)
                         finite=finite&&(q.z[j].re!=q.z[k].re || q.z[j].im!=q.z[k].im);
-                    if(finite) {q.deg=4;q.n_real=cells[i].n_crossings;q.valid=true;seed=&fold_seed;}
+                    if(finite) {q.deg=4;q.n_real=cell.n_crossings;q.valid=true;seed=&fold_seed;}
                 }
             }
         }
 #endif
-        return adaptive_detail::mapped_radius(R,jac,p,u,pf,cells[i],with_jacobian,
+        return adaptive_detail::mapped_radius(R,jac,p,u,pf,cell,with_jacobian,
                                               force_cold?false:active_topology.from_warm_d14,
                                               force_cold?nullptr:seed,&cfg,radius_lo,
                                               cfg.same_node_hermite_shadow &&
@@ -1327,6 +1920,8 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     result.stats.setup_cuts_ms=setup_cuts_ms;
     result.stats.setup_event_ms=setup_event_ms;
     result.stats.setup_panel_ms=setup_panel_ms;
+    result.stats.integration_spans=integration_plan.spans.size();
+    result.stats.softcut_fold_merges=integration_plan.softcut_fold_merges;
     result.stats.event_double_checks=event_double_checks;
     result.stats.event_dd_checks=event_dd_checks;
     result.stats.event_dd_accepts=event_dd_accepts;

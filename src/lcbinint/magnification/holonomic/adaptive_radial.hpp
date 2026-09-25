@@ -7,10 +7,17 @@
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
+#include <memory>
 #include <type_traits>
+#include <vector>
 
 namespace lcbinint::holonomic {
 using AdaptiveVector = std::array<double,6>;
+// A finite marker for a provisional low-order angular result.  It is larger
+// than any practical ledger budget but remains finite so the sample is not
+// misclassified as a nonfinite numerical failure.  The controller must
+// upgrade such a sample before it can accept the panel.
+inline constexpr double kAdaptiveUnresolvedError=1e100;
 enum class AccuracyAssurance { None, Estimated, Bounded };
 enum class AdaptiveStop { Converged, BudgetExceeded, RoundoffLimited,
     InnerAccuracyLimited, TopologyUnresolved, EventLocationLimited,
@@ -152,6 +159,15 @@ struct AdaptiveConfig {
     bool gradient_local_refinement=false;
     int gradient_split_min_level=4;
     double gradient_difference_safety=2.0;
+    // Lightweight two-dimensional gradient mode.  It keeps the accepted
+    // value snapshot fixed, gives ValueFirst an explicit post-value work
+    // cap, and only selects the angular dimension when its ledger is clearly
+    // larger than the competing radial ledger.  It is opt-in so the
+    // incumbent one-dimensional path keeps its existing behavior.
+    bool gradient_adaptive=false;
+    size_t gradient_adaptive_node_budget=4096;
+    int gradient_adaptive_round_budget=8;
+    double gradient_adaptive_dominance=1.25;
     // HybridEmbedded retains a fixed fraction of the weighted interpolation
     // detail while also using the actual embedded Fejer integral difference.
     // The floor prevents an accidentally cancelling embedded difference from
@@ -160,6 +176,21 @@ struct AdaptiveConfig {
     double nested_difference_safety=2.0;
     double weighted_detail_floor_fraction=0.125;
     bool preserve_radial_offset=false; // explicit atlas experiment only
+    // Research-only two-dimensional controller.  The incumbent V2 angular
+    // gate/fallback is unchanged while this is false.  When enabled, a
+    // radial sample starts with an 8/16 GC2 comparison and can be upgraded
+    // in-place to the next fixed order if the global inner ledger says that
+    // angular error, rather than radial detail, is limiting.
+    bool angular_adaptive=false;
+    int angular_initial_order=16;
+    int angular_max_order=512;
+    // Experimental nested angular ladder.  When enabled, the research
+    // controller uses the same GC2 family at 15->31->63->... orders; each
+    // upgrade reuses the old odd-indexed nodes and their cached value/Jacobian
+    // integrand.  It is deliberately opt-in and does not affect production.
+    bool angular_nested=false;
+    int angular_nested_initial_order=15;
+    int angular_nested_max_order=511;
     GradientPolicy effective_gradient_policy() const {
         // Keep the old bool source-compatible for isolated callers. New code
         // should select the policy explicitly.
@@ -183,7 +214,7 @@ struct AdaptiveEventDiagnostic {
 };
 struct AdaptiveRefinementRecord {
     size_t panel=0,node_evaluations=0;
-    int cell=0,parent=-1,depth=0,level=0;
+    int cell=0,cell_end=0,parent=-1,depth=0,level=0;
     double value_error=std::numeric_limits<double>::infinity();
     std::array<double,5> gradient_error{};
     bool gradient_phase=false,value_resolved=false;
@@ -191,7 +222,7 @@ struct AdaptiveRefinementRecord {
 };
 struct AdaptiveSampleDiagnostic {
     std::size_t panel=0,node_slot=0;
-    int cell=0,level=0;
+    int cell=0,cell_end=0,level=0;
     double R=0;
     AdaptiveSampleRejectReason reason=AdaptiveSampleRejectReason::None;
     bool cold_retry=false,cold_retry_succeeded=false;
@@ -199,6 +230,8 @@ struct AdaptiveSampleDiagnostic {
 struct AdaptiveStats {
     size_t unique_nodes=0,node_evaluations=0,reused_nodes=0,split_discarded_nodes=0,splits=0;
     size_t root_anchors=0,panels=0;
+    // Distinguish evaluator spans from the unchanged source topology cells.
+    size_t integration_spans=0,softcut_fold_merges=0;
     size_t event_double_checks=0,event_dd_checks=0,event_dd_accepts=0,event_qf_refinements=0,qf_family_constructions=0;
     size_t event_topology_reuses=0,event_radius_reuses=0,event_direct_qf_failures=0;
     size_t first_value_pass_nodes=0,first_gradient_error_pass_nodes=0,first_gradient_contract_nodes=0;
@@ -212,6 +245,17 @@ struct AdaptiveStats {
     size_t hermite_jet_attempts=0,hermite_jet_successes=0,
            hermite_shadow_panels=0,hermite_shadow_local_budget_passes=0;
     double hermite_jet_ms=0,hermite_shadow_ms=0;
+    size_t angular_samples=0,angular_upgrades=0,angular_upgrade_failures=0;
+    size_t angular_reused_samples=0;
+    size_t angular_geometry_reuses=0;
+    size_t angular_cached_point_reuses=0;
+    size_t nested_angular_samples=0,nested_angular_upgrades=0,
+           nested_angular_point_evaluations=0,nested_angular_cached_point_reuses=0,
+           nested_angular_weighted_sum_reuses=0,nested_angular_cache_failures=0;
+    size_t angular_selected_samples=0,angular_skipped_samples=0;
+    size_t angular_rule_evaluations=0,angular_point_evaluations=0;
+    std::array<size_t,8> angular_order_histogram{};
+    std::array<size_t,7> nested_angular_order_histogram{};
     std::vector<AdaptiveEventDiagnostic> event_diagnostics;
     std::vector<AdaptiveSampleDiagnostic> sample_diagnostics;
     std::vector<AdaptiveRefinementRecord> refinement_history;
@@ -240,7 +284,7 @@ struct AdaptiveResult {
     AdaptiveStats stats;
 };
 struct AdaptiveSample {
-    double R=0,R_lo=0;
+    double R=0,R_lo=0,jac=0;
     bool precise_R=false;
     AdaptiveVector value{},inner{},geometry{},roundoff{};
     QuarticWarm quartic{};
@@ -248,6 +292,31 @@ struct AdaptiveSample {
     std::array<bool,6> component_finite{{true,true,true,true,true,true}};
     bool reliable=true;
     AdaptiveSampleRejectReason reject_reason=AdaptiveSampleRejectReason::None;
+    // Aggregate angular result before the outer radial normalization:
+    // [0] = vK sum, [1..5] = jac * d(vK)/d(internal parameter).  Keeping the
+    // previous aggregate lets an angular upgrade compare against it without
+    // re-running the lower-order rule.  The incumbent GC2 ladder is
+    // non-nested; the optional nested ladder stores its point cache below.
+    std::array<double,6> angular_result{};
+    std::array<double,6> angular_error{};
+    bool angular_error_available=true;
+    int angular_order=0;
+    size_t angular_work=0;
+    bool angular_valid=false;
+    // The radial geometry needed by an angular upgrade is immutable at the
+    // same R.  Keep the pair/derivative state with the sample so the upgrade
+    // can evaluate only the new angular rule; it must not redo endpoint
+    // polishing or root-pair continuation.
+    double angular_m=0,angular_v=0;
+    std::array<double,5> angular_dm{},angular_dv{};
+    std::array<double,5> angular_pc{};
+    std::array<std::array<double,5>,5> angular_dpc{};
+    bool angular_reciprocal=false,angular_state_valid=false;
+    bool angular_state_reused=false;
+    std::shared_ptr<NestedAngularCache> angular_nested_cache;
+    bool angular_nested=false;
+    size_t angular_point_evaluations=0,angular_cached_point_reuses=0;
+    bool angular_nested_attempted=false;
 };
 // Optional research diagnostics live in workspace sidecars so the default
 // production sample/panel storage does not grow when the feature is disabled.
@@ -262,7 +331,10 @@ struct AdaptiveHermitePanel {
 struct AdaptivePanel {
     FoldRadialMap map;
     double xl=-1,xr=1;
-    int cell=0,level=0,depth=0,parent=-1;
+    // `cell..cell_end` identifies the source topology-cell span represented
+    // by this panel. `evaluator_cell` is an optional callback index used when
+    // one integration span covers more than one unchanged topology cell.
+    int cell=0,cell_end=0,evaluator_cell=-1,level=0,depth=0,parent=-1;
     bool active=true,resolved=false,value_resolved=false;
     std::array<bool,5> gradient_resolved{};
     std::array<bool,5> gradient_invalid{};
@@ -290,6 +362,25 @@ namespace adaptive_detail {
 using Clock=std::chrono::steady_clock;
 inline double ms(Clock::time_point a) { return std::chrono::duration<double,std::milli>(Clock::now()-a).count(); }
 inline constexpr double eps=std::numeric_limits<double>::epsilon();
+inline bool valid_angular_order(int n) {
+    return n==16||n==24||n==32||n==64||n==128||n==256||n==512;
+}
+inline int next_angular_order(int n) {
+    if(n<16)return 16;
+    if(n<24)return 24;
+    if(n<32)return 32;
+    if(n<64)return 64;
+    if(n<128)return 128;
+    if(n<256)return 256;
+    if(n<512)return 512;
+    return 512;
+}
+inline bool valid_nested_angular_order(int n) {
+    return nested_angular_order_valid(n);
+}
+inline int next_nested_angular_order(int n) {
+    return nested_angular_next_order(n);
+}
 // Compensated summation for global and per-panel observables, including rho
 // cancellation. The quadrature estimator is a contraction MODEL, not a bound.
 struct Sum {
@@ -308,11 +399,22 @@ inline bool valid_config(const AdaptiveConfig& c) {
        c.value_first_gradient_round_budget<0) return false;
     if(c.gradient_split_min_level<3 || c.gradient_split_min_level>8 ||
        !std::isfinite(c.gradient_difference_safety) || c.gradient_difference_safety<1) return false;
+    if(!std::isfinite(c.gradient_adaptive_dominance) ||
+       c.gradient_adaptive_dominance<1.0 || c.gradient_adaptive_round_budget<0)
+        return false;
     if(!std::isfinite(c.nested_difference_safety)||c.nested_difference_safety<1.0)
         return false;
     if(!std::isfinite(c.weighted_detail_floor_fraction)||
        c.weighted_detail_floor_fraction<0.0||c.weighted_detail_floor_fraction>1.0)
         return false;
+    if((c.angular_adaptive || c.gradient_adaptive) &&
+       (!valid_angular_order(c.angular_initial_order) ||
+        !valid_angular_order(c.angular_max_order) ||
+        c.angular_max_order<c.angular_initial_order))return false;
+    if((c.angular_adaptive || c.gradient_adaptive) && c.angular_nested &&
+       (!valid_nested_angular_order(c.angular_nested_initial_order) ||
+        !valid_nested_angular_order(c.angular_nested_max_order) ||
+        c.angular_nested_max_order<c.angular_nested_initial_order))return false;
     return true;
 }
 inline GradientReason gradient_reason(AdaptiveStop s) {
@@ -506,8 +608,11 @@ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int nc,
 inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int nc) {
     estimate(p,w,nc,AdaptiveConfig{});
 }
-// Callback evaluates a NEW mapped node. Existing sample values never change.
-// sample snapshots remain available after a split as same-cell root anchors.
+// A normal callback call evaluates a NEW radial node. Existing radial samples
+// are never recomputed by radial refinement.  The angular research controller
+// may explicitly replace only the angular fields of an existing sample at the
+// same R/jacobian; its radial geometry and cache identity remain unchanged.
+// Sample snapshots remain available after a split as same-cell root anchors.
 template<class Evaluate>
 AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate eval) {
     AdaptiveResult out;
@@ -528,6 +633,15 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
     bool gradient_phase=false,invalid=false;
     size_t gradient_start_nodes=0;
     int gradient_rounds=0;
+    const bool selective_gradient=cfg.gradient_adaptive && gradients;
+    const size_t selective_gradient_node_budget=selective_gradient
+        ? std::min(cfg.value_first_gradient_node_budget,
+                   cfg.gradient_adaptive_node_budget)
+        : cfg.value_first_gradient_node_budget;
+    const int selective_gradient_round_budget=selective_gradient
+        ? std::min(cfg.value_first_gradient_round_budget,
+                   cfg.gradient_adaptive_round_budget)
+        : cfg.value_first_gradient_round_budget;
     std::array<bool,5> last_gradient_pass{};
     std::array<bool,5> gradient_invalid_seen{};
     struct ValueSnapshot {
@@ -575,6 +689,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             return eval(R,jac,cell,seed);
     };
     auto record_sample_reject=[&](std::size_t panel,std::size_t slot,int cell,
+                                  int cell_end,
                                   int level,double R,
                                   const AdaptiveSample& sample,bool cold_retry,
                                   bool cold_retry_succeeded) {
@@ -587,8 +702,39 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         }
         if(cfg.collect_diagnostics) {
             stats.sample_diagnostics.push_back(AdaptiveSampleDiagnostic{
-                panel,slot,cell,level,R,reason,cold_retry,cold_retry_succeeded});
+                panel,slot,cell,cell_end,level,R,reason,cold_retry,cold_retry_succeeded});
         }
+    };
+    auto record_angular=[&](const AdaptiveSample& sample,bool upgrade) {
+        if(sample.angular_nested_attempted && !sample.angular_nested)
+            ++stats.nested_angular_cache_failures;
+        if(!sample.angular_valid || sample.angular_order<=0)return;
+        ++stats.angular_samples;
+        if(upgrade) {
+            ++stats.angular_upgrades;
+            ++stats.angular_reused_samples;
+            if(sample.angular_state_reused)++stats.angular_geometry_reuses;
+        }
+        ++stats.angular_rule_evaluations;
+        stats.angular_point_evaluations+=sample.angular_point_evaluations>0
+            ? sample.angular_point_evaluations : sample.angular_work;
+        stats.angular_cached_point_reuses+=sample.angular_cached_point_reuses;
+        if(sample.angular_nested) {
+            ++stats.nested_angular_samples;
+            if(upgrade)++stats.nested_angular_upgrades;
+            stats.nested_angular_point_evaluations+=sample.angular_point_evaluations;
+            stats.nested_angular_cached_point_reuses+=sample.angular_cached_point_reuses;
+            if(upgrade && sample.angular_cached_point_reuses>0)
+                ++stats.nested_angular_weighted_sum_reuses;
+            const int orders[]={7,15,31,63,127,255,511};
+            for(std::size_t i=0;i<sizeof(orders)/sizeof(orders[0]);++i)
+                if(sample.angular_order==orders[i]) {
+                    ++stats.nested_angular_order_histogram[i];break;
+                }
+        }
+        const int orders[]={16,24,32,64,128,256,512};
+        for(std::size_t i=0;i<sizeof(orders)/sizeof(orders[0]);++i)
+            if(sample.angular_order==orders[i]) {++stats.angular_order_histogram[i];break;}
     };
     auto refine=[&](size_t ip,int level)->AdaptiveStop {
         auto& p=w.panels[ip];const int m=1<<level,step=256/m;
@@ -600,8 +746,8 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         if(stats.node_evaluations+needed>cfg.max_node_evals || projected>cfg.max_bytes)
             return AdaptiveStop::BudgetExceeded;
         if(gradient_phase && policy==GradientPolicy::ValueFirst &&
-           (stats.node_evaluations-gradient_start_nodes+needed>cfg.value_first_gradient_node_budget ||
-            gradient_rounds>=cfg.value_first_gradient_round_budget))
+           (stats.node_evaluations-gradient_start_nodes+needed>selective_gradient_node_budget ||
+            gradient_rounds>=selective_gradient_round_budget))
             return AdaptiveStop::BudgetExceeded;
         const size_t growth=(target>w.samples.capacity()?(target-w.samples.capacity())*sizeof(AdaptiveSample):0)+
             (cfg.same_node_hermite_shadow && target>w.hermite_jets.capacity()
@@ -698,10 +844,12 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
 #endif
             auto start=Clock::now();
             AdaptiveHermiteJet sample_jet{};
-            AdaptiveSample s=invoke_eval(mapped[0],mapped[1],p.cell,anchor,false,radius_lo,level,
+            const int evaluator_cell=p.evaluator_cell>=0?p.evaluator_cell:p.cell;
+            AdaptiveSample s=invoke_eval(mapped[0],mapped[1],evaluator_cell,anchor,false,radius_lo,level,
                 cfg.same_node_hermite_shadow?&sample_jet:nullptr);
             stats.physical_ms+=ms(start); if(anchor)++stats.root_anchors;
             ++stats.node_evaluations;
+            record_angular(s,false);
             const AdaptiveSampleRejectReason initial_reason=s.reject_reason;
             bool cold_retry_succeeded=false;
             // A warm continuation is an optimization layer.  If it reports a
@@ -714,10 +862,11 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 ++stats.sample_cold_retries;
                 auto cold_start=Clock::now();
                 AdaptiveHermiteJet cold_jet{};
-                AdaptiveSample cold=invoke_eval(mapped[0],mapped[1],p.cell,nullptr,true,radius_lo,level,
+                AdaptiveSample cold=invoke_eval(mapped[0],mapped[1],evaluator_cell,nullptr,true,radius_lo,level,
                     cfg.same_node_hermite_shadow?&cold_jet:nullptr);
                 stats.physical_ms+=ms(cold_start);
                 ++stats.node_evaluations;
+                record_angular(cold,false);
                 cold.R=mapped[0];cold.R_lo=radius_lo;cold.precise_R=cfg.preserve_radial_offset;
                 cold_retry_succeeded=cold.reliable;
                 if(cold_retry_succeeded)++stats.sample_cold_retry_successes;
@@ -725,12 +874,12 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 sample_jet=cold_jet;
                 AdaptiveSample initial_failed;
                 initial_failed.reject_reason=initial_reason;
-                record_sample_reject(ip,slot,p.cell,level,mapped[0],
+                record_sample_reject(ip,slot,p.cell,p.cell_end,level,mapped[0],
                                      initial_failed,false,cold_retry_succeeded);
-                if(!s.reliable)record_sample_reject(ip,slot,p.cell,level,
+                if(!s.reliable)record_sample_reject(ip,slot,p.cell,p.cell_end,level,
                                                     mapped[0],s,true,false);
             } else if(!s.reliable) {
-                record_sample_reject(ip,slot,p.cell,level,mapped[0],s,false,false);
+                record_sample_reject(ip,slot,p.cell,p.cell_end,level,mapped[0],s,false,false);
             }
             if(cfg.same_node_hermite_shadow && policy==GradientPolicy::None) {
                 double mapped_jet_ms=0;
@@ -800,7 +949,8 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         if(cfg.collect_diagnostics) {
             AdaptiveRefinementRecord record;
             record.panel=ip;record.node_evaluations=stats.node_evaluations;
-            record.cell=p.cell;record.parent=p.parent;record.depth=p.depth;record.level=p.level;
+            record.cell=p.cell;record.cell_end=p.cell_end;record.parent=p.parent;
+            record.depth=p.depth;record.level=p.level;
             record.value_error=p.error[0];record.gradient_phase=gradient_phase;
             record.value_resolved=p.value_resolved;record.gradient_resolved=p.gradient_resolved;
             for(int j=0;j<5;++j)record.gradient_error[j]=nc>j+1?p.error[j+1]:0;
@@ -871,8 +1021,8 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
             break;
         }
         if(value_snapshot.valid && policy==GradientPolicy::ValueFirst &&
-           (gradient_pass || stats.node_evaluations-gradient_start_nodes>=cfg.value_first_gradient_node_budget ||
-            gradient_rounds>=cfg.value_first_gradient_round_budget)){
+           (gradient_pass || stats.node_evaluations-gradient_start_nodes>=selective_gradient_node_budget ||
+            gradient_rounds>=selective_gradient_round_budget)){
             failure=gradient_pass?AdaptiveStop::Converged:AdaptiveStop::BudgetExceeded;
             break;
         }
@@ -882,21 +1032,220 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 score=p.error[0]/cfg.tol.budget(0,out.mu);
                 if(!p.value_resolved)score=std::max(score,1.0);
             } else {
+#if defined(HOLO_ADAPTIVE_DIAG_RADIAL_ONLY_AFTER_INNER)
+                // Diagnostic counterfactual only: continue refining the
+                // radial part after the normal inner-error stop and schedule
+                // from radial error alone.  The returned ledger/status is
+                // unchanged and this macro is never enabled in production.
+                for(int j=1;j<nc;++j)
+                    score=std::max(score,p.radial[j]/cfg.tol.budget(j,out.grad_mu[j-1]));
+#else
                 for(int j=1;j<nc;++j){
                     score=std::max(score,p.error[j]/cfg.tol.budget(j,out.grad_mu[j-1]));
                     if(!p.gradient_resolved[j-1])score=std::max(score,1.0);
                 }
+#endif
             }
             if(score>priority){priority=score;worst=i;}}
         auto& p=w.panels[worst];
         const int first_component=(!value_snapshot.valid)?0:1;
-        bool inner_dominant=false,geometry_dominant=false,event_dominant=false;
+        bool inner_dominant=false,angular_global_dominant=false,
+             geometry_dominant=false,event_dominant=false;
         for(int j=first_component;j<nc;++j){double T=cfg.tol.budget(j,j?out.grad_mu[j-1]:out.mu);
-            inner_dominant=inner_dominant||(out.inner_error[j]>T && p.inner[j]>p.radial[j]);
+            const double total_error=j?out.estimated_abs_error_grad[j-1]
+                                      :out.estimated_abs_error_mu;
+            const double non_inner=std::max(0.0,total_error-out.inner_error[j]);
+            // In the opt-in lightweight mode, do not pay for a dimension
+            // switch when the two ledgers are effectively tied.  The
+            // controller will revisit the same panel after radial work has
+            // changed the balance.  This avoids spending angular upgrades on
+            // ordinary panels while preserving the conservative incumbent
+            // decision when the mode is disabled.
+            const double dimension_margin=(gradient_phase && selective_gradient)
+                ? cfg.gradient_adaptive_dominance : 1.0;
+            // An inner estimate may be below the full tolerance and still
+            // consume almost all of it.  In that situation radial splitting
+            // cannot make the total error pass; choose the dimension whose
+            // current ledger is actually dominant.  This flag is used only
+            // by the experimental two-dimensional controller.
+            angular_global_dominant=angular_global_dominant||
+                (total_error>T && (out.inner_error[j]>dimension_margin*non_inner ||
+                                   p.inner[j]>dimension_margin*p.radial[j]));
+            inner_dominant=inner_dominant||(out.inner_error[j]>T &&
+                                           p.inner[j]>dimension_margin*p.radial[j]);
             geometry_dominant=geometry_dominant||(out.geometry_error[j]+out.roundoff_error[j]>T && p.geometry[j]+p.roundoff[j]>p.radial[j]);
             event_dominant=event_dominant||(out.event_error[j]>T && p.event[j]>p.radial[j]);}
-        if(event_dominant){failure=AdaptiveStop::EventLocationLimited;break;}
+#if !defined(HOLO_ADAPTIVE_DIAG_RADIAL_ONLY_AFTER_INNER)
+        if(angular_global_dominant &&
+           (cfg.angular_adaptive || cfg.gradient_adaptive)) {
+            auto upgrade_panel=[&](std::size_t panel_index) {
+                auto& panel=w.panels[panel_index];
+                const int m=1<<panel.level;
+                bool changed=false,attempted=false;
+                struct AngularCandidate {
+                    int id=-1;
+                    std::array<double,6> contribution{};
+                    double priority=0;
+                };
+                std::vector<AngularCandidate> candidates;
+                candidates.reserve(static_cast<std::size_t>(m-1));
+                const auto& radial_rule=fejer_rule(panel.level);
+                std::array<double,6> allowed{};
+                std::array<bool,6> component_limited{};
+                for(int j=first_component;j<nc;++j) {
+                    const double target=cfg.tol.budget(j,
+                        j?out.grad_mu[j-1]:out.mu);
+                    const double total_error=j?out.estimated_abs_error_grad[j-1]
+                                              :out.estimated_abs_error_mu;
+                    const double non_inner=std::max(0.0,
+                        total_error-out.inner_error[j]);
+                    if(total_error>target &&
+                       (out.inner_error[j]>non_inner ||
+                        panel.inner[j]>panel.radial[j])) {
+                        component_limited[j]=true;
+                        // Other panels and the non-inner ledgers already
+                        // consume this part of the global budget.  The local
+                        // pass therefore uses the remaining *total* error
+                        // allowance, not merely the remaining inner budget.
+                        // This also catches the case where inner is below its
+                        // standalone tolerance but leaves no room for radial
+                        // error.
+                        allowed[j]=std::max(0.0,target-
+                            (total_error-panel.inner[j]));
+                    }
+                }
+                for(int k=1;k<m;++k) {
+                    const int id=panel.samples[k*(256/m)];
+                    if(id<0)continue;
+                    const AdaptiveSample& sample=w.samples[static_cast<std::size_t>(id)];
+                    if(!sample.angular_valid ||
+                       sample.angular_order>=cfg.angular_max_order) {
+                        ++stats.angular_skipped_samples;
+                        continue;
+                    }
+                    AngularCandidate candidate;
+                    candidate.id=id;
+                    const double weight=radial_rule.w[k-1];
+                    for(int j=first_component;j<nc;++j)
+                        if(component_limited[j])
+                            candidate.contribution[j]=weight*sample.inner[j];
+                    for(int j=first_component;j<nc;++j)
+                        candidate.priority=std::max(candidate.priority,
+                                                    candidate.contribution[j]);
+                    if(candidate.priority>0.0)candidates.push_back(candidate);
+                    else ++stats.angular_skipped_samples;
+                }
+                std::sort(candidates.begin(),candidates.end(),
+                          [](const AngularCandidate& a,const AngularCandidate& b) {
+                              return a.priority>b.priority;
+                          });
+                std::array<double,6> remaining{};
+                for(int j=first_component;j<nc;++j)
+                    if(component_limited[j])remaining[j]=panel.inner[j];
+                std::vector<AngularCandidate> selected;
+                selected.reserve(candidates.size());
+                for(const auto& candidate:candidates) {
+                    bool needed=false;
+                    for(int j=first_component;j<nc;++j)
+                        if(component_limited[j] && remaining[j]>allowed[j])
+                            needed=true;
+                    if(!needed)break;
+                    selected.push_back(candidate);
+                    for(int j=first_component;j<nc;++j)
+                        remaining[j]=std::max(0.0,
+                            remaining[j]-candidate.contribution[j]);
+                }
+                // If the current local allowance is already met by samples
+                // that cannot be upgraded, there is no useful angular work
+                // in this panel.  If the panel has an unresolved component
+                // but every candidate contribution was numerically zero,
+                // leave the conservative inner ledger untouched and let the
+                // normal fail-closed stop decide.
+                for(const auto& candidate:selected) {
+                    const int id=candidate.id;
+                    // Upgrades are physical callback evaluations too.  Keep
+                    // the same hard resource and ValueFirst budgets as radial
+                    // refinement; an angular pass must never escape the
+                    // configured finite-work contract.
+                    if(stats.node_evaluations>=cfg.max_node_evals)break;
+                    if(gradient_phase && policy==GradientPolicy::ValueFirst &&
+                       (stats.node_evaluations-gradient_start_nodes>=
+                            selective_gradient_node_budget ||
+                        gradient_rounds>=selective_gradient_round_budget))
+                        break;
+                    const AdaptiveSample previous=w.samples[static_cast<std::size_t>(id)];
+                    if(!previous.angular_valid ||
+                       previous.angular_order>=cfg.angular_max_order)continue;
+                    attempted=true;
+                    ++stats.angular_selected_samples;
+                    const int cell=panel.evaluator_cell>=0
+                        ? panel.evaluator_cell : panel.cell;
+                    auto start=Clock::now();
+                    AdaptiveSample upgraded=invoke_eval(
+                        previous.R,previous.jac,cell,&previous,false,
+                        previous.R_lo,panel.level,nullptr);
+                    stats.physical_ms+=ms(start);
+                    ++stats.node_evaluations;
+                    if(!upgraded.reliable || !upgraded.angular_valid ||
+                       upgraded.angular_order<=previous.angular_order) {
+                        ++stats.angular_upgrade_failures;
+                        continue;
+                    }
+                    record_angular(upgraded,true);
+                    upgraded.R=previous.R;upgraded.R_lo=previous.R_lo;
+                    upgraded.jac=previous.jac;
+                    w.samples[static_cast<std::size_t>(id)]=std::move(upgraded);
+                    changed=true;
+                }
+                if(changed) {
+                    auto estimate_start=Clock::now();
+                    estimate(panel,w,nc,cfg,panel_index);
+                    stats.estimator_ms+=ms(estimate_start);
+                }
+                return attempted&&changed;
+            };
+            // The dimension decision is global.  If the angular ledger is
+            // over budget, choose panels by their angular contribution even
+            // when the radial interpolation detail of another panel is
+            // larger.  Otherwise radial refinement can keep adding fresh
+            // order-16 samples while the unresolved angular error never
+            // changes.
+                std::vector<std::pair<double,std::size_t>> angular_panels;
+            for(std::size_t i=0;i<w.panels.size();++i)if(w.panels[i].active) {
+                double score=0;
+                for(int j=first_component;j<nc;++j) {
+                    const double target=cfg.tol.budget(
+                        j,j?out.grad_mu[j-1]:out.mu);
+                    const double total_error=j?out.estimated_abs_error_grad[j-1]
+                                              :out.estimated_abs_error_mu;
+                    const double non_inner=std::max(0.0,
+                        total_error-out.inner_error[j]);
+                    if(total_error>target &&
+                       (out.inner_error[j]>non_inner ||
+                        w.panels[i].inner[j]>w.panels[i].radial[j]))
+                        score=std::max(score,w.panels[i].inner[j]);
+                }
+                if(score>0)angular_panels.emplace_back(score,i);
+            }
+            std::sort(angular_panels.rbegin(),angular_panels.rend());
+            bool angular_changed=false;
+            for(const auto& candidate:angular_panels)
+                if(upgrade_panel(candidate.second)) {
+                    angular_changed=true;
+                    break;
+                }
+            if(angular_changed)continue;
+            // No finite angular candidate is left (all are at the maximum
+            // order, unavailable, or rejected).  Preserve the existing
+            // fail-closed contract instead of pretending radial work can
+            // repair an inner quadrature error.
+            if(event_dominant){failure=AdaptiveStop::EventLocationLimited;break;}
+            failure=AdaptiveStop::InnerAccuracyLimited;
+            break;
+        }
         if(inner_dominant){failure=AdaptiveStop::InnerAccuracyLimited;break;}
+#endif
+        if(event_dominant){failure=AdaptiveStop::EventLocationLimited;break;}
         if(geometry_dominant){failure=AdaptiveStop::RoundoffLimited;break;}
         bool split_gradient=false;
         if(gradient_phase && cfg.gradient_local_refinement &&
@@ -910,7 +1259,10 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         const size_t split_growth=2*sizeof(AdaptivePanel)+
             (cfg.same_node_hermite_shadow?2*sizeof(AdaptiveHermitePanel):0);
         if(allocated_bytes()+split_growth>cfg.max_bytes){failure=AdaptiveStop::BudgetExceeded;break;}
-        AdaptivePanel l,r;l.parent=r.parent=int(worst);l.map=r.map=p.map;l.cell=r.cell=p.cell;l.depth=r.depth=p.depth+1;
+        AdaptivePanel l,r;l.parent=r.parent=int(worst);l.map=r.map=p.map;
+        l.cell=r.cell=p.cell;l.cell_end=r.cell_end=p.cell_end;
+        l.evaluator_cell=r.evaluator_cell=p.evaluator_cell;
+        l.depth=r.depth=p.depth+1;
         l.left_uncertainty=p.left_uncertainty;r.right_uncertainty=p.right_uncertainty;
         l.left_radius_lo=p.left_radius_lo;r.right_radius_lo=p.right_radius_lo;
         l.xl=p.xl;l.xr=r.xl=0.5*(p.xl+p.xr);r.xr=p.xr;

@@ -150,6 +150,212 @@ int main(){
         check(ar.stats.first_gradient_contract_nodes==7,
               "gradient convergence records first successful mesh");
     }
+    // Research-only two-dimensional controller: force the angular ledger to
+    // dominate a constant radial integrand.  The callback marks an exact
+    // same-R call as an angular upgrade; radial refinement must not add a new
+    // unique node, and the second pass must be able to finish the value.
+    {
+        AdaptiveWorkspace aw;AdaptivePanel ap;ap.map={0,1,false,false};aw.panels.push_back(ap);
+        AdaptiveConfig ac;ac.angular_adaptive=true;ac.max_level=3;
+        ac.angular_initial_order=16;ac.angular_max_order=24;
+        ac.tol.mu_atol=1e-12;ac.tol.mu_rtol=1e-12;
+        auto ar=adaptive_detail::integrate(aw,ac,
+            [](double R,double J,int,const AdaptiveSample* seed) {
+                AdaptiveSample s;s.value[0]=J;s.R=R;s.jac=J;
+                const bool upgrade=seed&&seed->R==R&&seed->jac==J;
+                s.angular_valid=true;s.angular_order=upgrade?24:16;
+                s.angular_work=upgrade?24:24;
+                s.angular_result[0]=1.0;
+                s.angular_error[0]=upgrade?0.0:1e-3;
+                s.inner[0]=upgrade?0.0:1e-3;
+                return s;
+            });
+        check(ar.value_converged&&ar.stop==AdaptiveStop::Converged,
+              "angular ledger upgrade resolves value without radial split");
+        check(ar.stats.unique_nodes==7&&ar.stats.angular_upgrades>0&&
+              ar.stats.node_evaluations==ar.stats.unique_nodes+
+                                  ar.stats.angular_upgrades,
+              "angular upgrade reuses radial node identities");
+        check(ar.stats.angular_reused_samples==ar.stats.angular_upgrades&&
+              ar.stats.angular_upgrade_failures==0,
+              "angular upgrade accounting is explicit");
+    }
+    // The production adapter stores the one-arc pair/derivative state on the
+    // sample.  A later angular rule at the exact same R must consume that
+    // state directly and must not fall back to endpoint/root reconstruction.
+    {
+        LensParams lp{.2,1.0/7.0,1.0/8.0,.5,1.2,false};
+        const auto pf=PrimaryFrame::from(lp);
+        const auto topo=classify_cells(pf);
+        AdaptiveConfig ac;ac.angular_adaptive=true;
+        ac.angular_initial_order=16;ac.angular_max_order=24;
+        bool exercised=false;
+        for(const auto& cell:topo.cells) {
+            if(cell.kind!=ArcKind::kArcs||cell.n_crossings!=2)continue;
+            const double R=cell.r_mid,jac=1.0;
+            auto first=adaptive_detail::mapped_radius(
+                R,jac,lp,.5,pf,cell,false,false,nullptr,&ac);
+            if(!first.reliable||!first.angular_state_valid)continue;
+            first.R=R;first.jac=jac;
+            const auto upgraded=adaptive_detail::mapped_radius(
+                R,jac,lp,.5,pf,cell,false,false,&first,&ac);
+            exercised=true;
+            check(upgraded.reliable&&upgraded.angular_order==24&&
+                  upgraded.angular_state_reused,
+                  "same-R angular upgrade reuses stored geometry state");
+            check(std::isfinite(upgraded.value[0])&&
+                  std::fabs(upgraded.value[0]-first.value[0])<1e-10,
+                  "same-R angular upgrade keeps the primal value stable");
+            AdaptiveConfig ajc=ac;ajc.with_jacobian=true;
+            auto first_j=adaptive_detail::mapped_radius(
+                R,jac,lp,.5,pf,cell,true,false,nullptr,&ajc);
+            if(first_j.reliable&&first_j.angular_state_valid) {
+                first_j.R=R;first_j.jac=jac;
+                const auto upgraded_j=adaptive_detail::mapped_radius(
+                    R,jac,lp,.5,pf,cell,true,false,&first_j,&ajc);
+                bool finite=true;
+                for(int j=0;j<6;++j)finite=finite&&
+                    std::isfinite(upgraded_j.value[j]);
+                check(upgraded_j.reliable&&upgraded_j.angular_order==24&&
+                      upgraded_j.angular_state_reused&&finite,
+                      "same-R analytic-gradient upgrade reuses geometry state");
+            } else check(false,"gradient state reuse fixture is available");
+            break;
+        }
+        check(exercised,"same-R angular state reuse fixture exercised");
+    }
+    // The nested angular ladder keeps the same GC2 family while embedding
+    // order 7 in 15 and order 15 in 31.  Check the exact node identity and
+    // verify that an upgrade evaluates only the newly introduced points,
+    // while matching a fresh order-31 evaluation for value and Jacobian.
+    {
+        const auto& r7=gc2_rule_fixed<7>();
+        const auto& r15=gc2_rule_fixed<15>();
+        for(int i=0;i<7;++i)
+            check(r7.x[i]==r15.x[2*i+1],"nested GC2 node identity 7->15");
+        const auto& r31=gc2_rule_fixed<31>();
+        for(int i=0;i<15;++i)
+            check(r15.x[i]==r31.x[2*i+1],"nested GC2 node identity 15->31");
+        LensParams lp{.2,1.0/7.0,1.0/8.0,.5,1.2,false};
+        const auto pf=PrimaryFrame::from(lp);
+        const auto topo=classify_cells(pf);
+        AdaptiveConfig ac;ac.angular_adaptive=true;ac.angular_nested=true;
+        ac.angular_nested_initial_order=15;ac.angular_nested_max_order=31;
+        bool exercised=false;
+        for(const auto& cell:topo.cells) {
+            if(cell.kind!=ArcKind::kArcs||cell.n_crossings!=2)continue;
+            const double R=cell.r_mid,jac=1.0;
+            auto first=adaptive_detail::mapped_radius(
+                R,jac,lp,.5,pf,cell,false,false,nullptr,&ac);
+            if(!first.reliable||!first.angular_nested||
+               !first.angular_nested_cache)continue;
+            first.R=R;first.jac=jac;
+            check(first.angular_order==15&&first.angular_point_evaluations==15&&
+                  first.angular_cached_point_reuses==0,
+                  "nested GC2 initial point count");
+            const auto upgraded=adaptive_detail::mapped_radius(
+                R,jac,lp,.5,pf,cell,false,false,&first,&ac);
+            exercised=true;
+            check(upgraded.reliable&&upgraded.angular_nested&&
+                  upgraded.angular_order==31&&
+                  upgraded.angular_point_evaluations==16&&
+                  upgraded.angular_cached_point_reuses==15,
+                  "nested GC2 upgrade evaluates only new points");
+            const auto direct=v_times_K_order_fixed<31>(
+                first.angular_m,first.angular_v,R,pf,first.angular_pc,
+                first.angular_reciprocal);
+            check(direct.ok&&std::fabs(upgraded.angular_result[0]-direct.vK)<2e-13,
+                  "nested GC2 value matches fresh order-31 rule");
+
+            AdaptiveConfig ajc=ac;ajc.with_jacobian=true;
+            auto first_j=adaptive_detail::mapped_radius(
+                R,jac,lp,.5,pf,cell,true,false,nullptr,&ajc);
+            if(first_j.reliable&&first_j.angular_nested&&
+               first_j.angular_nested_cache) {
+                first_j.R=R;first_j.jac=jac;
+                auto upgraded_j=adaptive_detail::mapped_radius(
+                    R,jac,lp,.5,pf,cell,true,false,&first_j,&ajc);
+                check(upgraded_j.reliable&&upgraded_j.angular_nested&&
+                      upgraded_j.angular_point_evaluations==16&&
+                      upgraded_j.angular_cached_point_reuses==15,
+                      "nested GC2 analytic-Jac upgrade reuses points");
+                const auto direct_j=v_times_K_jac_order_fixed<31>(
+                    first_j.angular_m,first_j.angular_v,first_j.angular_dm,
+                    first_j.angular_dv,R,pf,first_j.angular_pc,
+                    first_j.angular_dpc,first_j.angular_reciprocal);
+                bool parity=direct_j.ok&&upgraded_j.reliable;
+                for(int j=0;j<5;++j)
+                    parity=parity&&std::fabs(upgraded_j.angular_result[j+1]-
+                                             jac*direct_j.dvK[j])<2e-11;
+                check(parity,"nested GC2 analytic-Jac matches fresh rule");
+            } else check(false,"nested GC2 gradient fixture is available");
+            break;
+        }
+        check(exercised,"nested GC2 same-R fixture exercised");
+
+        // A seven-point start is provisional: it must carry a finite value
+        // but no fabricated error estimate, so the controller is forced to
+        // perform the 7 -> 15 upgrade.  The first upgrade evaluates only the
+        // eight new points.
+        AdaptiveConfig ac7=ac;
+        ac7.angular_nested_initial_order=7;
+        bool exercised7=false;
+        for(const auto& cell:topo.cells) {
+            if(cell.kind!=ArcKind::kArcs||cell.n_crossings!=2)continue;
+            const double R=cell.r_mid,jac=1.0;
+            auto first7=adaptive_detail::mapped_radius(
+                R,jac,lp,.5,pf,cell,false,false,nullptr,&ac7);
+            if(!first7.reliable||!first7.angular_nested||
+               !first7.angular_nested_cache)continue;
+            exercised7=true;
+            first7.R=R;first7.jac=jac;
+            check(first7.angular_order==7&&
+                  first7.angular_point_evaluations==7&&
+                  first7.angular_cached_point_reuses==0&&
+                  first7.angular_error[0]==kAdaptiveUnresolvedError,
+                  "nested GC2 seven-point start is provisional");
+            const auto upgraded15=adaptive_detail::mapped_radius(
+                R,jac,lp,.5,pf,cell,false,false,&first7,&ac7);
+            check(upgraded15.reliable&&upgraded15.angular_nested&&
+                  upgraded15.angular_order==15&&
+                  upgraded15.angular_point_evaluations==8&&
+                  upgraded15.angular_cached_point_reuses==7,
+                  "nested GC2 7-to-15 upgrade evaluates only eight points");
+            const auto direct15=v_times_K_order_fixed<15>(
+                first7.angular_m,first7.angular_v,R,pf,first7.angular_pc,
+                first7.angular_reciprocal);
+            check(direct15.ok&&
+                  std::fabs(upgraded15.angular_result[0]-direct15.vK)<2e-13,
+                  "nested GC2 7-to-15 value matches fresh rule");
+
+            AdaptiveConfig ac7j=ac7;ac7j.with_jacobian=true;
+            auto first7j=adaptive_detail::mapped_radius(
+                R,jac,lp,.5,pf,cell,true,false,nullptr,&ac7j);
+            if(first7j.reliable&&first7j.angular_nested&&
+               first7j.angular_nested_cache) {
+                first7j.R=R;first7j.jac=jac;
+                const auto upgraded15j=adaptive_detail::mapped_radius(
+                    R,jac,lp,.5,pf,cell,true,false,&first7j,&ac7j);
+                check(upgraded15j.reliable&&upgraded15j.angular_nested&&
+                      upgraded15j.angular_order==15&&
+                      upgraded15j.angular_point_evaluations==8&&
+                      upgraded15j.angular_cached_point_reuses==7,
+                      "nested GC2 7-to-15 analytic-Jac reuses points");
+                const auto direct15j=v_times_K_jac_order_fixed<15>(
+                    first7j.angular_m,first7j.angular_v,first7j.angular_dm,
+                    first7j.angular_dv,R,pf,first7j.angular_pc,
+                    first7j.angular_dpc,first7j.angular_reciprocal);
+                bool parity=direct15j.ok&&upgraded15j.reliable;
+                for(int j=0;j<5;++j)
+                    parity=parity&&std::fabs(
+                        upgraded15j.angular_result[j+1]-
+                        jac*direct15j.dvK[j])<2e-11;
+                check(parity,"nested GC2 7-to-15 analytic-Jac matches fresh rule");
+            } else check(false,"seven-point nested GC2 gradient fixture is available");
+            break;
+        }
+        check(exercised7,"nested GC2 seven-point start fixture exercised");
+    }
     // The primal integral is constant but its parameter derivative has a
     // sharp boundary layer (f(R,p)=1+p*exp(20R), evaluated at p=0).
     // Interrupt a split after one child: the complete parent must survive.
@@ -283,6 +489,121 @@ int main(){
         if(e.physically_real&&e.kind=="physical_real")check(!(e.radius>cell.r_lo&&e.radius<cell.r_hi),"no retained physical event inside a panel");
     auto missing=topology;missing.cells.erase(missing.cells.begin());restored.clear();
     check(!adaptive_detail::restore_physical_cuts(missing,frame,restored),"skipped cell cannot silently contribute zero");
+    // A soft D14 complex-root cut may be removed from the *integration span*
+    // only when it separates two same-topology arc cells whose outer ends are
+    // certified physical folds. The source cells/events remain untouched.
+    {
+        TopologyResult soft_topology;
+        soft_topology.events={
+            RadialEvent{1.0,"physical_real",true,"left fold"},
+            RadialEvent{1.001,"physical_complex",false,"soft divisor"},
+            RadialEvent{2.0,"physical_real",true,"right fold"}};
+        const std::vector<CellPlan> source{
+            CellPlan{0,1.0,1.001,1.0005,ArcKind::kArcs,2,Status::OK},
+            CellPlan{1,1.001,2.0,1.5005,ArcKind::kArcs,2,Status::OK}};
+        const auto plan=adaptive_detail::make_adaptive_integration_plan(
+            soft_topology,source);
+        check(plan.softcut_fold_merges==1&&plan.spans.size()==1,
+              "same-topology fold-bracketed soft cut coalesces for integration");
+        check(plan.spans[0].cell.r_lo==1.0&&plan.spans[0].cell.r_hi==2.0&&
+              plan.spans[0].cell.n_crossings==2&&
+              plan.spans[0].first_source_cell==0&&
+              plan.spans[0].last_source_cell==1,
+              "coalesced span retains exact physical endpoints and source range");
+        check(source[0].r_hi==1.001&&source[1].r_lo==1.001&&
+              soft_topology.events.size()==3,
+              "integration coalescing leaves topology authority unchanged");
+        check(adaptive_detail::make_adaptive_integration_plan(
+                  soft_topology,source,8).softcut_fold_merges==0,
+              "a fold gap beyond the fine rule's first-node stride stays split");
+        check(adaptive_detail::make_adaptive_integration_plan(
+                  soft_topology,source,3,false).softcut_fold_merges==0,
+              "do not coalesce when the fold-removing map is disabled");
+        const std::vector<CellPlan> balanced{
+            CellPlan{0,1.0,1.5,1.25,ArcKind::kArcs,2,Status::OK},
+            CellPlan{1,1.5,2.0,1.75,ArcKind::kArcs,2,Status::OK}};
+        check(adaptive_detail::make_adaptive_integration_plan(
+                  soft_topology,balanced).softcut_fold_merges==0,
+              "a resolved interior soft cut remains an integration boundary");
+
+        auto nonfold=soft_topology;
+        nonfold.events.erase(nonfold.events.begin()+2);
+        check(adaptive_detail::make_adaptive_integration_plan(nonfold,source)
+                  .softcut_fold_merges==0,
+              "span is not coalesced without two physical fold endpoints");
+        auto chart_cut=soft_topology;
+        chart_cut.events.push_back(
+            RadialEvent{1.001,"chart_p4",false,"representation event"});
+        check(adaptive_detail::make_adaptive_integration_plan(chart_cut,source)
+                  .softcut_fold_merges==0,
+              "chart event is never hidden by soft-cut coalescing");
+        auto topology_change=source;
+        topology_change[1].n_crossings=4;
+        check(adaptive_detail::make_adaptive_integration_plan(
+                  soft_topology,topology_change).softcut_fold_merges==0,
+              "crossing-count change is never coalesced");
+    }
+    // Regression geometry: rand035 has a complex soft cut just outside the
+    // left physical fold of the narrow cell. The two arc cells share the
+    // same crossing count and are bounded by physical folds at both ends.
+    {
+        LensParams rand035{-.07045642231021985,-.14887100926364968,
+                           .07530925479707781,2.1433640368724767e-8,
+                           3.035303804422572,false};
+        const auto rand_pf=PrimaryFrame::from(rand035);
+        const auto rand_topology=classify_cells(rand_pf,nullptr,nullptr,true);
+        std::vector<CellPlan> rand_cells;
+        check(adaptive_detail::restore_physical_cuts(rand_topology,rand_pf,
+                                                      rand_cells),
+              "rand035 physical cells restore before soft-cut planning");
+        const auto plan=adaptive_detail::make_adaptive_integration_plan(
+            rand_topology,rand_cells);
+        bool found_fold_bounded_pair=false;
+        for(const auto& span:plan.spans)
+            if(span.last_source_cell>span.first_source_cell&&
+               std::fabs(span.cell.r_lo-.88716938242769516)<2e-8&&
+               std::fabs(span.cell.r_hi-.95630209345982764)<2e-8&&
+               span.cell.n_crossings==2)
+                found_fold_bounded_pair=true;
+        check(found_fold_bounded_pair,
+              "rand035 fold-softcut-fold interval becomes one integration span");
+        check(plan.softcut_fold_merges>0&&plan.spans.size()<rand_cells.size(),
+              "rand035 integration plan coalesces without rewriting source cells");
+
+        for(double u:{0.0,0.5})for(double rtol:{1e-3,1e-4}) {
+            AdaptiveConfig value_cfg;value_cfg.gradient_policy=GradientPolicy::None;
+            value_cfg.tol.mu_rtol=rtol;value_cfg.max_level=8;value_cfg.max_depth=8;
+            AdaptiveWorkspace value_workspace;
+            const auto value=epoch_adaptive(rand035,u,value_cfg,value_workspace);
+
+            AdaptiveConfig grad_cfg=value_cfg;
+            grad_cfg.gradient_policy=GradientPolicy::ValueFirst;
+            grad_cfg.with_jacobian=true;
+            grad_cfg.tol.grad_atol.fill(1e-4);
+            grad_cfg.tol.grad_rtol.fill(1e-2);
+            grad_cfg.value_first_gradient_round_budget=64;
+            grad_cfg.value_first_gradient_node_budget=8192;
+            grad_cfg.max_node_evals=16384;
+            AdaptiveWorkspace grad_workspace;
+            const auto grad=epoch_adaptive(rand035,u,grad_cfg,grad_workspace);
+            const double ref_x=u==0.0?17.04260957790129:16.918289951078755;
+            const double ref_y=u==0.0?36.010206446936074:35.747525136525304;
+            check(value.value_converged&&grad.value_converged&&
+                  value.numerical_status==Status::OK&&
+                  grad.numerical_status==Status::OK,
+                  "rand035 soft-cut/fold regression remains valid");
+            check(value.mu==grad.mu,
+                  "rand035 gradient refinement preserves the primal snapshot");
+            check(grad.stats.softcut_fold_merges==1,
+                  "rand035 only the unresolved fold-adjacent soft cut is merged");
+            check(std::fabs(grad.grad_mu[0]-ref_x)<1e-7&&
+                  std::fabs(grad.grad_mu[1]-ref_y)<1e-7,
+                  "rand035 X/Y gradients agree with independent Phase72 FD");
+            check(grad.grad_quality[0]==GradientQuality::ToleranceMet&&
+                  grad.grad_quality[1]==GradientQuality::ToleranceMet,
+                  "rand035 X/Y gradient quality uses the existing tolerance gate");
+        }
+    }
     // Physical regression: saved uniform polar self-convergence at 100/200/400
     // is 12363.35792768 / 12363.39696885 / 12363.40159240, NOT exact truth.
     LensParams lens{.00027748104958798373,.000043678813767388989,8.1133264861482082e-5,1/.00017213162835819022,1.6869965260211353,true};

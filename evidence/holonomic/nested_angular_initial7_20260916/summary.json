@@ -1,0 +1,2415 @@
+{
+  "arms": [
+    "incumbent",
+    "angular_adaptive",
+    "nested_angular_adaptive",
+    "nested_angular_adaptive_7"
+  ],
+  "date": "2026-09-16",
+  "experiment": "nested angular GC2 initial 7 versus initial 15",
+  "head": "cd1343cc2bd7fc8bfde17c5556772ed6420f14b4",
+  "input": "evidence/holonomic/gm_coverage_cases.tsv",
+  "input_rows": 108,
+  "notes": [
+    "Initial order 7 has no embedded lower-order error estimate.",
+    "The controller uses a finite unresolved marker and upgrades 7->15 before accepting angular error.",
+    "Production defaults keep angular_adaptive=false and angular_nested=false."
+  ],
+  "phases": {
+    "cold": {
+      "cases": 108,
+      "groups": {
+        "None/angular_adaptive": {
+          "case_median_ms": 0.48979249999999996,
+          "mean": {
+            "nested_angular_cached_point_reuses": 0.0,
+            "nested_angular_point_evaluations": 0.0,
+            "nested_angular_upgrades": 0.0,
+            "node_evaluations": 99.81481481481481,
+            "reused_nodes": 62.5,
+            "unique_nodes": 97.87037037037037
+          },
+          "nested_order_histogram_total": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "row_ms": {
+            "max": 1.496253,
+            "p50": 0.490863,
+            "p90": 0.7336893999999999,
+            "p95": 0.8815681,
+            "p99": 1.2350054799999999
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "None/incumbent": {
+          "case_median_ms": 0.4919125,
+          "mean": {
+            "nested_angular_cached_point_reuses": 0.0,
+            "nested_angular_point_evaluations": 0.0,
+            "nested_angular_upgrades": 0.0,
+            "node_evaluations": 97.57407407407408,
+            "reused_nodes": 62.22222222222222,
+            "unique_nodes": 97.57407407407408
+          },
+          "nested_order_histogram_total": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "row_ms": {
+            "max": 1.657919,
+            "p50": 0.49740300000000004,
+            "p90": 0.742875,
+            "p95": 0.89235265,
+            "p99": 1.3486720700000001
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "None/nested_angular_adaptive": {
+          "case_median_ms": 0.494524,
+          "mean": {
+            "nested_angular_cached_point_reuses": 40.31481481481482,
+            "nested_angular_point_evaluations": 660.5462962962963,
+            "nested_angular_upgrades": 1.7592592592592593,
+            "node_evaluations": 99.62962962962963,
+            "reused_nodes": 62.5,
+            "unique_nodes": 97.87037037037037
+          },
+          "nested_order_histogram_total": [
+            0,
+            22265,
+            620,
+            260,
+            70,
+            0,
+            0
+          ],
+          "row_ms": {
+            "max": 1.561031,
+            "p50": 0.498224,
+            "p90": 0.7329373,
+            "p95": 0.8892325,
+            "p99": 1.19936365
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "None/nested_angular_adaptive_7": {
+          "case_median_ms": 0.5042575,
+          "mean": {
+            "nested_angular_cached_point_reuses": 443.5833333333333,
+            "nested_angular_point_evaluations": 781.4351851851852,
+            "nested_angular_upgrades": 49.23148148148148,
+            "node_evaluations": 147.10185185185185,
+            "reused_nodes": 62.5,
+            "unique_nodes": 97.87037037037037
+          },
+          "nested_order_histogram_total": [
+            22265,
+            21845,
+            4190,
+            390,
+            135,
+            25,
+            0
+          ],
+          "row_ms": {
+            "max": 1.691141,
+            "p50": 0.5040495,
+            "p90": 0.7686702,
+            "p95": 0.8970165,
+            "p99": 1.23353496
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "ValueFirst/angular_adaptive": {
+          "case_median_ms": 0.5874395,
+          "mean": {
+            "nested_angular_cached_point_reuses": 0.0,
+            "nested_angular_point_evaluations": 0.0,
+            "nested_angular_upgrades": 0.0,
+            "node_evaluations": 467.462962962963,
+            "reused_nodes": 264.5925925925926,
+            "unique_nodes": 313.2962962962963
+          },
+          "nested_order_histogram_total": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "row_ms": {
+            "max": 31.456967,
+            "p50": 0.5866205,
+            "p90": 1.9849635999999997,
+            "p95": 11.959567849999999,
+            "p99": 23.29222104
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "ValueFirst/incumbent": {
+          "case_median_ms": 0.5915714999999999,
+          "mean": {
+            "nested_angular_cached_point_reuses": 0.0,
+            "nested_angular_point_evaluations": 0.0,
+            "nested_angular_upgrades": 0.0,
+            "node_evaluations": 242.57407407407408,
+            "reused_nodes": 198.60185185185185,
+            "unique_nodes": 242.57407407407408
+          },
+          "nested_order_histogram_total": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "row_ms": {
+            "max": 23.236664,
+            "p50": 0.5976675,
+            "p90": 1.4549362,
+            "p95": 3.4417739,
+            "p99": 15.13412863
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "ValueFirst/nested_angular_adaptive": {
+          "case_median_ms": 0.5849625,
+          "mean": {
+            "nested_angular_cached_point_reuses": 10197.453703703704,
+            "nested_angular_point_evaluations": 12430.101851851852,
+            "nested_angular_upgrades": 155.28703703703704,
+            "node_evaluations": 489.8333333333333,
+            "reused_nodes": 244.80555555555554,
+            "unique_nodes": 291.9074074074074
+          },
+          "nested_order_histogram_total": [
+            0,
+            74785,
+            25325,
+            23620,
+            15250,
+            12340,
+            7320
+          ],
+          "row_ms": {
+            "max": 41.898201,
+            "p50": 0.585788,
+            "p90": 1.9824171999999998,
+            "p95": 12.011447,
+            "p99": 31.728324940000004
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "ValueFirst/nested_angular_adaptive_7": {
+          "case_median_ms": 0.6177064999999999,
+          "mean": {
+            "nested_angular_cached_point_reuses": 12041.583333333334,
+            "nested_angular_point_evaluations": 13347.00925925926,
+            "nested_angular_upgrades": 321.60185185185185,
+            "node_evaluations": 675.9537037037037,
+            "reused_nodes": 246.67592592592592,
+            "unique_nodes": 293.962962962963
+          },
+          "nested_order_histogram_total": [
+            75895,
+            75085,
+            37695,
+            24840,
+            15405,
+            12440,
+            8200
+          ],
+          "row_ms": {
+            "max": 54.114503,
+            "p50": 0.6187365,
+            "p90": 2.1218369999999998,
+            "p95": 12.279940900000001,
+            "p99": 39.79533541
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        }
+      },
+      "initial7_bad_rows": [
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "0"
+        }
+      ],
+      "rows": 4320,
+      "status_parity": {
+        "None": {
+          "case_median_time_delta_ms": {
+            "max": 0.10891800000000007,
+            "mean": 0.0202615462962963,
+            "median": 0.0052654999999999785,
+            "min": -0.036354999999999915,
+            "p90": 0.056557200000000016
+          },
+          "initial7_vs_initial15_mismatched_cases": 0,
+          "max_case_median_abs_mu_delta": 4.459870341833039e-05,
+          "mismatches": []
+        },
+        "ValueFirst": {
+          "case_median_time_delta_ms": {
+            "max": 10.662892999999997,
+            "mean": 0.2884893518518518,
+            "median": 0.008501499999999967,
+            "min": -1.026649,
+            "p90": 0.25076390000000004
+          },
+          "initial7_vs_initial15_mismatched_cases": 0,
+          "max_case_median_abs_mu_delta": 2.0452038462792643e-07,
+          "mismatches": []
+        }
+      }
+    },
+    "warm": {
+      "cases": 108,
+      "groups": {
+        "None/angular_adaptive": {
+          "case_median_ms": 0.391376,
+          "mean": {
+            "nested_angular_cached_point_reuses": 0.0,
+            "nested_angular_point_evaluations": 0.0,
+            "nested_angular_upgrades": 0.0,
+            "node_evaluations": 100.72222222222223,
+            "reused_nodes": 63.24074074074074,
+            "unique_nodes": 98.87037037037037
+          },
+          "nested_order_histogram_total": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "row_ms": {
+            "max": 53.989326,
+            "p50": 0.389524,
+            "p90": 0.6483414000000001,
+            "p95": 0.75750985,
+            "p99": 11.81732
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "None/incumbent": {
+          "case_median_ms": 0.39051650000000004,
+          "mean": {
+            "nested_angular_cached_point_reuses": 0.0,
+            "nested_angular_point_evaluations": 0.0,
+            "nested_angular_upgrades": 0.0,
+            "node_evaluations": 98.87037037037037,
+            "reused_nodes": 63.24074074074074,
+            "unique_nodes": 98.87037037037037
+          },
+          "nested_order_histogram_total": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "row_ms": {
+            "max": 53.85481,
+            "p50": 0.392829,
+            "p90": 0.6542761999999999,
+            "p95": 0.7826545500000001,
+            "p99": 11.958222580000001
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "None/nested_angular_adaptive": {
+          "case_median_ms": 0.389963,
+          "mean": {
+            "nested_angular_cached_point_reuses": 32.574074074074076,
+            "nested_angular_point_evaluations": 661.4537037037037,
+            "nested_angular_upgrades": 1.7962962962962963,
+            "node_evaluations": 100.96296296296296,
+            "reused_nodes": 63.51851851851852,
+            "unique_nodes": 99.16666666666667
+          },
+          "nested_order_histogram_total": [
+            0,
+            22575,
+            780,
+            190,
+            0,
+            0,
+            0
+          ],
+          "row_ms": {
+            "max": 53.964348,
+            "p50": 0.38916649999999997,
+            "p90": 0.6479554000000001,
+            "p95": 0.7531526,
+            "p99": 11.872177729999999
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "None/nested_angular_adaptive_7": {
+          "case_median_ms": 0.3944255,
+          "mean": {
+            "nested_angular_cached_point_reuses": 429.5462962962963,
+            "nested_angular_point_evaluations": 771.5277777777778,
+            "nested_angular_upgrades": 49.342592592592595,
+            "node_evaluations": 148.50925925925927,
+            "reused_nodes": 63.51851851851852,
+            "unique_nodes": 99.16666666666667
+          },
+          "nested_order_histogram_total": [
+            22575,
+            22155,
+            4095,
+            295,
+            100,
+            0,
+            0
+          ],
+          "row_ms": {
+            "max": 53.778931,
+            "p50": 0.396319,
+            "p90": 0.69174,
+            "p95": 0.82303565,
+            "p99": 11.966211060000001
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "ValueFirst/angular_adaptive": {
+          "case_median_ms": 0.48827299999999996,
+          "mean": {
+            "nested_angular_cached_point_reuses": 0.0,
+            "nested_angular_point_evaluations": 0.0,
+            "nested_angular_upgrades": 0.0,
+            "node_evaluations": 446.1111111111111,
+            "reused_nodes": 272.26851851851853,
+            "unique_nodes": 321.72222222222223
+          },
+          "nested_order_histogram_total": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "row_ms": {
+            "max": 53.809087,
+            "p50": 0.494182,
+            "p90": 3.5946399,
+            "p95": 12.55850885,
+            "p99": 25.08975356
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "ValueFirst/incumbent": {
+          "case_median_ms": 0.496612,
+          "mean": {
+            "nested_angular_cached_point_reuses": 0.0,
+            "nested_angular_point_evaluations": 0.0,
+            "nested_angular_upgrades": 0.0,
+            "node_evaluations": 266.48148148148147,
+            "reused_nodes": 220.92592592592592,
+            "unique_nodes": 266.48148148148147
+          },
+          "nested_order_histogram_total": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "row_ms": {
+            "max": 53.668486,
+            "p50": 0.501718,
+            "p90": 1.3573995000000003,
+            "p95": 4.63848875,
+            "p99": 25.421013910000003
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "ValueFirst/nested_angular_adaptive": {
+          "case_median_ms": 0.49041650000000003,
+          "mean": {
+            "nested_angular_cached_point_reuses": 10196.49074074074,
+            "nested_angular_point_evaluations": 12775.768518518518,
+            "nested_angular_upgrades": 180.25,
+            "node_evaluations": 538.5370370370371,
+            "reused_nodes": 282.8703703703704,
+            "unique_nodes": 333.05555555555554
+          },
+          "nested_order_histogram_total": [
+            0,
+            86365,
+            34245,
+            28395,
+            15945,
+            13075,
+            5675
+          ],
+          "row_ms": {
+            "max": 54.142538,
+            "p50": 0.494739,
+            "p90": 3.6032309000000002,
+            "p95": 19.73664725,
+            "p99": 29.614106160000002
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        },
+        "ValueFirst/nested_angular_adaptive_7": {
+          "case_median_ms": 0.520622,
+          "mean": {
+            "nested_angular_cached_point_reuses": 12097.611111111111,
+            "nested_angular_point_evaluations": 13562.212962962964,
+            "nested_angular_upgrades": 358.01851851851853,
+            "node_evaluations": 725.6851851851852,
+            "reused_nodes": 281.0462962962963,
+            "unique_nodes": 331.2037037037037
+          },
+          "nested_order_histogram_total": [
+            85365,
+            84395,
+            45380,
+            28710,
+            14375,
+            13705,
+            6765
+          ],
+          "row_ms": {
+            "max": 53.782442,
+            "p50": 0.522418,
+            "p90": 3.6053952000000002,
+            "p95": 20.6511119,
+            "p99": 34.155621419999996
+          },
+          "stops": {
+            "Converged": 490,
+            "TopologyUnresolved": 50
+          },
+          "value_converged": 490
+        }
+      },
+      "initial7_bad_rows": [
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand007",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand017",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand024",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand028",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "None",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "0",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "1",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "2",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "3",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        },
+        {
+          "name": "rand032",
+          "policy": "ValueFirst",
+          "rep": "4",
+          "stop": "TopologyUnresolved",
+          "u": "0.5",
+          "value_converged": "0",
+          "warm": "1"
+        }
+      ],
+      "rows": 4320,
+      "status_parity": {
+        "None": {
+          "case_median_time_delta_ms": {
+            "max": 0.11222600000000005,
+            "mean": 0.021728777777777767,
+            "median": 0.00673250000000003,
+            "min": -0.015554999999999986,
+            "p90": 0.0636362
+          },
+          "initial7_vs_initial15_mismatched_cases": 0,
+          "max_case_median_abs_mu_delta": 4.4098905487288675e-05,
+          "mismatches": []
+        },
+        "ValueFirst": {
+          "case_median_time_delta_ms": {
+            "max": 6.736616999999999,
+            "mean": 0.23399848148148147,
+            "median": 0.008781000000000011,
+            "min": -4.398341,
+            "p90": 0.26035959999999997
+          },
+          "initial7_vs_initial15_mismatched_cases": 0,
+          "max_case_median_abs_mu_delta": 1.9502200387933044e-07,
+          "mismatches": []
+        }
+      }
+    }
+  },
+  "policies": [
+    "None",
+    "ValueFirst"
+  ],
+  "repeats": 5,
+  "rule_ladder": [
+    7,
+    15,
+    31,
+    63,
+    127,
+    255,
+    511
+  ],
+  "worktree": "/tmp/lcbinint_gradient_fold_worktree"
+}

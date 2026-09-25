@@ -1,0 +1,475 @@
+{
+  "arms": [
+    "nested15",
+    "nested7"
+  ],
+  "cases": 108,
+  "date": "2026-09-16",
+  "experiment": "nested angular initial-order gradient-quality diagnosis",
+  "head": "cd1343cc2bd7fc8bfde17c5556772ed6420f14b4",
+  "input": "evidence/holonomic/gm_coverage_cases.tsv",
+  "phases": {
+    "cold": {
+      "groups": {
+        "Strict/nested15": {
+          "any_non_tolerance_rows": 60,
+          "any_non_tolerance_value_valid_rows": 50,
+          "gradient_stop": {
+            "BudgetExceeded": 4,
+            "Converged": 48,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "median_evaluations": 93.0,
+          "median_ms": 0.6575385,
+          "order_histogram": [
+            0,
+            21067,
+            5416,
+            5075,
+            3322,
+            2562,
+            1541
+          ],
+          "quality_components": {
+            "FiniteUncertified": 115,
+            "Invalid": 50,
+            "ToleranceMet": 375
+          },
+          "rows": 108,
+          "stop": {
+            "BudgetExceeded": 4,
+            "Converged": 48,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "value_valid_rows": 98
+        },
+        "Strict/nested7": {
+          "any_non_tolerance_rows": 60,
+          "any_non_tolerance_value_valid_rows": 50,
+          "gradient_stop": {
+            "BudgetExceeded": 4,
+            "Converged": 48,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "median_evaluations": 153.0,
+          "median_ms": 0.6671324999999999,
+          "order_histogram": [
+            21289,
+            21205,
+            9404,
+            5601,
+            3385,
+            2577,
+            1734
+          ],
+          "quality_components": {
+            "FiniteUncertified": 115,
+            "Invalid": 50,
+            "ToleranceMet": 375
+          },
+          "rows": 108,
+          "stop": {
+            "BudgetExceeded": 4,
+            "Converged": 48,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "value_valid_rows": 98
+        },
+        "ValueFirst/nested15": {
+          "any_non_tolerance_rows": 60,
+          "any_non_tolerance_value_valid_rows": 50,
+          "gradient_stop": {
+            "BudgetExceeded": 4,
+            "Converged": 48,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "median_evaluations": 93.0,
+          "median_ms": 0.6474219999999999,
+          "order_histogram": [
+            0,
+            14957,
+            5065,
+            4724,
+            3050,
+            2468,
+            1464
+          ],
+          "quality_components": {
+            "FiniteUncertified": 114,
+            "Invalid": 50,
+            "ToleranceMet": 376
+          },
+          "rows": 108,
+          "stop": {
+            "Converged": 98,
+            "TopologyUnresolved": 10
+          },
+          "value_valid_rows": 98
+        },
+        "ValueFirst/nested7": {
+          "any_non_tolerance_rows": 60,
+          "any_non_tolerance_value_valid_rows": 50,
+          "gradient_stop": {
+            "BudgetExceeded": 4,
+            "Converged": 48,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "median_evaluations": 153.0,
+          "median_ms": 0.6713185,
+          "order_histogram": [
+            15179,
+            15017,
+            7539,
+            4968,
+            3081,
+            2488,
+            1640
+          ],
+          "quality_components": {
+            "FiniteUncertified": 116,
+            "Invalid": 50,
+            "ToleranceMet": 374
+          },
+          "rows": 108,
+          "stop": {
+            "Converged": 98,
+            "TopologyUnresolved": 10
+          },
+          "value_valid_rows": 98
+        }
+      },
+      "pairwise": {
+        "Strict": {
+          "changed_details": [],
+          "improved_cases": [],
+          "quality_changes": 0,
+          "regressed_cases": [],
+          "status_changes": []
+        },
+        "ValueFirst": {
+          "changed_details": [
+            {
+              "case": [
+                "caustic-cross",
+                "0.5"
+              ],
+              "initial15": [
+                "FiniteUncertified",
+                "ToleranceMet",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified"
+              ],
+              "initial7": [
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified"
+              ]
+            },
+            {
+              "case": [
+                "on-axis-off",
+                "0.5"
+              ],
+              "initial15": [
+                "FiniteUncertified",
+                "ToleranceMet",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified"
+              ],
+              "initial7": [
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified"
+              ]
+            }
+          ],
+          "improved_cases": [],
+          "quality_changes": 2,
+          "regressed_cases": [],
+          "status_changes": []
+        }
+      },
+      "rows": 432
+    },
+    "warm": {
+      "groups": {
+        "Strict/nested15": {
+          "any_non_tolerance_rows": 62,
+          "any_non_tolerance_value_valid_rows": 52,
+          "gradient_stop": {
+            "BudgetExceeded": 6,
+            "Converged": 46,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "median_evaluations": 93.0,
+          "median_ms": 0.617443,
+          "order_histogram": [
+            0,
+            25479,
+            9295,
+            7505,
+            4226,
+            3258,
+            1461
+          ],
+          "quality_components": {
+            "FiniteUncertified": 124,
+            "Invalid": 50,
+            "ToleranceMet": 366
+          },
+          "rows": 108,
+          "stop": {
+            "BudgetExceeded": 6,
+            "Converged": 46,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "value_valid_rows": 98
+        },
+        "Strict/nested7": {
+          "any_non_tolerance_rows": 63,
+          "any_non_tolerance_value_valid_rows": 53,
+          "gradient_stop": {
+            "BudgetExceeded": 6,
+            "Converged": 45,
+            "EventLocationLimited": 46,
+            "InnerAccuracyLimited": 1,
+            "TopologyUnresolved": 10
+          },
+          "median_evaluations": 159.0,
+          "median_ms": 0.682919,
+          "order_histogram": [
+            25255,
+            25171,
+            13043,
+            7724,
+            3880,
+            3502,
+            1750
+          ],
+          "quality_components": {
+            "FiniteUncertified": 125,
+            "Invalid": 50,
+            "ToleranceMet": 365
+          },
+          "rows": 108,
+          "stop": {
+            "BudgetExceeded": 6,
+            "Converged": 45,
+            "EventLocationLimited": 46,
+            "InnerAccuracyLimited": 1,
+            "TopologyUnresolved": 10
+          },
+          "value_valid_rows": 98
+        },
+        "ValueFirst/nested15": {
+          "any_non_tolerance_rows": 62,
+          "any_non_tolerance_value_valid_rows": 52,
+          "gradient_stop": {
+            "BudgetExceeded": 6,
+            "Converged": 46,
+            "EventLocationLimited": 46,
+            "TopologyUnresolved": 10
+          },
+          "median_evaluations": 93.0,
+          "median_ms": 0.6108739999999999,
+          "order_histogram": [
+            0,
+            17273,
+            6849,
+            5679,
+            3189,
+            2615,
+            1135
+          ],
+          "quality_components": {
+            "FiniteUncertified": 123,
+            "Invalid": 50,
+            "ToleranceMet": 367
+          },
+          "rows": 108,
+          "stop": {
+            "Converged": 98,
+            "TopologyUnresolved": 10
+          },
+          "value_valid_rows": 98
+        },
+        "ValueFirst/nested7": {
+          "any_non_tolerance_rows": 63,
+          "any_non_tolerance_value_valid_rows": 53,
+          "gradient_stop": {
+            "BudgetExceeded": 6,
+            "Converged": 45,
+            "EventLocationLimited": 46,
+            "InnerAccuracyLimited": 1,
+            "TopologyUnresolved": 10
+          },
+          "median_evaluations": 159.0,
+          "median_ms": 0.6776065,
+          "order_histogram": [
+            17073,
+            16879,
+            9076,
+            5742,
+            2875,
+            2741,
+            1353
+          ],
+          "quality_components": {
+            "FiniteUncertified": 126,
+            "Invalid": 50,
+            "ToleranceMet": 364
+          },
+          "rows": 108,
+          "stop": {
+            "Converged": 98,
+            "TopologyUnresolved": 10
+          },
+          "value_valid_rows": 98
+        }
+      },
+      "pairwise": {
+        "Strict": {
+          "changed_details": [
+            {
+              "case": [
+                "close-binary",
+                "0.5"
+              ],
+              "initial15": [
+                "ToleranceMet",
+                "ToleranceMet",
+                "ToleranceMet",
+                "ToleranceMet",
+                "ToleranceMet"
+              ],
+              "initial7": [
+                "ToleranceMet",
+                "ToleranceMet",
+                "FiniteUncertified",
+                "ToleranceMet",
+                "ToleranceMet"
+              ]
+            }
+          ],
+          "improved_cases": [],
+          "quality_changes": 1,
+          "regressed_cases": [
+            [
+              "close-binary",
+              "0.5"
+            ]
+          ],
+          "status_changes": [
+            {
+              "case": [
+                "close-binary",
+                "0.5"
+              ],
+              "initial15": [
+                "Converged",
+                "1"
+              ],
+              "initial7": [
+                "InnerAccuracyLimited",
+                "1"
+              ]
+            }
+          ]
+        },
+        "ValueFirst": {
+          "changed_details": [
+            {
+              "case": [
+                "caustic-cross",
+                "0.5"
+              ],
+              "initial15": [
+                "FiniteUncertified",
+                "ToleranceMet",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified"
+              ],
+              "initial7": [
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified"
+              ]
+            },
+            {
+              "case": [
+                "close-binary",
+                "0.5"
+              ],
+              "initial15": [
+                "ToleranceMet",
+                "ToleranceMet",
+                "ToleranceMet",
+                "ToleranceMet",
+                "ToleranceMet"
+              ],
+              "initial7": [
+                "ToleranceMet",
+                "ToleranceMet",
+                "FiniteUncertified",
+                "ToleranceMet",
+                "ToleranceMet"
+              ]
+            },
+            {
+              "case": [
+                "on-axis-off",
+                "0.5"
+              ],
+              "initial15": [
+                "FiniteUncertified",
+                "ToleranceMet",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified"
+              ],
+              "initial7": [
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified",
+                "FiniteUncertified"
+              ]
+            }
+          ],
+          "improved_cases": [],
+          "quality_changes": 3,
+          "regressed_cases": [
+            [
+              "close-binary",
+              "0.5"
+            ]
+          ],
+          "status_changes": []
+        }
+      },
+      "rows": 432
+    }
+  },
+  "policies": [
+    "Strict",
+    "ValueFirst"
+  ],
+  "repeats": 1
+}
