@@ -1,9 +1,15 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
+#include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/component_certificate.hpp"
 
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
+
+// ATPT holonomic binary engine -- header-only, same leaf layer (no model/lc/obs
+// dependency).  Reached only from binary_mag_preplanned for the
+// FiniteSourceMethod::holonomic_binary plan (Phase C step 2).
+#include "lcbinint/magnification/holonomic/finite_source_binary.hpp"
 
 #include <algorithm>
 #include <array>
@@ -2221,13 +2227,26 @@ struct LegacyAreaDiagnostics {
     int refined_components = 0;
     int refinement_factor = 0;  // largest per-component factor applied
     int interval_count = 0;
+    std::int64_t mapped_cell_evaluations = 0;
+    std::int64_t frontier_intervals_popped = 0;
+    std::int64_t rows_with_multiple_runs = 0;
+    std::size_t maximum_runs_in_row = 0;
+    std::int64_t unique_seed_cells = 0;
+    std::int64_t duplicate_seed_starts_avoided = 0;
+    std::int64_t provisional_components = 0;
+    std::int64_t merged_components = 0;
+    std::int64_t fine_grid_cell_evaluations = 0;
+    std::int64_t walk_budget_failures = 0;
+    std::int64_t integrated_cells = 0;
     double max_jump_cells = 0.0;
     double estimated_error = 0.0;
 };
 
 int cartesian_error_convergence_order(const LegacyAreaDiagnostics& diagnostics)
 {
-    return diagnostics.fold_seed_count == 0 && diagnostics.max_jump_cells <= 20.0
+    return diagnostics.fold_seed_count == 0 &&
+            diagnostics.max_jump_cells <= 20.0 &&
+            diagnostics.rows_with_multiple_runs == 0
         ? 2
         : 1;
 }
@@ -2237,6 +2256,17 @@ double high_magnification_floor_coefficient(
     double magnification,
     double source_radius)
 {
+    const std::int64_t topology_events =
+        static_cast<std::int64_t>(diagnostics.gap_repairs) +
+        diagnostics.rows_with_multiple_runs;
+    if (std::abs(magnification) > 1000.0 &&
+        diagnostics.rows_with_multiple_runs > 1000) {
+        // A coarse lattice that repeatedly resolves more than one interval in
+        // a row has real topology but not enough transverse samples to certify
+        // a percent-level, very-high-magnification answer.  Keep the adaptive
+        // caller fail-closed until a finer rung removes that ambiguity.
+        return 1.0;
+    }
     if (source_radius >= 0.1 &&
         (diagnostics.gap_repairs > 0 || diagnostics.max_jump_cells > 50.0)) {
         return 0.06;
@@ -2266,7 +2296,7 @@ double high_magnification_floor_coefficient(
         diagnostics.max_jump_cells > 20.0) {
         return 0.04;
     }
-    if (std::abs(magnification) <= 80.0 || diagnostics.gap_repairs <= 1000) {
+    if (std::abs(magnification) <= 80.0 || topology_events <= 1000) {
         return 0.0;
     }
     return source_radius >= 1.0e-2 ? 0.04 : 0.05;
@@ -4906,6 +4936,420 @@ bool claim_refined_footprint(
     return true;
 }
 
+struct EvaluatedCartesianSeed {
+    SourcePosition position;
+    double jacobian = 0.0;
+};
+
+struct RunCellState {
+    double mapped_distance2 = std::numeric_limits<double>::quiet_NaN();
+};
+
+template <typename ImageMap>
+detail::CartesianRunFillResult fill_cartesian_run_union(
+    const ImageMap& mapper,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    const std::vector<detail::CartesianLatticeSeed>& seeds,
+    double incr,
+    std::int64_t maximum_evaluations,
+    std::size_t expected_rows)
+{
+    const double source_radius2 = source_radius * source_radius;
+    const double inverse_source_radius2 = 1.0 / source_radius2;
+    const bool use_limb_darkening =
+        settings.limb_darkening_c != 0.0 || settings.limb_darkening_d != 0.0;
+    const double edge_brightness = use_limb_darkening
+        ? (finite_magnifier != nullptr
+              ? finite_magnifier->limb_darkening_table_brightness(1.0)
+              : source_surface_brightness(1.0, settings))
+        : 1.0;
+    const bool bennett_root_enabled =
+        std::getenv("LCBININT_DIAGNOSTIC_DISABLE_BENNETT_LIMB") == nullptr;
+    // A run contains at least one evaluated inside cell, so the evaluation
+    // budget is also a strict upper bound on useful run storage.  Retain the
+    // independent ceiling as the memory safety envelope for very large maps.
+    constexpr std::size_t kRunMemorySafetyCeiling = 1U << 21;
+    const std::size_t evaluation_run_ceiling = maximum_evaluations > 0
+        ? static_cast<std::size_t>(std::min<std::uint64_t>(
+            static_cast<std::uint64_t>(maximum_evaluations),
+            static_cast<std::uint64_t>(
+                std::numeric_limits<std::size_t>::max())))
+        : 0;
+
+    return detail::fill_cartesian_runs<RunCellState>(
+        seeds,
+        [&](std::int64_t ix, std::int64_t iy) {
+            const double x = static_cast<double>(ix) * incr;
+            const double y = static_cast<double>(iy) * incr;
+            return RunCellState {
+                mapped_lens_distance2(mapper, x, y, source),
+            };
+        },
+        [&](const RunCellState& state) {
+            return state.mapped_distance2 <= source_radius2;
+        },
+        [&](std::int64_t, std::int64_t, const RunCellState& state) {
+            if (!use_limb_darkening) {
+                return 1.0;
+            }
+            const double normalized2 =
+                state.mapped_distance2 * inverse_source_radius2;
+            return finite_magnifier != nullptr
+                ? finite_magnifier->limb_darkening_table_brightness(normalized2)
+                : source_surface_brightness(normalized2, settings);
+        },
+        [&](const detail::CartesianRun& run,
+            const RunCellState& left_inside,
+            const RunCellState& left_outside,
+            const RunCellState& right_inside,
+            const RunCellState& right_outside) {
+            detail::CartesianBoundaryContribution contribution;
+            const auto edge = [&](std::int64_t inside_ix,
+                                  const RunCellState& inside,
+                                  std::int64_t outside_ix,
+                                  const RunCellState& outside) {
+                if (!std::isfinite(inside.mapped_distance2) ||
+                    !std::isfinite(outside.mapped_distance2) ||
+                    !(inside.mapped_distance2 <= source_radius2) ||
+                    !(outside.mapped_distance2 > source_radius2)) {
+                    return 0.0;
+                }
+                const double inside_radius =
+                    std::sqrt(std::max(inside.mapped_distance2, 0.0));
+                const double outside_radius =
+                    std::sqrt(std::max(outside.mapped_distance2, 0.0));
+                const double mapped_step = outside_radius - inside_radius;
+                const double initial = mapped_step > 0.0
+                    ? std::clamp(
+                        (source_radius - inside_radius) / mapped_step,
+                        0.0, 1.0)
+                    : 0.5;
+                const double inside_x = static_cast<double>(inside_ix) * incr;
+                const double outside_x = static_cast<double>(outside_ix) * incr;
+                const double y = static_cast<double>(run.iy) * incr;
+                const double fraction = bennett_root_enabled
+                    ? refine_boundary_crossing_fraction(
+                        mapper, source, source_radius2,
+                        inside_x, outside_x, y, initial)
+                    : initial;
+                ++contribution.edges;
+                return limb_boundary_strip_correction(
+                    fraction, edge_brightness);
+            };
+            if (run.lo == std::numeric_limits<std::int64_t>::min() ||
+                run.hi == std::numeric_limits<std::int64_t>::max()) {
+                contribution.valid = false;
+                return contribution;
+            }
+            contribution.area += edge(
+                run.lo, left_inside, run.lo - 1, left_outside);
+            contribution.area += edge(
+                run.hi, right_inside, run.hi + 1, right_outside);
+            return contribution;
+        },
+        detail::CartesianRunFillLimits {
+            maximum_evaluations,
+            std::min(kRunMemorySafetyCeiling, evaluation_run_ceiling),
+            expected_rows,
+        });
+}
+
+struct CartesianRunComponent {
+    long double area = 0.0L;
+    std::int64_t cells = 0;
+    int boundary_edges = 0;
+    std::int64_t min_iy = std::numeric_limits<std::int64_t>::max();
+    std::int64_t max_iy = std::numeric_limits<std::int64_t>::min();
+    int row_count = 0;
+    std::size_t first_run_index = std::numeric_limits<std::size_t>::max();
+    ComponentFill measurement;
+    int refinement_factor = 1;
+};
+
+bool refined_run_footprint_is_private(
+    const detail::CartesianRunFillResult& refined,
+    int factor,
+    const detail::CartesianRunFillResult& coarse,
+    std::size_t coarse_component)
+{
+    const auto divide_floor = [factor](std::int64_t value) {
+        const std::int64_t quotient = value / factor;
+        const std::int64_t remainder = value % factor;
+        return quotient - (remainder < 0 ? 1 : 0);
+    };
+    const auto divide_ceil = [factor](std::int64_t value) {
+        const std::int64_t quotient = value / factor;
+        const std::int64_t remainder = value % factor;
+        return quotient + (remainder > 0 ? 1 : 0);
+    };
+    std::vector<const detail::CartesianRunRecord*> coarse_order;
+    const bool indexed = !refined.runs.empty() &&
+        coarse.runs.size() > 1000000U / refined.runs.size();
+    if (indexed) {
+        coarse_order.reserve(coarse.runs.size());
+        for (const auto& record : coarse.runs) {
+            coarse_order.push_back(&record);
+        }
+        std::sort(
+            coarse_order.begin(), coarse_order.end(),
+            [](const auto* lhs, const auto* rhs) {
+                return lhs->run.iy != rhs->run.iy
+                    ? lhs->run.iy < rhs->run.iy
+                    : lhs->run.lo < rhs->run.lo;
+            });
+    }
+    const auto overlaps_foreign = [&](std::int64_t iy,
+                                      std::int64_t lo,
+                                      std::int64_t hi) {
+        const auto overlaps = [&](const auto& record) {
+            return record.component != coarse_component &&
+                record.run.hi >= lo && record.run.lo <= hi;
+        };
+        if (!indexed) {
+            for (const auto& record : coarse.runs) {
+                if (record.run.iy == iy && overlaps(record)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        const auto first = std::lower_bound(
+            coarse_order.begin(), coarse_order.end(), iy,
+            [](const auto* record, std::int64_t row) {
+                return record->run.iy < row;
+            });
+        for (auto item = first;
+             item != coarse_order.end() && (*item)->run.iy == iy; ++item) {
+            if (overlaps(**item)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    for (const auto& fine_record : refined.runs) {
+        if (fine_record.run.iy % factor != 0) {
+            continue;
+        }
+        const std::int64_t coarse_iy = fine_record.run.iy / factor;
+        const std::int64_t coarse_lo = divide_ceil(fine_record.run.lo);
+        const std::int64_t coarse_hi = divide_floor(fine_record.run.hi);
+        if (coarse_lo > coarse_hi) {
+            continue;
+        }
+        if (overlaps_foreign(coarse_iy, coarse_lo, coarse_hi)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+template <typename ImageMap>
+double fill_all_cartesian_components_multirun(
+    const ImageMap& mapper,
+    SourcePosition source,
+    double source_radius,
+    const FiniteSourceSettings& settings,
+    const FiniteSourceMagnifier* finite_magnifier,
+    const std::vector<EvaluatedCartesianSeed>& evaluated_seeds,
+    double incr,
+    double magnification_hint,
+    LegacyAreaDiagnostics* diagnostics)
+{
+    std::vector<detail::CartesianLatticeSeed> seeds;
+    seeds.reserve(evaluated_seeds.size());
+    for (const auto& seed : evaluated_seeds) {
+        std::int64_t ix = 0;
+        std::int64_t iy = 0;
+        if (!rounded_lattice_index(seed.position.x / incr, ix) ||
+            !rounded_lattice_index(seed.position.y / incr, iy)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+        seeds.push_back({ix, iy});
+    }
+
+    const double bins = static_cast<double>(std::max(settings.source_bins, 1));
+    const double evaluation_limit_estimate = bins * bins * std::max(
+        2000.0,
+        4.0 * kPi *
+            (std::isfinite(magnification_hint)
+                 ? std::abs(magnification_hint)
+                 : 0.0));
+    const std::int64_t evaluation_limit =
+        evaluation_limit_estimate <
+                static_cast<double>(std::numeric_limits<std::int64_t>::max())
+            ? std::max<std::int64_t>(
+                100000,
+                static_cast<std::int64_t>(
+                    std::ceil(evaluation_limit_estimate)))
+            : std::numeric_limits<std::int64_t>::max();
+    auto run_fill = fill_cartesian_run_union(
+        mapper, source, source_radius, settings, finite_magnifier,
+        seeds, incr, evaluation_limit,
+        static_cast<std::size_t>(std::max(settings.source_bins, 1)) * 64U);
+    if (!run_fill.ok()) {
+        if (diagnostics != nullptr) {
+            ++diagnostics->walk_budget_failures;
+        }
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+    if (diagnostics != nullptr) {
+        diagnostics->mapped_cell_evaluations +=
+            run_fill.counters.mapped_cell_evaluations;
+        diagnostics->frontier_intervals_popped +=
+            run_fill.counters.frontier_intervals_popped;
+        diagnostics->rows_with_multiple_runs +=
+            run_fill.counters.rows_with_multiple_runs;
+        diagnostics->maximum_runs_in_row = std::max(
+            diagnostics->maximum_runs_in_row,
+            run_fill.counters.maximum_runs_in_row);
+        diagnostics->unique_seed_cells = run_fill.counters.unique_seed_cells;
+        diagnostics->duplicate_seed_starts_avoided +=
+            run_fill.counters.duplicate_seeds_avoided;
+        diagnostics->provisional_components +=
+            run_fill.counters.provisional_components;
+        diagnostics->merged_components +=
+            run_fill.counters.merged_components;
+        for (std::size_t index = 0;
+             index < run_fill.component_roots.size(); ++index) {
+            if (run_fill.component_roots[index] == index) {
+                diagnostics->integrated_cells +=
+                    run_fill.component_cells[index];
+            }
+        }
+    }
+
+    constexpr std::size_t missing_component =
+        std::numeric_limits<std::size_t>::max();
+    std::vector<std::size_t> component_index(
+        run_fill.component_roots.size(), missing_component);
+    std::vector<CartesianRunComponent> components;
+    for (std::size_t index = 0; index < run_fill.runs.size(); ++index) {
+        const auto& record = run_fill.runs[index];
+        if (component_index[record.component] == missing_component) {
+            component_index[record.component] = components.size();
+            components.emplace_back();
+        }
+        auto& component = components[component_index[record.component]];
+        component.area = run_fill.component_areas[record.component];
+        component.cells = run_fill.component_cells[record.component];
+        component.boundary_edges =
+            run_fill.component_boundary_edges[record.component];
+        component.min_iy = std::min(component.min_iy, record.run.iy);
+        component.max_iy = std::max(component.max_iy, record.run.iy);
+        component.row_count = run_fill.component_rows[record.component];
+        if (component.first_run_index == missing_component) {
+            component.first_run_index = index;
+        } else {
+            const auto& current = run_fill.runs[component.first_run_index].run;
+            if (record.run.iy < current.iy ||
+                (record.run.iy == current.iy && record.run.lo < current.lo)) {
+                component.first_run_index = index;
+            }
+        }
+    }
+
+    for (auto& component : components) {
+        component.measurement.area = static_cast<double>(component.area);
+        component.measurement.rows = component.row_count;
+        component.measurement.boundary_rows = component.boundary_edges > 0
+            ? component.row_count
+            : 0;
+        component.measurement.rows_span = component.max_iy >= component.min_iy
+            ? static_cast<int>(std::min<long double>(
+                static_cast<long double>(component.max_iy) -
+                    static_cast<long double>(component.min_iy) + 1.0L,
+                static_cast<long double>(1 << 24)))
+            : 0;
+        component.measurement.width = component.row_count == 0
+            ? 0.0
+            : static_cast<double>(component.cells) /
+                static_cast<double>(component.row_count);
+        component.refinement_factor =
+            std::getenv("LCBININT_DIAGNOSTIC_DISABLE_COMPONENT_REFINEMENT") == nullptr
+            ? component_refinement_factor(
+                component.measurement, settings.source_bins)
+            : 1;
+    }
+
+    long double total_area = 0.0L;
+    for (std::size_t component_id = 0;
+        component_id < components.size(); ++component_id) {
+        auto& component = components[component_id];
+        double contribution = static_cast<double>(component.area);
+        const int factor = component.refinement_factor;
+        if (factor > 1 && component.first_run_index != missing_component) {
+            const std::size_t coarse_component =
+                run_fill.runs[component.first_run_index].component;
+            const auto refined_seeds =
+                detail::lift_cartesian_component_run_seeds(
+                    run_fill, coarse_component, factor);
+            if (refined_seeds.has_value() && !refined_seeds->empty()) {
+                FiniteSourceSettings refined_settings = settings;
+                refined_settings.source_bins = settings.source_bins * factor;
+                const double refined_incr = incr / static_cast<double>(factor);
+                const std::int64_t refined_budget =
+                    static_cast<std::int64_t>(std::ceil(
+                        8.0 * component.measurement.width *
+                            static_cast<double>(component.measurement.rows_span) *
+                            static_cast<double>(factor) *
+                            static_cast<double>(factor) +
+                        4096.0));
+                auto refined = fill_cartesian_run_union(
+                    mapper, source, source_radius, refined_settings,
+                    finite_magnifier, *refined_seeds, refined_incr,
+                    refined_budget,
+                    static_cast<std::size_t>(std::max(
+                        16,
+                        2 * component.measurement.rows_span * factor + 16)));
+                if (refined.ok()) {
+                    if (diagnostics != nullptr) {
+                        diagnostics->fine_grid_cell_evaluations +=
+                            refined.counters.mapped_cell_evaluations;
+                    }
+                    long double refined_area = 0.0L;
+                    for (std::size_t index = 0;
+                         index < refined.component_roots.size(); ++index) {
+                        if (refined.component_roots[index] == index) {
+                            refined_area += refined.component_areas[index];
+                        }
+                    }
+                    const double factor2 =
+                        static_cast<double>(factor) *
+                        static_cast<double>(factor);
+                    const double rescaled =
+                        static_cast<double>(refined_area) / factor2;
+                    if (std::isfinite(rescaled) && rescaled > 0.0 &&
+                        refined_run_footprint_is_private(
+                            refined, factor, run_fill, coarse_component)) {
+                        contribution = rescaled;
+                        if (diagnostics != nullptr) {
+                            ++diagnostics->refined_components;
+                            diagnostics->refinement_factor = std::max(
+                                diagnostics->refinement_factor, factor);
+                        }
+                    }
+                }
+                else if (diagnostics != nullptr) {
+                    ++diagnostics->walk_budget_failures;
+                }
+            }
+        }
+        total_area += static_cast<long double>(contribution);
+        if (diagnostics != nullptr) {
+            diagnostics->boundary_rows += component.measurement.boundary_rows;
+        }
+    }
+
+    if (diagnostics != nullptr) {
+        diagnostics->processed_images = static_cast<int>(components.size());
+        diagnostics->interval_count = static_cast<int>(run_fill.runs.size());
+    }
+    return static_cast<double>(total_area);
+}
+
 template <typename ImageMap>
 double inverse_ray_cartesian_core(
     const ImageMap& mapper,
@@ -4997,6 +5441,30 @@ double inverse_ray_cartesian_core(
         diagnostics->seed_count = static_cast<int>(evaluated_images.size());
     }
     double area = 0.0;
+    // Keep the established walker as the production default until the
+    // multi-run path clears every frozen low-resolution regression.  The
+    // selector makes the replacement independently testable in the meantime.
+    const char* fill_selector = std::getenv("LCBININT_CARTESIAN_FILL");
+    const bool use_multirun = fill_selector != nullptr &&
+        std::string(fill_selector) == "run" &&
+        std::getenv("LCBININT_DIAGNOSTIC_UNSORTED_SEEDS") == nullptr;
+    if (use_multirun) {
+        std::vector<EvaluatedCartesianSeed> multirun_seeds;
+        multirun_seeds.reserve(evaluated_images.size());
+        for (const auto& seed : evaluated_images) {
+            multirun_seeds.push_back({seed.position, seed.jacobian});
+            if (diagnostics != nullptr &&
+                std::abs(seed.jacobian) < kFoldJacobianThreshold) {
+                ++diagnostics->fold_seed_count;
+            }
+        }
+        area = fill_all_cartesian_components_multirun(
+            mapper, source, source_radius, settings, finite_magnifier,
+            multirun_seeds, incr, walk_magnification_hint, diagnostics);
+        if (!std::isfinite(area)) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
+    } else {
     ClaimedCellRuns claimed;
     // Components are filled serially, and every entry read by a fill is first
     // written by that fill.  Retaining the largest allocation across fills
@@ -5119,6 +5587,14 @@ double inverse_ray_cartesian_core(
             diagnostics->boundary_rows += fill.boundary_rows;
         }
     }
+    if (diagnostics != nullptr && std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
+        for (const auto& row : claimed.rows) {
+            for (const auto& run : row.second) {
+                diagnostics->integrated_cells += run.hi - run.lo + 1;
+            }
+        }
+    }
+    }
 
     const double scale =
         source_flux(source_radius, settings) / (source_radius * source_radius) * nbin * nbin;
@@ -5138,13 +5614,27 @@ double inverse_ray_cartesian_core(
         if (std::getenv("LCBININT_AREA_DIAGNOSTICS")) {
             std::fprintf(stderr,
                 "%s bins=%d seeds=%d processed=%d fold=%d rows=%d intervals=%d gaps=%d overlaps=%d "
-                "refined=%d/%d maxjump=%.3g mag=%.8g err=%.8g\n",
+                "refined=%d/%d maxjump=%.3g mag=%.8g err=%.8g "
+                "mapped=%lld frontier=%lld unique_seeds=%lld duplicate_starts=%lld "
+                "components=%lld merged=%lld multi_rows=%lld max_row_runs=%zu "
+                "fine_mapped=%lld budget_failures=%lld cells=%lld\n",
                 diagnostics_label, settings.source_bins, diagnostics->seed_count,
                 diagnostics->processed_images, diagnostics->fold_seed_count,
                 diagnostics->boundary_rows, diagnostics->interval_count,
                 diagnostics->gap_repairs, diagnostics->overlaps,
                 diagnostics->refined_components, diagnostics->refinement_factor,
-                diagnostics->max_jump_cells, magnification, diagnostics->estimated_error);
+                diagnostics->max_jump_cells, magnification, diagnostics->estimated_error,
+                static_cast<long long>(diagnostics->mapped_cell_evaluations),
+                static_cast<long long>(diagnostics->frontier_intervals_popped),
+                static_cast<long long>(diagnostics->unique_seed_cells),
+                static_cast<long long>(diagnostics->duplicate_seed_starts_avoided),
+                static_cast<long long>(diagnostics->provisional_components),
+                static_cast<long long>(diagnostics->merged_components),
+                static_cast<long long>(diagnostics->rows_with_multiple_runs),
+                diagnostics->maximum_runs_in_row,
+                static_cast<long long>(diagnostics->fine_grid_cell_evaluations),
+                static_cast<long long>(diagnostics->walk_budget_failures),
+                static_cast<long long>(diagnostics->integrated_cells));
         }
     }
     return magnification;
@@ -6831,6 +7321,8 @@ const char* finite_source_method_name(FiniteSourceMethod method)
         return "inverse_ray_spine";
     case FiniteSourceMethod::source_plane_quadrature:
         return "source_plane_quadrature";
+    case FiniteSourceMethod::holonomic_binary:
+        return "holonomic_binary";
     default:
         return "unknown";
     }
@@ -7116,6 +7608,16 @@ FiniteSourceResult FiniteSourceMagnifier::triple_mag(
                     },
                     error_estimate,
                     converged);
+                if (active_settings.source_bins <= 16 &&
+                    std::abs(cartesian_magnification) > 1000.0 &&
+                    diagnostics.rows_with_multiple_runs > 1000) {
+                    // A coincident coarse/fine estimate cannot certify a
+                    // topology that is represented by thousands of split
+                    // rows at the hard resolution cap.  Preserve fail-closed
+                    // behavior; an uncapped automatic call will take another
+                    // rung immediately below.
+                    converged = false;
+                }
                 if (converged || !settings_.automatic_source_bins ||
                     active_settings.source_bins >= maximum_bins) {
                     break;
@@ -7217,6 +7719,115 @@ HexadecapoleDiagnosticResult diagnostic_hexadecapole_binary(
     return {result.magnification, result.relative_error, derivative_relative_error};
 }
 
+namespace {
+
+// FiniteSourceMethod::holonomic_binary dispatch (Phase C step 2).
+//
+// Frame: `source` is the centre-of-mass source position and `separation`/
+// `mass_ratio` the trajectory-resolved binary; this is the convention the
+// ATPT reference was A/B-validated against (binary_ray_shooting, holonomic_ref
+// solver._ray_shooting_mu).  For a wide binary evaluated with
+// options.center_of_mass == 0 the caller has folded a constant x offset into
+// `source`; the holonomic value then simply disagrees with the reference and
+// LightCurve.warmup() does not select this method for that epoch (fail open to
+// the inverse-ray route, never a wrong answer).
+//
+// Failure is a Status -> converged = false (never a silent approximation).
+// The holonomic engine is linear-limb-darkening only; a non-zero quadratic
+// coefficient (_d) also fails closed.
+//
+// rolling_prepared (Phase C step 2 part 3): when non-null, the caller owns a
+// per-trajectory PreparedEpochGeometry and consecutive epochs take the
+// prepared route (finite_source_binary_prepared -> epoch_jacobian_prepared,
+// default_reuse_config = L2 warm-seeded D14 ON / L1 verbatim reuse OFF).
+// state.valid == false on the first epoch => cold build; every completeness /
+// residual gate stays intact and a stale seed fails closed inside solve_d14.
+// Null -> every epoch runs the stateless cold route (bit-identical to before).
+FiniteSourceResult holonomic_binary_preplanned(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double limb_darkening_c,
+    double limb_darkening_d,
+    int resolution,
+    holonomic::PreparedEpochGeometry* rolling_prepared)
+{
+    FiniteSourceDecision decision{
+        FiniteSourceMethod::holonomic_binary, 0, "preplanned holonomic binary"};
+
+    const double s = std::abs(separation);
+    const double q = mass_ratio;
+    const bool inputs_ok =
+        std::isfinite(s) && s > 0.0 &&
+        std::isfinite(q) && q > 0.0 && q <= 1.0 &&
+        std::isfinite(source_radius) && source_radius > 0.0 &&
+        std::isfinite(source.x) && std::isfinite(source.y) &&
+        std::isfinite(limb_darkening_c) &&
+        limb_darkening_d == 0.0;
+    if (!inputs_ok) {
+        decision.reason = "holonomic preconditions unmet";
+        return {std::numeric_limits<double>::quiet_NaN(), 0, decision,
+                0.0, 0, /*converged=*/false};
+    }
+
+    holonomic::FiniteSourceRequest req;
+    req.params = holonomic::LensParams{
+        source.x, source.y, source_radius, q, s, /*barycentric=*/true};
+    req.u = limb_darkening_c;
+    req.output = holonomic::RequestedOutput::kValue;
+    req.n_r = resolution > 0 ? resolution : 64;
+
+    const holonomic::FiniteSourceOutcome outcome =
+        rolling_prepared != nullptr
+            ? holonomic::finite_source_binary_prepared(
+                  req, *rolling_prepared, holonomic::default_reuse_config())
+            : holonomic::finite_source_binary(req);
+
+    // The value is trustworthy for OK / estimated / locally-referenced /
+    // gradient-only-unreliable outcomes; every hard topology / conditioning
+    // failure fails closed.
+    bool value_ok = std::isfinite(outcome.mu) && outcome.mu > 0.0;
+    switch (outcome.status) {
+    case holonomic::Status::OK:
+    case holonomic::Status::OK_VALIDATED:
+    case holonomic::Status::OK_ESTIMATED:
+    case holonomic::Status::LOCAL_REFERENCE_USED:
+    case holonomic::Status::GRADIENT_UNRELIABLE:
+        break;
+    default:
+        value_ok = false;
+        break;
+    }
+
+    decision.estimated_evaluations = req.n_r;
+    const char* prov =
+        rolling_prepared == nullptr ? "cold"
+        : outcome.provenance == holonomic::PreparedEpochGeometry::kColdOracle
+            ? "prepared:cold-build"
+        : outcome.provenance == holonomic::PreparedEpochGeometry::kTopologyReused
+            ? "prepared:L1-reuse"
+        : outcome.provenance == holonomic::PreparedEpochGeometry::kWarmRecomputed
+            ? "prepared:L2-warm-D14"
+            : "prepared:L3-cold-recompute";
+    decision.reason = std::string("preplanned holonomic binary [") +
+                      holonomic::to_string(outcome.status) + ", " + prov + "]";
+
+    FiniteSourceResult result{
+        outcome.mu, 0, decision, 0.0, 0, value_ok};
+    if (!value_ok) result.magnification = std::numeric_limits<double>::quiet_NaN();
+    return result;
+}
+
+}  // namespace
+
+std::shared_ptr<holonomic::PreparedEpochGeometry> make_prepared_epoch_geometry()
+{
+    // Empty (valid == false) => the first holonomic epoch builds cold, then the
+    // sec.8 fail-closed reuse ladder governs every subsequent epoch.
+    return std::make_shared<holonomic::PreparedEpochGeometry>();
+}
+
 FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
     double separation,
     double mass_ratio,
@@ -7226,7 +7837,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
     FiniteSourceMethod method,
     int resolution,
     const std::vector<SourcePosition>* center_image_seeds,
-    const PointSourceMagnifier* point_magnifier_hint) const
+    const PointSourceMagnifier* point_magnifier_hint,
+    holonomic::PreparedEpochGeometry* rolling_prepared) const
 {
     PointSourceMagnifier local_point_magnifier;
     const PointSourceMagnifier& point_magnifier = point_magnifier_hint != nullptr
@@ -7273,6 +7885,13 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
             0,
             std::isfinite(value),
         };
+    }
+
+    if (method == FiniteSourceMethod::holonomic_binary) {
+        return holonomic_binary_preplanned(
+            separation, mass_ratio, source, source_radius,
+            settings_.limb_darkening_c, settings_.limb_darkening_d, resolution,
+            rolling_prepared);
     }
 
     if (method == FiniteSourceMethod::inverse_ray_cartesian ||

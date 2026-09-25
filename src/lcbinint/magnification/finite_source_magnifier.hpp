@@ -5,12 +5,25 @@
 
 #include <cstddef>
 #include <limits>
+#include <memory>
 #include <string>
 #include <vector>
+
+namespace lcbinint::holonomic {
+struct PreparedEpochGeometry;
+}
 
 namespace lcbinint::magnification {
 
 class PointSourceMagnifier;
+
+// Allocate an empty rolling PreparedEpochGeometry for a trajectory that will
+// evaluate FiniteSourceMethod::holonomic_binary across many nearby epochs.
+// Attach the returned handle to every holonomic MagnificationExecutionPlan
+// entry for that trajectory (MagnificationExecutionPlan::prepared_geometry) so
+// consecutive epochs reuse the D14 root set / cell plan (L2 warm-seeded D14,
+// exact-parity, fail-closed -- checkpoint sec.21 / Phase C step 2 part 3).
+std::shared_ptr<holonomic::PreparedEpochGeometry> make_prepared_epoch_geometry();
 
 enum class FiniteSourceMethod {
     point_source,
@@ -19,6 +32,13 @@ enum class FiniteSourceMethod {
     inverse_ray_polar,
     inverse_ray_spine,
     source_plane_quadrature,
+    // ATPT holonomic binary finite-source engine (fused value + 5-Jacobian
+    // radial pass; header-only, src/lcbinint/magnification/holonomic/).  Wired
+    // through binary_mag_preplanned only -- selected by LightCurve.warmup()
+    // where the engine is reference-validated and faster (Phase C step 2).
+    // The ordinary routing cascade never picks it; a non-OK holonomic Status
+    // fails closed (converged = false), never a silent approximation.
+    holonomic_binary,
 };
 
 // Canonical, engine-neutral finite-source geometry for one source position:
@@ -167,7 +187,8 @@ public:
         FiniteSourceMethod method,
         int resolution,
         const std::vector<SourcePosition>* center_image_seeds = nullptr,
-        const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
+        const PointSourceMagnifier* point_magnifier_hint = nullptr,
+        holonomic::PreparedEpochGeometry* rolling_prepared = nullptr) const;
     FiniteSourceResult triple_mag(
         const model::TripleLensGeometry& geometry,
         SourcePosition source,

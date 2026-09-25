@@ -15,6 +15,7 @@ CARTESIAN = 2
 POLAR = 3
 SPINE = 4
 SOURCE_PLANE = 5
+HOLONOMIC = 6
 
 METHOD_NAMES = (
     "point_source",
@@ -23,6 +24,7 @@ METHOD_NAMES = (
     "inverse_ray_polar",
     "inverse_ray_spine",
     "source_plane_quadrature",
+    "holonomic_binary",
 )
 
 GRID_SEARCH_MINIMUM = 4

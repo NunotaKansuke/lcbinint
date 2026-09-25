@@ -287,22 +287,40 @@ py::array_t<double> compute(
 
 std::vector<lcbinint::model::MagnificationExecutionPlan> execution_plan_from(
     const std::vector<int>& methods,
-    const std::vector<int>& resolutions)
+    const std::vector<int>& resolutions,
+    bool reuse_prepared_geometry = false)
 {
     if (methods.size() != resolutions.size()) {
         throw std::invalid_argument(
             "warm-up methods and resolutions must have equal length");
     }
+    using Method = lcbinint::magnification::FiniteSourceMethod;
     std::vector<lcbinint::model::MagnificationExecutionPlan> plan;
     plan.reserve(methods.size());
     for (std::size_t i = 0; i < methods.size(); ++i) {
-        if (methods[i] < 0 || methods[i] > 5) {
+        if (methods[i] < 0 ||
+            methods[i] > static_cast<int>(Method::holonomic_binary)) {
             throw std::invalid_argument("invalid warm-up finite-source method");
         }
         plan.push_back({
-            static_cast<lcbinint::magnification::FiniteSourceMethod>(methods[i]),
+            static_cast<Method>(methods[i]),
             resolutions[i],
         });
+    }
+    // Phase C step 2 part 3: attach ONE per-trajectory rolling
+    // PreparedEpochGeometry to every FiniteSourceMethod::holonomic_binary entry
+    // so consecutive epochs reuse the D14 root set / cell plan (L2 warm-seeded,
+    // exact-parity, fail-closed).  Opt-in -- the default keeps the cold route so
+    // an A/B benchmark can measure both through the same entry point.
+    if (reuse_prepared_geometry) {
+        std::shared_ptr<lcbinint::holonomic::PreparedEpochGeometry> rolling;
+        for (auto& entry : plan) {
+            if (entry.method != Method::holonomic_binary) continue;
+            if (!rolling) {
+                rolling = lcbinint::magnification::make_prepared_epoch_geometry();
+            }
+            entry.prepared_geometry = rolling;
+        }
     }
     return plan;
 }
@@ -312,10 +330,12 @@ py::array_t<double> compute_preplanned(
     const TimesArray& times,
     const lcbi_params& params,
     const std::vector<int>& methods,
-    const std::vector<int>& resolutions)
+    const std::vector<int>& resolutions,
+    bool reuse_prepared_geometry)
 {
     const std::vector<double> tv = times_from_array(times);
-    const auto plan = execution_plan_from(methods, resolutions);
+    const auto plan =
+        execution_plan_from(methods, resolutions, reuse_prepared_geometry);
     std::vector<double> magnifications;
     {
         py::gil_scoped_release release;
@@ -329,10 +349,12 @@ py::dict compute_preplanned_diagnostic(
     const TimesArray& times,
     const lcbi_params& params,
     const std::vector<int>& methods,
-    const std::vector<int>& resolutions)
+    const std::vector<int>& resolutions,
+    bool reuse_prepared_geometry)
 {
     const std::vector<double> tv = times_from_array(times);
-    const auto plan = execution_plan_from(methods, resolutions);
+    const auto plan =
+        execution_plan_from(methods, resolutions, reuse_prepared_geometry);
     std::vector<lcbinint::MagnificationResult> results;
     std::vector<double> epoch_seconds;
     {
@@ -371,11 +393,13 @@ py::dict compute_preplanned_xy_diagnostic(
     const TimesArray& source_y,
     const lcbi_params& params,
     const std::vector<int>& methods,
-    const std::vector<int>& resolutions)
+    const std::vector<int>& resolutions,
+    bool reuse_prepared_geometry)
 {
     const std::vector<double> xv = times_from_array(source_x);
     const std::vector<double> yv = times_from_array(source_y);
-    const auto plan = execution_plan_from(methods, resolutions);
+    const auto plan =
+        execution_plan_from(methods, resolutions, reuse_prepared_geometry);
     std::vector<lcbinint::MagnificationResult> results;
     std::vector<double> epoch_seconds;
     {
@@ -1824,30 +1848,39 @@ LightCurves with a ground Site apply the terrestrial correction.)")
         .def("_magnification_preplanned",
             [&](const LC& lc, const TimesArray& times, py::dict d,
                 const std::vector<int>& methods,
-                const std::vector<int>& resolutions) {
+                const std::vector<int>& resolutions,
+                bool reuse_prepared_geometry) {
                 return compute_preplanned(
-                    lc, times, params_from_dict(d), methods, resolutions);
+                    lc, times, params_from_dict(d), methods, resolutions,
+                    reuse_prepared_geometry);
             },
             py::arg("times"), py::arg("params"), py::arg("methods"),
-            py::arg("resolutions"))
+            py::arg("resolutions"),
+            py::arg("reuse_prepared_geometry") = false)
         .def("_evaluate_preplanned",
             [&](const LC& lc, const TimesArray& times, py::dict d,
                 const std::vector<int>& methods,
-                const std::vector<int>& resolutions) {
+                const std::vector<int>& resolutions,
+                bool reuse_prepared_geometry) {
                 return compute_preplanned_diagnostic(
-                    lc, times, params_from_dict(d), methods, resolutions);
+                    lc, times, params_from_dict(d), methods, resolutions,
+                    reuse_prepared_geometry);
             },
             py::arg("times"), py::arg("params"), py::arg("methods"),
-            py::arg("resolutions"))
+            py::arg("resolutions"),
+            py::arg("reuse_prepared_geometry") = false)
         .def("_evaluate_preplanned_xy",
             [&](const LC& lc, const TimesArray& source_x, const TimesArray& source_y,
                 py::dict d, const std::vector<int>& methods,
-                const std::vector<int>& resolutions) {
+                const std::vector<int>& resolutions,
+                bool reuse_prepared_geometry) {
                 return compute_preplanned_xy_diagnostic(
-                    lc, source_x, source_y, params_from_dict(d), methods, resolutions);
+                    lc, source_x, source_y, params_from_dict(d), methods,
+                    resolutions, reuse_prepared_geometry);
             },
             py::arg("source_x"), py::arg("source_y"), py::arg("params"),
-            py::arg("methods"), py::arg("resolutions"))
+            py::arg("methods"), py::arg("resolutions"),
+            py::arg("reuse_prepared_geometry") = false)
         .def("_binary_resolution_hint",
             [](const LC&, int method, double point_magnification,
                 double absolute_tolerance, double relative_tolerance,

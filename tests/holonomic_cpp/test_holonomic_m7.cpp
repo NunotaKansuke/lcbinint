@@ -100,7 +100,11 @@ LensParams lp_of(const std::string& name) {
     std::exit(3);
 }
 
-std::string fixture_path() {
+std::string fixture_path(const char* requested = nullptr) {
+    if (requested != nullptr) {
+        std::ifstream f(requested);
+        if (f.good()) return requested;
+    }
     const char* cands[] = {
         "evidence/holonomic/m7_reference.tsv",
         "../evidence/holonomic/m7_reference.tsv",
@@ -115,8 +119,8 @@ std::string fixture_path() {
 
 }  // namespace
 
-int main() {
-    const std::string path = fixture_path();
+int main(int argc, char** argv) {
+    const std::string path = fixture_path(argc > 1 ? argv[1] : nullptr);
     std::ifstream in(path);
     if (!in) {
         std::fprintf(stderr, "cannot open fixture: %s\n", path.c_str());
