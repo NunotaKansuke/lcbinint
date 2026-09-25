@@ -82,6 +82,13 @@ target_include_directories(lcbinint_magnification
     PRIVATE
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
 target_link_libraries(lcbinint_magnification PUBLIC GSL::gsl GSL::gslcblas m)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+    # The isolated D14 headers use GNU's __float128 literal suffixes.  Keep
+    # this flag local to the native magnification target; it is not a public
+    # ABI or a requirement for callers that only consume the Python module.
+    target_compile_options(lcbinint_magnification PUBLIC -fext-numeric-literals)
+endif()
+target_link_libraries(lcbinint_magnification PUBLIC quadmath)
 
 if(LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE)
     target_compile_definitions(lcbinint_magnification PUBLIC

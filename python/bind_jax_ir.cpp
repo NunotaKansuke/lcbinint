@@ -3,6 +3,7 @@
 #include "lcbinint/math/polynomial_roots.hpp"
 #include "lcbinint/magnification/component_certificate.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
+#include "lcbinint/magnification/holonomic/finite_source_binary.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/model/triple_lens_geometry.hpp"
 
@@ -6074,6 +6075,99 @@ XLA_FFI_DEFINE_HANDLER(
 
 #undef LCBININT_ALGEBRAIC_BOUNDARY_BATCH_BINDING
 
+// --- Explicit D14/holonomic batch FFI ------------------------------------
+//
+// This is an opt-in research ABI.  It deliberately exposes only the fused
+// value/Jacobian result needed by a fixed planned route; the ordinary
+// algebraic/inverse-ray router is unchanged.  A row is accepted only when
+// both the value and the analytic five-Jacobian pass the holonomic status and
+// finiteness gates.  The caller can then use the stopped-gradient support bit
+// to fail closed into its existing route.
+#define LCBININT_HOLONOMIC_BATCH_BINDING \
+    ffi::Ffi::Bind() \
+        .Attr<std::int64_t>("n_r") \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR1<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Arg<ffi::BufferR0<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::F64>>() \
+        .Ret<ffi::BufferR2<ffi::F64>>() \
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+
+ffi::Error holonomic_batch_jacobian_ffi_impl(
+    std::int64_t n_r,
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR2<ffi::F64> jacobian,
+    ffi::ResultBufferR1<ffi::PRED> support_valid)
+{
+    const std::size_t n = source_x.dimensions()[0];
+    if (n == 0 || n_r < 2 || source_y.dimensions()[0] != n ||
+        separation.dimensions()[0] != n || magnification->dimensions()[0] != n ||
+        support_valid->dimensions()[0] != n || jacobian->dimensions()[0] != n ||
+        jacobian->dimensions()[1] != 5) {
+        return ffi::Error::InvalidArgument("invalid holonomic batch shapes or n_r");
+    }
+    const double rho = *source_radius.typed_data();
+    const double q = *mass_ratio.typed_data();
+    const double c = *limb_c.typed_data();
+    const double d = *limb_d.typed_data();
+    const double nan = std::numeric_limits<double>::quiet_NaN();
+    const bool scalar_valid = std::isfinite(rho) && rho > 0.0 &&
+        std::isfinite(q) && q > 0.0 && std::isfinite(c) &&
+        std::isfinite(d) && d == 0.0 && n_r <= std::numeric_limits<int>::max();
+    for (std::size_t row = 0; row < n; ++row) {
+        if (!scalar_valid || !std::isfinite(source_x.typed_data()[row]) ||
+            !std::isfinite(source_y.typed_data()[row]) ||
+            !std::isfinite(separation.typed_data()[row]) ||
+            separation.typed_data()[row] <= 0.0) {
+            magnification->typed_data()[row] = nan;
+            support_valid->typed_data()[row] = false;
+            std::fill(jacobian->typed_data() + row * 5,
+                      jacobian->typed_data() + row * 5 + 5, nan);
+            continue;
+        }
+        lcbinint::holonomic::FiniteSourceRequest request;
+        request.params = lcbinint::holonomic::LensParams{
+            source_x.typed_data()[row], source_y.typed_data()[row],
+            rho, q, separation.typed_data()[row], true};
+        request.u = c;
+        request.output = lcbinint::holonomic::RequestedOutput::kValueJacobian;
+        request.n_r = static_cast<int>(n_r);
+        const auto result = lcbinint::holonomic::finite_source_binary(request);
+        bool good = std::isfinite(result.mu) && result.mu > 0.0 &&
+            result.has_jacobian;
+        for (double value : result.grad_mu) {
+            good = good && std::isfinite(value);
+        }
+        magnification->typed_data()[row] = good ? result.mu : nan;
+        support_valid->typed_data()[row] = good;
+        double* out = jacobian->typed_data() + row * 5;
+        if (good) {
+            std::copy(result.grad_mu.begin(), result.grad_mu.end(), out);
+        } else {
+            std::fill(out, out + 5, nan);
+        }
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    holonomic_batch_jacobian_ffi_handler,
+    holonomic_batch_jacobian_ffi_impl,
+    LCBININT_HOLONOMIC_BATCH_BINDING);
+
+#undef LCBININT_HOLONOMIC_BATCH_BINDING
+
 ffi::Error validate_triple_polar_batch(
     std::int64_t resolution,
     std::int64_t angular_bins,
@@ -8204,6 +8298,12 @@ py::capsule algebraic_boundary_batch_jacobian_ffi_capsule()
         reinterpret_cast<void*>(algebraic_boundary_batch_jacobian_ffi_handler));
 }
 
+py::capsule holonomic_batch_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(holonomic_batch_jacobian_ffi_handler));
+}
+
 py::dict algebraic_boundary_batch_call_counters()
 {
     py::dict counters;
@@ -8402,6 +8502,10 @@ void register_jax_ir_submodule(py::module_& parent)
         "algebraic_boundary_batch_jacobian_ffi",
         &algebraic_boundary_batch_jacobian_ffi_capsule,
         "Return the M1 algebraic-boundary full-curve value/Jacobian FFI capsule.");
+    module.def(
+        "holonomic_batch_jacobian_ffi",
+        &holonomic_batch_jacobian_ffi_capsule,
+        "Return the opt-in D14/holonomic full-curve value/Jacobian FFI capsule.");
     module.def("algebraic_critical_events_enabled", []() {
 #ifdef LCBININT_ENABLE_ALGEBRAIC_CRITICAL_EVENTS_CORE
         return true;

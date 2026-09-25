@@ -22,6 +22,9 @@ enum class FiniteSourceMethod {
     inverse_ray_polar,
     inverse_ray_spine,
     source_plane_quadrature,
+    // Explicit D14/holonomic route.  This is opt-in wiring only; the normal
+    // router does not select it implicitly.
+    holonomic_binary,
 };
 
 // Canonical, engine-neutral finite-source geometry for one source position:
@@ -167,6 +170,19 @@ public:
         // solve (the "inverse-ray algorithm" the algebraic backend replaces
         // wholesale on the gradient path).  Production calls leave it false.
         bool multipole_only_probe = false) const;
+    // Execute an explicitly selected finite-source route.  The holonomic
+    // route is intentionally exposed here before any automatic-router change,
+    // so integration callers can A/B it while the production cascade remains
+    // unchanged.
+    FiniteSourceResult binary_mag_preplanned(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        double source_radius,
+        double point_source_magnification,
+        FiniteSourceMethod method,
+        int resolution,
+        const PointSourceMagnifier* point_magnifier_hint = nullptr) const;
     FiniteSourceResult triple_mag(
         const model::TripleLensGeometry& geometry,
         SourcePosition source,

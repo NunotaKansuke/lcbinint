@@ -19,6 +19,7 @@ from .cpp_backend import (
     binary_hexadecapole_batch_ffi,
     binary_inverse_ray_cartesian_batch_ffi,
     binary_inverse_ray_polar_ffi,
+    binary_holonomic_batch_value_jacobian_ffi,
     binary_point_source_batch_ffi,
     binary_point_source_batch_array_ffi,
     cpp_point_source_batch_array_ffi_available,
@@ -32,6 +33,7 @@ HEXADECAPOLE = 1
 CARTESIAN = 2
 POLAR = 3
 TRAJECTORY = 4
+HOLONOMIC = 5
 
 METHOD_NAMES = (
     "point_source",
@@ -39,6 +41,7 @@ METHOD_NAMES = (
     "inverse_ray_cartesian",
     "inverse_ray_polar",
     "trajectory_dispatch",
+    "holonomic_d14",
 )
 
 _METHOD_CODES = {name: code for code, name in enumerate(METHOD_NAMES)}
@@ -71,6 +74,7 @@ def _normalise_plan(methods, resolutions):
             CARTESIAN,
             POLAR,
             TRAJECTORY,
+            HOLONOMIC,
         )
     )
     if unsupported:
@@ -210,6 +214,7 @@ def _make_result(
             POLAR,
             CARTESIAN,
             TRAJECTORY,
+            HOLONOMIC,
         ):
             for resolution in sorted(
                 {
@@ -301,6 +306,19 @@ def _make_result(
                     grid = jax.vmap(evaluate)(group_x, group_y, group_s)
                     group_value = grid.magnification
                     group_support = grid.support_valid
+                elif method == HOLONOMIC:
+                    holonomic = binary_holonomic_batch_value_jacobian_ffi(
+                        group_x,
+                        group_y,
+                        group_separation,
+                        source_radius,
+                        mass_ratio,
+                        limb_c,
+                        limb_d,
+                        n_r=resolution,
+                    )
+                    group_value = holonomic.magnification
+                    group_support = holonomic.support_valid
                 else:
                     trajectory = _trajectory_batch(
                         group_x,
@@ -356,6 +374,7 @@ __all__ = [
     "POINT_SOURCE",
     "POLAR",
     "TRAJECTORY",
+    "HOLONOMIC",
     "PlannedResult",
     "make_result_function",
 ]

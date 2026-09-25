@@ -74,6 +74,9 @@ _FFI_ALGEBRAIC_BOUNDARY_BATCH_TARGET = "lcbinint_algebraic_boundary_batch_f64_v1
 _FFI_ALGEBRAIC_BOUNDARY_BATCH_JACOBIAN_TARGET = (
     "lcbinint_algebraic_boundary_batch_value_jacobian_f64_v1"
 )
+_FFI_HOLONOMIC_BATCH_JACOBIAN_TARGET = (
+    "lcbinint_holonomic_batch_value_jacobian_f64_v1"
+)
 _FFI_TRAJECTORY_TARGET = "lcbinint_jax_trajectory_f64_v1"
 _FFI_TRAJECTORY_JACOBIAN_TARGET = "lcbinint_jax_trajectory_jacobian_f64_v1"
 _MOMENT_COUNTS = {
@@ -134,6 +137,14 @@ class AlgebraicBoundaryBatchResult(NamedTuple):
     root_solve_count: jax.Array
     lens_evaluation_count: jax.Array
     fallback_used: jax.Array
+    jacobian: jax.Array
+
+
+class HolonomicBatchResult(NamedTuple):
+    """Opt-in D14 value/Jacobian result; Jacobian order is [x,y,rho,q,s]."""
+
+    magnification: jax.Array
+    support_valid: jax.Array
     jacobian: jax.Array
 
 
@@ -1499,6 +1510,17 @@ def cpp_algebraic_boundary_batch_ffi_available():
         return False
 
 
+def cpp_holonomic_batch_ffi_available():
+    """Return whether the opt-in D14 batch ABI is built."""
+
+    if jax.default_backend() != "cpu":
+        return False
+    try:
+        return hasattr(_native_module()._jax_ir, "holonomic_batch_jacobian_ffi")
+    except (AttributeError, RuntimeError):
+        return False
+
+
 def algebraic_boundary_batch_call_counters():
     """Return process-local native invocation counts for the M1 batch targets."""
 
@@ -1552,6 +1574,20 @@ def _register_algebraic_boundary_batch_ffi():
     jax.ffi.register_ffi_target(_FFI_ALGEBRAIC_BOUNDARY_BATCH_TARGET, forward, platform="cpu")
     jax.ffi.register_ffi_target(
         _FFI_ALGEBRAIC_BOUNDARY_BATCH_JACOBIAN_TARGET, jacobian, platform="cpu"
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_holonomic_batch_ffi():
+    native = _native_module()
+    try:
+        handler = native._jax_ir.holonomic_batch_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the D14/holonomic batch FFI"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_HOLONOMIC_BATCH_JACOBIAN_TARGET, handler, platform="cpu"
     )
 
 
@@ -1789,6 +1825,137 @@ def _algebraic_boundary_batch_jvp(strict, limb_c, limb_d, refinement_policy, pri
         jacobian=jnp.zeros_like(primal.jacobian),
     )
     return primal, tangent
+
+
+def _holonomic_batch_call(
+    source_x,
+    source_y,
+    separation,
+    source_radius,
+    mass_ratio,
+    limb_c,
+    limb_d,
+    n_r,
+):
+    batch_size = source_x.shape[0]
+    outputs = (
+        jax.ShapeDtypeStruct((batch_size,), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size, 5), jnp.float64),
+        jax.ShapeDtypeStruct((batch_size,), jnp.bool_),
+    )
+    return jax.ffi.ffi_call(
+        _FFI_HOLONOMIC_BATCH_JACOBIAN_TARGET, outputs
+    )(
+        source_x,
+        source_y,
+        separation,
+        source_radius,
+        mass_ratio,
+        limb_c,
+        limb_d,
+        n_r=np.int64(n_r),
+    )
+
+
+@partial(jax.custom_jvp, nondiff_argnums=(0,))
+def _holonomic_batch_transformable(
+    n_r,
+    source_x,
+    source_y,
+    separation,
+    source_radius,
+    mass_ratio,
+    limb_c,
+    limb_d,
+):
+    outputs = _holonomic_batch_call(
+        source_x,
+        source_y,
+        separation,
+        source_radius,
+        mass_ratio,
+        limb_c,
+        limb_d,
+        n_r,
+    )
+    return HolonomicBatchResult(outputs[0], outputs[2], outputs[1])
+
+
+@_holonomic_batch_transformable.defjvp
+def _holonomic_batch_jvp(n_r, primals, tangents):
+    reject_higher_order_ad(primals)
+    outputs = _holonomic_batch_call(*primals, n_r)
+    primal = HolonomicBatchResult(outputs[0], outputs[2], outputs[1])
+    (
+        source_x_tangent,
+        source_y_tangent,
+        separation_tangent,
+        source_radius_tangent,
+        mass_ratio_tangent,
+        _limb_c_tangent,
+        _limb_d_tangent,
+    ) = tangents
+    tangent_parameters = jnp.stack(
+        (
+            source_x_tangent,
+            source_y_tangent,
+            jnp.broadcast_to(source_radius_tangent, primals[0].shape),
+            jnp.broadcast_to(mass_ratio_tangent, primals[0].shape),
+            separation_tangent,
+        ),
+        axis=1,
+    )
+    tangent = HolonomicBatchResult(
+        magnification=jnp.sum(primal.jacobian * tangent_parameters, axis=1),
+        support_valid=jnp.zeros_like(primal.support_valid, dtype=jax.dtypes.float0),
+        jacobian=jnp.zeros_like(primal.jacobian),
+    )
+    return primal, tangent
+
+
+def binary_holonomic_batch_value_jacobian_ffi(
+    source_x,
+    source_y,
+    separation,
+    source_radius,
+    mass_ratio,
+    limb_c=0.0,
+    limb_d=0.0,
+    *,
+    n_r=64,
+):
+    """Run the explicit D14 route for a fixed planned batch.
+
+    This route is deliberately separate from the normal LCBININT dispatcher.
+    It returns a stopped-gradient support certificate and uses the fused
+    holonomic analytic Jacobian for the custom JVP.
+    """
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("the holonomic batch FFI is CPU-only")
+    if int(n_r) < 2:
+        raise ValueError("n_r must be at least two")
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.broadcast_to(jnp.asarray(source_y, dtype=jnp.float64), source_x.shape)
+    separation = jnp.asarray(separation, dtype=jnp.float64)
+    if separation.ndim == 0:
+        separation = jnp.broadcast_to(separation, source_x.shape)
+    source_radius = jnp.asarray(source_radius, dtype=jnp.float64)
+    mass_ratio = jnp.asarray(mass_ratio, dtype=jnp.float64)
+    limb_c = jnp.asarray(limb_c, dtype=jnp.float64)
+    limb_d = jnp.asarray(limb_d, dtype=jnp.float64)
+    if source_x.ndim != 1 or source_x.shape[0] == 0:
+        raise ValueError("source_x must be a nonempty 1-D array")
+    if separation.shape != source_x.shape:
+        raise ValueError("separation must be scalar or match source_x")
+    if any(value.ndim != 0 for value in (source_radius, mass_ratio, limb_c, limb_d)):
+        raise ValueError("rho, q, and limb-darkening coefficients must be scalars")
+    _register_holonomic_batch_ffi()
+    return _holonomic_batch_transformable(
+        int(n_r), source_x, source_y, separation,
+        source_radius, mass_ratio, limb_c, limb_d,
+    )
 
 
 def binary_algebraic_boundary_batch_ffi(
