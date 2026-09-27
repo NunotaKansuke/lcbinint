@@ -105,6 +105,7 @@ typedef struct lcbi_options {
     int max_source_bins;             /* maximum nbin selected by automatic mode */
     double finite_source_tol;        /* absolute term in tol + reltol*max(|A|,1); 0 means no abs term */
     double finite_source_reltol;     /* relative term; both terms 0 selects the calibrated default */
+    double bennett_delta_c;           /* Bennett (2010) limb safeguard; default 0.15 */
 } lcbi_options;
 
 typedef struct lcbi_result {

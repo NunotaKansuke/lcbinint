@@ -71,6 +71,7 @@ struct ComputationOptions {
     int max_source_bins = 400;
     double finite_source_tol = 0.0;
     double finite_source_reltol = 0.0;
+    double bennett_delta_c = 0.15;
 };
 
 LensParameters from_c_params(const lcbi_params &params);

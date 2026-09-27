@@ -86,6 +86,7 @@ lcbi_options lcbi_default_options(void)
     options.automatic_source_bins = 1;
     options.max_source_bins = 400;
     options.finite_source_reltol = 0.0;
+    options.bennett_delta_c = 0.15;
     options.xallarap_param_type = LCBI_XALLARAP_NONE;
     return options;
 }

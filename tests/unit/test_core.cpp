@@ -1,6 +1,7 @@
 #include "lcbinint/lcbinint.h"
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
+#include "lcbinint/magnification/polar_run_walker.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
@@ -65,8 +66,14 @@ using lcbinint::magnification::detail::CartesianRunFillLimits;
 using lcbinint::magnification::detail::CartesianRunFillStatus;
 using lcbinint::magnification::detail::CartesianRunFillTrace;
 using lcbinint::magnification::detail::CartesianRunFillTraceEventKind;
+using lcbinint::magnification::detail::bennett_boundary_residual;
+using lcbinint::magnification::detail::bennett_boundary_weights;
+using lcbinint::magnification::detail::bennett_outer_boundary_weights;
 using lcbinint::magnification::detail::fill_cartesian_runs;
 using lcbinint::magnification::detail::lift_cartesian_component_run_seeds;
+using lcbinint::magnification::detail::PolarRunInterval;
+using lcbinint::magnification::detail::walk_polar_outer_segments;
+using lcbinint::magnification::detail::walk_cartesian_outer_segments;
 
 struct MaskCellState {
     bool inside = false;
@@ -209,6 +216,206 @@ bool cartesian_run_separate_components_share_row_test()
     return result.ok() && visited == expected &&
         result.counters.maximum_runs_in_row == 2 &&
         result.counters.rows_with_multiple_runs == 0;
+}
+
+bool cartesian_outer_segment_walk_tests()
+{
+    const auto fill = [](const std::vector<std::string>& rows) {
+        const LatticeCells expected = mask_cells(rows);
+        return fill_cartesian_runs<MaskCellState>(
+            {{static_cast<std::int64_t>(rows.front().size() / 2), 0}},
+            [&](std::int64_t ix, std::int64_t iy) {
+                return MaskCellState {expected.count({ix, iy}) != 0};
+            },
+            [](const MaskCellState& state) { return state.inside; },
+            [](std::int64_t, std::int64_t, const MaskCellState&) {
+                return 1.0;
+            },
+            [](const auto&, const auto&, const auto&, const auto&, const auto&) {
+                return CartesianBoundaryContribution {};
+            },
+            CartesianRunFillLimits {100000, 10000});
+    };
+    const auto check_partition = [](const auto& result, bool require_junction) {
+        if (!result.ok() || result.runs.empty()) {
+            return false;
+        }
+        const std::size_t component = result.runs.front().component;
+        const auto walk = walk_cartesian_outer_segments(result.runs, component);
+        if (!walk.complete || walk.segments.empty() ||
+            (require_junction && walk.junction_nodes == 0)) {
+            return false;
+        }
+        std::set<std::size_t> seen;
+        std::size_t component_runs = 0;
+        for (const auto& record : result.runs) {
+            component_runs += record.component == component ? 1U : 0U;
+        }
+        for (const auto& segment : walk.segments) {
+            if (segment.run_indices.empty()) {
+                return false;
+            }
+            for (std::size_t position = 0;
+                 position < segment.run_indices.size(); ++position) {
+                const std::size_t run_index = segment.run_indices[position];
+                if (!seen.insert(run_index).second ||
+                    result.runs[run_index].component != component) {
+                    return false;
+                }
+                if (position > 0) {
+                    const auto& previous =
+                        result.runs[segment.run_indices[position - 1]].run;
+                    const auto& current = result.runs[run_index].run;
+                    if (current.iy != previous.iy + 1) {
+                        return false;
+                    }
+                }
+            }
+        }
+        return seen.size() == component_runs;
+    };
+
+    const auto clean = fill({
+        "###",
+        "###",
+        "###",
+        "###",
+        "###",
+    });
+    if (!check_partition(clean, false) ||
+        walk_cartesian_outer_segments(clean.runs, clean.runs.front().component)
+                .segments.size() != 1U) {
+        return false;
+    }
+
+    // The upper run fans out into two lower runs.  This is the raster analogue
+    // of the strip that Dave's check_bktrack rescans after a boundary turns
+    // around; the walker must retain all three chains without duplicating the
+    // junction run.
+    const auto banana = fill({
+        "..#####..",
+        ".##...##.",
+        "##.....##",
+        "##.....##",
+    });
+    if (!check_partition(banana, true) ||
+        walk_cartesian_outer_segments(
+            banana.runs, banana.runs.front().component).segments.size() < 3U) {
+        return false;
+    }
+
+    const auto pinched = fill({
+        ".#####.",
+        ".##.##.",
+        ".#####.",
+    });
+    return check_partition(pinched, true);
+}
+
+bool polar_outer_segment_walk_tests()
+{
+    const auto check_partition = [](
+        const std::vector<PolarRunInterval>& runs,
+        int phi_bins,
+        bool require_junction,
+        bool require_closed) {
+        const auto walk = walk_polar_outer_segments(runs, phi_bins);
+        if (!walk.complete || walk.segments.empty() ||
+            (require_junction && walk.junction_nodes == 0)) {
+            return false;
+        }
+        std::set<std::size_t> seen;
+        const auto find_run = [&](std::size_t run_index)
+            -> const PolarRunInterval* {
+            const auto found = std::find_if(
+                runs.begin(), runs.end(),
+                [run_index](const PolarRunInterval& run) {
+                    return run.run_index == run_index;
+                });
+            return found == runs.end() ? nullptr : &*found;
+        };
+        for (const auto& segment : walk.segments) {
+            if (segment.run_indices.empty()) {
+                return false;
+            }
+            if (segment.closed &&
+                (segment.lower_boundary || segment.upper_boundary ||
+                 segment.lower_junction || segment.upper_junction)) {
+                return false;
+            }
+            for (std::size_t position = 0;
+                 position < segment.run_indices.size(); ++position) {
+                const std::size_t run_index = segment.run_indices[position];
+                if (!seen.insert(run_index).second) {
+                    return false;
+                }
+                const auto* current = find_run(run_index);
+                if (current == nullptr) {
+                    return false;
+                }
+                if (position > 0) {
+                    const auto* previous =
+                        find_run(segment.run_indices[position - 1]);
+                    if (previous == nullptr ||
+                        current->iphi !=
+                            (previous->iphi + 1) % phi_bins ||
+                        static_cast<std::int64_t>(previous->left) >
+                            static_cast<std::int64_t>(current->right) + 1 ||
+                        static_cast<std::int64_t>(current->left) >
+                            static_cast<std::int64_t>(previous->right) + 1) {
+                        return false;
+                    }
+                }
+            }
+        }
+        if (seen.size() != runs.size()) {
+            return false;
+        }
+        if (require_closed) {
+            return walk.segments.size() == 1U &&
+                walk.segments.front().closed;
+        }
+        return true;
+    };
+
+    const std::vector<PolarRunInterval> clean {
+        {0, 2, 4, 0}, {1, 2, 4, 1}, {2, 2, 4, 2},
+        {3, 2, 4, 3}, {4, 2, 4, 4}, {5, 2, 4, 5},
+    };
+    const auto clean_walk = walk_polar_outer_segments(clean, 12);
+    if (!check_partition(clean, 12, false, false) ||
+        clean_walk.segments.size() != 1U ||
+        !clean_walk.segments.front().lower_boundary ||
+        !clean_walk.segments.front().upper_boundary) {
+        return false;
+    }
+
+    const std::vector<PolarRunInterval> wrapped {
+        {10, 2, 4, 0}, {11, 2, 4, 1}, {0, 2, 4, 2}, {1, 2, 4, 3},
+    };
+    const auto wrapped_walk = walk_polar_outer_segments(wrapped, 12);
+    if (!check_partition(wrapped, 12, false, false) ||
+        wrapped_walk.segments.size() != 1U ||
+        !wrapped_walk.segments.front().lower_boundary ||
+        !wrapped_walk.segments.front().upper_boundary) {
+        return false;
+    }
+
+    // A radial interval splitting into two runs is the polar graph form of a
+    // backtrack.  The junction run must not be duplicated across the chains.
+    const std::vector<PolarRunInterval> split {
+        {0, 2, 5, 0}, {1, 2, 3, 1}, {1, 5, 6, 2},
+        {2, 2, 3, 3}, {2, 5, 6, 4},
+    };
+    if (!check_partition(split, 12, true, false)) {
+        return false;
+    }
+
+    const std::vector<PolarRunInterval> ring {
+        {0, 2, 4, 0}, {1, 2, 4, 1}, {2, 2, 4, 2},
+        {3, 2, 4, 3}, {4, 2, 4, 4}, {5, 2, 4, 5},
+    };
+    return check_partition(ring, 6, false, true);
 }
 
 bool cartesian_run_trace_order_test()
@@ -485,6 +692,47 @@ bool cartesian_run_budget_test()
         result.runs.size() == 2;
 }
 
+bool bennett_integration_rule_tests()
+{
+    // Equation (14): the guarded branch keeps the zeroth-order moment
+    // exact, while replacing the unstable square-root coefficient near a
+    // grid node.
+    const auto guarded = bennett_boundary_weights(0.05, 0.15);
+    if (std::abs(guarded.limb - 0.05 / 3.0) > 1.0e-15 ||
+        std::abs(guarded.node - (0.5 + 2.0 * 0.05 / 3.0)) > 1.0e-15 ||
+        std::abs(guarded.limb + guarded.node - (0.5 + 0.05)) > 1.0e-15) {
+        return false;
+    }
+
+    const double delta = 0.4;
+    const auto unguarded = bennett_boundary_weights(delta, 0.15);
+    const double b = (2.0 / 3.0) * std::sqrt((delta + 0.5) / delta);
+    if (std::abs(unguarded.limb - (delta + 0.5) * (1.0 - b)) > 1.0e-15 ||
+        std::abs(unguarded.node - (delta + 0.5) * b) > 1.0e-15 ||
+        std::abs(unguarded.limb + unguarded.node - (delta + 0.5)) > 1.0e-15) {
+        return false;
+    }
+
+    // The residual form used by the grid walkers must reduce to the usual
+    // (delta - 1/2) strip correction for a uniform source.
+    for (const double d : {0.0, 0.03, 0.15, 0.7, 1.0}) {
+        if (std::abs(bennett_boundary_residual(d, 1.0, 1.0, 0.15) -
+                     (d - 0.5)) > 1.0e-15) {
+            return false;
+        }
+    }
+
+    // Equation (15), retained as a separately testable building block for
+    // the smooth p=0 endpoint limit.
+    const auto outer = bennett_outer_boundary_weights(0.25);
+    if (std::abs(outer.first - (3.0 / 8.0 + 0.25 + 0.5 * 0.25 * 0.25)) > 1.0e-15 ||
+        std::abs(outer.second - (9.0 / 8.0 - 0.5 * 0.25 * 0.25)) > 1.0e-15) {
+        return false;
+    }
+
+    return true;
+}
+
 } // namespace
 
 int main()
@@ -494,6 +742,12 @@ int main()
     }
     if (!cartesian_run_separate_components_share_row_test()) {
         return 66;
+    }
+    if (!cartesian_outer_segment_walk_tests()) {
+        return 71;
+    }
+    if (!polar_outer_segment_walk_tests()) {
+        return 72;
     }
     if (!cartesian_run_trace_order_test()) {
         return 67;
@@ -512,6 +766,9 @@ int main()
     }
     if (!cartesian_run_budget_test()) {
         return 65;
+    }
+    if (!bennett_integration_rule_tests()) {
+        return 70;
     }
 
     const lcbinint::magnification::ProbePolicy default_probe_policy;
@@ -540,7 +797,8 @@ int main()
         options.source_bins != 50 ||
         options.automatic_source_bins != 1 || options.max_source_bins != 400 ||
         std::abs(options.finite_source_tol) > 1e-12 ||
-        std::abs(options.finite_source_reltol) > 1e-12) {
+        std::abs(options.finite_source_reltol) > 1e-12 ||
+        std::abs(options.bennett_delta_c - 0.15) > 1e-12) {
         return 2;
     }
     const auto high_resolution =

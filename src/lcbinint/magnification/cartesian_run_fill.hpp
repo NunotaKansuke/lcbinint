@@ -190,6 +190,10 @@ struct CartesianRunRecord {
 struct CartesianRunFillResult {
     CartesianRunFillStatus status = CartesianRunFillStatus::ok;
     std::vector<CartesianRunRecord> runs;
+    // Horizontal integral for each run, including its Bennett boundary terms.
+    // Kept aligned with `runs` so the outer-coordinate rule can reconstruct
+    // F(y) for each connected image component.
+    std::vector<double> run_areas;
     std::vector<std::size_t> component_roots;
     std::vector<int> component_rows;
     std::vector<long double> component_areas;
@@ -199,6 +203,209 @@ struct CartesianRunFillResult {
 
     bool ok() const noexcept { return status == CartesianRunFillStatus::ok; }
 };
+
+// A vertical image segment is a one-to-one chain of horizontal runs in
+// adjacent y rows.  The chain is deliberately separated at a split or merge
+// in the run graph.  Bennett's check_bktrack routine does the analogous job
+// while walking polar rows: it notices that a boundary has turned around and
+// rescans the skipped strip as a separate image segment.  Here the scanline
+// fill has already retained every maximal run, so the strip scan is equivalent
+// to constructing the adjacent-row graph and walking its one-to-one chains.
+struct CartesianOuterSegment {
+    std::vector<std::size_t> run_indices;
+    bool lower_boundary = false;
+    bool upper_boundary = false;
+    bool lower_junction = false;
+    bool upper_junction = false;
+};
+
+struct CartesianOuterSegmentWalk {
+    std::vector<CartesianOuterSegment> segments;
+    std::size_t adjacency_edges = 0;
+    std::size_t junction_nodes = 0;
+    bool complete = true;
+};
+
+inline bool cartesian_runs_overlap_or_touch(
+    const CartesianRun& first,
+    const CartesianRun& second)
+{
+    const bool first_starts_before_second_end =
+        second.hi == std::numeric_limits<std::int64_t>::max() ||
+        first.lo <= second.hi + 1;
+    const bool second_starts_before_first_end =
+        first.hi == std::numeric_limits<std::int64_t>::max() ||
+        second.lo <= first.hi + 1;
+    return first_starts_before_second_end &&
+        second_starts_before_first_end;
+}
+
+// Build a deterministic, disjoint decomposition of one connected run-fill
+// component.  Runs in a segment always advance by one lattice row.  A node
+// with more than one predecessor or successor is a topology junction, so no
+// outer endpoint rule is inferred through it.  This is the conservative part
+// of the walker: a later caller may use a segment endpoint only after also
+// checking that the adjacent physical row is outside the image.
+inline CartesianOuterSegmentWalk walk_cartesian_outer_segments(
+    const std::vector<CartesianRunRecord>& runs,
+    std::size_t component)
+{
+    CartesianOuterSegmentWalk result;
+    std::vector<std::size_t> nodes;
+    nodes.reserve(runs.size());
+    for (std::size_t index = 0; index < runs.size(); ++index) {
+        if (runs[index].component == component) {
+            nodes.push_back(index);
+        }
+    }
+    std::sort(
+        nodes.begin(), nodes.end(),
+        [&](std::size_t first, std::size_t second) {
+            const auto& lhs = runs[first].run;
+            const auto& rhs = runs[second].run;
+            if (lhs.iy != rhs.iy) {
+                return lhs.iy < rhs.iy;
+            }
+            if (lhs.lo != rhs.lo) {
+                return lhs.lo < rhs.lo;
+            }
+            if (lhs.hi != rhs.hi) {
+                return lhs.hi < rhs.hi;
+            }
+            return first < second;
+        });
+    if (nodes.empty()) {
+        return result;
+    }
+
+    constexpr std::size_t no_neighbor =
+        std::numeric_limits<std::size_t>::max();
+    // Only one-to-one edges are followed.  Retaining the first neighbour and
+    // a degree capped at two avoids one heap allocation per run on the common
+    // clean-arc path while still certifying every split/merge.
+    std::vector<std::size_t> single_predecessor(
+        nodes.size(), no_neighbor);
+    std::vector<std::size_t> single_successor(nodes.size(), no_neighbor);
+    std::vector<unsigned char> predecessor_degree(nodes.size(), 0);
+    std::vector<unsigned char> successor_degree(nodes.size(), 0);
+
+    for (std::size_t first_row = 0; first_row < nodes.size();) {
+        std::size_t first_end = first_row + 1;
+        const std::int64_t row = runs[nodes[first_row]].run.iy;
+        while (first_end < nodes.size() &&
+               runs[nodes[first_end]].run.iy == row) {
+            ++first_end;
+        }
+        std::size_t second_row = first_end;
+        if (row != std::numeric_limits<std::int64_t>::max() &&
+            second_row < nodes.size() &&
+            runs[nodes[second_row]].run.iy == row + 1) {
+            std::size_t second_end = second_row + 1;
+            while (second_end < nodes.size() &&
+                   runs[nodes[second_end]].run.iy == row + 1) {
+                ++second_end;
+            }
+            for (std::size_t first = first_row; first < first_end; ++first) {
+                for (std::size_t second = second_row;
+                     second < second_end; ++second) {
+                    if (!cartesian_runs_overlap_or_touch(
+                            runs[nodes[first]].run,
+                            runs[nodes[second]].run)) {
+                        continue;
+                    }
+                    auto& successor_count = successor_degree[first];
+                    if (successor_count < 2U) {
+                        ++successor_count;
+                    }
+                    if (successor_count == 1U) {
+                        single_successor[first] = second;
+                    } else {
+                        single_successor[first] = no_neighbor;
+                    }
+                    auto& predecessor_count = predecessor_degree[second];
+                    if (predecessor_count < 2U) {
+                        ++predecessor_count;
+                    }
+                    if (predecessor_count == 1U) {
+                        single_predecessor[second] = first;
+                    } else {
+                        single_predecessor[second] = no_neighbor;
+                    }
+                    ++result.adjacency_edges;
+                }
+            }
+        }
+        first_row = first_end;
+    }
+
+    for (std::size_t local = 0; local < nodes.size(); ++local) {
+        if (predecessor_degree[local] > 1U ||
+            successor_degree[local] > 1U) {
+            ++result.junction_nodes;
+        }
+    }
+
+    std::vector<bool> assigned(nodes.size(), false);
+    for (std::size_t seed = 0; seed < nodes.size(); ++seed) {
+        if (assigned[seed]) {
+            continue;
+        }
+
+        // Walk backwards through only one-to-one edges, then forwards from
+        // the seed.  This gives a disjoint chain even when a parent run fans
+        // out: the parent belongs to one chain and each child starts another
+        // chain at the junction.
+        std::vector<std::size_t> reversed;
+        reversed.push_back(seed);
+        assigned[seed] = true;
+        std::size_t current = seed;
+        while (predecessor_degree[current] == 1U) {
+            const std::size_t previous = single_predecessor[current];
+            if (previous == no_neighbor || assigned[previous] ||
+                successor_degree[previous] != 1U) {
+                break;
+            }
+            reversed.push_back(previous);
+            assigned[previous] = true;
+            current = previous;
+        }
+        std::reverse(reversed.begin(), reversed.end());
+
+        std::vector<std::size_t> chain = std::move(reversed);
+        current = seed;
+        while (successor_degree[current] == 1U) {
+            const std::size_t next = single_successor[current];
+            if (next == no_neighbor || assigned[next] ||
+                predecessor_degree[next] != 1U) {
+                break;
+            }
+            chain.push_back(next);
+            assigned[next] = true;
+            current = next;
+        }
+
+        CartesianOuterSegment segment;
+        segment.run_indices.reserve(chain.size());
+        for (const std::size_t local : chain) {
+            segment.run_indices.push_back(nodes[local]);
+        }
+        segment.lower_boundary = predecessor_degree[chain.front()] == 0U;
+        segment.upper_boundary = successor_degree[chain.back()] == 0U;
+        segment.lower_junction = predecessor_degree[chain.front()] != 0U;
+        segment.upper_junction = successor_degree[chain.back()] != 0U;
+        result.segments.push_back(std::move(segment));
+    }
+
+    // The decomposition must account for every run exactly once.  Keep this
+    // as a certificate rather than silently applying a partial correction if
+    // a future change to the graph walk violates that invariant.
+    std::size_t accounted = 0;
+    for (const auto& segment : result.segments) {
+        accounted += segment.run_indices.size();
+    }
+    result.complete = accounted == nodes.size();
+    return result;
+}
 
 // Lift one exact coarse-lattice point from every run in a component.  A
 // component that is 8-connected on the coarse lattice may split into several
@@ -743,6 +950,7 @@ CartesianRunFillResult fill_cartesian_runs(
 
         const std::size_t run_index = result.runs.size();
         result.runs.push_back({run, component});
+        result.run_areas.push_back(area);
         trace.run_discovered(
             run_index, run, parent_run_index, component);
         components.accumulate(component, area, cells, boundary.edges);

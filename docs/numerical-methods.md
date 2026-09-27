@@ -111,6 +111,59 @@ The exact binary coefficients, domains, and validation evidence are frozen in
 `tests/diagnostics/results/recal2026/REPORT_empirical_resolution_law.md` and the
 final Apoint validation artifacts linked from that report.
 
+## Limb-cut cells and Bennett's guarded rule
+
+The native Cartesian and polar inverse-ray integrators do not leave a source
+limb crossing at the nearest grid-cell midpoint. For an inside node whose
+distance from the limb is `delta * h`, they apply Bennett's partial-element
+weights to the limb value and the node value. The square-root weight is used
+when `delta >= bennett_delta_c`; for smaller offsets the stable fallback keeps
+the constant and first-moment conditions while avoiding the large coefficient
+that occurs as `delta -> 0`. The default is `bennett_delta_c = 0.15`, exposed
+through the C and Python options. Boundary roots are bracket-refined to the
+`0.1 h^2` physical-location target used by Bennett (2010).
+
+This correction is deliberately described as a numerical accuracy/stability
+control rather than a blanket formal second-order guarantee: a positive
+`bennett_delta_c` reintroduces a half-integer boundary error in the formal
+expansion, although high-magnification convergence tests show the desired
+approximately quadratic grid-spacing behavior.
+
+The second, outer-coordinate boundary follows Bennett's equation (15): the
+`p=0` two-point endpoint rule for the already-integrated cross-section `F(y)`.
+The Cartesian run walker constructs the adjacent-row graph of each image
+component, follows one-to-one run chains, and separates them at split/merge
+junctions in the same role as Bennett's `check_bktrack` rescan. It evaluates
+the boundary crossing for every sample in a terminating run, takes the
+outermost crossing, and applies the two-point correction independently at each
+certified segment end. A clean segment never crosses a junction, and an
+endpoint whose neighbouring physical row still contains image cells is
+rejected. The experimental backtrack path can use a junction endpoint only
+when at least one sample in the terminating run independently brackets the
+limb.
+
+The polar integrator applies the same construction to its retained radial runs:
+adjacent `phi` columns form the graph, periodic `phi=2pi -> 0` adjacency is
+included, and a full angular cycle is recorded as closed rather than given a
+spurious endpoint. The polar endpoint scan is the direct analogue of Dave's
+`hmax`/`hmin` search: it considers only radial samples that bracket the source
+limb across the terminating angular edge, and it takes the outermost crossing.
+This per-run restriction is important at a split or merge, where scanning every
+run in the column would mix the neighbouring image branch into the correction.
+For the polar experimental path, a junction is used to terminate and classify
+segments but is not itself treated as a clean outer endpoint; Eq. (15) is only
+applied on the clean-boundary side of a junction-attached segment.
+
+The automatic route remains limited to the clean, long two-image regime. Set
+`LCBININT_ENABLE_BENNETT_OUTER=1` to run the locator diagnostically on maps
+outside the normal route while retaining the topology guard. The separate
+`LCBININT_ENABLE_BENNETT_OUTER_SEGMENTS=1` switch also permits the experimental
+segment walker on more than two image components; it is intended for A/B
+validation, not as a production default. Set
+`LCBININT_DISABLE_BENNETT_OUTER=1` to turn the outer correction off. This is an
+empirically guarded accuracy improvement, not a claim that every caustic
+endpoint is second order.
+
 ## Finite-source geometry for external hosts
 
 lcbinint never imports or links to VBMicrolensing and has no concept of

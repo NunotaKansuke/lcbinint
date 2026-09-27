@@ -85,6 +85,7 @@ ComputationOptions from_c_options(const lcbi_options *options)
     out.max_source_bins = options->max_source_bins;
     out.finite_source_tol = options->finite_source_tol;
     out.finite_source_reltol = options->finite_source_reltol;
+    out.bennett_delta_c = options->bennett_delta_c;
     out.xallarap_param_type = options->xallarap_param_type;
     return out;
 }

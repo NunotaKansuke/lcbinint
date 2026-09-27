@@ -1,10 +1,12 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/component_certificate.hpp"
+#include "lcbinint/magnification/polar_run_walker.hpp"
 
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
 #include "lcbinint/math/polynomial_roots.hpp"
+
 
 #include <algorithm>
 #include <array>
@@ -431,12 +433,20 @@ double refine_boundary_crossing_fraction(
     double inside_x,
     double outside_x,
     double y,
-    double initial)
+    double initial,
+    double grid_spacing)
 {
     double inside_fraction = 0.0;
     double outside_fraction = 1.0;
     double fraction = std::clamp(initial, 0.0, 1.0);
-    constexpr double kMaximumBoundaryBracket = 1.0 / 4096.0;
+    // Bennett locates the boundary to 0.1 h^2 in physical coordinates.  The
+    // fraction along a one-cell segment therefore needs a bracket of 0.1 h.
+    // Keeping this tied to h is important: a fixed fraction leaves an O(h)
+    // boundary-location error when the source grid is refined.
+    const double maximum_boundary_bracket = std::clamp(
+        0.1 * std::abs(grid_spacing),
+        1.0e-14,
+        0.25);
     constexpr int kBoundaryNewtonIterations = 3;
     bool convergence_probed = false;
     for (int iteration = 0; iteration < kBoundaryNewtonIterations; ++iteration) {
@@ -451,7 +461,7 @@ double refine_boundary_crossing_fraction(
         } else {
             outside_fraction = fraction;
         }
-        if (outside_fraction - inside_fraction <= kMaximumBoundaryBracket) {
+        if (outside_fraction - inside_fraction <= maximum_boundary_bracket) {
             return 0.5 * (inside_fraction + outside_fraction);
         }
         const double fraction_derivative =
@@ -465,12 +475,12 @@ double refine_boundary_crossing_fraction(
             next = 0.5 * (inside_fraction + outside_fraction);
         }
         if (!convergence_probed &&
-            std::abs(next - fraction) <= kMaximumBoundaryBracket) {
+            std::abs(next - fraction) <= maximum_boundary_bracket) {
             convergence_probed = true;
-            const double half_width = 0.5 * kMaximumBoundaryBracket;
+            const double half_width = 0.5 * maximum_boundary_bracket;
             const double local_inside = std::max(inside_fraction, next - half_width);
             const double local_outside = std::min(outside_fraction, next + half_width);
-            if (local_outside - local_inside <= kMaximumBoundaryBracket) {
+            if (local_outside - local_inside <= maximum_boundary_bracket) {
                 const double inside_x_probe =
                     inside_x + local_inside * (outside_x - inside_x);
                 const double outside_x_probe =
@@ -487,8 +497,8 @@ double refine_boundary_crossing_fraction(
         fraction = next;
     }
     for (int iteration = 0;
-         iteration < 12 &&
-             outside_fraction - inside_fraction > kMaximumBoundaryBracket;
+         iteration < 64 &&
+             outside_fraction - inside_fraction > maximum_boundary_bracket;
          ++iteration) {
         const double midpoint = 0.5 * (inside_fraction + outside_fraction);
         const double x = inside_x + midpoint * (outside_x - inside_x);
@@ -516,37 +526,161 @@ double refine_polar_boundary_crossing_fraction(
     SourcePosition outside,
     double inside_residual,
     double outside_residual,
-    double initial)
+    double initial,
+    double grid_spacing)
 {
-    const double fraction = std::clamp(initial, 0.0, 1.0);
-    const SourcePosition probe {
-        inside.x + fraction * (outside.x - inside.x),
-        inside.y + fraction * (outside.y - inside.y),
-    };
-    const double residual = boundary_root_residual(
-        mapper, probe.x, probe.y, source, source_radius2);
-    if (residual == 0.0) {
-        return fraction;
-    }
+    // Use the same 0.1 h^2 physical boundary-location target as the Cartesian
+    // implementation.  The old single-secant probe was an improvement over
+    // linear interpolation but did not provide Bennett's resolution target.
+    const double maximum_boundary_bracket = std::clamp(
+        0.1 * std::abs(grid_spacing),
+        1.0e-14,
+        0.25);
     double inside_fraction = 0.0;
     double outside_fraction = 1.0;
     double inside_value = inside_residual;
     double outside_value = outside_residual;
-    if (residual <= 0.0) {
-        inside_fraction = fraction;
-        inside_value = residual;
-    } else {
-        outside_fraction = fraction;
-        outside_value = residual;
+    double fraction = std::clamp(initial, 0.0, 1.0);
+    for (int iteration = 0; iteration < 64; ++iteration) {
+        if (outside_fraction - inside_fraction <= maximum_boundary_bracket) {
+            return 0.5 * (inside_fraction + outside_fraction);
+        }
+        const double denominator = outside_value - inside_value;
+        double candidate = denominator > 0.0
+            ? inside_fraction - inside_value *
+                (outside_fraction - inside_fraction) / denominator
+            : fraction;
+        if (!(candidate > inside_fraction && candidate < outside_fraction)) {
+            candidate = 0.5 * (inside_fraction + outside_fraction);
+        }
+        const SourcePosition probe {
+            inside.x + candidate * (outside.x - inside.x),
+            inside.y + candidate * (outside.y - inside.y),
+        };
+        const double residual = boundary_root_residual(
+            mapper, probe.x, probe.y, source, source_radius2);
+        if (residual == 0.0) {
+            return candidate;
+        }
+        if (residual <= 0.0) {
+            inside_fraction = candidate;
+            inside_value = residual;
+        } else {
+            outside_fraction = candidate;
+            outside_value = residual;
+        }
+        fraction = candidate;
     }
-    const double denominator = outside_value - inside_value;
-    const double corrected = denominator > 0.0
-        ? inside_fraction - inside_value *
-            (outside_fraction - inside_fraction) / denominator
-        : fraction;
-    return corrected > inside_fraction && corrected < outside_fraction
-        ? corrected
-        : fraction;
+    return 0.5 * (inside_fraction + outside_fraction);
+}
+
+// Locate a source-limb crossing between two neighbouring angular rays.  This
+// is the polar analogue of the Cartesian boundary solve and is used only for
+// the outer-coordinate rule (Bennett 2010, equation 15).
+template <typename ImageMap>
+double refine_angular_boundary_crossing_fraction(
+    const ImageMap& mapper,
+    SourcePosition source,
+    double source_radius2,
+    SourcePosition inside,
+    SourcePosition outside,
+    double inside_residual,
+    double outside_residual,
+    double initial,
+    double grid_spacing)
+{
+    const double maximum_boundary_bracket = std::clamp(
+        0.1 * std::abs(grid_spacing),
+        1.0e-14,
+        0.25);
+    double inside_fraction = 0.0;
+    double outside_fraction = 1.0;
+    double inside_value = inside_residual;
+    double outside_value = outside_residual;
+    double fraction = std::clamp(initial, 0.0, 1.0);
+    for (int iteration = 0; iteration < 64; ++iteration) {
+        if (outside_fraction - inside_fraction <= maximum_boundary_bracket) {
+            return 0.5 * (inside_fraction + outside_fraction);
+        }
+        const double denominator = outside_value - inside_value;
+        double candidate = denominator > 0.0
+            ? inside_fraction - inside_value *
+                (outside_fraction - inside_fraction) / denominator
+            : fraction;
+        if (!(candidate > inside_fraction && candidate < outside_fraction)) {
+            candidate = 0.5 * (inside_fraction + outside_fraction);
+        }
+        const SourcePosition probe {
+            inside.x + candidate * (outside.x - inside.x),
+            inside.y + candidate * (outside.y - inside.y),
+        };
+        const double residual = boundary_root_residual(
+            mapper, probe.x, probe.y, source, source_radius2);
+        if (residual == 0.0) {
+            return candidate;
+        }
+        if (residual <= 0.0) {
+            inside_fraction = candidate;
+            inside_value = residual;
+        } else {
+            outside_fraction = candidate;
+            outside_value = residual;
+        }
+        fraction = candidate;
+    }
+    return 0.5 * (inside_fraction + outside_fraction);
+}
+
+template <typename ImageMap>
+double refine_vertical_boundary_crossing_fraction(
+    const ImageMap& mapper,
+    SourcePosition source,
+    double source_radius2,
+    double x,
+    double inside_y,
+    double outside_y,
+    double inside_residual,
+    double outside_residual,
+    double initial,
+    double grid_spacing)
+{
+    const double maximum_boundary_bracket = std::clamp(
+        0.1 * std::abs(grid_spacing),
+        1.0e-14,
+        0.25);
+    double inside_fraction = 0.0;
+    double outside_fraction = 1.0;
+    double inside_value = inside_residual;
+    double outside_value = outside_residual;
+    double fraction = std::clamp(initial, 0.0, 1.0);
+    for (int iteration = 0; iteration < 64; ++iteration) {
+        if (outside_fraction - inside_fraction <= maximum_boundary_bracket) {
+            return 0.5 * (inside_fraction + outside_fraction);
+        }
+        const double denominator = outside_value - inside_value;
+        double candidate = denominator > 0.0
+            ? inside_fraction - inside_value *
+                (outside_fraction - inside_fraction) / denominator
+            : fraction;
+        if (!(candidate > inside_fraction && candidate < outside_fraction)) {
+            candidate = 0.5 * (inside_fraction + outside_fraction);
+        }
+        const double y = inside_y + candidate * (outside_y - inside_y);
+        const double residual = boundary_root_residual(
+            mapper, x, y, source, source_radius2);
+        if (residual == 0.0) {
+            return candidate;
+        }
+        if (residual <= 0.0) {
+            inside_fraction = candidate;
+            inside_value = residual;
+        } else {
+            outside_fraction = candidate;
+            outside_value = residual;
+        }
+        fraction = candidate;
+    }
+    return 0.5 * (inside_fraction + outside_fraction);
 }
 
 struct BinaryLensEvaluation {
@@ -971,15 +1105,6 @@ double source_surface_brightness(double normalized_radius2, const FiniteSourceSe
     const double mu = std::sqrt(std::max(0.0, 1.0 - bounded_radius2));
     return 1.0 - settings.limb_darkening_c * (1.0 - mu) -
            settings.limb_darkening_d * (1.0 - std::sqrt(mu));
-}
-
-// Correction left after midpoint-counting the inside cell when the geometric
-// source limb crosses a fraction `delta` of the way toward its outside
-// neighbour.  The limb value is the proper local weight for this thin strip;
-// locating the crossing accurately is the Bennett-inspired improvement below.
-double limb_boundary_strip_correction(double delta, double limb_brightness)
-{
-    return (std::clamp(delta, 0.0, 1.0) - 0.5) * limb_brightness;
 }
 
 double source_flux(double source_radius, const FiniteSourceSettings& settings)
@@ -2539,12 +2664,22 @@ double inverse_ray_polar_core(
             {outside_radius * column_cos, outside_radius * column_sin},
             inside_dz2 - source_radius2,
             outside_dz2 - source_radius2,
-            initial_delta);
+            initial_delta,
+            dr);
         const double geometric_correction = (delta - 0.5) * face_radius;
         *absolute_geometric_correction += std::abs(geometric_correction);
-        return geometric_correction * edge_brightness;
+        const double node_value = brightness_at(inside_dz2) * inside_radius;
+        const double limb_radius = inside_radius +
+            delta * (outside_radius - inside_radius);
+        const double limb_value = edge_brightness * limb_radius;
+        return detail::bennett_boundary_residual(
+            delta, node_value, limb_value, settings.bennett_delta_c);
     };
 
+    // Keep the radial integral for every angular column.  Bennett's equation
+    // (15) is an outer-coordinate rule, so it must replace endpoint stencils
+    // rather than be collapsed into a single global midpoint sum.
+    std::vector<double> column_integrals(static_cast<std::size_t>(phi_bins), 0.0);
     double total_count = 0.0;
     double absolute_radial_geometry = 0.0;
     // Expansion already maps every inside cell in a radial run to locate its
@@ -2556,6 +2691,23 @@ double inverse_ray_polar_core(
     std::vector<double> right_inside_distances;
     left_inside_distances.reserve(static_cast<std::size_t>(source_bins));
     right_inside_distances.reserve(static_cast<std::size_t>(source_bins));
+    struct PolarIntegratedRun {
+        int iphi = 0;
+        int left = 0;
+        int right = -1;
+        double radial_integral = 0.0;
+    };
+    std::vector<PolarIntegratedRun> integrated_runs;
+    const bool bennett_outer_complex_diagnostic =
+        std::getenv("LCBININT_ENABLE_BENNETT_OUTER_SEGMENTS") != nullptr;
+    const bool bennett_outer_enabled =
+        std::getenv("LCBININT_DISABLE_BENNETT_OUTER") == nullptr &&
+        (std::getenv("LCBININT_ENABLE_BENNETT_OUTER") != nullptr ||
+         bennett_outer_complex_diagnostic ||
+         image_positions.size() <= 3U);
+    if (bennett_outer_enabled) {
+        integrated_runs.reserve(image_positions.size() * 4U);
+    }
     while (!queue.empty()) {
         const auto frontier = queue.front();
         queue.pop_front();
@@ -2609,9 +2761,10 @@ double inverse_ray_polar_core(
             const double right_inside_dz2 = right_inside_distances.empty()
                 ? start_dz2
                 : right_inside_distances.back();
+            double radial_integral = 0.0;
             const auto accumulate_cell = [&](int current, double dz2) {
                 const double radius = (static_cast<double>(current) + 0.5) * dr;
-                total_count += brightness_at(dz2) * radius;
+                radial_integral += brightness_at(dz2) * radius;
             };
             int current = left;
             for (auto it = left_inside_distances.rbegin();
@@ -2635,7 +2788,7 @@ double inverse_ray_polar_core(
                     (static_cast<double>(left) - 0.5) * dr,
                     static_cast<double>(left) * dr,
                     &absolute_radial_geometry);
-                total_count += correction;
+                radial_integral += correction;
             }
             if (right_outside_dz2 >= 0.0) {
                 const double correction = radial_edge_correction(
@@ -2645,7 +2798,11 @@ double inverse_ray_polar_core(
                     (static_cast<double>(right) + 1.5) * dr,
                     static_cast<double>(right + 1) * dr,
                     &absolute_radial_geometry);
-                total_count += correction;
+                radial_integral += correction;
+            }
+            column_integrals[static_cast<std::size_t>(iphi)] += radial_integral;
+            if (bennett_outer_enabled) {
+                integrated_runs.push_back({iphi, left, right, radial_integral});
             }
             frontier_ir = std::max(
                 frontier_ir + 1,
@@ -2653,6 +2810,356 @@ double inverse_ray_polar_core(
         }
     }
 
+    if (bennett_outer_enabled) {
+    // Reconstruct connected image components from the radial runs.  The
+    // visited table is deliberately a union of all flood fills, so its
+    // columns alone cannot tell us whether two separated image arcs happen to
+    // overlap in phi.  Equation (15) is a one-dimensional rule for one
+    // component's outer boundary; applying it to the union of all columns is
+    // wrong in precisely that situation.
+    const std::size_t run_count = integrated_runs.size();
+    std::vector<std::size_t> run_parent(run_count);
+    std::iota(run_parent.begin(), run_parent.end(), std::size_t {0});
+    const auto find_run_root = [&](std::size_t value) {
+        std::size_t root = value;
+        while (run_parent[root] != root) {
+            root = run_parent[root];
+        }
+        while (run_parent[value] != value) {
+            const std::size_t next = run_parent[value];
+            run_parent[value] = root;
+            value = next;
+        }
+        return root;
+    };
+    const auto unite_run_roots = [&](std::size_t first, std::size_t second) {
+        first = find_run_root(first);
+        second = find_run_root(second);
+        if (first == second) {
+            return;
+        }
+        run_parent[second] = first;
+    };
+
+    std::vector<std::vector<std::size_t>> runs_by_phi(
+        static_cast<std::size_t>(phi_bins));
+    for (std::size_t index = 0; index < run_count; ++index) {
+        runs_by_phi[static_cast<std::size_t>(integrated_runs[index].iphi)]
+            .push_back(index);
+    }
+    const auto run_precedes = [&](std::size_t first, std::size_t second) {
+        const auto& lhs = integrated_runs[first];
+        const auto& rhs = integrated_runs[second];
+        return lhs.left < rhs.left ||
+            (lhs.left == rhs.left && lhs.right < rhs.right);
+    };
+    for (auto& runs : runs_by_phi) {
+        std::sort(runs.begin(), runs.end(), run_precedes);
+        for (std::size_t index = 1; index < runs.size(); ++index) {
+            const auto& previous = integrated_runs[runs[index - 1]];
+            const auto& current = integrated_runs[runs[index]];
+            if (static_cast<std::int64_t>(current.left) <=
+                    static_cast<std::int64_t>(previous.right) + 1) {
+                unite_run_roots(runs[index - 1], runs[index]);
+            }
+        }
+    }
+    for (int iphi = 0; iphi < phi_bins; ++iphi) {
+        const int next_iphi = iphi + 1 == phi_bins ? 0 : iphi + 1;
+        const auto& first_column = runs_by_phi[static_cast<std::size_t>(iphi)];
+        const auto& second_column = runs_by_phi[static_cast<std::size_t>(next_iphi)];
+        std::size_t first_index = 0;
+        std::size_t second_index = 0;
+        while (first_index < first_column.size() &&
+               second_index < second_column.size()) {
+            const auto& first = integrated_runs[first_column[first_index]];
+            const auto& second = integrated_runs[second_column[second_index]];
+            const bool overlap_or_touch =
+                static_cast<std::int64_t>(first.left) <=
+                    static_cast<std::int64_t>(second.right) + 1 &&
+                static_cast<std::int64_t>(second.left) <=
+                    static_cast<std::int64_t>(first.right) + 1;
+            if (overlap_or_touch) {
+                unite_run_roots(first_column[first_index], second_column[second_index]);
+            }
+            if (first.right < second.right) {
+                ++first_index;
+            } else {
+                ++second_index;
+            }
+        }
+    }
+
+    struct PolarOuterComponent {
+        std::vector<std::size_t> run_indices;
+    };
+    std::unordered_map<std::size_t, std::size_t> component_lookup;
+    std::vector<PolarOuterComponent> outer_components;
+    for (std::size_t index = 0; index < run_count; ++index) {
+        const std::size_t root = find_run_root(index);
+        const auto found = component_lookup.find(root);
+        std::size_t component_id = 0;
+        if (found == component_lookup.end()) {
+            component_id = outer_components.size();
+            component_lookup.emplace(root, component_id);
+            outer_components.emplace_back();
+        } else {
+            component_id = found->second;
+        }
+        outer_components[component_id].run_indices.push_back(index);
+    }
+
+    // Apply Bennett's outer-coordinate construction (equation 15 in its
+    // smooth p=0 limit) to one-to-one angular image segments.  The radial pass
+    // above supplies F(phi), the radial integral for each angular run.  The
+    // segment walker is the polar analogue of Dave's check_bktrack: a split
+    // or merge ends one segment and starts another, so an endpoint rule is
+    // never silently continued across a radial backtrack.
+    struct PolarOuterBoundaryEstimate {
+        double minimum = 1.0;
+        double maximum = 0.0;
+    };
+    const auto angular_boundary_delta = [&](std::size_t run_index,
+                                            int direction)
+        -> std::optional<PolarOuterBoundaryEstimate> {
+        if (run_index >= integrated_runs.size()) {
+            return std::nullopt;
+        }
+        const auto& run = integrated_runs[run_index];
+        const int inside_iphi = run.iphi;
+        const double inside_phi =
+            (static_cast<double>(inside_iphi) + 0.5) * dphi;
+        const double outside_phi = inside_phi +
+            static_cast<double>(direction) * dphi;
+        const double inside_cos = std::cos(inside_phi);
+        const double inside_sin = std::sin(inside_phi);
+        const double outside_cos = std::cos(outside_phi);
+        const double outside_sin = std::sin(outside_phi);
+        double smallest_fraction = 1.0;
+        double largest_fraction = 0.0;
+        bool found = false;
+        for (int ir = run.left; ir <= run.right; ++ir) {
+            const double radius = (static_cast<double>(ir) + 0.5) * dr;
+            const SourcePosition inside_position {
+                radius * inside_cos, radius * inside_sin};
+            const SourcePosition outside_position {
+                radius * outside_cos, radius * outside_sin};
+            const double inside_residual = boundary_root_residual(
+                mapper, inside_position.x, inside_position.y,
+                source, source_radius2);
+            const double outside_residual = boundary_root_residual(
+                mapper, outside_position.x, outside_position.y,
+                source, source_radius2);
+            // This is Dave's hmax/hmin criterion: only radial samples that
+            // are inside on the endpoint column and cross the source limb in
+            // the neighbouring column contribute.  Restricting the scan to
+            // this run is important for a segment adjacent to a split or
+            // merge; scanning every run in the column would mix branches.
+            if (!(std::isfinite(inside_residual) &&
+                  std::isfinite(outside_residual) &&
+                  inside_residual <= 0.0 && outside_residual > 0.0)) {
+                continue;
+            }
+            const double denominator = outside_residual - inside_residual;
+            const double initial = denominator > 0.0
+                ? std::clamp(-inside_residual / denominator, 0.0, 1.0)
+                : 0.5;
+            const double fraction = refine_angular_boundary_crossing_fraction(
+                mapper, source, source_radius2,
+                inside_position, outside_position,
+                inside_residual, outside_residual,
+                initial, dphi);
+            smallest_fraction = std::min(smallest_fraction, fraction);
+            largest_fraction = std::max(largest_fraction, fraction);
+            found = true;
+        }
+        return found
+            ? std::optional<PolarOuterBoundaryEstimate>(
+                PolarOuterBoundaryEstimate {
+                    smallest_fraction,
+                    largest_fraction,
+                })
+            : std::nullopt;
+    };
+
+    int outer_polar_arcs = 0;
+    int outer_polar_segments_considered = 0;
+    int outer_polar_boundary_candidates = 0;
+    int outer_polar_applied = 0;
+    int outer_polar_components_considered = 0;
+    int outer_polar_components_rejected_span = 0;
+    int outer_polar_components_rejected_topology = 0;
+    // The automatic route is limited to the clean two-image regime.  The
+    // segment switch allows A/B experiments on more complicated maps, but it
+    // only admits segments attached to a detected junction; clean multi-image
+    // arcs remain fail-closed because their endpoint topology is not the
+    // problem that check_bktrack is designed to solve.
+    for (std::size_t component_id = 0;
+         component_id < outer_components.size(); ++component_id) {
+            ++outer_polar_components_considered;
+            const auto& component = outer_components[component_id];
+            if (!bennett_outer_complex_diagnostic &&
+                (outer_components.size() > 2U || image_positions.size() > 8U)) {
+                ++outer_polar_components_rejected_span;
+                continue;
+            }
+
+            std::vector<detail::PolarRunInterval> component_runs;
+            component_runs.reserve(component.run_indices.size());
+            for (const std::size_t run_index : component.run_indices) {
+                const auto& run = integrated_runs[run_index];
+                component_runs.push_back({
+                    run.iphi, run.left, run.right, run_index});
+            }
+            const auto walk = detail::walk_polar_outer_segments(
+                component_runs, phi_bins);
+            if (!walk.complete || walk.segments.empty()) {
+                ++outer_polar_components_rejected_topology;
+                continue;
+            }
+            // Preserve the production polar route's clean-arc contract.  A
+            // component with a split or merge is exactly the case for which
+            // the new check_bktrack-style decomposition is experimental; it
+            // must not become active merely because the component happens to
+            // contain only two point-image seeds.
+            if (walk.junction_nodes > 0U &&
+                !bennett_outer_complex_diagnostic) {
+                ++outer_polar_components_rejected_topology;
+                continue;
+            }
+            if (bennett_outer_complex_diagnostic &&
+                std::getenv("LCBININT_AREA_DIAGNOSTICS") != nullptr &&
+                walk.junction_nodes > 0U) {
+                std::fprintf(
+                    stderr,
+                    "BENNETT_OUTER_POLAR_WALK component=%zu segments=%zu edges=%zu junctions=%zu complete=%d\n",
+                    component_id, walk.segments.size(), walk.adjacency_edges,
+                    walk.junction_nodes, walk.complete ? 1 : 0);
+            }
+
+            for (std::size_t segment_id = 0;
+                 segment_id < walk.segments.size(); ++segment_id) {
+                const auto& segment = walk.segments[segment_id];
+                ++outer_polar_segments_considered;
+                if (segment.closed || segment.run_indices.size() < 6U) {
+                    ++outer_polar_components_rejected_span;
+                    continue;
+                }
+                if ((outer_components.size() > 2U || image_positions.size() > 8U) &&
+                    !bennett_outer_complex_diagnostic) {
+                    ++outer_polar_components_rejected_span;
+                    continue;
+                }
+                if ((outer_components.size() > 2U || image_positions.size() > 8U) &&
+                    !segment.lower_junction && !segment.upper_junction) {
+                    ++outer_polar_components_rejected_topology;
+                    continue;
+                }
+
+                double radial_width_sum = 0.0;
+                bool valid_widths = true;
+                for (const std::size_t run_index : segment.run_indices) {
+                    const auto& run = integrated_runs[run_index];
+                    const std::int64_t width =
+                        static_cast<std::int64_t>(run.right) -
+                        static_cast<std::int64_t>(run.left) + 1;
+                    if (width <= 0) {
+                        valid_widths = false;
+                        break;
+                    }
+                    radial_width_sum += static_cast<double>(width);
+                }
+                if (!valid_widths) {
+                    ++outer_polar_components_rejected_span;
+                    continue;
+                }
+                const double mean_radial_width = radial_width_sum /
+                    static_cast<double>(segment.run_indices.size());
+                const double image_aspect = mean_radial_width > 0.0
+                    ? static_cast<double>(segment.run_indices.size()) /
+                        mean_radial_width
+                    : 0.0;
+                if (image_aspect < 8.0) {
+                    ++outer_polar_components_rejected_span;
+                    continue;
+                }
+                ++outer_polar_arcs;
+
+                std::optional<PolarOuterBoundaryEstimate> lower_delta;
+                std::optional<PolarOuterBoundaryEstimate> upper_delta;
+                const std::size_t first = segment.run_indices.front();
+                const std::size_t second = segment.run_indices[1];
+                const std::size_t last = segment.run_indices.back();
+                const std::size_t penultimate =
+                    segment.run_indices[segment.run_indices.size() - 2];
+                if (segment.lower_boundary) {
+                    lower_delta = angular_boundary_delta(first, -1);
+                }
+                if (segment.upper_boundary) {
+                    upper_delta = angular_boundary_delta(last, +1);
+                }
+                if (!lower_delta.has_value() && !upper_delta.has_value()) {
+                    continue;
+                }
+                ++outer_polar_boundary_candidates;
+
+                // Bennett's Eq. (15) is the two-point p=0 rule used by
+                // eesunhong.  It is applied separately at each endpoint;
+                // each run integral already contains the midpoint baseline.
+                if (diagnostics != nullptr &&
+                    std::getenv("LCBININT_AREA_DIAGNOSTICS") != nullptr) {
+                    std::fprintf(
+                        stderr,
+                        "BENNETT_OUTER_POLAR_APPLY component=%zu segment=%zu length=%zu aspect=%.6g junction=%d/%d lower=[%.9g,%.9g] upper=[%.9g,%.9g]\n",
+                        component_id, segment_id, segment.run_indices.size(),
+                        image_aspect,
+                        segment.lower_junction ? 1 : 0,
+                        segment.upper_junction ? 1 : 0,
+                        lower_delta.has_value() ? lower_delta->minimum : -1.0,
+                        lower_delta.has_value() ? lower_delta->maximum : -1.0,
+                        upper_delta.has_value() ? upper_delta->minimum : -1.0,
+                        upper_delta.has_value() ? upper_delta->maximum : -1.0);
+                }
+                if (lower_delta.has_value()) {
+                    const auto weights =
+                        detail::bennett_outer_boundary_weights(
+                            lower_delta->maximum);
+                    column_integrals[static_cast<std::size_t>(
+                        integrated_runs[first].iphi)] +=
+                        (weights.first - 1.0) *
+                            integrated_runs[first].radial_integral +
+                        (weights.second - 1.0) *
+                            integrated_runs[second].radial_integral;
+                }
+                if (upper_delta.has_value()) {
+                    const auto weights =
+                        detail::bennett_outer_boundary_weights(
+                            upper_delta->maximum);
+                    column_integrals[static_cast<std::size_t>(
+                        integrated_runs[last].iphi)] +=
+                        (weights.first - 1.0) *
+                            integrated_runs[last].radial_integral +
+                        (weights.second - 1.0) *
+                            integrated_runs[penultimate].radial_integral;
+                }
+                ++outer_polar_applied;
+            }
+        }
+
+        if (diagnostics != nullptr &&
+            std::getenv("LCBININT_AREA_DIAGNOSTICS") != nullptr) {
+            std::fprintf(
+                stderr,
+                "BENNETT_OUTER_POLAR phi_bins=%d components=%zu considered=%d segments=%d rejected_span=%d topology_reject=%d arcs=%d candidates=%d applied=%d\n",
+                phi_bins, outer_components.size(), outer_polar_components_considered,
+                outer_polar_segments_considered,
+                outer_polar_components_rejected_span,
+                outer_polar_components_rejected_topology, outer_polar_arcs,
+                outer_polar_boundary_candidates, outer_polar_applied);
+        }
+    }
+
+    total_count = std::accumulate(column_integrals.begin(), column_integrals.end(), 0.0);
     const double image_flux = total_count * dr * dphi;
     if (diagnostics != nullptr) {
         // The boundary correction removes the O(h) radial boundary term.  Its
@@ -3714,6 +4221,21 @@ double cartesian_image_area_impl(
             brightness_table = finite_magnifier->limb_darkening_table_data();
         }
     }
+    const auto brightness_at_distance2 = [&](double distance2) {
+        if constexpr (!UseLimbDarkening) {
+            (void) distance2;
+            return 1.0;
+        }
+        const double normalized2 = std::clamp(
+            distance2 * inv_source_radius2, 0.0, 1.0);
+        if (brightness_table != nullptr) {
+            const int index = static_cast<int>(
+                normalized2 * static_cast<double>(kLimbDarkeningTableSize) + 0.5);
+            return brightness_table[std::clamp(
+                index, 0, kLimbDarkeningTableSize)];
+        }
+        return source_surface_brightness(normalized2, settings);
+    };
     // Second-order boundary correction state.  Each row is scanned rightward
     // from x0 and then leftward from x0 - incr, so the sample spatially
     // adjacent to a boundary crossing is usually the previous iteration
@@ -3751,7 +4273,7 @@ double cartesian_image_area_impl(
         }
         return refine_boundary_crossing_fraction(
             mapper, source, source_radius2,
-            inside_x, outside_x, y, initial);
+            inside_x, outside_x, y, initial, incr);
     };
     std::int64_t guard = 0;
     const auto seed_evaluation =
@@ -3870,9 +4392,9 @@ double cartesian_image_area_impl(
                     crossing_fraction(mapped_distance2, dz2_last);
                 const double delta = refined_crossing_fraction(
                     image.x, image.x + incr, image.y, initial_delta);
-                const double correction = limb_boundary_strip_correction(
-                    delta, edge_brightness);
-                countx += correction;
+                countx += detail::bennett_boundary_residual(
+                    delta, brightness, edge_brightness,
+                    settings.bennett_delta_c);
             }
             countx += brightness;
             if (dx > 0.0) {
@@ -3899,8 +4421,9 @@ double cartesian_image_area_impl(
                 const double inside_x = image.x - dx;
                 const double delta = refined_crossing_fraction(
                     inside_x, image.x, image.y, initial_delta);
-                edge_correction = limb_boundary_strip_correction(
-                    delta, edge_brightness);
+                edge_correction = detail::bennett_boundary_residual(
+                    delta, brightness_at_distance2(dz2_last), edge_brightness,
+                    settings.bennett_delta_c);
                 countx += edge_correction;
             } else if (jac_ok && is_first_left && dz2_row_start >= 0.0) {
                 // First sample left of the turnaround is outside while the
@@ -3911,8 +4434,9 @@ double cartesian_image_area_impl(
                     crossing_fraction(dz2_row_start, mapped_distance2);
                 const double delta = refined_crossing_fraction(
                     x0, image.x, image.y, initial_delta);
-                edge_correction = limb_boundary_strip_correction(
-                    delta, edge_brightness);
+                edge_correction = detail::bennett_boundary_residual(
+                    delta, brightness_at_distance2(dz2_row_start), edge_brightness,
+                    settings.bennett_delta_c);
                 countx += edge_correction;
             }
             if (dx == incr) {
@@ -4975,6 +5499,16 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
         : 1.0;
     const bool bennett_root_enabled =
         std::getenv("LCBININT_DIAGNOSTIC_DISABLE_BENNETT_LIMB") == nullptr;
+    const auto brightness_at_distance2 = [&](double distance2) {
+        if (!use_limb_darkening) {
+            return 1.0;
+        }
+        const double normalized2 = std::clamp(
+            distance2 * inverse_source_radius2, 0.0, 1.0);
+        return finite_magnifier != nullptr
+            ? finite_magnifier->limb_darkening_table_brightness(normalized2)
+            : source_surface_brightness(normalized2, settings);
+    };
     // A run contains at least one evaluated inside cell, so the evaluation
     // budget is also a strict upper bound on useful run storage.  Retain the
     // independent ceiling as the memory safety envelope for very large maps.
@@ -5041,11 +5575,14 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
                 const double fraction = bennett_root_enabled
                     ? refine_boundary_crossing_fraction(
                         mapper, source, source_radius2,
-                        inside_x, outside_x, y, initial)
+                        inside_x, outside_x, y, initial, incr)
                     : initial;
                 ++contribution.edges;
-                return limb_boundary_strip_correction(
-                    fraction, edge_brightness);
+                const double node_value = brightness_at_distance2(
+                    inside.mapped_distance2);
+                return detail::bennett_boundary_residual(
+                    fraction, node_value, edge_brightness,
+                    settings.bennett_delta_c);
             };
             if (run.lo == std::numeric_limits<std::int64_t>::min() ||
                 run.hi == std::numeric_limits<std::int64_t>::max()) {
@@ -5174,6 +5711,7 @@ double fill_all_cartesian_components_multirun(
     LegacyAreaDiagnostics* diagnostics,
     detail::CartesianRunFillTrace* trace = nullptr)
 {
+    const double source_radius2 = source_radius * source_radius;
     std::vector<detail::CartesianLatticeSeed> seeds;
     seeds.reserve(evaluated_seeds.size());
     for (const auto& seed : evaluated_seeds) {
@@ -5269,6 +5807,265 @@ double fill_all_cartesian_components_multirun(
                 component.first_run_index = index;
             }
         }
+    }
+
+    const bool bennett_outer_complex_diagnostic =
+        std::getenv("LCBININT_ENABLE_BENNETT_OUTER_SEGMENTS") != nullptr;
+    const bool bennett_outer_enabled =
+        std::getenv("LCBININT_DISABLE_BENNETT_OUTER") == nullptr &&
+        (std::getenv("LCBININT_ENABLE_BENNETT_OUTER") != nullptr ||
+         bennett_outer_complex_diagnostic || components.size() <= 2U);
+
+    struct CartesianOuterBoundaryEstimate {
+        double eta = std::numeric_limits<double>::quiet_NaN();
+    };
+    const auto vertical_boundary_delta = [&](std::size_t run_index,
+                                             int direction,
+                                             bool permit_partial_crossings)
+        -> std::optional<CartesianOuterBoundaryEstimate> {
+        if (run_index >= run_fill.runs.size()) {
+            return std::nullopt;
+        }
+        const auto& edge_run = run_fill.runs[run_index].run;
+        if (edge_run.lo >= edge_run.hi ||
+            edge_run.hi == std::numeric_limits<std::int64_t>::max()) {
+            return std::nullopt;
+        }
+        const double inside_y = static_cast<double>(edge_run.iy) * incr;
+        const double outside_y = inside_y + static_cast<double>(direction) * incr;
+        const std::uint64_t width_u = static_cast<std::uint64_t>(
+            edge_run.hi - edge_run.lo) + 1U;
+        if (width_u > static_cast<std::uint64_t>(std::numeric_limits<std::size_t>::max())) {
+            return std::nullopt;
+        }
+
+        // Dave's row walker evaluates the boundary crossing for every radial
+        // sample in the terminating row and uses the largest crossing as the
+        // outer edge.  Keep that same per-segment operation here rather than
+        // inferring a tangent from only a few raster samples.  A clean outer
+        // endpoint must bracket the limb at every sample.  A backtrack
+        // endpoint is allowed to have the neighbouring image branch in some
+        // samples; it still needs at least one valid limb bracket.
+        double eta = 0.0;
+        bool found_crossing = false;
+        for (std::int64_t ix = edge_run.lo;; ++ix) {
+            const double x = static_cast<double>(ix) * incr;
+            const double inside_residual = boundary_root_residual(
+                mapper, x, inside_y, source, source_radius2);
+            const double outside_residual = boundary_root_residual(
+                mapper, x, outside_y, source, source_radius2);
+            if (!(std::isfinite(inside_residual) &&
+                  std::isfinite(outside_residual) &&
+                  inside_residual <= 0.0)) {
+                if (!permit_partial_crossings) {
+                    return std::nullopt;
+                }
+                if (ix == edge_run.hi) {
+                    break;
+                }
+                continue;
+            }
+            if (!(outside_residual > 0.0)) {
+                if (!permit_partial_crossings) {
+                    return std::nullopt;
+                }
+                if (ix == edge_run.hi) {
+                    break;
+                }
+                continue;
+            }
+            const double denominator = outside_residual - inside_residual;
+            const double initial = denominator > 0.0
+                ? std::clamp(-inside_residual / denominator, 0.0, 1.0)
+                : 0.5;
+            const double candidate = refine_vertical_boundary_crossing_fraction(
+                mapper, source, source_radius2, x,
+                inside_y, outside_y, inside_residual, outside_residual,
+                initial, incr);
+            eta = std::max(eta, candidate);
+            found_crossing = true;
+            if (ix == edge_run.hi) {
+                break;
+            }
+        }
+        return found_crossing
+            ? std::optional<CartesianOuterBoundaryEstimate>(
+                CartesianOuterBoundaryEstimate {eta})
+            : std::nullopt;
+    };
+    // Apply equation (15) to the one-to-one outer segments returned by the
+    // check_bktrack-style walker.  A component may contain several such
+    // segments after a split or a merge.  The walker never lets the rule
+    // cross a junction, and the physical boundary check below additionally
+    // rejects an endpoint whose neighbouring row still contains image cells.
+    int outer_components_considered = 0;
+    int outer_segments_considered = 0;
+    int outer_segments_applied = 0;
+    int outer_components_rejected_span = 0;
+    int outer_components_rejected_boundary = 0;
+    if (bennett_outer_enabled) {
+        for (std::size_t component_id = 0;
+             component_id < components.size(); ++component_id) {
+            ++outer_components_considered;
+            auto& component = components[component_id];
+            const std::int64_t span = component.max_iy >= component.min_iy
+                ? component.max_iy - component.min_iy + 1
+                : 0;
+            // Equation (15) is useful for the long, thin image arcs for which
+            // Bennett designed it.  A short blob has no asymptotic outer
+            // strip, and the multi-seed/fold regime remains fail-closed.
+            if ((components.size() > 2U && !bennett_outer_complex_diagnostic) ||
+                run_fill.counters.provisional_components > 8 ||
+                span < 4 ||
+                component.first_run_index == missing_component) {
+                ++outer_components_rejected_span;
+                continue;
+            }
+            const std::size_t root_component =
+                run_fill.runs[component.first_run_index].component;
+            const auto walk = detail::walk_cartesian_outer_segments(
+                run_fill.runs, root_component);
+            if (!walk.complete || walk.segments.empty()) {
+                ++outer_components_rejected_span;
+                continue;
+            }
+            // The experimental multi-component switch is for the new
+            // check_bktrack-style topology path, not a broad license to
+            // change every clean image arc in a three/five-image event.  The
+            // latter showed a small but repeatable bias in the planetary
+            // control case, while a junction is the evidence that this
+            // segment walker is doing work the old component rule could not.
+            if (components.size() > 2U &&
+                bennett_outer_complex_diagnostic &&
+                walk.junction_nodes == 0U) {
+                ++outer_components_rejected_span;
+                continue;
+            }
+            if (std::getenv("LCBININT_AREA_DIAGNOSTICS") != nullptr &&
+                walk.junction_nodes > 0U) {
+                std::fprintf(
+                    stderr,
+                    "BENNETT_OUTER_CART_WALK component=%zu segments=%zu edges=%zu junctions=%zu complete=%d\n",
+                    component_id, walk.segments.size(), walk.adjacency_edges,
+                    walk.junction_nodes, walk.complete ? 1 : 0);
+            }
+
+            for (std::size_t segment_id = 0;
+                 segment_id < walk.segments.size(); ++segment_id) {
+                const auto& segment = walk.segments[segment_id];
+                ++outer_segments_considered;
+                const std::int64_t segment_span =
+                    segment.run_indices.size() >= 2U
+                    ? run_fill.runs[segment.run_indices.back()].run.iy -
+                        run_fill.runs[segment.run_indices.front()].run.iy + 1
+                    : 0;
+                std::int64_t segment_cells = 0;
+                for (const std::size_t run_index : segment.run_indices) {
+                    const auto& run = run_fill.runs[run_index].run;
+                    if (run.hi < run.lo ||
+                        run.hi - run.lo ==
+                            std::numeric_limits<std::int64_t>::max()) {
+                        segment_cells = 0;
+                        break;
+                    }
+                    segment_cells += run.hi - run.lo + 1;
+                }
+                const double segment_mean_width =
+                    segment.run_indices.empty() || segment_cells <= 0
+                    ? 0.0
+                    : static_cast<double>(segment_cells) /
+                        static_cast<double>(segment.run_indices.size());
+                const double segment_aspect = segment_mean_width > 0.0
+                    ? static_cast<double>(segment_span) / segment_mean_width
+                    : 0.0;
+                if (std::getenv("LCBININT_AREA_DIAGNOSTICS") != nullptr &&
+                    walk.junction_nodes > 0U) {
+                    std::fprintf(
+                        stderr,
+                        "BENNETT_OUTER_CART_SEGMENT component=%zu segment=%zu length=%zu aspect=%.6g lower=%d/%d upper=%d/%d\n",
+                        component_id, segment_id, segment.run_indices.size(),
+                        segment_aspect,
+                        segment.lower_boundary ? 1 : 0,
+                        segment.lower_junction ? 1 : 0,
+                        segment.upper_boundary ? 1 : 0,
+                        segment.upper_junction ? 1 : 0);
+                }
+                // Equation (15) needs two distinct interior samples at an
+                // endpoint.  A short backtrack is retained in the midpoint
+                // sum rather than being promoted to a one-point rule.
+                if (segment.run_indices.size() < 4U ||
+                    segment_span < 4 || segment_aspect < 8.0) {
+                    ++outer_components_rejected_span;
+                    continue;
+                }
+                bool applied = false;
+                std::optional<double> lower_eta;
+                std::optional<double> upper_eta;
+                if (segment.lower_boundary || segment.lower_junction) {
+                    const auto boundary = vertical_boundary_delta(
+                        segment.run_indices.front(), -1,
+                        segment.lower_junction);
+                    if (boundary.has_value()) {
+                        const auto weights =
+                            detail::bennett_outer_boundary_weights(
+                                boundary->eta);
+                        const std::size_t first = segment.run_indices.front();
+                        const std::size_t second = segment.run_indices[1];
+                        component.area +=
+                            (weights.first - 1.0) * run_fill.run_areas[first] +
+                            (weights.second - 1.0) * run_fill.run_areas[second];
+                        lower_eta = boundary->eta;
+                        applied = true;
+                    }
+                }
+                if (segment.upper_boundary || segment.upper_junction) {
+                    const auto boundary = vertical_boundary_delta(
+                        segment.run_indices.back(), +1,
+                        segment.upper_junction);
+                    if (boundary.has_value()) {
+                        const auto weights =
+                            detail::bennett_outer_boundary_weights(
+                                boundary->eta);
+                        const std::size_t last = segment.run_indices.back();
+                        const std::size_t penultimate =
+                            segment.run_indices[segment.run_indices.size() - 2];
+                        component.area +=
+                            (weights.first - 1.0) * run_fill.run_areas[last] +
+                            (weights.second - 1.0) *
+                                run_fill.run_areas[penultimate];
+                        upper_eta = boundary->eta;
+                        applied = true;
+                    }
+                }
+                if (!applied) {
+                    ++outer_components_rejected_boundary;
+                    continue;
+                }
+                ++outer_segments_applied;
+                if (std::getenv("LCBININT_AREA_DIAGNOSTICS") != nullptr) {
+                    std::fprintf(
+                        stderr,
+                        "BENNETT_OUTER_CART_APPLY component=%zu segment=%zu length=%zu aspect=%.6g lower=%d/%d upper=%d/%d lower_eta=%.9g upper_eta=%.9g\n",
+                        component_id, segment_id, segment.run_indices.size(),
+                        segment_aspect,
+                        segment.lower_boundary ? 1 : 0,
+                        segment.lower_junction ? 1 : 0,
+                        segment.upper_boundary ? 1 : 0,
+                        segment.upper_junction ? 1 : 0,
+                        lower_eta.has_value() ? *lower_eta : -1.0,
+                        upper_eta.has_value() ? *upper_eta : -1.0);
+                }
+            }
+        }
+    }
+    if (std::getenv("LCBININT_AREA_DIAGNOSTICS") != nullptr &&
+        bennett_outer_enabled) {
+        std::fprintf(
+            stderr,
+            "BENNETT_OUTER_CART components=%d segments=%d applied=%d span_reject=%d boundary_reject=%d\n",
+            outer_components_considered, outer_segments_considered,
+            outer_segments_applied,
+            outer_components_rejected_span, outer_components_rejected_boundary);
     }
 
     for (auto& component : components) {
@@ -7758,6 +8555,7 @@ HexadecapoleDiagnosticResult diagnostic_hexadecapole_binary(
     return {result.magnification, result.relative_error, derivative_relative_error};
 }
 
+
 FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
     double separation,
     double mass_ratio,
@@ -7815,6 +8613,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
             std::isfinite(value),
         };
     }
+
 
     if (method == FiniteSourceMethod::inverse_ray_cartesian ||
         method == FiniteSourceMethod::inverse_ray_polar) {

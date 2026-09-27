@@ -107,6 +107,7 @@ magnification::FiniteSourceSettings finite_source_settings(
     settings.max_source_bins = options.max_source_bins;
     settings.finite_source_tol = options.finite_source_tol;
     settings.finite_source_reltol = options.finite_source_reltol;
+    settings.bennett_delta_c = options.bennett_delta_c;
     return settings;
 }
 
@@ -139,7 +140,8 @@ bool same_finite_source_settings(
         lhs.automatic_source_bins == rhs.automatic_source_bins &&
         lhs.max_source_bins == rhs.max_source_bins &&
         lhs.finite_source_tol == rhs.finite_source_tol &&
-        lhs.finite_source_reltol == rhs.finite_source_reltol;
+        lhs.finite_source_reltol == rhs.finite_source_reltol &&
+        lhs.bennett_delta_c == rhs.bennett_delta_c;
 }
 
 std::shared_ptr<magnification::FiniteSourceMagnifier>

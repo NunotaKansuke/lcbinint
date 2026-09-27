@@ -790,6 +790,7 @@ lcbinint::magnification::FiniteSourceSettings finite_source_settings_from(
     settings.max_source_bins = options.max_source_bins;
     settings.finite_source_tol = options.finite_source_tol;
     settings.finite_source_reltol = options.finite_source_reltol;
+    settings.bennett_delta_c = options.bennett_delta_c;
     return settings;
 }
 
@@ -1051,7 +1052,8 @@ void register_lc_submodule(py::module_& parent)
 	                double finite_source_tol,
 	                double finite_source_reltol,
 	                double tol,
-	                double reltol) {
+	                double reltol,
+	                double bennett_delta_c) {
 	            auto o = lcbi_default_options();
 	            apply_param_type(o, coordinates.empty() ? param_type : coordinates);
 	            if (!nbin.is_none()) {
@@ -1090,6 +1092,7 @@ void register_lc_submodule(py::module_& parent)
 	            if (reltol > 0.0) {
 	                o.finite_source_reltol = reltol;
 	            }
+	            o.bennett_delta_c        = bennett_delta_c;
 	            return o;
 	        }),
 	            py::arg("param_type")             = "vbm",
@@ -1113,7 +1116,8 @@ void register_lc_submodule(py::module_& parent)
 	            py::arg("finite_source_tol")      = lcbi_default_options().finite_source_tol,
 	            py::arg("finite_source_reltol")   = lcbi_default_options().finite_source_reltol,
 	            py::arg("tol")                    = 0.0,
-	            py::arg("reltol")                 = 0.0)
+	            py::arg("reltol")                 = 0.0,
+	            py::arg("bennett_delta_c")        = lcbi_default_options().bennett_delta_c)
 	        .def_property("source_bins",
 	            [](const lcbi_options& o) { return o.source_bins; },
 	            [](lcbi_options& o, int value) { apply_nbin(o, py::int_(value)); })
@@ -1183,6 +1187,7 @@ void register_lc_submodule(py::module_& parent)
 	        .def_readwrite("max_source_bins",        &lcbi_options::max_source_bins)
 	        .def_readwrite("finite_source_tol",      &lcbi_options::finite_source_tol)
 	        .def_readwrite("finite_source_reltol",   &lcbi_options::finite_source_reltol)
+	        .def_readwrite("bennett_delta_c",        &lcbi_options::bennett_delta_c)
 	        .def_property("tol",
 	            [](const lcbi_options& o) { return o.finite_source_tol; },
 	            [](lcbi_options& o, double value) { o.finite_source_tol = value; })

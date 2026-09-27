@@ -1,6 +1,7 @@
 #pragma once
 
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
+#include "lcbinint/magnification/bennett_integration.hpp"
 #include "lcbinint/model/triple_lens_geometry.hpp"
 #include "lcbinint/types.hpp"
 
@@ -54,6 +55,7 @@ struct FiniteSourceSettings {
     int max_source_bins = 400;
     double finite_source_tol = 0.0;
     double finite_source_reltol = 0.0;
+    double bennett_delta_c = 0.15;
 };
 
 struct BinaryResolutionSelection {

@@ -291,6 +291,7 @@ class LightCurve:
             int(options.max_source_bins),
             float(options.finite_source_tol),
             float(options.finite_source_reltol),
+            float(options.bennett_delta_c),
             float(options.point_source_threshold),
             float(options.hexadecapole_threshold),
             float(options.adaptive_hex_threshold),

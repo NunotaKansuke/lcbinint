@@ -68,6 +68,26 @@ epoch:
 `inverse_ray_grid` controls the full inverse-ray backend; it does not disable
 the safe point-source or hexadecapole fast paths.
 
+## Limb-boundary integration
+
+Native Cartesian and polar inverse-ray integration use the partial-element rule
+of [Bennett (2010)](https://arxiv.org/abs/0911.2703) for cells cut by the
+source limb. The boundary is bracket-refined to a physical location error of
+`0.1 h**2`, and the linear/square-root boundary weights are used unless the
+dimensionless boundary offset is smaller than `bennett_delta_c`. In that case
+the guarded moment rule is used instead of allowing the square-root coefficient
+to become large.
+
+```python
+stable = lcbinint.Options(bennett_delta_c=0.15)  # default
+formal = lcbinint.Options(bennett_delta_c=0.0)   # formal second-order limit
+```
+
+The default `0.15` is the empirically stable choice reported by Bennett. It is
+not a claim that the guarded scheme is formally second order for every
+boundary phase; it is a numerical-stability control for limb-darkened
+profiles. The option affects the native inverse-ray integrators.
+
 ```python
 automatic = lcbinint.Options(
     nbin="auto",
@@ -106,6 +126,7 @@ useful for reproducibility experiments and is also one-shot.
 | `max_source_bins` | Ceiling applied to the automatic resolution prediction. | Leave at the calibrated default unless diagnostics require more. |
 | `inverse_ray_grid` | `"auto"`, `"cartesian"`, or `"polar"`. | `"auto"` |
 | `polar_nbin` | Optional independent polar resolution. | `None` |
+| `bennett_delta_c` | Boundary offset below which the stable partial-element fallback is used. | `0.15` |
 | `caustic_bins` | Sampling used only for caustic/critical-curve visualization. | Increase for denser scatter plots. |
 | `hex_tol` | Fourth-order self-consistency threshold. | Leave at the default unless validating method selection. |
 | `point_source_threshold` | Geometric point-source safety margin. | Advanced validation only. |
