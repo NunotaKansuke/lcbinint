@@ -47,6 +47,7 @@ struct PyLightCurveInfo {
     std::vector<int> root_used_warm_start;
     std::vector<int> root_used_cold_retry;
     std::vector<int> root_used_high_precision;
+    std::vector<int> root_used_quad_precision;
     std::vector<int> root_needs_high_precision;
     std::vector<double> root_max_residuals;
     std::vector<double> point_source_quadrupole_indicators;
@@ -708,6 +709,7 @@ PyLightCurveInfo compute_info(
     info.root_used_warm_start.reserve(static_cast<std::size_t>(n));
     info.root_used_cold_retry.reserve(static_cast<std::size_t>(n));
     info.root_used_high_precision.reserve(static_cast<std::size_t>(n));
+    info.root_used_quad_precision.reserve(static_cast<std::size_t>(n));
     info.root_needs_high_precision.reserve(static_cast<std::size_t>(n));
     info.root_max_residuals.reserve(static_cast<std::size_t>(n));
     info.point_source_quadrupole_indicators.reserve(static_cast<std::size_t>(n));
@@ -742,6 +744,7 @@ PyLightCurveInfo compute_info(
         info.root_used_warm_start.push_back(result.root_used_warm_start);
         info.root_used_cold_retry.push_back(result.root_used_cold_retry);
         info.root_used_high_precision.push_back(result.root_used_high_precision);
+        info.root_used_quad_precision.push_back(result.root_used_quad_precision);
         info.root_needs_high_precision.push_back(result.root_needs_high_precision);
         info.root_max_residuals.push_back(result.root_max_residual);
         info.point_source_quadrupole_indicators.push_back(
@@ -1245,6 +1248,7 @@ void register_lc_submodule(py::module_& parent)
         .def_readonly("root_used_warm_start", &PyLightCurveInfo::root_used_warm_start)
         .def_readonly("root_used_cold_retry", &PyLightCurveInfo::root_used_cold_retry)
         .def_readonly("root_used_high_precision", &PyLightCurveInfo::root_used_high_precision)
+        .def_readonly("root_used_quad_precision", &PyLightCurveInfo::root_used_quad_precision)
         .def_readonly("root_needs_high_precision", &PyLightCurveInfo::root_needs_high_precision)
         .def_readonly("root_max_residuals", &PyLightCurveInfo::root_max_residuals)
         .def_readonly("point_source_quadrupole_indicators",

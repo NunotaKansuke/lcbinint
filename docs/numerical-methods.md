@@ -10,6 +10,24 @@ The automatic grid-size calibration, tolerance budget, and one-shot policy below
 are specific to `lcbinint` and are validated by this repository's regression
 and calibration data.
 
+## Triple-lens point-source precision
+
+Triple-lens point-source magnification is normally evaluated with the cached
+double-precision degree-ten polynomial solve. If the physical-image count or
+the lens-equation polish is inconsistent, the solver retries the complete
+polynomial in Boost.Multiprecision binary128 arithmetic (113-bit significand):
+the coefficients, all ten roots, the two-dimensional image polish, and the
+Jacobian are evaluated in the guarded path. The final public magnification is
+still returned as a `double`; quadruple precision is used to make the selected
+image set and its Jacobians reliable, not to change the API type.
+
+`root_used_high_precision` records the guarded precision path, while
+`root_used_quad_precision` records that the complete binary128 polynomial
+retry succeeded. The eliminated polynomial also contains non-physical roots;
+their failed lens-equation polish is retained in the diagnostics and is not
+counted as an image. Thus a large `root_max_residual` can describe a rejected
+algebraic root even when all selected physical images are well converged.
+
 ## Finite-source fast paths
 
 Binary and triple finite-source evaluations first test whether the point-source

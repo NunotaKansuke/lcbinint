@@ -3,10 +3,14 @@
 #include "SkowronGould.h"
 #include "lcbinint/math/polynomial_roots.hpp"
 
+#include <boost/math/special_functions/fpclassify.hpp>
+#include <boost/multiprecision/cpp_bin_float.hpp>
+
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <limits>
+#include <utility>
 #include <vector>
 
 namespace lcbinint::magnification {
@@ -461,6 +465,153 @@ double jacobian_determinant(const BinaryGeometry& geometry, Complex image)
 
 using Polynomial = std::vector<Complex>;
 
+// The ordinary triple solve is deliberately kept in double precision.  Its
+// polynomial is degree ten, so a few physically valid roots can become too
+// close for the double solver near a caustic.  ``long double`` is not a
+// portable quadruple-precision type (on x86 it normally has a 64-bit
+// significand), so the guarded retry below uses Boost's header-only binary
+// quad type: 113 bits, the IEEE binary128 significand width.
+using QuadReal = boost::multiprecision::cpp_bin_float_quad;
+
+struct QuadComplex {
+    QuadReal real = 0;
+    QuadReal imag = 0;
+
+    QuadComplex() = default;
+    QuadComplex(double real_value) : real(real_value) {}
+    QuadComplex(QuadReal real_value) : real(std::move(real_value)) {}
+    QuadComplex(QuadReal real_value, QuadReal imag_value)
+        : real(std::move(real_value)), imag(std::move(imag_value)) {}
+};
+
+QuadComplex operator+(const QuadComplex& lhs, const QuadComplex& rhs)
+{
+    return {lhs.real + rhs.real, lhs.imag + rhs.imag};
+}
+
+QuadComplex operator-(const QuadComplex& lhs, const QuadComplex& rhs)
+{
+    return {lhs.real - rhs.real, lhs.imag - rhs.imag};
+}
+
+QuadComplex operator-(const QuadComplex& value)
+{
+    return {-value.real, -value.imag};
+}
+
+QuadComplex operator*(const QuadComplex& lhs, const QuadComplex& rhs)
+{
+    return {lhs.real * rhs.real - lhs.imag * rhs.imag,
+        lhs.real * rhs.imag + lhs.imag * rhs.real};
+}
+
+QuadComplex operator*(const QuadComplex& value, const QuadReal& scale)
+{
+    return {value.real * scale, value.imag * scale};
+}
+
+QuadComplex operator*(const QuadReal& scale, const QuadComplex& value)
+{
+    return value * scale;
+}
+
+QuadComplex operator/(const QuadComplex& value, const QuadReal& scale)
+{
+    return {value.real / scale, value.imag / scale};
+}
+
+QuadComplex operator/(const QuadComplex& lhs, const QuadComplex& rhs)
+{
+    const QuadReal denominator = rhs.real * rhs.real + rhs.imag * rhs.imag;
+    return {(lhs.real * rhs.real + lhs.imag * rhs.imag) / denominator,
+        (lhs.imag * rhs.real - lhs.real * rhs.imag) / denominator};
+}
+
+QuadComplex& operator+=(QuadComplex& lhs, const QuadComplex& rhs)
+{
+    lhs.real += rhs.real;
+    lhs.imag += rhs.imag;
+    return lhs;
+}
+
+QuadComplex& operator-=(QuadComplex& lhs, const QuadComplex& rhs)
+{
+    lhs.real -= rhs.real;
+    lhs.imag -= rhs.imag;
+    return lhs;
+}
+
+QuadComplex& operator*=(QuadComplex& lhs, const QuadComplex& rhs)
+{
+    lhs = lhs * rhs;
+    return lhs;
+}
+
+QuadReal quad_abs(const QuadReal& value)
+{
+    return value < 0 ? -value : value;
+}
+
+QuadReal quad_abs(const QuadComplex& value)
+{
+    return boost::multiprecision::sqrt(
+        value.real * value.real + value.imag * value.imag);
+}
+
+bool quad_isfinite(const QuadReal& value)
+{
+    return boost::math::isfinite(value);
+}
+
+bool quad_isfinite(const QuadComplex& value)
+{
+    return quad_isfinite(value.real) && quad_isfinite(value.imag);
+}
+
+using QuadPolynomial = std::vector<QuadComplex>;
+
+QuadPolynomial quad_add_polynomial(
+    const QuadPolynomial& lhs,
+    const QuadPolynomial& rhs)
+{
+    QuadPolynomial out(std::max(lhs.size(), rhs.size()), QuadComplex(0.0));
+    for (std::size_t i = 0; i < lhs.size(); ++i) out[i] += lhs[i];
+    for (std::size_t i = 0; i < rhs.size(); ++i) out[i] += rhs[i];
+    return out;
+}
+
+QuadPolynomial quad_subtract_polynomial(
+    const QuadPolynomial& lhs,
+    const QuadPolynomial& rhs)
+{
+    QuadPolynomial out(std::max(lhs.size(), rhs.size()), QuadComplex(0.0));
+    for (std::size_t i = 0; i < lhs.size(); ++i) out[i] += lhs[i];
+    for (std::size_t i = 0; i < rhs.size(); ++i) out[i] -= rhs[i];
+    return out;
+}
+
+QuadPolynomial quad_multiply_polynomial(
+    const QuadPolynomial& lhs,
+    const QuadPolynomial& rhs)
+{
+    QuadPolynomial out(lhs.size() + rhs.size() - 1, QuadComplex(0.0));
+    for (std::size_t i = 0; i < lhs.size(); ++i) {
+        for (std::size_t j = 0; j < rhs.size(); ++j) {
+            out[i + j] += lhs[i] * rhs[j];
+        }
+    }
+    return out;
+}
+
+QuadPolynomial quad_scale_polynomial(
+    const QuadPolynomial& polynomial,
+    QuadComplex scale)
+{
+    QuadPolynomial out = polynomial;
+    for (auto& coefficient : out) coefficient *= scale;
+    return out;
+}
+
 Polynomial trim_polynomial(Polynomial polynomial)
 {
     while (polynomial.size() > 1 && std::abs(polynomial.back()) == 0.0) {
@@ -655,6 +806,303 @@ Polynomial triple_polynomial_coefficients(
     return coefficients;
 }
 
+QuadPolynomial quad_product_without_lens(
+    const std::array<QuadComplex, 3>& lens_positions,
+    std::size_t excluded)
+{
+    QuadPolynomial out = {QuadComplex(1.0)};
+    for (std::size_t i = 0; i < lens_positions.size(); ++i) {
+        if (i == excluded) continue;
+        out = quad_multiply_polynomial(
+            out, {-lens_positions[i], QuadComplex(1.0)});
+    }
+    return out;
+}
+
+QuadComplex quad_coefficient_at(const QuadPolynomial& polynomial, std::size_t index)
+{
+    return index < polynomial.size() ? polynomial[index] : QuadComplex(0.0);
+}
+
+QuadPolynomial quad_triple_polynomial_coefficients(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source)
+{
+    std::array<QuadComplex, 3> lens_positions;
+    for (std::size_t i = 0; i < lens_positions.size(); ++i) {
+        lens_positions[i] = QuadComplex(
+            QuadReal(geometry.lens_positions[i].x),
+            QuadReal(geometry.lens_positions[i].y));
+    }
+    std::array<QuadReal, 3> masses;
+    for (std::size_t i = 0; i < masses.size(); ++i) {
+        masses[i] = QuadReal(geometry.masses[i]);
+    }
+
+    QuadPolynomial p = {QuadComplex(1.0)};
+    for (const auto& lens : lens_positions) {
+        p = quad_multiply_polynomial(p, {-lens, QuadComplex(1.0)});
+    }
+    QuadPolynomial s = {QuadComplex(0.0)};
+    for (std::size_t j = 0; j < lens_positions.size(); ++j) {
+        s = quad_add_polynomial(
+            s,
+            quad_scale_polynomial(
+                quad_product_without_lens(lens_positions, j),
+                QuadComplex(masses[j])));
+    }
+
+    std::array<QuadPolynomial, 3> b;
+    for (std::size_t i = 0; i < b.size(); ++i) {
+        const QuadComplex conjugate_lens(
+            lens_positions[i].real, -lens_positions[i].imag);
+        b[i] = quad_subtract_polynomial(
+            s, quad_scale_polynomial(p, conjugate_lens));
+    }
+
+    const QuadPolynomial p2 = quad_multiply_polynomial(p, p);
+    const QuadPolynomial p3 = quad_multiply_polynomial(p2, p);
+    const QuadPolynomial b01 = quad_multiply_polynomial(b[0], b[1]);
+    const QuadPolynomial b02 = quad_multiply_polynomial(b[0], b[2]);
+    const QuadPolynomial b12 = quad_multiply_polynomial(b[1], b[2]);
+
+    std::array<QuadPolynomial, 4> d;
+    std::array<QuadPolynomial, 3> e;
+    d[3] = p3;
+    d[2] = quad_multiply_polynomial(
+        p2,
+        quad_add_polynomial(
+            quad_add_polynomial(b[0], b[1]), b[2]));
+    d[1] = quad_multiply_polynomial(
+        p,
+        quad_add_polynomial(
+            quad_add_polynomial(b01, b02), b12));
+    d[0] = quad_multiply_polynomial(b01, b[2]);
+
+    const QuadReal total_mass = masses[0] + masses[1] + masses[2];
+    e[2] = quad_scale_polynomial(p3, QuadComplex(total_mass));
+    e[1] = quad_multiply_polynomial(
+        p2,
+        quad_add_polynomial(
+            quad_add_polynomial(
+                quad_scale_polynomial(
+                    quad_add_polynomial(b[1], b[2]), QuadComplex(masses[0])),
+                quad_scale_polynomial(
+                    quad_add_polynomial(b[0], b[2]), QuadComplex(masses[1]))),
+            quad_scale_polynomial(
+                quad_add_polynomial(b[0], b[1]), QuadComplex(masses[2]))));
+    e[0] = quad_multiply_polynomial(
+        p,
+        quad_add_polynomial(
+            quad_add_polynomial(
+                quad_scale_polynomial(b12, QuadComplex(masses[0])),
+                quad_scale_polynomial(b02, QuadComplex(masses[1]))),
+            quad_scale_polynomial(b01, QuadComplex(masses[2]))));
+
+    const QuadComplex y(
+        QuadReal(source.x), QuadReal(source.y));
+    const QuadComplex yc(y.real, -y.imag);
+    const QuadComplex yc2 = yc * yc;
+    const QuadComplex yc3 = yc2 * yc;
+    std::array<QuadComplex, 10> g {};
+    std::array<QuadComplex, 10> h {};
+    for (std::size_t j = 0; j < g.size(); ++j) {
+        g[j] = quad_coefficient_at(d[0], j) +
+            yc * quad_coefficient_at(d[1], j) +
+            yc2 * quad_coefficient_at(d[2], j) +
+            yc3 * quad_coefficient_at(d[3], j);
+        h[j] = quad_coefficient_at(e[0], j) +
+            yc * quad_coefficient_at(e[1], j) +
+            yc2 * quad_coefficient_at(e[2], j);
+    }
+
+    QuadPolynomial coefficients(11, QuadComplex(0.0));
+    for (std::size_t j = 0; j <= 10; ++j) {
+        QuadComplex value = j >= 1 ? g[j - 1] : QuadComplex(0.0);
+        if (j < g.size()) value -= y * g[j] + h[j];
+        coefficients[j] = value;
+    }
+    return coefficients;
+}
+
+constexpr std::size_t kTriplePolynomialDegree = 10;
+
+void quad_polynomial_value_and_derivative(
+    const QuadPolynomial& coefficients,
+    const QuadComplex& z,
+    QuadComplex& value,
+    QuadComplex& derivative)
+{
+    value = coefficients.back();
+    derivative = QuadComplex(0.0);
+    for (std::size_t index = coefficients.size() - 1; index > 0; --index) {
+        derivative = derivative * z + value;
+        value = value * z + coefficients[index - 1];
+    }
+}
+
+QuadReal quad_polynomial_scale(
+    const QuadPolynomial& coefficients,
+    const QuadComplex& z)
+{
+    const QuadReal radius = quad_abs(z);
+    QuadReal scale = 0;
+    for (auto it = coefficients.rbegin(); it != coefficients.rend(); ++it) {
+        scale = scale * radius + quad_abs(*it);
+    }
+    return scale;
+}
+
+bool quad_roots_are_usable(
+    const QuadPolynomial& coefficients,
+    const std::array<QuadComplex, kTriplePolynomialDegree>& roots)
+{
+    static const QuadReal residual_tolerance("1e-22");
+    for (const auto& root : roots) {
+        if (!quad_isfinite(root)) return false;
+        QuadComplex value;
+        QuadComplex derivative;
+        quad_polynomial_value_and_derivative(
+            coefficients, root, value, derivative);
+        const QuadReal scale = std::max(
+            QuadReal(1.0), quad_polynomial_scale(coefficients, root));
+        if (quad_abs(value) > residual_tolerance * scale) return false;
+    }
+
+    // Residuals alone do not establish that the solver returned all ten
+    // roots.  Reconstruct the monic polynomial from the candidate set as a
+    // second, independent completeness check.
+    std::array<QuadComplex, kTriplePolynomialDegree + 1> reconstructed {};
+    reconstructed[0] = QuadComplex(1.0);
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        for (std::size_t k = i + 1; k > 0; --k) {
+            reconstructed[k] = reconstructed[k - 1] -
+                roots[i] * reconstructed[k];
+        }
+        reconstructed[0] = reconstructed[0] * -roots[i];
+    }
+    for (std::size_t k = 0; k <= kTriplePolynomialDegree; ++k) {
+        const QuadReal scale = std::max(
+            QuadReal(1.0), quad_abs(coefficients[k]));
+        if (quad_abs(reconstructed[k] - coefficients[k]) >
+            residual_tolerance * scale) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool run_quadruple_aberth(
+    const QuadPolynomial& coefficients,
+    std::array<QuadComplex, kTriplePolynomialDegree>& roots)
+{
+    static const QuadReal update_tolerance("1e-28");
+    constexpr int maximum_iterations = 180;
+    std::array<QuadComplex, kTriplePolynomialDegree> next;
+    for (int iteration = 0; iteration < maximum_iterations; ++iteration) {
+        QuadReal maximum_update = 0;
+        for (std::size_t i = 0; i < roots.size(); ++i) {
+            QuadComplex value;
+            QuadComplex derivative;
+            quad_polynomial_value_and_derivative(
+                coefficients, roots[i], value, derivative);
+            QuadComplex root_repulsion;
+            for (std::size_t j = 0; j < roots.size(); ++j) {
+                if (j == i) continue;
+                const QuadComplex separation = roots[i] - roots[j];
+                if (quad_abs(separation) == 0) return false;
+                root_repulsion += QuadComplex(1.0) / separation;
+            }
+            QuadComplex denominator = derivative - value * root_repulsion;
+            if (quad_abs(denominator) == 0) {
+                denominator = derivative;
+            }
+            if (quad_abs(denominator) == 0) return false;
+            const QuadComplex step = value / denominator;
+            next[i] = roots[i] - step;
+            if (!quad_isfinite(next[i])) return false;
+            maximum_update = std::max(
+                maximum_update,
+                quad_abs(step) / std::max(QuadReal(1.0), quad_abs(next[i])));
+        }
+        roots = next;
+        if (maximum_update <= update_tolerance &&
+            quad_roots_are_usable(coefficients, roots)) {
+            return true;
+        }
+    }
+    return quad_roots_are_usable(coefficients, roots);
+}
+
+bool solve_triple_polynomial_quadruple(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    const std::vector<Complex>& double_roots,
+    std::array<Complex, kTriplePolynomialDegree>& output)
+{
+    if (double_roots.size() != kTriplePolynomialDegree) return false;
+    const QuadPolynomial raw_coefficients =
+        quad_triple_polynomial_coefficients(geometry, source);
+    if (raw_coefficients.size() != kTriplePolynomialDegree + 1 ||
+        quad_abs(raw_coefficients.back()) == 0) {
+        return false;
+    }
+    const QuadComplex leading = raw_coefficients.back();
+    QuadPolynomial coefficients = raw_coefficients;
+    for (auto& coefficient : coefficients) coefficient = coefficient / leading;
+
+    std::array<QuadComplex, kTriplePolynomialDegree> roots;
+    bool finite_seeds = true;
+    bool separated_seeds = true;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        roots[i] = QuadComplex(
+            QuadReal(double_roots[i].real()),
+            QuadReal(double_roots[i].imag()));
+        finite_seeds = finite_seeds && quad_isfinite(roots[i]);
+        for (std::size_t j = 0; j < i; ++j) {
+            const QuadReal scale = std::max(
+                QuadReal(1.0), quad_abs(roots[i]));
+            if (quad_abs(roots[i] - roots[j]) <
+                QuadReal("1e-12") * scale) {
+                separated_seeds = false;
+            }
+        }
+    }
+    if (!finite_seeds) return false;
+    if (separated_seeds && run_quadruple_aberth(coefficients, roots)) {
+        for (std::size_t i = 0; i < roots.size(); ++i) {
+            output[i] = {
+                roots[i].real.convert_to<double>(),
+                roots[i].imag.convert_to<double>()};
+        }
+        return true;
+    }
+
+    // At a caustic the double solver can return coincident seeds.  Aberth's
+    // repulsion term then has no direction, so retry from the Cauchy circle;
+    // the polynomial itself, rather than the double roots, determines the
+    // starting scale.
+    QuadReal radius = 1.0;
+    for (std::size_t i = 0; i < kTriplePolynomialDegree; ++i) {
+        radius = std::max(radius, quad_abs(coefficients[i]));
+    }
+    radius += 1.0;
+    const double pi = std::acos(-1.0);
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        const double angle = 2.0 * pi * (static_cast<double>(i) + 0.5) /
+            static_cast<double>(roots.size());
+        roots[i] = radius * QuadComplex(
+            QuadReal(std::cos(angle)), QuadReal(std::sin(angle)));
+    }
+    if (!run_quadruple_aberth(coefficients, roots)) return false;
+    for (std::size_t i = 0; i < roots.size(); ++i) {
+        output[i] = {
+            roots[i].real.convert_to<double>(),
+            roots[i].imag.convert_to<double>()};
+    }
+    return true;
+}
+
 template <std::size_t Degree>
 bool continue_triple_polynomial_roots(
     const Polynomial& coefficients,
@@ -764,43 +1212,90 @@ static SourcePosition polish_triple_image_root_high_precision(
     SourcePosition source,
     SourcePosition z)
 {
-    constexpr int kMaxIter = 80;
-    constexpr long double kTol = 1.0e-18L;
-    long double zx = static_cast<long double>(z.x);
-    long double zy = static_cast<long double>(z.y);
-    const long double source_x = static_cast<long double>(source.x);
-    const long double source_y = static_cast<long double>(source.y);
+    constexpr int kMaxIter = 100;
+    static const QuadReal kTol("1e-30");
+    static const QuadReal kDetFloor("1e-60");
+    QuadReal zx(z.x);
+    QuadReal zy(z.y);
+    const QuadReal source_x(source.x);
+    const QuadReal source_y(source.y);
     for (int iter = 0; iter < kMaxIter; ++iter) {
-        long double sx = 0.0L, sy = 0.0L, dxx = 0.0L, dxy = 0.0L;
+        QuadReal sx = 0.0;
+        QuadReal sy = 0.0;
+        QuadReal dxx = 0.0;
+        QuadReal dxy = 0.0;
         for (std::size_t i = 0; i < geometry.lens_positions.size(); ++i) {
-            const long double lens_x = static_cast<long double>(geometry.lens_positions[i].x);
-            const long double lens_y = static_cast<long double>(geometry.lens_positions[i].y);
-            const long double mass = static_cast<long double>(geometry.masses[i]);
-            const long double dx = zx - lens_x;
-            const long double dy = zy - lens_y;
-            const long double d2 = dx * dx + dy * dy;
-            if (d2 == 0.0L) {
+            const QuadReal lens_x(geometry.lens_positions[i].x);
+            const QuadReal lens_y(geometry.lens_positions[i].y);
+            const QuadReal mass(geometry.masses[i]);
+            const QuadReal dx = zx - lens_x;
+            const QuadReal dy = zy - lens_y;
+            const QuadReal d2 = dx * dx + dy * dy;
+            if (d2 == 0) {
                 return z;
             }
-            const long double d4 = d2 * d2;
+            const QuadReal d4 = d2 * d2;
             sx += mass * dx / d2;
             sy += mass * dy / d2;
             dxx += mass * (dy * dy - dx * dx) / d4;
-            dxy += mass * 2.0L * dx * dy / d4;
+            dxy += mass * QuadReal(2.0) * dx * dy / d4;
         }
-        const long double fx = zx - sx - source_x;
-        const long double fy = zy - sy - source_y;
-        if ((fx < 0.0L ? -fx : fx) + (fy < 0.0L ? -fy : fy) < kTol) { break; }
-        const long double j00 = 1.0L - dxx;
-        const long double j01 = dxy;
-        const long double j11 = 1.0L + dxx;
-        const long double det = j00 * j11 - j01 * j01;
-        const long double abs_det = det < 0.0L ? -det : det;
-        if (abs_det < 1.0e-35L) { break; }
+        const QuadReal fx = zx - sx - source_x;
+        const QuadReal fy = zy - sy - source_y;
+        if (quad_abs(fx) + quad_abs(fy) < kTol) break;
+        const QuadReal j00 = 1.0 - dxx;
+        const QuadReal j01 = dxy;
+        const QuadReal j11 = 1.0 + dxx;
+        const QuadReal det = j00 * j11 - j01 * j01;
+        if (quad_abs(det) < kDetFloor || !quad_isfinite(det)) break;
         zx -= (j11 * fx - j01 * fy) / det;
         zy -= (j00 * fy - j01 * fx) / det;
     }
-    return {static_cast<double>(zx), static_cast<double>(zy)};
+    if (!quad_isfinite(zx) || !quad_isfinite(zy)) return z;
+    return {zx.convert_to<double>(), zy.convert_to<double>()};
+}
+
+double triple_residual_high_precision(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition source,
+    SourcePosition image)
+{
+    QuadReal sx(image.x);
+    QuadReal sy(image.y);
+    for (std::size_t i = 0; i < geometry.lens_positions.size(); ++i) {
+        const QuadReal dx = QuadReal(image.x) -
+            QuadReal(geometry.lens_positions[i].x);
+        const QuadReal dy = QuadReal(image.y) -
+            QuadReal(geometry.lens_positions[i].y);
+        const QuadReal d2 = dx * dx + dy * dy;
+        if (d2 == 0) return std::numeric_limits<double>::infinity();
+        const QuadReal mass(geometry.masses[i]);
+        sx -= mass * dx / d2;
+        sy -= mass * dy / d2;
+    }
+    const QuadReal dx = sx - QuadReal(source.x);
+    const QuadReal dy = sy - QuadReal(source.y);
+    return boost::multiprecision::sqrt(dx * dx + dy * dy).convert_to<double>();
+}
+
+double triple_jacobian_determinant_high_precision(
+    const model::TripleLensGeometry& geometry,
+    SourcePosition image)
+{
+    QuadComplex derivative;
+    for (std::size_t i = 0; i < geometry.lens_positions.size(); ++i) {
+        const QuadComplex dz(
+            QuadReal(image.x) - QuadReal(geometry.lens_positions[i].x),
+            QuadReal(image.y) - QuadReal(geometry.lens_positions[i].y));
+        if (quad_abs(dz) == 0) {
+            return std::numeric_limits<double>::infinity();
+        }
+        derivative += QuadComplex(QuadReal(geometry.masses[i])) / (dz * dz);
+    }
+    const QuadReal determinant =
+        QuadReal(1.0) - derivative.real * derivative.real -
+        derivative.imag * derivative.imag;
+    return determinant.convert_to<double>();
 }
 
 double triple_residual(
@@ -1491,13 +1986,17 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
                 continue;
             }
             const Complex z_cmplx {z_polished.x, z_polished.y};
-            const double residual = triple_residual(geometry, source, z_cmplx);
+            const double residual = high_precision
+                ? triple_residual_high_precision(geometry, source, z_polished)
+                : triple_residual(geometry, source, z_cmplx);
             diagnostics.root_max_residual = std::max(diagnostics.root_max_residual, residual);
             if (!std::isfinite(residual) || residual > 1.0e-7) {
                 ++diagnostics.root_polish_failure_count;
             }
             images.push_back({z_polished,
-                triple_jacobian_determinant(geometry, z_cmplx),
+                high_precision
+                    ? triple_jacobian_determinant_high_precision(geometry, z_polished)
+                    : triple_jacobian_determinant(geometry, z_cmplx),
                 residual,
                 false});
         }
@@ -1627,6 +2126,20 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
         physical_count % 2 != 0;
     if (suspicious && diagnostics.root_used_high_precision == 0) {
         diagnostics.root_needs_high_precision = 1;
+        if (solved_roots.size() == kTripleDegree) {
+            std::array<Complex, kTripleDegree> quad_roots;
+            if (solve_triple_polynomial_quadruple(
+                    geometry, source, solved_roots, quad_roots)) {
+                diagnostics.root_used_quad_precision = 1;
+                solved_roots.assign(quad_roots.begin(), quad_roots.end());
+                // Keep the improved roots as the next continuation seed.  The
+                // ordinary path still validates this seed with its double
+                // polynomial/Vieta guard before using it.
+                for (std::size_t i = 0; i < quad_roots.size(); ++i) {
+                    triple_warm_roots_[i] = quad_roots[i];
+                }
+            }
+        }
         collect_candidates(solved_roots.data(), solved_roots.size(), true);
         std::sort(images.begin(), images.end(), [](const auto& lhs, const auto& rhs) {
             return lhs.residual < rhs.residual;
@@ -1667,6 +2180,7 @@ std::vector<TripleImageCandidate> PointSourceMagnifier::triple_image_candidates(
     final_diagnostics.root_used_warm_start = diagnostics.root_used_warm_start;
     final_diagnostics.root_used_cold_retry = diagnostics.root_used_cold_retry;
     final_diagnostics.root_used_high_precision = diagnostics.root_used_high_precision;
+    final_diagnostics.root_used_quad_precision = diagnostics.root_used_quad_precision;
     final_diagnostics.root_needs_high_precision = diagnostics.root_needs_high_precision;
     final_diagnostics.root_max_residual =
         std::max(final_diagnostics.root_max_residual, diagnostics.root_max_residual);

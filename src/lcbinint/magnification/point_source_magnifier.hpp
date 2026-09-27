@@ -18,6 +18,7 @@ struct PointSourceResult {
     int root_used_warm_start = 0;
     int root_used_cold_retry = 0;
     int root_used_high_precision = 0;
+    int root_used_quad_precision = 0;
     int root_needs_high_precision = 0;
     double root_max_residual = 0.0;
 };

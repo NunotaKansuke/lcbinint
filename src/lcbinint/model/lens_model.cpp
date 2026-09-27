@@ -463,6 +463,7 @@ MagnificationResult LensModel::magnification_impl(
         result.root_used_warm_start = point.root_used_warm_start;
         result.root_used_cold_retry = point.root_used_cold_retry;
         result.root_used_high_precision = point.root_used_high_precision;
+        result.root_used_quad_precision = point.root_used_quad_precision;
         result.root_needs_high_precision = point.root_needs_high_precision;
         result.root_max_residual = point.root_max_residual;
         if (params_.rho == 0.0) {

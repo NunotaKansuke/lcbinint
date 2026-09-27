@@ -62,6 +62,16 @@ if(NOT GSL_FOUND)
     set_target_properties(GSL::gslcblas PROPERTIES IMPORTED_LOCATION "${GSLCBLAS_LIBRARY}")
 endif()
 
+# Triple-lens recovery uses Boost.Multiprecision's header-only binary128
+# implementation for its guarded quadruple-precision retry.
+find_path(LCBININT_BOOST_INCLUDE_DIR
+    boost/multiprecision/cpp_bin_float.hpp)
+if(NOT LCBININT_BOOST_INCLUDE_DIR)
+    message(FATAL_ERROR
+        "Boost.Multiprecision headers were not found. Install Boost or set "
+        "CMAKE_INCLUDE_PATH to its include directory.")
+endif()
+
 # Leaf layer: finite/point-source magnification kernels + root solvers.
 # No dependency on model/, lc/, or obs/ (see .note/session-2026-07-18-final-review.md, A5).
 add_library(lcbinint_magnification
@@ -76,6 +86,7 @@ target_include_directories(lcbinint_magnification
         "${CMAKE_CURRENT_SOURCE_DIR}/include"
         "${CMAKE_CURRENT_SOURCE_DIR}/src"
     PRIVATE
+        "${LCBININT_BOOST_INCLUDE_DIR}"
         "${CMAKE_CURRENT_SOURCE_DIR}/third_party/skowron_gould")
 target_link_libraries(lcbinint_magnification PUBLIC GSL::gsl GSL::gslcblas m)
 

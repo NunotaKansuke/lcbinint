@@ -125,6 +125,7 @@ typedef struct lcbi_result {
     int root_used_warm_start;
     int root_used_cold_retry;
     int root_used_high_precision;
+    int root_used_quad_precision;
     int root_needs_high_precision;
     double root_max_residual;
     double point_source_quadrupole_indicator;

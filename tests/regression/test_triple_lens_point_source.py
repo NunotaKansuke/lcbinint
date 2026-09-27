@@ -162,6 +162,41 @@ def test_triple_lens_warm_roots_do_not_retry_only_because_images_are_deduplicate
     assert set(info.image_counts) <= {4, 6, 8, 10}
 
 
+def test_triple_lens_quadruple_retry_recovers_vbm_physical_images():
+    """The guarded binary128 solve keeps hard VBM roots on the physical branch."""
+    light_curve = lcbinint.LightCurve(lens="triple")
+    times = np.array([
+        -0.49523809523809526,
+        -0.46984126984126989,
+        -0.29206349206349214,
+        0.06349206349206349,
+    ])
+    info = light_curve.info(
+        times,
+        t0=0.0,
+        tE=1.0,
+        u0=0.05,
+        alpha=0.0,
+        s=1.2,
+        q=1.0e-2,
+        q2=1.0e-3,
+        sep2=1.0,
+        ang=0.5,
+        rho=0.0,
+    )
+
+    # The first two epochs are deliberately on the warm-root failure branch;
+    # the last two check that returning to ordinary topology remains stable.
+    assert any(info.root_used_quad_precision)
+    assert set(info.image_counts) <= {4, 6, 8, 10}
+    assert np.all(np.isfinite(info.point_source_magnifications))
+    # Independent VBMicrolensing Nopoly values in the rho -> 0 limit.
+    assert info.point_source_magnifications == pytest.approx(
+        [1.9736109344, 2.0188599424, 2.9602253928, 8.0843017275],
+        rel=1.0e-6,
+    )
+
+
 def test_triple_lens_finite_source_cartesian_inverse_ray():
     light_curve = lcbinint.LightCurve(
         lens="triple",

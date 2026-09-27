@@ -27,6 +27,7 @@ void copy_result(const lcbinint::MagnificationResult &from, lcbi_result &to)
     to.root_used_warm_start = from.root_used_warm_start;
     to.root_used_cold_retry = from.root_used_cold_retry;
     to.root_used_high_precision = from.root_used_high_precision;
+    to.root_used_quad_precision = from.root_used_quad_precision;
     to.root_needs_high_precision = from.root_needs_high_precision;
     to.root_max_residual = from.root_max_residual;
     to.point_source_quadrupole_indicator = from.point_source_quadrupole_indicator;
