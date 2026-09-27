@@ -7,6 +7,7 @@
 #include "lcbinint/model/triple_lens_geometry.hpp"
 
 #include <cmath>
+#include <cstdlib>
 #include <limits>
 #include <vector>
 
@@ -89,11 +90,32 @@ SourcePosition rotate_and_offset_source(
 
 magnification::FiniteSourceSettings finite_source_settings(
     const LensParameters& params,
-    const ComputationOptions& options)
+    const ComputationOptions& options,
+    bool adaptive_caustic_bins)
 {
     magnification::FiniteSourceSettings settings;
     settings.source_bins = options.source_bins;
     settings.caustic_bins = options.caustic_bins;
+    // A full 1400-phase caustic is expensive to rebuild at every orbital-
+    // motion epoch.  In automatic mode use a source-scale routing/support
+    // mesh first, while retaining a full-resolution magnifier for fail-closed
+    // retries when the coarse mesh cannot certify the requested tolerance.
+    constexpr int kMinimumAutomaticCausticBins = 256;
+    constexpr double kAutomaticCausticBinsScale = 1.4;
+    static const bool disable_adaptive_caustic_bins =
+        std::getenv("LCBININT_DIAGNOSTIC_DISABLE_AUTO_CAUSTIC_BINS") != nullptr;
+    const double source_radius = std::abs(params.rho);
+    if (adaptive_caustic_bins && !disable_adaptive_caustic_bins &&
+        !params.is_triple() &&
+        options.automatic_source_bins != 0 && source_radius > 0.0 &&
+        options.caustic_bins > kMinimumAutomaticCausticBins) {
+        const double required = kAutomaticCausticBinsScale / source_radius;
+        if (std::isfinite(required) && required < options.caustic_bins) {
+            settings.caustic_bins = std::max(
+                kMinimumAutomaticCausticBins,
+                static_cast<int>(std::ceil(required)));
+        }
+    }
     settings.grid_ratio = options.grid_ratio;
     settings.polar_source_bins = options.polar_source_bins;
     settings.polar_grid_ratio = options.polar_grid_ratio;
@@ -188,7 +210,9 @@ LensModel::LensModel(
     , cos_theta_(std::cos(params_.theta))
     , sin_theta_(std::sin(params_.theta))
     , finite_magnifier_(cached_finite_source_magnifier(
-          finite_source_settings(params_, options_)))
+          finite_source_settings(params_, options_, true)))
+    , exact_finite_magnifier_(cached_finite_source_magnifier(
+          finite_source_settings(params_, options_, false)))
 {
 }
 
@@ -326,7 +350,7 @@ MagnificationResult LensModel::magnification_source(
     result.point_source_magnification = point_source_magnification;
     result.image_count = static_cast<int>(point_images.size());
 
-    const auto finite_result = finite_magnifier_->binary_mag_preplanned(
+    auto finite_result = finite_magnifier_->binary_mag_preplanned(
         params_.sep,
         effective_q,
         source,
@@ -336,6 +360,22 @@ MagnificationResult LensModel::magnification_source(
         plan.resolution,
         &center_image_seeds,
         &point_magnifier_);
+    // The coarse mesh is an optimization, not a weaker accuracy contract.
+    // Retry only refused/non-finite epochs with the configured full mesh.
+    if ((!finite_result.converged ||
+            !std::isfinite(finite_result.magnification)) &&
+        exact_finite_magnifier_ != finite_magnifier_) {
+        finite_result = exact_finite_magnifier_->binary_mag_preplanned(
+            params_.sep,
+            effective_q,
+            source,
+            std::abs(params_.rho),
+            point_source_magnification,
+            plan.method,
+            plan.resolution,
+            &center_image_seeds,
+            &point_magnifier_);
+    }
     result.magnification = finite_result.magnification;
     result.finite_source_magnification = finite_result.magnification;
     result.finite_source_error_estimate = finite_result.error_estimate;
@@ -508,26 +548,34 @@ MagnificationResult LensModel::magnification_impl(
         result.point_source_magnification = point_source_magnification;
         result.image_count = static_cast<int>(point_images.size());
 
-        const auto finite_result = plan == nullptr
-            ? finite_magnifier_->binary_mag(
-                orbit.separation,
-                effective_q,
-                source_for_magnification,
-                std::abs(params_.rho),
-                point_source_magnification,
-                plan_needs_image_seeds ? &center_image_seeds : nullptr,
-                true,
-                &point_magnifier_)
-            : finite_magnifier_->binary_mag_preplanned(
-                orbit.separation,
-                effective_q,
-                source_for_magnification,
-                std::abs(params_.rho),
-                point_source_magnification,
-                plan->method,
-                plan->resolution,
-                &center_image_seeds,
-                &point_magnifier_);
+        auto evaluate_finite_source = [&](const auto& magnifier) {
+            return plan == nullptr
+                ? magnifier->binary_mag(
+                    orbit.separation,
+                    effective_q,
+                    source_for_magnification,
+                    std::abs(params_.rho),
+                    point_source_magnification,
+                    plan_needs_image_seeds ? &center_image_seeds : nullptr,
+                    true,
+                    &point_magnifier_)
+                : magnifier->binary_mag_preplanned(
+                    orbit.separation,
+                    effective_q,
+                    source_for_magnification,
+                    std::abs(params_.rho),
+                    point_source_magnification,
+                    plan->method,
+                    plan->resolution,
+                    &center_image_seeds,
+                    &point_magnifier_);
+        };
+        auto finite_result = evaluate_finite_source(finite_magnifier_);
+        if ((!finite_result.converged ||
+                !std::isfinite(finite_result.magnification)) &&
+            exact_finite_magnifier_ != finite_magnifier_) {
+            finite_result = evaluate_finite_source(exact_finite_magnifier_);
+        }
         result.magnification = finite_result.magnification;
         result.finite_source_magnification = finite_result.magnification;
         result.finite_source_error_estimate = finite_result.error_estimate;

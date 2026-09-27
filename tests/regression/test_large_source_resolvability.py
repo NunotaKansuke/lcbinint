@@ -127,3 +127,42 @@ def test_coarse_grids_are_still_refused():
     _, estimate, converged = _scalars(info)
     assert not converged
     assert estimate > 1.0e-5
+
+
+def test_automatic_caustic_mesh_retries_with_full_resolution():
+    """A coarse routing mesh may refuse a grazing cusp, but auto must retry.
+
+    This position is a 0.3%-deep cusp cap from the adversarial support corpus.
+    The source-scaled 256-phase mesh cannot certify it; the configured
+    1400-phase fallback can.  Pinning the public result keeps the speed path
+    from turning a conservative coarse refusal into a user-visible failure.
+    """
+    lcbinint = pytest.importorskip("lcbinint")
+    curve = lcbinint.LightCurve(
+        lens="binary",
+        options=lcbinint.Options(
+            coordinates="vbm",
+            nbin="auto",
+            caustic_bins=1400,
+            max_source_bins=400,
+            reltol=RELTOL,
+            point_source_threshold=0.0,
+            hexadecapole_threshold=0.0,
+            adaptive_hex_threshold=0.0,
+        ),
+    )
+    info = curve.info(
+        -0.22484173882677708,
+        t0=0.0,
+        tE=1.0,
+        u0=0.0,
+        alpha=0.0,
+        s=1.05,
+        q=1.0e-3,
+        rho=0.012087561335986492,
+    )
+    value, estimate, converged = _scalars(info)
+
+    assert converged
+    assert value == pytest.approx(6.240690486099804, rel=1.0e-12)
+    assert estimate <= RELTOL * max(abs(value), 1.0)
