@@ -35,6 +35,10 @@ _FFI_CARTESIAN_BATCH_TARGET = "lcbinint_jax_cartesian_batch_f64_v1"
 _FFI_CARTESIAN_BATCH_JACOBIAN_TARGET = "lcbinint_jax_cartesian_batch_jacobian_f64_v1"
 _FFI_HEX_BATCH_TARGET = "lcbinint_jax_hexadecapole_batch_f64_v1"
 _FFI_HEX_BATCH_JACOBIAN_TARGET = "lcbinint_jax_hexadecapole_batch_jacobian_f64_v1"
+_FFI_HEX_BATCH_ARRAY_TARGET = "lcbinint_jax_hexadecapole_batch_array_f64_v1"
+_FFI_HEX_BATCH_ARRAY_JACOBIAN_TARGET = (
+    "lcbinint_jax_hexadecapole_batch_array_jacobian_f64_v1"
+)
 _FFI_POINT_BATCH_TARGET = "lcbinint_jax_point_batch_f64_v1"
 _FFI_POINT_BATCH_JACOBIAN_TARGET = "lcbinint_jax_point_batch_jacobian_f64_v1"
 _FFI_POINT_BATCH_ARRAY_TARGET = "lcbinint_jax_point_batch_array_f64_v1"
@@ -598,6 +602,25 @@ def _register_hexadecapole_batch_ffi():
         _FFI_HEX_BATCH_JACOBIAN_TARGET,
         jacobian,
         platform="cpu",
+    )
+
+
+@lru_cache(maxsize=1)
+def _register_hexadecapole_batch_array_ffi():
+    native = _native_module()
+    try:
+        forward = native._jax_ir.hexadecapole_batch_array_ffi()
+        jacobian = native._jax_ir.hexadecapole_batch_array_jacobian_ffi()
+    except AttributeError as error:
+        raise RuntimeError(
+            "lcbinint was built without the dynamic-separation batched "
+            "hexadecapole FFI"
+        ) from error
+    jax.ffi.register_ffi_target(
+        _FFI_HEX_BATCH_ARRAY_TARGET, forward, platform="cpu"
+    )
+    jax.ffi.register_ffi_target(
+        _FFI_HEX_BATCH_ARRAY_JACOBIAN_TARGET, jacobian, platform="cpu"
     )
 
 
@@ -2162,14 +2185,8 @@ def _hexadecapole_batch_call(target, source_x, source_y, scalars, include_jacobi
 
 
 @jax.custom_jvp
-def _hexadecapole_batch_transformable(
-    source_x,
-    source_y,
-    separation,
-    mass_ratio,
-    source_radius,
-    limb_c,
-    limb_d,
+def _hexadecapole_batch_scalar_transformable(
+    source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d
 ):
     outputs = _hexadecapole_batch_call(
         _FFI_HEX_BATCH_TARGET,
@@ -2181,8 +2198,64 @@ def _hexadecapole_batch_transformable(
     return _FfiHexadecapoleResult(*outputs)
 
 
-@_hexadecapole_batch_transformable.defjvp
-def _hexadecapole_batch_jvp(primals, tangents):
+@_hexadecapole_batch_scalar_transformable.defjvp
+def _hexadecapole_batch_scalar_jvp(primals, tangents):
+    reject_higher_order_ad(primals)
+    source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d = primals
+    outputs = _hexadecapole_batch_call(
+        _FFI_HEX_BATCH_JACOBIAN_TARGET,
+        source_x,
+        source_y,
+        (separation, mass_ratio, source_radius, limb_c, limb_d),
+        True,
+    )
+    primal = _FfiHexadecapoleResult(*outputs[:6])
+    parameter_tangent = jnp.stack(
+        (
+            tangents[0],
+            tangents[1],
+            jnp.full_like(source_x, tangents[2]),
+            jnp.full_like(source_x, tangents[3]),
+            jnp.full_like(source_x, tangents[4]),
+            jnp.full_like(source_x, tangents[5]),
+            jnp.full_like(source_x, tangents[6]),
+        ),
+        axis=1,
+    )
+    numeric_tangent = jnp.einsum("noq,nq->no", outputs[6], parameter_tangent)
+    tangent = _FfiHexadecapoleResult(
+        magnification=numeric_tangent[:, 0],
+        point_magnification=numeric_tangent[:, 1],
+        quadrupole_correction=numeric_tangent[:, 2],
+        hexadecapole_correction=numeric_tangent[:, 3],
+        topology_stable=jnp.zeros_like(primal.topology_stable, dtype=jax.dtypes.float0),
+        root_failure=jnp.zeros_like(primal.root_failure, dtype=jax.dtypes.float0),
+    )
+    return primal, tangent
+
+
+@jax.custom_jvp
+def _hexadecapole_batch_array_transformable(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c,
+    limb_d,
+):
+    outputs = _hexadecapole_batch_call(
+        _FFI_HEX_BATCH_ARRAY_TARGET,
+        source_x,
+        source_y,
+        (separation, mass_ratio, source_radius, limb_c, limb_d),
+        False,
+    )
+    return _FfiHexadecapoleResult(*outputs)
+
+
+@_hexadecapole_batch_array_transformable.defjvp
+def _hexadecapole_batch_array_jvp(primals, tangents):
     reject_higher_order_ad(primals)
     source_x, source_y, separation, mass_ratio, source_radius, limb_c, limb_d = primals
     (
@@ -2195,7 +2268,7 @@ def _hexadecapole_batch_jvp(primals, tangents):
         limb_d_tangent,
     ) = tangents
     outputs = _hexadecapole_batch_call(
-        _FFI_HEX_BATCH_JACOBIAN_TARGET,
+        _FFI_HEX_BATCH_ARRAY_JACOBIAN_TARGET,
         source_x,
         source_y,
         (separation, mass_ratio, source_radius, limb_c, limb_d),
@@ -2206,7 +2279,7 @@ def _hexadecapole_batch_jvp(primals, tangents):
         (
             source_x_tangent,
             source_y_tangent,
-            jnp.full_like(source_x, separation_tangent),
+            separation_tangent,
             jnp.full_like(source_x, mass_ratio_tangent),
             jnp.full_like(source_x, source_radius_tangent),
             jnp.full_like(source_x, limb_c_tangent),
@@ -2244,14 +2317,28 @@ def binary_hexadecapole_batch_ffi(
     source_y = jnp.asarray(source_y, dtype=jnp.float64)
     if source_x.ndim != 1 or source_y.shape != source_x.shape:
         raise ValueError("source_x and source_y must have the same 1-D shape")
+    separation = jnp.asarray(separation, dtype=jnp.float64)
+    separation_is_array = separation.ndim != 0
+    if separation.ndim not in (0, 1) or (
+        separation_is_array and separation.shape != source_x.shape
+    ):
+        raise ValueError("separation must be scalar or match source_x")
     scalars = tuple(
         jnp.asarray(value, dtype=jnp.float64)
-        for value in (separation, mass_ratio, source_radius, limb_c, limb_d)
+        for value in (mass_ratio, source_radius, limb_c, limb_d)
     )
     if any(value.ndim != 0 for value in scalars):
-        raise ValueError("lens and source parameters must be scalars")
-    _register_hexadecapole_batch_ffi()
-    result = _hexadecapole_batch_transformable(source_x, source_y, *scalars)
+        raise ValueError("mass ratio and source parameters must be scalars")
+    if separation_is_array:
+        _register_hexadecapole_batch_array_ffi()
+        result = _hexadecapole_batch_array_transformable(
+            source_x, source_y, separation, *scalars
+        )
+    else:
+        _register_hexadecapole_batch_ffi()
+        result = _hexadecapole_batch_scalar_transformable(
+            source_x, source_y, separation, *scalars
+        )
     from .multipole import HexadecapoleResult
 
     return HexadecapoleResult(
@@ -2263,6 +2350,66 @@ def binary_hexadecapole_batch_ffi(
         topology_stable=result.topology_stable,
         root_failure=result.root_failure,
     )
+
+
+def binary_hexadecapole_batch_value_jacobian_ffi(
+    source_x,
+    source_y,
+    separation,
+    mass_ratio,
+    source_radius,
+    limb_c=0.0,
+    limb_d=0.0,
+):
+    """Return the expansion result and its ``(N, 4, 7)`` local Jacobian."""
+
+    require_x64()
+    if jax.default_backend() != "cpu":
+        raise RuntimeError("the batched hexadecapole FFI is CPU-only")
+    source_x = jnp.asarray(source_x, dtype=jnp.float64)
+    source_y = jnp.asarray(source_y, dtype=jnp.float64)
+    separation = jnp.asarray(separation, dtype=jnp.float64)
+    separation_is_array = separation.ndim != 0
+    if (
+        source_x.ndim != 1
+        or source_y.shape != source_x.shape
+        or separation.ndim not in (0, 1)
+        or (separation_is_array and separation.shape != source_x.shape)
+    ):
+        raise ValueError(
+            "source_x and source_y must match; separation must be scalar or match"
+        )
+    scalars = tuple(
+        jnp.asarray(value, dtype=jnp.float64)
+        for value in (mass_ratio, source_radius, limb_c, limb_d)
+    )
+    if any(value.ndim != 0 for value in scalars):
+        raise ValueError("mass ratio and source parameters must be scalars")
+    if separation_is_array:
+        _register_hexadecapole_batch_array_ffi()
+        target = _FFI_HEX_BATCH_ARRAY_JACOBIAN_TARGET
+    else:
+        _register_hexadecapole_batch_ffi()
+        target = _FFI_HEX_BATCH_JACOBIAN_TARGET
+    outputs = _hexadecapole_batch_call(
+        target,
+        source_x,
+        source_y,
+        (separation, *scalars),
+        True,
+    )
+    from .multipole import HexadecapoleResult
+
+    result = HexadecapoleResult(
+        magnification=outputs[0],
+        point_magnification=outputs[1],
+        quadrupole_correction=outputs[2],
+        hexadecapole_correction=outputs[3],
+        estimated_error=jnp.abs(outputs[3]),
+        topology_stable=outputs[4],
+        root_failure=outputs[5],
+    )
+    return result, outputs[6]
 
 
 def _triple_hexadecapole_batch_call(

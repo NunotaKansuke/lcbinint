@@ -103,6 +103,43 @@ def test_batched_hexadecapole_ffi_matches_scalar_value_and_gradient():
     )
 
 
+def test_batched_hexadecapole_ffi_accepts_per_epoch_separation_and_jvp():
+    _require_root_ffi()
+    source_x = jnp.asarray((0.2, 0.5, 0.8))
+    source_y = jnp.asarray((0.04, 0.04, 0.04))
+    separation = jnp.asarray((1.19, 1.20, 1.21))
+
+    def scalar(active_separation):
+        return jax.lax.map(
+            lambda row: binary_hexadecapole(
+                row[0], row[1], row[2], 0.1, 0.02, 0.4, 0.1,
+                root_backend="ffi",
+            ).magnification,
+            (source_x, source_y, active_separation),
+        )
+
+    def batched(active_separation):
+        return binary_hexadecapole_batch_ffi(
+            source_x,
+            source_y,
+            active_separation,
+            0.1,
+            0.02,
+            0.4,
+            0.1,
+        ).magnification
+
+    tangent = jnp.asarray((0.3, -0.2, 0.1))
+    scalar_value, scalar_jvp = jax.jvp(
+        scalar, (separation,), (tangent,)
+    )
+    batch_value, batch_jvp = jax.jvp(
+        batched, (separation,), (tangent,)
+    )
+    np.testing.assert_allclose(batch_value, scalar_value, rtol=0.0, atol=2.0e-14)
+    np.testing.assert_allclose(batch_jvp, scalar_jvp, rtol=0.0, atol=5.0e-9)
+
+
 def test_point_source_implicit_gradient_matches_finite_difference():
     def magnification(source_x):
         return binary_point_source_magnification(

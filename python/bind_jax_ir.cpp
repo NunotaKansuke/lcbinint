@@ -6420,6 +6420,73 @@ ffi::Error hexadecapole_batch_ffi_impl(
     }
 #ifdef LCBININT_HAS_OPENMP
     const int batch_threads = std::max(
+        1, std::min({static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        const auto result = hexadecapole_kernel(
+            source_x.typed_data()[index], source_y.typed_data()[index],
+            *separation.typed_data(), *mass_ratio.typed_data(),
+            *source_radius.typed_data(), *limb_c.typed_data(),
+            *limb_d.typed_data());
+        magnification->typed_data()[index] = result.magnification.value;
+        point_magnification->typed_data()[index] = result.point_magnification.value;
+        quadrupole_correction->typed_data()[index] = result.quadrupole_correction.value;
+        hexadecapole_correction->typed_data()[index] = result.hexadecapole_correction.value;
+        topology_stable->typed_data()[index] = result.topology_stable;
+        root_failure->typed_data()[index] = result.root_failure;
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    hexadecapole_batch_ffi_handler,
+    hexadecapole_batch_ffi_impl,
+    ffi::Ffi::Bind()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>());
+
+ffi::Error hexadecapole_batch_array_ffi_impl(
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> point_magnification,
+    ffi::ResultBufferR1<ffi::F64> quadrupole_correction,
+    ffi::ResultBufferR1<ffi::F64> hexadecapole_correction,
+    ffi::ResultBufferR1<ffi::PRED> topology_stable,
+    ffi::ResultBufferR1<ffi::PRED> root_failure)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    if (
+        source_y.dimensions()[0] != batch_size
+        || separation.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || point_magnification->dimensions()[0] != batch_size
+        || quadrupole_correction->dimensions()[0] != batch_size
+        || hexadecapole_correction->dimensions()[0] != batch_size
+        || topology_stable->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size) {
+        return ffi::Error::InvalidArgument(
+            "hexadecapole batch arrays must have a common length");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
         1,
         std::min(
             {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
@@ -6428,7 +6495,7 @@ ffi::Error hexadecapole_batch_ffi_impl(
     for (std::int64_t index = 0; index < batch_size; ++index) {
         const auto result = hexadecapole_kernel(
             source_x.typed_data()[index], source_y.typed_data()[index],
-            *separation.typed_data(), *mass_ratio.typed_data(),
+            separation.typed_data()[index], *mass_ratio.typed_data(),
             *source_radius.typed_data(), *limb_c.typed_data(),
             *limb_d.typed_data());
         magnification->typed_data()[index] = result.magnification.value;
@@ -6445,12 +6512,12 @@ ffi::Error hexadecapole_batch_ffi_impl(
 }
 
 XLA_FFI_DEFINE_HANDLER(
-    hexadecapole_batch_ffi_handler,
-    hexadecapole_batch_ffi_impl,
+    hexadecapole_batch_array_ffi_handler,
+    hexadecapole_batch_array_ffi_impl,
     ffi::Ffi::Bind()
         .Arg<ffi::BufferR1<ffi::F64>>()
         .Arg<ffi::BufferR1<ffi::F64>>()
-        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
@@ -6496,6 +6563,97 @@ ffi::Error hexadecapole_batch_jacobian_ffi_impl(
     }
 #ifdef LCBININT_HAS_OPENMP
     const int batch_threads = std::max(
+        1, std::min({static_cast<int>(batch_size), omp_get_max_threads(), 32}));
+#pragma omp parallel for schedule(static) num_threads(batch_threads) if (batch_threads > 1)
+#endif
+    for (std::int64_t index = 0; index < batch_size; ++index) {
+        const auto result = hexadecapole_kernel(
+            source_x.typed_data()[index], source_y.typed_data()[index],
+            *separation.typed_data(), *mass_ratio.typed_data(),
+            *source_radius.typed_data(), *limb_c.typed_data(),
+            *limb_d.typed_data());
+        magnification->typed_data()[index] = result.magnification.value;
+        point_magnification->typed_data()[index] = result.point_magnification.value;
+        quadrupole_correction->typed_data()[index] = result.quadrupole_correction.value;
+        hexadecapole_correction->typed_data()[index] = result.hexadecapole_correction.value;
+        topology_stable->typed_data()[index] = result.topology_stable;
+        root_failure->typed_data()[index] = result.root_failure;
+        double* jacobian = output_jacobian->typed_data() + index * 4 * parameter_count;
+        const std::array<const Jet*, 4> values{
+            &result.magnification, &result.point_magnification,
+            &result.quadrupole_correction, &result.hexadecapole_correction};
+        for (std::size_t output = 0; output < values.size(); ++output) {
+            for (std::size_t parameter = 0; parameter < kernel_derivative_count; ++parameter) {
+                jacobian[output * parameter_count + parameter] =
+                    values[output]->derivative[parameter];
+            }
+            jacobian[output * parameter_count + 5] = 0.0;
+            jacobian[output * parameter_count + 6] = 0.0;
+        }
+        jacobian[5] = result.limb_c_derivative;
+        jacobian[6] = result.limb_d_derivative;
+        jacobian[2 * parameter_count + 5] = result.quadrupole_limb_c_derivative;
+        jacobian[2 * parameter_count + 6] = result.quadrupole_limb_d_derivative;
+        jacobian[3 * parameter_count + 5] = result.hexadecapole_limb_c_derivative;
+        jacobian[3 * parameter_count + 6] = result.hexadecapole_limb_d_derivative;
+    }
+    return ffi::Error::Success();
+}
+
+XLA_FFI_DEFINE_HANDLER(
+    hexadecapole_batch_jacobian_ffi_handler,
+    hexadecapole_batch_jacobian_ffi_impl,
+    ffi::Ffi::Bind()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::F64>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR1<ffi::PRED>>()
+        .Ret<ffi::BufferR3<ffi::F64>>());
+
+ffi::Error hexadecapole_batch_array_jacobian_ffi_impl(
+    ffi::BufferR1<ffi::F64> source_x,
+    ffi::BufferR1<ffi::F64> source_y,
+    ffi::BufferR1<ffi::F64> separation,
+    ffi::BufferR0<ffi::F64> mass_ratio,
+    ffi::BufferR0<ffi::F64> source_radius,
+    ffi::BufferR0<ffi::F64> limb_c,
+    ffi::BufferR0<ffi::F64> limb_d,
+    ffi::ResultBufferR1<ffi::F64> magnification,
+    ffi::ResultBufferR1<ffi::F64> point_magnification,
+    ffi::ResultBufferR1<ffi::F64> quadrupole_correction,
+    ffi::ResultBufferR1<ffi::F64> hexadecapole_correction,
+    ffi::ResultBufferR1<ffi::PRED> topology_stable,
+    ffi::ResultBufferR1<ffi::PRED> root_failure,
+    ffi::ResultBufferR3<ffi::F64> output_jacobian)
+{
+    const std::int64_t batch_size = source_x.dimensions()[0];
+    const auto jacobian_dimensions = output_jacobian->dimensions();
+    if (
+        source_y.dimensions()[0] != batch_size
+        || separation.dimensions()[0] != batch_size
+        || magnification->dimensions()[0] != batch_size
+        || point_magnification->dimensions()[0] != batch_size
+        || quadrupole_correction->dimensions()[0] != batch_size
+        || hexadecapole_correction->dimensions()[0] != batch_size
+        || topology_stable->dimensions()[0] != batch_size
+        || root_failure->dimensions()[0] != batch_size
+        || jacobian_dimensions[0] != batch_size
+        || jacobian_dimensions[1] != 4
+        || jacobian_dimensions[2] != parameter_count) {
+        return ffi::Error::InvalidArgument(
+            "hexadecapole batch Jacobian arrays have invalid shapes");
+    }
+#ifdef LCBININT_HAS_OPENMP
+    const int batch_threads = std::max(
         1,
         std::min(
             {static_cast<int>(batch_size), omp_get_max_threads(), 32}));
@@ -6504,7 +6662,7 @@ ffi::Error hexadecapole_batch_jacobian_ffi_impl(
     for (std::int64_t index = 0; index < batch_size; ++index) {
         const auto result = hexadecapole_kernel(
             source_x.typed_data()[index], source_y.typed_data()[index],
-            *separation.typed_data(), *mass_ratio.typed_data(),
+            separation.typed_data()[index], *mass_ratio.typed_data(),
             *source_radius.typed_data(), *limb_c.typed_data(),
             *limb_d.typed_data());
         magnification->typed_data()[index] = result.magnification.value;
@@ -6549,12 +6707,12 @@ ffi::Error hexadecapole_batch_jacobian_ffi_impl(
 }
 
 XLA_FFI_DEFINE_HANDLER(
-    hexadecapole_batch_jacobian_ffi_handler,
-    hexadecapole_batch_jacobian_ffi_impl,
+    hexadecapole_batch_array_jacobian_ffi_handler,
+    hexadecapole_batch_array_jacobian_ffi_impl,
     ffi::Ffi::Bind()
         .Arg<ffi::BufferR1<ffi::F64>>()
         .Arg<ffi::BufferR1<ffi::F64>>()
-        .Arg<ffi::BufferR0<ffi::F64>>()
+        .Arg<ffi::BufferR1<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
         .Arg<ffi::BufferR0<ffi::F64>>()
@@ -8097,6 +8255,18 @@ py::capsule hexadecapole_batch_jacobian_ffi_capsule()
         reinterpret_cast<void*>(hexadecapole_batch_jacobian_ffi_handler));
 }
 
+py::capsule hexadecapole_batch_array_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(hexadecapole_batch_array_ffi_handler));
+}
+
+py::capsule hexadecapole_batch_array_jacobian_ffi_capsule()
+{
+    return py::capsule(
+        reinterpret_cast<void*>(hexadecapole_batch_array_jacobian_ffi_handler));
+}
+
 py::capsule point_batch_ffi_capsule()
 {
     return py::capsule(
@@ -8334,6 +8504,14 @@ void register_jax_ir_submodule(py::module_& parent)
         "hexadecapole_batch_jacobian_ffi",
         &hexadecapole_batch_jacobian_ffi_capsule,
         "Return the batched hexadecapole value/Jacobian FFI capsule.");
+    module.def(
+        "hexadecapole_batch_array_ffi",
+        &hexadecapole_batch_array_ffi_capsule,
+        "Return the dynamic-separation batched hexadecapole FFI capsule.");
+    module.def(
+        "hexadecapole_batch_array_jacobian_ffi",
+        &hexadecapole_batch_array_jacobian_ffi_capsule,
+        "Return the dynamic-separation batched hexadecapole Jacobian capsule.");
     module.def(
         "point_batch_ffi",
         &point_batch_ffi_capsule,
