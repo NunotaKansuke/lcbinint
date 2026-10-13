@@ -1,0 +1,15 @@
+Rerun of full seeded q-rho comparison and 4 six-panel figures
+host=rogue1
+checkout=/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events
+branch=experiment/seeded-boundary-events
+head=82d7f236c80f913ac87fb5399cf7f1733743a425
+source=committed HEAD plus saved VBM reference table (VBMicrolensing 5.5, RelTol=1e-6)
+input_rows=7216
+outputs=14432 (two target tolerances per geometry/profile row)
+repetitions=3
+threads=1
+build=build.sh, benchmark output build-seeded-events/bench_seeded_paper_qrho_v45
+run=run_full.sh; caustic construction excluded; seed+frontier timing recorded; I/O excluded
+plot=rebuild_figures.sh using committed make_figures.py and the run's newly joined values
+all artifacts kept under this date-stamped directory; previous 20261013 run left untouched
+coverage_certified is expected false and is retained as reported by solver
