@@ -1,0 +1,3 @@
+u=0 value=4.55557 gradient=-17.5584 -8.77922 0.0227611 8.73252e-10 -0.000196726 precision_checked=0
+u=0.5 value=4.55557 gradient=-17.5584 -8.77921 0.0209402 8.7325e-10 -0.000196726 precision_checked=0
+normal value and compiled gradient API coexist; analytic limit and invalid-input checks passed

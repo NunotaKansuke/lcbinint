@@ -160,6 +160,13 @@ s=replace(s,'        // Propagate absolute errors through the same linear map wi
             return out;
         }
         // Propagate absolute errors through the same linear map without cancellation.""")
+s=replace(s,"""                bool regular=true;
+                for(int j=0;j<5;++j) {
+                    auto d=root_pair_dR(RootPair{ap.m,ap.v},cp.p,dp.dp[j]);""",
+    """                bool regular=true;
+                const auto tangents=fused_gradient::root_pair_tangents(RootPair{ap.m,ap.v},cp.p,dp.dp);
+                for(int j=0;j<5;++j) {
+                    const auto& d=tangents[j];""")
 (OUT/'adaptive_epoch.hpp').write_text(s)
 manifest={name:{'base_sha256':hashlib.sha256((BASE/name).read_bytes()).hexdigest(),
     'overlay_sha256':hashlib.sha256((OUT/name).read_bytes()).hexdigest()} for name in

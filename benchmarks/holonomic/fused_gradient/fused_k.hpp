@@ -1,10 +1,24 @@
 #pragma once
 #include "fused_motion.hpp"
-#include <cstdio>
-#include <cstdlib>
+#include "lcbinint/magnification/holonomic/root_pair.hpp"
 #include "lcbinint/magnification/holonomic/holonomic_transport.hpp"
 
 namespace lcbinint::holonomic::fused_gradient {
+// Five RHS share the same root-pair Jacobian and singularity check.
+inline std::array<RootPairDR,5> root_pair_tangents(const RootPair& pair,
+    const std::array<double,5>& pc,const std::array<std::array<double,5>,5>& dp) {
+    std::array<RootPairDR,5> out{};
+    const auto J=eo_jacobian(pair,pc);
+    const double det=J.E_m*J.O_v-J.E_v*J.O_m;
+    if(std::fabs(det)<kRootPairDetFloor || !std::isfinite(det))return out;
+    for(int j=0;j<5;++j) {
+        const auto d=p_derivs(dp[j],pair.m);
+        const double E=d.P+0.5*pair.v*d.P2+pair.v*pair.v*dp[j][4];
+        const double O=d.P1+(pair.v/6.0)*d.P3;
+        out[j]={-(J.O_v*E-J.E_v*O)/det,-(-J.O_m*E+J.E_m*O)/det,true};
+    }
+    return out;
+}
 struct AngularPair { VKJacobian high{}, low{}; bool ok=false; int points=0; };
 // Value and five tangents share each point evaluation, square root and
 // deflated polynomial. Nested upgrades evaluate only the newly inserted nodes.

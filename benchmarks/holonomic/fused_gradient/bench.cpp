@@ -7,6 +7,9 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/holonomic/seeded_radial_frontier.hpp"
+#ifdef HOLO_COMPILED_FUSED_API
+#include "lcbinint/magnification/holonomic/fused_gradient.hpp"
+#endif
 #ifdef HOLO_FUSED_GRADIENT_EXPERIMENT
 #include "evaluate.hpp"
 #endif
@@ -59,7 +62,7 @@ int main(int argc,char**argv) {
             for(int mode:order) {
                 if(fast_only&&mode!=0&&mode!=3)continue;
                 if(selection==2&&mode!=0)continue;
-                AdaptiveConfig cfg;cfg.tol.mu_rtol=1e-4;
+                AdaptiveConfig cfg;cfg.tol.mu_rtol=argc>5?std::atof(argv[5]):1e-4;
                 cfg.gradient_policy=mode==0?GradientPolicy::None:mode==1?GradientPolicy::Strict:GradientPolicy::ValueFirst;
                 cfg.with_jacobian=mode!=0;
                 if(mode==3) {
@@ -68,6 +71,25 @@ int main(int argc,char**argv) {
                 }
                 AdaptiveWorkspace workspace;
                 const auto start=Clock::now();
+#ifdef HOLO_COMPILED_FUSED_API
+                if(mode==3) {
+                    std::vector<std::array<double,2>> api_seeds;
+                    api_seeds.reserve(seeds.size());
+                    for(const auto& z:seeds)api_seeds.push_back({z.re,z.im});
+                    const auto r=epoch_fused_gradient(p,u,api_seeds,{cfg.tol.mu_atol,cfg.tol.mu_rtol});
+                    auto& integral=results[mode].integral;
+                    integral.mu=r.mu;integral.grad_mu=r.grad_mu;
+                    integral.value_converged=r.value_converged;
+                    integral.estimated_abs_error_grad.fill(kAdaptiveUnresolvedError);
+                    integral.stats.node_evaluations=r.node_evaluations;
+                    for(auto stop:{AdaptiveStop::Converged,AdaptiveStop::InvalidConfig,
+                        AdaptiveStop::TopologyUnresolved,AdaptiveStop::BudgetExceeded,
+                        AdaptiveStop::InnerAccuracyLimited,AdaptiveStop::Nonfinite,
+                        AdaptiveStop::RoundoffLimited,AdaptiveStop::EventLocationLimited,
+                        AdaptiveStop::BoundUnavailable})
+                        if(r.stop==adaptive_stop_name(stop))integral.stop=stop;
+                } else
+#endif
 #ifdef HOLO_FUSED_GRADIENT_EXPERIMENT
                 if(mode==1||mode==3)results[mode]=fused_gradient::evaluate(p,u,seeds,cfg,workspace,
                     mode==3?fused_gradient::Refinement::ValueMesh:fused_gradient::Refinement::JointTolerance).epoch;

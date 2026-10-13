@@ -16,3 +16,22 @@ g++ "${COMMON[@]}" -DHOLO_FUSED_GRADIENT_EXPERIMENT \
   -Ibuild-seeded-events/fused-gradient/include -Ibenchmarks/holonomic/fused_gradient \
   "${INCLUDES[@]}" benchmarks/holonomic/fused_gradient/bench.cpp \
   "${BACKEND[@]}" -o build-seeded-events/fused-gradient/fused
+
+# Optional compiled API: its private namespace can coexist with the value kernel.
+python benchmarks/holonomic/fused_gradient/build_api_overlay.py
+g++ "${COMMON[@]}" -Ibuild-seeded-events/fused-gradient/api-include "${INCLUDES[@]}" \
+  -c src/lcbinint/magnification/holonomic/fused_gradient.cpp \
+  -o build-seeded-events/fused-gradient/fused_gradient_api.o
+ar rcs build-seeded-events/fused-gradient/liblcbinint_fused_gradient.a \
+  build-seeded-events/fused-gradient/fused_gradient_api.o
+g++ "${COMMON[@]}" -DHOLO_COMPILED_FUSED_API "${INCLUDES[@]}" \
+  benchmarks/holonomic/fused_gradient/bench.cpp \
+  build-seeded-events/fused-gradient/liblcbinint_fused_gradient.a "${BACKEND[@]}" \
+  -o build-seeded-events/fused-gradient/api_bench
+g++ "${COMMON[@]}" "${INCLUDES[@]}" benchmarks/holonomic/fused_gradient/api_check.cpp \
+  build-seeded-events/fused-gradient/liblcbinint_fused_gradient.a "${BACKEND[@]}" \
+  -o build-seeded-events/fused-gradient/api_check
+g++ "${COMMON[@]}" -Ibuild-seeded-events/fused-gradient/include \
+  -Ibenchmarks/holonomic/fused_gradient "${INCLUDES[@]}" \
+  benchmarks/holonomic/fused_gradient/batch_check.cpp -lquadmath \
+  -o build-seeded-events/fused-gradient/batch_check
