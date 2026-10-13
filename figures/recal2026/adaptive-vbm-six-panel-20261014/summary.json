@@ -16,6 +16,35 @@
       "max_actual_relative_error": 0.0070266672997021384,
       "median_adaptive_ms": 0.2890975,
       "median_vbm_ms": 0.0598789774812758,
+      "q_rho_grid": {
+        "input_cells_meeting_minimum": 144,
+        "input_minimum_count": 8,
+        "plotted_speed_cells": 142,
+        "plotted_p95_cells": 142,
+        "p95_cells_over_target": 22,
+        "derived_projection_cells": {
+          "a_rho_speed": 65,
+          "a_rho_p95": 65,
+          "a_q_speed": 77,
+          "a_q_p95": 77
+        },
+        "underfilled_cells": [
+          {
+            "q_low": 0.0001,
+            "q_high": 0.00021544346900318845,
+            "rho_low": 3e-05,
+            "rho_high": 7.145420914664649e-05,
+            "finite_rows": 4
+          },
+          {
+            "q_low": 0.00021544346900318845,
+            "q_high": 0.00046415888336127773,
+            "rho_low": 3e-05,
+            "rho_high": 7.145420914664649e-05,
+            "finite_rows": 4
+          }
+        ]
+      },
       "stop_reasons": {
         "estimated_target_met": 3259,
         "evaluation_budget": 1,
@@ -40,6 +69,35 @@
       "max_actual_relative_error": 0.005783414107282114,
       "median_adaptive_ms": 0.357122,
       "median_vbm_ms": 0.1048145059030503,
+      "q_rho_grid": {
+        "input_cells_meeting_minimum": 144,
+        "input_minimum_count": 8,
+        "plotted_speed_cells": 142,
+        "plotted_p95_cells": 142,
+        "p95_cells_over_target": 49,
+        "derived_projection_cells": {
+          "a_rho_speed": 65,
+          "a_rho_p95": 65,
+          "a_q_speed": 77,
+          "a_q_p95": 77
+        },
+        "underfilled_cells": [
+          {
+            "q_low": 0.0001,
+            "q_high": 0.00021544346900318845,
+            "rho_low": 3e-05,
+            "rho_high": 7.145420914664649e-05,
+            "finite_rows": 4
+          },
+          {
+            "q_low": 0.00021544346900318845,
+            "q_high": 0.00046415888336127773,
+            "rho_low": 3e-05,
+            "rho_high": 7.145420914664649e-05,
+            "finite_rows": 4
+          }
+        ]
+      },
       "stop_reasons": {
         "estimated_target_met": 3241,
         "evaluation_budget": 18,
@@ -64,6 +122,35 @@
       "max_actual_relative_error": 0.0069655561929165,
       "median_adaptive_ms": 0.320907,
       "median_vbm_ms": 0.29014950268901885,
+      "q_rho_grid": {
+        "input_cells_meeting_minimum": 144,
+        "input_minimum_count": 8,
+        "plotted_speed_cells": 142,
+        "plotted_p95_cells": 142,
+        "p95_cells_over_target": 15,
+        "derived_projection_cells": {
+          "a_rho_speed": 66,
+          "a_rho_p95": 66,
+          "a_q_speed": 77,
+          "a_q_p95": 77
+        },
+        "underfilled_cells": [
+          {
+            "q_low": 0.0001,
+            "q_high": 0.00021544346900318845,
+            "rho_low": 3e-05,
+            "rho_high": 7.145420914664649e-05,
+            "finite_rows": 4
+          },
+          {
+            "q_low": 0.00021544346900318845,
+            "q_high": 0.00046415888336127773,
+            "rho_low": 3e-05,
+            "rho_high": 7.145420914664649e-05,
+            "finite_rows": 4
+          }
+        ]
+      },
       "stop_reasons": {
         "estimated_target_met": 3256,
         "evaluation_budget": 1,
@@ -88,6 +175,35 @@
       "max_actual_relative_error": 0.005937905682790623,
       "median_adaptive_ms": 0.411746,
       "median_vbm_ms": 1.2052710226271302,
+      "q_rho_grid": {
+        "input_cells_meeting_minimum": 144,
+        "input_minimum_count": 8,
+        "plotted_speed_cells": 142,
+        "plotted_p95_cells": 142,
+        "p95_cells_over_target": 42,
+        "derived_projection_cells": {
+          "a_rho_speed": 66,
+          "a_rho_p95": 66,
+          "a_q_speed": 77,
+          "a_q_p95": 77
+        },
+        "underfilled_cells": [
+          {
+            "q_low": 0.0001,
+            "q_high": 0.00021544346900318845,
+            "rho_low": 3e-05,
+            "rho_high": 7.145420914664649e-05,
+            "finite_rows": 4
+          },
+          {
+            "q_low": 0.00021544346900318845,
+            "q_high": 0.00046415888336127773,
+            "rho_low": 3e-05,
+            "rho_high": 7.145420914664649e-05,
+            "finite_rows": 4
+          }
+        ]
+      },
       "stop_reasons": {
         "estimated_target_met": 3241,
         "evaluation_budget": 15,

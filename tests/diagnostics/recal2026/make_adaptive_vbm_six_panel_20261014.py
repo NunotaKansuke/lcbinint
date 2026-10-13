@@ -228,6 +228,21 @@ def plot_and_report(inputs=None, raw_rows=None):
         writer = csv.DictWriter(f, fieldnames=list(joined[0]), delimiter="\t", lineterminator="\n")
         writer.writeheader()
         writer.writerows(joined)
+    minimum_per_cell = 8
+
+    def bin_counts(records, x_edges, y_edges):
+        counts = np.zeros((len(y_edges) - 1, len(x_edges) - 1), dtype=int)
+        for record in records:
+            x = int(np.searchsorted(x_edges, float(record["q"]), side="right") - 1)
+            y = int(np.searchsorted(y_edges, float(record["rho"]), side="right") - 1)
+            if float(record["q"]) == x_edges[-1]:
+                x -= 1
+            if float(record["rho"]) == y_edges[-1]:
+                y -= 1
+            if 0 <= x < counts.shape[1] and 0 <= y < counts.shape[0]:
+                counts[y, x] += 1
+        return counts
+
     groups = []
     for profile in ("uniform", "linear"):
         for target in (0.001, 0.0001):
@@ -236,6 +251,55 @@ def plot_and_report(inputs=None, raw_rows=None):
             accurate_accepted = [r for r in finite if r["accepted"] and r["actual_pass"]]
             ratios = [r["ratio"] for r in finite]
             errors = [r["error"] for r in selected if math.isfinite(r["error"])]
+            plot_records = [
+                r for r in selected
+                if math.isfinite(r["ratio"]) and r["ratio"] > 0.0
+            ]
+            q_edges = style._log_edges(plot_records, "q", 1.0e-4, 1.0)
+            rho_edges = style._log_edges(plot_records, "rho", 3.0e-5, 1.0)
+            input_profile = [r for r in inputs if r["profile"] == profile]
+            input_counts = bin_counts(input_profile, q_edges, rho_edges)
+            q_rho_counts, q_rho_speed, q_rho_error = style._cell_statistics(
+                plot_records, "q", "rho", q_edges, rho_edges, minimum_per_cell
+            )
+            a_edges = style._log_edges(plot_records, "a_finite", 1.0, 1.0e5)
+            _, a_rho_speed, a_rho_error = style._cell_statistics(
+                plot_records, "a_finite", "rho", a_edges, rho_edges,
+                minimum_per_cell,
+            )
+            _, a_q_speed, a_q_error = style._cell_statistics(
+                plot_records, "a_finite", "q", a_edges, q_edges,
+                minimum_per_cell,
+            )
+            q_rho_grid = dict(
+                input_cells_meeting_minimum=int(
+                    np.count_nonzero(input_counts >= minimum_per_cell)
+                ),
+                input_minimum_count=int(input_counts.min()),
+                plotted_speed_cells=int(np.count_nonzero(np.isfinite(q_rho_speed))),
+                plotted_p95_cells=int(np.count_nonzero(np.isfinite(q_rho_error))),
+                p95_cells_over_target=int(
+                    np.count_nonzero(
+                        np.isfinite(q_rho_error) & (q_rho_error > target)
+                    )
+                ),
+                derived_projection_cells=dict(
+                    a_rho_speed=int(np.count_nonzero(np.isfinite(a_rho_speed))),
+                    a_rho_p95=int(np.count_nonzero(np.isfinite(a_rho_error))),
+                    a_q_speed=int(np.count_nonzero(np.isfinite(a_q_speed))),
+                    a_q_p95=int(np.count_nonzero(np.isfinite(a_q_error))),
+                ),
+                underfilled_cells=[
+                    dict(
+                        q_low=float(q_edges[i]), q_high=float(q_edges[i + 1]),
+                        rho_low=float(rho_edges[j]), rho_high=float(rho_edges[j + 1]),
+                        finite_rows=int(q_rho_counts[j, i]),
+                    )
+                    for j in range(len(rho_edges) - 1)
+                    for i in range(len(q_edges) - 1)
+                    if not np.isfinite(q_rho_speed[j, i])
+                ],
+            )
             groups.append(dict(
                 profile=profile, target=target, rows=len(selected), finite=len(finite),
                 accepted=sum(r["accepted"] for r in selected),
@@ -249,6 +313,7 @@ def plot_and_report(inputs=None, raw_rows=None):
                 max_actual_relative_error=max(errors) if errors else None,
                 median_adaptive_ms=float(np.median([r["current_ms"] for r in finite])) if finite else None,
                 median_vbm_ms=float(np.median([r["vbm_ms"] for r in finite])) if finite else None,
+                q_rho_grid=q_rho_grid,
                 stop_reasons={},
             ))
             groups[-1]["stop_reasons"] = {
@@ -271,9 +336,9 @@ def plot_and_report(inputs=None, raw_rows=None):
                       error=float(r["error"]) if math.isfinite(r["error"]) else math.nan)
                  for r in selected],
                 ["VBM direct kernel and saved RelTol=1e-6 reference; ordinary adaptive C++ kernel"],
-                ARTIFACT / f"{profile}_{tag}", profile, target, 8,
+                ARTIFACT / f"{profile}_{tag}", profile, target, minimum_per_cell,
             )
-    summary = dict(groups=groups, rows=len(joined), minimum_per_cell=8,
+    summary = dict(groups=groups, rows=len(joined), minimum_per_cell=minimum_per_cell,
         speed_ratio="saved VBM direct-kernel time / current native adaptive integration time; values above1 favor lcbinint",
         accuracy="absolute relative difference from saved independent VBM RelTol=1e-6 reference; p95 by cell in figures",
         timing="ordinary production build, initial nbin16, single-call relative target, timed native kernel only; one untimed warm call; centre roots and caustic construction outside the timed region",
@@ -287,6 +352,28 @@ def plot_and_report(inputs=None, raw_rows=None):
     for g in groups:
         lines.append(f"|{g['profile']}|{g['target']:g}|{g['finite']}/{g['rows']}|{g['accepted']}|{g['actual_pass']}|{g['false_accept']}|{g['median_vbm_over_adaptive']:.4g}|{g['p95_actual_relative_error']:.4g}|{g['median_adaptive_ms']:.4g}|")
     lines += ["", "The input cohort is a q-rho coverage corpus rather than an iid speed sample. The error estimator remains an empirical estimate, not a general mathematical guarantee.", "", "Reproduce the native build with `cmake -S . -B build-adaptive-production -DCMAKE_BUILD_TYPE=Release -DLCBININT_BOUNDARY_SUPPORT_EXPERIMENTS=OFF -DLCBININT_BUILD_TESTS=OFF -DLCBININT_BUILD_PYTHON=ON -DLCBININT_ENABLE_JAX_FFI=OFF -DCMAKE_PREFIX_PATH=/home/nunota/.miniconda3/envs/myenv`, then `cmake --build build-adaptive-production -j2` and `python tests/diagnostics/recal2026/make_adaptive_vbm_six_panel_20261014.py`. The script resumes complete 32-input shards, reruns incomplete shards, and renders from the committed inputs and native measurements."]
+    grid = groups[0]["q_rho_grid"]
+    underfilled = grid["underfilled_cells"]
+    underfilled_description = "; ".join(
+        f"q=[{cell['q_low']:.3g},{cell['q_high']:.3g}), "
+        f"rho=[{cell['rho_low']:.3g},{cell['rho_high']:.3g}): "
+        f"{cell['finite_rows']}/8 finite rows"
+        for cell in underfilled
+    ) or "none"
+    p95_exceedance_description = "; ".join(
+        f"{g['profile']} {g['target']:g}: "
+        f"{g['q_rho_grid']['p95_cells_over_target']}/"
+        f"{g['q_rho_grid']['plotted_p95_cells']} cells"
+        for g in groups
+    )
+    projection = grid["derived_projection_cells"]
+    lines += [
+        "",
+        f"The input q-rho design covers {grid['input_cells_meeting_minimum']}/144 cells with at least {grid['input_minimum_count']} input rows per cell. The rho axis now keeps its requested 3e-5 lower bound. The previous edge logic floored the observed minimum (~3.14e-5) to 1e-5, adding an unintended low-rho row and shifting the bins.",
+        f"After excluding non-finite measurements, {grid['plotted_speed_cells']}/144 q-rho cells meet the 8-row display threshold. The remaining gray q-rho cells are: {underfilled_description}. Gray means masked for insufficient finite data, never zero.",
+        f"The A_fs projections are not a fully sampled independent grid because A_fs is derived from the epoch geometry; the speed maps support {projection['a_rho_speed']}/144 A_fs-rho cells and {projection['a_q_speed']}/144 A_fs-q cells.",
+        f"q-rho cells whose p95 cross-code difference exceeds the requested target: {p95_exceedance_description}. These cell counts include both accepted and rejected rows; they are distinct from the individual false-accept counts in the table.",
+    ]
     (ARTIFACT / "REPORT.md").write_text("\n".join(lines) + "\n")
     provenance_path = ARTIFACT / "provenance.json"
     provenance = json.loads(provenance_path.read_text()) if provenance_path.exists() else {}

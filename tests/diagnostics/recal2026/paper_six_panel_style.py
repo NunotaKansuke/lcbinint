@@ -190,8 +190,19 @@ def _log_edges(
     values = np.asarray([record[field] for record in records], dtype=float)
     observed_low = float(np.min(values))
     observed_high = float(np.max(values))
-    low = min(default_low, 10.0 ** math.floor(math.log10(observed_low)))
-    high = max(default_high, 10.0 ** math.ceil(math.log10(observed_high)))
+    # Keep the requested plotting domain when the data are already inside it.
+    # Flooring an in-range minimum to the preceding decade creates an extra
+    # mostly empty bin (notably rho: 3e-5 was expanded down to 1e-5).
+    low = (
+        10.0 ** math.floor(math.log10(observed_low))
+        if observed_low < default_low
+        else default_low
+    )
+    high = (
+        10.0 ** math.ceil(math.log10(observed_high))
+        if observed_high > default_high
+        else default_high
+    )
     return np.geomspace(low, high, bins + 1)
 
 
@@ -358,6 +369,7 @@ def _write_summary(
         f"Measured epoch points: `{len(records)}`",
         f"Input parts: `{len(provenance)}` (read serially in numeric order)",
         f"Minimum cell population: `{minimum_count}`",
+        f"Gray cells are masked: the upper map has fewer than `{minimum_count}` finite timing ratios; the lower map has fewer than `{minimum_count}` finite cross-code errors.",
         "",
         "The top row is the cell median of "
         "`R=t_VBM/t_lcbinint`; `R>1` favours lcbinint.",
@@ -457,6 +469,15 @@ def make_figure(
         rf"{profile_title}, $\epsilon_{{\rm rel}}={_format_target(target)}$",
         fontsize=16,
         y=0.965,
+    )
+    figure.text(
+        0.5,
+        0.018,
+        "Gray cells: <8 finite ratios (top) or cross-code errors (bottom)",
+        ha="center",
+        va="bottom",
+        fontsize=9,
+        color="#374151",
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     figure.savefig(output.with_suffix(".pdf"), bbox_inches="tight")

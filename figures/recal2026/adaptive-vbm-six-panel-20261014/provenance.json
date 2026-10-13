@@ -32,20 +32,20 @@
   ],
   "rows": 14432,
   "certified": false,
-  "plotting_script_sha256": "7c83c3f970590c45ea02a83e11ae2d74bc57f9e1eafa4a51c3b9fa14033487c8",
-  "plot_style_sha256": "5fb42c86f43d917c1aa196a513e702bed47881eec29d182a8ae59d6659bd19a8",
+  "plotting_script_sha256": "2e1c4e2cc49c9ae23d5f428a4c7489edec891e3179590af6f59f2f568c65be6c",
+  "plot_style_sha256": "567e9e70170de49fbee6f76f3e76b618c8a887ccd100c15fe8f2277a924f62ee",
   "artifact_sha256": {
     "figures/recal2026/adaptive-vbm-six-panel-20261014/inputs.tsv": "e79599e1365020aa4911f079bbafd4951bb2056dc21730b049fec2a6c241ec09",
     "figures/recal2026/adaptive-vbm-six-panel-20261014/joined.tsv": "bcd01c6f9e2e261ce27f3852d327e704a637a41ff594c961df7b72e4d564826a",
-    "figures/recal2026/adaptive-vbm-six-panel-20261014/summary.json": "d08839fcdde37544ea8c327b2f975e2ac1e4f788b49f4ea182dba353d02f0b15",
-    "figures/recal2026/adaptive-vbm-six-panel-20261014/REPORT.md": "6ad05ca391e6f97edd24e2e7f7021f52d38549e02e05e3fe4a9250491af162e5",
-    "figures/recal2026/adaptive-vbm-six-panel-20261014/uniform_1e-3.png": "33c70b30b37370c9fad996e6717adec8069fce8b2e48bf524960d8757dfcaae4",
-    "figures/recal2026/adaptive-vbm-six-panel-20261014/uniform_1e-4.png": "7d18408b8a151b3f90b6c84e91f49dc1b5eeb396f42f413a2c799c6faa13cb41",
-    "figures/recal2026/adaptive-vbm-six-panel-20261014/uniform_1e-3.pdf": "a97df8121029888cc1c5bf3a8417d8e6eaa8b567e5421dec4562bdb7ac1fb7bf",
-    "figures/recal2026/adaptive-vbm-six-panel-20261014/uniform_1e-4.pdf": "8931a04070d6331a16c852f91d46979adcbed83f98cb6308035ba796f99bb419",
-    "figures/recal2026/adaptive-vbm-six-panel-20261014/linear_1e-3.png": "9afa3ce61e0f05c784e18cdb98cc477af4892f01cb1aaaa7c156dafb93e5fa31",
-    "figures/recal2026/adaptive-vbm-six-panel-20261014/linear_1e-4.png": "47af7544ef88c8925a175498e29915f60bd90b68aadd96656ebdac05e6f713be",
-    "figures/recal2026/adaptive-vbm-six-panel-20261014/linear_1e-3.pdf": "e4755c0c85fb0c272988ca0f55c0a03433f8fd957399fff6366a18134284b636",
-    "figures/recal2026/adaptive-vbm-six-panel-20261014/linear_1e-4.pdf": "627c9b6131261d9c7f009edbcc614430776bb1618b3c6677f8730675dabc5f32"
+    "figures/recal2026/adaptive-vbm-six-panel-20261014/summary.json": "6aa8f962ab853f814eee59d473be463ddc9f35db5151fb77dbb6c44cf719e10a",
+    "figures/recal2026/adaptive-vbm-six-panel-20261014/REPORT.md": "d020e185b4c5c4ff2f5740681e8678df9d77beea9712314670868fc550710b97",
+    "figures/recal2026/adaptive-vbm-six-panel-20261014/uniform_1e-3.png": "72d920bbc6746ff03c4141e3149ba5aaedd7526970622301f4d2e06061bd4736",
+    "figures/recal2026/adaptive-vbm-six-panel-20261014/uniform_1e-4.png": "274e86863251aab8397a4014015fe9147ef6752493066fafcb4d0dfb220d2da1",
+    "figures/recal2026/adaptive-vbm-six-panel-20261014/uniform_1e-3.pdf": "171a4586f693ccaa391152a4a7eae328f5265206059d4b496007b316dbec523f",
+    "figures/recal2026/adaptive-vbm-six-panel-20261014/uniform_1e-4.pdf": "8aea4398625c44899f96fb29b521659f275623a2865d2cef33d5b8fe533f7261",
+    "figures/recal2026/adaptive-vbm-six-panel-20261014/linear_1e-3.png": "fdf4c648e49d0f18d7c3d5d5edabd04edc100108984877ab5fbd076d97700bd8",
+    "figures/recal2026/adaptive-vbm-six-panel-20261014/linear_1e-4.png": "6d05aa503b2bd84de2303ebdfbf783fad265b3d759995f8db36ecda7b3126fab",
+    "figures/recal2026/adaptive-vbm-six-panel-20261014/linear_1e-3.pdf": "7ca8d13180e4d4e921de43775a2924dc43e023f3967e58d3f766481b95634d62",
+    "figures/recal2026/adaptive-vbm-six-panel-20261014/linear_1e-4.pdf": "483a9b55a282ed4c4c933d080a19317b98fdb711a83eaaf6ebf667215d629048"
   }
 }
