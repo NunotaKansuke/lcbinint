@@ -1,0 +1,107 @@
+{
+  "groups": [
+    {
+      "profile": "uniform",
+      "target": 0.001,
+      "rows": 3608,
+      "finite": 3456,
+      "accepted": 3259,
+      "actual_pass": 3345,
+      "false_accept": 81,
+      "exceptions": 152,
+      "median_vbm_over_adaptive": 0.19695875453716855,
+      "median_accurate_accepted_ratio": 0.20079797089024498,
+      "adaptive_faster_fraction": 0.0,
+      "p95_actual_relative_error": 0.0007527108630656643,
+      "max_actual_relative_error": 0.0070266672997021384,
+      "median_adaptive_ms": 0.2890975,
+      "median_vbm_ms": 0.0598789774812758,
+      "stop_reasons": {
+        "estimated_target_met": 3259,
+        "evaluation_budget": 1,
+        "exception": 152,
+        "unresolved_centre_image": 195,
+        "unresolved_component": 1
+      }
+    },
+    {
+      "profile": "uniform",
+      "target": 0.0001,
+      "rows": 3608,
+      "finite": 3456,
+      "accepted": 3241,
+      "actual_pass": 3270,
+      "false_accept": 155,
+      "exceptions": 152,
+      "median_vbm_over_adaptive": 0.27837314188949497,
+      "median_accurate_accepted_ratio": 0.2857976342770674,
+      "adaptive_faster_fraction": 0.006076388888888889,
+      "p95_actual_relative_error": 0.00010538481350189088,
+      "max_actual_relative_error": 0.005783414107282114,
+      "median_adaptive_ms": 0.357122,
+      "median_vbm_ms": 0.1048145059030503,
+      "stop_reasons": {
+        "estimated_target_met": 3241,
+        "evaluation_budget": 18,
+        "exception": 152,
+        "unresolved_centre_image": 195,
+        "unresolved_component": 2
+      }
+    },
+    {
+      "profile": "linear",
+      "target": 0.001,
+      "rows": 3608,
+      "finite": 3448,
+      "accepted": 3256,
+      "actual_pass": 3366,
+      "false_accept": 54,
+      "exceptions": 160,
+      "median_vbm_over_adaptive": 0.6260683808196592,
+      "median_accurate_accepted_ratio": 0.6140064613974409,
+      "adaptive_faster_fraction": 0.3645591647331787,
+      "p95_actual_relative_error": 0.0005809889330847671,
+      "max_actual_relative_error": 0.0069655561929165,
+      "median_adaptive_ms": 0.320907,
+      "median_vbm_ms": 0.29014950268901885,
+      "stop_reasons": {
+        "estimated_target_met": 3256,
+        "evaluation_budget": 1,
+        "exception": 160,
+        "unresolved_centre_image": 190,
+        "unresolved_component": 1
+      }
+    },
+    {
+      "profile": "linear",
+      "target": 0.0001,
+      "rows": 3608,
+      "finite": 3448,
+      "accepted": 3241,
+      "actual_pass": 3302,
+      "false_accept": 118,
+      "exceptions": 160,
+      "median_vbm_over_adaptive": 2.3653668322383123,
+      "median_accurate_accepted_ratio": 2.3250511696706186,
+      "adaptive_faster_fraction": 0.705046403712297,
+      "p95_actual_relative_error": 9.119191679174409e-05,
+      "max_actual_relative_error": 0.005937905682790623,
+      "median_adaptive_ms": 0.411746,
+      "median_vbm_ms": 1.2052710226271302,
+      "stop_reasons": {
+        "estimated_target_met": 3241,
+        "evaluation_budget": 15,
+        "exception": 160,
+        "unresolved_centre_image": 190,
+        "unresolved_component": 2
+      }
+    }
+  ],
+  "rows": 14432,
+  "minimum_per_cell": 8,
+  "speed_ratio": "saved VBM direct-kernel time / current native adaptive integration time; values above1 favor lcbinint",
+  "accuracy": "absolute relative difference from saved independent VBM RelTol=1e-6 reference; p95 by cell in figures",
+  "timing": "ordinary production build, initial nbin16, single-call relative target, timed native kernel only; one untimed warm call; centre roots and caustic construction outside the timed region",
+  "certified": false,
+  "complete_error_model": false
+}

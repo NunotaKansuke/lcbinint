@@ -442,6 +442,18 @@ double mapped_triple_lens_distance2(
     return dx * dx + dy * dy;
 }
 
+// Optional phase tracing: no clock reads in ordinary evaluations.
+struct AdaptiveStageTimer {
+    double* elapsed;
+    std::chrono::steady_clock::time_point start;
+    explicit AdaptiveStageTimer(double* field):elapsed(field) {
+        if(elapsed)start=std::chrono::steady_clock::now();
+    }
+    ~AdaptiveStageTimer() {
+        if(elapsed)*elapsed+=std::chrono::duration<double>(std::chrono::steady_clock::now()-start).count();
+    }
+};
+
 struct BoundaryRootEvaluation {
     double residual = std::numeric_limits<double>::infinity();
     double derivative_x = 0.0;
@@ -624,6 +636,29 @@ double refine_boundary_crossing_fraction(
         if (!convergence_probed &&
             std::abs(next - fraction) <= maximum_boundary_bracket) {
             convergence_probed = true;
+            // The current Newton evaluation already supplies one bracket sign.
+            // Probe only the other side before paying for a two-sided check.
+            if (std::getenv("LCBININT_DIAGNOSTIC_ONE_SIDED_BOUNDARY")) {
+                const bool inside = evaluation.residual <= 0.0;
+                const double other = inside
+                    ? std::min(outside_fraction, fraction + maximum_boundary_bracket)
+                    : std::max(inside_fraction, fraction - maximum_boundary_bracket);
+                const double lo = inside ? fraction : other;
+                const double hi = inside ? other : fraction;
+                if (next >= lo && next <= hi && hi > lo &&
+                    hi - lo <= maximum_boundary_bracket) {
+                    const double residual = boundary_root_residual(mapper,
+                        inside_x + other * (outside_x - inside_x), y, source, source_radius2);
+                    if (std::isfinite(residual)) {
+                        if ((inside && residual > 0.0) || (!inside && residual <= 0.0))
+                            return finish(0.5 * (lo + hi), lo, hi);
+                        if (inside) inside_fraction = other;
+                        else outside_fraction = other;
+                        if (!(next > inside_fraction && next < outside_fraction))
+                            next = 0.5 * (inside_fraction + outside_fraction);
+                    }
+                }
+            }
             const double half_width = 0.5 * maximum_boundary_bracket;
             const double local_inside = std::max(inside_fraction, next - half_width);
             const double local_outside = std::min(outside_fraction, next + half_width);
@@ -639,6 +674,18 @@ double refine_boundary_crossing_fraction(
                 if (inside_residual <= 0.0 && outside_residual > 0.0) {
                     return finish(0.5 * (local_inside + local_outside),local_inside,local_outside);
                 }
+                // Failed local certification still supplies evaluated signs.
+                // Retain them for the safeguarded continuation rather than
+                // bisecting the original, much wider interval again.
+                for (const auto& probe : {std::pair<double,double>{local_inside,inside_residual},
+                                          std::pair<double,double>{local_outside,outside_residual}}) {
+                    if(probe.first>inside_fraction && probe.first<outside_fraction && std::isfinite(probe.second)) {
+                        if(probe.second<=0)inside_fraction=probe.first;
+                        else outside_fraction=probe.first;
+                    }
+                }
+                if(!(next>inside_fraction && next<outside_fraction))
+                    next=0.5*(inside_fraction+outside_fraction);
             }
         }
         fraction = next;
@@ -688,6 +735,7 @@ double refine_polar_boundary_crossing_fraction(
     double inside_value = inside_residual;
     double outside_value = outside_residual;
     double fraction = std::clamp(initial, 0.0, 1.0);
+    int previous_side=0;
     for (int iteration = 0; iteration < 64; ++iteration) {
         if (outside_fraction - inside_fraction <= maximum_boundary_bracket) {
             return 0.5 * (inside_fraction + outside_fraction);
@@ -712,9 +760,13 @@ double refine_polar_boundary_crossing_fraction(
         if (residual <= 0.0) {
             inside_fraction = candidate;
             inside_value = residual;
+            if(previous_side==-1)outside_value*=0.5;
+            previous_side=-1;
         } else {
             outside_fraction = candidate;
             outside_value = residual;
+            if(previous_side==1)inside_value*=0.5;
+            previous_side=1;
         }
         fraction = candidate;
     }
@@ -745,6 +797,7 @@ double refine_angular_boundary_crossing_fraction(
     double inside_value = inside_residual;
     double outside_value = outside_residual;
     double fraction = std::clamp(initial, 0.0, 1.0);
+    int previous_side=0;
     for (int iteration = 0; iteration < 64; ++iteration) {
         if (outside_fraction - inside_fraction <= maximum_boundary_bracket) {
             return 0.5 * (inside_fraction + outside_fraction);
@@ -769,9 +822,13 @@ double refine_angular_boundary_crossing_fraction(
         if (residual <= 0.0) {
             inside_fraction = candidate;
             inside_value = residual;
+            if(previous_side==-1)outside_value*=0.5;
+            previous_side=-1;
         } else {
             outside_fraction = candidate;
             outside_value = residual;
+            if(previous_side==1)inside_value*=0.5;
+            previous_side=1;
         }
         fraction = candidate;
     }
@@ -3987,7 +4044,7 @@ struct CausticBranchScan {
     DiskSupport support;
 };
 
-CausticBranchScan scan_caustic_branches(
+CausticBranchScan scan_caustic_branches_full(
     const std::vector<std::vector<SourcePosition>>& branches,
     SourcePosition source,
     double source_radius,
@@ -4137,6 +4194,221 @@ CausticBranchScan scan_caustic_branches(
             };
             const double margin = std::hypot(curvature.x, curvature.y);
             if (vertex_radius[i] >= source_radius + margin) {
+                continue;
+            }
+            SourcePosition extremum_position = p1;
+            SourcePosition chord {
+                branch[next].x - branch[previous].x,
+                branch[next].y - branch[previous].y,
+            };
+            // A shallow cap can cross the source limb between two cached
+            // vertices while its sampled radial minimum remains just outside.
+            // For a minimum, use the actual closest point on either adjacent
+            // polyline segment.  Treating only the vertex as the extremum made
+            // the certificate vacuous in exactly that case: it was labelled
+            // outside and therefore did not have to straddle the caustic.
+            if (radial_minimum) {
+                const SourcePosition left = closest_point_on_segment(
+                    source, branch[previous], p1);
+                const SourcePosition right = closest_point_on_segment(
+                    source, p1, branch[next]);
+                if (distance_squared(left, source) <
+                    distance_squared(right, source)) {
+                    extremum_position = left;
+                    chord = {p1.x - branch[previous].x,
+                             p1.y - branch[previous].y};
+                } else {
+                    extremum_position = right;
+                    chord = {branch[next].x - p1.x,
+                             branch[next].y - p1.y};
+                }
+            }
+            const double chord_length = std::hypot(chord.x, chord.y);
+            if (!(chord_length > 0.0)) {
+                continue;
+            }
+            DiskExtremum extremum;
+            extremum.position = extremum_position;
+            extremum.tangent = {
+                chord.x / chord_length, chord.y / chord_length};
+            extremum.normal = {-extremum.tangent.y, extremum.tangent.x};
+            extremum.distance = std::sqrt(distance_squared(extremum_position, source));
+            extremum.polyline_margin = margin;
+            extremum.inside_disk = extremum.distance < source_radius;
+            extremum.branch_index=static_cast<int>(branch_index);
+            extremum.vertex_index=static_cast<int>(i);
+            scan.support.extrema.push_back(extremum);
+        }
+    }
+    scan.min_distance = std::sqrt(min_distance2);
+    return scan;
+}
+
+
+CausticBranchScan scan_caustic_branches(
+    const std::vector<std::vector<SourcePosition>>& branches,
+    SourcePosition source,
+    double source_radius,
+    bool build_support = false,
+    const std::vector<std::vector<std::size_t>>* selected_vertices=nullptr)
+{
+    if(!selected_vertices)return scan_caustic_branches_full(branches,source,source_radius,build_support);
+
+    constexpr std::size_t max_probes = 64;
+    // Retain a defensive long-segment rejection for ill-conditioned root
+    // solves. Physical curves are already joined by their phase monodromy, so
+    // the closing segment is treated exactly like every other segment.
+    constexpr double kPhantomLengthRatio2 = 625.0;  // 25x either neighbour
+    CausticBranchScan scan;
+    double min_distance2 = std::numeric_limits<double>::infinity();
+    const double source_radius2 = source_radius * source_radius;
+    std::vector<double> segment_length2;
+    std::vector<double> vertex_radius;
+    for (std::size_t branch_index=0;branch_index<branches.size();++branch_index) {
+        const auto& branch=branches[branch_index];
+        const auto* selected=selected_vertices?&(*selected_vertices)[branch_index]:nullptr;
+        if(selected && selected->empty())continue;
+        if (branch.size() < 2) {
+            continue;
+        }
+        if(!selected) {
+        segment_length2.assign(branch.size(), 0.0);
+        if (build_support && branch.size() >= 3) {
+            vertex_radius.assign(branch.size(), 0.0);
+        }
+        for (std::size_t i = 0; i < branch.size(); ++i) {
+            const std::size_t previous = i == 0 ? branch.size() - 1 : i - 1;
+            segment_length2[i] = distance_squared(branch[previous], branch[i]);
+            if (build_support && branch.size() >= 3) {
+                vertex_radius[i] = std::sqrt(distance_squared(branch[i], source));
+                scan.support.min_caustic_distance = std::min(
+                    scan.support.min_caustic_distance, vertex_radius[i]);
+            }
+        }
+        }
+        const auto segment_squared=[&](std::size_t i) {
+            return selected?distance_squared(branch[i==0?branch.size()-1:i-1],branch[i]):segment_length2[i];
+        };
+        const auto vertex_distance=[&](std::size_t i) {
+            return selected?std::sqrt(distance_squared(branch[i],source)):vertex_radius[i];
+        };
+        auto is_phantom_segment = [&](std::size_t i) {
+            const double prev = segment_squared(i == 0 ? branch.size() - 1 : i - 1);
+            const double next = segment_squared((i + 1) % branch.size());
+            const double reference = std::max(prev, next);
+            return reference > 0.0 &&
+                   segment_squared(i) > kPhantomLengthRatio2 * reference;
+        };
+        bool prev_inside = distance_squared(branch.back(), source) < source_radius2;
+        for(std::size_t j=0;j<(selected?selected->size():branch.size());++j) {
+            const std::size_t i=selected?(*selected)[j]:j;
+            const std::size_t segment_previous =
+                i == 0 ? branch.size() - 1 : i - 1;
+            const SourcePosition p0 = branch[segment_previous];
+            if(selected)prev_inside=distance_squared(p0,source)<source_radius2;
+            const SourcePosition p1 = branch[i];
+            if (!is_phantom_segment(i)) {
+                const SourcePosition candidate = closest_point_on_segment(source, p0, p1);
+                const double candidate_distance2 = distance_squared(candidate, source);
+                if (candidate_distance2 < min_distance2) {
+                    min_distance2 = candidate_distance2;
+                    scan.nearest = candidate;
+                    scan.nearest_segment_start = p0;
+                    scan.nearest_segment_end = p1;
+                }
+                if (build_support && branch.size() >= 3) {
+                    const SourcePosition segment {p1.x - p0.x, p1.y - p0.y};
+                    const double segment_length2 =
+                        segment.x * segment.x + segment.y * segment.y;
+                    const double projection = segment_length2 > 0.0
+                        ? ((source.x - p0.x) * segment.x +
+                           (source.y - p0.y) * segment.y) / segment_length2
+                        : 0.0;
+                    // A radial minimum of the piecewise-linear caustic may lie
+                    // in a segment interior while both sampled endpoints stay
+                    // outside the source.  Add exactly that blind crossing;
+                    // ordinary interior projections are already represented
+                    // by retained vertex extrema and would only perturb the
+                    // integration seed order with redundant probes.
+                    if (projection > 1.0e-12 && projection < 1.0 - 1.0e-12 &&
+                        candidate_distance2 < source_radius2 &&
+                        distance_squared(p0, source) >= source_radius2 &&
+                        distance_squared(p1, source) >= source_radius2) {
+                        const std::size_t before_previous = segment_previous == 0
+                            ? branch.size() - 1 : segment_previous - 1;
+                        const std::size_t next = (i + 1) % branch.size();
+                        const SourcePosition curvature0 {
+                            branch[before_previous].x - 2.0 * p0.x + p1.x,
+                            branch[before_previous].y - 2.0 * p0.y + p1.y,
+                        };
+                        const SourcePosition curvature1 {
+                            p0.x - 2.0 * p1.x + branch[next].x,
+                            p0.y - 2.0 * p1.y + branch[next].y,
+                        };
+                        const double margin = std::max(
+                            std::hypot(curvature0.x, curvature0.y),
+                            std::hypot(curvature1.x, curvature1.y));
+                        const double candidate_distance =
+                            std::sqrt(candidate_distance2);
+                        const double segment_length = std::sqrt(segment_length2);
+                        DiskExtremum extremum;
+                        extremum.position = candidate;
+                        extremum.tangent = {
+                            segment.x / segment_length,
+                            segment.y / segment_length};
+                        extremum.normal = {
+                            -extremum.tangent.y, extremum.tangent.x};
+                        extremum.distance = candidate_distance;
+                        extremum.polyline_margin = margin;
+                        extremum.inside_disk = true;
+                        extremum.branch_index=static_cast<int>(branch_index);
+                        extremum.vertex_index=static_cast<int>(i);
+                        scan.support.extrema.push_back(extremum);
+                    }
+                }
+            }
+            const bool inside = distance_squared(p1, source) < source_radius2;
+            if (inside) {
+                scan.any_vertex_inside = true;
+                if (i % 5 == 0 && scan.first_contact_probes.size() < max_probes) {
+                    scan.first_contact_probes.push_back(p1);
+                }
+            }
+            if (inside && !prev_inside && scan.crossing_probes.size() < max_probes) {
+                scan.crossing_probes.push_back(p1);
+            } else if (inside && source_radius >= 2.0e-2 && i % 20 == 0 &&
+                       scan.arc_probes.size() < max_probes) {
+                scan.arc_probes.push_back(p1);
+            }
+            prev_inside = inside;
+
+            // certify_disk_support historically ignores degenerate branches
+            // with fewer than three vertices.  It is also intentionally
+            // optional here: most callers need only the segment scan, and
+            // making them pay for radial extrema would turn the fusion into a
+            // regression outside augmented inverse-ray seeding.
+            if (!build_support || branch.size() < 3) {
+                continue;
+            }
+
+            const std::size_t previous =
+                i == 0 ? branch.size() - 1 : i - 1;
+            const std::size_t next = (i + 1) % branch.size();
+            const bool radial_minimum =
+                vertex_distance(i) <= vertex_distance(previous) &&
+                vertex_distance(i) < vertex_distance(next);
+            const bool radial_maximum =
+                vertex_distance(i) >= vertex_distance(previous) &&
+                vertex_distance(i) > vertex_distance(next);
+            if (!radial_minimum && !radial_maximum) {
+                continue;
+            }
+            const SourcePosition curvature {
+                branch[previous].x - 2.0 * p1.x + branch[next].x,
+                branch[previous].y - 2.0 * p1.y + branch[next].y,
+            };
+            const double margin = std::hypot(curvature.x, curvature.y);
+            if (vertex_distance(i) >= source_radius + margin) {
                 continue;
             }
             SourcePosition extremum_position = p1;
@@ -5026,7 +5298,8 @@ std::vector<SourcePosition> augmented_image_seeds(
     bool* support_proven = nullptr,
     std::size_t* initial_seed_count = nullptr,
     const std::vector<std::vector<SourcePosition>>* critical_branches = nullptr,
-    int known_centre_count=-1)
+    int known_centre_count=-1,
+    const std::vector<std::vector<std::size_t>>* selected_vertices=nullptr)
 {
     if (support_proven != nullptr) {
         *support_proven = true;
@@ -5146,7 +5419,7 @@ std::vector<SourcePosition> augmented_image_seeds(
         // remain outside.  Keep it as the authoritative distance and seeding
         // pass until the support certificate carries equivalent segment data.
         auto scan = scan_caustic_branches(
-            *caustic_branches, source, source_radius, true);
+            *caustic_branches, source, source_radius, true, selected_vertices);
         // Preserve the historical sampled-support traversal. Solving every
         // selected probe does not certify coverage between sampled caustic
         // segments; substituting a definite image count does not introduce
@@ -5311,6 +5584,10 @@ std::vector<SourcePosition> selected_point_images(
     double mass_ratio,
     SourcePosition source)
 {
+    auto* phase=adaptive_flux_request();
+    AdaptiveStageTimer root_timer(phase && phase->cost_trace?&phase->seed_root_seconds:nullptr);
+    if(phase && phase->cost_trace)++phase->seed_root_calls;
+
     std::vector<SourcePosition> images;
     const auto candidates =
         point_magnifier.binary_image_candidates(separation, mass_ratio, source);
@@ -6687,6 +6964,8 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
     if(row_spacing==0)row_spacing=incr;
     if(certify_coverage && row_spacing!=incr)throw std::invalid_argument("rectangular adaptive grid does not support the square-grid coverage audit");
     auto* retained_work=adaptive_flux_request();
+    const bool light_error=lightweight_flux_error_mode();
+    const bool boundary_error=boundary_diagnostics_enabled();
     const double source_radius2 = source_radius * source_radius;
     const double inverse_source_radius2 = 1.0 / source_radius2;
     if (trace != nullptr) {
@@ -6801,6 +7080,7 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
             const double x = static_cast<double>(ix) * incr;
             const double y = static_cast<double>(iy) * row_spacing;
             if(auto* work=retained_work) {
+                if (work->depth > 0) work->mapped.materialize();
                 const std::array<double,2> key{x,y};const auto [saved,inserted]=work->mapped.access(key,work->new_maps<work->budget);
                 if(!saved)throw AdaptiveFluxBudgetExhausted{};
                 if(!inserted){++work->reused_maps;return RunCellState{*saved};}
@@ -6837,10 +7117,14 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
             const RunCellState& right_outside,
             const std::optional<RunCellState>& left_second,
             const std::optional<RunCellState>& right_second) {
+#ifdef LCBININT_TRACE_ROW_BOUNDARY
+            AdaptiveStageTimer boundary_timer(retained_work && retained_work->cost_trace?&retained_work->row_boundary_seconds:nullptr);
+#endif
+
             detail::CartesianBoundaryContribution contribution;
-            contribution.error_recorded=lightweight_flux_error_mode();
-            const bool estimate_edge=boundary_diagnostics_enabled()&&(!lightweight_flux_error_mode()||use_limb_darkening);
-            if (boundary_diagnostics_enabled() && !lightweight_flux_error_mode()) contribution.diagnostic.emplace();
+            contribution.error_recorded=light_error;
+            const bool estimate_edge=boundary_error&&(!light_error||use_limb_darkening);
+            if (boundary_error && !light_error) contribution.diagnostic.emplace();
             const auto edge = [&](std::int64_t inside_ix,
                                   const RunCellState& inside,
                                   std::int64_t outside_ix,
@@ -6913,7 +7197,7 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
                         const double second_dz2 = second->mapped_distance2;
                         ++counters.boundary_model_reused_evaluations;
                         auto model = second_dz2 <= source_radius2
-                            ? (lightweight_flux_error_mode()
+                            ? (light_error
                                 ? detail::bennett_linear_ld_endpoint_flux_residual(fraction,
                                     1-std::clamp(inside.mapped_distance2*inverse_source_radius2,0.,1.),
                                     1-std::clamp(second_dz2*inverse_source_radius2,0.,1.),
@@ -7199,7 +7483,7 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
             retained_row=[&,retained_min_y,retained_max_y,boundary_strip_row](std::int64_t ix,std::int64_t iy)->std::optional<detail::CartesianRetainedRun>{
                 if(iy%retained_row_factor) {
                     if(retained_row_factor!=2 || retained_column_factor!=1 || settings.limb_darkening_d!=0 ||
-                        !std::getenv("LCBININT_DIAGNOSTIC_LOCAL_ROW_INTERPOLATION"))return std::nullopt;
+                        !retained_work->local_row_interpolation)return std::nullopt;
                     ++retained_work->row_interpolation_attempts;
                     const auto base=(iy-1)/2;
                     const auto reject=[&](int reason)->std::optional<detail::CartesianRetainedRun>{++retained_work->row_interpolation_outcomes[reason];return std::nullopt;};
@@ -7281,7 +7565,7 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
                     if(retained_column_factor>1) {
                         if(found->second.size()!=1 || settings.limb_darkening_d!=0 ||
                             iy/retained_row_factor-retained_min_y<4 || retained_max_y-iy/retained_row_factor<4)return std::nullopt;
-                        if(std::getenv("LCBININT_DIAGNOSTIC_LOCAL_BOUNDARY_STRIPS"))return boundary_strip_row(j,ix,iy);
+                        if(retained_work->local_boundary_strips)return boundary_strip_row(j,ix,iy);
                         if(retained_row_factor!=1)return std::nullopt;
                         const auto& e=retained_rows->run_flux_errors[j];
                         if(e[2]!=0 || std::abs(e[0])+e[3]>retained_work->target/(4*retained_rows->runs.size()))return std::nullopt;
@@ -7330,9 +7614,11 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
             expected_rows,
         },
         trace_sink,coverage_probes,coverage_domain ? &*coverage_domain : nullptr,
-        interior_block ? &interior_block : nullptr,use_limb_darkening?16:32,retained_row?&retained_row:nullptr);
+        interior_block ? &interior_block : nullptr,use_limb_darkening?16:32,retained_row?&retained_row:nullptr,
+        retained_work ? retained_work->local_boundary_strips :
+            std::getenv("LCBININT_DIAGNOSTIC_LOCAL_BOUNDARY_STRIPS")!=nullptr);
         };
-        if (boundary_diagnostics_enabled() && (!lightweight_flux_error_mode() || use_limb_darkening)) return execute(diagnostic_boundary);
+        if (boundary_error && (!light_error || use_limb_darkening)) return execute(diagnostic_boundary);
         // A five-argument callback avoids retaining/updating two additional
         // optional neighbour states at every inside cell of the normal scan.
         const auto physical_boundary = [&](const detail::CartesianRun& run,
@@ -7449,7 +7735,7 @@ struct RetainedAdaptiveComponent {
     double work_estimate=0;
     double inner_signed=0,outer_signed=0,inner_remainder=0,outer_remainder=0,short_guard=0;
     std::size_t original_owner=0;
-    bool blocked=false;
+    bool blocked=false,missing_cap_rows=false;
     std::array<double,6> outer_parts{}; // cap signed/rem, smooth rem, junction signed/rem, resolved
     std::array<bool,2> cap_weights{};
     int retained_cap_bins=0;
@@ -7478,6 +7764,24 @@ double fill_all_cartesian_components_multirun(
 {
     if(row_spacing==0)row_spacing=incr;
     auto* adaptive=adaptive_flux_request();
+    if(adaptive && adaptive->depth==0 &&
+       (settings.limb_darkening_d!=0 || settings.limb_darkening_c<0 || settings.limb_darkening_c>1))
+        adaptive->defect_correction=false;
+    if(adaptive && adaptive->mapped.slots.empty() && adaptive->depth==0 &&
+       std::isfinite(magnification_hint) && magnification_hint>0) {
+        // Point magnification is only an allocation hint, never an error or
+        // coverage criterion. Keep the ordinary growth path for underestimates.
+        const double expected=2*kPi*magnification_hint*settings.source_bins*settings.source_bins;
+        const std::size_t ceiling=262144;
+        std::size_t capacity=adaptive->mapped.initial_capacity;
+        while(capacity<ceiling && capacity<expected)capacity*=2;
+        adaptive->mapped.initial_capacity=capacity;
+    }
+    // Small budgets retain eager deduplication; their stopping point must not
+    // depend on repeated evaluations in the deferred initial pass.
+    if(adaptive && adaptive->depth==0 && adaptive->mapped.pending.empty() &&
+       (settings.source_bins!=16 || adaptive->budget<=adaptive->mapped.initial_capacity))
+        adaptive->mapped.deferred=false;
     std::vector<RetainedAdaptiveComponent> retained;
     const double source_radius2 = source_radius * source_radius;
     std::vector<detail::CartesianLatticeSeed> seeds;
@@ -7523,7 +7827,15 @@ double fill_all_cartesian_components_multirun(
         static_cast<std::size_t>(std::max(settings.source_bins, 1)) * 64U,
         trace,coverage_probes,(std::getenv("LCBININT_CARTESIAN_COVERAGE_CERTIFICATE")!=nullptr || std::getenv("LCBININT_SEED_LATTICE_CERTIFICATE")!=nullptr),&support_positions,row_spacing,retained_rows,retained_row_factor,retained_column_factor,row_clip,3,0,retained_fine_rows);
     const auto aggregation_started=phase_trace?std::chrono::steady_clock::now():std::chrono::steady_clock::time_point{};
-    if(phase_trace)adaptive->run_fill_seconds+=std::chrono::duration<double>(aggregation_started-fill_started).count();
+    if(phase_trace) {
+        const double duration=std::chrono::duration<double>(aggregation_started-fill_started).count();
+        adaptive->run_fill_seconds+=duration;
+        adaptive->fill_queries+=run_fill.counters.mapped_cell_evaluations;
+        adaptive->fill_rows+=run_fill.runs.size();
+        adaptive->duplicate_seed_starts+=run_fill.counters.duplicate_seeds_avoided;
+        for(auto cells:run_fill.component_cells)adaptive->fill_cells+=cells;
+        if(adaptive->depth==0)adaptive->initial_fill_seconds+=duration;
+    }
     if (fill_stats) {
         auto& c=probe_counters();++c.cartesian_fill_calls;
         c.cartesian_map_queries+=run_fill.counters.mapped_cell_evaluations;
@@ -7993,6 +8305,7 @@ double fill_all_cartesian_components_multirun(
         double error_limb_correction=0,error_limb_uncertainty=0;
         double adaptive_outer_signed=0,adaptive_outer_remainder=0;
         std::array<double,6> adaptive_outer_parts{};
+        bool adaptive_missing_caps=false;
         if(lightweight_flux_error_mode() && component.first_run_index!=missing_component) {
             const auto owner=run_fill.runs[component.first_run_index].component;
             for(const auto j:component_error_runs[owner]) {
@@ -8102,11 +8415,13 @@ double fill_all_cartesian_components_multirun(
             const auto outer_error=detail::same_grid_outer_error(run_fill,
                 run_fill.runs[component.first_run_index].component,&traced_outer_weights,1-settings.limb_darkening_c,
                 &component_error_runs[run_fill.runs[component.first_run_index].component],settings.limb_darkening_d!=0,physical_tip_mask,row_clip==nullptr,
-                adaptive && adaptive->defect_correction?1/(incr*row_spacing):0);
+                adaptive && adaptive->defect_correction?1/(incr*row_spacing):0,
+                adaptive && adaptive->guard_missing_caps);
             auto& c=probe_counters();
             c.boundary_outer_curvature_flux_indicator+=(std::abs(outer_error.signed_residual)+outer_error.uncertainty)*incr*row_spacing;
             c.boundary_outer_signed_flux_residual+=outer_error.signed_residual*incr*row_spacing;
             c.boundary_outer_remainder_flux_indicator+=outer_error.uncertainty*incr*row_spacing;
+            adaptive_missing_caps=outer_error.missing_cap_rows;
             adaptive_outer_signed=outer_error.signed_residual*incr*row_spacing;
             adaptive_outer_remainder=outer_error.uncertainty*incr*row_spacing;
             if(adaptive && (adaptive->row_panel_trace || adaptive->local_vertical_caps)) {
@@ -8133,6 +8448,7 @@ double fill_all_cartesian_components_multirun(
             RetainedAdaptiveComponent state;
             state.flux=contribution*incr*row_spacing;state.bins=settings.source_bins;state.row_bins=int(std::llround(source_radius/row_spacing));
             state.original_owner=run_fill.runs[component.first_run_index].component;state.outer_parts=adaptive_outer_parts;
+            state.missing_cap_rows=adaptive_missing_caps;
             state.signed_error=error_component_signed+adaptive_outer_signed;
             state.remainder=error_component_remainder+adaptive_outer_remainder;
             state.inner_signed=error_component_signed;state.outer_signed=adaptive_outer_signed;
@@ -8249,11 +8565,16 @@ double fill_all_cartesian_components_multirun(
                 adaptive->cost_components.push_back({double(adaptive->history.size()-1),double(i),double(c.bins),c.flux,c.inner_signed,c.outer_signed,c.inner_remainder,c.outer_remainder,c.short_guard,double(c.fill.runs.size()),cells,edges});
             }
         };
-        auto current=totals();adaptive->largest_bins=settings.source_bins;
+        auto current=totals();adaptive->initial_flux=current[0];
+        if(adaptive->relative_target>0 && std::isfinite(adaptive->relative_target) &&
+           std::isfinite(current[0]) && current[0]!=0)
+            adaptive->target=adaptive->relative_target*std::abs(current[0]);
+        adaptive->largest_bins=settings.source_bins;
         for(const auto& c:retained)adaptive->largest_bins=std::max({adaptive->largest_bins,c.bins,c.row_bins});
         adaptive->history.push_back({double(settings.source_bins),current[1],double(adaptive->new_maps),double(adaptive->reused_maps),0});
         record_cost(current[0]);
         while(std::isfinite(current[1]) && current[1]>adaptive->target) {
+            adaptive->mapped.materialize();
             std::size_t selected=retained.size();double priority=-1,total_priority=0,best_efficiency=-1;
             for(std::size_t i=0;i<retained.size();++i) {
                 const auto& c=retained[i];const double score=std::abs(c.signed_error-correction_for(c))+c.remainder;
@@ -8271,7 +8592,7 @@ double fill_all_cartesian_components_multirun(
             const double local_target=adaptive->target*priority/std::max(total_priority,priority);
             const int factor=std::getenv("LCBININT_DIAGNOSTIC_ADAPTIVE_JUMP4") && previous.bins<=adaptive->max_bins/4 && priority>local_target*std::pow(2.,previous.order)?4:2;
             int factor_x=factor,factor_y=factor,axis=0;
-            if(std::getenv("LCBININT_DIAGNOSTIC_DIRECTIONAL_ADAPTIVE")) {
+            if(adaptive->directional_adaptive) {
                 const bool corrected=correction_for(previous)!=0;
                 const double horizontal=(corrected?0:std::abs(previous.inner_signed))+previous.inner_remainder;
                 const double vertical=std::abs(corrected?previous.outer_parts[3]:previous.outer_signed)+previous.outer_remainder;
@@ -8280,6 +8601,7 @@ double fill_all_cartesian_components_multirun(
                 else if(vertical>2*horizontal){factor_x=1;axis=2;}
                 // Keep an unresolved second direction from starving indefinitely.
                 if(axis==previous.previous_axis && previous.order==1){factor_x=factor;factor_y=factor;axis=0;}
+                if(previous.missing_cap_rows){factor_x=factor;factor_y=1;axis=1;}
                 if(previous.bins*factor_x>adaptive->max_axis_ratio*previous.row_bins*factor_y){factor_y=factor;axis=0;}
                 if(previous.row_bins*factor_y>adaptive->max_axis_ratio*previous.bins*factor_x){factor_x=factor;axis=0;}
             }
@@ -8416,7 +8738,7 @@ double fill_all_cartesian_components_multirun(
                 fill_all_cartesian_components_multirun(mapper,source,source_radius,next_settings,finite_magnifier,
                     next_seeds,next_h,magnification_hint,nullptr,nullptr,nullptr,source_has_critical,&children,next_row_h,
                     !std::getenv("LCBININT_DIAGNOSTIC_DISABLE_ROW_REUSE") &&
-                        (factor_x==1 || std::getenv("LCBININT_DIAGNOSTIC_LOCAL_BOUNDARY_STRIPS") ||
+                        (factor_x==1 || adaptive->local_boundary_strips ||
                             (factor_y==1 && std::getenv("LCBININT_DIAGNOSTIC_LOCAL_HORIZONTAL_ROWS")))?&previous.fill:nullptr,factor_y,factor_x,nullptr,3,0,
                     failed_cap_rows.runs.empty()?nullptr:&failed_cap_rows);
             } catch(const AdaptiveFluxBudgetExhausted&) {
@@ -9886,6 +10208,9 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
     const std::vector<SourcePosition>* center_image_seeds,
     bool* support_proven) const
 {
+    auto* phase=adaptive_flux_request();
+    AdaptiveStageTimer seed_timer(phase && phase->cost_trace?&phase->seed_seconds:nullptr);
+
     for (const auto& entry : binary_seed_cache_) {
         const bool center_seeds_match =
             entry.has_center_image_seeds == (center_image_seeds != nullptr);
@@ -9902,6 +10227,61 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
         }
     }
 
+    const auto& branches = binary_caustic_branches(separation, mass_ratio);
+    // Reuse the geometric segment index already built with the caustics.
+    // This is geometry metadata, not a previous source/epoch result.
+    // A retained vertex satisfies d < rho + |v_prev-2*v+v_next|.
+    // The curvature term is at most 2*max_segment_length, plus roundoff.
+    // A blind segment crossing also has an endpoint within rho+max_length.
+    // Thus querying this padded source box retains both kinds of candidate.
+    std::vector<std::vector<std::size_t>> selected(branches.size());
+    const std::vector<std::vector<std::size_t>>* selection = nullptr;
+    const double coord_scale = std::max({1.0,std::fabs(caustic_cache_min_x_),
+        std::fabs(caustic_cache_max_x_),std::fabs(caustic_cache_min_y_),std::fabs(caustic_cache_max_y_),std::fabs(source.x),std::fabs(source.y),source_radius});
+    const double padding = std::nextafter(2*caustic_cache_max_seg_len_ +
+        32*std::numeric_limits<double>::epsilon()*coord_scale,
+        std::numeric_limits<double>::infinity());
+    const double reach = std::nextafter(source_radius+padding,
+        std::numeric_limits<double>::infinity());
+    if (std::isfinite(source.x) && std::isfinite(source.y) &&
+        std::isfinite(reach) && reach > 0 && caustic_cache_grid_step_x_ > 0 &&
+        caustic_cache_grid_step_y_ > 0) {
+        const double xlo = std::nextafter(source.x-reach,-INFINITY);
+        const double xhi = std::nextafter(source.x+reach,INFINITY);
+        const double ylo = std::nextafter(source.y-reach,-INFINITY);
+        const double yhi = std::nextafter(source.y+reach,INFINITY);
+        if (xlo > caustic_cache_max_x_ || xhi < caustic_cache_min_x_ ||
+            ylo > caustic_cache_max_y_ || yhi < caustic_cache_min_y_) {
+            selection = &selected;
+        } else {
+        auto cell = [&](double x,double origin,double step,int guard) {
+            const double value = std::floor((x-origin)/step)+guard;
+            return static_cast<int>(std::clamp(value,0.0,double(caustic_cache_grid_size_-1)));
+        };
+        const int xl = cell(std::nextafter(source.x-reach,-INFINITY),caustic_cache_min_x_,caustic_cache_grid_step_x_,-1);
+        const int xh = cell(std::nextafter(source.x+reach,INFINITY),caustic_cache_min_x_,caustic_cache_grid_step_x_,1);
+        const int yl = cell(std::nextafter(source.y-reach,-INFINITY),caustic_cache_min_y_,caustic_cache_grid_step_y_,-1);
+        const int yh = cell(std::nextafter(source.y+reach,INFINITY),caustic_cache_min_y_,caustic_cache_grid_step_y_,1);
+        if (xl != 0 || xh != caustic_cache_grid_size_-1 || yl != 0 || yh != caustic_cache_grid_size_-1) {
+            std::size_t count = 0,total = 0;
+            for (const auto& branch : branches) total += branch.size();
+            const double bound2 = std::nextafter(reach*reach*(1+16*std::numeric_limits<double>::epsilon()),INFINITY);
+            for (int iy=yl;iy<=yh;++iy) for(int ix=xl;ix<=xh;++ix)
+                for(const auto& ref:caustic_cache_branch_grid_[iy*caustic_cache_grid_size_+ix]) {
+                    const auto& vertex = branches[ref.branch][ref.pos];
+                    if (vertex.x < xlo || vertex.x > xhi || vertex.y < ylo || vertex.y > yhi) continue;
+                    if (distance_squared(vertex,source) > bound2) continue;
+                    selected[ref.branch].push_back(ref.pos); ++count;
+                }
+            // Dense queries use the original linear traversal. Only its
+            // execution cost changes; the retained candidate set is identical.
+            if (count < total/2) {
+                for(auto& vertices:selected) std::sort(vertices.begin(),vertices.end());
+                selection = &selected;
+            }
+        }
+        }
+    }
     const auto mapper = make_binary_lens_mapper(separation, mass_ratio);
     bool proven = true;
     auto seeds = augmented_image_seeds(
@@ -9913,9 +10293,9 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
         source_radius,
         caustic_distance,
         center_image_seeds,
-        &binary_caustic_branches(separation, mass_ratio),
+        &branches,
         &proven,nullptr,&binary_critical_curve_branches_cached(separation,mass_ratio),
-        center_image_seeds ? static_cast<int>(center_image_seeds->size()) : -1);
+        center_image_seeds ? static_cast<int>(center_image_seeds->size()) : -1, selection);
 
     constexpr std::size_t maximum_entries = 1024;
     if (binary_seed_cache_.size() >= maximum_entries) {
@@ -11140,6 +11520,8 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 (point_safety.planetary_safe ? 4 : 0);
         }
         result.caustic_distance = caustic_distance_out;
+        // Request-local adaptive results must not populate the fixed-result cache.
+        if(lightweight_flux_error_mode())return result;
         result_cache_valid_ = true;
         result_cache_separation_ = separation;
         result_cache_mass_ratio_ = mass_ratio;

@@ -4,6 +4,7 @@
 #include "lcbinint/lc/light_curve.hpp"
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/point_source_magnifier.hpp"
+#include "lcbinint/magnification/probe_diagnostics.hpp"
 #include "lcbinint/obs/coordinates.hpp"
 #include "lcbinint/model/lens_parameters.hpp"
 #include "lcbinint/model/orbital_motion.hpp"
@@ -2139,4 +2140,127 @@ Cartesian or polar grid and its resolution.)");
         },
         py::arg("s"), py::arg("q"), py::arg("x"), py::arg("y"),
         "Return local point-source safety indicators for a binary lens.");
+    lc.def("_binary_adaptive_initial_pass",
+        [](double x,double y,double s,double q,double rho,
+           const PyLimbDarkening& limb_darkening,lcbi_options options) {
+            using namespace lcbinint::magnification;
+            if(!adaptive_flux_request())throw std::logic_error("internal adaptive pass requires a request context");
+            if(options.mode!=1 || limb_darkening.d!=0 || !std::isfinite(limb_darkening.c) ||
+               limb_darkening.c<0 || limb_darkening.c>1)
+                throw std::invalid_argument("adaptive Cartesian integration requires mode=1 and linear LD 0<=c<=1");
+            struct Scope {
+                ProbeCounters saved=probe_counters();bool prior=lightweight_flux_error_mode();
+                Scope(){lightweight_flux_error_mode()=true;}
+                ~Scope(){lightweight_flux_error_mode()=prior;probe_counters()=saved;}
+            } scope;
+            if (!(std::isfinite(x) && std::isfinite(y) && std::isfinite(s) &&
+                  std::isfinite(q) && std::isfinite(rho)) ||
+                q <= 0.0 || rho <= 0.0) {
+                throw std::invalid_argument(
+                    "binary_ray_shooting requires finite x, y, s, q and positive rho");
+            }
+
+            // This is the direct analogue of VBM's BinaryMag2(s, q, y1, y2,
+            // rho): source coordinates are center-of-mass coordinates and the
+            // finite-source calculation is forced to an inverse-ray method.
+            options.vbm_compatible = 0;
+            options.center_of_mass = 1;
+            options.parallax_mode = 0;
+            options.xallarap_param_type = LCBI_XALLARAP_NONE;
+            if (options.mode == 4) options.mode = 1;
+
+            auto params = lcbi_default_params();
+            params.t0 = -x;
+            params.tE = 1.0;
+            params.umin = y;
+            params.theta = 0.0;
+            params.sep = s;
+            params.q = q;
+            params.rho = rho;
+            params.limb_darkening_c = limb_darkening.c;
+            params.limb_darkening_d = limb_darkening.d;
+
+            const auto model_params = lcbinint::model::from_c_params(params);
+            lcbinint::model::LensModel lens_model(
+                model_params, lcbinint::model::from_c_options(&options));
+            const auto result = lens_model.magnification(0.0);
+            if (result.status != lcbinint::EvaluationStatus::ok ||
+                !std::isfinite(result.magnification)) {
+                throw std::runtime_error("binary_ray_shooting failed numerically");
+            }
+            return result.magnification;
+        },py::arg("x"),py::arg("y"),py::kw_only(),py::arg("s"),py::arg("q"),py::arg("rho"),
+        py::arg("limb_darkening"),py::arg("options")=kDefaultOpts,
+        "Internal forced Cartesian pass for the retained adaptive request.");
+
+
+    const py::object shared_flux_entry=lc.attr("_binary_adaptive_initial_pass");
+    lc.def("binary_adaptive_flux",[shared_flux_entry](double x,double y,double s,double q,double rho,
+        const PyLimbDarkening& ld,int initial_bins,int max_bins,double tolerance,std::size_t budget,double relative_tolerance) {
+        using namespace lcbinint::magnification;
+        if(initial_bins<1 || max_bins<initial_bins || max_bins>4096 || max_bins%initial_bins ||
+            ((max_bins/initial_bins)&(max_bins/initial_bins-1)) || !std::isfinite(tolerance) || tolerance<=0 || budget==0)
+            throw std::invalid_argument("adaptive flux requires positive tolerance/budget and a dyadic max_bins/initial_bins up to4096");
+        if(!std::isfinite(relative_tolerance) || relative_tolerance<0)
+            throw std::invalid_argument("relative_tolerance must be finite and nonnegative");
+        AdaptiveFluxRequest work;work.relative_target=relative_tolerance;work.max_bins=max_bins;work.budget=budget;work.cost_trace=std::getenv("LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE")!=nullptr;work.row_panel_trace=std::getenv("LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE")!=nullptr;
+        if(const auto* value=std::getenv("LCBININT_DIAGNOSTIC_CAP_CLIP_PAD")){const std::string v(value);if(v!="0"&&v!="4")throw std::invalid_argument("diagnostic cap clip pad must be0 or4");work.cap_initial_pad=std::atoi(value);}
+        if(const auto* value=std::getenv("LCBININT_DIAGNOSTIC_ADAPTIVE_AXIS_RATIO")){work.max_axis_ratio=std::atoi(value);if(work.max_axis_ratio!=2 && work.max_axis_ratio!=4 && work.max_axis_ratio!=8 && work.max_axis_ratio!=16)throw std::invalid_argument("diagnostic axis ratio must be 2,4,8 or16");}
+        const double norm=3.141592653589793*rho*rho*(1-ld.c/3);work.target=tolerance*norm;
+        work.defect_correction=ld.d==0 && ld.c>=0 && ld.c<=1;
+        work.mapped.fast_hash=std::getenv("LCBININT_DIAGNOSTIC_LEGACY_CACHE_HASH")==nullptr;
+        if(const char* capacity=std::getenv("LCBININT_DIAGNOSTIC_CACHE_CAPACITY")) {
+            const std::string value(capacity);std::size_t used=0;const auto count=std::stoull(value,&used);
+            if(used!=value.size() || count<256 || count>65536 || (count&(count-1)))throw std::invalid_argument("cache capacity must be a power of two from256 to65536");
+            work.mapped.initial_capacity=count;
+        }
+        struct Scope {AdaptiveFluxRequest* saved;Scope(AdaptiveFluxRequest& r):saved(adaptive_flux_request()){adaptive_flux_request()=&r;}
+            ~Scope(){adaptive_flux_request()=saved;}} scope(work);
+        auto opts=kDefaultOpts;opts.mode=1;opts.source_bins=initial_bins;opts.max_source_bins=initial_bins;opts.automatic_source_bins=0;
+        opts.point_source_threshold=0;opts.hexadecapole_threshold=0;opts.adaptive_hex_threshold=0;
+        const double magnification=shared_flux_entry(x,y,py::arg("s")=s,py::arg("q")=q,py::arg("rho")=rho,
+            py::arg("limb_darkening")=ld,py::arg("options")=opts).cast<double>();
+        if(!work.executed)throw std::runtime_error("adaptive flux did not execute the multirun Cartesian route");
+        py::dict out;out["magnification"]=magnification;
+        out["error_indicator"]=work.acceptance_indicator/norm;
+        out["relative_tolerance"]=relative_tolerance;
+        out["initial_magnification_scale"]=work.initial_flux/norm;
+        out["signed_combined_indicator"]=(std::abs(work.signed_error)+work.remainder)/norm;
+        if(work.defect_correction){out["applied_flux_correction"]=work.applied_correction/norm;out["raw_magnification"]=out["magnification"].cast<double>()-work.applied_correction/norm;}
+        out["small_image_repairs"]=work.small_image_repairs;
+        out["unresolved_centre_images"]=work.unresolved_centres;
+        out["signed_flux_residual"]=work.signed_error/norm;out["model_remainder_indicator"]=work.remainder/norm;
+        out["estimated_target_met"]=work.met;out["stop_reason"]=work.stop_reason;
+        out["initial_bins"]=initial_bins;out["largest_bins"]=work.largest_bins;
+        out["cap_extensions"]=work.cap_extensions;out["reused_cap_rows"]=work.reused_cap_rows;out["cap_trials"]=work.cap_trials;out["cap_adopted"]=work.cap_adopted;out["cap_rejected"]=work.cap_rejected;out["mixed_component_grids"]=work.mixed_component_grids;
+        out["new_lattice_maps"]=work.new_maps;out["reused_lattice_maps"]=work.reused_maps;
+        out["component_refinements"]=work.refinements;out["reused_rows"]=work.reused_rows;
+        out["interpolated_rows"]=work.interpolated_rows;out["row_interpolation_attempts"]=work.row_interpolation_attempts;
+        out["row_interpolation_outcomes"]=work.row_interpolation_outcomes;
+        out["retained_horizontal_rows"]=work.retained_horizontal_rows;
+        out["retained_boundary_strip_rows"]=work.retained_boundary_strip_rows;
+        out["strip_audit_rows"]=work.strip_audit_rows;out["strip_audit_gap_rows"]=work.strip_audit_gap_rows;
+        out["strip_audit_absolute_difference"]=work.strip_audit_absolute_difference/norm;
+        out["strip_audit_max_difference"]=work.strip_audit_max_difference/norm;
+        out["strip_support_checks"]=work.strip_support_checks;out["strip_support_rejects"]=work.strip_support_rejects;
+        out["interpolated_audit_rows"]=work.interpolated_audit_rows;out["interpolated_audit_gap_rows"]=work.interpolated_audit_gap_rows;
+        out["interpolated_audit_max_difference"]=work.interpolated_audit_max_difference/norm;
+        for(auto& row:work.history)row[1]/=norm;
+        for(auto& row:work.components)for(int j=1;j<=3;++j)row[j]/=norm;
+        if(work.row_panel_trace){out["row_panel_rows"]=work.row_panel_rows;out["row_panel_errors"]=work.row_panel_errors;}
+        if(work.cost_trace){for(auto& flux:work.history_flux)flux/=norm;
+            for(auto& row:work.cost_components)for(int j=3;j<=8;++j)row[j]/=norm;
+            out["history_magnification"]=work.history_flux;out["cost_components"]=work.cost_components;out["cost_trials"]=work.cost_trials;out["cache_entries"]=work.mapped.size;out["cache_capacity"]=work.mapped.slots.size();out["cache_pending_records"]=work.mapped.pending.size();out["cache_materialized"]=!work.mapped.deferred;out["phase_seconds"]=std::array<double,3>{work.run_fill_seconds,work.error_aggregation_seconds,work.adaptive_control_seconds};}
+        out["component_grid_bins"]=work.component_grid_bins;out["refinement_grid_bins"]=work.refinement_grid_bins;
+        out["components"]=work.components;
+        out["history"]=work.history;out["certified"]=false;out["complete_error_model"]=false;
+        out["error_estimator"]="same_grid_component_adaptive_flux";
+        return out;
+    },py::arg("x"),py::arg("y"),py::kw_only(),py::arg("s"),py::arg("q"),py::arg("rho"),
+      py::arg("limb_darkening"),py::arg("initial_bins")=16,py::arg("max_bins")=512,
+      py::arg("absolute_tolerance")=1e-4,py::arg("max_lattice_maps")=1000000,py::arg("relative_tolerance")=0.,
+      "Retained Cartesian adaptive integration with an estimated error; initial seed discovery once. Positive relative_tolerance takes precedence and normalizes once against the retained initial flux. No certified tolerance guarantee.");
+
+
+
 }

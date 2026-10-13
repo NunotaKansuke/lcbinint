@@ -9,6 +9,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iterator>
 #include <functional>
 #include <limits>
@@ -241,6 +242,48 @@ struct CartesianRunRecord {
     std::size_t component = 0;
 };
 
+// Zero row errors have a logical entry without a forty-byte payload.
+// Nonzero records use the ordinary dense layout; signed zeros are preserved.
+class CartesianRunErrorStorage {
+    using Value = std::array<double, 5>;
+    std::vector<Value> values;
+    std::size_t count = 0;
+    bool compress = std::getenv("LCBININT_DIAGNOSTIC_DISABLE_ZERO_ROW_ERRORS") == nullptr;
+    inline static const Value zero{};
+
+public:
+    std::size_t size() const noexcept { return count; }
+    bool empty() const noexcept { return count == 0; }
+    const Value& operator[](std::size_t i) const
+    {
+        return values.empty() ? zero : values[i];
+    }
+
+    struct Iterator {
+        const CartesianRunErrorStorage* owner;
+        std::size_t index;
+        const Value& operator*() const { return (*owner)[index]; }
+        Iterator& operator++() { ++index; return *this; }
+        bool operator!=(const Iterator& other) const { return index != other.index; }
+    };
+    Iterator begin() const { return {this, 0}; }
+    Iterator end() const { return {this, count}; }
+
+    void push_back(const Value& value)
+    {
+        if (values.empty() && compress) {
+            if (std::memcmp(value.data(), zero.data(), sizeof(double) * 5) == 0) {
+                ++count;
+                return;
+            }
+            // Materialize the zero prefix only when a nonzero error appears.
+            values.resize(count);
+        }
+        values.push_back(value);
+        ++count;
+    }
+};
+
 struct CartesianRunFillResult {
     CartesianRunFillStatus status = CartesianRunFillStatus::ok;
     std::vector<CartesianRunRecord> runs;
@@ -250,7 +293,7 @@ struct CartesianRunFillResult {
     std::vector<double> run_areas;
     std::vector<std::optional<RetainedRowCore>> run_cores;
     // Compact error metadata only; aligned with runs in the shared estimator.
-    std::vector<std::array<double,5>> run_flux_errors;
+    CartesianRunErrorStorage run_flux_errors;
     std::vector<std::array<double,2>> run_error_fractions;
     // Empty unless explicitly requested by a richer boundary callback. Keep
     // per-run witnesses for local repair without repeating the global fill.
@@ -854,10 +897,11 @@ CartesianRunFillResult fill_cartesian_runs(
     const CartesianCoverageDomain* coverage_domain = nullptr,
     const std::function<std::optional<std::array<double,2>>(std::int64_t,std::int64_t,std::int64_t)>* interior_block = nullptr,
     int interior_block_size=32,
-    const std::function<std::optional<CartesianRetainedRun>(std::int64_t,std::int64_t)>* retained_row=nullptr)
+    const std::function<std::optional<CartesianRetainedRun>(std::int64_t,std::int64_t)>* retained_row=nullptr,
+    bool retain_row_cores=false)
 {
     using namespace cartesian_run_fill_detail;
-    const bool retain_row_cores=std::getenv("LCBININT_DIAGNOSTIC_LOCAL_BOUNDARY_STRIPS")!=nullptr;
+    const bool lazy_row_cores=std::getenv("LCBININT_DIAGNOSTIC_DISABLE_LAZY_CORES")==nullptr;
 
     CartesianRunFillResult result;
     result.counters.seeds_offered = static_cast<std::int64_t>(seeds.size());
@@ -892,6 +936,10 @@ CartesianRunFillResult fill_cartesian_runs(
     frontier.reserve(expected_runs);
     std::size_t frontier_head = 0;
     result.runs.reserve(expected_runs);
+    if(std::getenv("LCBININT_DIAGNOSTIC_DISABLE_ROW_RESERVE")==nullptr) {
+        result.run_areas.reserve(expected_runs);
+        result.run_error_fractions.reserve(expected_runs);
+    }
 
     const auto fail = [&](CartesianRunFillStatus status) {
         result.status = status;
@@ -1089,7 +1137,13 @@ CartesianRunFillResult fill_cartesian_runs(
         const std::size_t run_index = result.runs.size();
         result.runs.push_back({run, component});
         result.run_areas.push_back(area);
-        if(retain_row_cores)result.run_cores.push_back(saved?saved->core:std::nullopt);
+        if(retain_row_cores && !lazy_row_cores)result.run_cores.push_back(saved?saved->core:std::nullopt);
+        else if(retain_row_cores && (!result.run_cores.empty() || (saved && saved->core))) {
+            // An empty vector already means that no retained core exists.
+            // Allocate aligned optional metadata only on the first real core.
+            if(result.run_cores.empty())result.run_cores.resize(run_index);
+            result.run_cores.push_back(saved?saved->core:std::nullopt);
+        }
         if(boundary.error_recorded) {
             result.run_flux_errors.push_back({boundary.error_signed,boundary.error_absolute,static_cast<double>(boundary.error_unresolved),boundary.error_remainder,boundary.error_limb_density});
             result.run_error_fractions.push_back(boundary.error_fractions);
@@ -1375,6 +1429,7 @@ struct SameGridOuterError {
     std::vector<std::pair<std::int64_t,double>> modeled_second;
     // Diagnostic decomposition; existing acceptance arithmetic is unchanged.
     double cap_signed=0,cap_remainder=0,smooth_remainder=0;
+    bool missing_cap_rows=false;
 };
 struct SameGridErrorNode {std::int64_t y;double lo,hi,value,w,width,limb_density;};
 inline std::vector<SameGridErrorNode> same_grid_error_nodes(const CartesianRunFillResult& fill,
@@ -1543,7 +1598,7 @@ inline SameGridOuterError same_grid_internal_error(const CartesianRunFillResult&
  return same_grid_internal_error(same_grid_error_nodes(fill,component,weights),limb_brightness);
 }
 inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fill,
-    std::size_t component=std::numeric_limits<std::size_t>::max(),const std::vector<double>* weights=nullptr,double limb_brightness=1,const std::vector<std::size_t>* ordered_runs=nullptr,bool collect_table_density=true,unsigned endpoint_mask=3,bool include_interior=true,double row_flux_correction_scale=0) {
+    std::size_t component=std::numeric_limits<std::size_t>::max(),const std::vector<double>* weights=nullptr,double limb_brightness=1,const std::vector<std::size_t>* ordered_runs=nullptr,bool collect_table_density=true,unsigned endpoint_mask=3,bool include_interior=true,double row_flux_correction_scale=0,bool guard_missing_caps=false) {
     // Keep only row aggregates on the ordinary path. Full interval nodes
     // are materialized from the same ordered index only for a junction.
     std::vector<std::size_t> owned_indices;
@@ -1597,10 +1652,27 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
             const double width=rows[end?rows.size()-1-k:k].width;
             ld_values[k]=values[k]-limb_brightness*width;values[k]=width;
         }
-        const auto quadratic=outer_endpoint_quadratic_model(values,1,1,1,false);
+        const auto quadratic=outer_endpoint_quadratic_model(values,1,1,1,false,
+            guard_missing_caps?std::numeric_limits<double>::infinity():1.5);
         const auto cubic=std::getenv("LCBININT_DIAGNOSTIC_LEGACY_CAP_MODEL")?OuterEndpointModel{}:outer_endpoint_cubic_model(values,phase_limit);
         const auto model=!cubic.resolved?quadratic:cubic;
         const double endpoint_signed_before=result.signed_residual;
+        if(guard_missing_caps && model.resolved && model.eta>phase_limit && model.leading_coefficient>0) {
+            auto incomplete=fallback();
+            // A cap phase beyond one row can mean that no lattice centre
+            // enters its narrow tip. Account for the fitted missing segment,
+            // rather than treating represented-row curvature as its error.
+            const double extent=model.eta-1;
+            const double amplitude=split_ld?limb_brightness:1.;
+            incomplete.uncertainty+=amplitude*(2./3*std::abs(model.leading_coefficient)*std::pow(extent,1.5)+
+                2./5*std::abs(model.next_coefficient)*std::pow(extent,2.5));
+            if(split_ld) {
+                const double e=model.eta,u=ld_values[0]/e,v=ld_values[1]/(e+1),b=v-u,a=u-b*e;
+                incomplete.uncertainty+=std::abs(a)*extent*extent/2+std::abs(b)*extent*extent*extent/3;
+            }
+            incomplete.missing_cap_rows=true;
+            return incomplete;
+        }
         if(!model.resolved||model.eta<0||model.eta>phase_limit)return fallback();
         const auto first=end?rows.size()-1:0,second=end?rows.size()-2:1;
         const double w0=weight(first),w1=weight(second);
@@ -1823,7 +1895,7 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
     result.smooth_remainder=7*std::abs(static_cast<double>(smooth_defect))/5760;
     result.uncertainty+=7*std::abs(static_cast<double>(smooth_defect))/5760;
     result.signed_residual+=internal.signed_residual;result.uncertainty+=internal.uncertainty;result.resolved=result.resolved&&internal.resolved;
-    if(row_flux_correction_scale!=0 && include_interior && limb_brightness>0) {
+    if(row_flux_correction_scale!=0 && include_interior && (limb_brightness>0 || guard_missing_caps)) {
         // Gap graphs need not form a closed cap: one of the two image arms
         // can end before the gap closes. Row multiplicity still identifies
         // the short critical footprint where the endpoint stencils overlap.
@@ -1833,7 +1905,7 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
         for(std::size_t start=1;start<rows.size();++start) {
             if(rows[start-1].count!=1 || rows[start].count!=2)continue;
             std::size_t count=0;while(start+count<rows.size() && rows[start+count].count==2)++count;
-            if(count<3 || count>7 || start+count>=rows.size() || rows[start+count].count!=1)continue;
+            if(count<1 || (!guard_missing_caps && count<3) || count>7 || start+count>=rows.size() || rows[start+count].count!=1)continue;
             std::array<double,7> gaps{};bool complete=true;
             for(std::size_t k=0;k<count;++k) {
                 const auto y=rows[start+k].first;
@@ -1849,6 +1921,12 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
             double curvature=0;
             for(std::size_t k=0;k<count;++k)curvature+=std::abs((k?gaps[k-1]:0)-2*gaps[k]+(k+1<count?gaps[k+1]:0));
             critical_allowance+=limb_brightness*curvature/24;
+            if(guard_missing_caps && count<3) {
+                // One or two samples cannot identify the two gap caps and
+                // their amplitude. Retain the represented gap-area scale
+                // until refinement supplies a usable local shape stencil.
+                for(std::size_t k=0;k<count;++k)critical_allowance+=gaps[k];
+            }
         }
         result.uncertainty=std::max(result.uncertainty,result.cap_remainder+result.smooth_remainder+critical_allowance);
     }

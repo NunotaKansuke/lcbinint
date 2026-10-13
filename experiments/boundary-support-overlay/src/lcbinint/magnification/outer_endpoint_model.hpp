@@ -11,7 +11,7 @@ struct OuterEndpointModel {
  double leading_coefficient=0,next_coefficient=0,squared_cubic_coefficient=0;
 };
 inline OuterEndpointModel outer_endpoint_quadratic_model(
- const std::array<double,4>& widths,double h,double first_weight,double second_weight,bool integrate_panel=true) {
+ const std::array<double,4>& widths,double h,double first_weight,double second_weight,bool integrate_panel=true,double phase_limit=1.5) {
  for(double v:widths) if(!std::isfinite(v)||v<=0) return {};
  if(!std::isfinite(h)||h<=0||!std::isfinite(first_weight)||!std::isfinite(second_weight)) return {};
  const double scale=*std::max_element(widths.begin(),widths.end());
@@ -19,7 +19,7 @@ inline OuterEndpointModel outer_endpoint_quadratic_model(
  for(int i=0;i<4;++i) v[i]=(widths[i]/scale)*(widths[i]/scale);
  const double c0=v[0],c2=.5*(v[2]-2*v[1]+v[0]),c1=v[1]-v[0]-c2;
  double eta=std::numeric_limits<double>::infinity();
- const auto offer=[&](double root) {if(std::isfinite(root)&&root<0&&root>-1.5) eta=std::min(eta,-root);};
+ const auto offer=[&](double root) {if(std::isfinite(root)&&root<0&&root>-phase_limit) eta=std::min(eta,-root);};
  if(std::abs(c2)<=32*std::numeric_limits<double>::epsilon()*std::max(std::abs(c1),c0)) {
   if(c1!=0) offer(-c0/c1);
  } else {

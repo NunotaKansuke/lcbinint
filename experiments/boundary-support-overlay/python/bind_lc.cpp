@@ -2176,16 +2176,18 @@ Cartesian or polar grid and its resolution.)");
 
     const py::object shared_flux_entry=lc.attr("binary_flux_estimate");
     lc.def("binary_adaptive_flux",[shared_flux_entry](double x,double y,double s,double q,double rho,
-        const PyLimbDarkening& ld,int initial_bins,int max_bins,double tolerance,std::size_t budget) {
+        const PyLimbDarkening& ld,int initial_bins,int max_bins,double tolerance,std::size_t budget,double relative_tolerance) {
         using namespace lcbinint::magnification;
         if(initial_bins<1 || max_bins<initial_bins || max_bins>4096 || max_bins%initial_bins ||
             ((max_bins/initial_bins)&(max_bins/initial_bins-1)) || !std::isfinite(tolerance) || tolerance<=0 || budget==0)
             throw std::invalid_argument("adaptive flux requires positive tolerance/budget and a dyadic max_bins/initial_bins up to4096");
-        AdaptiveFluxRequest work;work.max_bins=max_bins;work.budget=budget;work.cost_trace=std::getenv("LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE")!=nullptr;work.row_panel_trace=std::getenv("LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE")!=nullptr;work.local_vertical_caps=std::getenv("LCBININT_DIAGNOSTIC_LOCAL_VERTICAL_CAPS")!=nullptr;
+        if(!std::isfinite(relative_tolerance) || relative_tolerance<0)
+            throw std::invalid_argument("relative_tolerance must be finite and nonnegative");
+        AdaptiveFluxRequest work;work.relative_target=relative_tolerance;work.max_bins=max_bins;work.budget=budget;work.cost_trace=std::getenv("LCBININT_DIAGNOSTIC_ADAPTIVE_COST_TRACE")!=nullptr;work.row_panel_trace=std::getenv("LCBININT_DIAGNOSTIC_ROW_PANEL_TRACE")!=nullptr;
         if(const auto* value=std::getenv("LCBININT_DIAGNOSTIC_CAP_CLIP_PAD")){const std::string v(value);if(v!="0"&&v!="4")throw std::invalid_argument("diagnostic cap clip pad must be0 or4");work.cap_initial_pad=std::atoi(value);}
         if(const auto* value=std::getenv("LCBININT_DIAGNOSTIC_ADAPTIVE_AXIS_RATIO")){work.max_axis_ratio=std::atoi(value);if(work.max_axis_ratio!=2 && work.max_axis_ratio!=4 && work.max_axis_ratio!=8 && work.max_axis_ratio!=16)throw std::invalid_argument("diagnostic axis ratio must be 2,4,8 or16");}
         const double norm=3.141592653589793*rho*rho*(1-ld.c/3);work.target=tolerance*norm;
-        work.defect_correction=std::getenv("LCBININT_DIAGNOSTIC_DEFECT_CORRECTION")!=nullptr && ld.d==0 && ld.c>=0 && ld.c<=1;
+        work.defect_correction=ld.d==0 && ld.c>=0 && ld.c<=1;
         work.mapped.fast_hash=std::getenv("LCBININT_DIAGNOSTIC_LEGACY_CACHE_HASH")==nullptr;
         if(const char* capacity=std::getenv("LCBININT_DIAGNOSTIC_CACHE_CAPACITY")) {
             const std::string value(capacity);std::size_t used=0;const auto count=std::stoull(value,&used);
@@ -2201,6 +2203,8 @@ Cartesian or polar grid and its resolution.)");
         if(!work.executed)throw std::runtime_error("adaptive flux did not execute the multirun Cartesian route");
         py::dict out;out["magnification"]=initial["magnification"];
         out["error_indicator"]=work.acceptance_indicator/norm;
+        out["relative_tolerance"]=relative_tolerance;
+        out["initial_magnification_scale"]=work.initial_flux/norm;
         out["signed_combined_indicator"]=(std::abs(work.signed_error)+work.remainder)/norm;
         if(work.defect_correction){out["applied_flux_correction"]=work.applied_correction/norm;out["raw_magnification"]=out["magnification"].cast<double>()-work.applied_correction/norm;}
         out["small_image_repairs"]=work.small_image_repairs;
@@ -2226,7 +2230,7 @@ Cartesian or polar grid and its resolution.)");
         if(work.row_panel_trace){out["row_panel_rows"]=work.row_panel_rows;out["row_panel_errors"]=work.row_panel_errors;}
         if(work.cost_trace){for(auto& flux:work.history_flux)flux/=norm;
             for(auto& row:work.cost_components)for(int j=3;j<=8;++j)row[j]/=norm;
-            out["history_magnification"]=work.history_flux;out["cost_components"]=work.cost_components;out["cost_trials"]=work.cost_trials;out["cache_entries"]=work.mapped.size;out["cache_capacity"]=work.mapped.slots.size();out["phase_seconds"]=std::array<double,3>{work.run_fill_seconds,work.error_aggregation_seconds,work.adaptive_control_seconds};}
+            out["history_magnification"]=work.history_flux;out["cost_components"]=work.cost_components;out["cost_trials"]=work.cost_trials;out["cache_entries"]=work.mapped.size;out["cache_capacity"]=work.mapped.slots.size();out["cache_pending_records"]=work.mapped.pending.size();out["cache_materialized"]=!work.mapped.deferred;out["phase_seconds"]=std::array<double,3>{work.run_fill_seconds,work.error_aggregation_seconds,work.adaptive_control_seconds};}
         out["component_grid_bins"]=work.component_grid_bins;out["refinement_grid_bins"]=work.refinement_grid_bins;
         out["components"]=work.components;
         out["history"]=work.history;out["certified"]=false;out["complete_error_model"]=false;
@@ -2234,8 +2238,8 @@ Cartesian or polar grid and its resolution.)");
         return out;
     },py::arg("x"),py::arg("y"),py::kw_only(),py::arg("s"),py::arg("q"),py::arg("rho"),
       py::arg("limb_darkening"),py::arg("initial_bins")=16,py::arg("max_bins")=512,
-      py::arg("absolute_tolerance")=1e-4,py::arg("max_lattice_maps")=1000000,
-      "Experimental retained component refinement using same-grid errors; initial seed discovery once. No certified tolerance guarantee.");
+      py::arg("absolute_tolerance")=1e-4,py::arg("max_lattice_maps")=1000000,py::arg("relative_tolerance")=0.,
+      "Experimental retained component refinement using same-grid errors; initial seed discovery once. Positive relative_tolerance takes precedence and normalizes once against the retained initial flux. No certified tolerance guarantee.");
 
 
     lc.def("_outer_endpoint_models", [](const std::vector<std::array<double,7>>& panels) {

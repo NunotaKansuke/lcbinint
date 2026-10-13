@@ -51,8 +51,54 @@ ProbeCounters& probe_counters()
 
 bool probe_stats_enabled()
 {
-    static const bool enabled = std::getenv("LCBININT_PROBE_STATS") != nullptr;
+    static const bool enabled = std::getenv("LCBININT_PROBE_STATS") != nullptr
+        || discriminant_diagnostics_enabled() || std::getenv("LCBININT_BOUNDARY_DIAGNOSTICS") != nullptr;
     return enabled;
+}
+
+bool discriminant_diagnostics_enabled()
+{
+    static const bool enabled = std::getenv("LCBININT_DISCRIMINANT_DIAGNOSTICS") != nullptr;
+    return enabled;
+}
+
+AdaptiveFluxRequest*& adaptive_flux_request() {
+ static thread_local AdaptiveFluxRequest* request=nullptr;return request;
+}
+
+bool& lightweight_flux_error_mode()
+{
+    static thread_local bool enabled=false;
+    return enabled;
+}
+
+bool boundary_diagnostics_enabled()
+{
+    static const bool enabled = std::getenv("LCBININT_BOUNDARY_DIAGNOSTICS") != nullptr;
+    return enabled || lightweight_flux_error_mode();
+}
+
+bool representative_probes_enabled()
+{
+    static const bool enabled = std::getenv("LCBININT_REPRESENTATIVE_PROBES") != nullptr;
+    return enabled;
+}
+
+bool representative_count_ablation_enabled()
+{
+    const char* value=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
+    return value!=nullptr && std::strcmp(value,"count-ablation")==0;
+}
+
+bool representative_polyline_links_enabled()
+{
+    const char* value=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
+    return value && (std::strcmp(value,"polyline-links")==0 || std::strcmp(value,"verified-links")==0);
+}
+bool representative_verified_links_enabled()
+{
+    const char* value=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
+    return value && std::strcmp(value,"verified-links")==0;
 }
 
 void reset_probe_counters()

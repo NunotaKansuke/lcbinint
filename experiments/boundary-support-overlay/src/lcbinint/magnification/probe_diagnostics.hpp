@@ -1,5 +1,8 @@
 #pragma once
 
+#include <algorithm>
+#include <cstdlib>
+#include <utility>
 #include <string>
 #include <array>
 #include <vector>
@@ -133,8 +136,19 @@ struct AdaptiveFluxRequest {
   const auto a=std::hash<double>{}(v[0]),b=std::hash<double>{}(v[1]);return a^(b+0x9e3779b9+(a<<6)+(a>>2));
  }};
  struct LatticeCache {
-  struct Slot {std::array<double,2> key{};double value=0;bool used=false;};
-  std::vector<Slot> slots;std::size_t size=0,initial_capacity=16384;
+  struct Slot {
+   std::array<double,2> key;double value;
+   Slot() {} // The insertion path initializes the key and value before use.
+  };
+  std::vector<Slot> slots;
+  // Initial evaluations remain available without hashing every new point.
+  // Build the searchable cache only when refinement or lookup needs it.
+  std::vector<Slot> pending;
+  bool deferred=std::getenv("LCBININT_DIAGNOSTIC_DISABLE_DEFER_LATTICE_CACHE")==nullptr;
+  // Empty/full and a hash fingerprint live together in compact control bytes.
+  // Most probes need no payload cache line or floating-key comparison.
+  std::vector<unsigned char> control;
+  std::size_t size=0,initial_capacity=16384;
   bool fast_hash=true;
   std::size_t hash(const std::array<double,2>& key)const {
    if(!fast_hash)return Hash{}(key);
@@ -149,21 +163,66 @@ struct AdaptiveFluxRequest {
    h=(h^(h>>27))*0x94d049bb133111ebULL;
    return h^(h>>31);
   }
+  static unsigned char tag(std::size_t h) {
+   return static_cast<unsigned char>((h>>56)%255+1);
+  }
   void grow() {
-   auto old=std::move(slots);slots.resize(old.empty()?initial_capacity:old.size()*2);
-   for(const auto& s:old)if(s.used) {
-    auto j=hash(s.key)&(slots.size()-1);while(slots[j].used)j=(j+1)&(slots.size()-1);slots[j]=s;
+   auto old=std::move(slots);auto old_control=std::move(control);
+   slots.resize(old.empty()?initial_capacity:old.size()*2);
+   control.assign(slots.size(),0);
+   for(std::size_t i=0;i<old.size();++i)if(old_control[i]) {
+    const auto h=hash(old[i].key);auto j=h&(slots.size()-1);
+    while(control[j])j=(j+1)&(slots.size()-1);
+    slots[j]=old[i];control[j]=tag(h);
+   }
+  }
+  void materialize() {
+   if(!deferred)return;
+   deferred=false;
+   auto records=std::move(pending);
+   size=0;
+   if(records.empty())return;
+   // The number of retained records is known. Allocate once and bulk-build
+   // without per-record capacity checks or intermediate rehashes.
+   std::size_t capacity=std::max<std::size_t>(initial_capacity,2);
+   while(records.size()*10>capacity*7)capacity*=2;
+   slots.resize(capacity);
+   control.assign(capacity,0);
+   for(const auto& record:records) {
+    const auto h=hash(record.key);const auto wanted=tag(h);
+    auto j=h&(capacity-1);
+    while(control[j]) {
+     if(control[j]==wanted && slots[j].key==record.key)break;
+     j=(j+1)&(capacity-1);
+    }
+    if(!control[j])++size;
+    slots[j]=record;control[j]=wanted;
    }
   }
   std::pair<double*,bool> access(const std::array<double,2>& key,bool insert) {
+   if(deferred) {
+    if(!insert)materialize();
+    else {
+     if(pending.capacity()==0)pending.reserve(std::min<std::size_t>(initial_capacity,16384));
+     pending.emplace_back();pending.back().key=key;++size;
+     return {&pending.back().value,true};
+    }
+   }
    if(slots.empty()){if(!insert)return {nullptr,false};grow();}
    if(insert && (size+1)*10>slots.size()*7)grow();
-   auto j=hash(key)&(slots.size()-1);
-   while(slots[j].used){if(slots[j].key==key)return {&slots[j].value,false};j=(j+1)&(slots.size()-1);}
-   if(!insert)return {nullptr,false};slots[j].used=true;slots[j].key=key;++size;return {&slots[j].value,true};
+   const auto h=hash(key);const auto wanted=tag(h);auto j=h&(slots.size()-1);
+   while(control[j]) {
+    if(control[j]==wanted && slots[j].key==key)return {&slots[j].value,false};
+    j=(j+1)&(slots.size()-1);
+   }
+   if(!insert)return {nullptr,false};
+   slots[j].key=key;control[j]=wanted;++size;return {&slots[j].value,true};
   }
  } mapped;
 
+ // Optional relative tolerance, normalized once using the retained initial flux.
+ // Zero preserves the existing absolute-flux target contract.
+ double relative_target=0,initial_flux=0;
  double target=0,signed_error=0,remainder=0,acceptance_indicator=0;
  int max_bins=512,depth=0,largest_bins=0,max_axis_ratio=4;
  std::size_t budget=1000000,new_maps=0,reused_maps=0,refinements=0;
@@ -173,9 +232,14 @@ struct AdaptiveFluxRequest {
  std::vector<std::array<double,6>> refinement_grid_bins;
  bool cost_trace=false;
  double run_fill_seconds=0,error_aggregation_seconds=0,adaptive_control_seconds=0;
+ double seed_seconds=0,seed_root_seconds=0,initial_fill_seconds=0,row_boundary_seconds=0;
+ std::size_t fill_queries=0,fill_rows=0,fill_cells=0,duplicate_seed_starts=0;
+ std::size_t seed_root_calls=0;
  bool row_panel_trace=false;
- bool local_vertical_caps=false;
- bool defect_correction=false;
+ bool guard_missing_caps=std::getenv("LCBININT_DIAGNOSTIC_DISABLE_MISSING_CAP_GUARD")==nullptr;
+ bool directional_adaptive=true,local_row_interpolation=true,local_boundary_strips=true;
+ bool local_vertical_caps=true;
+ bool defect_correction=true;
  double applied_correction=0;
  int cap_initial_pad=4; // 0 is a diagnostic forced-extension probe.
  std::size_t cap_trials=0,cap_adopted=0,cap_rejected=0,reused_cap_rows=0,cap_extensions=0;
