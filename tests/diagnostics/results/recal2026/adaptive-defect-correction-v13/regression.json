@@ -1,0 +1,280 @@
+{
+  "square_adaptive_exact_matches": 148,
+  "fixed_exact_matches": 547,
+  "directional_history_validated": 148,
+  "budget_fallback": {
+    "magnification": 5.153189611463775,
+    "error_indicator": 0.002313019867412426,
+    "signed_combined_indicator": 0.0014150978050178006,
+    "small_image_repairs": 0,
+    "unresolved_centre_images": 0,
+    "signed_flux_residual": 0.0013818570854397963,
+    "model_remainder_indicator": 3.3240719578004353e-05,
+    "estimated_target_met": false,
+    "stop_reason": "evaluation_budget",
+    "initial_bins": 16,
+    "largest_bins": 16,
+    "cap_extensions": 0,
+    "reused_cap_rows": 0,
+    "cap_trials": 0,
+    "cap_adopted": 0,
+    "cap_rejected": 0,
+    "mixed_component_grids": [],
+    "new_lattice_maps": 4864,
+    "reused_lattice_maps": 1034,
+    "component_refinements": 0,
+    "reused_rows": 180,
+    "interpolated_rows": 0,
+    "row_interpolation_attempts": 0,
+    "row_interpolation_outcomes": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "retained_horizontal_rows": 0,
+    "retained_boundary_strip_rows": 0,
+    "strip_audit_rows": 0,
+    "strip_audit_gap_rows": 0,
+    "strip_audit_absolute_difference": 0.0,
+    "strip_audit_max_difference": 0.0,
+    "strip_support_checks": 0,
+    "strip_support_rejects": 0,
+    "interpolated_audit_rows": 0,
+    "interpolated_audit_gap_rows": 0,
+    "interpolated_audit_max_difference": 0.0,
+    "component_grid_bins": [
+      [
+        16.0,
+        16.0
+      ],
+      [
+        16.0,
+        16.0
+      ]
+    ],
+    "refinement_grid_bins": [],
+    "components": [
+      [
+        16.0,
+        3.192376533508305,
+        0.001830818116637109,
+        3.313927633343128e-05,
+        180.0
+      ],
+      [
+        16.0,
+        1.9608130779554704,
+        -0.00044896103119731264,
+        1.0144324457307183e-07,
+        140.0
+      ]
+    ],
+    "history": [
+      [
+        16.0,
+        0.002313019867412426,
+        4863.0,
+        854.0,
+        0.0
+      ]
+    ],
+    "certified": false,
+    "complete_error_model": false,
+    "error_estimator": "same_grid_component_adaptive_flux"
+  },
+  "repeat_full": {
+    "magnification": 5.15460172800849,
+    "error_indicator": 2.9406756788114478e-05,
+    "signed_combined_indicator": 2.9406756788114475e-05,
+    "small_image_repairs": 0,
+    "unresolved_centre_images": 0,
+    "signed_flux_residual": -2.93634516048196e-05,
+    "model_remainder_indicator": 4.3305183294877274e-08,
+    "estimated_target_met": true,
+    "stop_reason": "estimated_target_met",
+    "initial_bins": 16,
+    "largest_bins": 256,
+    "cap_extensions": 0,
+    "reused_cap_rows": 0,
+    "cap_trials": 0,
+    "cap_adopted": 0,
+    "cap_rejected": 0,
+    "mixed_component_grids": [],
+    "new_lattice_maps": 200844,
+    "reused_lattice_maps": 84115,
+    "component_refinements": 7,
+    "reused_rows": 959,
+    "interpolated_rows": 0,
+    "row_interpolation_attempts": 0,
+    "row_interpolation_outcomes": [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0
+    ],
+    "retained_horizontal_rows": 0,
+    "retained_boundary_strip_rows": 0,
+    "strip_audit_rows": 0,
+    "strip_audit_gap_rows": 0,
+    "strip_audit_absolute_difference": 0.0,
+    "strip_audit_max_difference": 0.0,
+    "strip_support_checks": 0,
+    "strip_support_rejects": 0,
+    "interpolated_audit_rows": 0,
+    "interpolated_audit_gap_rows": 0,
+    "interpolated_audit_max_difference": 0.0,
+    "component_grid_bins": [
+      [
+        64.0,
+        256.0
+      ],
+      [
+        32.0,
+        128.0
+      ]
+    ],
+    "refinement_grid_bins": [
+      [
+        0.0,
+        16.0,
+        16.0,
+        16.0,
+        32.0,
+        2.0
+      ],
+      [
+        1.0,
+        16.0,
+        16.0,
+        16.0,
+        32.0,
+        2.0
+      ],
+      [
+        0.0,
+        16.0,
+        32.0,
+        16.0,
+        64.0,
+        2.0
+      ],
+      [
+        1.0,
+        16.0,
+        32.0,
+        16.0,
+        64.0,
+        2.0
+      ],
+      [
+        0.0,
+        16.0,
+        64.0,
+        32.0,
+        128.0,
+        0.0
+      ],
+      [
+        1.0,
+        16.0,
+        64.0,
+        32.0,
+        128.0,
+        0.0
+      ],
+      [
+        0.0,
+        32.0,
+        128.0,
+        64.0,
+        256.0,
+        0.0
+      ]
+    ],
+    "components": [
+      [
+        256.0,
+        3.194218019332266,
+        -9.824556727089228e-06,
+        3.825057451730242e-08,
+        2885.0
+      ],
+      [
+        128.0,
+        1.960383708676225,
+        -1.953889487773037e-05,
+        5.054608777574858e-09,
+        1119.0
+      ]
+    ],
+    "history": [
+      [
+        16.0,
+        0.002313019867412426,
+        4863.0,
+        854.0,
+        0.0
+      ],
+      [
+        16.0,
+        0.001167178414594622,
+        7813.0,
+        2108.0,
+        0.0
+      ],
+      [
+        16.0,
+        0.0009254853229777613,
+        9685.0,
+        3070.0,
+        1.0
+      ],
+      [
+        16.0,
+        0.0005975520656228371,
+        15565.0,
+        5581.0,
+        0.0
+      ],
+      [
+        16.0,
+        0.0004676667781173704,
+        19285.0,
+        7541.0,
+        1.0
+      ],
+      [
+        32.0,
+        0.00016175751047513946,
+        52360.0,
+        22814.0,
+        0.0
+      ],
+      [
+        32.0,
+        0.00010381736464208915,
+        73030.0,
+        33040.0,
+        1.0
+      ],
+      [
+        64.0,
+        2.9406756788114478e-05,
+        200844.0,
+        84115.0,
+        0.0
+      ]
+    ],
+    "certified": false,
+    "complete_error_model": false,
+    "error_estimator": "same_grid_component_adaptive_flux"
+  },
+  "native_sha256": "51815d3ae392471965e896c8858013889cac8b45e5f67ba2d2e2d6059cf713fc"
+}

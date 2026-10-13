@@ -1,0 +1,322 @@
+{
+  "checks": [
+    {
+      "c": 0,
+      "budget": 4705,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.944490521356531,
+      "applied_flux_correction": 2.3662281213910672e-06,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0,
+      "budget": 4711,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.944232383979868,
+      "applied_flux_correction": 2.3662281213910672e-06,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0,
+      "budget": 4717,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.944103315291536,
+      "applied_flux_correction": 2.3662281213910672e-06,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0,
+      "budget": 4729,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.944143439469462,
+      "applied_flux_correction": 2.3662281213910672e-06,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0,
+      "budget": 4753,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.944151391541827,
+      "applied_flux_correction": 2.3662281213910672e-06,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.2,
+      "budget": 4705,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.949142911646706,
+      "applied_flux_correction": 0.0007337479209541664,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.2,
+      "budget": 4711,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.94913534328158,
+      "applied_flux_correction": 0.0007337479209541664,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.2,
+      "budget": 4721,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.948863041673982,
+      "applied_flux_correction": 0.0007371731097305673,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.2,
+      "budget": 4729,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.9487308808411115,
+      "applied_flux_correction": 0.0007354605153423668,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.2,
+      "budget": 4737,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.94876634641483,
+      "applied_flux_correction": 0.0007346042181482666,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.2,
+      "budget": 4750,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.948768406544664,
+      "applied_flux_correction": 0.0007343289622375797,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.2,
+      "budget": 4770,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.948774941178362,
+      "applied_flux_correction": 0.0007337001408965707,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.5,
+      "budget": 4705,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.957517214169019,
+      "applied_flux_correction": 0.0020502349680531634,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.5,
+      "budget": 4711,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.957496022750762,
+      "applied_flux_correction": 0.0020502349680531634,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.5,
+      "budget": 4721,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.9571982255254445,
+      "applied_flux_correction": 0.0020598254966270857,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.5,
+      "budget": 4729,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.957060498831377,
+      "applied_flux_correction": 0.002055030232340125,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.5,
+      "budget": 4737,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.957087578916521,
+      "applied_flux_correction": 0.0020526326001966437,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.5,
+      "budget": 4750,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.957093347280058,
+      "applied_flux_correction": 0.0020518618836467203,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.5,
+      "budget": 4770,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.9570973305241255,
+      "applied_flux_correction": 0.0020501011838918947,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.8,
+      "budget": 4705,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.968175417379235,
+      "applied_flux_correction": 0.0037257639370882494,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.8,
+      "budget": 4711,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.968136887529721,
+      "applied_flux_correction": 0.0037257639370882494,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.8,
+      "budget": 4721,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.967806641336395,
+      "applied_flux_correction": 0.0037432012617681083,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.8,
+      "budget": 4729,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.967661830818986,
+      "applied_flux_correction": 0.003734482599428179,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.8,
+      "budget": 4737,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.967678238464126,
+      "applied_flux_correction": 0.003730123268258214,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.8,
+      "budget": 4750,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.96768872639783,
+      "applied_flux_correction": 0.003728721965440171,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.8,
+      "budget": 4770,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.9676894624187335,
+      "applied_flux_correction": 0.00372552069315867,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 0.8,
+      "budget": 4857,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.967687845408829,
+      "applied_flux_correction": 0.003726539095545316,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 1,
+      "budget": 4705,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.9770572533877475,
+      "applied_flux_correction": 0.005122038077950822,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 1,
+      "budget": 4711,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.97700427484552,
+      "applied_flux_correction": 0.005122038077950822,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 1,
+      "budget": 4721,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.976646987845521,
+      "applied_flux_correction": 0.005146014399385629,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 1,
+      "budget": 4729,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.976496274141994,
+      "applied_flux_correction": 0.005134026238668226,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 1,
+      "budget": 4737,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.976503788087131,
+      "applied_flux_correction": 0.005128032158309524,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 1,
+      "budget": 4750,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.976518208995972,
+      "applied_flux_correction": 0.005126105366934715,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 1,
+      "budget": 4770,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.976516238997573,
+      "applied_flux_correction": 0.005121703617547651,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    },
+    {
+      "c": 1,
+      "budget": 4857,
+      "stop_reason": "evaluation_budget",
+      "magnification": 4.976515432966687,
+      "applied_flux_correction": 0.005122397795762373,
+      "cap_trials": 0,
+      "cap_adopted": 0
+    }
+  ],
+  "count": 35,
+  "component_accounting": true,
+  "nonlinear_ld_rejection_preserved": true
+}

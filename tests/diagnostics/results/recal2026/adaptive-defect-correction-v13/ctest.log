@@ -1,0 +1,10 @@
+Internal ctest changing into directory: /rogue1_8/nunota/lcbinint/build-boundary-support
+Test project /rogue1_8/nunota/lcbinint/build-boundary-support
+    Start 1: unit_core
+1/2 Test #1: unit_core ........................   Passed    0.04 sec
+    Start 2: unit_boundary_support
+2/2 Test #2: unit_boundary_support ............   Passed    0.02 sec
+
+100% tests passed, 0 tests failed out of 2
+
+Total Test time (real) =   0.06 sec

@@ -199,3 +199,8 @@ install(FILES data/earth_orbital_parallax_table.txt DESTINATION share/lcbinint/d
 # Install data beside the package too: importlib.resources then works from a
 # wheel without relying on a source-checkout-relative path.
 install(FILES data/earth_orbital_parallax_table.txt DESTINATION lcbinint_jax/data)
+
+option(LCBININT_BOUNDARY_SUPPORT_EXPERIMENTS "Enable isolated boundary/support research kernels" OFF)
+if(LCBININT_BOUNDARY_SUPPORT_EXPERIMENTS)
+    include(experiments/boundary-support-overlay/enable.cmake)
+endif()

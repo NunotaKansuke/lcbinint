@@ -1,0 +1,19 @@
+[  3%] Building CXX object CMakeFiles/lcbinint_magnification.dir/experiments/boundary-support-overlay/src/lcbinint/magnification/finite_source_magnifier.cpp.o
+[  7%] Linking CXX static library liblcbinint_magnification.a
+[ 29%] Built target lcbinint_magnification
+[ 33%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/lcbinint.cpp.o
+[ 37%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/model/lens_model.cpp.o
+[ 40%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/lc/light_curve.cpp.o
+[ 44%] Linking CXX static library liblcbinint_lightcurve.a
+[ 66%] Built target lcbinint_lightcurve
+[ 70%] Building CXX object CMakeFiles/test_core.dir/experiments/boundary-support-overlay/tests/unit/test_core.cpp.o
+[ 74%] Building CXX object CMakeFiles/lcbinint_python.dir/experiments/boundary-support-overlay/python/lcbinint_pybind.cpp.o
+[ 77%] Building CXX object CMakeFiles/lcbinint_python.dir/experiments/boundary-support-overlay/python/bind_lc.cpp.o
+[ 81%] Linking CXX executable test_core
+[ 81%] Built target test_core
+[ 85%] Linking CXX executable test_boundary_support
+[ 88%] Built target test_boundary_support
+[ 92%] Building CXX object CMakeFiles/lcbinint_python.dir/python/bind_jax_ir.cpp.o
+[ 96%] Linking CXX shared module _lcbinint.cpython-310-x86_64-linux-gnu.so
+Copying lcbinint Python packages to build dir
+[100%] Built target lcbinint_python

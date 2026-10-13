@@ -1,0 +1,246 @@
+#include "lcbinint/lcbinint.h"
+
+#include "lcbinint/magnification/finite_source_magnifier.hpp"
+#include "lcbinint/model/lens_model.hpp"
+#include "lcbinint/model/lens_parameters.hpp"
+
+#include <cmath>
+#include <limits>
+
+namespace {
+
+void copy_result(const lcbinint::MagnificationResult &from, lcbi_result &to)
+{
+    to.magnification = from.magnification;
+    to.point_source_magnification = from.point_source_magnification;
+    to.finite_source_magnification = from.finite_source_magnification;
+    to.source_x = from.source.x;
+    to.source_y = from.source.y;
+    to.image_count = from.image_count;
+    to.finite_source_method = from.finite_source_method;
+    to.finite_source_error_estimate = from.finite_source_error_estimate;
+    to.finite_source_refinement_level = from.finite_source_refinement_level;
+    to.finite_source_converged = from.finite_source_converged ? 1 : 0;
+    to.root_candidate_count = from.root_candidate_count;
+    to.root_duplicate_count = from.root_duplicate_count;
+    to.root_polish_failure_count = from.root_polish_failure_count;
+    to.root_used_warm_start = from.root_used_warm_start;
+    to.root_used_cold_retry = from.root_used_cold_retry;
+    to.root_used_high_precision = from.root_used_high_precision;
+    to.root_used_quad_precision = from.root_used_quad_precision;
+    to.root_needs_high_precision = from.root_needs_high_precision;
+    to.root_max_residual = from.root_max_residual;
+    to.point_source_quadrupole_indicator = from.point_source_quadrupole_indicator;
+    to.point_source_cusp_indicator = from.point_source_cusp_indicator;
+    to.point_source_ghost_indicator = from.point_source_ghost_indicator;
+    to.point_source_planetary_distance2 = from.point_source_planetary_distance2;
+    to.point_source_safety_tolerance = from.point_source_safety_tolerance;
+    to.point_source_ghost_count = from.point_source_ghost_count;
+    to.point_source_safety_flags = from.point_source_safety_flags;
+    to.separation = from.separation;
+    to.mass_ratio = from.mass_ratio;
+    to.caustic_distance = from.caustic_distance;
+}
+
+void copy_geometry(const lcbinint::magnification::FiniteSourceGeometry &from, lcbi_geometry &to, bool valid)
+{
+    to.separation = from.separation;
+    to.mass_ratio = from.mass_ratio;
+    to.source_x = from.source.x;
+    to.source_y = from.source.y;
+    to.source_radius = from.source_radius;
+    to.limb_darkening_c = from.limb_darkening_c;
+    to.limb_darkening_d = from.limb_darkening_d;
+    to.absolute_tolerance = from.absolute_tolerance;
+    to.relative_tolerance = from.relative_tolerance;
+    to.valid = valid ? 1 : 0;
+}
+
+} // namespace
+
+lcbi_params lcbi_default_params(void)
+{
+    lcbi_params params = {};
+    params.tE = 1.0;
+    params.q = 1.0;
+    params.sep = 1.0;
+    params.obs_lat = std::numeric_limits<double>::quiet_NaN();
+    params.obs_lon = std::numeric_limits<double>::quiet_NaN();
+    params.orbital_motion_mode = LCBI_ORBIT_STATIC;
+    params.lom_ar = 1.0;
+    return params;
+}
+
+lcbi_options lcbi_default_options(void)
+{
+    lcbi_options options = {};
+    options.orbit_pair = 23;
+    options.caustic_bins = 1400;
+    options.source_bins = 50;
+    options.mode = 4;
+    options.grid_ratio = 4.0;
+    options.polar_source_bins = 0;
+    options.polar_grid_ratio = 0.0;
+    options.point_source_threshold = 20.0;
+    options.hexadecapole_threshold = 3.0;
+    options.adaptive_hex_threshold = 0.001;
+    options.automatic_source_bins = 1;
+    options.max_source_bins = 400;
+    options.finite_source_reltol = 0.0;
+    options.bennett_delta_c = 0.15;
+    options.xallarap_param_type = LCBI_XALLARAP_NONE;
+    return options;
+}
+
+lcbi_status lcbi_magnification(
+    double time,
+    const lcbi_params *params,
+    const lcbi_options *options,
+    lcbi_result *result)
+{
+    (void)time;
+    (void)options;
+
+    if (params == nullptr || result == nullptr) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+
+    const auto cpp_params = lcbinint::model::from_c_params(*params);
+    if (!cpp_params.is_valid()) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+
+    const auto cpp_options = lcbinint::model::from_c_options(options);
+    const lcbinint::model::LensModel model(cpp_params, cpp_options);
+    const auto magnification_result = model.magnification(time);
+    copy_result(magnification_result, *result);
+    if (magnification_result.status == lcbinint::EvaluationStatus::unsupported) {
+        return LCBI_UNSUPPORTED;
+    }
+    if (magnification_result.status ==
+        lcbinint::EvaluationStatus::unsupported_tolerance) {
+        return LCBI_UNSUPPORTED_TOLERANCE;
+    }
+    if (magnification_result.status == lcbinint::EvaluationStatus::numerical_error ||
+        !std::isfinite(result->magnification)) {
+        return LCBI_NUMERICAL_ERROR;
+    }
+    return LCBI_OK;
+}
+
+lcbi_status lcbi_magnification_array(
+    const double *times,
+    int count,
+    const lcbi_params *params,
+    const lcbi_options *options,
+    lcbi_result *results)
+{
+    if (count < 0) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+    if (count == 0) {
+        return LCBI_OK;
+    }
+    if (times == nullptr || params == nullptr || results == nullptr) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+
+    const auto cpp_params = lcbinint::model::from_c_params(*params);
+    if (!cpp_params.is_valid()) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+    const auto cpp_options = lcbinint::model::from_c_options(options);
+    const lcbinint::model::LensModel model(cpp_params, cpp_options);
+    for (int i = 0; i < count; ++i) {
+        const auto magnification_result = model.magnification(times[i]);
+        copy_result(magnification_result, results[i]);
+        if (magnification_result.status == lcbinint::EvaluationStatus::unsupported) {
+            return LCBI_UNSUPPORTED;
+        }
+        if (magnification_result.status ==
+            lcbinint::EvaluationStatus::unsupported_tolerance) {
+            return LCBI_UNSUPPORTED_TOLERANCE;
+        }
+        if (magnification_result.status == lcbinint::EvaluationStatus::numerical_error ||
+            !std::isfinite(results[i].magnification)) {
+            return LCBI_NUMERICAL_ERROR;
+        }
+    }
+    return LCBI_OK;
+}
+
+lcbi_status lcbi_finite_source_geometry(
+    double time,
+    const lcbi_params *params,
+    const lcbi_options *options,
+    lcbi_geometry *geometry)
+{
+    if (params == nullptr || geometry == nullptr) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+
+    const auto cpp_params = lcbinint::model::from_c_params(*params);
+    if (!cpp_params.is_valid()) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+
+    const auto cpp_options = lcbinint::model::from_c_options(options);
+    const lcbinint::model::LensModel model(cpp_params, cpp_options);
+    lcbinint::magnification::FiniteSourceGeometry cpp_geometry;
+    const bool valid = model.finite_source_geometry(time, cpp_geometry);
+    copy_geometry(cpp_geometry, *geometry, valid);
+    return valid ? LCBI_OK : LCBI_UNSUPPORTED;
+}
+
+lcbi_status lcbi_finite_source_geometry_array(
+    const double *times,
+    int count,
+    const lcbi_params *params,
+    const lcbi_options *options,
+    lcbi_geometry *geometries)
+{
+    if (count < 0) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+    if (count == 0) {
+        return LCBI_OK;
+    }
+    if (times == nullptr || params == nullptr || geometries == nullptr) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+
+    const auto cpp_params = lcbinint::model::from_c_params(*params);
+    if (!cpp_params.is_valid()) {
+        return LCBI_INVALID_ARGUMENT;
+    }
+    const auto cpp_options = lcbinint::model::from_c_options(options);
+    const lcbinint::model::LensModel model(cpp_params, cpp_options);
+    lcbi_status status = LCBI_OK;
+    for (int i = 0; i < count; ++i) {
+        lcbinint::magnification::FiniteSourceGeometry cpp_geometry;
+        const bool valid = model.finite_source_geometry(times[i], cpp_geometry);
+        copy_geometry(cpp_geometry, geometries[i], valid);
+        if (!valid) {
+            status = LCBI_UNSUPPORTED;
+        }
+    }
+    return status;
+}
+
+const char *lcbi_status_string(lcbi_status status)
+{
+    switch (status) {
+    case LCBI_OK:
+        return "ok";
+    case LCBI_INVALID_ARGUMENT:
+        return "invalid argument";
+    case LCBI_NUMERICAL_ERROR:
+        return "numerical error";
+    case LCBI_UNSUPPORTED:
+        return "unsupported";
+    case LCBI_UNSUPPORTED_TOLERANCE:
+        return "unsupported_tolerance";
+    default:
+        return "unknown status";
+    }
+}

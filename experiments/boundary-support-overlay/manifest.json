@@ -1,0 +1,17 @@
+{
+  "baseline": "b51c00c566667fc2ed1fe640543219f480642002",
+  "source_sha256": {
+    "CMakeLists.txt": "136cfb961b24cfc4669baab2cf77f62479bc8e260ef4c3190d9ae27e705dcebf",
+    "python/bind_lc.cpp": "3ea23ed3394886503569521d0951fb84b9be41f45d9b666832f49c974d3c1ebb",
+    "python/lcbinint_pybind.cpp": "6052255d66fa7a5c11b2f2c09d0ba9174355abcb22c8a692b2d9b72128ed676a",
+    "src/lcbinint/magnification/bennett_integration.hpp": "d80250bad34dccef5492a385f000982bee0f7979c84146a73f3a0f05c5ebb269",
+    "src/lcbinint/magnification/cartesian_run_fill.hpp": "66a242992c1ba5973badb7e10b15c1000df0b094cda6212b1e714c8af0a49d8a",
+    "src/lcbinint/magnification/component_certificate.cpp": "d22e259c560c21c20abc2b8ff7a1e1ba9c60313a1efa2ed35252663588c77074",
+    "src/lcbinint/magnification/component_certificate.hpp": "938c5bbca085c0cab0105cdf22867db9e0d9b94880050f7d50a683bc1e099444",
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "23626ef28e088e3aaf5445c5dd6c02c64b6ac7726d749b7edc953f9720f9b3ab",
+    "src/lcbinint/magnification/finite_source_magnifier.hpp": "8fe5f924a63f8723a633db04114753f7efff8586fa9549aa4a5bd4597708a7e4",
+    "src/lcbinint/magnification/probe_diagnostics.cpp": "27047c890ea3139be9214b35263a094c82cc21d2e8d51a518d077dc47347959f",
+    "src/lcbinint/magnification/probe_diagnostics.hpp": "a37557f09a849ecea6de3d7ccd94ce77b3cbcd4377bd0ec259cc95a552eba546",
+    "tests/unit/test_core.cpp": "ebbbc387da6ef263ac2f8221bc766fb13846fff732fe1bf88b6fc5154c7df66b"
+  }
+}

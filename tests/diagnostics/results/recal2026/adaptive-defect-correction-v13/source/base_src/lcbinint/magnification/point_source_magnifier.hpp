@@ -1,0 +1,140 @@
+#pragma once
+
+#include "lcbinint/types.hpp"
+#include "lcbinint/model/triple_lens_geometry.hpp"
+
+#include <array>
+#include <cstddef>
+#include <vector>
+
+namespace lcbinint::magnification {
+
+struct PointSourceResult {
+    double magnification = 0.0;
+    int image_count = 0;
+    int root_candidate_count = 0;
+    int root_duplicate_count = 0;
+    int root_polish_failure_count = 0;
+    int root_used_warm_start = 0;
+    int root_used_cold_retry = 0;
+    int root_used_high_precision = 0;
+    int root_used_quad_precision = 0;
+    int root_needs_high_precision = 0;
+    double root_max_residual = 0.0;
+};
+
+struct PointSourceDerivativeResult {
+    double magnification = 0.0;
+    int image_count = 0;
+    double derivative_error_indicator = 0.0;
+};
+
+struct PointSourceSafetyDiagnostic {
+    double magnification = 0.0;
+    int image_count = 0;
+    double quadrupole_indicator = 0.0;
+    double cusp_indicator = 0.0;
+    double ghost_indicator = 0.0;
+    int ghost_count = 0;
+};
+
+struct BinaryImage {
+    SourcePosition position;
+    double jacobian_determinant = 0.0;
+};
+
+struct BinaryImageCandidate {
+    SourcePosition position;
+    double jacobian_determinant = 0.0;
+    double residual = 0.0;
+    bool physical = false;
+};
+
+struct TripleImage {
+    SourcePosition position;
+    double jacobian_determinant = 0.0;
+};
+
+struct TripleImageCandidate {
+    SourcePosition position;
+    double jacobian_determinant = 0.0;
+    double residual = 0.0;
+    bool physical = false;
+};
+
+class PointSourceMagnifier {
+public:
+    PointSourceResult binary_mag0(double separation, double mass_ratio, SourcePosition source) const;
+    PointSourceResult binary_mag0_cached(double separation, double mass_ratio, SourcePosition source) const;
+    PointSourceDerivativeResult binary_mag0_with_derivatives(
+        double separation,
+        double mass_ratio,
+        SourcePosition source) const;
+    PointSourceDerivativeResult binary_mag0_with_derivatives_cached(
+        double separation,
+        double mass_ratio,
+        SourcePosition source) const;
+    PointSourceSafetyDiagnostic binary_safety_diagnostic_cached(
+        double separation,
+        double mass_ratio,
+        SourcePosition source) const;
+    void binary_mag0_batch(
+        double separation,
+        double mass_ratio,
+        const SourcePosition* sources,
+        double* magnifications,
+        std::size_t count) const;
+    std::vector<BinaryImage> binary_images(double separation, double mass_ratio, SourcePosition source) const;
+    std::vector<BinaryImageCandidate> binary_image_candidates(
+        double separation,
+        double mass_ratio,
+        SourcePosition source) const;
+    SourcePosition binary_lens_equation(double separation, double mass_ratio, SourcePosition image) const;
+    PointSourceResult triple_mag0(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source) const;
+    PointSourceDerivativeResult triple_mag0_with_derivatives(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source) const;
+    std::vector<TripleImage> triple_images(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source) const;
+    std::vector<TripleImageCandidate> triple_image_candidates(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source) const;
+    // Reuse the exact candidate set retained by triple_mag0 when a finite-
+    // source caller immediately asks for centre-image seeds.  Probe sources
+    // still take the ordinary solve path and refresh the one-entry cache.
+    // The reference remains valid until the next triple candidate solve on
+    // this magnifier.
+    const std::vector<TripleImageCandidate>& triple_image_candidates_cached(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition source) const;
+    SourcePosition triple_lens_equation(
+        const model::TripleLensGeometry& geometry,
+        SourcePosition image) const;
+
+private:
+    PointSourceResult binary_mag0_impl(
+        double separation,
+        double mass_ratio,
+        SourcePosition source,
+        bool use_root_cache) const;
+
+    mutable bool root_cache_valid_ = false;
+    mutable double root_cache_separation_ = 0.0;
+    mutable double root_cache_mass_ratio_ = 0.0;
+    mutable SourcePosition root_cache_source_ {};
+    mutable std::array<SourcePosition, 5> root_cache_roots_ {};
+
+    mutable bool triple_candidate_cache_valid_ = false;
+    mutable model::TripleLensGeometry triple_candidate_cache_geometry_ {};
+    mutable SourcePosition triple_candidate_cache_source_ {};
+    mutable std::vector<TripleImageCandidate> triple_candidate_cache_;
+    mutable PointSourceResult triple_candidate_cache_diagnostics_ {};
+    mutable bool triple_warm_valid_ = false;
+    mutable model::TripleLensGeometry triple_warm_geometry_ {};
+    mutable std::array<Complex, 10> triple_warm_roots_ {};
+};
+
+} // namespace lcbinint::magnification

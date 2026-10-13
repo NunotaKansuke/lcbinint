@@ -1,0 +1,3001 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c950e45..2cca315 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -75,6 +75,7 @@ endif()
+ # Leaf layer: finite/point-source magnification kernels + root solvers.
+ # No dependency on model/, lc/, or obs/ (see .note/session-2026-07-18-final-review.md, A5).
+ add_library(lcbinint_magnification
++    src/lcbinint/magnification/binary_image_discriminant.cpp
+     src/lcbinint/magnification/component_certificate.cpp
+     src/lcbinint/magnification/finite_source_magnifier.cpp
+     src/lcbinint/magnification/point_source_magnifier.cpp
+@@ -117,6 +118,13 @@ if(LCBININT_BUILD_TESTS)
+     add_executable(test_core tests/unit/test_core.cpp)
+     target_link_libraries(test_core PRIVATE lcbinint_lightcurve)
+     add_test(NAME unit_core COMMAND test_core)
++    add_executable(test_boundary_support tests/unit/test_boundary_support.cpp)
++    target_include_directories(test_boundary_support PRIVATE "${LCBININT_BOOST_INCLUDE_DIR}")
++    # PointSourceMagnifier's object also references triple geometry in the
++    # lightcurve archive; repeat that archive to resolve the existing back-edge.
++    target_link_libraries(test_boundary_support PRIVATE
++        lcbinint_lightcurve lcbinint_magnification lcbinint_lightcurve)
++    add_test(NAME unit_boundary_support COMMAND test_boundary_support)
+ endif()
+ 
+ add_executable(benchmark_point_hex EXCLUDE_FROM_ALL tests/diagnostics/benchmark_point_hex.cpp)
+diff --git a/python/bind_lc.cpp b/python/bind_lc.cpp
+index ac4a583..482e2d5 100644
+--- a/python/bind_lc.cpp
++++ b/python/bind_lc.cpp
+@@ -2124,6 +2124,20 @@ Cartesian or polar grid and its resolution.)");
+                 events.append(std::move(item));
+             }
+             output["events"] = std::move(events);
++            py::list boundaries;
++            for (const auto& event : result.boundary_diagnostics) {
++                py::dict item;
++                item["iy"]=event.run.iy;item["lo"]=event.run.lo;item["hi"]=event.run.hi;
++                item["cell_spacing"]=event.cell_spacing;item["fill_level"]=event.fill_level;
++                item["left_fraction"]=event.diagnostic.left_fraction;
++                item["right_fraction"]=event.diagnostic.right_fraction;
++                item["absolute_model_flux_residual"]=event.diagnostic.absolute_model_flux_residual;
++                item["unresolved_edges"]=event.diagnostic.unresolved_edges;
++                boundaries.append(std::move(item));
++            }
++            output["boundary_diagnostics"]=std::move(boundaries);
++            output["coverage_requested"]=result.coverage_requested;output["coverage_certified"]=result.coverage_certified;
++            output["coverage_boxes"]=result.coverage_boxes;output["coverage_unresolved"]=result.coverage_unresolved;output["coverage_components_added"]=result.coverage_components;
+             return output;
+         },
+         py::arg("x"), py::arg("y"), py::kw_only(),
+diff --git a/python/lcbinint_pybind.cpp b/python/lcbinint_pybind.cpp
+index 4587dd5..15aaea7 100644
+--- a/python/lcbinint_pybind.cpp
++++ b/python/lcbinint_pybind.cpp
+@@ -3,6 +3,12 @@
+ #include "bind_jax_ir.hpp"
+ 
+ #include "lcbinint/magnification/probe_diagnostics.hpp"
++#include "lcbinint/magnification/binary_image_discriminant.hpp"
++#include "lcbinint/magnification/bennett_integration.hpp"
++#include "lcbinint/magnification/finite_source_magnifier.hpp"
++#include "lcbinint/magnification/critical_phase_enclosure.hpp"
++#include "lcbinint/magnification/binary_boundary_enclosure.hpp"
++#include "lcbinint/magnification/critical_support_certificate.hpp"
+ 
+ #include <pybind11/pybind11.h>
+ 
+@@ -24,6 +30,12 @@ PYBIND11_MODULE(_lcbinint, m)
+         py::dict out;
+         out["enabled"] = lcbinint::magnification::probe_stats_enabled();
+         out["policy"] = lcbinint::magnification::probe_policy_description();
++        out["continuation_newton_stagnations"] = counters.continuation_newton_stagnations;
++        out["continuation_inclusion_failures"] = counters.continuation_inclusion_failures;
++        out["continuation_duplicate_failures"] = counters.continuation_duplicate_failures;
++        out["continuation_attempts"] = counters.continuation_attempts;
++        out["continuation_accepted"] = counters.continuation_accepted;
++        out["continuation_seconds"] = counters.continuation_seconds;
+         out["certified_solves"] = counters.certified_solves;
+         out["certified_offered"] = counters.certified_offered;
+         out["certified_extrema"] = counters.certified_extrema;
+@@ -31,9 +43,210 @@ PYBIND11_MODULE(_lcbinint, m)
+         out["unproven"] = counters.unproven;
+         out["certified_seconds"] = counters.certified_seconds;
+         out["certify_seconds"] = counters.certify_seconds;
++        out["representative_enabled"] = lcbinint::magnification::representative_probes_enabled();
++        out["representative_groups"] = counters.representative_groups;
++        out["representative_boxes_resolved"] = counters.representative_boxes_resolved;
++        out["representative_skipped"] = counters.representative_skipped;
++        out["representative_mismatches"] = counters.representative_mismatches;
++        out["source_cell_cache_hits"] = counters.source_cell_cache_hits;
++        out["source_cell_enclosures"] = counters.source_cell_enclosures;
++        out["source_cell_reuses"] = counters.source_cell_reuses;
++        out["source_cell_fallbacks"] = counters.source_cell_fallbacks;
++        out["polar_fill_calls"] = counters.polar_fill_calls;
++        out["polar_map_queries"] = counters.polar_map_queries;
++        out["polar_seed_positions"] = counters.polar_seed_positions;
++        out["polar_fill_cells"] = counters.polar_fill_cells;
++        out["polar_fill_seconds"] = counters.polar_fill_seconds;
++        out["polar_coverage_calls"] = counters.polar_coverage_calls;
++        out["polar_coverage_boxes"] = counters.polar_coverage_boxes;
++        out["polar_coverage_unresolved"] = counters.polar_coverage_unresolved;
++        out["polar_coverage_repairs"] = counters.polar_coverage_repairs;
++        out["polar_coverage_certified"] = counters.polar_coverage_certified;
++        out["polar_coverage_seconds"] = counters.polar_coverage_seconds;
++        out["cartesian_fill_calls"] = counters.cartesian_fill_calls;
++        out["cartesian_map_queries"] = counters.cartesian_map_queries;
++        out["cartesian_fill_cells"] = counters.cartesian_fill_cells;
++        out["cartesian_fill_seconds"] = counters.cartesian_fill_seconds;
++        out["cartesian_coverage_calls"] = counters.cartesian_coverage_calls;
++        out["cartesian_coverage_certified"] = counters.cartesian_coverage_certified;
++        out["cartesian_coverage_boxes"] = counters.cartesian_coverage_boxes;
++        out["cartesian_coverage_unresolved"] = counters.cartesian_coverage_unresolved;
++        out["cartesian_coverage_repairs"] = counters.cartesian_coverage_repairs;
++        out["cartesian_coverage_seconds"] = counters.cartesian_coverage_seconds;
++        out["critical_support_calls"] = counters.critical_support_calls;
++        out["critical_support_proven"] = counters.critical_support_proven;
++        out["critical_support_unresolved"] = counters.critical_support_unresolved;
++        out["critical_support_phase_queries"] = counters.critical_support_phase_queries;
++        out["critical_support_proof_queries"] = counters.critical_support_proof_queries;
++        out["critical_support_seconds"] = counters.critical_support_seconds;
++        out["polar_diagonal_runs"] = counters.polar_diagonal_runs;
++        out["critical_arc_seeds"] = counters.critical_arc_seeds;
++        out["critical_uncovered_probes"] = counters.critical_uncovered_probes;
++        out["critical_incremental_solves"] = counters.critical_incremental_solves;
++        out["critical_centre_solves"] = counters.critical_centre_solves;
++        out["critical_grid_checks"] = counters.critical_grid_checks;
++        out["critical_grid_components"] = counters.critical_grid_components;
++        out["critical_phase_solves"] = counters.critical_phase_solves;
++        out["critical_phase_tracked"] = counters.critical_phase_tracked;
++        out["critical_newton_iterations"] = counters.critical_newton_iterations;
++        out["critical_tracking_failures"] = counters.critical_tracking_failures;
++        out["critical_build_seconds"] = counters.critical_build_seconds;
++        out["representative_box_seconds"] = counters.representative_box_seconds;
++        out["representative_count_seconds"] = counters.representative_count_seconds;
++        out["representative_link_checks"] = counters.representative_link_checks;
++        out["representative_polyline_clear"] = counters.representative_polyline_clear;
++        out["representative_verified_skipped"] = counters.representative_verified_skipped;
++        out["representative_conditional_skipped"] = counters.representative_conditional_skipped;
++        out["representative_link_boxes"] = counters.representative_link_boxes;
++        out["representative_link_seconds"] = counters.representative_link_seconds;
++        out["representative_count_ablation"] = lcbinint::magnification::representative_count_ablation_enabled();
++        out["discriminant_enabled"] = lcbinint::magnification::discriminant_diagnostics_enabled();
++        out["discriminant_calls"] = counters.discriminant_calls;
++        out["discriminant_resolved"] = counters.discriminant_resolved;
++        out["discriminant_filtered"] = counters.discriminant_filtered;
++        out["discriminant_unresolved"] = counters.discriminant_unresolved;
++        out["discriminant_mismatches"] = counters.discriminant_mismatches;
++        out["discriminant_seconds"] = counters.discriminant_seconds;
++        out["boundary_enabled"] = lcbinint::magnification::boundary_diagnostics_enabled();
++        out["boundary_model_edges"] = counters.boundary_model_edges;
++        out["boundary_model_unresolved"] = counters.boundary_model_unresolved;
++        out["boundary_model_extra_evaluations"] = counters.boundary_model_extra_evaluations;
++        out["boundary_model_reused_evaluations"] = counters.boundary_model_reused_evaluations;
++        out["boundary_outer_curvature_flux_indicator"] = counters.boundary_outer_curvature_flux_indicator;
++        out["boundary_model_absolute_flux_residual"] = counters.boundary_model_absolute_flux_residual;
++        out["boundary_model_signed_flux_residual"] = counters.boundary_model_signed_flux_residual;
+         return out;
+     }, "Per-thread probe tallies since the last reset.");
+ 
+     m.def("reset_probe_counters", &lcbinint::magnification::reset_probe_counters,
+           "Zero the calling thread's probe tallies.");
++    m.def("_binary_centre_seed_certificate", [](double s,double q,double x,double y,double rho) {
++        return lcbinint::magnification::binary_centre_seed_certificate(s,q,{x,y},rho);
++    });
++    m.def("_binary_rounded_geometry_count", [](double s,double q,double x,double y) {
++        const auto count=lcbinint::magnification::binary_image_count_rounded_geometry(s,q,{x,y});
++        return count.image_count;
++    });
++    m.def("_binary_critical_support_geometry_tubes", [](double s,double q) {
++        py::list out;
++        for (const auto& t:lcbinint::magnification::cached_critical_support_geometry(s,q).audit_tubes(48)) {
++            py::dict item;item["index"]=t.index;item["bins"]=t.bins;item["root"]=t.root;
++            item["centre"]=py::make_tuple(t.centre.x,t.centre.y);item["radius"]=t.radius;
++            item["source_lower"]=py::make_tuple(t.source_lower.x,t.source_lower.y);
++            item["source_upper"]=py::make_tuple(t.source_upper.x,t.source_upper.y);out.append(item);
++        }
++        return out;
++    });
++    m.def("_binary_critical_cluster_enclosure", [](double s,double q,int index,int bins,py::list proposals) {
++        if (py::len(proposals)!=4) throw py::value_error("four root proposals required");
++        std::array<lcbinint::SourcePosition,4> roots;
++        for (std::size_t j=0;j<4;++j) {
++            const auto pair=py::cast<py::tuple>(proposals[j]);roots[j]={py::cast<double>(pair[0]),py::cast<double>(pair[1])};
++        }
++        py::list out;
++        for (const auto& c:lcbinint::magnification::binary_critical_cluster_enclosure(s,q,index,bins,roots)) {
++            py::dict item;item["centre"]=py::make_tuple(c.centre.x,c.centre.y);item["radius"]=c.radius;
++            item["roots"]=c.roots;item["source_lower"]=py::make_tuple(c.source_lower.x,c.source_lower.y);
++            item["source_upper"]=py::make_tuple(c.source_upper.x,c.source_upper.y);out.append(item);
++        }
++        return out;
++    });
++    m.def("_binary_critical_support_certificate", [](double s,double q,double x,double y,double rho) {
++        const auto proof=lcbinint::magnification::cached_critical_support_certificate(s,q,{x,y},rho);
++        py::dict out;out["resolved"]=proof.resolved;out["phase_queries"]=proof.phase_queries;
++        out["proof_queries"]=proof.proof_queries;out["source_visits"]=proof.source_visits;
++        out["outside_roots"]=proof.outside_roots;out["inside_roots"]=proof.inside_roots;
++        out["monotone_roots"]=proof.monotone_roots;out["point_failures"]=proof.point_failures;
++        out["match_failures"]=proof.match_failures;
++        py::list unresolved;
++        for (const auto& u:proof.unresolved) unresolved.append(py::make_tuple(u[0],u[1],u[2]));
++        out["unresolved"]=unresolved;
++        py::list witnesses;
++        for (const auto& w:proof.witnesses)
++            witnesses.append(py::make_tuple(w.position.x,w.position.y,w.inside_radius));
++        out["witnesses"]=witnesses;return out;
++    });
++    m.def("_binary_boundary_enclosure", [](double s,double q,double sx,double sy,double rho,
++                                          double inside_x,double outside_x,double y,double proposal) {
++        const auto proof=lcbinint::magnification::binary_boundary_enclosure(
++            s,q,{sx,sy},rho,inside_x,outside_x,y,proposal);
++        py::dict out;out["resolved"]=proof.resolved;out["lower"]=proof.lower;
++        out["upper"]=proof.upper;out["iterations"]=proof.iterations;return out;
++    });
++    m.def("_binary_critical_phase_proposals", [](double s,double q,double phase) {
++        py::list output;
++        for (const auto& p : lcbinint::magnification::binary_critical_phase_proposals(s,q,phase))
++            output.append(py::make_tuple(p.x,p.y));
++        return output;
++    });
++    m.def("_binary_critical_phase_enclosure", [](double s,double q,int index,int bins,
++                                               py::list proposals,double fraction) {
++        if (py::len(proposals)!=4) throw py::value_error("four root proposals required");
++        std::array<lcbinint::SourcePosition,4> roots;
++        for (std::size_t j=0;j<4;++j) {
++            const auto pair=py::cast<py::tuple>(proposals[j]);
++            roots[j]={py::cast<double>(pair[0]),py::cast<double>(pair[1])};
++        }
++        const auto proof=lcbinint::magnification::binary_critical_phase_enclosure(
++            s,q,index,bins,roots,fraction);
++        py::dict output;output["resolved"]=proof.resolved;
++        py::list radii,margins,source_lower,source_upper;
++        for (std::size_t j=0;j<4;++j) {
++            radii.append(proof.radii[j]);margins.append(proof.margins[j]);
++            source_lower.append(py::make_tuple(proof.source_lower[j].x,proof.source_lower[j].y));
++            source_upper.append(py::make_tuple(proof.source_upper[j].x,proof.source_upper[j].y));
++        }
++        output["radii"]=radii;output["margins"]=margins;
++        output["source_lower"]=source_lower;output["source_upper"]=source_upper;
++        return output;
++    },py::arg("s"),py::arg("q"),py::arg("index"),py::arg("bins"),
++      py::arg("roots"),py::arg("fraction")=1.0);
++    m.def("_binary_critical_curve_diagnostic", [](double s,double q,int bins) {
++        lcbinint::magnification::FiniteSourceSettings settings;
++        settings.caustic_bins=bins;
++        lcbinint::magnification::FiniteSourceMagnifier magnifier(settings);
++        py::list output;
++        for (const auto& branch : magnifier.binary_critical_curve_branches_cached(s,q)) {
++            py::list points;
++            for (const auto& p : branch) points.append(py::make_tuple(p.x,p.y));
++            output.append(points);
++        }
++        return output;
++    },py::arg("s"),py::arg("q"),py::arg("bins")=1400);
++    m.def("_binary_image_count_discriminant",
++        [](double s, double q, double x, double y, bool interval_only) {
++            const auto count = lcbinint::magnification::binary_image_count_discriminant(
++                s,q,{x,y},!interval_only);
++            py::dict out;
++            out["image_count"] = count.image_count;
++            out["status"] = lcbinint::magnification::discriminant_status_name(count.status);
++            out["filtered"] = count.filtered;
++            return out;
++        }, py::arg("s"), py::arg("q"), py::arg("x"), py::arg("y"),
++        py::arg("interval_only") = false,
++        "Diagnostic real-quintic filtered sign; -1 means a root solve is required.");
++    m.def("_binary_source_box",[](double s,double q,double x,double y,double rho) {
++        const auto box=lcbinint::magnification::binary_source_box(s,q,{x,y},rho);
++        py::dict out;
++        out["lower"]=py::make_tuple(box.lower.x,box.lower.y);
++        out["upper"]=py::make_tuple(box.upper.x,box.upper.y);
++        out["image_count"]=box.image_count;
++        out["cache_hits"]=box.cache_hits;
++        out["enclosure_evaluations"]=box.enclosure_evaluations;
++        return out;
++    },py::arg("s"),py::arg("q"),py::arg("x"),py::arg("y"),py::arg("rho"),
++       "Diagnostic cached source-cell certificate; a miss preserves partial refinement.");
++    m.def("_bennett_boundary_model_residual",
++        [](double delta, double node, double next_node, double limb, double delta_c) {
++            const auto value = lcbinint::magnification::detail::bennett_boundary_model_residual(
++                delta,node,next_node,limb,delta_c);
++            py::dict out;
++            out["resolved"] = value.resolved;
++            out["signed_residual"] = value.signed_residual;
++            out["sqrt_coefficient"] = value.sqrt_coefficient;
++            out["linear_coefficient"] = value.linear_coefficient;
++            return out;
++        }, py::arg("delta"), py::arg("node"), py::arg("next_node"),
++        py::arg("limb"), py::arg("delta_c")=0.15,
++        "Local model defect only; excludes the unknown remainder and is not an error bound.");
+ }
+diff --git a/src/lcbinint/magnification/bennett_integration.hpp b/src/lcbinint/magnification/bennett_integration.hpp
+index b12c4d7..a267bcf 100644
+--- a/src/lcbinint/magnification/bennett_integration.hpp
++++ b/src/lcbinint/magnification/bennett_integration.hpp
+@@ -65,6 +65,42 @@ inline double bennett_boundary_residual(
+         (weights.node - 1.0) * node_value;
+ }
+ 
++struct BennettBoundaryModelResidual {
++    bool resolved = false;
++    // Integral(model) - Bennett(model), in node-value times grid-spacing units.
++    double signed_residual = 0.0;
++    double sqrt_coefficient = 0.0;
++    double linear_coefficient = 0.0;
++};
++
++// Diagnostic only: fit a + b*sqrt(t) + c*t using the limb and the nearest two
++// inside samples at t=delta and delta+1 (t in grid spacings). It measures the
++// known model defect, including the delta_c guard. It does NOT bound the model
++// remainder, interior quadrature, boundary-position or outer-coordinate errors.
++inline BennettBoundaryModelResidual bennett_boundary_model_residual(
++    double delta, double node, double next_node, double limb, double delta_c)
++{
++    if (!std::isfinite(delta) || delta < 0.0 || delta > 1.0 ||
++        !std::isfinite(node) || !std::isfinite(next_node) || !std::isfinite(limb) ||
++        !std::isfinite(delta_c) || delta_c < 0.0 || delta_c > 1.0) {
++        return {};
++    }
++    if (node == limb && next_node == limb) return {true, 0.0, 0.0, 0.0};
++    if (delta <= 64.0*std::numeric_limits<double>::epsilon()) return {};
++    const double t1=delta, t2=delta+1.0;
++    const double s1=std::sqrt(t1), s2=std::sqrt(t2);
++    const double determinant=s1*t2-s2*t1;
++    const double u=node-limb, v=next_node-limb;
++    const double b=(u*t2-v*t1)/determinant;
++    const double c=(s1*v-s2*u)/determinant;
++    const auto weights=bennett_boundary_weights(delta,delta_c);
++    const double length=delta+0.5;
++    const double residual = b*((2.0/3.0)*length*std::sqrt(length)-weights.node*s1)
++                          + c*(0.5*length*length-weights.node*t1);
++    if (!std::isfinite(b) || !std::isfinite(c) || !std::isfinite(residual)) return {};
++    return {true,residual,b,c};
++}
++
+ // Bennett (2010), equation (15), for the first two samples adjacent to an
+ // outer-coordinate boundary.  eta is the distance from the first interior
+ // sample to the boundary in grid spacings.
+diff --git a/src/lcbinint/magnification/cartesian_run_fill.hpp b/src/lcbinint/magnification/cartesian_run_fill.hpp
+index 9be680d..bdc1d8d 100644
+--- a/src/lcbinint/magnification/cartesian_run_fill.hpp
++++ b/src/lcbinint/magnification/cartesian_run_fill.hpp
+@@ -1,13 +1,17 @@
+ #pragma once
+ 
+ #include <algorithm>
++#include <array>
++#include <chrono>
+ #include <cmath>
+ #include <cstddef>
+ #include <cstdint>
+ #include <iterator>
++#include <functional>
+ #include <limits>
+ #include <memory>
+ #include <optional>
++#include <type_traits>
+ #include <utility>
+ #include <vector>
+ 
+@@ -23,6 +27,30 @@ struct CartesianRun {
+     std::int64_t lo = 0;
+     std::int64_t hi = -1;
+ };
++struct CartesianCoverageDomain {
++    std::int64_t extent=0;
++    std::size_t maximum_boxes=65536;
++    std::function<bool(std::int64_t,std::int64_t,std::int64_t,std::int64_t)> outside;
++    // A certified fence may restrict the global domain. Component extents
++    // are proposals only; the callback must prove that no physical image
++    // can leave their union. An empty return retains the global domain.
++    std::function<std::vector<std::array<std::int64_t,4>>(const std::vector<std::array<std::int64_t,4>>&)> fenced_regions;
++};
++
++struct CartesianRunBoundaryDiagnostic {
++    double left_fraction=std::numeric_limits<double>::quiet_NaN();
++    double right_fraction=std::numeric_limits<double>::quiet_NaN();
++    double signed_model_flux_residual=0.0;
++    double absolute_model_flux_residual=0.0;
++    int unresolved_edges=0;
++};
++
++struct CartesianRunBoundaryTraceEvent {
++    CartesianRun run;
++    CartesianRunBoundaryDiagnostic diagnostic;
++    double cell_spacing=0;
++    int fill_level=0;
++};
+ 
+ enum class CartesianRunFillTraceEventKind {
+     run_discovered,
+@@ -55,10 +83,13 @@ struct CartesianRunFillTrace {
+     static constexpr std::size_t default_maximum_events = 1U << 18;
+ 
+     std::vector<CartesianRunFillTraceEvent> events;
++    std::vector<CartesianRunBoundaryTraceEvent> boundary_diagnostics;
+     int fill_level = 0;
+     double cell_spacing = 0.0;
+     std::size_t maximum_events = default_maximum_events;
+     bool truncated = false;
++    bool coverage_requested=false,coverage_certified=false;
++    std::int64_t coverage_boxes=0,coverage_unresolved=0,coverage_components=0;
+ 
+     template <typename... Args>
+     void append(Args&&... args)
+@@ -144,10 +175,12 @@ inline CartesianRunFillNoTrace& default_cartesian_run_fill_trace() noexcept
+     return sink;
+ }
+ 
++
+ struct CartesianBoundaryContribution {
+     double area = 0.0;
+     int edges = 0;
+     bool valid = true;
++    std::optional<CartesianRunBoundaryDiagnostic> diagnostic;
+ };
+ 
+ struct CartesianRunFillLimits {
+@@ -170,6 +203,9 @@ struct CartesianRunFillCounters {
+     std::int64_t seeds_offered = 0;
+     std::int64_t unique_seed_cells = 0;
+     std::int64_t duplicate_seeds_avoided = 0;
++    std::int64_t coverage_probe_cells = 0;
++    std::int64_t coverage_components_added = 0;
++    std::int64_t coverage_boxes=0,coverage_unresolved=0;
+     std::int64_t provisional_components = 0;
+     std::int64_t merged_components = 0;
+ };
+@@ -194,12 +230,17 @@ struct CartesianRunFillResult {
+     // Kept aligned with `runs` so the outer-coordinate rule can reconstruct
+     // F(y) for each connected image component.
+     std::vector<double> run_areas;
++    // Empty unless explicitly requested by a richer boundary callback. Keep
++    // per-run witnesses for local repair without repeating the global fill.
++    std::vector<CartesianRunBoundaryDiagnostic> run_boundary_diagnostics;
+     std::vector<std::size_t> component_roots;
+     std::vector<int> component_rows;
+     std::vector<long double> component_areas;
+     std::vector<std::int64_t> component_cells;
+     std::vector<int> component_boundary_edges;
+     CartesianRunFillCounters counters;
++    bool coverage_certified=false;
++    double coverage_seconds=0;
+ 
+     bool ok() const noexcept { return status == CartesianRunFillStatus::ok; }
+ };
+@@ -784,7 +825,9 @@ CartesianRunFillResult fill_cartesian_runs(
+     CellWeight&& cell_weight,
+     BoundaryWeight&& boundary_weight,
+     CartesianRunFillLimits limits = {},
+-    Trace& trace = default_cartesian_run_fill_trace())
++    Trace& trace = default_cartesian_run_fill_trace(),
++    const std::vector<CartesianLatticeSeed>* coverage_probes = nullptr,
++    const CartesianCoverageDomain* coverage_domain = nullptr)
+ {
+     using namespace cartesian_run_fill_detail;
+ 
+@@ -867,6 +910,9 @@ CartesianRunFillResult fill_cartesian_runs(
+         CellState right_inside = seed_state;
+         std::optional<CellState> left_outside;
+         std::optional<CellState> right_outside;
++        // Optional richer boundary callbacks reuse neighbours that the scan
++        // has already classified. No cell cache or additional map evaluations.
++        std::optional<CellState> left_second,right_second,left_first,right_first;
+         double area = cell_weight(seed_ix, iy, seed_state);
+         if (!std::isfinite(area)) {
+             fail(CartesianRunFillStatus::invalid_contribution);
+@@ -892,6 +938,12 @@ CartesianRunFillResult fill_cartesian_runs(
+                     break;
+                 }
+                 lo = ix;
++                if constexpr (std::is_invocable_v<BoundaryWeight,const CartesianRun&,
++                    const CellState&,const CellState&,const CellState&,const CellState&,
++                    const std::optional<CellState>&,const std::optional<CellState>&>) {
++                    left_second=left_inside;
++                    if (!left_first) left_first=*state;
++                }
+                 left_inside = *state;
+                 const double contribution = cell_weight(ix, iy, *state);
+                 if (!std::isfinite(contribution)) {
+@@ -921,6 +973,12 @@ CartesianRunFillResult fill_cartesian_runs(
+                 break;
+             }
+             hi = ix;
++            if constexpr (std::is_invocable_v<BoundaryWeight,const CartesianRun&,
++                const CellState&,const CellState&,const CellState&,const CellState&,
++                const std::optional<CellState>&,const std::optional<CellState>&>) {
++                right_second=right_inside;
++                if (!right_first) right_first=*state;
++            }
+             right_inside = *state;
+             const double contribution = cell_weight(ix, iy, *state);
+             if (!std::isfinite(contribution)) {
+@@ -940,8 +998,15 @@ CartesianRunFillResult fill_cartesian_runs(
+             return std::nullopt;
+         }
+         const CartesianRun run {iy, lo, hi};
+-        const CartesianBoundaryContribution boundary = boundary_weight(
+-            run, left_inside, *left_outside, right_inside, *right_outside);
++        CartesianBoundaryContribution boundary;
++        if constexpr (std::is_invocable_v<BoundaryWeight,const CartesianRun&,
++            const CellState&,const CellState&,const CellState&,const CellState&,
++            const std::optional<CellState>&,const std::optional<CellState>&>) {
++            if (!left_second) left_second=right_first;
++            if (!right_second) right_second=left_first;
++            boundary=boundary_weight(run,left_inside,*left_outside,right_inside,*right_outside,
++                                     left_second,right_second);
++        } else boundary=boundary_weight(run,left_inside,*left_outside,right_inside,*right_outside);
+         if (!boundary.valid || !std::isfinite(boundary.area)) {
+             fail(CartesianRunFillStatus::invalid_contribution);
+             return std::nullopt;
+@@ -951,6 +1016,18 @@ CartesianRunFillResult fill_cartesian_runs(
+         const std::size_t run_index = result.runs.size();
+         result.runs.push_back({run, component});
+         result.run_areas.push_back(area);
++        if (boundary.diagnostic) {
++            if (result.run_boundary_diagnostics.empty())
++                result.run_boundary_diagnostics.resize(run_index);
++            result.run_boundary_diagnostics.push_back(*boundary.diagnostic);
++            if constexpr (std::is_same_v<Trace,CartesianRunFillTrace>) {
++                if (trace.boundary_diagnostics.size()<trace.maximum_events)
++                    trace.boundary_diagnostics.push_back({run,*boundary.diagnostic,trace.cell_spacing,trace.fill_level});
++                else trace.truncated=true;
++            }
++        } else if (!result.run_boundary_diagnostics.empty()) {
++            result.run_boundary_diagnostics.emplace_back();
++        }
+         trace.run_discovered(
+             run_index, run, parent_run_index, component);
+         components.accumulate(component, area, cells, boundary.edges);
+@@ -964,30 +1041,6 @@ CartesianRunFillResult fill_cartesian_runs(
+         return run_index;
+     };
+ 
+-    // Register every seed run before consuming any frontier.  Traversal
+-    // therefore cannot decide whether a later certified seed exists.
+-    for (const auto& seed : seeds) {
+-        if (rows.find_inside(seed.iy, seed.ix) != nullptr) {
+-            ++result.counters.duplicate_seeds_avoided;
+-            continue;
+-        }
+-        const auto state = evaluate(seed.ix, seed.iy);
+-        if (!state.has_value()) {
+-            return result;
+-        }
+-        if (!is_inside(*state)) {
+-            continue;
+-        }
+-        const std::size_t component = components.add();
+-        ++result.counters.provisional_components;
+-        if (!discover_run(
+-                seed.ix, seed.iy, *state, component,
+-                CartesianRunFillTraceEvent::npos,
+-                std::nullopt).has_value()) {
+-            return result;
+-        }
+-    }
+-
+     const auto drain_frontier = [&]() {
+       while (frontier_head < frontier.size()) {
+         const std::size_t run_index = frontier[frontier_head++];
+@@ -1081,8 +1134,107 @@ CartesianRunFillResult fill_cartesian_runs(
+       return true;
+     };
+ 
+-    if (!drain_frontier()) {
+-        return result;
++    // Exhaust one seed before considering the next; reached seeds are skipped.
++    for (const auto& seed : seeds) {
++        if (rows.find_inside(seed.iy, seed.ix) != nullptr) {
++            ++result.counters.duplicate_seeds_avoided;
++            continue;
++        }
++        const auto state = evaluate(seed.ix, seed.iy);
++        if (!state.has_value()) {
++            return result;
++        }
++        if (!is_inside(*state)) {
++            continue;
++        }
++        const std::size_t component = components.add();
++        ++result.counters.provisional_components;
++        if (!discover_run(
++                seed.ix, seed.iy, *state, component,
++                CartesianRunFillTraceEvent::npos,
++                std::nullopt).has_value()) {
++            return result;
++        }
++        if (!drain_frontier()) return result;
++    }
++
++
++    // Incremental coverage repair: the normal frontier is exhausted first.
++    // Only an unreached inside cell starts more work. The row registry, run
++    // graph, cell weights, and existing frontier are retained throughout.
++    if (coverage_probes != nullptr || coverage_domain != nullptr) {
++        const auto add_cell = [&](std::int64_t ix,std::int64_t iy) {
++            ++result.counters.coverage_probe_cells;
++            if (rows.find_inside(iy,ix)!=nullptr) return true;
++            const auto state=evaluate(ix,iy);
++            if (!state.has_value()) return false;
++            if (!is_inside(*state)) return true;
++            const auto component=components.add();
++            ++result.counters.provisional_components;
++            ++result.counters.coverage_components_added;
++            if (!discover_run(ix,iy,*state,component,
++                CartesianRunFillTraceEvent::npos,std::nullopt).has_value()) return false;
++            return drain_frontier();
++        };
++        if (coverage_probes) for (const auto& probe:*coverage_probes) {
++            if (!add_cell(probe.ix,probe.iy)) return result;
++            // A claimed centre already reaches every inside 8-neighbour.
++            // Only an outside centre needs the same local snapping fallback
++            // as a regular seed; search all neighbours to retain split pieces.
++            if (rows.find_inside(probe.iy,probe.ix)!=nullptr) continue;
++            for (int dy=-1;dy<=1;++dy) for (int dx=-1;dx<=1;++dx) {
++                if (dx==0 && dy==0) continue;
++                std::int64_t ix=probe.ix,iy=probe.iy;
++                if ((dx<0 && !decrement(ix,ix)) || (dx>0 && !increment(ix,ix))
++                    || (dy<0 && !decrement(iy,iy)) || (dy>0 && !increment(iy,iy))) {
++                    fail(CartesianRunFillStatus::coordinate_overflow);return result;
++                }
++                if (!add_cell(ix,iy)) return result;
++            }
++        }
++        if (coverage_domain && coverage_domain->extent>=0 && coverage_domain->outside) {
++            const auto coverage_started=std::chrono::steady_clock::now();
++            using Box=std::array<std::int64_t,4>;
++            const auto n=coverage_domain->extent;
++            std::vector<Box> pending;
++            if (coverage_domain->fenced_regions) {
++                std::vector<Box> bounds(components.size(),{n,-n,n,-n});
++                for (const auto& r:result.runs) {
++                    auto& b=bounds[components.find(r.component)];
++                    b[0]=std::min(b[0],r.run.lo);b[1]=std::max(b[1],r.run.hi);
++                    b[2]=std::min(b[2],r.run.iy);b[3]=std::max(b[3],r.run.iy);
++                }
++                bounds.erase(std::remove_if(bounds.begin(),bounds.end(),[](const Box& b){return b[0]>b[1];}),bounds.end());
++                pending=coverage_domain->fenced_regions(bounds);
++            }
++            if (pending.empty()) pending.push_back({-n,n,-n,n});
++            while (!pending.empty()) {
++                if (static_cast<std::size_t>(result.counters.coverage_boxes)>=coverage_domain->maximum_boxes) {
++                    result.counters.coverage_unresolved+=pending.size();break;
++                }
++                const Box b=pending.back();pending.pop_back();++result.counters.coverage_boxes;
++                bool covered=true;
++                for (auto y=b[2];y<=b[3];++y) {
++                    const auto* interval=rows.find_inside(y,b[0]);
++                    if (!interval || interval->hi<b[1]) {covered=false;break;}
++                }
++                if (covered || coverage_domain->outside(b[0],b[1],b[2],b[3])) continue;
++                if (b[0]==b[1] && b[2]==b[3]) {
++                    if (!add_cell(b[0],b[2])) return result;
++                    if (!rows.find_inside(b[2],b[0])) ++result.counters.coverage_unresolved;
++                    continue;
++                }
++                if (b[1]-b[0]>=b[3]-b[2]) {
++                    const auto m=b[0]+(b[1]-b[0])/2;
++                    pending.push_back({b[0],m,b[2],b[3]});pending.push_back({m+1,b[1],b[2],b[3]});
++                } else {
++                    const auto m=b[2]+(b[3]-b[2])/2;
++                    pending.push_back({b[0],b[1],b[2],m});pending.push_back({b[0],b[1],m+1,b[3]});
++                }
++            }
++            result.coverage_certified=result.counters.coverage_unresolved==0;
++            result.coverage_seconds=std::chrono::duration<double>(std::chrono::steady_clock::now()-coverage_started).count();
++        }
+     }
+ 
+     result.component_roots.resize(components.size());
+diff --git a/src/lcbinint/magnification/component_certificate.cpp b/src/lcbinint/magnification/component_certificate.cpp
+index ae20a19..a893001 100644
+--- a/src/lcbinint/magnification/component_certificate.cpp
++++ b/src/lcbinint/magnification/component_certificate.cpp
+@@ -129,10 +129,9 @@ DiskSupport certify_disk_support(
+                 continue;
+             }
+ 
+-            // Transverse uncertainty of the chord representation.  The second
+-            // difference is the sagitta scale of the local arc and stays a
+-            // valid bound where the curvature blows up at a cusp, which is
+-            // exactly where a chord is least trustworthy.
++            // Heuristic sagitta scale from the sampled chord representation.
++            // Continuous-arc coverage needs a separate enclosure, especially
++            // near a cusp. This scale proposes conservative extra probes.
+             const SourcePosition curvature {
+                 branch[prev].x - 2.0 * branch[i].x + branch[next].x,
+                 branch[prev].y - 2.0 * branch[i].y + branch[next].y,
+diff --git a/src/lcbinint/magnification/component_certificate.hpp b/src/lcbinint/magnification/component_certificate.hpp
+index 1b9d61b..e3947e6 100644
+--- a/src/lcbinint/magnification/component_certificate.hpp
++++ b/src/lcbinint/magnification/component_certificate.hpp
+@@ -61,6 +61,9 @@ struct DiskExtremum {
+     double distance = 0.0;           // |position - source centre|
+     double polyline_margin = 0.0;    // transverse uncertainty of the polyline
+     bool inside_disk = false;        // distance < source_radius
++    // Provenance in the shared sampled critical/caustic branches. -1 means
++    // this descriptor came from a consumer without a matching image cache.
++    int branch_index=-1,vertex_index=-1;
+ };
+ 
+ // A source-plane point that the certificate claims lies strictly inside one
+@@ -128,7 +131,7 @@ DiskSupport finalize_disk_support(
+ // traversal so that a support descriptor can never mean two different things
+ // to them.
+ template <typename ProbeFn>
+-bool resolve_certified_probes(const DiskSupport& support, ProbeFn&& probe)
++bool resolve_certified_probe_candidates(const DiskSupport& support, ProbeFn&& probe)
+ {
+     if (support.extrema.empty()) {
+         return !support.unresolved;
+@@ -147,7 +150,7 @@ bool resolve_certified_probes(const DiskSupport& support, ProbeFn&& probe)
+         if (departed[slot]) {
+             continue;
+         }
+-        const int count = probe(candidate.position);
++        const int count = probe(candidate);
+         if (count < 0) {
+             continue;
+         }
+@@ -174,4 +177,13 @@ bool resolve_certified_probes(const DiskSupport& support, ProbeFn&& probe)
+     return proven;
+ }
+ 
++// Preserve the position-only interface shared by native and Jet consumers.
++template <typename ProbeFn>
++bool resolve_certified_probes(const DiskSupport& support, ProbeFn&& probe)
++{
++    return resolve_certified_probe_candidates(support, [&](const DiskProbe& candidate) {
++        return probe(candidate.position);
++    });
++}
++
+ } // namespace lcbinint::magnification
+diff --git a/src/lcbinint/magnification/finite_source_magnifier.cpp b/src/lcbinint/magnification/finite_source_magnifier.cpp
+index 4c7995e..f46c295 100644
+--- a/src/lcbinint/magnification/finite_source_magnifier.cpp
++++ b/src/lcbinint/magnification/finite_source_magnifier.cpp
+@@ -1,16 +1,23 @@
+ #include "lcbinint/magnification/finite_source_magnifier.hpp"
+ #include "lcbinint/magnification/cartesian_run_fill.hpp"
+ #include "lcbinint/magnification/component_certificate.hpp"
++#include "lcbinint/magnification/caustic_probe_links.hpp"
++#include "lcbinint/magnification/critical_support_certificate.hpp"
+ #include "lcbinint/magnification/polar_run_walker.hpp"
+ 
+ #include "lcbinint/magnification/point_source_magnifier.hpp"
+ #include "lcbinint/magnification/probe_diagnostics.hpp"
++#include "lcbinint/magnification/binary_image_discriminant.hpp"
+ #include "lcbinint/math/polynomial_roots.hpp"
++#include "lcbinint/math/outward_interval.hpp"
++#include "lcbinint/math/filtered_ball.hpp"
++#include <type_traits>
+ 
+ 
+ #include <algorithm>
+ #include <array>
+ #include <chrono>
++#include <cfenv>
+ #include <cmath>
+ #include <cstdio>
+ #include <cstdlib>
+@@ -235,6 +242,7 @@ struct BinaryLensMapper {
+     double m1 = 0.0;
+     double m2 = 0.0;
+     double source_origin_shift = 0.0;
++    double input_mass_ratio=0.0;
+ };
+ 
+ struct TripleLensMapper {
+@@ -251,7 +259,119 @@ BinaryLensMapper make_binary_lens_mapper(double separation, double mass_ratio)
+     const Complex lens_separation = q_input < 1.0 ? Complex(-s, 0.0) : Complex(s, 0.0);
+     const double m1 = 1.0 / (1.0 + q);
+     const double m2 = q * m1;
+-    return {lens_separation, m1, m2, lens_separation.real() * m1};
++    return {lens_separation, m1, m2, lens_separation.real() * m1,q_input};
++}
++
++struct EnclosedBinaryGeometry {
++    math::OutwardInterval m1,m2,shift;
++};
++EnclosedBinaryGeometry enclosed_binary_geometry(const BinaryLensMapper& mapper) {
++    using I=math::OutwardInterval;
++    const I q=mapper.input_mass_ratio<1 ? I(mapper.input_mass_ratio) : I(1)/I(mapper.input_mass_ratio);
++    const I first=I(1)/(I(1)+q),second=q*first,shift=I(mapper.separation.real())*first;
++    const auto hull=[](I exact,double rounded) {return I(std::min(exact.lo,rounded),std::max(exact.hi,rounded));};
++    // Cover both the exact-input mathematical model and the existing rounded
++    // mapper; neither model may hide an unvisited interior lattice point.
++    return {hull(first,mapper.m1),hull(second,mapper.m2),hull(shift,mapper.source_origin_shift)};
++}
++
++struct CertifiedSeedSupportIdentity {
++    double s=0,q=0,rho=0;
++    SourcePosition source{};
++    bool proven=false;
++    std::vector<SourcePosition> seeds;
++};
++thread_local CertifiedSeedSupportIdentity certified_seed_support;
++bool matching_seed_support(const BinaryLensMapper& mapper,SourcePosition source,double rho) {
++    const auto& c=certified_seed_support;
++    return critical_enclosure_detail::supported_arithmetic() && c.proven && c.s==std::abs(mapper.separation.real()) && c.q==mapper.input_mass_ratio &&
++           c.source.x==source.x && c.source.y==source.y && c.rho==rho;
++}
++using ImageFenceBox=std::array<double,4>;
++// Every physical component has a certified seed. A closed rectangle whose
++// entire boundary maps outside the open source disk traps any component
++// containing one of those seeds. These fences restrict coverage work; they
++// do not estimate an integral error or infer topology from sampled edges.
++std::vector<ImageFenceBox> certified_image_fences(const BinaryLensMapper& mapper,
++    SourcePosition source,double rho,double spacing,std::vector<ImageFenceBox> boxes,
++    const std::vector<SourcePosition>& seeds)
++{
++    using I=math::OutwardInterval;
++    if (!matching_seed_support(mapper,source,rho)) return {};
++    for (const auto& z:seeds) boxes.push_back({z.x,z.x,z.y,z.y});
++    for (const auto& z:certified_seed_support.seeds) boxes.push_back({z.x,z.x,z.y,z.y});
++    if (boxes.empty() || !(spacing>0)) return {};
++    for (auto& b:boxes) {
++        const double padding=std::max(4*spacing,std::max(b[1]-b[0],b[3]-b[2])/8);
++        b={math::down(b[0]-padding),math::up(b[1]+padding),math::down(b[2]-padding),math::up(b[3]+padding)};
++    }
++    const auto geometry=enclosed_binary_geometry(mapper);
++    const auto outside=[&](const ImageFenceBox& b) {
++        const I x(b[0],b[1]),y(b[2],b[3]),xa=x-I(mapper.separation.real());
++        const I inv1=I(1)/(math::square(xa)+math::square(y)),inv2=I(1)/(math::square(x)+math::square(y));
++        const I fx=x-geometry.m1*xa*inv1-geometry.m2*x*inv2-geometry.shift-I(source.x);
++        const I fy=y-geometry.m1*y*inv1-geometry.m2*y*inv2-I(source.y);
++        const I distance=math::square(fx)+math::square(fy);
++        return distance.finite() && distance.lo>math::square(I(rho)).hi;
++    };
++    for (int attempt=0;attempt<4;++attempt) {
++        bool changed=true;
++        while (changed) {
++            changed=false;
++            for (std::size_t i=0;i<boxes.size() && !changed;++i)
++                for (std::size_t j=0;j<i;++j) {
++                    auto& a=boxes[j];const auto b=boxes[i];
++                    if (a[0]>b[1] || b[0]>a[1] || a[2]>b[3] || b[2]>a[3]) continue;
++                    a={std::min(a[0],b[0]),std::max(a[1],b[1]),std::min(a[2],b[2]),std::max(a[3],b[3])};
++                    boxes.erase(boxes.begin()+i);changed=true;break;
++                }
++        }
++        bool all_proven=true;
++        for (auto& b:boxes) {
++            std::vector<ImageFenceBox> pending{{b[0],b[0],b[2],b[3]},{b[1],b[1],b[2],b[3]},
++                                               {b[0],b[1],b[2],b[2]},{b[0],b[1],b[3],b[3]}};
++            int queries=0;
++            while (!pending.empty() && queries++<512) {
++                const auto edge=pending.back();pending.pop_back();
++                if (outside(edge)) continue;
++                const int k=edge[0]==edge[1] ? 2 : 0;
++                const double midpoint=edge[k]+(edge[k+1]-edge[k])/2;
++                if (!(midpoint>edge[k] && midpoint<edge[k+1])) {pending.push_back(edge);break;}
++                auto a=edge,c=edge;a[k+1]=midpoint;c[k]=midpoint;
++                pending.push_back(a);pending.push_back(c);
++            }
++            if (!pending.empty()) {
++                all_proven=false;
++                const double padding=std::max(4*spacing,std::max(b[1]-b[0],b[3]-b[2])/4);
++                b={math::down(b[0]-padding),math::up(b[1]+padding),math::down(b[2]-padding),math::up(b[3]+padding)};
++            }
++        }
++        if (all_proven) return boxes;
++    }
++    return {};
++}
++
++// Seed-independent angular scale for an experimental binary polar grid.
++// If R exceeds every lens radius L, the lens equation gives
++// R <= B + M/(R-L), B=max source radius about the lens-coordinate origin.
++// Thus R <= (B+L+sqrt((B-L)^2+4M))/2. This is an image-radius bound,
++// not a flux-error bound or a source-component completeness certificate.
++double binary_polar_geometry_radius(
++    const BinaryLensMapper& mapper, SourcePosition source, double source_radius)
++{
++    using I=math::OutwardInterval;
++    const auto sqrt_interval=[](I value) {
++        return I(std::max(0.0,math::down(std::sqrt(std::max(0.0,value.lo)))),
++                 math::up(std::sqrt(value.hi)));
++    };
++    const I sx=I(source.x)+I(mapper.source_origin_shift), sy(source.y);
++    const I b=sqrt_interval(math::square(sx)+math::square(sy))+I(source_radius);
++    const I l(std::abs(mapper.separation.real())), mass=I(mapper.m1)+I(mapper.m2);
++    const I bound=(b+l+sqrt_interval(math::square(b-l)+I(4)*mass))/I(2);
++    // Keep the existing four-source-radius angular padding. Angular columns
++    // use this scale only; the radial walk is not truncated at this radius.
++    const I padded=bound+I(4)*I(source_radius);
++    return padded.finite() ? std::max(1.0,padded.hi) : std::nan("");
+ }
+ 
+ TripleLensMapper make_triple_lens_mapper(const model::TripleLensGeometry& geometry)
+@@ -1686,13 +1806,102 @@ std::vector<std::vector<SourcePosition>> build_binary_critical_curves(
+     int bins)
+ {
+     std::vector<std::vector<SourcePosition>> branches(4);
++    // Experimental proposal path. Residual/separation checks are numerical
++    // guards, not a continuous-arc certificate. Keep the default quartic path.
++    // Below 512 phases the measured prediction cost did not consistently
++    // beat the quartic solver. This is a cost gate, not an accuracy criterion.
++    const bool continuation = bins>=512 &&
++        std::getenv("LCBININT_CRITICAL_CONTINUATION") != nullptr;
++    const bool stats=probe_stats_enabled();
++    const auto started=stats ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
++    const double q_input = std::abs(mass_ratio);
++    const double q = q_input < 1.0 ? q_input : 1.0 / q_input;
++    const double m1 = 1.0 / (1.0 + q), m2 = q * m1;
++    const Complex a(q_input < 1.0 ? -std::abs(separation) : std::abs(separation), 0.0);
++    const double step = 2.0 * kPi / static_cast<double>(bins);
++    struct Jet { Complex value,derivative,second; };
++    auto inverse = [](Complex z) {
++        const double norm=std::norm(z);
++        if (!(norm>0.0) || !std::isfinite(norm))
++            return Complex(std::numeric_limits<double>::quiet_NaN(),0.0);
++        return std::conj(z)*(1.0/norm);
++    };
++    auto evaluate = [&](Complex z) {
++        const Complex u=inverse(z-a),v=inverse(z);
++        const Complex p=m1*u*u,t=m2*v*v;
++        return Jet{p+t,-2.0*(p*u+t*v),6.0*(p*u*u+t*v*v)};
++    };
++    std::array<Jet,4> previous_jets{};
++    bool jets_valid=false;
+     for (int i = 0; i < bins; ++i) {
+         const double phase_angle = 2.0 * kPi * static_cast<double>(i) /
+                                    static_cast<double>(bins);
+-        append_tracked_caustic_points(
+-            branches,
+-            critical_curve_points_at_phase(separation, mass_ratio, phase_angle));
+-    }
++        std::vector<SourcePosition> points;
++        bool preserve_order=false;
++        if (continuation && jets_valid && !branches[0].empty()) {
++            const Complex target = std::polar(1.0, phase_angle);
++            const Complex previous = std::polar(1.0, phase_angle-step);
++            std::size_t index=0;
++            const Complex phase_delta=target-previous;
++            for (const auto& branch : branches) {
++                Complex z(branch.back().x, branch.back().y);
++                const Jet old=previous_jets[index++];
++                const Complex inv=inverse(old.derivative);
++                const Complex linear=phase_delta*inv;
++                z += linear-0.5*old.second*inv*linear*linear;
++                bool converged = false;
++                for (int iteration=0; iteration<8; ++iteration) {
++                    if (stats) ++probe_counters().critical_newton_iterations;
++                    const Jet jet=evaluate(z);
++                    const Complex correction=(jet.value-target)*inverse(jet.derivative);
++                    z -= correction;
++                    if (!std::isfinite(std::abs(z))) break;
++                    if (std::abs(correction) <= 8.0*std::numeric_limits<double>::epsilon()
++                        *std::max(1.0,std::abs(z))) {
++                        converged = std::abs(evaluate(z).value-target) <= 1.0e-11;
++                        break;
++                    }
++                }
++                if (!converged) { points.clear(); break; }
++                points.push_back({z.real(),z.imag()});
++            }
++            for (std::size_t j=0; j<points.size(); ++j)
++                for (std::size_t k=0; k<j; ++k)
++                    if (distance_squared(points[j],points[k]) <= 1.0e-20
++                        *std::max(1.0,points[j].x*points[j].x+points[j].y*points[j].y)) {
++                        points.clear(); break;
++                    }
++            if (points.size()==4) {
++                // If every proposal remains in its own disjoint neighbourhood,
++                // preserve the known labels instead of enumerating 24 matches.
++                preserve_order=true;
++                for (std::size_t j=0;j<4;++j) {
++                    double nearest=std::numeric_limits<double>::infinity();
++                    for (std::size_t k=0;k<4;++k) if (j!=k)
++                        nearest=std::min(nearest,distance_squared(branches[j].back(),branches[k].back()));
++                    if (!(16.0*distance_squared(points[j],branches[j].back())<nearest))
++                        preserve_order=false;
++                }
++            }
++        }
++        // Only this phase is unresolved. Previously sampled phases, their
++        // branch correspondence and subsequent cached seeds remain intact.
++        if (points.size()!=4) {
++            if (stats) {
++                ++probe_counters().critical_phase_solves;
++                if (continuation && i>0) ++probe_counters().critical_tracking_failures;
++            }
++            points=critical_curve_points_at_phase(separation,mass_ratio,phase_angle);
++        } else if (stats) ++probe_counters().critical_phase_tracked;
++        if (preserve_order) {
++            for (std::size_t j=0;j<4;++j) branches[j].push_back(points[j]);
++        } else append_tracked_caustic_points(branches,std::move(points));
++        jets_valid=continuation && !branches[0].empty();
++        if (jets_valid) for (std::size_t j=0;j<4;++j)
++            previous_jets[j]=evaluate(Complex(branches[j].back().x,branches[j].back().y));
++    }
++    if (stats) probe_counters().critical_build_seconds+=
++        std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count();
+     return merge_tracked_phase_branches(std::move(branches));
+ }
+ 
+@@ -2175,6 +2384,7 @@ private:
+ };
+ 
+ struct PolarAreaDiagnostics {
++    bool seed_coverage_proven=true;
+     double estimated_error = std::numeric_limits<double>::infinity();
+ };
+ 
+@@ -2338,6 +2548,7 @@ struct LatticeCellIndexHash {
+ };
+ 
+ struct LegacyAreaDiagnostics {
++    bool seed_coverage_proven=true;
+     int seed_count = 0;
+     int processed_images = 0;
+     int fold_seed_count = 0;
+@@ -2508,6 +2719,9 @@ double inverse_ray_polar_core(
+         return std::nan("");
+     }
+ 
++    const bool fill_stats=probe_stats_enabled();
++    const auto fill_started=fill_stats ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
++    long long map_queries=0,fill_cells=0;
+     const int source_bins = active_polar_source_bins(settings);
+     const double polar_grid_ratio = active_polar_grid_ratio(settings);
+     const double dr = source_radius / static_cast<double>(source_bins);
+@@ -2517,6 +2731,22 @@ double inverse_ray_polar_core(
+             max_image_radius,
+             std::hypot(image_position.x, image_position.y) + 4.0 * source_radius);
+     }
++    if constexpr (std::is_same_v<ImageMap,BinaryLensMapper>) {
++        if (std::getenv("LCBININT_POLAR_GEOMETRY_GRID")!=nullptr) {
++            max_image_radius=binary_polar_geometry_radius(mapper,source,source_radius);
++            if (!std::isfinite(max_image_radius)) return std::nan("");
++        }
++    }
++    // Diagnostic override isolates seed-dependent angular resolution from
++    // seed-dependent coverage. It is not an image-support/error certificate.
++    if (const char* radius_override=std::getenv("LCBININT_POLAR_GRID_RADIUS")) {
++        char* end=nullptr;
++        const double radius=std::strtod(radius_override,&end);
++        if (end!=radius_override && *end=='\0' && std::isfinite(radius) && radius>0.0)
++            max_image_radius=std::max(1.0,radius);
++    }
++    const bool seed_trace=std::getenv("LCBININT_POLAR_SEED_TRACE")!=nullptr;
++    std::uint64_t trace_cells=0, trace_signature=0;
+     // Choose angular resolution from the tangential cell size at the outermost
+     // relevant image.  Using dphi ~ dr alone undersamples low-magnification
+     // images far from the origin.
+@@ -2525,6 +2755,13 @@ double inverse_ray_polar_core(
+         static_cast<int>(std::ceil(2.0 * kPi * max_image_radius /
+                                    (dr * polar_grid_ratio))));
+     const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
++    // Eight-neighbour reachability is required by reduced seeds independently
++    // of any continuous-coverage audit. Never pay for that audit just to enable
++    // the correct frontier.
++    const char* reduced_seed_mode=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
++    const bool diagonal_frontier=std::is_same_v<ImageMap,BinaryLensMapper> &&
++        (std::getenv("LCBININT_POLAR_DIAGONAL_FRONTIER")
++         || (reduced_seed_mode && std::string(reduced_seed_mode)=="critical-seeds"));
+     const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
+     if (!uniform_source && finite_magnifier != nullptr) {
+         finite_magnifier->ensure_limb_darkening_table();
+@@ -2590,6 +2827,7 @@ double inverse_ray_polar_core(
+             return false;
+         }
+         const double radius = (static_cast<double>(ir) + 0.5) * dr;
++        if (fill_stats) ++map_queries;
+         const SourcePosition mapped = map_lens_real(
+             mapper, radius * column_cos, radius * column_sin);
+         const double dz2 = distance_squared(mapped, source);
+@@ -2599,19 +2837,6 @@ double inverse_ray_polar_core(
+         return dz2 <= source_radius2;
+     };
+ 
+-    for (const auto& image_position : image_positions) {
+-        double grid_radius = 0.0;
+-        double image_phi = 0.0;
+-        if (!find_polar_inside_start(
+-                mapper, source, source_radius, image_position, dr, dphi, phi_bins,
+-                &grid_radius, &image_phi)) {
+-            continue;
+-        }
+-        const int ir = std::max(0, static_cast<int>(std::floor(grid_radius / dr)));
+-        const int iphi = std::clamp(static_cast<int>(image_phi / dphi), 0, phi_bins - 1);
+-        enqueue_run_normalized(ir, ir, iphi);
+-    }
+-
+     // Second-order radial boundary correction: use the mapped distances at the
+     // last inside cell and its outside neighbour for an initial source-edge
+     // crossing, then take one bracketed secant correction for lens-map
+@@ -2649,6 +2874,9 @@ double inverse_ray_polar_core(
+         double inside_radius,
+         double outside_radius,
+         double face_radius,
++        bool has_second_node,
++        double second_radius,
++        double second_dz2,
+         double* absolute_geometric_correction) {
+         const double r_in = std::sqrt(inside_dz2);
+         const double r_out = std::sqrt(outside_dz2);
+@@ -2672,6 +2900,22 @@ double inverse_ray_polar_core(
+         const double limb_radius = inside_radius +
+             delta * (outside_radius - inside_radius);
+         const double limb_value = edge_brightness * limb_radius;
++        if (boundary_diagnostics_enabled()) {
++            auto& counters = probe_counters();
++            if (has_second_node && settings.limb_darkening_d == 0.0) {
++                const auto model = second_radius > 0.0 && second_dz2 <= source_radius2
++                    ? detail::bennett_boundary_model_residual(
++                        delta, node_value, brightness_at(second_dz2)*second_radius,
++                        limb_value, settings.bennett_delta_c)
++                    : detail::BennettBoundaryModelResidual {};
++                if (model.resolved) {
++                    ++counters.boundary_model_edges;
++                    const double flux_residual = model.signed_residual*dr*dphi;
++                    counters.boundary_model_signed_flux_residual += flux_residual;
++                    counters.boundary_model_absolute_flux_residual += std::abs(flux_residual);
++                } else ++counters.boundary_model_unresolved;
++            } else ++counters.boundary_model_unresolved;
++        }
+         return detail::bennett_boundary_residual(
+             delta, node_value, limb_value, settings.bennett_delta_c);
+     };
+@@ -2705,9 +2949,11 @@ double inverse_ray_polar_core(
+         (std::getenv("LCBININT_ENABLE_BENNETT_OUTER") != nullptr ||
+          bennett_outer_complex_diagnostic ||
+          image_positions.size() <= 3U);
+-    if (bennett_outer_enabled) {
++    const bool retain_polar_runs=bennett_outer_enabled || std::getenv("LCBININT_GRID_REPAIR_TRACE");
++    if (retain_polar_runs) {
+         integrated_runs.reserve(image_positions.size() * 4U);
+     }
++    const auto drain_frontier=[&]() {
+     while (!queue.empty()) {
+         const auto frontier = queue.front();
+         queue.pop_front();
+@@ -2755,6 +3001,22 @@ double inverse_ray_polar_core(
+             }
+ 
+             add_visited_run(iphi, left, right);
++            if (fill_stats) fill_cells+=right-left+1;
++            if (seed_trace) {
++                const auto square_prefix=[](std::uint64_t n) {
++                    std::uint64_t a=n,b=n+1,c=2*n+1;
++                    if (a%2==0) a/=2; else b/=2;
++                    if (a%3==0) a/=3; else if (b%3==0) b/=3; else c/=3;
++                    return a*b*c; // sum of squares modulo 2^64
++                };
++                const auto n=static_cast<std::uint64_t>(right-left+1);
++                const auto sum=n*(static_cast<std::uint64_t>(left)+static_cast<std::uint64_t>(right))/2;
++                const auto square_sum=square_prefix(right)-(left>0 ? square_prefix(left-1) : 0);
++                const auto offset=static_cast<std::uint64_t>(iphi)*UINT64_C(0x9e3779b97f4a7c15);
++                trace_cells+=n;
++                trace_signature+=square_sum+2*offset*sum+n*offset*offset;
++            }
++
+             const double left_inside_dz2 = left_inside_distances.empty()
+                 ? start_dz2
+                 : left_inside_distances.back();
+@@ -2778,8 +3040,22 @@ double inverse_ray_polar_core(
+             }
+             const int previous_phi = iphi == 0 ? phi_bins - 1 : iphi - 1;
+             const int next_phi = iphi + 1 == phi_bins ? 0 : iphi + 1;
+-            enqueue_run_normalized(left, right, previous_phi);
+-            enqueue_run_normalized(left, right, next_phi);
++            // Polar run components use 8-neighbour adjacency. Include the
++            // diagonal endpoints too; equal radial spans alone implement only
++            // 4-neighbour reachability and require redundant endpoint seeds.
++            const int frontier_left=diagonal_frontier && left>0 ? left-1 : left;
++            const int frontier_right=diagonal_frontier && right<std::numeric_limits<int>::max() ? right+1 : right;
++            enqueue_run_normalized(frontier_left, frontier_right, previous_phi);
++            enqueue_run_normalized(frontier_left, frontier_right, next_phi);
++            if (diagonal_frontier && fill_stats) ++probe_counters().polar_diagonal_runs;
++            // Boundary diagnostics use the samples retained by the expansion;
++            // no additional ray is needed to fit the nearest two inside nodes.
++            const auto cached_distance = [&](int radial_index) {
++                if (radial_index == ir) return start_dz2;
++                if (radial_index < ir) return left_inside_distances[
++                    static_cast<std::size_t>(ir-radial_index-1)];
++                return right_inside_distances[static_cast<std::size_t>(radial_index-ir-1)];
++            };
+             if (left_outside_dz2 >= 0.0) {
+                 const double correction = radial_edge_correction(
+                     left_inside_dz2,
+@@ -2787,6 +3063,9 @@ double inverse_ray_polar_core(
+                     (static_cast<double>(left) + 0.5) * dr,
+                     (static_cast<double>(left) - 0.5) * dr,
+                     static_cast<double>(left) * dr,
++                    right > left,
++                    (static_cast<double>(left)+1.5)*dr,
++                    right > left && boundary_diagnostics_enabled() ? cached_distance(left+1) : -1.0,
+                     &absolute_radial_geometry);
+                 radial_integral += correction;
+             }
+@@ -2797,11 +3076,14 @@ double inverse_ray_polar_core(
+                     (static_cast<double>(right) + 0.5) * dr,
+                     (static_cast<double>(right) + 1.5) * dr,
+                     static_cast<double>(right + 1) * dr,
++                    right > left,
++                    (static_cast<double>(right)-0.5)*dr,
++                    right > left && boundary_diagnostics_enabled() ? cached_distance(right-1) : -1.0,
+                     &absolute_radial_geometry);
+                 radial_integral += correction;
+             }
+             column_integrals[static_cast<std::size_t>(iphi)] += radial_integral;
+-            if (bennett_outer_enabled) {
++            if (retain_polar_runs) {
+                 integrated_runs.push_back({iphi, left, right, radial_integral});
+             }
+             frontier_ir = std::max(
+@@ -2810,6 +3092,118 @@ double inverse_ray_polar_core(
+         }
+     }
+ 
++    };
++    // Process seeds sequentially using the same visited run registry.
++    for (const auto& image_position : image_positions) {
++        double grid_radius = 0.0;
++        double image_phi = 0.0;
++        if (!find_polar_inside_start(
++                mapper, source, source_radius, image_position, dr, dphi, phi_bins,
++                &grid_radius, &image_phi)) {
++            continue;
++        }
++        const int ir = std::max(0, static_cast<int>(std::floor(grid_radius / dr)));
++        const int iphi = std::clamp(static_cast<int>(image_phi / dphi), 0, phi_bins - 1);
++        if (cell_visited_normalized(ir, iphi)) continue;
++        enqueue_run_normalized(ir, ir, iphi);
++        drain_frontier();
++    }
++
++    if constexpr (std::is_same_v<ImageMap,BinaryLensMapper>) {
++        if ((std::getenv("LCBININT_POLAR_COVERAGE_CERTIFICATE") || std::getenv("LCBININT_SEED_LATTICE_CERTIFICATE")) && phi_bins<=1048576 &&
++            std::numeric_limits<double>::is_iec559 && std::fegetround()==FE_TONEAREST) {
++            using I=math::OutwardInterval;
++            const auto geometry=enclosed_binary_geometry(mapper);
++            auto& counters=probe_counters();++counters.polar_coverage_calls;
++            const auto proof_started=std::chrono::steady_clock::now();
++            int tree_size=1;while(tree_size<phi_bins) tree_size*=2;
++            using Direction=std::array<double,4>;
++            const double inf=std::numeric_limits<double>::infinity();
++            std::vector<Direction> tree(2*static_cast<std::size_t>(tree_size),{inf,-inf,inf,-inf});
++            double minimum_norm=1;
++            for (int p=0;p<phi_bins;++p) {
++                double c,t;visited.direction(p,dphi,c,t);tree[tree_size+p]={c,c,t,t};
++                const I norm=math::square(I(c))+math::square(I(t));
++                minimum_norm=std::min(minimum_norm,math::down(std::sqrt(norm.lo)));
++            }
++            for (int p=tree_size-1;p>0;--p) {
++                const auto& a=tree[2*p];const auto& b=tree[2*p+1];
++                tree[p]={std::min(a[0],b[0]),std::max(a[1],b[1]),std::min(a[2],b[2]),std::max(a[3],b[3])};
++            }
++            const auto directions=[&](int lo,int hi) {
++                Direction out{inf,-inf,inf,-inf};
++                const auto merge=[&](const Direction& a) {
++                    out[0]=std::min(out[0],a[0]);out[1]=std::max(out[1],a[1]);
++                    out[2]=std::min(out[2],a[2]);out[3]=std::max(out[3],a[3]);
++                };
++                for (lo+=tree_size,hi+=tree_size+1;lo<hi;lo/=2,hi/=2) {
++                    if (lo%2) merge(tree[lo++]);if (hi%2) merge(tree[--hi]);
++                }
++                return out;
++            };
++            const I cx=I(source.x)+geometry.shift;
++            const double source_norm=math::up(std::sqrt((math::square(cx)+math::square(I(source.y))).hi));
++            const I bound=I(2)*(I(std::abs(mapper.separation.real()))+I(source_norm)+I(source_radius)+geometry.m1+geometry.m2+I(2));
++            const double radial_limit=std::ceil((bound/(I(dr)*I(minimum_norm))).hi);
++            long long boxes=0,unresolved=0,repairs=0;
++            using Box=std::array<int,4>;
++            std::vector<Box> pending;
++            if (std::isfinite(radial_limit) && radial_limit>=0 && radial_limit<1e9 && minimum_norm>0)
++                pending.push_back({0,static_cast<int>(radial_limit),0,phi_bins-1});
++            else ++unresolved;
++            while (!pending.empty()) {
++                if (boxes>=65536) {unresolved+=pending.size();break;}
++                const Box box=pending.back();pending.pop_back();++boxes;
++                bool covered=true;
++                for (int p=box[2];p<=box[3];++p) {
++                    const auto* column=visited.find(p);
++                    if (!column || column->first_unvisited_at_or_after(box[0])<=box[1]) {covered=false;break;}
++                }
++                if (covered) continue;
++                const auto angle=directions(box[2],box[3]);
++                const I r((static_cast<double>(box[0])+.5)*dr,(static_cast<double>(box[1])+.5)*dr);
++                const I x=r*I(angle[0],angle[1]),y=r*I(angle[2],angle[3]);
++                const I xa=x-I(mapper.separation.real()),y2=math::square(y);
++                const I inv1=I(1)/(math::square(xa)+y2),inv2=I(1)/(math::square(x)+y2);
++                const I fx=x-geometry.m1*xa*inv1-geometry.m2*x*inv2-geometry.shift-I(source.x);
++                const I fy=y-geometry.m1*y*inv1-geometry.m2*y*inv2-I(source.y);
++                const I d=math::square(fx)+math::square(fy);
++                if (d.finite() && d.lo>math::square(I(source_radius)).hi) continue;
++                if (box[0]==box[1] && box[2]==box[3]) {
++                    set_column(box[2]);
++                    if (cell_inside(box[0])) {
++                        if (std::getenv("LCBININT_GRID_REPAIR_TRACE")) {
++                            std::fprintf(stderr,"POLAR_GRID_REPAIR r=%d phi=%d phi_bins=%d dr=%.17g\n",box[0],box[2],phi_bins,dr);
++                            for (const auto& run:integrated_runs) {
++                                const int delta=std::abs(run.iphi-box[2]);
++                                if (delta<=2 || delta>=phi_bins-2)
++                                    std::fprintf(stderr,"POLAR_GRID_NEIGHBOUR phi=%d left=%d right=%d\n",run.iphi,run.left,run.right);
++                            }
++                        }
++                        ++repairs;enqueue_run_normalized(box[0],box[0],box[2]);drain_frontier();
++                    } else ++unresolved;
++                    continue;
++                }
++                if (box[1]-box[0]>=box[3]-box[2]) {
++                    const int m=box[0]+(box[1]-box[0])/2;
++                    pending.push_back({box[0],m,box[2],box[3]});pending.push_back({m+1,box[1],box[2],box[3]});
++                } else {
++                    const int m=box[2]+(box[3]-box[2])/2;
++                    pending.push_back({box[0],box[1],box[2],m});pending.push_back({box[0],box[1],m+1,box[3]});
++                }
++            }
++            counters.polar_coverage_boxes+=boxes;counters.polar_coverage_unresolved+=unresolved;
++            counters.polar_coverage_repairs+=repairs;counters.polar_coverage_certified+=unresolved==0;
++            counters.polar_coverage_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-proof_started).count();
++            if (diagnostics) diagnostics->seed_coverage_proven=unresolved==0;
++        } else if (std::getenv("LCBININT_POLAR_COVERAGE_CERTIFICATE") || std::getenv("LCBININT_SEED_LATTICE_CERTIFICATE")) {
++            if(diagnostics) diagnostics->seed_coverage_proven=false;
++            ++probe_counters().polar_coverage_calls;++probe_counters().polar_coverage_unresolved;
++        }
++    }
++
++    const double trace_radial_sum=seed_trace
++        ? std::accumulate(column_integrals.begin(),column_integrals.end(),0.0) : 0.0;
+     if (bennett_outer_enabled) {
+     // Reconstruct connected image components from the radial runs.  The
+     // visited table is deliberately a union of all flood fills, so its
+@@ -3161,6 +3555,13 @@ double inverse_ray_polar_core(
+ 
+     total_count = std::accumulate(column_integrals.begin(), column_integrals.end(), 0.0);
+     const double image_flux = total_count * dr * dphi;
++    if (seed_trace) {
++        std::fprintf(stderr,
++            "POLAR_SEED_TRACE source_x=%.17g source_y=%.17g rho=%.17g nbin=%d seeds=%zu radius=%.17g phi_bins=%d cells=%llu signature=%llu outer_enabled=%d radial_A=%.17g total_A=%.17g\n",
++            source.x,source.y,source_radius,source_bins,image_positions.size(),max_image_radius,phi_bins,
++            static_cast<unsigned long long>(trace_cells),static_cast<unsigned long long>(trace_signature),
++            bennett_outer_enabled,trace_radial_sum*dr*dphi/total_source_flux,image_flux/total_source_flux);
++    }
+     if (diagnostics != nullptr) {
+         // The boundary correction removes the O(h) radial boundary term.  Its
+         // accumulated absolute geometric magnitude therefore supplies the
+@@ -3172,6 +3573,11 @@ double inverse_ray_polar_core(
+             absolute_radial_geometry * dr * dphi /
+             (total_source_flux * static_cast<double>(source_bins));
+     }
++    if (fill_stats) {
++        auto& c=probe_counters();++c.polar_fill_calls;c.polar_map_queries+=map_queries;
++        c.polar_fill_cells+=fill_cells;c.polar_seed_positions+=image_positions.size();
++        c.polar_fill_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-fill_started).count();
++    }
+     return image_flux / total_source_flux;
+ }
+ 
+@@ -3207,6 +3613,7 @@ struct PolarToleranceEvaluation {
+     double error_estimate = std::numeric_limits<double>::infinity();
+     int refinement_level = 0;
+     bool converged = false;
++    bool seed_coverage_proven = true;
+ };
+ 
+ template <typename Evaluator>
+@@ -3222,8 +3629,8 @@ PolarToleranceEvaluation evaluate_polar_to_tolerance(
+     if (!std::isfinite(fine)) {
+         return {fine, std::numeric_limits<double>::infinity(), 0, false};
+     }
+-    if (!support_proven) {
+-        return {fine, std::numeric_limits<double>::infinity(), 0, false};
++    if (!support_proven || !fine_diagnostics.seed_coverage_proven) {
++        return {fine, std::numeric_limits<double>::infinity(), 0, false, fine_diagnostics.seed_coverage_proven};
+     }
+ 
+     // Polar diagnostics use the embedded boundary-error estimate from the fine
+@@ -3246,7 +3653,7 @@ PolarToleranceEvaluation evaluate_polar_to_tolerance(
+         coarse_settings.polar_source_bins = coarse_bins;
+         PolarAreaDiagnostics coarse_diagnostics;
+         const double coarse = evaluator(coarse_settings, &coarse_diagnostics);
+-        error_estimate = std::isfinite(coarse)
++        error_estimate = std::isfinite(coarse) && coarse_diagnostics.seed_coverage_proven
+             ? std::max(
+                 error_estimate,
+                 grid_pair_error_estimate(fine, coarse, fine_bins, coarse_bins, 2))
+@@ -3274,6 +3681,9 @@ PolarToleranceEvaluation evaluate_polar_to_tolerance(
+         }
+         fine = retry;
+         fine_bins = retry_bins;
++        if (!retry_diagnostics.seed_coverage_proven) {
++            return {fine, std::numeric_limits<double>::infinity(), refinement_level+1, false, false};
++        }
+         error_estimate = retry_diagnostics.estimated_error;
+         ++refinement_level;
+         assessment = assess_finite_source_error(
+@@ -3563,7 +3973,8 @@ CausticBranchScan scan_caustic_branches(
+     const double source_radius2 = source_radius * source_radius;
+     std::vector<double> segment_length2;
+     std::vector<double> vertex_radius;
+-    for (const auto& branch : branches) {
++    for (std::size_t branch_index=0;branch_index<branches.size();++branch_index) {
++        const auto& branch=branches[branch_index];
+         if (branch.size() < 2) {
+             continue;
+         }
+@@ -3648,6 +4059,8 @@ CausticBranchScan scan_caustic_branches(
+                         extremum.distance = candidate_distance;
+                         extremum.polyline_margin = margin;
+                         extremum.inside_disk = true;
++                        extremum.branch_index=static_cast<int>(branch_index);
++                        extremum.vertex_index=static_cast<int>(i);
+                         scan.support.extrema.push_back(extremum);
+                     }
+                 }
+@@ -3735,6 +4148,8 @@ CausticBranchScan scan_caustic_branches(
+             extremum.distance = std::sqrt(distance_squared(extremum_position, source));
+             extremum.polyline_margin = margin;
+             extremum.inside_disk = extremum.distance < source_radius;
++            extremum.branch_index=static_cast<int>(branch_index);
++            extremum.vertex_index=static_cast<int>(i);
+             scan.support.extrema.push_back(extremum);
+         }
+     }
+@@ -3864,6 +4279,302 @@ std::vector<SourcePosition> selected_point_images(
+     double mass_ratio,
+     SourcePosition source);
+ 
++// Physical lens-map continuation, accepted only after a local Krawczyk
++// inclusion for every distinct image and an independently enclosed image count.
++struct ProbeContinuationImages {
++    SourcePosition source{};
++    std::vector<SourcePosition> images;
++    bool certified=false;
++};
++struct ProbeLensEvaluation {
++    math::FilteredBall fx{},fy{},jxx{},jxy{},jyy{};
++};
++template<bool Residual,bool Jacobian>
++ProbeLensEvaluation enclosed_probe_lens(double separation,double mass_ratio,
++    math::FilteredBall x,math::FilteredBall y,SourcePosition source)
++{
++    using B=math::FilteredBall;
++    const double qi=std::abs(mass_ratio);
++    struct Geometry { double s=0,q=0; B a{},m1{},m2{},shift{}; };
++    thread_local Geometry g;
++    if (g.s!=separation || g.q!=qi) {
++        g.s=separation; g.q=qi;
++        const B q=qi<1 ? B(qi) : B(1)/B(qi);
++        g.m1=B(1)/(B(1)+q); g.m2=q*g.m1;
++        g.a=B(qi<1 ? -std::abs(separation) : std::abs(separation));
++        g.shift=g.a*g.m1;
++    }
++    const B a=g.a,m1=g.m1,m2=g.m2;
++    ProbeLensEvaluation out{x-g.shift-B(source.x),y-B(source.y),B(1),B(0),B(1)};
++    for (int k=0;k<2;++k) {
++        const B dx=k==0 ? x-a : x, mass=k==0 ? m1 : m2;
++        const B dx2=math::square(dx),y2=math::square(y),r2=dx2+y2;
++        if constexpr (Residual) {
++            const B inv=mass/r2;
++            out.fx=out.fx-dx*inv; out.fy=out.fy-y*inv;
++        }
++        if constexpr (Jacobian) {
++            const B inv2=mass/math::square(r2),shear=(dx2-y2)*inv2;
++            out.jxx=out.jxx+shear; out.jyy=out.jyy-shear;
++            out.jxy=out.jxy+B(2)*dx*y*inv2;
++        }
++    }
++    return out;
++}
++bool continue_probe_images(const BinaryLensMapper& mapper,double separation,double mass_ratio,
++    SourcePosition source,const std::vector<SourcePosition>& previous,
++    std::vector<SourcePosition>& images,std::vector<double>* verified_radii=nullptr)
++{
++    using B=math::FilteredBall;
++    images.clear();
++    std::vector<double> radii;
++    for (auto z:previous) {
++        double cxx=0,cxy=0,cyy=0;
++        bool converged=false;
++        double initial_parity=0;
++        for (int iteration=0;iteration<16;++iteration) {
++            // Newton's proposal need not be certified. All acceptance uses
++            // exact-input enclosures below, including geometry rounding.
++            const auto mapped=map_binary_lens_real(mapper,z.x,z.y);
++            double jxx=1,jxy=0,jyy=1;
++            for (int k=0;k<2;++k) {
++                const double x=k==0 ? z.x-mapper.separation.real() : z.x;
++                const double m=k==0 ? mapper.m1 : mapper.m2;
++                const double r2=x*x+z.y*z.y, inv2=m/(r2*r2);
++                const double shear=(x*x-z.y*z.y)*inv2;
++                jxx+=shear; jyy-=shear; jxy+=2*x*z.y*inv2;
++            }
++            const double det=jxx*jyy-jxy*jxy;
++            if (!std::isfinite(det) || det==0) return false;
++            if (iteration==0) initial_parity=det;
++            cxx=jyy/det; cxy=-jxy/det; cyy=jxx/det;
++            const double fx=mapped.x-source.x,fy=mapped.y-source.y;
++            const double dx=cxx*fx+cxy*fy;
++            const double dy=cxy*fx+cyy*fy;
++            if (!std::isfinite(dx) || !std::isfinite(dy)) return false;
++            if (std::max(std::abs(dx),std::abs(dy))<1e-11*(1+std::hypot(z.x,z.y))) {
++                converged=true; break;
++            }
++            // Damped physical-map Newton keeps fold partners in their
++            // respective parity basins. This is only a proposal strategy;
++            // the image count and Krawczyk checks still decide acceptance.
++            bool moved=false;
++            double damping=1;
++            for (int backtrack=0;backtrack<10;++backtrack,damping*=0.5) {
++                const SourcePosition candidate{z.x-damping*dx,z.y-damping*dy};
++                const auto w=map_binary_lens_real(mapper,candidate.x,candidate.y);
++                const double rx=w.x-source.x,ry=w.y-source.y;
++                if (!(rx*rx+ry*ry<fx*fx+fy*fy)) continue;
++                double xx=1,xy=0,yy=1;
++                for (int k=0;k<2;++k) {
++                    const double x=k==0 ? candidate.x-mapper.separation.real() : candidate.x;
++                    const double m=k==0 ? mapper.m1 : mapper.m2;
++                    const double y=candidate.y,r2=x*x+y*y, inv2=m/(r2*r2);
++                    const double shear=(x*x-y*y)*inv2;
++                    xx+=shear; yy-=shear; xy+=2*x*y*inv2;
++                }
++                const double candidate_det=xx*yy-xy*xy;
++                if (!std::isfinite(candidate_det) || candidate_det*initial_parity<=0) continue;
++                z=candidate; moved=true; break;
++            }
++            if (!moved) break;
++        }
++        if (!converged) ++probe_counters().continuation_newton_stagnations;
++        // Floating Newton may stagnate near a fold while its current proposal
++        // is already certifiable. Only the inclusion below decides acceptance.
++        const auto f=enclosed_probe_lens<true,false>(separation,mass_ratio,B(z.x),B(z.y),source);
++        const B correction_x=B(cxx)*f.fx+B(cxy)*f.fy;
++        const B correction_y=B(cxy)*f.fx+B(cyy)*f.fy;
++        const double scale=1+std::hypot(z.x,z.y);
++        const double radius=std::max((verified_radii ? 32*std::numeric_limits<double>::epsilon() : 1e-10)*scale,8*std::max(correction_x.magnitude(),correction_y.magnitude()));
++        if (!std::isfinite(radius) || radius>1e-9*scale) return false;
++        const auto j=enclosed_probe_lens<false,true>(separation,mass_ratio,B(z.x,radius),B(z.y,radius),source);
++        const B qxx=B(1)-B(cxx)*j.jxx-B(cxy)*j.jxy;
++        const B qxy=-B(cxx)*j.jxy-B(cxy)*j.jyy;
++        const B qyx=-B(cxy)*j.jxx-B(cyy)*j.jxy;
++        const B qyy=B(1)-B(cxy)*j.jxy-B(cyy)*j.jyy;
++        const B r(0,radius);
++        const B kx=-B(cxx)*f.fx-B(cxy)*f.fy+qxx*r+qxy*r;
++        const B ky=-B(cxy)*f.fx-B(cyy)*f.fy+qyx*r+qyy*r;
++        if (!kx.finite() || !ky.finite() || kx.magnitude()>=radius || ky.magnitude()>=radius
++            || (qxx+ B(0,qxy.magnitude())).magnitude()>=1
++            || (qyy+ B(0,qyx.magnitude())).magnitude()>=1) { ++probe_counters().continuation_inclusion_failures; return false; }
++        for (std::size_t i=0;i<images.size();++i) {
++            // Closed infinity-norm boxes must be disjoint.
++            using I=math::OutwardInterval;
++            const I dx=I(z.x)-I(images[i].x),dy=I(z.y)-I(images[i].y);
++            const double gap=std::max(dx.lo>0 ? dx.lo : (dx.hi<0 ? -dx.hi : 0),
++                                      dy.lo>0 ? dy.lo : (dy.hi<0 ? -dy.hi : 0));
++            if (gap<=(I(radius)+I(radii[i])).hi) {
++                ++probe_counters().continuation_duplicate_failures; return false;
++            }
++        }
++        images.push_back(z); radii.push_back(radius);
++    }
++    if (verified_radii) *verified_radii=std::move(radii);
++    return true;
++}
++
++bool certify_centre_seed_positions(double separation,double mass_ratio,SourcePosition source,double rho,const std::vector<SourcePosition>& proposals,
++    const SourcePosition* support_source=nullptr) {
++    using B=math::FilteredBall;using I=math::OutwardInterval;
++    if (!(rho>0 && std::isfinite(rho)) || std::fegetround()!=FE_TONEAREST) return false;
++    const auto count=binary_image_count_rounded_geometry(separation,mass_ratio,source);
++    if (count.image_count<0) return false;
++    if (static_cast<int>(proposals.size())!=count.image_count) return false;
++    std::vector<SourcePosition> verified;
++    const auto mapper=make_binary_lens_mapper(separation,mass_ratio);
++    std::vector<double> radii;
++    if (!continue_probe_images(mapper,separation,mass_ratio,source,proposals,verified,&radii)) return false;
++    for (std::size_t j=0;j<verified.size();++j) {
++        const auto z=verified[j];
++        const double radius=math::up(std::max({radii[j],(I(z.x)-I(proposals[j].x)).magnitude(),
++                                                        (I(z.y)-I(proposals[j].y)).magnitude()}));
++        const auto f=enclosed_probe_lens<true,false>(separation,mass_ratio,B(z.x,radius),B(z.y,radius),support_source ? *support_source : source);
++        const B d=math::square(f.fx)+math::square(f.fy);
++        if (!d.finite() || (I(d.value)+I(d.radius)).hi>=math::square(I(rho)).lo) return false;
++    }
++    return true;
++}
++
++// Conditional sampled-critical-curve route. A regular component of f^-1(D)
++// which contains no critical point maps onto all of D (proper local covering),
++// so it contains a centre image. Other components meet the critical curve.
++// Seeding every connected critical arc inside D therefore suffices in the
++// continuous setting. Certifying that sampled arcs cover the *continuous*
++// curve remains a separate task; do not promote this diagnostic route yet.
++bool append_critical_arc_seeds(const PointSourceMagnifier& point_magnifier,
++    const BinaryLensMapper& mapper,double separation,double mass_ratio,SourcePosition source,double source_radius,
++    const DiskSupport& support,const std::vector<std::vector<SourcePosition>>& caustics,
++    const std::vector<std::vector<SourcePosition>>& critical,
++    std::vector<SourcePosition>& seeds,int /*centre_count*/)
++{
++    using B=math::FilteredBall;using I=math::OutwardInterval;
++    auto& counters=probe_counters();
++    const double radius2=source_radius*source_radius;
++
++    for (std::size_t branch=0;branch<caustics.size();++branch) {
++        const auto& caustic=caustics[branch];const auto n=caustic.size();
++        if (branch>=critical.size() || critical[branch].size()!=n || n==0) continue;
++        std::vector<std::size_t> arc;
++        const auto flush=[&]() {
++            if (arc.empty()) return;
++            auto best=arc.front();
++            for (auto index:arc)
++                if (distance_squared(caustic[index],source)<distance_squared(caustic[best],source)) best=index;
++            const auto point=critical[branch][best];
++            const auto mapped=enclosed_probe_lens<true,false>(separation,mass_ratio,B(point.x),B(point.y),source);
++            const B distance=math::square(mapped.fx)+math::square(mapped.fy);
++            if (distance.finite() && (I(distance.value)+I(distance.radius)).hi<math::square(I(source_radius)).lo) {
++                seeds.push_back(point);
++                ++counters.critical_arc_seeds;
++            }
++            arc.clear();
++        };
++        // Begin just after an outside vertex, so a wraparound arc is treated
++        // as one interval. A fully inside loop likewise supplies one seed.
++        std::size_t start=0;
++        for (std::size_t i=0;i<n;++i)
++            if (distance_squared(caustic[i],source)>=radius2) {start=(i+1)%n;break;}
++        for (std::size_t k=0;k<n;++k) {
++            const auto index=(start+k)%n;
++            if (distance_squared(caustic[index],source)<radius2) arc.push_back(index);
++            else flush();
++        }
++        flush();
++    }
++    // Classify the historical traversal first. Keep every extremum/direction
++    // separate; equal counts on different rays are never a grouping witness.
++    struct ClassifiedProbe {
++        DiskProbe probe;
++        int count=-1;
++        bool rooted=false;
++    };
++    std::vector<ClassifiedProbe> classified;
++    const auto root_probe=[&](const DiskProbe& probe) {
++        const auto begin=std::chrono::steady_clock::now();
++        const auto images=selected_point_images(point_magnifier,separation,mass_ratio,probe.position);
++        ++counters.certified_solves;
++        ++counters.critical_incremental_solves;
++        counters.certified_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++        append_probe_images_as_seeds(mapper,source,source_radius,images,seeds);
++        return static_cast<int>(images.size());
++    };
++    bool proven=resolve_certified_probe_candidates(support,[&](const DiskProbe& probe) {
++        if (distance_squared(probe.position,source)>=radius2*(1+1e-10)) return -1;
++        const auto begin=std::chrono::steady_clock::now();
++        const auto count=binary_image_count_caustic_filter(separation,mass_ratio,probe.position);
++        counters.representative_count_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++        ClassifiedProbe item{probe,count.image_count,false};
++        if (item.count<0) {
++            // Resolve only this ambiguous count, retaining its roots as seeds.
++            item.count=root_probe(probe);item.rooted=true;
++        }
++        classified.push_back(item);
++        return item.count;
++    });
++    std::vector<std::vector<std::size_t>> rays(support.extrema.size()*kProbeDirections);
++    for (std::size_t i=0;i<classified.size();++i) {
++        const auto& p=classified[i].probe;
++        rays[p.extremum*kProbeDirections+static_cast<int>(p.direction)].push_back(i);
++    }
++    std::vector<unsigned char> selected(classified.size(),0);
++    int representative_limit=2;
++    if (const char* limit=std::getenv("LCBININT_PROBE_INTERVAL_REPRESENTATIVES"))
++        representative_limit=std::clamp(std::atoi(limit),2,8);
++    for (auto& ray:rays) {
++        std::sort(ray.begin(),ray.end(),[&](auto a,auto b) {
++            return classified[a].probe.offset<classified[b].probe.offset;
++        });
++        // Preserve both ends of each sampled constant-count interval. In
++        // particular, retain both sides of every detected count transition.
++        // A count match says nothing about a different extremum or direction.
++        for (std::size_t first=0;first<ray.size();) {
++            std::size_t last=first+1;
++            while (last<ray.size() && classified[ray[last]].count==classified[ray[first]].count) ++last;
++            selected[ray[first]]=1;
++            selected[ray[last-1]]=1;
++            // Keep the historical half-room representative too. Endpoints
++            // alone can lie in thin portions of an otherwise regular domain.
++            auto representative=ray[first];
++            for (std::size_t j=first;j<last;++j)
++                if (ray[j]<representative) representative=ray[j];
++            if (representative_limit>=3) selected[representative]=1;
++            for (int pass=3;pass<representative_limit;++pass) {
++                double best_gap=-1;
++                std::size_t best=ray.size();
++                for (std::size_t j=first;j<last;++j) {
++                    if (selected[ray[j]]) continue;
++                    double gap=std::numeric_limits<double>::infinity();
++                    for (std::size_t k=first;k<last;++k)
++                        if (selected[ray[k]]) gap=std::min(gap,std::abs(
++                            classified[ray[j]].probe.offset-classified[ray[k]].probe.offset));
++                    if (gap>best_gap) {best_gap=gap;best=j;}
++                }
++                if (best==ray.size()) break;
++                selected[ray[best]]=1;
++            }
++            first=last;
++        }
++    }
++    for (std::size_t i=0;i<classified.size();++i) {
++        if (classified[i].rooted) continue;
++        if (selected[i]) {
++            const int actual=root_probe(classified[i].probe);
++            if (actual!=classified[i].count) {
++                // selected_point_images retains near-caustic candidates by
++                // residual, not an exact image-count certificate. Their
++                // positions are valid disk seeds after the map check; retain
++                // the discriminant count for the support traversal.
++                ++counters.discriminant_mismatches;
++            }
++        }
++        else ++counters.representative_skipped;
++    }
++    if (!proven) ++counters.unproven;
++    return proven;
++}
++
+ // Roots the certified support probes and adds every resulting image to the
+ // seed set.  Returns whether the support was proven; see
+ // resolve_certified_probes for the rule.
+@@ -3875,23 +4586,392 @@ bool append_certified_component_seeds(
+     SourcePosition source,
+     double source_radius,
+     const DiskSupport& support,
+-    std::vector<SourcePosition>& seeds)
++    std::vector<SourcePosition>& seeds,
++    const std::vector<std::vector<SourcePosition>>* branches=nullptr,
++    int centre_image_count=-1)
+ {
+     const double source_radius2 = source_radius * source_radius;
+     const bool stats = probe_stats_enabled();
+-    const bool proven = resolve_certified_probes(support, [&](SourcePosition probe) {
++    // Reduce repeated roots only with a caustic-free source-domain witness.
++    // The production Cartesian multi-run fill exhausts each reached lattice
++    // component; continuous support coverage and finite-grid coverage still
++    // need separate audits when removing historical seeds.
++    struct ProbeGroup {
++        SourcePosition lower{}, upper{}, representative{};
++        bool present=false, checked=false, rooted=false;
++        int count=-1;
++        BinaryCausticGradient gradient{};
++        double maximum_offset=0;
++        double minimum_offset=std::numeric_limits<double>::infinity();
++        double representative_offset=0;
++        SourcePosition ray_first{},ray_last{};
++        std::vector<DiskProbe> ray_probes;
++        BinaryCausticRay ray{};
++    };
++    const bool continuation=std::getenv("LCBININT_PROBE_CONTINUATION")!=nullptr;
++    std::vector<ProbeContinuationImages> continuation_cache;
++    if (continuation && centre_image_count>0 && seeds.size()>=static_cast<std::size_t>(centre_image_count)) {
++        continuation_cache.push_back({source,std::vector<SourcePosition>(seeds.begin(),seeds.begin()+centre_image_count),false});
++    }
++    const char* representative_mode=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
++    const bool monotone=representative_mode && std::string(representative_mode)=="monotone-rays";
++    const bool fine_boxes=representative_mode && std::string(representative_mode)=="fine-boxes";
++    const bool ray_polynomial=representative_mode && std::string(representative_mode)=="ray-polynomial";
++    const bool source_boxes=representative_mode && std::string(representative_mode)=="source-boxes";
++    const bool representatives=representative_probes_enabled();
++    const bool count_ablation=representative_count_ablation_enabled();
++    const bool polyline_links=representative_polyline_links_enabled();
++    const bool verified_links=representative_verified_links_enabled();
++    const bool pooled_links=verified_links && std::getenv("LCBININT_POOLED_PROBE_LINKS");
++    const auto disk_inside=[&](SourcePosition position) {
++        using I=math::OutwardInterval;
++        const I distance=math::square(I(position.x)-I(source.x))+math::square(I(position.y)-I(source.y));
++        return distance.finite() && distance.hi<math::square(I(source_radius)).lo;
++    };
++    struct SolvedSource {SourcePosition source;int count;};
++    std::vector<SolvedSource> solved_sources;
++    std::vector<BinarySourceBox> connected_boxes;
++    if (source_boxes && centre_image_count>0) solved_sources.push_back({source,centre_image_count});
++    const auto contains=[](const BinarySourceBox& box,SourcePosition p) {
++        return p.x>=box.lower.x && p.x<=box.upper.x && p.y>=box.lower.y && p.y<=box.upper.y;
++    };
++    const auto connected_in_disk=[&](const BinarySourceBox& a,const BinarySourceBox& b) {
++        const double lx=std::max(a.lower.x,b.lower.x),ux=std::min(a.upper.x,b.upper.x);
++        const double ly=std::max(a.lower.y,b.lower.y),uy=std::min(a.upper.y,b.upper.y);
++        if (lx>ux || ly>uy) return false;
++        return disk_inside({std::clamp(source.x,lx,ux),std::clamp(source.y,ly,uy)});
++    };
++    const auto retain_box=[&](const BinarySourceBox& box) {
++        // Discard boxes contained by a new larger witness. They prove no
++        // additional connections, and retaining them only grows search cost.
++        for (const auto& old:connected_boxes)
++            if (old.image_count==box.image_count && contains(old,box.lower) && contains(old,box.upper)) return;
++        connected_boxes.erase(std::remove_if(connected_boxes.begin(),connected_boxes.end(),[&](const auto& old) {
++            return old.image_count==box.image_count && contains(box,old.lower) && contains(box,old.upper);
++        }),connected_boxes.end());
++        if (connected_boxes.size()<256) connected_boxes.push_back(box);
++    };
++    std::optional<detail::CausticProbeLinks> links;
++    if (polyline_links && !pooled_links && branches) links.emplace(*branches);
++    std::vector<ProbeGroup> groups(representatives ? kProbeDirections*support.extrema.size()+(pooled_links ? 1 : 0) : 0);
++    if (pooled_links && centre_image_count>=0) {
++        // Positions of these images are already in seeds; do not root the
++        // centre again. Hinted seeds never masquerade as centre images.
++        auto& centre=groups.back();
++        centre.rooted=true; centre.count=centre_image_count;
++        centre.representative=source;
++    }
++    if (representatives) {
++        for (const auto& candidate: support.probes) {
++            if (candidate.extremum<0 || static_cast<std::size_t>(candidate.extremum)>=support.extrema.size()) continue;
++            auto& g=groups[kProbeDirections*candidate.extremum+static_cast<int>(candidate.direction)];
++            if (ray_polynomial) {
++                if (candidate.offset<g.minimum_offset) {g.minimum_offset=candidate.offset;g.ray_first=candidate.position;}
++                if (candidate.offset>=g.maximum_offset) g.ray_last=candidate.position;
++                g.ray_probes.push_back(candidate);
++            }
++            g.maximum_offset=std::max(g.maximum_offset,candidate.offset);
++            if (!g.present) { g.lower=g.upper=candidate.position; g.present=true; }
++            g.lower.x=std::min(g.lower.x,candidate.position.x);
++            g.lower.y=std::min(g.lower.y,candidate.position.y);
++            g.upper.x=std::max(g.upper.x,candidate.position.x);
++            g.upper.y=std::max(g.upper.y,candidate.position.y);
++        }
++    }
++    if (monotone || fine_boxes) {
++        // Spend the shared certificate only on the fine part of the ladder.
++        // Wide coarse spans resolved almost no derivative signs in the pilot.
++        for (auto& g:groups) g.present=false;
++        for (const auto& candidate:support.probes) {
++            if (candidate.extremum<0 || static_cast<std::size_t>(candidate.extremum)>=support.extrema.size()) continue;
++            auto& g=groups[kProbeDirections*candidate.extremum+static_cast<int>(candidate.direction)];
++            if (candidate.offset>0.1*g.maximum_offset) continue;
++            if (!g.present) { g.lower=g.upper=candidate.position; g.present=true; }
++            g.lower.x=std::min(g.lower.x,candidate.position.x); g.lower.y=std::min(g.lower.y,candidate.position.y);
++            g.upper.x=std::max(g.upper.x,candidate.position.x); g.upper.y=std::max(g.upper.y,candidate.position.y);
++        }
++    }
++    const bool proven = resolve_certified_probe_candidates(support, [&](const DiskProbe& candidate) {
++        const auto probe=candidate.position;
++
+         if (distance_squared(probe, source) >= source_radius2 * (1.0 + 1.0e-10)) {
+             return -1;
+         }
++        BinaryImageCount cheap_count{};
++        BinarySourceBox source_box{};
++        ProbeGroup* group=nullptr;
++        if (representatives) {
++            group=&groups[kProbeDirections*candidate.extremum+static_cast<int>(candidate.direction)];
++            if (source_boxes) {
++                // Reuse completed work before attempting any new certificate.
++                for (const auto& previous:solved_sources) {
++                    if (previous.source.x==probe.x && previous.source.y==probe.y) {
++                        ++probe_counters().representative_skipped;
++                        ++probe_counters().source_cell_reuses;
++                        return previous.count;
++                    }
++                }
++                if (disk_inside(probe)) {
++                    for (const auto& box:connected_boxes) {
++                        if (contains(box,probe)) {
++                            ++probe_counters().representative_skipped;
++                            ++probe_counters().source_cell_reuses;
++                            return box.image_count;
++                        }
++                    }
++                    const auto begin=std::chrono::steady_clock::now();
++                    source_box=binary_source_box(separation,mass_ratio,probe,source_radius);
++                    auto& counters=probe_counters();
++                    counters.source_cell_cache_hits+=source_box.cache_hits;
++                    counters.source_cell_enclosures+=source_box.enclosure_evaluations;
++                    counters.representative_box_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++                    cheap_count.image_count=source_box.image_count;
++                    bool reached=false;
++                    if (source_box.image_count>=0) {
++                        for (const auto& box:connected_boxes) {
++                            if (box.image_count==source_box.image_count && connected_in_disk(box,source_box)) {reached=true;break;}
++                        }
++                        if (!reached) for (const auto& previous:solved_sources) {
++                            if (previous.count==source_box.image_count && disk_inside(previous.source) && contains(source_box,previous.source)) {reached=true;break;}
++                        }
++                    }
++                    if (reached) {
++                        retain_box(source_box);
++                        ++counters.representative_skipped;
++                        ++counters.source_cell_reuses;
++                        return source_box.image_count;
++                    }
++                }
++                // Incremental fallback: only this unresolved/unreached probe
++                // needs positions. Keep every earlier source and cell proof.
++                ++probe_counters().source_cell_fallbacks;
++            } else if (ray_polynomial) {
++                // Pay setup only if this group actually consumes a second
++                // probe. The first probe already supplies the representative.
++                if (group->rooted && !group->checked && group->maximum_offset>group->minimum_offset) {
++                    const auto begin=std::chrono::steady_clock::now();
++                    using B=math::FilteredBall;
++                    const B span=B(group->maximum_offset)-B(group->minimum_offset);
++                    const B dx=B(group->ray_last.x)-B(group->ray_first.x);
++                    const B dy=B(group->ray_last.y)-B(group->ray_first.y);
++                    SourcePosition residual{};
++                    for (const auto& p:group->ray_probes) {
++                        const B t=(B(p.offset)-B(group->minimum_offset))/span;
++                        residual.x=std::max(residual.x,(B(p.position.x)-(B(group->ray_first.x)+t*dx)).magnitude());
++                        residual.y=std::max(residual.y,(B(p.position.y)-(B(group->ray_first.y)+t*dy)).magnitude());
++                    }
++                    group->ray=binary_caustic_ray(separation,mass_ratio,group->ray_first,group->ray_last,residual);
++                    group->checked=true;
++                    ++probe_counters().representative_groups;
++                    probe_counters().representative_box_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++                }
++                if (group->rooted && group->ray.valid && group->count>=0
++                    && disk_inside(group->representative) && disk_inside(probe)) {
++                    using I=math::OutwardInterval; using B=math::FilteredBall;
++                    const I span=I(group->maximum_offset)-I(group->minimum_offset);
++                    const I a=(I(group->representative_offset)-I(group->minimum_offset))/span;
++                    const I b=(I(candidate.offset)-I(group->minimum_offset))/span;
++                    const double lo=std::min(a.lo,b.lo),hi=std::max(a.hi,b.hi),mid=lo*0.5+hi*0.5;
++                    const B parameter(mid,std::max((I(mid)-I(lo)).hi,(I(hi)-I(mid)).hi));
++                    const auto begin=std::chrono::steady_clock::now();
++                    const auto count=group->ray.count(parameter);
++                    probe_counters().representative_count_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++                    if (count.image_count==group->count) {
++                        ++probe_counters().representative_skipped;
++                        return group->count;
++                    }
++                }
++            } else if (fine_boxes && candidate.offset<=0.1*group->maximum_offset) {
++                if (!group->checked) {
++                    const auto begin=std::chrono::steady_clock::now();
++                    const auto box=binary_image_count_box(separation,mass_ratio,group->lower,group->upper);
++                    group->count=box.image_count;
++                    group->checked=true;
++                    ++probe_counters().representative_groups;
++                    probe_counters().representative_boxes_resolved+=box.image_count>=0;
++                    probe_counters().representative_box_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++                }
++                if (group->rooted && group->count>=0
++                    && group->representative.x>=group->lower.x && group->representative.x<=group->upper.x
++                    && group->representative.y>=group->lower.y && group->representative.y<=group->upper.y
++                    && disk_inside(group->representative) && disk_inside(probe)) {
++                    ++probe_counters().representative_skipped;
++                    return group->count;
++                }
++            } else if (fine_boxes) {
++                // Keep coarse topology witnesses; certify only the fine box.
++            } else if (monotone && candidate.offset<=0.1*group->maximum_offset) {
++                if (!group->checked) {
++                    const auto begin=std::chrono::steady_clock::now();
++                    group->gradient=binary_caustic_gradient_box(separation,mass_ratio,group->lower,group->upper);
++                    group->checked=true;
++                    ++probe_counters().representative_groups;
++                    probe_counters().representative_box_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++                }
++                const auto begin=std::chrono::steady_clock::now();
++                cheap_count=binary_image_count_caustic_filter(separation,mass_ratio,probe);
++                probe_counters().representative_count_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++                if (group->rooted && group->count>=0 && cheap_count.image_count==group->count
++                    && group->representative.x>=group->lower.x && group->representative.x<=group->upper.x
++                    && group->representative.y>=group->lower.y && group->representative.y<=group->upper.y
++                    && group->gradient.valid && disk_inside(group->representative) && disk_inside(probe)) {
++                    using B=math::FilteredBall;
++                    const B dx=B(probe.x)-B(group->representative.x),dy=B(probe.y)-B(group->representative.y);
++                    const B derivative=group->gradient.x*dx+group->gradient.y*dy;
++                    if ((dx.zero() && dy.zero()) || (derivative.finite() && !derivative.contains_zero())) {
++                        ++probe_counters().representative_skipped;
++                        return group->count;
++                    }
++                }
++            } else if (monotone) {
++                // Coarse probes still supply roots and topology witnesses.
++            } else if (polyline_links) {
++                const auto begin=std::chrono::steady_clock::now();
++                bool skip=false;
++                // Reuse representatives across directions/extrema only through
++                // an enclosed caustic-free path inside the convex source disk.
++                // Bound search cost: try the nearest rooted representative.
++                if (pooled_links && disk_inside(probe)) {
++                    const auto probe_count=binary_image_count_discriminant(separation,mass_ratio,probe);
++                    ProbeGroup* nearest=nullptr;
++                    double nearest_distance=std::numeric_limits<double>::infinity();
++                    for (auto& other:groups) {
++                        if (!other.rooted || other.count!=probe_count.image_count || other.count<0) continue;
++                        const double distance=distance_squared(other.representative,probe);
++                        if (distance<nearest_distance) { nearest=&other; nearest_distance=distance; }
++                    }
++                    if (nearest && disk_inside(nearest->representative)) {
++                        int boxes=0;
++                        ++probe_counters().representative_link_checks;
++                        skip=binary_image_link_verified(separation,mass_ratio,nearest->representative,probe,nearest->count,&boxes);
++                        probe_counters().representative_link_boxes+=boxes;
++                        if (skip) {
++                            ++probe_counters().representative_verified_skipped;
++                            group->rooted=true; group->count=nearest->count;
++                            group->representative=probe;
++                        }
++                    }
++                }
++                if (!skip && group->rooted && links) {
++                    auto& c=probe_counters();
++                    ++c.representative_link_checks;
++                    if (disk_inside(group->representative) && disk_inside(probe)
++                        && links->proposed_clear(group->representative,probe)) {
++                        ++c.representative_polyline_clear;
++                        if (verified_links) {
++                            int boxes=0;
++                            skip=binary_image_link_verified(separation,mass_ratio,group->representative,probe,group->count,&boxes);
++                            c.representative_link_boxes+=boxes;
++                            if (skip) ++c.representative_verified_skipped;
++                        } else {
++                            const auto count=binary_image_count_discriminant(separation,mass_ratio,probe);
++                            skip=count.image_count>=0 && count.image_count==group->count;
++                            if (skip) ++c.representative_conditional_skipped;
++                        }
++                    }
++                }
++                probe_counters().representative_link_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++                if (skip) { ++probe_counters().representative_skipped; return group->count; }
++            } else if (count_ablation) {
++                const auto begin=std::chrono::steady_clock::now();
++                const auto count=binary_image_count_discriminant(separation,mass_ratio,probe);
++                probe_counters().representative_count_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++                if (group->rooted && count.image_count>=0 && count.image_count==group->count) {
++                    ++probe_counters().representative_skipped;
++                    return count.image_count;
++                }
++                // No claim about caustics between points; this diagnostic
++                // ablation only measures whether seed removal changes fill.
++                group->count=count.image_count;
++            } else if (!group->checked) {
++                const auto begin=std::chrono::steady_clock::now();
++                const auto box=binary_image_count_box(separation,mass_ratio,group->lower,group->upper);
++                group->checked=true;
++                group->count=box.image_count;
++                auto& c=probe_counters();
++                ++c.representative_groups;
++                c.representative_boxes_resolved+=box.image_count>=0;
++                c.representative_box_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++            }
++            if (!source_boxes && !ray_polynomial && !monotone && !fine_boxes && !polyline_links && !count_ablation && group->rooted && group->count>=0) {
++                ++probe_counters().representative_skipped;
++                return group->count;
++            }
++        }
+         const auto started = stats ? std::chrono::steady_clock::now()
+                                    : std::chrono::steady_clock::time_point {};
+-        const auto probe_images =
+-            selected_point_images(point_magnifier, separation, mass_ratio, probe);
+-        if (stats) {
++        std::vector<SourcePosition> probe_images;
++        bool continued=false;
++        if (continuation) {
++            const auto begin=std::chrono::steady_clock::now();
++            ++probe_counters().continuation_attempts;
++            for (const auto& previous:continuation_cache) {
++                if (previous.certified && previous.source.x==probe.x && previous.source.y==probe.y) {
++                    probe_images=previous.images; continued=true; break;
++                }
++            }
++            const auto count=continued ? BinaryImageCount{} : binary_image_count_discriminant(separation,mass_ratio,probe);
++            const ProbeContinuationImages* nearest=nullptr;
++            double distance=std::numeric_limits<double>::infinity();
++            if (count.image_count>=0) {
++                for (const auto& previous:continuation_cache) {
++                    if (static_cast<int>(previous.images.size())!=count.image_count) continue;
++                    const double d=distance_squared(previous.source,probe);
++                    if (d<distance) { distance=d; nearest=&previous; }
++                }
++                if (nearest) continued=continue_probe_images(mapper,separation,mass_ratio,probe,nearest->images,probe_images);
++            }
++            probe_counters().continuation_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-begin).count();
++            probe_counters().continuation_accepted+=continued;
++        }
++        const auto root_started=stats ? std::chrono::steady_clock::now() : started;
++        if (!continued) probe_images=selected_point_images(point_magnifier,separation,mass_ratio,probe);
++        if (continuation) {
++            if (continuation_cache.size()==64) continuation_cache.erase(continuation_cache.begin());
++            continuation_cache.push_back({probe,probe_images,continued});
++        }
++        if (stats && !continued) {
+             auto& counters = probe_counters();
+             counters.certified_solves += 1;
+             counters.certified_seconds += std::chrono::duration<double>(
+-                std::chrono::steady_clock::now() - started).count();
++                std::chrono::steady_clock::now() - root_started).count();
++        }
++        if (group!=nullptr) {
++            group->rooted=true;
++            if (!source_boxes && !ray_polynomial && !monotone && !polyline_links && group->count>=0 && group->count!=static_cast<int>(probe_images.size())) {
++                ++probe_counters().representative_mismatches;
++                group->count=-1;
++            }
++            if (monotone) {
++                group->count=cheap_count.image_count==static_cast<int>(probe_images.size()) ? cheap_count.image_count : -1;
++                if (cheap_count.image_count>=0 && group->count<0) ++probe_counters().representative_mismatches;
++            }
++            if (count_ablation || polyline_links) group->count=static_cast<int>(probe_images.size());
++            if (ray_polynomial) group->count=static_cast<int>(probe_images.size());
++            group->representative=probe;
++            group->representative_offset=candidate.offset;
++        }
++        if (source_boxes) {
++            const int count=static_cast<int>(probe_images.size());
++            if (solved_sources.size()<256) solved_sources.push_back({probe,count});
++            if (source_box.image_count>=0 && source_box.image_count==count && disk_inside(probe)) retain_box(source_box);
++            else if (source_box.image_count>=0 && source_box.image_count!=count) ++probe_counters().representative_mismatches;
++        }
++        if (discriminant_diagnostics_enabled()) {
++            const auto count_started = std::chrono::steady_clock::now();
++            const auto count = binary_image_count_discriminant(separation, mass_ratio, probe);
++            auto& counters = probe_counters();
++            ++counters.discriminant_calls;
++            counters.discriminant_seconds += std::chrono::duration<double>(
++                std::chrono::steady_clock::now()-count_started).count();
++            if (count.status == DiscriminantStatus::resolved) {
++                ++counters.discriminant_resolved;
++                if (count.filtered) ++counters.discriminant_filtered;
++                if (count.image_count != static_cast<int>(probe_images.size()))
++                    ++counters.discriminant_mismatches;
++            } else {
++                ++counters.discriminant_unresolved;
++            }
+         }
+         append_probe_images_as_seeds(
+             mapper, source, source_radius, probe_images, seeds);
+@@ -3914,11 +4994,21 @@ std::vector<SourcePosition> augmented_image_seeds(
+     const std::vector<SourcePosition>* seed_hints = nullptr,
+     const std::vector<std::vector<SourcePosition>>* caustic_branches = nullptr,
+     bool* support_proven = nullptr,
+-    std::size_t* initial_seed_count = nullptr)
++    std::size_t* initial_seed_count = nullptr,
++    const std::vector<std::vector<SourcePosition>>* critical_branches = nullptr,
++    int known_centre_count=-1)
+ {
+     if (support_proven != nullptr) {
+         *support_proven = true;
+     }
++    // Whole-curve Rouché coverage and centre Krawczyk checks establish a
++    // stronger contract than replacing the historical probe image counts.
++    // Keep them explicitly diagnostic; the reduced runtime route below uses
++    // the existing support traversal and only local seed/count checks.
++    // Retain the historical flag as an audit alias for saved experiments.
++    const bool full_seed_audit=std::getenv("LCBININT_SEED_FULL_COVERAGE_AUDIT")!=nullptr
++        || std::getenv("LCBININT_CRITICAL_SUPPORT_CERTIFICATE")!=nullptr;
++    std::vector<SourcePosition> centre_positions;
+     std::vector<SourcePosition> seeds;
+     seeds.reserve(seed_hints == nullptr ? 5 : std::max<std::size_t>(5, seed_hints->size()));
+     if (seed_hints != nullptr) {
+@@ -3926,12 +5016,31 @@ std::vector<SourcePosition> augmented_image_seeds(
+             append_valid_seed(mapper, source, source_radius, seed, seeds);
+         }
+     }
++    int centre_image_count=-1;
++    // Only the caller with genuine centre-image metadata may expose this
++    // count. Arbitrary seed hints must never masquerade as centre images.
++    if (seed_hints && known_centre_count>0
++        && static_cast<int>(seed_hints->size())==known_centre_count
++        && seeds.size()==seed_hints->size()) {
++        centre_image_count=known_centre_count;if(full_seed_audit) centre_positions=seeds;
++    }
+     if (seeds.empty()) {
+         const auto point_images = point_magnifier.binary_images(separation, mass_ratio, source);
++        centre_image_count=static_cast<int>(point_images.size());
+         for (const auto& image : point_images) {
+-            seeds.push_back(image.position);
++            seeds.push_back(image.position);if(full_seed_audit) centre_positions.push_back(image.position);
+         }
+     }
++    const char* requested_mode=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
++    if (requested_mode && std::string(requested_mode)=="critical-seeds"
++        && critical_branches && centre_image_count<0) {
++        // Obtain only the missing centre witness, retaining all earlier hints.
++        const auto images=selected_point_images(point_magnifier,separation,mass_ratio,source);
++        append_probe_images_as_seeds(mapper,source,source_radius,images,seeds);
++        centre_image_count=static_cast<int>(images.size());
++        if(full_seed_audit) for(const auto& image:images) centre_positions.push_back(image);
++        ++probe_counters().critical_centre_solves;
++    }
+     if (initial_seed_count != nullptr) {
+         // With no seed hints this is exactly the centre-image count.  Exposing
+         // it lets callers that only need that count reuse the root solve which
+@@ -3941,19 +5050,63 @@ std::vector<SourcePosition> augmented_image_seeds(
+     if (source_radius <= 0.0) {
+         return seeds;
+     }
++    if (full_seed_audit && requested_mode && std::string(requested_mode)=="critical-seeds") {
++        auto& counters=probe_counters();++counters.critical_support_calls;
++        const auto started=std::chrono::steady_clock::now();
++        const auto proof=cached_critical_support_certificate(separation,mass_ratio,source,source_radius);
++        bool centre_proven=certify_centre_seed_positions(separation,mass_ratio,source,source_radius,centre_positions);
++        if (!centre_proven) {
++            // Any regular source point strictly inside D witnesses every
++            // critical-free component. On-axis/near-caustic centre ambiguity
++            // therefore needs only one new representative, never a replay
++            // of the legacy probe rings. Retain all previous roots/seeds.
++            for (const auto offset:std::array<SourcePosition,4>{{{0,.25},{0,-.25},{.25,.125},{-.25,-.125}}}) {
++                const SourcePosition probe{source.x+offset.x*source_radius,source.y+offset.y*source_radius};
++                if (probe.x==source.x && probe.y==source.y) continue;
++                using I=math::OutwardInterval;
++                const I d=math::square(I(probe.x)-I(source.x))+math::square(I(probe.y)-I(source.y));
++                if (!(d.hi<math::square(I(source_radius)).lo)) continue;
++                if (binary_image_count_discriminant(separation,mass_ratio,probe).image_count<0) continue;
++                const auto rooted_at=std::chrono::steady_clock::now();
++                const auto positions=selected_point_images(point_magnifier,separation,mass_ratio,probe);
++                ++counters.critical_centre_solves;++counters.certified_solves;
++                counters.certified_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-rooted_at).count();
++                append_probe_images_as_seeds(mapper,source,source_radius,positions,seeds);
++                if (certify_centre_seed_positions(separation,mass_ratio,probe,source_radius,positions,&source)) {
++                    centre_proven=true;break;
++                }
++            }
++        }
++        counters.critical_support_phase_queries+=proof.phase_queries;
++        counters.critical_support_proof_queries+=proof.proof_queries;
++        for (const auto& witness:proof.witnesses) {
++            seeds.push_back(witness.position);++counters.critical_arc_seeds;
++        }
++        const bool proven=proof.resolved && centre_proven;
++        certified_seed_support={std::abs(separation),std::abs(mass_ratio),source_radius,source,proven,seeds};
++        if(proven) ++counters.critical_support_proven;else {++counters.critical_support_unresolved;++counters.unproven;}
++        counters.critical_support_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-started).count();
++        if(support_proven) *support_proven=proven;
++        // Unresolved intervals retain every earlier witness and cache entry.
++        // They are not silently replaced by sampled support acceptance.
++        return seeds;
++    }
+     if (caustic_branches != nullptr) {
+         // Cache-driven seeding: one pass over the cached caustic polylines
+         // replaces the per-epoch critical-curve phase scans (up to ~2800
+         // quartic root solves) with pure distance queries, and gates the
+         // probe rings on the actual caustic geometry.
+         //
+-        // The claimed-cell registry does NOT make the filled area independent
+-        // of the seed set, though it was once described that way here.  A seed
++        // The legacy walker's claimed-cell registry does NOT make its filled
++        // area independent of the seed set.  In that diagnostic path a seed
+         // whose |J| is below kFoldJacobianThreshold has its fill pinned to one
+         // side of the critical curve, and a pinned fill still claims every cell
+         // it counts, so whichever seed reaches a component first decides how
+         // much of it is ever counted.  Adding a seed can therefore lower the
+-        // answer.  Which seeds exist, and in what order, is load-bearing.
++        // answer.  This restriction is specific to the legacy walker: the
++        // production Cartesian multi-run fill is parity free and exhausts
++        // each reached lattice component.  Seed reduction there must retain
++        // a witness for every component, rather than every historical probe.
+         // This scan uses the nearest point on every polyline segment, not just
+         // its vertices.  That distinction is required for coarse configurable
+         // caustic caches: a segment can enter the source disk while both ends
+@@ -3961,14 +5114,20 @@ std::vector<SourcePosition> augmented_image_seeds(
+         // pass until the support certificate carries equivalent segment data.
+         auto scan = scan_caustic_branches(
+             *caustic_branches, source, source_radius, true);
+-        // Every component of (disk \ caustic) owns a
+-        // local extremum of the distance to the disk centre along the caustic,
+-        // so rooting the certified probes reaches every image component.
++        // Preserve the historical sampled-support traversal. Solving every
++        // selected probe does not certify coverage between sampled caustic
++        // segments; substituting a definite image count does not introduce
++        // that new obligation either. Whole-curve coverage is a separate audit.
+         const auto support = finalize_disk_support(
+             std::move(scan.support), source, source_radius);
+-        const bool proven = append_certified_component_seeds(
+-            point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+-            support, seeds);
++        const char* mode=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
++        const bool use_critical=mode && std::string(mode)=="critical-seeds" && critical_branches && centre_image_count>0;
++        const bool proven = use_critical
++            ? append_critical_arc_seeds(point_magnifier,mapper,separation,mass_ratio,source,source_radius,
++                support,*caustic_branches,*critical_branches,seeds,centre_image_count)
++            : append_certified_component_seeds(
++                point_magnifier, mapper, separation, mass_ratio, source, source_radius,
++                support, seeds, caustic_branches, centre_image_count);
+         if (support_proven != nullptr) {
+             *support_proven = proven;
+         }
+@@ -5483,7 +6642,10 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
+     double incr,
+     std::int64_t maximum_evaluations,
+     std::size_t expected_rows,
+-    detail::CartesianRunFillTrace* trace = nullptr)
++    detail::CartesianRunFillTrace* trace = nullptr,
++    const std::vector<detail::CartesianLatticeSeed>* coverage_probes = nullptr,
++    bool certify_coverage=false,
++    const std::vector<SourcePosition>* physical_support_seeds=nullptr)
+ {
+     const double source_radius2 = source_radius * source_radius;
+     const double inverse_source_radius2 = 1.0 / source_radius2;
+@@ -5520,20 +6682,88 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
+                 std::numeric_limits<std::size_t>::max())))
+         : 0;
+ 
++    std::optional<detail::CartesianCoverageDomain> coverage_domain;
++    EnclosedBinaryGeometry coverage_geometry;
++    if constexpr (std::is_same_v<ImageMap,BinaryLensMapper>) {
++        if (certify_coverage && std::numeric_limits<double>::is_iec559 && std::fegetround()==FE_TONEAREST) {
++            using I=math::OutwardInterval;
++            coverage_geometry=enclosed_binary_geometry(mapper);
++            const I cx=I(source.x)+coverage_geometry.shift,cy(source.y);
++            const double b=math::up(std::sqrt((math::square(cx)+math::square(cy)).hi));
++            const double radius=(I(2)*(I(std::abs(mapper.separation.real()))+I(b)+I(source_radius)+coverage_geometry.m1+coverage_geometry.m2+I(2))).hi;
++            const double extent=std::ceil((I(radius)/I(incr)).hi);
++            if (std::isfinite(extent) && extent>=0 && extent<1e9) {
++                coverage_domain.emplace();
++                std::int64_t aligned_extent=1;
++                while (aligned_extent<extent) aligned_extent*=2;
++                coverage_domain->extent=aligned_extent;
++                struct Hash {
++                    std::size_t operator()(const std::array<std::int64_t,4>& key) const {
++                        std::size_t h=0;
++                        for (auto v:key) h^=std::hash<std::int64_t>{}(v)+0x9e3779b9+(h<<6)+(h>>2);
++                        return h;
++                    }
++                };
++                struct MappingCache {
++                    double a=0,m1=0,m2=0,shift=0,h=0,q=0;
++                    std::unordered_map<std::array<std::int64_t,4>,std::array<double,4>,Hash> boxes;
++                };
++                static thread_local MappingCache mapping_cache;
++                if (mapping_cache.a!=mapper.separation.real() || mapping_cache.m1!=mapper.m1 ||
++                    mapping_cache.m2!=mapper.m2 || mapping_cache.shift!=mapper.source_origin_shift || mapping_cache.h!=incr || mapping_cache.q!=mapper.input_mass_ratio) {
++                    mapping_cache.boxes.clear();mapping_cache.a=mapper.separation.real();
++                    mapping_cache.m1=mapper.m1;mapping_cache.m2=mapper.m2;
++                    mapping_cache.shift=mapper.source_origin_shift;mapping_cache.h=incr;mapping_cache.q=mapper.input_mass_ratio;
++                }
++                coverage_domain->outside=[&](std::int64_t lo,std::int64_t hi,std::int64_t bottom,std::int64_t top) {
++                    const I x(static_cast<double>(lo)*incr,static_cast<double>(hi)*incr);
++                    const I y(static_cast<double>(bottom)*incr,static_cast<double>(top)*incr);
++                    const double a=mapper.separation.real();
++                    if (lo==hi && bottom==top && y.zero() && (x.zero() || (x.lo==a && x.hi==a))) return true;
++                    const std::array<std::int64_t,4> key{lo,hi,bottom,top};
++                    std::array<double,4> bounds;
++                    const auto found=mapping_cache.boxes.find(key);
++                    if (found!=mapping_cache.boxes.end()) bounds=found->second;
++                    else {
++                        const I xa=x-I(a),y2=math::square(y);
++                        const I inv1=I(1)/(math::square(xa)+y2),inv2=I(1)/(math::square(x)+y2);
++                        const I fx=x-coverage_geometry.m1*xa*inv1-coverage_geometry.m2*x*inv2-coverage_geometry.shift;
++                        const I fy=y-coverage_geometry.m1*y*inv1-coverage_geometry.m2*y*inv2;
++                        bounds={fx.lo,fx.hi,fy.lo,fy.hi};
++                        if (mapping_cache.boxes.size()<262144) mapping_cache.boxes.emplace(key,bounds);
++                    }
++                    if (!(std::isfinite(bounds[0]) && std::isfinite(bounds[1]) && std::isfinite(bounds[2]) && std::isfinite(bounds[3]))) return false;
++                    const I d=math::square(I(bounds[0],bounds[1])-I(source.x))+math::square(I(bounds[2],bounds[3])-I(source.y));
++                    return d.finite() && d.lo>math::square(I(source_radius)).hi;
++                };
++                if (physical_support_seeds && matching_seed_support(mapper,source,source_radius)) {
++                    coverage_domain->fenced_regions=[&](const std::vector<std::array<std::int64_t,4>>& components) {
++                        std::vector<ImageFenceBox> bounds;
++                        for (const auto& b:components) bounds.push_back({b[0]*incr,b[1]*incr,b[2]*incr,b[3]*incr});
++                        const auto fences=certified_image_fences(mapper,source,source_radius,incr,std::move(bounds),*physical_support_seeds);
++                        std::vector<std::array<std::int64_t,4>> regions;
++                        for (const auto& b:fences) regions.push_back({static_cast<std::int64_t>(std::floor((I(b[0])/I(incr)).lo)),
++                            static_cast<std::int64_t>(std::ceil((I(b[1])/I(incr)).hi)),
++                            static_cast<std::int64_t>(std::floor((I(b[2])/I(incr)).lo)),
++                            static_cast<std::int64_t>(std::ceil((I(b[3])/I(incr)).hi))});
++                        return regions;
++                    };
++                }
++            }
++        }
++    }
+     const auto run_fill = [&](auto& trace_sink) {
+-        return detail::fill_cartesian_runs<RunCellState>(
+-        seeds,
+-        [&](std::int64_t ix, std::int64_t iy) {
++        const auto evaluate_cell = [&](std::int64_t ix, std::int64_t iy) {
+             const double x = static_cast<double>(ix) * incr;
+             const double y = static_cast<double>(iy) * incr;
+             return RunCellState {
+                 mapped_lens_distance2(mapper, x, y, source),
+             };
+-        },
+-        [&](const RunCellState& state) {
++        };
++        const auto inside_cell = [&](const RunCellState& state) {
+             return state.mapped_distance2 <= source_radius2;
+-        },
+-        [&](std::int64_t, std::int64_t, const RunCellState& state) {
++        };
++        const auto weight_cell = [&](std::int64_t, std::int64_t, const RunCellState& state) {
+             if (!use_limb_darkening) {
+                 return 1.0;
+             }
+@@ -5542,17 +6772,21 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
+             return finite_magnifier != nullptr
+                 ? finite_magnifier->limb_darkening_table_brightness(normalized2)
+                 : source_surface_brightness(normalized2, settings);
+-        },
+-        [&](const detail::CartesianRun& run,
++        };
++        const auto diagnostic_boundary = [&](const detail::CartesianRun& run,
+             const RunCellState& left_inside,
+             const RunCellState& left_outside,
+             const RunCellState& right_inside,
+-            const RunCellState& right_outside) {
++            const RunCellState& right_outside,
++            const std::optional<RunCellState>& left_second,
++            const std::optional<RunCellState>& right_second) {
+             detail::CartesianBoundaryContribution contribution;
++            if (boundary_diagnostics_enabled()) contribution.diagnostic.emplace();
+             const auto edge = [&](std::int64_t inside_ix,
+                                   const RunCellState& inside,
+                                   std::int64_t outside_ix,
+-                                  const RunCellState& outside) {
++                                  const RunCellState& outside,
++                                  const std::optional<RunCellState>& second) {
+                 if (!std::isfinite(inside.mapped_distance2) ||
+                     !std::isfinite(outside.mapped_distance2) ||
+                     !(inside.mapped_distance2 <= source_radius2) ||
+@@ -5577,9 +6811,40 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
+                         mapper, source, source_radius2,
+                         inside_x, outside_x, y, initial, incr)
+                     : initial;
++                if (contribution.diagnostic) {
++                    if (outside_ix<inside_ix) contribution.diagnostic->left_fraction=fraction;
++                    else contribution.diagnostic->right_fraction=fraction;
++                }
+                 ++contribution.edges;
+                 const double node_value = brightness_at_distance2(
+                     inside.mapped_distance2);
++                if (boundary_diagnostics_enabled()) {
++                    auto& counters = probe_counters();
++                    if (second && bennett_root_enabled &&
++                        settings.limb_darkening_d == 0.0) {
++                        const double second_dz2 = second->mapped_distance2;
++                        ++counters.boundary_model_reused_evaluations;
++                        const auto model = second_dz2 <= source_radius2
++                            ? detail::bennett_boundary_model_residual(
++                                fraction, node_value, brightness_at_distance2(second_dz2),
++                                edge_brightness, settings.bennett_delta_c)
++                            : detail::BennettBoundaryModelResidual {};
++                        if (model.resolved) {
++                            ++counters.boundary_model_edges;
++                            const double flux_residual = model.signed_residual*incr*incr;
++                            counters.boundary_model_signed_flux_residual += flux_residual;
++                            counters.boundary_model_absolute_flux_residual += std::abs(flux_residual);
++                            contribution.diagnostic->signed_model_flux_residual+=flux_residual;
++                            contribution.diagnostic->absolute_model_flux_residual+=std::abs(flux_residual);
++                        } else {
++                            ++counters.boundary_model_unresolved;
++                            ++contribution.diagnostic->unresolved_edges;
++                        }
++                    } else {
++                        ++counters.boundary_model_unresolved;
++                        ++contribution.diagnostic->unresolved_edges;
++                    }
++                }
+                 return detail::bennett_boundary_residual(
+                     fraction, node_value, edge_brightness,
+                     settings.bennett_delta_c);
+@@ -5590,17 +6855,31 @@ detail::CartesianRunFillResult fill_cartesian_run_union(
+                 return contribution;
+             }
+             contribution.area += edge(
+-                run.lo, left_inside, run.lo - 1, left_outside);
++                run.lo, left_inside, run.lo - 1, left_outside,left_second);
+             contribution.area += edge(
+-                run.hi, right_inside, run.hi + 1, right_outside);
++                run.hi, right_inside, run.hi + 1, right_outside,right_second);
+             return contribution;
+-        },
++        };
++        const auto execute = [&](const auto& boundary) {
++            return detail::fill_cartesian_runs<RunCellState>(
++                seeds,evaluate_cell,inside_cell,weight_cell,boundary,
+         detail::CartesianRunFillLimits {
+             maximum_evaluations,
+             std::min(kRunMemorySafetyCeiling, evaluation_run_ceiling),
+             expected_rows,
+         },
+-        trace_sink);
++        trace_sink,coverage_probes,coverage_domain ? &*coverage_domain : nullptr);
++        };
++        if (boundary_diagnostics_enabled()) return execute(diagnostic_boundary);
++        // A five-argument callback avoids retaining/updating two additional
++        // optional neighbour states at every inside cell of the normal scan.
++        const auto physical_boundary = [&](const detail::CartesianRun& run,
++            const RunCellState& left_inside,const RunCellState& left_outside,
++            const RunCellState& right_inside,const RunCellState& right_outside) {
++            const std::optional<RunCellState> none;
++            return diagnostic_boundary(run,left_inside,left_outside,right_inside,right_outside,none,none);
++        };
++        return execute(physical_boundary);
+     };
+     if (trace != nullptr) {
+         return run_fill(*trace);
+@@ -5709,7 +6988,9 @@ double fill_all_cartesian_components_multirun(
+     double incr,
+     double magnification_hint,
+     LegacyAreaDiagnostics* diagnostics,
+-    detail::CartesianRunFillTrace* trace = nullptr)
++    detail::CartesianRunFillTrace* trace = nullptr,
++    const std::vector<detail::CartesianLatticeSeed>* coverage_probes = nullptr,
++    bool source_has_critical=false)
+ {
+     const double source_radius2 = source_radius * source_radius;
+     std::vector<detail::CartesianLatticeSeed> seeds;
+@@ -5742,17 +7023,78 @@ double fill_all_cartesian_components_multirun(
+     if (trace != nullptr) {
+         trace->fill_level = 0;
+     }
++    const bool fill_stats=probe_stats_enabled();
++    const auto fill_started=fill_stats ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point{};
++    std::vector<SourcePosition> support_positions;
++    if (std::getenv("LCBININT_SEED_FULL_COVERAGE_AUDIT")
++        || std::getenv("LCBININT_CRITICAL_SUPPORT_CERTIFICATE"))
++        for (const auto& seed:evaluated_seeds) support_positions.push_back(seed.position);
+     auto run_fill = fill_cartesian_run_union(
+         mapper, source, source_radius, settings, finite_magnifier,
+         seeds, incr, evaluation_limit,
+         static_cast<std::size_t>(std::max(settings.source_bins, 1)) * 64U,
+-        trace);
++        trace,coverage_probes,(std::getenv("LCBININT_CARTESIAN_COVERAGE_CERTIFICATE")!=nullptr || std::getenv("LCBININT_SEED_LATTICE_CERTIFICATE")!=nullptr),&support_positions);
++    if (fill_stats) {
++        auto& c=probe_counters();++c.cartesian_fill_calls;
++        c.cartesian_map_queries+=run_fill.counters.mapped_cell_evaluations;
++        for (auto n:run_fill.component_cells) c.cartesian_fill_cells+=n;
++        c.cartesian_fill_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-fill_started).count();
++    }
++    if (trace && (std::getenv("LCBININT_CARTESIAN_COVERAGE_CERTIFICATE") || std::getenv("LCBININT_SEED_LATTICE_CERTIFICATE"))) {
++        trace->coverage_requested=true;trace->coverage_certified=run_fill.coverage_certified;
++        trace->coverage_boxes=run_fill.counters.coverage_boxes;
++        trace->coverage_unresolved=run_fill.counters.coverage_unresolved;
++        trace->coverage_components=run_fill.counters.coverage_components_added;
++    }
++    if (std::getenv("LCBININT_CARTESIAN_COVERAGE_CERTIFICATE") || std::getenv("LCBININT_SEED_LATTICE_CERTIFICATE")) {
++        if constexpr (std::is_same_v<ImageMap,BinaryLensMapper>) {
++            auto& c=probe_counters();++c.cartesian_coverage_calls;c.cartesian_coverage_certified+=run_fill.coverage_certified;
++            c.cartesian_coverage_boxes+=run_fill.counters.coverage_boxes;c.cartesian_coverage_unresolved+=run_fill.counters.coverage_unresolved;
++            c.cartesian_coverage_repairs+=run_fill.counters.coverage_components_added;c.cartesian_coverage_seconds+=run_fill.coverage_seconds;
++            if(diagnostics) diagnostics->seed_coverage_proven=run_fill.coverage_certified;
++        }
++    }
++    probe_counters().critical_grid_checks+=run_fill.counters.coverage_probe_cells;
++    probe_counters().critical_grid_components+=run_fill.counters.coverage_components_added;
+     if (!run_fill.ok()) {
+         if (diagnostics != nullptr) {
+             ++diagnostics->walk_budget_failures;
+         }
+         return std::numeric_limits<double>::quiet_NaN();
+     }
++    if (boundary_diagnostics_enabled()) {
++        // Single-grid outer-coordinate shape indicator. It is not a bound:
++        // sqrt endpoints, topology changes and quadrature remainder need their
++        // own treatment. Reuse F(y); do not perform a second resolution fill.
++        std::unordered_map<std::int64_t,double> row_areas;
++        row_areas.reserve(run_fill.runs.size());
++        for (std::size_t j=0;j<run_fill.runs.size();++j)
++            row_areas[run_fill.runs[j].run.iy]+=run_fill.run_areas[j];
++        long double curvature=0.0;
++        std::unordered_set<std::int64_t> zero_halo;
++        for (const auto& row : row_areas) {
++            if (row.first==std::numeric_limits<std::int64_t>::min() ||
++                row.first==std::numeric_limits<std::int64_t>::max()) continue;
++            const auto below=row_areas.find(row.first-1),above=row_areas.find(row.first+1);
++            const double low=below==row_areas.end() ? 0.0 : below->second;
++            const double high=above==row_areas.end() ? 0.0 : above->second;
++            curvature+=std::abs(low-2.0*row.second+high);
++            if (below==row_areas.end()) zero_halo.insert(row.first-1);
++            if (above==row_areas.end()) zero_halo.insert(row.first+1);
++        }
++        // The finite difference stencil extends one row beyond the support.
++        // Omitting these zero-centred stencils misses endpoint curvature.
++        for (const auto iy : zero_halo) {
++            if (iy==std::numeric_limits<std::int64_t>::min() ||
++                iy==std::numeric_limits<std::int64_t>::max()) continue;
++            const auto below=row_areas.find(iy-1),above=row_areas.find(iy+1);
++            const double low=below==row_areas.end() ? 0.0 : below->second;
++            const double high=above==row_areas.end() ? 0.0 : above->second;
++            curvature+=std::abs(low+high);
++        }
++        probe_counters().boundary_outer_curvature_flux_indicator+=
++            static_cast<double>(curvature)*incr*incr/24.0;
++    }
+     if (diagnostics != nullptr) {
+         diagnostics->mapped_cell_evaluations +=
+             run_fill.counters.mapped_cell_evaluations;
+@@ -5811,8 +7153,12 @@ double fill_all_cartesian_components_multirun(
+ 
+     const bool bennett_outer_complex_diagnostic =
+         std::getenv("LCBININT_ENABLE_BENNETT_OUTER_SEGMENTS") != nullptr;
++    const char* seed_mode=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
++    const bool geometry_outer_guard=std::getenv("LCBININT_CARTESIAN_GEOMETRY_OUTER_GUARD")!=nullptr
++        || (seed_mode && std::string(seed_mode)=="critical-seeds");
+     const bool bennett_outer_enabled =
+         std::getenv("LCBININT_DISABLE_BENNETT_OUTER") == nullptr &&
++        !(geometry_outer_guard && source_has_critical) &&
+         (std::getenv("LCBININT_ENABLE_BENNETT_OUTER") != nullptr ||
+          bennett_outer_complex_diagnostic || components.size() <= 2U);
+ 
+@@ -5915,7 +7261,7 @@ double fill_all_cartesian_components_multirun(
+             // Bennett designed it.  A short blob has no asymptotic outer
+             // strip, and the multi-seed/fold regime remains fail-closed.
+             if ((components.size() > 2U && !bennett_outer_complex_diagnostic) ||
+-                run_fill.counters.provisional_components > 8 ||
++                (!geometry_outer_guard && run_fill.counters.provisional_components > 8) ||
+                 span < 4 ||
+                 component.first_run_index == missing_component) {
+                 ++outer_components_rejected_span;
+@@ -5929,6 +7275,14 @@ double fill_all_cartesian_components_multirun(
+                 ++outer_components_rejected_span;
+                 continue;
+             }
++            // Provisional starts measure seed density, not image topology.
++            // Use actual split/merge junctions for the experimental guard.
++            // A clean-arc Eq. (15) rule must not become active merely because
++            // the seed algorithm supplied fewer redundant starts.
++            if (geometry_outer_guard && walk.junction_nodes!=0U) {
++                ++outer_components_rejected_span;
++                continue;
++            }
+             // The experimental multi-component switch is for the new
+             // check_bktrack-style topology path, not a broad license to
+             // change every clean image arc in a three/five-image event.  The
+@@ -6182,7 +7536,9 @@ double inverse_ray_cartesian_core(
+     double point_source_magnification_hint,
+     LegacyAreaDiagnostics* diagnostics,
+     const char* diagnostics_label,
+-    detail::CartesianRunFillTrace* trace = nullptr)
++    detail::CartesianRunFillTrace* trace = nullptr,
++    const std::vector<std::vector<SourcePosition>>* critical_coverage = nullptr,
++    const std::vector<std::vector<SourcePosition>>* caustic_coverage = nullptr)
+ {
+     if (raw_images.empty() || source_radius <= 0.0) {
+         return std::nan("");
+@@ -6283,9 +7639,39 @@ double inverse_ray_cartesian_core(
+                 ++diagnostics->fold_seed_count;
+             }
+         }
++        std::vector<detail::CartesianLatticeSeed> coverage_probes;
++        const char* seed_mode=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
++        const bool geometry_guard=std::getenv("LCBININT_CARTESIAN_GEOMETRY_OUTER_GUARD")!=nullptr
++            || (seed_mode && std::string(seed_mode)=="critical-seeds");
++        bool source_has_critical=false;
++        if (geometry_guard && caustic_coverage) {
++            const double r2=source_radius*source_radius;
++            for (const auto& branch:*caustic_coverage) {
++                for (const auto& point:branch) {
++                    if (distance_squared(point,source)<r2) {source_has_critical=true;break;}
++                }
++                if (source_has_critical) break;
++            }
++        }
++        if (seed_mode && std::string(seed_mode)=="critical-seeds" && critical_coverage && caustic_coverage
++            && std::getenv("LCBININT_CRITICAL_GRID_REPAIR")) {
++            const auto& critical=*critical_coverage;
++            const auto& caustics=*caustic_coverage;
++            const double r2=source_radius*source_radius;
++            for (std::size_t branch=0;branch<critical.size() && branch<caustics.size();++branch)
++                for (std::size_t i=0;i<critical[branch].size() && i<caustics[branch].size();++i) {
++                    if (distance_squared(caustics[branch][i],source)>=r2) continue;
++                    std::int64_t ix=0,iy=0;
++                    if (!rounded_lattice_index(critical[branch][i].x/incr,ix)
++                        || !rounded_lattice_index(critical[branch][i].y/incr,iy)) continue;
++                    if (!coverage_probes.empty() && coverage_probes.back().ix==ix && coverage_probes.back().iy==iy) continue;
++                    coverage_probes.push_back({ix,iy});
++                }
++        }
+         area = fill_all_cartesian_components_multirun(
+             mapper, source, source_radius, settings, finite_magnifier,
+-            multirun_seeds, incr, walk_magnification_hint, diagnostics, trace);
++            multirun_seeds, incr, walk_magnification_hint, diagnostics, trace,
++            coverage_probes.empty() ? nullptr : &coverage_probes,source_has_critical);
+         if (!std::isfinite(area)) {
+             return std::numeric_limits<double>::quiet_NaN();
+         }
+@@ -6491,6 +7877,9 @@ double inverse_ray_cartesian_binary_mag(
+             std::numeric_limits<double>::infinity(), nullptr,
+             finite_magnifier != nullptr
+                 ? &finite_magnifier->binary_caustic_branches(separation, mass_ratio)
++                : nullptr,nullptr,nullptr,
++            finite_magnifier != nullptr
++                ? &finite_magnifier->binary_critical_curve_branches_cached(separation,mass_ratio)
+                 : nullptr) :
+         std::vector<SourcePosition> {};
+     const auto& raw_images = precomputed_seeds == nullptr ? computed_images : *precomputed_seeds;
+@@ -6505,7 +7894,9 @@ double inverse_ray_cartesian_binary_mag(
+               point_magnifier.binary_mag0(separation, mass_ratio, source).magnification);
+     return inverse_ray_cartesian_core(
+         mapper, raw_images, source, source_radius, settings, finite_magnifier,
+-        point_source_hint, diagnostics, "AREA_DIAGNOSTICS", trace);
++        point_source_hint, diagnostics, "AREA_DIAGNOSTICS", trace,
++        finite_magnifier ? &finite_magnifier->binary_critical_curve_branches_cached(separation,mass_ratio) : nullptr,
++        finite_magnifier ? &finite_magnifier->binary_caustic_branches(separation,mass_ratio) : nullptr);
+ }
+ 
+ double inverse_ray_cartesian_triple_mag(
+@@ -6605,7 +7996,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
+             evaluation.error_estimate,
+             0,
+             settings.automatic_source_bins
+-                ? support_proven
++                ? support_proven && evaluation.seed_coverage_proven
+                 : evaluation.converged,
+         };
+     }
+@@ -6616,6 +8007,7 @@ FiniteSourceResult fixed_inverse_ray_binary(
+         point_magnifier, separation, mass_ratio, source, source_radius,
+         active_settings, finite_magnifier, &seeds, &diagnostics,
+         point_source_magnification_hint);
++    support_proven=support_proven && diagnostics.seed_coverage_proven;
+     if (!std::isfinite(magnification)) {
+         return {magnification, 0, decision, std::nan(""), 0, false};
+     }
+@@ -7366,6 +8758,18 @@ FiniteSourceResult fixed_inverse_ray_spine_binary(
+ 
+ } // namespace
+ 
++bool binary_centre_seed_certificate(double separation,double mass_ratio,SourcePosition source,double rho) {
++    PointSourceMagnifier point;std::vector<SourcePosition> proposals;
++    for (const auto& image:point.binary_images(separation,mass_ratio,source)) proposals.push_back(image.position);
++    return certify_centre_seed_positions(separation,mass_ratio,source,rho,proposals);
++}
++
++std::vector<SourcePosition> binary_critical_phase_proposals(
++    double separation,double mass_ratio,double phase_angle)
++{
++    return critical_curve_points_at_phase(separation,mass_ratio,phase_angle);
++}
++
+ bool binary_auto_tolerance_supported(
+     double requested_absolute_tolerance,
+     double requested_relative_tolerance)
+@@ -7560,7 +8964,8 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
+         caustic_distance,
+         center_image_seeds,
+         &binary_caustic_branches(separation, mass_ratio),
+-        &proven);
++        &proven,nullptr,&binary_critical_curve_branches_cached(separation,mass_ratio),
++        center_image_seeds ? static_cast<int>(center_image_seeds->size()) : -1);
+ 
+     constexpr std::size_t maximum_entries = 1024;
+     if (binary_seed_cache_.size() >= maximum_entries) {
+@@ -7631,10 +9036,10 @@ void FiniteSourceMagnifier::ensure_binary_caustic_cache(
+                                std::abs(caustic_cache_separation_ - separation) <=
+                                    std::max(separation_tolerance, 0.0);
+     if (!cache_matches) {
+-        const auto critical_curves =
++        caustic_cache_critical_branches_ =
+             build_binary_critical_curves(separation, mass_ratio, bins);
+         caustic_cache_branches_ = map_binary_critical_curves_to_caustics(
+-            critical_curves, separation, mass_ratio);
++            caustic_cache_critical_branches_, separation, mass_ratio);
+         caustic_cache_points_.clear();
+         caustic_cache_points_.reserve(static_cast<std::size_t>(bins) * 4);
+         caustic_cache_min_x_ = std::numeric_limits<double>::infinity();
+@@ -7721,8 +9126,14 @@ FiniteSourceMagnifier::binary_critical_curve_branches(
+     double separation,
+     double mass_ratio) const
+ {
+-    const int bins = std::max(settings_.caustic_bins, 32);
+-    return build_binary_critical_curves(separation, mass_ratio, bins);
++    return binary_critical_curve_branches_cached(separation,mass_ratio);
++}
++
++const std::vector<std::vector<SourcePosition>>&
++FiniteSourceMagnifier::binary_critical_curve_branches_cached(double separation,double mass_ratio) const
++{
++    ensure_binary_caustic_cache(separation,mass_ratio);
++    return caustic_cache_critical_branches_;
+ }
+ 
+ std::vector<std::vector<SourcePosition>>
+@@ -8096,7 +9507,7 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
+         point_magnifier, mapper, separation, mass_ratio, source, source_radius,
+         std::numeric_limits<double>::infinity(), nullptr,
+         &binary_caustic_branches(separation, mass_ratio), &support_proven,
+-        &centre_image_count);
++        &centre_image_count,&binary_critical_curve_branches_cached(separation,mass_ratio));
+     const double sampled_caustic_distance = binary_sampled_caustic_distance(
+         separation, mass_ratio, source, source_radius);
+     const double polar_fallback_distance =
+@@ -8119,7 +9530,7 @@ FiniteSourceResult FiniteSourceMagnifier::inverse_ray_polar_binary_mag(
+             decision,
+             diagnostics.estimated_error,
+             0,
+-            finite_source_error_within_budget(
++            support_proven && diagnostics.seed_coverage_proven && finite_source_error_within_budget(
+                 settings_, magnification, diagnostics.estimated_error),
+         };
+     }
+@@ -8708,7 +10119,7 @@ CartesianTraceResult FiniteSourceMagnifier::binary_cartesian_trace(
+         source_radius,
+         std::numeric_limits<double>::infinity(),
+         nullptr,
+-        &caustics);
++        &caustics,nullptr,nullptr,&binary_critical_curve_branches_cached(separation,mass_ratio));
+     const double point_source_magnification = std::abs(
+         point_magnifier.binary_mag0(separation, mass_ratio, source).magnification);
+     detail::CartesianRunFillTrace trace;
+@@ -8726,6 +10137,9 @@ CartesianTraceResult FiniteSourceMagnifier::binary_cartesian_trace(
+         &trace);
+     result.complete = !trace.truncated;
+     result.events = std::move(trace.events);
++    result.boundary_diagnostics = std::move(trace.boundary_diagnostics);
++    result.coverage_requested=trace.coverage_requested;result.coverage_certified=trace.coverage_certified;
++    result.coverage_boxes=trace.coverage_boxes;result.coverage_unresolved=trace.coverage_unresolved;result.coverage_components=trace.coverage_components;
+     return result;
+ }
+ 
+diff --git a/src/lcbinint/magnification/finite_source_magnifier.hpp b/src/lcbinint/magnification/finite_source_magnifier.hpp
+index 7eb797a..d71792a 100644
+--- a/src/lcbinint/magnification/finite_source_magnifier.hpp
++++ b/src/lcbinint/magnification/finite_source_magnifier.hpp
+@@ -15,6 +15,12 @@ namespace lcbinint::magnification {
+ 
+ class PointSourceMagnifier;
+ 
++// Diagnostic local proposal: solve only one unresolved critical phase.
++std::vector<SourcePosition> binary_critical_phase_proposals(
++    double separation,double mass_ratio,double phase_angle);
++bool binary_centre_seed_certificate(
++    double separation,double mass_ratio,SourcePosition source,double source_radius);
++
+ enum class FiniteSourceMethod {
+     point_source,
+     hexadecapole,
+@@ -124,6 +130,9 @@ struct CartesianTraceResult {
+     int source_bins = 0;
+     bool complete = true;
+     std::vector<detail::CartesianRunFillTraceEvent> events;
++    std::vector<detail::CartesianRunBoundaryTraceEvent> boundary_diagnostics;
++    bool coverage_requested=false,coverage_certified=false;
++    std::int64_t coverage_boxes=0,coverage_unresolved=0,coverage_components=0;
+ 
+     bool valid() const noexcept { return std::isfinite(magnification); }
+ };
+@@ -230,6 +239,8 @@ public:
+     std::vector<std::vector<SourcePosition>> binary_critical_curve_branches(
+         double separation,
+         double mass_ratio) const;
++    const std::vector<std::vector<SourcePosition>>& binary_critical_curve_branches_cached(
++        double separation,double mass_ratio) const;
+     std::vector<std::vector<SourcePosition>> triple_caustic_branches(
+         const model::TripleLensGeometry& geometry) const;
+     // Cached view used by JAX support discovery.  The returned reference is
+@@ -282,6 +293,7 @@ private:
+     mutable double caustic_cache_mass_ratio_ = 0.0;
+     mutable int caustic_cache_bins_ = 0;
+     mutable std::vector<std::vector<SourcePosition>> caustic_cache_branches_;
++    mutable std::vector<std::vector<SourcePosition>> caustic_cache_critical_branches_;
+     mutable std::vector<SourcePosition> caustic_cache_points_;
+     mutable double caustic_cache_min_x_ = 0.0;
+     mutable double caustic_cache_max_x_ = 0.0;
+diff --git a/src/lcbinint/magnification/probe_diagnostics.cpp b/src/lcbinint/magnification/probe_diagnostics.cpp
+index b1e60b6..c9f0a0f 100644
+--- a/src/lcbinint/magnification/probe_diagnostics.cpp
++++ b/src/lcbinint/magnification/probe_diagnostics.cpp
+@@ -51,10 +51,46 @@ ProbeCounters& probe_counters()
+ 
+ bool probe_stats_enabled()
+ {
+-    static const bool enabled = std::getenv("LCBININT_PROBE_STATS") != nullptr;
++    static const bool enabled = std::getenv("LCBININT_PROBE_STATS") != nullptr
++        || discriminant_diagnostics_enabled() || boundary_diagnostics_enabled();
+     return enabled;
+ }
+ 
++bool discriminant_diagnostics_enabled()
++{
++    static const bool enabled = std::getenv("LCBININT_DISCRIMINANT_DIAGNOSTICS") != nullptr;
++    return enabled;
++}
++
++bool boundary_diagnostics_enabled()
++{
++    static const bool enabled = std::getenv("LCBININT_BOUNDARY_DIAGNOSTICS") != nullptr;
++    return enabled;
++}
++
++bool representative_probes_enabled()
++{
++    static const bool enabled = std::getenv("LCBININT_REPRESENTATIVE_PROBES") != nullptr;
++    return enabled;
++}
++
++bool representative_count_ablation_enabled()
++{
++    const char* value=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
++    return value!=nullptr && std::strcmp(value,"count-ablation")==0;
++}
++
++bool representative_polyline_links_enabled()
++{
++    const char* value=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
++    return value && (std::strcmp(value,"polyline-links")==0 || std::strcmp(value,"verified-links")==0);
++}
++bool representative_verified_links_enabled()
++{
++    const char* value=std::getenv("LCBININT_REPRESENTATIVE_PROBES");
++    return value && std::strcmp(value,"verified-links")==0;
++}
++
+ void reset_probe_counters()
+ {
+     probe_counters() = ProbeCounters {};
+diff --git a/src/lcbinint/magnification/probe_diagnostics.hpp b/src/lcbinint/magnification/probe_diagnostics.hpp
+index ea65e2b..c115c5f 100644
+--- a/src/lcbinint/magnification/probe_diagnostics.hpp
++++ b/src/lcbinint/magnification/probe_diagnostics.hpp
+@@ -27,6 +27,12 @@ namespace lcbinint::magnification {
+ struct ProbeCounters {
+     // Point-image solves, which is the unit of probe cost: everything else in
+     // the seeding stage is arithmetic on the results.
++    long long continuation_newton_stagnations = 0;
++    long long continuation_inclusion_failures = 0;
++    long long continuation_duplicate_failures = 0;
++    long long continuation_attempts = 0;
++    long long continuation_accepted = 0;
++    double continuation_seconds = 0;
+     long long certified_solves = 0;
+     // What the certificate proposed against what was actually spent.  The
+     // traversal stops a direction as soon as it departs from its baseline, so
+@@ -44,10 +50,72 @@ struct ProbeCounters {
+     // different means.
+     double certified_seconds = 0.0;
+     double certify_seconds = 0.0;
++    // Shadow classifiers do not change the roots, seeds, or support decision.
++    long long discriminant_calls = 0;
++    long long discriminant_resolved = 0;
++    long long discriminant_filtered = 0;
++    long long discriminant_unresolved = 0;
++    long long discriminant_mismatches = 0;
++    double discriminant_seconds = 0.0;
++    long long representative_groups = 0;
++    long long representative_boxes_resolved = 0;
++    long long representative_skipped = 0;
++    long long representative_mismatches = 0;
++    long long source_cell_cache_hits = 0;
++    long long source_cell_enclosures = 0;
++    long long source_cell_reuses = 0;
++    long long source_cell_fallbacks = 0;
++    long long polar_fill_calls=0,polar_map_queries=0,polar_seed_positions=0,polar_fill_cells=0;
++    double polar_fill_seconds=0;
++    long long polar_diagonal_runs=0;
++    long long polar_coverage_calls=0,polar_coverage_boxes=0,polar_coverage_unresolved=0,polar_coverage_repairs=0,polar_coverage_certified=0;
++    double polar_coverage_seconds=0;
++    long long cartesian_fill_calls=0,cartesian_map_queries=0,cartesian_fill_cells=0;
++    double cartesian_fill_seconds=0;
++    long long cartesian_coverage_calls=0,cartesian_coverage_certified=0,cartesian_coverage_boxes=0,cartesian_coverage_unresolved=0,cartesian_coverage_repairs=0;
++    double cartesian_coverage_seconds=0;
++    long long critical_support_calls=0,critical_support_proven=0,critical_support_unresolved=0,critical_support_phase_queries=0,critical_support_proof_queries=0;
++    double critical_support_seconds=0;
++    long long critical_arc_seeds = 0;
++    long long critical_uncovered_probes = 0;
++    long long critical_incremental_solves = 0;
++    long long critical_centre_solves = 0;
++    long long critical_grid_checks = 0;
++    long long critical_grid_components = 0;
++    long long critical_phase_solves = 0;
++    long long critical_phase_tracked = 0;
++    long long critical_newton_iterations = 0;
++    long long critical_tracking_failures = 0;
++    double critical_build_seconds = 0.0;
++    double representative_box_seconds = 0.0;
++    double representative_count_seconds = 0.0;
++    long long representative_link_checks = 0;
++    long long representative_polyline_clear = 0;
++    long long representative_verified_skipped = 0;
++    long long representative_conditional_skipped = 0;
++    long long representative_link_boxes = 0;
++    double representative_link_seconds = 0.0;
++    // Local boundary model residuals (raw image flux units, summed per thread).
++    // These exclude interior/outer-coordinate errors and are not error bounds.
++    long long boundary_model_edges = 0;
++    long long boundary_model_unresolved = 0;
++    long long boundary_model_extra_evaluations = 0;
++    long long boundary_model_reused_evaluations = 0;
++    double boundary_outer_curvature_flux_indicator = 0.0;
++    double boundary_model_absolute_flux_residual = 0.0;
++    double boundary_model_signed_flux_residual = 0.0;
+ };
+ 
+ ProbeCounters& probe_counters();
+ bool probe_stats_enabled();
++bool discriminant_diagnostics_enabled();
++bool boundary_diagnostics_enabled();
++// Experimental seed reduction; no default/public integration guarantee.
++bool representative_probes_enabled();
++// Deliberately unproven count-only ablation, never a support certificate.
++bool representative_count_ablation_enabled();
++bool representative_polyline_links_enabled();
++bool representative_verified_links_enabled();
+ void reset_probe_counters();
+ 
+ // Diagnostic controls for the certificate probe ladder.  There is deliberately
+diff --git a/tests/unit/test_core.cpp b/tests/unit/test_core.cpp
+index c347b02..bf14b61 100644
+--- a/tests/unit/test_core.cpp
++++ b/tests/unit/test_core.cpp
+@@ -476,9 +476,9 @@ bool cartesian_run_trace_order_test()
+         }
+         return false;
+     }
+-    // Both sorted seed runs must be registered before the first frontier pop;
++    // The first seed is drained before the next seed is considered;
+     // the trace must expose the same discovery and pop counts as the result.
+-    return first_popped_event == 2 && discovered == result.runs.size() &&
++    return first_popped_event == 1 && discovered == result.runs.size() &&
+         popped == static_cast<std::size_t>(result.counters.frontier_intervals_popped);
+ }
+ 
