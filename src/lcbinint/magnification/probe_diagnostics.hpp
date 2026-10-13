@@ -29,9 +29,9 @@ struct ProbeCounters {
     // the seeding stage is arithmetic on the results.
     long long certified_solves = 0;
     // What the certificate proposed against what was actually spent.  The
-    // traversal stops a direction as soon as it departs from its baseline, so
-    // ``certified_offered`` above ``certified_solves`` is the early-out working
-    // rather than probes going missing.
+    // traversal stops a direction as soon as it departs from its baseline.
+    // This counts the nominal source-limb ladder; lazy local-scale refinement
+    // is charged to certified_solves and can exceed the nominal offered count.
     long long certified_offered = 0;
     long long certified_extrema = 0;
     // Support descriptors built, and disks whose support the ladder failed to

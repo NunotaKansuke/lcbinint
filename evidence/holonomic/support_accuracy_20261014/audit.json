@@ -1,0 +1,377 @@
+{
+  "source_support": {
+    "baseline_file": "baseline_full.tsv",
+    "current_file": "final_full.tsv",
+    "rows": 14432,
+    "baseline_status": {
+      "OK": 14248,
+      "SEED_SUPPORT_UNPROVEN": 180,
+      "TopologyUnresolved": 4
+    },
+    "current_status": {
+      "OK": 14388,
+      "TopologyUnresolved": 4,
+      "SEED_SUPPORT_UNPROVEN": 40
+    },
+    "transitions": {
+      "OK -> OK": 14248,
+      "SEED_SUPPORT_UNPROVEN -> OK": 140,
+      "TopologyUnresolved -> TopologyUnresolved": 4,
+      "SEED_SUPPORT_UNPROVEN -> SEED_SUPPORT_UNPROVEN": 40
+    },
+    "changed_fields": {
+      "v2_mu": 0,
+      "value_error": 0,
+      "nodes": 0,
+      "bands": 0,
+      "coverage_certified": 0
+    },
+    "new_non_ok": 0,
+    "reference_discrepancies_over_target": 3,
+    "remaining_support_geometries": [
+      [
+        "38",
+        "1",
+        "0"
+      ],
+      [
+        "38",
+        "1",
+        "15"
+      ],
+      [
+        "38",
+        "1",
+        "7"
+      ],
+      [
+        "52",
+        "1",
+        "0"
+      ],
+      [
+        "52",
+        "1",
+        "15"
+      ],
+      [
+        "52",
+        "1",
+        "7"
+      ],
+      [
+        "87",
+        "1",
+        "0"
+      ],
+      [
+        "87",
+        "1",
+        "15"
+      ],
+      [
+        "87",
+        "1",
+        "23"
+      ],
+      [
+        "87",
+        "1",
+        "7"
+      ]
+    ],
+    "timing": {
+      "seed_ms": {
+        "baseline_sum": 973.709620000004,
+        "current_sum": 979.5119299999906,
+        "sum_ratio": 1.0059589736825099,
+        "median_paired_ratio": 1.0107090414348339
+      },
+      "planning_ms": {
+        "baseline_sum": 711.2293469999992,
+        "current_sum": 707.9099560000006,
+        "sum_ratio": 0.9953328824042486,
+        "median_paired_ratio": 0.9968743202605396
+      },
+      "integration_ms": {
+        "baseline_sum": 970.6949420000017,
+        "current_sum": 977.7963260000009,
+        "sum_ratio": 1.0073157731566702,
+        "median_paired_ratio": 1.0015587797132337
+      },
+      "ms": {
+        "baseline_sum": 2673.827683999993,
+        "current_sum": 2684.871186999999,
+        "sum_ratio": 1.0041302224021724,
+        "median_paired_ratio": 1.0024284609435656
+      }
+    }
+  },
+  "rejected_global_rescaling": {
+    "baseline_file": "baseline_full.tsv",
+    "current_file": "candidate_full.tsv",
+    "rows": 14432,
+    "baseline_status": {
+      "OK": 14248,
+      "SEED_SUPPORT_UNPROVEN": 180,
+      "TopologyUnresolved": 4
+    },
+    "current_status": {
+      "OK": 14348,
+      "TopologyUnresolved": 4,
+      "SEED_SUPPORT_UNPROVEN": 80
+    },
+    "transitions": {
+      "OK -> OK": 14208,
+      "SEED_SUPPORT_UNPROVEN -> OK": 140,
+      "TopologyUnresolved -> TopologyUnresolved": 4,
+      "OK -> SEED_SUPPORT_UNPROVEN": 40,
+      "SEED_SUPPORT_UNPROVEN -> SEED_SUPPORT_UNPROVEN": 40
+    },
+    "changed_fields": {
+      "v2_mu": 33,
+      "value_error": 33,
+      "nodes": 8,
+      "bands": 0,
+      "coverage_certified": 0
+    },
+    "new_non_ok": 40,
+    "reference_discrepancies_over_target": 3,
+    "remaining_support_geometries": [
+      [
+        "104",
+        "0",
+        "0"
+      ],
+      [
+        "104",
+        "0",
+        "15"
+      ],
+      [
+        "104",
+        "0",
+        "23"
+      ],
+      [
+        "104",
+        "0",
+        "7"
+      ],
+      [
+        "17",
+        "0",
+        "23"
+      ],
+      [
+        "23",
+        "1",
+        "23"
+      ],
+      [
+        "38",
+        "1",
+        "0"
+      ],
+      [
+        "38",
+        "1",
+        "15"
+      ],
+      [
+        "38",
+        "1",
+        "7"
+      ],
+      [
+        "40",
+        "1",
+        "23"
+      ],
+      [
+        "52",
+        "1",
+        "0"
+      ],
+      [
+        "52",
+        "1",
+        "15"
+      ],
+      [
+        "52",
+        "1",
+        "7"
+      ],
+      [
+        "58",
+        "0",
+        "0"
+      ],
+      [
+        "58",
+        "1",
+        "23"
+      ],
+      [
+        "65",
+        "0",
+        "23"
+      ],
+      [
+        "87",
+        "1",
+        "0"
+      ],
+      [
+        "87",
+        "1",
+        "15"
+      ],
+      [
+        "87",
+        "1",
+        "23"
+      ],
+      [
+        "87",
+        "1",
+        "7"
+      ]
+    ],
+    "timing": {
+      "seed_ms": {
+        "baseline_sum": 973.709620000004,
+        "current_sum": 926.810105999995,
+        "sum_ratio": 0.9518341885129894,
+        "median_paired_ratio": 0.9960239918688157
+      },
+      "planning_ms": {
+        "baseline_sum": 711.2293469999992,
+        "current_sum": 707.7030389999986,
+        "sum_ratio": 0.9950419537454765,
+        "median_paired_ratio": 1.0033831347565347
+      },
+      "integration_ms": {
+        "baseline_sum": 970.6949420000017,
+        "current_sum": 972.9490099999971,
+        "sum_ratio": 1.0023221177967108,
+        "median_paired_ratio": 1.0018534677066813
+      },
+      "ms": {
+        "baseline_sum": 2673.827683999993,
+        "current_sum": 2626.1053089999987,
+        "sum_ratio": 0.9821520379620714,
+        "median_paired_ratio": 0.9997078552192052
+      }
+    }
+  },
+  "matched_standard_timing": {
+    "baseline_file": "baseline_standard.tsv",
+    "current_file": "final_repeat.tsv",
+    "rows": 14432,
+    "baseline_status": {
+      "OK": 14248,
+      "SEED_SUPPORT_UNPROVEN": 180,
+      "TopologyUnresolved": 4
+    },
+    "current_status": {
+      "OK": 14388,
+      "TopologyUnresolved": 4,
+      "SEED_SUPPORT_UNPROVEN": 40
+    },
+    "transitions": {
+      "OK -> OK": 14248,
+      "SEED_SUPPORT_UNPROVEN -> OK": 140,
+      "TopologyUnresolved -> TopologyUnresolved": 4,
+      "SEED_SUPPORT_UNPROVEN -> SEED_SUPPORT_UNPROVEN": 40
+    },
+    "changed_fields": {
+      "v2_mu": 0,
+      "value_error": 0,
+      "nodes": 0,
+      "bands": 0,
+      "coverage_certified": 0
+    },
+    "new_non_ok": 0,
+    "reference_discrepancies_over_target": 3,
+    "remaining_support_geometries": [
+      [
+        "38",
+        "1",
+        "0"
+      ],
+      [
+        "38",
+        "1",
+        "15"
+      ],
+      [
+        "38",
+        "1",
+        "7"
+      ],
+      [
+        "52",
+        "1",
+        "0"
+      ],
+      [
+        "52",
+        "1",
+        "15"
+      ],
+      [
+        "52",
+        "1",
+        "7"
+      ],
+      [
+        "87",
+        "1",
+        "0"
+      ],
+      [
+        "87",
+        "1",
+        "15"
+      ],
+      [
+        "87",
+        "1",
+        "23"
+      ],
+      [
+        "87",
+        "1",
+        "7"
+      ]
+    ],
+    "timing": {
+      "seed_ms": {
+        "baseline_sum": 981.3884540000016,
+        "current_sum": 981.1790960000006,
+        "sum_ratio": 0.999786671629213,
+        "median_paired_ratio": 0.987154150175479
+      },
+      "planning_ms": {
+        "baseline_sum": 714.8784800000006,
+        "current_sum": 707.1853169999997,
+        "sum_ratio": 0.9892385024654806,
+        "median_paired_ratio": 0.9874654356925958
+      },
+      "integration_ms": {
+        "baseline_sum": 968.7288810000022,
+        "current_sum": 972.6933450000045,
+        "sum_ratio": 1.0040924391517159,
+        "median_paired_ratio": 0.9972479509117329
+      },
+      "ms": {
+        "baseline_sum": 2681.1633139999917,
+        "current_sum": 2679.5687739999967,
+        "sum_ratio": 0.9994052805393581,
+        "median_paired_ratio": 0.9952446814310811
+      }
+    }
+  }
+}
