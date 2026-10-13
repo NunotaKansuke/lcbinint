@@ -1,0 +1,244 @@
+[
+  {
+    "id": "2297",
+    "bins": 8,
+    "budget": 64,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "2297",
+    "bins": 16,
+    "budget": 64,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "2297",
+    "bins": 8,
+    "budget": 256,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "2297",
+    "bins": 16,
+    "budget": 256,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "2297",
+    "bins": 8,
+    "budget": 4096,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "2297",
+    "bins": 16,
+    "budget": 4096,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "2297",
+    "bins": 8,
+    "budget": 1000000,
+    "mu": 77.0426445255338,
+    "met": true,
+    "stop": "estimated_target_met",
+    "maps": 92656
+  },
+  {
+    "id": "2297",
+    "bins": 16,
+    "budget": 1000000,
+    "mu": 77.04274692475272,
+    "met": true,
+    "stop": "estimated_target_met",
+    "maps": 112094
+  },
+  {
+    "id": "2297",
+    "post_exception_restored": true,
+    "mu": 77.0426445255338
+  },
+  {
+    "id": "5230",
+    "bins": 8,
+    "budget": 64,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5230",
+    "bins": 16,
+    "budget": 64,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5230",
+    "bins": 8,
+    "budget": 256,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5230",
+    "bins": 16,
+    "budget": 256,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5230",
+    "bins": 8,
+    "budget": 4096,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5230",
+    "bins": 16,
+    "budget": 4096,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5230",
+    "bins": 8,
+    "budget": 1000000,
+    "mu": 67.02460837853867,
+    "met": true,
+    "stop": "estimated_target_met",
+    "maps": 19519
+  },
+  {
+    "id": "5230",
+    "bins": 16,
+    "budget": 1000000,
+    "mu": 67.02822959854157,
+    "met": true,
+    "stop": "estimated_target_met",
+    "maps": 63758
+  },
+  {
+    "id": "5230",
+    "post_exception_restored": true,
+    "mu": 67.02460837853867
+  },
+  {
+    "id": "5312",
+    "bins": 8,
+    "budget": 64,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5312",
+    "bins": 16,
+    "budget": 64,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5312",
+    "bins": 8,
+    "budget": 256,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5312",
+    "bins": 16,
+    "budget": 256,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5312",
+    "bins": 8,
+    "budget": 4096,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5312",
+    "bins": 16,
+    "budget": 4096,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "5312",
+    "bins": 8,
+    "budget": 1000000,
+    "mu": 35.94923357698918,
+    "met": true,
+    "stop": "estimated_target_met",
+    "maps": 12715
+  },
+  {
+    "id": "5312",
+    "bins": 16,
+    "budget": 1000000,
+    "mu": 35.94991725892768,
+    "met": true,
+    "stop": "estimated_target_met",
+    "maps": 35127
+  },
+  {
+    "id": "5312",
+    "post_exception_restored": true,
+    "mu": 35.94923357698918
+  },
+  {
+    "id": "3994",
+    "bins": 8,
+    "budget": 64,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "3994",
+    "bins": 16,
+    "budget": 64,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "3994",
+    "bins": 8,
+    "budget": 256,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "3994",
+    "bins": 16,
+    "budget": 256,
+    "exception": "adaptive lattice evaluation budget exhausted"
+  },
+  {
+    "id": "3994",
+    "bins": 8,
+    "budget": 4096,
+    "mu": 1.4489549356398594,
+    "met": true,
+    "stop": "estimated_target_met",
+    "maps": 572
+  },
+  {
+    "id": "3994",
+    "bins": 16,
+    "budget": 4096,
+    "mu": 1.4489488193385136,
+    "met": true,
+    "stop": "estimated_target_met",
+    "maps": 1432
+  },
+  {
+    "id": "3994",
+    "bins": 8,
+    "budget": 1000000,
+    "mu": 1.4489549356398594,
+    "met": true,
+    "stop": "estimated_target_met",
+    "maps": 595
+  },
+  {
+    "id": "3994",
+    "bins": 16,
+    "budget": 1000000,
+    "mu": 1.4489488193385136,
+    "met": true,
+    "stop": "estimated_target_met",
+    "maps": 1478
+  },
+  {
+    "id": "3994",
+    "post_exception_restored": true,
+    "mu": 1.4489549356398594
+  }
+]

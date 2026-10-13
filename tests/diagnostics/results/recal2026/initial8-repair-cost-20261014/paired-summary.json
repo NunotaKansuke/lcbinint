@@ -1,0 +1,30 @@
+[
+  {
+    "profile": "uniform",
+    "target": 0.001,
+    "pairs": 21,
+    "speed16_over_final8": 1.0975733474021658,
+    "previous8_over_final8": 1.0160430152215874
+  },
+  {
+    "profile": "uniform",
+    "target": 0.0001,
+    "pairs": 19,
+    "speed16_over_final8": 1.1399291013363804,
+    "previous8_over_final8": 1.0326922610192228
+  },
+  {
+    "profile": "ld",
+    "target": 0.001,
+    "pairs": 23,
+    "speed16_over_final8": 1.1637150156738907,
+    "previous8_over_final8": 1.1672235105852218
+  },
+  {
+    "profile": "ld",
+    "target": 0.0001,
+    "pairs": 22,
+    "speed16_over_final8": 0.9941395854443689,
+    "previous8_over_final8": 1.0590202568824334
+  }
+]

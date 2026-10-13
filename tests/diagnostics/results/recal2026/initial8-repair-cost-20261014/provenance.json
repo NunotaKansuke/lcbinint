@@ -1,0 +1,35 @@
+{
+  "root": "/rogue1_8/nunota/lcbinint",
+  "head": "a7b15c1601abecdf9c019f3f1fe9fbd9636209bd",
+  "branch": "feature/boundary-error-and-discriminant-support",
+  "source_sha256": "7c88c36d8bf01dba204de21bef27831ffe6fb0fb4ec5fa4374b170d1c3f9772d",
+  "before_source_sha256": "19406e7b755697d6450277126a23a0f658dc7637ab6d6adaa815e516ee95fff6",
+  "artifacts_sha256": {
+    "runner": "2efc546d60aa6673abc6532e0fb29747699cfd0c4b6af0a1042a79da4ebc4295",
+    "paired.tsv": "9a583981c85baccedf68339210f4f61de6fd209f4671a0caa63826f4d882db25",
+    "fresh-paired.tsv": "bdf4fe73d3696349a363d8faf41d143622a17c42e4bc6743df76fc0e48483a98",
+    "fresh-input.tsv": "760dc57a1149a6c53ddd791e69a489c6d3b5b218271674724ca0efb72b00eb67",
+    "audit.json": "eeb8881e7e3931a327214415afe0117f5c70cffc02fb48e2d8b49774ccfc5eac",
+    "budget-smoke.json": "73f346dcaf7482db5731120e1b849353d0b0e2380386fc0a4f2d2ae36bec1a62"
+  },
+  "previous_runner_sha256": "73f483aa045cc8a4aac5b6bf7a51890b63086eeef83ec07c08fd10dac6b3b862",
+  "timing": {
+    "cpu": 0,
+    "threads": 1,
+    "repeats": 3,
+    "method": "each input variants alternate order; warmup excluded; median of3; geomean of matched ratios",
+    "included": "seed retrieval, fill, Bennett/LD, retained error model, refinements",
+    "excluded": "centre root solve, caustic/index construction",
+    "acceptance": "both runtime accepted and VBM-reference actual relative error within unchanged target"
+  },
+  "checks": {
+    "default16_unchanged": 360,
+    "tuned_input_matrix": 360,
+    "fresh_input_matrix": 92,
+    "audited_calls": 12,
+    "audited_rows": 105232,
+    "budget_scope_checks": 36
+  },
+  "fresh_selection": "fresh-selection.json",
+  "baseline": "../initial8-local-repair-20261014/final-provenance.json"
+}

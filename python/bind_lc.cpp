@@ -2232,6 +2232,8 @@ Cartesian or polar grid and its resolution.)");
         out["signed_flux_residual"]=work.signed_error/norm;out["model_remainder_indicator"]=work.remainder/norm;
         out["estimated_target_met"]=work.met;out["stop_reason"]=work.stop_reason;
         out["initial_bins"]=initial_bins;out["largest_bins"]=work.largest_bins;
+        out["coarse_start_guards"]=work.coarse_start_guards;out["coarse_start_probe_calls"]=work.coarse_start_probe_calls;
+        out["coarse_component_merges"]=work.coarse_start_merges;
         out["cap_extensions"]=work.cap_extensions;out["reused_cap_rows"]=work.reused_cap_rows;out["cap_trials"]=work.cap_trials;out["cap_adopted"]=work.cap_adopted;out["cap_rejected"]=work.cap_rejected;out["mixed_component_grids"]=work.mixed_component_grids;
         out["new_lattice_maps"]=work.new_maps;out["reused_lattice_maps"]=work.reused_maps;
         out["component_refinements"]=work.refinements;out["reused_rows"]=work.reused_rows;

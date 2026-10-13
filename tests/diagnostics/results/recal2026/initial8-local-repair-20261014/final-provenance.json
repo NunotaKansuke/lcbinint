@@ -1,0 +1,56 @@
+{
+  "root": "/rogue1_8/nunota/lcbinint",
+  "branch": "feature/boundary-error-and-discriminant-support",
+  "head": "a7b15c1601abecdf9c019f3f1fe9fbd9636209bd",
+  "host": "rogue1",
+  "source_sha256": {
+    "python/bind_lc.cpp": "efff8d969a265991d547c37e111b64716943b51d2fd7a04c6a7f420d9408db96",
+    "src/lcbinint/magnification/adaptive_cartesian_impl.inc": "19406e7b755697d6450277126a23a0f658dc7637ab6d6adaa815e516ee95fff6",
+    "src/lcbinint/magnification/adaptive_cartesian_run_fill.hpp": "460e4e8bb914b1792f96fa1796b19253796bba8426753d0ed45c24878b9db658",
+    "src/lcbinint/magnification/adaptive_outer_endpoint_model.hpp": "e047558d039e0459b8f57f5dde987e118b0b99f166fdfa26c67d0be60751653c",
+    "src/lcbinint/magnification/probe_diagnostics.hpp": "40088567787f8c743e553726d6ece81650c7813eb40f20826c983e27de83d4fb",
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "6ce546aa33d83eb6e83b285fec7a061775089d8e5c11f84c69ec1486a2ddc0ae",
+    "tests/diagnostics/recal2026/test_coarse_cap_transport.cpp": "efc8d96f6ee994d4ef53934da212b0ec3dec4098f9d22ff922678b2e73f01520"
+  },
+  "artifact_sha256": {
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/failure-input.tsv": "ce121bad707c54ab6801fc2059e3335225398d86b7961a776462560b6746aeea",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/holdout-input.tsv": "f5124fa1aeb7571c51516ad8146d82cba14f16e1136169de062b104ac88d6abf",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/development-input.tsv": "b1a683cf88937c23c43f1c178385feac3b923fc4f4196de4869496b4d006e8bf",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/residual-input.tsv": "25029806e8136487bb69abded5ce469ac87d8c3fce89e1234a84a3e0fbc7325a",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/stress-input.tsv": "19c8bbd258554f6eb42a99d6e1301094fa4ec56d4aca475c0f33d49817d47675",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/prospective-input.tsv": "aa0249052c36ed5c94cc111e4562a266b8f9a39a16b9134e36d1a8b6b597d114",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/3994-input.tsv": "371cdf309f2f4c6b58aaaebc19598a7af5d297ca21a436e3b8b06674df64573a",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/development-validated8.tsv": "c6bbee133c5841bb7b190942b3f4db003544b5d333a0e4b106c88feeeac17548",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/development-validated16.tsv": "0238d647161636a6c29edbf268e7acf967a37338867768cc1d017d18a064ca7e",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/holdout-validated8.tsv": "24585682a107416f39f9f06883e1c90909f99dc1a90b150272498c729c228d81",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/holdout-validated16.tsv": "4b9ffb1b06244b1fbac048053a1f81f8ed51c43233140a34fafe67708f5ff23f",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/prospective-validated8.tsv": "ec90cb56d5ad6e1c56d564247787baeaf96cf934d70899f0bf80731322079650",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/prospective-validated16.tsv": "f05f05535f60687d0a3d3c528c1f80caf5127d16206e4047326bbe9ac02934dc",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/prospective-paired.tsv": "fa061f9ccd19a47dfdf4a712d4e5ecea8b76b74d69f91d439b48646d24633152",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/runner": "73f483aa045cc8a4aac5b6bf7a51890b63086eeef83ec07c08fd10dac6b3b862",
+    "tests/diagnostics/results/recal2026/initial8-local-repair-20261014/paired-runner": "752b2febd07f9f9cd1fe36fc3a260c19b4a271f17ce78a2fe48bd952ee3f5af9",
+    "tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/production-runner": "688ad998254db654c07b30285c0f73a1ed02c99169b439b24ff901bded625880"
+  },
+  "timing": {
+    "cpu": 0,
+    "threads": 1,
+    "paired_repeats": 5,
+    "cache": "warm caustic/seed geometry; fresh adaptive rays for every call",
+    "included": "seed retrieval, fill, Bennett/LD integration, error model, refinement",
+    "excluded": "centre-image roots, caustic/index construction",
+    "speed_population": "both estimated accepted and actual relative error <= target",
+    "aggregation": "geometric mean of matched per-input ratios"
+  },
+  "input_convention": "runner SourcePosition(time,y), q passed as 1/q; actual VBM physical source (-time,y), not saved x",
+  "roles": {
+    "development": "60 selected inputs; tuned",
+    "holdout": "60 lens cases outside development; reviewed and tuned; seed20261015",
+    "prospective": "60 lens cases absent from both; seed20261016; A stratified1..1000"
+  },
+  "verification": {
+    "transport_analytic_cases": 60,
+    "budget_scope_checks": 36,
+    "default16_numerical_unchanged_comparisons": 360,
+    "prospective_deferred_eager_comparisons": 120
+  }
+}

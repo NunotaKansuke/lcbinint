@@ -1598,7 +1598,7 @@ inline SameGridOuterError same_grid_internal_error(const CartesianRunFillResult&
  return same_grid_internal_error(same_grid_error_nodes(fill,component,weights),limb_brightness);
 }
 inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fill,
-    std::size_t component=std::numeric_limits<std::size_t>::max(),const std::vector<double>* weights=nullptr,double limb_brightness=1,const std::vector<std::size_t>* ordered_runs=nullptr,bool collect_table_density=true,unsigned endpoint_mask=3,bool include_interior=true,double row_flux_correction_scale=0,bool guard_missing_caps=false) {
+    std::size_t component=std::numeric_limits<std::size_t>::max(),const std::vector<double>* weights=nullptr,double limb_brightness=1,const std::vector<std::size_t>* ordered_runs=nullptr,bool collect_table_density=true,unsigned endpoint_mask=3,bool include_interior=true,double row_flux_correction_scale=0,bool guard_missing_caps=false,bool coarse_shape_check=false) {
     // Keep only row aggregates on the ordinary path. Full interval nodes
     // are materialized from the same ordered index only for a junction.
     std::vector<std::size_t> owned_indices;
@@ -1628,6 +1628,30 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
         } else rows.push_back({r.iy,area,width,weighted,density,1});
     }
     if(rows.empty())return {};
+    const auto shifted_cap_defect=[&](int end,double w0,double w1)->std::optional<double> {
+        if(rows.size()<8)return std::nullopt;
+        std::array<double,4> widths;
+        for(int k=0;k<4;++k){const auto& row=rows[end?rows.size()-2-k:k+1];widths[k]=split_ld?row.width:row.second;}
+        const auto cubic=outer_endpoint_cubic_model(widths,2.5);
+        const auto model=cubic.resolved?cubic:outer_endpoint_quadratic_model(widths,1,1,1,false,2.5);
+        const double eta=model.eta-1;
+        if(!model.resolved || eta<0 || eta>1.5 || !(model.leading_coefficient>0))return std::nullopt;
+        const auto moments=power_endpoint_quadrature_defects(eta,w0,w1);
+        const double next2=model.squared_cubic_coefficient/(2*model.leading_coefficient)-
+            model.next_coefficient*model.next_coefficient/(2*model.leading_coefficient);
+        const double amplitude=split_ld?limb_brightness:1;
+        double defect=amplitude*(model.leading_coefficient*moments[0]+model.next_coefficient*moments[1]+next2*moments[2]);
+        if(split_ld && eta>1e-12) {
+            std::array<double,3> ld;
+            for(int k=0;k<3;++k){const auto& row=rows[end?rows.size()-1-k:k];ld[k]=row.second-limb_brightness*row.width;}
+            const double u=ld[0]/eta,v=ld[1]/(eta+1),b=v-u,a=u-b*eta;
+            const double q=(ld[2]/(eta+2)-a-b*(eta+2))/2;
+            defect+=a*integer_endpoint_quadrature_defect(eta,w0,w1,1)+b*integer_endpoint_quadrature_defect(eta,w0,w1,2)+
+                q*(integer_endpoint_quadrature_defect(eta,w0,w1,3)-(2*eta+1)*integer_endpoint_quadrature_defect(eta,w0,w1,2)+
+                   eta*(eta+1)*integer_endpoint_quadrature_defect(eta,w0,w1,1));
+        }
+        return std::isfinite(defect)?std::optional<double>(defect):std::nullopt;
+    };
     const auto fallback=[&]() {
         if(endpoint_mask!=3 || !include_interior)return SameGridOuterError{0,std::numeric_limits<double>::infinity(),false};
         long double raw=0;
@@ -1638,7 +1662,10 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
             raw+=std::abs((prev?rows[i-1].second:0)-2*rows[i].second+(next?rows[i+1].second:0));
             if(!prev)raw+=std::abs(rows[i].second);if(!next)raw+=std::abs(rows[i].second);
         }
-        return SameGridOuterError{0,static_cast<double>(raw/24),false};
+        double uncertainty=static_cast<double>(raw/24);
+        if(coarse_shape_check)for(int end:{0,1})if(const auto alternative=shifted_cap_defect(end,1,1))
+            uncertainty+=std::abs(*alternative);
+        return SameGridOuterError{0,uncertainty,false};
     };
     if(rows.size()<8 || static_cast<long double>(rows.back().first)-rows.front().first+1!=rows.size())return fallback();
     const auto weight=[&](std::size_t row){return weights&&rows[row].second>0?rows[row].weighted/rows[row].second:1.;};
@@ -1756,6 +1783,14 @@ inline SameGridOuterError same_grid_outer_error(const CartesianRunFillResult& fi
             // Center the two retained-row models and keep their half spread.
             // This represents shape sensitivity, not a certified error bound.
             result.signed_residual+=.5*change;result.uncertainty+=.5*std::abs(change);
+        }
+        if(coarse_shape_check) {
+            // Shift the retained stencil by one row; transport its root back
+            // to the same physical cap. This detects coarse-fit sensitivity
+            // without another image-plane evaluation or a convergence ladder.
+            const double current=result.signed_residual-endpoint_signed_before;
+            const auto alternative=shifted_cap_defect(end,w0,w1);
+            result.uncertainty+=alternative?std::abs(*alternative-current):std::abs(current);
         }
     }
     result.cap_signed=result.signed_residual;result.cap_remainder=result.uncertainty;

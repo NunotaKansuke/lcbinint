@@ -51,7 +51,7 @@ inline OuterEndpointModel outer_endpoint_quadratic_model(
 // Cubic interpolation of retained squared widths, with the regular cap root
 // selected by continuity from the quadratic model. No lens-map evaluation.
 inline OuterEndpointModel outer_endpoint_cubic_model(const std::array<double,4>& widths,double phase_limit=1.5) {
- const auto initial=outer_endpoint_quadratic_model(widths,1,1,1,false);
+ const auto initial=outer_endpoint_quadratic_model(widths,1,1,1,false,phase_limit);
  if(!initial.resolved)return {};
  const double scale=*std::max_element(widths.begin(),widths.end());
  std::array<double,4> v;for(int k=0;k<4;++k)v[k]=std::pow(widths[k]/scale,2);

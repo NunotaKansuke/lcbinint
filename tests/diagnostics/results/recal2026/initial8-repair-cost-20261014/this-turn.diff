@@ -1,0 +1,171 @@
+--- before
++++ after
+@@ -583,7 +583,8 @@
+             };
+             retained_row=[&,retained_min_y,retained_max_y,boundary_strip_row](std::int64_t ix,std::int64_t iy)->std::optional<adaptive_detail::CartesianRetainedRun>{
+                 if(iy%retained_row_factor) {
+-                    if(retained_row_factor!=2 || retained_column_factor!=1 || settings.limb_darkening_d!=0 ||
++                    if(retained_row_factor!=2 || (retained_column_factor!=1 &&
++                        !(retained_work->initial_bins==8 && retained_column_factor==2)) || settings.limb_darkening_d!=0 ||
+                         !retained_work->local_row_interpolation)return std::nullopt;
+                     ++retained_work->row_interpolation_attempts;
+                     const auto base=(iy-1)/2;
+@@ -601,9 +602,11 @@
+                             const auto& prev=retained_rows->runs[indices[k-1]].run;
+                             if(r.lo>prev.hi || prev.lo>r.hi)return reject(1);
+                         }
+-                        areas[k]=retained_rows->run_areas[j];
+-                        left[k]=r.lo-retained_rows->run_error_fractions[j][0];
+-                        right[k]=r.hi+retained_rows->run_error_fractions[j][1];
++                        // Convert old row values to the new x-cell units before
++                        // interpolating the smooth moment in physical y.
++                        areas[k]=retained_rows->run_areas[j]*retained_column_factor;
++                        left[k]=(r.lo-retained_rows->run_error_fractions[j][0])*retained_column_factor;
++                        right[k]=(r.hi+retained_rows->run_error_fractions[j][1])*retained_column_factor;
+                         if(use_limb_darkening) {
+                             // Interpolate the smooth LD moment, with the old
+                             // Bennett grid-phase defect removed. The constant
+@@ -636,14 +639,14 @@
+                         for(int f:{1,3})saved.errors[f]+=std::abs(coefficients[k])*e[f]/2;
+                     }
+                     saved.errors[3]+=defect;
+-                    if(use_limb_darkening) {
++                    if(use_limb_darkening || retained_column_factor>1) {
+                         const auto boundary=diagnostic_boundary({iy,lo,hi},evaluate_cell(lo,iy),evaluate_cell(lo-1,iy),
+                             evaluate_cell(hi,iy),evaluate_cell(hi+1,iy),
+                             std::optional<AdaptiveRunCellState>(evaluate_cell(lo+1,iy)),std::optional<AdaptiveRunCellState>(evaluate_cell(hi-1,iy)));
+                         if(!boundary.valid || boundary.error_unresolved)return reject(2);
+                         saved.fractions=boundary.error_fractions;
+-                        saved.area=area[0]+edge_brightness*(hi-lo+saved.fractions[0]+saved.fractions[1])-
+-                            boundary.error_signed/(incr*row_spacing);
++                        saved.area=use_limb_darkening?area[0]+edge_brightness*(hi-lo+saved.fractions[0]+saved.fractions[1])-
++                            boundary.error_signed/(incr*row_spacing):double(hi-lo+1)+boundary.area;
+                         saved.errors[0]=boundary.error_signed;saved.errors[1]=boundary.error_absolute;
+                         saved.errors[3]+=boundary.error_remainder;
+                         if(!(std::isfinite(saved.area)&&saved.area>0))return reject(2);
+@@ -850,7 +853,7 @@
+     bool blocked=false,missing_cap_rows=false,retired=false;
+     std::array<double,6> outer_parts{}; // cap signed/rem, smooth rem, junction signed/rem, resolved
+     std::array<bool,2> cap_weights{};
+-    int retained_cap_bins=0;
++    int retained_cap_bins=0,retained_cap_x_bins=0;
+     adaptive_detail::CartesianRunFillResult cap_rows;
+ };
+ 
+@@ -1785,7 +1788,7 @@
+             if(factor_x==1 && factor_y==1){previous.blocked=true;continue;}
+             const auto record_trial=[&](bool adopted){if(adaptive->cost_trace)adaptive->cost_trials.push_back({double(adaptive->history.size()-1),double(selected),double(previous.bins),double(previous.bins*factor_x),std::chrono::duration<double>(std::chrono::steady_clock::now()-trial_start).count(),double(adaptive->new_maps-trial_maps),double(adaptive->reused_maps-trial_hits),double(adopted)});};
+             adaptive_detail::CartesianRunFillResult failed_cap_rows;
+-            if(previous.retained_cap_bins && factor_x==1 && factor_y==2)failed_cap_rows=previous.cap_rows;
++            if(previous.retained_cap_bins && previous.retained_cap_x_bins==previous.bins*factor_x && previous.retained_cap_bins==previous.row_bins*factor_y)failed_cap_rows=previous.cap_rows;
+             if(adaptive->local_vertical_caps)failed_cap_rows.component_roots={0};
+             const auto append_cap_rows=[&](const adaptive_detail::CartesianRunFillResult& f) {
+                 for(std::size_t j=0;j<f.runs.size();++j) {
+@@ -1796,8 +1799,10 @@
+             };
+             // Local cap candidate: keep the coarse interior integral,
+             // refine only its two physical caps, and replace the cap error.
++            // A coarse-start continuation can refine x in those bands too;
++            // the retained interior and its error remain at their old spacing.
+             // Failed candidates retain mapped work for ordinary refinement.
+-            if(adaptive->local_vertical_caps && previous.retained_cap_bins==0 && factor_x==1 && factor_y==2 &&
++            if(adaptive->local_vertical_caps && previous.retained_cap_bins==0 && (factor_x==1 || previous.coarse_start_axis==3) && factor_y==2 &&
+                settings.limb_darkening_d==0 && previous.fill.runs.size()>=25 &&
+                (correction_for(previous)!=0?0:std::abs(previous.inner_signed))+previous.inner_remainder<=local_target/2) {
+                 const auto try_caps=[&]()->bool {
+@@ -1810,7 +1815,8 @@
+                     if(old.runs.front().run.iy<(std::numeric_limits<std::int64_t>::min()+4)/2 ||
+                        old.runs.back().run.iy>(std::numeric_limits<std::int64_t>::max()-4)/2)return false;
+                     const std::size_t a=4,b=n-5;
+-                    const double hx=source_radius/previous.bins,hy=source_radius/previous.row_bins,hf=hy/2;
++                    const int cap_x_factor=previous.coarse_start_axis==3?factor_x:1;
++                    const double hx=source_radius/previous.bins,hy=source_radius/previous.row_bins,hf=hy/2,hxf=hx/cap_x_factor;
+                     std::array<double,7> vl,vu;double derivative_uncertainty1=0,derivative_uncertainty3=0;
+                     constexpr std::array<double,7> d1weights{1,9,45,0,45,9,1},d3weights{1,8,13,0,13,8,1};
+                     for(int k=0;k<7;++k) {
+@@ -1842,15 +1848,15 @@
+                             std::array<std::int64_t,2>{old.runs[b].run.iy*2,old.runs.back().run.iy*2+pad}:
+                             std::array<std::int64_t,2>{old.runs.front().run.iy*2-pad,old.runs[a].run.iy*2};
+                         std::vector<AdaptiveEvaluatedCartesianSeed> local{{{(sr.lo+(sr.hi-sr.lo)/2)*hx,sr.iy*hy},0}};
+-                        auto fs=settings;fs.source_bins=previous.bins;
++                        auto fs=settings;fs.source_bins=previous.bins*cap_x_factor;
+                         std::vector<RetainedAdaptiveComponent> band;
+                         while(true) {
+                             std::vector<RetainedAdaptiveComponent> next_band;
+                             const auto* known_band=band.empty()?nullptr:&band.front().fill;
+                             ++adaptive->depth;
+                             try {fill_all_adaptive_cartesian_components_multirun(mapper,source,source_radius,fs,finite_magnifier,
+-                                local,hx,magnification_hint,nullptr,nullptr,nullptr,source_has_critical,&next_band,hf,
+-                                &old,2,1,&clip,1U<<side,previous.cap_weights[side]?1:-1,known_band);}
++                                local,hxf,magnification_hint,nullptr,nullptr,nullptr,source_has_critical,&next_band,hf,
++                                &old,2,cap_x_factor,&clip,1U<<side,previous.cap_weights[side]?1:-1,known_band);}
+                             catch(...){--adaptive->depth;probe_counters()=saved_counters;throw;}
+                             --adaptive->depth;probe_counters()=saved_counters;
+                             band=std::move(next_band);
+@@ -1866,13 +1872,13 @@
+                         }
+                         const auto& c=band.front();
+                         append_cap_rows(c.fill);
+-                        if(!refined_run_footprint_is_private(c.fill,previous.bins/settings.source_bins,run_fill,
++                        if(!refined_run_footprint_is_private(c.fill,previous.bins*cap_x_factor/settings.source_bins,run_fill,
+                             previous.original_owner,previous.row_bins*2/settings.source_bins,&previous.original_owners))return false;
+                         flux+=c.flux;inner+=c.inner_signed;inner_rem+=c.inner_remainder;outer+=c.outer_signed;outer_rem+=c.outer_remainder;
+                         bool found=false;
+                         for(std::size_t j=0;j<c.fill.runs.size();++j)if(c.fill.runs[j].run.iy==old.runs[anchor].run.iy*2) {
+                             if(found)return false;found=true;
+-                            flux-=.5*hx*hf*c.fill.run_areas[j];inner-=.5*c.fill.run_flux_errors[j][0];inner_rem-=.5*c.fill.run_flux_errors[j][3];
++                            flux-=.5*hxf*hf*c.fill.run_areas[j];inner-=.5*c.fill.run_flux_errors[j][0];inner_rem-=.5*c.fill.run_flux_errors[j][3];
+                         }
+                         if(!found)return false;
+                     }
+@@ -1882,7 +1888,7 @@
+                     previous.outer_signed=outer;previous.outer_remainder=outer_rem;
+                     previous.signed_error=inner+outer;previous.remainder=inner_rem+outer_rem;
+                     previous.outer_parts={outer-interface_signed,outer_rem-interface_remainder,interface_remainder,interface_signed,0,1};
+-                    previous.retained_cap_bins=previous.row_bins*2;previous.cap_rows=std::move(failed_cap_rows);
++                    previous.retained_cap_bins=previous.row_bins*2;previous.retained_cap_x_bins=previous.bins*cap_x_factor;previous.cap_rows=std::move(failed_cap_rows);
+                     previous.blocked=false;previous.short_guard=0;previous.coarse_start_axis=0;
+                     return true;
+                 };
+@@ -1892,8 +1898,8 @@
+                 if(adopted) {
+                     record_trial(true);
+                     ++adaptive->cap_adopted;++adaptive->refinements;
+-                    adaptive->largest_bins=std::max(adaptive->largest_bins,previous.retained_cap_bins);
+-                    adaptive->refinement_grid_bins.push_back({double(selected),double(previous.bins),double(previous.row_bins),double(previous.bins),double(previous.retained_cap_bins),2});
++                    adaptive->largest_bins=std::max({adaptive->largest_bins,previous.retained_cap_bins,previous.retained_cap_x_bins});
++                    adaptive->refinement_grid_bins.push_back({double(selected),double(previous.bins),double(previous.row_bins),double(previous.retained_cap_x_bins),double(previous.retained_cap_bins),previous.retained_cap_x_bins==previous.bins?2.:0.});
+                     current=totals();adaptive->history.push_back({double(previous.bins),current[1],double(adaptive->new_maps),double(adaptive->reused_maps),double(selected)});
+                     record_cost(current[0]);continue;
+                 }
+@@ -1917,9 +1923,9 @@
+             try {
+                 fill_all_adaptive_cartesian_components_multirun(mapper,source,source_radius,next_settings,finite_magnifier,
+                     next_seeds,next_h,magnification_hint,nullptr,nullptr,nullptr,source_has_critical,&children,next_row_h,
+-                    // Aligned rows at the same x spacing remain exact even
+-                    // when their outer-coordinate model needs refinement.
+-                    (previous.coarse_start_axis==0 || factor_x==1) &&
++                    // Reuse aligned rows and separately validated smooth cores;
++                    // unresolved endpoint fits do not invalidate the interior.
++                    (previous.coarse_start_axis==0 || factor_x==1 || adaptive->local_boundary_strips) &&
+                     !std::getenv("LCBININT_DIAGNOSTIC_DISABLE_ROW_REUSE") &&
+                         (factor_x==1 || adaptive->local_boundary_strips ||
+                             (factor_y==1 && std::getenv("LCBININT_DIAGNOSTIC_LOCAL_HORIZONTAL_ROWS")))?&previous.fill:nullptr,factor_y,factor_x,nullptr,3,0,
+@@ -1979,7 +1985,7 @@
+                         if(donor==retained.size()){merge_failed=true;break;}
+                         const auto& c=retained[donor];
+                         // Never discard an already finer donor integral.
+-                        if(c.bins>next_bins || c.row_bins>next_row_bins || c.retained_cap_bins>next_row_bins ||
++                        if(c.bins>next_bins || c.row_bins>next_row_bins || c.retained_cap_bins>next_row_bins || c.retained_cap_x_bins>next_bins ||
+                            next_bins%c.bins || next_row_bins%c.row_bins){merge_failed=true;break;}
+                         if(std::find(merge_donors.begin(),merge_donors.end(),donor)!=merge_donors.end())continue;
+                         added.push_back(donor);merge_donors.push_back(donor);
+@@ -2026,7 +2032,7 @@
+         adaptive->met=adaptive->unresolved_centres==0 && std::isfinite(current[1])&&current[1]<=adaptive->target;
+         if(adaptive->unresolved_centres)adaptive->stop_reason="unresolved_centre_image";
+         if(adaptive->met)adaptive->stop_reason="estimated_target_met";
+-        for(const auto& c:retained){if(c.retired)continue;const double correction=correction_for(c);if(adaptive->local_vertical_caps)adaptive->mixed_component_grids.push_back({double(c.bins),double(c.row_bins),double(c.retained_cap_bins)});adaptive->components.push_back({double(std::max({c.bins,c.row_bins,c.retained_cap_bins})),c.flux+correction,c.signed_error-correction,c.remainder,double(c.fill.runs.size())});adaptive->component_grid_bins.push_back({double(c.bins),double(c.row_bins)});}
++        for(const auto& c:retained){if(c.retired)continue;const double correction=correction_for(c);if(adaptive->local_vertical_caps)adaptive->mixed_component_grids.push_back({double(c.bins),double(c.row_bins),double(c.retained_cap_bins)});adaptive->components.push_back({double(std::max({c.bins,c.row_bins,c.retained_cap_bins,c.retained_cap_x_bins})),c.flux+correction,c.signed_error-correction,c.remainder,double(c.fill.runs.size())});adaptive->component_grid_bins.push_back({double(c.bins),double(c.row_bins)});}
+         total_area=current[0]/(incr*row_spacing);
+         if(phase_trace)adaptive->adaptive_control_seconds+=std::chrono::duration<double>(std::chrono::steady_clock::now()-control_started).count()-(adaptive->run_fill_seconds+adaptive->error_aggregation_seconds-children_seconds_before);
+     }

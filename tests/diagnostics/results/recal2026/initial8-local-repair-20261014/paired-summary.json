@@ -1,0 +1,26 @@
+[
+  {
+    "profile": "uniform",
+    "target": 0.001,
+    "pairs": 21,
+    "speed16_over8_geomean": 1.209604958440962
+  },
+  {
+    "profile": "uniform",
+    "target": 0.0001,
+    "pairs": 19,
+    "speed16_over8_geomean": 1.1317688172046771
+  },
+  {
+    "profile": "ld",
+    "target": 0.001,
+    "pairs": 23,
+    "speed16_over8_geomean": 1.0523972410033502
+  },
+  {
+    "profile": "ld",
+    "target": 0.0001,
+    "pairs": 22,
+    "speed16_over8_geomean": 0.9462224120919134
+  }
+]

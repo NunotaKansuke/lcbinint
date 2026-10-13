@@ -1,0 +1,224 @@
+{
+  "development": {
+    "groups": [
+      {
+        "profile": "uniform",
+        "target": 0.001,
+        "n": 30,
+        "actual_pass8": 30,
+        "actual_pass16": 27,
+        "actual_pass_old8": 28,
+        "accepted8": 28,
+        "false_accept8": [],
+        "false_accept16": [
+          "4080",
+          "4336"
+        ],
+        "new_accuracy_regressions": [],
+        "valid_timing_pairs": 26,
+        "speed16_over8_geomean": 1.111093981800396
+      },
+      {
+        "profile": "uniform",
+        "target": 0.0001,
+        "n": 30,
+        "actual_pass8": 28,
+        "actual_pass16": 28,
+        "actual_pass_old8": 24,
+        "accepted8": 26,
+        "false_accept8": [
+          "5175"
+        ],
+        "false_accept16": [
+          "5175"
+        ],
+        "new_accuracy_regressions": [],
+        "valid_timing_pairs": 25,
+        "speed16_over8_geomean": 1.0469727951865686
+      },
+      {
+        "profile": "ld",
+        "target": 0.001,
+        "n": 30,
+        "actual_pass8": 30,
+        "actual_pass16": 28,
+        "actual_pass_old8": 28,
+        "accepted8": 28,
+        "false_accept8": [],
+        "false_accept16": [
+          "6756"
+        ],
+        "new_accuracy_regressions": [],
+        "valid_timing_pairs": 27,
+        "speed16_over8_geomean": 1.2999442422872385
+      },
+      {
+        "profile": "ld",
+        "target": 0.0001,
+        "n": 30,
+        "actual_pass8": 29,
+        "actual_pass16": 28,
+        "actual_pass_old8": 27,
+        "accepted8": 28,
+        "false_accept8": [
+          "3204"
+        ],
+        "false_accept16": [
+          "6756",
+          "3204"
+        ],
+        "new_accuracy_regressions": [],
+        "valid_timing_pairs": 26,
+        "speed16_over8_geomean": 1.1240745810848978
+      }
+    ],
+    "changed_default16": []
+  },
+  "holdout": {
+    "groups": [
+      {
+        "profile": "uniform",
+        "target": 0.001,
+        "n": 30,
+        "actual_pass8": 30,
+        "actual_pass16": 28,
+        "actual_pass_old8": 27,
+        "accepted8": 28,
+        "false_accept8": [],
+        "false_accept16": [
+          "2729"
+        ],
+        "new_accuracy_regressions": [],
+        "valid_timing_pairs": 27,
+        "speed16_over8_geomean": 1.1245713356249796
+      },
+      {
+        "profile": "uniform",
+        "target": 0.0001,
+        "n": 30,
+        "actual_pass8": 27,
+        "actual_pass16": 28,
+        "actual_pass_old8": 20,
+        "accepted8": 27,
+        "false_accept8": [
+          "3994",
+          "121",
+          "3345"
+        ],
+        "false_accept16": [
+          "121",
+          "3345"
+        ],
+        "new_accuracy_regressions": [
+          "3994"
+        ],
+        "valid_timing_pairs": 24,
+        "speed16_over8_geomean": 1.1572661289350386
+      },
+      {
+        "profile": "ld",
+        "target": 0.001,
+        "n": 30,
+        "actual_pass8": 30,
+        "actual_pass16": 29,
+        "actual_pass_old8": 27,
+        "accepted8": 26,
+        "false_accept8": [],
+        "false_accept16": [],
+        "new_accuracy_regressions": [],
+        "valid_timing_pairs": 26,
+        "speed16_over8_geomean": 1.2823452998725682
+      },
+      {
+        "profile": "ld",
+        "target": 0.0001,
+        "n": 30,
+        "actual_pass8": 29,
+        "actual_pass16": 29,
+        "actual_pass_old8": 25,
+        "accepted8": 26,
+        "false_accept8": [],
+        "false_accept16": [],
+        "new_accuracy_regressions": [],
+        "valid_timing_pairs": 26,
+        "speed16_over8_geomean": 1.1256855534372088
+      }
+    ],
+    "changed_default16": []
+  },
+  "prospective": {
+    "groups": [
+      {
+        "profile": "uniform",
+        "target": 0.001,
+        "n": 30,
+        "actual_pass8": 30,
+        "actual_pass16": 28,
+        "actual_pass_old8": 29,
+        "accepted8": 21,
+        "false_accept8": [],
+        "false_accept16": [],
+        "new_accuracy_regressions": [],
+        "valid_timing_pairs": 21,
+        "speed16_over8_geomean": 1.1317360882174543
+      },
+      {
+        "profile": "uniform",
+        "target": 0.0001,
+        "n": 30,
+        "actual_pass8": 28,
+        "actual_pass16": 28,
+        "actual_pass_old8": 20,
+        "accepted8": 20,
+        "false_accept8": [
+          "5357"
+        ],
+        "false_accept16": [
+          "5357"
+        ],
+        "new_accuracy_regressions": [],
+        "valid_timing_pairs": 19,
+        "speed16_over8_geomean": 1.0909476221706969
+      },
+      {
+        "profile": "ld",
+        "target": 0.001,
+        "n": 30,
+        "actual_pass8": 30,
+        "actual_pass16": 28,
+        "actual_pass_old8": 28,
+        "accepted8": 23,
+        "false_accept8": [],
+        "false_accept16": [],
+        "new_accuracy_regressions": [],
+        "valid_timing_pairs": 23,
+        "speed16_over8_geomean": 1.041608632847417
+      },
+      {
+        "profile": "ld",
+        "target": 0.0001,
+        "n": 30,
+        "actual_pass8": 28,
+        "actual_pass16": 28,
+        "actual_pass_old8": 24,
+        "accepted8": 23,
+        "false_accept8": [
+          "7136"
+        ],
+        "false_accept16": [
+          "7136"
+        ],
+        "new_accuracy_regressions": [],
+        "valid_timing_pairs": 22,
+        "speed16_over8_geomean": 0.9352321556443282
+      }
+    ],
+    "changed_default16": []
+  },
+  "deferred_eager_numeric_differences": [],
+  "cohort_roles": {
+    "development": "tuned",
+    "holdout": "reviewed and tuned; not final holdout",
+    "prospective": "lens cases absent from other cohorts; selected before final mechanical cache/row reuse changes"
+  }
+}

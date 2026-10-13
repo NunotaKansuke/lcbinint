@@ -1,0 +1,22 @@
+[
+  "/usr/bin/c++",
+  "-DADAPTIVE",
+  "-DRELATIVE_SINGLE_PASS",
+  "-O3",
+  "-DNDEBUG",
+  "-std=gnu++17",
+  "-fopenmp",
+  "-I/rogue1_8/nunota/lcbinint/include",
+  "-I/rogue1_8/nunota/lcbinint/src",
+  "/rogue1_8/nunota/lcbinint/tests/diagnostics/results/recal2026/initial8-local-repair-20261014/runner.cpp",
+  "-o",
+  "/rogue1_8/nunota/lcbinint/tests/diagnostics/results/recal2026/initial8-local-repair-20261014/runner",
+  "-Wl,--start-group",
+  "/rogue1_8/nunota/lcbinint/build-adaptive-production/liblcbinint_lightcurve.a",
+  "/rogue1_8/nunota/lcbinint/build-adaptive-production/liblcbinint_magnification.a",
+  "-Wl,--end-group",
+  "-Wl,-rpath,/home/nunota/.miniconda3/envs/myenv/lib",
+  "/home/nunota/.miniconda3/envs/myenv/lib/libgsl.so",
+  "/home/nunota/.miniconda3/envs/myenv/lib/libgslcblas.so",
+  "-lm"
+]

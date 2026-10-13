@@ -2029,6 +2029,9 @@ public:
     struct Column {
         Interval first {1, 0};
         std::vector<Interval> overflow;
+        double radial_integral = 0.0;
+        bool integral_active = false;
+        std::size_t run_group = 0;
 
         bool contains(int ir) const
         {
@@ -2528,7 +2531,8 @@ double inverse_ray_polar_core(
                                    (dr * polar_grid_ratio))));
     const double dphi = 2.0 * kPi / static_cast<double>(phi_bins);
     const bool uniform_source = settings.limb_darkening_c == 0.0 && settings.limb_darkening_d == 0.0;
-    if (!uniform_source && finite_magnifier != nullptr) {
+    const bool linear_source = settings.limb_darkening_d == 0.0;
+    if (!uniform_source && !linear_source && finite_magnifier != nullptr) {
         finite_magnifier->ensure_limb_darkening_table();
     }
     const double total_source_flux = source_flux(source_radius, settings);
@@ -2625,10 +2629,11 @@ double inverse_ray_polar_core(
     // run ends dominate the boundary; the short azimuthal caps are left at
     // midpoint accuracy.
     const double edge_brightness = uniform_source ? 1.0 :
+        (linear_source ? 1.0 - settings.limb_darkening_c :
         (finite_magnifier != nullptr ?
             finite_magnifier->limb_darkening_table_brightness(1.0) :
-            source_surface_brightness(1.0, settings));
-    const double* brightness_table = !uniform_source && finite_magnifier != nullptr
+            source_surface_brightness(1.0, settings)));
+    const double* brightness_table = !uniform_source && !linear_source && finite_magnifier != nullptr
         ? finite_magnifier->limb_darkening_table_data()
         : nullptr;
     const auto brightness_at = [&](double dz2) {
@@ -2636,6 +2641,12 @@ double inverse_ray_polar_core(
             return 1.0;
         }
         const double normalized_radius2 = dz2 * inv_source_radius2;
+        // Match the Cartesian linear-LD integrand exactly. Quantizing this
+        // smooth profile in a nearest-node table adds a separate error floor.
+        if (linear_source) {
+            return 1.0 - settings.limb_darkening_c *
+                (1.0 - std::sqrt(std::max(0.0, 1.0 - normalized_radius2)));
+        }
         if (brightness_table != nullptr) {
             const int index = static_cast<int>(
                 normalized_radius2 *
@@ -2681,7 +2692,9 @@ double inverse_ray_polar_core(
     // Keep the radial integral for every angular column.  Bennett's equation
     // (15) is an outer-coordinate rule, so it must replace endpoint stencils
     // rather than be collapsed into a single global midpoint sum.
-    std::vector<double> column_integrals(static_cast<std::size_t>(phi_bins), 0.0);
+    // Store integrals only in visited pages. Empty angular columns contribute
+    // exactly zero and need neither payload storage nor a full-circle scan.
+    std::vector<int> active_integral_phi;
     double total_count = 0.0;
     double absolute_radial_geometry = 0.0;
     // Expansion already maps every inside cell in a radial run to locate its
@@ -2802,7 +2815,12 @@ double inverse_ray_polar_core(
                     &absolute_radial_geometry);
                 radial_integral += correction;
             }
-            column_integrals[static_cast<std::size_t>(iphi)] += radial_integral;
+            auto& integral_column = visited.get_or_create(iphi);
+            if (!integral_column.integral_active) {
+                integral_column.integral_active = true;
+                active_integral_phi.push_back(iphi);
+            }
+            integral_column.radial_integral += radial_integral;
             if (bennett_outer_enabled) {
                 integrated_runs.push_back({iphi, left, right, radial_integral});
             }
@@ -2812,6 +2830,8 @@ double inverse_ray_polar_core(
         }
     }
 
+    // Ascending phi preserves the original accumulation and union order.
+    std::sort(active_integral_phi.begin(), active_integral_phi.end());
     if (bennett_outer_enabled) {
     // Reconstruct connected image components from the radial runs.  The
     // visited table is deliberately a union of all flood fills, so its
@@ -2843,10 +2863,12 @@ double inverse_ray_polar_core(
         run_parent[second] = first;
     };
 
-    std::vector<std::vector<std::size_t>> runs_by_phi(
-        static_cast<std::size_t>(phi_bins));
+    std::vector<std::vector<std::size_t>> runs_by_phi(active_integral_phi.size());
+    for (std::size_t group = 0; group < active_integral_phi.size(); ++group) {
+        visited.get_or_create(active_integral_phi[group]).run_group = group;
+    }
     for (std::size_t index = 0; index < run_count; ++index) {
-        runs_by_phi[static_cast<std::size_t>(integrated_runs[index].iphi)]
+        runs_by_phi[visited.get_or_create(integrated_runs[index].iphi).run_group]
             .push_back(index);
     }
     const auto run_precedes = [&](std::size_t first, std::size_t second) {
@@ -2866,10 +2888,15 @@ double inverse_ray_polar_core(
             }
         }
     }
-    for (int iphi = 0; iphi < phi_bins; ++iphi) {
+    for (std::size_t group = 0; group < active_integral_phi.size(); ++group) {
+        const int iphi = active_integral_phi[group];
+        const std::size_t next_group = group + 1 == active_integral_phi.size() ? 0 : group + 1;
         const int next_iphi = iphi + 1 == phi_bins ? 0 : iphi + 1;
-        const auto& first_column = runs_by_phi[static_cast<std::size_t>(iphi)];
-        const auto& second_column = runs_by_phi[static_cast<std::size_t>(next_iphi)];
+        // Preserve the cyclic last-to-first adjacency, but never bridge a
+        // genuinely empty angular column.
+        if (active_integral_phi[next_group] != next_iphi) continue;
+        const auto& first_column = runs_by_phi[group];
+        const auto& second_column = runs_by_phi[next_group];
         std::size_t first_index = 0;
         std::size_t second_index = 0;
         while (first_index < first_column.size() &&
@@ -3126,8 +3153,7 @@ double inverse_ray_polar_core(
                     const auto weights =
                         detail::bennett_outer_boundary_weights(
                             lower_delta->maximum);
-                    column_integrals[static_cast<std::size_t>(
-                        integrated_runs[first].iphi)] +=
+                    visited.get_or_create(integrated_runs[first].iphi).radial_integral +=
                         (weights.first - 1.0) *
                             integrated_runs[first].radial_integral +
                         (weights.second - 1.0) *
@@ -3137,8 +3163,7 @@ double inverse_ray_polar_core(
                     const auto weights =
                         detail::bennett_outer_boundary_weights(
                             upper_delta->maximum);
-                    column_integrals[static_cast<std::size_t>(
-                        integrated_runs[last].iphi)] +=
+                    visited.get_or_create(integrated_runs[last].iphi).radial_integral +=
                         (weights.first - 1.0) *
                             integrated_runs[last].radial_integral +
                         (weights.second - 1.0) *
@@ -3161,7 +3186,9 @@ double inverse_ray_polar_core(
         }
     }
 
-    total_count = std::accumulate(column_integrals.begin(), column_integrals.end(), 0.0);
+    for (const int iphi : active_integral_phi) {
+        total_count += visited.get_or_create(iphi).radial_integral;
+    }
     const double image_flux = total_count * dr * dphi;
     if (diagnostics != nullptr) {
         // The boundary correction removes the O(h) radial boundary term.  Its

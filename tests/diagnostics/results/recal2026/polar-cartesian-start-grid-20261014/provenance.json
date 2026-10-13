@@ -1,0 +1,53 @@
+{
+  "commit": "a7b15c1601abecdf9c019f3f1fe9fbd9636209bd",
+  "compile_command": [
+    "/usr/bin/c++",
+    "-DADAPTIVE",
+    "-DRELATIVE_SINGLE_PASS",
+    "-O3",
+    "-DNDEBUG",
+    "-std=gnu++17",
+    "-fopenmp",
+    "-I/rogue1_8/nunota/lcbinint/include",
+    "-I/rogue1_8/nunota/lcbinint/src",
+    "/rogue1_8/nunota/lcbinint/tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/runner.cpp",
+    "-o",
+    "/rogue1_8/nunota/lcbinint/tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/runner",
+    "-Wl,--start-group",
+    "/rogue1_8/nunota/lcbinint/build-adaptive-production/liblcbinint_lightcurve.a",
+    "/rogue1_8/nunota/lcbinint/build-adaptive-production/liblcbinint_magnification.a",
+    "-Wl,--end-group",
+    "-Wl,-rpath,/home/nunota/.miniconda3/envs/myenv/lib",
+    "/home/nunota/.miniconda3/envs/myenv/lib/libgsl.so",
+    "/home/nunota/.miniconda3/envs/myenv/lib/libgslcblas.so",
+    "-lm"
+  ],
+  "cohorts": "30 previous A-stratified pilot inputs + 30 seeded A/profile-stratified holdout inputs from lens cases not in pilot; seed20261014",
+  "timing": "one CPU, no caustic or centre-root cost; fixed direct preplanned polar with warm seeds; fresh adaptive lattice for Cartesian; three timed repeats median; targets1e-3/1e-4; polar ratio4",
+  "measurement_affinity": [
+    0
+  ],
+  "source_files_sha256": {
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "6ce546aa33d83eb6e83b285fec7a061775089d8e5c11f84c69ec1486a2ddc0ae",
+    "src/lcbinint/magnification/adaptive_cartesian_impl.inc": "0dc08dd904b09c3a9dbb4eeab9690642fe23bc288ff055e2611e35bda78dab7e",
+    "tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/runner.cpp": "8cbf80ceb61eedd1a83561a37365e2b303f03a347591d71398752114117810bd",
+    "tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/component-outer.cpp": "f63891581a9d0d577ced2a6e09281803a072e8fb6ea01de475ceda0564720f6e",
+    "tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/finite_source_magnifier.cpp.before": "20516dead45b93a555574ccd976e8151656666bc1e62925e130fe5498b59c617",
+    "tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/finite_source_magnifier.cpp.sparse": "33ffea83b580ebea9ac478be73517db2fc0e823e7d20a6a22ca5b2f126a07749",
+    "tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/finite_source_magnifier.cpp.analytic": "6ce546aa33d83eb6e83b285fec7a061775089d8e5c11f84c69ec1486a2ddc0ae"
+  },
+  "executables_sha256": {
+    "tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/runner": "d90d7424de7730caf4c5542194f7043544f33e58aeb0c221bf7aa9a8fd6865dd",
+    "tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/sparse-runner": "7bee4590a1798362531451feb846be5b069df81fd381f0d0febe12b2dd4e8bd0",
+    "tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/analytic-runner": "480f6318408d21c10fa0d6bcdc41f15e02a638236c34eecf6d2181a0a559f97d",
+    "tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/component-outer-runner": "be87683776555c4c4d1ddb5a356a6f48635b8dd3774e25951523ac16a02fb73f",
+    "tests/diagnostics/results/recal2026/polar-cartesian-start-grid-20261014/production-runner": "688ad998254db654c07b30285c0f73a1ed02c99169b439b24ff901bded625880"
+  },
+  "production_build_command": "cmake --build build-adaptive-production -j2",
+  "diagnostics": [
+    "LCBININT_BENCH_INITIAL_BINS=8 or16; adaptive mode",
+    "LCBININT_BENCH_POLAR_RATIO=4,2,1; fixed polar mode",
+    "LCBININT_ENABLE_BENNETT_OUTER=1; forced clean outer experiment",
+    "LCBININT_ENABLE_BENNETT_OUTER_SEGMENTS=1 LCBININT_AREA_DIAGNOSTICS=1; wrap/junction correctness only; debug timings not used"
+  ]
+}

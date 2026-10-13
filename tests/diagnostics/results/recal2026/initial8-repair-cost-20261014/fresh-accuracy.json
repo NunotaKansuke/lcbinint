@@ -1,0 +1,54 @@
+[
+  {
+    "profile": "uniform",
+    "target": "0.001",
+    "n": 23,
+    "pass_final": 23,
+    "pass_previous": 22,
+    "pass16": 23,
+    "new_failures": [],
+    "false_final": [],
+    "false_previous": []
+  },
+  {
+    "profile": "uniform",
+    "target": "0.0001",
+    "n": 23,
+    "pass_final": 22,
+    "pass_previous": 22,
+    "pass16": 22,
+    "new_failures": [],
+    "false_final": [
+      "1723"
+    ],
+    "false_previous": []
+  },
+  {
+    "profile": "ld",
+    "target": "0.001",
+    "n": 23,
+    "pass_final": 21,
+    "pass_previous": 20,
+    "pass16": 20,
+    "new_failures": [],
+    "false_final": [
+      "4452"
+    ],
+    "false_previous": [
+      "4452"
+    ]
+  },
+  {
+    "profile": "ld",
+    "target": "0.0001",
+    "n": 23,
+    "pass_final": 22,
+    "pass_previous": 22,
+    "pass16": 21,
+    "new_failures": [],
+    "false_final": [
+      "1727"
+    ],
+    "false_previous": []
+  }
+]

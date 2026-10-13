@@ -224,7 +224,7 @@ struct AdaptiveFluxRequest {
  // Zero preserves the existing absolute-flux target contract.
  double relative_target=0,initial_flux=0;
  double target=0,signed_error=0,remainder=0,acceptance_indicator=0;
- int max_bins=512,depth=0,largest_bins=0,max_axis_ratio=4;
+ int max_bins=512,depth=0,largest_bins=0,max_axis_ratio=4,initial_bins=0;
  std::size_t budget=1000000,new_maps=0,reused_maps=0,refinements=0;
  bool met=false,executed=false;
  std::string stop_reason="not_executed";
@@ -240,6 +240,12 @@ struct AdaptiveFluxRequest {
  bool directional_adaptive=true,local_row_interpolation=true,local_boundary_strips=true;
  bool local_vertical_caps=true;
  bool defect_correction=true;
+ // Coarse-start models are tentative until their endpoint footprint is
+ // separated or one local dyadic layer resolves an unmodeled outer shape.
+ bool coarse_start_guard=std::getenv("LCBININT_DIAGNOSTIC_DISABLE_COARSE_START_GUARD")==nullptr;
+ bool coarse_start_probe=true;
+ int coarse_start_min_rows=8; // Same two four-row endpoint footprint as the error model.
+ std::size_t coarse_start_guards=0,coarse_start_probe_calls=0,coarse_start_merges=0;
  double applied_correction=0;
  int cap_initial_pad=4; // 0 is a diagnostic forced-extension probe.
  std::size_t cap_trials=0,cap_adopted=0,cap_rejected=0,reused_cap_rows=0,cap_extensions=0;

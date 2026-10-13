@@ -1,0 +1,14 @@
+[
+  {
+    "cohort": "development",
+    "unchanged": 120
+  },
+  {
+    "cohort": "holdout",
+    "unchanged": 120
+  },
+  {
+    "cohort": "prospective",
+    "unchanged": 120
+  }
+]
