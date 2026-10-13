@@ -1,0 +1,402 @@
+{
+  "out": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013",
+  "joined": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013/joined_v2_vbm.tsv",
+  "figures": [
+    {
+      "profile": "uniform",
+      "target": 0.001,
+      "png": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013/figures/q_rho_uniform_1e-3_seeded_radial_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013/figures/q_rho_uniform_1e-3_seeded_radial_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3552,
+      "status_ok_fraction": 0.9844789356984479
+    },
+    {
+      "profile": "uniform",
+      "target": 0.0001,
+      "png": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013/figures/q_rho_uniform_1e-4_seeded_radial_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013/figures/q_rho_uniform_1e-4_seeded_radial_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3552,
+      "status_ok_fraction": 0.9844789356984479
+    },
+    {
+      "profile": "linear",
+      "target": 0.001,
+      "png": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013/figures/q_rho_linear_1e-3_seeded_radial_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013/figures/q_rho_linear_1e-3_seeded_radial_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3549,
+      "status_ok_fraction": 0.9836474501108647
+    },
+    {
+      "profile": "linear",
+      "target": 0.0001,
+      "png": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013/figures/q_rho_linear_1e-4_seeded_radial_vbm1e-6.png",
+      "pdf": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013/figures/q_rho_linear_1e-4_seeded_radial_vbm1e-6.pdf",
+      "rows": 3608,
+      "status_ok": 3549,
+      "status_ok_fraction": 0.9836474501108647
+    }
+  ],
+  "external_error_screen": {
+    "rows_internal_status_ok": 14202,
+    "max_relative_error_among_internal_ok": 0.9981235141383596,
+    "p99_relative_error_among_internal_ok": 3.949688575852085e-05,
+    "counts_above_threshold": {
+      "0.001": 20,
+      "0.01": 20,
+      "0.1": 20
+    },
+    "distinct_case_epoch_geometries_above_1e-3": 5,
+    "outlier_rows_written": 20,
+    "outlier_threshold": 0.001,
+    "meaning": "status OK checks seed-provider support and value convergence only; it is not a radial-support coverage certificate"
+  },
+  "summary_by_condition": {
+    "linear:target=0.0001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3549,
+        "TopologyUnresolved": 14,
+        "SEED_SUPPORT_UNPROVEN": 45
+      },
+      "numerical_status_counts": {
+        "OK": 3594,
+        "GRADIENT_UNRELIABLE": 14
+      },
+      "value_stop_counts": {
+        "Converged": 3594,
+        "TopologyUnresolved": 14
+      },
+      "seed_support_proven": 3563,
+      "coverage_certified": 0,
+      "status_ok": 3549,
+      "status_ok_fraction": 0.9836474501108647,
+      "adaptive_nodes": {
+        "p50": 92.0,
+        "p90": 140.0,
+        "p95": 180.0,
+        "p99": 587.0,
+        "max": 1410.0
+      },
+      "adaptive_evaluations": {
+        "p50": 92.0,
+        "p95": 180.0,
+        "max": 1410.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.00713,
+        "physics_p50": 0.0,
+        "estimator_p50": 0.0,
+        "scheduler_p50": 0.0,
+        "setup_event_p50": 0.005816000000000001
+      },
+      "stage_timing_ms": {
+        "caustic_prebuild_excluded_p50": 1.2432854999999998,
+        "seed_p50": 0.040816,
+        "planning_p50": 0.0529105,
+        "integration_p50": 0.10259
+      },
+      "v2_ms": {
+        "p50": 0.2211445,
+        "p90": 0.5891961000000001,
+        "p95": 0.7512809999999999,
+        "p99": 1.3187662699999998,
+        "max": 2.596712
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 5.80095977110971,
+        "p90": 25.614984273367064,
+        "win_fraction_ratio_gt_1": 0.9085365853658537
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3597,
+        "p50": 5.788081738387585,
+        "p90": 25.63159900325578,
+        "p95": 38.8920902324955,
+        "p99": 85.15585966733283,
+        "max": 443.77736002234906,
+        "win_fraction_ratio_gt_1": 0.9088128996385877
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 5.828123394156418,
+        "p90": 26.052721607214878,
+        "p95": 39.05461398524934,
+        "p99": 85.23931908793915,
+        "max": 443.77736002234906,
+        "win_fraction_ratio_gt_1": 0.9115243730628346
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 6.704319651845491e-07,
+        "p95": 8.44676590062264e-06,
+        "p99": 2.4004906593281057e-05,
+        "max": 1.0
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 6.670352936183757e-07,
+        "p95": 7.999240181449698e-06,
+        "p99": 1.6920367804427073e-05,
+        "max": 0.9981235141383596
+      }
+    },
+    "linear:target=0.001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3549,
+        "TopologyUnresolved": 14,
+        "SEED_SUPPORT_UNPROVEN": 45
+      },
+      "numerical_status_counts": {
+        "OK": 3594,
+        "GRADIENT_UNRELIABLE": 14
+      },
+      "value_stop_counts": {
+        "Converged": 3594,
+        "TopologyUnresolved": 14
+      },
+      "seed_support_proven": 3563,
+      "coverage_certified": 0,
+      "status_ok": 3549,
+      "status_ok_fraction": 0.9836474501108647,
+      "adaptive_nodes": {
+        "p50": 61.0,
+        "p90": 101.0,
+        "p95": 117.0,
+        "p99": 299.50999999999885,
+        "max": 729.0
+      },
+      "adaptive_evaluations": {
+        "p50": 61.0,
+        "p95": 117.0,
+        "max": 729.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.0077725,
+        "physics_p50": 0.0,
+        "estimator_p50": 0.0,
+        "scheduler_p50": 0.0,
+        "setup_event_p50": 0.006251
+      },
+      "stage_timing_ms": {
+        "caustic_prebuild_excluded_p50": 1.2432854999999998,
+        "seed_p50": 0.040816,
+        "planning_p50": 0.054135,
+        "integration_p50": 0.078071
+      },
+      "v2_ms": {
+        "p50": 0.197313,
+        "p90": 0.5533539000000001,
+        "p95": 0.6457593999999999,
+        "p99": 1.0623024099999996,
+        "max": 2.604003
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 1.5854608062725382,
+        "p90": 6.76092135569902,
+        "win_fraction_ratio_gt_1": 0.6834811529933481
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3597,
+        "p50": 1.5850299949790947,
+        "p90": 6.7516680110362355,
+        "p95": 9.58092940184172,
+        "p99": 20.10504914957185,
+        "max": 42.511607134560464,
+        "win_fraction_ratio_gt_1": 0.683069224353628
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 1.5997577914623748,
+        "p90": 6.773980438424747,
+        "p95": 9.628364136995259,
+        "p99": 20.211689962796058,
+        "max": 42.511607134560464,
+        "win_fraction_ratio_gt_1": 0.6844181459566075
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 1.4022607577749902e-06,
+        "p95": 1.2963112233871922e-05,
+        "p99": 0.00014896582433259004,
+        "max": 1.0
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 1.3701301166823225e-06,
+        "p95": 1.2045105942088262e-05,
+        "p99": 7.637555277812906e-05,
+        "max": 0.9981235138837661
+      }
+    },
+    "uniform:target=0.0001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3552,
+        "SEED_SUPPORT_UNPROVEN": 45,
+        "TopologyUnresolved": 11
+      },
+      "numerical_status_counts": {
+        "OK": 3597,
+        "GRADIENT_UNRELIABLE": 11
+      },
+      "value_stop_counts": {
+        "Converged": 3597,
+        "TopologyUnresolved": 11
+      },
+      "seed_support_proven": 3563,
+      "coverage_certified": 0,
+      "status_ok": 3552,
+      "status_ok_fraction": 0.9844789356984479,
+      "adaptive_nodes": {
+        "p50": 77.0,
+        "p90": 130.0,
+        "p95": 179.64999999999964,
+        "p99": 647.0199999999977,
+        "max": 1410.0
+      },
+      "adaptive_evaluations": {
+        "p50": 77.0,
+        "p95": 179.64999999999964,
+        "max": 1410.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.007114,
+        "physics_p50": 0.0,
+        "estimator_p50": 0.0,
+        "scheduler_p50": 0.0,
+        "setup_event_p50": 0.005809
+      },
+      "stage_timing_ms": {
+        "caustic_prebuild_excluded_p50": 1.2435065,
+        "seed_p50": 0.0407845,
+        "planning_p50": 0.0525495,
+        "integration_p50": 0.066413
+      },
+      "v2_ms": {
+        "p50": 0.18791200000000002,
+        "p90": 0.5039502000000002,
+        "p95": 0.6125448999999992,
+        "p99": 1.0991373099999988,
+        "max": 2.2931679999999997
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 0.6276672015102105,
+        "p90": 1.0684340009723154,
+        "win_fraction_ratio_gt_1": 0.12555432372505543
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3597,
+        "p50": 0.6272583233436324,
+        "p90": 1.0673542478885858,
+        "p95": 1.399199624947556,
+        "p99": 2.200248048006181,
+        "max": 2.7602862315976457,
+        "win_fraction_ratio_gt_1": 0.12510425354462051
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 0.6291711403933358,
+        "p90": 1.07159527273421,
+        "p95": 1.4075076231312678,
+        "p99": 2.2053122930346385,
+        "max": 2.7602862315976457,
+        "win_fraction_ratio_gt_1": 0.1266891891891892
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 3.1861458027727786e-08,
+        "p95": 3.482464063254409e-07,
+        "p99": 9.587296557172363e-06,
+        "max": 1.0
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 3.1732798377142716e-08,
+        "p95": 3.3731950206108764e-07,
+        "p99": 5.04003144288021e-06,
+        "max": 0.9981219320299417
+      }
+    },
+    "uniform:target=0.001": {
+      "rows": 3608,
+      "status_counts": {
+        "OK": 3552,
+        "SEED_SUPPORT_UNPROVEN": 45,
+        "TopologyUnresolved": 11
+      },
+      "numerical_status_counts": {
+        "OK": 3597,
+        "GRADIENT_UNRELIABLE": 11
+      },
+      "value_stop_counts": {
+        "Converged": 3597,
+        "TopologyUnresolved": 11
+      },
+      "seed_support_proven": 3563,
+      "coverage_certified": 0,
+      "status_ok": 3552,
+      "status_ok_fraction": 0.9844789356984479,
+      "adaptive_nodes": {
+        "p50": 53.0,
+        "p90": 92.0,
+        "p95": 115.0,
+        "p99": 321.50999999999885,
+        "max": 884.0
+      },
+      "adaptive_evaluations": {
+        "p50": 53.0,
+        "p95": 115.0,
+        "max": 884.0
+      },
+      "adaptive_timing_ms": {
+        "setup_p50": 0.007747,
+        "physics_p50": 0.0,
+        "estimator_p50": 0.0,
+        "scheduler_p50": 0.0,
+        "setup_event_p50": 0.006240000000000001
+      },
+      "stage_timing_ms": {
+        "caustic_prebuild_excluded_p50": 1.2435065,
+        "seed_p50": 0.0407845,
+        "planning_p50": 0.0539075,
+        "integration_p50": 0.053661
+      },
+      "v2_ms": {
+        "p50": 0.1718595,
+        "p90": 0.4836658000000001,
+        "p95": 0.5631417999999999,
+        "p99": 0.8988466399999976,
+        "max": 2.308375
+      },
+      "speed_ratio_vbm_over_v2_all_finite": {
+        "p50": 0.4017908628926626,
+        "p90": 0.6385112107737041,
+        "win_fraction_ratio_gt_1": 0.03353658536585366
+      },
+      "speed_ratio_vbm_over_v2_positive": {
+        "count": 3597,
+        "p50": 0.4016604102329897,
+        "p90": 0.636997458751144,
+        "p95": 0.8402537746687081,
+        "p99": 1.2861871104247904,
+        "max": 1.6184211415640628,
+        "win_fraction_ratio_gt_1": 0.03308312482624409
+      },
+      "speed_ratio_vbm_over_v2_status_ok": {
+        "p50": 0.40300402470667773,
+        "p90": 0.6410712011197234,
+        "p95": 0.8440690080966466,
+        "p99": 1.2863550766138008,
+        "max": 1.6184211415640628,
+        "win_fraction_ratio_gt_1": 0.03350225225225225
+      },
+      "relative_error_v2_over_vbm_1e-6_all_statuses": {
+        "p50": 1.3497500935356151e-07,
+        "p95": 7.086989393311658e-06,
+        "p99": 8.74410422294687e-05,
+        "max": 1.0
+      },
+      "relative_error_v2_over_vbm_1e-6_status_ok": {
+        "p50": 1.334815364734552e-07,
+        "p95": 6.456197505374896e-06,
+        "p99": 5.481393682159896e-05,
+        "max": 0.998121931655132
+      }
+    }
+  }
+}

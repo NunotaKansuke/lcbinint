@@ -1,0 +1,67 @@
+result 44 0.001 3.2184020399303725 budget 0.0032184020399303728 nodes 539 splits 1
+history 0 level 3 nodes 7 error 0.42532328124101249 resolved 0
+history 1 level 3 nodes 14 error 0.0017165592305381425 resolved 1
+history 2 level 3 nodes 21 error 1.9932686034701434e-11 resolved 1
+history 0 level 4 nodes 29 error 0.311204370502209 resolved 0
+history 0 level 5 nodes 45 error 0.094191487950598118 resolved 1
+history 0 level 6 nodes 77 error 0.043523657869939572 resolved 1
+history 0 level 7 nodes 141 error 0.013611851605742048 resolved 1
+history 0 level 8 nodes 269 error 0.0031901907009100703 resolved 1
+history 3 level 3 nodes 276 error 0.0070140205742996991 resolved 1
+history 4 level 3 nodes 283 error 0.34165363814557548 resolved 1
+history 4 level 4 nodes 291 error 0.20328453254018111 resolved 0
+history 4 level 5 nodes 307 error 0.059695551052489255 resolved 1
+history 4 level 6 nodes 339 error 0.020219954552872579 resolved 1
+history 4 level 7 nodes 403 error 0.0052324858284913262 resolved 1
+history 3 level 4 nodes 411 error 5.7481632280769958e-05 resolved 1
+history 4 level 8 nodes 539 error 0.0012476310457649839 resolved 1
+panel 0 active 0 weighted 1 parent -1 level 8 R 0.55185359309388349 0.70757614988115103 x -1 1 q 1.8614267764102579 radial 0.0031901907008833291 inner 0 geometry 2.5854050495953262e-14 event 6.0869431182652721e-17 resolved 1
+panel 1 active 1 weighted 1 parent -1 level 3 R 0.82239882467993819 0.99857871129640652 x -1 1 q 1.3302868639050109 radial 0.0017165592305281386 inner 0 geometry 7.7054621222771046e-15 event 1.707542442687142e-15 resolved 1
+panel 2 active 1 weighted 1 parent -1 level 3 R 2.2655244652076929 2.3018600812789867 x -1 1 q 0.026695273796988682 radial 1.9926758141484182e-11 inner 0 geometry 5.2801385404240744e-15 event 6.3589959377911214e-16 resolved 1
+panel 3 active 1 weighted 0 parent 0 level 4 R 0.55185359309388349 0.62971487148751726 x -1 1 q 0.84710461711582818 radial 5.7481632274690667e-05 inner 0 geometry 5.6688165718983838e-15 event 3.4281216212570672e-17 resolved 1
+panel 4 active 1 weighted 0 parent 0 level 8 R 0.62971487148751726 0.70757614988115103 x -1 1 q 1.0143152851125445 radial 0.0012476310457450964 inner 0 geometry 1.9436762797660531e-14 event 1.2975656398489706e-19 resolved 1
+result 44 0.0001 3.2184016300133411 budget 0.0003218401630013341 nodes 1135 splits 3
+history 0 level 3 nodes 7 error 0.42532328124101249 resolved 0
+history 1 level 3 nodes 14 error 0.0017165592305381425 resolved 1
+history 2 level 3 nodes 21 error 1.9932686034701434e-11 resolved 1
+history 0 level 4 nodes 29 error 0.311204370502209 resolved 0
+history 0 level 5 nodes 45 error 0.094191487950598118 resolved 1
+history 0 level 6 nodes 77 error 0.043523657869939572 resolved 1
+history 0 level 7 nodes 141 error 0.013611851605742048 resolved 1
+history 0 level 8 nodes 269 error 0.0031901907009100703 resolved 1
+history 3 level 3 nodes 276 error 0.0070140205742996991 resolved 1
+history 4 level 3 nodes 283 error 0.34165363814557548 resolved 1
+history 4 level 4 nodes 291 error 0.20328453254018111 resolved 0
+history 4 level 5 nodes 307 error 0.059695551052489255 resolved 1
+history 4 level 6 nodes 339 error 0.020219954552872579 resolved 1
+history 4 level 7 nodes 403 error 0.0052324858284913262 resolved 1
+history 3 level 4 nodes 411 error 5.7481632280769958e-05 resolved 1
+history 4 level 8 nodes 539 error 0.0012476310457649839 resolved 1
+history 1 level 4 nodes 547 error 2.6941472525129607e-06 resolved 1
+history 5 level 3 nodes 554 error 0.18467627403763748 resolved 1
+history 6 level 3 nodes 561 error 0.00026000163489325894 resolved 1
+history 5 level 4 nodes 569 error 0.055162437342881614 resolved 1
+history 5 level 5 nodes 585 error 0.021884963964130609 resolved 1
+history 5 level 6 nodes 617 error 0.0079909986940568944 resolved 1
+history 5 level 7 nodes 681 error 0.0017947632367109269 resolved 1
+history 5 level 8 nodes 809 error 0.00028025373566365369 resolved 1
+history 7 level 3 nodes 816 error 0.040933604976237749 resolved 0
+history 8 level 3 nodes 823 error 0.020181879540384945 resolved 1
+history 7 level 4 nodes 831 error 0.018698977023847839 resolved 1
+history 8 level 4 nodes 839 error 0.0043941820932518437 resolved 1
+history 7 level 5 nodes 855 error 0.0050364808857540529 resolved 1
+history 7 level 6 nodes 887 error 0.0016448819967049329 resolved 1
+history 8 level 5 nodes 903 error 0.0005290590841313562 resolved 1
+history 7 level 7 nodes 967 error 0.00029751508988997376 resolved 1
+history 8 level 6 nodes 999 error 2.6380906173748748e-05 resolved 1
+history 7 level 8 nodes 1127 error 1.9248288553713109e-05 resolved 1
+history 6 level 4 nodes 1135 error 2.8348723910445629e-06 resolved 1
+panel 0 active 0 weighted 1 parent -1 level 8 R 0.55185359309388349 0.70757614988115103 x -1 1 q 1.8614267764102579 radial 0.0031901907008833291 inner 0 geometry 2.5854050495953262e-14 event 6.0869431182652721e-17 resolved 1
+panel 1 active 1 weighted 1 parent -1 level 4 R 0.82239882467993819 0.99857871129640652 x -1 1 q 1.3302868640043317 radial 2.6941472425446179e-06 inner 0 geometry 8.4994860313741716e-15 event 8.7809058912055137e-16 resolved 1
+panel 2 active 1 weighted 1 parent -1 level 3 R 2.2655244652076929 2.3018600812789867 x -1 1 q 0.026695273796988682 radial 1.9926758141484182e-11 inner 0 geometry 5.2801385404240744e-15 event 6.3589959377911214e-16 resolved 1
+panel 3 active 1 weighted 0 parent 0 level 4 R 0.55185359309388349 0.62971487148751726 x -1 1 q 0.84710461711582818 radial 5.7481632274690667e-05 inner 0 geometry 5.6688165718983838e-15 event 3.4281216212570672e-17 resolved 1
+panel 4 active 0 weighted 0 parent 0 level 8 R 0.62971487148751726 0.70757614988115103 x -1 1 q 1.0143152851125445 radial 0.0012476310457450964 inner 0 geometry 1.9436762797660531e-14 event 1.2975656398489706e-19 resolved 1
+panel 5 active 0 weighted 0 parent 4 level 8 R 0.62971487148751726 0.70757614988115103 x -1 0 q 0.91523247621900083 radial 0.00028025373564661302 inner 0 geometry 1.6634257250505397e-14 event 0 resolved 1
+panel 6 active 1 weighted 0 parent 4 level 4 R 0.62971487148751726 0.70757614988115103 x 0 1 q 0.099082384725034181 radial 2.8348723871011824e-06 inner 0 geometry 3.882823334303157e-15 event 1.6555712203444219e-17 resolved 1
+panel 7 active 1 weighted 0 parent 5 level 8 R 0.62971487148751726 0.70757614988115103 x -1 -0.5 q 0.64157887106708078 radial 1.9248288542503692e-05 inner 0 geometry 1.0924499211373216e-14 event 0 resolved 1
+panel 8 active 1 weighted 0 parent 5 level 6 R 0.62971487148751726 0.70757614988115103 x -0.5 0 q 0.27365361930407761 radial 2.6380906168246395e-05 inner 0 geometry 5.380825460350492e-15 event 0 resolved 1

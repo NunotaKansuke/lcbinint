@@ -1,0 +1,40 @@
+Seeded paper q-rho benchmark provenance
+checkout: /rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events
+branch: experiment/seeded-boundary-events
+HEAD: f3547723b79828d9c501182746028e99f7bad116
+captured_utc: 2026-10-13T04:34:36Z
+platform: Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34
+python: 3.10.19
+input_rows: 7216
+saved_vbm_timing_reference_rows: 14432
+working_tree_status_entries: 78 (pre-existing dirty research state preserved)
+compiler: g++ -std=c++17 -O3 -DNDEBUG -march=native -fext-numeric-literals -fopenmp
+include order: /rogue1_8/nunota/lcbinint/src, local src, /rogue1_8/nunota/lcbinint/include
+timed route: PointSourceMagnifier::binary_images + FiniteSourceMagnifier::cached_binary_image_seeds + epoch_seeded_radial_frontier
+excluded from full time: object construction, binary_caustic_branches build, input/output
+full time: per repetition seed_ms + seeded radial frontier wall time; median over 3 repetitions
+comparators: saved VBM warmed direct kernel timings at RelTol 1e-3/1e-4; saved VBM magnifications at RelTol 1e-6
+frontier coverage_certified is expected false; benchmark output will retain it and make no support-completeness claim.
+SHA256 files:
+  6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b  evidence/holonomic/seeded_paper_qrho_20261013/input_snapshot.tsv
+  8d75a89ac5e1179c273ab9e1df6f84a27c30aa9185552aa1b79b4e0c19ccbf33  evidence/holonomic/seeded_paper_qrho_20261013/vbm_timing_reference.tsv
+  e80189053aface2daacdae5ce950208515be0aac31cb33736df30c69c62596fe  benchmarks/holonomic/bench_seeded_paper_qrho.cpp
+  b376c798d787d9b733710a0348995c2c1618a98e55b8f66e0230880ae940e37f  benchmarks/holonomic/build_seeded_paper_qrho.sh
+  88241b6d0200cc9b6877a6c156b7e8589b0ed93e67b71390f1b3b4f13bd30246  build-seeded-events/bench_seeded_paper_qrho
+  c49a1be2a15d6e6bd4234bfbd77786437b006130bd0ef733161a13223e7bf351  build-seeded-events/seed_after_v26.o
+  6ee06bb68a4c42596795d5f2dfdae3d0d8a48338b1251e8e3f80966a1040f5a1  build-standard-current/liblcbinint_magnification.a
+  639ad947912062ee039a377c437baaaaf3b96f6faeb05eafd2f8e0237ddc14da  build-standard-current/liblcbinint_lightcurve.a
+  30cd1787001bc611507da4f2ac42401a08dc1474337f4496024c72cda9c70efc  src/lcbinint/magnification/holonomic/seeded_radial_frontier.hpp
+  1686a95e371a6f45a0a8f331a3776620107a13c0a5eddbf6ebf40383a32cc4bb  src/lcbinint/magnification/holonomic/seeded_boundary_events.hpp
+  8c961fd6447d2290b585039abf9578d84138b604158697a0ae88d7a6bb3b9733  src/lcbinint/magnification/holonomic/adaptive_epoch.hpp
+  2af60ab51be1828d285895da8ef06c6eff148afb198980f9725e80b29a475e2f  src/lcbinint/magnification/holonomic/adaptive_radial.hpp
+  4ea5adfd920752f7ea71ed320771fd089629caab260def56bf7f118f960caea3  src/lcbinint/magnification/holonomic/nested_fejer2.hpp
+  ad500013fbe3c3d22ea0aa9f596436b68305a2509779003a432875478b5e0a3b  src/lcbinint/magnification/holonomic/quartic_sturm.hpp
+  7cdd0141a40bfe8a6314e7f5221e361e4230671a8060f8078a595607822898de  src/lcbinint/magnification/holonomic/root_pair.hpp
+  291a89f7c70120f4e619166d2558d460f6e59d49445072e942c9324f0100479e  src/lcbinint/magnification/holonomic/radius_terms.hpp
+  3958b8eda152c12439396614473909ee857fbd361d1d258d59cd14cd68415021  evidence/holonomic/seeded_paper_qrho_20261013/make_figures.py
+run_session: attached monitored process session 90812; exit_status=0
+run_completed_local_date: 2026-10-13 JST
+run_scheduler: not used; qstat could not connect to qmaster from the restricted sandbox
+raw_output: 14,432 data rows, 53 columns, exactly one row per input key and target
+final_provenance_refreshed_utc: 2026-10-13T04:41:09Z

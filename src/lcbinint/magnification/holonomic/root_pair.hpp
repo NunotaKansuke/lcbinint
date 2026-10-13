@@ -25,6 +25,7 @@
 
 #include <array>
 #include <cmath>
+#include <limits>
 
 #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
@@ -149,6 +150,44 @@ inline RootPairDR root_pair_dR(const RootPair& rp, double R,
                                const PrimaryFrame& pf) {
     return root_pair_dR(rp, boundary_quartic(R, pf).p,
                         boundary_quartic_dR(R, pf).p);
+}
+
+// Shared corrector for integration transport and seed-driven event discovery.
+// E/O is regular at an ordinary fold; negative v is a conjugate root pair.
+// Whether a corrected pair is a physical inside arc belongs to the caller.
+struct RootPairCorrection {
+    bool converged = false;
+    int iterations = 0;
+    double min_det = std::numeric_limits<double>::infinity();
+    double det_scale = std::numeric_limits<double>::infinity();
+};
+inline RootPairCorrection correct_root_pair(
+    RootPair& rp, const std::array<double, 5>& pc, int max_iterations,
+    double step_tolerance, bool capture_condition = false) {
+    RootPairCorrection out;
+    for (int it = 0; it < max_iterations; ++it) {
+        ++out.iterations;
+        const EO f = eo_residuals(rp, pc);
+        const EOJac J = eo_jacobian(rp, pc);
+        const double det = J.E_m * J.O_v - J.E_v * J.O_m;
+        if (capture_condition && std::fabs(det) < out.min_det) {
+            out.min_det = std::fabs(det);
+            out.det_scale = (std::fabs(J.E_m) + std::fabs(J.E_v)) *
+                            (std::fabs(J.O_m) + std::fabs(J.O_v));
+        }
+        if (!(std::fabs(det) > 0.0) || !std::isfinite(det)) break;
+        const double dm = -(J.O_v * f.E - J.E_v * f.O) / det;
+        const double dv = -(J.E_m * f.O - J.O_m * f.E) / det;
+        rp.m += dm;
+        rp.v += dv;
+        const double scale =
+            std::fabs(rp.m) + std::sqrt(std::fabs(rp.v)) + 1.0;
+        if (std::fabs(dm) + std::fabs(dv) <= step_tolerance * scale) {
+            out.converged = true;
+            break;
+        }
+    }
+    return out;
 }
 
 }  // namespace lcbinint::holonomic

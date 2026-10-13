@@ -1,0 +1,19 @@
+{
+  "baseline": "f3547723b79828d9c501182746028e99f7bad116",
+  "branch": "experiment/seeded-boundary-events",
+  "host": "rogue1",
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "compile_flags": "-std=c++17 -O3 -march=native -fext-numeric-literals",
+  "timing_repetitions": 3,
+  "timing_threads": 1,
+  "source_sha256": {
+    "src/lcbinint/magnification/holonomic/seeded_point_epoch.hpp": "593551ff2b15cdcc374bdc2eba44f770334f0fc6130faeaa36d474f7c82f187c",
+    "src/lcbinint/magnification/holonomic/seeded_boundary_events.hpp": "1686a95e371a6f45a0a8f331a3776620107a13c0a5eddbf6ebf40383a32cc4bb",
+    "benchmarks/holonomic/bench_point_seeded_cold.cpp": "b94868166f7a419d432cd88b2ce1953e4fac88ca16c94664af692d3f5b8f3ca0",
+    "benchmarks/holonomic/export_point_seed_proposals.cpp": "8a9cd916fef8a220829a57913d919913be0cfb915e59ce8fdf8088955a6782b7",
+    "benchmarks/holonomic/generate_seeded_fold_holdout.cpp": "bb854daa47740d8ae613d37573be03b7926d304ec3c9e707e674637a0b413cb8",
+    "benchmarks/holonomic/bench_seeded_boundary_events.cpp": "9412cf0670569c19a04d47031fe191e0e057ca8573205c6ae4ba491951b8f99e",
+    "benchmarks/holonomic/audit_seeded_adaptive.cpp": "27c819948c8e06e012d72bab0f53e24ea19e15e98eb2287f69eace1baca9a039"
+  },
+  "acceptance": "research-only; deeper holdout 2 failures; coverage_certified=false"
+}

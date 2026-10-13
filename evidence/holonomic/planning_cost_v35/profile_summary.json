@@ -1,0 +1,10 @@
+{
+  "uniform_1e-3": {
+    "seed_ms": 3.9234999999999998,
+    "full_ms": 85.6835,
+    "planning_ms": 22.904,
+    "integration_ms": 33.4605,
+    "count_ms": 6.6065,
+    "event_ms": 5.0360000000000005
+  }
+}

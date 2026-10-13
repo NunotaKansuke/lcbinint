@@ -1,0 +1,46 @@
+{
+  "LD": {
+    "attempts": 2091,
+    "median_dr_fraction": 0.0035699749744774775,
+    "median_v": 0.00011355916231678759,
+    "counts": {
+      "warm": 1851,
+      "cold": 240,
+      "predictor": 0,
+      "newton": 52,
+      "floor": 52,
+      "chart": 0,
+      "branch": 104,
+      "disc": 136
+    },
+    "rejections": {
+      "0": 2091
+    },
+    "cold_crossings": {
+      "4": 136,
+      "2": 104
+    }
+  },
+  "uniform": {
+    "attempts": 2105,
+    "median_dr_fraction": 0.038060233744355805,
+    "median_v": 0.0003932710634475152,
+    "counts": {
+      "warm": 1887,
+      "cold": 218,
+      "predictor": 0,
+      "newton": 28,
+      "floor": 28,
+      "chart": 0,
+      "branch": 78,
+      "disc": 140
+    },
+    "rejections": {
+      "0": 2105
+    },
+    "cold_crossings": {
+      "4": 140,
+      "2": 78
+    }
+  }
+}

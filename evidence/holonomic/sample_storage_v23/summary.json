@@ -1,0 +1,62 @@
+{
+  "normal": {
+    "before_matched": {
+      "candidate_integration_ms": 0.22975188505747113,
+      "candidate_no_caustic_ms": 0.4443703333333333
+    },
+    "after_matched": {
+      "candidate_integration_ms": 0.22227164367816085,
+      "candidate_no_caustic_ms": 0.4365150919540227
+    },
+    "before_reverse": {
+      "candidate_integration_ms": 0.22794078160919543,
+      "candidate_no_caustic_ms": 0.4408845862068965
+    },
+    "after_reverse": {
+      "candidate_integration_ms": 0.22396297701149417,
+      "candidate_no_caustic_ms": 0.437489091954023
+    },
+    "reduction_matched": {
+      "candidate_integration_ms": 0.032557910797724854,
+      "candidate_no_caustic_ms": 0.017677240783349424
+    },
+    "reduction_reverse": {
+      "candidate_integration_ms": 0.017451043949306078,
+      "candidate_no_caustic_ms": 0.0077015490200876835
+    }
+  },
+  "validation": {
+    "conditions": 896,
+    "resolved_reference": 754,
+    "unresolved_reference": 142,
+    "candidate_failures_on_resolved_reference": 0,
+    "maximum_relative_change": 0.0,
+    "node_count_changes": 0,
+    "maximum_discrepancy_over_tolerance": 0.24896766490094166,
+    "audited_conditions": 896
+  },
+  "profile": {
+    "before": {
+      "arc_ms": 0.0604671992337165,
+      "pair_ms": 0.03777344827586207,
+      "assembly_ms": 0.004686049808429123,
+      "untransported_ms": 0.01039698850574713,
+      "pair_cold_ms": 0.016007344827586204,
+      "allocation_ms": 0.021868134099616854,
+      "allocation_count": 5.183908045977011,
+      "physical_ms": 0.18395338314176254,
+      "integration_ms": 0.2904279616858236
+    },
+    "after": {
+      "arc_ms": 0.06035339846743298,
+      "pair_ms": 0.03787616858237548,
+      "assembly_ms": 0.0046010613026819915,
+      "untransported_ms": 0.010341586206896554,
+      "pair_cold_ms": 0.01602107279693486,
+      "allocation_ms": 0.016234360153256695,
+      "allocation_count": 3.574712643678161,
+      "physical_ms": 0.183246632183908,
+      "integration_ms": 0.28539416475095786
+    }
+  }
+}

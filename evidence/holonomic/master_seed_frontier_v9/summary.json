@@ -1,0 +1,26 @@
+{
+  "normal_count": 87,
+  "normal_mean_ms": {
+    "seed_ms": 0.10019555172413792,
+    "planning_ms": 0.1268711264367816,
+    "candidate_integration_ms": 0.4067926091954023,
+    "candidate_no_caustic_ms": 0.636078908045977
+  },
+  "groups": {
+    "initial": {
+      "total": 192,
+      "reference_resolved": 178,
+      "failed": 0
+    },
+    "fold": {
+      "total": 352,
+      "reference_resolved": 288,
+      "failed": 0
+    },
+    "deeper": {
+      "total": 352,
+      "reference_resolved": 288,
+      "failed": 0
+    }
+  }
+}

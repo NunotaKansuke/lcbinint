@@ -1,0 +1,301 @@
+diff --git a/src/lcbinint/magnification/holonomic/adaptive_epoch.hpp b/src/lcbinint/magnification/holonomic/adaptive_epoch.hpp
+index b8b94db..0d85785 100644
+--- a/src/lcbinint/magnification/holonomic/adaptive_epoch.hpp
++++ b/src/lcbinint/magnification/holonomic/adaptive_epoch.hpp
+@@ -285,16 +285,9 @@ inline bool event_finite(T x) {
+ template <class T>
+ inline LocalFoldQuantities<T> reciprocal_local_fold_quantities(
+     T R, T u, const PrimaryFrame& pf) {
+-    const T t = -T(1.0) / u;
+-    const auto g = local_fold_quantities<T>(R, t, pf);
+-    const T u2 = u * u, u3 = u2 * u, u4 = u2 * u2;
+-    LocalFoldQuantities<T> out;
+-    out.P = u4 * g.P;
+-    out.Pt = T(4.0) * u3 * g.P + u2 * g.Pt;
+-    out.PR = u4 * g.PR;
+-    out.Ptt = T(12.0) * u2 * g.P + T(6.0) * u * g.Pt + g.Ptt;
+-    out.Ptr = T(4.0) * u3 * g.PR + u2 * g.Ptr;
+-    return out;
++    // Evaluate the homogeneous reversed polynomial directly. In particular
++    // u=0 (theta=pi) is finite; reconstructing t=-1/u loses that contact.
++    return local_fold_quantities<T>(R,u,pf,true);
+ }
+ 
+ // Newton on the exact local system P(R,t)=P_t(R,t)=0.  The equations are
+@@ -576,6 +569,27 @@ inline EventLocation topology_event_estimate(const RadialEvent& event,
+         out.qf_reason=EventDecisionReason::NotAttempted;
+         return out;
+     }
++    // Seeded topology can retain a finite reciprocal stationary coordinate
++    // without a D14 anchor. Reuse the existing local coupled fold solve.
++    if(event.fold_u_seed_valid && std::isfinite(event.fold_u_seed)) {
++        using Q=__float128;
++        Q r=(Q)event.radius+(Q)event.radius_lo, u=(Q)event.fold_u_seed;
++        double residual=0,last_step=0;
++        const bool ok=coupled_fold_newton<Q,true>(r,u,pf,20,1e-28,1e-24,
++                                                 nullptr,&residual,&last_step);
++        out.radius=event.radius;out.radius_lo=event.radius_lo;
++        out.u_seed=static_cast<double>(u);out.u_seed_valid=ok;
++        out.seed_reciprocal=true;out.needs_qf=!ok;out.qf_refined=ok;
++        out.qf_reason=ok?EventDecisionReason::QfRefined:EventDecisionReason::QfFailed;
++        out.double_reason=EventDecisionReason::TopologySeedReused;
++        if(ok) {
++            store_refined_radius(out,r,last_step,2);
++            const auto f=reciprocal_local_fold_quantities<Q>(r,u,pf);
++            out.uncertainty=std::max(out.uncertainty,event_abs(f.P)/
++                std::max(event_abs(f.PR),64.0*(double)FLT128_EPSILON));
++        }
++        return out;
++    }
+     if(event.atlas_anchor){
+         out.radius=event.radius;out.radius_lo=event.radius_lo;out.uncertainty=event.radius_uncertainty;
+         out.t_seed=event.fold_t_seed;out.t_seed_valid=event.fold_t_seed_valid;out.precision_tier=2;
+@@ -1206,16 +1220,21 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
+             return reject(AdaptiveSampleRejectReason::DegenerateChart);
+         if(cert.root_count==0) {
+             const double theta=0.371;
+-            if(phi_val(R,theta,pf)>0.0)
+-                return mapped_full_circle(R,jac,p,u,pf,with_jac,adaptive_cfg);
++            if(phi_val(R,theta,pf)>0.0) {
++                auto sample=mapped_full_circle(R,jac,p,u,pf,with_jac,adaptive_cfg);
++                sample.local_crossings=-2;return sample;
++            }
++            out.local_crossings=0;
+             return out;
+         }
+         CellPlan local=cell;
+         local.kind=ArcKind::kArcs;
+         local.n_crossings=cert.root_count;
+-        return mapped_radius(R,jac,p,u,pf,local,with_jac,warm,seed,
++        auto sample=mapped_radius(R,jac,p,u,pf,local,with_jac,warm,seed,
+                              adaptive_cfg,radius_lo,request_radial_hermite_jet,
+                              hermite_jet_out);
++        sample.local_crossings=cert.root_count;
++        return sample;
+     }
+     // D14/cell classification certifies that a full-circle cell has no
+     // boundary crossing throughout its open radial interval.  Do not redo a
+@@ -1722,9 +1741,13 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
+ }
+ namespace lcbinint::holonomic {
+ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
+-    const TopologyResult& topo,const AdaptiveConfig& cfg,AdaptiveWorkspace& workspace) {
++    const TopologyResult& topo,const AdaptiveConfig& cfg,AdaptiveWorkspace& workspace,
++    bool retain_matching_panels=false) {
++    // Research resume mode requires identical p, u and cfg. Only the radial
++    // partition may change. The default always starts a fresh workspace.
+     const ScopedFlushDenormals fp_guard;
+-    workspace.reset();
++    if(!retain_matching_panels)workspace.reset();
++    else workspace.cells.clear();
+     const auto policy=cfg.effective_gradient_policy();
+     if(!adaptive_detail::valid_epoch_config(p,u,cfg)) return adaptive_detail::failure_result(AdaptiveStop::InvalidConfig,policy);
+     if(cfg.require_bound) return adaptive_detail::failure_result(AdaptiveStop::BoundUnavailable,policy);
+@@ -1771,7 +1794,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
+         for(const auto& e:event_errors)if(e.first==R){setup_event_ms+=adaptive_detail::ms(event_call_start);return e.second;}
+         const RadialEvent* topology_event=physical_event(R);
+         adaptive_detail::EventLocation d;
+-        if(topology_event && (topology_event->projective_fold_certified || topology_event->atlas_anchor || (topology_event->fold_t_seed_valid &&
++        if(topology_event && (topology_event->projective_fold_certified || topology_event->atlas_anchor || ((topology_event->fold_t_seed_valid || topology_event->fold_u_seed_valid) &&
+            adaptive_detail::topology_event_reuse_enabled()))) {
+             ++event_topology_reuses;
+             ++event_radius_reuses;
+@@ -1824,7 +1847,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
+                                     : std::numeric_limits<double>::infinity();
+             record.topology_reused=topology_event &&
+                                    (topology_event->projective_fold_certified ||
+-                                    (topology_event->fold_t_seed_valid &&
++                                    ((topology_event->fold_t_seed_valid || topology_event->fold_u_seed_valid) &&
+                                      adaptive_detail::topology_event_reuse_enabled()));
+             record.precision_tier=d.precision_tier;
+             record.double_reason=d.double_reason;record.dd_reason=d.dd_reason;
+@@ -1839,9 +1862,14 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
+     const auto integration_plan=
+         adaptive_detail::make_adaptive_integration_plan(
+             active_topology,cells,cfg.initial_level,cfg.fold_maps);
++    const std::size_t previous_panels=retain_matching_panels?workspace.panels.size():0;
++    std::vector<bool> previously_active(previous_panels);
++    for(std::size_t j=0;j<previous_panels;++j) {
++        previously_active[j]=workspace.panels[j].active;
++        workspace.panels[j].active=false;
++    }
+     for(size_t i=0;i<integration_plan.spans.size();++i){
+         const auto& span=integration_plan.spans[i];const auto& c=span.cell;
+-        if(workspace.panels.size()>=cfg.max_panels) return adaptive_detail::failure_result(AdaptiveStop::BudgetExceeded,policy);
+         AdaptivePanel panel;panel.cell=span.first_source_cell;
+         panel.cell_end=span.last_source_cell;panel.evaluator_cell=static_cast<int>(i);
+         panel.map={c.r_lo,c.r_hi,cfg.fold_maps&&physical(c.r_lo),cfg.fold_maps&&physical(c.r_hi)};if(physical(c.r_lo)){auto e=uncertainty(c.r_lo);panel.map.a=e.radius;panel.left_radius_lo=e.radius_lo;panel.left_uncertainty=e.uncertainty;}
+@@ -1849,7 +1877,31 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
+         // A local correction may not jump across another cell/event.
+         if(std::fabs(panel.map.a-c.r_lo)>.25*(c.r_hi-c.r_lo)||std::fabs(panel.map.b-c.r_hi)>.25*(c.r_hi-c.r_lo)||!(panel.map.a<panel.map.b)) return adaptive_detail::failure_result(AdaptiveStop::EventLocationLimited,policy);
+         if(!std::isfinite(panel.left_uncertainty+panel.right_uncertainty)) return adaptive_detail::failure_result(AdaptiveStop::EventLocationLimited,policy);
+-        workspace.panels.push_back(panel);}
++        bool reused=false;
++        for(std::size_t j=0;j<previous_panels;++j) {
++            auto& old=workspace.panels[j];
++            std::size_t root=j;
++            while(workspace.panels[root].parent>=0)
++                root=static_cast<std::size_t>(workspace.panels[root].parent);
++            const auto& ancestor=workspace.panels[root];
++            // Match the entire refinement tree. Child panels retain only
++            // their relevant endpoint remainder; matching children separately
++            // can accidentally keep one half and discard the other.
++            if(ancestor.map.a!=panel.map.a || ancestor.map.b!=panel.map.b ||
++               ancestor.map.left!=panel.map.left || ancestor.map.right!=panel.map.right ||
++               ancestor.left_radius_lo!=panel.left_radius_lo ||
++               ancestor.right_radius_lo!=panel.right_radius_lo)continue;
++            old.cell=panel.cell;old.cell_end=panel.cell_end;old.evaluator_cell=panel.evaluator_cell;
++            for(auto& index:old.samples)
++                if(index>=0 && !workspace.samples[static_cast<std::size_t>(index)].reliable)
++                    index=-1;
++            old.active=previously_active[j];reused=reused||previously_active[j];
++        }
++        if(!reused) {
++            if(workspace.panels.size()>=cfg.max_panels)
++                return adaptive_detail::failure_result(AdaptiveStop::BudgetExceeded,policy);
++            workspace.panels.push_back(panel);
++        }}
+     const bool with_jacobian=policy!=GradientPolicy::None;
+     const double panel_total_ms=adaptive_detail::ms(panel_start);
+     const double setup_panel_ms=std::max(0.0,panel_total_ms-setup_event_ms);
+diff --git a/src/lcbinint/magnification/holonomic/adaptive_radial.hpp b/src/lcbinint/magnification/holonomic/adaptive_radial.hpp
+index f7fe88a..3e181a7 100644
+--- a/src/lcbinint/magnification/holonomic/adaptive_radial.hpp
++++ b/src/lcbinint/magnification/holonomic/adaptive_radial.hpp
+@@ -284,6 +284,7 @@ struct AdaptiveResult {
+     AdaptiveStats stats;
+ };
+ struct AdaptiveSample {
++    int local_crossings=-1; // node-local count; -1 unknown, -2 full circle
+     double R=0,R_lo=0,jac=0;
+     bool precise_R=false;
+     AdaptiveVector value{},inner{},geometry{},roundoff{};
+@@ -964,7 +965,10 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
+         out= failure_result(AdaptiveStop::BudgetExceeded,policy);
+         return out;
+     }
+-    for(size_t i=0;i<w.panels.size();++i) {failure=refine(i,cfg.initial_level);if(failure!=AdaptiveStop::Converged)break;}
++    for(size_t i=0;i<w.panels.size();++i)if(w.panels[i].active) {
++        failure=refine(i,std::max(w.panels[i].level,cfg.initial_level));
++        if(failure!=AdaptiveStop::Converged)break;
++    }
+     auto gather=[&](bool* value_pass_out,bool* gradient_pass_out){
+         auto start=Clock::now();std::array<Sum,6> total,errors,rad,inn,geo,evt,rnd;
+         bool resolved_value=true;
+diff --git a/src/lcbinint/magnification/holonomic/radius_terms.hpp b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+index 7e3cc53..c75a38e 100644
+--- a/src/lcbinint/magnification/holonomic/radius_terms.hpp
++++ b/src/lcbinint/magnification/holonomic/radius_terms.hpp
+@@ -354,13 +354,12 @@ constexpr double kTransportRootRel = 1e-11;    // |P(t_pm)| / running-abssum: is
+                                                // actual root of P (scale-correct
+                                                // at any |t|, unlike an (E,O)
+                                                // residual scaled by cmax*m^4).
+-constexpr double kTransportVFloor = 1e-10;      // v <= this: near-tangency, the
+-                                               // 2x2 (E,O) solve is ill-cond
+-                                               // (det ~ -1/2 P''^2, corrector
+-                                               // step ~ 1/sqrt(v)) -> cold.
+-                                               // Genuine physical tangencies
+-                                               // are additionally caught by
+-                                               // radius_terms' tan_thresh.
++constexpr double kTransportVFloor = 1e-10;  // integration-only tiny-arc gate.
++                                               // Endpoint reconstruction and
++                                               // angular derivatives become
++                                               // sensitive as sqrt(v) -> 0.
++                                               // E/O itself remains regular at
++                                               // an ordinary fold with P'' != 0.
+ constexpr int kTransportMaxTrips = 4;          // total misses/cell -> abandon
+                                                // (guards an oscillating cell
+                                                //  from paying transport+cold)
+@@ -608,31 +607,12 @@ inline std::vector<double> real_root_thetas_transport(
+                     ++prof->rootpair_tmax_reject;
+             }
+             // corrector: Newton on (E, O) = 0 at the new node
+-            bool conv = false;
+-            double det_lo = std::numeric_limits<double>::infinity();
+-            double detsc_lo = std::numeric_limits<double>::infinity();
+-            for (int it = 0; it < kTransportNewton; ++it) {
+-                if (prof) ++prof->rootpair_newton_iterations;
+-                const EO f = eo_residuals(rp, pc);
+-                const EOJac J = eo_jacobian(rp, pc);
+-                const double det = J.E_m * J.O_v - J.E_v * J.O_m;
+-                if (dbg && std::fabs(det) < det_lo) {
+-                    det_lo = std::fabs(det);
+-                    detsc_lo = (std::fabs(J.E_m) + std::fabs(J.E_v)) *
+-                               (std::fabs(J.O_m) + std::fabs(J.O_v));
+-                }
+-                if (!(std::fabs(det) > 0.0) || !std::isfinite(det)) break;
+-                const double dm = -(J.O_v * f.E - J.E_v * f.O) / det;
+-                const double dv = -(J.E_m * f.O - J.O_m * f.E) / det;
+-                rp.m += dm;
+-                rp.v += dv;
+-                const double sc =
+-                    std::fabs(rp.m) + std::sqrt(std::fabs(rp.v)) + 1.0;
+-                if (std::fabs(dm) + std::fabs(dv) <= kTransportStepTol * sc) {
+-                    conv = true;
+-                    break;
+-                }
+-            }
++            const auto correction = correct_root_pair(
++                rp, pc, kTransportNewton, kTransportStepTol, dbg);
++            const bool conv = correction.converged;
++            const double det_lo = correction.min_det;
++            const double detsc_lo = correction.det_scale;
++            if (prof) prof->rootpair_newton_iterations += correction.iterations;
+             if(prof && rp.v<=0.0)++prof->rootpair_corrected_nonpositive;
+             if(prof && rp.v>0.0 && rp.v<=kTransportVFloor)++prof->rootpair_corrected_tiny_positive;
+             if (dbg) {
+diff --git a/src/lcbinint/magnification/holonomic/root_pair.hpp b/src/lcbinint/magnification/holonomic/root_pair.hpp
+index 43653d1..861142c 100644
+--- a/src/lcbinint/magnification/holonomic/root_pair.hpp
++++ b/src/lcbinint/magnification/holonomic/root_pair.hpp
+@@ -25,6 +25,7 @@
+ 
+ #include <array>
+ #include <cmath>
++#include <limits>
+ 
+ #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
+ #include "lcbinint/magnification/holonomic/lens_frame.hpp"
+@@ -151,4 +152,42 @@ inline RootPairDR root_pair_dR(const RootPair& rp, double R,
+                         boundary_quartic_dR(R, pf).p);
+ }
+ 
++// Shared corrector for integration transport and seed-driven event discovery.
++// E/O is regular at an ordinary fold; negative v is a conjugate root pair.
++// Whether a corrected pair is a physical inside arc belongs to the caller.
++struct RootPairCorrection {
++    bool converged = false;
++    int iterations = 0;
++    double min_det = std::numeric_limits<double>::infinity();
++    double det_scale = std::numeric_limits<double>::infinity();
++};
++inline RootPairCorrection correct_root_pair(
++    RootPair& rp, const std::array<double, 5>& pc, int max_iterations,
++    double step_tolerance, bool capture_condition = false) {
++    RootPairCorrection out;
++    for (int it = 0; it < max_iterations; ++it) {
++        ++out.iterations;
++        const EO f = eo_residuals(rp, pc);
++        const EOJac J = eo_jacobian(rp, pc);
++        const double det = J.E_m * J.O_v - J.E_v * J.O_m;
++        if (capture_condition && std::fabs(det) < out.min_det) {
++            out.min_det = std::fabs(det);
++            out.det_scale = (std::fabs(J.E_m) + std::fabs(J.E_v)) *
++                            (std::fabs(J.O_m) + std::fabs(J.O_v));
++        }
++        if (!(std::fabs(det) > 0.0) || !std::isfinite(det)) break;
++        const double dm = -(J.O_v * f.E - J.E_v * f.O) / det;
++        const double dv = -(J.E_m * f.O - J.O_m * f.E) / det;
++        rp.m += dm;
++        rp.v += dv;
++        const double scale =
++            std::fabs(rp.m) + std::sqrt(std::fabs(rp.v)) + 1.0;
++        if (std::fabs(dm) + std::fabs(dv) <= step_tolerance * scale) {
++            out.converged = true;
++            break;
++        }
++    }
++    return out;
++}
++
+ }  // namespace lcbinint::holonomic

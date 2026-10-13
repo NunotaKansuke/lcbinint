@@ -1,0 +1,21 @@
+{
+  "timing_boundary": "events plus cell plan; supplied seeds; no integration or audit",
+  "geometry_count": 48,
+  "topology_failures": 0,
+  "seeded_median_us": 277.9975,
+  "d14_median_us": 478.751,
+  "seeded_p90_us": 2111.180600000002,
+  "d14_p90_us": 2111.120500000001,
+  "sum_time_ratio": 0.7499840180157369,
+  "seeded_faster_cases": 30,
+  "adaptive_comparisons": 192,
+  "reference_converged": 178,
+  "regressions_vs_converged_reference": 0,
+  "max_relative_difference_over_tolerance": 0.11299392019993126,
+  "reference_unresolved": 14,
+  "both_unresolved": 4,
+  "seed_cold_snapshot_median_us": 1219.2055,
+  "seed_cold_snapshot_in_stage_timing": false,
+  "global_coverage_certified": false,
+  "production_default_changed": false
+}

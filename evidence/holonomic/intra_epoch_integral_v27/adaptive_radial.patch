@@ -1,0 +1,262 @@
+--- evidence/holonomic/intra_epoch_integral_v27/before_include/lcbinint/magnification/holonomic/adaptive_radial.hpp	2026-10-13 11:04:27.498261415 +0900
++++ src/lcbinint/magnification/holonomic/adaptive_radial.hpp	2026-10-13 11:19:41.242335185 +0900
+@@ -147,6 +147,7 @@
+     GradientPolicy gradient_policy=GradientPolicy::None;
+     bool with_jacobian=false,require_bound=false,fold_maps=true;
+     bool reuse_samples=true; // isolated A/B control; default keeps nested samples
++    bool collect_costs=false; // inner clocks only when explicitly requested
+     double warm_root_seed_tolerance=0.0; // initialization only, endpoint gates remain
+     double uniform_endpoint_budget_fraction=0.0; // opt-in value-only frontier budget
+     int initial_level=3,max_level=8,max_depth=12;
+@@ -294,7 +295,25 @@
+     AdaptiveVector radial_error{},inner_error{},geometry_error{},event_error{},roundoff_error{};
+     AdaptiveStats stats;
+ };
++// Optional same-radius angular upgrades carry 416 bytes of rule/derivative
++// arrays. Ordinary radial samples keep only a null handle; no allocation.
++// Copy-on-write preserves earlier samples when an upgrade modifies a copy.
++struct AdaptiveAngularState {
++    std::array<double,6> result{},error{};
++    std::array<double,5> dm{},dv{},pc{};
++    std::array<std::array<double,5>,5> dpc{};
++};
+ struct AdaptiveSample {
++    std::shared_ptr<AdaptiveAngularState> angular_state;
++    const AdaptiveAngularState& angular_data() const {
++        static const AdaptiveAngularState empty{};
++        return angular_state?*angular_state:empty;
++    }
++    AdaptiveAngularState& angular_data() {
++        if(!angular_state)angular_state=std::make_shared<AdaptiveAngularState>();
++        else if(!angular_state.unique())angular_state=std::make_shared<AdaptiveAngularState>(*angular_state);
++        return *angular_state;
++    }
+     int local_crossings=-1; // node-local count; -1 unknown, -2 full circle
+     double R=0,R_lo=0,jac=0;
+     bool precise_R=false;
+@@ -309,8 +328,6 @@
+     // previous aggregate lets an angular upgrade compare against it without
+     // re-running the lower-order rule.  The incumbent GC2 ladder is
+     // non-nested; the optional nested ladder stores its point cache below.
+-    std::array<double,6> angular_result{};
+-    std::array<double,6> angular_error{};
+     bool angular_error_available=true;
+     int angular_order=0;
+     size_t angular_work=0;
+@@ -320,9 +337,6 @@
+     // can evaluate only the new angular rule; it must not redo endpoint
+     // polishing or root-pair continuation.
+     double angular_m=0,angular_v=0;
+-    std::array<double,5> angular_dm{},angular_dv{};
+-    std::array<double,5> angular_pc{};
+-    std::array<std::array<double,5>,5> angular_dpc{};
+     bool angular_reciprocal=false,angular_state_valid=false;
+     bool angular_state_reused=false;
+     std::shared_ptr<NestedAngularCache> angular_nested_cache;
+@@ -705,8 +719,14 @@
+         double q=0,error=std::numeric_limits<double>::infinity();
+         std::array<double,5> ledger{};
+     } value_snapshot;
++    // Payload plus a conservative shared-control-block allowance. Count
++    // per stored sample (shared blocks can only make this an overestimate).
++    constexpr size_t angular_allocation_bytes=sizeof(AdaptiveAngularState)+4*sizeof(void*);
++    size_t angular_storage_bytes=0;
++    for(const auto& sample:w.samples)if(sample.angular_state)
++        angular_storage_bytes+=angular_allocation_bytes;
+     if(cfg.same_node_hermite_shadow) {
+-        const size_t existing_bytes=w.samples.capacity()*sizeof(AdaptiveSample)+
++        const size_t existing_bytes=angular_storage_bytes+w.samples.capacity()*sizeof(AdaptiveSample)+
+             w.panels.capacity()*sizeof(AdaptivePanel)+
+             w.hermite_jets.capacity()*sizeof(AdaptiveHermiteJet)+
+             w.hermite_panels.capacity()*sizeof(AdaptiveHermitePanel);
+@@ -722,7 +742,7 @@
+     } else {
+         w.hermite_jets.clear();w.hermite_panels.clear();
+     }
+-    auto allocated_bytes=[&](){return w.samples.capacity()*sizeof(AdaptiveSample)+
++    auto allocated_bytes=[&](){return angular_storage_bytes+w.samples.capacity()*sizeof(AdaptiveSample)+
+         w.panels.capacity()*sizeof(AdaptivePanel)+
+         w.hermite_jets.capacity()*sizeof(AdaptiveHermiteJet)+
+         w.hermite_panels.capacity()*sizeof(AdaptiveHermitePanel);};
+@@ -744,6 +764,14 @@
+         else
+             return eval(R,jac,cell,seed);
+     };
++#ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
++    const bool time_costs=true;
++#else
++    const bool time_costs=cfg.collect_costs || cfg.collect_diagnostics ||
++        v2_profile_current()!=nullptr;
++#endif
++    auto cost_now=[&](){return time_costs?Clock::now():Clock::time_point{};};
++    auto cost_ms=[&](Clock::time_point begin){return time_costs?ms(begin):0.0;};
+     auto record_sample_reject=[&](std::size_t panel,std::size_t slot,int cell,
+                                   int cell_end,
+                                   int level,double R,
+@@ -796,7 +824,10 @@
+         auto& p=w.panels[ip];const int m=1<<level,step=256/m;
+         size_t needed=0;for(int k=1;k<m;++k)needed+=!cfg.reuse_samples||p.samples[k*step]<0;
+         const size_t target=w.samples.size()+needed;
+-        const size_t projected=target*sizeof(AdaptiveSample)+w.panels.size()*sizeof(AdaptivePanel)+
++        const size_t angular_growth=(cfg.angular_adaptive || cfg.gradient_adaptive)
++            ? needed*angular_allocation_bytes:0;
++        const size_t projected=angular_storage_bytes+angular_growth+
++            target*sizeof(AdaptiveSample)+w.panels.size()*sizeof(AdaptivePanel)+
+             (cfg.same_node_hermite_shadow ?
+                 target*sizeof(AdaptiveHermiteJet)+w.panels.size()*sizeof(AdaptiveHermitePanel) : 0);
+         if(stats.node_evaluations+needed>cfg.max_node_evals || projected>cfg.max_bytes)
+@@ -810,10 +841,10 @@
+                 ? (target-w.hermite_jets.capacity())*sizeof(AdaptiveHermiteJet):0);
+         // RootPairWarm uses two inline slots, so there is no per-sample heap
+         // growth to reserve here; the AdaptiveSample size already includes it.
+-        if(allocated_bytes()+growth>cfg.max_bytes)return AdaptiveStop::BudgetExceeded;
++        if(allocated_bytes()+growth+angular_growth>cfg.max_bytes)return AdaptiveStop::BudgetExceeded;
+         if(target>w.samples.capacity()) {
+ #ifdef HOLO_FRONTIER_COST_PROFILE
+-            const auto allocation_start=Clock::now();
++            const auto allocation_start=cost_now();
+ #endif
+             size_t reserve_target=target;
+ #ifndef HOLO_ADAPTIVE_DISABLE_SAMPLE_GROWTH
+@@ -821,7 +852,8 @@
+             // samples and panels fit. Extra capacity must not steal a later
+             // panel's budget or cause an earlier BudgetExceeded result.
+             const size_t panel_slots=std::max(w.panels.capacity(),cfg.max_panels);
+-            if(!cfg.same_node_hermite_shadow && w.hermite_jets.capacity()==0 &&
++            if(!cfg.angular_adaptive && !cfg.gradient_adaptive &&
++               !cfg.same_node_hermite_shadow && w.hermite_jets.capacity()==0 &&
+                w.hermite_panels.capacity()==0 && panel_slots<=cfg.max_bytes/sizeof(AdaptivePanel)) {
+                 const size_t remaining=cfg.max_bytes-panel_slots*sizeof(AdaptivePanel);
+                 if(cfg.max_node_evals<=remaining/sizeof(AdaptiveSample) && target<=cfg.max_node_evals)
+@@ -834,7 +866,7 @@
+ #endif
+             w.samples.reserve(reserve_target);
+ #ifdef HOLO_FRONTIER_COST_PROFILE
+-            stats.allocation_ms+=ms(allocation_start);
++            stats.allocation_ms+=cost_ms(allocation_start);
+             ++stats.allocation_count;
+ #endif
+         }
+@@ -1001,12 +1033,12 @@
+                 if(d<distance && w.samples[idx].reliable){distance=d;anchor=&w.samples[idx];}
+             }
+ #endif
+-            auto start=Clock::now();
++            auto start=cost_now();
+             AdaptiveHermiteJet sample_jet{};
+             const int evaluator_cell=p.evaluator_cell>=0?p.evaluator_cell:p.cell;
+             AdaptiveSample s=invoke_eval(mapped[0],mapped[1],evaluator_cell,anchor,false,radius_lo,level,
+                 cfg.same_node_hermite_shadow?&sample_jet:nullptr);
+-            stats.physical_ms+=ms(start); if(anchor)++stats.root_anchors;
++            stats.physical_ms+=cost_ms(start); if(anchor)++stats.root_anchors;
+             ++stats.node_evaluations;
+             record_angular(s,false);
+             const AdaptiveSampleRejectReason initial_reason=s.reject_reason;
+@@ -1019,11 +1051,11 @@
+                adaptive_sample_reject_retryable(initial_reason) &&
+                stats.node_evaluations<cfg.max_node_evals) {
+                 ++stats.sample_cold_retries;
+-                auto cold_start=Clock::now();
++                auto cold_start=cost_now();
+                 AdaptiveHermiteJet cold_jet{};
+                 AdaptiveSample cold=invoke_eval(mapped[0],mapped[1],evaluator_cell,nullptr,true,radius_lo,level,
+                     cfg.same_node_hermite_shadow?&cold_jet:nullptr);
+-                stats.physical_ms+=ms(cold_start);
++                stats.physical_ms+=cost_ms(cold_start);
+                 ++stats.node_evaluations;
+                 record_angular(cold,false);
+                 cold.R=mapped[0];cold.R_lo=radius_lo;cold.precise_R=cfg.preserve_radial_offset;
+@@ -1044,7 +1076,7 @@
+                 double mapped_jet_ms=0;
+                 if(sample_jet.radial_jet) {
+ #ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
+-                    const auto mapped_jet_start=Clock::now();
++                    const auto mapped_jet_start=cost_now();
+ #endif
+                     const double h=.5*(p.xr-p.xl);
+                     const double t=.5*(1+x),width=p.map.b-p.map.a;
+@@ -1062,7 +1094,7 @@
+                         sample_jet.radial_jet=std::isfinite(sample_jet.g_xi);
+                     } else sample_jet.radial_jet=false;
+ #ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
+-                    mapped_jet_ms=ms(mapped_jet_start);
++                    mapped_jet_ms=cost_ms(mapped_jet_start);
+ #endif
+                     if(sample_jet.radial_jet)++stats.hermite_jet_successes;
+                 }
+@@ -1072,6 +1104,11 @@
+                 }
+             }
+             s.R=mapped[0];s.R_lo=radius_lo;s.precise_R=cfg.preserve_radial_offset;
++            if(s.angular_state) {
++                if(allocated_bytes()+angular_allocation_bytes>cfg.max_bytes)
++                    return AdaptiveStop::BudgetExceeded;
++                angular_storage_bytes+=angular_allocation_bytes;
++            }
+             p.samples[slot]=int(w.samples.size());w.samples.push_back(std::move(s));
+             if(cfg.same_node_hermite_shadow)w.hermite_jets.push_back(sample_jet);
+             if(fresh)++stats.unique_nodes;
+@@ -1122,7 +1159,7 @@
+             }
+         }
+         } // node-loop profiling scope
+-        p.level=level;auto start=Clock::now();estimate(p,w,nc,cfg,ip);stats.estimator_ms+=ms(start);
++        p.level=level;auto start=cost_now();estimate(p,w,nc,cfg,ip);stats.estimator_ms+=cost_ms(start);
+         if(cfg.same_node_hermite_shadow && ip<w.hermite_panels.size() &&
+            w.hermite_panels[ip].attempted) {
+             const auto& hp=w.hermite_panels[ip];
+@@ -1158,7 +1195,7 @@
+         if(failure!=AdaptiveStop::Converged)break;
+     }
+     auto gather=[&](bool* value_pass_out,bool* gradient_pass_out){
+-        auto start=Clock::now();std::array<Sum,6> total,errors,rad,inn,geo,evt,rnd;
++        auto start=cost_now();std::array<Sum,6> total,errors,rad,inn,geo,evt,rnd;
+         bool resolved_value=true;
+         std::array<bool,5> resolved_gradient{};
+         resolved_gradient.fill(true);
+@@ -1201,7 +1238,7 @@
+         for(int j=0;j<5;++j)gradient_invalid_seen[j]=gradient_invalid_seen[j]||invalid_gradient_local[j];
+         if(value_pass_out)*value_pass_out=value_pass;
+         if(gradient_pass_out)*gradient_pass_out=all_gradient_pass;
+-        stats.scheduler_ms+=ms(start);
++        stats.scheduler_ms+=cost_ms(start);
+     };
+     while(failure==AdaptiveStop::Converged) {
+         bool value_pass=false,gradient_pass=false;
+@@ -1372,11 +1409,11 @@
+                     ++stats.angular_selected_samples;
+                     const int cell=panel.evaluator_cell>=0
+                         ? panel.evaluator_cell : panel.cell;
+-                    auto start=Clock::now();
++                    auto start=cost_now();
+                     AdaptiveSample upgraded=invoke_eval(
+                         previous.R,previous.jac,cell,&previous,false,
+                         previous.R_lo,panel.level,nullptr);
+-                    stats.physical_ms+=ms(start);
++                    stats.physical_ms+=cost_ms(start);
+                     ++stats.node_evaluations;
+                     if(!upgraded.reliable || !upgraded.angular_valid ||
+                        upgraded.angular_order<=previous.angular_order) {
+@@ -1386,13 +1423,20 @@
+                     record_angular(upgraded,true);
+                     upgraded.R=previous.R;upgraded.R_lo=previous.R_lo;
+                     upgraded.jac=previous.jac;
++                    if(upgraded.angular_state && !previous.angular_state) {
++                        if(allocated_bytes()+angular_allocation_bytes>cfg.max_bytes) {
++                            ++stats.angular_upgrade_failures;continue;
++                        }
++                        angular_storage_bytes+=angular_allocation_bytes;
++                    } else if(!upgraded.angular_state && previous.angular_state)
++                        angular_storage_bytes-=angular_allocation_bytes;
+                     w.samples[static_cast<std::size_t>(id)]=std::move(upgraded);
+                     changed=true;
+                 }
+                 if(changed) {
+-                    auto estimate_start=Clock::now();
++                    auto estimate_start=cost_now();
+                     estimate(panel,w,nc,cfg,panel_index);
+-                    stats.estimator_ms+=ms(estimate_start);
++                    stats.estimator_ms+=cost_ms(estimate_start);
+                 }
+                 return attempted&&changed;
+             };

@@ -1,0 +1,1 @@
+OMP_NUM_THREADS=1 OMP_DYNAMIC=FALSE OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 TMPDIR="$PWD/build-seeded-events" build-seeded-events/bench_seeded_paper_qrho evidence/holonomic/seeded_paper_qrho_20261013/input_snapshot.tsv evidence/holonomic/seeded_paper_qrho_20261013/raw_results_post_endpoint_fix.tsv 3 0 0

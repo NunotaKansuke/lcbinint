@@ -1,0 +1,19 @@
+[  5%] Building CXX object CMakeFiles/lcbinint_magnification.dir/src/lcbinint/magnification/component_certificate.cpp.o
+[ 11%] Building CXX object CMakeFiles/lcbinint_magnification.dir/src/lcbinint/magnification/finite_source_magnifier.cpp.o
+[ 17%] Building CXX object CMakeFiles/lcbinint_magnification.dir/src/lcbinint/magnification/point_source_magnifier.cpp.o
+[ 23%] Building CXX object CMakeFiles/lcbinint_magnification.dir/src/lcbinint/magnification/probe_diagnostics.cpp.o
+[ 29%] Building CXX object CMakeFiles/lcbinint_magnification.dir/src/lcbinint/math/polynomial_roots.cpp.o
+[ 35%] Building CXX object CMakeFiles/lcbinint_magnification.dir/third_party/skowron_gould/SkowronGould.cpp.o
+[ 41%] Linking CXX static library liblcbinint_magnification.a
+[ 41%] Built target lcbinint_magnification
+[ 47%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/lcbinint.cpp.o
+[ 52%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/model/lens_model.cpp.o
+[ 58%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/model/lens_parameters.cpp.o
+[ 64%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/model/lens_system.cpp.o
+[ 70%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/model/orbital_motion.cpp.o
+[ 76%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/model/triple_lens_geometry.cpp.o
+[ 82%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/model/trajectory.cpp.o
+[ 88%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/lc/light_curve.cpp.o
+[ 94%] Building CXX object CMakeFiles/lcbinint_lightcurve.dir/src/lcbinint/obs/coordinates.cpp.o
+[100%] Linking CXX static library liblcbinint_lightcurve.a
+[100%] Built target lcbinint_lightcurve

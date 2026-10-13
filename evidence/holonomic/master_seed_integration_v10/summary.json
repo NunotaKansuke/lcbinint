@@ -1,0 +1,29 @@
+{
+  "before": {
+    "candidate_integration_ms": 0.4025794712643678,
+    "candidate_no_caustic_ms": 0.6325664482758621
+  },
+  "after": {
+    "candidate_integration_ms": 0.3961813793103448,
+    "candidate_no_caustic_ms": 0.6260962988505747
+  },
+  "all_192_mu_identical": true,
+  "all_192_nodes_identical": true,
+  "groups": {
+    "initial": {
+      "rows": 192,
+      "reference_resolved": 178,
+      "failed": 0
+    },
+    "fold": {
+      "rows": 352,
+      "reference_resolved": 288,
+      "failed": 0
+    },
+    "deeper": {
+      "rows": 352,
+      "reference_resolved": 288,
+      "failed": 0
+    }
+  }
+}

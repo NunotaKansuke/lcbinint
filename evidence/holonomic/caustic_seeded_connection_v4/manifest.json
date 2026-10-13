@@ -1,0 +1,13 @@
+{
+  "baseline": "f3547723b79828d9c501182746028e99f7bad116",
+  "branch": "experiment/seeded-boundary-events",
+  "source_sha256": {
+    "src/lcbinint/magnification/holonomic/seeded_epoch.hpp": "da2ff94bcda7da0befe8801aec79f7e9f9dc818a00e8a2f6a144a4eeeedd8138",
+    "src/lcbinint/magnification/holonomic/seeded_boundary_events.hpp": "1686a95e371a6f45a0a8f331a3776620107a13c0a5eddbf6ebf40383a32cc4bb",
+    "benchmarks/holonomic/export_caustic_prepared_seeds.cpp": "c548f9a18d4ea40796bf509fca30fe8617a45456745cff203e2ca5ee4244643c"
+  },
+  "seed_route_env": {
+    "LCBININT_REPRESENTATIVE_PROBES": "critical-seeds"
+  },
+  "state": "pilot only; 3 queue-budget failures, no missing events in those 3; production unchanged"
+}

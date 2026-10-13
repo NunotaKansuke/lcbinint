@@ -1,6 +1,10 @@
 #pragma once
+#if defined(__AVX2__)
+#include <immintrin.h>
+#endif
 #include "lcbinint/magnification/holonomic/epoch_jacobian.hpp"
 #include "lcbinint/magnification/holonomic/nested_fejer2.hpp"
+#include "lcbinint/magnification/holonomic/chebyshev_prediction.hpp"
 #include "lcbinint/magnification/holonomic/same_node_hermite.hpp"
 #include <algorithm>
 #include <chrono>
@@ -146,7 +150,19 @@ struct AdaptiveConfig {
     GradientPolicy gradient_policy=GradientPolicy::None;
     bool with_jacobian=false,require_bound=false,fold_maps=true;
     bool reuse_samples=true; // isolated A/B control; default keeps nested samples
+    bool collect_costs=false; // inner clocks only when explicitly requested
+    double warm_root_seed_tolerance=0.0; // initialization only, endpoint gates remain
+    bool reuse_frontier_count_kernel=false; // same guarded count contract at quadrature nodes
+    bool prepared_fold_pair_seed=false; // research: initialize cold nodes from refined fold state
+    bool split_ld_radial=false;
+    bool weighted_radial=false; // research value-only isolated double-fold spans
+    const std::vector<std::pair<double,double>>* weighted_radial_spans=nullptr;
+    double angular_value_budget_fraction=0.0; // scoped value-only K-rule budget
+    double uniform_endpoint_budget_fraction=0.0; // opt-in value-only frontier budget
     int initial_level=3,max_level=8,max_depth=12;
+    // Seed-frontier research driver repairs observed topology before further
+    // quadrature refinement. The default D14 path never enables this.
+    bool yield_on_local_topology_change=false;
     size_t max_node_evals=32768,max_panels=512,max_bytes=64*1024*1024;
     size_t value_first_gradient_node_budget=4096;
     int value_first_gradient_round_budget=4;
@@ -240,7 +256,12 @@ struct AdaptiveStats {
     std::array<size_t,adaptive_sample_reject_reason_count> sample_reject_counts{};
     std::array<size_t,adaptive_sample_reject_reason_count> sample_cold_reject_counts{};
     size_t sample_cold_retries=0,sample_cold_retry_successes=0;
+    size_t local_topology_yields=0;
     double physical_ms=0,estimator_ms=0,scheduler_ms=0,topology_ms=0,setup_ms=0;
+#ifdef HOLO_FRONTIER_COST_PROFILE
+    double allocation_ms=0;
+    size_t allocation_count=0;
+#endif
     double setup_frame_ms=0,setup_cuts_ms=0,setup_event_ms=0,setup_panel_ms=0;
     size_t hermite_jet_attempts=0,hermite_jet_successes=0,
            hermite_shadow_panels=0,hermite_shadow_local_budget_passes=0;
@@ -283,10 +304,30 @@ struct AdaptiveResult {
     AdaptiveVector radial_error{},inner_error{},geometry_error{},event_error{},roundoff_error{};
     AdaptiveStats stats;
 };
+// Optional same-radius angular upgrades carry 416 bytes of rule/derivative
+// arrays. Ordinary radial samples keep only a null handle; no allocation.
+// Copy-on-write preserves earlier samples when an upgrade modifies a copy.
+struct AdaptiveAngularState {
+    std::array<double,6> result{},error{};
+    std::array<double,5> dm{},dv{},pc{};
+    std::array<std::array<double,5>,5> dpc{};
+};
 struct AdaptiveSample {
+    std::shared_ptr<AdaptiveAngularState> angular_state;
+    const AdaptiveAngularState& angular_data() const {
+        static const AdaptiveAngularState empty{};
+        return angular_state?*angular_state:empty;
+    }
+    AdaptiveAngularState& angular_data() {
+        if(!angular_state)angular_state=std::make_shared<AdaptiveAngularState>();
+        else if(!angular_state.unique())angular_state=std::make_shared<AdaptiveAngularState>(*angular_state);
+        return *angular_state;
+    }
+    int local_crossings=-1; // node-local count; -1 unknown, -2 full circle
     double R=0,R_lo=0,jac=0;
     bool precise_R=false;
     AdaptiveVector value{},inner{},geometry{},roundoff{};
+    double ld_radial_value=0,uniform_radial_value=0;
     QuarticWarm quartic{};
     RootPairWarm roots{};
     std::array<bool,6> component_finite{{true,true,true,true,true,true}};
@@ -297,8 +338,6 @@ struct AdaptiveSample {
     // previous aggregate lets an angular upgrade compare against it without
     // re-running the lower-order rule.  The incumbent GC2 ladder is
     // non-nested; the optional nested ladder stores its point cache below.
-    std::array<double,6> angular_result{};
-    std::array<double,6> angular_error{};
     bool angular_error_available=true;
     int angular_order=0;
     size_t angular_work=0;
@@ -308,9 +347,6 @@ struct AdaptiveSample {
     // can evaluate only the new angular rule; it must not redo endpoint
     // polishing or root-pair continuation.
     double angular_m=0,angular_v=0;
-    std::array<double,5> angular_dm{},angular_dv{};
-    std::array<double,5> angular_pc{};
-    std::array<std::array<double,5>,5> angular_dpc{};
     bool angular_reciprocal=false,angular_state_valid=false;
     bool angular_state_reused=false;
     std::shared_ptr<NestedAngularCache> angular_nested_cache;
@@ -336,6 +372,7 @@ struct AdaptivePanel {
     // one integration span covers more than one unchanged topology cell.
     int cell=0,cell_end=0,evaluator_cell=-1,level=0,depth=0,parent=-1;
     bool active=true,resolved=false,value_resolved=false;
+    bool weighted=false,split_ld=false;
     std::array<bool,5> gradient_resolved{};
     std::array<bool,5> gradient_invalid{};
     double left_uncertainty=0,right_uncertainty=0;
@@ -388,8 +425,53 @@ struct Sum {
     void add(double x) { double t=s+x; c+=std::fabs(s)>=std::fabs(x)?(s-t)+x:(x-t)+s; s=t; }
     double get() const {return s+c;}
 };
+// Four independent Neumaier sums. Each lane retains the scalar operation
+// order; only independent observables/products run in parallel.
+struct SumFour {
+#if defined(__AVX2__)
+    __m256d sum=_mm256_setzero_pd(),correction=_mm256_setzero_pd();
+    void add(__m256d value) {
+        const auto next=_mm256_add_pd(sum,value);
+        const auto sign=_mm256_set1_pd(-0.0);
+        const auto choose=_mm256_cmp_pd(_mm256_andnot_pd(sign,sum),
+                                       _mm256_andnot_pd(sign,value),_CMP_GE_OQ);
+        const auto left=_mm256_add_pd(_mm256_sub_pd(sum,next),value);
+        const auto right=_mm256_add_pd(_mm256_sub_pd(value,next),sum);
+        correction=_mm256_add_pd(correction,_mm256_blendv_pd(right,left,choose));
+        sum=next;
+    }
+    void add(double a,double b,double c,double d){add(_mm256_setr_pd(a,b,c,d));}
+    void products(const double* weights,const double* values) {
+        add(_mm256_mul_pd(_mm256_loadu_pd(weights),_mm256_loadu_pd(values)));
+    }
+    std::array<Sum,4> states() const {
+        double sums[4],corrections[4];
+        _mm256_storeu_pd(sums,sum);_mm256_storeu_pd(corrections,correction);
+        std::array<Sum,4> out;
+        for(int j=0;j<4;++j){out[j].s=sums[j];out[j].c=corrections[j];}
+        return out;
+    }
+#else
+    std::array<Sum,4> lane;
+    void add(double a,double b,double c,double d){lane[0].add(a);lane[1].add(b);lane[2].add(c);lane[3].add(d);}
+    void products(const double* weights,const double* values){for(int j=0;j<4;++j)lane[j].add(weights[j]*values[j]);}
+    std::array<Sum,4> states() const{return lane;}
+#endif
+};
+inline double compensated_dot_four(const double* weights,const double* values,int n) {
+    Sum total;
+    if(n<4){for(int j=0;j<n;++j)total.add(weights[j]*values[j]);return total.get();}
+    SumFour lanes;int j=0;
+    for(;j+4<=n;j+=4)lanes.products(weights+j,values+j);
+    for(const auto& lane:lanes.states())total.add(lane.get());
+    for(;j<n;++j)total.add(weights[j]*values[j]);
+    return total.get();
+}
+
 inline bool valid_config(const AdaptiveConfig& c) {
     if(c.initial_level<3 || c.max_level<c.initial_level || c.max_level>8 || c.max_depth<0) return false;
+    if(!std::isfinite(c.angular_value_budget_fraction) ||
+       c.angular_value_budget_fraction<0 || c.angular_value_budget_fraction>1)return false;
     for(int j=0;j<6;++j) {
         double a=j?c.tol.grad_atol[j-1]:c.tol.mu_atol;
         double r=j?c.tol.grad_rtol[j-1]:c.tol.mu_rtol;
@@ -452,12 +534,61 @@ inline AdaptiveResult failure_result(AdaptiveStop stop,GradientPolicy policy) {
     }
     return r;
 }
-inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int nc,
+template<int Components=0,int Channel=0>
+inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int input_components,
                      const AdaptiveConfig& cfg,
                      size_t panel_index=std::numeric_limits<size_t>::max()) {
+    constexpr int channel=Channel;
+    if(p.split_ld && channel==0) {
+        estimate<Components,1>(p,w,input_components,cfg,panel_index);
+        const auto uniform=p;
+        estimate<Components,2>(p,w,input_components,cfg,panel_index);
+        const double linear_q=p.q[0];
+        p.q[0]+=uniform.q[0];p.radial[0]+=uniform.radial[0];
+        p.event=uniform.event;
+        const auto& linear_rule=linear_radial_rule(p.level);
+        const auto& uniform_rule=radial_rule(p.level,true);
+        Sum inner,geometry,roundoff;
+        for(int k=1;k<(1<<p.level);++k) {
+            const auto& sample=w.samples[p.samples[k*(256/(1<<p.level))]];
+            const double x=uniform_rule.x[k-1];
+            // Each stored error bounds the combined physical sample after
+            // division by sqrt(weight). Envelope both product-rule weights.
+            const double wt=std::max(uniform_rule.w[k-1],
+                linear_rule.w[k-1]/std::sqrt(std::max(0.0,1-x*x)));
+            inner.add(wt*sample.inner[0]);geometry.add(wt*sample.geometry[0]);
+            roundoff.add(wt*sample.roundoff[0]+eps*(
+                std::fabs(uniform_rule.w[k-1]*sample.uniform_radial_value)+
+                std::fabs(linear_rule.w[k-1]*sample.ld_radial_value)));
+        }
+        p.inner[0]=inner.get();p.geometry[0]=geometry.get();
+        p.roundoff[0]=roundoff.get()+eps*(std::fabs(linear_q)+std::fabs(p.q[0]));
+        p.error[0]=p.radial[0]+p.inner[0]+p.geometry[0]+p.roundoff[0]+p.event[0];
+        p.value_resolved=p.value_resolved&&uniform.value_resolved;p.resolved=p.value_resolved;
+        return;
+    }
+    auto channel_value=[&](const AdaptiveSample& s,int j) {
+        if(channel==1 && j==0)return s.uniform_radial_value;
+        if(channel==2 && j==0)return s.ld_radial_value;
+        return s.value[j];
+    };
+    const int nc=Components?Components:input_components;
     const int m=1<<p.level,step=256/m;
-    const auto& rule=fejer_rule(p.level);
+    const auto& rule=(channel==2?linear_radial_rule(p.level):radial_rule(p.level,p.weighted));
     std::array<Sum,6> q,inn,geo,rnd;
+#if defined(__AVX2__) && !defined(HOLO_ADAPTIVE_SCALAR_ESTIMATOR)
+    if constexpr(Components==1) {
+        SumFour sums;
+        for(int k=1;k<m;++k) {
+            const auto& sample=w.samples[p.samples[k*step]];
+            if(!sample.component_finite[0])continue;
+            const double wt=rule.w[k-1],value=wt*channel_value(sample,0);
+            sums.add(value,wt*sample.inner[0],wt*sample.geometry[0],
+                     wt*sample.roundoff[0]+eps*std::fabs(value));
+        }
+        const auto state=sums.states();q[0]=state[0];inn[0]=state[1];geo[0]=state[2];rnd[0]=state[3];
+    } else
+#endif
     for(int k=1;k<m;++k) {
         const auto& s=w.samples[p.samples[k*step]];
         for(int j=0;j<nc;++j) {
@@ -466,15 +597,21 @@ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int nc,
                 continue;
             }
             double wt=rule.w[k-1];
-            q[j].add(wt*s.value[j]); inn[j].add(wt*s.inner[j]);
-            geo[j].add(wt*s.geometry[j]);rnd[j].add(wt*s.roundoff[j]+eps*std::fabs(wt*s.value[j]));
+            q[j].add(wt*channel_value(s,j)); inn[j].add(wt*s.inner[j]);
+            geo[j].add(wt*s.geometry[j]);rnd[j].add(wt*s.roundoff[j]+eps*std::fabs(wt*channel_value(s,j)));
         }
     }
     AdaptiveVector detail{},previous{},nested_difference{};
+    {
+#ifdef HOLO_FRONTIER_COST_PROFILE
+    V2ProfileTimer prediction_timer(&V2Profile::estimator_prediction_ms);
+    if(auto* prof=v2_profile_current())++prof->estimator_levels[p.level];
+#endif
     for(int lev=p.level-1;lev<=p.level;++lev) {
         const int mm=1<<lev,st=256/mm,coarse=mm/2-1;
-        const auto& r=fejer_rule(lev);
+        const auto& r=(channel==2?linear_radial_rule(lev):radial_rule(lev,p.weighted));
         AdaptiveVector norm{};
+#ifdef HOLO_ADAPTIVE_LEGACY_INTERPOLATION
         for(int k=1;k<mm;k+=2) {
             for(int j=0;j<nc;++j) {
                 const auto& fine=w.samples[p.samples[k*st]];
@@ -487,26 +624,80 @@ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int nc,
                 for(int h=1;h<=coarse;++h) {
                     const auto& coarse_sample=w.samples[p.samples[2*h*st]];
                     if(!coarse_sample.component_finite[j]) {valid=false;break;}
-                    pred.add(r.interp[(k/2)*coarse+h-1]*coarse_sample.value[j]);
+                    pred.add(r.interp[(k/2)*coarse+h-1]*(p.weighted
+                        ? .5*(channel_value(coarse_sample,j)+channel_value(w.samples[p.samples[(mm-2*h)*st]],j))
+                        : channel_value(coarse_sample,j)));
                 }
                 if(!valid) {
                     if(j>0)p.gradient_invalid[j-1]=true;
                     continue;
                 }
-                double d=fine.value[j]-pred.get();
+                double d=(p.weighted
+                    ? .5*(channel_value(fine,j)+channel_value(w.samples[p.samples[(mm-k)*st]],j))
+                    : channel_value(fine,j))-pred.get();
                 norm[j]+=r.norm_w[k-1]*d*d;
             }
         }
+#else
+        // Gather each component once. Coarse validity is independent of the
+        // predicted fine point; keep the same product and compensated order.
+        for(int j=0;j<nc;++j) {
+            std::array<double,128> values;
+            bool valid=true;
+            for(int h=1;h<=coarse;++h) {
+                const auto& sample=w.samples[p.samples[2*h*st]];
+                if(!sample.component_finite[j]){valid=false;break;}
+                values[h]=p.weighted
+                    ? .5*(channel_value(sample,j)+channel_value(w.samples[p.samples[(mm-2*h)*st]],j))
+                    : channel_value(sample,j);
+            }
+            if(!valid){if(j>0)p.gradient_invalid[j-1]=true;continue;}
+            std::array<double,256> predictions;
+#ifndef HOLO_ADAPTIVE_DISABLE_DST_INTERPOLATION
+            // Measured crossover of the bounded radix-2 prototype:255
+            // interior nodes. Smaller rules retain compensated direct sums.
+            const bool use_dst=mm==256 && nc==1;
+#else
+            const bool use_dst=false;
+#endif
+            if(use_dst)prediction_detail::sine_predict(mm,values.data(),predictions.data());
+            for(int k=1;k<mm;k+=2) {
+                const auto& fine=w.samples[p.samples[k*st]];
+                if(!fine.component_finite[j]){if(j>0)p.gradient_invalid[j-1]=true;continue;}
+                double prediction;
+                if(use_dst)prediction=predictions[k];
+                else {
+                    Sum pred;
+                    const double* weights=r.interp.data()+(k/2)*coarse;
+#if defined(__AVX2__) && !defined(HOLO_ADAPTIVE_SCALAR_ESTIMATOR)
+                    if(nc==1)prediction=compensated_dot_four(weights,values.data()+1,coarse);
+                    else
+#endif
+                    {
+                        for(int h=1;h<=coarse;++h)pred.add(weights[h-1]*values[h]);
+                        prediction=pred.get();
+                    }
+                }
+                // Symmetric GC2 integrates the odd part exactly to zero.
+                // Estimate only the even remainder, without changing q.
+                double d=(p.weighted
+                    ? .5*(channel_value(fine,j)+channel_value(w.samples[p.samples[(mm-k)*st]],j))
+                    : channel_value(fine,j))-prediction;
+                norm[j]+=r.norm_w[k-1]*d*d;
+            }
+        }
+#endif
         for(int j=0;j<nc;++j) (lev==p.level?detail:previous)[j]=std::sqrt(3.14159265358979323846*norm[j]);
     }
+    } // interpolation prediction profile scope
     if(cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded || cfg.gradient_local_refinement) {
         const int coarse_m=m/2,coarse_step=256/coarse_m;
-        const auto& coarse_rule=fejer_rule(p.level-1);
+        const auto& coarse_rule=(channel==2?linear_radial_rule(p.level-1):radial_rule(p.level-1,p.weighted));
         std::array<Sum,6> coarse_q;
         for(int k=1;k<coarse_m;++k) {
             const auto& s=w.samples[p.samples[k*coarse_step]];
             for(int j=0;j<nc;++j) if(s.component_finite[j])
-                coarse_q[j].add(coarse_rule.w[k-1]*s.value[j]);
+                coarse_q[j].add(coarse_rule.w[k-1]*channel_value(s,j));
         }
         for(int j=0;j<nc;++j)
             nested_difference[j]=std::fabs(q[j].get()-coarse_q[j].get());
@@ -541,7 +732,7 @@ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int nc,
                 if(j>0)p.gradient_invalid[j-1]=true;
                 continue;
             }
-            p.event[j]+=2*std::fabs(sample.value[j]/map_jac)*(j?std::sqrt(distance*delta):delta);
+            p.event[j]+=2*std::fabs(sample.value[j]*(p.weighted?std::sqrt(std::max(0.0,1-x*x)):1.0)/map_jac)*(j?std::sqrt(distance*delta):delta);
         }
     }
     p.value_resolved=true;
@@ -557,7 +748,7 @@ inline void estimate(AdaptivePanel& p,AdaptiveWorkspace& w,int nc,
         // Gradient contracts retain the conservative estimator in this
         // phase. Only the independently validated primal may REDUCE its
         // detail estimate using an embedded integral difference.
-        double radial=j==0&&cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded
+        double radial=j==0&&!p.weighted&&!cfg.weighted_radial&&cfg.radial_error_estimator==RadialErrorEstimator::HybridEmbedded
             ? std::max(cfg.weighted_detail_floor_fraction*detail[j],
                        std::min(detail[j],cfg.nested_difference_safety*nested_difference[j]))
             : detail[j];
@@ -649,8 +840,14 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         double q=0,error=std::numeric_limits<double>::infinity();
         std::array<double,5> ledger{};
     } value_snapshot;
+    // Payload plus a conservative shared-control-block allowance. Count
+    // per stored sample (shared blocks can only make this an overestimate).
+    constexpr size_t angular_allocation_bytes=sizeof(AdaptiveAngularState)+4*sizeof(void*);
+    size_t angular_storage_bytes=0;
+    for(const auto& sample:w.samples)if(sample.angular_state)
+        angular_storage_bytes+=angular_allocation_bytes;
     if(cfg.same_node_hermite_shadow) {
-        const size_t existing_bytes=w.samples.capacity()*sizeof(AdaptiveSample)+
+        const size_t existing_bytes=angular_storage_bytes+w.samples.capacity()*sizeof(AdaptiveSample)+
             w.panels.capacity()*sizeof(AdaptivePanel)+
             w.hermite_jets.capacity()*sizeof(AdaptiveHermiteJet)+
             w.hermite_panels.capacity()*sizeof(AdaptiveHermitePanel);
@@ -666,7 +863,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
     } else {
         w.hermite_jets.clear();w.hermite_panels.clear();
     }
-    auto allocated_bytes=[&](){return w.samples.capacity()*sizeof(AdaptiveSample)+
+    auto allocated_bytes=[&](){return angular_storage_bytes+w.samples.capacity()*sizeof(AdaptiveSample)+
         w.panels.capacity()*sizeof(AdaptivePanel)+
         w.hermite_jets.capacity()*sizeof(AdaptiveHermiteJet)+
         w.hermite_panels.capacity()*sizeof(AdaptiveHermitePanel);};
@@ -688,6 +885,14 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         else
             return eval(R,jac,cell,seed);
     };
+#ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
+    const bool time_costs=true;
+#else
+    const bool time_costs=cfg.collect_costs || cfg.collect_diagnostics ||
+        v2_profile_current()!=nullptr;
+#endif
+    auto cost_now=[&](){return time_costs?Clock::now():Clock::time_point{};};
+    auto cost_ms=[&](Clock::time_point begin){return time_costs?ms(begin):0.0;};
     auto record_sample_reject=[&](std::size_t panel,std::size_t slot,int cell,
                                   int cell_end,
                                   int level,double R,
@@ -740,7 +945,10 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         auto& p=w.panels[ip];const int m=1<<level,step=256/m;
         size_t needed=0;for(int k=1;k<m;++k)needed+=!cfg.reuse_samples||p.samples[k*step]<0;
         const size_t target=w.samples.size()+needed;
-        const size_t projected=target*sizeof(AdaptiveSample)+w.panels.size()*sizeof(AdaptivePanel)+
+        const size_t angular_growth=(cfg.angular_adaptive || cfg.gradient_adaptive)
+            ? needed*angular_allocation_bytes:0;
+        const size_t projected=angular_storage_bytes+angular_growth+
+            target*sizeof(AdaptiveSample)+w.panels.size()*sizeof(AdaptivePanel)+
             (cfg.same_node_hermite_shadow ?
                 target*sizeof(AdaptiveHermiteJet)+w.panels.size()*sizeof(AdaptiveHermitePanel) : 0);
         if(stats.node_evaluations+needed>cfg.max_node_evals || projected>cfg.max_bytes)
@@ -754,38 +962,86 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 ? (target-w.hermite_jets.capacity())*sizeof(AdaptiveHermiteJet):0);
         // RootPairWarm uses two inline slots, so there is no per-sample heap
         // growth to reserve here; the AdaptiveSample size already includes it.
-        if(allocated_bytes()+growth>cfg.max_bytes)return AdaptiveStop::BudgetExceeded;
+        if(allocated_bytes()+growth+angular_growth>cfg.max_bytes)return AdaptiveStop::BudgetExceeded;
         if(target>w.samples.capacity()) {
+#ifdef HOLO_FRONTIER_COST_PROFILE
+            const auto allocation_start=cost_now();
+#endif
             size_t reserve_target=target;
-#ifdef HOLO_ADAPTIVE_SAMPLE_GROWTH
+#ifndef HOLO_ADAPTIVE_DISABLE_SAMPLE_GROWTH
             // Only spend spare capacity if even the configured maximum live
             // samples and panels fit. Extra capacity must not steal a later
             // panel's budget or cause an earlier BudgetExceeded result.
             const size_t panel_slots=std::max(w.panels.capacity(),cfg.max_panels);
-            if(!cfg.same_node_hermite_shadow && w.hermite_jets.capacity()==0 &&
+            if(!cfg.angular_adaptive && !cfg.gradient_adaptive &&
+               !cfg.same_node_hermite_shadow && w.hermite_jets.capacity()==0 &&
                w.hermite_panels.capacity()==0 && panel_slots<=cfg.max_bytes/sizeof(AdaptivePanel)) {
                 const size_t remaining=cfg.max_bytes-panel_slots*sizeof(AdaptivePanel);
                 if(cfg.max_node_evals<=remaining/sizeof(AdaptiveSample) && target<=cfg.max_node_evals)
+                    #ifdef HOLO_ADAPTIVE_LEGACY_SAMPLE_RESERVE
                     reserve_target=target+std::min(target/2,cfg.max_node_evals-target);
+#else
+                    reserve_target=target+std::min(target,cfg.max_node_evals-target);
+#endif
             }
 #endif
             w.samples.reserve(reserve_target);
+#ifdef HOLO_FRONTIER_COST_PROFILE
+            stats.allocation_ms+=cost_ms(allocation_start);
+            ++stats.allocation_count;
+#endif
         }
         if(cfg.same_node_hermite_shadow && target>w.hermite_jets.capacity())
             w.hermite_jets.reserve(target);
+        {
+#ifdef HOLO_FRONTIER_COST_PROFILE
+        V2ProfileTimer node_loop_timer(&V2Profile::adaptive_node_loop_ms);
+#endif
+        // With sample reuse, slots are only appended during this refinement.
+        // Summarize the same populated slots once, then update in O(1).
+        const bool count_witness_enabled=cfg.yield_on_local_topology_change && cfg.reuse_samples;
+        int count_min=std::numeric_limits<int>::max(),count_max=-1;
+        auto observe_count=[&](const AdaptiveSample& sample) {
+            if(sample.reliable && sample.local_crossings!=-1) {
+                const int count=std::max(0,sample.local_crossings);
+                count_min=std::min(count_min,count);count_max=std::max(count_max,count);
+            }
+        };
+        if(count_witness_enabled) {
+            const int stride=256/(1<<std::max(level,p.level));
+            for(int pos=stride;pos<256;pos+=stride)
+                if(p.samples[pos]>=0)observe_count(w.samples[static_cast<std::size_t>(p.samples[pos])]);
+        }
         for(int k=1;k<m;++k) {
             int slot=k*step;
             bool fresh=p.samples[slot]<0;
             if(!fresh&&cfg.reuse_samples){++stats.reused_nodes;continue;}
             const double x=0.5*(p.xl+p.xr)+0.5*(p.xr-p.xl)*fejer_rule(level).x[k-1];
             double radius_lo=0;
-            auto mapped=[&] {
+            auto map_node=[&](bool cached) {
+#ifdef HOLO_FRONTIER_COST_PROFILE
+                V2ProfileTimer map_timer(&V2Profile::radial_map_ms);
+#endif
+#ifdef HOLO_ADAPTIVE_DISABLE_FOLD_MAP_CACHE
+                cached=false;
+#endif
+                const FoldMapFactors* factors=cached && p.xl==-1.0 && p.xr==1.0 &&
+                    p.map.left && p.map.right ? &fold_map_factors()[slot] : nullptr;
+#ifdef HOLO_FRONTIER_COST_PROFILE
+                if(auto* prof=v2_profile_current()) {
+                    ++prof->radial_map_calls;
+                    if(factors) {++prof->radial_map_cached;
+                        if(cfg.preserve_radial_offset || p.left_radius_lo!=0 || p.right_radius_lo!=0)
+                            ++prof->radial_map_cached_extended;
+                    }
+                }
+#endif
                 if(cfg.preserve_radial_offset){
                     const long double t=(1.0L+x)*.5L;
                     const D14Real wid=D14Real(p.map.b,p.right_radius_lo)-D14Real(p.map.a,p.left_radius_lo);
                     long double factor=t,J=.5L;bool right=false;
                     constexpr long double pi=3.1415926535897932384626433832795029L;
-                    if(p.map.left&&p.map.right){right=t>.5L;long double z=std::sin(pi*.5L*(right?1-t:t));factor=z*z;J=pi*.25L*std::sin(pi*t);}
+                    if(p.map.left&&p.map.right){right=t>.5L;long double z=factors?factors->half_sine_extended:std::sin(pi*.5L*(right?1-t:t));factor=z*z;J=pi*.25L*(factors?factors->sine_extended:std::sin(pi*t));}
                     else if(p.map.left){factor=t*t;J=t;}
                     else if(p.map.right){right=true;factor=(1-t)*(1-t);J=1-t;}
                     D14Real f(double(factor),double(factor-(long double)double(factor)));
@@ -796,23 +1052,36 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 const long double aa=(long double)p.map.a+p.left_radius_lo;
                 const long double bb=(long double)p.map.b+p.right_radius_lo;
                 const long double t=(1.0L+x)*0.5L,wid=bb-aa;
-                if(p.left_radius_lo==0&&p.right_radius_lo==0)return p.map(x);
+                if(p.left_radius_lo==0&&p.right_radius_lo==0) {
+                    if(!factors)return p.map(x);
+                    const double td=(1+x)*.5,wd=p.map.b-p.map.a;
+                    const double sd=factors->half_sine,pi=3.14159265358979323846;
+                    return std::array<double,2>{td<=.5?p.map.a+wd*sd*sd:p.map.b-wd*sd*sd,
+                        pi*wd*.25*factors->sine};
+                }
                 if(p.map.left&&p.map.right) {
-                    const long double s=std::sin(3.1415926535897932384626433832795029L*0.5L*(t<=0.5L?t:1.0L-t));
+                    const long double s=factors?factors->half_sine_extended:std::sin(3.1415926535897932384626433832795029L*0.5L*(t<=0.5L?t:1.0L-t));
                     return std::array<double,2>{(double)(t<=0.5L?aa+wid*s*s:bb-wid*s*s),
-                                                 (double)(3.1415926535897932384626433832795029L*wid*0.25L*std::sin(3.1415926535897932384626433832795029L*t))};
+                                                 (double)(3.1415926535897932384626433832795029L*wid*0.25L*(factors?factors->sine_extended:std::sin(3.1415926535897932384626433832795029L*t)))};
                 }
                 if(p.map.left)return std::array<double,2>{(double)(aa+wid*t*t),(double)(wid*t)};
                 if(p.map.right)return std::array<double,2>{(double)(bb-wid*(1.0L-t)*(1.0L-t)),(double)(wid*(1.0L-t))};
                 return std::array<double,2>{(double)(aa+wid*t),(double)(wid*0.5L)};
-            }();
+            };
+            auto mapped=map_node(true);
+#ifdef HOLO_ADAPTIVE_FOLD_MAP_AUDIT
+            const double cached_radius_lo=radius_lo;
+            const auto original=map_node(false);
+            if(mapped!=original || radius_lo!=cached_radius_lo)std::abort();
+#endif
             mapped[1]*=0.5*(p.xr-p.xl);
+            if(p.weighted)mapped[1]/=std::sqrt(std::max(0.0,1-x*x));
             if(cfg.preserve_radial_offset){
                 const __float128 rr=(__float128)mapped[0]+radius_lo;
                 if(!(rr>(__float128)p.map.a+p.left_radius_lo+p.left_uncertainty && rr<(__float128)p.map.b+p.right_radius_lo-p.right_uncertainty))return AdaptiveStop::EventLocationLimited;
             }else if(!(mapped[0]>p.map.a+p.left_uncertainty && mapped[0]<p.map.b-p.right_uncertainty))return AdaptiveStop::EventLocationLimited;
             const AdaptiveSample* anchor=nullptr;double distance=std::numeric_limits<double>::infinity();
-#ifdef HOLO_ADAPTIVE_SPARSE_ANCHOR
+#ifndef HOLO_ADAPTIVE_DENSE_ANCHOR
             for(int ancestor=int(ip);ancestor>=0;ancestor=w.panels[ancestor].parent) {
                 const auto& panel=w.panels[ancestor];
                 // A level-L sample occupies k*(256/2^L), 1<=k<2^L.
@@ -820,6 +1089,50 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 // Ascending slot order preserves the incumbent tie-breaking.
                 const int populated_level=ancestor==int(ip)?std::max(level,panel.level):panel.level;
                 const int stride=256/(1<<populated_level);
+#ifndef HOLO_ADAPTIVE_SCAN_CURRENT_ANCHOR
+                if(ancestor==int(ip) && fresh) {
+                    // Fejer slots follow monotonically decreasing physical
+                    // radius. The closest existing anchor is therefore the
+                    // first reliable slot on either side of this new node.
+                    int left=slot-stride,right=slot+stride;
+                    auto reliable=[&](int pos) {
+                        return panel.samples[pos]>=0 &&
+                            w.samples[panel.samples[pos]].reliable;
+                    };
+                    while(left>0 && !reliable(left))left-=stride;
+                    while(right<256 && !reliable(right))right+=stride;
+                    // Rounded radii may coincide; retain the original
+                    // ascending-slot tie break even across missing slots.
+                    if(right<256) {
+                        int previous=right-stride;
+                        while(previous>0) {
+                            if(reliable(previous)) {
+                                if(w.samples[panel.samples[previous]].R!=
+                                   w.samples[panel.samples[right]].R)break;
+                                right=previous;
+                            }
+                            previous-=stride;
+                        }
+                    }
+                    if(left>0) {
+                        int previous=left-stride;
+                        while(previous>0) {
+                            if(reliable(previous)) {
+                                if(w.samples[panel.samples[previous]].R!=
+                                   w.samples[panel.samples[left]].R)break;
+                                left=previous;
+                            }
+                            previous-=stride;
+                        }
+                    }
+                    for(int pos:{left,right})if(pos>0 && pos<256) {
+                        const int idx=panel.samples[pos];
+                        const double d=std::fabs(w.samples[idx].R-mapped[0]);
+                        if(d<distance){distance=d;anchor=&w.samples[idx];}
+                    }
+                    continue;
+                }
+#endif
                 for(int pos=stride;pos<256;pos+=stride) {
                     const int idx=panel.samples[pos];if(idx<0)continue;
                     const double d=std::fabs(w.samples[idx].R-mapped[0]);
@@ -842,12 +1155,12 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 if(d<distance && w.samples[idx].reliable){distance=d;anchor=&w.samples[idx];}
             }
 #endif
-            auto start=Clock::now();
+            auto start=cost_now();
             AdaptiveHermiteJet sample_jet{};
             const int evaluator_cell=p.evaluator_cell>=0?p.evaluator_cell:p.cell;
             AdaptiveSample s=invoke_eval(mapped[0],mapped[1],evaluator_cell,anchor,false,radius_lo,level,
                 cfg.same_node_hermite_shadow?&sample_jet:nullptr);
-            stats.physical_ms+=ms(start); if(anchor)++stats.root_anchors;
+            stats.physical_ms+=cost_ms(start); if(anchor)++stats.root_anchors;
             ++stats.node_evaluations;
             record_angular(s,false);
             const AdaptiveSampleRejectReason initial_reason=s.reject_reason;
@@ -860,11 +1173,11 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                adaptive_sample_reject_retryable(initial_reason) &&
                stats.node_evaluations<cfg.max_node_evals) {
                 ++stats.sample_cold_retries;
-                auto cold_start=Clock::now();
+                auto cold_start=cost_now();
                 AdaptiveHermiteJet cold_jet{};
                 AdaptiveSample cold=invoke_eval(mapped[0],mapped[1],evaluator_cell,nullptr,true,radius_lo,level,
                     cfg.same_node_hermite_shadow?&cold_jet:nullptr);
-                stats.physical_ms+=ms(cold_start);
+                stats.physical_ms+=cost_ms(cold_start);
                 ++stats.node_evaluations;
                 record_angular(cold,false);
                 cold.R=mapped[0];cold.R_lo=radius_lo;cold.precise_R=cfg.preserve_radial_offset;
@@ -885,7 +1198,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 double mapped_jet_ms=0;
                 if(sample_jet.radial_jet) {
 #ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
-                    const auto mapped_jet_start=Clock::now();
+                    const auto mapped_jet_start=cost_now();
 #endif
                     const double h=.5*(p.xr-p.xl);
                     const double t=.5*(1+x),width=p.map.b-p.map.a;
@@ -903,7 +1216,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                         sample_jet.radial_jet=std::isfinite(sample_jet.g_xi);
                     } else sample_jet.radial_jet=false;
 #ifdef HOLO_ADAPTIVE_HERMITE_MICROTIMING
-                    mapped_jet_ms=ms(mapped_jet_start);
+                    mapped_jet_ms=cost_ms(mapped_jet_start);
 #endif
                     if(sample_jet.radial_jet)++stats.hermite_jet_successes;
                 }
@@ -912,7 +1225,13 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                     stats.hermite_jet_ms+=sample_jet.elapsed_ms+mapped_jet_ms;
                 }
             }
+            if(p.split_ld)s.ld_radial_value/=std::sqrt(std::max(0.0,1-x*x));
             s.R=mapped[0];s.R_lo=radius_lo;s.precise_R=cfg.preserve_radial_offset;
+            if(s.angular_state) {
+                if(allocated_bytes()+angular_allocation_bytes>cfg.max_bytes)
+                    return AdaptiveStop::BudgetExceeded;
+                angular_storage_bytes+=angular_allocation_bytes;
+            }
             p.samples[slot]=int(w.samples.size());w.samples.push_back(std::move(s));
             if(cfg.same_node_hermite_shadow)w.hermite_jets.push_back(sample_jet);
             if(fresh)++stats.unique_nodes;
@@ -926,14 +1245,46 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 if(j==0)value_finite=value_finite&&ok;
                 else if(!ok) gradient_invalid_seen[j-1]=true;
             }
+            if(p.split_ld)value_finite=value_finite&&std::isfinite(stored.ld_radial_value)&&
+                std::isfinite(stored.uniform_radial_value);
             if(!value_finite){
                 if(stored.reject_reason==AdaptiveSampleRejectReason::None)
                     stored.reject_reason=AdaptiveSampleRejectReason::Nonfinite;
                 invalid=true;return AdaptiveStop::Nonfinite;
             }
             if(!stored.reliable){invalid=true;return AdaptiveStop::TopologyUnresolved;}
+            if(cfg.yield_on_local_topology_change && stored.local_crossings!=-1) {
+                const int count=std::max(0,stored.local_crossings);
+                auto legacy_mismatch=[&] {
+                    const int stride=256/(1<<std::max(level,p.level));
+                    for(int pos=stride;pos<256;pos+=stride) {
+                        const int index=p.samples[pos];
+                        if(index<0 || index==p.samples[slot])continue;
+                        const auto& previous=w.samples[static_cast<std::size_t>(index)];
+                        if(previous.reliable && previous.local_crossings!=-1 &&
+                           std::max(0,previous.local_crossings)!=count)return true;
+                    }
+                    return false;
+                };
+#ifdef HOLO_ADAPTIVE_LEGACY_COUNT_SCAN
+                const bool mismatch=legacy_mismatch();
+#else
+                const bool mismatch=count_witness_enabled
+                    ? (count_max>=0 && (count_min!=count || count_max!=count))
+                    : legacy_mismatch();
+#endif
+#ifdef HOLO_ADAPTIVE_COUNT_WITNESS_AUDIT
+                if(mismatch!=legacy_mismatch())std::abort();
+#endif
+                if(mismatch) {
+                    ++stats.local_topology_yields;
+                    return AdaptiveStop::TopologyUnresolved;
+                }
+                if(count_witness_enabled)observe_count(stored);
+            }
         }
-        p.level=level;auto start=Clock::now();estimate(p,w,nc,cfg,ip);stats.estimator_ms+=ms(start);
+        } // node-loop profiling scope
+        p.level=level;auto start=cost_now();if(nc==1)estimate<1>(p,w,nc,cfg,ip);else estimate(p,w,nc,cfg,ip);stats.estimator_ms+=cost_ms(start);
         if(cfg.same_node_hermite_shadow && ip<w.hermite_panels.size() &&
            w.hermite_panels[ip].attempted) {
             const auto& hp=w.hermite_panels[ip];
@@ -964,9 +1315,12 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         out= failure_result(AdaptiveStop::BudgetExceeded,policy);
         return out;
     }
-    for(size_t i=0;i<w.panels.size();++i) {failure=refine(i,cfg.initial_level);if(failure!=AdaptiveStop::Converged)break;}
+    for(size_t i=0;i<w.panels.size();++i)if(w.panels[i].active) {
+        failure=refine(i,std::max(w.panels[i].level,cfg.initial_level));
+        if(failure!=AdaptiveStop::Converged)break;
+    }
     auto gather=[&](bool* value_pass_out,bool* gradient_pass_out){
-        auto start=Clock::now();std::array<Sum,6> total,errors,rad,inn,geo,evt,rnd;
+        auto start=cost_now();std::array<Sum,6> total,errors,rad,inn,geo,evt,rnd;
         bool resolved_value=true;
         std::array<bool,5> resolved_gradient{};
         resolved_gradient.fill(true);
@@ -1009,7 +1363,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         for(int j=0;j<5;++j)gradient_invalid_seen[j]=gradient_invalid_seen[j]||invalid_gradient_local[j];
         if(value_pass_out)*value_pass_out=value_pass;
         if(gradient_pass_out)*gradient_pass_out=all_gradient_pass;
-        stats.scheduler_ms+=ms(start);
+        stats.scheduler_ms+=cost_ms(start);
     };
     while(failure==AdaptiveStop::Converged) {
         bool value_pass=false,gradient_pass=false;
@@ -1089,7 +1443,7 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 };
                 std::vector<AngularCandidate> candidates;
                 candidates.reserve(static_cast<std::size_t>(m-1));
-                const auto& radial_rule=fejer_rule(panel.level);
+                const auto& radial_rule=lcbinint::holonomic::radial_rule(panel.level,panel.weighted);
                 std::array<double,6> allowed{};
                 std::array<bool,6> component_limited{};
                 for(int j=first_component;j<nc;++j) {
@@ -1180,11 +1534,11 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                     ++stats.angular_selected_samples;
                     const int cell=panel.evaluator_cell>=0
                         ? panel.evaluator_cell : panel.cell;
-                    auto start=Clock::now();
+                    auto start=cost_now();
                     AdaptiveSample upgraded=invoke_eval(
                         previous.R,previous.jac,cell,&previous,false,
                         previous.R_lo,panel.level,nullptr);
-                    stats.physical_ms+=ms(start);
+                    stats.physical_ms+=cost_ms(start);
                     ++stats.node_evaluations;
                     if(!upgraded.reliable || !upgraded.angular_valid ||
                        upgraded.angular_order<=previous.angular_order) {
@@ -1194,13 +1548,21 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                     record_angular(upgraded,true);
                     upgraded.R=previous.R;upgraded.R_lo=previous.R_lo;
                     upgraded.jac=previous.jac;
+                    if(upgraded.angular_state && !previous.angular_state) {
+                        if(allocated_bytes()+angular_allocation_bytes>cfg.max_bytes) {
+                            ++stats.angular_upgrade_failures;continue;
+                        }
+                        angular_storage_bytes+=angular_allocation_bytes;
+                    } else if(!upgraded.angular_state && previous.angular_state)
+                        angular_storage_bytes-=angular_allocation_bytes;
                     w.samples[static_cast<std::size_t>(id)]=std::move(upgraded);
                     changed=true;
                 }
                 if(changed) {
-                    auto estimate_start=Clock::now();
-                    estimate(panel,w,nc,cfg,panel_index);
-                    stats.estimator_ms+=ms(estimate_start);
+                    auto estimate_start=cost_now();
+                    if(nc==1)estimate<1>(panel,w,nc,cfg,panel_index);
+                    else estimate(panel,w,nc,cfg,panel_index);
+                    stats.estimator_ms+=cost_ms(estimate_start);
                 }
                 return attempted&&changed;
             };
@@ -1254,7 +1616,12 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
                 if(!p.gradient_resolved[j-1] &&
                    p.radial[j]>cfg.tol.budget(j,out.grad_mu[j-1])) split_gradient=true;
         }
-        if(p.level<cfg.max_level && !split_gradient){failure=refine(worst,p.level+1);continue;}
+        // In the weighted research tree, a slow-decaying interpolation
+        // remainder calls for local h refinement rather than exhausting the
+        // p ladder first. The full error ledger and acceptance are unchanged.
+        const bool split_slow_weighted=cfg.weighted_radial &&
+            policy==GradientPolicy::None && p.level>=4 && !p.value_resolved;
+        if(p.level<cfg.max_level && !split_gradient && !split_slow_weighted){failure=refine(worst,p.level+1);continue;}
         if(p.depth>=cfg.max_depth||w.panels.size()+2>cfg.max_panels){failure=AdaptiveStop::BudgetExceeded;break;}
         const size_t split_growth=2*sizeof(AdaptivePanel)+
             (cfg.same_node_hermite_shadow?2*sizeof(AdaptiveHermitePanel):0);
@@ -1266,6 +1633,16 @@ AdaptiveResult integrate(AdaptiveWorkspace& w,const AdaptiveConfig& cfg,Evaluate
         l.left_uncertainty=p.left_uncertainty;r.right_uncertainty=p.right_uncertainty;
         l.left_radius_lo=p.left_radius_lo;r.right_radius_lo=p.right_radius_lo;
         l.xl=p.xl;l.xr=r.xl=0.5*(p.xl+p.xr);r.xr=p.xr;
+        if(p.weighted) {
+            // Preserve the covered interval when a weighted parent needs
+            // h-refinement. Children use ordinary one-sided fold maps.
+            const long double mid=((long double)p.map.a+p.left_radius_lo+
+                                   (long double)p.map.b+p.right_radius_lo)*.5L;
+            const double midpoint=double(mid),lo=double(mid-midpoint);
+            l.map={p.map.a,midpoint,true,false};r.map={midpoint,p.map.b,false,true};
+            l.right_radius_lo=r.left_radius_lo=lo;
+            l.xl=r.xl=-1;l.xr=r.xr=1;
+        }
         // Commit the replacement only after BOTH children have estimates.
         // A budget or numerical failure between the two evaluations must not
         // turn the missing half of the integral into a zero contribution.

@@ -1,0 +1,111 @@
+{
+  "normal": {
+    "before_matched": {
+      "seed_ms": 0.08364187356321842,
+      "planning_ms": 0.08002829885057476,
+      "candidate_integration_ms": 0.16927716091954023,
+      "candidate_no_caustic_ms": 0.3353797471264368
+    },
+    "after_matched": {
+      "seed_ms": 0.0840217931034483,
+      "planning_ms": 0.07250172413793103,
+      "candidate_integration_ms": 0.15579129885057477,
+      "candidate_no_caustic_ms": 0.31481154022988495
+    },
+    "before_reverse": {
+      "seed_ms": 0.08364843678160921,
+      "planning_ms": 0.0798192988505747,
+      "candidate_integration_ms": 0.16819472413793102,
+      "candidate_no_caustic_ms": 0.3342025632183907
+    },
+    "after_reverse": {
+      "seed_ms": 0.08395270114942531,
+      "planning_ms": 0.0725969540229885,
+      "candidate_integration_ms": 0.1564013333333333,
+      "candidate_no_caustic_ms": 0.31503171264367813
+    },
+    "reduction_matched": {
+      "seed_ms": -0.004542217002620363,
+      "planning_ms": 0.09404891545548166,
+      "candidate_integration_ms": 0.07966734552793853,
+      "candidate_no_caustic_ms": 0.061328112603047935
+    },
+    "reduction_reverse": {
+      "seed_ms": -0.00363741845661103,
+      "planning_ms": 0.09048369168347059,
+      "candidate_integration_ms": 0.0701174835598668,
+      "candidate_no_caustic_ms": 0.057362966908739765
+    }
+  },
+  "validation": {
+    "conditions": 896,
+    "reference_resolved_before": 754,
+    "reference_resolved_after": 754,
+    "unresolved_reference": 142,
+    "candidate_failures_on_resolved_reference": 0,
+    "candidate_failures_against_before_reference": 0,
+    "magnification_changes": 301,
+    "maximum_relative_change": 6.268630929795326e-13,
+    "node_count_changes": 0,
+    "maximum_discrepancy_over_tolerance": 0.2489676651091549
+  },
+  "profile": {
+    "before": {
+      "arc_ms": 0.06108502298850572,
+      "pair_ms": 0.03802141379310344,
+      "endpoint_ms": 0.018560678160919525,
+      "K_ms": 0.009031938697318005,
+      "physical_ms": 0.17355884674329514,
+      "estimator_ms": 0.015563406130268199,
+      "scheduler_ms": 0.0013852298850574702,
+      "setup_ms": 0.010000249042145594,
+      "setup_event_ms": 0.007018563218390806,
+      "setup_panel_ms": 0.0018544367816091952,
+      "integration_ms": 0.23678901915708805,
+      "dynamic_count_ms": 0.021178570881226058,
+      "allocation_ms": 0.009943873563218386,
+      "allocation_count": 3.574712643678161,
+      "arc_body_ms": 0.05750716475095787,
+      "tail_ms": 0.004256057471264368,
+      "node_loop_ms": 0.19791455938697325,
+      "header_ms": 0.0034274022988505736,
+      "coeff_ms": 0.003298417624521072,
+      "rescue_ms": 0.013471609195402296,
+      "prediction_ms": 0.01029729118773947,
+      "map_ms": 0.005945524904214561,
+      "frontier_count_ms": 0.035638796934865914,
+      "frontier_event_ms": 0.020107107279693486
+    },
+    "after": {
+      "arc_ms": 0.04915190804597702,
+      "pair_ms": 0.0371149616858237,
+      "endpoint_ms": 0.018547643678160926,
+      "K_ms": 0.00903269348659004,
+      "physical_ms": 0.161113950191571,
+      "estimator_ms": 0.013726214559386976,
+      "scheduler_ms": 0.001416467432950192,
+      "setup_ms": 0.010044770114942524,
+      "setup_event_ms": 0.006971191570881226,
+      "setup_panel_ms": 0.001932639846743296,
+      "integration_ms": 0.22251824137931034,
+      "dynamic_count_ms": 0.02108051340996167,
+      "allocation_ms": 0.010002482758620682,
+      "allocation_count": 3.574712643678161,
+      "arc_body_ms": 0.057233417624521075,
+      "tail_ms": 0.00429749808429119,
+      "node_loop_ms": 0.18539237931034477,
+      "header_ms": 0.003435283524904216,
+      "coeff_ms": 0.003268505747126437,
+      "rescue_ms": 0.013376888888888888,
+      "prediction_ms": 0.009545471264367812,
+      "map_ms": 0.005963854406130269,
+      "frontier_count_ms": 0.035446306513409964,
+      "frontier_event_ms": 0.019889045977011494
+    }
+  },
+  "image_starts": {
+    "attempts": 1668,
+    "accepted": 1344,
+    "fraction": 0.8057553956834532
+  }
+}

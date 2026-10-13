@@ -1,0 +1,15 @@
+{"case_id": "10", "profile": "linear", "epoch": "15", "reltol": 0.0001, "mu": 10449.737506246587, "seconds": 0.04573064995929599}
+{"case_id": "10", "profile": "linear", "epoch": "15", "reltol": 1e-05, "mu": 10450.069520898547, "seconds": 1.1693986280588433}
+{"case_id": "10", "profile": "linear", "epoch": "15", "reltol": 1e-06, "mu": 10447.304105119474, "seconds": 3.2038729059277102}
+{"case_id": "10", "profile": "linear", "epoch": "15", "reltol": 1e-07, "mu": 10445.881174836979, "seconds": 19.03179502300918}
+{"case_id": "10", "profile": "linear", "epoch": "15", "reltol": 1e-08, "mu": 10448.5285640649, "seconds": 65.37489158497192}
+{"case_id": "10", "profile": "uniform", "epoch": "7", "reltol": 0.0001, "mu": 12351.737832972953, "seconds": 0.0010469768894836307}
+{"case_id": "10", "profile": "uniform", "epoch": "7", "reltol": 1e-05, "mu": 12352.291061418757, "seconds": 0.0018744930857792497}
+{"case_id": "10", "profile": "uniform", "epoch": "7", "reltol": 1e-06, "mu": 12360.988099650918, "seconds": 0.0037188699934631586}
+{"case_id": "10", "profile": "uniform", "epoch": "7", "reltol": 1e-07, "mu": 12360.99545574267, "seconds": 0.008299175999127328}
+{"case_id": "10", "profile": "uniform", "epoch": "7", "reltol": 1e-08, "mu": 12358.11490823924, "seconds": 0.025764076970517635}
+{"case_id": "115", "profile": "linear", "epoch": "15", "reltol": 0.0001, "mu": 1580.8782106393714, "seconds": 0.014520499971695244}
+{"case_id": "115", "profile": "linear", "epoch": "15", "reltol": 1e-05, "mu": 1580.871692132942, "seconds": 0.17861862399149686}
+{"case_id": "115", "profile": "linear", "epoch": "15", "reltol": 1e-06, "mu": 1581.2061363808323, "seconds": 0.5232280109776184}
+{"case_id": "115", "profile": "linear", "epoch": "15", "reltol": 1e-07, "mu": 1581.2066702589213, "seconds": 1.2012558981077746}
+{"case_id": "115", "profile": "linear", "epoch": "15", "reltol": 1e-08, "mu": 1581.206716616568, "seconds": 3.6517980489879847}

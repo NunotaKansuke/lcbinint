@@ -1,0 +1,43 @@
+{
+  "revision": "post_endpoint_fix",
+  "input_rows": 7216,
+  "raw_rows": 14432,
+  "raw_expected_rows": 14432,
+  "header_columns": 53,
+  "column_mismatch_rows": [],
+  "duplicate_keys": 0,
+  "missing_keys": 0,
+  "extra_keys": 0,
+  "input_metadata_mismatches": 0,
+  "metadata_examples": [],
+  "vbm_rows": 14432,
+  "vbm_key_mismatch": 0,
+  "joined_rows": 14432,
+  "joined_key_mismatch": 0,
+  "snapshot_duplicate_geometries": 0,
+  "status_counts": {
+    "OK": 14242,
+    "TopologyUnresolved": 10,
+    "SEED_SUPPORT_UNPROVEN": 180
+  },
+  "value_stop_counts": {
+    "Converged": 14422,
+    "TopologyUnresolved": 10
+  },
+  "numerical_status_counts": {
+    "OK": 14422,
+    "GRADIENT_UNRELIABLE": 10
+  },
+  "support_proven_rows": 14252,
+  "coverage_certified_rows": 0,
+  "value_converged_rows": 14422,
+  "seed_count_p50": 5.0,
+  "seed_ms_p50": 0.0410585,
+  "caustic_prebuild_ms_p50_excluded": 1.2496585,
+  "internally_ok_rows": 14242,
+  "max_relerr_among_internal_ok": 0.0005606925566785879,
+  "count_above_1e-3": 0,
+  "pass": true,
+  "vbm_duplicate_keys": 0,
+  "joined_duplicate_keys": 0
+}

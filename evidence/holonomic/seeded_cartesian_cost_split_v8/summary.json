@@ -1,0 +1,66 @@
+{
+  "count": 87,
+  "cartesian": {
+    "center_ms": {
+      "sum_ms": 0.10183599999999998,
+      "mean_ms": 0.001170528735632184,
+      "median_ms": 0.001146
+    },
+    "seed_ms": {
+      "sum_ms": 8.681251,
+      "mean_ms": 0.09978449425287357,
+      "median_ms": 0.093801
+    },
+    "fill_ms": {
+      "sum_ms": 58.227517,
+      "mean_ms": 0.6692818045977011,
+      "median_ms": 0.351573
+    },
+    "no_caustic_ms": {
+      "sum_ms": 67.059627,
+      "mean_ms": 0.7708003103448275,
+      "median_ms": 0.45368200000000014
+    },
+    "caustic_ms": {
+      "sum_ms": 115.60768700000001,
+      "mean_ms": 1.3288239885057471,
+      "median_ms": 1.308252
+    }
+  },
+  "candidate": {
+    "center_ms": {
+      "sum_ms": 0.13012,
+      "mean_ms": 0.001495632183908046,
+      "median_ms": 0.00146
+    },
+    "seed_ms": {
+      "sum_ms": 20.102286999999997,
+      "mean_ms": 0.23106077011494253,
+      "median_ms": 0.222207
+    },
+    "planning_ms": {
+      "sum_ms": 7.687069000000004,
+      "mean_ms": 0.08835711494252874,
+      "median_ms": 0.07830899999999999
+    },
+    "candidate_integration_ms": {
+      "sum_ms": 35.80872299999999,
+      "mean_ms": 0.4115945172413793,
+      "median_ms": 0.233047
+    },
+    "candidate_no_caustic_ms": {
+      "sum_ms": 63.85709099999997,
+      "mean_ms": 0.7339895517241379,
+      "median_ms": 0.5281370000000001
+    },
+    "caustic_ms": {
+      "sum_ms": 120.22979600000001,
+      "mean_ms": 1.3819516781609196,
+      "median_ms": 1.378791
+    }
+  },
+  "cartesian_max_ref_relative_error": 9.91095146991155e-05,
+  "candidate_max_ref_relative_error": 1.2144831298077055e-05,
+  "cartesian_seed_count_median": 80,
+  "candidate_seed_count_median": 5
+}

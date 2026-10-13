@@ -39,6 +39,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <vector>
+#include <type_traits>
 
 #include "lcbinint/magnification/holonomic/boundary_polynomial.hpp"
 #include "lcbinint/magnification/holonomic/lens_frame.hpp"
@@ -298,6 +299,69 @@ inline bool gc2_accum_G(const Rule& gc, int n, double m, double s,
     return true;
 }
 
+// Keep the adaptive ladder out of the large mapped-radius instruction path.
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((noinline))
+#endif
+inline bool k_rule_budgeted(double m,double v,double s,const DeflatedQuad& q,
+    double Rma,double Rpa2,double two_over_rho,double& vK,KRejectReason* why,
+    double* estimated_error,double relative_gate,int* point_evaluations=nullptr) {
+    if(point_evaluations)*point_evaluations=0;
+    if(why)*why=KRejectReason::none;
+    if(!std::isfinite(relative_gate) || relative_gate<=0) {
+        if(why)*why=KRejectReason::nonfinite;return false;
+    }
+        // Nested 1/3/7/15/31 rules: a refinement evaluates only new nodes.
+        // The caller budgets the observed difference in the flux ledger.
+        std::array<double,31> points{};
+        double previous=0;
+        int old_order=0;
+        auto stage=[&](auto order) {
+            constexpr int N=decltype(order)::value;
+            const auto& rule=gc2_rule_fixed<N>();
+            if(old_order)for(int i=old_order-1;i>=0;--i)points[2*i+1]=points[i];
+            double G=0;
+            for(int i=0;i<N;++i) {
+                if(!old_order || (i&1)==0) {
+                    if(point_evaluations)++*point_evaluations;
+                    const double t=m+s*rule.x[i];
+                    const double S2=-(q.d0+t*(q.d1+t*q.p4));
+                    if(!(S2>=0)){if(why)*why=KRejectReason::s2;return -1;}
+                    const double A=1+t*t,B=Rma*Rma+Rpa2*t*t;
+                    if(!(B>0)){if(why)*why=KRejectReason::b;return -1;}
+                    const double ab=A*B,ratio=S2/ab;
+                    if(std::isnormal(ab)&&std::isnormal(ratio))points[i]=std::sqrt(ratio)/A;
+                    else points[i]=std::sqrt(S2)/(A*std::sqrt(A)*std::sqrt(B));
+                    if(!std::isfinite(points[i])){if(why)*why=KRejectReason::nonfinite;return -1;}
+                }
+                G+=rule.w[i]*points[i];
+            }
+            const double result=two_over_rho*v*G;
+            if(!std::isfinite(result)){if(why)*why=KRejectReason::nonfinite;return -1;}
+            double low=previous;
+            if(old_order==0) {
+                constexpr int Coarse=(N-1)/2;
+                const auto& coarse=gc2_rule_fixed<Coarse>();
+                low=0;for(int i=0;i<Coarse;++i)low+=coarse.w[i]*points[2*i+1];
+                low*=two_over_rho*v;
+            }
+            const double error=2*std::fabs(result-low);
+            previous=result;old_order=N;
+            if(error<=relative_gate*std::fabs(result)) {
+                vK=result;if(estimated_error)*estimated_error=error;return 1;
+            }
+            return 0;
+        };
+        int status=stage(std::integral_constant<int,3>{});
+        if(status==0)status=stage(std::integral_constant<int,7>{});
+        if(status==0)status=stage(std::integral_constant<int,15>{});
+        if(status==0)status=stage(std::integral_constant<int,31>{});
+        if(status==1)return true;
+        if(status<0)return false;
+        if(why)*why=KRejectReason::disagreement;
+        return false;
+}
+
 // 8-vs-16-node relative disagreement of v K for one arc; used as a fail-closed
 // quadrature-error estimate.  Returns false (reject) if either subrule hits an
 // invalid node or the two disagree by more than kHoloKRelTol.  On success
@@ -495,6 +559,36 @@ inline VKValue v_times_K(double m, double v, double R, const PrimaryFrame& pf,
         v2_profile_add_ms(&V2Profile::k_ms, k_begin, V2Clock::now());
     }
     return {vK, true, estimated_error};
+}
+
+// Research value-only lane; preserve the incumbent kernel and gradient ABI.
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((noinline))
+#endif
+inline VKValue v_times_K_budgeted(double m,double v,double R,const PrimaryFrame& pf,
+    const std::array<double,5>& pc,bool reciprocal,double relative_gate) {
+    V2Profile* prof=v2_profile_current();
+    if(prof)++prof->k_attempts;
+    if(!std::isfinite(v)||!std::isfinite(m)) {
+        profile_k_reject(KRejectReason::nonfinite);return {0,false};
+    }
+    if(!(v>kHoloVFloor)) {
+        profile_k_reject(KRejectReason::vfloor);return {0,false};
+    }
+    const double s=std::sqrt(v);
+    if(std::fabs(m)+s>kHoloTMax) {
+        profile_k_reject(KRejectReason::tmax);return {0,false};
+    }
+    const DeflatedQuad q=deflate_mv(pc,m,v);
+    const double Rma=R-pf.a,Rpa=R+pf.a;
+    const double b0=reciprocal?Rpa:Rma,b2=reciprocal?Rma*Rma:Rpa*Rpa;
+    double value=0,error=0;KRejectReason why=KRejectReason::none;
+    auto begin=V2Clock::now();
+    const bool ok=k_rule_budgeted(m,v,s,q,b0,b2,2/pf.rho,value,&why,&error,relative_gate);
+    if(prof)v2_profile_add_ms(&V2Profile::k_ms,begin,V2Clock::now());
+    if(!ok){profile_k_reject(why);return {0,false};}
+    if(prof)++prof->k_success;
+    return {value,true,error};
 }
 
 // v K and its analytic d/dP_j (param order X, Y, rho, m0, a).  `dpc` is

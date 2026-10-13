@@ -1,0 +1,34 @@
+Seeded paper q-rho benchmark provenance (post endpoint fix)
+checkout: /rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events
+branch: experiment/seeded-boundary-events
+HEAD: f3547723b79828d9c501182746028e99f7bad116
+captured_utc: 2026-10-13T05:12:24+00:00
+platform: Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34
+python: 3.10.19
+working_tree_status_entries: 78 (dirty research state preserved)
+input_geometry_rows: 7,216
+raw_output_rows: 14,432 (2 targets per geometry/profile row)
+saved_vbm_timing_reference_rows: 14,432
+compiler: g++ -std=c++17 -O3 -DNDEBUG -march=native -fext-numeric-literals -fopenmp
+build: bash benchmarks/holonomic/build_seeded_paper_qrho.sh after endpoint fix
+timed route: PointSourceMagnifier::binary_images + FiniteSourceMagnifier::cached_binary_image_seeds + epoch_seeded_radial_frontier
+excluded from full time: object construction, binary_caustic_branches build, input/output, figure generation
+full time: paired median of seed_ms + seeded radial frontier wall time, 3 repetitions
+comparators: saved warmed VBM direct-kernel timings at RelTol 1e-3/1e-4; saved VBM magnifications at RelTol 1e-6
+vbm_route_audit: VBM 5.5 uses BinaryMag2 for uniform and BinaryMagDark for linear; fresh direct low-magnification medians reproduce saved timings within 1%; original timing-table generator not retained
+run_session: 90812, completed with exit status 0 (attached session; not a detached campaign)
+run_command_file: /rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013/command_post_endpoint_fix.txt
+run_log: /rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/evidence/holonomic/seeded_paper_qrho_20261013/run_post_endpoint_fix.log
+raw_output_audit: 14432 rows, exact key match to 7,216 inputs x 2 targets and saved VBM rows
+accepted_error_screen: 14242 internal-OK rows; max relative error 0.000560692556679; rows above 1e-3: 0
+coverage: coverage_certified=false on all rows; benchmark does not claim universal support completeness
+pre-fix outputs and their audit remain preserved with *_pre_endpoint_fix names
+SHA256 files:
+  6646492658ed416e75cb8c6c821ee853f79cdf7761fc41441186aa67b81fa05b  evidence/holonomic/seeded_paper_qrho_20261013/input_snapshot.tsv
+  8d75a89ac5e1179c273ab9e1df6f84a27c30aa9185552aa1b79b4e0c19ccbf33  evidence/holonomic/seeded_paper_qrho_20261013/vbm_timing_reference.tsv
+  e80189053aface2daacdae5ce950208515be0aac31cb33736df30c69c62596fe  benchmarks/holonomic/bench_seeded_paper_qrho.cpp
+  b376c798d787d9b733710a0348995c2c1618a98e55b8f66e0230880ae940e37f  benchmarks/holonomic/build_seeded_paper_qrho.sh
+  38970dd1a541429348241da12854056ac62b45dcb90038c8bbe8349d28a36061  build-seeded-events/bench_seeded_paper_qrho
+  0359cdcc39ea2477811faa44baa8b4cd5f44c5413dd3890c6ed2f25f687c941c  src/lcbinint/magnification/holonomic/seeded_radial_frontier.hpp
+  e95d8aa33b19826a59156e2e6dd4ffc5a90474c6bc61e214129e1146363d871d  evidence/holonomic/seeded_paper_qrho_20261013/make_figures.py
+  1aeec653be0355ca45a5f590a6a1a9cb632859414d7ba27c4034b180149ce625  evidence/holonomic/seeded_paper_qrho_20261013/raw_results.tsv

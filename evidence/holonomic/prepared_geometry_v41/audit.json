@@ -1,0 +1,20 @@
+{
+  "rows": 14432,
+  "new_violations": [],
+  "new_failures": [],
+  "failures": 6,
+  "violations": 3,
+  "changed_values": 4625,
+  "uniform": {
+    "probes_before": 88.0,
+    "probes_after": 88.0,
+    "nodes_before": 22.0,
+    "nodes_after": 22.0
+  },
+  "linear": {
+    "probes_before": 88.0,
+    "probes_after": 88.0,
+    "nodes_before": 53.0,
+    "nodes_after": 53.0
+  }
+}

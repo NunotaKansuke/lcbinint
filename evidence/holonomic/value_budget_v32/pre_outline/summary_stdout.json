@@ -1,0 +1,306 @@
+{
+  "timing_contract": "fresh seed included; caustic construction excluded; one thread; 5 reps; both orders",
+  "timing": {
+    "forward": {
+      "uniform_0.001": {
+        "inputs": 248,
+        "us": {
+          "seed_ms": {
+            "before": 4.083,
+            "after": 4.077500000000001,
+            "paired_reduction_percent": -0.1579058494686869
+          },
+          "planning_ms": {
+            "before": 16.280999999999995,
+            "after": 16.2385,
+            "paired_reduction_percent": -0.10493179258579399
+          },
+          "integration_ms": {
+            "before": 34.49249999999999,
+            "after": 35.528000000000006,
+            "paired_reduction_percent": -2.777724161690176
+          },
+          "full_ms": {
+            "before": 62.56600000000001,
+            "after": 64.884,
+            "paired_reduction_percent": -1.4079784124997552
+          }
+        },
+        "nodes": {
+          "before": 37.0,
+          "after": 37.0
+        }
+      },
+      "uniform_0.0001": {
+        "inputs": 248,
+        "us": {
+          "seed_ms": {
+            "before": 4.083,
+            "after": 4.077500000000001,
+            "paired_reduction_percent": -0.1579058494686869
+          },
+          "planning_ms": {
+            "before": 16.007,
+            "after": 16.0995,
+            "paired_reduction_percent": 0.6525905517394293
+          },
+          "integration_ms": {
+            "before": 44.824000000000005,
+            "after": 45.822,
+            "paired_reduction_percent": -2.180979127191307
+          },
+          "full_ms": {
+            "before": 72.197,
+            "after": 72.98599999999999,
+            "paired_reduction_percent": -1.0612264686439499
+          }
+        },
+        "nodes": {
+          "before": 61.0,
+          "after": 61.0
+        }
+      },
+      "linear_0.001": {
+        "inputs": 251,
+        "us": {
+          "seed_ms": {
+            "before": 4.12,
+            "after": 4.09,
+            "paired_reduction_percent": -0.6540764624596962
+          },
+          "planning_ms": {
+            "before": 16.473,
+            "after": 16.549,
+            "paired_reduction_percent": -0.2092277593608971
+          },
+          "integration_ms": {
+            "before": 52.442,
+            "after": 49.613,
+            "paired_reduction_percent": 5.15063388921706
+          },
+          "full_ms": {
+            "before": 80.997,
+            "after": 78.34,
+            "paired_reduction_percent": 3.1814263678432098
+          }
+        },
+        "nodes": {
+          "before": 53.0,
+          "after": 53.0
+        }
+      },
+      "linear_0.0001": {
+        "inputs": 251,
+        "us": {
+          "seed_ms": {
+            "before": 4.12,
+            "after": 4.09,
+            "paired_reduction_percent": -0.6540764624596962
+          },
+          "planning_ms": {
+            "before": 15.906,
+            "after": 15.998000000000001,
+            "paired_reduction_percent": 0.3953940066592665
+          },
+          "integration_ms": {
+            "before": 60.269000000000005,
+            "after": 56.939,
+            "paired_reduction_percent": 5.185761861511173
+          },
+          "full_ms": {
+            "before": 86.206,
+            "after": 82.75,
+            "paired_reduction_percent": 3.2129429189928227
+          }
+        },
+        "nodes": {
+          "before": 61.0,
+          "after": 61.0
+        }
+      }
+    },
+    "reverse": {
+      "uniform_0.001": {
+        "inputs": 248,
+        "us": {
+          "seed_ms": {
+            "before": 4.162,
+            "after": 4.157,
+            "paired_reduction_percent": 0.9320290822146582
+          },
+          "planning_ms": {
+            "before": 16.005499999999998,
+            "after": 16.190499999999997,
+            "paired_reduction_percent": 0.05681385959231955
+          },
+          "integration_ms": {
+            "before": 34.806999999999995,
+            "after": 35.3735,
+            "paired_reduction_percent": -1.6856732974608324
+          },
+          "full_ms": {
+            "before": 63.37950000000001,
+            "after": 64.1455,
+            "paired_reduction_percent": -0.5290210900576575
+          }
+        },
+        "nodes": {
+          "before": 37.0,
+          "after": 37.0
+        }
+      },
+      "uniform_0.0001": {
+        "inputs": 248,
+        "us": {
+          "seed_ms": {
+            "before": 4.162,
+            "after": 4.157,
+            "paired_reduction_percent": 0.9320290822146582
+          },
+          "planning_ms": {
+            "before": 16.093000000000004,
+            "after": 16.055,
+            "paired_reduction_percent": -0.22864835287430552
+          },
+          "integration_ms": {
+            "before": 44.8945,
+            "after": 45.4765,
+            "paired_reduction_percent": -2.2028088928680356
+          },
+          "full_ms": {
+            "before": 72.235,
+            "after": 73.231,
+            "paired_reduction_percent": -0.9528669053495697
+          }
+        },
+        "nodes": {
+          "before": 61.0,
+          "after": 61.0
+        }
+      },
+      "linear_0.001": {
+        "inputs": 251,
+        "us": {
+          "seed_ms": {
+            "before": 4.266,
+            "after": 4.228,
+            "paired_reduction_percent": 1.113523692402285
+          },
+          "planning_ms": {
+            "before": 16.293,
+            "after": 16.358,
+            "paired_reduction_percent": -0.12490632025978776
+          },
+          "integration_ms": {
+            "before": 52.714,
+            "after": 49.047,
+            "paired_reduction_percent": 6.308191434220878
+          },
+          "full_ms": {
+            "before": 82.954,
+            "after": 77.944,
+            "paired_reduction_percent": 3.6056574625410787
+          }
+        },
+        "nodes": {
+          "before": 53.0,
+          "after": 53.0
+        }
+      },
+      "linear_0.0001": {
+        "inputs": 251,
+        "us": {
+          "seed_ms": {
+            "before": 4.266,
+            "after": 4.228,
+            "paired_reduction_percent": 1.113523692402285
+          },
+          "planning_ms": {
+            "before": 15.695,
+            "after": 16.058,
+            "paired_reduction_percent": 0.008329168748955063
+          },
+          "integration_ms": {
+            "before": 60.252,
+            "after": 56.796,
+            "paired_reduction_percent": 5.05602455871067
+          },
+          "full_ms": {
+            "before": 86.298,
+            "after": 82.80000000000001,
+            "paired_reduction_percent": 3.6087706831793853
+          }
+        },
+        "nodes": {
+          "before": 61.0,
+          "after": 61.0
+        }
+      }
+    }
+  },
+  "full_audit": {
+    "rows": 14432,
+    "changed_values": 4823,
+    "changed_nodes": 10,
+    "new_failures": 0,
+    "failed_before": 6,
+    "failed_after": 6,
+    "new_tolerance_violations": 0,
+    "by_tolerance": {
+      "0.001": {
+        "converged": 7213,
+        "violations": 0,
+        "maximum_relative_error": 0.0005606925566785879,
+        "median_relative_error": 6.011013752807567e-07
+      },
+      "0.0001": {
+        "converged": 7213,
+        "violations": 3,
+        "maximum_relative_error": 0.0002705965501750303,
+        "median_relative_error": 2.897119756773337e-07
+      }
+    }
+  },
+  "normal": {
+    "forward": {
+      "before": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06536340229885057,
+          "planning_ms": 0.0475295632183908,
+          "candidate_integration_ms": 0.15314947126436781,
+          "candidate_no_caustic_ms": 0.2686922298850575
+        }
+      },
+      "after": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06558955172413793,
+          "planning_ms": 0.047730252873563216,
+          "candidate_integration_ms": 0.1427646436781609,
+          "candidate_no_caustic_ms": 0.25850218390804597
+        }
+      }
+    },
+    "reverse": {
+      "before": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06593336781609195,
+          "planning_ms": 0.04787386206896552,
+          "candidate_integration_ms": 0.15338018390804598,
+          "candidate_no_caustic_ms": 0.2697658620689655
+        }
+      },
+      "after": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06585089655172414,
+          "planning_ms": 0.04791152873563218,
+          "candidate_integration_ms": 0.14321955172413794,
+          "candidate_no_caustic_ms": 0.2597448735632184
+        }
+      }
+    }
+  }
+}

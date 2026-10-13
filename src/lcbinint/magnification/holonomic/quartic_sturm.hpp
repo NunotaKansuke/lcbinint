@@ -101,6 +101,23 @@ struct Chain {
     int n = 0;
 };
 
+// Fixed degree remainders retain the generic arithmetic order. Compile-time
+// bounds let the compiler remove degree dispatch and unroll this hot path.
+template <int A, int B, class R>
+inline Poly<R> fixed_neg_remainder(Poly<R> out, const Poly<R>& b) {
+    const R inv_lead = R(1) / b.c[B];
+    for (int k = A; k >= B; --k) {
+        const R factor = out.c[k] * inv_lead;
+        for (int j = 0; j <= B; ++j)
+            out.c[k-B+j] = out.c[k-B+j] - factor*b.c[j];
+        out.c[k] = R(0);
+    }
+    out.deg = B-1;
+    out = trim(out);
+    for (int k = 0; k <= out.deg; ++k) out.c[k] = -out.c[k];
+    return out;
+}
+
 template <class R>
 inline Chain<R> make_chain(const std::array<R, 5>& coeffs) {
     Chain<R> out;
@@ -113,6 +130,25 @@ inline Chain<R> make_chain(const std::array<R, 5>& coeffs) {
 
     out.p[1] = derivative(out.p[0]);
     out.n = 2;
+#ifndef HOLO_STURM_GENERIC_CHAIN
+    if (out.p[0].deg == 4 && out.p[1].deg == 3) {
+        auto r = fixed_neg_remainder<4,3>(out.p[0],out.p[1]);
+        if (r.deg < 0) return out;
+        out.p[out.n++] = r;
+        if (r.deg == 0) return out;
+        if (r.deg == 2) {
+            r = fixed_neg_remainder<3,2>(out.p[1],out.p[2]);
+            if (r.deg < 0) return out;
+            out.p[out.n++] = r;
+            if (r.deg == 0) return out;
+            if (r.deg == 1) {
+                r = fixed_neg_remainder<2,1>(out.p[2],out.p[3]);
+                if (r.deg >= 0) out.p[out.n++] = r;
+                return out;
+            }
+        }
+    }
+#endif
     while (out.n < static_cast<int>(out.p.size()) && out.p[out.n - 1].deg >= 0) {
         Poly<R> r = neg_remainder(out.p[out.n - 2], out.p[out.n - 1]);
         if (r.deg < 0) break;
@@ -246,16 +282,16 @@ inline double cauchy_bound(const std::array<double, 5>& p, bool reciprocal) {
     double ratio = 0.0;
     if (!reciprocal) {
         for (int k = 0; k < 4; ++k)
-            ratio = std::max(ratio, std::fabs(p[k]) / lead);
+            ratio = std::max(ratio, std::fabs(p[k]));
     } else {
         // The reciprocal polynomial is
         // q(u) = p4 - p3*u + p2*u^2 - p1*u^3 + p0*u^4.
         // Its non-leading coefficients are p4,p3,p2,p1.  Include p4 and
         // exclude p0 itself; the latter is the reciprocal leading term.
         for (int k = 0; k < 4; ++k)
-            ratio = std::max(ratio, std::fabs(p[4 - k]) / lead);
+            ratio = std::max(ratio, std::fabs(p[4 - k]));
     }
-    return 2.0 * (1.0 + ratio) + 1.0;
+    return 2.0 * (1.0 + ratio / lead) + 1.0;
 }
 
 template <class R>

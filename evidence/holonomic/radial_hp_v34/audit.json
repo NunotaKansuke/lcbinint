@@ -1,0 +1,12 @@
+{
+  "rows": 14432,
+  "new_violations": [],
+  "new_failures": [],
+  "failed_before": 6,
+  "failed_after": 6,
+  "violations_before": 3,
+  "violations_after": 3,
+  "changed_values": 451,
+  "changed_nodes": 490,
+  "changed_ld": 0
+}

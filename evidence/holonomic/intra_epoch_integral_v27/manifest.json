@@ -1,0 +1,36 @@
+{
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "timing": "one thread; no concurrent compilation; same87 normal pairs tol1e-4,5 repetitions, mean of per-condition medians; reverse order repeated; fresh geometry/source objects; seed included, caustic construction excluded",
+  "sources": {
+    "src/lcbinint/magnification/holonomic/adaptive_epoch.hpp": "8c961fd6447d2290b585039abf9578d84138b604158697a0ae88d7a6bb3b9733",
+    "src/lcbinint/magnification/holonomic/adaptive_radial.hpp": "df2002dc46a9308ff3845f582a36cf82d934dc8b1eb0d6f3d6b71ac1a634ebc8",
+    "src/lcbinint/magnification/holonomic/radius_terms.hpp": "a11e7ef9660d9ee8c47b71f1c1b67926e80472ee56c344300259066f839312ff",
+    "src/lcbinint/magnification/holonomic/quartic_sturm.hpp": "ad500013fbe3c3d22ea0aa9f596436b68305a2509779003a432875478b5e0a3b",
+    "src/lcbinint/magnification/holonomic/v2_profile.hpp": "ad94342471700b365aea0e9d1b5f9de65f9e1df0f4245c429989e5aa37b846e9",
+    "src/lcbinint/magnification/holonomic/seeded_radial_frontier.hpp": "346ac65a4796bd3fb4123cefa904690c4443a4903c2280b1bc8aac9e9c569b54",
+    "tests/holonomic_cpp/test_adaptive_radial.cpp": "2e4f71d372c22fa023945f31c0dca9423f41748b816eb63ba97f13e087b98c51",
+    "benchmarks/holonomic/build_seeded_radial_master.sh": "326c574ba4403ce606643c6a8e8b0dd0cdcfe37c3941490af6dee51b669a1b35",
+    "benchmarks/holonomic/bench_seeded_radial_full.cpp": "4242d19776b30cf404d8590c9349a61b720d377c0a9a961fd1be0abbd31d65b5",
+    "benchmarks/holonomic/bench_seeded_integration_profile.cpp": "4d0b99331bc4bfa37fc8b46a0e8d46a93f3bb3878830b6c7c5679ce7ec8014f1"
+  },
+  "binaries": {
+    "build-seeded-events/bench_integral_before_v27": "d9112bdbf5dbe7de3b1d86896e1d876f946b5c9567978762efc685665f108617",
+    "build-seeded-events/bench_integral_after_v27": "675339c67643773f8ea2d3fd8857641a575b4f581e2db57f7a2fc0a30661d3c7",
+    "build-seeded-events/bench_integral_audit_v27": "12279cba70e81e349c5be56e2f2a631756be5ab0d4837ddd269e1a0a01bbd7cf",
+    "build-seeded-events/bench_integral_profile_v27": "16a923846cc9a43921943bdcfc1d5f3444064310a5d8f8092736065ca096ddd4"
+  },
+  "environment": "Linux rogue1 5.14.0-570.23.1.el9_6.x86_64 #1 SMP PREEMPT_DYNAMIC Thu Jun 26 19:29:53 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux",
+  "evidence_hashes": {
+    "build.sh": "4f07cb65f92e6ecfdfaa7d294d7e988a5f3741511f6b8b5377df557ab8fdc8a1",
+    "build_tests.sh": "2d198e3dddcea2d3f5269d68ae7b8e00c5b62c2050681d23a2112b6b36e71f44",
+    "build_audit_profile.sh": "456ddae3f5b506b2e385f72650c11fbfb9d2c54fa1044493ab0823287ba044dc",
+    "run_accepted.sh": "1a789e062e880def4cab9fa161ecab8394f81fe435187b51553f78e66a7bef73",
+    "adaptive_epoch.patch": "3b29b61420659e798a4045dc1025adcfbf92483bd86491d50c7e6f7a7373371a",
+    "build_size.sh": "4b4fb87c8c654552dc4dc97e5c356a6cde980f55a60fd0072594b3517f88ebc5",
+    "README.md": "5ff999b7a238f9ef53edc9867ffbb5a28cbc830bda3adaef03b2aa685391f3be",
+    "summarize.py": "9ddcb566ff3e718bad4d02de77c7438db10ea4ee8de4b3f0e4ecd52def59cd48",
+    "adaptive_radial.patch": "61cc85073a060e2233635961e26564a6b79e8840f5a4b1487ad1a8ba840262a5"
+  }
+}

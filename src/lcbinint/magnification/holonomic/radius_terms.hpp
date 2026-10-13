@@ -58,7 +58,8 @@ struct PolishResult {
 };
 inline PolishResult polish_endpoint(double R, double theta,
                                     const PrimaryFrame& pf, int iters = 6,
-                                    PhiValDtheta* final_phi = nullptr) {
+                                    PhiValDtheta* final_phi = nullptr,
+                                    double angular_tolerance = 0.0) {
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->endpoint_calls;
     V2ProfileTimer endpoint_timer(&V2Profile::endpoint_ms);
@@ -85,6 +86,13 @@ inline PolishResult polish_endpoint(double R, double theta,
             return {th, dth, false};
         }
         double step = g.phi / dth;
+        // Retain the actual residual in final_phi: the adaptive geometry
+        // ledger, rather than this stopping tolerance, decides acceptance.
+        if(final_phi && angular_tolerance>0 && std::isfinite(step) &&
+           std::fabs(step)<=angular_tolerance) {
+            *final_phi=g;
+            return {th,dth,true};
+        }
 #ifdef HOLO_ADAPTIVE_STATIONARY_ENDPOINT
         const double previous = th;
 #endif
@@ -136,7 +144,7 @@ inline std::vector<double> thetas_from_complex(
     std::vector<double> out;
     for (const auto& r : z)
         if (std::fabs(r.im) <= kRootImRel * (1.0 + std::fabs(r.re))) {
-            double t = std::fmod(2.0 * std::atan(r.re), kTwoPi);
+            double t = (2.0 * std::atan(r.re));
             if (t < 0.0) t += kTwoPi;
             out.push_back(t);
         }
@@ -207,6 +215,7 @@ constexpr double kWarmStepTol = 1e-7;
 constexpr int kColdStreak = 3;
 
 struct QuarticWarm {
+    double seed_tolerance=0.0;
     Cplx<double> z[4];
     int deg = 0;
     int n_real = -1;
@@ -216,7 +225,7 @@ struct QuarticWarm {
 };
 
 inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc,
-                                                 QuarticWarm& w) {
+                                                 QuarticWarm& w, int certified_real_count=-1) {
     V2Profile* prof = v2_profile_current();
     double c[5];
     int deg = quartic_descending(pc, c);
@@ -229,6 +238,82 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
 #else
     int* sweep_counter=nullptr;
 #endif
+#ifndef HOLO_QUARTIC_LEGACY_ARCS
+    // Only a complete square-free real count permits a real-only update.
+    // Complex seeds remain intact for the incumbent Aberth fallback.
+    if(w.valid && w.deg==deg && w.n_real==certified_real_count &&
+       (certified_real_count==2 || certified_real_count==4)) {
+        std::array<double,4> roots{};std::array<int,4> slots{};int n=0;
+        bool ok=true;
+        for(int i=0;i<deg;++i)if(std::fabs(w.z[i].im)<=kRootImRel*(1+std::fabs(w.z[i].re))) {
+            double t=w.z[i].re;bool converged=false;
+            for(int it=0;it<8;++it) {
+                const auto d=p_derivs(pc,t);
+                if(!std::isfinite(d.P1) || d.P1==0)break;
+                const double step=d.P/d.P1;t-=step;
+                if(!std::isfinite(t))break;
+                if(std::fabs(step)<=1e-13*(1+std::fabs(t))){converged=true;break;}
+            }
+            double P=0,S=0;for(int k=4;k>=0;--k){P=P*t+pc[k];S=S*std::fabs(t)+std::fabs(pc[k]);}
+            if(n==4 || !converged || !std::isfinite(S) || !(std::fabs(P)<=1e-11*(S>0?S:1))){ok=false;break;}
+            roots[n]=t;slots[n++]=i;
+        }
+        auto sorted=roots;std::sort(sorted.begin(),sorted.begin()+n);
+        for(int i=1;i<n;++i)if(!(sorted[i]-sorted[i-1]>1e-8*(1+std::max(std::fabs(sorted[i]),std::fabs(sorted[i-1])))))ok=false;
+        if(ok && n==certified_real_count) {
+            auto z=std::vector<Cplx<double>>(w.z,w.z+deg);
+            for(int i=0;i<n;++i)z[slots[i]]={roots[i],0};
+            auto th=thetas_from_complex(z);
+            if(int(th.size())==n){for(int i=0;i<n;++i)w.z[slots[i]]=z[slots[i]];w.cold_streak=0;++w.warm_hits;return th;}
+        }
+    }
+#endif
+#ifndef HOLO_QUARTIC_LEGACY_ARCS
+    if(deg==4 && (certified_real_count==2 || certified_real_count==4)) {
+        const double b=pc[3]/pc[4],c=pc[2]/pc[4],d=pc[1]/pc[4],e=pc[0]/pc[4];
+        const double p=c-3*b*b/8,q=d-b*c/2+b*b*b/8,r=e-b*d/4+b*b*c/16-3*b*b*b*b/256;
+        const double a2=2*p,a1=p*p-4*r,a0=-q*q;
+        const double A=a1-a2*a2/3,B=2*a2*a2*a2/27-a2*a1/3+a0;
+        const double disc=B*B/4+A*A*A/27;
+        double m=0;
+        if(disc>=0)m=std::cbrt(-B/2+std::sqrt(disc))+std::cbrt(-B/2-std::sqrt(disc))-a2/3;
+        else if(A<0) {
+            const double v=2*std::sqrt(-A/3);
+            const double angle=std::acos(std::max(-1.,std::min(1.,(3*B/(2*A))*std::sqrt(-3/A))))/3;
+            m=v*std::cos(angle)-a2/3;
+        }
+        if(m>0 && std::isfinite(m)) {
+            const double a=std::sqrt(m),t=(p+m-q/a)/2,v=(p+m+q/a)/2;
+            std::vector<Cplx<double>> z;z.reserve(4);bool ok=true;int nr=0;
+            for(auto factor: {std::array<double,2>{a,t},std::array<double,2>{-a,v}}) {
+                const double discriminant=factor[0]*factor[0]-4*factor[1];
+                const double root=std::sqrt(std::fabs(discriminant));
+                for(double sign:{-1.,1.}) {
+                    Cplx<double> h{(-factor[0]+(discriminant>=0?sign*root:0))/2-b/4,
+                                   discriminant>=0?0:sign*root/2};
+                    if(discriminant>=0) {
+                        bool converged=false;
+                        for(int it=0;it<8;++it){const auto pd=p_derivs(pc,h.re);if(pd.P1==0||!std::isfinite(pd.P1))break;
+                            const double step=pd.P/pd.P1;h.re-=step;
+                            if(std::fabs(step)<=1e-13*(1+std::fabs(h.re))){converged=true;break;}}
+                        double P=0,S=0;for(int k=4;k>=0;--k){P=P*h.re+pc[k];S=S*std::fabs(h.re)+std::fabs(pc[k]);}
+                        if(!converged || !std::isfinite(S) || !(std::fabs(P)<=1e-11*(S>0?S:1)))ok=false;
+                        ++nr;
+                    }
+                    if(!std::isfinite(h.re)||!std::isfinite(h.im))ok=false;
+                    z.push_back(h);
+                }
+            }
+            std::array<double,4> real{};int n=0;for(auto h:z)if(h.im==0)real[n++]=h.re;
+            std::sort(real.begin(),real.begin()+n);
+            for(int i=1;i<n;++i)if(!(real[i]-real[i-1]>1e-8*(1+std::max(std::fabs(real[i]),std::fabs(real[i-1])))))ok=false;
+            if(ok && nr==certified_real_count) {
+                auto th=thetas_from_complex(z);
+                if(int(th.size())==nr){for(int i=0;i<4;++i)w.z[i]=z[i];w.deg=4;w.n_real=nr;w.valid=true;w.cold_streak=0;return th;}
+            }
+        }
+    }
+#endif
     if (w.valid && w.deg == deg && w.cold_streak < kColdStreak) {
         if (prof) ++prof->quartic_warm_calls;
         double step = 1.0;
@@ -239,7 +324,7 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
         auto z = aberth<double>(c, deg, kWarmIters, w.z,
                                 HOLO_QUARTIC_WARM_SOLVE_TOL, &step, sweep_counter);
 #else
-        auto z = aberth<double>(c, deg, kWarmIters, w.z, 0.0, &step, sweep_counter);
+        auto z = aberth<double>(c, deg, kWarmIters, w.z, w.seed_tolerance, &step, sweep_counter);
 #endif
 #ifdef HOLO_QUARTIC_WORK_PROBE
         if(prof)prof->quartic_warm_sweeps+=probe_sweeps;
@@ -257,6 +342,7 @@ inline std::vector<double> real_root_thetas_warm(const std::array<double, 5>& pc
         }
         ++w.cold_streak;
     }
+
 
     // cold path -- identical roots to real_root_thetas()
     auto z = aberth<double>(c, deg, 40, nullptr, 0.0, nullptr, sweep_counter);
@@ -354,13 +440,12 @@ constexpr double kTransportRootRel = 1e-11;    // |P(t_pm)| / running-abssum: is
                                                // actual root of P (scale-correct
                                                // at any |t|, unlike an (E,O)
                                                // residual scaled by cmax*m^4).
-constexpr double kTransportVFloor = 1e-10;      // v <= this: near-tangency, the
-                                               // 2x2 (E,O) solve is ill-cond
-                                               // (det ~ -1/2 P''^2, corrector
-                                               // step ~ 1/sqrt(v)) -> cold.
-                                               // Genuine physical tangencies
-                                               // are additionally caught by
-                                               // radius_terms' tan_thresh.
+constexpr double kTransportVFloor = 1e-10;  // integration-only tiny-arc gate.
+                                               // Endpoint reconstruction and
+                                               // angular derivatives become
+                                               // sensitive as sqrt(v) -> 0.
+                                               // E/O itself remains regular at
+                                               // an ordinary fold with P'' != 0.
 constexpr int kTransportMaxTrips = 4;          // total misses/cell -> abandon
                                                // (guards an oscillating cell
                                                //  from paying transport+cold)
@@ -495,7 +580,7 @@ template <class PairSet>
 inline bool transport_pairs_valid(const PairSet& ps,
                                   size_t n_expect,
                                   const std::array<double, 5>& pc, double R,
-                                  const PrimaryFrame& pf) {
+                                  const PrimaryFrame& pf,bool reciprocal=false) {
     if (ps.size() != n_expect) return false;
     double prev_hi = -std::numeric_limits<double>::infinity();
     double prev_w = std::numeric_limits<double>::infinity();
@@ -514,20 +599,20 @@ inline bool transport_pairs_valid(const PairSet& ps,
         prev_w = w;
         if (!transport_is_root(pc, tlo) || !transport_is_root(pc, thi))
             return false;
-#ifdef HOLO_MV_RATIONAL_MIDPOINT
-        // Research only: theta=2 atan(m), evaluated without transcendental
-        // round trips. The TMax guard above bounds m. This changes rounding;
+#ifndef HOLO_MV_TRIG_MIDPOINT
+        // Evaluate the selected half-angle chart without an atan/sincos
+        // round trip. The TMax guard above bounds m. This changes rounding;
         // it is not a stronger sign certificate than the incumbent phi test.
         using phi_detail::C;
         const double t=rp.m, den=1.0+t*t;
-        const C z{R*((1.0-t*t)/den), R*((2.0*t)/den)};
+        const C z{R*((reciprocal?t*t-1.0:1.0-t*t)/den), R*((reciprocal?-2.0*t:2.0*t)/den)};
         const C zb{z.re,-z.im}, zba=zb-C{pf.a,0.0};
         const C f=z-C{pf.m0,0.0}/zb-C{1.0-pf.m0,0.0}/zba;
         const C d=f-C{pf.X,pf.Y};
         const double ph=1.0-(d.re*d.re+d.im*d.im)/(pf.rho*pf.rho);
         if(!(ph>0.0))return false;
 #else
-        double thm = std::fmod(2.0 * std::atan(rp.m), kTwoPi);
+        double thm = (reciprocal?0.5*kTwoPi:0.0)+2.0*std::atan(rp.m);
         if (thm < 0.0) thm += kTwoPi;
         if (!(phi_lens(R, thm, pf) > 0.0)) return false;
 #endif
@@ -537,10 +622,11 @@ inline bool transport_pairs_valid(const PairSet& ps,
 
 struct RootPairWarm {
     RootPairSet pairs;                  // tracked t-bounded pairs, ascending in t
-    std::array<double, 5> pc_prev{};    // boundary_quartic(R_prev) coeffs
-    std::array<double, 5> pcR_prev{};   // boundary_quartic_dR(R_prev) coeffs
+    std::array<double, 5> pc_prev{};    // quartic in the selected chart at R_prev
+    std::array<double, 5> pcR_prev{};   // dR quartic in the selected chart
     double R_prev = 0.0;
     bool valid = false;                 // pairs[] holds a usable previous-node set
+    bool reciprocal = false;            // u=-1/t for arcs crossing theta=pi
     int disc_sign = 0;                  // sign(quartic discriminant) at the seed
                                        // node: a flip = an arc pair born/died,
                                        // which the continuation cannot see
@@ -558,7 +644,8 @@ struct RootPairWarm {
 // real_root_thetas_warm() so the downstream arc formation is unchanged.
 inline std::vector<double> real_root_thetas_transport(
     const std::array<double, 5>& pc, double R, const PrimaryFrame& pf,
-    RootPairWarm& w, QuarticWarm* qw = nullptr) {
+    RootPairWarm& w, QuarticWarm* qw = nullptr, int certified_real_count=-1,
+    std::vector<std::array<double,2>>* direct_arcs=nullptr) {
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->rootpair_calls;
     V2ProfileTimer rootpair_timer(&V2Profile::rootpair_ms);
@@ -568,7 +655,11 @@ inline std::vector<double> real_root_thetas_transport(
     // detect (it would keep tracking its old pair count and silently drop the
     // new arc, e.g. the HOLO_MV_TRANSPORT x L2 mu ~ 2e-3 on extreme-q-planet).
     // Fall closed: the cold solve below re-seeds with the full root set.
-    const int disc_now = transport_disc_sign(pc);
+    // A square-free certified quartic count already gives the discriminant
+    // sign: two real roots -> negative, zero/four -> positive. Reuse it
+    // instead of evaluating a second, cancellation-prone topology screen.
+    const int disc_now = certified_real_count==2 ? -1 :
+        ((certified_real_count==0 || certified_real_count==4) ? 1 : transport_disc_sign(pc));
     if (w.valid && !w.pairs.empty() && w.disc_sign != 0 && disc_now != 0 &&
         disc_now != w.disc_sign) {
         if (prof) ++prof->rootpair_disc_mismatch;
@@ -576,6 +667,17 @@ inline std::vector<double> real_root_thetas_transport(
         ++w.cold_streak;
         ++w.trips;
     }
+    const auto transport_pc=w.reciprocal?boundary_quartic_reciprocal(QuarticCoeffs{pc}).p:pc;
+    if(w.reciprocal && transport_pc[4]==0.0)w.valid=false;
+    auto theta_from_coordinate=[&](double t) {
+        double theta=(w.reciprocal?0.5*kTwoPi:0.0)+2.0*std::atan(t);
+        if(theta<0)theta+=kTwoPi;
+        return theta;
+    };
+    auto radial_coeff=[&](bool reciprocal) {
+        const auto derivative=boundary_quartic_dR(R,pf);
+        return reciprocal?boundary_quartic_reciprocal(derivative).p:derivative.p;
+    };
     if (w.valid && !w.pairs.empty()) {
         const double dR = R - w.R_prev;
         RootPairSet next = w.pairs;
@@ -608,31 +710,12 @@ inline std::vector<double> real_root_thetas_transport(
                     ++prof->rootpair_tmax_reject;
             }
             // corrector: Newton on (E, O) = 0 at the new node
-            bool conv = false;
-            double det_lo = std::numeric_limits<double>::infinity();
-            double detsc_lo = std::numeric_limits<double>::infinity();
-            for (int it = 0; it < kTransportNewton; ++it) {
-                if (prof) ++prof->rootpair_newton_iterations;
-                const EO f = eo_residuals(rp, pc);
-                const EOJac J = eo_jacobian(rp, pc);
-                const double det = J.E_m * J.O_v - J.E_v * J.O_m;
-                if (dbg && std::fabs(det) < det_lo) {
-                    det_lo = std::fabs(det);
-                    detsc_lo = (std::fabs(J.E_m) + std::fabs(J.E_v)) *
-                               (std::fabs(J.O_m) + std::fabs(J.O_v));
-                }
-                if (!(std::fabs(det) > 0.0) || !std::isfinite(det)) break;
-                const double dm = -(J.O_v * f.E - J.E_v * f.O) / det;
-                const double dv = -(J.E_m * f.O - J.O_m * f.E) / det;
-                rp.m += dm;
-                rp.v += dv;
-                const double sc =
-                    std::fabs(rp.m) + std::sqrt(std::fabs(rp.v)) + 1.0;
-                if (std::fabs(dm) + std::fabs(dv) <= kTransportStepTol * sc) {
-                    conv = true;
-                    break;
-                }
-            }
+            const auto correction = correct_root_pair(
+                rp, transport_pc, kTransportNewton, kTransportStepTol, dbg);
+            const bool conv = correction.converged;
+            const double det_lo = correction.min_det;
+            const double detsc_lo = correction.det_scale;
+            if (prof) prof->rootpair_newton_iterations += correction.iterations;
             if(prof && rp.v<=0.0)++prof->rootpair_corrected_nonpositive;
             if(prof && rp.v>0.0 && rp.v<=kTransportVFloor)++prof->rootpair_corrected_tiny_positive;
             if (dbg) {
@@ -650,7 +733,7 @@ inline std::vector<double> real_root_thetas_transport(
                rp.v>0.0 && rp.v<=kTransportVFloor) {
                 ++prof->rootpair_tiny_eligible;
                 std::array<double,4> endpoints{rp.t_minus(),rp.t_plus(),0,0};
-                if(local_bracket_detail::certify(pc,endpoints,2))
+                if(local_bracket_detail::certify(transport_pc,endpoints,2))
                     ++prof->rootpair_tiny_bracket_pass;
             }
 #endif
@@ -670,12 +753,33 @@ inline std::vector<double> real_root_thetas_transport(
         // family of real inside arcs (rejects a corrector basin-flip whose
         // (E, O) residual is tiny but which tracks the wrong arc / an
         // outside gap).
-        if (ok && transport_pairs_valid(next, w.pairs.size(), pc, R, pf)) {
+        if (ok && transport_pairs_valid(next, w.pairs.size(), transport_pc, R, pf,w.reciprocal)) {
+#ifndef HOLO_QUARTIC_LEGACY_ARCS
+            if(direct_arcs && !w.certify && certified_real_count==int(2*next.size())) {
+                std::array<double,4> theta{};std::array<std::array<double,2>,2> arcs{};int n=0;
+                for(const auto& pair:next) {
+                    double lo=theta_from_coordinate(pair.t_minus());
+                    double hi=theta_from_coordinate(pair.t_plus());
+                    if(lo<0)lo+=kTwoPi;if(hi<0)hi+=kTwoPi;
+                    theta[n*2]=lo;theta[n*2+1]=hi;
+                    if(hi<=lo)hi+=kTwoPi;arcs[n++]={lo,hi};
+                }
+                auto sorted=theta;std::sort(sorted.begin(),sorted.begin()+2*n);
+                bool separated=true;for(int i=1;i<2*n;++i)if(sorted[i]-sorted[i-1]<=1e-11)separated=false;
+                if(separated) {
+                    std::sort(arcs.begin(),arcs.begin()+n,[](const auto&a,const auto&b){return a[0]<b[0];});
+                    direct_arcs->assign(arcs.begin(),arcs.begin()+n);
+                    w.pairs=next;w.pc_prev=transport_pc;w.pcR_prev=radial_coeff(w.reciprocal);w.R_prev=R;
+                    ++w.warm_hits;if(prof){++prof->rootpair_warm_success;++prof->arc_sets;prof->arc_count+=n;}
+                    return {};
+                }
+            }
+#endif
             std::vector<double> out;
             out.reserve(next.size() * 2);
             for (const auto& rp : next)
                 for (double t : {rp.t_minus(), rp.t_plus()}) {
-                    double th = std::fmod(2.0 * std::atan(t), kTwoPi);
+                    double th = theta_from_coordinate(t);
                     if (th < 0.0) th += kTwoPi;
                     out.push_back(th);
                 }
@@ -711,7 +815,7 @@ inline std::vector<double> real_root_thetas_transport(
                         std::array<double,4> tracked{};int count=0;
                         for(const auto& pair:next){tracked[count++]=pair.t_minus();tracked[count++]=pair.t_plus();}
                         std::sort(tracked.begin(),tracked.begin()+count);
-                        local_certified=local_bracket_detail::certify(pc,tracked,count);
+                        local_certified=local_bracket_detail::certify(transport_pc,tracked,count);
                         if(prof&&local_certified)++prof->local_bracket_successes;
 #endif
                         if(!local_certified){
@@ -735,8 +839,8 @@ inline std::vector<double> real_root_thetas_transport(
                 }
                 if (cert_ok) {
                     w.pairs = next;
-                    w.pc_prev = pc;
-                    w.pcR_prev = boundary_quartic_dR(R, pf).p;
+                    w.pc_prev = transport_pc;
+                    w.pcR_prev = radial_coeff(w.reciprocal);
                     w.R_prev = R;
                     ++w.warm_hits;
                     if (prof) ++prof->rootpair_warm_success;
@@ -755,6 +859,7 @@ inline std::vector<double> real_root_thetas_transport(
         ++w.trips;
     }
 
+    V2ProfileTimer pair_cold_timer(&V2Profile::pair_cold_ms);
     // ---- cold solve + (re)seed ----------------------------------------
     // Delegate to the warm Aberth quartic (QuarticWarm) rather than a bare
     // cold solve.  A warm continuation solver stays in the right basin under
@@ -772,7 +877,8 @@ inline std::vector<double> real_root_thetas_transport(
     std::vector<double> th;
     Cplx<double> zbuf[4];
     if (qw) {
-        th = real_root_thetas_warm(pc, *qw);
+
+        th = real_root_thetas_warm(pc, *qw,certified_real_count);
         for (int i = 0; i < deg && i < 4; ++i) zbuf[i] = qw->z[i];
     } else {
         auto z = aberth<double>(c, deg, 40);
@@ -794,9 +900,9 @@ inline std::vector<double> real_root_thetas_transport(
     bool seeded = false;
     if (!holo_mv_noseed() && !tr.empty() && tr.size() % 2 == 0 &&
         tr.size() == th.size()) {
-        // inside arcs are the non-wrapping "even" gaps (t0,t1),(t2,t3),...
-        // iff phi > 0 at the (t0,t1) t-midpoint; the "odd" set owns the
-        // theta = pi (t = +-inf) arc, which (m, v) cannot represent.
+        // Try the bounded even gaps in the direct chart first. If an
+        // inside arc crosses theta=pi, the u=-1/t chart can track it
+        // without an infinite endpoint. Both choices retain all gates.
         RootPairSet cand;
         bool capacity_ok = true;
         for (size_t i = 0; i + 1 < tr.size(); i += 2)
@@ -805,16 +911,30 @@ inline std::vector<double> real_root_thetas_transport(
         // Accept the seed only if EVERY candidate arc is a real inside arc
         // (phi > 0 at its t-midpoint) and the family is ascending / non-
         // overlapping -- same predicate the warm step must keep satisfying.
-        if (capacity_ok && transport_pairs_valid(cand, cand.size(), pc, R, pf)) {
-            w.pairs = cand;
-            w.pc_prev = pc;
-            w.pcR_prev = boundary_quartic_dR(R, pf).p;
-            w.R_prev = R;
-            w.disc_sign = disc_now;
-            w.valid = true;
-            w.cold_streak = 0;
-            seeded = true;
+        auto accept_seed=[&](const RootPairSet& pairs,const std::array<double,5>& chart,bool reciprocal) {
+            if(!transport_pairs_valid(pairs,pairs.size(),chart,R,pf,reciprocal))return false;
+            w.pairs=pairs;w.pc_prev=chart;w.pcR_prev=radial_coeff(reciprocal);
+            w.R_prev=R;w.disc_sign=disc_now;w.valid=true;
+            w.reciprocal=reciprocal;w.cold_streak=0;
+            return true;
+        };
+        if(capacity_ok)seeded=accept_seed(cand,pc,false);
+#ifndef HOLO_MV_DIRECT_CHART_ONLY
+        if(!seeded) {
+            std::array<double,4> ur{};bool finite=true;
+            for(std::size_t i=0;i<tr.size();++i) {
+                ur[i]=-1.0/tr[i];if(!std::isfinite(ur[i]))finite=false;
+            }
+            if(finite) {
+                std::sort(ur.begin(),ur.begin()+tr.size());
+                RootPairSet reciprocal_pairs;bool capacity=true;
+                for(std::size_t i=0;i+1<tr.size();i+=2)
+                    capacity=reciprocal_pairs.push_back(root_pair_from_endpoints(ur[i],ur[i+1])) && capacity;
+                const auto chart=boundary_quartic_reciprocal(QuarticCoeffs{pc}).p;
+                if(capacity && chart[4]!=0.0)seeded=accept_seed(reciprocal_pairs,chart,true);
+            }
         }
+#endif
     }
     if (!seeded) {
         w.valid = false;
@@ -835,8 +955,9 @@ struct ArcSet {
 // so the chart switch cannot alter the interval convention.  The fixed-grid
 // sampler remains a diagnostic API and is deliberately absent here.
 inline ArcSet arc_set_from_root_thetas(double R, const PrimaryFrame& pf,
-                                       const std::vector<double>& th) {
+                                       const std::vector<double>& th,bool certified_simple=false) {
     V2Profile* prof = v2_profile_current();
+    V2ProfileTimer assembly_timer(&V2Profile::arc_assembly_ms);
     if (th.empty()) {
         const double ph0 = phi_lens(R, 0.0, pf);
         if (!std::isfinite(ph0) || ph0 == 0.0) {
@@ -859,12 +980,29 @@ inline ArcSet arc_set_from_root_thetas(double R, const PrimaryFrame& pf,
     out.arcs.reserve(th.size()/2);
 #endif
     const int n = static_cast<int>(th.size());
+    int reference=0;double reference_width=-1,reference_phi=0;
+    if(certified_simple) {
+        // A complete simple root set changes sign at every boundary. Check
+        // the widest gap once; derive the remaining signs by alternation.
+        for(int i=0;i<n;++i) {
+            double hi=th[(i+1)%n];if(hi<=th[i])hi+=kTwoPi;
+            if(hi-th[i]>reference_width){reference_width=hi-th[i];reference=i;}
+        }
+        double hi=th[(reference+1)%n];if(hi<=th[reference])hi+=kTwoPi;
+        reference_phi=phi_lens(R,.5*(th[reference]+hi),pf);
+        if(!std::isfinite(reference_phi) || reference_phi==0)certified_simple=false;
+    }
     for (int i = 0; i < n; ++i) {
         const double lo = th[i];
         double hi = th[(i + 1) % n];
         if (hi <= lo) hi += kTwoPi;
-        if (phi_lens(R, 0.5 * (lo + hi), pf) > 0.0)
-            out.arcs.push_back({lo, hi});
+        const bool inside=certified_simple
+            ? (((i-reference)&1)?reference_phi<0:reference_phi>0)
+            : phi_lens(R,0.5*(lo+hi),pf)>0;
+#ifdef HOLO_ARC_SIGN_AUDIT
+        if(certified_simple && inside!=(phi_lens(R,0.5*(lo+hi),pf)>0))std::abort();
+#endif
+        if(inside)out.arcs.push_back({lo,hi});
     }
     if (prof) {
         ++prof->arc_sets;
@@ -967,11 +1105,13 @@ inline GridArcs arcs_at(double R, const PrimaryFrame& pf, int n_grid = 3072) {
 inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
                             QuarticWarm* w = nullptr,
                             RootPairWarm* rpw = nullptr,
-                            QuarticCoeffs* out_pc = nullptr) {
+                            QuarticCoeffs* out_pc = nullptr,
+                            const QuarticCoeffs* prepared_pc = nullptr,
+                            int certified_real_count=-1) {
     V2Profile* prof = v2_profile_current();
     if (prof) ++prof->arc_interval_calls;
     V2ProfileTimer arc_timer(&V2Profile::arc_ms);
-    QuarticCoeffs q = boundary_quartic(R, pf);
+    QuarticCoeffs q = prepared_pc ? *prepared_pc : boundary_quartic(R, pf);
     if (out_pc) *out_pc = q;
     double amax = 0.0;
     for (double c : q.p) amax = std::max(amax, std::fabs(c));
@@ -1000,12 +1140,31 @@ inline ArcSet arc_intervals(double R, const PrimaryFrame& pf,
         return {ArcKind::kDegenerate, {}};
     }
     const bool use_transport = rpw && holo_mv_transport_enabled() &&
-                               rpw->cold_streak < kColdStreak &&
-                               rpw->trips < kTransportMaxTrips;
-    auto th = use_transport ? real_root_thetas_transport(q.p, R, pf, *rpw, w)
-              : w           ? real_root_thetas_warm(q.p, *w)
-                            : real_root_thetas(q.p);
-    return arc_set_from_root_thetas(R, pf, th);
+        rpw->cold_streak < kColdStreak && rpw->trips < kTransportMaxTrips;
+    auto solve_untransported=[&] {
+        V2ProfileTimer timer(&V2Profile::arc_untransported_ms);
+        return w?real_root_thetas_warm(q.p,*w,certified_real_count):real_root_thetas(q.p);
+    };
+    ArcSet direct{ArcKind::kArcs,{}};
+    auto th = use_transport ? real_root_thetas_transport(q.p, R, pf, *rpw, w,certified_real_count,&direct.arcs)
+              : solve_untransported();
+    if(!direct.arcs.empty()) {
+#ifdef HOLO_TRANSPORT_DIRECT_AUDIT
+        std::vector<double> theta;
+        for(const auto& pair:rpw->pairs)for(double t:{pair.t_minus(),pair.t_plus()}) {
+            double h=(rpw->reciprocal?0.5*kTwoPi:0.0)+2*std::atan(t);if(h<0)h+=kTwoPi;theta.push_back(h);
+        }
+        std::sort(theta.begin(),theta.end());
+        const auto legacy=arc_set_from_root_thetas(R,pf,theta,true);
+        if(legacy.kind!=direct.kind || legacy.arcs!=direct.arcs)std::abort();
+#endif
+        return direct;
+    }
+    #ifdef HOLO_DISABLE_ARC_SIGN_REUSE
+    return arc_set_from_root_thetas(R,pf,th);
+#else
+    return arc_set_from_root_thetas(R,pf,th,certified_real_count==static_cast<int>(th.size()));
+#endif
 }
 
 // Certified cell-topology probe.  The fixed angular sampler above is kept for

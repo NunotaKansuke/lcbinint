@@ -4,6 +4,9 @@
 #include "atlas_near_fold.hpp"
 #include <cstdlib>
 #include <type_traits>
+#include <optional>
+#include <cstdio>
+#include "lcbinint/magnification/holonomic/quartic_fast_count.hpp"
 
 namespace lcbinint::holonomic::adaptive_detail {
 inline bool topology_event_reuse_enabled() {
@@ -38,6 +41,8 @@ struct EventLocation {
     EventDecisionReason qf_reason=EventDecisionReason::NotAttempted;
     double double_residual=std::numeric_limits<double>::infinity();
     double dd_residual=std::numeric_limits<double>::infinity();
+    double pair_m=0,pair_dm=0,pair_dv=0;
+    bool pair_motion_valid=false,pair_reciprocal=false;
 };
 
 enum class ProjectiveFoldReject {
@@ -285,16 +290,9 @@ inline bool event_finite(T x) {
 template <class T>
 inline LocalFoldQuantities<T> reciprocal_local_fold_quantities(
     T R, T u, const PrimaryFrame& pf) {
-    const T t = -T(1.0) / u;
-    const auto g = local_fold_quantities<T>(R, t, pf);
-    const T u2 = u * u, u3 = u2 * u, u4 = u2 * u2;
-    LocalFoldQuantities<T> out;
-    out.P = u4 * g.P;
-    out.Pt = T(4.0) * u3 * g.P + u2 * g.Pt;
-    out.PR = u4 * g.PR;
-    out.Ptt = T(12.0) * u2 * g.P + T(6.0) * u * g.Pt + g.Ptt;
-    out.Ptr = T(4.0) * u3 * g.PR + u2 * g.Ptr;
-    return out;
+    // Evaluate the homogeneous reversed polynomial directly. In particular
+    // u=0 (theta=pi) is finite; reconstructing t=-1/u loses that contact.
+    return local_fold_quantities<T>(R,u,pf,true);
 }
 
 // Newton on the exact local system P(R,t)=P_t(R,t)=0.  The equations are
@@ -307,7 +305,8 @@ inline bool coupled_fold_newton(T& r, T& t, const PrimaryFrame& pf,
                                 int max_iter, double step_tol,
                                 double residual_tol, int* iterations = nullptr,
                                 double* residual_out = nullptr,
-                                double* last_step_out = nullptr) {
+                                double* last_step_out = nullptr,
+                                LocalFoldQuantities<T>* final_out = nullptr) {
     double last_step = std::numeric_limits<double>::infinity();
     bool step_converged = false;
     int used = 0;
@@ -347,6 +346,8 @@ inline bool coupled_fold_newton(T& r, T& t, const PrimaryFrame& pf,
         else
             return local_fold_quantities<T>(r, t, pf);
     }();
+    // The acceptance caller may reuse this same final jet.
+    if(final_out)*final_out=final;
     const double pscale = 1.0 + event_abs(final.P) + event_abs(final.PR) *
                                     (1.0 + event_abs(r));
     const double tscale = 1.0 + event_abs(final.Pt) + event_abs(final.Ptt) *
@@ -384,14 +385,26 @@ inline void store_refined_radius(EventLocation& out, T r, double last_step,
     out.needs_qf = tier < 2;
     out.qf_refined = tier >= 2;
 }
-inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,double value_budget) {
+inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,double value_budget,
+                                           bool coordinate_only=false) {
     const auto q=boundary_quartic(R,pf);
-    const auto qr=boundary_quartic_dR(R,pf);
+    const auto qr=coordinate_only?QuarticCoeffs{}:boundary_quartic_dR(R,pf);
     // boundary_quartic stores ascending coefficients; Aberth consumes
     // descending coefficients.  Passing q.p directly here solved the
     // reciprocal polynomial and could select a spurious huge stationary root.
     double qdesc[5]={q.p[4],q.p[3],q.p[2],q.p[1],q.p[0]};
-    auto roots=aberth<double>(qdesc,4,32);
+    std::vector<Cplx<double>> roots;
+#ifndef HOLO_FRONTIER_LEGACY_EVENT_SEED
+    if(coordinate_only) {
+        const auto certificate=certify_quartic(q.p);
+        if(certificate.certified && (certificate.root_count==2 || certificate.root_count==4)) {
+            QuarticWarm warm;
+            (void)real_root_thetas_warm(q.p,warm,certificate.root_count);
+            if(warm.valid && warm.deg==4)roots.assign(warm.z,warm.z+4);
+        }
+    }
+#endif
+    if(roots.empty())roots=aberth<double>(qdesc,4,32);
     EventLocation best;
     best.radius = R;
     best.double_reason = EventDecisionReason::NoRealCandidate;
@@ -401,9 +414,9 @@ inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,doubl
         double ap=0,at=0,ar=0,att=0,pow=1,dpow=1;
         for(int k=0;k<5;++k) {
             ap+=std::fabs(q.p[k])*pow;
-            ar+=std::fabs(qr.p[k])*pow;
+            if(!coordinate_only)ar+=std::fabs(qr.p[k])*pow;
             if(k>0)at+=k*std::fabs(q.p[k])*dpow;
-            if(k>1)att+=k*(k-1)*std::fabs(q.p[k])*((k==2)?1:std::pow(std::fabs(t),k-2));
+            if(!coordinate_only && k>1)att+=k*(k-1)*std::fabs(q.p[k])*((k==2)?1:std::pow(std::fabs(t),k-2));
             pow*=std::fabs(t);
             if(k>0)dpow*=std::fabs(t);
         }
@@ -416,6 +429,7 @@ inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,doubl
         best.t_seed=t;
         best.t_seed_valid=std::isfinite(t);
         best.double_residual=res;
+        if(coordinate_only)return;
         const double ulp=std::fabs(std::nextafter(R,std::numeric_limits<double>::infinity())-R);
         const double radius_shift=std::fabs(PR)>64*eps*ar?std::fabs(P)/std::fabs(PR):std::numeric_limits<double>::infinity();
         best.uncertainty=std::max(ulp,radius_shift);
@@ -459,6 +473,9 @@ inline EventLocation double_event_estimate(double R,const PrimaryFrame& pf,doubl
         if(deg>0)for(const auto& z:aberth<double>(dc,deg,32))
             if(std::fabs(z.im)<=1e-7*(1+std::fabs(z.re)))consider(z.re);
     }
+    // Coordinate-only callers discard the precision ledger and refine their
+    // own physical event. The DD ledger pass never changes t_seed.
+    if(coordinate_only)return best;
     if(std::isfinite(best_res)&&best.needs_qf) {
         DD rr(R), tt(best_t);
         int dd_iterations=0;
@@ -554,13 +571,26 @@ inline EventLocation refine_event(double R, double radius_lo, double t_seed,
     return best;
 }
 
+// Retain the final fold jet's local pair motion rather than rebuilding
+// the boundary polynomials when the first quadrature node needs a seed.
+template<class T>
+inline void retain_fold_pair_motion(EventLocation& out,double m,const LocalFoldQuantities<T>& g,bool reciprocal) {
+    const double pt=(double)g.Pt,pr=(double)g.PR,ptt=(double)g.Ptt,ptr=(double)g.Ptr,ov=(double)g.Psss/6;
+    const double ev=ptt/2,det=pt*ov-ev*ptt;
+    if(det==0 || !std::isfinite(det))return;
+    out.pair_m=m;out.pair_dm=-(ov*pr-ev*ptr)/det;
+    out.pair_dv=-(-ptt*pr+pt*ptr)/det;
+    out.pair_reciprocal=reciprocal;
+    out.pair_motion_valid=std::isfinite(out.pair_dm)&&std::isfinite(out.pair_dv)&&std::isfinite(m);
+}
+
 // Consume the qf D14 radius and the stationary-root seed retained by
 // radial_events().  The first local correction is DD; qf is entered only if
 // the DD coupled solve cannot certify the event.  This is the cheap path that
 // removes the duplicate quartic/cubic search in adaptive setup.
 inline EventLocation topology_event_estimate(const RadialEvent& event,
                                              const PrimaryFrame& pf,
-                                             double value_budget) {
+                                             double value_budget,bool retain_pair_motion=false) {
     EventLocation out;
     if(event.projective_fold_certified && event.fold_u_seed_valid) {
         out.radius=event.radius;
@@ -574,6 +604,56 @@ inline EventLocation topology_event_estimate(const RadialEvent& event,
         out.qf_refined=true;
         out.double_reason=EventDecisionReason::TopologySeedReused;
         out.qf_reason=EventDecisionReason::NotAttempted;
+        return out;
+    }
+    // Seeded topology can retain a finite reciprocal stationary coordinate
+    // without a D14 anchor. Reuse the existing local coupled fold solve.
+    if(event.fold_u_seed_valid && std::isfinite(event.fold_u_seed)) {
+#ifndef HOLO_RECIPROCAL_EVENT_QF_ONLY
+        // Use the same DD acceptance contract as the ordinary t chart.
+        // A reciprocal seed does not by itself require software quad precision.
+        DD rd=DD(event.radius)+DD(event.radius_lo), ud(event.fold_u_seed);
+        double dd_residual=std::numeric_limits<double>::infinity();
+        double dd_last_step=std::numeric_limits<double>::infinity();
+        LocalFoldQuantities<DD> f;
+        const bool dd_ok=coupled_fold_newton<DD,true>(rd,ud,pf,8,1e-24,1e-14,
+                                                     nullptr,&dd_residual,&dd_last_step,&f);
+        const double radius_res=event_abs(f.P)/std::max(event_abs(f.PR),64.0*eps);
+        const double ulp=std::fabs(std::nextafter(event.radius,
+            std::numeric_limits<double>::infinity())-event.radius);
+        const double anchor_budget=std::min(256.0*ulp,
+            0.05*value_budget*std::max(1.0,std::fabs(event.radius)));
+        const bool derivative_ok=event_abs(f.PR)>64.0*eps*std::max(1.0,event_abs(f.P));
+        const double uncertainty=std::max(ulp,std::fabs(event.radius_lo)+radius_res);
+        if(dd_ok && derivative_ok && uncertainty<=anchor_budget) {
+            store_refined_radius(out,rd,dd_last_step,1);
+            if(retain_pair_motion)retain_fold_pair_motion(out,(double)ud,f,true);
+            out.uncertainty=std::max(out.uncertainty,radius_res);
+            out.u_seed=static_cast<double>(ud);out.u_seed_valid=true;
+            out.seed_reciprocal=true;out.needs_qf=false;out.qf_refined=false;
+            out.double_reason=EventDecisionReason::TopologySeedReused;
+            out.dd_reason=EventDecisionReason::DDAccepted;
+            out.dd_residual=dd_residual;
+            out.qf_reason=EventDecisionReason::NotAttempted;
+            return out;
+        }
+#endif
+        using Q=__float128;
+        Q r=(Q)event.radius+(Q)event.radius_lo, u=(Q)event.fold_u_seed;
+        double residual=0,last_step=0;
+        const bool ok=coupled_fold_newton<Q,true>(r,u,pf,20,1e-28,1e-24,
+                                                 nullptr,&residual,&last_step);
+        out.radius=event.radius;out.radius_lo=event.radius_lo;
+        out.u_seed=static_cast<double>(u);out.u_seed_valid=ok;
+        out.seed_reciprocal=true;out.needs_qf=!ok;out.qf_refined=ok;
+        out.qf_reason=ok?EventDecisionReason::QfRefined:EventDecisionReason::QfFailed;
+        out.double_reason=EventDecisionReason::TopologySeedReused;
+        if(ok) {
+            store_refined_radius(out,r,last_step,2);
+            const auto f=reciprocal_local_fold_quantities<Q>(r,u,pf);
+            out.uncertainty=std::max(out.uncertainty,event_abs(f.P)/
+                std::max(event_abs(f.PR),64.0*(double)FLT128_EPSILON));
+        }
         return out;
     }
     if(event.atlas_anchor){
@@ -610,10 +690,10 @@ inline EventLocation topology_event_estimate(const RadialEvent& event,
     int iterations = 0;
     double residual = std::numeric_limits<double>::infinity();
     double last_step = std::numeric_limits<double>::infinity();
+    LocalFoldQuantities<DD> dd_final;
     const bool dd_ok = coupled_fold_newton(
-        r, t, pf, 8, 1e-24, 1e-14, &iterations, &residual, &last_step);
+        r, t, pf, 8, 1e-24, 1e-14, &iterations, &residual, &last_step,&dd_final);
     out.dd_residual = residual;
-    const auto dd_final = local_fold_quantities<DD>(r, t, pf);
     const double radius_res = event_abs(dd_final.P) /
         std::max(event_abs(dd_final.PR), 64.0 * eps);
     const double ulp = std::fabs(std::nextafter(
@@ -627,6 +707,7 @@ inline EventLocation topology_event_estimate(const RadialEvent& event,
         ulp, std::fabs(event.radius_lo) + radius_res});
     if (dd_ok && derivative_ok && uncertainty <= anchor_budget) {
         store_refined_radius(out, r, last_step, 1);
+        if(retain_pair_motion)retain_fold_pair_motion(out,(double)t,dd_final,false);
         out.needs_qf = false;
         out.qf_refined = false;
         out.dd_reason = EventDecisionReason::DDAccepted;
@@ -955,8 +1036,15 @@ inline std::vector<double> adaptive_sturm_thetas(
 
 inline ArcSet adaptive_arc_intervals(
     double R,const PrimaryFrame& pf,QuarticWarm* qw,RootPairWarm* rpw,
-    QuarticCoeffs* out_pc,int expected_crossings) {
-    ArcSet arcs=arc_intervals(R,pf,qw,rpw,out_pc);
+    QuarticCoeffs* out_pc,int expected_crossings,
+    const QuarticCoeffs* prepared_pc=nullptr) {
+    #ifdef HOLO_DISABLE_COUNT_REUSE
+    ArcSet arcs=arc_intervals(R,pf,qw,rpw,out_pc,prepared_pc);
+#else
+    // prepared_pc originates from this node's square-free Sturm certificate.
+    ArcSet arcs=arc_intervals(R,pf,qw,rpw,out_pc,prepared_pc,
+        prepared_pc?expected_crossings:-1);
+#endif
     const bool mismatch = arcs.kind==ArcKind::kDegenerate ||
         (expected_crossings>0 && arcs.kind!=ArcKind::kArcs) ||
         (arcs.kind==ArcKind::kArcs &&
@@ -976,24 +1064,31 @@ inline ArcSet adaptive_arc_intervals(
 
 // Reuses V2 arc/root continuation, endpoint IFT and vK. The adapter carries
 // numerical estimates separately from the radial interpolation detail.
+template <bool PlainValue=false, bool Uniform=false>
 inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
-    double u,const PrimaryFrame& pf,const CellPlan& cell,bool with_jac,
+    double input_u,const PrimaryFrame& pf,const CellPlan& cell,bool input_with_jac,
     bool warm,const AdaptiveSample* seed,
     const AdaptiveConfig* adaptive_cfg=nullptr,double radius_lo=0,
     bool request_radial_hermite_jet=false,
-    AdaptiveHermiteJet* hermite_jet_out=nullptr) {
+    AdaptiveHermiteJet* hermite_jet_out=nullptr,
+    const QuarticCoeffs* prepared_pc=nullptr) {
+    const bool with_jac=PlainValue?false:input_with_jac;
+    const double u=Uniform?0.0:input_u;
+#ifdef HOLO_FRONTIER_COST_PROFILE
+    const auto mapped_header_start=V2Clock::now();
+#endif
     AdaptiveSample out;
     out.jac=jac;
     if(hermite_jet_out)*hermite_jet_out=AdaptiveHermiteJet{};
-    const bool request_jet=request_radial_hermite_jet && hermite_jet_out && adaptive_cfg &&
+    const bool request_jet=!PlainValue && request_radial_hermite_jet && hermite_jet_out && adaptive_cfg &&
         adaptive_cfg->same_node_hermite_shadow && !with_jac && u==0.0;
-    const bool angular_research_requested=adaptive_cfg &&
+    const bool angular_research_requested=!PlainValue && adaptive_cfg &&
         adaptive_cfg->angular_adaptive && u!=0.0;
     // Gradient-adaptive mode starts from the incumbent 8/16 K-rule result.
     // It only enters the higher-order research path when the scheduler asks
     // to upgrade this exact cached sample.  This keeps the common initial
     // sample cost unchanged while still allowing a same-R angular correction.
-    const bool angular_deferred_requested=adaptive_cfg &&
+    const bool angular_deferred_requested=!PlainValue && adaptive_cfg &&
         adaptive_cfg->gradient_adaptive &&
         adaptive_cfg->effective_gradient_policy()!=GradientPolicy::None &&
         u!=0.0;
@@ -1002,9 +1097,16 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     const bool angular_nested_requested=angular_mode_requested &&
         adaptive_cfg->angular_nested;
     bool nested_angular_attempted=false;
-    if(!with_jac && !angular_mode_requested &&
+    if(!PlainValue && !with_jac && !angular_mode_requested &&
        atlas_detail::try_pair_sample(R,radius_lo,jac,p,u,pf,cell,out))return out;
+    // Without atlas hooks or angular upgrades the entry state is pristine:
+    // its default construction already cleared all sample fields.
+#ifdef HOLO_ADAPTIVE_LEGACY_SAMPLE_INIT
     out=AdaptiveSample{};
+#else
+    if(with_jac || (!PlainValue && active_atlas_samples) || angular_mode_requested)
+        out=AdaptiveSample{};
+#endif
     out.jac=jac;
     out.angular_nested_attempted=nested_angular_attempted;
     // Preserve the same atlas-contact guard for a same-node angular upgrade
@@ -1072,9 +1174,9 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                 nested_angular_attempted=true;
                 if(with_jac) {
                     const auto nr=v_times_K_nested_jac(
-                        seed->angular_m,seed->angular_v,seed->angular_dm,
-                        seed->angular_dv,R,pf,seed->angular_pc,
-                        seed->angular_dpc,seed->angular_order,*nested_cache,
+                        seed->angular_m,seed->angular_v,seed->angular_data().dm,
+                        seed->angular_data().dv,R,pf,seed->angular_data().pc,
+                        seed->angular_data().dpc,seed->angular_order,*nested_cache,
                         seed->angular_reciprocal,next);
                     ok=nr.ok;
                     if(ok)for(int j=0;j<5;++j)high_derivative[j]=nr.high.dvK[j];
@@ -1084,7 +1186,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                     }
                 } else {
                     const auto nr=v_times_K_nested_value(
-                        seed->angular_m,seed->angular_v,R,pf,seed->angular_pc,
+                        seed->angular_m,seed->angular_v,R,pf,seed->angular_data().pc,
                         seed->angular_order,*nested_cache,
                         seed->angular_reciprocal,next);
                     ok=nr.ok;
@@ -1095,13 +1197,13 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                 }
             } else if(ok && with_jac) {
                 jh=v_times_K_jac_order(seed->angular_m,seed->angular_v,
-                    seed->angular_dm,seed->angular_dv,R,pf,seed->angular_pc,
-                    seed->angular_dpc,seed->angular_reciprocal,next);
+                    seed->angular_data().dm,seed->angular_data().dv,R,pf,seed->angular_data().pc,
+                    seed->angular_data().dpc,seed->angular_reciprocal,next);
                 ok=jh.ok;
                 if(ok)for(int j=0;j<5;++j)high_derivative[j]=jh.dvK[j];
             } else if(ok) {
                 vh=v_times_K_order(seed->angular_m,seed->angular_v,R,pf,
-                    seed->angular_pc,seed->angular_reciprocal,next);
+                    seed->angular_data().pc,seed->angular_reciprocal,next);
                 ok=vh.ok;
             }
             if(ok) {
@@ -1110,16 +1212,16 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                     ? (nested_cache->aggregate[0])
                     : (with_jac?jh.vK:vh.vK);
                 const double delta_value=scale*u*(high0-
-                    seed->angular_result[0]);
+                    seed->angular_data().result[0]);
                 fast.value[0]+=delta_value;
                 fast.inner[0]=std::fabs(scale*u)*
-                    std::fabs(high0-seed->angular_result[0]);
+                    std::fabs(high0-seed->angular_data().result[0]);
                 fast.roundoff[0]+=eps*std::fabs(delta_value);
                 if(with_jac) {
                     std::array<double,5> delta_internal{},mapped_abs{};
                     for(int j=0;j<5;++j)
                         delta_internal[j]=high_derivative[j]*jac-
-                            seed->angular_result[j+1];
+                            seed->angular_data().result[j+1];
                     mapped_abs=abs_map(delta_internal);
                     const auto mapped=internal_to_user_jac(delta_internal,p);
                     for(int j=0;j<5;++j) {
@@ -1143,16 +1245,16 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                     std::isfinite(fast.inner[0])&&
                     std::isfinite(fast.roundoff[0]);
                 if(ok) {
-                    fast.angular_result.fill(0.0);
-                    fast.angular_result[0]=high0;
-                    fast.angular_error.fill(0.0);
-                    fast.angular_error[0]=std::fabs(high0-
-                        seed->angular_result[0]);
+                    fast.angular_data().result.fill(0.0);
+                    fast.angular_data().result[0]=high0;
+                    fast.angular_data().error.fill(0.0);
+                    fast.angular_data().error[0]=std::fabs(high0-
+                        seed->angular_data().result[0]);
                     if(with_jac)for(int j=0;j<5;++j) {
-                        fast.angular_result[j+1]=high_derivative[j]*jac;
-                        fast.angular_error[j+1]=std::fabs(
-                            fast.angular_result[j+1]-
-                            seed->angular_result[j+1]);
+                        fast.angular_data().result[j+1]=high_derivative[j]*jac;
+                        fast.angular_data().error[j+1]=std::fabs(
+                            fast.angular_data().result[j+1]-
+                            seed->angular_data().result[j+1]);
                     }
                     fast.angular_order=next;
                     fast.angular_work=angular_nested_requested
@@ -1176,12 +1278,19 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
         }
     }
 #endif
+    // Without atlas hooks or angular upgrades the entry state is pristine:
+    // its default construction already cleared all sample fields.
+#ifdef HOLO_ADAPTIVE_LEGACY_SAMPLE_INIT
     out=AdaptiveSample{};
+#else
+    if(with_jac || (!PlainValue && active_atlas_samples) || angular_mode_requested)
+        out=AdaptiveSample{};
+#endif
     out.jac=jac;
     out.angular_nested_attempted=nested_angular_attempted;
     // If rounding the abscissa can change its side of an atlas fold, the
     // ordinary double endpoint path is not a substitute for the pair proof.
-    if(active_atlas_samples && active_atlas_samples->contacts){
+    if(!PlainValue && active_atlas_samples && active_atlas_samples->contacts){
         for(const auto& anchor:*active_atlas_samples->contacts){
             const __float128 r=(__float128)R;
             if(r>=anchor.R.lo-fabsq((__float128)radius_lo) &&
@@ -1199,44 +1308,102 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     // research path.  Its radial support is complete, but it deliberately
     // has no D14 interior-event partition, so topology is certified locally
     // at every adaptive node.
+#ifdef HOLO_FRONTIER_COST_PROFILE
+    v2_profile_add_ms(&V2Profile::mapped_header_ms,mapped_header_start,V2Clock::now());
+#endif
+    QuarticCoeffs node_pc{};
+    int node_crossings=cell.n_crossings;
+    ArcKind node_kind=cell.kind;
     if(cell.n_crossings<0) {
+#ifdef HOLO_FRONTIER_COST_PROFILE
+        const QuarticCoeffs pc=[&] {
+            V2ProfileTimer coeff_timer(&V2Profile::mapped_coeff_ms);
+            return boundary_quartic(R,pf);
+        }();
+#else
         const QuarticCoeffs pc=boundary_quartic(R,pf);
-        const QuarticSturmCertificate cert=certify_quartic(pc.p);
+#endif
+#ifdef HOLO_FRONTIER_COST_PROFILE
+        const QuarticSturmCertificate cert=[&] {
+            V2ProfileTimer timer(&V2Profile::dynamic_count_ms);
+            if constexpr(PlainValue) {
+                if(adaptive_cfg && adaptive_cfg->reuse_frontier_count_kernel) {
+                    QuarticSturmCertificate result;
+                    result.root_count=boundary_quartic_count(pc.p);
+                    result.certified=result.root_count>=0;
+                    return result;
+                }
+            }
+            return certify_quartic(pc.p);
+        }();
+#else
+        const QuarticSturmCertificate cert=[&] {
+            if constexpr(PlainValue) {
+                if(adaptive_cfg && adaptive_cfg->reuse_frontier_count_kernel) {
+                    QuarticSturmCertificate result;
+                    result.root_count=boundary_quartic_count(pc.p);
+                    result.certified=result.root_count>=0;
+                    return result;
+                }
+            }
+            return certify_quartic(pc.p);
+        }();
+#endif
         if(!cert.certified || cert.root_count<0 || (cert.root_count&1))
             return reject(AdaptiveSampleRejectReason::DegenerateChart);
         if(cert.root_count==0) {
             const double theta=0.371;
-            if(phi_val(R,theta,pf)>0.0)
-                return mapped_full_circle(R,jac,p,u,pf,with_jac,adaptive_cfg);
+            if(phi_val(R,theta,pf)>0.0) {
+                auto sample=mapped_full_circle(R,jac,p,u,pf,with_jac,adaptive_cfg);
+                sample.local_crossings=-2;return sample;
+            }
+            out.local_crossings=0;
             return out;
         }
         CellPlan local=cell;
         local.kind=ArcKind::kArcs;
         local.n_crossings=cert.root_count;
-        return mapped_radius(R,jac,p,u,pf,local,with_jac,warm,seed,
-                             adaptive_cfg,radius_lo,request_radial_hermite_jet,
-                             hermite_jet_out);
+        // Atlas and same-node angular upgrades have cell-dependent entry
+        // hooks; retain their existing dispatch. Ordinary frontier nodes can
+        // continue with the certified local cell without reinitializing a
+        // second sample or repeating the common entry checks.
+#ifdef HOLO_ADAPTIVE_LEGACY_NODE_DISPATCH
+        const bool retain_recursive_dispatch=true;
+#else
+        const bool retain_recursive_dispatch=(!PlainValue && active_atlas_samples) || angular_mode_requested;
+#endif
+        if(retain_recursive_dispatch) {
+            auto sample=mapped_radius<PlainValue,Uniform>(R,jac,p,u,pf,local,with_jac,warm,seed,
+                                 adaptive_cfg,radius_lo,request_radial_hermite_jet,
+                                 hermite_jet_out,&pc);
+            sample.local_crossings=cert.root_count;
+            return sample;
+        }
+        node_pc=pc;prepared_pc=&node_pc;
+        node_crossings=cert.root_count;node_kind=ArcKind::kArcs;
+        out.local_crossings=cert.root_count;
     }
     // D14/cell classification certifies that a full-circle cell has no
     // boundary crossing throughout its open radial interval.  Do not redo a
     // quartic solve at every Fejer node; the periodic integrand is smooth and
     // receives its own nested error estimate below.
-    if(cell.kind==ArcKind::kFull)
+    if(node_kind==ArcKind::kFull)
         return mapped_full_circle(R,jac,p,u,pf,with_jac,adaptive_cfg);
-    if(cell.kind==ArcKind::kEmpty)return out;
-    if(cell.kind==ArcKind::kDegenerate)
+    if(node_kind==ArcKind::kEmpty)return out;
+    if(node_kind==ArcKind::kDegenerate)
         return reject(AdaptiveSampleRejectReason::DegenerateChart);
     if(seed){out.quartic=seed->quartic;out.roots=seed->roots;}
     out.roots.certify=warm;
+    if(adaptive_cfg)out.quartic.seed_tolerance=adaptive_cfg->warm_root_seed_tolerance;
     QuarticCoeffs arc_pc{};
     auto arcs=adaptive_arc_intervals(R,pf,&out.quartic,&out.roots,&arc_pc,
-                                     cell.n_crossings);
+                                     node_crossings,prepared_pc);
     if(arcs.kind==ArcKind::kDegenerate)
         return reject(AdaptiveSampleRejectReason::DegenerateChart);
-    if(arcs.kind!=cell.kind)
+    if(arcs.kind!=node_kind)
         return reject(AdaptiveSampleRejectReason::ArcKindMismatch);
     if(arcs.kind==ArcKind::kArcs &&
-       int(arcs.arcs.size()*2)!=cell.n_crossings)
+       int(arcs.arcs.size()*2)!=node_crossings)
         return reject(AdaptiveSampleRejectReason::RootContinuationMismatch);
     const double D=kPi*p.rho*p.rho*(1-u/3),scale=jac/D;
     double f0=0,fh=0,ef0=0,efh=0;
@@ -1304,10 +1471,19 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     size_t angular_point_evaluations=0,angular_cached_point_reuses=0;
     size_t angular_work=0;
     for(auto a:arcs.arcs) {
+#ifdef HOLO_FRONTIER_COST_PROFILE
+        V2ProfileTimer arc_body_timer(&V2Profile::mapped_arc_body_ms);
+#endif
 #if !defined(HOLO_ADAPTIVE_DISABLE_ENDPOINT_CACHE)
         PhiValDtheta endpoint_e{},endpoint_l{};
-        auto pe=polish_endpoint(R,a[0],pf,6,&endpoint_e),
-             pl=polish_endpoint(R,a[1],pf,6,&endpoint_l);
+        // For nonnegative normalized LD value-only integration, angular endpoint
+        // boundary-strip sensitivity is at most the uniform-brightness term.
+        // Keep residuals in the existing geometry ledger; gradients retain
+        // the original endpoint solver. This is a residual estimate, not a bound.
+        const double endpoint_tolerance=adaptive_cfg && u>=0.0 && u<=1.0 && !with_jac
+            ? adaptive_cfg->uniform_endpoint_budget_fraction*adaptive_cfg->tol.mu_rtol*(a[1]-a[0]) : 0.0;
+        auto pe=polish_endpoint(R,a[0],pf,6,&endpoint_e,endpoint_tolerance),
+             pl=polish_endpoint(R,a[1],pf,6,&endpoint_l,endpoint_tolerance);
 #else
         auto pe=polish_endpoint(R,a[0],pf),pl=polish_endpoint(R,a[1],pf);
 #endif
@@ -1443,7 +1619,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                         for(int j=0;j<5;++j)
                             angular_high[j+1]=jac*nr.high.dvK[j];
                         if(angular_upgrade) {
-                            angular_low=seed->angular_result;
+                            angular_low=seed->angular_data().result;
                         } else {
                             angular_error_available=nr.low_available;
                             if(angular_error_available) {
@@ -1468,7 +1644,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                             *candidate_cache,reciprocal,angular_order);
                         if(!nr.ok)continue;
                         angular_high[0]=nr.high.vK;
-                        if(angular_upgrade)angular_low=seed->angular_result;
+                        if(angular_upgrade)angular_low=seed->angular_data().result;
                         else if(nr.low_available)angular_low[0]=nr.low.vK;
                         else angular_error_available=false;
                         angular_m=ap.m;angular_v=ap.v;
@@ -1518,7 +1694,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                         for(int j=0;j<5;++j)angular_low[j+1]=jac*lo.dvK[j];
                         angular_work+=static_cast<size_t>(angular_order)+8;
                     } else {
-                        angular_low=seed->angular_result;
+                        angular_low=seed->angular_data().result;
                         angular_work+=static_cast<size_t>(angular_order);
                     }
                     angular_m=aj.m;angular_v=aj.v;
@@ -1538,7 +1714,7 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                         angular_low[0]=lo.vK;
                         angular_work+=static_cast<size_t>(angular_order)+8;
                     } else {
-                        angular_low=seed->angular_result;
+                        angular_low=seed->angular_data().result;
                         angular_work+=static_cast<size_t>(angular_order);
                     }
                     angular_m=ap.m;angular_v=ap.v;
@@ -1632,10 +1808,26 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
                         success=true;
                     }}
 #endif
-            }else{auto vk=v_times_K(ap.m,ap.v,R,pf,cp.p,reciprocal);if(vk.ok){fh+=vk.vK;efh+=vk.estimated_error;success=true;}}
+            }else{
+                // All linear-LD contributions are nonnegative for 0<=u<=1.
+                // Reserve a fraction of the requested relative flux budget
+                // for the angular difference; keep its actual error in the
+                // global ledger. Geometry/chart gates remain unchanged.
+                const double gate=adaptive_cfg && u>=0 && u<=1
+                    ? std::max(kHoloKRelTol,adaptive_cfg->angular_value_budget_fraction*
+                               adaptive_cfg->tol.mu_rtol) : kHoloKRelTol;
+                auto vk=gate>kHoloKRelTol
+                    ? v_times_K_budgeted(ap.m,ap.v,R,pf,cp.p,reciprocal,gate)
+                    : v_times_K(ap.m,ap.v,R,pf,cp.p,reciprocal);if(vk.ok){fh+=vk.vK;efh+=vk.estimated_error;success=true;}}
             if(success)break;
         }
         if(!success){
+#ifdef HOLO_FRONTIER_COST_PROFILE
+            V2ProfileTimer rescue_timer(&V2Profile::angular_rescue_ms);
+            if(auto* prof=v2_profile_current()) {
+                ++prof->angular_rescue_calls;prof->angular_rescue_nodes+=96;
+            }
+#endif
             // Retain V2's angular rescue. A second, cheap 32-point rule supplies
             // the missing inner-error estimate; radial refinement cannot fix it.
             static const Cheb1<32> low;
@@ -1652,20 +1844,23 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
             if(with_jac)for(int j=0;j<5;++j){dfh[j]+=R*half*dh[j];edfh[j]+=R*half*std::fabs(dh[j]-dd[j]);}
         }
     }
+#ifdef HOLO_FRONTIER_COST_PROFILE
+    V2ProfileTimer mapped_tail_timer(&V2Profile::mapped_tail_ms);
+#endif
     if(angular_path_used) {
-        out.angular_result=angular_high;
+        out.angular_data().result=angular_high;
         if(angular_error_available) {
             for(int j=0;j<6;++j)
-                out.angular_error[j]=std::fabs(angular_high[j]-angular_low[j]);
+                out.angular_data().error[j]=std::fabs(angular_high[j]-angular_low[j]);
         } else {
-            out.angular_error.fill(kAdaptiveUnresolvedError);
+            out.angular_data().error.fill(kAdaptiveUnresolvedError);
         }
         out.angular_order=angular_order;
         out.angular_work=angular_work;
         out.angular_valid=true;
         out.angular_m=angular_m;out.angular_v=angular_v;
-        out.angular_dm=angular_dm;out.angular_dv=angular_dv;
-        out.angular_pc=angular_pc;out.angular_dpc=angular_dpc;
+        out.angular_data().dm=angular_dm;out.angular_data().dv=angular_dv;
+        out.angular_data().pc=angular_pc;out.angular_data().dpc=angular_dpc;
         out.angular_reciprocal=angular_reciprocal;
         out.angular_state_valid=angular_state_valid;
         out.angular_nested_cache=std::move(angular_nested_cache);
@@ -1676,6 +1871,9 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
     }
     out.angular_nested_attempted=nested_angular_attempted;
     out.value[0]=scale*((1-u)*f0+u*fh);
+    if(adaptive_cfg && adaptive_cfg->split_ld_radial) {
+        out.ld_radial_value=scale*u*fh;out.uniform_radial_value=scale*(1-u)*f0;
+    }
     if(radial_hermite_requested) {
         hermite_jet_out->elapsed_ms=radial_jet_elapsed;
         if(radial_jet_ok) {
@@ -1722,9 +1920,14 @@ inline AdaptiveSample mapped_radius(double R,double jac,const LensParams& p,
 }
 namespace lcbinint::holonomic {
 inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
-    const TopologyResult& topo,const AdaptiveConfig& cfg,AdaptiveWorkspace& workspace) {
+    const TopologyResult& topo,const AdaptiveConfig& cfg,AdaptiveWorkspace& workspace,
+    bool retain_matching_panels=false,
+    std::vector<std::pair<double,adaptive_detail::EventLocation>>* epoch_event_errors=nullptr) {
+    // Research resume mode requires identical p, u and cfg. Only the radial
+    // partition may change. The default always starts a fresh workspace.
     const ScopedFlushDenormals fp_guard;
-    workspace.reset();
+    if(!retain_matching_panels)workspace.reset();
+    else workspace.cells.clear();
     const auto policy=cfg.effective_gradient_policy();
     if(!adaptive_detail::valid_epoch_config(p,u,cfg)) return adaptive_detail::failure_result(AdaptiveStop::InvalidConfig,policy);
     if(cfg.require_bound) return adaptive_detail::failure_result(AdaptiveStop::BoundUnavailable,policy);
@@ -1757,7 +1960,8 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
         return nullptr;
     };
     auto physical=[&](double R){return physical_event(R)!=nullptr;};
-    std::vector<std::pair<double,adaptive_detail::EventLocation>> event_errors;
+    std::vector<std::pair<double,adaptive_detail::EventLocation>> local_event_errors;
+    auto& event_errors=epoch_event_errors?*epoch_event_errors:local_event_errors;
     size_t event_double_checks=0,event_dd_checks=0,event_dd_accepts=0,
            event_qf_refinements=0,qf_family_constructions=0,
            event_topology_reuses=0,event_radius_reuses=0,
@@ -1771,11 +1975,11 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
         for(const auto& e:event_errors)if(e.first==R){setup_event_ms+=adaptive_detail::ms(event_call_start);return e.second;}
         const RadialEvent* topology_event=physical_event(R);
         adaptive_detail::EventLocation d;
-        if(topology_event && (topology_event->projective_fold_certified || topology_event->atlas_anchor || (topology_event->fold_t_seed_valid &&
+        if(topology_event && (topology_event->projective_fold_certified || topology_event->atlas_anchor || ((topology_event->fold_t_seed_valid || topology_event->fold_u_seed_valid) &&
            adaptive_detail::topology_event_reuse_enabled()))) {
             ++event_topology_reuses;
             ++event_radius_reuses;
-            d=adaptive_detail::topology_event_estimate(*topology_event,pf,event_budget);
+            d=adaptive_detail::topology_event_estimate(*topology_event,pf,event_budget,cfg.prepared_fold_pair_seed);
             if(d.dd_reason!=EventDecisionReason::NotAttempted)++event_dd_checks;
             if(d.dd_reason==EventDecisionReason::DDAccepted)++event_dd_accepts;
         } else {
@@ -1824,7 +2028,7 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
                                     : std::numeric_limits<double>::infinity();
             record.topology_reused=topology_event &&
                                    (topology_event->projective_fold_certified ||
-                                    (topology_event->fold_t_seed_valid &&
+                                    ((topology_event->fold_t_seed_valid || topology_event->fold_u_seed_valid) &&
                                      adaptive_detail::topology_event_reuse_enabled()));
             record.precision_tier=d.precision_tier;
             record.double_reason=d.double_reason;record.dd_reason=d.dd_reason;
@@ -1839,9 +2043,14 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
     const auto integration_plan=
         adaptive_detail::make_adaptive_integration_plan(
             active_topology,cells,cfg.initial_level,cfg.fold_maps);
+    const std::size_t previous_panels=retain_matching_panels?workspace.panels.size():0;
+    std::vector<bool> previously_active(previous_panels);
+    for(std::size_t j=0;j<previous_panels;++j) {
+        previously_active[j]=workspace.panels[j].active;
+        workspace.panels[j].active=false;
+    }
     for(size_t i=0;i<integration_plan.spans.size();++i){
         const auto& span=integration_plan.spans[i];const auto& c=span.cell;
-        if(workspace.panels.size()>=cfg.max_panels) return adaptive_detail::failure_result(AdaptiveStop::BudgetExceeded,policy);
         AdaptivePanel panel;panel.cell=span.first_source_cell;
         panel.cell_end=span.last_source_cell;panel.evaluator_cell=static_cast<int>(i);
         panel.map={c.r_lo,c.r_hi,cfg.fold_maps&&physical(c.r_lo),cfg.fold_maps&&physical(c.r_hi)};if(physical(c.r_lo)){auto e=uncertainty(c.r_lo);panel.map.a=e.radius;panel.left_radius_lo=e.radius_lo;panel.left_uncertainty=e.uncertainty;}
@@ -1849,21 +2058,147 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
         // A local correction may not jump across another cell/event.
         if(std::fabs(panel.map.a-c.r_lo)>.25*(c.r_hi-c.r_lo)||std::fabs(panel.map.b-c.r_hi)>.25*(c.r_hi-c.r_lo)||!(panel.map.a<panel.map.b)) return adaptive_detail::failure_result(AdaptiveStop::EventLocationLimited,policy);
         if(!std::isfinite(panel.left_uncertainty+panel.right_uncertainty)) return adaptive_detail::failure_result(AdaptiveStop::EventLocationLimited,policy);
-        workspace.panels.push_back(panel);}
+        const bool empty_left=span.first_source_cell==0 ||
+            cells[span.first_source_cell-1].kind==ArcKind::kEmpty;
+        const bool empty_right=span.last_source_cell+1==static_cast<int>(cells.size()) ||
+            cells[span.last_source_cell+1].kind==ArcKind::kEmpty;
+        bool weighted_candidate=cfg.weighted_radial_spans==nullptr;
+        if(cfg.weighted_radial_spans)for(const auto& interval:*cfg.weighted_radial_spans)
+            if(interval.first==c.r_lo && interval.second==c.r_hi)weighted_candidate=true;
+        if(cfg.weighted_radial && (u==0 || cfg.split_ld_radial) && weighted_candidate && policy==GradientPolicy::None &&
+           panel.map.left && panel.map.right && empty_left && empty_right) {
+            panel.split_ld=u!=0 && cfg.split_ld_radial;
+            panel.weighted=true;panel.map.left=panel.map.right=false;
+        }
+        bool reused=false;
+        for(std::size_t j=0;j<previous_panels;++j) {
+            auto& old=workspace.panels[j];
+            std::size_t root=j;
+            while(workspace.panels[root].parent>=0)
+                root=static_cast<std::size_t>(workspace.panels[root].parent);
+            const auto& ancestor=workspace.panels[root];
+            // Match the entire refinement tree. Child panels retain only
+            // their relevant endpoint remainder; matching children separately
+            // can accidentally keep one half and discard the other.
+            if(ancestor.map.a!=panel.map.a || ancestor.map.b!=panel.map.b ||
+               ancestor.map.left!=panel.map.left || ancestor.map.right!=panel.map.right ||
+               ancestor.weighted!=panel.weighted || ancestor.split_ld!=panel.split_ld ||
+               ancestor.left_radius_lo!=panel.left_radius_lo ||
+               ancestor.right_radius_lo!=panel.right_radius_lo)continue;
+            old.cell=panel.cell;old.cell_end=panel.cell_end;old.evaluator_cell=panel.evaluator_cell;
+            for(auto& index:old.samples)
+                if(index>=0 && !workspace.samples[static_cast<std::size_t>(index)].reliable)
+                    index=-1;
+            old.active=previously_active[j];reused=reused||previously_active[j];
+        }
+        if(!reused) {
+            if(workspace.panels.size()>=cfg.max_panels)
+                return adaptive_detail::failure_result(AdaptiveStop::BudgetExceeded,policy);
+            workspace.panels.push_back(panel);
+        }}
     const bool with_jacobian=policy!=GradientPolicy::None;
+    // Choose once per integration call. The specialised body retains the
+    // identical numerical kernels while compiling away derivative/upgrade
+    // machinery and, for uniform sources, all limb-darkening work.
+    const bool plain_value_lane=!with_jacobian && !cfg.angular_adaptive &&
+        !cfg.gradient_adaptive && !cfg.same_node_hermite_shadow && !active_atlas_samples;
+    // Event storage is complete and immutable during this integration call.
+    // Index its two boundary states once per span instead of searching the
+    // event cache again at every node that may need a fold initializer.
+    std::vector<std::array<const adaptive_detail::EventLocation*,2>> span_fold_states;
+    if(cfg.prepared_fold_pair_seed && plain_value_lane) {
+        span_fold_states.resize(integration_plan.spans.size(),{nullptr,nullptr});
+        for(std::size_t i=0;i<integration_plan.spans.size();++i) {
+            const auto& cell=integration_plan.spans[i].cell;
+            for(const auto& entry:event_errors)if(entry.second.pair_motion_valid) {
+                if(entry.first==cell.r_lo)span_fold_states[i][0]=&entry.second;
+                if(entry.first==cell.r_hi)span_fold_states[i][1]=&entry.second;
+            }
+        }
+    }
     const double panel_total_ms=adaptive_detail::ms(panel_start);
     const double setup_panel_ms=std::max(0.0,panel_total_ms-setup_event_ms);
     // Stop the setup clock before adaptive quadrature starts.  Previously the
     // assignment happened after integrate(), so setup_ms double-counted the
     // entire adaptive physics/estimator phase.
     const double setup_total_ms=adaptive_detail::ms(setup_start);
-    auto result=adaptive_detail::integrate(workspace,cfg,[&](double R,double jac,int i,const AdaptiveSample* seed,bool force_cold,double radius_lo,int target_level,AdaptiveHermiteJet* hermite_jet){
+    AdaptiveConfig radial_cfg=cfg;
+    if(cfg.weighted_radial) {
+        bool weighted_tree=false;
+        for(std::size_t i=0;i<workspace.panels.size();++i)if(workspace.panels[i].active) {
+            int ancestor=static_cast<int>(i);
+            while(ancestor>=0) {
+                if(workspace.panels[ancestor].weighted){weighted_tree=true;break;}
+                ancestor=workspace.panels[ancestor].parent;
+            }
+            if(weighted_tree)break;
+        }
+        // No eligible weighted interval: retain the incumbent controller.
+        radial_cfg.weighted_radial=weighted_tree;
+    }
+    auto result=adaptive_detail::integrate(workspace,radial_cfg,[&](double R,double jac,int i,const AdaptiveSample* seed,bool force_cold,double radius_lo,int target_level,AdaptiveHermiteJet* hermite_jet){
         if(i<0||static_cast<std::size_t>(i)>=integration_plan.spans.size()) {
             AdaptiveSample invalid;invalid.reliable=false;
             invalid.reject_reason=AdaptiveSampleRejectReason::Nonfinite;
             return invalid;
         }
         const CellPlan& cell=integration_plan.spans[static_cast<std::size_t>(i)].cell;
+        // The event location was already refined during setup. Use its
+        // stationary coordinate to initialize the first cold pair, retaining
+        // the node-local root count and all transport/endpoint gates.
+#ifdef HOLO_PREPARED_HANDOFF_PROFILE
+        V2Profile* handoff_profile=v2_profile_current();
+        const auto warm_before=handoff_profile?handoff_profile->rootpair_warm_success:0;
+        const auto cold_before=handoff_profile?handoff_profile->rootpair_cold_falls:0;
+        const auto predictor_before=handoff_profile?handoff_profile->rootpair_predictor_reject:0;
+        const auto newton_before=handoff_profile?handoff_profile->rootpair_newton_reject:0;
+        const auto floor_before=handoff_profile?handoff_profile->rootpair_vfloor_reject:0;
+        const auto chart_before=handoff_profile?handoff_profile->rootpair_tmax_reject:0;
+        const auto branch_before=handoff_profile?handoff_profile->rootpair_branch_reject:0;
+        const auto disc_before=handoff_profile?handoff_profile->rootpair_disc_mismatch:0;
+        double handoff_dr=0;
+#endif
+        std::optional<AdaptiveSample> prepared_fold_seed;
+        if(cfg.prepared_fold_pair_seed && plain_value_lane && !force_cold &&
+           cell.kind==ArcKind::kArcs &&
+           (!seed || (u>0 && seed->roots.valid && seed->roots.pairs.size()==1))) {
+            const adaptive_detail::EventLocation* fold=nullptr;
+            for(const auto* state:span_fold_states[i])
+                if(state && (!fold || std::fabs(R-state->radius)<std::fabs(R-fold->radius)))fold=state;
+            bool use_fold=fold && !seed;
+            if(fold && seed) {
+                const auto& previous=seed->roots;
+                const double step=R-previous.R_prev;
+                const double previous_distance=std::fabs((previous.R_prev-fold->radius)-fold->radius_lo);
+                // Check the costly predictor only for steps whose radial
+                // expansion can exceed the incumbent relative-width gate.
+                if(std::fabs(step)>kTransportVJumpRel*previous_distance) {
+                    const auto& pair=previous.pairs[0];
+                    const auto motion=root_pair_dR(pair,previous.pc_prev,previous.pcR_prev);
+                    const double predicted_v=pair.v+motion.dv_dR*step;
+                    use_fold=motion.ok && std::isfinite(predicted_v) &&
+                        (predicted_v<=0 || std::fabs(predicted_v-pair.v)>
+                         kTransportVJumpRel*pair.v+kTransportVFloor);
+                }
+            }
+            if(use_fold) {
+                const double dr=(R-fold->radius)+(radius_lo-fold->radius_lo);
+                const RootPair predicted{fold->pair_m+fold->pair_dm*dr,fold->pair_dv*dr};
+#ifdef HOLO_PREPARED_HANDOFF_PROFILE
+                handoff_dr=dr/(cell.r_hi-cell.r_lo);
+#endif
+                if(std::isfinite(predicted.m) && std::isfinite(predicted.v) && predicted.v>0) {
+                    auto& roots=prepared_fold_seed.emplace().roots;
+                    // Keep the previous full quartic state for the ordinary
+                    // fallback if this new pair proposal is not accepted.
+                    if(seed)prepared_fold_seed->quartic=seed->quartic;
+                    roots.pairs.push_back(predicted);roots.R_prev=R;
+                    roots.pc_prev.fill(0.0);roots.pcR_prev.fill(0.0);
+                    roots.reciprocal=fold->pair_reciprocal;roots.disc_sign=-1;roots.valid=true;
+                    seed=&*prepared_fold_seed;
+                }
+            }
+        }
 #ifdef HOLO_ADAPTIVE_FOLD_QUARTIC_SEED
         // Approximate initialization only. The ordinary quartic warm solve,
         // crossing-count check and physical endpoint gates still decide use.
@@ -1905,6 +2240,54 @@ inline AdaptiveResult flux_adaptive_integrate(const LensParams& p,double u,
                     if(finite) {q.deg=4;q.n_real=cell.n_crossings;q.valid=true;seed=&fold_seed;}
                 }
             }
+        }
+#endif
+#ifndef HOLO_ADAPTIVE_GENERIC_VALUE_BODY
+        if(plain_value_lane) {
+            auto fast=u==0.0
+                ? adaptive_detail::mapped_radius<true,true>(R,jac,p,u,pf,cell,false,
+                    force_cold?false:active_topology.from_warm_d14,
+                    force_cold?nullptr:seed,&cfg,radius_lo,false,hermite_jet)
+                : adaptive_detail::mapped_radius<true,false>(R,jac,p,u,pf,cell,false,
+                    force_cold?false:active_topology.from_warm_d14,
+                    force_cold?nullptr:seed,&cfg,radius_lo,false,hermite_jet);
+#ifdef HOLO_PREPARED_HANDOFF_PROFILE
+            if(!prepared_fold_seed && seed && u>0 && handoff_profile)std::fprintf(stderr,
+                "TRANSPORT %.17g %.17g %.17g %d %d %llu %llu %llu %llu %llu %llu %llu %llu\n",
+                R,seed->R,(seed->roots.valid && !seed->roots.pairs.empty())?seed->roots.pairs[0].v:0,
+                fast.local_crossings,(int)fast.reject_reason,
+                (unsigned long long)(handoff_profile->rootpair_warm_success-warm_before),
+                (unsigned long long)(handoff_profile->rootpair_cold_falls-cold_before),
+                (unsigned long long)(handoff_profile->rootpair_predictor_reject-predictor_before),
+                (unsigned long long)(handoff_profile->rootpair_newton_reject-newton_before),
+                (unsigned long long)(handoff_profile->rootpair_vfloor_reject-floor_before),
+                (unsigned long long)(handoff_profile->rootpair_tmax_reject-chart_before),
+                (unsigned long long)(handoff_profile->rootpair_branch_reject-branch_before),
+                (unsigned long long)(handoff_profile->rootpair_disc_mismatch-disc_before));
+            if(prepared_fold_seed && handoff_profile)std::fprintf(stderr,
+                "HANDOFF %.17g %.17g %.17g %.17g %d %d %d %llu %llu %llu %llu %llu %llu %llu %llu\n",
+                u,R,handoff_dr,prepared_fold_seed->roots.pairs[0].v,
+                target_level,fast.local_crossings,(int)fast.reject_reason,
+                (unsigned long long)(handoff_profile->rootpair_warm_success-warm_before),
+                (unsigned long long)(handoff_profile->rootpair_cold_falls-cold_before),
+                (unsigned long long)(handoff_profile->rootpair_predictor_reject-predictor_before),
+                (unsigned long long)(handoff_profile->rootpair_newton_reject-newton_before),
+                (unsigned long long)(handoff_profile->rootpair_vfloor_reject-floor_before),
+                (unsigned long long)(handoff_profile->rootpair_tmax_reject-chart_before),
+                (unsigned long long)(handoff_profile->rootpair_branch_reject-branch_before),
+                (unsigned long long)(handoff_profile->rootpair_disc_mismatch-disc_before));
+#endif
+#ifdef HOLO_ADAPTIVE_VALUE_BODY_AUDIT
+            const auto generic=adaptive_detail::mapped_radius<>(R,jac,p,u,pf,cell,false,
+                force_cold?false:active_topology.from_warm_d14,
+                force_cold?nullptr:seed,&cfg,radius_lo,false,hermite_jet);
+            if(fast.value!=generic.value || fast.inner!=generic.inner ||
+               fast.geometry!=generic.geometry || fast.roundoff!=generic.roundoff ||
+               fast.local_crossings!=generic.local_crossings ||
+               fast.reliable!=generic.reliable || fast.reject_reason!=generic.reject_reason)
+                std::abort();
+#endif
+            return fast;
         }
 #endif
         return adaptive_detail::mapped_radius(R,jac,p,u,pf,cell,with_jacobian,

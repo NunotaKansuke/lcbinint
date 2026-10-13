@@ -1,0 +1,26 @@
+{
+  "uniform": {
+    "seed_ms": 4.0275,
+    "planning_ms": 21.296000000000003,
+    "integration_ms": 37.8045,
+    "count_ms": 6.451499999999999,
+    "event_ms": 4.987500000000001,
+    "march_ms": 7.2115,
+    "repair_ms": 6.219499999999999,
+    "endpoint_ms": 5.2075000000000005,
+    "setup_event_ms": 5.791,
+    "setup_panel_ms": 0.6890000000000001
+  },
+  "linear": {
+    "seed_ms": 4.146000000000001,
+    "planning_ms": 21.636,
+    "integration_ms": 75.96,
+    "count_ms": 6.359,
+    "event_ms": 4.998,
+    "march_ms": 7.212,
+    "repair_ms": 6.484,
+    "endpoint_ms": 5.22,
+    "setup_event_ms": 5.797,
+    "setup_panel_ms": 0.6809999999999999
+  }
+}

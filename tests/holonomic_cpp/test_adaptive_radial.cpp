@@ -97,6 +97,39 @@ int main(){
         check(std::fabs(g.Ptr-ptr)<2e-13*scale,"local fold Ptr parity");
     }
     AdaptiveTolerance tol;tol.mu_atol=.1;tol.mu_rtol=.2;
+    {
+        AdaptiveSample a;
+        check(!a.angular_state,"ordinary sample has no angular allocation");
+        a.angular_data().result[0]=3.0;
+        AdaptiveSample b=a;
+        check(a.angular_state==b.angular_state,"angular state copy shares immutable payload");
+        b.angular_data().result[0]=4.0;
+        check(static_cast<const AdaptiveSample&>(a).angular_data().result[0]==3.0 &&
+              static_cast<const AdaptiveSample&>(b).angular_data().result[0]==4.0,
+              "angular upgrade does not change prior sample");
+        check(a.angular_state!=b.angular_state,"angular write separates shared payload");
+    }
+    {
+        auto optional_state_budget=[&](bool room) {
+            AdaptiveWorkspace w;
+            AdaptivePanel panel;panel.map={0.0,1.0,false,false};
+            w.panels.push_back(panel);
+            AdaptiveConfig cfg;cfg.max_node_evals=7;cfg.max_panels=1;
+            cfg.initial_level=cfg.max_level=3;
+            cfg.max_bytes=sizeof(AdaptivePanel)+7*sizeof(AdaptiveSample)+
+                (room?7*(sizeof(AdaptiveAngularState)+4*sizeof(void*)):0);
+            return adaptive_detail::integrate(w,cfg,
+                [](double,double J,int,const AdaptiveSample*) {
+                    AdaptiveSample s;s.value[0]=J;
+                    s.angular_data().result[0]=1.0;
+                    return s;
+                });
+        };
+        check(optional_state_budget(false).stop==AdaptiveStop::BudgetExceeded,
+              "optional angular payload counts against memory budget");
+        check(optional_state_budget(true).value_converged,
+              "angular payload fits when memory budget includes it");
+    }
     check(tol.budget(0,1)==.2,"max budget, not additive");
     check(tol.budget(0,0)==.1,"absolute tolerance near zero");
     check(tol.budget(0,-1)==.2,"relative tolerance uses absolute value");
@@ -165,8 +198,8 @@ int main(){
                 const bool upgrade=seed&&seed->R==R&&seed->jac==J;
                 s.angular_valid=true;s.angular_order=upgrade?24:16;
                 s.angular_work=upgrade?24:24;
-                s.angular_result[0]=1.0;
-                s.angular_error[0]=upgrade?0.0:1e-3;
+                s.angular_data().result[0]=1.0;
+                s.angular_data().error[0]=upgrade?0.0:1e-3;
                 s.inner[0]=upgrade?0.0:1e-3;
                 return s;
             });
@@ -262,9 +295,9 @@ int main(){
                   upgraded.angular_cached_point_reuses==15,
                   "nested GC2 upgrade evaluates only new points");
             const auto direct=v_times_K_order_fixed<31>(
-                first.angular_m,first.angular_v,R,pf,first.angular_pc,
+                first.angular_m,first.angular_v,R,pf,first.angular_data().pc,
                 first.angular_reciprocal);
-            check(direct.ok&&std::fabs(upgraded.angular_result[0]-direct.vK)<2e-13,
+            check(direct.ok&&std::fabs(upgraded.angular_data().result[0]-direct.vK)<2e-13,
                   "nested GC2 value matches fresh order-31 rule");
 
             AdaptiveConfig ajc=ac;ajc.with_jacobian=true;
@@ -280,12 +313,12 @@ int main(){
                       upgraded_j.angular_cached_point_reuses==15,
                       "nested GC2 analytic-Jac upgrade reuses points");
                 const auto direct_j=v_times_K_jac_order_fixed<31>(
-                    first_j.angular_m,first_j.angular_v,first_j.angular_dm,
-                    first_j.angular_dv,R,pf,first_j.angular_pc,
-                    first_j.angular_dpc,first_j.angular_reciprocal);
+                    first_j.angular_m,first_j.angular_v,first_j.angular_data().dm,
+                    first_j.angular_data().dv,R,pf,first_j.angular_data().pc,
+                    first_j.angular_data().dpc,first_j.angular_reciprocal);
                 bool parity=direct_j.ok&&upgraded_j.reliable;
                 for(int j=0;j<5;++j)
-                    parity=parity&&std::fabs(upgraded_j.angular_result[j+1]-
+                    parity=parity&&std::fabs(upgraded_j.angular_data().result[j+1]-
                                              jac*direct_j.dvK[j])<2e-11;
                 check(parity,"nested GC2 analytic-Jac matches fresh rule");
             } else check(false,"nested GC2 gradient fixture is available");
@@ -312,7 +345,7 @@ int main(){
             check(first7.angular_order==7&&
                   first7.angular_point_evaluations==7&&
                   first7.angular_cached_point_reuses==0&&
-                  first7.angular_error[0]==kAdaptiveUnresolvedError,
+                  first7.angular_data().error[0]==kAdaptiveUnresolvedError,
                   "nested GC2 seven-point start is provisional");
             const auto upgraded15=adaptive_detail::mapped_radius(
                 R,jac,lp,.5,pf,cell,false,false,&first7,&ac7);
@@ -322,10 +355,10 @@ int main(){
                   upgraded15.angular_cached_point_reuses==7,
                   "nested GC2 7-to-15 upgrade evaluates only eight points");
             const auto direct15=v_times_K_order_fixed<15>(
-                first7.angular_m,first7.angular_v,R,pf,first7.angular_pc,
+                first7.angular_m,first7.angular_v,R,pf,first7.angular_data().pc,
                 first7.angular_reciprocal);
             check(direct15.ok&&
-                  std::fabs(upgraded15.angular_result[0]-direct15.vK)<2e-13,
+                  std::fabs(upgraded15.angular_data().result[0]-direct15.vK)<2e-13,
                   "nested GC2 7-to-15 value matches fresh rule");
 
             AdaptiveConfig ac7j=ac7;ac7j.with_jacobian=true;
@@ -342,13 +375,13 @@ int main(){
                       upgraded15j.angular_cached_point_reuses==7,
                       "nested GC2 7-to-15 analytic-Jac reuses points");
                 const auto direct15j=v_times_K_jac_order_fixed<15>(
-                    first7j.angular_m,first7j.angular_v,first7j.angular_dm,
-                    first7j.angular_dv,R,pf,first7j.angular_pc,
-                    first7j.angular_dpc,first7j.angular_reciprocal);
+                    first7j.angular_m,first7j.angular_v,first7j.angular_data().dm,
+                    first7j.angular_data().dv,R,pf,first7j.angular_data().pc,
+                    first7j.angular_data().dpc,first7j.angular_reciprocal);
                 bool parity=direct15j.ok&&upgraded15j.reliable;
                 for(int j=0;j<5;++j)
                     parity=parity&&std::fabs(
-                        upgraded15j.angular_result[j+1]-
+                        upgraded15j.angular_data().result[j+1]-
                         jac*direct15j.dvK[j])<2e-11;
                 check(parity,"nested GC2 7-to-15 analytic-Jac matches fresh rule");
             } else check(false,"seven-point nested GC2 gradient fixture is available");

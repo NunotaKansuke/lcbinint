@@ -1,0 +1,51 @@
+{
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "timing": "one thread; no concurrent compilation; same87 normal pairs tol1e-4,5 repetitions, mean of per-condition medians; reverse order repeated; fresh geometry/source objects; seed included, caustic construction excluded",
+  "sources": {
+    "src/lcbinint/magnification/holonomic/adaptive_epoch.hpp": "8c961fd6447d2290b585039abf9578d84138b604158697a0ae88d7a6bb3b9733",
+    "src/lcbinint/magnification/holonomic/adaptive_radial.hpp": "2af60ab51be1828d285895da8ef06c6eff148afb198980f9725e80b29a475e2f",
+    "src/lcbinint/magnification/holonomic/radius_terms.hpp": "291a89f7c70120f4e619166d2558d460f6e59d49445072e942c9324f0100479e",
+    "src/lcbinint/magnification/holonomic/quartic_sturm.hpp": "ad500013fbe3c3d22ea0aa9f596436b68305a2509779003a432875478b5e0a3b",
+    "src/lcbinint/magnification/holonomic/v2_profile.hpp": "ad94342471700b365aea0e9d1b5f9de65f9e1df0f4245c429989e5aa37b846e9",
+    "src/lcbinint/magnification/holonomic/seeded_radial_frontier.hpp": "30cd1787001bc611507da4f2ac42401a08dc1474337f4496024c72cda9c70efc",
+    "src/lcbinint/magnification/holonomic/seeded_boundary_events.hpp": "1686a95e371a6f45a0a8f331a3776620107a13c0a5eddbf6ebf40383a32cc4bb",
+    "tests/holonomic_cpp/test_adaptive_radial.cpp": "2e4f71d372c22fa023945f31c0dca9423f41748b816eb63ba97f13e087b98c51",
+    "benchmarks/holonomic/build_seeded_radial_master.sh": "326c574ba4403ce606643c6a8e8b0dd0cdcfe37c3941490af6dee51b669a1b35",
+    "benchmarks/holonomic/bench_seeded_radial_full.cpp": "4242d19776b30cf404d8590c9349a61b720d377c0a9a961fd1be0abbd31d65b5",
+    "benchmarks/holonomic/bench_seeded_integration_profile.cpp": "19c96b7337f9b06631490e9f11b75ffbb7e60c72f8528a541c47381e939b1fee",
+    "tests/holonomic_cpp/test_seeded_radial_frontier.cpp": "6ad71fd2b6e6739748fde712c7323c4ede5154c3f81f894ba675dc9a7112a106",
+    "tests/holonomic_cpp/test_chebyshev_prediction.cpp": "3d7fb813a8f86c74ffbaa0e1bd79c520102af072b5a365c3af96f482d04637c0"
+  },
+  "binaries": {
+    "build-seeded-events/bench_push_before_v29": "6b3e9b566c3be4267a922f075d555a63ff98e648eea8572749eac390f3f50e8b",
+    "build-seeded-events/bench_push_after_v29": "9b13186232159e06af5309a805f7dd4016bf8ac4fbc7dfa4209afbd014999300",
+    "build-seeded-events/bench_push_profile_v29": "c34c3a3d4dd94adf5ae5011b6f7b5ef9391312af1f05452fb4dd32366c173cfa",
+    "build-seeded-events/bench_push_profile_before_v29": "162d089d9a4d582edb0915a10590de515396499523385e4df4764901fafc6632"
+  },
+  "environment": "Linux rogue1 5.14.0-570.23.1.el9_6.x86_64 #1 SMP PREEMPT_DYNAMIC Thu Jun 26 19:29:53 UTC 2025 x86_64 x86_64 x86_64 GNU/Linux",
+  "inputs": {
+    "evidence/holonomic/caustic_seeded_connection_v4/initial_minimal_seeds.tsv": "60f32eb9fbe97d61a134124c117cff237c25e0a15fadd1f236fb71b51edaf80e",
+    "evidence/holonomic/caustic_seeded_connection_v4/fold_minimal_seeds.tsv": "93b2ce25243269c11f13bdb933cff0b2407eda2fe3a49a105622b678229ea996",
+    "evidence/holonomic/caustic_seeded_connection_v4/deeper_minimal_seeds.tsv": "37f9fdd4835fe0bbef37e1684bca83a1574e375028cfc281f188df54dee788e7"
+  },
+  "baseline_frontier_sha256": "24b5022d14a40d3b1e38199d198e67cda429b6f50f4cb6cf1394120b58675116",
+  "seed_object_sha256": "c49a1be2a15d6e6bd4234bfbd77786437b006130bd0ef733161a13223e7bf351",
+  "reference_exclusions": 142,
+  "profile_timing": "fresh before and after serial diagnostic runs,3 reps",
+  "baseline_headers": {
+    "evidence/holonomic/integration_push_v29/before_include/lcbinint/magnification/holonomic/radius_terms.hpp": "a11e7ef9660d9ee8c47b71f1c1b67926e80472ee56c344300259066f839312ff",
+    "evidence/holonomic/integration_push_v29/before_include/lcbinint/magnification/holonomic/seeded_radial_frontier.hpp": "24b5022d14a40d3b1e38199d198e67cda429b6f50f4cb6cf1394120b58675116",
+    "evidence/holonomic/integration_push_v29/before_include/lcbinint/magnification/holonomic/adaptive_radial.hpp": "df2002dc46a9308ff3845f582a36cf82d934dc8b1eb0d6f3d6b71ac1a634ebc8",
+    "evidence/holonomic/integration_push_v29/before_include/lcbinint/magnification/holonomic/atlas_near_fold.hpp": "e5eec38672d1af1fbc861a13f689590bd0b999e68e28dc519aa0a5f490525923",
+    "evidence/holonomic/integration_push_v29/before_include/lcbinint/magnification/holonomic/adaptive_epoch.hpp": "8c961fd6447d2290b585039abf9578d84138b604158697a0ae88d7a6bb3b9733"
+  },
+  "precision_policy": "unchanged acceptance thresholds; single-thread CPU execution with AVX2 SIMD value estimator",
+  "validation_tests": {
+    "adaptive": 1614,
+    "frontier": 321,
+    "interpolation": 65772,
+    "quartic": 3000
+  }
+}

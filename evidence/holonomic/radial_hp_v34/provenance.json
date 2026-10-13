@@ -1,0 +1,13 @@
+{
+  "host": "rogue1",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "client_date": "2026-10-13",
+  "baseline": "accepted dirty v33 snapshots and SHA256-verified existing binaries",
+  "change": "early h refinement at level >=4 when full detail fails the existing decay test, weighted research tree/value-only; no ledger or tolerance changes",
+  "scope": "experimental seeded-boundary-events checkout only; no outer defaults or LD/gradient changes",
+  "timing": "serial one-thread; fresh seed included, caustic construction excluded; five reps per input, forward/reverse; compilation and tests completed before timing",
+  "reference": "saved VBM RelTol=1e-6 values for full14432; saved matched tolerance VBM timings, VBM not rerun; normal matrix compared to D14 with unresolved references excluded from accuracy claims",
+  "status": "full new failures0/new violations0; existing failures6/violations3 retained; coverage_certified=false; no commit or push"
+}

@@ -1,0 +1,16 @@
+{
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "timing": "one thread; compilation completed before serial timing; fresh workspaces; normal 87 conditions tol1e-4 with5 repetitions, per-input median then mean; holdout3; profile3 arithmetic means",
+  "master_seed_checkout": "/rogue1_8/nunota/lcbinint",
+  "source_sha256": {
+    "src/lcbinint/magnification/holonomic/adaptive_epoch.hpp": "61e28987aaf1c492a161279b50a44bbc62da3a17d2e1e593acca072901fe83c8",
+    "src/lcbinint/magnification/holonomic/adaptive_radial.hpp": "a23837ff94b0b95405bff7a168efbf19e029a3942c615176e8f487e2cf91e895",
+    "src/lcbinint/magnification/holonomic/radius_terms.hpp": "4449c447a7fc227b1532d086d78ce02077a5b42c89d73ea8fb75a667b0733e5b",
+    "src/lcbinint/magnification/holonomic/root_pair.hpp": "7cdd0141a40bfe8a6314e7f5221e361e4230671a8060f8078a595607822898de",
+    "src/lcbinint/magnification/holonomic/v2_profile.hpp": "b791e1dc2859eedad4ef700642e4ce9299d2623b35a7a8bf565e621e5a1f7ff2",
+    "benchmarks/holonomic/bench_seeded_radial_full.cpp": "4242d19776b30cf404d8590c9349a61b720d377c0a9a961fd1be0abbd31d65b5",
+    "benchmarks/holonomic/bench_seeded_integration_profile.cpp": "a7ae8e0ddcd429f0ee70da86e3b31c0d14e510419a61a26faa7f48473beed307"
+  }
+}

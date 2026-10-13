@@ -1,0 +1,78 @@
+{
+  "normal": {
+    "before_matched": {
+      "candidate_integration_ms": 0.2221573448275862,
+      "candidate_no_caustic_ms": 0.4352235632183908,
+      "planning_ms": 0.11014082758620693,
+      "seed_ms": 0.10035697701149428
+    },
+    "after_matched": {
+      "candidate_integration_ms": 0.22034565517241383,
+      "candidate_no_caustic_ms": 0.42215539080459763,
+      "planning_ms": 0.09830028735632182,
+      "seed_ms": 0.10061524137931033
+    },
+    "before_reverse": {
+      "candidate_integration_ms": 0.22125836781609198,
+      "candidate_no_caustic_ms": 0.43356525287356323,
+      "planning_ms": 0.1098289540229885,
+      "seed_ms": 0.10021225287356325
+    },
+    "after_reverse": {
+      "candidate_integration_ms": 0.22148983908045972,
+      "candidate_no_caustic_ms": 0.42409552873563205,
+      "planning_ms": 0.09858647126436783,
+      "seed_ms": 0.1011605747126437
+    },
+    "reduction_matched": {
+      "candidate_integration_ms": 0.008154984281876443,
+      "candidate_no_caustic_ms": 0.030026343971720326,
+      "planning_ms": 0.1075036431936881,
+      "seed_ms": -0.002573457028169246
+    },
+    "reduction_reverse": {
+      "candidate_integration_ms": -0.0010461582386802615,
+      "candidate_no_caustic_ms": 0.021841519990746905,
+      "planning_ms": 0.10236356030730742,
+      "seed_ms": -0.009463132619889736
+    }
+  },
+  "validation": {
+    "conditions": 896,
+    "resolved_reference": 754,
+    "unresolved_reference": 142,
+    "candidate_failures_on_resolved_reference": 0,
+    "maximum_relative_change": 0.0,
+    "node_count_changes": 0,
+    "maximum_discrepancy_over_tolerance": 0.24896766490094166,
+    "audited_conditions": 896
+  },
+  "profile": {
+    "before": {
+      "arc_ms": 0.06050446360153257,
+      "pair_ms": 0.0378641762452107,
+      "assembly_ms": 0.004640931034482756,
+      "untransported_ms": 0.01044559770114942,
+      "pair_cold_ms": 0.015999701149425286,
+      "allocation_ms": 0.015646394636015325,
+      "allocation_count": 3.574712643678161,
+      "frontier_count_ms": 0.04367984291187739,
+      "frontier_event_ms": 0.036736053639846736,
+      "physical_ms": 0.18299822605364,
+      "integration_ms": 0.28364259386973195
+    },
+    "after": {
+      "arc_ms": 0.05976826819923371,
+      "pair_ms": 0.037169513409961684,
+      "assembly_ms": 0.004636609195402299,
+      "untransported_ms": 0.010340724137931032,
+      "pair_cold_ms": 0.01538430651340996,
+      "allocation_ms": 0.015378724137931031,
+      "allocation_count": 3.574712643678161,
+      "frontier_count_ms": 0.04376183141762454,
+      "frontier_event_ms": 0.02957196168582375,
+      "physical_ms": 0.18273178544061308,
+      "integration_ms": 0.2832910536398467
+    }
+  }
+}

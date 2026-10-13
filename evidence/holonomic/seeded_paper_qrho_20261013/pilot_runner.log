@@ -1,0 +1,3 @@
+progress 8/16 output_rows=16
+progress 16/16 output_rows=32
+finished input_rows=16 output_rows=32 reps=3 sink=36312.9

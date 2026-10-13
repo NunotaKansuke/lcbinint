@@ -1,0 +1,25 @@
+Seeded radial-frontier tolerance probe
+
+checkout: /rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events
+branch: experiment/seeded-boundary-events
+HEAD: f3547723b79828d9c501182746028e99f7bad116
+input source: ../input_snapshot.tsv plus ../joined_v2_vbm.tsv
+selected inputs: 308 (155 uniform, 153 linear)
+repetitions per input and tolerance: 5
+relative tolerances: 1e-4, 1e-3, 3e-3, 1e-2, 3e-2, 1e-1
+absolute magnification tolerance: 1e-8
+timed work: point-source image roots, cached finite-source seed generation, and epoch_seeded_radial_frontier
+excluded work: object construction, 1400-bin caustic-branch construction, input/output
+seed support: required proven for each selected case
+coverage: coverage_certified=false on all rows; no universal support claim
+
+compiler: g++ -std=c++17 -O3 -DNDEBUG -march=native -fext-numeric-literals -fopenmp
+linked libraries: build-standard-current/liblcbinint_magnification.a, build-standard-current/liblcbinint_lightcurve.a, GSL, quadmath
+benchmark binary SHA256: ebd42b058b9dcaa90afca47e6c31631c5c70724bd0422f2de86d8abedf0d34e5
+
+VBMicrolensing: 5.5
+VBMicrolensingLibrary.cpp SHA256: 378451e561e9ad13f71418cd927a3e27cbfc6abb429d55723c8338a3c5f2f73b
+VBM direct timing audit: Tol=RelTol=1e-3; direct low-magnification call medians reproduce the saved timing medians within 1%
+VBM timing provenance limit: the original saved timing-table generator script is not present in the checkout
+
+Generated on 2026-10-13; single-thread benchmark environment (OMP_NUM_THREADS=1, OMP_DYNAMIC=FALSE, OPENBLAS_NUM_THREADS=1, MKL_NUM_THREADS=1).

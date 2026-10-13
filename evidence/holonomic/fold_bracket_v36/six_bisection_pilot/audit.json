@@ -1,0 +1,149 @@
+{
+  "rows": 14432,
+  "new_violations": [
+    {
+      "case_id": "92",
+      "profile": "linear",
+      "d_bin_index": "0",
+      "epoch_index": "7",
+      "rtol": "0.001",
+      "relative_error_reference": "0.0070541643691390604"
+    },
+    {
+      "case_id": "92",
+      "profile": "linear",
+      "d_bin_index": "0",
+      "epoch_index": "7",
+      "rtol": "0.0001",
+      "relative_error_reference": "0.0070519357470377967"
+    },
+    {
+      "case_id": "92",
+      "profile": "linear",
+      "d_bin_index": "0",
+      "epoch_index": "15",
+      "rtol": "0.001",
+      "relative_error_reference": "0.0070271614910357178"
+    },
+    {
+      "case_id": "92",
+      "profile": "linear",
+      "d_bin_index": "0",
+      "epoch_index": "15",
+      "rtol": "0.0001",
+      "relative_error_reference": "0.0070258374341009818"
+    },
+    {
+      "case_id": "92",
+      "profile": "linear",
+      "d_bin_index": "0",
+      "epoch_index": "23",
+      "rtol": "0.001",
+      "relative_error_reference": "0.00701213879306387"
+    },
+    {
+      "case_id": "92",
+      "profile": "linear",
+      "d_bin_index": "0",
+      "epoch_index": "23",
+      "rtol": "0.0001",
+      "relative_error_reference": "0.0070108591215078892"
+    },
+    {
+      "case_id": "92",
+      "profile": "uniform",
+      "d_bin_index": "0",
+      "epoch_index": "7",
+      "rtol": "0.001",
+      "relative_error_reference": "0.0071910500431886749"
+    },
+    {
+      "case_id": "92",
+      "profile": "uniform",
+      "d_bin_index": "0",
+      "epoch_index": "7",
+      "rtol": "0.0001",
+      "relative_error_reference": "0.0071900100698022379"
+    },
+    {
+      "case_id": "92",
+      "profile": "uniform",
+      "d_bin_index": "0",
+      "epoch_index": "15",
+      "rtol": "0.001",
+      "relative_error_reference": "0.0071627127446377429"
+    },
+    {
+      "case_id": "92",
+      "profile": "uniform",
+      "d_bin_index": "0",
+      "epoch_index": "15",
+      "rtol": "0.0001",
+      "relative_error_reference": "0.0071619606237403434"
+    },
+    {
+      "case_id": "92",
+      "profile": "uniform",
+      "d_bin_index": "0",
+      "epoch_index": "23",
+      "rtol": "0.001",
+      "relative_error_reference": "0.0071190253810822415"
+    },
+    {
+      "case_id": "92",
+      "profile": "uniform",
+      "d_bin_index": "0",
+      "epoch_index": "23",
+      "rtol": "0.0001",
+      "relative_error_reference": "0.0071183063826309222"
+    },
+    {
+      "case_id": "102",
+      "profile": "linear",
+      "d_bin_index": "2",
+      "epoch_index": "23",
+      "rtol": "0.001",
+      "relative_error_reference": "0.021450272826901547"
+    },
+    {
+      "case_id": "102",
+      "profile": "linear",
+      "d_bin_index": "2",
+      "epoch_index": "23",
+      "rtol": "0.0001",
+      "relative_error_reference": "0.021449902498942568"
+    },
+    {
+      "case_id": "102",
+      "profile": "uniform",
+      "d_bin_index": "2",
+      "epoch_index": "23",
+      "rtol": "0.001",
+      "relative_error_reference": "0.022014681879581412"
+    },
+    {
+      "case_id": "102",
+      "profile": "uniform",
+      "d_bin_index": "2",
+      "epoch_index": "23",
+      "rtol": "0.0001",
+      "relative_error_reference": "0.02201435298937263"
+    }
+  ],
+  "new_failures": [],
+  "failures": 6,
+  "violations": 19,
+  "changed_values": 18,
+  "uniform": {
+    "probes_before": 88.0,
+    "probes_after": 68.0,
+    "nodes_before": 22.0,
+    "nodes_after": 22.0
+  },
+  "linear": {
+    "probes_before": 88.0,
+    "probes_after": 68.0,
+    "nodes_before": 53.0,
+    "nodes_after": 53.0
+  }
+}

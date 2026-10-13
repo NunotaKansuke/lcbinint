@@ -1,0 +1,23 @@
+{
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "branch": "experiment/seeded-boundary-events",
+  "HEAD": "f3547723b79828d9c501182746028e99f7bad116",
+  "host": "rogue1",
+  "platform": "Linux-5.14.0-570.23.1.el9_6.x86_64-x86_64-with-glibc2.34",
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "adopted_provider": "seed_indexed.cpp",
+  "adopted_frontier_edge_bisections": 12,
+  "timing_threads": 1,
+  "timing_repetitions_per_input": 5,
+  "source_geometry_inputs": 7216,
+  "validation_target_rows": 14432,
+  "timing_input_count": 684,
+  "caustic_build_excluded": true,
+  "seed_build_included": true,
+  "vbm_times": "saved historical comparator; not retimed",
+  "main_builds": [
+    "bash benchmarks/holonomic/build_seeded_radial_master.sh",
+    "bash benchmarks/holonomic/build_seeded_paper_qrho.sh"
+  ],
+  "uncommitted_work_preserved": true
+}

@@ -1,0 +1,22 @@
+{
+  "checkout": "/rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events",
+  "branch": "experiment/seeded-boundary-events",
+  "head": "f3547723b79828d9c501182746028e99f7bad116",
+  "host": "rogue1",
+  "master_seed_checkout": "/rogue1_8/nunota/lcbinint",
+  "timing": "serial; one thread; no compilation concurrent; per-condition median then mean; normal 5 repetitions, holdout 3; fresh workspaces; caustic construction excluded, master seeds included",
+  "sources": {
+    "src/lcbinint/magnification/holonomic/adaptive_epoch.hpp": "24a1d6a71b8753b09bed55f196f594091afa7bf8f364e4c1cfbde8a02f9d5a95",
+    "src/lcbinint/magnification/holonomic/radius_terms.hpp": "4449c447a7fc227b1532d086d78ce02077a5b42c89d73ea8fb75a667b0733e5b",
+    "src/lcbinint/magnification/holonomic/root_pair.hpp": "7cdd0141a40bfe8a6314e7f5221e361e4230671a8060f8078a595607822898de",
+    "src/lcbinint/magnification/holonomic/seeded_radial_frontier.hpp": "ba7afedc0d99ae4800e922c93312f7dbe20f9f32dc4a4494835bde418a70ac99"
+  },
+  "accepted_trials": [
+    1,
+    3,
+    4
+  ],
+  "rejected_trials": [
+    2
+  ]
+}

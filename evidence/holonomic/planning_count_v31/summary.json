@@ -1,0 +1,229 @@
+{
+  "forward": {
+    "uniform": {
+      "inputs": 248,
+      "timing_us": {
+        "seed_ms": {
+          "before": 4.2265,
+          "after": 4.1215,
+          "paired_reduction_percent": 1.5809573042870562
+        },
+        "planning_ms": {
+          "before": 25.744,
+          "after": 15.89,
+          "paired_reduction_percent": 45.0594588526776
+        },
+        "integration_ms": {
+          "before": 35.07399999999999,
+          "after": 34.594,
+          "paired_reduction_percent": 1.7399838906370535
+        },
+        "full_ms": {
+          "before": 73.5175,
+          "after": 62.100500000000004,
+          "paired_reduction_percent": 15.212172593991102
+        }
+      },
+      "fast_count_fraction": 0.9919416662209624
+    },
+    "linear": {
+      "inputs": 251,
+      "timing_us": {
+        "seed_ms": {
+          "before": 4.267,
+          "after": 4.016,
+          "paired_reduction_percent": 1.1074915436654398
+        },
+        "planning_ms": {
+          "before": 26.085,
+          "after": 16.466,
+          "paired_reduction_percent": 44.33665346021402
+        },
+        "integration_ms": {
+          "before": 53.132,
+          "after": 52.707,
+          "paired_reduction_percent": 1.1555706425651624
+        },
+        "full_ms": {
+          "before": 93.47,
+          "after": 81.47,
+          "paired_reduction_percent": 12.780702086567953
+        }
+      },
+      "fast_count_fraction": 0.991812886268381
+    }
+  },
+  "reverse": {
+    "uniform": {
+      "inputs": 248,
+      "timing_us": {
+        "seed_ms": {
+          "before": 4.0040000000000004,
+          "after": 4.0535,
+          "paired_reduction_percent": -1.4759616765900985
+        },
+        "planning_ms": {
+          "before": 25.7435,
+          "after": 16.483999999999998,
+          "paired_reduction_percent": 44.84067234656271
+        },
+        "integration_ms": {
+          "before": 35.185,
+          "after": 35.0735,
+          "paired_reduction_percent": 0.9742607156059346
+        },
+        "full_ms": {
+          "before": 74.35349999999998,
+          "after": 62.738,
+          "paired_reduction_percent": 14.688155083506139
+        }
+      },
+      "fast_count_fraction": 0.9919416662209624
+    },
+    "linear": {
+      "inputs": 251,
+      "timing_us": {
+        "seed_ms": {
+          "before": 4.153,
+          "after": 4.099,
+          "paired_reduction_percent": -1.467772814294821
+        },
+        "planning_ms": {
+          "before": 26.139000000000003,
+          "after": 16.721,
+          "paired_reduction_percent": 44.15171898355755
+        },
+        "integration_ms": {
+          "before": 52.854,
+          "after": 52.803999999999995,
+          "paired_reduction_percent": 0.5162632375189102
+        },
+        "full_ms": {
+          "before": 93.449,
+          "after": 83.07100000000001,
+          "paired_reduction_percent": 12.50513102315911
+        }
+      },
+      "fast_count_fraction": 0.991812886268381
+    }
+  },
+  "full_audit": {
+    "rows": 14432,
+    "changed_fields": {
+      "mu": 4,
+      "nodes": 4,
+      "evaluations": 4,
+      "value_converged": 4,
+      "stop": 4,
+      "numerical_status": 4,
+      "radius_probes": 4,
+      "support_proven": 0
+    },
+    "failed_before": 10,
+    "failed_after": 6,
+    "previously_successful_changed": 0,
+    "new_tolerance_violations": 0
+  },
+  "normal": {
+    "normal": {
+      "before": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06549597701149426,
+          "planning_ms": 0.07266633333333333,
+          "candidate_integration_ms": 0.1538753448275862,
+          "candidate_no_caustic_ms": 0.2942196436781609
+        }
+      },
+      "after": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06566064367816092,
+          "planning_ms": 0.04767332183908046,
+          "candidate_integration_ms": 0.1519783103448276,
+          "candidate_no_caustic_ms": 0.2677640804597701
+        }
+      }
+    },
+    "normal_reverse": {
+      "before": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06578702298850575,
+          "planning_ms": 0.07317042528735632,
+          "candidate_integration_ms": 0.1545850459770115,
+          "candidate_no_caustic_ms": 0.2961209540229885
+        }
+      },
+      "after": {
+        "pairs": 87,
+        "mean_pair_median_ms": {
+          "seed_ms": 0.06600405747126437,
+          "planning_ms": 0.048071402298850575,
+          "candidate_integration_ms": 0.15431564367816092,
+          "candidate_no_caustic_ms": 0.271010183908046
+        }
+      }
+    }
+  },
+  "exact_count_audit": {
+    "summary": {
+      "physical_records": 4,
+      "unique_polynomials": 1,
+      "fast_mismatches": 0,
+      "legacy_certified_disagreements": 4,
+      "legacy_certified_wrong": 4,
+      "legacy_unresolved": 0
+    },
+    "records": [
+      {
+        "coefficients": [
+          -3.1019337649664194,
+          12.17726286383744,
+          -30.54558861684252,
+          123.04800387697598,
+          -185.91161075698324
+        ],
+        "fast": 0,
+        "legacy": 2,
+        "exact": 0
+      },
+      {
+        "coefficients": [
+          -3.1019337649664194,
+          12.17726286383744,
+          -30.54558861684252,
+          123.04800387697598,
+          -185.91161075698324
+        ],
+        "fast": 0,
+        "legacy": 2,
+        "exact": 0
+      },
+      {
+        "coefficients": [
+          -3.1019337649664194,
+          12.17726286383744,
+          -30.54558861684252,
+          123.04800387697598,
+          -185.91161075698324
+        ],
+        "fast": 0,
+        "legacy": 2,
+        "exact": 0
+      },
+      {
+        "coefficients": [
+          -3.1019337649664194,
+          12.17726286383744,
+          -30.54558861684252,
+          123.04800387697598,
+          -185.91161075698324
+        ],
+        "fast": 0,
+        "legacy": 2,
+        "exact": 0
+      }
+    ]
+  }
+}

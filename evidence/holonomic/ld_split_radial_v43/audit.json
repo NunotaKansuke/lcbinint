@@ -1,0 +1,41 @@
+{
+  "rows": 14432,
+  "new_violations": [],
+  "new_failures": [],
+  "failures": 4,
+  "violations": 3,
+  "changed_values": 4520,
+  "uniform": {
+    "probes_before": 88.0,
+    "probes_after": 88.0,
+    "nodes_before": 22.0,
+    "nodes_after": 22.0
+  },
+  "linear": {
+    "probes_before": 88.0,
+    "probes_after": 88.0,
+    "nodes_before": 53.0,
+    "nodes_after": 29.0
+  },
+  "changed_uniform_values": 0,
+  "newly_converged": [
+    {
+      "case_id": "0",
+      "profile": "linear",
+      "d_bin_index": "0",
+      "epoch_index": "23",
+      "rtol": "0.001",
+      "relative_error_reference": "1.3761021290886066e-05"
+    },
+    {
+      "case_id": "0",
+      "profile": "linear",
+      "d_bin_index": "0",
+      "epoch_index": "23",
+      "rtol": "0.0001",
+      "relative_error_reference": "1.3755933805421781e-05"
+    }
+  ],
+  "certified_rows": 0,
+  "checks": 3301
+}

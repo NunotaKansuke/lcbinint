@@ -1,0 +1,14 @@
+{
+  "center_ms": 0.0015485057471264368,
+  "seed_ms": 0.10084490804597701,
+  "planning_ms": 0.11044073563218391,
+  "candidate_integration_ms": 0.2222716436781609,
+  "candidate_no_caustic_ms": 0.436515091954023,
+  "candidate_ms": 1.8036746206896552,
+  "caustic_ms": 1.3660623103448275,
+  "seeds": 108.95402298850574,
+  "probes": 212.55172413793105,
+  "conditions": 87,
+  "source_tsv_sha256": "c941dd586b24fd7413fac8edbe693929e2c6c15a88360b0fd9d970c4de22369a",
+  "measurement": "Reanalysis of v23 five-repeat per-condition medians; fresh geometry/workspaces; tol1e-4; one thread. Stage medians need not sum to whole median."
+}

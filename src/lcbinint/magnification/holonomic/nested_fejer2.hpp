@@ -38,6 +38,60 @@ inline const Fejer2Rule& fejer_rule(int level) {
     static const std::array<Fejer2Rule,8> rules={Fejer2Rule(1),Fejer2Rule(2),Fejer2Rule(3),Fejer2Rule(4),Fejer2Rule(5),Fejer2Rule(6),Fejer2Rule(7),Fejer2Rule(8)};
     return rules[level-1];
 }
+// Gauss-Chebyshev-II uses the same nested dyadic-angle nodes.
+// Integrate sqrt(1-x*x)*g(x); values supplied to the rule are g(x).
+inline const Fejer2Rule& radial_rule(int level,bool weighted=false) {
+    if(!weighted)return fejer_rule(level);
+    if(level<1 || level>8)throw std::invalid_argument("Radial level must be 1..8");
+    static const auto rules=[] {
+        std::array<Fejer2Rule,8> out={Fejer2Rule(1),Fejer2Rule(2),Fejer2Rule(3),Fejer2Rule(4),Fejer2Rule(5),Fejer2Rule(6),Fejer2Rule(7),Fejer2Rule(8)};
+        for(auto& r:out)r.w=r.norm_w;
+        return out;
+    }();
+    return rules[level-1];
+}
+// Interpolatory product rule for (1-x*x)*g(x) on the same nested nodes.
+// U_(k-1) moment = 4/[k*(4-k*k)] for odd k, zero for even k.
+inline const Fejer2Rule& linear_radial_rule(int level) {
+    static const auto rules=[] {
+        std::array<Fejer2Rule,8> out={Fejer2Rule(1),Fejer2Rule(2),Fejer2Rule(3),Fejer2Rule(4),Fejer2Rule(5),Fejer2Rule(6),Fejer2Rule(7),Fejer2Rule(8)};
+        for(int lev=1;lev<=8;++lev) {
+            auto& r=out[lev-1];const int m=1<<lev;
+            for(int i=1;i<m;++i) {
+                const long double theta=3.1415926535897932384626433832795029L*i/m;
+                long double sum=0;
+                for(int k=1;k<m;k+=2)sum+=4*sinl(k*theta)/(k*(4.L-k*k));
+                r.w[i-1]=double(2*sinl(theta)*sum/m);
+            }
+        }
+        return out;
+    }();
+    return rules.at(level-1);
+}
+// Fold-map trigonometry depends only on canonical dyadic abscissae.
+// Keep double and extended evaluations separate to preserve the incumbent
+// arithmetic paths; cache sine values, not geometry-dependent products.
+struct FoldMapFactors {
+    double half_sine=0,sine=0;
+    long double half_sine_extended=0,sine_extended=0;
+};
+inline const std::array<FoldMapFactors,256>& fold_map_factors() {
+    static const auto factors=[] {
+        std::array<FoldMapFactors,256> out{};
+        for(int slot=1;slot<256;++slot) {
+            const double x=fejer_node(8,slot),t=(1+x)*.5;
+            const double pi=3.14159265358979323846;
+            out[slot].half_sine=std::sin(pi*.5*(t<=.5?t:1-t));
+            out[slot].sine=std::sin(pi*t);
+            const long double tl=(1.0L+x)*.5L;
+            constexpr long double pil=3.1415926535897932384626433832795029L;
+            out[slot].half_sine_extended=std::sin(pil*.5L*(tl<=.5L?tl:1-tl));
+            out[slot].sine_extended=std::sin(pil*tl);
+        }
+        return out;
+    }();
+    return factors;
+}
 // map choice is immutable throughout p-refinement. h children retain the
 // parent map and partition its x domain, avoiding moving existing samples.
 struct FoldRadialMap {
