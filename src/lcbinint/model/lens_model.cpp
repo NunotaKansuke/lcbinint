@@ -302,23 +302,23 @@ MagnificationResult LensModel::magnification(double time) const
             return result;
         }
 
-        const auto point_images =
-            point_magnifier_.binary_images(orbit.separation, effective_q, source_for_magnification);
-        double point_source_magnification = 0.0;
-        std::vector<SourcePosition> center_image_seeds;
-        center_image_seeds.reserve(point_images.size());
-        for (const auto& image : point_images) {
-            point_source_magnification += 1.0 / std::abs(image.jacobian_determinant);
-            center_image_seeds.push_back(image.position);
-        }
+        // Route from the cached point-safety diagnostic first.  Most epochs
+        // use the point-source or hexadecapole result, so do not materialize
+        // image vectors and integration seeds until the selected integral
+        // actually needs them.
+        const auto point = point_magnifier_.binary_safety_diagnostic_cached(
+            orbit.separation, effective_q, source_for_magnification);
+        const double point_source_magnification = point.magnification;
+        const int center_image_count = point.image_count;
+        const std::vector<SourcePosition>* center_image_seeds = nullptr;
         result.point_source_magnification = point_source_magnification;
-        result.image_count = static_cast<int>(point_images.size());
+        result.image_count = center_image_count;
 
         const auto finite_result = finite_magnifier_.binary_mag(
             orbit.separation,
             effective_q,
             source_for_magnification, std::abs(params_.rho), point_source_magnification,
-            &center_image_seeds,
+            center_image_seeds,
             true,
             &point_magnifier_);
         result.magnification = finite_result.magnification;
