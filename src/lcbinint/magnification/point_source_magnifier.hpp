@@ -118,13 +118,18 @@ private:
         double separation,
         double mass_ratio,
         SourcePosition source,
-        bool use_root_cache) const;
+        bool use_root_cache,
+        bool evaluate_magnification = true) const;
 
     mutable bool root_cache_valid_ = false;
     mutable double root_cache_separation_ = 0.0;
     mutable double root_cache_mass_ratio_ = 0.0;
     mutable SourcePosition root_cache_source_ {};
     mutable std::array<SourcePosition, 5> root_cache_roots_ {};
+    mutable bool root_cache_safety_valid_ = false;
+    mutable PointSourceSafetyDiagnostic root_cache_safety_ {};
+    mutable std::array<bool, 5> root_cache_physical_ {};
+    mutable std::array<SourcePosition, 5> root_cache_image_derivative_ {};
 
     mutable bool triple_candidate_cache_valid_ = false;
     mutable model::TripleLensGeometry triple_candidate_cache_geometry_ {};

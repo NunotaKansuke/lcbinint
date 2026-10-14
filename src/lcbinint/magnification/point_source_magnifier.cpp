@@ -360,9 +360,12 @@ double derivative_error_indicator_from_roots(
 
 PointSourceSafetyDiagnostic safety_diagnostic_from_roots(
     const FastBinaryGeometry& geometry,
-    const std::array<::complex, 5>& roots)
+    const std::array<::complex, 5>& roots,
+    std::array<bool, 5>* physical_cache,
+    std::array<SourcePosition, 5>* derivative_cache)
 {
     const auto selection = select_physical_roots(geometry, roots);
+    *physical_cache = selection.physical;
     PointSourceSafetyDiagnostic result;
     const ::complex a(geometry.a, 0.0);
     const ::complex m1(geometry.m1, 0.0);
@@ -376,6 +379,7 @@ PointSourceSafetyDiagnostic safety_diagnostic_from_roots(
         const ::complex zb2 = z * z;
         const ::complex f1 = m1 / za2 + m2 / zb2;
         const ::complex f1c = conj(f1);
+        (*derivative_cache)[i] = {f1c.re, f1c.im};
         const double jacobian = (1.0 - f1 * f1c).re;
         if (jacobian == 0.0 || !std::isfinite(jacobian)) {
             if (selection.physical[i]) {
@@ -892,22 +896,75 @@ bool polynomial_roots_are_usable(
     const std::array<::complex, CoefficientCount>& coefficients,
     const std::array<::complex, Degree>& roots)
 {
-    std::array<Complex, CoefficientCount> converted_coefficients;
-    std::array<Complex, Degree> converted_roots;
-    for (std::size_t i = 0; i < CoefficientCount; ++i) {
-        converted_coefficients[i] = {coefficients[i].re, coefficients[i].im};
+    static_assert(CoefficientCount == Degree + 1);
+    // Same residual and complete-set/Vieta guards as the generic validator.
+    // Evaluate coefficient magnitudes once, and compare squared norms after
+    // multiplying the monic coefficient test by the leading coefficient.
+    // This removes repeated hypot and complex division from every epoch/probe.
+    const auto norm2 = [](FastComplex z) { return z.re*z.re + z.im*z.im; };
+    std::array<double, CoefficientCount> magnitudes;
+    for (std::size_t k = 0; k < CoefficientCount; ++k) {
+        const auto c = sg_to_fast(coefficients[k]);
+        if (!std::isfinite(c.re) || !std::isfinite(c.im)) return false;
+        magnitudes[k] = std::sqrt(norm2(c));
     }
+    for (const auto root : roots) {
+        const auto z = sg_to_fast(root);
+        if (!std::isfinite(z.re) || !std::isfinite(z.im)) return false;
+        FastComplex value {};
+        double scale = 0.0;
+        const double radius = std::sqrt(norm2(z));
+        for (std::size_t k = CoefficientCount; k-- > 0;) {
+            value = value*z + sg_to_fast(coefficients[k]);
+            scale = scale*radius + magnitudes[k];
+        }
+        const double allowance = 1.0e-8*std::max(scale, 1.0);
+        if (!std::isfinite(scale) || !std::isfinite(norm2(value)) ||
+            norm2(value) > allowance*allowance) return false;
+    }
+    std::array<FastComplex, CoefficientCount> reconstructed {};
+    reconstructed[0] = {1.0, 0.0};
     for (std::size_t i = 0; i < Degree; ++i) {
-        converted_roots[i] = {roots[i].re, roots[i].im};
+        const auto root = sg_to_fast(roots[i]);
+        for (std::size_t k = i+1; k > 0; --k) {
+            reconstructed[k] = reconstructed[k-1] - root*reconstructed[k];
+        }
+        reconstructed[0] = FastComplex{} - root*reconstructed[0];
     }
-    return polynomial_roots_are_usable(
-        converted_coefficients, converted_roots);
+    const auto leading = sg_to_fast(coefficients[Degree]);
+    const double leading_norm = norm2(leading);
+    if (!(leading_norm > 0.0 && std::isfinite(leading_norm))) return false;
+    for (std::size_t k = 0; k < CoefficientCount; ++k) {
+        const auto expected = sg_to_fast(coefficients[k]);
+        const double difference = norm2(leading*reconstructed[k] - expected);
+        if (!std::isfinite(difference) ||
+            difference > 1.0e-14*std::max(norm2(expected), leading_norm)) return false;
+    }
+    return true;
+}
+
+bool polish_binary_root_set(
+    std::array<::complex, 6>& coefficients, std::array<::complex, 5>& roots)
+{
+    // With five retained roots there is no reason to deflate/re-factor the
+    // polynomial just to update each source sample. Polish independently,
+    // then require the same residual and complete-set/Vieta validation as
+    // before. A coalesced/missing root or failed Newton step retries cold.
+    for (auto& root : roots) {
+        int iterations = 0;
+        bool succeeded = false;
+        cmplx_newton_spec(coefficients.data(), 5, &root, iterations, succeeded);
+        if (!succeeded) return false;
+    }
+    return true;
 }
 
 void apply_binary_image_predictor(
     const FastBinaryGeometry& previous_geometry,
     const FastBinaryGeometry& next_geometry,
-    std::array<::complex, 5>& roots)
+    std::array<::complex, 5>& roots,
+    const std::array<bool, 5>* physical_hint = nullptr,
+    const std::array<SourcePosition, 5>* derivative_hint = nullptr)
 {
     // The analytic predictor assumes fixed lens positions and masses. Dynamic
     // geometries still use the retained roots as zero-order continuation
@@ -930,7 +987,9 @@ void apply_binary_image_predictor(
         return;
     }
 
-    const auto physical = select_physical_roots(previous_geometry, roots);
+    const auto physical = physical_hint != nullptr
+        ? PhysicalRootSelection{*physical_hint}
+        : select_physical_roots(previous_geometry, roots);
     constexpr double minimum_abs_jacobian = 1.0e-4;
     constexpr double maximum_image_step = 0.5;
     for (std::size_t i = 0; i < roots.size(); ++i) {
@@ -946,9 +1005,10 @@ void apply_binary_image_predictor(
         if (std::abs(primary) == 0.0 || std::abs(zbar) == 0.0) {
             continue;
         }
-        const Complex kappa =
-            previous_geometry.m1 / (primary * primary) +
-            previous_geometry.m2 / (zbar * zbar);
+        const Complex kappa = derivative_hint != nullptr
+            ? Complex{(*derivative_hint)[i].x, (*derivative_hint)[i].y}
+            : previous_geometry.m1 / (primary * primary) +
+                previous_geometry.m2 / (zbar * zbar);
         const double jacobian = 1.0 - std::norm(kappa);
         if (!std::isfinite(jacobian) ||
             std::abs(jacobian) < minimum_abs_jacobian) {
@@ -1070,7 +1130,12 @@ PointSourceSafetyDiagnostic PointSourceMagnifier::binary_safety_diagnostic_cache
         root_cache_source_.x == source.x &&
         root_cache_source_.y == source.y;
     if (!cache_matches) {
-        (void)binary_mag0_impl(separation, mass_ratio, source, true);
+        // The safety pass also computes magnification and physical-image
+        // count. Do not traverse/classify the same roots first for a scalar
+        // result that this caller would immediately discard.
+        (void)binary_mag0_impl(separation, mass_ratio, source, true, false);
+    } else if (root_cache_safety_valid_) {
+        return root_cache_safety_;
     }
 
     const FastBinaryGeometry geometry = make_fast_vbm_geometry(
@@ -1079,14 +1144,18 @@ PointSourceSafetyDiagnostic PointSourceMagnifier::binary_safety_diagnostic_cache
     for (std::size_t i = 0; i < roots.size(); ++i) {
         roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
     }
-    return safety_diagnostic_from_roots(geometry, roots);
+    root_cache_safety_ = safety_diagnostic_from_roots(
+        geometry, roots, &root_cache_physical_, &root_cache_image_derivative_);
+    root_cache_safety_valid_ = true;
+    return root_cache_safety_;
 }
 
 PointSourceResult PointSourceMagnifier::binary_mag0_impl(
     double separation,
     double mass_ratio,
     SourcePosition source,
-    bool use_root_cache) const
+    bool use_root_cache,
+    bool evaluate_magnification) const
 {
     if (separation == 0.0 || mass_ratio <= 0.0) {
         return {};
@@ -1113,9 +1182,11 @@ PointSourceResult PointSourceMagnifier::binary_mag0_impl(
                 root_cache_mass_ratio_,
                 root_cache_source_),
             geometry,
-            roots);
-        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, true);
-        if (!polynomial_roots_are_usable(coefficients, roots) ||
+            roots,
+            root_cache_safety_valid_ ? &root_cache_physical_ : nullptr,
+            root_cache_safety_valid_ ? &root_cache_image_derivative_ : nullptr);
+        if (!polish_binary_root_set(coefficients, roots) ||
+            !polynomial_roots_are_usable(coefficients, roots) ||
             max_physical_residual_squared(geometry, roots) > 1.0e-18) {
             cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
             used_cold_retry = true;
@@ -1124,6 +1195,7 @@ PointSourceResult PointSourceMagnifier::binary_mag0_impl(
         cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
     }
     if (use_root_cache) {
+        root_cache_safety_valid_ = false;
         root_cache_valid_ = true;
         root_cache_separation_ = separation;
         root_cache_mass_ratio_ = mass_ratio;
@@ -1133,6 +1205,7 @@ PointSourceResult PointSourceMagnifier::binary_mag0_impl(
         }
     }
 
+    if (!evaluate_magnification) return {};
     auto result = point_source_result_from_roots(geometry, roots);
     result.root_candidate_count = static_cast<int>(roots.size());
     result.root_used_warm_start = can_polish_from_cache ? 1 : 0;
@@ -1172,8 +1245,8 @@ void PointSourceMagnifier::binary_mag0_batch(
         // points; fall back to a cold solve when polishing drifts.
         if (warm) {
             apply_binary_image_predictor(previous_geometry, geometry, roots);
-            cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, true);
-            if (!polynomial_roots_are_usable(coefficients, roots) ||
+            if (!polish_binary_root_set(coefficients, roots) ||
+                !polynomial_roots_are_usable(coefficients, roots) ||
                 max_physical_residual_squared(geometry, roots) > 1.0e-18) {
                 cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
             }
@@ -1214,13 +1287,23 @@ std::vector<BinaryImageCandidate> PointSourceMagnifier::binary_image_candidates(
     const FastBinaryGeometry geometry = make_fast_vbm_geometry(separation, mass_ratio, source);
     std::array<::complex, 6> coefficients;
     std::array<::complex, 5> roots;
-    binary_polynomial_coefficients(geometry, coefficients);
+    const bool same_cached_source = root_cache_valid_ &&
+        root_cache_separation_ == separation &&
+        root_cache_mass_ratio_ == mass_ratio &&
+        root_cache_source_.x == source.x && root_cache_source_.y == source.y;
     // Use the previous centre/probe solve as a continuation seed even when a
     // dynamic binary changed separation; validation below decides whether it
     // was close enough and retries cold otherwise.
     const bool can_polish_from_cache =
         root_cache_valid_;
-    if (can_polish_from_cache) {
+    if (same_cached_source) {
+        // Image seeds requested after routing use the already validated
+        // centre roots, even if hexadecapole probes were evaluated in between.
+        for (std::size_t i = 0; i < roots.size(); ++i) {
+            roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
+        }
+    } else if (can_polish_from_cache) {
+        binary_polynomial_coefficients(geometry, coefficients);
         for (std::size_t i = 0; i < roots.size(); ++i) {
             roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
         }
@@ -1230,15 +1313,19 @@ std::vector<BinaryImageCandidate> PointSourceMagnifier::binary_image_candidates(
                 root_cache_mass_ratio_,
                 root_cache_source_),
             geometry,
-            roots);
-        cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, true);
-        if (!polynomial_roots_are_usable(coefficients, roots) ||
+            roots,
+            root_cache_safety_valid_ ? &root_cache_physical_ : nullptr,
+            root_cache_safety_valid_ ? &root_cache_image_derivative_ : nullptr);
+        if (!polish_binary_root_set(coefficients, roots) ||
+            !polynomial_roots_are_usable(coefficients, roots) ||
             max_physical_residual_squared(geometry, roots) > 1.0e-18) {
             cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
         }
     } else {
+        binary_polynomial_coefficients(geometry, coefficients);
         cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
     }
+    if (!same_cached_source) root_cache_safety_valid_ = false;
     root_cache_valid_ = true;
     root_cache_separation_ = separation;
     root_cache_mass_ratio_ = mass_ratio;

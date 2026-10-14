@@ -449,6 +449,22 @@ class LightCurve:
     def magnification(self, times, params=None, **kwargs):
         return self.__call__(times, params, **kwargs)
 
+    def holonomic_magnification(self, times, params=None, **kwargs):
+        """Scalar-only opt-in seeded radial values with the main selector."""
+        from .holonomic_fused import lightcurve_magnification
+
+        return lightcurve_magnification(self, times, params, **kwargs)
+
+    def holonomic_gradient(self, times, params=None, **kwargs):
+        """Return optional forward gradients for a static binary trajectory.
+
+        Requires the separately built ``_lcbinint_holonomic_fused`` module.
+        The returned parameter order is ``t0,u0,tE,alpha,rho,q,s``.
+        """
+        from .holonomic_fused import lightcurve_gradient
+
+        return lightcurve_gradient(self, times, params, **kwargs)
+
     def magnification_batch(self, times, parameter_rows):
         """Evaluate independent parameter rows with the selected backend.
 

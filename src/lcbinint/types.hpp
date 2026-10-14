@@ -2,6 +2,7 @@
 
 #include <complex>
 #include <limits>
+#include <string>
 
 namespace lcbinint {
 
@@ -43,6 +44,7 @@ struct MagnificationResult {
     int image_count = 0;
     int finite_source_method = 0;
     int finite_source_refinement_level = 0;
+    int finite_source_evaluations = 0;
     bool finite_source_converged = true;
     int root_candidate_count = 0;
     int root_duplicate_count = 0;
@@ -62,6 +64,13 @@ struct MagnificationResult {
     double separation = 0.0;
     double mass_ratio = 0.0;
     double caustic_distance = std::numeric_limits<double>::infinity();
+    bool seed_support_proven = false;
+    bool frontier_discovery_completed = false;
+    bool integral_support_certified = false;
+    bool finite_source_value_converged = false;
+    int center_image_count = 0;
+    int augmented_seed_count = 0;
+    std::string finite_source_stop;
     EvaluationStatus status = EvaluationStatus::unsupported;
 };
 

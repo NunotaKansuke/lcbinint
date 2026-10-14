@@ -228,15 +228,16 @@ lcbi_params params_from_dict(const py::dict& d)
 }
 
 // Return a numpy array from a vector, transferring ownership via capsule.
-py::array_t<double> vec_to_numpy(std::vector<double> mags)
+template <typename T>
+py::array_t<T> vec_to_numpy(std::vector<T> mags)
 {
-    auto* heap = new std::vector<double>(std::move(mags));
+    auto* heap = new std::vector<T>(std::move(mags));
     py::capsule cap(heap, [](void* p) {
-        delete static_cast<std::vector<double>*>(p);
+        delete static_cast<std::vector<T>*>(p);
     });
-    return py::array_t<double>(
+    return py::array_t<T>(
         {static_cast<py::ssize_t>(heap->size())},
-        {sizeof(double)},
+        {sizeof(T)},
         heap->data(),
         cap);
 }
@@ -299,7 +300,8 @@ std::vector<lcbinint::model::MagnificationExecutionPlan> execution_plan_from(
     plan.reserve(methods.size());
     for (std::size_t i = 0; i < methods.size(); ++i) {
         if (methods[i] < 0 ||
-            methods[i] > static_cast<int>(Method::holonomic_binary)) {
+            methods[i] > static_cast<int>(Method::holonomic_auto) ||
+            methods[i] == static_cast<int>(Method::holonomic_seeded_radial)) {
             throw std::invalid_argument("invalid warm-up finite-source method");
         }
         plan.push_back({
@@ -323,6 +325,111 @@ std::vector<lcbinint::model::MagnificationExecutionPlan> execution_plan_from(
         }
     }
     return plan;
+}
+
+std::vector<lcbinint::model::MagnificationExecutionPlan> holonomic_execution_plan(
+    std::size_t count, double mu_atol, double mu_rtol)
+{
+    if (!(std::isfinite(mu_atol) && mu_atol >= 0.0 &&
+          std::isfinite(mu_rtol) && mu_rtol >= 0.0)) {
+        throw std::invalid_argument(
+            "holonomic tolerances must be finite and nonnegative");
+    }
+    std::vector<lcbinint::model::MagnificationExecutionPlan> plan(count);
+    for (auto& entry : plan) {
+        entry.method = lcbinint::magnification::FiniteSourceMethod::holonomic_auto;
+        entry.holonomic_mu_atol = mu_atol;
+        entry.holonomic_mu_rtol = mu_rtol;
+    }
+    if (!plan.empty()) plan.front().clear_binary_epoch_caches_before = true;
+    return plan;
+}
+
+py::array_t<double> compute_holonomic_magnification(
+    const lcbinint::lc::LightCurve& lc, const TimesArray& times,
+    const lcbi_params& params, double mu_atol, double mu_rtol)
+{
+    const auto tv = times_from_array(times);
+    const auto plan = holonomic_execution_plan(tv.size(), mu_atol, mu_rtol);
+    std::vector<double> values;
+    {
+        py::gil_scoped_release release;
+        // Same selector, seed builder and cold-geometry boundary as the
+        // diagnostic API, with the ordinary scalar convergence contract.
+        values = lc.magnification_preplanned(tv, params, plan);
+    }
+    return vec_to_numpy(std::move(values));
+}
+
+py::dict compute_holonomic_diagnostic(
+    const lcbinint::lc::LightCurve& lc, const TimesArray& times,
+    const lcbi_params& params, double mu_atol, double mu_rtol)
+{
+    const auto tv = times_from_array(times);
+    const auto plan = holonomic_execution_plan(tv.size(), mu_atol, mu_rtol);
+    std::vector<lcbinint::MagnificationResult> results;
+    std::vector<double> epoch_seconds;
+    {
+        py::gil_scoped_release release;
+        results = lc.evaluate_preplanned_diagnostic(
+            tv, params, plan, &epoch_seconds);
+    }
+
+    using Method = lcbinint::magnification::FiniteSourceMethod;
+    std::vector<double> magnifications, errors;
+    std::vector<int> converged, value_converged, support_certified;
+    std::vector<int> frontier_discovery_completed, seed_support_proven;
+    std::vector<int> center_image_count, augmented_seed_count, node_evaluations;
+    std::vector<int> methods;
+    std::vector<std::string> method_names, stops;
+    const auto count = results.size();
+    magnifications.reserve(count); errors.reserve(count); converged.reserve(count);
+    value_converged.reserve(count); support_certified.reserve(count);
+    frontier_discovery_completed.reserve(count); seed_support_proven.reserve(count);
+    center_image_count.reserve(count); augmented_seed_count.reserve(count);
+    node_evaluations.reserve(count); methods.reserve(count);
+    method_names.reserve(count); stops.reserve(count);
+    for (const auto& result : results) {
+        magnifications.push_back(result.finite_source_magnification);
+        errors.push_back(result.finite_source_error_estimate);
+        const bool integral_route = result.finite_source_method ==
+            static_cast<int>(Method::holonomic_seeded_radial);
+        value_converged.push_back(integral_route
+            ? result.finite_source_value_converged
+            : result.status == lcbinint::EvaluationStatus::ok &&
+                  result.finite_source_converged);
+        converged.push_back(result.status == lcbinint::EvaluationStatus::ok &&
+                            result.finite_source_converged);
+        support_certified.push_back(result.integral_support_certified);
+        seed_support_proven.push_back(result.seed_support_proven);
+        frontier_discovery_completed.push_back(
+            result.frontier_discovery_completed);
+        center_image_count.push_back(result.center_image_count);
+        augmented_seed_count.push_back(result.augmented_seed_count);
+        node_evaluations.push_back(result.finite_source_evaluations);
+        methods.push_back(result.finite_source_method);
+        method_names.emplace_back(lcbinint::magnification::finite_source_method_name(
+            static_cast<Method>(result.finite_source_method)));
+        stops.push_back(result.finite_source_stop.empty()
+            ? "not_integrated" : result.finite_source_stop);
+    }
+    py::dict output;
+    output["mu"] = vec_to_numpy(std::move(magnifications));
+    output["error_estimate"] = vec_to_numpy(std::move(errors));
+    output["value_converged"] = vec_to_numpy(std::move(value_converged));
+    output["fully_converged"] = vec_to_numpy(std::move(converged));
+    output["support_certified"] = vec_to_numpy(std::move(support_certified));
+    output["frontier_discovery_completed"] =
+        vec_to_numpy(std::move(frontier_discovery_completed));
+    output["seed_support_proven"] = vec_to_numpy(std::move(seed_support_proven));
+    output["center_image_count"] = vec_to_numpy(std::move(center_image_count));
+    output["augmented_seed_count"] = vec_to_numpy(std::move(augmented_seed_count));
+    output["node_evaluations"] = vec_to_numpy(std::move(node_evaluations));
+    output["finite_source_method"] = vec_to_numpy(std::move(methods));
+    output["finite_source_method_name"] = py::cast(std::move(method_names));
+    output["stop"] = py::cast(std::move(stops));
+    output["seconds"] = vec_to_numpy(std::move(epoch_seconds));
+    return output;
 }
 
 py::array_t<double> compute_preplanned(
@@ -1869,6 +1976,21 @@ LightCurves with a ground Site apply the terrestrial correction.)")
             py::arg("times"), py::arg("params"), py::arg("methods"),
             py::arg("resolutions"),
             py::arg("reuse_prepared_geometry") = false)
+        .def("_evaluate_holonomic",
+            [&](const LC& lc, const TimesArray& times, py::dict d,
+                double mu_atol, double mu_rtol) {
+                return compute_holonomic_diagnostic(
+                    lc, times, params_from_dict(d), mu_atol, mu_rtol);
+            },
+            py::arg("times"), py::arg("params"), py::arg("mu_atol"),
+            py::arg("mu_rtol"))
+        .def("_magnification_holonomic",
+            [&](const LC& lc, const TimesArray& times, py::dict d,
+                double mu_atol, double mu_rtol) {
+                return compute_holonomic_magnification(
+                    lc, times, params_from_dict(d), mu_atol, mu_rtol);
+            }, py::arg("times"), py::arg("params"), py::arg("mu_atol"),
+            py::arg("mu_rtol"))
         .def("_evaluate_preplanned_xy",
             [&](const LC& lc, const TimesArray& source_x, const TimesArray& source_y,
                 py::dict d, const std::vector<int>& methods,
@@ -2108,4 +2230,11 @@ Cartesian or polar grid and its resolution.)");
         },
         py::arg("s"), py::arg("q"), py::arg("x"), py::arg("y"),
         "Return local point-source safety indicators for a binary lens.");
+
+    lc.def("_binary_caustic_clearance_lower_bound",
+        [](double s, double q, double x, double y) {
+            lcbinint::magnification::FiniteSourceMagnifier magnifier({});
+            return magnifier.binary_caustic_clearance_lower_bound(s, q, {x, y});
+        }, py::arg("s"), py::arg("q"), py::arg("x"), py::arg("y"),
+        "Return a conservative continuous-caustic clearance; zero means unproved.");
 }

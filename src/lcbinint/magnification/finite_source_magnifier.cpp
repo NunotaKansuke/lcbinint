@@ -1,6 +1,7 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
 #include "lcbinint/magnification/cartesian_run_fill.hpp"
 #include "lcbinint/magnification/component_certificate.hpp"
+#include "lcbinint/magnification/binary_caustic_enclosure.hpp"
 
 #include "lcbinint/magnification/point_source_magnifier.hpp"
 #include "lcbinint/magnification/probe_diagnostics.hpp"
@@ -10,6 +11,7 @@
 // dependency).  Reached only from binary_mag_preplanned for the
 // FiniteSourceMethod::holonomic_binary plan (Phase C step 2).
 #include "lcbinint/magnification/holonomic/finite_source_binary.hpp"
+#include "lcbinint/magnification/holonomic/seeded_radial_frontier_value.hpp"
 
 #include <algorithm>
 #include <array>
@@ -1484,6 +1486,22 @@ void append_tracked_caustic_points(
         return;
     }
 
+    if (n == 4) {
+        // Binary phase tracking is the 1400-step preparation hot path. Keep
+        // its exact minimum-cost assignment, with stack permutation storage.
+        std::array<int, 4> perm {0, 1, 2, 3}, best_perm = perm;
+        double best_cost = std::numeric_limits<double>::infinity();
+        do {
+            double cost = 0.0;
+            for (int i = 0; i < 4; ++i) {
+                cost += distance_squared(branches[i].back(), points[perm[i]]);
+            }
+            if (cost < best_cost) { best_cost = cost; best_perm = perm; }
+        } while (std::next_permutation(perm.begin(), perm.end()));
+        for (int i = 0; i < 4; ++i) branches[i].push_back(points[best_perm[i]]);
+        return;
+    }
+
     // Find the permutation of `points` that minimises total squared step length.
     // Greedy nearest-neighbour can swap inner/outer caustic branches when they
     // come close; the global optimum never makes a swap unless the two assignments
@@ -1566,6 +1584,7 @@ std::vector<std::vector<SourcePosition>> build_binary_critical_curves(
     int bins)
 {
     std::vector<std::vector<SourcePosition>> branches(4);
+    for (auto& branch : branches) branch.reserve(bins);
     for (int i = 0; i < bins; ++i) {
         const double phase_angle = 2.0 * kPi * static_cast<double>(i) /
                                    static_cast<double>(bins);
@@ -6747,6 +6766,47 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
     return seeds;
 }
 
+void FiniteSourceMagnifier::clear_binary_epoch_caches() const
+{
+    caustic_enclosure_attempted_ = false;
+    caustic_enclosure_.clear();
+    caustic_cache_valid_ = false;
+    caustic_cache_branches_.clear();
+    caustic_cache_points_.clear();
+    caustic_cache_grid_.clear();
+    caustic_cache_branch_grid_.clear();
+    binary_seed_cache_.clear();
+    result_cache_valid_ = false;
+}
+
+double FiniteSourceMagnifier::binary_caustic_clearance_lower_bound(
+    double separation, double mass_ratio, SourcePosition source) const
+{
+    if (!caustic_enclosure_attempted_ ||
+        caustic_enclosure_separation_ != separation ||
+        caustic_enclosure_mass_ratio_ != mass_ratio) {
+        caustic_enclosure_ = detail::build_binary_caustic_enclosure(separation, mass_ratio);
+        caustic_enclosure_attempted_ = true;
+        caustic_enclosure_separation_ = separation;
+        caustic_enclosure_mass_ratio_ = mass_ratio;
+    }
+    return detail::binary_caustic_enclosure_clearance(caustic_enclosure_, source);
+}
+
+bool FiniteSourceMagnifier::binary_point_topology_clearance(
+    double separation, double mass_ratio, SourcePosition source, double source_radius) const
+{
+    // Detailed geometry is already available for this model: use its ordinary
+    // distance query instead of preparing an additional enclosure.
+    if (caustic_cache_valid_ && caustic_cache_separation_ == separation &&
+        caustic_cache_mass_ratio_ == mass_ratio) return false;
+    // This replaces only the local topology proxies. The caller still applies
+    // the strict (maximum 30x) derivative bound. The continuous enclosure must
+    // clear both the normal 10-rho topology release and the hex-distance gate.
+    const double required = std::max(10.0, settings_.hex_threshold)*source_radius;
+    return binary_caustic_clearance_lower_bound(separation, mass_ratio, source) > required;
+}
+
 void FiniteSourceMagnifier::ensure_limb_darkening_table() const
 {
     const bool cache_matches = limb_darkening_table_valid_ &&
@@ -7074,8 +7134,10 @@ FiniteSourceMagnifier::binary_routing_diagnostics_for_source(
         std::max(std::abs(point_source_magnification), 1.0e-10);
     out.point_preflight_safe =
         settings_.hex_threshold > 0.0 &&
-        safety.point_source_safe() &&
-        kPreflightPointSafety * derivative_relative_error <= requested_relative;
+        safety.quadrupole_cusp_safe &&
+        kPreflightPointSafety * derivative_relative_error <= requested_relative &&
+        (safety.topology_safe() || binary_point_topology_clearance(
+            separation, mass_ratio, source, source_radius));
     if (out.point_preflight_safe) {
         out.point_safe = finite_source_error_within_budget(
             settings_, point_source_magnification, out.point_error_estimate);
@@ -7323,6 +7385,10 @@ const char* finite_source_method_name(FiniteSourceMethod method)
         return "source_plane_quadrature";
     case FiniteSourceMethod::holonomic_binary:
         return "holonomic_binary";
+    case FiniteSourceMethod::holonomic_seeded_radial:
+        return "holonomic_seeded_radial";
+    case FiniteSourceMethod::holonomic_auto:
+        return "holonomic_auto_request";
     default:
         return "unknown";
     }
@@ -7953,12 +8019,33 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     double point_source_magnification,
     const std::vector<SourcePosition>* center_image_seeds,
     bool point_source_magnification_is_exact,
-    const PointSourceMagnifier* point_magnifier_hint) const
+    const PointSourceMagnifier* point_magnifier_hint,
+    bool use_seeded_radial_frontier,
+    double holonomic_mu_atol,
+    double holonomic_mu_rtol,
+    bool barycentric_frame) const
 {
+    const double default_holonomic_atol =
+        has_explicit_finite_source_tolerance(settings_)
+        ? settings_.finite_source_tol
+        : kDefaultFiniteSourceAbsoluteTolerance;
+    const double default_holonomic_rtol =
+        has_explicit_finite_source_tolerance(settings_)
+        ? settings_.finite_source_reltol
+        : kDefaultFiniteSourceRelativeTolerance;
+    const double effective_holonomic_atol = std::isfinite(holonomic_mu_atol) &&
+        holonomic_mu_atol >= 0.0 ? holonomic_mu_atol : default_holonomic_atol;
+    const double effective_holonomic_rtol = std::isfinite(holonomic_mu_rtol) &&
+        holonomic_mu_rtol >= 0.0 ? holonomic_mu_rtol : default_holonomic_rtol;
     if (result_cache_valid_ && result_cache_separation_ == separation &&
         result_cache_mass_ratio_ == mass_ratio && result_cache_source_x_ == source.x &&
         result_cache_source_y_ == source.y && result_cache_source_radius_ == source_radius &&
-        result_cache_point_magnification_ == point_source_magnification) {
+        result_cache_point_magnification_ == point_source_magnification &&
+        result_cache_seeded_radial_frontier_ == use_seeded_radial_frontier &&
+        (!use_seeded_radial_frontier ||
+         (result_cache_holonomic_mu_atol_ == effective_holonomic_atol &&
+          result_cache_holonomic_mu_rtol_ == effective_holonomic_rtol &&
+          result_cache_barycentric_frame_ == barycentric_frame))) {
         return result_cache_;
     }
 
@@ -7992,6 +8079,10 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         result_cache_source_y_ = source.y;
         result_cache_source_radius_ = source_radius;
         result_cache_point_magnification_ = point_source_magnification;
+        result_cache_seeded_radial_frontier_ = use_seeded_radial_frontier;
+        result_cache_holonomic_mu_atol_ = effective_holonomic_atol;
+        result_cache_holonomic_mu_rtol_ = effective_holonomic_rtol;
+        result_cache_barycentric_frame_ = barycentric_frame;
         result_cache_ = result;
         return result;
     };
@@ -8027,7 +8118,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
     // and the maximum (near-caustic) factor of the later distance-dependent
     // point safety rule.  Anything that does not pass this stricter test falls
     // through unchanged to measured caustic geometry.
-    if (settings_.hex_threshold > 0.0 && point_safety.point_source_safe()) {
+    if (settings_.hex_threshold > 0.0 && point_safety.quadrupole_cusp_safe) {
         double requested_relative = settings_.adaptive_hex_threshold > 0.0
             ? settings_.adaptive_hex_threshold : 1.0e-3;
         if (settings_.finite_source_tol > 0.0 || settings_.finite_source_reltol > 0.0) {
@@ -8044,11 +8135,15 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         constexpr double kPreflightPointSafety = 30.0;
         const double derivative_relative_error = estimated_error /
             std::max(std::abs(point_source_magnification), 1.0e-10);
-        if (kPreflightPointSafety * derivative_relative_error <= requested_relative) {
+        if (kPreflightPointSafety * derivative_relative_error <= requested_relative &&
+            (point_safety.topology_safe() || binary_point_topology_clearance(
+                separation, mass_ratio, source, source_radius))) {
             FiniteSourceDecision decision {
                 FiniteSourceMethod::point_source,
                 1,
-                "strict local point-source preflight passed",
+                point_safety.topology_safe()
+                    ? "strict local point-source preflight passed"
+                    : "continuous caustic enclosure certifies point-source topology",
             };
             return cache_and_return({
                 point_source_magnification,
@@ -8268,6 +8363,82 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 true});
         }
         rejected_hex_magnification = hex.magnification;
+    }
+
+    // Smooth routes never consume image seeds. Materialize the centre image
+    // positions only now, reusing the root set retained by the centre safety
+    // evaluation (the batched hexadecapole probes do not overwrite it).
+    std::vector<SourcePosition> deferred_center_images;
+    if (center_image_seeds == nullptr) {
+        const auto images = point_magnifier.binary_images(separation, mass_ratio, source);
+        deferred_center_images.reserve(images.size());
+        for (const auto& image : images) deferred_center_images.push_back(image.position);
+        center_image_seeds = &deferred_center_images;
+    }
+
+    // Preserve the normal point/hexadecapole decision above. Only when that
+    // selector reaches its integral branch does this opt-in request replace
+    // the old ray integrator with the caustic-seeded radial-frontier route.
+    if (use_seeded_radial_frontier) {
+        const auto seeds = holonomic::make_caustic_aware_binary_seeds(
+            *this, point_magnifier,
+            separation, mass_ratio, source, source_radius, center_image_seeds);
+        holonomic::AdaptiveWorkspace workspace;
+        auto result = FiniteSourceResult{};
+        result.image_count = static_cast<int>(seeds.center_images.size());
+        result.decision = {
+            FiniteSourceMethod::holonomic_seeded_radial,
+            0,
+            "main selector chose finite-source integration; caustic-seeded radial frontier",
+        };
+        result.seed_support_proven = seeds.support_proven;
+        result.center_image_count = static_cast<int>(seeds.center_images.size());
+        result.augmented_seed_count = static_cast<int>(seeds.radial_seeds.size());
+        if (settings_.limb_darkening_d != 0.0) {
+            result.magnification = std::numeric_limits<double>::quiet_NaN();
+            result.error_estimate = std::numeric_limits<double>::infinity();
+            result.converged = false;
+            result.diagnostic_stop = "unsupported_quadratic_limb_darkening";
+            return cache_and_return(std::move(result));
+        }
+
+        const holonomic::LensParams params {
+            source.x, source.y, source_radius, mass_ratio, separation,
+            barycentric_frame};
+        const auto integrated = holonomic::epoch_seeded_radial_frontier_value(
+            params, settings_.limb_darkening_c, seeds.radial_seeds,
+            effective_holonomic_atol, effective_holonomic_rtol, workspace);
+        result.magnification = integrated.integral.mu;
+        result.error_estimate = integrated.integral.estimated_abs_error_mu;
+        result.refinement_level = 0;
+        result.value_converged = integrated.integral.value_converged;
+        result.frontier_discovery_completed =
+            integrated.frontier.discovery_completed;
+        result.integral_support_certified =
+            integrated.frontier.coverage_certified;
+        result.diagnostic_stop = holonomic::adaptive_stop_name(
+            integrated.integral.stop);
+        if (!seeds.support_proven) {
+            result.diagnostic_stop = "seed_support_unproven";
+        } else if (!integrated.frontier.coverage_certified) {
+            result.diagnostic_stop = "frontier_coverage_unproven";
+        } else if (!integrated.integral.value_converged) {
+            result.diagnostic_stop = holonomic::adaptive_stop_name(
+                integrated.integral.stop);
+        } else if (!finite_source_error_within_budget(
+                       settings_, result.magnification, result.error_estimate)) {
+            result.diagnostic_stop = "finite_source_error_budget_exceeded";
+        }
+        result.converged = seeds.support_proven &&
+            integrated.frontier.discovery_completed &&
+            integrated.frontier.coverage_certified &&
+            integrated.integral.value_converged &&
+            finite_source_error_within_budget(
+                settings_, result.magnification, result.error_estimate);
+        result.decision.estimated_evaluations = static_cast<int>(
+            std::min<std::size_t>(integrated.integral.stats.node_evaluations,
+                                  static_cast<std::size_t>(std::numeric_limits<int>::max())));
+        return cache_and_return(std::move(result));
     }
 
     // Grazing-caustic diagnostics.  Binary automatic evaluation deliberately

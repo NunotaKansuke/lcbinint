@@ -7,6 +7,7 @@
 #include "lcbinint/obs/coordinates.hpp"
 #include "lcbinint/types.hpp"
 
+#include <limits>
 #include <memory>
 
 namespace lcbinint::holonomic {
@@ -19,6 +20,13 @@ struct MagnificationExecutionPlan {
     magnification::FiniteSourceMethod method =
         magnification::FiniteSourceMethod::point_source;
     int resolution = 0;
+    // Tolerances for the opt-in holonomic_auto request. NaN uses the
+    // LightCurve's existing finite-source error budget.
+    double holonomic_mu_atol = std::numeric_limits<double>::quiet_NaN();
+    double holonomic_mu_rtol = std::numeric_limits<double>::quiet_NaN();
+    // Clear shared binary caustic/seed/result caches once at the start of a
+    // diagnostic light curve, so repeated benchmark calls measure cold input.
+    bool clear_binary_epoch_caches_before = false;
 
     // Phase E prepared-geometry hook (§6 direction 2).  A caller evaluating a
     // trajectory neighbourhood with FiniteSourceMethod::holonomic_binary may
@@ -65,6 +73,7 @@ private:
     double sin_theta_ = 0.0;
     std::shared_ptr<magnification::FiniteSourceMagnifier> finite_magnifier_;
     mutable magnification::PointSourceMagnifier point_magnifier_;
+    mutable bool binary_epoch_caches_cleared_ = false;
 };
 
 } // namespace lcbinint::model

@@ -366,6 +366,13 @@ MagnificationResult LensModel::magnification_impl(
     // A negative resolution is the per-epoch escape hatch used when warmup
     // could not certify a reference.  Only that epoch re-enters normal auto.
     if (plan != nullptr && plan->resolution < 0) plan = nullptr;
+    if (plan != nullptr && plan->clear_binary_epoch_caches_before &&
+        !binary_epoch_caches_cleared_) {
+        finite_magnifier_->clear_binary_epoch_caches();
+        binary_epoch_caches_cleared_ = true;
+    }
+    const bool use_seeded_radial_frontier = plan != nullptr &&
+        plan->method == magnification::FiniteSourceMethod::holonomic_auto;
     SourcePosition source;
     const bool has_parallax = options_.parallax_mode != 0 &&
         (params_.piEN != 0.0 || params_.piEE != 0.0);
@@ -464,7 +471,8 @@ MagnificationResult LensModel::magnification_impl(
         result.separation = orbit.separation;
         result.mass_ratio = effective_q;
 
-        if (plan == nullptr && params_.rho != 0.0 && options_.mode > 0 &&
+        if ((plan == nullptr || use_seeded_radial_frontier) &&
+            params_.rho != 0.0 && options_.mode > 0 &&
             options_.automatic_source_bins != 0 &&
             !magnification::binary_auto_tolerance_supported(
                 options_.finite_source_tol,
@@ -490,24 +498,38 @@ MagnificationResult LensModel::magnification_impl(
             return result;
         }
 
-        const auto point_images =
-            point_magnifier_.binary_images(
-                orbit.separation, effective_q, source_for_magnification);
         double point_source_magnification = 0.0;
+        int center_image_count = 0;
+        if ((plan == nullptr || use_seeded_radial_frontier) && options_.mode > 0) {
+            // Routing needs the local safety indicators as well as the
+            // scalar magnification. Compute both from one validated root set;
+            // binary_mag reuses this exact diagnostic. Image/seed vectors are
+            // deferred until a finite-source integral actually needs them.
+            const auto center = point_magnifier_.binary_safety_diagnostic_cached(
+                orbit.separation, effective_q, source_for_magnification);
+            point_source_magnification = center.magnification;
+            center_image_count = center.image_count;
+        } else {
+            const auto point = point_magnifier_.binary_mag0_cached(
+                orbit.separation, effective_q, source_for_magnification);
+            point_source_magnification = point.magnification;
+            center_image_count = point.image_count;
+        }
         std::vector<SourcePosition> center_image_seeds;
-        const bool plan_needs_image_seeds = plan == nullptr ||
-            plan->method == magnification::FiniteSourceMethod::inverse_ray_cartesian ||
-            plan->method == magnification::FiniteSourceMethod::inverse_ray_polar ||
-            plan->method == magnification::FiniteSourceMethod::inverse_ray_spine;
-        if (plan_needs_image_seeds) center_image_seeds.reserve(point_images.size());
-        for (const auto& image : point_images) {
-            point_source_magnification += 1.0 / std::abs(image.jacobian_determinant);
-            if (plan_needs_image_seeds) center_image_seeds.push_back(image.position);
+        const bool plan_needs_image_seeds = plan != nullptr &&
+            (plan->method == magnification::FiniteSourceMethod::inverse_ray_cartesian ||
+             plan->method == magnification::FiniteSourceMethod::inverse_ray_polar ||
+             plan->method == magnification::FiniteSourceMethod::inverse_ray_spine);
+        if (plan_needs_image_seeds) {
+            const auto point_images = point_magnifier_.binary_images(
+                orbit.separation, effective_q, source_for_magnification);
+            center_image_seeds.reserve(point_images.size());
+            for (const auto& image : point_images) center_image_seeds.push_back(image.position);
         }
         result.point_source_magnification = point_source_magnification;
-        result.image_count = static_cast<int>(point_images.size());
+        result.image_count = center_image_count;
 
-        const auto finite_result = plan == nullptr
+        const auto finite_result = (plan == nullptr || use_seeded_radial_frontier)
             ? finite_magnifier_->binary_mag(
                 orbit.separation,
                 effective_q,
@@ -516,7 +538,13 @@ MagnificationResult LensModel::magnification_impl(
                 point_source_magnification,
                 plan_needs_image_seeds ? &center_image_seeds : nullptr,
                 true,
-                &point_magnifier_)
+                &point_magnifier_,
+                use_seeded_radial_frontier,
+                plan == nullptr ? std::numeric_limits<double>::quiet_NaN()
+                                : plan->holonomic_mu_atol,
+                plan == nullptr ? std::numeric_limits<double>::quiet_NaN()
+                                : plan->holonomic_mu_rtol,
+                options_.vbm_compatible != 0 || options_.center_of_mass != 0)
             : finite_magnifier_->binary_mag_preplanned(
                 orbit.separation,
                 effective_q,
@@ -533,6 +561,8 @@ MagnificationResult LensModel::magnification_impl(
         result.finite_source_error_estimate = finite_result.error_estimate;
         result.finite_source_method = static_cast<int>(finite_result.decision.method);
         result.finite_source_refinement_level = finite_result.refinement_level;
+        result.finite_source_evaluations =
+            finite_result.decision.estimated_evaluations;
         result.finite_source_converged = finite_result.converged;
         result.point_source_quadrupole_indicator =
             finite_result.point_source_quadrupole_indicator;
@@ -544,6 +574,14 @@ MagnificationResult LensModel::magnification_impl(
         result.point_source_ghost_count = finite_result.point_source_ghost_count;
         result.point_source_safety_flags = finite_result.point_source_safety_flags;
         result.caustic_distance = finite_result.caustic_distance;
+        result.seed_support_proven = finite_result.seed_support_proven;
+        result.frontier_discovery_completed =
+            finite_result.frontier_discovery_completed;
+        result.integral_support_certified = finite_result.integral_support_certified;
+        result.finite_source_value_converged = finite_result.value_converged;
+        result.center_image_count = finite_result.center_image_count;
+        result.augmented_seed_count = finite_result.augmented_seed_count;
+        result.finite_source_stop = finite_result.diagnostic_stop;
         if (!std::isfinite(result.magnification)
             || (!finite_result.converged
                 && requires_finite_source_convergence(options_))) {
