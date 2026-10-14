@@ -909,6 +909,303 @@ const SineMappedNodes<16>& sine_mapped_gauss_legendre16()
     return mapped;
 }
 
+// ---------------------------------------------------------------------------
+// Proposal 1: algebraic limb-darkening moment series.
+//
+// On an angular interval bounded by a simple crossing pair t_- < t_+ (with
+// t = tan(theta/2)) the finite-source indicator factors exactly as
+//     phi(R, theta(t)) = h^2 (1 - x^2) G_R(m + h x),        t = m + h x,
+// with m = (t_- + t_+)/2, h = (t_+ - t_-)/2 and
+//     G_R(t) = S_2(t) / ( rho^2 R^2 (1 + t^2) B_2(t) ),
+//     B_2(t) = (R - a)^2 + (R + a)^2 t^2,
+// where S_2(t) is the quadratic left after deflating the real quartic P_4(t)
+// by (t - t_-)(t_+ - t).  The moment M_beta(R) = R \int phi^beta dtheta is then
+//     M_beta = 2 R h^{2 beta + 1} \int_{-1}^{1} (1 - x^2)^beta g_beta(x) dx,
+//     g_beta(x) = G_R(m + h x)^beta / (1 + (m + h x)^2),
+// and with g_beta(x) = sum_n a_n x^n this collapses to the closed form
+//     M_beta = 2 R h^{2 beta + 1} sum_j a_{2j} Beta(j + 1/2, beta + 1).
+// The a_n obey a recurrence from L(x) g_beta'(x) = W_beta(x) g_beta(x) with
+//     L      = S A B                                        (deg <= 6),
+//     W_beta = beta S' A B - (beta + 1) S A' B - beta S A B' (deg <= 5),
+// where S(x) = S_2(m + h x), A(x) = 1 + (m + h x)^2, B(x) = B_2(m + h x).
+//
+// The series replaces the sine-mapped Gauss-Kronrod 21 angular quadrature only
+// when it is provably safe on this interval: the deflation remainder is
+// negligible, S_2(m) > 0, the nearest complex singularity of g_beta in the
+// x-plane sits well outside the unit disc, the closed-form phi matches the
+// trusted phi_value sampler at interior probes, and the moment series
+// converges inside the coefficient budget.  Any failure falls back unchanged.
+struct AngularMomentSeries {
+    bool ok = false;
+    double half_full = 0.0;
+    double half_reduced = 0.0;
+    double quarter_full = 0.0;
+    double quarter_reduced = 0.0;
+};
+
+// Substitute t = m + h*x into p0 + p1 t + p2 t^2, returning coefficients in x.
+inline std::array<double, 3> shift_quadratic_to_x(
+    const std::array<double, 3>& p, double m, double h)
+{
+    return {{
+        p[0] + p[1] * m + p[2] * m * m,
+        h * (p[1] + 2.0 * p[2] * m),
+        p[2] * h * h,
+    }};
+}
+
+template <std::size_t NA, std::size_t NB, std::size_t NOut>
+inline void poly_mul_add(
+    const std::array<double, NA>& lhs, std::size_t lhs_degree,
+    const std::array<double, NB>& rhs, std::size_t rhs_degree,
+    double scale, std::array<double, NOut>* out)
+{
+    for (std::size_t i = 0; i <= lhs_degree; ++i) {
+        for (std::size_t j = 0; j <= rhs_degree; ++j) {
+            (*out)[i + j] += scale * lhs[i] * rhs[j];
+        }
+    }
+}
+
+AngularMomentSeries algebraic_moment_series(
+    const AlgebraicBoundaryLens& lens,
+    SourcePosition source,
+    double source_radius,
+    double radius,
+    double interval_lower,
+    double interval_upper,
+    const std::array<double, 5>& real_quartic,
+    bool need_half,
+    bool need_quarter,
+    AlgebraicBoundaryDiagnostics* diagnostics)
+{
+    AngularMomentSeries out;
+
+    // The tan(theta/2) chart is singular at theta = pi (mod 2*pi).  Reject any
+    // interval that reaches or straddles it; a wrap through theta = 0 is fine.
+    const double kEdge = 1.0e-6;
+    for (double pole = kPi; pole < interval_upper + kPi; pole += kTwoPi) {
+        if (pole > interval_lower + kEdge && pole < interval_upper - kEdge) {
+            return out;
+        }
+        if (std::abs(pole - interval_lower) <= kEdge ||
+            std::abs(pole - interval_upper) <= kEdge) {
+            return out;
+        }
+    }
+
+    double theta_lo = interval_lower;
+    double theta_hi = interval_upper;
+    if (theta_hi >= kTwoPi) {  // cyclic interval unwrapped through theta = 0
+        theta_lo -= kTwoPi;
+        theta_hi -= kTwoPi;
+    }
+    const double t_lo = std::tan(0.5 * theta_lo);
+    const double t_hi = std::tan(0.5 * theta_hi);
+    if (!std::isfinite(t_lo) || !std::isfinite(t_hi) || !(t_hi > t_lo)) {
+        return out;
+    }
+    const double m = 0.5 * (t_lo + t_hi);
+    const double h = 0.5 * (t_hi - t_lo);
+    if (!std::isfinite(m) || !(h > 0.0) || std::abs(m) > 60.0 || h > 60.0) {
+        return out;
+    }
+
+    double quartic_scale_pre = 1.0;
+    for (double coefficient : real_quartic) {
+        quartic_scale_pre = std::max(quartic_scale_pre, std::abs(coefficient));
+    }
+    // The reconstructed quartic carries an arbitrary overall sign; fix it so
+    // P_4(m) > 0, matching the strictly positive true numerator of phi at the
+    // interior midpoint.
+    double p_mid = real_quartic[4];
+    for (int index = 3; index >= 0; --index) {
+        p_mid = p_mid * m + real_quartic[static_cast<std::size_t>(index)];
+    }
+    if (std::abs(p_mid) <= 1.0e-12 * quartic_scale_pre) {
+        return out;
+    }
+    const double quartic_sign = p_mid > 0.0 ? 1.0 : -1.0;
+
+    // Deflate the real quartic by the monic quadratic t^2 - 2 m t + (m^2 - h^2).
+    const double c0 = m * m - h * h;
+    const double p4 = quartic_sign * real_quartic[4];
+    const double p3 = quartic_sign * real_quartic[3];
+    const double p2 = quartic_sign * real_quartic[2];
+    const double p1 = quartic_sign * real_quartic[1];
+    const double p0 = quartic_sign * real_quartic[0];
+    const double q2 = p4;
+    const double q1 = p3 + 2.0 * m * p4;
+    const double q0 = p2 - p4 * c0 + 2.0 * m * q1;
+    const double r1 = p1 - q1 * c0 + 2.0 * m * q0;
+    const double r0 = p0 - q0 * c0;
+    if (std::abs(r0) + std::abs(r1) > 1.0e-7 * quartic_scale_pre) {
+        return out;  // (m, h^2) is not an accurate crossing pair of P_4
+    }
+
+    // S_2(t) = -(q0 + q1 t + q2 t^2): the residual quadratic, signed so that
+    // S_2 > 0 wherever phi > 0 between the crossings.
+    const std::array<double, 3> s_t {{-q0, -q1, -q2}};
+    const std::array<double, 3> a_t {{1.0, 0.0, 1.0}};
+    const double edge_minus = radius - lens.lens_position;
+    const double edge_plus = radius + lens.lens_position;
+    const std::array<double, 3> b_t {{edge_minus * edge_minus, 0.0,
+                                      edge_plus * edge_plus}};
+
+    const std::array<double, 3> s_x = shift_quadratic_to_x(s_t, m, h);
+    const std::array<double, 3> a_x = shift_quadratic_to_x(a_t, m, h);
+    const std::array<double, 3> b_x = shift_quadratic_to_x(b_t, m, h);
+    if (!(s_x[0] > 0.0) || !(b_x[0] > 0.0) || !(a_x[0] > 0.0)) {
+        return out;
+    }
+
+    // Nearest complex singularity of g_beta in the x-plane: poles of 1/A,
+    // zeros of B_2, and zeros of S_2, all mapped through t = m + h x.
+    double convergence_radius = std::numeric_limits<double>::infinity();
+    convergence_radius = std::min(
+        convergence_radius, std::sqrt(m * m + 1.0) / h);
+    {
+        const double k = std::abs(edge_minus) / edge_plus;
+        convergence_radius = std::min(
+            convergence_radius, std::sqrt(m * m + k * k) / h);
+    }
+    {
+        const double disc = q1 * q1 - 4.0 * q0 * q2;
+        if (std::abs(q2) > 0.0) {
+            if (disc >= 0.0) {
+                const double root = std::sqrt(disc);
+                for (const double sign : {1.0, -1.0}) {
+                    const double t_root = (-q1 + sign * root) / (2.0 * q2);
+                    convergence_radius = std::min(
+                        convergence_radius, std::abs((t_root - m) / h));
+                }
+            } else {
+                const double re = -q1 / (2.0 * q2) - m;
+                const double im = std::sqrt(-disc) / (2.0 * q2);
+                convergence_radius = std::min(
+                    convergence_radius, std::sqrt(re * re + im * im) / h);
+            }
+        }
+    }
+    if (!std::isfinite(convergence_radius) || convergence_radius < 1.8) {
+        return out;
+    }
+
+    int half_terms = static_cast<int>(
+        std::ceil(13.0 / std::log(convergence_radius)));
+    half_terms = std::min(std::max(half_terms, 6), 20);
+    const int coefficient_count = 2 * half_terms + 3;
+    const int reduced_terms = half_terms / 2;
+
+    const auto run_beta = [&](double beta, double* full, double* reduced) -> bool {
+        const double a_x0 = a_x[0];
+        const double c_radial =
+            std::pow(source_radius * source_radius * radius * radius, -beta);
+        const double a0 = c_radial * std::pow(s_x[0], beta) /
+            (std::pow(a_x0, beta + 1.0) * std::pow(b_x[0], beta));
+        if (!std::isfinite(a0)) return false;
+
+        // L = S A B (deg 6), W = beta S' A B - (beta+1) S A' B - beta S A B'.
+        std::array<double, 5> sa {};
+        poly_mul_add(s_x, 2, a_x, 2, 1.0, &sa);
+        std::array<double, 7> el {};
+        poly_mul_add(sa, 4, b_x, 2, 1.0, &el);
+
+        const std::array<double, 3> s_prime {{s_x[1], 2.0 * s_x[2], 0.0}};
+        const std::array<double, 3> a_prime {{a_x[1], 2.0 * a_x[2], 0.0}};
+        const std::array<double, 3> b_prime {{b_x[1], 2.0 * b_x[2], 0.0}};
+        std::array<double, 4> sa_prime {};   // S' A  (deg 3)
+        poly_mul_add(s_prime, 1, a_x, 2, 1.0, &sa_prime);
+        std::array<double, 4> s_ap {};       // S A'  (deg 3)
+        poly_mul_add(s_x, 2, a_prime, 1, 1.0, &s_ap);
+        std::array<double, 6> wb {};
+        poly_mul_add(sa_prime, 3, b_x, 2, beta, &wb);
+        poly_mul_add(s_ap, 3, b_x, 2, -(beta + 1.0), &wb);
+        poly_mul_add(sa, 4, b_prime, 1, -beta, &wb);
+
+        const double l0 = el[0];
+        if (!(std::abs(l0) > 0.0)) return false;
+
+        std::array<double, 45> a {};
+        a[0] = a0;
+        for (int n = 0; n + 1 < coefficient_count; ++n) {
+            double acc = 0.0;
+            for (int k = 0; k <= 5 && k <= n; ++k) {
+                acc += wb[static_cast<std::size_t>(k)] *
+                    a[static_cast<std::size_t>(n - k)];
+            }
+            for (int k = 1; k <= 6 && k <= n; ++k) {
+                acc -= el[static_cast<std::size_t>(k)] *
+                    static_cast<double>(n - k + 1) *
+                    a[static_cast<std::size_t>(n - k + 1)];
+            }
+            const double next = acc / (l0 * static_cast<double>(n + 1));
+            if (!std::isfinite(next)) return false;
+            a[static_cast<std::size_t>(n + 1)] = next;
+        }
+
+        // M_beta / (2 R h^{2 beta + 1}) = sum_j a_{2j} Beta(j + 1/2, beta + 1).
+        double beta_coefficient = std::tgamma(0.5) * std::tgamma(beta + 1.0) /
+            std::tgamma(beta + 1.5);
+        double partial = 0.0;
+        double partial_reduced = 0.0;
+        double last_term = 0.0;
+        for (int j = 0; j < half_terms; ++j) {
+            const double term =
+                a[static_cast<std::size_t>(2 * j)] * beta_coefficient;
+            partial += term;
+            if (j <= reduced_terms) partial_reduced = partial;
+            last_term = term;
+            beta_coefficient *=
+                (static_cast<double>(j) + 0.5) /
+                (static_cast<double>(j) + 1.5 + beta);
+        }
+        if (!std::isfinite(partial) ||
+            std::abs(last_term) > 1.0e-9 * (std::abs(partial) + 1.0e-300)) {
+            return false;  // series has not converged within the budget
+        }
+
+        const double prefactor =
+            2.0 * radius * std::pow(h, 2.0 * beta + 1.0);
+        *full = prefactor * partial;
+        *reduced = prefactor * partial_reduced;
+        return std::isfinite(*full) && std::isfinite(*reduced);
+    };
+
+    // Validate the closed-form phi against the trusted sampler before trusting
+    // the series: any disagreement means the factorisation does not hold here.
+    for (const double x_probe : {-0.7, -0.25, 0.25, 0.7}) {
+        const double t = m + h * x_probe;
+        const double s2 = -(q0 + q1 * t + q2 * t * t);
+        const double b2 = b_t[0] + b_t[2] * t * t;
+        const double denominator =
+            source_radius * source_radius * radius * radius *
+            (1.0 + t * t) * b2;
+        if (!(denominator > 0.0)) return out;
+        const double phi_closed = h * h * (1.0 - x_probe * x_probe) * s2 /
+            denominator;
+        const double phi_reference = phi_value(
+            lens, source, source_radius, radius, 2.0 * std::atan(t),
+            diagnostics);
+        if (!std::isfinite(phi_closed) ||
+            std::abs(phi_closed - phi_reference) >
+                1.0e-7 * (1.0 + std::abs(phi_reference))) {
+            return out;
+        }
+    }
+
+    if (need_half && !run_beta(0.5, &out.half_full, &out.half_reduced)) {
+        return out;
+    }
+    if (need_quarter &&
+        !run_beta(0.25, &out.quarter_full, &out.quarter_reduced)) {
+        return out;
+    }
+    out.ok = true;
+    if (diagnostics != nullptr) ++diagnostics->ld_moment_series_count;
+    return out;
+}
+
 struct NestedMoments {
     Moments gauss;
     Moments kronrod;
@@ -927,11 +1224,56 @@ NestedMoments angular_moments_rule(
 {
     NestedMoments result;
     const auto& mapped_rule = sine_mapped_gauss_kronrod21();
+
+    // Proposal 1 fast path: reconstruct the real quartic P_4(t) once so each
+    // interval can attempt the closed-form limb-darkening moment series.
+    std::array<double, 5> real_quartic {};
+    bool have_real_quartic = false;
+    if (need_half || need_quarter) {
+        const auto complex_quartic = algebraic_boundary_quartic_fixed(
+            lens, source, source_radius, radius);
+        SelfInversiveTrigQuartic trig;
+        if (self_inversive_trig_quartic(complex_quartic, &trig)) {
+            real_quartic = {{
+                trig.e + 2.0 * trig.c + 2.0 * trig.a,
+                -4.0 * trig.d - 8.0 * trig.b,
+                2.0 * trig.e - 12.0 * trig.a,
+                -4.0 * trig.d + 8.0 * trig.b,
+                trig.e - 2.0 * trig.c + 2.0 * trig.a,
+            }};
+            have_real_quartic = std::isfinite(real_quartic[0]) &&
+                std::isfinite(real_quartic[4]) &&
+                std::abs(real_quartic[4]) > 0.0;
+        }
+    }
+
     for (const auto& interval : intervals) {
         const double midpoint = 0.5 * (interval.first + interval.second);
         const double half_width = 0.5 * (interval.second - interval.first);
         result.gauss.m0 += radius * 2.0 * half_width;
         result.kronrod.m0 += radius * 2.0 * half_width;
+
+        if ((need_half || need_quarter) && have_real_quartic) {
+            const auto series = algebraic_moment_series(
+                lens, source, source_radius, radius, interval.first,
+                interval.second, real_quartic, need_half, need_quarter,
+                diagnostics);
+            if (series.ok) {
+                if (need_half) {
+                    result.kronrod.mhalf += series.half_full;
+                    result.gauss.mhalf += series.half_reduced;
+                }
+                if (need_quarter) {
+                    result.kronrod.mquarter += series.quarter_full;
+                    result.gauss.mquarter += series.quarter_reduced;
+                }
+                continue;
+            }
+            if (diagnostics != nullptr) {
+                ++diagnostics->ld_moment_series_fallback_count;
+            }
+        }
+
         for (std::size_t i = 0; i < rule.nodes.size(); ++i) {
             // Sine-map the Legendre coordinate.  Near x=+-1 the distance to
             // the boundary is quadratic and the Jacobian vanishes linearly,
@@ -958,6 +1300,176 @@ NestedMoments angular_moments_rule(
     return result;
 }
 
+// ---------------------------------------------------------------------------
+// Proposal 2: (m, v) root-pair transport across radial quadrature nodes.
+//
+// The fixed-radius boundary quartic P_4(t) (real, tan(theta/2) form) varies
+// smoothly with the image radius R inside a topology band.  Instead of a cold
+// bracket-and-Newton root search at every radial node we track each real
+// quadratic factor  t^2 - 2 m t + (m^2 - v)  through the sqrt-free system
+//
+//     E(m, v) = P(m) + (v/2) P''(m) + (v^2/24) P''''(m) = 0
+//     O(m, v) = P'(m) + (v/6) P'''(m)                    = 0
+//
+// which is exact for a quartic (E = O = 0  <=>  m +- sqrt(v) are both roots of
+// P).  The Jacobian determinant is  -1/2 (P'')^2  at an ordinary double root,
+// so Newton stays well conditioned away from a genuine tangency (which the
+// cold path still owns).  We warm-start (m, v) from the nearest cached radius
+// and accept only when the recovered quadratic factors multiply back to P_4 to
+// tight residual -- a complete, topology-checked factorisation.
+// ---------------------------------------------------------------------------
+
+struct QuarticDerivsAtM {
+    double p0 = 0.0;  // P(m)
+    double p1 = 0.0;  // P'(m)
+    double p2 = 0.0;  // P''(m)
+    double p3 = 0.0;  // P'''(m)
+    double p4 = 0.0;  // P''''(m)  (constant, 24 * leading)
+};
+
+inline QuarticDerivsAtM quartic_derivs_at(
+    const std::array<double, 5>& p, double m)
+{
+    QuarticDerivsAtM r;
+    r.p0 = (((p[4] * m + p[3]) * m + p[2]) * m + p[1]) * m + p[0];
+    r.p1 = ((4.0 * p[4] * m + 3.0 * p[3]) * m + 2.0 * p[2]) * m + p[1];
+    r.p2 = (12.0 * p[4] * m + 6.0 * p[3]) * m + 2.0 * p[2];
+    r.p3 = 24.0 * p[4] * m + 6.0 * p[3];
+    r.p4 = 24.0 * p[4];
+    return r;
+}
+
+// Newton-refine one (m, v) pair on the E/O system; true on a converged
+// solution with v > 0.
+inline bool refine_mv_pair(
+    const std::array<double, 5>& p, double scale, double* m_io, double* v_io)
+{
+    double m = *m_io;
+    double v = *v_io;
+    for (int iteration = 0; iteration < 12; ++iteration) {
+        const QuarticDerivsAtM d = quartic_derivs_at(p, m);
+        const double e = d.p0 + 0.5 * v * d.p2 + (v * v / 24.0) * d.p4;
+        const double o = d.p1 + (v / 6.0) * d.p3;
+        const double de_dm = d.p1 + 0.5 * v * d.p3;
+        const double de_dv = 0.5 * d.p2 + (v / 12.0) * d.p4;
+        const double do_dm = d.p2 + (v / 6.0) * d.p4;
+        const double do_dv = d.p3 / 6.0;
+        const double det = de_dm * do_dv - de_dv * do_dm;
+        if (!std::isfinite(det) || std::abs(det) <= 1.0e-14 * scale * scale) {
+            return false;
+        }
+        const double dm = -(e * do_dv - o * de_dv) / det;
+        const double dv = -(de_dm * o - do_dm * e) / det;
+        m += dm;
+        v += dv;
+        if (!std::isfinite(m) || !std::isfinite(v)) return false;
+        if (std::abs(dm) + std::abs(dv) <=
+                1.0e-13 * (1.0 + std::abs(m) + std::abs(v))) {
+            break;
+        }
+    }
+    const QuarticDerivsAtM d = quartic_derivs_at(p, m);
+    const double e = d.p0 + 0.5 * v * d.p2 + (v * v / 24.0) * d.p4;
+    const double o = d.p1 + (v / 6.0) * d.p3;
+    if (!std::isfinite(e) || !std::isfinite(o)) return false;
+    if (std::abs(e) + std::abs(o) > 1.0e-9 * scale) return false;
+    if (!(v > 0.0)) return false;
+    *m_io = m;
+    *v_io = v;
+    return true;
+}
+
+struct MvPairs {
+    std::array<std::pair<double, double>, 2> pairs {};  // (m, v)
+    int count = 0;
+};
+
+// True when the tracked (m, v) pairs reproduce the full real quartic p
+// (constant-first) to tight residual: a complete, topology-checked factoring.
+inline bool validate_mv_factorization(
+    const std::array<double, 5>& p, double scale, const MvPairs& mv)
+{
+    const double tol = 1.0e-8 * scale;
+    if (mv.count == 2) {
+        const double a = -2.0 * mv.pairs[0].first;
+        const double b = mv.pairs[0].first * mv.pairs[0].first - mv.pairs[0].second;
+        const double c = -2.0 * mv.pairs[1].first;
+        const double g = mv.pairs[1].first * mv.pairs[1].first - mv.pairs[1].second;
+        const double e3 = p[4] * (a + c);
+        const double e2 = p[4] * (b + g + a * c);
+        const double e1 = p[4] * (a * g + b * c);
+        const double e0 = p[4] * (b * g);
+        return std::abs(e3 - p[3]) <= tol && std::abs(e2 - p[2]) <= tol &&
+               std::abs(e1 - p[1]) <= tol && std::abs(e0 - p[0]) <= tol;
+    }
+    if (mv.count == 1) {
+        const double a = -2.0 * mv.pairs[0].first;
+        const double b = mv.pairs[0].first * mv.pairs[0].first - mv.pairs[0].second;
+        // Synthetic division of [p4,p3,p2,p1,p0] by monic (t^2 + a t + b).
+        const double s2 = p[4];
+        const double s1 = p[3] - a * s2;
+        const double s0 = p[2] - a * s1 - b * s2;
+        const double rem1 = p[1] - a * s0 - b * s1;
+        const double rem0 = p[0] - b * s0;
+        if (std::abs(rem1) > tol || std::abs(rem0) > tol) return false;
+        // The complementary factor must carry no further real roots.
+        const double disc = s1 * s1 - 4.0 * s2 * s0;
+        return disc < -1.0e-9 * scale * scale;
+    }
+    return false;
+}
+
+inline void append_unit_circle_root(std::vector<Complex>* roots, double t)
+{
+    double cosine;
+    double sine;
+    if (std::abs(t) <= 1.0) {
+        const double denominator = 1.0 + t * t;
+        cosine = (1.0 - t * t) / denominator;
+        sine = 2.0 * t / denominator;
+    } else {
+        const double inverse = 1.0 / t;
+        const double denominator = 1.0 + inverse * inverse;
+        cosine = (inverse * inverse - 1.0) / denominator;
+        sine = 2.0 * inverse / denominator;
+    }
+    roots->emplace_back(cosine, sine);
+}
+
+// Recover adjacently-paired (m, v) factors from unit-circle boundary roots.
+inline MvPairs mv_pairs_from_unit_roots(const std::vector<Complex>& roots)
+{
+    MvPairs out;
+    std::array<double, 4> t {};
+    int count = 0;
+    for (const Complex z : roots) {
+        const double denominator = 1.0 + z.real();
+        if (!(std::abs(denominator) > 1.0e-9) || count >= 4) return out;
+        t[static_cast<std::size_t>(count++)] = z.imag() / denominator;
+    }
+    std::sort(t.begin(), t.begin() + count);
+    const auto make_pair = [](double lo, double hi) {
+        const double half = 0.5 * (hi - lo);
+        return std::pair<double, double> {0.5 * (lo + hi), half * half};
+    };
+    if (count == 4) {
+        out.count = 2;
+        out.pairs[0] = make_pair(t[0], t[1]);
+        out.pairs[1] = make_pair(t[2], t[3]);
+    } else if (count == 2) {
+        out.count = 1;
+        out.pairs[0] = make_pair(t[0], t[1]);
+    }
+    return out;
+}
+
+struct MvCacheEntry {
+    double radius = 0.0;
+    MvPairs pairs;
+};
+
+thread_local std::vector<MvCacheEntry>* active_mv_cache = nullptr;
+
 struct IntegrandEvaluation {
     bool success = false;
     Moments value;
@@ -971,14 +1483,23 @@ class IntegrandCacheScope {
 public:
     explicit IntegrandCacheScope(
         std::unordered_map<double, IntegrandEvaluation>& cache)
-        : previous_(active_integrand_cache)
+        : previous_(active_integrand_cache),
+          previous_mv_(active_mv_cache)
     {
         active_integrand_cache = &cache;
+        mv_cache_.reserve(16);
+        active_mv_cache = &mv_cache_;
     }
-    ~IntegrandCacheScope() { active_integrand_cache = previous_; }
+    ~IntegrandCacheScope()
+    {
+        active_integrand_cache = previous_;
+        active_mv_cache = previous_mv_;
+    }
 
 private:
     std::unordered_map<double, IntegrandEvaluation>* previous_;
+    std::vector<MvCacheEntry>* previous_mv_;
+    std::vector<MvCacheEntry> mv_cache_;
 };
 
 IntegrandEvaluation evaluate_radial_integrand(
@@ -1674,10 +2195,93 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
     static thread_local std::vector<Complex> physical_roots;
     physical_roots.clear();
     physical_roots.reserve(4);
-    const bool used_real_quartic =
-        self_inversive_unit_roots(coefficients, &physical_roots);
-    if (used_real_quartic) {
-        if (diagnostics != nullptr) ++diagnostics->real_quartic_solve_count;
+
+    // Proposal 2: try to transport the previous radial node's (m, v) root
+    // pairs instead of a cold quartic solve.
+    bool used_real_quartic = false;
+    bool used_mv_transport = false;
+    std::array<double, 5> real_quartic {};
+    double real_quartic_scale = 1.0;
+    bool have_real_quartic = false;
+    {
+        SelfInversiveTrigQuartic trig;
+        if (self_inversive_trig_quartic(coefficients, &trig)) {
+            real_quartic = {{
+                trig.e + 2.0 * trig.c + 2.0 * trig.a,
+                -4.0 * trig.d - 8.0 * trig.b,
+                2.0 * trig.e - 12.0 * trig.a,
+                -4.0 * trig.d + 8.0 * trig.b,
+                trig.e - 2.0 * trig.c + 2.0 * trig.a,
+            }};
+            for (const double coefficient : real_quartic) {
+                real_quartic_scale =
+                    std::max(real_quartic_scale, std::abs(coefficient));
+            }
+            have_real_quartic = std::isfinite(real_quartic[0]) &&
+                std::isfinite(real_quartic[4]) &&
+                std::abs(real_quartic[4]) > 1.0e-300;
+        }
+    }
+    if (have_real_quartic && active_mv_cache != nullptr &&
+        !active_mv_cache->empty()) {
+        const MvCacheEntry* nearest = nullptr;
+        double best_relative = 0.35;
+        for (const auto& entry : *active_mv_cache) {
+            const double relative = std::abs(entry.radius - image_radius) /
+                std::max(image_radius, 1.0e-12);
+            if (relative < best_relative) {
+                best_relative = relative;
+                nearest = &entry;
+            }
+        }
+        if (nearest != nullptr && nearest->pairs.count > 0) {
+            MvPairs candidate = nearest->pairs;
+            bool refined = true;
+            for (int i = 0; i < candidate.count && refined; ++i) {
+                refined = refine_mv_pair(
+                    real_quartic, real_quartic_scale,
+                    &candidate.pairs[static_cast<std::size_t>(i)].first,
+                    &candidate.pairs[static_cast<std::size_t>(i)].second);
+            }
+            if (refined && candidate.count == 2) {
+                const double dm =
+                    candidate.pairs[0].first - candidate.pairs[1].first;
+                const double dv =
+                    candidate.pairs[0].second - candidate.pairs[1].second;
+                if (std::abs(dm) + std::abs(dv) <=
+                        1.0e-9 * (1.0 + real_quartic_scale)) {
+                    refined = false;  // pairs collapsed onto each other
+                }
+            }
+            if (refined && validate_mv_factorization(
+                    real_quartic, real_quartic_scale, candidate)) {
+                for (int i = 0; i < candidate.count; ++i) {
+                    const double m =
+                        candidate.pairs[static_cast<std::size_t>(i)].first;
+                    const double spread = std::sqrt(
+                        candidate.pairs[static_cast<std::size_t>(i)].second);
+                    append_unit_circle_root(&physical_roots, m - spread);
+                    append_unit_circle_root(&physical_roots, m + spread);
+                }
+                used_real_quartic = true;
+                used_mv_transport = true;
+            }
+        }
+    }
+
+    if (used_mv_transport) {
+        if (diagnostics != nullptr) {
+            ++diagnostics->real_quartic_solve_count;
+            ++diagnostics->mv_transport_count;
+        }
+    } else if ((used_real_quartic =
+                    self_inversive_unit_roots(coefficients, &physical_roots))) {
+        if (diagnostics != nullptr) {
+            ++diagnostics->real_quartic_solve_count;
+            if (active_mv_cache != nullptr) {
+                ++diagnostics->mv_transport_fallback_count;
+            }
+        }
     } else {
         if (diagnostics != nullptr) ++diagnostics->real_quartic_fallback_count;
         const std::vector<Complex> dynamic_coefficients(
@@ -1763,6 +2367,8 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
         }
         return unique;
     };
+    static thread_local std::vector<Complex> retry_roots;
+    const std::vector<Complex>* final_roots = &physical_roots;
     std::vector<double> unique = extract_angles(physical_roots);
     if ((unique.size() % 2) != 0 && used_real_quartic) {
         // Polynomial residual alone can accept a numerically ill-conditioned
@@ -1780,10 +2386,34 @@ AlgebraicBoundaryIntervals algebraic_boundary_intervals_at_radius(
         if (solved.status != math::RootSolverStatus::ok) {
             return {false, false, "quartic root solve failed", {}, {}};
         }
+        retry_roots = solved.roots;
+        final_roots = &retry_roots;
         unique = extract_angles(solved.roots);
     }
     if ((unique.size() % 2) != 0) {
         return {false, false, "odd physical boundary-root count", {}, {}};
+    }
+
+    // Proposal 2: refresh the (m, v) transport cache from this node's
+    // validated roots so the next radial node can warm-start from it.
+    if (have_real_quartic && active_mv_cache != nullptr) {
+        const MvPairs refreshed = mv_pairs_from_unit_roots(*final_roots);
+        if (refreshed.count > 0) {
+            bool replaced = false;
+            for (auto& entry : *active_mv_cache) {
+                if (entry.radius == image_radius) {
+                    entry.pairs = refreshed;
+                    replaced = true;
+                    break;
+                }
+            }
+            if (!replaced) {
+                if (active_mv_cache->size() >= 64) {
+                    active_mv_cache->erase(active_mv_cache->begin());
+                }
+                active_mv_cache->push_back({image_radius, refreshed});
+            }
+        }
     }
 
     AlgebraicBoundaryIntervals result;

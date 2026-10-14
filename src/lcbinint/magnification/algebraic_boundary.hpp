@@ -39,6 +39,15 @@ struct AlgebraicBoundaryDiagnostics {
     int real_sextic_fallback_count = 0;
     int tangency_solve_count = 0;
     int tangency_fallback_count = 0;
+    // Proposal 1: angular intervals resolved by the closed-form limb-darkening
+    // moment series, and those that fell back to Gauss-Kronrod quadrature.
+    int ld_moment_series_count = 0;
+    int ld_moment_series_fallback_count = 0;
+    // Proposal 2: fixed-radius quartic root sets obtained by transporting the
+    // previous radial node's (m, v) pairs, and cold solves that ran because no
+    // usable cached pair was available.
+    int mv_transport_count = 0;
+    int mv_transport_fallback_count = 0;
     // Set when the VBM-style multipole test resolved the epoch and the band
     // discovery / radial quadrature were skipped entirely.
     int multipole_shortcut_count = 0;

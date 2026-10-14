@@ -78,7 +78,11 @@ void print_result(
               << safe_reason(result.unsafe_reason) << '\t'
               << warmup_seconds << '\t'
               << result.diagnostics.real_sextic_solve_count << '\t'
-              << result.diagnostics.real_sextic_fallback_count << '\n';
+              << result.diagnostics.real_sextic_fallback_count << '\t'
+              << result.diagnostics.ld_moment_series_count << '\t'
+              << result.diagnostics.ld_moment_series_fallback_count << '\t'
+              << result.diagnostics.mv_transport_count << '\t'
+              << result.diagnostics.mv_transport_fallback_count << '\n';
 }
 
 } // namespace

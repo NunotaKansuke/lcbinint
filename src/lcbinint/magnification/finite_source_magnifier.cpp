@@ -7149,7 +7149,17 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             scan.min_distance < 1.35 * source_radius;
         tangent_band = !caustic_enters_disk && !chord_band &&
             std::abs(scan.min_distance - source_radius) < 0.35 * source_radius;
-        if (chord_band) {
+        // The chord / fold quadratures below are an inverse-ray workaround:
+        // the flood-fill scans truncate the thin limb fingers a near-limb
+        // caustic produces, so we replace them with a brute tensor
+        // Gauss-Legendre source-plane quadrature (up to ~2.4M point solves,
+        // hundreds of ms).  The algebraic-boundary polar integral resolves
+        // those exact limb images analytically at fixed radius and needs no
+        // such workaround, so skip straight to its deep solve -- mirroring
+        // both the `multipole_only_probe` early-out above and the Cartesian
+        // sibling, which calls the integral directly.
+        const bool skip_grazing_quadrature = algebraic_backend != nullptr;
+        if (chord_band && !skip_grazing_quadrature) {
             // A tangent caustic can hide a crossing sliver at the limb below
             // both the grid and the polyline resolution; inverse rays miss
             // its flux and midpoint rings under-sample its spike.  Tensor
@@ -7186,7 +7196,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             }
         }
         if (!caustic_enters_disk && scan.min_distance >= source_radius &&
-            !tangent_band) {
+            !tangent_band && !skip_grazing_quadrature) {
             // "Outside the disk" does not make the integrand smooth enough
             // for midpoint rings: a fold just beyond the limb still produces
             // a narrow off-centre spike.  Both inverse-ray grid requests used
@@ -7247,8 +7257,11 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
 
     // Experimental algebraic-boundary backend: the shared routing above has
     // decided a full finite-source solve is required.  Swap the inverse-ray
-    // raster for the polar algebraic-boundary integral; everything upstream
-    // (point-source, hexadecapole, grazing quadrature) already ran identically.
+    // raster for the polar algebraic-boundary integral.  Point-source and
+    // hexadecapole routing above ran identically; the grazing / tangent chord
+    // quadratures were skipped deliberately (see skip_grazing_quadrature) --
+    // they are an inverse-ray truncation workaround the polar integral does
+    // not need, and running them cost hundreds of ms for no accuracy gain.
     if (algebraic_backend != nullptr) {
         auto result = apply_tangent_band_floor(algebraic_boundary_deep_solve(
             point_magnifier, separation, mass_ratio, source, source_radius,
