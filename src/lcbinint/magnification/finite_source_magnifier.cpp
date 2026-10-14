@@ -1,4 +1,5 @@
 #include "lcbinint/magnification/finite_source_magnifier.hpp"
+#include "lcbinint/magnification/holonomic/finite_source_binary.hpp"
 #include "lcbinint/magnification/component_certificate.hpp"
 
 #include "lcbinint/magnification/point_source_magnifier.hpp"
@@ -6294,9 +6295,107 @@ const char* finite_source_method_name(FiniteSourceMethod method)
         return "inverse_ray_spine";
     case FiniteSourceMethod::source_plane_quadrature:
         return "source_plane_quadrature";
+    case FiniteSourceMethod::holonomic_binary:
+        return "holonomic_binary";
     default:
         return "unknown";
     }
+}
+
+namespace {
+
+FiniteSourceResult holonomic_binary_preplanned(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double limb_darkening_c,
+    double limb_darkening_d,
+    int resolution)
+{
+    FiniteSourceDecision decision{
+        FiniteSourceMethod::holonomic_binary,
+        0,
+        "explicit holonomic binary"};
+    const bool valid = std::isfinite(separation) && separation > 0.0 &&
+        std::isfinite(mass_ratio) && mass_ratio > 0.0 &&
+        std::isfinite(source_radius) && source_radius > 0.0 &&
+        std::isfinite(source.x) && std::isfinite(source.y) &&
+        std::isfinite(limb_darkening_c) && std::isfinite(limb_darkening_d) &&
+        limb_darkening_d == 0.0;
+    if (!valid) {
+        decision.reason = "holonomic preconditions unmet";
+        return {
+            std::numeric_limits<double>::quiet_NaN(), 0, decision,
+            std::numeric_limits<double>::infinity(), 0, false};
+    }
+    lcbinint::holonomic::FiniteSourceRequest request;
+    request.params = lcbinint::holonomic::LensParams{
+        source.x, source.y, source_radius, mass_ratio, separation, true};
+    request.u = limb_darkening_c;
+    request.output = lcbinint::holonomic::RequestedOutput::kValue;
+    request.n_r = resolution > 0 ? resolution : 64;
+    const auto outcome = lcbinint::holonomic::finite_source_binary(request);
+    bool value_ok = std::isfinite(outcome.mu) && outcome.mu > 0.0;
+    switch (outcome.status) {
+    case lcbinint::holonomic::Status::OK:
+    case lcbinint::holonomic::Status::OK_VALIDATED:
+    case lcbinint::holonomic::Status::OK_ESTIMATED:
+    case lcbinint::holonomic::Status::LOCAL_REFERENCE_USED:
+    case lcbinint::holonomic::Status::GRADIENT_UNRELIABLE:
+        break;
+    default:
+        value_ok = false;
+        break;
+    }
+    decision.estimated_evaluations = request.n_r;
+    decision.reason = std::string("explicit holonomic binary [") +
+        lcbinint::holonomic::to_string(outcome.status) + "]";
+    FiniteSourceResult result{
+        value_ok ? outcome.mu : std::numeric_limits<double>::quiet_NaN(),
+        0,
+        decision,
+        0.0,
+        0,
+        value_ok};
+    return result;
+}
+
+}  // namespace
+
+FiniteSourceResult FiniteSourceMagnifier::binary_mag_preplanned(
+    double separation,
+    double mass_ratio,
+    SourcePosition source,
+    double source_radius,
+    double point_source_magnification,
+    FiniteSourceMethod method,
+    int resolution,
+    const PointSourceMagnifier* point_magnifier_hint) const
+{
+    if (method == FiniteSourceMethod::holonomic_binary) {
+        return holonomic_binary_preplanned(
+            separation, mass_ratio, source, source_radius,
+            settings_.limb_darkening_c, settings_.limb_darkening_d,
+            resolution);
+    }
+    if (method == FiniteSourceMethod::point_source || source_radius <= 0.0) {
+        return {
+            point_source_magnification,
+            0,
+            {FiniteSourceMethod::point_source, 0, "explicit point source"},
+            0.0,
+            0,
+            std::isfinite(point_source_magnification)};
+    }
+    // This hook is intentionally narrow during the first integration step.
+    // Existing routes remain owned by binary_mag() and are not reimplemented
+    // here.
+    (void)point_magnifier_hint;
+    FiniteSourceDecision decision{method, 0, "unsupported explicit route"};
+    return {
+        std::numeric_limits<double>::quiet_NaN(), 0, decision,
+        std::numeric_limits<double>::infinity(), 0, false};
 }
 
 FiniteSourceResult FiniteSourceMagnifier::triple_mag(
