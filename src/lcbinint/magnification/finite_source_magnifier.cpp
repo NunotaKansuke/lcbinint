@@ -7409,7 +7409,7 @@ const char* finite_source_method_name(FiniteSourceMethod method)
     case FiniteSourceMethod::holonomic_binary:
         return "holonomic_binary";
     case FiniteSourceMethod::holonomic_seeded_radial:
-        return "holonomic_seeded_radial";
+        return "algebraic_boundary_seeded_radial";
     case FiniteSourceMethod::holonomic_auto:
         return "holonomic_auto_request";
     default:

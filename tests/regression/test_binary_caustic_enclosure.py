@@ -89,17 +89,17 @@ def test_scalar_holonomic_api_shares_selector_and_rejects_uncertified_support():
         curve.holonomic_magnification(crossing_times, crossing)
 
 
-def test_lightcurve_api_exposes_holonomic_values_and_support_diagnostics():
+def test_lightcurve_api_exposes_algebraic_boundary_values_and_support_diagnostics():
     lcbinint = pytest.importorskip("lcbinint")
     options = lcbinint.Options(
         param_type="vbm",
         nbin="auto",
         finite_source_tol=1e-3,
         finite_source_reltol=1e-3,
-        finite_source_backend="holonomic",
+        finite_source_backend="algebraic_boundary",
     )
     curve = lcbinint.LightCurve(lens="binary", options=options)
-    assert curve.options.finite_source_backend == "holonomic"
+    assert curve.options.finite_source_backend == "algebraic_boundary"
     assert not curve.supports_fused_light_curve_likelihood
 
     params = dict(t0=0., u0=.03, tE=1., alpha=-.08, rho=.003, q=.01, s=1.2)
@@ -109,6 +109,7 @@ def test_lightcurve_api_exposes_holonomic_values_and_support_diagnostics():
 
     assert isinstance(info, dict)
     assert np.any(info["integrator_used"])
+    assert "algebraic_boundary_seeded_radial" in set(info["finite_source_method_name"])
     assert np.any(~info["fully_converged"])
     assert np.any(~info["support_certified"])
     assert np.all(np.isfinite(values))
@@ -117,13 +118,13 @@ def test_lightcurve_api_exposes_holonomic_values_and_support_diagnostics():
         curve.magnification_batch(times[:2], [params])
 
 
-def test_holonomic_backend_rejects_jax_and_unknown_selector():
+def test_algebraic_boundary_backend_rejects_jax_and_legacy_selector():
     lcbinint = pytest.importorskip("lcbinint")
     with pytest.raises(ValueError, match="finite_source_backend"):
-        lcbinint.Options(finite_source_backend="algebraic_boundary")
+        lcbinint.Options(finite_source_backend="holonomic")
     with pytest.raises(ValueError, match="requires the native backend"):
         lcbinint.LightCurve(options=lcbinint.Options(
-            jax=True, finite_source_backend="holonomic"
+            jax=True, finite_source_backend="algebraic_boundary"
         ))
 
 

@@ -31,9 +31,9 @@ def _normalize_t_lim(value):
 
 
 def _normalize_finite_source_backend(value):
-    if not isinstance(value, str) or value not in ("default", "holonomic"):
+    if not isinstance(value, str) or value not in ("default", "algebraic_boundary"):
         raise ValueError(
-            "finite_source_backend must be 'default' or 'holonomic'"
+            "finite_source_backend must be 'default' or 'algebraic_boundary'"
         )
     return value
 
@@ -52,8 +52,8 @@ class Options:
 
     ``jax`` and ``t_lim`` deliberately live outside ``lcbi_options`` so these
     controls do not change the layout of the public C ABI structure.
-    ``finite_source_backend='holonomic'`` opts a binary LightCurve into the
-    seeded radial route; the default keeps the standard router.
+    ``finite_source_backend='algebraic_boundary'`` opts a binary LightCurve
+    into the seeded radial route; the default keeps the standard router.
     """
 
     __slots__ = (
@@ -378,9 +378,9 @@ class LightCurve:
         and a generic certification/refinement pass is run if the two
         discretisations do not yet agree.
         """
-        if self._options.finite_source_backend == "holonomic":
+        if self._options.finite_source_backend == "algebraic_boundary":
             raise NotImplementedError(
-                "warmup is not implemented for finite_source_backend='holonomic'"
+                "warmup is not implemented for finite_source_backend='algebraic_boundary'"
             )
         grid_timing_repeats = kwargs.pop("grid_timing_repeats", 1)
         self._validate_time_limit(times)
@@ -477,14 +477,14 @@ class LightCurve:
         return report
 
     def _validate_backend_combination(self):
-        if self._options.finite_source_backend == "holonomic" and self._options.jax:
+        if self._options.finite_source_backend == "algebraic_boundary" and self._options.jax:
             raise ValueError(
-                "finite_source_backend='holonomic' currently requires the native backend"
+                "finite_source_backend='algebraic_boundary' currently requires the native backend"
             )
 
     def __call__(self, times, params=None, **kwargs):
         self._validate_backend_combination()
-        if self._options.finite_source_backend == "holonomic":
+        if self._options.finite_source_backend == "algebraic_boundary":
             merged = self._merge_params(params, **kwargs)
             value = self.holonomic_info(times, merged)["mu"]
             try:
@@ -553,9 +553,9 @@ class LightCurve:
         the same row-major result shape and composes the public differentiable
         callable for each statically supplied parameter mapping.
         """
-        if self._options.finite_source_backend == "holonomic":
+        if self._options.finite_source_backend == "algebraic_boundary":
             raise NotImplementedError(
-                "magnification_batch is not implemented for finite_source_backend='holonomic'"
+                "magnification_batch is not implemented for finite_source_backend='algebraic_boundary'"
             )
         self._validate_time_limit(times)
         merged = [self._merge_params(params) for params in parameter_rows]
@@ -584,9 +584,9 @@ class LightCurve:
         blend_flux=None,
     ):
         """Evaluate the selected backend's fused/batched likelihood path."""
-        if self._options.finite_source_backend == "holonomic":
+        if self._options.finite_source_backend == "algebraic_boundary":
             raise NotImplementedError(
-                "batched likelihood is not implemented for finite_source_backend='holonomic'"
+                "batched likelihood is not implemented for finite_source_backend='algebraic_boundary'"
             )
         self._validate_time_limit(times)
         merged = [self._merge_params(params) for params in parameter_rows]
@@ -620,7 +620,7 @@ class LightCurve:
 
     def info(self, times, params=None, **kwargs):
         self._validate_backend_combination()
-        if self._options.finite_source_backend == "holonomic":
+        if self._options.finite_source_backend == "algebraic_boundary":
             return self.holonomic_info(times, params, **kwargs)
         self._validate_time_limit(times)
         if self._options.jax:

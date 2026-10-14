@@ -24,11 +24,11 @@ def _validated_value_request(curve, times, params, mu_atol, mu_rtol):
         raise ValueError("tE, rho, q and s must be positive (tE nonzero)")
     model = curve._native.model
     if curve.parallax or model.xallarap != "none":
-        raise ValueError("seeded holonomic light curves require no parallax or xallarap")
+        raise ValueError("seeded algebraic-boundary light curves require no parallax or xallarap")
     if curve._native.orbital_motion != "static":
-        raise ValueError("seeded holonomic light curves require a static binary")
+        raise ValueError("seeded algebraic-boundary light curves require a static binary")
     if model.lens != "binary" or model.source != "single":
-        raise ValueError("seeded holonomic light curves require a binary lens")
+        raise ValueError("seeded algebraic-boundary light curves require a binary lens")
 
     options = curve.options
     option_atol = float(options.finite_source_tol)
@@ -44,7 +44,7 @@ def _validated_value_request(curve, times, params, mu_atol, mu_rtol):
         # the selector. Set finite_source_tol/reltol in Options to compare at
         # another tolerance.
         raise ValueError(
-            "holonomic integration tolerances must match the LightCurve Options; "
+            "algebraic-boundary integration tolerances must match the LightCurve Options; "
             "set finite_source_tol and finite_source_reltol there"
         )
 
