@@ -14,6 +14,29 @@ namespace lcbinint::magnification::detail {
 
 using CausticEnclosureDisk = std::pair<SourcePosition, double>;
 
+// A continuous, geometry-only strip bound, requiring no critical roots.
+// Write A=m1/|z-a|^2 and B=m2/|z|^2. On a critical curve, |kappa|=1
+// implies |A-B|<=1<=A+B, while Im(w)=Im(z)*(1-A-B). Hence
+// |Im(w)| <= 2 min(m1*|Im(z)|/|z-a|^2, m2*|Im(z)|/|z|^2).
+// For t=sqrt(m1*m2)/s, the sets m_i*|Im(z)|/|z-a_i|^2>t are
+// two disjoint open disks: their radii m_i/(2t) sum to the separation
+// of their centres. Thus the minimum is <=t everywhere, and every
+// caustic lies in |Im(w)| <= 2*sqrt(m1*m2)/s. Real barycentre/frame
+// shifts and swapping the lens masses do not change this strip.
+inline double binary_caustic_strip_clearance(
+    double separation, double mass_ratio, SourcePosition source)
+{
+    const double s = std::abs(separation), q_input = std::abs(mass_ratio);
+    if (!(s > 0.0 && q_input > 0.0) ||
+        !std::isfinite(s) || !std::isfinite(q_input) || !std::isfinite(source.y)) return 0.0;
+    const double q = q_input < 1.0 ? q_input : 1.0/q_input;
+    const double half_width = (2.0*std::sqrt(q)/(1.0+q))/s;
+    if (!std::isfinite(half_width)) return 0.0;
+    const double roundoff = 256.0*std::numeric_limits<double>::epsilon()*
+        (1.0+half_width+std::abs(source.y));
+    return std::max(0.0, std::abs(source.y)-half_width-roundoff);
+}
+
 // Enclose *all* critical phases, not just sampled caustic vertices. At a phase
 // centre, Q(z)=-phase*product(z-root_j). On |z-root_i|=r, Rouche gives one root
 // throughout the phase interval if
@@ -43,7 +66,10 @@ inline std::vector<CausticEnclosureDisk> build_binary_caustic_enclosure(
     constexpr int max_depth = 4;
     struct Interval { double center, half_width; int depth; };
     std::vector<Interval> pending;
-    for (int k = initial_intervals - 1; k >= 0; --k) {
+    // Real lens positions/masses imply Q(conj(z), conj(phase))=conj(Q(z,phase)).
+    // Prove the upper half of the phase circle once and reflect its disks to
+    // cover the lower half. The lens map has the same conjugation symmetry.
+    for (int k = initial_intervals/2 - 1; k >= 0; --k) {
         pending.push_back({2.0*pi*(k+0.5)/initial_intervals, pi/initial_intervals, 0});
     }
     std::vector<CausticEnclosureDisk> cover;
@@ -127,6 +153,9 @@ inline std::vector<CausticEnclosureDisk> build_binary_caustic_enclosure(
         }
         if (enclosed) {
             cover.insert(cover.end(), disks.begin(), disks.end());
+            for (const auto& disk : disks) {
+                cover.push_back({{disk.first.x, -disk.first.y}, disk.second});
+            }
         } else {
             if (interval.depth >= max_depth) return {};
             const double half = interval.half_width/2.0;
@@ -142,9 +171,20 @@ inline double binary_caustic_enclosure_clearance(
 {
     if (cover.empty()) return 0.0;
     double distance = std::numeric_limits<double>::infinity();
+    constexpr double padding = 512.0*std::numeric_limits<double>::epsilon();
+    const double source_scale = 1.0+std::abs(source.x)+std::abs(source.y);
     for (const auto& disk : cover) {
+        const double dx = source.x-disk.first.x, dy = source.y-disk.first.y;
+        // Most disks cannot improve the running minimum. Compare squared
+        // distances first, with outward padding for subtraction/roundoff;
+        // retain hypot whenever the comparison is close or overflows.
+        const double limit = (distance+disk.second)*(1.0+padding) +
+            padding*(source_scale+std::abs(disk.first.x)+std::abs(disk.first.y));
+        const double squared = dx*dx+dy*dy;
+        if (limit > 0.0 && std::isfinite(limit) &&
+            std::isfinite(squared) && squared > limit*limit) continue;
         distance = std::min(distance,
-            std::hypot(source.x-disk.first.x, source.y-disk.first.y) - disk.second);
+            std::hypot(dx, dy) - disk.second);
     }
     // Pad the source-coordinate/distance evaluation as well as disk mapping.
     const double roundoff = 256.0*std::numeric_limits<double>::epsilon()*

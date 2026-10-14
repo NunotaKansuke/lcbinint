@@ -26,6 +26,7 @@ struct StackCandidateImage {
 
 struct PhysicalRootSelection {
     std::array<bool, 5> physical {};
+    double max_residual_squared = 0.0;
 };
 
 struct FastComplex {
@@ -274,15 +275,21 @@ PhysicalRootSelection select_physical_roots(
     for (std::size_t i = 0; i < selection.physical.size(); ++i) {
         selection.physical[i] =
             !(three_images && (static_cast<int>(i) == worst1 || static_cast<int>(i) == worst2));
+        if (selection.physical[i]) {
+            selection.max_residual_squared =
+                std::max(selection.max_residual_squared, candidates[i].residual);
+        }
     }
     return selection;
 }
 
 PointSourceResult point_source_result_from_roots(
     const FastBinaryGeometry& geometry,
-    const std::array<::complex, 5>& roots)
+    const std::array<::complex, 5>& roots,
+    const PhysicalRootSelection* selection_hint = nullptr)
 {
-    const auto selection = select_physical_roots(geometry, roots);
+    const auto selection = selection_hint != nullptr
+        ? *selection_hint : select_physical_roots(geometry, roots);
     double magnification = 0.0;
     int image_count = 0;
     for (std::size_t i = 0; i < roots.size(); ++i) {
@@ -300,14 +307,7 @@ double max_physical_residual_squared(
     const FastBinaryGeometry& geometry,
     const std::array<::complex, 5>& roots)
 {
-    const auto selection = select_physical_roots(geometry, roots);
-    double max_residual = 0.0;
-    for (std::size_t i = 0; i < roots.size(); ++i) {
-        if (selection.physical[i]) {
-            max_residual = std::max(max_residual, residual_squared(geometry, roots[i]));
-        }
-    }
-    return max_residual;
+    return select_physical_roots(geometry, roots).max_residual_squared;
 }
 
 double derivative_error_indicator_from_roots(
@@ -362,9 +362,11 @@ PointSourceSafetyDiagnostic safety_diagnostic_from_roots(
     const FastBinaryGeometry& geometry,
     const std::array<::complex, 5>& roots,
     std::array<bool, 5>* physical_cache,
-    std::array<SourcePosition, 5>* derivative_cache)
+    std::array<SourcePosition, 5>* derivative_cache,
+    const std::array<bool, 5>* physical_hint = nullptr)
 {
-    const auto selection = select_physical_roots(geometry, roots);
+    const auto selection = physical_hint != nullptr
+        ? PhysicalRootSelection{*physical_hint} : select_physical_roots(geometry, roots);
     *physical_cache = selection.physical;
     PointSourceSafetyDiagnostic result;
     const ::complex a(geometry.a, 0.0);
@@ -375,9 +377,15 @@ PointSourceSafetyDiagnostic safety_diagnostic_from_roots(
     for (std::size_t i = 0; i < roots.size(); ++i) {
         const ::complex z = roots[i];
         const ::complex dza = z - a;
-        const ::complex za2 = dza * dza;
-        const ::complex zb2 = z * z;
-        const ::complex f1 = m1 / za2 + m2 / zb2;
+        // Form the reciprocal of each lens displacement once. All derivative
+        // orders and the ghost map share these powers, instead of dividing
+        // again by independently formed square/cube/fourth-power denominators.
+        const ::complex inv_a = 1.0 / dza;
+        const ::complex inv_z = 1.0 / z;
+        const ::complex inv_a2 = inv_a * inv_a;
+        const ::complex inv_z2 = inv_z * inv_z;
+        const ::complex f1 = m1 * inv_a2 + m2 * inv_z2;
+        const ::complex f2 = -2.0 * (m1 * inv_a2 * inv_a + m2 * inv_z2 * inv_z);
         const ::complex f1c = conj(f1);
         (*derivative_cache)[i] = {f1c.re, f1c.im};
         const double jacobian = (1.0 - f1 * f1c).re;
@@ -395,8 +403,7 @@ PointSourceSafetyDiagnostic safety_diagnostic_from_roots(
             result.magnification += 1.0 / std::abs(jacobian);
             ++result.image_count;
 
-            const ::complex f2 = -2.0 * (m1 / (za2 * dza) + m2 / (zb2 * z));
-            const ::complex f3 = 6.0 * (m1 / (za2 * za2) + m2 / (zb2 * zb2));
+            const ::complex f3 = 6.0 * (m1 * inv_a2 * inv_a2 + m2 * inv_z2 * inv_z2);
             const double jacobian2 = jacobian * jacobian;
             const ::complex f1c2 = f1c * f1c;
             const ::complex f2_term = f2 * f2 * f1c2 * f1c;
@@ -422,15 +429,12 @@ PointSourceSafetyDiagnostic safety_diagnostic_from_roots(
         // roots are the ghost images available for free from the point-source
         // solve.  This estimates the inverse source-plane distance required
         // to drive either ghost image onto the critical curve.
-        const ::complex f0 = -m1 / dza - m2 / z;
+        const ::complex f0 = -m1 * inv_a - m2 * inv_z;
         const ::complex zhat = source_conjugate - f0;
         const ::complex zhat_a = zhat - a;
         const ::complex f1_hat = m1 / (zhat_a * zhat_a) + m2 / (zhat * zhat);
         const ::complex jhat = 1.0 - f1 * f1_hat;
-        const ::complex zc = conj(z);
-        const ::complex zc_a = zc - a;
-        const ::complex f2_zc =
-            -2.0 * (m1 / (zc_a * zc_a * zc_a) + m2 / (zc * zc * zc));
+        const ::complex f2_zc = conj(f2);
         const ::complex numerator_base = jhat * f2_zc * f1;
         const ::complex denominator = jacobian * jhat * jhat;
         const double denominator_abs = abs(denominator);
@@ -943,6 +947,53 @@ bool polynomial_roots_are_usable(
     return true;
 }
 
+// Same Adams stopping rule, final Newton step and fractional jumps as
+// cmplx_newton_spec. A fixed degree lets the compiler unroll the common
+// five-term Horner sweep; retain SG itself for unusual/failed iterations.
+bool polish_binary_root_fixed_degree(
+    const std::array<::complex, 6>& coefficients, ::complex& root)
+{
+    constexpr std::array<double, 10> fractions {
+        0.64109297, 0.91577881, 0.25921289, 0.50487203, 0.08177045,
+        0.13653241, 0.306162, 0.37794326, 0.04618805, 0.75132137};
+    if (coefficients[5] == ::complex{}) return false;
+    double stopping_squared = 0.0;
+    for (int iteration = 1; iteration <= MAXIT; ++iteration) {
+        ::complex p = coefficients[5], derivative {};
+        if (iteration % 10 == 1) {
+            double error = abs(p);
+            const double radius = abs(root);
+            for (int k = 4; k >= 0; --k) {
+                derivative = p + derivative * root;
+                p = coefficients[k] + p * root;
+                error = radius * error + abs(p);
+            }
+            const double stopping = 2.0e-15*error;
+            stopping_squared = stopping*stopping;
+        } else {
+            for (int k = 4; k >= 0; --k) {
+                derivative = p + derivative * root;
+                p = coefficients[k] + p * root;
+            }
+        }
+        const double residual = abs2(p);
+        if (residual == 0.0) return true;
+        const bool near_root = residual < stopping_squared;
+        if (near_root && (derivative == ::complex{} ||
+                          residual < 0.01*stopping_squared)) return true;
+        // The SG zero-derivative rescue is rare for continuation. Leave it
+        // to the original routine, together with nonfinite iterates.
+        if (derivative == ::complex{} || !std::isfinite(residual)) return false;
+        const ::complex delta = p / derivative;
+        const ::complex next = root - delta;
+        if (next == root) return true;
+        if (near_root) { root = next; return true; }
+        root = iteration % 10 == 0
+            ? root - fractions[(iteration/10-1)%10]*delta : next;
+    }
+    return false;
+}
+
 bool polish_binary_root_set(
     std::array<::complex, 6>& coefficients, std::array<::complex, 5>& roots)
 {
@@ -951,6 +1002,9 @@ bool polish_binary_root_set(
     // then require the same residual and complete-set/Vieta validation as
     // before. A coalesced/missing root or failed Newton step retries cold.
     for (auto& root : roots) {
+        const auto starting_root = root;
+        if (polish_binary_root_fixed_degree(coefficients, root)) continue;
+        root = starting_root;
         int iterations = 0;
         bool succeeded = false;
         cmplx_newton_spec(coefficients.data(), 5, &root, iterations, succeeded);
@@ -974,16 +1028,17 @@ void apply_binary_image_predictor(
         previous_geometry.m2 != next_geometry.m2) {
         return;
     }
-    const Complex delta_source {
+    const FastComplex delta_source {
         next_geometry.y.re - previous_geometry.y.re,
         next_geometry.y.im - previous_geometry.y.im,
     };
-    const double source_step = std::abs(delta_source);
+    const double source_step_squared =
+        delta_source.re*delta_source.re + delta_source.im*delta_source.im;
     // Do not extrapolate across the end-to-start jump of a repeated light
     // curve. The predictor is intended for locally contiguous trajectory and
     // probe samples; zero-order continuation remains the safer large-step
     // seed.
-    if (!(source_step > 0.0) || source_step > 0.25) {
+    if (!(source_step_squared > 0.0) || source_step_squared > 0.25*0.25) {
         return;
     }
 
@@ -999,31 +1054,40 @@ void apply_binary_image_predictor(
         if (!physical.physical[i]) {
             continue;
         }
-        const Complex z {roots[i].re, roots[i].im};
-        const Complex zbar = std::conj(z);
-        const Complex primary = zbar - previous_geometry.a;
-        if (std::abs(primary) == 0.0 || std::abs(zbar) == 0.0) {
-            continue;
+        FastComplex kappa;
+        if (derivative_hint != nullptr) {
+            kappa = {(*derivative_hint)[i].x, (*derivative_hint)[i].y};
+        } else {
+            const double x = roots[i].re, y = roots[i].im;
+            const double xa = x-previous_geometry.a;
+            const double da = xa*xa+y*y, dz = x*x+y*y;
+            if (!(da > 0.0 && dz > 0.0)) continue;
+            const double ta = previous_geometry.m1/(da*da);
+            const double tz = previous_geometry.m2/(dz*dz);
+            kappa = {ta*(xa*xa-y*y)+tz*(x*x-y*y), 2.0*y*(ta*xa+tz*x)};
         }
-        const Complex kappa = derivative_hint != nullptr
-            ? Complex{(*derivative_hint)[i].x, (*derivative_hint)[i].y}
-            : previous_geometry.m1 / (primary * primary) +
-                previous_geometry.m2 / (zbar * zbar);
-        const double jacobian = 1.0 - std::norm(kappa);
+        const double jacobian = 1.0 - (kappa.re*kappa.re+kappa.im*kappa.im);
         if (!std::isfinite(jacobian) ||
             std::abs(jacobian) < minimum_abs_jacobian) {
             continue;
         }
-        const Complex delta_image =
-            (delta_source - kappa * std::conj(delta_source)) / jacobian;
-        if (!std::isfinite(delta_image.real()) ||
-            !std::isfinite(delta_image.imag()) ||
-            std::abs(delta_image) > maximum_image_step) {
+        // The real inverse Jacobian gives the same analytic predictor without
+        // complex division or hypot. Its guard is still the same image-step
+        // radius; the ordinary polynomial/lens checks validate the result.
+        const double inverse_jacobian = 1.0/jacobian;
+        const FastComplex delta_image {
+            ((1.0-kappa.re)*delta_source.re-kappa.im*delta_source.im)*inverse_jacobian,
+            ((1.0+kappa.re)*delta_source.im-kappa.im*delta_source.re)*inverse_jacobian,
+        };
+        if (!std::isfinite(delta_image.re) ||
+            !std::isfinite(delta_image.im) ||
+            delta_image.re*delta_image.re+delta_image.im*delta_image.im >
+                maximum_image_step*maximum_image_step) {
             continue;
         }
         roots[i] = {
-            roots[i].re + delta_image.real(),
-            roots[i].im + delta_image.imag(),
+            roots[i].re + delta_image.re,
+            roots[i].im + delta_image.im,
         };
     }
 }
@@ -1145,7 +1209,9 @@ PointSourceSafetyDiagnostic PointSourceMagnifier::binary_safety_diagnostic_cache
         roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
     }
     root_cache_safety_ = safety_diagnostic_from_roots(
-        geometry, roots, &root_cache_physical_, &root_cache_image_derivative_);
+        geometry, roots, &root_cache_physical_, &root_cache_image_derivative_,
+        root_cache_selection_valid_ ? &root_cache_physical_ : nullptr);
+    root_cache_selection_valid_ = true;
     root_cache_safety_valid_ = true;
     return root_cache_safety_;
 }
@@ -1172,6 +1238,8 @@ PointSourceResult PointSourceMagnifier::binary_mag0_impl(
         use_root_cache &&
         root_cache_valid_;
     bool used_cold_retry = false;
+    PhysicalRootSelection selection;
+    bool selection_valid = false;
     if (can_polish_from_cache) {
         for (std::size_t i = 0; i < roots.size(); ++i) {
             roots[i] = {root_cache_roots_[i].x, root_cache_roots_[i].y};
@@ -1185,17 +1253,24 @@ PointSourceResult PointSourceMagnifier::binary_mag0_impl(
             roots,
             root_cache_safety_valid_ ? &root_cache_physical_ : nullptr,
             root_cache_safety_valid_ ? &root_cache_image_derivative_ : nullptr);
-        if (!polish_binary_root_set(coefficients, roots) ||
-            !polynomial_roots_are_usable(coefficients, roots) ||
-            max_physical_residual_squared(geometry, roots) > 1.0e-18) {
+        const bool polynomial_valid = polish_binary_root_set(coefficients, roots) &&
+            polynomial_roots_are_usable(coefficients, roots);
+        if (polynomial_valid) {
+            selection = select_physical_roots(geometry, roots);
+            selection_valid = selection.max_residual_squared <= 1.0e-18;
+        }
+        if (!selection_valid) {
             cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
             used_cold_retry = true;
         }
     } else {
         cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
     }
+    if (!selection_valid) selection = select_physical_roots(geometry, roots);
     if (use_root_cache) {
         root_cache_safety_valid_ = false;
+        root_cache_selection_valid_ = true;
+        root_cache_physical_ = selection.physical;
         root_cache_valid_ = true;
         root_cache_separation_ = separation;
         root_cache_mass_ratio_ = mass_ratio;
@@ -1206,12 +1281,11 @@ PointSourceResult PointSourceMagnifier::binary_mag0_impl(
     }
 
     if (!evaluate_magnification) return {};
-    auto result = point_source_result_from_roots(geometry, roots);
+    auto result = point_source_result_from_roots(geometry, roots, &selection);
     result.root_candidate_count = static_cast<int>(roots.size());
     result.root_used_warm_start = can_polish_from_cache ? 1 : 0;
     result.root_used_cold_retry = used_cold_retry ? 1 : 0;
-    result.root_max_residual = std::sqrt(
-        max_physical_residual_squared(geometry, roots));
+    result.root_max_residual = std::sqrt(selection.max_residual_squared);
     return result;
 }
 
@@ -1325,7 +1399,10 @@ std::vector<BinaryImageCandidate> PointSourceMagnifier::binary_image_candidates(
         binary_polynomial_coefficients(geometry, coefficients);
         cmplx_roots_gen(roots.data(), coefficients.data(), 5, true, false);
     }
-    if (!same_cached_source) root_cache_safety_valid_ = false;
+    if (!same_cached_source) {
+        root_cache_safety_valid_ = false;
+        root_cache_selection_valid_ = false;
+    }
     root_cache_valid_ = true;
     root_cache_separation_ = separation;
     root_cache_mass_ratio_ = mass_ratio;

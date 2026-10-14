@@ -23,6 +23,7 @@
 #include <deque>
 #include <iterator>
 #include <limits>
+#include <optional>
 #include <memory>
 #include <numeric>
 #include <queue>
@@ -6769,6 +6770,7 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
 void FiniteSourceMagnifier::clear_binary_epoch_caches() const
 {
     caustic_enclosure_attempted_ = false;
+    caustic_clearance_witness_ = 0.0;
     caustic_enclosure_.clear();
     caustic_cache_valid_ = false;
     caustic_cache_branches_.clear();
@@ -6786,11 +6788,13 @@ double FiniteSourceMagnifier::binary_caustic_clearance_lower_bound(
         caustic_enclosure_separation_ != separation ||
         caustic_enclosure_mass_ratio_ != mass_ratio) {
         caustic_enclosure_ = detail::build_binary_caustic_enclosure(separation, mass_ratio);
+        caustic_clearance_witness_ = 0.0;
         caustic_enclosure_attempted_ = true;
         caustic_enclosure_separation_ = separation;
         caustic_enclosure_mass_ratio_ = mass_ratio;
     }
-    return detail::binary_caustic_enclosure_clearance(caustic_enclosure_, source);
+    return std::max(detail::binary_caustic_strip_clearance(separation, mass_ratio, source),
+        detail::binary_caustic_enclosure_clearance(caustic_enclosure_, source));
 }
 
 bool FiniteSourceMagnifier::binary_point_topology_clearance(
@@ -6804,7 +6808,26 @@ bool FiniteSourceMagnifier::binary_point_topology_clearance(
     // the strict (maximum 30x) derivative bound. The continuous enclosure must
     // clear both the normal 10-rho topology release and the hex-distance gate.
     const double required = std::max(10.0, settings_.hex_threshold)*source_radius;
-    return binary_caustic_clearance_lower_bound(separation, mass_ratio, source) > required;
+    if (detail::binary_caustic_strip_clearance(separation, mass_ratio, source) > required) {
+        return true;
+    }
+    if (caustic_enclosure_attempted_ && caustic_enclosure_separation_ == separation &&
+        caustic_enclosure_mass_ratio_ == mass_ratio) {
+        // Distance to a fixed set is 1-Lipschitz. A previous proved clearance
+        // certifies a ball of nearby sources without revisiting every disk.
+        const double roundoff = 256.0*std::numeric_limits<double>::epsilon()*
+            (1.0+std::abs(source.x)+std::abs(source.y)+
+             std::abs(caustic_clearance_source_.x)+std::abs(caustic_clearance_source_.y)+
+             caustic_clearance_witness_);
+        const double available = caustic_clearance_witness_-required-roundoff;
+        if (available > 0.0 &&
+            std::hypot(source.x-caustic_clearance_source_.x,
+                       source.y-caustic_clearance_source_.y) < available) return true;
+    }
+    const double clearance = binary_caustic_clearance_lower_bound(separation, mass_ratio, source);
+    caustic_clearance_source_ = source;
+    caustic_clearance_witness_ = clearance;
+    return clearance > required;
 }
 
 void FiniteSourceMagnifier::ensure_limb_darkening_table() const
@@ -8087,18 +8110,19 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         return result;
     };
 
-    PointSourceMagnifier local_point_magnifier;
+    std::optional<PointSourceMagnifier> local_point_magnifier;
+    if (point_magnifier_hint == nullptr) local_point_magnifier.emplace();
     const PointSourceMagnifier& point_magnifier =
-        point_magnifier_hint != nullptr ? *point_magnifier_hint : local_point_magnifier;
+        point_magnifier_hint != nullptr ? *point_magnifier_hint : *local_point_magnifier;
     if (source_radius <= 0.0) {
         const auto point = point_magnifier.binary_mag0(separation, mass_ratio, source);
         FiniteSourceDecision decision {FiniteSourceMethod::point_source, 0, "zero source radius"};
-        return cache_and_return({point.magnification, point.image_count, decision, 0.0, 0, true});
+        return cache_and_return({point.magnification, point.image_count, std::move(decision), 0.0, 0, true});
     }
 
     if (settings_.finite_mode <= 0) {
         FiniteSourceDecision decision {FiniteSourceMethod::point_source, 0, "point-source mode"};
-        return cache_and_return({point_source_magnification, 0, decision, 0.0, 0, true});
+        return cache_and_return({point_source_magnification, 0, std::move(decision), 0.0, 0, true});
     }
 
     point_safety = evaluate_point_source_safety(
@@ -8148,7 +8172,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             return cache_and_return({
                 point_source_magnification,
                 point_safety.diagnostic.image_count,
-                decision,
+                std::move(decision),
                 estimated_error,
                 0,
                 true});
@@ -8189,7 +8213,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
         return cache_and_return({
             point_source_magnification,
             point_safety.diagnostic.image_count,
-            decision,
+            std::move(decision),
             estimated_error,
             0,
             finite_source_error_within_budget(
@@ -8315,7 +8339,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
                 return cache_and_return({
                     point_source_magnification,
                     point_safety.diagnostic.image_count,
-                    decision,
+                    std::move(decision),
                     estimated_error,
                     0,
                     true});
@@ -8357,7 +8381,7 @@ FiniteSourceResult FiniteSourceMagnifier::binary_mag(
             return cache_and_return({
                 hex.magnification,
                 0,
-                decision,
+                std::move(decision),
                 hex.relative_error * std::max(std::abs(hex.magnification), 1.0),
                 0,
                 true});

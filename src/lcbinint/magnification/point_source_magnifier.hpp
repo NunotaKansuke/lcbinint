@@ -127,6 +127,7 @@ private:
     mutable SourcePosition root_cache_source_ {};
     mutable std::array<SourcePosition, 5> root_cache_roots_ {};
     mutable bool root_cache_safety_valid_ = false;
+    mutable bool root_cache_selection_valid_ = false;
     mutable PointSourceSafetyDiagnostic root_cache_safety_ {};
     mutable std::array<bool, 5> root_cache_physical_ {};
     mutable std::array<SourcePosition, 5> root_cache_image_derivative_ {};

@@ -1,0 +1,279 @@
+{
+  "base_commit": "88f7de2cc9f26f37032aef10cb5f7a82a2ab9c2b",
+  "source_sha256": {
+    "src/lcbinint/magnification/binary_caustic_enclosure.hpp": "30e6045f0f7cf5624bd674b0fe9e17d4dc2878cf761cc7dc19c236cbb336496e",
+    "src/lcbinint/magnification/finite_source_magnifier.cpp": "90e8d8c049cb32ee37b781d5c1de420cbb37630080f594cbe56139959681ee79",
+    "src/lcbinint/magnification/finite_source_magnifier.hpp": "3234d45147e47fc977a49a7d45329624cb6328a96f4ebe35737a99741788927d",
+    "src/lcbinint/magnification/point_source_magnifier.cpp": "73f30bb66bcd56271ccd0ec2207031d1b7f79c509b521083e75c2d54a459608b",
+    "src/lcbinint/magnification/point_source_magnifier.hpp": "2a0d486238f681f50166d8d31e180c9649f4dda605ac527fc6dbfd39e65f5732",
+    "tests/regression/test_binary_caustic_enclosure.py": "84c5b79bc98ed675a21f9e7e6bb382dc59b1a90153e029db4c1dd7390a72b389",
+    "tests/unit/test_core.cpp": "013bba5d4fcd6933322d0bab2606b6a1eeefab40a19101440db74ade0ede7330",
+    "benchmarks/holonomic/bench_point_value.py": "c08457a9a0e644c769d1412d182943c20633a7f86f2428c08a0b4f80d9379998",
+    "benchmarks/holonomic/bench_point_components.cpp": "bd9b96662ad81f9aa68dd338a55927404432eef7256fb7fade89673094002085"
+  },
+  "baseline_native_sha256": "7171064fa5ba654736b9dd86fd66ce851fa382e7e2069a99949ecded97b2cbb5",
+  "optimized_native_sha256": "0f183aab9168213e29834553c69b1185ed3fdaaeec2f32fef5bfe456c9b6ae2b",
+  "compiler": "g++ (GCC) 11.5.0 20240719 (Red Hat 11.5.0-5)",
+  "host": "rogue1",
+  "cpu": "Model name:                           INTEL(R) XEON(R) GOLD 6530",
+  "build": "Release O3, OpenMP OFF, JAX FFI OFF",
+  "comparisons": [
+    {
+      "case": "ordinary",
+      "ld": 0.0,
+      "atol": 0.001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 1.3655840692344537e-15,
+      "before_ms": 0.259050983004272,
+      "after_ms": 0.19275303930044174
+    },
+    {
+      "case": "ordinary",
+      "ld": 0.0,
+      "atol": 0.0001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 1.1761253203604019e-15,
+      "before_ms": 3.546609077602625,
+      "after_ms": 3.5045809345319867
+    },
+    {
+      "case": "ordinary",
+      "ld": 0.5,
+      "atol": 0.001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 1.3655840692344537e-15,
+      "before_ms": 0.25890395045280457,
+      "after_ms": 0.1936639891937375
+    },
+    {
+      "case": "ordinary",
+      "ld": 0.5,
+      "atol": 0.0001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 1.1761253203604019e-15,
+      "before_ms": 3.5473009338602424,
+      "after_ms": 3.5084959818050265
+    },
+    {
+      "case": "wide_planetary",
+      "ld": 0.0,
+      "atol": 0.001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 1.6488487272066254e-15,
+      "before_ms": 5.740860011428595,
+      "after_ms": 5.322698969393969
+    },
+    {
+      "case": "wide_planetary",
+      "ld": 0.0,
+      "atol": 0.0001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 1.414349608103592e-15,
+      "before_ms": 6.94070803001523,
+      "after_ms": 6.50487095117569
+    },
+    {
+      "case": "wide_planetary",
+      "ld": 0.5,
+      "atol": 0.001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 1.6488487272066254e-15,
+      "before_ms": 5.880468059331179,
+      "after_ms": 5.469733034260571
+    },
+    {
+      "case": "wide_planetary",
+      "ld": 0.5,
+      "atol": 0.0001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 9.900568496766429e-16,
+      "before_ms": 7.133816950954497,
+      "after_ms": 6.703378981910646
+    },
+    {
+      "case": "resonant",
+      "ld": 0.0,
+      "atol": 0.001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 2.7904191293636507e-13,
+      "before_ms": 5.526170018129051,
+      "after_ms": 5.430541001260281
+    },
+    {
+      "case": "resonant",
+      "ld": 0.0,
+      "atol": 0.0001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 2.7904191293636507e-13,
+      "before_ms": 6.987476954236627,
+      "after_ms": 6.873566075228155
+    },
+    {
+      "case": "resonant",
+      "ld": 0.5,
+      "atol": 0.001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 2.383570564220719e-14,
+      "before_ms": 5.663599004037678,
+      "after_ms": 5.570720997639
+    },
+    {
+      "case": "resonant",
+      "ld": 0.5,
+      "atol": 0.0001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 2.383570564220719e-14,
+      "before_ms": 7.157559040933847,
+      "after_ms": 7.037934963591397
+    },
+    {
+      "case": "close",
+      "ld": 0.0,
+      "atol": 0.001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 2.421062242981266e-15,
+      "before_ms": 6.754425936378539,
+      "after_ms": 6.678135949186981
+    },
+    {
+      "case": "close",
+      "ld": 0.0,
+      "atol": 0.0001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 7.101732021283697e-13,
+      "before_ms": 11.009097914211452,
+      "after_ms": 10.881033958867192
+    },
+    {
+      "case": "close",
+      "ld": 0.5,
+      "atol": 0.001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 1.8160989962926167e-15,
+      "before_ms": 6.948522990569472,
+      "after_ms": 6.875826045870781
+    },
+    {
+      "case": "close",
+      "ld": 0.5,
+      "atol": 0.0001,
+      "unchanged": {
+        "methods": true,
+        "fully_converged": true,
+        "value_converged": true,
+        "support_certified": true,
+        "seed_support_proven": true,
+        "stop": true
+      },
+      "max_relative_value_change": 7.472306007963385e-13,
+      "before_ms": 11.233666096813977,
+      "after_ms": 11.094892979599535
+    }
+  ],
+  "validation": "unit_core passed; 46 native/API regressions passed, 1 optional JAX FFI test deselected"
+}

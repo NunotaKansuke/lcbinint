@@ -320,6 +320,8 @@ private:
     mutable double caustic_enclosure_separation_ = 0.0;
     mutable double caustic_enclosure_mass_ratio_ = 0.0;
     mutable std::vector<std::pair<SourcePosition, double>> caustic_enclosure_;
+    mutable SourcePosition caustic_clearance_source_ {};
+    mutable double caustic_clearance_witness_ = 0.0;
     struct BinarySeedCacheEntry {
         double separation;
         double mass_ratio;

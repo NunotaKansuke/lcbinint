@@ -1,0 +1,8 @@
+Internal ctest changing into directory: /rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/build-seeded-events/python-api
+Test project /rogue1_8/nunota/lcbinint/experiments/seeded-boundary-events/build-seeded-events/python-api
+    Start 1: unit_core
+1/1 Test #1: unit_core ........................   Passed    0.02 sec
+
+100% tests passed, 0 tests failed out of 1
+
+Total Test time (real) =   0.02 sec
