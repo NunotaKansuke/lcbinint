@@ -7916,6 +7916,11 @@ std::vector<SourcePosition> FiniteSourceMagnifier::cached_binary_image_seeds(
     return seeds;
 }
 
+void FiniteSourceMagnifier::clear_binary_image_seed_cache_for_diagnostics() const
+{
+    binary_seed_cache_.clear();
+}
+
 void FiniteSourceMagnifier::clear_binary_epoch_caches() const
 {
     caustic_enclosure_attempted_ = false;

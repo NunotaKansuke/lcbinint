@@ -253,6 +253,10 @@ public:
         double caustic_distance,
         const std::vector<SourcePosition>* center_image_seeds,
         bool* support_proven) const;
+    // Diagnostic control: force the next source evaluation through the seed
+    // builder while retaining reusable caustic geometry. Production callers
+    // should keep the normal epoch caches enabled.
+    void clear_binary_image_seed_cache_for_diagnostics() const;
     // Start a cold binary-epoch diagnostic while retaining the reusable
     // limb-darkening table. The normal production path keeps these caches.
     void clear_binary_epoch_caches() const;
